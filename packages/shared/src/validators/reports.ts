@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { apiOptionalAssignmentQueryResponseFields } from "./assignment-query-field";
 import { namedSchema } from "./openapi-helpers";
 import {
   apiExperimentResultsValidator,
@@ -7,6 +8,11 @@ import {
   lookbackOverride,
   metricOverride,
 } from "./experiments";
+import {
+  ownerEmailField,
+  ownerField,
+  optionalOwnerInputField,
+} from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 const idParams = z
@@ -60,10 +66,7 @@ const reportAnalysisSettingsSchema = z
       .string()
       .describe("Tracking key used to identify experiment exposures")
       .optional(),
-    exposureQueryId: z
-      .string()
-      .describe("Datasource exposure query ID (Assignment Table)")
-      .optional(),
+    ...apiOptionalAssignmentQueryResponseFields("exposureQuery"),
     segment: z.string().describe("Segment ID to filter users by").optional(),
     queryFilter: z
       .string()
@@ -111,6 +114,12 @@ export const apiReportValidator = namedSchema(
       )
       .optional(),
     experimentId: z.string().optional(),
+    owner: ownerField
+      .describe(
+        "The userId of the report owner. Absent for reports created before owner attribution existed.",
+      )
+      .optional(),
+    ownerEmail: ownerEmailField,
     snapshotId: z
       .string()
       .describe("Snapshot ID (experiment-snapshot type only)")
@@ -216,6 +225,7 @@ const postReportBody = z
       .describe("Report title (defaults to experiment name)")
       .optional(),
     description: z.string().describe("Report description").optional(),
+    owner: optionalOwnerInputField,
     statsEngine: z
       .enum(["bayesian", "frequentist"])
       .describe("Stats engine override")
@@ -319,6 +329,7 @@ export const postReportValidator = {
     })
     .strict(),
   summary: "Create a new report",
+  confirmation: ["other.write"] as const,
   operationId: "postReport",
   tags: ["reports"],
   method: "post" as const,
@@ -335,6 +346,7 @@ export const postReportRefreshValidator = {
     })
     .strict(),
   summary: "Refresh a report by re-running its analysis",
+  confirmation: [],
   operationId: "postReportRefresh",
   tags: ["reports"],
   method: "post" as const,
@@ -369,6 +381,7 @@ export const putReportMetadataValidator = {
   paramsSchema: idParams,
   responseSchema: z.object({ report: apiReportValidator }).strict(),
   summary: "Update report metadata (title, description, visibility)",
+  confirmation: ["other.write"] as const,
   operationId: "putReportMetadata",
   tags: ["reports"],
   method: "put" as const,
@@ -484,6 +497,7 @@ export const putReportSettingsValidator = {
   summary: "Update report analysis settings",
   description:
     "Updates the analysis settings for an existing report. Changes are staged and do not take effect until you call `POST /reports/:id/refresh`.",
+  confirmation: ["other.write"] as const,
   operationId: "putReportSettings",
   tags: ["reports"],
   method: "put" as const,

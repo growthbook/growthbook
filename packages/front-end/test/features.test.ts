@@ -1,5 +1,10 @@
 import stringify from "json-stringify-pretty-compact";
-import { AttributeData, condToJson, jsonToConds } from "@/services/features";
+import {
+  AttributeData,
+  condToJson,
+  getDefaultOperator,
+  jsonToConds,
+} from "@/services/features";
 
 describe("json <-> conds", () => {
   const attributeMap: Map<string, AttributeData> = new Map();
@@ -48,6 +53,22 @@ describe("json <-> conds", () => {
     datatype: "number",
     array: true,
     enum: [],
+    identifier: false,
+    archived: false,
+  });
+  attributeMap.set("str_arr_enum", {
+    attribute: "str_arr_enum",
+    datatype: "string",
+    array: true,
+    enum: ["a", "b", "c"],
+    identifier: false,
+    archived: false,
+  });
+  attributeMap.set("num_arr_enum", {
+    attribute: "num_arr_enum",
+    datatype: "number",
+    array: true,
+    enum: ["1", "2", "3"],
     identifier: false,
     archived: false,
   });
@@ -216,6 +237,32 @@ describe("json <-> conds", () => {
     expect(jsonToConds(json, attributeMap)).toEqual(conds);
     expect(condToJson(conds, attributeMap)).toEqual(simplifiedJson);
   });
+  // A boolean literal under any operator other than $eq has no simple-editor
+  // equivalent, so the simple editor must opt out rather than rewrite it.
+  it("bool - $ne true requires advanced mode", () => {
+    const json = stringify({ bool: { $ne: true } });
+    expect(jsonToConds(json, attributeMap)).toEqual(null);
+  });
+  it("bool - $ne false requires advanced mode", () => {
+    const json = stringify({ bool: { $ne: false } });
+    expect(jsonToConds(json, attributeMap)).toEqual(null);
+  });
+  it("$ne boolean on a non-boolean attribute requires advanced mode", () => {
+    const json = stringify({ str: { $ne: true } });
+    expect(jsonToConds(json, attributeMap)).toEqual(null);
+  });
+  it("$ne boolean inside $or requires advanced mode", () => {
+    const json = stringify({ $or: [{ bool: { $ne: true } }, { str: "a" }] });
+    expect(jsonToConds(json, attributeMap)).toEqual(null);
+  });
+  it("boolean literal under a comparison operator requires advanced mode", () => {
+    expect(
+      jsonToConds(stringify({ num: { $lt: true } }), attributeMap),
+    ).toEqual(null);
+    expect(
+      jsonToConds(stringify({ str: { $gt: false } }), attributeMap),
+    ).toEqual(null);
+  });
 
   // Array operators
   it("str_arr - $includes", () => {
@@ -243,6 +290,26 @@ describe("json <-> conds", () => {
   it("str_arr - $notEmpty", () => {
     const json = stringify({ str_arr: { $size: { $gt: 0 } } });
     const conds = [[{ field: "str_arr", operator: "$notEmpty", value: "" }]];
+    expect(jsonToConds(json, attributeMap)).toEqual(conds);
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
+  it("str_arr_enum - $in", () => {
+    const json = stringify({ str_arr_enum: { $in: ["a", "b"] } });
+    const conds = [[{ field: "str_arr_enum", operator: "$in", value: "a, b" }]];
+    expect(jsonToConds(json, attributeMap)).toEqual(conds);
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
+  it("str_arr_enum - $nin", () => {
+    const json = stringify({ str_arr_enum: { $nin: ["a", "b"] } });
+    const conds = [
+      [{ field: "str_arr_enum", operator: "$nin", value: "a, b" }],
+    ];
+    expect(jsonToConds(json, attributeMap)).toEqual(conds);
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
+  it("num_arr_enum - $in coerces to numbers", () => {
+    const json = stringify({ num_arr_enum: { $in: [1, 2] } });
+    const conds = [[{ field: "num_arr_enum", operator: "$in", value: "1, 2" }]];
     expect(jsonToConds(json, attributeMap)).toEqual(conds);
     expect(condToJson(conds, attributeMap)).toEqual(json);
   });
@@ -374,4 +441,34 @@ describe("json <-> conds", () => {
     expect(jsonToConds(json, attributeMap)).toEqual(null);
   });
   */
+});
+
+describe("getDefaultOperator", () => {
+  const attr = (overrides: Partial<AttributeData>): AttributeData => ({
+    attribute: "a",
+    datatype: "string",
+    array: false,
+    enum: [],
+    identifier: false,
+    archived: false,
+    ...overrides,
+  });
+
+  it("returns $true for booleans", () => {
+    expect(getDefaultOperator(attr({ datatype: "boolean" }))).toBe("$true");
+  });
+  it("returns $includes for an unconstrained array", () => {
+    expect(getDefaultOperator(attr({ array: true }))).toBe("$includes");
+  });
+  it("returns $in for an enum-constrained array", () => {
+    expect(getDefaultOperator(attr({ array: true, enum: ["a", "b"] }))).toBe(
+      "$in",
+    );
+  });
+  it("returns $veq for version-formatted strings", () => {
+    expect(getDefaultOperator(attr({ format: "version" }))).toBe("$veq");
+  });
+  it("returns $eq for a plain string", () => {
+    expect(getDefaultOperator(attr({}))).toBe("$eq");
+  });
 });

@@ -1,7 +1,7 @@
 import { useForm, UseFormReturn } from "react-hook-form";
 import omit from "lodash/omit";
 import { ReactElement, useEffect, useState } from "react";
-import { FaArrowRight, FaTimes } from "react-icons/fa";
+import { FaTimes } from "react-icons/fa";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
@@ -9,31 +9,39 @@ import {
 } from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
 import {
-  CreateFactMetricProps,
   FactMetricInterface,
   ColumnRef,
+  CreateFactMetricProps,
   UpdateFactMetricProps,
   MetricQuantileSettings,
-  FactMetricType,
+  FactTableDefinition,
   FactTableInterface,
+  FunnelSettings,
+  FunnelStep,
   MetricWindowSettings,
   ColumnInterface,
   ColumnAggregation,
   FactTableColumnType,
-  RowFilter,
+  StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import {
-  canInlineFilterColumn,
   getAggregateFilters,
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
+  reconcileInlineFilterPrompts,
 } from "shared/experiments";
+import { isCappableFactMetric } from "shared/validators";
+import { createLikeStringMatchFn } from "shared/sql";
+import { getFunnelAnchorStepIndex } from "shared/funnels";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useFullFactTable from "@/hooks/useFullFactTable";
 import {
+  CreateFactMetricFormProps,
   formatNumber,
   getDefaultFactMetricProps,
+  getFactMetricTrackProps,
   getInitialInlineFilters,
 } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -48,8 +56,9 @@ import SelectField, {
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Field from "@/components/Forms/Field";
+import Button from "@/ui/Button";
 import Switch from "@/ui/Switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -65,8 +74,9 @@ import Callout from "@/ui/Callout";
 import Code from "@/components/SyntaxHighlighting/Code";
 import HelperText from "@/ui/HelperText";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { RowFilterInput } from "@/components/FactTables/RowFilterInput";
+import FunnelStepsInput from "@/components/FactTables/FunnelStepsInput";
+import { getAttributeFieldsExposedAsColumns } from "@/components/FactTables/rowFilterUtils";
 import { MANAGED_BY_ADMIN } from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
 
@@ -75,10 +85,8 @@ export interface Props {
   initialFactTable?: string;
   existing?: Partial<FactMetricInterface>;
   duplicate?: boolean;
-  fromTemplate?: boolean;
   showAdvancedSettings?: boolean;
   onSave?: () => void;
-  switchToLegacy?: () => void;
   source: string;
   datasource?: string;
 }
@@ -106,6 +114,7 @@ function QuantileSelector({
     <div className="row align-items-center">
       <div className="col-auto">
         <SelectField
+          size="legacy"
           label="Quantile"
           value={showCustom ? "custom" : value.quantile + ""}
           onChange={(v) => {
@@ -123,6 +132,7 @@ function QuantileSelector({
       {showCustom && (
         <div className="col-auto">
           <Field
+            size="legacy"
             label="&nbsp;"
             autoFocus
             type="number"
@@ -154,7 +164,7 @@ function QuantileSelector({
 }
 
 function getNumericColumns(
-  factTable: FactTableInterface | null,
+  factTable: FactTableDefinition | null,
 ): ColumnInterface[] {
   if (!factTable) return [];
   return factTable.columns.filter(
@@ -180,7 +190,7 @@ function getColumnOptions({
   excludeColumns,
   groupPrefix = "",
 }: {
-  factTable: FactTableInterface | null;
+  factTable: Omit<FactTableInterface, "sql"> | null;
   datasource: DataSourceInterfaceWithParams | null;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
@@ -195,7 +205,9 @@ function getColumnOptions({
 }): GroupedValue[] {
   const numericColumnOptions: SingleValue[] = getNumericColumns(factTable).map(
     (col) => ({
-      label: showColumnsAsSums ? `SUM(${col.name})` : col.name,
+      label:
+        (showColumnsAsSums ? `SUM(${col.name})` : col.name) +
+        (col.isVirtual ? " (virtual)" : ""),
       value: col.column,
     }),
   );
@@ -227,7 +239,7 @@ function getColumnOptions({
   if (stringColumns) {
     stringColumnOptions.push(
       ...stringColumns.map((col) => ({
-        label: col.name,
+        label: col.name + (col.isVirtual ? " (virtual)" : ""),
         value: col.column,
       })),
     );
@@ -240,7 +252,7 @@ function getColumnOptions({
   if (booleanColumns) {
     booleanColumnOptions.push(
       ...booleanColumns.map((col) => ({
-        label: col.name,
+        label: col.name + (col.isVirtual ? " (virtual)" : ""),
         value: col.column,
       })),
     );
@@ -248,10 +260,12 @@ function getColumnOptions({
 
   // Add JSON fields
   if (includeJSONFields && factTable?.columns) {
-    const excludedAttributeFields = new Set<string>();
+    // When an attribute is surfaced as a top-level column — legacy materialized
+    // columns, or JSON-warehouse identifiers aliased out of `attributes` —
+    // point people at that column, not the JSON field.
+    const excludedAttributeFields =
+      getAttributeFieldsExposedAsColumns(factTable);
     if (datasource && datasource.type === "growthbook_clickhouse") {
-      // When an attribute has been materialized to the top-level,
-      // we want people to use the top-level column and not a JSON field
       datasource.settings.materializedColumns?.forEach((col) => {
         excludedAttributeFields.add(col.sourceField);
       });
@@ -263,7 +277,10 @@ function getColumnOptions({
     for (const col of jsonColumns) {
       if (col.jsonFields) {
         for (const [field, data] of Object.entries(col.jsonFields)) {
-          if (col.name === "attributes" && excludedAttributeFields.has(field)) {
+          if (
+            col.column === "attributes" &&
+            excludedAttributeFields.has(field)
+          ) {
             continue;
           }
 
@@ -338,7 +355,7 @@ function getAggregationOptions(
 function RetentionWindowSelector({
   form,
 }: {
-  form: UseFormReturn<CreateFactMetricProps>;
+  form: UseFormReturn<CreateFactMetricFormProps>;
 }) {
   return (
     <div>
@@ -347,6 +364,7 @@ function RetentionWindowSelector({
           <div className="col-auto">Event must be at least</div>
           <div className="col-auto">
             <Field
+              size="legacy"
               {...form?.register("windowSettings.delayValue", {
                 valueAsNumber: true,
               })}
@@ -361,6 +379,7 @@ function RetentionWindowSelector({
           </div>
           <div className="col-auto ">
             <SelectField
+              size="legacy"
               value={form?.watch("windowSettings.delayUnit") ?? "days"}
               onChange={(value) => {
                 form.setValue(
@@ -425,8 +444,11 @@ function ColumnRefSelector({
 }) {
   const { getFactTableById, factTables } = useDefinitions();
 
-  let factTable = getFactTableById(value.factTableId);
-  if (factTable?.datasource !== datasource.id) factTable = null;
+  // Need full columns (jsonFields) here for JSON sub-field options and filters,
+  // which the slimmed definitions omit
+  const { factTable: fullFactTable } = useFullFactTable(value.factTableId);
+  const factTable =
+    fullFactTable?.datasource === datasource.id ? fullFactTable : null;
 
   const columnOptions = getColumnOptions({
     factTable,
@@ -453,6 +475,7 @@ function ColumnRefSelector({
       <div className="row align-items-top">
         <div className="col-auto">
           <SelectField
+            size="legacy"
             label={"Fact Table"}
             disabled={disableFactTableSelector}
             value={value.factTableId}
@@ -524,6 +547,7 @@ function ColumnRefSelector({
         {includeColumn && (
           <div className="col-auto">
             <SelectField
+              size="legacy"
               label="Value"
               value={value.column}
               onChange={(column) => {
@@ -554,6 +578,7 @@ function ColumnRefSelector({
           aggregationType === "unit" && (
             <div className="col-auto">
               <SelectField
+                size="legacy"
                 label={"Aggregation"}
                 value={value.aggregation || "sum"}
                 onChange={(v) =>
@@ -578,7 +603,11 @@ function ColumnRefSelector({
             setValue={(rowFilters) =>
               setValue({
                 ...value,
-                rowFilters,
+                rowFilters: reconcileInlineFilterPrompts(
+                  factTable,
+                  value.rowFilters || [],
+                  rowFilters,
+                ),
               })
             }
           />
@@ -604,6 +633,7 @@ function ColumnRefSelector({
               {value.aggregateFilterColumn || addUserFilter ? (
                 <div className="d-flex align-items-center">
                   <SelectField
+                    size="legacy"
                     value={value.aggregateFilterColumn || ""}
                     onChange={(v) =>
                       setValue({
@@ -627,6 +657,7 @@ function ColumnRefSelector({
                   {value.aggregateFilterColumn ? (
                     <div className="ml-1">
                       <Field
+                        size="legacy"
                         value={value.aggregateFilter || ""}
                         onChange={(v) =>
                           setValue({
@@ -643,15 +674,14 @@ function ColumnRefSelector({
                 </div>
               ) : (
                 <div className="py-1">
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setAddUserFilter(true);
-                    }}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={<PiPlus size={14} />}
+                    onClick={() => setAddUserFilter(true)}
                   >
-                    <PiPlus /> Add
-                  </a>
+                    Add filter
+                  </Button>
                 </div>
               )}
             </div>
@@ -676,11 +706,11 @@ function getWHERE({
   quantileSettings,
   type,
 }: {
-  factTable: FactTableInterface | null;
+  factTable: FactTableDefinition | null;
   columnRef: ColumnRef | null;
   windowSettings: MetricWindowSettings;
   quantileSettings: MetricQuantileSettings;
-  type: FactMetricType;
+  type: StandardFactMetricInterface["metricType"];
 }) {
   const whereParts =
     factTable && columnRef
@@ -688,6 +718,10 @@ function getWHERE({
           factTable,
           columnRef,
           escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+          stringMatch: createLikeStringMatchFn({
+            escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+            emitEscapeClause: false,
+          }),
           // This isn't real SQL syntax for most dialects, but it should get the point across
           jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
           evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
@@ -756,13 +790,13 @@ function getPreviewSQL({
   numeratorFactTable,
   denominatorFactTable,
 }: {
-  type: FactMetricType;
+  type: StandardFactMetricInterface["metricType"];
   quantileSettings: MetricQuantileSettings;
   windowSettings: MetricWindowSettings;
   numerator: ColumnRef;
   denominator: ColumnRef | null;
-  numeratorFactTable: FactTableInterface | null;
-  denominatorFactTable: FactTableInterface | null;
+  numeratorFactTable: FactTableDefinition | null;
+  denominatorFactTable: FactTableDefinition | null;
 }): { sql: string; denominatorSQL?: string; experimentSQL: string } {
   const identifier =
     "`" + (numeratorFactTable?.userIdTypes?.[0] || "user_id") + "`";
@@ -973,303 +1007,188 @@ FROM
   }
 }
 
-function FieldMappingModal({
-  factMetric,
-  datasource,
-  onSave,
-  close,
+function getFunnelPreviewSQL({
+  steps,
+  factTable,
+  windowSettings,
 }: {
-  factMetric: Partial<FactMetricInterface>;
-  datasource: DataSourceInterfaceWithParams | null;
-  onSave: (metric: Partial<FactMetricInterface>) => void;
-  close?: () => void;
-}) {
-  const { factTables, getFactTableById } = useDefinitions();
-
-  const [data, setData] = useState(factMetric);
-
-  const numerator = data.numerator as ColumnRef;
-  const denominator = data.denominator;
-
-  const numericColumns = new Set<string>();
-  const stringColumns = new Set<string>();
-
-  if (numerator.column && !numerator.column.startsWith("$$")) {
-    if (numerator.aggregation === "count distinct") {
-      stringColumns.add(numerator.column);
-    } else {
-      numericColumns.add(numerator.column);
-    }
-  }
-  if (denominator?.column && !denominator.column.startsWith("$$")) {
-    if (denominator.aggregation === "count distinct") {
-      stringColumns.add(denominator.column);
-    } else {
-      numericColumns.add(denominator.column);
-    }
-  }
-  if (
-    numerator.aggregateFilterColumn &&
-    !numerator.aggregateFilterColumn.startsWith("$$")
-  ) {
-    numericColumns.add(numerator.aggregateFilterColumn);
-  }
-  if (numerator.rowFilters) {
-    numerator.rowFilters.forEach((k) => {
-      if (k.column) {
-        stringColumns.add(k.column);
-      }
-    });
-  }
-  if (denominator?.rowFilters) {
-    denominator.rowFilters.forEach((k) => {
-      if (k.column) {
-        stringColumns.add(k.column);
-      }
-    });
+  steps: FunnelStep[];
+  factTable: FactTableDefinition | null;
+  windowSettings: MetricWindowSettings;
+}): { sql: string; denominatorSQL?: string; experimentSQL: string } {
+  if (!factTable || steps.length === 0) {
+    return { sql: "", experimentSQL: "" };
   }
 
-  const [numericColumnMap, setNumericColumnMap] = useState<
-    Record<string, string>
-  >(Object.fromEntries([...numericColumns].map((c) => [c, ""])));
-  const [stringColumnMap, setStringColumnMap] = useState<
-    Record<string, string>
-  >(Object.fromEntries([...stringColumns].map((c) => [c, ""])));
+  const identifier = "`" + (factTable?.userIdTypes?.[0] || "user_id") + "`";
+  const factTableName = "`" + (factTable?.name || "Fact Table") + "`";
 
-  const factTable = getFactTableById(numerator.factTableId);
-
-  const numericColumnOptions = getColumnOptions({
+  // Exposure, delay, and metric window bounds apply to every step, so they sit
+  // on the CTE rather than being repeated in each step's filter.
+  const WHERE = getWHERE({
     factTable,
-    datasource,
-    includeCount: false,
-    includeCountDistinct: false,
-    includeStringColumns: false,
+    columnRef: null,
+    windowSettings,
+    quantileSettings: {
+      type: "unit",
+      quantile: 0.5,
+      ignoreZeros: false,
+    } as MetricQuantileSettings,
+    type: "proportion",
   });
 
-  const stringColumnOptions =
-    factTable?.columns
-      ?.filter(
-        (c) =>
-          canInlineFilterColumn(factTable, c.column) && c.datatype === "string",
-      )
-      .map((c) => ({
-        label: c.name || c.column,
-        value: c.column,
-      })) || [];
+  const stepSelects = steps.map((step, i) => {
+    const stepNumber = i + 1;
+    // A null anchor means only optional steps precede this one, so it is
+    // measured from exposure instead.
+    const anchorIndex = getFunnelAnchorStepIndex(steps, i);
+    const anchor =
+      anchorIndex === null
+        ? "exposure_timestamp"
+        : `step_${anchorIndex + 1}_at`;
 
-  return (
-    <Modal
-      close={close}
-      header="Create Fact Metric From Template"
-      trackingEventModalType=""
-      open={true}
-      cta="Preview Metric"
-      autoCloseOnSubmit={false}
-      submit={() => {
-        // Replace columns throughout metric definition
-        if (numerator.column && numerator.column in numericColumnMap) {
-          (data.numerator as ColumnRef).column =
-            numericColumnMap[numerator.column];
-        } else if (numerator.column && numerator.column in stringColumnMap) {
-          (data.numerator as ColumnRef).column =
-            stringColumnMap[numerator.column];
-        }
-        if (
-          numerator.aggregateFilterColumn &&
-          numerator.aggregateFilterColumn in numericColumnMap
-        ) {
-          (data.numerator as ColumnRef).aggregateFilterColumn =
-            numericColumnMap[numerator.aggregateFilterColumn];
-        }
-        if (numerator.rowFilters) {
-          const newRowFilters: RowFilter[] = [];
-          numerator.rowFilters.forEach((filter) => {
-            newRowFilters.push({
-              ...filter,
-              column: stringColumnMap[filter.column ?? ""] ?? filter.column,
-            });
-          });
-          (data.numerator as ColumnRef).rowFilters = newRowFilters;
-        }
+    const predicates = getColumnRefWhereClause({
+      factTable,
+      columnRef: {
+        factTableId: step.factTableId,
+        column: "",
+        rowFilters: step.rowFilters,
+      },
+      escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+      stringMatch: createLikeStringMatchFn({
+        escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+        emitEscapeClause: false,
+      }),
+      jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
+      evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+    });
 
-        if (denominator) {
-          if (denominator.column in numericColumnMap) {
-            (data.denominator as ColumnRef).column =
-              numericColumnMap[denominator.column];
-          } else if (denominator.column in stringColumnMap) {
-            (data.denominator as ColumnRef).column =
-              stringColumnMap[denominator.column];
-          }
+    // Ordering against exposure is already covered by the CTE's WHERE.
+    if (anchorIndex !== null) {
+      predicates.push(`timestamp > ${anchor}`);
+    }
+    if (step.conversionWindow) {
+      predicates.push(
+        `timestamp <= ${anchor} + '${step.conversionWindow.value} ${step.conversionWindow.unit}'`,
+      );
+    }
 
-          if (denominator.rowFilters) {
-            const newRowFilters: RowFilter[] = [];
-            denominator.rowFilters.forEach((filter) => {
-              newRowFilters.push({
-                ...filter,
-                column: stringColumnMap[filter.column ?? ""] ?? filter.column,
-              });
-            });
-            (data.denominator as ColumnRef).rowFilters = newRowFilters;
-          }
-        }
+    const timing = [
+      ...(step.optional ? ["optional"] : []),
+      anchorIndex === null ? "after exposure" : `after Step ${anchorIndex + 1}`,
+      ...(step.conversionWindow
+        ? [
+            `within ${step.conversionWindow.value} ${step.conversionWindow.unit}`,
+          ]
+        : []),
+    ];
+    const comments = [
+      `-- Step ${stepNumber}: ${step.name} (${timing.join(", ")})`,
+    ];
 
-        data.datasource = factTable?.datasource || "";
+    const skipped = steps
+      .slice((anchorIndex ?? -1) + 1, i)
+      .map((_, idx) => `Step ${(anchorIndex ?? -1) + 2 + idx}`);
+    if (skipped.length > 0) {
+      const plural = skipped.length > 1;
+      comments.push(
+        `-- ${skipped.join(", ")} ${plural ? "are" : "is"} optional, so ${
+          plural ? "they do" : "it does"
+        } not gate this step`,
+      );
+    }
 
-        onSave(data);
-      }}
-    >
-      <div className="appbox bg-light p-3">
-        <div>
-          <strong>Metric Name:</strong> {factMetric.name}
-        </div>
-        {factMetric.description ? (
-          <div className="mt-2">
-            <strong>Description:</strong> {factMetric.description}
-          </div>
-        ) : null}
-      </div>
-      <p>Which fact table do you want to add this metric to?</p>
-      <SelectField
-        label={"Fact Table"}
-        value={numerator?.factTableId || ""}
-        onChange={(factTableId) => {
-          setData({
-            ...data,
-            numerator: { ...numerator, factTableId },
-            denominator: data.denominator
-              ? { ...data.denominator, factTableId }
-              : undefined,
-          });
+    const as = `AS step_${stepNumber}_at`;
+    let agg: string;
+    if (predicates.length === 0) {
+      agg = `MIN(timestamp) ${as}`;
+    } else {
+      const oneLine = `MIN(timestamp) FILTER (WHERE ${predicates.join(
+        " AND ",
+      )}) ${as}`;
+      // A row filter can span lines (a long IN list, say), so keep its
+      // continuation lines aligned under the predicate.
+      const aligned = predicates.map((p) => p.split("\n").join("\n    "));
+      agg =
+        oneLine.length <= 76 && !oneLine.includes("\n")
+          ? oneLine
+          : `MIN(timestamp) FILTER (\n  WHERE ${aligned.join(
+              "\n    AND ",
+            )}\n) ${as}`;
+    }
 
-          const factTable = getFactTableById(factTableId);
-          if (factTable) {
-            // Fill out any column mappings with matching column names
-            const newNumericColumnMap = { ...numericColumnMap };
-            const newStringColumnMap = { ...stringColumnMap };
+    return `${comments.join("\n")}\n${agg}`;
+  });
 
-            Object.keys(numericColumnMap).forEach((k) => {
-              if (
-                factTable.columns.find(
-                  (c) =>
-                    c.column === k && !c.deleted && c.datatype === "number",
-                )
-              ) {
-                newNumericColumnMap[k] = k;
-              }
-            });
+  const cteBody = `
+SELECT
+  ${identifier} AS user,
+${indentLines(stepSelects.join(",\n"))}
+FROM
+  ${factTableName}${WHERE}
+GROUP BY user`.trim();
 
-            Object.keys(stringColumnMap).forEach((k) => {
-              if (canInlineFilterColumn(factTable, k)) {
-                newStringColumnMap[k] = k;
-              }
-            });
+  const caseLines = steps
+    .map((_, i) => {
+      const n = i + 1;
+      const comment =
+        i === 0 ? `  -- 1 if the user reached the step in order, else 0\n` : "";
+      return `${comment}  CASE WHEN f.step_${n}_at IS NOT NULL THEN 1 ELSE 0 END AS step_${n}_value`;
+    })
+    .join(",\n");
 
-            setNumericColumnMap(newNumericColumnMap);
-            setStringColumnMap(newStringColumnMap);
-          }
-        }}
-        options={factTables.map((t) => ({
-          label: t.name,
-          value: t.id,
-        }))}
-        formatOptionLabel={({ value, label }) => {
-          const factTable = getFactTableById(value);
-          if (factTable) {
-            return (
-              <>
-                {factTable.name}
-                <OfficialBadge
-                  managedBy={factTable.managedBy}
-                  type="fact table"
-                />
-              </>
-            );
-          }
-          return label;
-        }}
-        placeholder="Select..."
-        required
-      />
-      {factTable && (
-        <>
-          {numericColumns.size > 0 || stringColumns.size > 0 ? (
-            <>
-              <hr />
-              <p>
-                The following columns are referenced in this metric. Select how
-                to map them to columns in your fact table.
-              </p>
-            </>
-          ) : null}
-          {numericColumns.size > 0 && !numericColumnOptions.length ? (
-            <Callout status="error">
-              <p>
-                This fact table does not have any numeric columns. Please select
-                a different fact table.
-              </p>
-            </Callout>
-          ) : null}
-          {stringColumns.size > 0 && !stringColumnOptions.length ? (
-            <Callout status="error">
-              <p>
-                This fact table does not have any string columns to filter on.
-                Please select a different fact table.
-              </p>
-            </Callout>
-          ) : null}
-        </>
-      )}
-      {[...numericColumns]
-        .filter((c) => !c.startsWith("$$"))
-        .map((k) => {
-          if (!numericColumnOptions.length) return null;
-          return (
-            <SelectField
-              key={k}
-              label={`Column: ${k}`}
-              value={numericColumnMap[k] || ""}
-              onChange={(column) => {
-                setNumericColumnMap({ ...numericColumnMap, [k]: column });
-              }}
-              options={numericColumnOptions}
-              disabled={!factTable}
-              required
-              placeholder="Select..."
-            />
-          );
-        })}
-      {[...stringColumns]
-        .filter((c) => !c.startsWith("$$"))
-        .map((k) => {
-          if (!stringColumnOptions.length) return null;
-          return (
-            <SelectField
-              key={k}
-              label={`Column: ${k}`}
-              value={stringColumnMap[k] || ""}
-              onChange={(column) => {
-                setStringColumnMap({ ...stringColumnMap, [k]: column });
-              }}
-              options={stringColumnOptions}
-              disabled={!factTable}
-              required
-              placeholder="Select..."
-            />
-          );
-        })}
-    </Modal>
-  );
+  const sql = `
+-- Funnel metric: share of exposed users who reach each step in order.
+-- Each step is measured against all exposed users, not just those who entered the funnel.
+WITH funnel AS (
+${indentLines(cteBody)}
+)
+SELECT
+  u.user,
+${caseLines}
+FROM
+  exposed_users u
+  LEFT JOIN funnel f ON (f.user = u.user)`.trim();
+
+  const sumLines = steps
+    .map((_, i) => {
+      const n = i + 1;
+      const comment =
+        i === 0
+          ? `  -- Users reaching each step, out of all exposed users\n`
+          : "";
+      return `${comment}  SUM(step_${n}_value) AS step_${n}_conversions`;
+    })
+    .join(",\n");
+
+  const finalStep = steps.length;
+
+  const experimentSQL = `
+SELECT
+  variation,
+${sumLines},
+  COUNT(*) AS exposed_users,
+  -- Overall funnel conversion = reached the final step
+  SUM(step_${finalStep}_value) / COUNT(*) AS overall_conversion
+FROM
+  experiment_users u
+  LEFT JOIN funnel f ON (f.user = u.user)
+GROUP BY variation`.trim();
+
+  return { sql, experimentSQL };
 }
 
-export default function FactMetricModal({
+export default function FactMetricModal(props: Props) {
+  return <StandardFactMetricModal {...props} />;
+}
+
+function StandardFactMetricModal({
   close,
   initialFactTable,
   existing,
   duplicate = false,
-  fromTemplate = false,
   showAdvancedSettings,
   onSave,
-  switchToLegacy,
   source,
   datasource,
 }: Props) {
@@ -1278,7 +1197,6 @@ export default function FactMetricModal({
   const settings = useOrgSettings();
 
   const { hasCommercialFeature, permissionsUtil } = useUser();
-  const { disableLegacyMetricCreation } = settings;
 
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
@@ -1293,10 +1211,7 @@ export default function FactMetricModal({
     project,
     getFactTableById,
     mutateDefinitions,
-    metrics,
   } = useDefinitions();
-
-  const { demoDataSourceId } = useDemoDataSourceProject();
 
   const { apiCall } = useAuth();
 
@@ -1304,14 +1219,6 @@ export default function FactMetricModal({
     .filter((d) => isProjectListValidForProject(d.projects, project))
     .filter((d) => d.properties?.queryLanguage === "sql")
     .filter((d) => !datasource || d.id === datasource);
-
-  const filteredMetrics = metrics
-    .filter((f) => !datasource || f.datasource === datasource)
-    .filter((f) => isProjectListValidForProject(f.projects, project))
-    .filter((f) => f.datasource !== demoDataSourceId); // Don't factor in demo datasource metrics
-
-  const showSwitchToLegacy =
-    filteredMetrics.length > 0 && !disableLegacyMetricCreation;
 
   const defaultValues = getDefaultFactMetricProps({
     datasources,
@@ -1322,6 +1229,7 @@ export default function FactMetricModal({
     initialFactTable: initialFactTable
       ? getFactTableById(initialFactTable) || undefined
       : undefined,
+    initialDatasource: datasource,
     managedBy: existing?.managedBy,
   });
 
@@ -1333,7 +1241,7 @@ export default function FactMetricModal({
   defaultValues.maxPercentChange = defaultValues.maxPercentChange * 100;
   defaultValues.targetMDE = defaultValues.targetMDE * 100;
 
-  const form = useForm<CreateFactMetricProps>({
+  const form = useForm<CreateFactMetricFormProps>({
     defaultValues,
   });
 
@@ -1373,11 +1281,11 @@ export default function FactMetricModal({
         ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
         : "";
 
-  const isNew = !existing || duplicate || fromTemplate;
+  const isNew = !existing || duplicate;
   const initialType = existing?.metricType;
   useEffect(() => {
     if (isNew) {
-      track("Viewed Create Fact Metric Modal", { source });
+      track("Viewed Create Fact Metric Modal", { source, flow: "modal" });
     } else {
       track("Viewed Edit Fact Metric Modal", {
         type: initialType,
@@ -1398,11 +1306,18 @@ export default function FactMetricModal({
     hasCommercialFeature("quantile-metrics");
   const hasRetentionMetricCommercialFeature =
     hasCommercialFeature("retention-metrics");
+  const hasFunnelMetricCommercialFeature =
+    hasCommercialFeature("funnel-metrics");
 
   const numerator = form.watch("numerator");
   const numeratorFactTable = getFactTableById(numerator?.factTableId || "");
   const denominator = form.watch("denominator");
   const windowSettings = form.watch("windowSettings");
+  // Funnel steps live outside react-hook-form: their nested step/filter shape
+  // breaks its typed field-path resolution.
+  const [funnelSettings, setFunnelSettings] = useState<FunnelSettings | null>(
+    existing?.funnelSettings || null,
+  );
 
   // Must have at least one numeric column to use event-level quantile metrics
   // For user-level quantiles, there is the option to count rows so it's always available
@@ -1410,32 +1325,30 @@ export default function FactMetricModal({
 
   const quantileMetricType = type !== "quantile" ? "" : quantileSettings.type;
 
-  const { sql, experimentSQL, denominatorSQL } = getPreviewSQL({
-    type,
-    quantileSettings,
-    windowSettings,
-    numerator,
-    denominator,
-    numeratorFactTable,
-    denominatorFactTable: getFactTableById(denominator?.factTableId || ""),
-  });
+  const previewSQL =
+    type === "funnel"
+      ? funnelSettings && funnelSettings.steps.length > 0
+        ? getFunnelPreviewSQL({
+            steps: funnelSettings.steps,
+            factTable: getFactTableById(funnelSettings.steps[0].factTableId),
+            windowSettings,
+          })
+        : null
+      : getPreviewSQL({
+          type,
+          quantileSettings,
+          windowSettings,
+          numerator,
+          denominator,
+          numeratorFactTable,
+          denominatorFactTable: getFactTableById(
+            denominator?.factTableId || "",
+          ),
+        });
 
   const setDatasource = (datasource: string) => {
     form.setValue("datasource", datasource);
   };
-
-  if (fromTemplate && !form.watch("numerator").factTableId) {
-    return (
-      <FieldMappingModal
-        factMetric={defaultValues}
-        datasource={selectedDataSource}
-        onSave={(metric) => {
-          form.reset(metric);
-        }}
-        close={close}
-      />
-    );
-  }
 
   return (
     <Modal
@@ -1444,229 +1357,254 @@ export default function FactMetricModal({
       header={!isNew ? "Edit Metric" : "Create Fact Table Metric"}
       bodyClassName="p-0"
       close={close}
-      submit={form.handleSubmit(async (values) => {
-        if (values.denominator && !values.denominator.factTableId) {
-          values.denominator = null;
-        }
-
-        if (values.priorSettings === undefined) {
-          values.priorSettings = {
-            override: false,
-            proper: false,
-            mean: 0,
-            stddev: DEFAULT_PROPER_PRIOR_STDDEV,
-          };
-        }
-
-        if (values.metricType === "ratio" && !values.denominator)
-          throw new Error("Must select a denominator for ratio metrics");
-
-        // reset denominator for non-ratio metrics
-        if (values.metricType !== "ratio" && values.denominator) {
-          values.denominator = null;
-        }
-
-        // if denominator is undefined, set to null instead
-        if (values.denominator === undefined) {
-          values.denominator = null;
-        }
-
-        // reset displayAsPercentage for non-ratio metrics
-        if (
-          values.metricType !== "ratio" &&
-          values.metricType !== "dailyParticipation" &&
-          values.displayAsPercentage
-        ) {
-          values.displayAsPercentage = undefined;
-        }
-
-        // If unset, set displayAsPercentage to true for daily participation metrics
-        if (
-          values.metricType === "dailyParticipation" &&
-          values.displayAsPercentage === undefined
-        ) {
-          values.displayAsPercentage = true;
-        }
-
-        // reset numerator for proportion/retention metrics
-        if (
-          (values.metricType === "proportion" ||
-            values.metricType === "retention") &&
-          values.numerator.column !== "$$distinctUsers"
-        ) {
-          values.numerator.column = "$$distinctUsers";
-          values.numerator.aggregation = undefined;
-        }
-
-        // reset numerator for daily participation metrics
-        if (values.metricType === "dailyParticipation") {
-          values.numerator.column = "$$distinctDates";
-          values.numerator.aggregation = undefined;
-        }
-
-        // reset aggregate filter for certain metrics
-        if (
-          values.metricType !== "proportion" &&
-          values.metricType !== "retention" &&
-          values.metricType !== "ratio"
-        ) {
-          values.numerator.aggregateFilterColumn = undefined;
-          values.numerator.aggregateFilter = undefined;
-        }
-
-        if (!values.numerator.aggregateFilterColumn) {
-          values.numerator.aggregateFilter = undefined;
-        }
-
-        if (values.cappingSettings?.type) {
-          if (!values.cappingSettings.value) {
-            throw new Error("Capped Value cannot be 0");
+      submit={form.handleSubmit(
+        async (values) => {
+          // Normalize capping values
+          if (!isCappableFactMetric(values.metricType)) {
+            values.cappingSettings = {
+              type: "",
+              value: 0,
+              ignoreZeros: false,
+            };
+            values.lowerCappingSettings = null;
           }
-        }
 
-        // reset capping that may be carried over to uncappable metrics
-        if (
-          values.metricType === "quantile" ||
-          values.metricType === "proportion" ||
-          values.metricType === "retention" ||
-          values.metricType === "dailyParticipation"
-        ) {
-          values.cappingSettings = {
-            type: "",
-            value: 0,
-          };
-        }
-
-        if (
-          values.numerator.aggregateFilterColumn &&
-          values.metricType === "ratio"
-        ) {
-          if (values.numerator.column !== "$$distinctUsers") {
-            values.numerator.aggregateFilterColumn = "";
-          } else {
-            if (values.cappingSettings?.type) {
-              throw new Error(
-                "Cannot specify both Percentile Capping and a User Filter. Please remove one of them.",
-              );
+          if (values.metricType === "funnel") {
+            const fs = funnelSettings;
+            if (!fs || fs.steps.length < 2) {
+              throw new Error("Funnel metrics require at least 2 steps");
             }
+            for (const step of fs.steps) {
+              if (!step.name.trim()) {
+                throw new Error("Every funnel step needs a name");
+              }
+              if (!step.factTableId) {
+                throw new Error("Every funnel step needs a Fact Table");
+              }
+            }
+            if (!selectedDataSource) {
+              throw new Error("Must select a Data Source");
+            }
+
+            if (values.priorSettings === undefined) {
+              values.priorSettings = {
+                override: false,
+                proper: false,
+                mean: 0,
+                stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+              };
+            }
+
+            // Correct percent values shown as whole numbers in the UI
+            values.winRisk = values.winRisk / 100;
+            values.loseRisk = values.loseRisk / 100;
+            values.minPercentChange = values.minPercentChange / 100;
+            values.maxPercentChange = values.maxPercentChange / 100;
+            if (values.targetMDE) {
+              values.targetMDE = values.targetMDE / 100;
+            }
+
+            // Funnel events are described by funnelSettings.steps, so numerator /
+            // denominator are null; capping has already been validated.
+            const funnelBody = {
+              ...values,
+              numerator: null,
+              denominator: null,
+              funnelSettings: fs,
+              quantileSettings: null,
+              metricAutoSlices: [],
+            };
+
+            const trackProps = getFactMetricTrackProps(
+              funnelBody,
+              source,
+              "modal",
+            );
+
+            if (!isNew) {
+              const updatePayload = omit(funnelBody, [
+                "datasource",
+              ]) as UpdateFactMetricProps;
+              await apiCall(`/fact-metrics/${existing.id}`, {
+                method: "PUT",
+                body: JSON.stringify(updatePayload),
+              });
+              track("Edit Fact Metric", trackProps);
+              await mutateDefinitions();
+            } else {
+              const createPayload: CreateFactMetricProps = {
+                ...funnelBody,
+                projects:
+                  getFactTableById(fs.steps[0].factTableId)?.projects ||
+                  selectedDataSource.projects ||
+                  [],
+              };
+              await apiCall<{ factMetric: FactMetricInterface }>(
+                `/fact-metrics`,
+                {
+                  method: "POST",
+                  body: JSON.stringify(createPayload),
+                },
+              );
+              track("Create Fact Metric", trackProps);
+              await mutateDefinitions();
+              onSave && onSave();
+            }
+            return;
           }
-        }
 
-        if (!selectedDataSource) throw new Error("Must select a data source");
+          if (values.denominator && !values.denominator.factTableId) {
+            values.denominator = null;
+          }
 
-        // Correct percent values
-        values.winRisk = values.winRisk / 100;
-        values.loseRisk = values.loseRisk / 100;
-        values.minPercentChange = values.minPercentChange / 100;
-        values.maxPercentChange = values.maxPercentChange / 100;
-        if (values.targetMDE) {
-          values.targetMDE = values.targetMDE / 100;
-        }
+          if (values.priorSettings === undefined) {
+            values.priorSettings = {
+              override: false,
+              proper: false,
+              mean: 0,
+              stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+            };
+          }
 
-        // Anonymized telemetry props
-        // Will help us measure which settings are being used so we can optimize the UI
-        const trackProps = {
-          type: values.metricType,
-          source,
-          capping: values.cappingSettings.type,
-          conversion_window: values.windowSettings.type
-            ? `${values.windowSettings.windowValue} ${values.windowSettings.windowUnit}`
-            : "none",
-          numerator_agg:
-            values.numerator.column === "$$count"
-              ? "count"
-              : values.numerator.column === "$$distinctUsers"
-                ? "distinct_users"
-                : values.numerator.column === "$$distinctDates"
-                  ? "distinct_dates"
-                  : values.numerator.aggregation || "sum",
-          numerator_filters: values.numerator.rowFilters?.length || 0,
-          denominator_agg:
-            values.denominator?.column === "$$count"
-              ? "count"
-              : values.denominator?.column === "$$distinctUsers"
-                ? "distinct_users"
-                : values.denominator?.column === "$$distinctDates"
-                  ? "distinct_dates"
-                  : values.denominator?.column
-                    ? values.denominator?.aggregation || "sum"
-                    : "none",
-          denominator_filters: values.denominator?.rowFilters?.length || 0,
-          ratio_same_fact_table:
-            values.metricType === "ratio" &&
-            values.numerator.factTableId === values.denominator?.factTableId,
-        };
+          if (values.metricType === "ratio" && !values.denominator)
+            throw new Error("Must select a denominator for ratio metrics");
 
-        if (!isNew) {
-          // Track auto slices changes
-          const previousSlices = existing.metricAutoSlices || [];
-          const newSlices = values.metricAutoSlices || [];
-          if (JSON.stringify(previousSlices) !== JSON.stringify(newSlices)) {
-            track("metric-auto-slices-updated", {
-              metricId: existing.id,
-              previousSlices: previousSlices,
-              newSlices: newSlices,
-              sliceCount: newSlices.length,
+          // reset denominator for non-ratio metrics
+          if (values.metricType !== "ratio" && values.denominator) {
+            values.denominator = null;
+          }
+
+          // if denominator is undefined, set to null instead
+          if (values.denominator === undefined) {
+            values.denominator = null;
+          }
+
+          // reset displayAsPercentage for non-ratio metrics
+          if (
+            values.metricType !== "ratio" &&
+            values.metricType !== "dailyParticipation" &&
+            values.displayAsPercentage
+          ) {
+            values.displayAsPercentage = undefined;
+          }
+
+          // If unset, set displayAsPercentage to true for daily participation metrics
+          if (
+            values.metricType === "dailyParticipation" &&
+            values.displayAsPercentage === undefined
+          ) {
+            values.displayAsPercentage = true;
+          }
+
+          // reset numerator for proportion/retention metrics
+          if (
+            (values.metricType === "proportion" ||
+              values.metricType === "retention") &&
+            values.numerator.column !== "$$distinctUsers"
+          ) {
+            values.numerator.column = "$$distinctUsers";
+            values.numerator.aggregation = undefined;
+          }
+
+          // reset numerator for daily participation metrics
+          if (values.metricType === "dailyParticipation") {
+            values.numerator.column = "$$distinctDates";
+            values.numerator.aggregation = undefined;
+          }
+
+          // reset aggregate filter for certain metrics
+          if (
+            values.metricType !== "proportion" &&
+            values.metricType !== "retention" &&
+            values.metricType !== "ratio"
+          ) {
+            values.numerator.aggregateFilterColumn = undefined;
+            values.numerator.aggregateFilter = undefined;
+          }
+
+          if (!values.numerator.aggregateFilterColumn) {
+            values.numerator.aggregateFilter = undefined;
+          }
+
+          if (!selectedDataSource) throw new Error("Must select a data source");
+
+          // Correct percent values
+          values.winRisk = values.winRisk / 100;
+          values.loseRisk = values.loseRisk / 100;
+          values.minPercentChange = values.minPercentChange / 100;
+          values.maxPercentChange = values.maxPercentChange / 100;
+          if (values.targetMDE) {
+            values.targetMDE = values.targetMDE / 100;
+          }
+
+          const trackProps = getFactMetricTrackProps(values, source, "modal");
+
+          if (!isNew) {
+            // Track auto slices changes
+            const previousSlices = existing.metricAutoSlices || [];
+            const newSlices = values.metricAutoSlices || [];
+            if (JSON.stringify(previousSlices) !== JSON.stringify(newSlices)) {
+              track("metric-auto-slices-updated", {
+                metricId: existing.id,
+                previousSlices: previousSlices,
+                newSlices: newSlices,
+                sliceCount: newSlices.length,
+              });
+            }
+
+            const updatePayload = omit(values, [
+              "datasource",
+            ]) as UpdateFactMetricProps;
+            await apiCall(`/fact-metrics/${existing.id}`, {
+              method: "PUT",
+              body: JSON.stringify(updatePayload),
             });
-          }
+            track("Edit Fact Metric", trackProps);
+            await mutateDefinitions();
+          } else {
+            // Track auto slices for new metrics
+            const newSlices = values.metricAutoSlices || [];
+            if (newSlices.length > 0) {
+              track("metric-auto-slices-updated", {
+                newSlices: newSlices,
+                sliceCount: newSlices.length,
+              });
+            }
 
-          const updatePayload = omit(values, [
-            "datasource",
-          ]) as UpdateFactMetricProps;
-          await apiCall(`/fact-metrics/${existing.id}`, {
-            method: "PUT",
-            body: JSON.stringify(updatePayload),
-          });
-          track("Edit Fact Metric", trackProps);
-          await mutateDefinitions();
-        } else {
-          // Track auto slices for new metrics
-          const newSlices = values.metricAutoSlices || [];
-          if (newSlices.length > 0) {
-            track("metric-auto-slices-updated", {
-              newSlices: newSlices,
-              sliceCount: newSlices.length,
+            const createPayload: CreateFactMetricProps = {
+              ...values,
+              funnelSettings: null,
+              projects:
+                numeratorFactTable?.projects ||
+                selectedDataSource.projects ||
+                [],
+            };
+
+            await apiCall<{
+              factMetric: FactMetricInterface;
+            }>(`/fact-metrics`, {
+              method: "POST",
+              body: JSON.stringify(createPayload),
             });
+            track("Create Fact Metric", trackProps);
+            await mutateDefinitions();
+
+            onSave && onSave();
           }
-
-          const createPayload: CreateFactMetricProps = {
-            ...values,
-            projects:
-              numeratorFactTable?.projects || selectedDataSource.projects || [],
-          };
-
-          await apiCall<{
-            factMetric: FactMetricInterface;
-          }>(`/fact-metrics`, {
-            method: "POST",
-            body: JSON.stringify(createPayload),
-          });
-          track("Create Fact Metric", trackProps);
-          await mutateDefinitions();
-
-          onSave && onSave();
-        }
-      })}
+        },
+        (errors) => {
+          throw new Error(
+            `The following fields are invalid: ${Object.keys(errors).join(", ")}`,
+          );
+        },
+      )}
       size={showSQLPreview ? "max" : "lg"}
     >
       <div className="d-flex">
         <div className="px-3 py-4 flex-1">
           {showSQLPreview ? <h3>Enter Details</h3> : null}
-          {showSwitchToLegacy && switchToLegacy && (
-            <Callout status="info" mb="3">
-              You are creating a Fact Table Metric.{" "}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  switchToLegacy();
-                }}
-              >
-                Switch to legacy SQL <FaArrowRight />
-              </a>
-            </Callout>
-          )}
           <Field
+            size="legacy"
             label="Metric Name"
             {...form.register("name")}
             autoFocus
@@ -1674,6 +1612,7 @@ export default function FactMetricModal({
           />
           {!existing && !initialFactTable && (
             <SelectField
+              size="legacy"
               label="Data Source"
               value={form.watch("datasource")}
               onChange={(v) => {
@@ -1725,7 +1664,7 @@ export default function FactMetricModal({
                             <strong>Mean</strong> metrics calculate the average
                             value of a numeric column in a fact table.
                           </div>
-                          <div>
+                          <div className="mb-2">
                             <strong>Ratio</strong> metrics allow you to
                             calculate a complex value by dividing two different
                             numeric columns in your fact tables.
@@ -1743,6 +1682,13 @@ export default function FactMetricModal({
                             {!quantileMetricsAvailableForDatasource
                               ? " Quantile metrics are not available for MySQL data sources."
                               : ""}
+                          </div>
+                          <div>
+                            <strong>Funnel</strong> metrics calculate the share
+                            of exposed users who complete a series of steps in
+                            order. Each step is measured against all exposed
+                            users, not just those who entered the previous step
+                            of the funnel.
                           </div>
                         </div>
                       }
@@ -1764,6 +1710,9 @@ export default function FactMetricModal({
                   ) {
                     return;
                   }
+                  if (type === "funnel" && !hasFunnelMetricCommercialFeature) {
+                    return;
+                  }
 
                   // always reset delay value when switching away from retention
                   if (
@@ -1774,7 +1723,28 @@ export default function FactMetricModal({
                     form.setValue("windowSettings.delayUnit", "hours");
                   }
 
-                  form.setValue("metricType", type as FactMetricType);
+                  if (type === "funnel") {
+                    if (!funnelSettings) {
+                      const factTableId =
+                        form.getValues("numerator")?.factTableId || "";
+                      setFunnelSettings({
+                        steps: [
+                          {
+                            name: "Step 1",
+                            factTableId,
+                            rowFilters: numeratorFactTable
+                              ? getInitialInlineFilters(numeratorFactTable)
+                              : [],
+                            optional: false,
+                          },
+                        ],
+                      });
+                    }
+                    form.setValue("metricType", "funnel");
+                    return;
+                  }
+
+                  form.setValue("metricType", type);
 
                   // Set better defaults for retention metrics
                   if (type === "retention") {
@@ -1790,8 +1760,6 @@ export default function FactMetricModal({
                     }
 
                     form.setValue("quantileSettings", quantileSettings);
-                    // capping off for quantile metrics
-                    form.setValue("cappingSettings.type", "");
 
                     if (
                       quantileSettings.type === "event" &&
@@ -1812,14 +1780,6 @@ export default function FactMetricModal({
                         numerator.factTableId || initialFactTable || "",
                       column: "$$count",
                     });
-                  }
-
-                  // When switching to ratio and using `absolute` capping, turn it off (only percentile supported)
-                  if (
-                    type === "ratio" &&
-                    form.watch("cappingSettings.type") === "absolute"
-                  ) {
-                    form.setValue("cappingSettings.type", "");
                   }
                 }}
                 options={[
@@ -1866,9 +1826,27 @@ export default function FactMetricModal({
                       </>
                     ),
                   },
+                  {
+                    value: "funnel",
+                    label: (
+                      <>
+                        <PremiumTooltip commercialFeature="funnel-metrics">
+                          Funnel
+                        </PremiumTooltip>
+                      </>
+                    ),
+                  },
                 ]}
               />
-              {type === "proportion" ? (
+              {type === "funnel" ? (
+                <FunnelStepsInput
+                  value={funnelSettings ?? { steps: [] }}
+                  setValue={setFunnelSettings}
+                  datasource={form.watch("datasource")}
+                  project={project}
+                  initialFactTable={initialFactTable}
+                />
+              ) : type === "proportion" ? (
                 <div>
                   <label>Metric Event</label>
                   <ColumnRefSelector
@@ -2120,25 +2098,29 @@ export default function FactMetricModal({
 
               <MetricWindowSettingsForm form={form} type={type} />
 
-              <SelectField
-                label="Metric Goal"
-                value={form.watch("inverse") ? "1" : "0"}
-                onChange={(v) => {
-                  form.setValue("inverse", v === "1");
-                }}
-                options={[
-                  {
-                    value: "0",
-                    label: `Increase the metric value`,
-                  },
-                  {
-                    value: "1",
-                    label: `Decrease the metric value`,
-                  },
-                ]}
-              />
+              {type !== "funnel" && (
+                <SelectField
+                  size="legacy"
+                  label="Metric Goal"
+                  value={form.watch("inverse") ? "1" : "0"}
+                  onChange={(v) => {
+                    form.setValue("inverse", v === "1");
+                  }}
+                  options={[
+                    {
+                      value: "0",
+                      label: `Increase the metric value`,
+                    },
+                    {
+                      value: "1",
+                      label: `Decrease the metric value`,
+                    },
+                  ]}
+                />
+              )}
 
-              {hasMetricSlicesFeature &&
+              {type !== "funnel" &&
+                hasMetricSlicesFeature &&
                 (() => {
                   const factTableId = form.watch("numerator.factTableId");
                   const factTable = getFactTableById(factTableId);
@@ -2165,7 +2147,7 @@ export default function FactMetricModal({
                       >
                         Choose metric breakdowns to automatically analyze in
                         your experiments.{" "}
-                        <DocLink docSection="autoSlices">
+                        <DocLink useRadix={false} docSection="autoSlices">
                           Learn More <PiArrowSquareOut />
                         </DocLink>
                       </Text>
@@ -2173,6 +2155,7 @@ export default function FactMetricModal({
                         <div className="mt-2">
                           {availableSlices.length > 0 ? (
                             <MultiSelectField
+                              legacyHeight
                               value={form.watch("metricAutoSlices") || []}
                               onChange={(metricAutoSlices) => {
                                 form.setValue(
@@ -2247,18 +2230,17 @@ export default function FactMetricModal({
                         {type !== "retention" ? (
                           <MetricDelaySettings form={form} />
                         ) : null}
-                        {type !== "quantile" &&
-                        type !== "proportion" &&
-                        type !== "retention" &&
-                        type !== "dailyParticipation" ? (
+                        {isCappableFactMetric(type) ? (
                           <MetricCappingSettingsForm
                             form={form}
                             datasourceType={selectedDataSource.type}
                             metricType={type}
+                            allowLowerTailCapping
                           />
                         ) : null}
 
                         <Field
+                          size="legacy"
                           label="Target MDE"
                           type="number"
                           step="any"
@@ -2351,6 +2333,7 @@ export default function FactMetricModal({
                                   }}
                                 >
                                   <Field
+                                    size="legacy"
                                     label="Pre-exposure lookback period (days)"
                                     type="number"
                                     style={{
@@ -2383,6 +2366,13 @@ export default function FactMetricModal({
                                       {
                                         valueAsNumber: true,
                                         validate: (v) => {
+                                          if (
+                                            !form.watch(
+                                              "regressionAdjustmentOverride",
+                                            )
+                                          ) {
+                                            return true;
+                                          }
                                           return v === undefined || v > 0;
                                         },
                                       },
@@ -2446,6 +2436,7 @@ export default function FactMetricModal({
                           </small>
                         </div>
                         <Field
+                          size="legacy"
                           label="Max Percent Change"
                           type="number"
                           step="any"
@@ -2459,6 +2450,7 @@ export default function FactMetricModal({
             }%)`}
                         />
                         <Field
+                          size="legacy"
                           label="Min Percent Change"
                           type="number"
                           step="any"
@@ -2507,7 +2499,7 @@ export default function FactMetricModal({
             </>
           )}
         </div>
-        {showSQLPreview && (
+        {showSQLPreview && previewSQL && (
           <div
             className="bg-light px-3 py-4 flex-1 border-left d-none d-md-block"
             style={{
@@ -2531,14 +2523,14 @@ export default function FactMetricModal({
               </strong>
               <Code
                 language="sql"
-                code={sql}
+                code={previewSQL.sql}
                 className="bg-light"
-                filename={denominatorSQL ? "Numerator" : undefined}
+                filename={previewSQL.denominatorSQL ? "Numerator" : undefined}
               />
-              {denominatorSQL ? (
+              {previewSQL.denominatorSQL ? (
                 <Code
                   language="sql"
-                  code={denominatorSQL}
+                  code={previewSQL.denominatorSQL}
                   className="bg-light"
                   filename={"Denominator"}
                 />
@@ -2568,7 +2560,7 @@ export default function FactMetricModal({
               >
                 <Code
                   language="sql"
-                  code={experimentSQL}
+                  code={previewSQL.experimentSQL}
                   className="bg-light"
                 />
               </div>

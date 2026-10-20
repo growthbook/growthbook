@@ -1,8 +1,15 @@
 import { FC } from "react";
 import { PiLightning, PiLightningSlash, PiWarningFill } from "react-icons/pi";
-import { ago, datetime, getValidDate, abbreviateAgo } from "shared/dates";
-import { Text, Flex, IconButton } from "@radix-ui/themes";
+import {
+  ago,
+  datetime,
+  datetimeAt,
+  getValidDate,
+  abbreviateAgo,
+} from "shared/dates";
+import { Text, Flex, Box, IconButton } from "@radix-ui/themes";
 import { QueryStatus } from "shared/types/query";
+import { SourceSnapshotRef } from "shared/enterprise";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 const FAILED_STRING = `The most recent update failed. Click to view queries.`;
@@ -12,6 +19,7 @@ const PARTIALLY_SUCCEEDED_STRING = `Some of the queries had an error. The partia
 const QueriesLastRun: FC<{
   status: QueryStatus;
   dateCreated?: Date;
+  sourceSnapshot?: SourceSnapshotRef;
   nextUpdate?: Date;
   latestQueryDate?: Date;
   autoUpdateEnabled?: boolean;
@@ -23,6 +31,7 @@ const QueriesLastRun: FC<{
 }> = ({
   status,
   dateCreated,
+  sourceSnapshot,
   nextUpdate,
   latestQueryDate,
   autoUpdateEnabled,
@@ -32,6 +41,10 @@ const QueriesLastRun: FC<{
   onViewQueries,
   showAutoUpdateWidget = true,
 }) => {
+  // A derived breakdown is only as fresh as the overall results it was built
+  // from, so that's the headline date. Otherwise the snapshot's own run time.
+  const dataAsOf = sourceSnapshot ? sourceSnapshot.dateCreated : dateCreated;
+
   const _failedString =
     failedString ||
     (latestQueryDate
@@ -65,11 +78,30 @@ const QueriesLastRun: FC<{
           </Tooltip>
         )}
 
-        {dateCreated ? (
+        {dataAsOf ? (
           <Tooltip
             body={
               <Flex direction="column">
-                <Text>Last update: {datetime(dateCreated ?? "")}</Text>
+                {sourceSnapshot ? (
+                  <Flex direction="column" gap="3">
+                    <Box>
+                      <Text as="div" weight="bold">
+                        Dimension Computed
+                      </Text>
+                      <Text as="div">{datetimeAt(dateCreated ?? "")}</Text>
+                    </Box>
+                    <Box>
+                      <Text as="div" weight="bold">
+                        Results as of (from Overall Results)
+                      </Text>
+                      <Text as="div">
+                        {datetimeAt(sourceSnapshot.dateCreated)}
+                      </Text>
+                    </Box>
+                  </Flex>
+                ) : (
+                  <Text>Last update: {datetime(dateCreated ?? "")}</Text>
+                )}
                 {nextUpdate && !showAutoUpdateWidget ? (
                   <Text>Next update: {datetime(nextUpdate)}</Text>
                 ) : null}
@@ -77,7 +109,8 @@ const QueriesLastRun: FC<{
             }
           >
             <Text weight="regular" style={{ color: "var(--color-text-mid)" }}>
-              Updated {abbreviateAgo(dateCreated)}
+              {sourceSnapshot ? "Results as of" : "Updated"}{" "}
+              {abbreviateAgo(dataAsOf)}
             </Text>
           </Tooltip>
         ) : (

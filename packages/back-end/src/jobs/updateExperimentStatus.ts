@@ -1,4 +1,6 @@
 import Agenda, { Job } from "agenda";
+import { isPermissionError } from "shared/util";
+import type { ExperimentInterface } from "shared/types/experiment";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -7,8 +9,21 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import { applyScheduledExperimentStop } from "back-end/src/services/experimentScheduling";
+import {
+  assertCanRunExperimentInAffectedEnvironments,
+  getScheduledStatusContext,
+} from "back-end/src/services/experiments";
+import {
+  isTerminalPublishError,
+  TerminalPublishError,
+} from "back-end/src/util/errors";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { notifyScheduledStatusUpdateFailed } from "back-end/src/services/experimentNotifications";
+import {
+  notifyScheduledEndDecision,
+  notifyScheduledStatusUpdateApplied,
+  notifyScheduledStatusUpdateFailed,
+} from "back-end/src/services/experimentNotifications";
 
 type UpdateSingleExperimentStatusJob = Job<{
   experimentId: string;
@@ -19,13 +34,26 @@ const QUEUE_EXPERIMENT_STATUS_UPDATES = "queueScheduledExperimentStatusUpdates";
 
 const UPDATE_SINGLE_EXPERIMENT_STATUS = "updateSingleExperimentStatus";
 
-// Caps retries of a scheduled status transition. The QUEUE_* job runs every
-// minute, so without a cap a persistently-failing experiment (e.g. a linked
-// feature draft with a merge conflict) would re-queue forever. Each failure
-// increments `nextScheduledStatusUpdate.failedAttempts`; once the count hits
-// this cap the job clears `nextScheduledStatusUpdate` and emits a terminal
-// `experiment.warning` event so the user can re-schedule manually.
+// The QUEUE_* job runs every minute, so without a cap a persistently-failing
+// experiment would re-queue forever. Past this many failed attempts, the job
+// clears `nextScheduledStatusUpdate` and emits a terminal `experiment.warning`
+// instead of retrying.
 const SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS = 5;
+
+// Only the exact update a job processed may be cleared or marked failed, not
+// the same action re-staged by someone else meanwhile.
+type StagedUpdate = NonNullable<
+  ExperimentInterface["nextScheduledStatusUpdate"]
+>;
+const sameStagedUpdate = (
+  a: StagedUpdate | null | undefined,
+  b: StagedUpdate,
+): boolean =>
+  !!a &&
+  a.type === b.type &&
+  a.date.getTime() === b.date.getTime() &&
+  (a.scheduledBy ?? null) === (b.scheduledBy ?? null) &&
+  (a.scheduledByApiKey ?? null) === (b.scheduledByApiKey ?? null);
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_STATUS_UPDATES, async () => {
@@ -65,7 +93,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-const updateSingleExperimentStatus = async (
+export const updateSingleExperimentStatus = async (
   job: UpdateSingleExperimentStatusJob,
 ) => {
   const experimentId = job.attrs.data?.experimentId;
@@ -78,15 +106,10 @@ const updateSingleExperimentStatus = async (
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment) return;
 
-  if (
-    experiment.archived ||
-    experiment.status === "stopped" ||
-    experiment.status === "running"
-  ) {
+  if (experiment.archived || experiment.status === "stopped") {
     logger.info(
       `Skipping status update: Experiment ${experiment.id} is ${experiment.archived ? "archived" : experiment.status}`,
     );
-    // Clear the scheduled update so it doesn't get re-processed
     await updateExperiment({
       context,
       experiment,
@@ -114,6 +137,25 @@ const updateSingleExperimentStatus = async (
   try {
     logger.info("Start updating status for experiment " + experiment.id);
 
+    // The fire runs as the armer, so the draft publish is judged as it stands
+    // now; nobody to run as, or no run permission left, and the job lends nothing.
+    const armer = await getScheduledStatusContext(context, experiment);
+    if (!armer) {
+      throw new Error(
+        "the user or API key that armed this change could not be resolved",
+      );
+    }
+    try {
+      await assertCanRunExperimentInAffectedEnvironments(armer, experiment);
+    } catch (e) {
+      if (isPermissionError(e)) {
+        throw new TerminalPublishError(
+          `Whoever armed this ${scheduled.type} may not run the experiment in its environments`,
+        );
+      }
+      throw e;
+    }
+
     switch (scheduled.type) {
       case "start": {
         if (experiment.status !== "draft") {
@@ -128,21 +170,87 @@ const updateSingleExperimentStatus = async (
           return;
         }
 
-        const experimentBefore = experiment;
-        const { updated } = await executeExperimentStart(context, experiment);
-        // The agenda context has no logged-in user, so this is recorded
-        // as a `system` audit event.
-        await context.auditLog({
+        const { updated } = await executeExperimentStart(armer, experiment);
+        await armer.auditLog({
           event: "experiment.status",
-          entity: {
-            object: "experiment",
-            id: experimentBefore.id,
-          },
-          details: auditDetailsUpdate(experimentBefore, updated),
+          entity: { object: "experiment", id: experiment.id },
+          details: auditDetailsUpdate(experiment, updated),
+        });
+        await notifyScheduledStatusUpdateApplied({
+          context,
+          experiment,
+          action: "started",
         });
         break;
       }
-      // TODO(schedule-status-updates): handle "stop" once stopAt is supported
+      case "stop": {
+        if (experiment.status !== "running") {
+          logger.info(
+            `Skipping stop: Experiment ${experiment.id} is not running (status=${experiment.status}).`,
+          );
+          await updateExperiment({
+            context,
+            experiment,
+            changes: { nextScheduledStatusUpdate: null },
+          });
+          return;
+        }
+
+        const metricGroups = await context.models.metricGroups.getAll();
+
+        // A stop refreshes the SDK payload as a side effect.
+        const outcome = await applyScheduledExperimentStop({
+          context: armer,
+          experiment,
+          metricGroups,
+        });
+
+        // The scheduled end passing can flip the EDF status to decisive
+        // without a snapshot update. Compute the decision from the PRE-stop
+        // experiment (post-stop it's no longer "running", so scheduledEndPassed
+        // would be false) and fire the decision.* event for every outcome,
+        // ordered before the scheduled-status-update event.
+        await notifyScheduledEndDecision({ context, experiment, metricGroups });
+
+        // Re-load: stopExperiment may have already mutated the experiment, and
+        // the notification below needs fresh state either way.
+        const latest =
+          (await getExperimentById(context, experiment.id)) ?? experiment;
+        if (sameStagedUpdate(latest.nextScheduledStatusUpdate, scheduled)) {
+          await updateExperiment({
+            context,
+            experiment: latest,
+            changes: { nextScheduledStatusUpdate: null },
+          });
+        }
+
+        if (outcome.kind === "kept-running") {
+          await notifyScheduledStatusUpdateApplied({
+            context,
+            experiment: latest,
+            action: "kept-running",
+            recommendedVariationId: outcome.recommendedVariationId ?? undefined,
+          });
+        } else {
+          // Kept-running changes nothing; a stop flips status, results and
+          // the released variation.
+          await armer.auditLog({
+            event: "experiment.status",
+            entity: { object: "experiment", id: experiment.id },
+            details: auditDetailsUpdate(experiment, latest),
+          });
+          await notifyScheduledStatusUpdateApplied({
+            context,
+            experiment: latest,
+            action: "stopped",
+            shipped: outcome.kind === "shipped",
+            shippedVariationId:
+              outcome.kind === "shipped" ? outcome.variationId : undefined,
+            forced: outcome.kind === "shipped" ? outcome.forced : undefined,
+          });
+        }
+        break;
+      }
       default:
         logger.info(
           `Skipping status update: Experiment ${experiment.id} has unsupported scheduled type ${scheduled.type}`,
@@ -158,7 +266,11 @@ const updateSingleExperimentStatus = async (
     logger.info("Successfully updated status for experiment " + experiment.id);
   } catch (e) {
     const attempts = (scheduled.failedAttempts ?? 0) + 1;
-    const willRetry = attempts < SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS;
+    // Same classification as a scheduled publish: a marked-terminal failure
+    // (no authority) gives up at once, anything else retries to the cap.
+    const willRetry =
+      !isTerminalPublishError(e) &&
+      attempts < SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS;
     const reason = e instanceof Error ? e.message : String(e);
 
     logger.error(
@@ -172,14 +284,22 @@ const updateSingleExperimentStatus = async (
       );
     }
 
-    // Persist the new attempt count (or clear the schedule once we've hit
-    // the cap). Wrapped because if executeExperimentStart already wrote to
-    // the experiment we may hit a stale-revision error here, and a failure
-    // to record state must not mask the original error in the logs.
+    // A replacement staged meanwhile is not this attempt's outcome; a failed
+    // reload keeps the snapshot so the attempt still counts toward the cap.
+    const latest =
+      (await getExperimentById(context, experiment.id).catch(() => null)) ??
+      experiment;
+    if (!sameStagedUpdate(latest.nextScheduledStatusUpdate, scheduled)) {
+      return;
+    }
+
+    // Wrapped: executeExperimentStart may have already written to the
+    // experiment, so this can hit a stale-revision error that must not mask
+    // the original failure being logged above.
     try {
       await updateExperiment({
         context,
-        experiment,
+        experiment: latest,
         changes: {
           nextScheduledStatusUpdate: willRetry
             ? { ...scheduled, failedAttempts: attempts }

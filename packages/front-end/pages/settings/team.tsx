@@ -79,7 +79,20 @@ const TeamPage: FC = () => {
               </div>
             </div>
             {hasTeamsFeature ? (
-              <TeamsList />
+              <TeamsList
+                onDuplicate={(team) =>
+                  setModalOpen({
+                    name: `${team.name} (copy)`,
+                    description: team.description,
+                    role: team.role,
+                    limitAccessByEnvironment: team.limitAccessByEnvironment,
+                    environments: team.environments,
+                    additionalRoles: team.additionalRoles,
+                    projectRoles: team.projectRoles,
+                    defaultProject: team.defaultProject,
+                  })
+                }
+              />
             ) : (
               <PremiumEmptyState
                 title="Teams"

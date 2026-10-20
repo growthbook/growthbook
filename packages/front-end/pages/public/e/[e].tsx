@@ -200,7 +200,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
                 onValueChange={(t: ExperimentTab) => setTab(t)}
                 style={{ width: "100%" }}
               >
-                <TabsList size="3" className="px-3">
+                <TabsList size="lg" className="px-3">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="results">Results</TabsTrigger>
                   {isBandit ? (

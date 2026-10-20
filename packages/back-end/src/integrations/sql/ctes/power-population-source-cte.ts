@@ -1,3 +1,7 @@
+import {
+  getFactTableIdColumnExpression,
+  getFactTableTimestampColumn,
+} from "shared/experiments";
 import type { PopulationDataQuerySettings } from "shared/types/query";
 import { SegmentInterface } from "shared/types/segment";
 import type { SqlDialect } from "shared/types/sql";
@@ -45,12 +49,17 @@ export function getPowerPopulationSourceCTE(
       const factTable = factTableMap.get(settings.sourceId);
       if (factTable) {
         const sql = factTable.sql;
+        const idColumn = getFactTableIdColumnExpression(
+          factTable,
+          settings.userIdType,
+          dialect,
+        );
         return compileSqlTemplate(
           `
           __source AS (
             SELECT
-              ${settings.userIdType}
-              , timestamp
+              ${idColumn} AS ${settings.userIdType}
+              , ${getFactTableTimestampColumn(factTable)} AS timestamp
             FROM (
               ${sql}
             ) ft

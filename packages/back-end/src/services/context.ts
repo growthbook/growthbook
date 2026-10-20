@@ -1,9 +1,14 @@
-import { Permissions, userHasPermission } from "shared/permissions";
+import {
+  Permissions,
+  getRolePermissions,
+  userHasPermission,
+} from "shared/permissions";
 import { uniq } from "lodash";
+import md5 from "md5";
 import type pino from "pino";
 import type { Request } from "express";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { CommercialFeature } from "shared/enterprise";
+import { CommercialFeature, OrgLimitsAccessor } from "shared/enterprise";
 import { AuditInterfaceInput } from "shared/types/audit";
 import {
   OrganizationInterface,
@@ -12,15 +17,19 @@ import {
 } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { EventUser } from "shared/types/events/event-types";
+import { eventUserIdentity, eventUserPerson } from "shared/validators";
 import { TeamInterface } from "shared/types/team";
 import { ProjectInterface } from "shared/types/project";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
 import { UserInterface } from "shared/types/user";
+import { stringToBoolean } from "shared/util";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   BadRequestError,
   UnauthorizedError,
+  PaymentRequiredError,
   PlanDoesNotAllowError,
   NotFoundError,
   InternalServerError,
@@ -28,11 +37,12 @@ import {
 import { SdkConnectionCacheModel } from "back-end/src/models/SdkConnectionCacheModel";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
+  getPersonalAccessTokenPermissions,
   getUserPermissions,
-  getRolePermissions,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/util/organization.util";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
@@ -40,41 +50,71 @@ import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { addTags, getAllTags } from "back-end/src/models/TagModel";
 import { insertAudit } from "back-end/src/models/AuditModel";
 import { logger } from "back-end/src/util/logger";
+import { encodeArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
-import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
+import {
+  dangerouslyGetDataSourceByIdBypassPermission,
+  getDataSourcesByIds,
+} from "back-end/src/models/DataSourceModel";
 import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
+import { PopulationModel } from "back-end/src/models/PopulationModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
 import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
+import { AggregatedFactTableModel } from "back-end/src/models/AggregatedFactTableModel";
+import { AggregatedFactTableRunModel } from "back-end/src/models/AggregatedFactTableRunModel";
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
+import { ConstantModel } from "back-end/src/models/ConstantModel";
+import { ConfigModel } from "back-end/src/models/ConfigModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
+import { SessionReplayModel } from "back-end/src/models/SessionReplayModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/ExperimentSnapshotAnalysisChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
 import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
+import { AutoRunModel } from "back-end/src/models/AutoRunModel";
 import { RampScheduleTemplateModel } from "back-end/src/models/RampScheduleTemplateModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
+import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
+import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
+import { ContextualBanditSnapshotModel } from "back-end/src/enterprise/models/ContextualBanditSnapshotModel";
+import { InterleavingModel } from "back-end/src/enterprise/models/InterleavingModel";
+import { ContextualBanditEventModel } from "back-end/src/enterprise/models/ContextualBanditEventModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
+import { LearningModel } from "back-end/src/models/LearningModel";
+import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
+import { FigmaConnectionModel } from "back-end/src/models/FigmaConnectionModel";
+import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspaceConnectionModel";
+import { SlackUserLinkModel } from "back-end/src/models/SlackUserLinkModel";
+import { SlackTaskClaimModel } from "back-end/src/models/SlackTaskClaimModel";
+import { AICredentialModel } from "back-end/src/models/AICredentialModel";
+import { ConfirmationModel } from "back-end/src/models/ConfirmationModel";
+import { ConfirmationAttemptModel } from "back-end/src/models/ConfirmationAttemptModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
+import { QueryLogModel } from "back-end/src/models/QueryLogModel";
+import { OAuthGrantModel } from "back-end/src/models/OAuthGrantModel";
+import { OAuthRefreshTokenModel } from "back-end/src/models/OAuthRefreshTokenModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
+import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -94,6 +134,7 @@ export type ModelName =
   | "urlRedirects"
   | "metricAnalysis"
   | "populationData"
+  | "populations"
   | "savedQueries"
   | "metricGroups"
   | "segments"
@@ -108,24 +149,49 @@ export type ModelName =
   | "dashboards"
   | "customHooks"
   | "incrementalRefresh"
+  | "aggregatedFactTables"
+  | "aggregatedFactTableRuns"
   | "experimentSnapshotAnalysisChunks"
   | "sqlResultChunks"
   | "sdkConnectionCache"
   | "sdkWebhooks"
   | "savedGroups"
+  | "constants"
+  | "configs"
   | "teams"
   | "analyticsExplorations"
   | "presentationThemes"
   | "revisions"
   | "watch"
+  | "figmaConnections"
+  | "slackWorkspaceConnections"
+  | "slackUserLinks"
+  | "slackTaskClaims"
   | "apiKeys"
+  | "confirmations"
+  | "confirmationAttempts"
+  | "oauthAuthCodes"
+  | "oauthGrants"
+  | "oauthRefreshTokens"
   | "rampSchedules"
+  | "autoRuns"
   | "rampScheduleTemplates"
-  | "aiConversations";
+  | "aiConversations"
+  | "learnings"
+  | "contextualBandits"
+  | "contextualBanditQueries"
+  | "contextualBanditSnapshots"
+  | "interleavings"
+  | "contextualBanditEvents"
+  | "sessionReplays"
+  | "eventForwarderConfigs"
+  | "aiCredentials"
+  | "queryLogs";
 
 export const modelClasses = {
   agreements: AgreementModel,
   aiPrompts: AiPromptModel,
+  aiCredentials: AICredentialModel,
   customFields: CustomFieldModel,
   factMetrics: FactMetricModel,
   featureRevisionLogs: FeatureRevisionLogModel,
@@ -133,6 +199,7 @@ export const modelClasses = {
   urlRedirects: UrlRedirectModel,
   metricAnalysis: MetricAnalysisModel,
   populationData: PopulationDataModel,
+  populations: PopulationModel,
   savedQueries: SavedQueryDataModel,
   metricGroups: MetricGroupModel,
   segments: SegmentModel,
@@ -147,33 +214,172 @@ export const modelClasses = {
   dashboards: DashboardModel,
   customHooks: CustomHookModel,
   incrementalRefresh: IncrementalRefreshModel,
+  aggregatedFactTables: AggregatedFactTableModel,
+  aggregatedFactTableRuns: AggregatedFactTableRunModel,
   experimentSnapshotAnalysisChunks: ExperimentSnapshotAnalysisChunkModel,
   sqlResultChunks: SqlResultChunkModel,
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
   savedGroups: SavedGroupModel,
+  constants: ConstantModel,
+  configs: ConfigModel,
   teams: TeamModel,
   analyticsExplorations: AnalyticsExplorationModel,
   revisions: RevisionModel,
   presentationThemes: PresentationThemeModel,
   watch: WatchModel,
+  figmaConnections: FigmaConnectionModel,
+  slackWorkspaceConnections: SlackWorkspaceConnectionModel,
+  slackUserLinks: SlackUserLinkModel,
+  slackTaskClaims: SlackTaskClaimModel,
   apiKeys: ApiKeyModel,
+  confirmations: ConfirmationModel,
+  confirmationAttempts: ConfirmationAttemptModel,
+  oauthAuthCodes: OAuthAuthCodeModel,
+  queryLogs: QueryLogModel,
+  oauthGrants: OAuthGrantModel,
+  oauthRefreshTokens: OAuthRefreshTokenModel,
   rampSchedules: RampScheduleModel,
+  autoRuns: AutoRunModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
+  learnings: LearningModel,
+  contextualBandits: ContextualBanditModel,
+  contextualBanditQueries: ContextualBanditQueryModel,
+  contextualBanditSnapshots: ContextualBanditSnapshotModel,
+  interleavings: InterleavingModel,
+  contextualBanditEvents: ContextualBanditEventModel,
+  sessionReplays: SessionReplayModel,
+  eventForwarderConfigs: EventForwarderConfigModel,
 };
-export type ModelClass = (typeof modelClasses)[ModelName];
+// ModelClass narrows to only BaseModel-derived model constructors (those
+// expose a static `getModelConfig`). Non-BaseModel context models — e.g.
+// SessionReplayModel, which is backed by ClickHouse + S3 rather than
+// Mongo — are still registered on the request context but excluded from
+// API_MODELS iteration in api.router.ts.
+export type ModelClass = Extract<
+  (typeof modelClasses)[ModelName],
+  { getModelConfig: () => unknown }
+>;
 type ModelInstances = {
   [K in ModelName]: InstanceType<(typeof modelClasses)[K]>;
 };
 
+/**
+ * Where a request's override flags (ignoreWarnings, skipSchemaValidation,
+ * skipHooks) are read from.
+ */
+type OverrideSource = { body?: unknown; query?: Record<string, unknown> };
+
 export class ReqContextClass {
+  // When set, guard evaluators use this as their org-wide scan context instead
+  // of minting a fresh one per evaluation. Sharing one context makes the
+  // model-instance snapshot memos (e.g. ConfigModel.getAllForReconcile) span all
+  // guards in the operation, and lets the bulk publisher substitute an overlay
+  // whose reads reflect a hypothetical multi-entity end-state. Set
+  // self-referentially so nested evaluations inherit it. Request-scoped only —
+  // never cache one across requests.
+  public scanContextOverride?: ReqContextClass;
+
+  // The requester whose read access bounds what guard warnings name, when this
+  // context is an admin overlay (bulk publish) rather than the requester's own.
+  public warningReaderContext?: ReqContextClass;
+
+  // Proposed feature states for the bulk publisher's overlay scan context,
+  // keyed by feature id. Honored by getAllFeaturesWithoutEditorFields (the
+  // single funnel every cross-entity validator reads features through), so
+  // guards evaluating a config/constant publish see the batch's proposed
+  // feature values instead of live ones. Only ever set on a dedicated
+  // plan-scoped scan context — never on a context that performs writes.
+  public featureScanOverlay?: Map<string, FeatureInterface> | null;
+
+  // When set, queueSDKPayloadRefresh appends payload keys here instead of
+  // refreshing — the bulk publisher's side-effect buffer, so a multi-entity
+  // commit produces ONE deduped refresh (at most one rebuild per SDK
+  // connection) after every write lands, and none at all if the commit
+  // compensates. `treatEmptyProjectAsGlobal` ORs across buffered calls so the
+  // flush matches connections at least as widely as the suppressed refreshes
+  // would have. Cleared before the flush itself refreshes.
+  public sdkPayloadRefreshBuffer?: {
+    keys: SDKPayloadKey[];
+    treatEmptyProjectAsGlobal: boolean;
+    // Set when the flush drains the buffer. Fire-and-forget producers that
+    // captured the buffer reference before the flush (e.g. a model
+    // afterUpdate's async resolvable scan) fall through to a live refresh
+    // instead of pushing into a drained array nobody will read.
+    closed?: boolean;
+  } | null;
+
+  // `*.updated` events held for the duration of a release: the bulk publisher
+  // flushes them after the commit lands and drops them on compensation, so a
+  // rolled-back release emits none. Audit entries are NOT deferred — they record
+  // writes that genuinely happened, compensation included.
+  //
+  // Entries are tagged with the release item whose apply produced them: compensation
+  // drops the events of items it rolled back, and must still emit those of an item
+  // whose restore FAILED — that entity is durably changed, so silence would leave
+  // consumers permanently behind live state.
+  //
+  // `closed` is the terminal disposition for a producer that arrives after the release
+  // has been decided. Some producers await mid-way and are invoked fire-and-forget
+  // (`onFeatureUpdate`), so read-and-push atomicity does not keep them inside the
+  // window — they carry a reference to THIS buffer instead of consulting the field.
+  public bulkPublishDeferredEvents?: DeferredEventBuffer | null;
+  /**
+   * Where a restore reports the document it put back. Points at the live buffer's
+   * `restored` set for the duration of a landing, so the in-window flush and any late
+   * producer read the same answer.
+   */
+  public bulkPublishRestoredEntities?: Set<string> | null;
+
+  // Set by compensation that could NOT put live state back. The deferred events
+  // above are dropped on a failed landing because a rolled-back change never
+  // happened — but when the rollback itself failed, part of the change IS live,
+  // and staying silent leaves consumers describing state that exists.
+  //
+  // Only CONSUMED inside `withBufferedPayloadRefreshes`. The five landings that set
+  // it through `compensateFailedLanding` are not wrapped in it, so on those paths this
+  // is currently inert — harmless because they rethrow immediately and the request
+  // ends. That stops being true the moment one of them is wrapped: the flag would then
+  // be live and would need clearing, or a buffered landing later in the same request
+  // would fire deferred events for a change that was cleanly rolled back.
+  public landingLeftPartialState?: boolean;
+
+  // Correlation token for the multi-entity publish ATTEMPT currently
+  // committing (`pub_…`, minted per commit). Distinct from the future
+  // Release id: a Release may publish over several attempts, each minting
+  // its own token. Revision lifecycle events emitted while set carry it as
+  // `bulkPublishId`. Absent on single-entity publishes.
+  public bulkPublishId?: string | null;
+
+  // True ONLY while a bulk-publish commit is writing entities (the claim →
+  // apply → compensation window). Write-path guards that already ran as plan
+  // gates against the combined end-state stand down while it's set, since
+  // re-running them against the mid-commit mix would spuriously fail a
+  // plan-clean release. Distinct from `bulkPublishId` (the event-correlation
+  // token, which stays set through post-commit emission): post-commit side
+  // effects (e.g. ramp activation) are genuine writes NOT covered by the plan
+  // gates, so they must run with guards active — hence a separate flag.
+  public bulkPublishApplying?: boolean;
+
+  /**
+   * The request whose ignoreWarnings/skip* flags apply, when it isn't `req`.
+   * Set while a confirmed call replays (by the agent or decideConfirmation): the flags belong to
+   * that call, not to the chat request (web) or to its absence (Slack, which
+   * would otherwise read as a background job that ignores every warning).
+   */
+  public dispatchedRequest: OverrideSource | null = null;
+
+  /** Set while a confirmed request replays, so its hold lets the write through. */
+  public confirmationId: string | null = null;
+
   // Models
   public models!: ModelInstances;
   private initModels() {
     this.models = {
       agreements: new AgreementModel(this),
       aiPrompts: new AiPromptModel(this),
+      aiCredentials: new AICredentialModel(this),
       customFields: new CustomFieldModel(this),
       factMetrics: new FactMetricModel(this),
       featureRevisionLogs: new FeatureRevisionLogModel(this),
@@ -181,6 +387,7 @@ export class ReqContextClass {
       urlRedirects: new UrlRedirectModel(this),
       metricAnalysis: new MetricAnalysisModel(this),
       populationData: new PopulationDataModel(this),
+      populations: new PopulationModel(this),
       savedQueries: new SavedQueryDataModel(this),
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
@@ -195,21 +402,44 @@ export class ReqContextClass {
       dashboards: new DashboardModel(this),
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
+      aggregatedFactTables: new AggregatedFactTableModel(this),
+      aggregatedFactTableRuns: new AggregatedFactTableRunModel(this),
       experimentSnapshotAnalysisChunks:
         new ExperimentSnapshotAnalysisChunkModel(this),
       sqlResultChunks: new SqlResultChunkModel(this),
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
       savedGroups: new SavedGroupModel(this),
+      constants: new ConstantModel(this),
+      configs: new ConfigModel(this),
       teams: new TeamModel(this),
       analyticsExplorations: new AnalyticsExplorationModel(this),
       revisions: new RevisionModel(this),
       presentationThemes: new PresentationThemeModel(this),
       watch: new WatchModel(this),
+      figmaConnections: new FigmaConnectionModel(this),
+      slackWorkspaceConnections: new SlackWorkspaceConnectionModel(this),
+      slackUserLinks: new SlackUserLinkModel(this),
+      slackTaskClaims: new SlackTaskClaimModel(this),
       apiKeys: new ApiKeyModel(this),
+      confirmations: new ConfirmationModel(this),
+      confirmationAttempts: new ConfirmationAttemptModel(this),
+      oauthAuthCodes: new OAuthAuthCodeModel(this),
+      queryLogs: new QueryLogModel(this),
+      oauthGrants: new OAuthGrantModel(this),
+      oauthRefreshTokens: new OAuthRefreshTokenModel(this),
       rampSchedules: new RampScheduleModel(this),
+      autoRuns: new AutoRunModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
+      learnings: new LearningModel(this),
+      contextualBandits: new ContextualBanditModel(this),
+      contextualBanditQueries: new ContextualBanditQueryModel(this),
+      contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
+      interleavings: new InterleavingModel(this),
+      contextualBanditEvents: new ContextualBanditEventModel(this),
+      sessionReplays: new SessionReplayModel(this),
+      eventForwarderConfigs: new EventForwarderConfigModel(this),
     };
   }
 
@@ -218,17 +448,82 @@ export class ReqContextClass {
   public email = "";
   public userName = "";
   public superAdmin = false;
+
+  // The person a request acts for: the signed-in user, a personal token's
+  // owner, or the member whose role an org key assumes. Use it for owners,
+  // `mine` and anything that needs a person.
+  public get actingPerson(): {
+    id: string;
+    name: string;
+    email: string;
+  } | null {
+    if (this.userId) {
+      return { id: this.userId, name: this.userName, email: this.email };
+    }
+    const person = eventUserPerson(this.auditUser);
+    return person?.id
+      ? { id: person.id, name: person.name || "", email: person.email || "" }
+      : null;
+  }
+
+  // Who the request acts as for authorship, contributions and verdicts: its
+  // person, else the org key itself. Empty for the system.
+  public get actorId(): string {
+    return this.userId || eventUserIdentity(this.auditUser) || "";
+  }
+
+  // The org key behind a request that acts as the key itself.
+  public get keyActingAsItself(): string | null {
+    return this.apiKey && this.actorId === this.apiKey ? this.apiKey : null;
+  }
+
+  // An org key assuming a member's role may use that member's author rights
+  // only where its own role allows the action too, so it never does more than
+  // the key alone could. `check` runs against the key's own permissions.
+  public authorRightsAllow(check: (context: this) => boolean): boolean {
+    if (!this.assumingKeyPermissions) return true;
+    const keyContext: this = Object.create(this);
+    keyContext.permissions = this.assumingKeyPermissions;
+    return check(keyContext);
+  }
+
+  public get actingUserId(): string {
+    return this.actingPerson?.id ?? "";
+  }
+
+  public get actingUserName(): string {
+    return this.actingPerson?.name ?? "";
+  }
+
   public teams: TeamInterface[] = [];
   public role?: string;
   public isApiRequest = false;
   public environments: string[];
   public auditUser: EventUser;
   public apiKey?: string;
+  public apiKeyData?: ApiKeyInterface;
+  private scopedApiKey = false;
   public req?: Request;
   public logger: pino.BaseLogger;
   public permissions: Permissions;
+  private assumingKeyPermissions: Permissions | null = null;
 
   protected userPermissions: UserPermissions;
+
+  // Who a deferred action runs as: a scoped PAT as the key (so its cap travels
+  // with the work), a user as themselves, an org key as itself with its requester.
+  public get armer(): { userId?: string; apiKey?: string } {
+    if (this.scopedApiKey) return { apiKey: this.apiKey };
+    if (this.userId) return { userId: this.userId };
+    if (!this.apiKey) return {};
+    return {
+      apiKey: encodeArmingApiKeyId(this.apiKey, this.actingPerson?.id),
+    };
+  }
+
+  public get armerId(): string | null {
+    return this.armer.userId || this.armer.apiKey || null;
+  }
 
   public constructor({
     org,
@@ -239,6 +534,8 @@ export class ReqContextClass {
     apiKey,
     apiKeyData,
     req,
+    restrictedProjects = [],
+    userPermissions,
   }: {
     org: OrganizationInterface;
     user?: {
@@ -253,6 +550,8 @@ export class ReqContextClass {
     teams?: TeamInterface[];
     auditUser: EventUser;
     req?: Request;
+    restrictedProjects?: string[];
+    userPermissions?: UserPermissions;
   }) {
     this.org = org;
     this.auditUser = auditUser;
@@ -261,6 +560,7 @@ export class ReqContextClass {
     this.isApiRequest = auditUser?.type === "api_key";
     this.role = role;
     this.apiKey = apiKey;
+    this.apiKeyData = apiKeyData;
     this.req = req;
 
     if (this.req && this.req.log) {
@@ -277,7 +577,16 @@ export class ReqContextClass {
       this.email = user.email;
       this.userName = user.name || "";
       this.superAdmin = user.superAdmin || false;
-      this.userPermissions = getUserPermissions(user, org, teams || []);
+      this.scopedApiKey = !!apiKeyData?.scoped;
+      this.userPermissions = apiKeyData?.userId
+        ? getPersonalAccessTokenPermissions(
+            apiKeyData,
+            user,
+            org,
+            teams || [],
+            restrictedProjects,
+          )
+        : getUserPermissions(user, org, teams || [], restrictedProjects);
     }
     // If an API key or background job is making this request
     else {
@@ -291,11 +600,16 @@ export class ReqContextClass {
         environments: [] as string[],
       };
 
-      this.userPermissions = getRolePermissions(
+      const rolePermissions = getRolePermissions(
         { ...roleInfo, role },
         org,
         teams || [],
+        restrictedProjects,
       );
+      this.userPermissions = userPermissions ?? rolePermissions;
+      if (userPermissions) {
+        this.assumingKeyPermissions = new Permissions(rolePermissions);
+      }
     }
 
     this.permissions = new Permissions(this.userPermissions);
@@ -303,8 +617,103 @@ export class ReqContextClass {
     this.initModels();
   }
 
+  // True to skip soft warnings; background jobs (no req) always ignore.
+  // Body-canonical (`{ "ignoreWarnings": true }`) with the querystring form
+  // kept as a deprecated alias — the flag is request disposition, but callers
+  // (agents especially) discover and retry flags far more reliably in the body
+  // schema. Strict zod body schemas mostly limit the flag to endpoints that
+  // declare the field, but not fully: `z.never()` bodies and internal routes
+  // skip body validation, so this getter can still see the raw flag there.
+  public get ignoreWarnings(): boolean {
+    const req = this.overrideSource;
+    if (!req) return true;
+    if (this.bodyFlag("ignoreWarnings")) return true;
+    const v = req.query?.ignoreWarnings;
+    if (typeof v !== "string") return false;
+    return stringToBoolean(v);
+  }
+
+  private get overrideSource(): OverrideSource | undefined {
+    return this.dispatchedRequest ?? this.req;
+  }
+
+  private bodyFlag(field: string): boolean {
+    const body = this.overrideSource?.body;
+    return (
+      !!body &&
+      typeof body === "object" &&
+      (body as Record<string, unknown>)[field] === true
+    );
+  }
+
+  // Opt-in escape hatch to skip JSON-schema / value-shape conformance checks on
+  // write paths (body-canonical `{ "skipSchemaValidation": true }`, with the
+  // querystring form as a deprecated alias). Validation is enforced by
+  // default; this only relaxes it when a caller explicitly asks. Background jobs
+  // (no req) never skip — they must produce conforming data.
+  //
+  // Gated: turning off hard validation is only honored for callers with org-wide
+  // bypass authority (`FlagsBypassApprovals` on all projects). A project-scoped
+  // writer can't silently ship non-conforming data — the flag is ignored and
+  // validation still runs (a 4xx, the secure default). Schema validation is new,
+  // so nothing depends on an ungated bypass.
+  // These request flags are entity-agnostic; the publish gates re-check the
+  // specific entity's bypass atom per gate (requiresPermission).
+  // Bypass is per FAMILY now, so the authority behind a privileged skip is
+  // resolved for the entity being written — ORing across the three models let
+  // an org-wide Constants bypass clear Config and Feature schema validation.
+  // Bulk publish already resolves per item; these keep single-entity paths on
+  // the same rule.
+  private hasFlagBypassAuthorityFor(
+    model: "feature" | "config" | "constant" | "saved-group",
+  ): boolean {
+    if (model === "saved-group") {
+      return this.permissions.canRevisionAction("saved-group", "bypass", {
+        projects: [],
+      });
+    }
+    return this.permissions.canBypassFlagApprovalChecks(
+      { project: undefined },
+      model,
+    );
+  }
+
+  private skipRequested(flag: "skipSchemaValidation" | "skipHooks"): boolean {
+    const req = this.overrideSource;
+    if (!req) return false;
+    const queryValue = req.query?.[flag];
+    return (
+      this.bodyFlag(flag) ||
+      (typeof queryValue === "string" && stringToBoolean(queryValue))
+    );
+  }
+
+  public canSkipSchemaValidationFor(
+    model: "feature" | "config" | "constant" | "saved-group",
+  ): boolean {
+    return (
+      this.skipRequested("skipSchemaValidation") &&
+      this.hasFlagBypassAuthorityFor(model)
+    );
+  }
+
+  // Force past a custom validation hook that rejected the change. Its own flag
+  // (not skipSchemaValidation — a hook failure isn't a schema error), honored
+  // only for callers with org-wide bypass authority on the entity's own family.
+  public canSkipHooksFor(
+    model: "feature" | "config" | "constant" | "saved-group",
+  ): boolean {
+    return (
+      this.skipRequested("skipHooks") && this.hasFlagBypassAuthorityFor(model)
+    );
+  }
+
   public throwBadRequestError(message: string): never {
     throw new BadRequestError(message);
+  }
+
+  public throwPaymentRequiredError(message: string): never {
+    throw new PaymentRequiredError(message);
   }
 
   public throwUnauthorizedError(message: string): never {
@@ -352,6 +761,26 @@ export class ReqContextClass {
     return orgHasPremiumFeature(this.org, feature);
   }
 
+  // Stable hash of this user's resolved permissions. Used to vary the
+  // `/organization/definitions` ETag, since that response is permission
+  // filtered per user. Over-invalidation on any perm change is fine (extra
+  // 200, never stale).
+  private _permissionsFingerprint?: string;
+  public getPermissionsFingerprint(): string {
+    if (this._permissionsFingerprint === undefined) {
+      this._permissionsFingerprint = md5(JSON.stringify(this.userPermissions));
+    }
+    return this._permissionsFingerprint;
+  }
+
+  private _limits: OrgLimitsAccessor | null = null;
+  public get limits(): OrgLimitsAccessor {
+    if (!this._limits) {
+      this._limits = getEffectiveOrgLimits(this.org);
+    }
+    return this._limits;
+  }
+
   // Record an audit log entry
   public async auditLog(data: AuditInterfaceInput) {
     const apiKeyUser =
@@ -362,6 +791,8 @@ export class ReqContextClass {
           id: apiKeyUser?.id,
           name: apiKeyUser?.name,
           email: apiKeyUser?.email,
+          requestedBy: apiKeyUser?.requestedBy,
+          assumedRole: apiKeyUser?.assumedRole,
         }
       : this.userId
         ? {
@@ -399,10 +830,7 @@ export class ReqContextClass {
     await this.addMissingForeignRefs("experiment", experiment, (ids) =>
       getExperimentsByIds(this, ids),
     );
-    // An org doesn't have that many data sources, so we just fetch them all
-    await this.addMissingForeignRefs("datasource", datasource, () =>
-      getDataSourcesByOrganization(this),
-    );
+    await this.loadDataSourceRefs(datasource);
     await this.addMissingForeignRefs("metric", metric, (ids) =>
       getExperimentMetricsByIds(this, ids),
     );
@@ -410,6 +838,46 @@ export class ReqContextClass {
       getFeaturesByIds(this, ids),
     );
   }
+
+  /**
+   * Fetches only the requested data sources, once per request. Concurrent
+   * lookups share a load, and an id still missing afterwards isn't in the org
+   * or isn't readable, so it isn't refetched.
+   */
+  private dataSourceLoads = new Map<string, Promise<void>>();
+  private async loadDataSourceRefs(ids: string[] | undefined): Promise<void> {
+    if (!ids?.length) return;
+    const loads = this.dataSourceLoads;
+    const missing = [...new Set(ids)].filter(
+      (id) => !this.foreignRefs.datasource.has(id) && !loads.has(id),
+    );
+    if (missing.length) {
+      const load: Promise<void> = getDataSourcesByIds(this, missing).then(
+        (datasources) => {
+          // A forget during the load means these may already be stale.
+          if (this.dataSourceLoads !== loads) return;
+          datasources.forEach((ds) =>
+            this.foreignRefs.datasource.set(ds.id, ds),
+          );
+        },
+        (error) => {
+          missing.forEach((id) => {
+            if (loads.get(id) === load) loads.delete(id);
+          });
+          throw error;
+        },
+      );
+      missing.forEach((id) => loads.set(id, load));
+    }
+    await Promise.all(ids.map((id) => loads.get(id)));
+  }
+
+  /** Called after a data source write, so later reads in the request see it. */
+  public forgetDataSourceRefs(): void {
+    this.foreignRefs.datasource.clear();
+    this.dataSourceLoads = new Map();
+  }
+
   private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(
     type: K,
     ids: string[] | undefined,
@@ -424,6 +892,17 @@ export class ReqContextClass {
         this.foreignRefs[type].set(ref.id, ref as any);
       });
     }
+  }
+
+  /**
+   * Defined on the context so validation helpers needn't import
+   * DataSourceModel. Uncached, and never written to foreignRefs because
+   * serializers read those.
+   */
+  public async dangerouslyGetDataSourceByIdBypassPermission(
+    id: string,
+  ): Promise<DataSourceInterface | null> {
+    return dangerouslyGetDataSourceByIdBypassPermission(this, id);
   }
 
   // This is defined on the context to prevent a circular dependency between UserModel and BaseModel
@@ -446,6 +925,24 @@ export class ReqContextClass {
       return projects;
     }
     return this._projects;
+  }
+
+  // Cached, unfiltered by read permissions (internal fan-out, unlike getProjects()).
+  private _allProjectIds: string[] | null = null;
+  public async getAllProjectIds(): Promise<string[]> {
+    if (this._allProjectIds === null) {
+      this._allProjectIds = await this.models.projects.getAllIdsForOrg();
+    }
+    return this._allProjectIds;
+  }
+
+  private _targetingOptOutProjectIds: string[] | null = null;
+  public async getTargetingOptOutProjectIds(): Promise<string[]> {
+    if (this._targetingOptOutProjectIds === null) {
+      this._targetingOptOutProjectIds =
+        await this.models.projects.getTargetingOptOutIds();
+    }
+    return this._targetingOptOutProjectIds;
   }
 
   // Tags can be created on the fly, so we cache which ones already exist

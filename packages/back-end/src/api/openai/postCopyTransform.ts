@@ -5,12 +5,10 @@ import {
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
 import {
-  secondsUntilAICanBeUsedAgain,
+  secondsUntilAICanBeUsedAgainForModel,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-
-const OPENAI_ENABLED = !!process.env.OPENAI_API_KEY;
 
 interface PostCopyTransformResponse {
   visualChangeset: ApiVisualChangeset;
@@ -34,6 +32,7 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/transform-copy",
+  confirmation: [],
   operationId: "postCopyTransform",
 };
 
@@ -42,7 +41,7 @@ const instructions = `You are an assistant whose job is to take a sentence from 
 const getPrompt = (
   text: string,
   mode: (typeof transformModes)[number],
-) => `Improve the following text, delimited by hypens, into a version that is more ${mode}. Keep the length of the sentence same.
+) => `Improve the following text, delimited by hyphens, into a version that is more ${mode}. Keep the length of the sentence same.
 ---
 ${text}
 ---
@@ -51,8 +50,9 @@ ${text}
 export const postCopyTransform = createApiRequestHandler(validation)(async (
   req,
 ): Promise<PostCopyTransformResponse> => {
-  if (!OPENAI_ENABLED) throw new Error("OPENAI_API_KEY not defined");
-
+  // No env-key precheck: it gated on OPENAI_API_KEY while the completion below
+  // runs the org's *default* model, so it failed BYOK orgs and any host on a
+  // non-OpenAI key. getAIProviderClass throws the accurate error instead.
   const { copy, mode, visualChangesetId } = req.body;
 
   const context = req.context;
@@ -63,7 +63,8 @@ export const postCopyTransform = createApiRequestHandler(validation)(async (
 
   if (!visualChangeset) throw new Error("Visual Changeset not found");
 
-  if (await secondsUntilAICanBeUsedAgain(req.organization)) {
+  // Gate on the default model's provider — BYOK isn't spending our budget.
+  if (await secondsUntilAICanBeUsedAgainForModel(context)) {
     return {
       visualChangeset: toVisualChangesetApiInterface(visualChangeset),
       original: copy,

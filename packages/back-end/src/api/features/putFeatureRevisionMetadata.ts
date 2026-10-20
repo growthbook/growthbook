@@ -1,24 +1,32 @@
 import type { OrganizationInterface } from "shared/types/organization";
+import type { JSONSchemaDef } from "shared/types/feature";
+import { normalizeTargetingInUpdates } from "shared/util";
 import { putFeatureRevisionMetadataValidator } from "shared/validators";
 import { RevisionChanges } from "shared/types/feature-revision";
+import {
+  assertTargetingDestination,
+  withStagedTargeting,
+} from "shared/permissions";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { stampApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getEnabledEnvironments } from "back-end/src/util/features";
-import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
+import { stagingTargetingBase } from "back-end/src/revisions/featureDraftAuthority";
 import {
   discardIfJustCreated,
   isDraftStatus,
   validateCustomFields,
   resolveOrCreateRevision,
 } from "./validations";
+import { assertConfigSchemaCompat, assertValidProjectIds } from "./v2Shared";
 
 export type RevisionMetadataBody = {
   comment?: string;
@@ -26,9 +34,12 @@ export type RevisionMetadataBody = {
   description?: string;
   owner?: unknown;
   project?: string;
+  targetingAllProjects?: boolean;
+  targetingProjects?: string[];
   tags?: string[];
   neverStale?: boolean;
   customFields?: Record<string, unknown>;
+  jsonSchema?: Omit<JSONSchemaDef, "date"> & { date?: Date };
   [k: string]: unknown;
 };
 
@@ -41,10 +52,7 @@ export async function setRevisionMetadata(
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
@@ -68,14 +76,15 @@ export async function setRevisionMetadata(
       ]);
     }
 
-    const orgEnvs = getEnvironmentIdsFromOrg(context.org);
-    const enabledEnvs = Array.from(getEnabledEnvironments(feature, orgEnvs));
+    // Draft moves require draft authority in the destination.
     if (
-      !context.permissions.canPublishFeature(feature, enabledEnvs) ||
-      !context.permissions.canPublishFeature(
-        { project: metadataFields.project },
-        enabledEnvs,
-      )
+      !holdsMoveDestination({
+        permissions: context.permissions,
+        model: "feature",
+        action: "draft",
+        existing: feature,
+        proposed: { ...feature, project: metadataFields.project },
+      })
     ) {
       context.permissions.throwPermissionError();
     }
@@ -86,6 +95,25 @@ export async function setRevisionMetadata(
       metadataFields.customFields as Record<string, unknown>,
       context,
       metadataFields.project ?? feature.project,
+    );
+  }
+
+  if (metadataFields.jsonSchema) {
+    if (
+      metadataFields.jsonSchema.enabled &&
+      !context.hasPremiumFeature("json-validation")
+    ) {
+      context.throwPlanDoesNotAllowError(
+        "JSON schema validation requires a premium plan.",
+      );
+    }
+    assertConfigSchemaCompat({
+      jsonSchemaEnabled: metadataFields.jsonSchema.enabled,
+      baseConfig: feature.baseConfig,
+    });
+    metadataFields.jsonSchema = stampApiJsonSchema(
+      metadataFields.jsonSchema,
+      feature.valueType,
     );
   }
 
@@ -103,6 +131,18 @@ export async function setRevisionMetadata(
         `Cannot edit a revision with status "${revision.status}"`,
       );
     }
+
+    const draft = created ? null : revision;
+    const stagedTargeting = withStagedTargeting(feature, draft?.metadata);
+    normalizeTargetingInUpdates(metadataFields, stagedTargeting);
+    assertTargetingDestination({
+      permissions: context.permissions,
+      existing: await stagingTargetingBase(context, feature, draft),
+      proposed: withStagedTargeting(stagedTargeting, metadataFields),
+      optedOut: await context.getTargetingOptOutProjectIds(),
+    });
+    // After the gate so an unreadable id cannot be probed for existence.
+    await assertValidProjectIds(metadataFields.targetingProjects, context);
 
     const changes: RevisionChanges = {};
     if (comment !== undefined) changes.comment = comment;
@@ -126,19 +166,12 @@ export async function setRevisionMetadata(
 
     // Tags are registered in the org's tag collection on publish (not here)
     // so discarded drafts don't leak orphaned tags.
-    await updateRevision(
-      context,
-      feature,
-      revision,
-      changes,
-      {
-        user: context.auditUser,
-        action: "edit metadata",
-        subject: "",
-        value: JSON.stringify(changes),
-      },
-      false,
-    );
+    await updateRevision(context, feature, revision, changes, {
+      user: context.auditUser,
+      action: "edit metadata",
+      subject: "",
+      value: JSON.stringify(changes),
+    });
 
     const updated = await getRevision({
       context,
@@ -150,6 +183,10 @@ export async function setRevisionMetadata(
     const finalRevision = updated ?? revision;
 
     await recordRevisionUpdate(context, feature, finalRevision, "metadata", {
+      // No environment-scoped impact — see recordRevisionUpdate. Omitting this lets
+      // routing derive environments from the revision's RULES, sending a metadata
+      // edit to every environment-filtered subscriber those rules touch.
+      environments: [],
       auditDetails: { fields: Object.keys(changes) },
     });
 

@@ -3,6 +3,7 @@ import { FaPencilAlt } from "react-icons/fa";
 import { DimensionInterface } from "shared/types/dimension";
 import NextLink from "next/link";
 import { ago } from "shared/dates";
+import { getExposureQueryIdentifierTypes } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import Link from "@/ui/Link";
@@ -17,7 +18,6 @@ import { DocLink } from "@/components/DocLink";
 import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useSearch } from "@/services/search";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -51,22 +51,18 @@ function getExperimentDimensions(
     ds.settings.queries?.exposure?.forEach((eq) => {
       eq.dimensions.forEach((d) => {
         const key = `${d}-${ds.id}`;
-        if (!collapsedExperimentDimensions[key]) {
-          collapsedExperimentDimensions[key] = {
-            id: key,
-            dimension: d,
-            datasourceName: ds.name,
-            datasourceId: ds.id,
-            identifierTypes: [eq.userIdType],
-          };
-        } else if (
-          !collapsedExperimentDimensions[key].identifierTypes.includes(
-            eq.userIdType,
-          )
-        ) {
-          collapsedExperimentDimensions[key].identifierTypes.push(
-            eq.userIdType,
-          );
+        collapsedExperimentDimensions[key] ??= {
+          id: key,
+          dimension: d,
+          datasourceName: ds.name,
+          datasourceId: ds.id,
+          identifierTypes: [],
+        };
+        const { identifierTypes } = collapsedExperimentDimensions[key];
+        for (const identifierType of getExposureQueryIdentifierTypes(eq)) {
+          if (!identifierTypes.includes(identifierType)) {
+            identifierTypes.push(identifierType);
+          }
         }
       });
     });
@@ -88,9 +84,7 @@ const DimensionsPage: FC = () => {
   const { getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
-  const { currentProjectIsDemo } = useDemoDataSourceProject();
-  const hasCreateDimensionPermission =
-    permissionsUtil.canCreateDimension() && !currentProjectIsDemo;
+  const hasCreateDimensionPermission = permissionsUtil.canCreateDimension();
   const hasEditDimensionPermission = permissionsUtil.canUpdateDimension();
   const hasDeleteDimensionPermissions = permissionsUtil.canDeleteDimension();
   const orgCanCreateDimensions = hasFileConfig()
@@ -148,7 +142,9 @@ const DimensionsPage: FC = () => {
       <Box className="container-fluid pagecontents" p="3">
         <Flex align="center" gap="2" mb="3">
           <h1 style={{ margin: 0 }}>User Dimensions</h1>
-          <DocLink docSection="dimensions">View Documentation</DocLink>
+          <DocLink useRadix={false} docSection="dimensions">
+            View Documentation
+          </DocLink>
         </Flex>
         <Callout status="info">
           Dimensions are only available if you connect GrowthBook to a
@@ -227,7 +223,7 @@ const DimensionsPage: FC = () => {
                     {item.identifierTypes.join(", ")}
                   </TableCell>
                   <TableCell style={{ width: 30 }} className="text-right">
-                    <MoreMenu useRadix={true}>
+                    <MoreMenu>
                       <NextLink
                         className="dropdown-item"
                         href={`/datasources/${item.datasourceId}#${EAQ_ANCHOR_ID}`}
@@ -365,6 +361,7 @@ const DimensionsPage: FC = () => {
                         ) : null}
                         {hasDeleteDimensionPermissions ? (
                           <DeleteButton
+                            useRadix={false}
                             link={true}
                             className="tr-hover text-primary"
                             displayName={s.name}
@@ -400,7 +397,9 @@ const DimensionsPage: FC = () => {
         <Callout status="info">
           It looks like you have a <code>config.yml</code> file. Dimensions
           defined there will show up on this page.{" "}
-          <DocLink docSection="config_yml">View Documentation</DocLink>
+          <DocLink useRadix={false} docSection="config_yml">
+            View Documentation
+          </DocLink>
         </Callout>
       )}
     </Box>

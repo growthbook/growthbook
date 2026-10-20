@@ -9,7 +9,7 @@ on:
 jobs:
   auto-approve:
     runs-on: ubuntu-latest
-    if: ${{ github.event.pull_request.draft == false }}
+    if: ${{ github.event.pull_request.draft == false && github.event.pull_request.user.type != 'Bot' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -24,7 +24,7 @@ jobs:
           OWNER=${{ github.repository_owner }}
           REPO=${{ github.event.repository.name }}
 
-          RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          RESPONSE=$(curl -s --globoff -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             https://api.github.com/repos/$OWNER/$REPO/collaborators/$USER/permission)
           PERMISSION=$(echo $RESPONSE | jq -r .permission)
 
@@ -48,16 +48,19 @@ jobs:
 
       - name: Get list of changed files in the PR
         id: get_changed_files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          OWNER=${{ github.repository_owner }}
-          REPO=${{ github.event.repository.name }}
-          PR_NUMBER=${{ github.event.pull_request.number }}
-
-          CHANGED_FILES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/repos/$OWNER/$REPO/pulls/$PR_NUMBER/files)
-
-          echo "$CHANGED_FILES" | jq -r '.[].filename' > changed_files.txt
+          # The files endpoint pages at 30 by default; without --paginate later code files were never checked.
+          gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            --jq '.[].filename' > changed_files.txt
           echo "Changed files: $(cat changed_files.txt)"
+
+          # Fail closed if the list is incomplete (the API caps at 3000 files).
+          if [ "$(wc -l < changed_files.txt)" -ne "${{ github.event.pull_request.changed_files }}" ]; then
+            echo "Changed-file count mismatch; refusing to auto-approve."
+            exit 1
+          fi
 
       - name: Check if all changed files are markdown or mdx
         id: check_markdown_files

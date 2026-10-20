@@ -3,9 +3,15 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
+import { URLRedirectInterface } from "shared/types/url-redirect";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
-import { experimentHasLiveLinkedChanges } from "shared/util";
+import {
+  resolveAnalysisIdentifierType,
+  experimentHasLiveLinkedChanges,
+  getHoldoutStage,
+} from "shared/util";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
@@ -45,6 +51,7 @@ import { useWatching } from "@/services/WatchProvider";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { convertExperimentToTemplate } from "@/services/experiments";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
@@ -52,7 +59,11 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
-import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
+import ScheduledEndPassedBanner from "@/components/Experiment/TabbedPage/ScheduledEndPassedBanner";
+import StartExperimentModal, {
+  PendingDraftFailure,
+} from "@/components/Experiment/TabbedPage/StartExperimentModal";
+import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
@@ -60,6 +71,7 @@ import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RemoveFromHoldoutModal from "@/components/Experiment/holdout/RemoveFromHoldoutModal";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
+import { datasourcesWithoutHealthData } from "@/components/HealthTab/constants";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
@@ -83,20 +95,18 @@ export interface Props {
   safeToEdit: boolean;
   mutateWatchers: () => void;
   usersWatching: (string | undefined)[];
-  checklistItemsRemaining: number | null;
-  checklistHardBlockerCount: number;
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
   editTags?: (() => void) | null;
   healthNotificationCount: number;
   linkedFeatures: LinkedFeatureInfo[];
+  visualChangesets: VisualChangesetInterface[];
+  urlRedirects: URLRedirectInterface[];
   holdout?: HoldoutInterfaceStringDates;
   showDashboardView: boolean;
   editSchedule?: (() => void) | null;
 }
-
-const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
 
 const HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP = {
   start: "Holdout starts ",
@@ -144,14 +154,14 @@ export default function ExperimentHeader({
   usersWatching,
   mutateWatchers,
   editResult,
-  checklistItemsRemaining,
-  checklistHardBlockerCount,
   editTargeting,
   newPhase,
   editPhases,
   editTags,
   healthNotificationCount,
   linkedFeatures,
+  visualChangesets,
+  urlRedirects,
   holdout,
   showDashboardView,
   editSchedule,
@@ -165,6 +175,11 @@ export default function ExperimentHeader({
   const dataSource = getDatasourceById(experiment.datasource);
   const startCelebration = useCelebration();
   const { snapshot, phase, analysis } = useSnapshot();
+  const {
+    checklistItemsRemaining,
+    checklistHardBlockerCount,
+    incompleteChecklistItems,
+  } = usePreLaunchChecklist();
 
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -201,9 +216,13 @@ export default function ExperimentHeader({
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
+  const exposureQuery = datasourceSettings?.queries?.exposure?.find(
     (e) => e.id === experiment.exposureQueryId,
-  )?.userIdType;
+  );
+  const userIdType = resolveAnalysisIdentifierType(
+    exposureQuery,
+    experiment.exposureQueryIdentifierType,
+  );
 
   const reportArgs: ExperimentSnapshotReportArgs = {
     userIdType: userIdType as "user" | "anonymous" | undefined,
@@ -216,6 +235,12 @@ export default function ExperimentHeader({
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  // Structured per-feature failures from the last failed start attempt
+  // (pending_draft_publish_failed) — lets the start modal link each blocked
+  // feature draft instead of only showing the error string.
+  const [pendingDraftFailures, setPendingDraftFailures] = useState<
+    PendingDraftFailure[]
+  >([]);
 
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
@@ -242,12 +267,15 @@ export default function ExperimentHeader({
     permissionsUtil.canViewExperimentTemplateModal(experiment.project) &&
     hasCommercialFeature("templates");
 
-  const isUsingHealthUnsupportDatasource =
+  const isUsingHealthUnsupportedDatasource =
     !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
-  const disableHealthTab = isUsingHealthUnsupportDatasource;
+  const disableHealthTab = isUsingHealthUnsupportedDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
+  const holdoutStage = holdout
+    ? getHoldoutStage(holdout, experiment)
+    : undefined;
 
   const hasResults = !!analysis?.results?.[0];
 
@@ -282,11 +310,14 @@ export default function ExperimentHeader({
     return () => observer.disconnect();
   }, [shouldHideTabs]);
 
+  // When the tab strip is hidden (e.g. an unstarted draft), the only
+  // reachable view is the overview, so force the active tab there. Once `tab`
+  // is already "overview" this is a no-op, so Back exits cleanly.
   useEffect(() => {
-    if (shouldHideTabs) {
+    if (shouldHideTabs && tab !== "overview") {
       setTab("overview");
     }
-  }, [shouldHideTabs, setTab]);
+  }, [shouldHideTabs, tab, setTab]);
 
   async function handleWatchUpdates(watch: boolean) {
     await apiCall(
@@ -310,6 +341,7 @@ export default function ExperimentHeader({
       }
     }
 
+    setPendingDraftFailures([]);
     if (isHoldout) {
       await apiCall(`/holdout/${holdout?.id}/edit-status`, {
         method: "POST",
@@ -319,12 +351,23 @@ export default function ExperimentHeader({
         }),
       });
     } else {
-      await apiCall(`/experiment/${experiment.id}/status`, {
-        method: "POST",
-        body: JSON.stringify({
-          status: "running",
-        }),
-      });
+      await apiCall(
+        `/experiment/${experiment.id}/status`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            status: "running",
+          }),
+        },
+        (responseData) => {
+          if (
+            responseData?.code === "pending_draft_publish_failed" &&
+            Array.isArray(responseData?.details?.failedFeatureDrafts)
+          ) {
+            setPendingDraftFailures(responseData.details.failedFeatureDrafts);
+          }
+        },
+      );
     }
     await mutate();
     startCelebration();
@@ -332,6 +375,8 @@ export default function ExperimentHeader({
     track("Start experiment", {
       source: "experiment-start-banner",
       action: "main CTA",
+      hasDatasource: !!dataSource,
+      hasExperimentAssignmentQuery: !!experiment.exposureQueryId,
     });
     setTab("results");
   }
@@ -446,6 +491,17 @@ export default function ExperimentHeader({
         experiment={experiment}
         runningExperimentStatus={runningExperimentStatus}
         decisionCriteria={decisionCriteria}
+      />
+    ) : null;
+
+  const scheduledEndPassedBanner =
+    experiment.status === "running" && !isHoldout && !isBandit ? (
+      <ScheduledEndPassedBanner
+        experiment={experiment}
+        runningExperimentStatus={runningExperimentStatus}
+        editSchedule={
+          canEditExperiment && editSchedule ? () => editSchedule() : undefined
+        }
       />
     ) : null;
 
@@ -667,12 +723,20 @@ export default function ExperimentHeader({
       {showStartExperiment && experiment.status === "draft" && (
         <StartExperimentModal
           experiment={experiment}
-          close={() => setShowStartExperiment(false)}
+          close={() => {
+            setShowStartExperiment(false);
+            setPendingDraftFailures([]);
+          }}
           startExperiment={startExperiment}
+          pendingDraftFailures={pendingDraftFailures}
           scheduleExperiment={approveScheduledExperimentStart}
           checklistItemsRemaining={checklistItemsRemaining || 0}
           checklistHardBlockerCount={checklistHardBlockerCount}
+          incompleteChecklistItems={incompleteChecklistItems}
           isHoldout={isHoldout}
+          linkedFeatures={linkedFeatures}
+          visualChangesets={visualChangesets}
+          urlRedirects={urlRedirects}
         />
       )}
       {showScheduleModal && !isHoldout ? (
@@ -680,12 +744,13 @@ export default function ExperimentHeader({
           experiment={experiment}
           close={() => setShowScheduleModal(false)}
           mutate={mutate}
+          envs={envs}
         />
       ) : null}
       {showTemplateForm && (
         <TemplateForm
           onClose={() => setShowTemplateForm(false)}
-          initialValue={convertExperimentToTemplate(experiment)}
+          initialValue={convertExperimentToTemplate(experiment, exposureQuery)}
           isNewTemplate
           source="experiment"
         />
@@ -697,7 +762,6 @@ export default function ExperimentHeader({
           close={() => setShareModalOpen(false)}
           closeCta="Close"
           header={`Share "${experiment.name}"`}
-          useRadixButton={true}
           secondaryCTA={shareLinkButton}
         >
           <div className="mb-3">
@@ -718,6 +782,7 @@ export default function ExperimentHeader({
           </div>
 
           <SelectField
+            size="legacy"
             label="View access"
             value={shareLevel}
             onChange={(v: ShareLevel) => setShareLevel(v)}
@@ -767,17 +832,20 @@ export default function ExperimentHeader({
         }
       >
         <Flex direction="row" align="start" justify="between" gap="5">
-          <Box>
-            <h1
-              className="mb-0"
-              style={{ display: "inline", verticalAlign: "middle" }}
+          <Flex align="center" gap="2">
+            <Heading
+              as="h1"
+              size="2xl"
+              color="text-high"
+              overflowWrap="anywhere"
+              weight="medium"
             >
               {experiment.name}
-            </h1>
-            <Box ml="2" mt="1" display="inline-block">
+            </Heading>
+            <Box style={{ userSelect: "none" }}>
               <ExperimentStatusIndicator experimentData={experiment} />
             </Box>
-          </Box>
+          </Flex>
 
           <Flex direction="row" align="center" gap="2" flexShrink="0">
             {isHoldout && holdout?.nextScheduledStatusUpdate ? (
@@ -803,7 +871,7 @@ export default function ExperimentHeader({
                     editTargeting={canRunExperiment ? editTargeting : undefined}
                     isBandit={isBandit}
                     runningExperimentStatus={runningExperimentStatus}
-                    holdout={holdout}
+                    holdoutStage={holdoutStage}
                   />
                 ) : experiment.status === "draft" && nextScheduledStartDate ? (
                   <Button
@@ -829,7 +897,7 @@ export default function ExperimentHeader({
                         linkedFeatures,
                       )
                     }
-                    body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
+                    body="Add at least one live Linked Feature, AI Visual Editor change, or URL Redirect before starting."
                   >
                     <Button
                       variant={checklistReady ? "solid" : "soft"}
@@ -970,10 +1038,10 @@ export default function ExperimentHeader({
                           }}
                         >
                           <Tooltip
-                            body={`Override Holdout schedule and manually ${!holdout?.analysisStartDate ? "start next phase" : "stop Holdout"} now`}
+                            body={`Override Holdout schedule and manually ${holdoutStage === "running" ? "start next phase" : "stop Holdout"} now`}
                             tipPosition="left"
                           >
-                            {!holdout?.analysisStartDate
+                            {holdoutStage === "running"
                               ? "Start Analysis Phase"
                               : "Stop Holdout"}
                           </Tooltip>
@@ -1200,6 +1268,11 @@ export default function ExperimentHeader({
             {runningExperimentDecisionBanner}
           </Box>
         ) : null}
+        {scheduledEndPassedBanner ? (
+          <Box pt="1" pb="1">
+            {scheduledEndPassedBanner}
+          </Box>
+        ) : null}
       </div>
 
       {shouldHideTabs ? null : (
@@ -1226,7 +1299,7 @@ export default function ExperimentHeader({
                   onValueChange={setTab}
                   style={{ width: "100%" }}
                 >
-                  <TabsList size="3">
+                  <TabsList size="lg">
                     <Flex align="center" className="flex-1">
                       <TabsTrigger value="overview">Overview</TabsTrigger>
                       <TabsTrigger value="results">Results</TabsTrigger>
@@ -1260,7 +1333,7 @@ export default function ExperimentHeader({
                       {hasMultiplePhases ? (
                         <>
                           <div className="flex-1" />
-                          <Text size="medium" weight="medium">
+                          <Text size="md" weight="medium">
                             <PhaseSelector
                               phase={phase}
                               phases={experiment.phases}

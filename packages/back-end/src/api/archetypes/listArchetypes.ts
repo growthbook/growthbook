@@ -8,6 +8,13 @@ import {
 
 export const listArchetypes = createApiRequestHandler(listArchetypesValidator)(
   async (req) => {
+    if (!req.context.hasPremiumFeature("archetypes")) {
+      req.context.throwPlanDoesNotAllowError(
+        "Archetypes require a premium plan.",
+      );
+    }
+
+    // Private ones list for their signed-in owner only, never for a key naming them.
     const archetypes = await getAllArchetypes(
       req.context.org.id,
       req.context.userId,

@@ -1,9 +1,35 @@
 import nodeFetch, { type RequestInit, type Response } from "node-fetch";
 import { ProxyAgent } from "proxy-agent";
 import { logger } from "./logger";
-import { API_USER_AGENT, USE_PROXY, WEBHOOK_PROXY } from "./secrets";
+import {
+  API_USER_AGENT,
+  MAX_WEBHOOK_TIMEOUT_SECONDS,
+  USE_PROXY,
+  WEBHOOK_PROXY,
+} from "./secrets";
 
-let useWebhookProxy = true;
+const DEFAULT_WEBHOOK_TIMEOUT_SECONDS = 30;
+
+// Clamped at read time too, so lowering MAX_WEBHOOK_TIMEOUT_SECONDS later still applies to stored webhooks
+export function getWebhookTimeoutMs(timeoutSeconds?: number | null) {
+  return (
+    Math.min(
+      timeoutSeconds ?? DEFAULT_WEBHOOK_TIMEOUT_SECONDS,
+      MAX_WEBHOOK_TIMEOUT_SECONDS,
+    ) * 1000
+  );
+}
+
+export function validateWebhookTimeoutSeconds(timeoutSeconds?: number | null) {
+  if (
+    typeof timeoutSeconds === "number" &&
+    timeoutSeconds > MAX_WEBHOOK_TIMEOUT_SECONDS
+  ) {
+    throw new Error(
+      `Webhook timeout must be at most ${MAX_WEBHOOK_TIMEOUT_SECONDS} seconds`,
+    );
+  }
+}
 
 export type CancellableFetchCriteria = {
   maxContentSize: number;
@@ -23,22 +49,44 @@ export function fetch(url: string, init?: RequestInit) {
   });
 }
 
-export function getHttpOptions() {
-  if (useWebhookProxy && WEBHOOK_PROXY) {
-    logger.debug("using webhook proxy");
-    return {
-      agent: new ProxyAgent({
-        getProxyForUrl: () => WEBHOOK_PROXY,
-      }),
-    };
-  } else if (WEBHOOK_PROXY) {
-    logger.debug("not using webhook proxy");
+export function getHttpOptions(
+  getProxyForUrl: (url: string) => string = () => WEBHOOK_PROXY,
+) {
+  if (WEBHOOK_PROXY) {
+    return { agent: new ProxyAgent({ getProxyForUrl }) };
   }
-
   if (USE_PROXY) {
     return { agent: new ProxyAgent() };
   }
   return {};
+}
+
+// Identity providers we configure ourselves, so SSO keeps working while the proxy restarts.
+const AUTH_PROXY_BYPASS_DOMAINS = [
+  "auth0.com",
+  "login.microsoftonline.com",
+  "login.windows.net",
+  "sts.windows.net",
+  "okta.com",
+  "oktapreview.com",
+  "okta-emea.com",
+  "accounts.google.com",
+  "googleapis.com",
+  "api.vercel.com",
+  "marketplace.vercel.com",
+];
+
+export function getAuthProxyForUrl(url: string) {
+  const { hostname } = new URL(url);
+  const bypass = AUTH_PROXY_BYPASS_DOMAINS.some(
+    (domain) => hostname === domain || hostname.endsWith("." + domain),
+  );
+  // Under a mandatory egress proxy (USE_PROXY) a direct connection would not get out anyway.
+  return bypass && !USE_PROXY ? "" : WEBHOOK_PROXY;
+}
+
+export function getAuthHttpOptions() {
+  return getHttpOptions(getAuthProxyForUrl);
 }
 export const cancellableFetch = async (
   url: string,
@@ -94,17 +142,9 @@ export const cancellableFetch = async (
       };
     }
 
-    // If we are using the webhook proxy then any ECONNREFUSED error would come from the proxy itself.
-    // If the endpoint would have been down but the proxy was up, we would have gotten a 502 from the proxy instead.
-    // Hence if we see one we can be sure the webhook proxy is having issues and it is best to disable it.
-    if (
-      useWebhookProxy &&
-      WEBHOOK_PROXY &&
-      e.name === "FetchError" &&
-      e.code === "ECONNREFUSED"
-    ) {
-      logger.error("Proxy connection refused. Disabling webhook proxy");
-      useWebhookProxy = false;
+    // An unreachable endpoint comes back as a 502 from the proxy, so ECONNREFUSED means the proxy itself is down.
+    if (WEBHOOK_PROXY && e.name === "FetchError" && e.code === "ECONNREFUSED") {
+      logger.error({ err: e }, "Webhook proxy connection refused");
     }
 
     throw e;

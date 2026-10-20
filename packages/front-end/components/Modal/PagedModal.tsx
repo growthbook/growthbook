@@ -43,6 +43,7 @@ type Props = {
   step: number;
   setStep: (step: number) => void;
   secondaryCTA?: ReactElement;
+  aboveFooterContent?: ReactNode;
   className?: string;
   bodyClassName?: string;
   stickyFooter?: boolean;
@@ -50,6 +51,8 @@ type Props = {
   skipped?: Set<number>;
   hideNav?: boolean;
   bodyPrefix?: ReactNode;
+  overflowAuto?: boolean;
+  autoFocusSelector?: string;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
   trackingEventModalType: string;
   // The source (likely page or component) causing the modal to be shown
@@ -57,7 +60,6 @@ type Props = {
   // Currently the allowlist for what event props are valid is controlled outside of the codebase.
   // Make sure you've checked that any props you pass here are in the list!
   allowlistedTrackingEventProps?: TrackEventProps;
-  useRadixButton?: boolean;
 };
 
 const PagedModal: FC<Props> = (props) => {
@@ -78,6 +80,7 @@ const PagedModal: FC<Props> = (props) => {
     forceCtaText,
     inline,
     secondaryCTA,
+    aboveFooterContent,
     size,
     className,
     bodyClassName,
@@ -99,7 +102,7 @@ const PagedModal: FC<Props> = (props) => {
   const style = navStyle ? navStyle : "default";
   const steps: {
     display: string;
-    enabled: boolean;
+    enabled?: boolean;
     validate?: () => Promise<void>;
     customNext?: () => void;
   }[] = [];
@@ -124,7 +127,7 @@ const PagedModal: FC<Props> = (props) => {
   async function validateSteps(before?: number) {
     before = before ?? steps.length;
     for (let i = 0; i < before; i++) {
-      if (!steps[i].enabled) continue;
+      if (steps[i].enabled === false) continue;
       if (!steps[i].validate) continue;
       try {
         await steps[i].validate?.();
@@ -346,6 +349,7 @@ const PagedModal: FC<Props> = (props) => {
         )
       }
       ctaEnabled={ctaEnabled}
+      aboveFooterContent={aboveFooterContent}
       trackingEventModalType={trackingEventModalType}
       trackingEventModalSource={trackingEventModalSource}
       allowlistedTrackingEventProps={allowlistedTrackingEventProps}

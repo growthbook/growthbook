@@ -29,13 +29,18 @@ import {
   InsertMetricSourceDataQueryParams,
   IncrementalRefreshStatisticsQueryParams,
   DimensionSlicesQueryParams,
-  PastExperimentParams,
+  PastExperimentQueryParams,
   MetricAnalysisParams,
   ExperimentFactMetricsQueryResponse,
   UserExperimentExposuresQueryResponse,
   DropMetricSourceCovariateTableQueryParams,
   InsertMetricSourceCovariateDataQueryParams,
+  InsertMetricSourceCovariateFromAggregatedFactTableQueryParams,
   CreateMetricSourceCovariateTableQueryParams,
+  CreateAggregatedFactTableQueryParams,
+  InsertAggregatedFactTableDataQueryParams,
+  AggregatedFactTableMaxTimestampQueryParams,
+  DropAggregatedFactTableQueryParams,
 } from "shared/types/integrations";
 import { parseIntWithDefault } from "shared/util";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
@@ -87,6 +92,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   context: ReqContext;
   datasource: DataSourceInterface;
   decryptionError: boolean;
+  columnNamesAreCaseSensitive = false;
 
   constructor(context: ReqContext, datasource: DataSourceInterface) {
     this.context = context;
@@ -128,7 +134,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<DropTableQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getExperimentMetricQuery(_: ExperimentMetricQueryParams): string {
+  getSnapshotMetricQuery(_: ExperimentMetricQueryParams): string {
     throw new Error("Method not implemented.");
   }
   getExperimentAggregateUnitsQuery(
@@ -143,7 +149,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  runExperimentMetricQuery(
+  runSnapshotMetricQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
     _queryMetadata?: QueryMetadata,
@@ -160,7 +166,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<ExperimentUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getPastExperimentQuery(_: PastExperimentParams): string {
+  getPastExperimentQuery(_: PastExperimentQueryParams): string {
     throw new Error("Method not implemented.");
   }
   runPastExperimentQuery(
@@ -235,6 +241,26 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): string {
     throw new Error("Method not implemented.");
   }
+  getCreateAggregatedFactTableQuery(
+    _params: CreateAggregatedFactTableQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getInsertAggregatedFactTableDataQuery(
+    _params: InsertAggregatedFactTableDataQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getAggregatedFactTableMaxTimestampQuery(
+    _params: AggregatedFactTableMaxTimestampQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getDropAggregatedFactTableQuery(
+    _params: DropAggregatedFactTableQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
   getCreateMetricSourceCovariateTableQuery(
     _params: CreateMetricSourceCovariateTableQueryParams,
   ): string {
@@ -242,6 +268,11 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   }
   getInsertMetricSourceCovariateDataQuery(
     _params: InsertMetricSourceCovariateDataQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
+    _params: InsertMetricSourceCovariateFromAggregatedFactTableQueryParams,
   ): string {
     throw new Error("Method not implemented.");
   }
@@ -396,10 +427,6 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     return true;
   }
 
-  getSensitiveParamKeys(): string[] {
-    return ["refreshToken"];
-  }
-
   getAuth() {
     const client = getOauth2Client();
     client.setCredentials({
@@ -502,7 +529,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
           // GA doesn't expose standard deviations, so we have to guess
           // If the metric is duration, we can assume an exponential distribution where the stddev equals the mean
           // If the metric is count, we can assume a poisson distribution where the variance equals the mean
-          // For binomial metrics, we can use the Normal approximation for a bernouli random variable
+          // For binomial metrics, we can use the Normal approximation for a Bernoulli random variable
           const variance =
             metric.type === "duration"
               ? Math.pow(mean, 2)

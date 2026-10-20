@@ -1,10 +1,11 @@
 import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
+  SavedGroupFormat,
   SDKLanguage,
 } from "shared/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import {
   FaCheck,
@@ -19,6 +20,7 @@ import {
   getSDKCapabilityVersion,
   getSDKVersions,
   isSDKOutdated,
+  savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
 import {
   filterProjectsByEnvironment,
@@ -40,12 +42,13 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import Checkbox from "@/ui/Checkbox";
+import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
@@ -73,12 +76,7 @@ function getSecurityTabState(
   value: Partial<SDKConnectionInterface>,
 ): "none" | "ciphered" | "remote" {
   if (value.remoteEvalEnabled) return "remote";
-  if (
-    value.encryptPayload ||
-    value.hashSecureAttributes ||
-    !value.includeExperimentNames
-  )
-    return "ciphered";
+  if (value.encryptPayload || value.hashSecureAttributes) return "ciphered";
   return "none";
 }
 
@@ -131,7 +129,6 @@ export default function SDKConnectionForm({
     if (tab === "remote") {
       form.setValue("encryptPayload", false);
       form.setValue("hashSecureAttributes", false);
-      form.setValue("includeExperimentNames", true);
     }
     setSelectedSecurityTab(tab);
   };
@@ -161,6 +158,8 @@ export default function SDKConnectionForm({
         initialValue.hashSecureAttributes ?? hasSecureAttributesFeature,
       includeVisualExperiments: initialValue.includeVisualExperiments ?? false,
       includeDraftExperiments: initialValue.includeDraftExperiments ?? false,
+      includeDraftExperimentRefs:
+        initialValue.includeDraftExperimentRefs ?? false,
       includeExperimentNames: initialValue.includeExperimentNames ?? true,
       includeRedirectExperiments:
         initialValue.includeRedirectExperiments ?? false,
@@ -168,8 +167,13 @@ export default function SDKConnectionForm({
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
       remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
-      savedGroupReferencesEnabled:
-        initialValue.savedGroupReferencesEnabled ?? false,
+      // Existing connections keep what they have; `savedGroupFormat` is
+      // derived from the old boolean by the model, so it is always set once a
+      // connection is saved. A new connection's default follows the chosen SDK
+      // in an effect below.
+      savedGroupFormat:
+        initialValue.savedGroupFormat ??
+        (edit ? savedGroupFormatFromConnection(initialValue) : "inline"),
       includeProjectIdInMetadata:
         initialValue.includeProjectIdInMetadata ??
         (initialValue as { includeProjectId?: boolean }).includeProjectId ??
@@ -192,6 +196,11 @@ export default function SDKConnectionForm({
         (initialValue as { includeTagsInPayload?: boolean })
           .includeTagsInPayload ??
         false,
+      includeExperimentScheduleInMetadata:
+        initialValue.includeExperimentScheduleInMetadata ?? false,
+      // Absent = off, so existing connections keep their behavior.
+      includeReferencedPrerequisites:
+        initialValue.includeReferencedPrerequisites ?? !edit,
     },
   });
 
@@ -249,12 +258,49 @@ export default function SDKConnectionForm({
     () => currentSdkCapabilities.includes("savedGroupReferences"),
     [currentSdkCapabilities],
   );
+  // v2 covers every Saved Group type. v1 covers ID Lists only, so Condition
+  // Groups keep shipping inline until the SDK is upgraded.
+  const supportsAllSavedGroupTypes = useMemo(
+    () => currentSdkCapabilities.includes("savedGroupReferencesV2"),
+    [currentSdkCapabilities],
+  );
+  // Offer v2 only when upgrading the SDK can reach it.
+  const allSavedGroupTypesAvailable = latestSdkCapabilities.includes(
+    "savedGroupReferencesV2",
+  );
+  const savedAsAllSavedGroupTypes =
+    edit && initialValue.savedGroupFormat === "referencesV2";
 
   useEffect(() => {
     if (!showSavedGroupSettings) {
-      form.setValue("savedGroupReferencesEnabled", false);
+      form.setValue("savedGroupFormat", "inline");
     }
   }, [showSavedGroupSettings, form]);
+
+  // On a new connection the SDK is usually picked after the form opens, so the
+  // default has to follow it: the most capable format the chosen SDK can read.
+  // Both reference formats need the plan. Stops once someone picks an option
+  // themselves.
+  const savedGroupFormatChosen = useRef(false);
+  useEffect(() => {
+    if (edit || savedGroupFormatChosen.current) return;
+    form.setValue(
+      "savedGroupFormat",
+      !hasLargeSavedGroupFeature
+        ? "inline"
+        : supportsAllSavedGroupTypes
+          ? "referencesV2"
+          : showSavedGroupSettings
+            ? "referencesV1"
+            : "inline",
+    );
+  }, [
+    edit,
+    hasLargeSavedGroupFeature,
+    supportsAllSavedGroupTypes,
+    showSavedGroupSettings,
+    form,
+  ]);
 
   const selectedProjects = form.watch("projects");
   const selectedEnvironment = environments.find(
@@ -339,21 +385,15 @@ export default function SDKConnectionForm({
       form.setValue("remoteEvalEnabled", false);
       form.setValue("encryptPayload", false);
       form.setValue("hashSecureAttributes", false);
-      form.setValue("includeExperimentNames", true);
     } else if (selectedSecurityTab === "ciphered") {
       const enableEncryption = hasEncryptionFeature;
       const enableSecureAttributes = hasSecureAttributesFeature;
       form.setValue("remoteEvalEnabled", false);
       if (
-        !(
-          form.watch("encryptPayload") ||
-          form.watch("hashSecureAttributes") ||
-          !form.watch("includeExperimentNames")
-        )
+        !(form.watch("encryptPayload") || form.watch("hashSecureAttributes"))
       ) {
         form.setValue("encryptPayload", enableEncryption);
         form.setValue("hashSecureAttributes", enableSecureAttributes);
-        form.setValue("includeExperimentNames", false);
       }
     } else if (selectedSecurityTab === "remote") {
       if (!hasRemoteEvaluationFeature) {
@@ -466,15 +506,15 @@ export default function SDKConnectionForm({
       open={true}
       cta={cta}
     >
-      <Field label="Name" {...form.register("name")} required />
+      <Field size="legacy" label="Name" {...form.register("name")} required />
 
       <div className="mb-4">
         <div className="form-group">
           <label>SDK Language</label>
           {languageError ? (
-            <span className="ml-3 alert px-1 py-0 mb-0 alert-danger">
+            <Callout status="error" ml="3" mb="0" size="sm">
               {languageError}
-            </span>
+            </Callout>
           ) : null}
           <SDKLanguageSelector
             value={form.watch("languages")}
@@ -500,6 +540,7 @@ export default function SDKConnectionForm({
               <div className="d-flex">
                 <div>
                   <SelectField
+                    size="legacy"
                     style={{ width: 180 }}
                     className="mr-4"
                     placeholder="0.0.0"
@@ -575,6 +616,7 @@ export default function SDKConnectionForm({
 
       <div className="mb-4">
         <SelectField
+          size="legacy"
           label="Environment"
           required
           placeholder="Choose one..."
@@ -626,6 +668,7 @@ export default function SDKConnectionForm({
           />
         </label>
         <MultiSelectField
+          legacyHeight
           placeholder={
             environmentHasProjects ? "All Environment Projects" : "All Projects"
           }
@@ -667,11 +710,39 @@ export default function SDKConnectionForm({
             project being removed from the selected environment.
           </div>
         )}
+        <Box mt="3">
+          <Checkbox
+            weight="regular"
+            value={!!form.watch("includeReferencedPrerequisites")}
+            setValue={(val) =>
+              form.setValue("includeReferencedPrerequisites", val)
+            }
+            label={
+              <>
+                Always include prerequisite Feature Flags{" "}
+                <Tooltip
+                  body={
+                    <p className="mb-0">
+                      Deliver prerequisite Feature Flags that target other
+                      Projects. Without them, the Feature Flags they gate are
+                      always off. Only applies when this connection filters by
+                      Project.
+                    </p>
+                  }
+                >
+                  <PiInfo />
+                </Tooltip>
+              </>
+            }
+          />
+        </Box>
       </div>
 
       {shouldShowPayloadSecurity(languageType, languages) && (
         <>
-          <label>Payload Security</label>
+          <Heading as="h4" size="sm" mb="3">
+            Payload Security
+          </Heading>
           <div className="bg-highlight rounded p-3 mb-2">
             <ControlledTabs
               newStyle={true}
@@ -751,9 +822,9 @@ export default function SDKConnectionForm({
                   }
                 >
                   <Box p="4">
-                    <Text as="div" weight="semibold" mb="3">
+                    <Heading as="h4" size="sm" mb="3">
                       Cipher Options
-                    </Text>
+                    </Heading>
                     <Flex direction="column" gap="2">
                       {showEncryption && (
                         <Box>
@@ -834,44 +905,6 @@ export default function SDKConnectionForm({
                             >
                               Hash secure attributes <PiInfo />
                             </PremiumTooltip>
-                          }
-                        />
-                      </Box>
-
-                      <Box>
-                        <Checkbox
-                          weight="regular"
-                          value={!form.watch("includeExperimentNames")}
-                          setValue={(val) =>
-                            form.setValue("includeExperimentNames", !val)
-                          }
-                          label={
-                            <>
-                              Hide experiment and variation names{" "}
-                              <Tooltip
-                                body={
-                                  <>
-                                    <p>
-                                      Experiment and variation names can help
-                                      add context when debugging or tracking
-                                      events.
-                                    </p>
-                                    <p>
-                                      However, this could expose potentially
-                                      sensitive information to your users if
-                                      enabled for a client-side or mobile
-                                      application.
-                                    </p>
-                                    <p className="mb-0">
-                                      For maximum privacy and security, we
-                                      recommend hiding these fields.
-                                    </p>
-                                  </>
-                                }
-                              >
-                                <PiInfo />
-                              </Tooltip>
-                            </>
                           }
                         />
                       </Box>
@@ -956,9 +989,9 @@ export default function SDKConnectionForm({
                   }
                 >
                   <Box px="3" pb="3">
-                    <Text as="div" weight="semibold" mb="3">
+                    <Heading as="h4" size="sm" mb="3">
                       Remote Evaluation Options
-                    </Text>
+                    </Heading>
                     <Box>
                       <Checkbox
                         weight="regular"
@@ -988,9 +1021,9 @@ export default function SDKConnectionForm({
                                 </div>
                                 <div className="mb-2">
                                   Remote evaluation provides the same security
-                                  benefits as a includeExperimentNames SDK.
-                                  However, remote evaluation is neither needed
-                                  nor supported for backend SDKs.
+                                  benefits as a backend SDK. However, remote
+                                  evaluation is neither needed nor supported for
+                                  backend SDKs.
                                 </div>
                                 <div className="mb-2">
                                   Remote evaluation does come with a few cost
@@ -1019,23 +1052,18 @@ export default function SDKConnectionForm({
                       />
                     </Box>
                     {isCloud() && (
-                      <div className="alert alert-info mb-0 mt-3 py-1 px-2 d-flex flex-row">
-                        <div className="pr-2">
-                          <FaExclamationCircle className="mr-1" />
-                        </div>
-                        <div>
-                          Cloud customers must self-host a remote evaluation
-                          service such as{" "}
-                          <a
-                            target="_blank"
-                            href="https://github.com/growthbook/growthbook-proxy"
-                            rel="noreferrer"
-                          >
-                            GrowthBook Proxy
-                          </a>{" "}
-                          or a CDN edge worker.
-                        </div>
-                      </div>
+                      <Callout status="info" mb="0" mt="3">
+                        Cloud customers must self-host a remote evaluation
+                        service such as{" "}
+                        <a
+                          target="_blank"
+                          href="https://github.com/growthbook/growthbook-proxy"
+                          rel="noreferrer"
+                        >
+                          GrowthBook Proxy
+                        </a>{" "}
+                        or a CDN edge worker.
+                      </Callout>
                     )}
                     {(() => {
                       if (!form.watch("remoteEvalEnabled")) return null;
@@ -1098,99 +1126,193 @@ export default function SDKConnectionForm({
         </>
       )}
 
-      {(showVisualEditorSettings || showRedirectSettings) && (
-        <Box mt="5">
-          <Text as="div" weight="semibold" mb="3">
-            Experiments
-          </Text>
-          <Flex direction="column" gap="2">
-            {showVisualEditorSettings && (
-              <Box>
-                <Checkbox
-                  weight="regular"
-                  value={form.watch("includeVisualExperiments")}
-                  setValue={(val) =>
-                    form.setValue("includeVisualExperiments", val)
-                  }
-                  label={
-                    <>
-                      Enable <strong>Visual Editor</strong> experiments (
-                      <DocLink docSection="visual_editor">docs</DocLink>)
-                    </>
-                  }
-                />
-              </Box>
-            )}
+      <Box mt="5">
+        <Heading as="h4" size="sm" mb="3">
+          Experiments
+        </Heading>
+        <Flex direction="column" gap="2">
+          {showVisualEditorSettings && (
+            <Box>
+              <Checkbox
+                weight="regular"
+                value={form.watch("includeVisualExperiments")}
+                setValue={(val) =>
+                  form.setValue("includeVisualExperiments", val)
+                }
+                label={
+                  <>
+                    Enable <strong>Visual Editor</strong> experiments (
+                    <DocLink useRadix={false} docSection="visual_editor">
+                      docs
+                    </DocLink>
+                    )
+                  </>
+                }
+              />
+            </Box>
+          )}
 
-            {showRedirectSettings && (
-              <Box>
-                <Checkbox
-                  weight="regular"
-                  value={form.watch("includeRedirectExperiments")}
-                  setValue={(val) =>
-                    form.setValue("includeRedirectExperiments", val)
-                  }
-                  label={
-                    <>
-                      Enable <strong>URL Redirect</strong> experiments (
-                      <DocLink docSection="url_redirects">docs</DocLink>)
-                    </>
-                  }
-                />
-              </Box>
-            )}
-          </Flex>
-        </Box>
-      )}
+          {showRedirectSettings && (
+            <Box>
+              <Checkbox
+                weight="regular"
+                value={form.watch("includeRedirectExperiments")}
+                setValue={(val) =>
+                  form.setValue("includeRedirectExperiments", val)
+                }
+                label={
+                  <>
+                    Enable <strong>URL Redirect</strong> experiments (
+                    <DocLink useRadix={false} docSection="url_redirects">
+                      docs
+                    </DocLink>
+                    )
+                  </>
+                }
+              />
+            </Box>
+          )}
 
-      {showSavedGroupSettings && (
-        <Box mt="5">
-          <Text as="div" weight="semibold" mb="3">
-            Saved Groups
-          </Text>
           <Box>
             <Checkbox
               weight="regular"
-              value={form.watch("savedGroupReferencesEnabled")}
-              setValue={(val) =>
-                form.setValue("savedGroupReferencesEnabled", val)
-              }
-              disabled={!hasLargeSavedGroupFeature}
+              value={!form.watch("includeExperimentNames")}
+              setValue={(val) => form.setValue("includeExperimentNames", !val)}
               label={
-                <PremiumTooltip
-                  commercialFeature="large-saved-groups"
-                  body={
-                    <>
-                      <p>
-                        Reduce the size of your payload by moving ID List Saved
-                        Groups from inline evaluation to a separate key in the
-                        payload json. Re-using an ID List in multiple features
-                        or experiments will no longer meaningfully increase the
-                        size of your payload.
-                      </p>
-                      <HelperText status="warning" size="sm">
-                        This feature is not supported by old SDK versions
-                        {form.watch("remoteEvalEnabled")
-                          ? " or remote evaluation tools (e.g. GrowthBook Proxy)"
-                          : ""}
-                        . Ensure that your SDK implementation is up to date
-                        before enabling this feature.
-                      </HelperText>
-                    </>
-                  }
-                >
-                  Pass Saved Groups by reference <PiInfo />
-                </PremiumTooltip>
+                <>
+                  Hide names from payload{" "}
+                  <Tooltip
+                    body={
+                      <>
+                        <p>
+                          Strips every <code>experiment.name</code> and
+                          per-variation <code>name</code> from the SDK payload.
+                          The SDK&apos;s <code>trackingCallback</code> still
+                          receives stable <code>key</code> /{" "}
+                          <code>variationId</code> values.
+                        </p>
+                        <p>
+                          Experiment and variation names can help add context
+                          when debugging or tracking events, but could expose
+                          potentially sensitive information to your users in a
+                          client-side or mobile application.
+                        </p>
+                        <p className="mb-0">
+                          For maximum privacy and security, we recommend hiding
+                          these fields.
+                        </p>
+                      </>
+                    }
+                  >
+                    <PiInfo />
+                  </Tooltip>
+                </>
               }
             />
           </Box>
+        </Flex>
+      </Box>
+
+      {showSavedGroupSettings && (
+        <Box mt="5">
+          <Heading as="h4" size="sm" mb="3">
+            <PremiumTooltip
+              commercialFeature="large-saved-groups"
+              body={
+                <>
+                  <p>
+                    Passing Saved Groups by reference sends each group once in
+                    its own key instead of copying it into every rule that uses
+                    it, so re-using a group stops growing the payload.
+                  </p>
+                  <HelperText status="warning" size="sm">
+                    Older SDK versions
+                    {form.watch("remoteEvalEnabled")
+                      ? " and remote evaluation tools (e.g. GrowthBook Proxy)"
+                      : ""}{" "}
+                    cannot read references. Check your SDK is up to date before
+                    changing this.
+                  </HelperText>
+                </>
+              }
+            >
+              Saved Groups <PiInfo />
+            </PremiumTooltip>
+          </Heading>
+          <SelectField
+            label="Pass Saved Groups by reference"
+            sort={false}
+            isClearable={false}
+            isSearchable={false}
+            value={form.watch("savedGroupFormat") ?? "inline"}
+            onChange={(val) => {
+              savedGroupFormatChosen.current = true;
+              form.setValue("savedGroupFormat", val as SavedGroupFormat);
+            }}
+            options={[
+              { value: "inline", label: "Off" },
+              {
+                value: "referencesV1",
+                label: "ID Lists only",
+                isDisabled: !hasLargeSavedGroupFeature,
+              },
+              ...(allSavedGroupTypesAvailable || savedAsAllSavedGroupTypes
+                ? [
+                    {
+                      value: "referencesV2",
+                      label: "All Saved Groups",
+                      // An SDK downgrade on a saved connection keeps this
+                      // selectable, so the choice shows a warning rather than
+                      // being silently dropped, and re-upgrading the SDK
+                      // resumes v2. That only applies to a connection already
+                      // on v2, never to a new one, and never without the plan.
+                      isDisabled:
+                        !hasLargeSavedGroupFeature ||
+                        (!supportsAllSavedGroupTypes &&
+                          !savedAsAllSavedGroupTypes),
+                    },
+                  ]
+                : []),
+            ]}
+            formatOptionLabel={({ value, label }, { context }) => {
+              let note: string | null = null;
+              if (context === "menu" && value !== "inline") {
+                if (!hasLargeSavedGroupFeature) note = "Enterprise";
+                else if (value === "referencesV2")
+                  note = supportsAllSavedGroupTypes
+                    ? "Recommended"
+                    : allSavedGroupTypesAvailable
+                      ? "Needs a newer SDK"
+                      : null;
+              }
+              return (
+                <Flex justify="between" gap="3">
+                  <span>{label}</span>
+                  {note && (
+                    <Text size="sm" color="text-low">
+                      {note}
+                    </Text>
+                  )}
+                </Flex>
+              );
+            }}
+            error={
+              form.watch("savedGroupFormat") === "referencesV2" &&
+              !supportsAllSavedGroupTypes
+                ? allSavedGroupTypesAvailable
+                  ? "This SDK version cannot pass all Saved Groups by reference, so it passes ID Lists by reference until you upgrade it."
+                  : "This SDK cannot pass all Saved Groups by reference, so it passes ID Lists by reference."
+                : undefined
+            }
+            errorLevel="warning"
+          />
         </Box>
       )}
 
       <Box mt="5">
-        <Text as="div" weight="semibold" mb="3">
+        <Heading as="h4" size="sm" mb="3">
           Payload Metadata
-        </Text>
+        </Heading>
         <Flex direction="column" gap="2">
           <Box>
             <Checkbox
@@ -1205,11 +1327,17 @@ export default function SDKConnectionForm({
                   <Tooltip
                     body={
                       <>
-                        <p className="mb-0">
+                        <p>
                           When enabled, each feature and experiment in the SDK
                           payload will include a <code>metadata.projects</code>{" "}
                           array containing the project&apos;s public ID (or
                           internal ID if no public ID is set).
+                        </p>
+                        <p className="mb-0">
+                          Features and rules that target all projects omit the
+                          array by convention — treat a missing{" "}
+                          <code>metadata.projects</code> as &quot;all
+                          projects&quot;.
                         </p>
                       </>
                     }
@@ -1252,6 +1380,7 @@ export default function SDKConnectionForm({
             {form.watch("includeCustomFieldsInMetadata") && (
               <Box mt="2">
                 <MultiSelectField
+                  legacyHeight
                   placeholder="No fields included"
                   containerClassName="w-100 mb-0"
                   value={form.watch("allowedCustomFieldsInMetadata") || []}
@@ -1279,11 +1408,35 @@ export default function SDKConnectionForm({
                   <Tooltip
                     body={
                       <>
-                        <p className="mb-0">
-                          When enabled, all feature tags will be included in the{" "}
-                          <code>metadata.tags</code> array for each feature in
-                          the SDK payload.
-                        </p>
+                        When enabled, all feature tags will be included in the{" "}
+                        <code>metadata.tags</code> array for each feature in the
+                        SDK payload.
+                      </>
+                    }
+                  >
+                    <PiInfo />
+                  </Tooltip>
+                </>
+              }
+            />
+          </Box>
+          <Box>
+            <Checkbox
+              weight="regular"
+              value={form.watch("includeExperimentScheduleInMetadata")}
+              setValue={(val) =>
+                form.setValue("includeExperimentScheduleInMetadata", val)
+              }
+              label={
+                <>
+                  Include experiment schedule dates{" "}
+                  <Tooltip
+                    body={
+                      <>
+                        When enabled, an experiment&apos;s scheduled start/end
+                        are included as <code>metadata.startDate</code> and{" "}
+                        <code>metadata.endDate</code> on its experiment-ref
+                        rules in the SDK payload.
                       </>
                     }
                   >
@@ -1296,39 +1449,41 @@ export default function SDKConnectionForm({
         </Flex>
       </Box>
 
-      {(showVisualEditorSettings || showRedirectSettings) && (
-        <Box mt="5">
-          <Text as="div" weight="semibold" mb="3">
-            Observability and QA
-          </Text>
-          <Flex direction="column" gap="2">
-            <Box>
+      <Box mt="5">
+        <Heading as="h4" size="sm" mb="3">
+          Observability and QA
+        </Heading>
+        <Flex direction="column" gap="3">
+          <Box>
+            <Checkbox
+              weight="regular"
+              label="Include feature rule IDs in payload"
+              value={!!form.watch("includeRuleIds")}
+              setValue={(val) => form.setValue("includeRuleIds", val)}
+            />
+          </Box>
+          <Box>
+            <Text as="div" size="md" weight="medium" mb="2">
+              Draft mode experiments
+            </Text>
+            <Flex direction="column" gap="2">
               <Checkbox
                 weight="regular"
-                value={form.watch("includeDraftExperiments")}
+                value={form.watch("includeDraftExperimentRefs")}
                 setValue={(val) =>
-                  form.setValue("includeDraftExperiments", val)
+                  form.setValue("includeDraftExperimentRefs", val)
                 }
                 label={
                   <>
-                    Include &quot;draft mode&quot; Visual Editor and URL
-                    Redirect experiments{" "}
+                    Include draft Experiment rules in feature definitions{" "}
                     <Tooltip
                       body={
-                        <>
-                          <p>
-                            In-development auto experiments will be sent to the
-                            SDK. We recommend only enabling this for
-                            non-production environments.
-                          </p>
-                          <p className="mb-0">
-                            To force into a variation, use a URL query string
-                            such as{" "}
-                            <code className="d-block">
-                              ?my-experiment-key=2
-                            </code>
-                          </p>
-                        </>
+                        <p className="mb-0">
+                          When enabled, experiment-ref rules linked to draft
+                          experiments will be included in the SDK payload. We
+                          recommend only enabling this for non-production
+                          environments.
+                        </p>
                       }
                     >
                       <PiInfo />
@@ -1336,24 +1491,50 @@ export default function SDKConnectionForm({
                   </>
                 }
               />
-            </Box>
-            <Box>
-              <Checkbox
-                weight="regular"
-                label="Include feature rule IDs in payload"
-                value={!!form.watch("includeRuleIds")}
-                setValue={(val) => form.setValue("includeRuleIds", val)}
-              />
-            </Box>
-          </Flex>
-        </Box>
-      )}
+              {(showVisualEditorSettings || showRedirectSettings) && (
+                <Checkbox
+                  weight="regular"
+                  value={form.watch("includeDraftExperiments")}
+                  setValue={(val) =>
+                    form.setValue("includeDraftExperiments", val)
+                  }
+                  label={
+                    <>
+                      Include draft Visual Editor and URL Redirect experiments{" "}
+                      <Tooltip
+                        body={
+                          <>
+                            <p>
+                              In-development auto experiments will be sent to
+                              the SDK. We recommend only enabling this for
+                              non-production environments.
+                            </p>
+                            <p className="mb-0">
+                              To force into a variation, use a URL query string
+                              such as{" "}
+                              <code className="d-block">
+                                ?my-experiment-key=2
+                              </code>
+                            </p>
+                          </>
+                        }
+                      >
+                        <PiInfo />
+                      </Tooltip>
+                    </>
+                  }
+                />
+              )}
+            </Flex>
+          </Box>
+        </Flex>
+      </Box>
 
       {isCloud() && (
         <Box mt="5">
-          <Text as="div" weight="semibold" mb="3">
+          <Heading as="h4" size="sm" mb="3">
             GrowthBook Proxy
-          </Text>
+          </Heading>
           <Flex direction="column" gap="3">
             <Box>
               <Checkbox
@@ -1365,6 +1546,7 @@ export default function SDKConnectionForm({
             </Box>
             {form.watch("proxyEnabled") && (
               <Field
+                size="legacy"
                 id="sdk-connection-proxyHost"
                 containerClassName="mb-0"
                 label={

@@ -8,10 +8,17 @@ import {
   updateDataSource,
   validateExposureQueriesAndAddMissingIds,
   hasActualChanges,
+  toDataSourceApiInterface,
+  removeProjectFromDatasources,
 } from "back-end/src/models/DataSourceModel";
 import { testQueryValidity } from "back-end/src/services/datasource";
 import { usingFileConfig } from "back-end/src/init/config";
 import { ReqContext } from "back-end/types/request";
+import { getCollection } from "back-end/src/util/mongo.util";
+import {
+  connectTestMongo,
+  disconnectTestMongo,
+} from "back-end/test/test-helpers";
 
 jest.mock("back-end/src/services/datasource");
 jest.mock("back-end/src/init/config");
@@ -35,6 +42,7 @@ describe("dataSourceModel", () => {
           {
             id: "anonymous_id",
             userIdType: "anonymous_id",
+            userIdTypes: ["anonymous_id"],
             dimensions: ["device", "browser"],
             name: "Anonymous Visitors",
             description: "",
@@ -43,6 +51,7 @@ describe("dataSourceModel", () => {
           {
             id: "user_id",
             userIdType: "user_id",
+            userIdTypes: ["user_id"],
             dimensions: ["device", "browser"],
             name: "Logged in Users",
             description: "",
@@ -115,6 +124,7 @@ describe("dataSourceModel", () => {
           exposure: [
             // @ts-expect-error - we are testing the case where id is missing
             {
+              userIdType: "user_id",
               query: "SELECT new_id FROM experiment_viewed",
             },
           ],
@@ -134,9 +144,125 @@ describe("dataSourceModel", () => {
               error: undefined,
               id: expect.any(String),
               query: "SELECT new_id FROM experiment_viewed",
+              userIdType: "user_id",
+              userIdTypes: ["user_id"],
             },
           ],
         },
+      });
+    });
+
+    it("throws when an exposure query declares no identifier type", async () => {
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "no_id",
+              userIdType: "",
+              userIdTypes: [],
+              dimensions: [],
+              name: "No identifier",
+              query: "SELECT 1 FROM experiment_viewed",
+            },
+          ],
+        },
+      };
+
+      await expect(
+        validateExposureQueriesAndAddMissingIds(
+          context,
+          datasource,
+          updates,
+          "skip",
+        ),
+      ).rejects.toThrow("must declare at least one identifier type");
+    });
+
+    it("sets a new query's legacy identifier to its first, ignoring the client", async () => {
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "multi",
+              userIdType: "anonymous_id",
+              userIdTypes: ["user_id", "anonymous_id"],
+              dimensions: [],
+              name: "Multi",
+              query: "SELECT user_id, anonymous_id FROM experiment_viewed",
+            },
+          ],
+        },
+      };
+
+      const normalized = await validateExposureQueriesAndAddMissingIds(
+        context,
+        datasource,
+        updates,
+        "skip",
+      );
+
+      expect(normalized.queries?.exposure?.[0]).toMatchObject({
+        userIdType: "user_id",
+        userIdTypes: ["user_id", "anonymous_id"],
+      });
+    });
+
+    it("carries an existing query's legacy identifier forward through a reorder", async () => {
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "anonymous_id",
+              /** The client echoes a stale or mirrored value; it's ignored. */
+              userIdType: "user_id",
+              userIdTypes: ["user_id", "anonymous_id"],
+              dimensions: [],
+              name: "Anonymous Visitors",
+              query: "SELECT user_id, anonymous_id FROM experiment_viewed",
+            },
+          ],
+        },
+      };
+
+      const normalized = await validateExposureQueriesAndAddMissingIds(
+        context,
+        datasource,
+        updates,
+        "skip",
+      );
+
+      expect(normalized.queries?.exposure?.[0]).toMatchObject({
+        userIdType: "anonymous_id",
+        userIdTypes: ["user_id", "anonymous_id"],
+      });
+    });
+
+    it("keeps an existing query's legacy identifier after it's removed from the list", async () => {
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "anonymous_id",
+              userIdType: "user_id",
+              userIdTypes: ["user_id"],
+              dimensions: [],
+              name: "Anonymous Visitors",
+              query: "SELECT user_id FROM experiment_viewed",
+            },
+          ],
+        },
+      };
+
+      const normalized = await validateExposureQueriesAndAddMissingIds(
+        context,
+        datasource,
+        updates,
+        "skip",
+      );
+
+      expect(normalized.queries?.exposure?.[0]).toMatchObject({
+        userIdType: "anonymous_id",
+        userIdTypes: ["user_id"],
       });
     });
 
@@ -148,6 +274,7 @@ describe("dataSourceModel", () => {
             {
               id: "user_id",
               userIdType: "user_id",
+              userIdTypes: ["user_id"],
               dimensions: ["device", "browser"],
               name: "Logged in Users",
               description: "",
@@ -178,6 +305,7 @@ describe("dataSourceModel", () => {
             {
               id: "anonymous_id",
               userIdType: "anonymous_id",
+              userIdTypes: ["anonymous_id"],
               dimensions: ["device", "browser"],
               name: "Anonymous Visitors",
               description: "",
@@ -207,6 +335,7 @@ describe("dataSourceModel", () => {
             {
               id: "anonymous_id",
               userIdType: "anonymous_id",
+              userIdTypes: ["anonymous_id"],
               dimensions: ["device"],
               name: "Anonymous Visitors",
               description: "",
@@ -236,6 +365,7 @@ describe("dataSourceModel", () => {
             {
               id: "anonymous_id",
               userIdType: "anonymous_id",
+              userIdTypes: ["anonymous_id"],
               dimensions: ["device"],
               name: "Anonymous Visitors",
               hasNameCol: true,
@@ -266,6 +396,7 @@ describe("dataSourceModel", () => {
             {
               id: "anonymous_id",
               userIdType: "anonymous_id",
+              userIdTypes: ["anonymous_id"],
               dimensions: ["device", "browser"],
               name: "Anonymous Visitors",
               description: "",
@@ -280,14 +411,10 @@ describe("dataSourceModel", () => {
         updates,
       );
       expect(testQueryValidity).not.toHaveBeenCalled();
-      const expected = updates;
-      if (expected?.queries?.exposure) {
-        expected.queries.exposure[0].error = undefined;
-      }
       expect(new_updates).toEqual(updates);
     });
 
-    it("should revalidate unchanged queries if forceCheckValidation is true", async () => {
+    it('should revalidate unchanged queries when validation is "all"', async () => {
       mockedTestQueryValidity.mockResolvedValue("bad query");
       const updates: Partial<DataSourceSettings> = {
         queries: {
@@ -295,6 +422,7 @@ describe("dataSourceModel", () => {
             {
               id: "anonymous_id",
               userIdType: "anonymous_id",
+              userIdTypes: ["anonymous_id"],
               dimensions: ["device", "browser"],
               name: "Anonymous Visitors",
               description: "",
@@ -307,7 +435,7 @@ describe("dataSourceModel", () => {
         context,
         datasource,
         updates,
-        true,
+        "all",
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
@@ -315,6 +443,144 @@ describe("dataSourceModel", () => {
         expected.queries.exposure[0].error = "bad query";
       }
       expect(new_updates).toEqual(updates);
+    });
+
+    it("should skip validation for event forwarder managed exposure queries when skipEventForwarderManagedValidation is true", async () => {
+      mockedTestQueryValidity.mockResolvedValue("Table not found");
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "user_id",
+              userIdType: "user_id",
+              userIdTypes: ["user_id"],
+              dimensions: [],
+              name: "user_id",
+              description: "",
+              query: "SELECT user_id FROM experiment_viewed",
+              managedBy: "api",
+            },
+          ],
+        },
+      };
+      const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
+        datasource,
+        updates,
+        "changed",
+        true,
+      );
+      expect(testQueryValidity).not.toHaveBeenCalled();
+      expect(new_updates.queries?.exposure?.[0].error).toBeUndefined();
+    });
+
+    it('should validate event forwarder managed exposure queries when validation is "all"', async () => {
+      mockedTestQueryValidity.mockResolvedValue("Table not found");
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "user_id",
+              userIdType: "user_id",
+              userIdTypes: ["user_id"],
+              dimensions: [],
+              name: "user_id",
+              description: "",
+              query: "SELECT user_id FROM experiment_viewed",
+              managedBy: "api",
+            },
+          ],
+        },
+      };
+      const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
+        datasource,
+        updates,
+        "all",
+      );
+      expect(testQueryValidity).toHaveBeenCalled();
+      expect(new_updates.queries?.exposure?.[0].error).toBe("Table not found");
+    });
+
+    it("should validate event forwarder managed exposure queries on user settings save", async () => {
+      mockedTestQueryValidity.mockResolvedValue("Table not found");
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "user_id",
+              userIdType: "user_id",
+              userIdTypes: ["user_id"],
+              dimensions: [],
+              name: "user_id",
+              description: "",
+              query: "SELECT user_id FROM experiment_viewed",
+              managedBy: "api",
+            },
+          ],
+        },
+      };
+      const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
+        datasource,
+        updates,
+      );
+      expect(testQueryValidity).toHaveBeenCalled();
+      expect(new_updates.queries?.exposure?.[0].error).toBe("Table not found");
+    });
+  });
+
+  it("reports the frozen legacy identifier as the deprecated identifierType", () => {
+    const apiDatasource = toDataSourceApiInterface({
+      ...datasource,
+      settings: {
+        ...datasource.settings,
+        queries: {
+          ...datasource.settings.queries,
+          exposure: [
+            {
+              id: "reordered",
+              userIdType: "user_id",
+              userIdTypes: ["anonymous_id", "user_id"],
+              dimensions: [],
+              name: "Reordered",
+              query: "SELECT user_id, anonymous_id FROM experiment_viewed",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(apiDatasource.assignmentQueries[0]).toMatchObject({
+      identifierType: "user_id",
+      identifierTypes: ["anonymous_id", "user_id"],
+    });
+  });
+
+  it("keeps reporting the frozen legacy identifier after the query drops it", () => {
+    const apiDatasource = toDataSourceApiInterface({
+      ...datasource,
+      settings: {
+        ...datasource.settings,
+        queries: {
+          ...datasource.settings.queries,
+          exposure: [
+            {
+              id: "dropped",
+              userIdType: "user_id",
+              userIdTypes: ["anonymous_id"],
+              dimensions: [],
+              name: "Dropped",
+              query: "SELECT anonymous_id FROM experiment_viewed",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(apiDatasource.assignmentQueries[0]).toMatchObject({
+      identifierType: "user_id",
+      identifierTypes: ["anonymous_id"],
     });
   });
 
@@ -329,5 +595,82 @@ describe("dataSourceModel", () => {
         updateDataSource(context, datasource, updates),
       ).rejects.toThrow("Cannot update. Data sources managed by config.yml");
     });
+  });
+});
+
+describe("removeProjectFromDatasources", () => {
+  const datasources = () => getCollection("datasources");
+  const query = (id: string, projects?: string[]) => ({
+    id,
+    name: id,
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    query: "SELECT 1",
+    ...(projects ? { projects } : {}),
+  });
+  const queryProjects = async (id: string) => {
+    const doc = await datasources().findOne({ id });
+    return doc?.settings?.queries?.exposure?.map(
+      (q: { projects?: string[] }) => q.projects,
+    );
+  };
+
+  beforeAll(connectTestMongo);
+  afterAll(disconnectTestMongo);
+
+  it("drops the project from data sources and assignment query scopes", async () => {
+    await datasources().insertMany([
+      {
+        id: "ds_scoped",
+        organization: "org_1",
+        projects: ["prj_a", "prj_b"],
+        settings: { queries: { exposure: [query("eq_1", ["prj_a"])] } },
+      },
+      {
+        id: "ds_unscoped",
+        organization: "org_1",
+        projects: [],
+        settings: {
+          queries: {
+            exposure: [
+              query("eq_a", ["prj_a", "prj_b"]),
+              query("eq_b", ["prj_b"]),
+              query("eq_all"),
+            ],
+          },
+        },
+      },
+      {
+        id: "ds_no_queries",
+        organization: "org_1",
+        projects: ["prj_a"],
+        settings: {},
+      },
+      {
+        id: "ds_other_org",
+        organization: "org_2",
+        projects: ["prj_a"],
+        settings: { queries: { exposure: [query("eq_x", ["prj_a"])] } },
+      },
+    ]);
+
+    await removeProjectFromDatasources("prj_a", "org_1");
+
+    expect(
+      (await datasources().findOne({ id: "ds_scoped" }))?.projects,
+    ).toEqual(["prj_b"]);
+    expect(await queryProjects("ds_scoped")).toEqual([[]]);
+    expect(await queryProjects("ds_unscoped")).toEqual([
+      ["prj_b"],
+      ["prj_b"],
+      undefined,
+    ]);
+    expect(
+      (await datasources().findOne({ id: "ds_no_queries" }))?.projects,
+    ).toEqual([]);
+    expect(
+      (await datasources().findOne({ id: "ds_other_org" }))?.projects,
+    ).toEqual(["prj_a"]);
+    expect(await queryProjects("ds_other_org")).toEqual([["prj_a"]]);
   });
 });

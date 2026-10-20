@@ -7,9 +7,13 @@ import { canUseRestApiBypassSetting } from "./reviewBypass";
 export const postFeatureRevisionPublishV2 = createApiRequestHandler(
   postFeatureRevisionPublishV2Validator,
 )(async (req) => {
-  const { revision } = await publishFeatureRevision(
+  const { revision, bypassedGates } = await publishFeatureRevision(
     req,
     canUseRestApiBypassSetting(req),
+    true,
   );
-  return { revision: toApiRevisionV2(revision) };
+  return {
+    revision: toApiRevisionV2(revision),
+    ...(bypassedGates?.length ? { bypassedGates } : {}),
+  };
 });

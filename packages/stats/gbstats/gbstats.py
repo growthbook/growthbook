@@ -169,6 +169,12 @@ def get_dimension_column_name(dimension: str) -> str:
         dimension_column_name = "dim_exp_" + dimension.split(":")[1]
     elif dimension.startswith("precomputed:"):
         dimension_column_name = "dim_exp_" + dimension.split(":")[1]
+    # Neither alias may start with "dim_exp_", which post-stratification
+    # treats as strata columns
+    elif dimension.startswith("cutoff:"):
+        dimension_column_name = "dim_cutoff"
+    elif dimension.startswith("combo:"):
+        dimension_column_name = "dim_combo"
     elif dimension.startswith("dim_"):
         dimension_column_name = "dim_unit_" + dimension
 
@@ -841,7 +847,7 @@ def variation_statistic_from_metric_row(
         )
         post_pre_sum_of_products = row[f"{prefix}_main_covariate_sum_product"]
         n = row[f"{prefix}_users"]
-        # Theta will be overriden with correct value later for A/B tests, needs to be passed in for bandits
+        # Theta will be overridden with correct value later for A/B tests, needs to be passed in for bandits
         theta = None
         if metric.keep_theta:
             theta = row[f"{prefix}_theta"] if f"{prefix}_theta" in row.index else 0
@@ -1154,7 +1160,7 @@ def process_single_metric(
     all_var_ids: Set[str] = set([v for a in analyses for v in a.var_ids])
     unknown_var_ids = detect_unknown_variations(rows=pdrows, var_ids=all_var_ids)
 
-    results: List[List[DimensionResponse]] = []
+    analysis_results: List[ExperimentMetricAnalysisResult] = []
     for a in analyses:
         # skip pre-computed dimension reaggregation for quantile metrics
         attempted_quantile_dimension_reaggregation = a.dimension.startswith(
@@ -1169,25 +1175,41 @@ def process_single_metric(
             attempted_quantile_dimension_reaggregation
             or attempted_quantile_overall_reaggregation
         ):
+            analysis_results.append(
+                ExperimentMetricAnalysisResult(
+                    unknownVariations=list(unknown_var_ids),
+                    dimensions=[],
+                    multipleExposures=0,
+                )
+            )
             continue
-        results.append(
-            process_analysis(
+        try:
+            dimensions = process_analysis(
                 rows=pdrows,
                 var_id_map=get_var_id_map(a.var_ids),
                 metric=metric,
                 analysis=a,
             )
-        )
+            analysis_results.append(
+                ExperimentMetricAnalysisResult(
+                    unknownVariations=list(unknown_var_ids),
+                    dimensions=dimensions,
+                    multipleExposures=0,
+                )
+            )
+        except Exception as e:
+            analysis_results.append(
+                ExperimentMetricAnalysisResult(
+                    unknownVariations=list(unknown_var_ids),
+                    dimensions=[],
+                    multipleExposures=0,
+                    error=str(e),
+                    traceback=traceback.format_exc(),
+                )
+            )
     return ExperimentMetricAnalysis(
         metric=metric.id,
-        analyses=[
-            ExperimentMetricAnalysisResult(
-                unknownVariations=list(unknown_var_ids),
-                dimensions=r,
-                multipleExposures=0,
-            )
-            for r in results
-        ],
+        analyses=analysis_results,
     )
 
 
@@ -1203,13 +1225,11 @@ def create_bandit_statistics(
         stat = variation_statistic_from_metric_row(
             row=metric_data, prefix=prefix, metric=metric
         )
-        # recast proportion metrics in case they slipped through
-        # for bandits we weight by period; iid data over periods no longer holds
+        # Binomial metrics are coerced to "count" upstream for bandits.
         if isinstance(stat, ProportionStatistic):
-            stat = SampleMeanStatistic(
-                n=stat.n,
-                sum=stat.sum,
-                sum_squares=stat.sum,
+            raise ValueError(
+                "ProportionStatistic not supported for bandits; "
+                "binomial metrics must be recast to count upstream"
             )
         if isinstance(stat, QuantileStatistic):
             raise ValueError("QuantileStatistic not supported for bandits")
@@ -1245,6 +1265,7 @@ def preprocess_bandits(
         bandit_weights_seed=bandit_settings.bandit_weights_seed,
         weight_by_period=bandit_settings.weight_by_period,
         top_two=bandit_settings.top_two,
+        min_variation_weight=bandit_settings.min_variation_weight,
         alpha=alpha,
         inverse=metric.inverse,
     )
@@ -1334,7 +1355,7 @@ def get_bandit_result(
     return get_error_bandit_result(
         single_variation_results=None,
         update_message="not updated",
-        error="no data froms sql query matches dimension",
+        error="no data from sql query matches dimension",
         reweight=bandit_settings.reweight,
         current_weights=bandit_settings.current_weights,
     )

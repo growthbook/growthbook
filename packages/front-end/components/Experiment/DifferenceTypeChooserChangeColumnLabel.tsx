@@ -82,10 +82,10 @@ function getChangeTooltip(
           <p className="mt-2 mb-0">
             Because your organization has multiple comparisons corrections
             enabled, these confidence intervals have been inflated so that they
-            match the adjusted psuedo-p-value. Because confidence intervals do
+            match the adjusted pseudo-p-value. Because confidence intervals do
             not generally exist for all adjusted p-values, we use a method that
             recreates the confidence intervals that would have produced these
-            psuedo-p-values. For adjusted psuedo-p-values that are 1.0, the
+            pseudo-p-values. For adjusted pseudo-p-values that are 1.0, the
             confidence intervals are infinite.
           </p>
         )}
@@ -255,7 +255,7 @@ export default function DifferenceTypeChooserChangeColumnLabel({
     >
       <DropdownMenuGroup>
         <DropdownMenuLabel
-          textSize="1"
+          textSize="sm"
           textStyle={{ textTransform: "uppercase", fontWeight: 600 }}
         >
           Difference Type

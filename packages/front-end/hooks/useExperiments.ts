@@ -10,15 +10,18 @@ export function useExperiments(
   project?: string,
   includeArchived: boolean = false,
   type?: ExperimentType,
+  { includeTempRollouts = false }: { includeTempRollouts?: boolean } = {},
 ) {
   const { data, error, mutate } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
     hasArchived: boolean;
     holdouts: HoldoutInterface[];
+    // Stopped experiments whose temporary rollout is actually being served.
+    tempRolloutExperimentIds?: string[];
   }>(
     `/experiments?project=${project || ""}&includeArchived=${
       includeArchived ? "1" : ""
-    }&type=${type || ""}`,
+    }&type=${type || ""}${includeTempRollouts ? "&includeTempRollouts=1" : ""}`,
   );
 
   const experiments = useMemo(() => data?.experiments || [], [data]);
@@ -30,6 +33,11 @@ export function useExperiments(
 
   const holdouts = useMemo(() => data?.holdouts || [], [data]);
 
+  const tempRolloutExperimentIds = useMemo(
+    () => data?.tempRolloutExperimentIds || [],
+    [data],
+  );
+
   return {
     loading: !error && !data,
     experiments: experiments,
@@ -38,5 +46,6 @@ export function useExperiments(
     error: error,
     mutateExperiments: mutate,
     hasArchived: data?.hasArchived || false,
+    tempRolloutExperimentIds,
   };
 }

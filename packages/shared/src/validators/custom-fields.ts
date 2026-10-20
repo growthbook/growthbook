@@ -3,7 +3,11 @@ import { apiBaseSchema } from "./base-model";
 
 import { namedSchema } from "./openapi-helpers";
 
-export const customFieldSectionValues = ["feature", "experiment"] as const;
+export const customFieldSectionValues = [
+  "feature",
+  "experiment",
+  "attribute",
+] as const;
 export const customFieldSectionTypes = z.enum(customFieldSectionValues);
 // All valid sections — use as the default when no section is specified.
 export const ALL_SECTIONS = [...customFieldSectionValues] as const;
@@ -29,6 +33,7 @@ export const customFieldsPropsValidator = z.object({
   defaultValue: z.any().optional(),
   type: customFieldTypes,
   values: z.string().optional(),
+  creatable: z.boolean().optional(),
   required: z.boolean(),
   creator: z.string().optional(),
   projects: z.array(z.string()).optional(),
@@ -91,6 +96,7 @@ export const apiCustomFieldInterface = namedSchema(
     defaultValue: apiDefaultValueTypes.optional(),
     type: customFieldTypes,
     values: z.string().optional(),
+    creatable: z.boolean().optional(),
     required: z.boolean(),
     creator: z.string().optional(),
     projects: z.array(z.string()).optional(),
@@ -102,21 +108,35 @@ export const apiCustomFieldInterface = namedSchema(
 export type ApiCustomField = z.infer<typeof apiCustomFieldInterface>;
 
 export const apiCreateCustomFieldBody = z.strictObject({
-  id: z.string().min(1).describe("The unique key for the custom field"),
+  id: z
+    .string()
+    .min(1)
+    .describe(
+      "Unique, permanent key used in API payloads (e.g. `jira_ticket`). Lowercase letters, numbers, hyphens, and underscores. Put the label in `name`.",
+    ),
   name: z.string().describe("The display name of the custom field"),
-  description: z.string().optional(),
+  description: z
+    .string()
+    .describe("Help text shown under the field.")
+    .optional(),
   placeholder: z.string().optional(),
   defaultValue: apiDefaultValueTypes.optional(),
   type: customFieldTypes.describe(
     "The type of value this custom field will take",
   ),
   values: z.string().optional(),
+  creatable: z
+    .boolean()
+    .optional()
+    .describe(
+      "For enum and multiselect fields, allow users to enter values beyond the predefined list",
+    ),
   required: z.boolean(),
   projects: z.array(z.string()).optional(),
   sections: z
     .array(customFieldSectionTypes)
     .describe(
-      "What types of objects this custom field is applicable to (feature, experiment)",
+      "What types of objects this custom field is applicable to (feature, experiment, attribute)",
     ),
 });
 

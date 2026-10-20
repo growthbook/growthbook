@@ -367,7 +367,7 @@ export class MetricTimeSeriesModel extends BaseClass {
     newTimeSeries: CreateMetricTimeSeriesSingleDataPoint,
   ): MetricTimeSeries | undefined {
     if (!isValidDataPoint(newTimeSeries.singleDataPoint)) {
-      logger.warn(
+      logger.debug(
         {
           newTimeSeries,
         },

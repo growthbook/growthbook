@@ -7,12 +7,13 @@ import {
   apiTeamValidator,
   apiUpdateTeamBody,
 } from "shared/validators";
+import { OpenApiModelSpec } from "shared/api-model";
 import { statusCodeReturn } from "back-end/src/util/handler";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
 
 export const addTeamMembersEndpoint = {
   pathFragment: "/:id/members",
   verb: "post" as const,
+  confirmation: ["access.teams"] as const,
   operationId: "addTeamMembers",
   validator: apiAddTeamMembersValidator,
   zodReturnObject: statusCodeReturn,
@@ -22,6 +23,7 @@ export const addTeamMembersEndpoint = {
 export const removeTeamMemberEndpoint = {
   pathFragment: "/:id/members",
   verb: "delete" as const,
+  confirmation: ["access.teams"] as const,
   operationId: "removeTeamMember",
   validator: apiRemoveTeamMemberValidator,
   zodReturnObject: statusCodeReturn,
@@ -31,6 +33,7 @@ export const removeTeamMemberEndpoint = {
 export const deleteTeamEndpoint = {
   pathFragment: "/:id",
   verb: "delete" as const,
+  confirmation: ["access.teams"] as const,
   operationId: "deleteTeam",
   validator: apiDeleteTeamValidator,
   zodReturnObject: apiDeleteTeamReturn,
@@ -47,6 +50,7 @@ export const teamApiSpec = {
     updateBody: apiUpdateTeamBody,
   },
   crudActions: ["get", "create", "list", "update"],
+  confirmation: { create: ["access.teams"], update: ["access.teams"] },
   customEndpoints: [
     addTeamMembersEndpoint,
     removeTeamMemberEndpoint,

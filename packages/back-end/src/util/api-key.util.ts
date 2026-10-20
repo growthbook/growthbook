@@ -1,18 +1,37 @@
 import { webcrypto } from "node:crypto";
 import crypto from "crypto";
 import { OrganizationInterface } from "shared/types/organization";
+import {
+  EventUserApiKey,
+  EventUserRequestedBy,
+} from "shared/types/events/event-types";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
+  assumesRequesterRole,
+  requesterHeaderPolicy,
+} from "shared/permissions";
+import { isExpired } from "shared/api-key-expiration";
+import {
+  APP_ORIGIN,
   IS_MULTI_ORG,
   SECRET_API_KEY,
   SECRET_API_KEY_ROLE,
 } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
 import {
   getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
+import { BadRequestError } from "back-end/src/util/errors";
 import { findAllOrganizations } from "back-end/src/models/OrganizationModel";
-import { COLLECTION_NAME as API_KEY_COLLECTION } from "back-end/src/models/ApiKeyModel";
+import {
+  ApiKeyModel,
+  COLLECTION_NAME as API_KEY_COLLECTION,
+} from "back-end/src/models/ApiKeyModel";
+import {
+  hashToken,
+  OAUTH_ACCESS_TOKEN_PREFIX,
+} from "back-end/src/util/oauth-token.util";
 
 /**
  * Verifies if the provided API key is for a user in the organization.
@@ -32,13 +51,13 @@ export const isApiKeyForUserInOrganization = (
 };
 
 export const roleForApiKey = (
-  apiKey: Pick<ApiKeyInterface, "role" | "userId" | "secret">,
+  apiKey: Pick<ApiKeyInterface, "role" | "userId" | "secret" | "scoped">,
 ): string | null => {
   // This role stuff is only for secret keys, not SDK keys
   if (!apiKey.secret) return null;
 
-  // The role will need to be evaluated
-  if (apiKey.userId) return null;
+  // PATs take the user's role, capped by their own only when scoped
+  if (apiKey.userId) return (apiKey.scoped && apiKey.role) || null;
 
   // If there's a role assigned, return that
   if (apiKey.role) return apiKey.role;
@@ -97,13 +116,143 @@ export async function dangerousLookupOrganizationByApiKey(
     }
   }
 
+  // OAuth access tokens are stored hashed under a distinguishing prefix.
+  // Hash-then-lookup only for that prefix so classic keys stay plaintext.
+  const lookupKey = key.startsWith(OAUTH_ACCESS_TOKEN_PREFIX)
+    ? hashToken(key)
+    : key;
+
   const doc = await getCollection<ApiKeyInterface>(API_KEY_COLLECTION).findOne({
-    key,
+    key: lookupKey,
   });
 
   if (!doc || !doc.organization) {
     throw new Error("Invalid API key");
   }
 
-  return migrateApiKey(removeMongooseFields(doc));
+  const migrated = migrateApiKey(removeMongooseFields(doc));
+
+  // The one expiry check for every caller. The attempt is recorded first so a
+  // lapsed key's `lastUsed` shows whether something still depends on it.
+  if (isExpired(migrated.expiresAt)) {
+    await ApiKeyModel.dangerousRecordUsageByKey(
+      lookupKey,
+      migrated.organization,
+    ).catch((err) =>
+      logger.warn(
+        { err, apiKeyId: migrated.id },
+        "Failed to record API key usage",
+      ),
+    );
+    // OAuth clients refresh on their own; anything else needs a person to replace it.
+    throw new Error(
+      migrated.oauthClientId
+        ? "This API key has expired"
+        : migrated.userId
+          ? `This personal access token has expired. Create a new one at ${APP_ORIGIN}/account/personal-access-tokens`
+          : `This API key has expired. An admin can create a new one at ${APP_ORIGIN}/settings/keys`,
+    );
+  }
+
+  return migrated;
+}
+
+export const REQUESTED_BY_HEADER = "x-growthbook-requested-by";
+
+type MemberLookup = {
+  byId: (
+    id: string,
+  ) => Promise<{ id: string; name?: string; email: string } | null>;
+  byEmail: (
+    email: string,
+  ) => Promise<{ id: string; name?: string; email: string } | null>;
+};
+
+function headerValue(value: string | string[] | undefined): string | null {
+  const first = (Array.isArray(value) ? value[0] : value)?.trim();
+  return first || null;
+}
+
+// Resolves `X-GrowthBook-Requested-By` to an organization member by user id, then email.
+// Null when the header is absent. Throws when it names nobody in the
+// organization, so attribution never silently falls back to the key alone.
+export async function resolveRequestedBy(
+  value: string | string[] | undefined,
+  organization: Pick<OrganizationInterface, "members">,
+  lookup: MemberLookup,
+): Promise<EventUserRequestedBy | null> {
+  const named = headerValue(value);
+  if (!named) return null;
+
+  const memberIds = new Set((organization.members ?? []).map((m) => m.id));
+  const user = memberIds.has(named)
+    ? await lookup.byId(named)
+    : await lookup.byEmail(named);
+  if (!user || !memberIds.has(user.id)) {
+    throw new BadRequestError(
+      `X-GrowthBook-Requested-By does not match a member of this organization: ${named}`,
+    );
+  }
+  return { id: user.id, name: user.name || "", email: user.email };
+}
+
+// The actor an API key request records: a personal token as its owner, an org
+// key under its own name with the member it named.
+export function apiKeyEventUser({
+  apiKeyId,
+  key,
+  owner,
+  requester,
+}: {
+  apiKeyId: string;
+  key: Pick<ApiKeyInterface, "description" | "requesterPermissions">;
+  owner: { id: string; name?: string; email: string } | null;
+  requester: EventUserRequestedBy | null;
+}): EventUserApiKey {
+  if (owner) {
+    return {
+      type: "api_key",
+      apiKey: apiKeyId,
+      id: owner.id,
+      name: owner.name || "",
+      email: owner.email,
+    };
+  }
+  return {
+    type: "api_key",
+    apiKey: apiKeyId,
+    name: key.description || "",
+    ...(requester && {
+      requestedBy: requester,
+      ...(assumesRequesterRole(key) && { assumedRole: true }),
+    }),
+  };
+}
+
+// Applies a credential's rules to X-GrowthBook-Requested-By: personal and OAuth
+// tokens already act as their user, and an org key may require or reject it.
+export async function resolveRequestedByFor(
+  value: string | string[] | undefined,
+  orgKey: Pick<ApiKeyInterface, "requesterHeader"> | null,
+  organization: Pick<OrganizationInterface, "members">,
+  lookup: MemberLookup,
+): Promise<EventUserRequestedBy | null> {
+  const policy = orgKey ? requesterHeaderPolicy(orgKey) : null;
+  if (!policy || policy === "rejected") {
+    if (headerValue(value)) {
+      throw new BadRequestError(
+        policy
+          ? "This API key doesn't accept X-GrowthBook-Requested-By."
+          : "X-GrowthBook-Requested-By is only for organization API keys. Personal access and OAuth tokens already act as their user.",
+      );
+    }
+    return null;
+  }
+  const requestedBy = await resolveRequestedBy(value, organization, lookup);
+  if (!requestedBy && policy === "required") {
+    throw new BadRequestError(
+      "This API key requires an X-GrowthBook-Requested-By header naming an organization member",
+    );
+  }
+  return requestedBy;
 }

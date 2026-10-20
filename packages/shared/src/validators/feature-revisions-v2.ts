@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { apiAssignmentQueryInputFields } from "./assignment-query-field";
+import { apiEventUser, REVIEW_VERDICT_NOTE } from "./event-user";
 import {
   featurePrerequisite,
   savedGroupTargeting,
@@ -6,16 +8,36 @@ import {
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
   booleanQueryField,
+  schemaValidationQueryFields,
+  publishOverrideBodyFields,
+  bypassApprovalPublishBodyField,
+  ignoreWarningsBodyField,
+  publishBypassedGatesField,
+  HUMAN_OVERRIDE_NOTE,
 } from "./shared";
 import {
   inlineRampScheduleInput,
   standaloneRampScheduleInput,
   revisionVersionParam,
 } from "./feature-revisions";
+import { rampStartState } from "./ramp-schedule";
 import { apiFeatureRevisionV2Validator } from "./features-v2";
-import { JSONSchemaDef, revisionStatusFilterSchema } from "./features";
+import { apiJSONSchemaDefInput, revisionStatusFilterSchema } from "./features";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
+import {
+  FEATURE_DESCRIPTION,
+  NEW_DRAFT_COMMENT_DESCRIPTION,
+  NEW_DRAFT_TITLE_DESCRIPTION,
+  PUBLISH_COMMENT_DESCRIPTION,
+  REQUEST_REVIEW_COMMENT_DESCRIPTION,
+  REVIEW_ACTION_DESCRIPTION,
+  REVIEW_COMMENT_DESCRIPTION,
+  REVISION_COMMENT_DESCRIPTION,
+  REVISION_TITLE_DESCRIPTION,
+  RULE_DESCRIPTION,
+} from "./api-field-descriptions";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // ---- Shared param schemas ----
 
@@ -30,23 +52,42 @@ const ruleParams = revisionParams.extend({ ruleId: z.string() });
 // Optional metadata applied when an endpoint auto-creates a draft via
 // `version: "new"`. Ignored when editing an existing revision.
 const newDraftMetadataFields = {
-  revisionTitle: z
-    .string()
-    .optional()
-    .describe(
-      'Title for a newly created draft. Only used when version is "new"; ignored for existing revisions.',
-    ),
+  revisionTitle: z.string().optional().describe(NEW_DRAFT_TITLE_DESCRIPTION),
   revisionComment: z
     .string()
     .optional()
-    .describe(
-      'Comment for a newly created draft. Only used when version is "new"; ignored for existing revisions.',
-    ),
+    .describe(NEW_DRAFT_COMMENT_DESCRIPTION),
 };
 
 // ---- Shared response schemas ----
 
 const revisionResponse = z.object({ revision: apiFeatureRevisionV2Validator });
+
+// Ramp-schedule body accepting an optional `startState` (the rollback anchor).
+const rampScheduleInputV2 = standaloneRampScheduleInput.extend({
+  startState: rampStartState
+    .optional()
+    .describe(
+      "The rule state to roll back to (the rollback/jump-to-start anchor). " +
+        'Merged onto the rule\'s current state, so `{ "coverage": 0 }` keeps ' +
+        "existing targeting but rolls back to 0%. Steps accumulate on it, and it " +
+        "is the only place a plan sets `hashAttribute` (plus optional `seed` and " +
+        "`hashVersion`), which a partial-coverage step on a force rule requires " +
+        "unless the rule has one. On create, omitting it infers " +
+        "the anchor from the rule's current coverage (and returns a warning if " +
+        "that isn't 0%); on update of a live schedule, omitting it leaves the " +
+        "existing anchor unchanged.",
+    ),
+});
+
+// Response variant that can carry non-fatal advisories (e.g. an inferred
+// rollback anchor that isn't 0%).
+const revisionResponseWithWarnings = revisionResponse.extend({
+  warnings: z
+    .array(z.string())
+    .optional()
+    .describe("Non-fatal advisories about how the request was interpreted."),
+});
 
 // Mirrors MergeConflict in shared/util/features.ts.
 const mergeConflictSchema = z
@@ -105,7 +146,7 @@ const scheduleShorthand = z
   .strict();
 
 const commonRuleFields = {
-  description: z.string().optional(),
+  description: z.string().describe(RULE_DESCRIPTION).optional(),
   enabled: z.boolean().optional(),
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
@@ -118,13 +159,13 @@ const ruleScopeInput = {
     .boolean()
     .optional()
     .describe(
-      "When true the rule applies to all environments. Defaults to false.",
+      "When true the rule applies to all environments. Omit both scope fields to apply to all environments.",
     ),
   environments: z
     .array(z.string())
     .optional()
     .describe(
-      "Specific environment IDs this rule applies to. Used when allEnvironments is false.",
+      "Environment IDs the rule applies to. Ignored when allEnvironments is true; with allEnvironments false, an omitted or empty list scopes the rule to no environment.",
     ),
 };
 
@@ -141,6 +182,19 @@ const targetingRuleCreateInputV2 = namedSchema(
           'Use "force" for a standard targeting rule, or "rollout" for a percentage rollout (coverage < 1). Defaults to "force". Both are functionally equivalent; a force rule with coverage < 1 behaves as a rollout.',
         ),
       value: z.string().describe("The value to serve when this rule matches."),
+      config: z
+        .string()
+        .nullable()
+        .optional()
+        .describe(
+          "Key of a config to back this value. When set, `value` is a JSON override patch merged on top of the config; omit or null for a plain value.",
+        ),
+      sparse: z
+        .boolean()
+        .optional()
+        .describe(
+          "JSON features only. When true, the rule value is a partial object merged onto the feature's default value instead of replacing it.",
+        ),
       coverage: z
         .number()
         .min(0)
@@ -181,9 +235,25 @@ const experimentRefCreateInputV2 = namedSchema(
       experimentId: z.string().describe("ID of the linked experiment."),
       variations: z.array(
         z
-          .object({ variationId: z.string().optional(), value: z.string() })
+          .object({
+            variationId: z.string().optional(),
+            value: z.string(),
+            config: z
+              .string()
+              .nullable()
+              .optional()
+              .describe(
+                "Key of a config to back this variation value. When set, `value` is a JSON override patch merged on top of the config; omit or null for a plain value.",
+              ),
+          })
           .strict(),
       ),
+      sparse: z
+        .boolean()
+        .optional()
+        .describe(
+          "JSON features only. When true, each variation value is a partial object merged onto the feature's default value instead of replacing it.",
+        ),
     })
     .strict()
     .describe(
@@ -208,7 +278,7 @@ const safeRolloutCreateInputV2 = namedSchema(
       safeRolloutFields: z
         .object({
           datasourceId: z.string(),
-          exposureQueryId: z.string(),
+          ...apiAssignmentQueryInputFields("exposureQuery"),
           guardrailMetricIds: z.array(z.string()).min(1),
           maxDuration: z
             .object({
@@ -246,7 +316,7 @@ export type RuleCreateInputV2 = z.infer<typeof ruleCreateInputV2>;
 
 const rulePatchSchemaV2 = z
   .object({
-    description: z.string().optional(),
+    description: z.string().describe(RULE_DESCRIPTION).optional(),
     enabled: z.boolean().optional(),
     condition: z.string().optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
@@ -255,19 +325,49 @@ const rulePatchSchemaV2 = z
       .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
       .optional(),
     value: z.string().optional(),
+    config: z
+      .string()
+      .nullable()
+      .optional()
+      .describe(
+        "Force/rollout rules only. Key of a config to back the value (or null to detach). When set, `value` is a JSON override patch merged on top of the config. Omit to leave the existing config backing unchanged.",
+      ),
+    sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     experimentId: z.string().optional(),
     variations: z
-      .array(z.object({ variationId: z.string(), value: z.string() }).strict())
+      .array(
+        z
+          .object({
+            variationId: z.string(),
+            value: z.string(),
+            config: z
+              .string()
+              .nullable()
+              .optional()
+              .describe(
+                "Key of a config to back this variation value (or null to detach). When set, `value` is a JSON override patch merged on top of the config.",
+              ),
+          })
+          .strict(),
+      )
       .optional(),
     controlValue: z.string().optional(),
     variationValue: z.string().optional(),
     // V2: scope can be updated via patch
-    allEnvironments: z.boolean().optional(),
-    environments: z.array(z.string()).optional(),
+    allEnvironments: z
+      .boolean()
+      .optional()
+      .describe("Omit both scope fields to keep the current scope."),
+    environments: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Environment IDs the rule applies to. Ignored when allEnvironments is true.",
+      ),
   })
   .strict();
 
@@ -319,6 +419,7 @@ export const getFeatureRevisionLatestV2Validator = {
 export const postFeatureRevisionV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionV2",
   summary: "Create a draft revision",
   description:
@@ -326,9 +427,19 @@ export const postFeatureRevisionV2Validator = {
   tags: ["feature-revisions-v2"],
   paramsSchema: idParams,
   bodySchema: z
-    .object({ comment: z.string().optional(), title: z.string().optional() })
+    .object({
+      comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
+      title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
+    })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z
+    .object({
+      overrideDraftLimit: booleanQueryField.describe(
+        `If the organization caps concurrent drafts per feature (\`maxConcurrentDrafts\` setting), requests at or over the cap are rejected with a 409. Pass \`true\` to create the draft anyway. ${HUMAN_OVERRIDE_NOTE}`,
+      ),
+    })
+    .strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -336,8 +447,25 @@ export const postFeatureRevisionV2Validator = {
 export const postFeatureRevisionDiscardV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/discard",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionDiscardV2",
   summary: "Discard a draft revision",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+  version: "v2" as const,
+};
+
+export const postFeatureRevisionReopenV2Validator = {
+  method: "post" as const,
+  path: "/features/:id/revisions/:version/reopen",
+  confirmation: ["feature.draft"] as const,
+  operationId: "postFeatureRevisionReopenV2",
+  summary: "Reopen a discarded revision as a draft",
+  description:
+    "Returns a `discarded` revision to `draft` status so it can be edited, reviewed, and published. Prior review state is not restored — the draft must go back through review if approvals are required.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.object({}).strict(),
@@ -349,21 +477,44 @@ export const postFeatureRevisionDiscardV2Validator = {
 export const postFeatureRevisionPublishV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/publish",
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    "rampSchedule.start",
+    "rampSchedule.edit",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionPublishV2",
   summary: "Publish a draft revision",
   description:
-    "Immediately publishes a draft revision, making it the live version of the feature. Any pending ramp actions (`pendingRamp` on rules) are executed atomically — ramp schedules are created or detached as queued.",
+    "Publishes the draft and makes its changes live. The caller needs Publish access for every affected environment. When approval is required, the draft must be approved unless the caller has Bypass draft approvals access. If the organization requires rebasing, an out-of-date draft must be rebased first; an authorized caller can instead send `ignoreWarnings: true` to force-publish it. Any pending ramp actions in `pendingRamp` are applied as part of the same operation. A 422 response lists every blocking gate and the available resolution.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({ comment: z.string().optional() }).strict(),
-  querySchema: z.never(),
-  responseSchema: revisionResponse,
+  bodySchema: z
+    .object({
+      comment: z.string().describe(PUBLISH_COMMENT_DESCRIPTION).optional(),
+      bypassApproval: bypassApprovalPublishBodyField,
+      ...publishOverrideBodyFields,
+    })
+    .strict(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
   version: "v2" as const,
 };
 
 export const postFeatureRevisionRevertV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/revert",
+  confirmation: [
+    "feature.draft",
+    "feature.publish",
+    "feature.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionRevertV2",
   summary: "Revert the feature to a prior revision",
   tags: ["feature-revisions-v2"],
@@ -371,48 +522,209 @@ export const postFeatureRevisionRevertV2Validator = {
   bodySchema: z
     .object({
       strategy: z.enum(["draft", "publish"]).optional(),
-      comment: z.string().optional(),
-      title: z.string().optional(),
+      comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
+      title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
+      // Same reason as the Saved Group and Config reverts: publishing a revert
+      // that restores `archived` runs the bypassable dependent guard, and a
+      // strict body without these rejects the acknowledgment it asks for.
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
   version: "v2" as const,
 };
+
+// Per-field conflict keys, plus per-rule `rules.<ruleId>` (both sides changed
+// the same rule, including delete-vs-modify) and `rules.order` (competing
+// reorders). The blanket `rules` key resolves all rule-level conflicts at once.
+const conflictResolutionsDescription =
+  "Map of conflict key → resolution. Keys come from the returned conflicts: `defaultValue`, `prerequisites`, `archived`, `holdout`, `environmentsEnabled.<env>`, `metadata.<field>`, `rules.<ruleId>`, and `rules.order`. `overwrite` keeps the draft's version of that item; `discard` keeps live's. The blanket `rules` key applies one strategy to all rule-level conflicts.";
+
+const rebaseBodySchema = z
+  .object({
+    conflictResolutions: z
+      .record(z.string(), z.enum(["overwrite", "discard"]))
+      .optional()
+      .describe(conflictResolutionsDescription),
+    expectedLiveVersion: z
+      .number()
+      .int()
+      .optional()
+      .describe(
+        "Optimistic-concurrency guard: the live version the resolutions were authored against (as returned by merge-status or rebase preview). If live has since moved, the request fails with `409` instead of applying resolutions to different conflicts.",
+      ),
+    expectedDraftDateUpdated: z
+      .string()
+      .optional()
+      .describe(
+        "Optimistic-concurrency guard for the draft side: the draft's `draftDateUpdated` timestamp as returned by merge-status or rebase preview. If the draft has been modified since (e.g. by a co-author), the request fails with `409` instead of applying resolutions against changed draft content.",
+      ),
+    ignoreWarnings: ignoreWarningsBodyField,
+  })
+  .strict();
+
+const mergePreviewResponseSchema = z.object({
+  success: z.boolean(),
+  liveVersion: z
+    .number()
+    .describe(
+      "The current live version the merge was computed against. Echo this back as `expectedLiveVersion` when rebasing.",
+    ),
+  draftDateUpdated: z
+    .string()
+    .meta({ format: "date-time" })
+    .describe(
+      "The draft's last-modified timestamp at merge time. Echo this back as `expectedDraftDateUpdated` when rebasing to guard against concurrent draft edits.",
+    ),
+  conflicts: z.array(mergeConflictSchema),
+  result: mergeResultChangesSchema.optional(),
+});
 
 export const getFeatureRevisionMergeStatusV2Validator = {
   method: "get" as const,
   path: "/features/:id/revisions/:version/merge-status",
   operationId: "getFeatureRevisionMergeStatusV2",
   summary: "Get merge status for a draft revision",
+  description:
+    "Runs the three-way merge between the draft and the current live version without applying it. Conflicts are granular: each conflicting field gets its own key, and rules conflict individually (`rules.<ruleId>`, plus `rules.order` for competing reorders). Pass the returned `liveVersion` as `expectedLiveVersion` when rebasing. Also reports `rebaseRequired` so callers can detect ahead of time whether the publish endpoint will block until the draft is rebased.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.never(),
   querySchema: z.never(),
-  responseSchema: z.object({
-    success: z.boolean(),
-    conflicts: z.array(mergeConflictSchema),
-    result: mergeResultChangesSchema.optional(),
+  responseSchema: mergePreviewResponseSchema.extend({
+    rebaseRequired: z
+      .boolean()
+      .describe(
+        "Whether the draft must be rebased before it can be published. This is true when the merge has conflicts, or when the organization requires rebasing and the draft or its approval is out of date. If there are no conflicts, a caller with Bypass draft approvals access can send `ignoreWarnings: true` to force-publish instead.",
+      ),
   }),
+  version: "v2" as const,
+};
+
+// ---- Diff endpoint ----
+//
+// Shape mirrors the front-end's "Copy as → Minimal/Full JSON" so one source of
+// truth covers both the in-app clipboard formats and the REST contract.
+// Lifecycle/identity fields are echoed in `from`/`to` rather than the diff
+// body, which focuses on content changes.
+const diffFormatParam = z
+  .enum(["minimal", "full"])
+  .optional()
+  .describe(
+    "`minimal` (default) returns only what changed, with id-keyed arrays bucketed into added/removed/modified items. `full` returns the complete before/after content of the revision.",
+  );
+
+// `base=live` is handy for pre-publish bots that want the net effect on live.
+const diffBaseParam = z
+  .union([z.literal("baseVersion"), z.literal("live"), z.coerce.number().int()])
+  .optional()
+  .describe(
+    "Compare against: `baseVersion` (default — the revision's own `baseVersion`, matches the in-app review view), `live` (the currently-live revision), or an integer version (an arbitrary historical revision).",
+  );
+
+// Per-field/array-item change descriptors used by the minimal format.
+const diffChangeEntry = z
+  .object({
+    field: z.string(),
+    change: z.enum(["added", "removed", "modified"]),
+  })
+  .passthrough();
+
+const diffSupplementalMinimal = z
+  .object({
+    name: z.string(),
+    type: z.string(),
+    change: z.enum(["added", "removed", "modified"]),
+  })
+  .passthrough();
+
+const diffSupplementalFull = z
+  .object({
+    name: z.string(),
+    type: z.string(),
+    before: z.unknown().nullable(),
+    after: z.unknown().nullable(),
+  })
+  .strict();
+
+const diffEnvelope = z.object({
+  name: z.string().describe("The feature key."),
+  type: z.literal("feature"),
+  from: z
+    .number()
+    .int()
+    .describe("Version number this revision was diffed against (the before)."),
+  to: z.number().int().describe("Version number being diffed (the after)."),
+});
+
+const minimalDiffResponse = z.object({
+  diff: diffEnvelope.extend({
+    changes: z.array(diffChangeEntry),
+    supplemental: z.array(diffSupplementalMinimal).optional(),
+  }),
+});
+
+const fullDiffResponse = z.object({
+  diff: diffEnvelope.extend({
+    before: z.record(z.string(), z.unknown()),
+    after: z.record(z.string(), z.unknown()),
+    supplemental: z.array(diffSupplementalFull).optional(),
+  }),
+});
+
+export const getFeatureRevisionDiffV2Validator = {
+  method: "get" as const,
+  path: "/features/:id/revisions/:version/diff",
+  operationId: "getFeatureRevisionDiffV2",
+  summary: "Diff a revision against another revision",
+  description:
+    "Returns a schema-keyed JSON diff between this revision and a baseline. The same shapes the in-app review surface produces under `Copy as → Minimal JSON` / `Full JSON`: `minimal` lists only what changed (with id-keyed arrays bucketed into added/removed/modified items and reorder detection), while `full` returns the complete before/after content of the revision. Lifecycle fields (version, status, comment, date, createdBy, publishedBy) are excluded from the diff body and echoed via `from` / `to` instead. Defaults to diffing against the revision's own `baseVersion`; pass `?base=live` to diff against the current live revision, or `?base=<version>` for an arbitrary historical one.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      format: diffFormatParam,
+      base: diffBaseParam,
+    })
+    .strict(),
+  // The two formats produce structurally different payloads; the union lets
+  // OpenAPI clients see both. Object identification is via the always-present
+  // `changes` (minimal) / `before` (full) keys.
+  responseSchema: z.union([minimalDiffResponse, fullDiffResponse]),
+  version: "v2" as const,
+};
+
+export const postFeatureRevisionRebasePreviewV2Validator = {
+  method: "post" as const,
+  path: "/features/:id/revisions/:version/rebase/preview",
+  confirmation: [],
+  operationId: "postFeatureRevisionRebasePreviewV2",
+  summary: "Preview a rebase without applying it",
+  description:
+    "Dry-run of the rebase: runs the same three-way merge with the supplied `conflictResolutions` and returns every conflict (resolved and unresolved) plus the merged result once all are resolved — without modifying the draft. Use it to iterate on resolutions before committing them via the rebase endpoint.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: rebaseBodySchema,
+  querySchema: z.never(),
+  responseSchema: mergePreviewResponseSchema,
   version: "v2" as const,
 };
 
 export const postFeatureRevisionRebaseV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rebase",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionRebaseV2",
   summary: "Rebase a draft revision onto the current live version",
   description:
-    "Updates the draft's base revision to match the currently-live revision, applying the draft's changes on top. Supply `conflictResolutions` to resolve any conflicting fields. Valid keys: `defaultValue`, `rules`, `prerequisites`, `archived`, `holdout`, and `environmentsEnabled.<env>`. Unresolved conflicts respond with `409`.",
+    "Updates the draft's base revision to match the currently-live revision, applying the draft's changes on top. Supply `conflictResolutions` to resolve conflicting items individually — including per-rule (`rules.<ruleId>`) and rule-order (`rules.order`) conflicts. Supply `expectedLiveVersion` and/or `expectedDraftDateUpdated` (both returned by merge-status and rebase preview) to fail fast with `409` if either side changes between conflict review and submission. Unresolved conflicts also respond with `409`.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z
-    .object({
-      conflictResolutions: z
-        .record(z.string(), z.enum(["overwrite", "discard"]))
-        .optional(),
-    })
-    .strict(),
+  bodySchema: rebaseBodySchema,
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
@@ -421,11 +733,59 @@ export const postFeatureRevisionRebaseV2Validator = {
 export const postFeatureRevisionRequestReviewV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/request-review",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionRequestReviewV2",
   summary: "Request review for a draft revision",
+  description:
+    "Moves the draft into the `pending-review` state and notifies reviewers.\n\nSet `autoPublishOnApproval` to `true` to publish the revision automatically the moment it is approved (GitHub auto-merge model). This requires the org to have auto-publish-on-approval enabled for the feature and the caller to have publish permission; the auto-publish then executes with the caller's authority.\n\nSet `scheduledPublishAt` to a future ISO date-time to defer the auto-publish until that date (it still also requires approval when review is required). Use `scheduledPublishLockEdits` to freeze edits to this draft while the schedule is pending, and `scheduledPublishLockOthers` to block publishing other drafts of this feature in the meantime.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({ comment: z.string().optional() }).strict(),
+  bodySchema: z
+    .object({
+      comment: z
+        .string()
+        .describe(REQUEST_REVIEW_COMMENT_DESCRIPTION)
+        .optional(),
+      autoPublishOnApproval: z.boolean().optional(),
+      // Same field, same rule as the schedule-publish endpoint below.
+      scheduledPublishAt: z
+        .union([z.iso.datetime({ offset: true }), z.null()])
+        .optional(),
+      scheduledPublishLockEdits: z.boolean().optional(),
+      scheduledPublishLockOthers: z.boolean().optional(),
+    })
+    .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+  version: "v2" as const,
+};
+
+export const postFeatureRevisionSchedulePublishV2Validator = {
+  method: "post" as const,
+  path: "/features/:id/revisions/:version/schedule-publish",
+  confirmation: ["feature.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  operationId: "postFeatureRevisionSchedulePublishV2",
+  summary: "Schedule (or cancel) a deferred publish for a draft revision",
+  description:
+    "Schedules the draft to publish on or after `scheduledPublishAt`. When approval is required, publishing waits until the draft is also approved. Send `scheduledPublishAt: null` to cancel the schedule.\n\nSet `lockEdits` to prevent content changes while the schedule is pending; rebasing remains allowed. Set `lockOthers` to prevent other drafts of this Feature Flag from being published until this schedule runs or is canceled. The caller needs Publish access, and that access is checked again when the schedule runs. A caller with Bypass draft approvals access can schedule an unapproved draft by sending `bypassApproval: true`. That schedule must be canceled and recreated before it can be changed.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z
+    .object({
+      // Accept RFC3339 numeric offsets for backward compatibility.
+      scheduledPublishAt: z
+        .union([z.iso.datetime({ offset: true }), z.null()])
+        .describe(
+          "When to publish, as an RFC3339 timestamp (e.g. `2026-01-31T09:00:00Z` or `2026-01-31T02:00:00-07:00`), or `null` to cancel a pending schedule.",
+        ),
+      // Accepted so a caller retrying a bypassable 422 raised anywhere in this
+      // request isn't turned away by the body schema itself.
+      ...publishOverrideBodyFields,
+      lockEdits: z.boolean().optional(),
+      lockOthers: z.boolean().optional(),
+      bypassApproval: z.boolean().optional(),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
@@ -434,24 +794,141 @@ export const postFeatureRevisionRequestReviewV2Validator = {
 export const postFeatureRevisionSubmitReviewV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/submit-review",
+  confirmation: ["feature.review"] as const,
   operationId: "postFeatureRevisionSubmitReviewV2",
   summary: "Submit a review on a draft revision",
+  description: `Submits an \`approve\`, \`request-changes\`, or \`comment\` review on the draft. ${REVIEW_VERDICT_NOTE} Contributors cannot approve their own drafts when \`blockSelfApproval\` is enabled.\n\nWhen \`action\` is \`approve\` and the revision has \`autoPublishOnApproval\` enabled, the revision is automatically published after approval. The response includes \`autoPublished: true\` when this happens. Pass \`skipAutoPublish: true\` to approve without triggering auto-publish.`,
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      comment: z.string().optional(),
-      action: z.enum(["approve", "request-changes", "comment"]).optional(),
+      comment: z.string().describe(REVIEW_COMMENT_DESCRIPTION).optional(),
+      action: z
+        .enum(["approve", "request-changes", "comment"])
+        .describe(REVIEW_ACTION_DESCRIPTION)
+        .optional(),
+      skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
   querySchema: z.never(),
+  responseSchema: revisionResponse.extend({
+    autoPublished: z.boolean().optional(),
+  }),
+  version: "v2" as const,
+};
+
+export const postFeatureRevisionRecallReviewV2Validator = {
+  method: "post" as const,
+  path: "/features/:id/revisions/:version/recall-review",
+  confirmation: ["feature.draft"] as const,
+  operationId: "postFeatureRevisionRecallReviewV2",
+  summary: "Recall a review request (revert to draft)",
+  description:
+    "Retracts the review request, returning the revision from `pending-review`, `changes-requested`, or `approved` back to `draft`. Allowed for any user with draft-management permission on the feature (the same permission required to request review), not only the original requester. Existing review log entries are preserved as audit history but any in-flight reviewer verdicts (Approved / Requested Changes) submitted during this review cycle no longer count — submitting a fresh `request-review` starts a new cycle.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
   responseSchema: revisionResponse,
+  version: "v2" as const,
+};
+
+export const postFeatureRevisionUndoReviewV2Validator = {
+  method: "post" as const,
+  path: "/features/:id/revisions/:version/undo-review",
+  confirmation: ["feature.review"] as const,
+  operationId: "postFeatureRevisionUndoReviewV2",
+  summary: "Undo a reviewer's own review verdict",
+  description: `Reviewer retracts their own verdict. ${REVIEW_VERDICT_NOTE} The revision status rewinds to the state implied by the remaining active verdicts from other reviewers: any outstanding \`Requested Changes\` → \`changes-requested\`, else any outstanding \`Approved\` → \`approved\`, else \`pending-review\`. Existing review comments are preserved. If the retraction resolves the revision to \`approved\` and auto-publish-on-approval is armed, the revision is published.`,
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+  version: "v2" as const,
+};
+
+const revisionLogParams = revisionParamsStrict.extend({ logId: z.string() });
+
+const okResponse = z.object({ status: z.literal(200) }).strict();
+
+const apiRevisionLogEntry = z
+  .object({
+    id: z
+      .string()
+      .optional()
+      .describe(
+        "Log entry ID. Use a `Comment` entry's id with the PUT/DELETE log endpoints to edit or delete an owned comment. Absent on legacy entries stored inline on the revision.",
+      ),
+    action: z
+      .string()
+      .describe(
+        'Entry type — content edits (e.g. "add rule", "edit defaultValue", "rebase"), review lifecycle events ("Review Requested", "Approved", "Requested Changes"), comments ("Comment"), or other audit events.',
+      ),
+    subject: z.string(),
+    value: z.string().describe("JSON-encoded payload for the entry"),
+    timestamp: z.string().meta({ format: "date-time" }),
+    user: apiEventUser.nullable(),
+  })
+  .strict();
+
+export const getFeatureRevisionLogV2Validator = {
+  method: "get" as const,
+  path: "/features/:id/revisions/:version/log",
+  operationId: "getFeatureRevisionLogV2",
+  summary: "List the activity log for a revision",
+  description:
+    "Returns every log entry for the revision — content edits (rules, default value, rebases), review lifecycle events (review requested, approved, changes requested, recalled, undone), comments, and other audit events — sorted oldest-first.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  responseSchema: z.object({ log: z.array(apiRevisionLogEntry) }),
+  version: "v2" as const,
+};
+
+export const putFeatureRevisionLogCommentV2Validator = {
+  method: "put" as const,
+  path: "/features/:id/revisions/:version/log/:logId",
+  confirmation: ["feature.draft"] as const,
+  operationId: "putFeatureRevisionLogCommentV2",
+  summary: "Edit the comment text of an owned log entry",
+  description:
+    "Author of a `Comment`, `Approved`, or `Requested Changes` log entry can rewrite its comment text. The entry's action and other audit-trail metadata remain immutable; this only mutates `value.comment`. Other audit events (e.g. `Review Requested`, system events) are not editable.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionLogParams,
+  bodySchema: z
+    .object({
+      comment: z
+        .string()
+        .describe("New comment text. Replaces existing comment text."),
+    })
+    .strict(),
+  querySchema: z.never(),
+  responseSchema: okResponse,
+  version: "v2" as const,
+};
+
+export const deleteFeatureRevisionLogEntryV2Validator = {
+  method: "delete" as const,
+  path: "/features/:id/revisions/:version/log/:logId",
+  confirmation: ["feature.draft"] as const,
+  operationId: "deleteFeatureRevisionLogEntryV2",
+  summary: "Delete an owned revision Comment entry",
+  description:
+    "Author of a `Comment` log entry can delete it. Verdict entries (Approved, Requested Changes, Review Requested) and other audit-trail events are immutable. To retract a verdict use `/undo-review`; to retract a review request use `/recall-review`.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionLogParams,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: okResponse,
   version: "v2" as const,
 };
 
 export const postFeatureRevisionToggleV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/toggle",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionToggleV2",
   summary: "Toggle an environment on/off in a draft revision",
   tags: ["feature-revisions-v2"],
@@ -461,6 +938,7 @@ export const postFeatureRevisionToggleV2Validator = {
       environment: z.string(),
       enabled: z.boolean(),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -471,14 +949,30 @@ export const postFeatureRevisionToggleV2Validator = {
 export const putFeatureRevisionDefaultValueV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/default-value",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionDefaultValueV2",
   summary: "Set the default value in a draft revision",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParams,
   bodySchema: z
-    .object({ defaultValue: z.string(), ...newDraftMetadataFields })
+    .object({
+      defaultValue: z
+        .string()
+        .describe(
+          'New default value. In Config mode (feature has `baseConfig`), the default must be exactly a config with no overrides: send `"{}"` to use `baseConfig`, or set `defaultValueConfig` to point at a descendant.',
+        ),
+      defaultValueConfig: z
+        .string()
+        .nullable()
+        .describe(
+          "Key of a config within the feature's `baseConfig` family that the default value resolves to (the base itself or a descendant). The default is exactly that config with no overrides; pass `null` to use `baseConfig`. Do not embed `@config:` in `defaultValue` — use this field.",
+        )
+        .optional(),
+      ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
+    })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -486,6 +980,7 @@ export const putFeatureRevisionDefaultValueV2Validator = {
 export const putFeatureRevisionPrerequisitesV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/prerequisites",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionPrerequisitesV2",
   summary: "Set feature-level prerequisites in a draft revision",
   description:
@@ -504,6 +999,7 @@ export const putFeatureRevisionPrerequisitesV2Validator = {
           "List of prerequisite boolean flags. When any prerequisite flag is off for a user, this flag returns its defaultValue for that user.",
         ),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -514,21 +1010,35 @@ export const putFeatureRevisionPrerequisitesV2Validator = {
 export const putFeatureRevisionMetadataV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/metadata",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionMetadataV2",
   summary: "Update revision metadata",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
-      comment: z.string().optional(),
-      title: z.string().optional(),
-      description: z.string().optional(),
+      comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
+      title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
+      description: z.string().describe(FEATURE_DESCRIPTION).optional(),
       owner: ownerInputField.optional(),
       project: z.string().optional(),
+      targetingAllProjects: z
+        .boolean()
+        .describe(
+          "Stage delivering this feature to every project. Requires the `targetFeatures` permission unscoped to any project.",
+        )
+        .optional(),
+      targetingProjects: z
+        .array(z.string())
+        .describe(
+          "Stage the secondary project IDs this feature is delivered to. Adding a project requires the `targetFeatures` permission (FlagsTarget policy) in that project.",
+        )
+        .optional(),
       tags: z.array(z.string()).optional(),
       neverStale: z.boolean().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),
-      jsonSchema: JSONSchemaDef.optional(),
+      jsonSchema: apiJSONSchemaDefInput.optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -539,12 +1049,17 @@ export const putFeatureRevisionMetadataV2Validator = {
 export const putFeatureRevisionArchiveV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/archive",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionArchiveV2",
   summary: "Set archived state in a draft revision",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParams,
   bodySchema: z
-    .object({ archived: z.boolean(), ...newDraftMetadataFields })
+    .object({
+      archived: z.boolean(),
+      ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
+    })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
@@ -554,6 +1069,7 @@ export const putFeatureRevisionArchiveV2Validator = {
 export const putFeatureRevisionHoldoutV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/holdout",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionHoldoutV2",
   summary: "Set holdout in a draft revision",
   tags: ["feature-revisions-v2"],
@@ -565,6 +1081,7 @@ export const putFeatureRevisionHoldoutV2Validator = {
         .strict()
         .nullable(),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -579,6 +1096,7 @@ export const putFeatureRevisionHoldoutV2Validator = {
 export const postFeatureRevisionRuleAddV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rules",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionRuleAddV2",
   summary: "Add a rule to a draft revision",
   description:
@@ -599,9 +1117,10 @@ export const postFeatureRevisionRuleAddV2Validator = {
           "Simple start/end date window. For force/rollout rules this creates a standalone ramp action; for experiment-ref/safe-rollout rules this sets legacy schedule fields on the rule. Mutually exclusive with `rampSchedule`.",
         ),
       ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -609,6 +1128,7 @@ export const postFeatureRevisionRuleAddV2Validator = {
 export const postFeatureRevisionRulesReorderV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rules/reorder",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionRulesReorderV2",
   summary: "Reorder rules in the revision",
   description:
@@ -619,6 +1139,7 @@ export const postFeatureRevisionRulesReorderV2Validator = {
     .object({
       ruleIds: z.array(z.string()),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -629,6 +1150,7 @@ export const postFeatureRevisionRulesReorderV2Validator = {
 export const putFeatureRevisionRuleV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionRuleV2",
   summary: "Update a rule in a draft revision",
   description:
@@ -649,9 +1171,10 @@ export const putFeatureRevisionRuleV2Validator = {
           "Simple start/end date window. For force/rollout rules this manages a standalone ramp action; for experiment-ref/safe-rollout rules this updates legacy schedule fields on the rule. Mutually exclusive with `rampSchedule`.",
         ),
       ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };
@@ -659,13 +1182,19 @@ export const putFeatureRevisionRuleV2Validator = {
 export const deleteFeatureRevisionRuleV2Validator = {
   method: "delete" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId",
+  confirmation: ["feature.draft"] as const,
   operationId: "deleteFeatureRevisionRuleV2",
   summary: "Delete a rule from a draft revision",
   description:
     "Removes the rule from the revision. Any pending ramp actions for this rule are also cleared.",
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
-  bodySchema: z.object({ ...newDraftMetadataFields }).strict(),
+  bodySchema: z
+    .object({
+      ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
@@ -674,21 +1203,26 @@ export const deleteFeatureRevisionRuleV2Validator = {
 export const putFeatureRevisionRuleRampScheduleV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId/ramp-schedule",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionRuleRampScheduleV2",
   summary: "Set ramp schedule for a rule",
   description:
-    "Queues a revision-controlled ramp action for this rule. If the rule already has a live ramp schedule, this stores an `update` action applied on publish; otherwise it stores a `create` action. No live schedule config changes are applied immediately by this endpoint.",
+    'Queues a revision-controlled ramp action for this rule. If the rule already has a live ramp schedule, this stores an `update` action applied on publish; otherwise it stores a `create` action. No live schedule config changes are applied immediately by this endpoint.\n\nYou can build the ramp from a template (`templateId`) and set the rollback anchor (`startState`) in the same request — e.g. pull in a template and pass `startState: { "coverage": 0 }` so a rollback returns the rule to 0%.',
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
-  bodySchema: standaloneRampScheduleInput.extend(newDraftMetadataFields),
+  bodySchema: rampScheduleInputV2.extend({
+    ...newDraftMetadataFields,
+    ignoreWarnings: ignoreWarningsBodyField,
+  }),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponseWithWarnings,
   version: "v2" as const,
 };
 
 export const deleteFeatureRevisionRuleRampScheduleV2Validator = {
   method: "delete" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId/ramp-schedule",
+  confirmation: ["feature.draft"] as const,
   operationId: "deleteFeatureRevisionRuleRampScheduleV2",
   summary: "Remove ramp schedule from a rule",
   description:
@@ -698,6 +1232,7 @@ export const deleteFeatureRevisionRuleRampScheduleV2Validator = {
   bodySchema: z
     .object({
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),

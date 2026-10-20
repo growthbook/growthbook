@@ -15,6 +15,9 @@ import track, { TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import ErrorDisplay from "@/ui/ErrorDisplay";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import UITooltip from "@/ui/Tooltip";
+import { getErrorDetails } from "@/services/apiCallError";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -43,12 +46,12 @@ type ModalProps = {
   closeCta?: string | ReactNode;
   includeCloseCta?: boolean;
   onClickCloseCta?: () => Promise<void> | void;
-  closeCtaClassName?: string;
   disabledMessage?: string;
   docSection?: DocSection;
   error?: string;
+  errorDetails?: string | null;
   loading?: boolean;
-  size?: "md" | "lg" | "max" | "fill";
+  size?: "md" | "lg" | "xl" | "max" | "fill";
   sizeY?: "max" | "fill";
   inline?: boolean;
   overflowAuto?: boolean;
@@ -70,7 +73,9 @@ type ModalProps = {
   increasedElevation?: boolean;
   stickyFooter?: boolean;
   aboveBodyContent?: ReactNode;
-  useRadixButton?: boolean;
+  // Full-bleed row rendered between the body and the footer CTA buttons.
+  // Not positioned for stickyFooter modals (the fixed footer would cover it).
+  aboveFooterContent?: ReactNode;
   borderlessHeader?: boolean;
   backgroundlessHeader?: boolean;
   borderlessFooter?: boolean;
@@ -93,7 +98,6 @@ const Modal: FC<ModalProps> = ({
   ctaEnabled = true,
   closeCta = "Cancel",
   onClickCloseCta,
-  closeCtaClassName = "btn btn-link",
   includeCloseCta = true,
   disabledMessage,
   inline = false,
@@ -106,6 +110,7 @@ const Modal: FC<ModalProps> = ({
   autoFocusSelector = "input:not(:disabled),textarea:not(:disabled),select:not(:disabled)",
   solidOverlay = false,
   error: externalError,
+  errorDetails: externalErrorDetails,
   loading: externalLoading,
   secondaryCTA,
   tertiaryCTA,
@@ -122,8 +127,8 @@ const Modal: FC<ModalProps> = ({
   allowlistedTrackingEventProps = {},
   modalUuid: _modalUuid,
   trackOnSubmit = true,
-  useRadixButton,
   aboveBodyContent = null,
+  aboveFooterContent = null,
   borderlessHeader = false,
   backgroundlessHeader = false,
   borderlessFooter = false,
@@ -133,6 +138,7 @@ const Modal: FC<ModalProps> = ({
   const [modalUuid] = useState(_modalUuid || uuidv4());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -152,8 +158,9 @@ const Modal: FC<ModalProps> = ({
 
   useEffect(() => {
     setError(externalError || null);
+    setErrorDetails(externalErrorDetails || null);
     externalError && scrollToTop();
-  }, [externalError]);
+  }, [externalError, externalErrorDetails]);
 
   useEffect(() => {
     setLoading(externalLoading || false);
@@ -209,7 +216,7 @@ const Modal: FC<ModalProps> = ({
                 header
               )}
               {docSection && (
-                <DocLink docSection={docSection}>
+                <DocLink useRadix={false} docSection={docSection}>
                   <Tooltip body="View Documentation" className="ml-1 w-4 h-4" />
                 </DocLink>
               )}
@@ -276,11 +283,13 @@ const Modal: FC<ModalProps> = ({
         }}
       >
         {isSuccess ? (
-          <div className="alert alert-success">{successMessage}</div>
+          <Callout status="success">{successMessage}</Callout>
         ) : (
           <>
             {aboveBodyContent}
-            {error && <ErrorDisplay error={error} mb="3" />}
+            {error && (
+              <ErrorDisplay error={error} details={errorDetails} mb="3" />
+            )}
             {children}
           </>
         )}
@@ -291,86 +300,65 @@ const Modal: FC<ModalProps> = ({
         tertiaryCTA ||
         backCTA ||
         (close && includeCloseCta)) ? (
-        <div
-          className={clsx("modal-footer", { "sticky-footer": stickyFooter })}
-        >
-          {backCTA ? (
-            <>
-              {backCTA}
-              <div className="flex-1" />
-            </>
-          ) : null}
-          <ConditionalWrapper
-            condition={stickyFooter}
-            wrapper={
-              <div
-                className="container pagecontents mx-auto text-right"
-                style={{ maxWidth: 1100 }}
-              />
-            }
+        <>
+          {aboveFooterContent && !isSuccess ? aboveFooterContent : null}
+          <div
+            className={clsx("modal-footer", {
+              "sticky-footer": stickyFooter,
+              // The banner draws its own top border; avoid doubling up.
+              "border-top-0": !!aboveFooterContent,
+            })}
           >
-            {close && includeCloseCta ? (
+            {backCTA ? (
               <>
-                {useRadixButton ? (
-                  <div className="mr-1">
-                    <Button
-                      variant="ghost"
-                      onClick={async () => {
-                        await onClickCloseCta?.();
-                        close();
-                      }}
-                    >
-                      {isSuccess && successMessage ? "Close" : closeCta}
-                    </Button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className={closeCtaClassName}
-                    onClick={async (e) => {
-                      e.preventDefault();
+                {backCTA}
+                <div className="flex-1" />
+              </>
+            ) : null}
+            <ConditionalWrapper
+              condition={stickyFooter}
+              wrapper={
+                <div
+                  className="container pagecontents mx-auto text-right"
+                  style={{ maxWidth: 1100 }}
+                />
+              }
+            >
+              {close && includeCloseCta ? (
+                <div className="mr-1">
+                  <Button
+                    variant="ghost"
+                    onClick={async () => {
                       await onClickCloseCta?.();
                       close();
                     }}
                   >
                     {isSuccess && successMessage ? "Close" : closeCta}
-                  </button>
-                )}
-              </>
-            ) : null}
-            {secondaryCTA}
-            {submit && !isSuccess ? (
-              <Tooltip
-                body={disabledMessage || ""}
-                shouldDisplay={!ctaEnabled && !!disabledMessage}
-                tipPosition="top"
-                className={fullWidthSubmit ? "w-100" : ""}
-              >
-                {useRadixButton ? (
+                  </Button>
+                </div>
+              ) : null}
+              {secondaryCTA}
+              {submit && !isSuccess ? (
+                <UITooltip
+                  content={disabledMessage || ""}
+                  enabled={!ctaEnabled && !!disabledMessage}
+                  side="top"
+                >
                   <Button
                     type="submit"
                     disabled={!ctaEnabled}
                     ml="3"
                     color={submitColor === "danger" ? "red" : undefined}
+                    style={fullWidthSubmit ? { width: "100%" } : undefined}
                   >
                     {cta}
                   </Button>
-                ) : (
-                  <button
-                    className={`btn btn-${submitColor} ${
-                      fullWidthSubmit ? "w-100" : ""
-                    } ${stickyFooter ? "ml-auto mr-5" : ""}`}
-                    type="submit"
-                    disabled={!ctaEnabled}
-                  >
-                    {cta}
-                  </button>
-                )}
-              </Tooltip>
-            ) : null}
-            {tertiaryCTA}
-          </ConditionalWrapper>
-        </div>
+                </UITooltip>
+              ) : null}
+              {tertiaryCTA}
+            </ConditionalWrapper>
+          </div>
+        </>
       ) : null}
     </div>
   );
@@ -458,9 +446,11 @@ const Modal: FC<ModalProps> = ({
         style={
           size === "max"
             ? { width: "95vw", maxWidth: 1400, margin: "2vh auto" }
-            : size === "fill"
-              ? { width: "100%", maxWidth: "100%" }
-              : {}
+            : size === "xl"
+              ? { width: "95vw", maxWidth: 1100 }
+              : size === "fill"
+                ? { width: "100%", maxWidth: "100%" }
+                : {}
         }
       >
         {submit && !isSuccess ? (
@@ -493,6 +483,7 @@ const Modal: FC<ModalProps> = ({
                 }
               } catch (e) {
                 setError(e.message);
+                setErrorDetails(getErrorDetails(e));
                 scrollToTop();
                 setLoading(false);
                 if (trackOnSubmit) {

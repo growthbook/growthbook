@@ -8,6 +8,7 @@ import {
   buildFeatureUpdate,
   toInterface,
 } from "back-end/src/models/FeatureModel";
+import { getFeatureDefinition } from "back-end/src/util/features";
 import { ReqContext } from "back-end/types/request";
 
 // ---------------------------------------------------------------------------
@@ -1649,5 +1650,108 @@ describe("toInterface round-trip", () => {
     const result = toInterface(doc, mockContext());
     expect((result as unknown as { _id?: unknown })._id).toBeUndefined();
     expect((result as unknown as { __v?: unknown }).__v).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Legacy rollout seed pin, end to end: the hydration path (migrateRawFeatureToV2)
+// must materialize a seedless rollout's seed as the feature id, and that value
+// must reach the SDK payload — the seed the SDK already resolves via its own
+// `rule.seed || featureId` fallback, so no live user moves.
+// ---------------------------------------------------------------------------
+describe("legacy rollout seed pin (hydration → SDK payload)", () => {
+  const rolloutRule = (
+    id: string,
+    opts: Partial<FeatureRule> = {},
+  ): FeatureRule =>
+    v2Rule(id, {
+      type: "rollout",
+      coverage: 0.5,
+      hashAttribute: "id",
+      ...opts,
+    } as Partial<FeatureRule>);
+
+  const v2Doc = (rules: FeatureRule[]) =>
+    ({
+      ...BASE_META,
+      environmentSettings: {
+        dev: { enabled: true, prerequisites: [] },
+        production: { enabled: true, prerequisites: [] },
+      },
+      rules,
+      prerequisites: [],
+    }) as unknown as LegacyFeatureInterface;
+
+  const payloadSeed = (feature: FeatureInterface): string | undefined => {
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: new Map(),
+      safeRolloutMap: new Map(),
+    });
+    return (def?.rules?.[0] as { seed?: string } | undefined)?.seed;
+  };
+
+  it("pins a seedless v2 rollout rule to the feature id on hydration", () => {
+    const out = migrateRawFeatureToV2(
+      v2Doc([rolloutRule("r1")]),
+      mockContext(),
+    );
+    expect((out.rules[0] as { seed?: string }).seed).toBe(FEATURE_ID);
+  });
+
+  it("pins a seedless v1 rollout rule to the feature id on hydration", () => {
+    const v1 = {
+      ...BASE_META,
+      environmentSettings: {
+        production: {
+          enabled: true,
+          rules: [
+            v1Rule("r1", {
+              type: "rollout",
+              coverage: 0.5,
+              hashAttribute: "id",
+            }),
+          ],
+        },
+      },
+    } as unknown as LegacyFeatureInterface;
+    const out = migrateRawFeatureToV2(v1, mockContext());
+    const rollout = out.rules.find((r) => r.type === "rollout");
+    expect((rollout as { seed?: string }).seed).toBe(FEATURE_ID);
+  });
+
+  it("leaves an explicit rollout seed untouched on hydration", () => {
+    const out = migrateRawFeatureToV2(
+      v2Doc([rolloutRule("r1", { seed: "custom" } as Partial<FeatureRule>)]),
+      mockContext(),
+    );
+    expect((out.rules[0] as { seed?: string }).seed).toBe("custom");
+  });
+
+  it("does not add a seed to a non-rollout rule on hydration", () => {
+    const out = migrateRawFeatureToV2(v2Doc([v2Rule("f1")]), mockContext());
+    expect(out.rules[0]).not.toHaveProperty("seed");
+  });
+
+  it("serves the feature id as the rollout's SDK-payload seed (raw seedless → hydrate → payload)", () => {
+    const hydrated = migrateRawFeatureToV2(
+      v2Doc([rolloutRule("r1")]),
+      mockContext(),
+    );
+    expect(payloadSeed(hydrated)).toBe(FEATURE_ID);
+  });
+
+  it("serves a new rollout's own rule-id seed (independent stacking survives to the payload)", () => {
+    // A rule written after the fix carries seed = rule.id; the payload must use
+    // it, not the feature id, so stacked rollouts stay in independent spaces.
+    const hydrated = migrateRawFeatureToV2(
+      v2Doc([rolloutRule("r1", { seed: "r1" } as Partial<FeatureRule>)]),
+      mockContext(),
+    );
+    const seed = payloadSeed(hydrated);
+    expect(seed).toBe("r1");
+    expect(seed).not.toBe(FEATURE_ID);
   });
 });

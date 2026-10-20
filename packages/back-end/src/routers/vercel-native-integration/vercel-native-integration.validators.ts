@@ -85,9 +85,9 @@ export const billingPlanValidator = z.object({
   maximumAmountAutoPurchasePerPeriod: z.string().optional(),
   minimumAmount: z.string().optional(),
   name: z.string(),
-  paymentMethodRequired: z.boolean().optional(),
+  paymentMethodRequired: z.boolean(),
   preauthorizationAmount: z.number().optional(),
-  scope: z.union([z.literal("installation"), z.literal("resource")]).optional(),
+  scope: z.union([z.literal("installation"), z.literal("resource")]),
   type: z.union([z.literal("prepayment"), z.literal("subscription")]),
 });
 

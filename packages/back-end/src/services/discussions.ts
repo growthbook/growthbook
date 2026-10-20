@@ -25,6 +25,37 @@ export async function getAllDiscussionsByOrg(organization: string) {
   });
 }
 
+// Batch comment counts for many parents at once (e.g. every card in a list)
+// so list views don't need one GET /discussion/:type/:id call per item.
+// Parents with no discussion doc are simply absent from the returned map.
+export async function getDiscussionCommentCounts(
+  organization: string,
+  parentType: DiscussionParentType,
+  parentIds: string[],
+): Promise<Record<string, number>> {
+  if (!parentIds.length) return {};
+
+  const rows = await DiscussionModel.aggregate<{
+    parentId: string;
+    count: number;
+  }>([
+    { $match: { organization, parentType, parentId: { $in: parentIds } } },
+    {
+      $project: {
+        _id: 0,
+        parentId: 1,
+        count: { $size: { $ifNull: ["$comments", []] } },
+      },
+    },
+  ]);
+
+  const counts: Record<string, number> = {};
+  rows.forEach((row) => {
+    counts[row.parentId] = row.count;
+  });
+  return counts;
+}
+
 export async function getProjectsByParentId(
   context: ReqContext,
   parentType: DiscussionParentType,
@@ -69,6 +100,26 @@ export async function getProjectsByParentId(
       }
 
       return metric.projects || [];
+    }
+
+    case "learning": {
+      const learning = await context.models.learnings.getById(parentId);
+
+      if (!learning) {
+        throw new Error("Learning not found");
+      }
+
+      return learning.projects || [];
+    }
+
+    default: {
+      // Compile-time proof that the switch covers every DiscussionParentType:
+      // adding a member to the union without a case here fails the build.
+      // The runtime throw still guards against an invalid string arriving via
+      // an unvalidated cast, which is how this function is reached from the
+      // legacy discussion routes.
+      const exhaustive: never = parentType;
+      throw new Error(`Unsupported discussion parent type: ${exhaustive}`);
     }
   }
 }

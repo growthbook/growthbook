@@ -33,7 +33,7 @@ export default function ExperimentStatusIndicator({
 export function ExperimentDot({
   color,
 }: {
-  color: StatusIndicatorData["color"];
+  color: StatusIndicatorData["color"] | "yellow" | "lime";
 }) {
   return (
     <div

@@ -1,16 +1,19 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { ChangeEventHandler } from "react";
+import { ChangeEventHandler, ReactNode, useState } from "react";
+import { PiCaretRightFill } from "react-icons/pi";
+import Collapsible from "react-collapsible";
 import AthenaForm from "./AthenaForm";
-import BigQueryForm from "./BigQueryForm";
+import BigQueryForm, { BigQueryAdvancedSettings } from "./BigQueryForm";
 import ClickHouseForm from "./ClickHouseForm";
 import GoogleAnalyticsForm from "./GoogleAnalyticsForm";
 import MixpanelForm from "./MixpanelForm";
 import MysqlForm from "./MysqlForm";
 import PostgresForm from "./PostgresForm";
 import PrestoForm from "./PrestoForm";
-import SnowflakeForm from "./SnowflakeForm";
+import SnowflakeForm, { KeyPairGenerator } from "./SnowflakeForm";
 import MssqlForm from "./MssqlForm";
 import DatabricksForm from "./DatabricksForm";
+import AdobeExperiencePlatformQueryServiceForm from "./AdobeExperiencePlatformQueryServiceForm";
 import SharedConnectionSettings from "./SharedConnectionSettings";
 
 export interface Props {
@@ -19,6 +22,15 @@ export interface Props {
   hasError: boolean;
   setDirty?: (dirty: boolean) => void;
   setDatasource: (newVal: Partial<DataSourceInterfaceWithParams>) => void;
+  beforeAdvancedSettings?: ReactNode;
+  /**
+   * Collect credentials only. The connection test lives outside this form and
+   * no SQL is generated on save, so BigQuery hides its Default Dataset field
+   * and inline Test Connection button.
+   */
+  connectionOnly?: boolean;
+  /** Snowflake only: offer to generate the key pair instead of uploading one. */
+  keyPairGenerator?: KeyPairGenerator;
 }
 
 export default function ConnectionSettings({
@@ -27,10 +39,19 @@ export default function ConnectionSettings({
   setDatasource,
   setDirty,
   hasError,
+  beforeAdvancedSettings,
+  connectionOnly = false,
+  keyPairGenerator,
 }: Props) {
+  const [advancedOpen, setAdvancedOpen] = useState(
+    !!datasource.settings?.maxConcurrentQueries ||
+      !!datasource.settings?.queryCacheTTLMins ||
+      (datasource.type === "bigquery" && !!datasource.params?.apiEndpoint),
+  );
+
   // Set the new params (specific per-datasource) and optionally settings (shared between datasources)
   const setParams = (
-    params: { [key: string]: string },
+    params: { [key: string]: string | boolean },
     settings: { [key: string]: string } = {},
   ) => {
     const newVal = {
@@ -60,6 +81,10 @@ export default function ConnectionSettings({
 
   if (!datasource.type) return null;
 
+  // A decryption failure blanks every param, so there is nothing to keep and
+  // the credentials have to be re-entered.
+  const storedCredentials = existing && !datasource.decryptionError;
+
   let invalidType: never;
   let datasourceComponent = <></>;
   switch (datasource.type) {
@@ -69,7 +94,7 @@ export default function ConnectionSettings({
     case "athena":
       datasourceComponent = (
         <AthenaForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           params={datasource?.params || {}}
           setParams={setParams}
@@ -79,7 +104,7 @@ export default function ConnectionSettings({
     case "presto":
       datasourceComponent = (
         <PrestoForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           onManualParamChange={onManualParamChange}
           setParams={setParams}
@@ -90,7 +115,7 @@ export default function ConnectionSettings({
     case "databricks":
       datasourceComponent = (
         <DatabricksForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
@@ -100,7 +125,7 @@ export default function ConnectionSettings({
     case "redshift":
       datasourceComponent = (
         <PostgresForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
@@ -110,7 +135,7 @@ export default function ConnectionSettings({
     case "postgres":
       datasourceComponent = (
         <PostgresForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
@@ -120,7 +145,7 @@ export default function ConnectionSettings({
     case "vertica":
       datasourceComponent = (
         <PostgresForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
@@ -130,7 +155,7 @@ export default function ConnectionSettings({
     case "mysql":
       datasourceComponent = (
         <MysqlForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
@@ -140,7 +165,7 @@ export default function ConnectionSettings({
     case "mssql":
       datasourceComponent = (
         <MssqlForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
@@ -162,17 +187,19 @@ export default function ConnectionSettings({
     case "snowflake":
       datasourceComponent = (
         <SnowflakeForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           onManualParamChange={onManualParamChange}
+          setParams={setParams}
           params={datasource?.params || {}}
+          keyPairGenerator={keyPairGenerator}
         />
       );
       break;
     case "clickhouse":
       datasourceComponent = (
         <ClickHouseForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
@@ -182,19 +209,31 @@ export default function ConnectionSettings({
     case "bigquery":
       datasourceComponent = (
         <BigQueryForm
-          existing={existing}
+          existing={storedCredentials}
+          datasourceId={storedCredentials ? datasource.id : undefined}
+          projects={datasource.projects}
           setParams={setParams}
           params={datasource?.params || {}}
           onParamChange={onParamChange}
+          connectionOnly={connectionOnly}
         />
       );
       break;
     case "mixpanel":
       datasourceComponent = (
         <MixpanelForm
-          existing={existing}
+          existing={storedCredentials}
           onParamChange={onParamChange}
           onManualParamChange={onManualParamChange}
+          params={datasource?.params || {}}
+        />
+      );
+      break;
+    case "adobe_experience_platform_query_service":
+      datasourceComponent = (
+        <AdobeExperiencePlatformQueryServiceForm
+          existing={storedCredentials}
+          onParamChange={onParamChange}
           params={datasource?.params || {}}
         />
       );
@@ -206,10 +245,34 @@ export default function ConnectionSettings({
   return (
     <>
       {datasourceComponent}
-      <SharedConnectionSettings
-        onSettingChange={onSettingChange}
-        settings={datasource?.settings || {}}
-      />
+      {beforeAdvancedSettings}
+      <div className="mb-3">
+        <Collapsible
+          trigger={
+            <div className="link-purple font-weight-bold mb-2">
+              <PiCaretRightFill className="chevron mr-1" />
+              Advanced Settings
+            </div>
+          }
+          open={advancedOpen}
+          onClose={() => setAdvancedOpen(false)}
+          transitionTime={100}
+        >
+          <div className="rounded px-3 pt-3 pb-1 bg-highlight">
+            {datasource.type === "bigquery" && (
+              <BigQueryAdvancedSettings
+                params={datasource.params || {}}
+                onParamChange={onParamChange}
+              />
+            )}
+            <SharedConnectionSettings
+              type={datasource.type}
+              onSettingChange={onSettingChange}
+              settings={datasource?.settings || {}}
+            />
+          </div>
+        </Collapsible>
+      </div>
     </>
   );
 }

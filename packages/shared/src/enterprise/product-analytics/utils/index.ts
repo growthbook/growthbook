@@ -1,16 +1,59 @@
-import type { FactMetricInterface } from "shared/types/fact-table";
+import { deflateSync, inflateSync, strFromU8, strToU8 } from "fflate";
+import { parseWarehouseDate } from "shared/dates";
+import type {
+  FactMetricInterface,
+  FactTableColumnType,
+} from "shared/types/fact-table";
 import type {
   ExplorationConfig,
+  ExplorationDataset,
+  ProductAnalyticsResultRow,
   ShowAs,
 } from "../../../validators/product-analytics";
+
+/**
+ * Narrows an already-classified warehouse column type to the smaller set an
+ * exploration dataset can hold. `json`, `binary` and the undetected `""` have
+ * no exploration equivalent.
+ */
+export function mapColumnTypeToExplorationType(
+  datatype: FactTableColumnType | undefined,
+): "string" | "number" | "date" | "boolean" | "other" {
+  switch (datatype) {
+    case "string":
+    case "number":
+    case "date":
+    case "boolean":
+      return datatype;
+    case "json":
+    case "binary":
+    case "other":
+    case "":
+    case undefined:
+      return "other";
+  }
+}
+
+// Checked first, since inner types like `ARRAY<INT64>` would match a primitive
+const COMPLEX_TYPE =
+  /^(struct|array|map|jsonb?|variant|object|tuple|row|record|super|nested|vector|range)\b/;
 
 export function mapDatabaseTypeToEnum(
   dbType: string,
 ): "string" | "number" | "date" | "boolean" | "other" {
   const lowerType = dbType.toLowerCase();
 
+  // ClickHouse wraps the real type, as in `LowCardinality(Nullable(String))`
+  if (
+    COMPLEX_TYPE.test(lowerType.replace(/^((nullable|lowcardinality)\()+/, ""))
+  ) {
+    return "other";
+  }
+
   if (
     lowerType.includes("int") ||
+    // Snowflake and Oracle report every fixed-point column as NUMBER
+    lowerType.includes("number") ||
     lowerType.includes("numeric") ||
     lowerType.includes("decimal") ||
     lowerType.includes("float") ||
@@ -37,6 +80,28 @@ export function mapDatabaseTypeToEnum(
   }
 
   return "other";
+}
+
+/** True when a dataset timestamp field names a real column. Empty string, null, and undefined are all "unset". */
+export function hasTimestampColumn(
+  timestampColumn: string | null | undefined,
+): timestampColumn is string {
+  return typeof timestampColumn === "string" && timestampColumn.length > 0;
+}
+
+/**
+ * SQL and data_source datasets can omit a timestamp (SQL on purpose; data_source
+ * while the user is still picking a column). Other dataset types always have one.
+ */
+export function hasTimeAxis(
+  dataset: Pick<ExplorationDataset, "type"> & {
+    timestampColumn?: string | null;
+  },
+): boolean {
+  if (dataset.type === "sql" || dataset.type === "data_source") {
+    return hasTimestampColumn(dataset.timestampColumn);
+  }
+  return true;
 }
 
 /** Default product analytics config used for new blocks and Explorer initial state. */
@@ -68,7 +133,9 @@ export const DEFAULT_EXPLORE_STATE: ExplorationConfig = {
 export type ProductAnalyticsExplorationBlockType =
   | "metric-exploration"
   | "fact-table-exploration"
-  | "data-source-exploration";
+  | "data-source-exploration"
+  | "sql-exploration"
+  | "funnel-exploration";
 
 export function getInitialConfigByBlockType(
   blockType: ProductAnalyticsExplorationBlockType,
@@ -105,13 +172,102 @@ export function getInitialConfigByBlockType(
         },
         datasource: datasourceId,
       };
+    case "sql-exploration":
+      return {
+        ...DEFAULT_EXPLORE_STATE,
+        type: "sql",
+        dimensions: [],
+        chartType: "bar",
+        dataset: {
+          type: "sql",
+          values: [],
+          sql: "",
+          timestampColumn: null,
+          columnTypes: {},
+        },
+        datasource: datasourceId,
+      };
+    case "funnel-exploration":
+      return {
+        ...DEFAULT_EXPLORE_STATE,
+        type: "funnel",
+        dataset: {
+          type: "funnel",
+          unit: null,
+          steps: [],
+        },
+        datasource: datasourceId,
+      };
     default:
       throw new Error(`Invalid block type: ${blockType}`);
   }
 }
 
+// `~` is not in either base64 alphabet, so its presence unambiguously marks the
+// compressed format and lets us keep decoding links shared before it existed.
+// It is also unreserved in a URL, so it survives without percent-encoding.
+const COMPRESSED_CONFIG_PREFIX = "~";
+const MAX_ENCODED_CONFIG_LENGTH = 16 * 1024;
+const MAX_DECODED_CONFIG_BYTES = 100 * 1024;
+
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  // Chunked because String.fromCharCode(...bytes) overflows the call stack on
+  // the payload sizes that made this compression necessary.
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+function base64UrlToBytes(encoded: string): Uint8Array {
+  const binary = atob(encoded.replace(/-/g, "+").replace(/_/g, "/"));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
 export function encodeExplorationConfig(config: ExplorationConfig): string {
-  return btoa(encodeURIComponent(JSON.stringify(config)));
+  const deflated = deflateSync(strToU8(JSON.stringify(config)), { level: 9 });
+  return COMPRESSED_CONFIG_PREFIX + bytesToBase64Url(deflated);
+}
+
+function inflateExplorationConfig(deflated: Uint8Array): Uint8Array {
+  // Streaming Inflate still grows an internal buffer before ondata; `out` is
+  // what caps allocation.
+  const out = new Uint8Array(MAX_DECODED_CONFIG_BYTES + 1);
+  const inflated = inflateSync(deflated, { out });
+  if (inflated.length > MAX_DECODED_CONFIG_BYTES) {
+    throw new Error("Exploration config is too large");
+  }
+  return inflated;
+}
+
+/**
+ * Parses an encoded `?config=` payload into untrusted JSON. Callers validate the
+ * result. Throws on a malformed payload.
+ */
+export function decodeExplorationConfigJson(encoded: string): unknown {
+  if (encoded.length > MAX_ENCODED_CONFIG_LENGTH) {
+    throw new Error("Exploration config is too large");
+  }
+  if (encoded.startsWith(COMPRESSED_CONFIG_PREFIX)) {
+    const deflated = base64UrlToBytes(
+      encoded.slice(COMPRESSED_CONFIG_PREFIX.length),
+    );
+    return JSON.parse(strFromU8(inflateExplorationConfig(deflated)));
+  }
+  const json = decodeURIComponent(atob(encoded));
+  if (json.length > MAX_DECODED_CONFIG_BYTES) {
+    throw new Error("Exploration config is too large");
+  }
+  return JSON.parse(json);
 }
 
 // ---- showAs inference & applicability ---------------------------------------
@@ -274,6 +430,17 @@ export function getSharedUnit(config: ExplorationConfig | null): string | null {
   return units.every((u) => u === first) ? first : null;
 }
 
+/** Value-axis title when no custom `valueAxisLabel` is set. Empty when showAs does not apply. */
+export function getDefaultValueAxisName(
+  config: ExplorationConfig | null,
+  getFactMetricById: (id: string) => FactMetricInterface | null,
+): string {
+  if (!showAsAppliesTo(config, getFactMetricById)) return "";
+  if (getEffectiveShowAs(config, getFactMetricById) === "total") return "Total";
+  const sharedUnit = getSharedUnit(config);
+  return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
+}
+
 /**
  * Computes the effective numeric value for a single metric result cell, given
  * the effective showAs and whether the underlying metric is a ratio. Ratios
@@ -378,7 +545,14 @@ export function buildExplorationColumns(
     cols.push({ kind: "dimension", key: `__dim_${i}__`, label, dimIndex: i });
   });
 
-  const values = config?.dataset?.values ?? [];
+  // Funnel datasets have no `values` — the funnel table builds its own
+  // column layout (see useExplorationTableData). Bail out here with only
+  // dimension columns so the shared schema doesn't claim a value layout
+  // that doesn't exist on the row.
+  const values =
+    config?.dataset?.type === "funnel" || config?.dataset?.type === "journey"
+      ? []
+      : (config?.dataset?.values ?? []);
   if (values.length === 0) return cols;
 
   const isRatio = getIsRatioByIndex(config, getFactMetricById);
@@ -442,15 +616,18 @@ export function buildExplorationColumns(
 export function getExplorationCellValue(
   row: {
     dimensions: (string | null)[];
-    values: { numerator: number | null; denominator: number | null }[];
+    // Optional because funnel rows carry `steps` instead of `values`. The
+    // shared schema for funnels is dimension-only (no metric columns), so
+    // values is always undefined for funnel callers and treated as empty.
+    values?: { numerator: number | null; denominator: number | null }[];
   },
   col: ExplorationColumn,
-  renderOpts: { showAs: ShowAs; isRatioByIndex: boolean[] },
+  renderOpts: ExplorationRenderOpts,
 ): string | number | null {
   if (col.kind === "dimension") {
     return row.dimensions[col.dimIndex] ?? null;
   }
-  const v = row.values[col.metricIndex];
+  const v = row.values?.[col.metricIndex];
   if (!v) return null;
   if (col.sub === "numerator") return v.numerator;
   if (col.sub === "denominator") return v.denominator;
@@ -463,5 +640,87 @@ export function getExplorationCellValue(
   return getEffectiveMetricValue(v, {
     showAs: renderOpts.showAs,
     isRatio: renderOpts.isRatioByIndex[col.metricIndex] ?? false,
+  });
+}
+
+export type ExplorationRenderOpts = {
+  showAs: ShowAs;
+  isRatioByIndex: boolean[];
+};
+
+function getRowTotal(
+  row: ProductAnalyticsResultRow,
+  opts: ExplorationRenderOpts,
+): number {
+  return (row.values ?? []).reduce(
+    (sum, v, i) =>
+      sum +
+      getEffectiveMetricValue(v, {
+        showAs: opts.showAs,
+        isRatio: opts.isRatioByIndex[i] ?? false,
+      }),
+    0,
+  );
+}
+
+/** Compute the sum of all metric values grouped by a specific dimension index. */
+export function computeDimensionTotals(
+  rows: ProductAnalyticsResultRow[],
+  dimIndex: number,
+  opts: ExplorationRenderOpts,
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const row of rows) {
+    const key = row.dimensions[dimIndex] ?? "";
+    totals[key] = (totals[key] ?? 0) + getRowTotal(row, opts);
+  }
+  return totals;
+}
+
+/** Sum of all metric values grouped by the "group key" (all dimensions after the first). */
+function computeGroupTotals(
+  rows: ProductAnalyticsResultRow[],
+  opts: ExplorationRenderOpts,
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const row of rows) {
+    const key = row.dimensions.slice(1).join(" - ");
+    totals[key] = (totals[key] ?? 0) + getRowTotal(row, opts);
+  }
+  return totals;
+}
+
+/**
+ * Sort exploration result rows to match the visual ordering of the chart.
+ * - Timeseries: chronological by first dimension (date), then by group total descending.
+ * - Bar/cumulative: by first-dimension total descending, then by group total descending.
+ */
+export function sortExplorationRows(
+  rows: ProductAnalyticsResultRow[],
+  isTimeseries: boolean,
+  opts: ExplorationRenderOpts,
+): ProductAnalyticsResultRow[] {
+  if (rows.length === 0) return rows;
+
+  const dim0Totals = computeDimensionTotals(rows, 0, opts);
+  const groupTotals = computeGroupTotals(rows, opts);
+
+  return [...rows].sort((a, b) => {
+    const dim0A = a.dimensions[0] ?? "";
+    const dim0B = b.dimensions[0] ?? "";
+
+    if (dim0A !== dim0B) {
+      if (isTimeseries) {
+        return (
+          parseWarehouseDate(dim0A).getTime() -
+          parseWarehouseDate(dim0B).getTime()
+        );
+      }
+      return (dim0Totals[dim0B] ?? 0) - (dim0Totals[dim0A] ?? 0);
+    }
+
+    const groupA = a.dimensions.slice(1).join(" - ");
+    const groupB = b.dimensions.slice(1).join(" - ");
+    return (groupTotals[groupB] ?? 0) - (groupTotals[groupA] ?? 0);
   });
 }

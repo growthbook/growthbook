@@ -8,6 +8,7 @@ export async function validatePayload(
     description = "",
     attributes,
     projects = [],
+    environments = [],
   }: {
     name: string;
     isPublic: boolean;
@@ -15,9 +16,10 @@ export async function validatePayload(
     // eslint-disable-next-line
     attributes?: Record<string, any> | string; // Attributes from the payload will be an object but from an existing model will be a string
     projects?: string[];
+    environments?: string[];
   },
 ) {
-  if (name === "") throw Error("Archetype name cannot empty!");
+  if (name === "") throw Error("Archetype name cannot be empty!");
 
   if (projects.length) {
     const allProjects = await context.models.projects.getAll();
@@ -31,6 +33,18 @@ export async function validatePayload(
       );
   }
 
+  if (environments.length) {
+    const allEnvironments = context.org.settings?.environments || [];
+    const nonexistentEnvironments = environments.filter(
+      (e) => !allEnvironments.some(({ id }) => e === id),
+    );
+
+    if (nonexistentEnvironments.length)
+      throw new Error(
+        `The following environments do not exist: ${nonexistentEnvironments.join(", ")}`,
+      );
+  }
+
   if (typeof attributes !== "string") {
     attributes = JSON.stringify(attributes || {});
   }
@@ -40,8 +54,9 @@ export async function validatePayload(
     attributes,
     description,
     projects,
+    environments,
     isPublic,
-    owner: context.userId,
+    owner: context.actingUserId,
     organization: context.org.id,
   };
 }

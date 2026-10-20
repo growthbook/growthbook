@@ -1,17 +1,19 @@
 import { useFormContext } from "react-hook-form";
+import { useCallback } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { CustomField } from "shared/types/custom-fields";
 import {
   FeatureInterface,
   FeaturePrerequisite,
   SavedGroupTargeting,
 } from "shared/types/feature";
-import { useEffect } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { PiCaretRightFill } from "react-icons/pi";
 import { Box, Separator } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
 import SelectField from "@/components/Forms/SelectField";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import HashVersionSelector, {
@@ -20,13 +22,11 @@ import HashVersionSelector, {
 import {
   getFeatureDefaultValue,
   useAttributeSchema,
+  resolveAttributeFilter,
 } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
-import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteInput, {
-  type RuleCyclicResult,
-} from "@/components/Features/PrerequisiteInput";
+import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
+import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -38,22 +38,37 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  AssignmentQueryCopySource,
+  getCopiedAssignmentQueryNotice,
+  getCopySourceIdentifierType,
+} from "@/services/datasources";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
+import {
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
-import Switch from "@/ui/Switch";
+import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import RuleProjectScopeField, {
+  type ProjectScopeProps,
+} from "@/components/Features/RuleModal/ProjectScopeField";
+import Callout from "@/ui/Callout";
+import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 
 export default function BanditRefNewFields({
   step,
   source,
   feature,
   project,
+  attributeProjects,
+  savedGroupProjects,
+  attributeSelectIndicator,
   environments,
   prerequisiteValue,
   setPrerequisiteValue,
@@ -74,13 +89,21 @@ export default function BanditRefNewFields({
   setVariations,
   disableBanditConversionWindow,
   setDisableBanditConversionWindow,
+  customFields,
+  customFieldValues,
+  setCustomFields,
   envScope,
+  projectScope,
   onRuleCyclicChange,
+  assignmentQueryCopySource,
 }: {
   step: number;
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
+  attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   environments: string[];
   prerequisiteValue: FeaturePrerequisite[];
   setPrerequisiteValue: (prerequisites: FeaturePrerequisite[]) => void;
@@ -100,8 +123,17 @@ export default function BanditRefNewFields({
   setVariations: (v: SortableVariation[]) => void;
   disableBanditConversionWindow: boolean;
   setDisableBanditConversionWindow: (v: boolean) => void;
+  customFields?: CustomField[];
+  customFieldValues?: Record<string, string>;
+  setCustomFields?: (customFields: Record<string, string>) => void;
   envScope?: EnvScopeProps;
+  projectScope?: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
+  /**
+   * When duplicating or creating from a template: keeps its identifier and
+   * explains a change.
+   */
+  assignmentQueryCopySource?: AssignmentQueryCopySource | null;
 }) {
   const form = useFormContext();
 
@@ -110,22 +142,44 @@ export default function BanditRefNewFields({
     "regression-adjustment",
   );
 
-  const { datasources, getDatasourceById } = useDefinitions();
+  const { datasources, getDatasourceById, getExperimentMetricById } =
+    useDefinitions();
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
 
-  const exposureQueries = datasource?.settings?.queries?.exposure;
-  const exposureQueryId = form.getValues("exposureQueryId");
+  const exposureQueryId = form.watch("exposureQueryId");
+  const exposureQueryIdentifierType = form.watch("exposureQueryIdentifierType");
+  const { setValue } = form;
+  const setExposureQueryId = useCallback(
+    (value: string) => setValue("exposureQueryId", value),
+    [setValue],
+  );
+  const setExposureQueryIdentifierType = useCallback(
+    (value: string | undefined) =>
+      setValue("exposureQueryIdentifierType", value),
+    [setValue],
+  );
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource,
+    project,
+    hashAttribute: form.watch("hashAttribute"),
+    exposureQueryId,
+    identifierType: exposureQueryIdentifierType,
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+    copiedIdentifierType: getCopySourceIdentifierType(
+      datasource,
+      assignmentQueryCopySource ?? null,
+    ),
+    autoRepair: !!datasource?.properties?.exposureQueries,
+  });
 
-  useEffect(() => {
-    if (!exposureQueries?.find((q) => q.id === exposureQueryId)) {
-      form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
-    }
-  }, [form, exposureQueries, exposureQueryId]);
-
-  const attributeSchema = useAttributeSchema(false, project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    resolveAttributeFilter(attributeProjects, project),
+  );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
@@ -136,6 +190,9 @@ export default function BanditRefNewFields({
   );
 
   const settings = useOrgSettings();
+  const trackingKeyFormatProps = useExperimentKeyFieldProps(
+    form.watch("trackingKey"),
+  );
   const { namespaces } = useOrgSettings();
 
   return (
@@ -143,6 +200,7 @@ export default function BanditRefNewFields({
       {step === 0 ? (
         <>
           <Field
+            size="legacy"
             required={true}
             minLength={2}
             label="Bandit Name"
@@ -150,21 +208,34 @@ export default function BanditRefNewFields({
           />
 
           <Field
+            size="legacy"
             label="Tracking Key"
             {...form.register(`trackingKey`)}
             placeholder={feature?.id || ""}
+            {...trackingKeyFormatProps}
             helpText="Unique identifier for this Bandit, used to track impressions and analyze results"
           />
 
           <Field
+            size="legacy"
             label="Description"
             textarea
             minRows={1}
+            maxLength={MAX_DESCRIPTION_LENGTH}
             {...form.register("description")}
             placeholder="Short human-readable description of the Bandit"
           />
 
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
+          {projectScope && <RuleProjectScopeField {...projectScope} mb="5" />}
+
+          {!!customFields?.length && (
+            <CustomFieldInput
+              fields={customFields}
+              value={customFieldValues ?? {}}
+              onChange={setCustomFields ? setCustomFields : () => {}}
+            />
+          )}
         </>
       ) : null}
 
@@ -179,36 +250,18 @@ export default function BanditRefNewFields({
               variation to assign
             </Text>
             <SelectField
+              size="legacy"
               withRadixThemedPortal
               containerClassName="flex-1"
+              extraIndicator={attributeSelectIndicator}
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
-                .map((s) => ({
-                  label: s.property,
-                  value: s.property,
-                  description: s.description,
-                  tags: s.tags,
-                  datatype: s.datatype,
-                  hashAttribute: s.hashAttribute,
-                }))}
+                .map(toAttributeOption)}
               value={form.watch("hashAttribute")}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
               }}
-              formatOptionLabel={(o, meta) => {
-                return (
-                  <AttributeOptionWithTooltip
-                    option={o as AttributeOptionForTooltip}
-                    context={meta.context}
-                  >
-                    {o.label}
-                  </AttributeOptionWithTooltip>
-                );
-              }}
-            />
-            <FallbackAttributeSelector
-              form={form}
-              attributeSchema={attributeSchema}
+              formatOptionLabel={formatAttributeOptionLabel}
             />
 
             {hasSDKWithNoBucketingV2 && (
@@ -222,6 +275,7 @@ export default function BanditRefNewFields({
 
           <FeatureVariationsInput
             simple={true}
+            hideCoverage={false}
             label="Traffic Percent & Variations"
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
             valueType={feature?.valueType ?? "string"}
@@ -252,41 +306,30 @@ export default function BanditRefNewFields({
 
       {step === 2 ? (
         <>
-          <SavedGroupTargetingField
-            value={savedGroupValue}
-            setValue={setSavedGroupValue}
-            // value={form.watch("savedGroups") || []}
-            // setValue={(savedGroups) =>
-            //   form.setValue("savedGroups", savedGroups)
-            // }
+          <TargetingFieldsGroup
             project={project || ""}
-          />
-          <Separator size="4" my="5" />
-          <ConditionInput
-            defaultValue={defaultConditionValue}
-            onChange={setConditionValue}
-            // defaultValue={form.watch("condition") || ""}
-            // onChange={(value) => form.setValue("condition", value)}
-            key={conditionKey}
-            project={project || ""}
-          />
-          <Separator size="4" my="5" />
-          <PrerequisiteInput
-            value={prerequisiteValue}
-            setValue={setPrerequisiteValue}
-            feature={feature}
+            attributeProjects={attributeProjects}
+            savedGroupProjects={savedGroupProjects}
+            attributeSelectIndicator={attributeSelectIndicator}
             environments={environments ?? []}
+            feature={feature}
+            savedGroups={savedGroupValue}
+            setSavedGroups={setSavedGroupValue}
+            condition={defaultConditionValue}
+            setCondition={setConditionValue}
+            conditionKey={conditionKey}
+            prerequisites={prerequisiteValue}
+            setPrerequisites={setPrerequisiteValue}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
             onRuleCyclicChange={onRuleCyclicChange}
           />
           {isCyclic ? (
-            <div className="alert alert-danger">
-              <FaExclamationTriangle /> A prerequisite (
-              <code>{cyclicFeatureId}</code>) creates a circular dependency.
-              Remove this prerequisite to continue.
-            </div>
+            <Callout status="error" mt="3">
+              A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
+              dependency. Remove this prerequisite to continue.
+            </Callout>
           ) : null}
         </>
       ) : null}
@@ -295,12 +338,28 @@ export default function BanditRefNewFields({
         <>
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <SelectField
+              size="legacy"
               label="Data Source"
               labelClassName="font-weight-bold"
               value={form.watch("datasource") ?? ""}
-              onChange={(newDatasource) =>
-                form.setValue("datasource", newDatasource)
-              }
+              onChange={(newDatasource) => {
+                form.setValue("datasource", newDatasource);
+                if (!newDatasource) {
+                  form.setValue("goalMetrics", []);
+                  return;
+                }
+                const isValidMetric = (id: string) =>
+                  getExperimentMetricById(id)?.datasource === newDatasource;
+                const goalMetrics = (form.watch("goalMetrics") ?? []).filter(
+                  isValidMetric,
+                );
+                if (
+                  goalMetrics.length !==
+                  (form.watch("goalMetrics") ?? []).length
+                ) {
+                  form.setValue("goalMetrics", goalMetrics);
+                }
+              }}
               options={datasources.map((d) => {
                 const isDefaultDataSource = d.id === settings.defaultDataSource;
                 return {
@@ -313,42 +372,18 @@ export default function BanditRefNewFields({
               className="portal-overflow-ellipsis"
             />
 
-            {datasource?.properties?.exposureQueries && exposureQueries ? (
-              <SelectField
-                label={
-                  <>
-                    Experiment Assignment Table{" "}
-                    <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
-                  </>
-                }
-                labelClassName="font-weight-bold"
-                value={form.watch("exposureQueryId") ?? ""}
-                onChange={(v) => form.setValue("exposureQueryId", v)}
-                required
-                options={exposureQueries?.map((q) => {
-                  return {
-                    label: q.name,
-                    value: q.id,
-                  };
-                })}
-                formatOptionLabel={({ label, value }) => {
-                  const userIdType = exposureQueries?.find(
-                    (e) => e.id === value,
-                  )?.userIdType;
-                  return (
-                    <>
-                      {label}
-                      {userIdType ? (
-                        <span
-                          className="text-muted small float-right position-relative"
-                          style={{ top: 3 }}
-                        >
-                          Identifier Type: <code>{userIdType}</code>
-                        </span>
-                      ) : null}
-                    </>
-                  );
-                }}
+            {datasource?.properties?.exposureQueries ? (
+              <AssignmentQueryFields
+                selection={assignmentQuerySelection}
+                size="legacy"
+                notice={getCopiedAssignmentQueryNotice(
+                  datasource,
+                  assignmentQueryCopySource ?? null,
+                  {
+                    exposureQueryId,
+                    identifierType: exposureQueryIdentifierType,
+                  },
+                )}
               />
             ) : null}
           </div>
@@ -358,15 +393,22 @@ export default function BanditRefNewFields({
           </Box>
 
           {settings?.useStickyBucketing && (
-            <Switch
-              label="Disable Sticky Bucketing"
-              description={`Permit users in low-performing variations to switch variations in future update periods.`}
-              value={!!form.watch("disableStickyBucketing")}
-              onChange={(v) => {
-                form.setValue("disableStickyBucketing", v);
-              }}
+            <StickyBucketingToggle
               mb="5"
               mt="5"
+              disableStickyBucketing={!!form.watch("disableStickyBucketing")}
+              setDisableStickyBucketing={(v) =>
+                form.setValue("disableStickyBucketing", v)
+              }
+              description="Keep users in their assigned variation across future Bandit update periods."
+            />
+          )}
+
+          {!form.watch("disableStickyBucketing") && (
+            <FallbackAttributeSelector
+              form={form}
+              attributeSchema={attributeSchema}
+              extraIndicator={attributeSelectIndicator}
             />
           )}
 
@@ -379,8 +421,10 @@ export default function BanditRefNewFields({
           />
 
           <ExperimentMetricsSelector
+            experimentType="multi-armed-bandit"
             datasource={datasource?.id}
             exposureQueryId={exposureQueryId}
+            exposureQueryIdentifierType={exposureQueryIdentifierType}
             project={project}
             goalMetrics={form.watch("goalMetrics") ?? []}
             secondaryMetrics={form.watch("secondaryMetrics") ?? []}
@@ -434,6 +478,7 @@ export default function BanditRefNewFields({
               />
 
               <SelectField
+                size="legacy"
                 className="mb-4"
                 label={
                   <PremiumTooltip commercialFeature="regression-adjustment">

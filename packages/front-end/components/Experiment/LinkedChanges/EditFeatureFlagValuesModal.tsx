@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
-import {
-  FeatureRevisionInterface,
-  MinimalFeatureRevisionInterface,
-} from "shared/types/feature-revision";
+import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -20,6 +17,13 @@ import {
   getReviewSetting,
   generateVariationId,
   naiveFlattenV1Rules,
+  parsePlainJSONObject,
+  stripDefaultsForSparse,
+  expandSparseToFull,
+  getFeatureBaseConfigKey,
+  getConfigSubtree,
+  ensureConfigBacking,
+  DRAFT_REVISION_STATUSES,
 } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
@@ -27,16 +31,20 @@ import { PiArrowsClockwise, PiPlusCircleFill } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DraftSelectorDropdown, {
   DraftMode,
 } from "@/components/Features/DraftSelectorDropdown";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureValueField from "@/components/Features/FeatureValueField";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import Callout from "@/ui/Callout";
+import FieldAlignedVariationNumber from "@/components/Experiment/FieldAlignedVariationNumber";
+import VariationLabel from "@/ui/VariationLabel";
 import {
   decimalToPercent,
   distributeWeights,
@@ -49,8 +57,10 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
-import { getDefaultVariationValue } from "@/services/features";
+import { getDefaultValue, getDefaultVariationValue } from "@/services/features";
 import Button from "@/ui/Button";
+import track from "@/services/track";
+import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 
 export interface Props {
   feature: FeatureInterface;
@@ -63,7 +73,6 @@ export interface Props {
 
 type FeatureRevisionResponse = {
   revisionList: MinimalFeatureRevisionInterface[];
-  revisions: FeatureRevisionInterface[];
 };
 
 type VariationRow = {
@@ -144,16 +153,26 @@ export default function EditFeatureFlagValuesModal({
   const { data, error } = useApi<FeatureRevisionResponse>(
     `/feature/${feature.id}`,
   );
-  const revisionList = data?.revisionList ?? [];
+  const revisionList = useMemo(() => data?.revisionList ?? [], [data]);
 
   // Mirror the back-end eligibility check in validateExperimentFeatureUpdates:
   // a draft is selectable only if it contains an experiment-ref rule for this
   // experiment. Otherwise submit fails with an opaque server-side error.
   // Defensively union in linkedFeatureInfo.draftRevisionVersion so the
   // default-selected draft is never hidden by a stale/empty revisions list.
+  const openDraftVersions = useMemo(
+    () =>
+      revisionList
+        .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
+        .map((r) => r.version),
+    [revisionList],
+  );
+  const openDrafts = useFeatureRevisions(feature.id, openDraftVersions);
   const eligibleDraftVersions = useMemo(() => {
     const set = new Set<number>();
-    for (const r of data?.revisions ?? []) {
+    for (const version of openDraftVersions) {
+      const r = openDrafts.get(version);
+      if (!r) continue;
       const hasRefRule = naiveFlattenV1Rules(r.rules).some(
         (rule) =>
           rule.type === "experiment-ref" &&
@@ -165,7 +184,12 @@ export default function EditFeatureFlagValuesModal({
       set.add(linkedFeatureInfo.draftRevisionVersion);
     }
     return set;
-  }, [data?.revisions, experiment.id, linkedFeatureInfo.draftRevisionVersion]);
+  }, [
+    openDraftVersions,
+    openDrafts,
+    experiment.id,
+    linkedFeatureInfo.draftRevisionVersion,
+  ]);
 
   const latestPhase = experiment.phases?.[experiment.phases.length - 1];
 
@@ -183,11 +207,19 @@ export default function EditFeatureFlagValuesModal({
         key: v.key,
         screenshots: v.screenshots,
         weight: latestPhase?.variationWeights?.[i] ?? 0,
+        // A variation with no value on the linked rule (e.g. added to the
+        // experiment after the rule, or no matching rule at all) must still
+        // seed a valid value for the feature's type — "" is not one.
         value:
           linkedFeatureInfo.values.find((x) => x.variationId === v.id)?.value ??
-          "",
+          getDefaultValue(feature.valueType),
       })),
-    [phaseVariations, latestPhase?.variationWeights, linkedFeatureInfo.values],
+    [
+      phaseVariations,
+      latestPhase?.variationWeights,
+      linkedFeatureInfo.values,
+      feature.valueType,
+    ],
   );
 
   const form = useForm<FormValues>({
@@ -244,6 +276,67 @@ export default function EditFeatureFlagValuesModal({
     setSelectedDraft(initialSelectedDraft);
   }, [data, initialMode, initialSelectedDraft]);
 
+  const handleSetMode = (newMode: DraftMode) => {
+    if (newMode !== mode) {
+      track("Edit Feature Flag Values: Draft Mode Change", {
+        fromMode: mode,
+        toMode: newMode,
+        valueType: feature.valueType,
+        eligibleDraftCount: eligibleDraftVersions.size,
+      });
+    }
+    setMode(newMode);
+  };
+
+  const handleSetSelectedDraft = (v: number | null) => {
+    if (v !== selectedDraft) {
+      track("Edit Feature Flag Values: Selected Draft Revision Change", {
+        changedFromInitial: v !== initialSelectedDraft,
+        valueType: feature.valueType,
+        eligibleDraftCount: eligibleDraftVersions.size,
+      });
+    }
+    setSelectedDraft(v);
+  };
+
+  // Sparse patch mode for this feature's experiment-ref rule. Eligible only for
+  // JSON features whose default is a plain object. The toggle rewrites every
+  // variation value (strip keys equal to the default ⇄ expand onto the default)
+  // and the new flag is persisted alongside the values on save.
+  const sparseEligible =
+    feature.valueType === "json" &&
+    parsePlainJSONObject(feature.defaultValue ?? "") !== null;
+  // Config-backed JSON flags always merge object arm values onto the resolved
+  // config, so they're inherently sparse patches that serve the default's
+  // config: default the toggle on (even for rules created via the v2 REST API
+  // that carry no `sparse` flag), drop the toggle, and render the arms with the
+  // config-backing editor. Mirrors StandardRuleFields / ExperimentRefFields.
+  const { configs } = useDefinitions();
+  const defaultConfigKey = getFeatureBaseConfigKey(feature);
+  const isConfigBacked = defaultConfigKey !== null;
+  const configBackingOptionKeys = useMemo(
+    () =>
+      defaultConfigKey
+        ? getConfigSubtree(defaultConfigKey, configs)
+        : undefined,
+    [defaultConfigKey, configs],
+  );
+  const [sparse, setSparse] = useState(
+    !!linkedFeatureInfo.sparse || isConfigBacked,
+  );
+
+  useEffect(() => {
+    if (!isConfigBacked || !defaultConfigKey) return;
+    const vars = (form.getValues("variations") || []) as { value?: string }[];
+    vars.forEach((v, i) => {
+      const normalized = ensureConfigBacking(v.value ?? "", defaultConfigKey);
+      if (normalized !== v.value) {
+        form.setValue(`variations.${i}.value`, normalized);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConfigBacked, defaultConfigKey]);
+
   const watchedVariations = form.watch("variations");
 
   const weights = (watchedVariations ?? []).map((v) => Number(v?.weight) || 0);
@@ -276,6 +369,11 @@ export default function EditFeatureFlagValuesModal({
       currentWeights.length > 0 &&
       currentWeights.every((w) => Math.abs(w - currentWeights[0]) < 0.0001);
 
+    track("Edit Feature Flag Values: Remove Variation", {
+      valueType: feature.valueType,
+      variationCountBefore: fields.length,
+    });
+
     remove(i);
 
     const remainingWeights = currentWeights.filter((_, j) => j !== i);
@@ -294,6 +392,11 @@ export default function EditFeatureFlagValuesModal({
     const wasEqualWeights =
       currentWeights.length > 0 &&
       currentWeights.every((w) => Math.abs(w - currentWeights[0]) < 0.0001);
+
+    track("Edit Feature Flag Values: Add Variation", {
+      valueType: feature.valueType,
+      variationCountBefore: fields.length,
+    });
 
     append({
       id: generateVariationId(),
@@ -327,9 +430,9 @@ export default function EditFeatureFlagValuesModal({
           feature={feature}
           revisionList={revisionList}
           mode={mode}
-          setMode={setMode}
+          setMode={handleSetMode}
           selectedDraft={selectedDraft}
-          setSelectedDraft={setSelectedDraft}
+          setSelectedDraft={handleSetSelectedDraft}
           canAutoPublish={false}
           gatedEnvSet={gatedEnvSet}
           locked={ruleOnlyOnDraft}
@@ -345,9 +448,13 @@ export default function EditFeatureFlagValuesModal({
         const rows = values.variations;
 
         const updatedRefVariations: ExperimentRefVariation[] = rows.map(
-          (r) => ({
+          (r, i) => ({
             variationId: r.id,
-            value: validateFeatureValue(feature, r.value ?? "", ""),
+            value: validateFeatureValue(
+              feature,
+              r.value ?? "",
+              r.name || `Variation ${i + 1}`,
+            ),
           }),
         );
 
@@ -395,12 +502,22 @@ export default function EditFeatureFlagValuesModal({
               features: {
                 [feature.id]: {
                   variations: updatedRefVariations,
+                  ...(sparseEligible && { sparse }),
                   revisionOptions,
                 },
               },
             }),
           },
         );
+
+        track("Edit Feature Flag Values: Save", {
+          draftMode: mode,
+          valueType: feature.valueType,
+          numVariations: rows.length,
+          hasNewVariations: rows.some((r) => !existingVariationIds.has(r.id)),
+          eligibleDraftCount: eligibleDraftVersions.size,
+          dropdownLocked: ruleOnlyOnDraft,
+        });
 
         await mutate();
       })}
@@ -420,6 +537,28 @@ export default function EditFeatureFlagValuesModal({
       ) : (
         <>
           <Flex direction="column" gap="3" pt="2">
+            {!isConfigBacked && sparseEligible && (
+              <Flex>
+                <SparsePatchToggle
+                  checked={sparse}
+                  onChange={(checked) => {
+                    // Rewrite every variation value so the editor isn't left
+                    // with a default-laden patch (on) or a bare patch shown as
+                    // the full value (off).
+                    const def = feature.defaultValue ?? "";
+                    (form.getValues("variations") || []).forEach((v, i) => {
+                      form.setValue(
+                        `variations.${i}.value`,
+                        checked
+                          ? stripDefaultsForSparse(v.value ?? "", def)
+                          : expandSparseToFull(v.value ?? "", def),
+                      );
+                    });
+                    setSparse(checked);
+                  }}
+                />
+              </Flex>
+            )}
             {isEditingVariations && !isEqualWeights && (
               <Flex justify="end">
                 <Tooltip
@@ -428,7 +567,7 @@ export default function EditFeatureFlagValuesModal({
                 >
                   <Button
                     variant="ghost"
-                    size="xs"
+                    size="sm"
                     onClick={setEqualWeights}
                     icon={<PiArrowsClockwise size={12} />}
                   >
@@ -446,13 +585,7 @@ export default function EditFeatureFlagValuesModal({
                 return (
                   <Box key={field.id}>
                     <Flex direction="row" gap="3" align="start">
-                      <Box style={{ paddingTop: 28 }}>
-                        <Box
-                          className={`variation with-variation-label variation${i}`}
-                        >
-                          <span className="label">{i}</span>
-                        </Box>
-                      </Box>
+                      <FieldAlignedVariationNumber number={i} />
                       <Flex
                         direction="column"
                         gap="3"
@@ -489,6 +622,11 @@ export default function EditFeatureFlagValuesModal({
                             renderJSONInline={true}
                             useCodeInput={true}
                             showFullscreenButton={true}
+                            sparse={sparse}
+                            allowConfigBacking={isConfigBacked}
+                            configBackingOptionKeys={configBackingOptionKeys}
+                            configBackingShowPatch={isConfigBacked}
+                            lockConfigBacking={isConfigBacked}
                           />
                           {isNewVariation && numLinkedChanges > 1 && (
                             <Callout status="warning" mt="2">
@@ -543,16 +681,12 @@ export default function EditFeatureFlagValuesModal({
                 <Box key={field.id}>
                   <Flex justify="between" width="100%" mb="3">
                     <Flex align="center" direction="row" gap="2">
-                      <Flex align="center">
-                        <Box
-                          className={`variation with-variation-label variation${i}`}
-                        >
-                          <span className="label">{i}</span>
-                        </Box>
-                        <Text weight="semibold" size="large">
-                          {row.name}
-                        </Text>
-                      </Flex>
+                      <VariationLabel
+                        number={i}
+                        name={row.name}
+                        size="lg"
+                        maxWidth="320px"
+                      />
                       <Box as="span">&middot;</Box>
                       <Text color="text-mid">
                         {decimalToPercent(rowWeight)}% Split
@@ -576,6 +710,12 @@ export default function EditFeatureFlagValuesModal({
                     >
                       <DropdownMenuItem
                         onClick={() => {
+                          track(
+                            "Edit Feature Flag Values: Enter Edit Variation Mode",
+                            {
+                              valueType: feature.valueType,
+                            },
+                          );
                           setIsEditingVariations(true);
                         }}
                       >
@@ -610,6 +750,11 @@ export default function EditFeatureFlagValuesModal({
                     renderJSONInline={true}
                     useCodeInput={true}
                     showFullscreenButton={true}
+                    sparse={sparse}
+                    allowConfigBacking={isConfigBacked}
+                    configBackingOptionKeys={configBackingOptionKeys}
+                    configBackingShowPatch={isConfigBacked}
+                    lockConfigBacking={isConfigBacked}
                   />
                   {isNewVariation && numLinkedChanges > 1 && (
                     <Callout status="warning" mt="2">

@@ -1,5 +1,20 @@
 // Import package.json in this project and bump the version
 // Usage: node scripts/bump-version.js patch
+//
+// Known problems. Make the risky edits by hand, or check every file this
+// touches before committing:
+//
+// - It adds the new version to javascript.json, nodejs.json and react.json
+//   right away, which makes it selectable and the "latest" version before it
+//   is published. Mark the entry `"prerelease": true` until the npm release.
+// - The three commands at the end run in parallel and are not awaited. When
+//   one fails it calls process.exit(1), which can stop another one mid-write.
+//   A failed docs step once left javascript.json empty.
+// - The docs step (`cd ../../docs && pnpm gen-sdk-resources`) always fails,
+//   because docs/ has no package.json. Run
+//   `pnpm --filter shared gen-sdk-resources-for-docs` instead.
+// - generate-sdk-report reads the JSON files while prettier may still be
+//   rewriting them.
 
 const fs = require("fs");
 const path = require("path");
@@ -11,7 +26,9 @@ const packageJson = require("../package.json");
 const type = process.argv[2];
 
 if (!type) {
-  console.error("Error: Version bump type is required (major, minor, or patch)");
+  console.error(
+    "Error: Version bump type is required (major, minor, or patch)",
+  );
   process.exit(1);
 }
 
@@ -34,7 +51,10 @@ switch (type) {
     patch++;
     break;
   default:
-    console.error("Invalid version bump type (allowed: major, minor, patch)", type);
+    console.error(
+      "Invalid version bump type (allowed: major, minor, patch)",
+      type,
+    );
     process.exit(1);
 }
 
@@ -90,20 +110,11 @@ fs.writeFileSync(
   JSON.stringify(frontendPackageJson, null, 2) + "\n",
 );
 
-// Update override in top-level package.json
-console.log("Updating override in top-level package.json");
-const topLevelPackageJson = require("../../../package.json");
-if (!topLevelPackageJson.pnpm) {
-  topLevelPackageJson.pnpm = {};
-}
-if (!topLevelPackageJson.pnpm.overrides) {
-  topLevelPackageJson.pnpm.overrides = {};
-}
-topLevelPackageJson.pnpm.overrides["@growthbook/growthbook"] = newVersion;
-fs.writeFileSync(
-  path.resolve(__dirname, "../../../package.json"),
-  JSON.stringify(topLevelPackageJson, null, 2) + "\n",
-);
+// The pnpm overrides in the top-level package.json are intentionally NOT
+// updated here. They pin "@growthbook/growthbook" and
+// "@growthbook/growthbook-react" to "workspace:*" so the whole monorepo uses
+// the local SDK build. Writing a version number here would switch the app back
+// to the published npm package.
 
 // Add entry to beginning of packages/shared/src/sdk-versioning/sdk-versions/javascript.json
 console.log(
@@ -156,7 +167,7 @@ fs.writeFileSync(
 // Run prettier to format the JSON files properly
 exec(
   "pnpm prettier --write ../shared/src/sdk-versioning/sdk-versions/{javascript,nodejs,react}.json",
-  (err, stdout, stderr) => {
+  (err, stdout) => {
     console.log("Running prettier to format JSON files");
     if (err) {
       console.error(err);
@@ -167,7 +178,7 @@ exec(
 );
 
 // Generate a new SDK report
-exec("pnpm --filter shared generate-sdk-report", (err, stdout, stderr) => {
+exec("pnpm --filter shared generate-sdk-report", (err, stdout) => {
   console.log("Generating new SDK report");
   if (err) {
     console.error(err);
@@ -177,7 +188,7 @@ exec("pnpm --filter shared generate-sdk-report", (err, stdout, stderr) => {
 });
 
 // Update docs SDKInfo.ts
-exec("cd ../../docs && pnpm gen-sdk-resources", (err, stdout, stderr) => {
+exec("cd ../../docs && pnpm gen-sdk-resources", (err, stdout) => {
   console.log("Updating docs SDKInfo.ts");
   if (err) {
     console.error(err);

@@ -5,6 +5,7 @@ import { datetime } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Callout from "@/ui/Callout";
 
 type EventDetailProps = {
   event: EventInterface;
@@ -36,9 +37,7 @@ export const EventDetailContainer = () => {
   const event = data?.event;
 
   if (error || (!isValidating && !event)) {
-    return (
-      <div className="alert alert-danger">Unable to fetch event {eventId}</div>
-    );
+    return <Callout status="error">Unable to fetch event {eventId}</Callout>;
   }
 
   if (!event) {

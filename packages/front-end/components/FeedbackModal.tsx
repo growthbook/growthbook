@@ -60,6 +60,7 @@ export default function FeedbackModal({
         <>
           {prompt ? (
             <Field
+              size="legacy"
               label={prompt}
               required
               textarea
@@ -69,6 +70,7 @@ export default function FeedbackModal({
           ) : null}
           {followUpEmail ? (
             <Field
+              size="legacy"
               label="Email (optional)"
               helpText="We may reach out to you with follow up questions. (We promise not to spam you)"
               name="email"

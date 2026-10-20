@@ -169,6 +169,13 @@ export const MetricDrilldownProvider: FC<MetricDrilldownProviderProps> = ({
             (typeof row.label === "string" ? row.label : ""),
           dimensionInfo: resolvedDimensionInfo,
         });
+      } else if (row.childRowType === "funnelStep") {
+        setOpenModalInfo({
+          metricRow: row,
+          initialResults,
+          initialTab: options?.initialTab ?? "funnel",
+          dimensionInfo: resolvedDimensionInfo,
+        });
       } else {
         setOpenModalInfo({
           metricRow: row,

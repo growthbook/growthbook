@@ -7,19 +7,37 @@ import { expandMetricGroups } from "shared/experiments";
 import { getHealthSettings } from "shared/enterprise";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import {
+  findAnalysisComputeFailure,
+  getSafeRolloutSnapshotAnalysis,
+} from "shared/util";
+import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
 } from "shared/constants";
+import isEqual from "lodash/isEqual";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
   MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS,
   advanceStep,
-  advanceUntilBlocked,
+  completeRollout,
+  computeAutoAdvanceTarget,
   computeNextProcessAt,
   pauseSchedule,
   rollbackSchedule,
+  withRampScheduleAdvanceLockRetry,
+  dispatchRampEvent,
 } from "back-end/src/services/rampSchedule";
+import {
+  NotFoundError,
+  RampAdvanceLockBusyError,
+} from "back-end/src/util/errors";
+import { logger } from "back-end/src/util/logger";
+import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+
+export type RampHealthHoldKind = NonNullable<
+  RampScheduleInterface["healthHold"]
+>["kind"];
 
 export type EvalDecision =
   | { action: "advance" }
@@ -33,6 +51,9 @@ export type EvalDecision =
       // This is what makes approval the final gate: the UI only prompts and the
       // API only accepts an approval once awaitingApproval is set.
       awaitingApproval?: boolean;
+      // The health check holding the step. Reported once per check per step;
+      // the reason text is not the dedupe key.
+      health?: RampHealthHoldKind;
     }
   | { action: "rollback"; reason: string }
   | { action: "pause"; reason: string };
@@ -43,7 +64,32 @@ export async function evaluateCurrentStep(
   now: Date,
 ): Promise<EvalDecision> {
   const step = schedule.steps[schedule.currentStepIndex];
-  if (!step) return { action: "advance" };
+  if (!step) {
+    // No current step. This happens in two cases:
+    //  1. 0-step simple schedules at currentStepIndex -1 (no steps to run)
+    //  2. Multi-step ramps where currentStepIndex is past the last step
+    //     (all steps done, waiting for cutoffDate to fire the disable)
+    //
+    // In both cases, if there's a future cutoffDate we hold until it arrives.
+    // Without this guard, returning "advance" causes advanceStep → completeRollout,
+    // which would end the schedule without honoring the configured end date.
+    //
+    // Multi-step ramps at currentStepIndex -1 with steps still to run are NOT
+    // caught here: nextStepIndex 0 < steps.length, so the guard doesn't fire.
+    const nextStepIndex = schedule.currentStepIndex + 1;
+    if (
+      nextStepIndex >= schedule.steps.length &&
+      schedule.cutoffDate &&
+      schedule.cutoffDate > now
+    ) {
+      return {
+        action: "hold",
+        reason: "Waiting for scheduled end date",
+        nextProcessAt: schedule.cutoffDate,
+      };
+    }
+    return { action: "advance" };
+  }
 
   if (step.monitored) {
     const decision = await evaluateMonitoredStep(ctx, schedule, now);
@@ -232,6 +278,7 @@ async function evaluateMonitoredStep(
       return {
         action: "hold",
         reason: "No traffic detected — holding step (noTrafficAction=hold)",
+        health: "noTraffic",
       };
     }
     // "warn": surfaced via UI monitoring badges only; don't gate progression.
@@ -272,6 +319,20 @@ async function evaluateMonitoredStep(
     multipleExposureAction,
   );
   if (experimentHealthDecision) return experimentHealthDecision;
+
+  // A metric that failed to compute can't be judged safe, so hold rather than
+  // advance. After the rollback checks (rollback beats hold), before the
+  // sample-size gate (more data won't fix a compute error).
+  const computeFailure = findAnalysisComputeFailure(
+    getSafeRolloutSnapshotAnalysis(summarySnapshot),
+  );
+  if (computeFailure) {
+    return {
+      action: "hold",
+      reason: `Guardrail metric ${computeFailure.metricId} failed to compute — holding step until it recovers`,
+      health: "guardrailCompute",
+    };
+  }
 
   const resultsStatus = summary.resultsStatus;
   if (!resultsStatus) {
@@ -375,6 +436,7 @@ function checkScheduleGuardrailSignals(
 
   return null;
 }
+
 function checkExperimentHealth(
   ctx: ReqContext | ApiReqContext,
   safeRollout: SafeRolloutInterface,
@@ -406,6 +468,7 @@ function checkExperimentHealth(
       return {
         action: "hold",
         reason: `Experiment health: SRM check failed — holding step (p=${summary.health.srm.toFixed(4)})`,
+        health: "srm",
       };
     }
     // "warn": surfaced via the UI monitoring badges; not a backend gate.
@@ -429,6 +492,7 @@ function checkExperimentHealth(
       return {
         action: "hold",
         reason: `Experiment health: multiple exposures detected — holding step (${(meData.rawDecimal * 100).toFixed(1)}% of users)`,
+        health: "multipleExposures",
       };
     }
     // "warn": surfaced via the UI monitoring badges; not a backend gate.
@@ -455,6 +519,7 @@ function checkSignalMetricGating(
         return {
           action: "hold",
           reason: `Signal metric ${metricId} is unhealthy — holding step`,
+          health: "signalMetric",
         };
       }
     }
@@ -467,14 +532,15 @@ export async function applyRampEvaluationDecision(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
   decision: EvalDecision,
-): Promise<{ handled: boolean; schedule: RampScheduleInterface }> {
+  // The clock the decision was evaluated against — reused for the fold so the
+  // advance is internally consistent with the caller's cutoff/dueness checks.
+  now: Date = new Date(),
+): Promise<RampScheduleInterface> {
   if (decision.action === "rollback") {
-    const updated = await rollbackSchedule(ctx, schedule, decision.reason);
-    return { handled: true, schedule: updated };
+    return rollbackSchedule(ctx, schedule, decision.reason);
   }
   if (decision.action === "pause") {
-    const updated = await pauseSchedule(ctx, schedule, decision.reason);
-    return { handled: true, schedule: updated };
+    return pauseSchedule(ctx, schedule, decision.reason);
   }
   if (decision.action === "hold") {
     const nextProcessAt = computeNextProcessAt({
@@ -483,37 +549,85 @@ export async function applyRampEvaluationDecision(
       nextSnapshotAt: schedule.nextSnapshotAt,
       cutoffDate: schedule.cutoffDate,
     });
+    // Every step transition clears the record, so a restart or rollback
+    // that meets the same failure again reports it again.
+    const healthHold = decision.health
+      ? { stepIndex: schedule.currentStepIndex, kind: decision.health }
+      : null;
     const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
       nextProcessAt,
+      healthHold,
     });
-    return { handled: true, schedule: updated };
+    if (healthHold && !isEqual(healthHold, schedule.healthHold ?? null)) {
+      await dispatchRampEvent(ctx, updated, "rampSchedule.actions.stepHeld", {
+        object: {
+          rampScheduleId: updated.id,
+          rampName: updated.name,
+          orgId: ctx.org.id,
+          currentStepIndex: updated.currentStepIndex,
+          status: updated.status,
+          reason: decision.reason,
+        },
+      });
+    }
+    return updated;
   }
 
-  const updated = await advanceStep(ctx, schedule);
-  return { handled: false, schedule: updated };
+  // Fold the verified advance and any due backlog into a single jump publish.
+  // The +1 forces past-end schedules into advanceStep's completion branch; the
+  // unconditional first hop doubles as the unstick mechanism for broken
+  // nextStepAt states.
+  const target = Math.max(
+    computeAutoAdvanceTarget(schedule, now, { currentStepCleared: true }),
+    schedule.currentStepIndex + 1,
+  );
+  return advanceStep(ctx, schedule, target);
 }
 
 export async function evaluateRampScheduleAfterSafeRolloutSnapshot(
-  ctx: ReqContext,
+  requestCtx: ReqContext,
   safeRollout: SafeRolloutInterface,
   now: Date = new Date(),
 ): Promise<void> {
   if (!safeRollout.rampScheduleId) return;
-  const schedule = await ctx.models.rampSchedules.getById(
-    safeRollout.rampScheduleId,
-  );
-  if (!schedule || schedule.status !== "running") return;
-  const step = schedule.steps[schedule.currentStepIndex];
-  if (!step?.monitored) return;
+  const rampScheduleId = safeRollout.rampScheduleId;
 
-  const decision = await evaluateCurrentStep(ctx, schedule, now);
-  const result = await applyRampEvaluationDecision(ctx, schedule, decision);
+  // A scheduler decision, so it runs on the same authority as the cron tick:
+  // the member whose snapshot completed may not be able to publish the feature.
+  const ctx = getContextForAgendaJobByOrgObject(requestCtx.org);
 
-  // When the decision is "advance", applyRampEvaluationDecision performs one
-  // advanceStep but stops there. Continue traversing until blocked so that
-  // consecutive non-monitoring steps don't wait for the next agenda tick —
-  // matching the behavior of the agenda-driven advancement path.
-  if (!result.handled) {
-    await advanceUntilBlocked(ctx, result.schedule, now);
+  // Pre-lock screen: don't pay lock writes for no-op snapshot completions.
+  // Re-screened inside the lock.
+  const screened = await ctx.models.rampSchedules.getById(rampScheduleId);
+  if (!screened || screened.status !== "running") return;
+  if (!screened.steps[screened.currentStepIndex]?.monitored) return;
+
+  try {
+    // Retry rather than skip: the busy holder may have read pre-snapshot data,
+    // and dropping the evaluation would discard rollback decisions.
+    await withRampScheduleAdvanceLockRetry(ctx, rampScheduleId, async () => {
+      const schedule = await ctx.models.rampSchedules.getById(rampScheduleId);
+      if (!schedule || schedule.status !== "running") return;
+
+      // Mirror the tick's cutoff branch: a lapsed cutoff must complete-with-
+      // disable, never raise coverage further.
+      if (schedule.cutoffDate && schedule.cutoffDate <= now) {
+        await completeRollout(ctx, schedule, { disableActiveTargets: true });
+        return;
+      }
+
+      const step = schedule.steps[schedule.currentStepIndex];
+      if (!step?.monitored) return;
+
+      const decision = await evaluateCurrentStep(ctx, schedule, now);
+      await applyRampEvaluationDecision(ctx, schedule, decision, now);
+    });
+  } catch (e) {
+    if (e instanceof NotFoundError) return;
+    if (!(e instanceof RampAdvanceLockBusyError)) throw e;
+    logger.info(
+      { rampScheduleId },
+      "Skipping post-snapshot ramp evaluation — advance lock still held after retries",
+    );
   }
 }

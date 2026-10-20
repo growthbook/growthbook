@@ -66,7 +66,10 @@ const ExperimentsPage = (): React.ReactElement => {
     error,
     loading,
     hasArchived,
-  } = useExperiments(project, activeTab === "archived", "multi-armed-bandit");
+    tempRolloutExperimentIds,
+  } = useExperiments(project, activeTab === "archived", "multi-armed-bandit", {
+    includeTempRollouts: true,
+  });
 
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
@@ -85,6 +88,7 @@ const ExperimentsPage = (): React.ReactElement => {
   } = useExperimentSearch({
     allExperiments,
     watchedExperimentIds: watchedExperiments,
+    tempRolloutExperimentIds,
     localStorageKey: "bandits-page",
   });
 
@@ -256,6 +260,7 @@ const ExperimentsPage = (): React.ReactElement => {
               <Flex gap="4" align="center" justify="between" mb="4" wrap="wrap">
                 <Box flexBasis="300px" flexShrink="0">
                   <Field
+                    size="legacy"
                     placeholder="Search..."
                     type="search"
                     {...searchInputProps}
@@ -266,6 +271,7 @@ const ExperimentsPage = (): React.ReactElement => {
                   syntaxFilters={syntaxFilters}
                   setSearchValue={setSearchValue}
                   experiments={allExperiments}
+                  includeTempRollouts
                 />
               </Flex>
 

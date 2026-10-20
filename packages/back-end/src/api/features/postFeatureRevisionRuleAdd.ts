@@ -1,10 +1,10 @@
 import cloneDeep from "lodash/cloneDeep";
-import omit from "lodash/omit";
 import { v4 as uuidv4 } from "uuid";
 import {
   RevisionRampCreateAction,
   postFeatureRevisionRuleAddValidator,
   RuleCreateInput,
+  SafeRolloutInterface,
 } from "shared/validators";
 import type {
   ExperimentRefRule,
@@ -13,22 +13,31 @@ import type {
   RolloutRule,
   SafeRolloutRule,
 } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
+import {
+  getRuleAttributeScopeProjectIds,
+  getEffectiveRevisionHoldout,
+  flattenExposureQueryInput,
+} from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
+import { CreateProps } from "shared/types/base-model";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { toApiRevision } from "back-end/src/services/features";
+import {
+  addIdsToFlatRules,
+  assertFeatureValuesValid,
+  toApiRevision,
+} from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import {
-  getExperimentById,
-  updateExperiment,
-} from "back-end/src/models/ExperimentModel";
+import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   getRevision,
+  prevalidateRevisionUpdate,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
+import { generateId } from "back-end/src/util/uuid";
+import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
   BadRequestError,
   InternalServerError,
@@ -42,9 +51,20 @@ import {
   buildScheduleRampAction,
   resolveOrCreateRevision,
   validateRuleAttributes,
-  validateRuleConditions,
+  assertValidRevisionRulePrerequisites,
+  validatePrerequisiteConditions,
   validateRuleReferences,
+  collectRampPlanPatches,
+  rampPatchEntries,
+  stagedFeature,
+  validateRampPlanPatches,
+  withTemplatePlan,
+  withStagedSchema,
 } from "./validations";
+import {
+  assertRuleVariationsMatchExperiment,
+  assertCanUseRuleScheduling,
+} from "./v2Shared";
 
 const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "sr-";
 
@@ -73,6 +93,7 @@ export function buildRuleFromInput(
         variationId: v.variationId ?? "",
         value: v.value,
       })),
+      ...(input.sparse !== undefined && { sparse: input.sparse }),
     };
     return rule;
   }
@@ -114,6 +135,7 @@ export function buildRuleFromInput(
       hashAttribute: input.hashAttribute,
       ...(input.seed !== undefined && { seed: input.seed }),
       hashVersion: (input.hashVersion as 1 | 2 | undefined) ?? 2,
+      ...(input.sparse !== undefined && { sparse: input.sparse }),
     };
     return rule;
   }
@@ -122,6 +144,7 @@ export function buildRuleFromInput(
     ...base,
     type: "force",
     value: input.value,
+    ...(input.sparse !== undefined && { sparse: input.sparse }),
   };
   return rule;
 }
@@ -132,17 +155,36 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
   }
 
   const { environment, schedule } = req.body;
   assertValidEnvironment(req.context, environment);
   const inlineRampSchedule = req.body.rampSchedule;
+  assertCanUseRuleScheduling(req.context, {
+    schedule,
+    scheduleRules: req.body.rule.scheduleRules,
+    rampSchedule: inlineRampSchedule,
+  });
   const ruleInput = req.body.rule;
+  const ruleId = uuidv4();
+  await validateRampPlanPatches(
+    req.context,
+    rampPatchEntries(
+      collectRampPlanPatches(
+        await withTemplatePlan(req.context, inlineRampSchedule),
+      ),
+      await stagedFeature(req.context, feature, req.params.version),
+      {
+        id: ruleId,
+        type: ruleInput.type,
+        hashAttribute:
+          ruleInput.type === "rollout" ? ruleInput.hashAttribute : undefined,
+        environments: [environment],
+      },
+    ),
+  );
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -155,8 +197,6 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
   // Track side effects so we can compensate on downstream failure (discard
   // draft, delete orphan SafeRollout, revert experiment/holdout auto-link).
   let createdSafeRolloutId: string | undefined;
-  let linkedExperimentId: string | undefined;
-  let linkedHoldoutId: string | undefined;
   try {
     if (!isDraftStatus(revision.status)) {
       throw new BadRequestError(
@@ -174,97 +214,72 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
           "Either provide variationId for all variations or none; mixed inputs are not allowed.",
         );
       }
-      const needsHoldoutCheck = Boolean(feature.holdout?.id);
-      if (anyMissing || needsHoldoutCheck) {
-        const experiment = await getExperimentById(
-          req.context,
-          ruleInput.experimentId,
+      // Always resolve the experiment to check for missing variations
+      // and to check for holdout compatibility
+      const experiment = await getExperimentById(
+        req.context,
+        ruleInput.experimentId,
+      );
+      if (!experiment) {
+        throw new NotFoundError(
+          `Could not find experiment "${ruleInput.experimentId}"`,
         );
-        if (!experiment) {
-          throw new NotFoundError(
-            `Could not find experiment "${ruleInput.experimentId}"`,
+      }
+
+      if (anyMissing) {
+        const phaseVariations = getLatestPhaseVariations(experiment);
+        if (phaseVariations.length < ruleInput.variations.length) {
+          throw new BadRequestError(
+            `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
           );
         }
-
-        if (anyMissing) {
-          const phaseVariations = getLatestPhaseVariations(experiment);
-          if (phaseVariations.length < ruleInput.variations.length) {
-            throw new BadRequestError(
-              `Experiment has ${phaseVariations.length} variation(s) but ${ruleInput.variations.length} were specified`,
-            );
-          }
-          ruleInput.variations = ruleInput.variations.map((v, i) => ({
-            variationId: phaseVariations[i].id,
-            value: v.value,
-          }));
-        }
-
-        if (needsHoldoutCheck && feature.holdout?.id) {
-          if (experiment.status !== "draft") {
-            throw new BadRequestError(
-              `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status}").`,
-            );
-          }
-          const expHasLinkedChanges =
-            (experiment.linkedFeatures?.length ?? 0) > 0 ||
-            experiment.hasURLRedirects ||
-            experiment.hasVisualChangesets;
-          if (expHasLinkedChanges) {
-            throw new BadRequestError(
-              `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
-            );
-          }
-          if (
-            experiment.holdoutId &&
-            experiment.holdoutId !== feature.holdout.id
-          ) {
-            const featureHoldout = await req.context.models.holdout.getById(
-              feature.holdout.id,
-            );
-            const expHoldout = experiment.holdoutId
-              ? await req.context.models.holdout.getById(experiment.holdoutId)
-              : null;
-            throw new BadRequestError(
-              `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || feature.holdout.id}".`,
-            );
-          }
-
-          if (!experiment.holdoutId) {
-            await updateExperiment({
-              context: req.context,
-              experiment,
-              changes: { holdoutId: feature.holdout.id },
-            });
-            linkedExperimentId = experiment.id;
-            const holdout = await req.context.models.holdout.getById(
-              feature.holdout.id,
-            );
-            await req.context.models.holdout.updateById(feature.holdout.id, {
-              linkedExperiments: {
-                ...holdout?.linkedExperiments,
-                [experiment.id]: {
-                  id: experiment.id,
-                  dateAdded: new Date(),
-                },
-              },
-            });
-            linkedHoldoutId = feature.holdout.id;
-          }
-        }
+        ruleInput.variations = ruleInput.variations.map((v, i) => ({
+          variationId: phaseVariations[i].id,
+          value: v.value,
+        }));
       }
+      assertRuleVariationsMatchExperiment(ruleInput, experiment);
+
+      // Use target revision holdout to check compatibility.
+      // Linking writes are deferred until after custom-hook prevalidation below.
+      const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
+      await resolveHoldoutExperimentToLink({
+        context: req.context,
+        feature,
+        experiment,
+        effectiveHoldout,
+        makeError: (message) => new BadRequestError(message),
+      });
     }
 
-    const rule = buildRuleFromInput(ruleInput, uuidv4());
+    const rule = buildRuleFromInput(ruleInput, ruleId);
+
+    // Seed a new rollout off its own rule id so stacked rollouts hash
+    // independently (same chokepoint the v2 add endpoint uses).
+    addIdsToFlatRules([rule], feature.id);
+
+    // Enforce the feature's JSON schema on the new rule's values (no-op for
+    // config-backed values). Opt out with ?skipSchemaValidation=true.
+    assertFeatureValuesValid(req.context, withStagedSchema(feature, revision), {
+      rules: [rule],
+    });
 
     // Validate condition JSON and references before any DB writes.
-    validateRuleConditions(rule);
-    validateRuleAttributes(rule, req.context, feature.project);
+    validatePrerequisiteConditions(rule.prerequisites ?? []);
+    validateRuleAttributes(
+      rule,
+      req.context,
+      getRuleAttributeScopeProjectIds(feature, revision.metadata, rule) ??
+        undefined,
+    );
     await validateRuleReferences(rule, req.context);
 
+    // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
+    let safeRolloutCreateProps: CreateProps<SafeRolloutInterface> | null = null;
     if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {
       if (!req.context.hasPremiumFeature("safe-rollout")) {
         req.context.throwPlanDoesNotAllowError(
-          "Safe Rollout rules require an Enterprise plan.",
+          "Safe Rollout rules require a Pro plan or above.",
         );
       }
 
@@ -272,9 +287,13 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       // the stored ramp-up shape is larger.
       const { rampUpSchedule, ...validatableFields } =
         ruleInput.safeRolloutFields;
-      const validatedFields = await validateCreateSafeRolloutFields(
-        validatableFields,
+      const validatedFields = await validateSafeRolloutFields(
+        flattenExposureQueryInput(validatableFields),
         req.context,
+        {
+          onOmitted: "requireUnambiguous",
+          project: feature.project ?? "",
+        },
       );
 
       const defaultRampSteps = [
@@ -284,7 +303,9 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         { percent: 0.75 },
         { percent: 1 },
       ];
-      const safeRollout = await req.context.models.safeRollout.create({
+      const safeRolloutId = generateId("sr_");
+      safeRolloutCreateProps = {
+        id: safeRolloutId,
         ...validatedFields,
         featureId: feature.id,
         status: "running",
@@ -296,17 +317,18 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
           rampUpCompleted: false,
           nextUpdate: undefined,
         },
-      });
-
-      if (!safeRollout)
-        throw new InternalServerError("Failed to create safe rollout");
-      createdSafeRolloutId = safeRollout.id;
-      (rule as SafeRolloutRule).safeRolloutId = safeRollout.id;
+      };
+      (rule as SafeRolloutRule).safeRolloutId = safeRolloutId;
     }
 
     // Priority: rampSchedule > schedule shorthand > inline scheduleRules (legacy).
     let resolvedRampAction = inlineRampSchedule
-      ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id)
+      ? await normalizeInlineRampSchedule(
+          req.context,
+          inlineRampSchedule,
+          rule.id,
+          feature,
+        )
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
       // A startDate implies the rule should be disabled until the ramp fires.
@@ -329,6 +351,10 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     const newRules: FeatureRule[] = [...baseRules, stampedRule];
 
     const changes: RevisionChanges = { rules: newRules };
+    await assertValidRevisionRulePrerequisites(req.context, feature, revision, {
+      before: baseRules,
+      after: newRules,
+    });
 
     if (resolvedRampAction) {
       const existing = revision.rampActions ?? [];
@@ -340,24 +366,26 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       changes.rampActions = [...filtered, resolvedRampAction];
     }
 
-    await updateRevision(
-      req.context,
-      feature,
-      revision,
-      changes,
-      {
-        user: req.context.auditUser,
-        action: "add rule",
-        subject: `to ${environment}`,
-        value: JSON.stringify(rule),
-      },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: [environment],
-        defaultValueChanged: false,
-        settings: req.organization.settings,
-      }),
-    );
+    // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them
+    await prevalidateRevisionUpdate(req.context, feature, revision, changes);
+
+    if (safeRolloutCreateProps) {
+      const safeRollout = await req.context.models.safeRollout.create(
+        safeRolloutCreateProps,
+      );
+      if (!safeRollout)
+        throw new InternalServerError("Failed to create safe rollout");
+      createdSafeRolloutId = safeRollout.id;
+    }
+
+    // Link now only when the validated holdout is already live on the feature. A draft-only
+
+    await updateRevision(req.context, feature, revision, changes, {
+      user: req.context.auditUser,
+      action: "add rule",
+      subject: `to ${environment}`,
+      value: JSON.stringify(rule),
+    });
 
     const updated = await getRevision({
       context: req.context,
@@ -384,35 +412,6 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     if (createdSafeRolloutId) {
       try {
         await req.context.models.safeRollout.deleteById(createdSafeRolloutId);
-      } catch {
-        // best effort
-      }
-    }
-    if (linkedExperimentId) {
-      try {
-        const exp = await getExperimentById(req.context, linkedExperimentId);
-        if (exp) {
-          await updateExperiment({
-            context: req.context,
-            experiment: exp,
-            changes: { holdoutId: "" },
-          });
-        }
-      } catch {
-        // best effort
-      }
-    }
-    if (linkedHoldoutId && linkedExperimentId) {
-      try {
-        const holdout =
-          await req.context.models.holdout.getById(linkedHoldoutId);
-        if (holdout?.linkedExperiments?.[linkedExperimentId]) {
-          await req.context.models.holdout.updateById(linkedHoldoutId, {
-            linkedExperiments: omit(holdout.linkedExperiments, [
-              linkedExperimentId,
-            ]),
-          });
-        }
       } catch {
         // best effort
       }

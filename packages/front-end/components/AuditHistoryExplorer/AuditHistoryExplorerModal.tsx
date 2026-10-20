@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import { DiffMethod } from "react-diff-viewer-continued";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { PiArrowsClockwise } from "react-icons/pi";
 import { AuditInterface, EventType } from "shared/types/audit";
 import { datetime } from "shared/dates";
+import { auditUserToEventUser } from "shared/validators";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import Link from "@/ui/Link";
 import EventUser from "@/components/Avatar/EventUser";
-import { auditInterfaceUserToEventUser } from "@/components/Avatar/auditUserToEventUser";
 import Modal from "@/components/Modal";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
@@ -21,7 +22,9 @@ import {
   useAuditEntries,
   UseAuditEntriesResult,
 } from "./useAuditEntries";
-import CompareAuditEvents from "./CompareAuditEvents";
+import CompareAuditEvents, {
+  CompareAuditEventsProps,
+} from "./CompareAuditEvents";
 
 // ---- Raw Audit Log Tab ----
 
@@ -65,7 +68,7 @@ function EventDetails({
             ))}
           </div>
         )}
-        <ReactDiffViewer
+        <LazyDiffViewer
           oldValue={JSON.stringify(json.pre || {}, null, 2)}
           newValue={JSON.stringify(json.post || {}, null, 2)}
           compareMethod={DiffMethod.LINES}
@@ -111,7 +114,7 @@ function RawAuditRow({
         </td>
         <td>
           <EventUser
-            user={auditInterfaceUserToEventUser(event.user)}
+            user={auditUserToEventUser(event.user)}
             display="name-email"
           />
         </td>
@@ -170,16 +173,16 @@ function RawAuditLogTab<T>({
   return (
     <Box>
       <Flex align="center" gap="3" mb="3">
-        <Heading as="h5" size="medium">
+        <Heading as="h5" size="md">
           Audit Log
         </Heading>
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           {total} total event{total !== 1 ? "s" : ""}
         </Text>
         <Box ml="auto">
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             disabled={refreshing}
             onClick={async () => {
               await refresh();
@@ -260,6 +263,7 @@ export interface AuditHistoryExplorerModalProps<T> {
   config: AuditDiffConfig<T>;
   eventLabels?: Record<string, string>;
   onClose: () => void;
+  revert?: CompareAuditEventsProps<T>["revert"];
 }
 
 const EMPTY_EVENT_LABELS: Record<string, string> = {};
@@ -270,6 +274,7 @@ export default function AuditHistoryExplorerModal<T>({
   config,
   eventLabels = EMPTY_EVENT_LABELS,
   onClose,
+  revert,
 }: AuditHistoryExplorerModalProps<T>) {
   const auditEntries = useAuditEntries<T>(config, entityId);
 
@@ -319,6 +324,7 @@ export default function AuditHistoryExplorerModal<T>({
               config={config}
               auditEntries={auditEntries}
               eventLabels={eventLabels}
+              revert={revert}
             />
           </Flex>
         </TabsContent>

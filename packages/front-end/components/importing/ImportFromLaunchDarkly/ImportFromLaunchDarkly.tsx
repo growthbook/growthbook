@@ -13,7 +13,7 @@ import { MdPending } from "react-icons/md";
 import { cloneDeep, isEqual } from "lodash";
 import { Environment } from "shared/types/organization";
 import { getRulesForEnvironment } from "shared/util";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -40,6 +40,9 @@ import {
   transformLDProjectsToGBProject,
 } from "@/services/importing/launchdarkly/launchdarkly-importing";
 import track from "@/services/track";
+import Callout from "@/ui/Callout";
+
+const WRAPPED_DIFF_STYLES = { contentText: { wordBreak: "break-all" } };
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
 
@@ -126,16 +129,7 @@ function FeatureDiff({
   const b = JSON.stringify(featureComp[1], null, 2);
 
   return (
-    <ReactDiffViewer
-      oldValue={a}
-      newValue={b}
-      compareMethod={DiffMethod.LINES}
-      styles={{
-        contentText: {
-          wordBreak: "break-all",
-        },
-      }}
-    />
+    <LazyDiffViewer oldValue={a} newValue={b} styles={WRAPPED_DIFF_STYLES} />
   );
 }
 
@@ -720,6 +714,7 @@ export default function ImportFromLaunchDarkly() {
             <div className="row">
               <div className="col">
                 <Field
+                  size="legacy"
                   label="API Token"
                   value={token}
                   type="password"
@@ -729,6 +724,7 @@ export default function ImportFromLaunchDarkly() {
               </div>
               <div className="col-auto">
                 <Field
+                  size="legacy"
                   label="Max requests per 10 secs"
                   type="number"
                   value={intervalCap}
@@ -814,7 +810,7 @@ export default function ImportFromLaunchDarkly() {
 
       <div className="position-relative">
         {data.status === "error" ? (
-          <div className="alert alert-danger">{data.error || "Error"}</div>
+          <Callout status="error">{data.error || "Error"}</Callout>
         ) : data.status === "init" ? null : (
           <div>
             <h2>

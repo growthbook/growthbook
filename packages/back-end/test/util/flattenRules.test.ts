@@ -1,14 +1,13 @@
 import { FeatureRule } from "shared/validators";
 import { Environment } from "shared/types/organization";
-import { stemRuleId, suffixRuleId } from "shared/util";
+import { getApplicableEnvIds, stemRuleId, suffixRuleId } from "shared/util";
 import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
-  getApplicableEnvIds,
   hasNoV1EnvRules,
   isV2RevisionRules,
+  mergeSyncRules,
   narrowRuleForEnvRemoval,
-  ruleFootprint,
   V1FeatureRule,
   V1RulesByEnv,
   rampTargetsEquivalent,
@@ -490,22 +489,22 @@ describe("flattenV1ToV2Rules", () => {
       expect(bucketBy("prod")).toEqual(["B", "A"]);
     });
 
-    // Regression: real-world multi-env hybrid feature where two rules F, G
-    // are content-equivalent across {production, azure-prod, single-tenants-prod}
-    // but azure-prod ALSO has a non-mergeable multi-env predecessor U at pos 0.
-    // Naive merge anchors F, G at production's iteration and reorders
-    // azure-prod's bucket to [F, G, U, T] instead of v1's [U, T, F, G].
+    // Regression: multi-env feature where two rules F, G are
+    // content-equivalent across {production, production-eu, production-us}
+    // but production-eu ALSO has a non-mergeable multi-env predecessor U at
+    // pos 0. Naive merge anchors F, G at production's iteration and reorders
+    // production-eu's bucket to [F, G, U, T] instead of v1's [U, T, F, G].
     // Order-conflict detection must split F and G to keep the bucket invariant.
     it("splits a mergeable rule when a non-mergeable predecessor only exists in non-canonical-first envs", () => {
       // U is multi-env but content-divergent (split per env).
       const uDev = forceRule("U", { value: "u-dev" });
-      const uAzure = forceRule("U", { value: "u-azure" });
+      const uProdEu = forceRule("U", { value: "u-eu" });
       const uStaging = forceRule("U", { value: "u-staging" });
       // T is multi-env but content-divergent (also split per env).
       const tDev = forceRule("T", { value: "t-dev" });
       const tProd = forceRule("T", { value: "t-prod" });
-      const tAzure = forceRule("T", { value: "t-azure" });
-      const tSingleTenants = forceRule("T", { value: "t-single" });
+      const tProdEu = forceRule("T", { value: "t-eu" });
+      const tProdUs = forceRule("T", { value: "t-us" });
       const tStaging = forceRule("T", { value: "t-staging" });
       // F, G are content-equivalent across the 3 envs they appear in.
       const f = forceRule("F", { value: "f" });
@@ -515,22 +514,22 @@ describe("flattenV1ToV2Rules", () => {
         {
           dev: [tDev, uDev],
           production: [tProd, { ...f }, { ...g }],
-          "azure-prod": [uAzure, tAzure, { ...f }, { ...g }],
-          "single-tenants-prod": [tSingleTenants, { ...f }, { ...g }],
+          "production-eu": [uProdEu, tProdEu, { ...f }, { ...g }],
+          "production-us": [tProdUs, { ...f }, { ...g }],
           staging: [tStaging, uStaging],
         },
         {
           envOrder: [
             "dev",
             "production",
-            "azure-prod",
-            "single-tenants-prod",
+            "production-eu",
+            "production-us",
             "staging",
           ],
         },
       );
 
-      // F and G must NOT merge — they'd reorder azure-prod's bucket.
+      // F and G must NOT merge — they'd reorder production-eu's bucket.
       const byStem = (stem: string) =>
         out.filter((r) => stemRuleId(r.id) === stem);
       expect(byStem("F")).toHaveLength(3);
@@ -547,8 +546,8 @@ describe("flattenV1ToV2Rules", () => {
           .map((r) => stemRuleId(r.id));
       expect(bucketBy("dev")).toEqual(["T", "U"]);
       expect(bucketBy("production")).toEqual(["T", "F", "G"]);
-      expect(bucketBy("azure-prod")).toEqual(["U", "T", "F", "G"]);
-      expect(bucketBy("single-tenants-prod")).toEqual(["T", "F", "G"]);
+      expect(bucketBy("production-eu")).toEqual(["U", "T", "F", "G"]);
+      expect(bucketBy("production-us")).toEqual(["T", "F", "G"]);
       expect(bucketBy("staging")).toEqual(["T", "U"]);
     });
   });
@@ -1118,57 +1117,30 @@ describe("getApplicableEnvIds", () => {
     const envs = [env("prod"), env("dev"), env("staging")];
     expect(getApplicableEnvIds(envs)).toEqual(["prod", "dev", "staging"]);
   });
-});
 
-// ================= ruleFootprint (back-end) =================
-//
-// Must stay semantically identical to the shared `ruleFootprint` helper —
-// callers on both sides of the fence route the same rule through the same
-// scope interpretation. Lock the tri-state contract here explicitly.
-
-describe("ruleFootprint (back-end util)", () => {
-  const applicable = ["dev", "staging", "production"];
-  const base = {
-    id: "r1",
-    type: "force",
-    description: "",
-    value: "x",
-    enabled: true,
-  } as unknown as FeatureRule;
-
-  it("allEnvironments: true expands to the applicable env set", () => {
+  // A scope object unions the primary + targeting projects — a rule reaching an
+  // env restricted to a targeting-only project must not be scrubbed (v1 PUT bug).
+  it("unions primary + targeting projects for a scope object", () => {
+    const envs = [env("global", ["global"]), env("eu-prod", ["eu"])];
+    // primary-only would drop eu-prod
+    expect(getApplicableEnvIds(envs, "global")).toEqual(["global"]);
+    // union keeps it
     expect(
-      ruleFootprint(
-        { ...base, allEnvironments: true } as FeatureRule,
-        applicable,
-      ),
-    ).toEqual(applicable);
+      getApplicableEnvIds(envs, {
+        project: "global",
+        targetingProjects: ["eu"],
+      }),
+    ).toEqual(["global", "eu-prod"]);
   });
 
-  it("environments:[list] intersects with the applicable set", () => {
+  it("returns every env when the scope targets all projects", () => {
+    const envs = [env("global", ["global"]), env("eu-prod", ["eu"])];
     expect(
-      ruleFootprint(
-        {
-          ...base,
-          allEnvironments: false,
-          environments: ["production", "dev", "unknown"],
-        } as FeatureRule,
-        applicable,
-      ),
-    ).toEqual(["production", "dev"]);
-  });
-
-  it("strict: explicit environments:[] returns [] (applies nowhere)", () => {
-    expect(
-      ruleFootprint(
-        { ...base, allEnvironments: false, environments: [] } as FeatureRule,
-        applicable,
-      ),
-    ).toEqual([]);
-  });
-
-  it("permissive fallback: neither field declared expands to applicable envs", () => {
-    expect(ruleFootprint(base, applicable)).toEqual(applicable);
+      getApplicableEnvIds(envs, {
+        project: "global",
+        targetingAllProjects: true,
+      }),
+    ).toEqual(["global", "eu-prod"]);
   });
 });
 
@@ -1689,5 +1661,92 @@ describe("rampTargetsEquivalent", () => {
         { ruleId: "r_foo", environment: "dev" },
       ),
     ).toBe(false);
+  });
+});
+
+describe("mergeSyncRules", () => {
+  const environments = ["dev", "production"];
+  const live = [
+    forceRule("fr_all", { allEnvironments: true }),
+    forceRule("fr_prod", {
+      allEnvironments: false,
+      environments: ["production"],
+    }),
+  ] as FeatureRule[];
+
+  it("replaces every rule with a flat rules array", () => {
+    const inbound = [
+      forceRule("fr_new", { allEnvironments: false, environments: ["dev"] }),
+    ] as FeatureRule[];
+    expect(
+      mergeSyncRules({ liveRules: live, environments, rules: inbound }),
+    ).toEqual({ rules: inbound, replacedAll: true });
+    expect(
+      mergeSyncRules({ liveRules: live, environments, rules: [] }),
+    ).toEqual({ rules: [], replacedAll: true });
+  });
+
+  it("keeps live rules in environments the caller doesn't know", () => {
+    const qaOnly = forceRule("fr_qa", {
+      allEnvironments: false,
+      environments: ["qa"],
+    }) as FeatureRule;
+    const everywhere = forceRule("fr_all", {
+      allEnvironments: true,
+    }) as FeatureRule;
+    const inbound = forceRule("fr_new", {
+      allEnvironments: false,
+      environments: ["production"],
+    }) as FeatureRule;
+    expect(
+      mergeSyncRules({
+        liveRules: [qaOnly, everywhere],
+        environments: ["production", "qa"],
+        rules: [inbound],
+        knownEnvironments: ["production"],
+      }),
+    ).toEqual({
+      rules: [
+        inbound,
+        qaOnly,
+        { ...everywhere, allEnvironments: false, environments: ["qa"] },
+      ],
+      replacedAll: true,
+    });
+  });
+
+  it("replaces only the environments sent per environment", () => {
+    const { rules, replacedAll } = mergeSyncRules({
+      liveRules: live,
+      environments,
+      envSettings: {
+        production: { rules: [forceRule("fr_new")] as FeatureRule[] },
+      },
+      rules: [],
+    });
+    expect(replacedAll).toBe(false);
+    expect(rules.map((r) => [r.id, r.allEnvironments, r.environments])).toEqual(
+      [
+        ["fr_all", false, ["dev"]],
+        ["fr_new", false, ["production"]],
+      ],
+    );
+  });
+
+  it("keeps the live rules when no rules are sent", () => {
+    expect(
+      mergeSyncRules({ liveRules: live, environments, envSettings: {} }),
+    ).toEqual({ rules: live, replacedAll: false });
+  });
+
+  it("rejects flat rules mixed with per-environment rules", () => {
+    expect(() =>
+      mergeSyncRules({
+        liveRules: live,
+        environments,
+        envSettings: { dev: { rules: [forceRule("fr_x")] as FeatureRule[] } },
+        rules: [forceRule("fr_y")] as FeatureRule[],
+      }),
+    ).toThrow("Use one shape or the other");
   });
 });

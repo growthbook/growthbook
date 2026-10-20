@@ -1,5 +1,4 @@
 import { deleteFeatureRevisionRuleV2Validator } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { toApiRevisionV2 } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -23,10 +22,7 @@ export const deleteFeatureRevisionRuleV2 = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  if (
-    !req.context.permissions.canUpdateFeature(feature, {}) ||
-    !req.context.permissions.canManageFeatureDrafts(feature)
-  ) {
+  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -65,29 +61,17 @@ export const deleteFeatureRevisionRuleV2 = createApiRequestHandler(
       changes.rampActions = filteredActions;
     }
 
-    // Affected envs for review reset.
+    // Affected envs for the revision-update record.
     const deletedRuleEnvs = deletedRule.allEnvironments
       ? Object.keys(feature.environmentSettings ?? {})
       : (deletedRule.environments ?? []);
 
-    await updateRevision(
-      req.context,
-      feature,
-      revision,
-      changes,
-      {
-        user: req.context.auditUser,
-        action: "delete rule",
-        subject: req.params.ruleId,
-        value: JSON.stringify({}),
-      },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: deletedRuleEnvs,
-        defaultValueChanged: false,
-        settings: req.organization.settings,
-      }),
-    );
+    await updateRevision(req.context, feature, revision, changes, {
+      user: req.context.auditUser,
+      action: "delete rule",
+      subject: req.params.ruleId,
+      value: JSON.stringify({}),
+    });
 
     // Clean up SafeRollout if still only a draft rule.
     if (

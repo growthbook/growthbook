@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FeatureInterface, FeatureTestResult } from "shared/types/feature";
-import { stemRuleId } from "shared/util";
+import { filterEnvironmentsByFeature, stemRuleId } from "shared/util";
 import { FaChevronRight } from "react-icons/fa";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
+import { useEnvironments } from "@/services/features";
+import MultiSelectField from "@/ui/MultiSelectField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -45,6 +47,13 @@ export default function AssignmentTester({
   const [skipRulesWithPrerequisites, setSkipRulesWithPrerequisites] =
     useState(false);
   const [evalDate, setEvalDate] = useState<Date | undefined>(new Date());
+  const [selectedEnvs, setSelectedEnvs] = useState<string[]>([]);
+
+  const allEnvironments = useEnvironments();
+  const featureEnvironments = useMemo(
+    () => filterEnvironmentsByFeature(allEnvironments, feature),
+    [allEnvironments, feature],
+  );
 
   const { data, mutate: mutateData } = useArchetype({
     feature,
@@ -102,9 +111,22 @@ export default function AssignmentTester({
       return <div>Add attributes to see results</div>;
     }
 
+    const displayResults =
+      selectedEnvs.length > 0
+        ? results.filter((r) => selectedEnvs.includes(r.env))
+        : results;
+
+    if (displayResults.length === 0) {
+      return (
+        <div className="text-muted">
+          No results for the selected environments.
+        </div>
+      );
+    }
+
     return (
       <div className="row">
-        {results.map((tr, i) => {
+        {displayResults.map((tr, i) => {
           let matchedRule;
           const debugLog: string[] = [];
           if (tr?.result?.ruleId && tr?.featureDefinition?.rules) {
@@ -227,7 +249,7 @@ export default function AssignmentTester({
                         {debugLog && (
                           <div className="mb-3">
                             <h5>Log</h5>
-                            <div className="bg-white border border-light rounded p-3">
+                            <div className="bg-white border border-light rounded  p-3">
                               {debugLog.map((log, i) => (
                                 <div className="row my-2" key={i}>
                                   <div className="col">{log}</div>
@@ -316,7 +338,7 @@ export default function AssignmentTester({
                     <label
                       className="small text-muted mr-2 mb-0 small text-muted text-ellipsis"
                       htmlFor="evalDate"
-                      title="When there are scheduled rules, this date select lets your see what values the user will get."
+                      title="When there are scheduled rules, this date select lets you see what values the user will get."
                     >
                       Evaluation Date
                     </label>
@@ -370,6 +392,21 @@ export default function AssignmentTester({
                       setFormValues(attrs);
                     }}
                     hideTitle={true}
+                    headerContent={
+                      featureEnvironments.length > 1 ? (
+                        <MultiSelectField
+                          label="Environments"
+                          placeholder="All environments"
+                          value={selectedEnvs}
+                          options={featureEnvironments.map((env) => ({
+                            label: env.id,
+                            value: env.id,
+                          }))}
+                          onChange={setSelectedEnvs}
+                          helpText="Limit results and saved archetype to these environments. Leave empty for all."
+                        />
+                      ) : null
+                    }
                   />
                   <div className="mt-2">
                     <PremiumTooltip commercialFeature="archetypes">
@@ -378,6 +415,7 @@ export default function AssignmentTester({
                           e.preventDefault();
                           setOpenArchetypeModal({
                             attributes: JSON.stringify(formValues),
+                            environments: selectedEnvs,
                           });
                         }}
                         href="#"
@@ -436,9 +474,9 @@ export default function AssignmentTester({
               close={() => setOpenArchetypeModal(null)}
             >
               <div className="p-3">
-                Archetypes allow you set up user attribute traits to test how
-                feature will be applied to your real users. This feature is part
-                of our Pro or Enterprise plans.
+                Archetypes allow you to set up user attribute traits to test how
+                features will be applied to your real users. This feature is
+                part of our Pro or Enterprise plans.
               </div>
             </Modal>
           )}

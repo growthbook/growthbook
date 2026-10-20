@@ -12,7 +12,6 @@ import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
 import Avatar from "@/ui/Avatar";
 import Button from "@/ui/Button";
-import Heading from "@/ui/Heading";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
 
 export const LINKED_CHANGES: Record<
@@ -34,8 +33,8 @@ export const LINKED_CHANGES: Record<
     sdkCapabilityKey: "",
   },
   "visual-editor": {
-    header: "Visual Editor",
-    cta: "Launch Visual Editor",
+    header: "AI Visual Editor",
+    cta: "Launch AI Visual Editor",
     description:
       "Use our no-code browser extension to A/B test minor changes, such as headings or button text.",
     commercialFeature: "visual-editor",
@@ -82,7 +81,7 @@ const AddLinkedChangeRow = ({
   return (
     <Flex align="center" justify="between" gap="3" width="100%">
       <Flex align="center" direction="row" flexGrow="1" minWidth="0" gap="5">
-        <Box width="150px" flexShrink="0">
+        <Box minWidth="170px" flexShrink="0">
           <Avatar
             radius="full"
             color={radixColor as AvatarProps["color"]}
@@ -92,7 +91,12 @@ const AddLinkedChangeRow = ({
           >
             <Icon />
           </Avatar>
-          <Text size="large" weight="semibold" color="text-high">
+          <Text
+            size="lg"
+            weight="semibold"
+            color="text-high"
+            whiteSpace="nowrap"
+          >
             {header}
           </Text>
         </Box>
@@ -183,34 +187,19 @@ export default function AddLinkedChanges({
   const possibleSections = Object.keys(sections);
 
   return (
-    <Box className="appbox" p="5" my="5">
-      {numLinkedChanges > 0 ? (
-        <>
-          <Heading as="h4" size="small">
-            Add Implementation
-          </Heading>
-        </>
-      ) : (
-        <>
-          <Heading as="h4" size="small">
-            Select an Implementation
-          </Heading>
-        </>
-      )}
-      <Box className="appbox mb-0" p="4" mt="2" mb="0">
-        {possibleSections.map((s, i) => {
-          return (
-            <Box key={s}>
-              <AddLinkedChangeRow
-                type={s as LinkedChange}
-                setModal={sections[s].setModal}
-                experiment={experiment}
-              />
-              {i < possibleSections.length - 1 && <Separator size="4" my="3" />}
-            </Box>
-          );
-        })}
-      </Box>
+    <Box className="appbox mb-0" p="4" mt="2" mb="0">
+      {possibleSections.map((s, i) => {
+        return (
+          <Box key={s}>
+            <AddLinkedChangeRow
+              type={s as LinkedChange}
+              setModal={sections[s].setModal}
+              experiment={experiment}
+            />
+            {i < possibleSections.length - 1 && <Separator size="4" my="3" />}
+          </Box>
+        );
+      })}
     </Box>
   );
 }

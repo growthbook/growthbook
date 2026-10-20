@@ -47,6 +47,11 @@ interface SortableProps {
   dragging?: boolean;
   className?: string;
   onlySafeToEditVariationMetadata?: boolean;
+  // Auto-focus this variation's Name field on mount.
+  autoFocusName?: boolean;
+  // JSON features only. Renders the value as a sparse patch (merged onto the
+  // feature default) in the value editor.
+  sparse?: boolean;
 }
 
 type VariationProps = SortableProps &
@@ -74,6 +79,8 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       showDescription,
       dragging,
       className = "",
+      autoFocusName,
+      sparse,
       ...props
     },
     ref,
@@ -149,6 +156,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 useCodeInput={true}
                 showFullscreenButton={true}
                 codeInputDefaultHeight={FIVE_LINES_HEIGHT}
+                sparse={sparse}
               />
             ) : (
               <>{variation.value}</>
@@ -158,6 +166,8 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         <td key={`${variation.id}__${i}__2`}>
           {setVariations ? (
             <Field
+              size="legacy"
+              autoFocus={autoFocusName}
               placeholder={`${getVariationDefaultName(
                 variation,
                 valueType ?? "string",
@@ -182,6 +192,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
           <td key={`${variation.id}__${i}__3`}>
             {setVariations ? (
               <Field
+                size="legacy"
                 value={variation.description || ""}
                 onChange={(e) => {
                   const newVariations = [...variations];
@@ -203,9 +214,15 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         )}
         <td
           key={`${variation.id}__${i}__4`}
-          style={{ width: !hideSplit ? 180 : 60 }}
+          style={{ width: !hideSplit ? 180 : "auto" }}
         >
-          <div className="row align-items-center">
+          <div
+            className={
+              hideSplit
+                ? "d-flex align-items-center justify-content-end flex-nowrap"
+                : "row align-items-center flex-nowrap"
+            }
+          >
             {!hideSplit && (
               <>
                 {customSplit ? (
@@ -214,6 +231,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                       className={`position-relative ${styles.percentInputWrap}`}
                     >
                       <Field
+                        size="legacy"
                         id={`${variation.id}__${i}__3__input`}
                         style={{ width: 95 }}
                         value={val}
@@ -246,14 +264,27 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             {variations.length > 1 &&
               setVariations &&
               !onlySafeToEditVariationMetadata && (
-                <div {...handle} title="Drag and drop to re-order rules">
-                  <FaArrowsAlt style={{ position: "relative", top: 4 }} />
+                <div
+                  {...handle}
+                  title="Drag and drop to re-order rules"
+                  className="mr-2"
+                  style={{
+                    cursor: "grab",
+                    lineHeight: 0,
+                    position: "relative",
+                    top: hideSplit ? 0 : 4,
+                  }}
+                >
+                  <FaArrowsAlt />
                 </div>
               )}
             {setVariations && !onlySafeToEditVariationMetadata && (
               <div
-                className="col-auto"
-                style={{ position: "relative", top: 4 }}
+                style={{
+                  lineHeight: 0,
+                  position: "relative",
+                  top: hideSplit ? 0 : 4,
+                }}
               >
                 <DropdownMenu
                   trigger={
@@ -315,7 +346,6 @@ export function SortableFeatureVariationRow(props: SortableProps) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    border: "1px solid red !important",
   };
 
   return (

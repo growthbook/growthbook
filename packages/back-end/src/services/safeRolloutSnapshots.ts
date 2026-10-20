@@ -9,7 +9,12 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { getSafeRolloutSnapshotAnalysis, isDefined } from "shared/util";
+import {
+  assertExposureQueryDeclaresIdentifierType,
+  resolveAnalysisIdentifierType,
+  getSafeRolloutSnapshotAnalysis,
+  isDefined,
+} from "shared/util";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
@@ -167,6 +172,7 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
     endDate: settings.endDate || new Date(),
     experimentId: settings.experimentId,
     exposureQueryId: settings.exposureQueryId,
+    exposureQueryIdentifierType: settings.exposureQueryIdentifierType,
     segment: "",
     queryFilter: settings.queryFilter || "",
     skipPartialData: false,
@@ -284,7 +290,7 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
   };
 }
 
-function getSafeRolloutSnapshotSettings({
+export function getSafeRolloutSnapshotSettings({
   safeRollout,
   trackingKey,
   settings,
@@ -318,6 +324,18 @@ function getSafeRolloutSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === safeRollout.exposureQueryId,
   );
+  // Refused before the snapshot is inserted so a failed refresh leaves none
+  // behind. A missing query is left to the query builder to surface.
+  if (exposureQuery) {
+    assertExposureQueryDeclaresIdentifierType(
+      exposureQuery,
+      safeRollout.exposureQueryIdentifierType,
+    );
+  }
+  const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
+    exposureQuery,
+    safeRollout.exposureQueryIdentifierType,
+  );
 
   // expand metric groups and scrub unjoinable metrics
   const guardrailMetrics = expandMetricGroups(
@@ -328,7 +346,7 @@ function getSafeRolloutSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -354,7 +372,10 @@ function getSafeRolloutSnapshotSettings({
     phase: {
       index: "0",
     },
-    customFields,
+    // customFields originates from feature.customFields, a legacy Mongoose Mixed
+    // field that can be null. The settings validator's .optional() rejects null
+    // (accepts only undefined/record), so normalize to an empty record.
+    customFields: customFields ?? {},
     datasourceId: safeRollout.datasourceId || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
     // Honor the rolling floor so post-restart snapshots skip prior-run exposures.
@@ -365,11 +386,28 @@ function getSafeRolloutSnapshotSettings({
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: safeRollout.exposureQueryId,
+    exposureQueryIdentifierType,
     metricSettings,
-    variations: [
-      { id: "0", weight: 0.5 },
-      { id: "1", weight: 0.5 },
-    ],
+    // SDK-emitted variation_id mapping depends on the safe rollout's mode:
+    //   v1 (rule.type === "safe-rollout"):
+    //     "0" = controlValue (baseline), "1" = variationValue (treatment)
+    //   v2 (monitored rollout rule, signalled by safeRollout.rampScheduleId):
+    //     "0" = rule.value (the new rollout value, treatment)
+    //     "1" = defaultValue passthrough (the baseline arm)
+    // The analysis pipeline universally treats `variations[0]` as the
+    // baseline (computeResultsStatus, /status endpoint, results UI). Place
+    // the warehouse id for the baseline arm first here so positional indexing
+    // downstream lines up with semantic roles for both v1 and v2 without any
+    // further special-casing.
+    variations: safeRollout.rampScheduleId
+      ? [
+          { id: "1", weight: 0.5 },
+          { id: "0", weight: 0.5 },
+        ]
+      : [
+          { id: "0", weight: 0.5 },
+          { id: "1", weight: 0.5 },
+        ],
     coverage: 1, //hardcoded for now
   };
 }
@@ -420,6 +458,17 @@ export async function _createSafeRolloutSnapshot({
     throw new Error("Could not load data source");
   }
 
+  // Advanced before building settings, which can refuse the identifier, so a
+  // scheduled retry waits for the next window rather than the next minute.
+  const { nextSnapshot } = determineNextSafeRolloutSnapshotAttempt(
+    safeRollout,
+    organization,
+  );
+  await context.models.safeRollout.update(safeRollout, {
+    nextSnapshotAttempt: nextSnapshot,
+    lastSnapshotAttempt: new Date(),
+  });
+
   const snapshotSettings = getSafeRolloutSnapshotSettings({
     safeRollout,
     trackingKey,
@@ -450,15 +499,6 @@ export async function _createSafeRolloutSnapshot({
     ],
     status: "running",
   };
-
-  const { nextSnapshot } = determineNextSafeRolloutSnapshotAttempt(
-    safeRollout,
-    organization,
-  );
-  await context.models.safeRollout.update(safeRollout, {
-    nextSnapshotAttempt: nextSnapshot,
-    lastSnapshotAttempt: new Date(),
-  });
 
   const snapshot = await context.models.safeRolloutSnapshots.create(data);
 

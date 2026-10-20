@@ -182,7 +182,7 @@ describe("ConditionInput", () => {
     fireEvent.focus(comboboxes[1]);
     fireEvent.keyDown(comboboxes[1], { key: "ArrowDown", code: "ArrowDown" });
     await waitFor(async () => {
-      const option = await screen.findByRole("option", { name: "is equal to" });
+      const option = await screen.findByRole("option", { name: /is equal to/ });
       fireEvent.click(option);
     });
 

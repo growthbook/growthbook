@@ -3,6 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import { MssqlConnectionParams } from "shared/types/integrations/mssql";
 import Checkbox from "@/ui/Checkbox";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 import HostWarning from "./HostWarning";
 
 const MssqlForm: FC<{
@@ -35,7 +36,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Port</label>
           <input
             type="number"
@@ -46,7 +47,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Database</label>
           <input
             type="text"
@@ -57,7 +58,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>User</label>
           <input
             type="text"
@@ -68,7 +69,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Password</label>
           <input
             type="text"
@@ -77,10 +78,10 @@ const MssqlForm: FC<{
             required={!existing}
             value={params.password || ""}
             onChange={onParamChange}
-            placeholder={existing ? "(Keep existing)" : ""}
+            placeholder={existing ? KEEP_EXISTING_PLACEHOLDER : ""}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Request Timeout</label>
           <input
             type="number"
@@ -95,7 +96,7 @@ const MssqlForm: FC<{
             connection default is 15 seconds. Set to 0 to disable timeout.
           </div>
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Default Schema</label>
           <input
             type="text"

@@ -73,6 +73,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
       <Flex direction="column">
         <Box>
           <SelectField
+            size="legacy"
             label={
               <AttributionModelTooltip>
                 Metric Analysis Windows <GBInfo />
@@ -137,6 +138,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
                   <Box>Only use metric data from</Box>
                   <DatePicker
                     date={lookbackOverride.value}
+                    timeZone="utc"
                     containerClassName={""}
                     setDate={(d) => {
                       if (d) {
@@ -151,6 +153,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
                 <>
                   <Box>Use only the latest</Box>
                   <Field
+                    size="legacy"
                     type="number"
                     style={{ width: 70 }}
                     min={0}
@@ -182,6 +185,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
                     disabled={disabled}
                   />
                   <SelectField
+                    size="legacy"
                     value={
                       lookbackOverride.valueUnit ??
                       DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT

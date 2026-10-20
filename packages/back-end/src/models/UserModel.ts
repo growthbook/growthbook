@@ -27,6 +27,8 @@ const userSchema = new mongoose.Schema({
   superAdmin: Boolean,
   verified: Boolean,
   agreedToTerms: Boolean,
+  npsSurveyStatus: String,
+  npsSurveyAt: Date,
   minTokenDate: Date,
   dateCreated: Date,
 });
@@ -188,7 +190,12 @@ export async function resetMinTokenDate(userId: string) {
 
 export async function updateUser(
   id: string,
-  updates: Partial<Pick<UserInterface, "passwordHash" | "name">>,
+  updates: Partial<
+    Pick<
+      UserInterface,
+      "passwordHash" | "name" | "npsSurveyStatus" | "npsSurveyAt"
+    >
+  >,
 ) {
   await UserModel.updateOne(
     {

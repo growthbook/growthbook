@@ -299,7 +299,7 @@ const baseFactMetric: Omit<
 
   inverse: false,
 
-  // defaults that can be overriden in fact-metrics.json
+  // defaults that can be overridden in fact-metrics.json
   denominator: null,
 
   quantileSettings: null,
@@ -455,6 +455,7 @@ const engines: DataSourceType[] = [
   "mysql",
   "mssql",
   "clickhouse",
+  "adobe_experience_platform_query_service",
 ];
 
 // Output to store queries in
@@ -666,7 +667,7 @@ engines.forEach((engine) => {
         segment: segment,
         useUnitsTable: false,
       };
-      const sql = integration.getExperimentMetricQuery(queryParams);
+      const sql = integration.getSnapshotMetricQuery(queryParams);
       testCases.push({
         name: `${engine} > ${experiment.id} > ${metric.id}`,
         engine: engine,
@@ -681,7 +682,7 @@ engines.forEach((engine) => {
           unitsTableFullName: unitsQueryFullName,
         });
 
-        const sql = integration.getExperimentMetricQuery({
+        const sql = integration.getSnapshotMetricQuery({
           ...queryParams,
           useUnitsTable: true,
           unitsTableFullName: unitsQueryFullName,

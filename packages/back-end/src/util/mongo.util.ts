@@ -1,8 +1,10 @@
 import type {
   AnyBulkWriteOperation,
   BulkWriteOptions,
+  CreateIndexesOptions,
   Document,
   Collection,
+  IndexSpecification,
 } from "mongodb";
 import type { Document as MongooseDocument } from "mongoose";
 import mongoose from "mongoose";
@@ -160,6 +162,22 @@ export function removeMongooseFields<T>(
   return result;
 }
 
+// Undefined until the database has answered; null when it doesn't say
+let maxDocumentSize: number | null | undefined;
+// The largest document the connected database accepts, as it reports it.
+// Mongo-compatible services differ, and some don't report it at all.
+export async function getMaxDocumentSizeBytes(): Promise<number | null> {
+  if (maxDocumentSize !== undefined) return maxDocumentSize;
+  try {
+    const res = await mongoose.connection.db.command({ hello: 1 });
+    maxDocumentSize =
+      typeof res.maxBsonObjectSize === "number" ? res.maxBsonObjectSize : null;
+    return maxDocumentSize;
+  } catch {
+    return null;
+  }
+}
+
 export function getCollection<T extends Document>(name: string) {
   return mongoose.connection.db.collection<T>(name);
 }
@@ -172,6 +190,22 @@ export function getCollection<T extends Document>(name: string) {
  * Uses `$in` instead of implicit array element matching so the filter
  * also works with `evalCondition` (used for config-file resources).
  */
+/**
+ * Pre-filter for multi-project resources the user may read. null (every
+ * project) adds nothing; no-project docs are org-wide and always pass.
+ */
+export function readableProjectsClause(projects: string[] | null) {
+  return projects
+    ? {
+        $or: [
+          { projects: { $in: projects } },
+          { projects: { $size: 0 } },
+          { projects: { $exists: false } },
+        ],
+      }
+    : {};
+}
+
 export function projectFilterQuery(projectId: string) {
   return {
     $or: [
@@ -216,6 +250,60 @@ export function isDuplicateKeyError(err: unknown): boolean {
 }
 
 /**
+ * A duplicate-key error attributable to a specific named index — a concurrent
+ * writer won the race for a partial unique index (e.g. the publish lock-others
+ * index). Combines the code check with an index-name match in the message.
+ */
+export function isDuplicateKeyErrorForIndex(
+  err: unknown,
+  indexName: string,
+): boolean {
+  return (
+    isDuplicateKeyError(err) &&
+    String((err as { message?: string }).message ?? "").includes(indexName)
+  );
+}
+
+const ensuredIndexes = new Map<string, Promise<void>>();
+
+/**
+ * Builds an index once per process and fails closed. A write whose correctness
+ * depends on the index (a unique index closing a read-then-write race) awaits
+ * this first, and the write is skipped if the build fails. BaseModel builds its
+ * indexes in the background and swallows failures, so it cannot give that
+ * guarantee. Concurrent callers share one build; a failed build is retried by
+ * the next caller.
+ *
+ * A failed build is rethrown wrapped, never as the driver error. A unique
+ * build over existing duplicates fails with E11000, and callers that read
+ * E11000 on their write as "another writer won" would mistake a broken index
+ * for contention.
+ */
+export function ensureIndexOnce(
+  collection: Collection,
+  spec: IndexSpecification,
+  options: CreateIndexesOptions = {},
+): Promise<void> {
+  const key = `${collection.namespace}|${JSON.stringify(spec)}|${JSON.stringify(options)}`;
+  const pending = ensuredIndexes.get(key);
+  if (pending) return pending;
+  const build = collection
+    .createIndex(spec, options)
+    .then(() => undefined)
+    .catch((error: unknown) => {
+      ensuredIndexes.delete(key);
+      throw Object.assign(
+        new Error(
+          `Could not build index ${JSON.stringify(spec)} on ${collection.namespace}`,
+        ),
+        { cause: error },
+      );
+    });
+  ensuredIndexes.set(key, build);
+  return build;
+}
+
+/**
  * Retry an insert operation on duplicate-key error. Intended for use with
  * sequential-version unique indexes (e.g. `(organization, target, version)`)
  * where two concurrent creates can compute the same `nextVersion` from the
@@ -224,9 +312,8 @@ export function isDuplicateKeyError(err: unknown): boolean {
  * set of existing rows before retrying the insert.
  *
  * The provided `op` is invoked at most MAX_VERSION_RETRY_ATTEMPTS times. The
- * caller is also responsible for ensuring `op` is the only thing inside the
- * retry scope — non-idempotent work (custom hooks, audit logs, etc.) must
- * live outside or it will run multiple times under contention.
+ * Retry-safe work inside `op` may run multiple times under contention.
+ * Non-idempotent work must remain outside the retry scope.
  */
 export async function createWithVersionRetry<R>(
   op: () => Promise<R>,

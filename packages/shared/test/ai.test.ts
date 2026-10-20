@@ -1,4 +1,75 @@
-import { formatAIRateLimitRetryMessage } from "../src/ai";
+import {
+  AI_PROVIDER_STT_MODEL_MAP,
+  resolveDefaultSTTModel,
+  formatAIRateLimitRetryMessage,
+  getAIModelSettingsUsingProvider,
+  getProviderForAIModel,
+  parseAspectRatio,
+  snapAspectRatio,
+  aspectRatioToDims,
+  humanizeAspectRatio,
+  buildImageAspectInstruction,
+  anthropicStructuredOutputMode,
+  resolveMaxOutputTokens,
+} from "../src/ai";
+
+describe("getProviderForAIModel", () => {
+  it("resolves text models", () => {
+    expect(getProviderForAIModel("text", "gpt-4o-mini")).toBe("openai");
+    expect(getProviderForAIModel("text", "claude-sonnet-4-6")).toBe(
+      "anthropic",
+    );
+    expect(getProviderForAIModel("text", "mistral-small-latest")).toBe(
+      "mistral",
+    );
+  });
+
+  it("resolves embedding models from their own registry", () => {
+    // Text and embedding models share a provider namespace, not a registry.
+    expect(getProviderForAIModel("embedding", "gemini-embedding-001")).toBe(
+      "google",
+    );
+    expect(getProviderForAIModel("text", "gemini-embedding-001")).toBeNull();
+    expect(getProviderForAIModel("embedding", "gemini-2.5-flash")).toBeNull();
+  });
+
+  it("resolves image models, including legacy aliases", () => {
+    expect(getProviderForAIModel("image", "dall-e-3")).toBe("openai");
+    expect(getProviderForAIModel("image", "grok-2-image")).toBe("xai");
+    expect(getProviderForAIModel("image", "imagen-4.0-generate-001")).toBe(
+      "google",
+    );
+    // Stored on orgs from before the id changed.
+    expect(
+      getProviderForAIModel("image", "gemini-2.5-flash-image-preview"),
+    ).toBe("google");
+  });
+
+  it("resolves transcription models from their own registry", () => {
+    expect(getProviderForAIModel("stt", "grok-stt-1.0")).toBe("xai");
+    expect(getProviderForAIModel("stt", "gpt-transcribe")).toBe("openai");
+    expect(getProviderForAIModel("stt", "voxtral-mini-latest")).toBe("mistral");
+    expect(getProviderForAIModel("text", "grok-stt-1.0")).toBeNull();
+    expect(getProviderForAIModel("stt", "grok-4.6")).toBeNull();
+  });
+
+  it("has no transcription model for Anthropic or Google", () => {
+    for (const model of Object.values(AI_PROVIDER_STT_MODEL_MAP).flat()) {
+      expect(["anthropic", "google"]).not.toContain(
+        getProviderForAIModel("stt", model),
+      );
+    }
+  });
+
+  it("returns null for an unknown id rather than throwing", () => {
+    // Read off saved org settings, so a stale value must not throw.
+    expect(getProviderForAIModel("text", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("embedding", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("image", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("stt", "not-a-model")).toBeNull();
+    expect(getProviderForAIModel("text", "")).toBeNull();
+  });
+});
 
 describe("formatAIRateLimitRetryMessage", () => {
   it("formats duration with singular units when appropriate", () => {
@@ -29,5 +100,246 @@ describe("formatAIRateLimitRetryMessage", () => {
     expect(formatAIRateLimitRetryMessage("x")).toContain(
       "Please try again later",
     );
+  });
+});
+
+describe("parseAspectRatio", () => {
+  it("parses valid w:h ratios", () => {
+    expect(parseAspectRatio("16:9")).toBeCloseTo(16 / 9);
+    expect(parseAspectRatio("1:1")).toBe(1);
+    expect(parseAspectRatio("1920:480")).toBe(4);
+    expect(parseAspectRatio("1.91:1")).toBeCloseTo(1.91);
+    expect(parseAspectRatio(" 3:4 ")).toBeCloseTo(0.75);
+  });
+
+  it("returns null for unparseable or non-positive input", () => {
+    expect(parseAspectRatio(undefined)).toBeNull();
+    expect(parseAspectRatio(null)).toBeNull();
+    expect(parseAspectRatio("")).toBeNull();
+    expect(parseAspectRatio("16x9")).toBeNull();
+    expect(parseAspectRatio("0:1")).toBeNull();
+    expect(parseAspectRatio("1:0")).toBeNull();
+  });
+});
+
+describe("snapAspectRatio", () => {
+  const supported = ["1:1", "3:2", "2:3", "16:9", "9:16"];
+
+  it("snaps to the closest supported ratio (log space)", () => {
+    expect(snapAspectRatio("1920:480", supported)).toBe("16:9"); // 4.0 -> widest
+    expect(snapAspectRatio("100:101", supported)).toBe("1:1");
+    expect(snapAspectRatio("9:16", supported)).toBe("9:16");
+    expect(snapAspectRatio("1000:1500", supported)).toBe("2:3");
+  });
+
+  it("falls back to 1:1 for unparseable input when available", () => {
+    expect(snapAspectRatio(undefined, supported)).toBe("1:1");
+    expect(snapAspectRatio("garbage", supported)).toBe("1:1");
+  });
+
+  it("falls back to the first entry when 1:1 is unavailable", () => {
+    expect(snapAspectRatio(undefined, ["16:9", "9:16"])).toBe("16:9");
+  });
+});
+
+describe("aspectRatioToDims", () => {
+  it("keeps the longer edge at 1024", () => {
+    expect(aspectRatioToDims("1:1")).toEqual({ width: 1024, height: 1024 });
+    expect(aspectRatioToDims("16:9")).toEqual({ width: 1024, height: 576 });
+    expect(aspectRatioToDims("9:16")).toEqual({ width: 576, height: 1024 });
+  });
+});
+
+describe("humanizeAspectRatio", () => {
+  it("reduces by gcd to a readable ratio", () => {
+    expect(humanizeAspectRatio("1920:480", "16:9")).toBe("4:1");
+    expect(humanizeAspectRatio("1024:768", "4:3")).toBe("4:3");
+  });
+
+  it("falls back when the reduced terms are awkwardly large or non-integer", () => {
+    expect(humanizeAspectRatio("1456:817", "16:9")).toBe("16:9");
+    expect(humanizeAspectRatio("1.91:1", "16:9")).toBe("16:9");
+  });
+});
+
+describe("buildImageAspectInstruction", () => {
+  it("returns empty string when there is no slot ratio to match", () => {
+    expect(
+      buildImageAspectInstruction({
+        requestedRatio: undefined,
+        snappedRatio: "1:1",
+        honorsAspectRatio: true,
+      }),
+    ).toBe("");
+  });
+
+  it("emits a light instruction when the model emits a matching shape", () => {
+    const out = buildImageAspectInstruction({
+      requestedRatio: "16:9",
+      snappedRatio: "16:9",
+      honorsAspectRatio: true,
+    });
+    expect(out).toContain("16:9");
+    expect(out).toContain("filling the frame");
+    expect(out).not.toContain("center-cropped");
+  });
+
+  it("emits a safe-area instruction on a meaningful mismatch", () => {
+    const out = buildImageAspectInstruction({
+      requestedRatio: "1920:480", // 4:1 slot
+      snappedRatio: "16:9", // closest the model can emit
+      honorsAspectRatio: true,
+    });
+    expect(out).toContain("4:1");
+    expect(out).toContain("center-cropped");
+    expect(out).toContain("centered");
+  });
+
+  it("always emits the safe-area instruction for models that ignore the ratio hint", () => {
+    // Even when snapped === requested, an ignore-the-hint model's output
+    // shape is unpredictable, so we still guard with the safe area.
+    const out = buildImageAspectInstruction({
+      requestedRatio: "16:9",
+      snappedRatio: "16:9",
+      honorsAspectRatio: false,
+    });
+    expect(out).toContain("center-cropped");
+  });
+});
+
+describe("getAIModelSettingsUsingProvider", () => {
+  const settings = {
+    defaultAIModel: "claude-haiku-4-5-20251001",
+    visualEditorAIModel: "gpt-4o",
+    visualEditorImageModel: "gemini-2.5-flash-image",
+    embeddingModel: "gemini-embedding-001",
+  };
+
+  it("finds every setting served by the provider", () => {
+    expect(
+      getAIModelSettingsUsingProvider(settings, "google").map((s) => s.key),
+    ).toEqual(["visualEditorImageModel", "embeddingModel"]);
+  });
+
+  it("matches across the text, image and embedding registries", () => {
+    expect(
+      getAIModelSettingsUsingProvider(settings, "anthropic").map((s) => s.key),
+    ).toEqual(["defaultAIModel"]);
+    expect(
+      getAIModelSettingsUsingProvider(settings, "openai").map((s) => s.key),
+    ).toEqual(["visualEditorAIModel"]);
+  });
+
+  it("returns nothing for a provider no setting uses", () => {
+    expect(getAIModelSettingsUsingProvider(settings, "mistral")).toEqual([]);
+  });
+
+  it("finds the dictation setting", () => {
+    expect(
+      getAIModelSettingsUsingProvider({ sttModel: "grok-stt-1.0" }, "xai").map(
+        (s) => s.key,
+      ),
+    ).toEqual(["sttModel"]);
+    expect(
+      getAIModelSettingsUsingProvider({ sttModel: "grok-stt-1.0" }, "openai"),
+    ).toEqual([]);
+  });
+
+  it("catches the legacy openAIDefaultModel field", () => {
+    expect(
+      getAIModelSettingsUsingProvider(
+        { openAIDefaultModel: "gpt-4o-mini" },
+        "openai",
+      ).map((s) => s.key),
+    ).toEqual(["openAIDefaultModel"]);
+  });
+
+  it("ignores an unset or unrecognized model", () => {
+    expect(
+      getAIModelSettingsUsingProvider(
+        { defaultAIModel: "", visualEditorAIModel: "some-future-model" },
+        "openai",
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("resolveDefaultSTTModel", () => {
+  it("prefers gpt-transcribe", () => {
+    expect(resolveDefaultSTTModel(["openai", "xai", "mistral"])).toBe(
+      "gpt-transcribe",
+    );
+  });
+
+  it("falls through in order when OpenAI has no key", () => {
+    expect(resolveDefaultSTTModel(["xai", "mistral"])).toBe("grok-stt-1.0");
+    expect(resolveDefaultSTTModel(["mistral"])).toBe("voxtral-mini-latest");
+  });
+
+  it("serves a Cloud org with no keys of its own", () => {
+    // Anthropic alone is the one combination that yields nothing.
+    expect(resolveDefaultSTTModel(["anthropic", "openai"])).toBe(
+      "gpt-transcribe",
+    );
+    expect(resolveDefaultSTTModel(["anthropic", "xai"])).toBe("grok-stt-1.0");
+    expect(resolveDefaultSTTModel(["anthropic"])).toBeNull();
+  });
+
+  it("returns null when no provider serves transcription", () => {
+    expect(resolveDefaultSTTModel(["anthropic", "google"])).toBeNull();
+    expect(resolveDefaultSTTModel([])).toBeNull();
+  });
+});
+
+describe("anthropicStructuredOutputMode", () => {
+  it("uses native structured output on the spike-verified models", () => {
+    expect(anthropicStructuredOutputMode("claude-opus-5-5")).toBe(
+      "outputFormat",
+    );
+    expect(anthropicStructuredOutputMode("claude-sonnet-5")).toBe(
+      "outputFormat",
+    );
+  });
+
+  it("falls back to the json tool on models without structured output", () => {
+    expect(anthropicStructuredOutputMode("claude-sonnet-4-20250514")).toBe(
+      "jsonTool",
+    );
+    // Not individually spike-tested; mirrors @ai-sdk/anthropic's own
+    // capability table, which marks these as json-tool-only.
+    expect(anthropicStructuredOutputMode("claude-opus-4-8")).toBe("jsonTool");
+    expect(anthropicStructuredOutputMode("claude-sonnet-4-6")).toBe("jsonTool");
+    expect(anthropicStructuredOutputMode("claude-haiku-4-5-20251001")).toBe(
+      "jsonTool",
+    );
+  });
+
+  it("is null for other providers", () => {
+    expect(anthropicStructuredOutputMode("gpt-4o")).toBeNull();
+    expect(anthropicStructuredOutputMode("gemini-2.5-flash")).toBeNull();
+  });
+});
+
+describe("resolveMaxOutputTokens", () => {
+  it("keeps the safe value when the model's ceiling is unknown", () => {
+    expect(resolveMaxOutputTokens("gpt-4o", 16000, 32000)).toBe(16000);
+    expect(resolveMaxOutputTokens("mistral-large-latest", 8000)).toBe(8000);
+  });
+
+  it("uses the extended value on a model with a documented ceiling", () => {
+    expect(resolveMaxOutputTokens("claude-sonnet-5", 16000, 32000)).toBe(32000);
+  });
+
+  it("never exceeds the documented ceiling", () => {
+    expect(
+      resolveMaxOutputTokens("claude-haiku-4-5-20251001", 16000, 100000),
+    ).toBe(64000);
+  });
+
+  it("clamps the safe value too when no extended value is given", () => {
+    expect(resolveMaxOutputTokens("claude-haiku-4-5-20251001", 100000)).toBe(
+      64000,
+    );
+    expect(resolveMaxOutputTokens("claude-sonnet-5", 8000)).toBe(8000);
   });
 });

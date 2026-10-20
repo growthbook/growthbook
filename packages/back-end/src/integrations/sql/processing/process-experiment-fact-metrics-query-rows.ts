@@ -1,3 +1,4 @@
+import { isContextualBanditAttrColumn } from "shared/experiments";
 import { parseIntWithDefault } from "shared/util";
 import type { ExperimentFactMetricsQueryResponseRows } from "shared/types/integrations";
 
@@ -7,6 +8,7 @@ import {
 } from "back-end/src/services/experimentQueries/constants";
 
 import { getQuantileBoundsFromQueryResponse } from "back-end/src/integrations/sql/columns/quantile-bounds-from-query-response";
+import { parseFunnelStepSumColumn } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 
 export function processExperimentFactMetricsQueryRows(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,6 +29,17 @@ export function processExperimentFactMetricsQueryRows(
         }
       });
 
+      // A funnel metric emits one sum per step instead of the fixed column
+      // set, so its columns can't come from a static list.
+      Object.keys(row).forEach((key) => {
+        const parsed = parseFunnelStepSumColumn(key);
+        // TODO(funnel): clean-up with alias helper to solidify
+        // the column alias throughout the code
+        if (parsed?.alias === `m${i}`) {
+          metricData[key] = parseFloat(row[key]) || 0;
+        }
+      });
+
       metricData = {
         ...metricData,
         ...getQuantileBoundsFromQueryResponse(row, prefix),
@@ -40,9 +53,17 @@ export function processExperimentFactMetricsQueryRows(
         dimensionData[key] = value;
       });
 
+    const attributeData: Record<string, string> = {};
+    Object.entries(row)
+      .filter(([key, _]) => isContextualBanditAttrColumn(key))
+      .forEach(([key, value]) => {
+        attributeData[key] = value;
+      });
+
     return {
       variation: row.variation ?? "",
       ...dimensionData,
+      ...attributeData,
       users: parseIntWithDefault(row.users, 0),
       count: parseIntWithDefault(row.users, 0),
       ...metricData,

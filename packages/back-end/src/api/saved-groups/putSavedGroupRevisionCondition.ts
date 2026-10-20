@@ -32,7 +32,13 @@ export const putSavedGroupRevisionCondition = createApiRequestHandler(
 
   const { condition } = req.body;
 
-  if (!req.context.permissions.canUpdateSavedGroup(savedGroup, savedGroup)) {
+  if (
+    !req.context.permissions.canRevisionAction(
+      "saved-group",
+      "draft",
+      savedGroup,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 

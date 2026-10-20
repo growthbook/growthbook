@@ -96,10 +96,11 @@ const VisualChangesetModal: FC<{
 
   const editorUrlLabel = !showAdvanced
     ? "Target URL"
-    : "URL to edit with Visual Editor";
+    : "URL to edit with AI Visual Editor";
   const editorUrlHelpText = !showAdvanced ? undefined : (
     <>
-      Clicking the <strong>Open Visual Editor</strong> button will open this URL
+      Clicking the <strong>Open AI Visual Editor</strong> button will open this
+      URL
     </>
   );
 
@@ -124,6 +125,7 @@ const VisualChangesetModal: FC<{
       cta={cta}
     >
       <Field
+        size="legacy"
         required
         label={editorUrlLabel}
         containerClassName="mb-2"
@@ -160,6 +162,7 @@ const VisualChangesetModal: FC<{
             <div className="row">
               <div className="col-2">
                 <SelectField
+                  size="legacy"
                   value={
                     !form.watch(`urlPatterns.${i}.include`) ? "false" : "true"
                   }
@@ -173,10 +176,14 @@ const VisualChangesetModal: FC<{
                 />
               </div>
               <div className="col">
-                <Field {...form.register(`urlPatterns.${i}.pattern`)} />
+                <Field
+                  size="legacy"
+                  {...form.register(`urlPatterns.${i}.pattern`)}
+                />
               </div>
               <div className="col-2">
                 <SelectField
+                  size="legacy"
                   value={form.watch(`urlPatterns.${i}.type`)}
                   options={[
                     { label: "Simple", value: "simple" },

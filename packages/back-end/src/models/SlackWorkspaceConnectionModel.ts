@@ -1,0 +1,149 @@
+import {
+  SlackWorkspaceConnectionInterface,
+  slackWorkspaceConnectionSchema,
+} from "shared/validators";
+import {
+  getCollection,
+  isDuplicateKeyError,
+} from "back-end/src/util/mongo.util";
+import { MakeModelClass } from "./BaseModel";
+
+const COLLECTION_NAME = "slackworkspaceconnections";
+
+/**
+ * Keep the org-scoped primary key; these removable indexes impose today's 1:1
+ * policy. assertConnectionAvailable rejects conflicts before a write, and the
+ * indexes only close the race between two concurrent connects. BaseModel builds
+ * them in the background and logs a failure (Cosmos DB builds unique indexes
+ * only on empty collections); without them, dangerousGetForTeam still refuses
+ * a workspace that ends up with two connections.
+ */
+const connectionIndexes: {
+  fields: { teamId: 1 } | { organization: 1 };
+  unique: true;
+  name: string;
+}[] = [
+  {
+    fields: { teamId: 1 },
+    unique: true,
+    name: "slack_one_org_per_workspace",
+  },
+  {
+    fields: { organization: 1 },
+    unique: true,
+    name: "slack_one_workspace_per_org",
+  },
+];
+
+const BaseClass = MakeModelClass({
+  schema: slackWorkspaceConnectionSchema,
+  collectionName: COLLECTION_NAME,
+  pKey: ["teamId"] as const,
+  readonlyFields: [],
+  additionalIndexes: connectionIndexes,
+});
+
+type SlackWorkspaceConnectionFields = Omit<
+  SlackWorkspaceConnectionInterface,
+  "organization" | "teamId" | "dateCreated" | "dateUpdated"
+>;
+
+export class SlackWorkspaceConnectionModel extends BaseClass {
+  /** Used before org resolution for signed Slack events and account consent. */
+  public static async dangerousGetForTeam(
+    teamId: string,
+  ): Promise<SlackWorkspaceConnectionInterface | null> {
+    const docs = await getCollection(COLLECTION_NAME)
+      .find({ teamId })
+      .limit(2)
+      .toArray();
+    if (docs.length > 1) {
+      throw new Error(
+        "This Slack workspace has multiple GrowthBook connections. Disconnect the extra connections before continuing.",
+      );
+    }
+    return docs[0]
+      ? slackWorkspaceConnectionSchema.strip().parse(docs[0])
+      : null;
+  }
+
+  protected canCreate(): boolean {
+    return this.context.permissions.canManageIntegrations();
+  }
+
+  protected canRead(): boolean {
+    return this.context.permissions.canManageIntegrations();
+  }
+
+  protected canUpdate(): boolean {
+    return this.context.permissions.canManageIntegrations();
+  }
+
+  protected canDelete(): boolean {
+    return this.context.permissions.canManageIntegrations();
+  }
+
+  private async assertConnectionAvailable(teamId: string): Promise<void> {
+    const collection = this._dangerousGetCollection();
+    if (
+      await collection.findOne({
+        teamId,
+        organization: { $ne: this.context.org.id },
+      })
+    ) {
+      throw new Error(
+        "This Slack workspace is already connected to another GrowthBook organization. Disconnect it from that organization first.",
+      );
+    }
+    if (
+      await collection.findOne({
+        organization: this.context.org.id,
+        teamId: { $ne: teamId },
+      })
+    ) {
+      throw new Error(
+        "This GrowthBook organization is already connected to another Slack workspace. Disconnect it before connecting a different workspace.",
+      );
+    }
+  }
+
+  protected async customValidation(doc: SlackWorkspaceConnectionInterface) {
+    await this.assertConnectionAvailable(doc.teamId);
+  }
+
+  public getByTeamId(
+    teamId: string,
+  ): Promise<SlackWorkspaceConnectionInterface | null> {
+    return this._findOne({ teamId });
+  }
+
+  public async upsertForTeam(
+    teamId: string,
+    fields: SlackWorkspaceConnectionFields,
+  ): Promise<SlackWorkspaceConnectionInterface> {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const existing = await this.getByTeamId(teamId);
+      if (existing) {
+        return this._updateOne(existing, fields);
+      }
+
+      try {
+        return await this._createOne({ teamId, ...fields });
+      } catch (error) {
+        if (!isDuplicateKeyError(error)) throw error;
+        await this.assertConnectionAvailable(teamId);
+      }
+    }
+
+    throw new Error(
+      "Could not save the Slack workspace because it is being connected concurrently.",
+    );
+  }
+
+  public async deleteForTeam(teamId: string): Promise<boolean> {
+    const existing = await this.getByTeamId(teamId);
+    if (!existing) return false;
+    await this._deleteOne(existing);
+    return true;
+  }
+}

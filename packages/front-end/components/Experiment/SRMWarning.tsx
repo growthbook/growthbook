@@ -13,7 +13,7 @@ import { useSnapshot } from "./SnapshotProvider";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
 
 const NOT_ENOUGH_EVIDENCE_MESSAGE =
-  "There is not enough evidence to raise an issue. Any imbalances in the percentages you see may be due to change and aren’t cause for concern at this time.";
+  "There is not enough evidence to raise an issue. Any imbalances in the percentages you see may be due to chance and aren’t cause for concern at this time.";
 
 const LearnMore = ({
   type,
@@ -175,7 +175,7 @@ const SRMWarning: FC<{
       )}
 
       {srm >= srmThreshold ? (
-        <Callout status="success" contentsAs="div">
+        <Callout status="success">
           <b>
             No Sample Ratio Mismatch (SRM) detected. P-value above{" "}
             {srmThreshold}.{" "}
@@ -189,7 +189,7 @@ const SRMWarning: FC<{
           </b>
         </Callout>
       ) : (
-        <Callout status="warning" contentsAs="div">
+        <Callout status="warning">
           <strong>
             Sample Ratio Mismatch (SRM) detected. P-value below{" "}
             {pValueFormatter(srmThreshold)}

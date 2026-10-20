@@ -1,0 +1,39 @@
+Requires `growthbook` v2.2.0 or later, plus the `requests` package:
+
+```bash
+pip install growthbook requests
+```
+
+```python
+from growthbook import GrowthBook, GrowthBookTrackingPlugin
+
+gb = GrowthBook(
+    client_key="YOUR_CLIENT_KEY",
+    attributes={"id": "user_123"},
+    plugins=[
+        GrowthBookTrackingPlugin(
+            ingestor_host="https://us-east-1.gb-ingest.com",
+        )
+    ],
+)
+gb.load_features()
+```
+
+Log custom events with `log_event`:
+
+```python
+gb.log_event("Button Click", {"button": "Sign Up"})
+```
+
+Call `gb.destroy()` when you're done with the instance to flush pending events.
+
+| Option                    | Description                                                          |
+| ------------------------- | -------------------------------------------------------------------- |
+| `ingestor_host`           | Ingestor for your Data Region.                                       |
+| `track_feature_evaluated` | Set to `False` to stop sending feature usage events. Default `True`. |
+| `batch_size`              | Events to queue before sending. Default `10`.                        |
+| `batch_timeout`           | Seconds to wait before sending a partial batch. Default `10.0`.      |
+
+<Note>
+Use the `GrowthBook` class. The async `GrowthBookClient` does not send events to GrowthBook yet.
+</Note>

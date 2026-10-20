@@ -1,6 +1,7 @@
 import { Flex, Box } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getHoldoutStage } from "shared/util";
 import { format, differenceInMinutes } from "date-fns";
 import { ProgressBar, Segment } from "@/ui/ProgressBar";
 import Text from "@/ui/Text";
@@ -59,8 +60,9 @@ export const HoldoutSchedule = ({
   holdout: HoldoutInterfaceStringDates;
   experiment: ExperimentInterfaceStringDates;
 }) => {
+  const holdoutStage = getHoldoutStage(holdout, experiment);
   const startDate =
-    experiment.status !== "draft"
+    holdoutStage !== "draft"
       ? pickEarlierDate(
           holdout.statusUpdateSchedule?.startAt,
           experiment.phases[0]?.dateStarted,
@@ -77,12 +79,12 @@ export const HoldoutSchedule = ({
     experiment.phases[1]?.dateEnded,
   );
 
-  const isDraft = experiment.status === "draft";
-  const isRunning = experiment.status === "running";
+  const isDraft = holdoutStage === "draft";
+  const isRunning = holdoutStage === "running";
+  const isInAnalysisPeriod = holdoutStage === "analysis-period";
   const showUnscheduledSegment =
     (isDraft && (!startAnalysisPeriodDate || !stopDate)) ||
     (isRunning && !startAnalysisPeriodDate);
-  const isInAnalysisPeriod = isRunning && holdout.analysisStartDate;
 
   const holdoutSegmentCompletion = getCompletionPercentage(
     startDate,
@@ -115,21 +117,18 @@ export const HoldoutSchedule = ({
     },
   ];
 
-  const dateRangeColor =
-    experiment.status === "draft" ? "text-mid" : "text-low";
+  const dateRangeColor = isDraft ? "text-mid" : "text-low";
 
   return (
     <>
       <ProgressBar
         segments={
-          experiment.status !== "stopped"
-            ? segments
-            : [COMPLETED_HOLDOUT_SEGMENT]
+          holdoutStage !== "stopped" ? segments : [COMPLETED_HOLDOUT_SEGMENT]
         }
       />
       <Flex justify="between">
         <Box>
-          {experiment.status === "draft" ? (
+          {isDraft ? (
             <>
               <Text weight="medium" color="text-high">
                 Start:{" "}
@@ -140,7 +139,8 @@ export const HoldoutSchedule = ({
                   : "Not scheduled"}
               </Text>
             </>
-          ) : experiment.status === "running" ? (
+          ) : holdoutStage === "running" ||
+            holdoutStage === "analysis-period" ? (
             <Box
               height="20px"
               minWidth="400px"
@@ -153,7 +153,7 @@ export const HoldoutSchedule = ({
                 position="absolute"
               >
                 <Text weight="semibold" color="text-high">
-                  {holdout.analysisStartDate ? "Analyzing..." : "Running..."}
+                  {isInAnalysisPeriod ? "Analyzing..." : "Running..."}
                 </Text>
               </Box>
               <Box
@@ -162,7 +162,7 @@ export const HoldoutSchedule = ({
                 position="absolute"
               >
                 <Text color="text-high" weight="regular">
-                  {holdout.analysisStartDate
+                  {isInAnalysisPeriod
                     ? "No new experiments or features can be added to Holdout"
                     : "Experiments and features are being added to this Holdout"}
                 </Text>
@@ -175,13 +175,9 @@ export const HoldoutSchedule = ({
           )}
         </Box>
         <Box>
-          {experiment.status === "draft" ||
-          (experiment.status === "running" && !holdout.analysisStartDate) ? (
+          {isDraft || isRunning ? (
             <>
-              <Text
-                weight="medium"
-                color={experiment.status === "draft" ? "text-high" : "text-low"}
-              >
+              <Text weight="medium" color={isDraft ? "text-high" : "text-low"}>
                 Analysis:{" "}
               </Text>
               {startAnalysisPeriodDate ? (
@@ -193,9 +189,7 @@ export const HoldoutSchedule = ({
                   <Text
                     weight="regular"
                     color={
-                      experiment.status === "draft" && !stopDate
-                        ? "text-disabled"
-                        : dateRangeColor
+                      isDraft && !stopDate ? "text-disabled" : dateRangeColor
                     }
                   >
                     {stopDate
@@ -209,7 +203,7 @@ export const HoldoutSchedule = ({
                 </Text>
               )}
             </>
-          ) : experiment.status === "running" && holdout.analysisStartDate ? (
+          ) : isInAnalysisPeriod ? (
             <>
               <Text weight="medium" color="text-low">
                 Analysis ends:{" "}

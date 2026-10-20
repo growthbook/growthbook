@@ -2,6 +2,7 @@
  * Persisted AI chat messages: content parts shaped like the AI SDK’s model messages,
  * plus id/ts for storage and UI. Convert to ModelMessage[] via toModelMessages (back-end).
  */
+import type { z } from "zod";
 
 // ---------------------------------------------------------------------------
 // Roles & content parts (mirror @ai-sdk/provider-utils names where possible)
@@ -106,6 +107,17 @@ export function tryParseToolResultJson(resultJson: string): unknown {
   }
 }
 
+/** Tool results arrive as a JSON string or already parsed. Null on a mismatch. */
+export function parseToolResult<T>(
+  result: unknown,
+  schema: z.ZodType<T>,
+): T | null {
+  const value =
+    typeof result === "string" ? tryParseToolResultJson(result) : result;
+  const parsed = schema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
 /** Snapshot id inside a JSON tool result (e.g. product analytics), if any. */
 export function toolResultSnapshotId(resultJson: string): string | undefined {
   const value = tryParseToolResultJson(resultJson);
@@ -162,11 +174,59 @@ export type AIChatSystemMessage = {
   content: string;
 };
 
+export type AIChatMentionType = "metric" | "factMetric" | "metricGroup";
+
+/** An @-mentioned metric. The text keeps "@Revenue"; this carries the id. */
+export type AIChatMention = {
+  type: AIChatMentionType;
+  id: string;
+  name: string;
+  /** Set by the server when the metric isn't in this turn's Data Source. */
+  stale?: boolean;
+};
+
+/** `file` is any other text file in a skill's folder: loadable by path, never listed. */
+export type SkillKind = "domain" | "leaf" | "file";
+
+/** Skill index entry for the `/` menu. Omits the prompt body — the agent loads that. */
+export interface SkillSummary {
+  name: string;
+  description: string;
+  kind: SkillKind;
+  /** Parent domain for leaf skills; same as `name` for domain routers. */
+  group?: string;
+  /** Loaded from a self-hosted install's `AGENT_SKILLS_DIR`. */
+  custom?: boolean;
+}
+
+/** A skill as `GET /agent/skills` returns it, with whether the org has it on. */
+export type OrgSkillSummary = SkillSummary & { enabled: boolean };
+
 export type AIChatUserMessage = {
   role: "user";
   id: string;
   ts: number;
   content: string | AIChatUserContentPart[];
+  mentions?: AIChatMention[];
+  skills?: string[];
+  /**
+   * URL path (+ search) the user was on when they sent this message.
+   * Captured at send time and persisted on the message so per-turn page
+   * context is preserved across navigation. Not displayed in the chat UI;
+   * `toModelMessages` injects it as a `[Page context: …]` prefix into the
+   * model-bound message so the agent can interpret references like "this
+   * experiment". Skills document the URL → entity mapping.
+   */
+  currentPage?: string;
+  /**
+   * Optional product-analytics datasource the client had selected when this
+   * message was sent (e.g. the explorer's last-used datasource). Kept off the
+   * static system prompt so the prompt stays cacheable; instead persisted on
+   * the message and injected by `toModelMessages` as an
+   * `[Active product-analytics datasource: …]` prefix. It is a soft hint — the
+   * agent may still search other datasources or ask the user to switch.
+   */
+  datasourceHint?: string;
 };
 
 export type AIChatAssistantMessage = {
@@ -193,6 +253,18 @@ export type AIChatMessage =
   | AIChatToolMessage;
 
 /** Extracts the concatenated text content from any message with text parts. */
+/** The rest of the first candidate `typed` is a prefix of, case-insensitive. */
+export function completePrefix(
+  typed: string,
+  candidates: readonly string[],
+): string | undefined {
+  const lower = typed.toLowerCase();
+  const hit = candidates.find(
+    (c) => c.length > typed.length && c.toLowerCase().startsWith(lower),
+  );
+  return hit?.slice(typed.length);
+}
+
 export function getMessageText(
   msg: AIChatUserMessage | AIChatAssistantMessage,
 ): string {

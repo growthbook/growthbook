@@ -1,0 +1,340 @@
+import { FeatureInterface } from "shared/types/feature";
+import { useState, useMemo } from "react";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
+import type { RampScheduleInterface } from "shared/validators";
+import {
+  filterEnvironmentsByFeature,
+  getReviewSetting,
+  getRevertRampDetachActions,
+  getRevertTargetArchived,
+  getRulesForEnvironment,
+  revertRampStopWarning,
+} from "shared/util";
+import {
+  holdsMoveDestination,
+  metadataTouchesPayload,
+  rampActionFootprint,
+  revertFootprint,
+} from "shared/permissions";
+import isEqual from "lodash/isEqual";
+import { Flex, Box } from "@radix-ui/themes";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
+import { useEnvironments } from "@/services/features";
+import { useAuth } from "@/services/auth";
+// eslint-disable-next-line no-restricted-imports
+import Modal from "@/components/Modal";
+import Field from "@/components/Forms/Field";
+import {
+  useFeatureRevisionDiff,
+  featureToFeatureRevisionDiffInput,
+} from "@/hooks/useFeatureRevisionDiff";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import RevisionDropdown from "@/components/Features/RevisionDropdown";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
+import Callout from "@/ui/Callout";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
+import { ExpandableDiff } from "./RevisionDiffUtils";
+
+export interface Props {
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  /** Minimal list for the dropdown — up to 200 entries. */
+  revisionList: MinimalFeatureRevisionInterface[];
+  rampSchedules: RampScheduleInterface[];
+  close: () => void;
+  mutate: () => void;
+  setVersion: (version: number) => void;
+}
+
+export default function RevertModal({
+  feature,
+  revision,
+  revisionList,
+  rampSchedules,
+  close,
+  mutate,
+  setVersion,
+}: Props) {
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const permissionsUtil = usePermissionsUtil();
+
+  const { apiCall } = useAuth();
+
+  // Previously-published revisions the user can revert to, newest-published first.
+  // Uses the full revisionList (up to 200) so older publishes aren't cut off by
+  // the top-5 full-content cache.
+  const publishedRevisions = useMemo(
+    () =>
+      revisionList
+        .filter(
+          (r) => r.status === "published" && r.version !== feature.version,
+        )
+        .sort((a, b) => {
+          const bt = b.datePublished ? new Date(b.datePublished).getTime() : 0;
+          const at = a.datePublished ? new Date(a.datePublished).getTime() : 0;
+          return bt - at;
+        }),
+    [revisionList, feature.version],
+  );
+
+  const settings = useOrgSettings();
+  const approvalsRequired = useMemo(() => {
+    const raw = settings?.requireReviews;
+    if (!raw) return false;
+    if (raw === true) return true;
+    if (!Array.isArray(raw)) return false;
+    const reviewSetting = getReviewSetting(raw, feature);
+    return !!reviewSetting?.requireReviewOn;
+  }, [settings?.requireReviews, feature]);
+
+  // Reverts restore an already-reviewed state; when the org enables the bypass,
+  // approval isn't needed so the modal defaults to publishing (the draft option
+  // stays available for those who still want a review step).
+  const revertsBypassApproval = !!settings?.revertsBypassApproval;
+  const effectiveApprovalsRequired =
+    approvalsRequired && !revertsBypassApproval;
+
+  const [targetVersion, setTargetVersion] = useState(() => {
+    const inList = publishedRevisions.some(
+      (r) => r.version === revision.version,
+    );
+    return inList
+      ? revision.version
+      : (publishedRevisions[0]?.version ?? revision.version);
+  });
+  const [comment, setComment] = useState(`Revert from #${feature.version}`);
+  const [mode, setMode] = useState<DraftMode>(() =>
+    effectiveApprovalsRequired ? "new" : "publish",
+  );
+
+  const targetRevision = useFeatureRevisions(feature.id, [targetVersion]).get(
+    targetVersion,
+  );
+  const isLoadingRevision = !targetRevision;
+  // Fall back to current revision only for submit/permissions — never for the diff.
+  const targetRevisionForAction = targetRevision ?? revision;
+
+  const diffs = useFeatureRevisionDiff({
+    current: featureToFeatureRevisionDiffInput(feature),
+    // The archived state the revert restores, so a target that predates archived
+    // snapshots previews the unarchive the server will perform.
+    draft: {
+      ...targetRevisionForAction,
+      archived: getRevertTargetArchived(targetRevisionForAction),
+    },
+  });
+
+  const rampDetaches = targetRevision
+    ? getRevertRampDetachActions(feature.id, targetRevision, rampSchedules)
+    : [];
+  const rampStopWarning = revertRampStopWarning(rampDetaches, rampSchedules, {
+    draft: mode === "new",
+  });
+
+  const environmentIds = environments.map((e) => e.id);
+  const changedRuleEnvs = environmentIds.filter(
+    (env) =>
+      !isEqual(
+        getRulesForEnvironment(feature.rules, env),
+        getRulesForEnvironment(targetRevisionForAction.rules, env),
+      ),
+  );
+  // Whether this restore touches anything beyond per-environment rules. The
+  // Global changes use the full serving footprint; rules-only changes stay scoped.
+  const revertTouchesGlobalState =
+    targetRevisionForAction.defaultValue !== feature.defaultValue ||
+    (targetRevisionForAction.prerequisites !== undefined &&
+      !isEqual(
+        targetRevisionForAction.prerequisites,
+        feature.prerequisites ?? [],
+      )) ||
+    !!targetRevisionForAction.archived !== !!feature.archived ||
+    metadataTouchesPayload(targetRevisionForAction.metadata) ||
+    Object.entries(targetRevisionForAction.environmentsEnabled ?? {}).some(
+      ([env, enabled]) =>
+        enabled !== !!feature.environmentSettings?.[env]?.enabled,
+    );
+
+  const ruleEnvs = revertTouchesGlobalState
+    ? revertFootprint({
+        feature,
+        targetRevision: targetRevisionForAction,
+        environmentIds,
+        changedEnvs: changedRuleEnvs,
+      })
+    : changedRuleEnvs;
+  // Detached ramps are felt wherever their rule serves, as the server gates.
+  const rampEnvs = rampActionFootprint({
+    rampActions: rampDetaches,
+    liveRules: feature.rules ?? [],
+    environmentIds,
+    schedules: rampSchedules,
+  });
+  const affectedEnvs =
+    rampEnvs === "all"
+      ? environmentIds
+      : [...new Set([...ruleEnvs, ...rampEnvs])];
+
+  // Mirrors the two endpoints this modal calls. Reverting is its own authority:
+  // the direct revert is gated on revertFeatures rather than publish, and revert
+  // authority alone is enough to propose one as a draft — so a revert-only role
+  // can roll back without any edit or publish rights.
+  const canRevert = permissionsUtil.canRevertFeature(feature, affectedEnvs);
+  // Project-moving reverts also require destination authority.
+  const destProject = targetRevisionForAction.metadata?.project;
+  const proposedMove = {
+    project: destProject !== undefined ? destProject : feature.project,
+  };
+  const holdsRevertDestination = holdsMoveDestination({
+    permissions: permissionsUtil,
+    model: "feature",
+    action: "revert",
+    existing: { project: feature.project },
+    proposed: proposedMove,
+    environments: affectedEnvs,
+  });
+  const holdsDraftDestination = holdsMoveDestination({
+    permissions: permissionsUtil,
+    model: "feature",
+    action: "draft",
+    existing: { project: feature.project },
+    proposed: proposedMove,
+    environments: [],
+  });
+  const canBypassApprovals = permissionsUtil.canBypassFlagApprovalChecks(
+    feature,
+    "feature",
+  );
+  // Staging a revert as a draft publishes nothing, so the server scopes that to
+  // the project — an environment-limited reverter can still propose one for a
+  // publisher to land. Publishing keeps the environment footprint via
+  // `canRevert` above.
+  const canCreateDraft =
+    (permissionsUtil.canEditFeatureDrafts(feature) ||
+      permissionsUtil.canRevertFeature(feature, [])) &&
+    holdsDraftDestination;
+
+  // Restoring an archived state takes the flag out of service, so publishing it
+  // carries the delete-class gate too (staging it as a draft doesn't). Matches
+  // the server: revert authority covers the restoration, not the elevation.
+  const revertWouldArchive =
+    targetRevisionForAction.archived === true && !feature.archived;
+  const canLandRevert =
+    canRevert &&
+    holdsRevertDestination &&
+    (!revertWouldArchive ||
+      permissionsUtil.canDeleteFeature(feature, affectedEnvs));
+
+  const canAutoPublish = effectiveApprovalsRequired
+    ? canLandRevert && canBypassApprovals
+    : canLandRevert;
+  const gatedEnvSet: "all" | "none" = effectiveApprovalsRequired
+    ? "all"
+    : "none";
+
+  const canSubmit = mode === "new" ? canCreateDraft : canAutoPublish;
+
+  return (
+    <Modal
+      trackingEventModalType=""
+      open={true}
+      header="Revert"
+      submit={
+        canSubmit && !isLoadingRevision
+          ? async () => {
+              if (mode === "new") {
+                const res = await apiCall<{ version: number }>(
+                  `/feature/${feature.id}/${targetRevisionForAction.version}/revert-draft`,
+                  {
+                    method: "POST",
+                    body: JSON.stringify({ comment }),
+                  },
+                );
+                await mutate();
+                if (res?.version) setVersion(res.version);
+              } else {
+                const res = await apiCall<{ version: number }>(
+                  `/feature/${feature.id}/${targetRevisionForAction.version}/revert`,
+                  {
+                    method: "POST",
+                    body: JSON.stringify({ comment }),
+                  },
+                );
+                await mutate();
+                if (res?.version) setVersion(res.version);
+              }
+            }
+          : undefined
+      }
+      cta={mode === "publish" ? "Publish Now" : "Create Revert Draft"}
+      close={close}
+      closeCta="Cancel"
+      size="lg"
+    >
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={null}
+        setSelectedDraft={() => undefined}
+        canAutoPublish={canAutoPublish}
+        gatedEnvSet={gatedEnvSet}
+        hideExisting={true}
+        triggerPrefix="Revert will be"
+        defaultExpanded
+      />
+
+      <Heading as="h4" size="md" mb="3">
+        Review Changes
+      </Heading>
+      <Flex align="center" gap="2" mb="3" wrap="wrap">
+        <Text weight="medium">Reverting to:</Text>
+        <Box style={{ flex: 1, minWidth: 200, maxWidth: 480 }}>
+          <RevisionDropdown
+            feature={feature}
+            revisions={publishedRevisions}
+            version={targetVersion}
+            setVersion={setTargetVersion}
+            publishedOnly={true}
+            menuPlacement="start"
+          />
+        </Box>
+      </Flex>
+      <div className="list-group mb-4">
+        {isLoadingRevision ? (
+          <div className="text-muted">Loading revision…</div>
+        ) : (
+          diffs
+            .filter((d) => d.a !== d.b)
+            .map((diff) => (
+              <ExpandableDiff key={diff.key ?? diff.title} {...diff} />
+            ))
+        )}
+      </div>
+
+      <Field
+        size="legacy"
+        label="Add a Comment (optional)"
+        textarea
+        value={comment}
+        onChange={(e) => {
+          setComment(e.target.value);
+        }}
+      />
+      {rampStopWarning && (
+        <Callout status="warning" size="sm" mt="3">
+          {rampStopWarning}
+        </Callout>
+      )}
+    </Modal>
+  );
+}

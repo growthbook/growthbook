@@ -12,6 +12,7 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { date, getValidDate } from "shared/dates";
+import type { ExperimentReportVariation } from "shared/types/report";
 import { StatsEngine } from "shared/types/stats";
 import cloneDeep from "lodash/cloneDeep";
 import { ScaleLinear } from "d3-scale";
@@ -34,7 +35,10 @@ export interface ExperimentDateGraphDataPoint {
   d: Date;
   variations?: DataPointVariation[]; // undefined === missing date
 }
-export type GraphVariation = { name: string; index: number };
+export type GraphVariation = Pick<
+  ExperimentReportVariation,
+  "name" | "index" | "experimentVariationId"
+>;
 
 export interface ExperimentDateGraphProps {
   yaxis: "users" | "effect";
@@ -219,6 +223,7 @@ const getYVal = (
       return variation.v;
     case "effect":
       return variation.up ?? 0;
+    case undefined:
     default:
       return variation.v;
   }
@@ -545,7 +550,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                   {variations.map((v, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {
-                      return <></>;
+                      return null;
                     }
                     // Render a shaded area for error bars for each variation if defined
                     return (

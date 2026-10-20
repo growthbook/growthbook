@@ -2,6 +2,7 @@ import {
   RampScheduleInterface,
   RampScheduleForDisplay,
   ACTIVE_DRAFT_STATUSES,
+  resolveStartApproval,
 } from "shared/validators";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 
@@ -93,6 +94,16 @@ export function buildRuleRampScheduleMap({
           ...(action.lockdownConfig !== undefined
             ? { lockdownConfig: action.lockdownConfig }
             : {}),
+          requiresStartApproval: resolveStartApproval(
+            action.requiresStartApproval,
+            base.requiresStartApproval,
+          ),
+          // A draft that toggles the gate re-arms it, so don't show the live
+          // schedule's stale approval on the preview.
+          ...(action.requiresStartApproval !== undefined &&
+          !!action.requiresStartApproval !== !!base.requiresStartApproval
+            ? { startApprovedAt: null }
+            : {}),
         };
         map.set(action.ruleId, updated);
         continue;
@@ -127,7 +138,9 @@ export function buildRuleRampScheduleMap({
         startDate: action.startDate ? new Date(action.startDate) : undefined,
         cutoffDate: action.cutoffDate ? new Date(action.cutoffDate) : undefined,
         lockdownConfig: action.lockdownConfig,
+        requiresStartApproval: !!action.requiresStartApproval,
         status: "pending",
+        currentStepIndex: -1,
         dateCreated: new Date(),
         dateUpdated: new Date(),
       };

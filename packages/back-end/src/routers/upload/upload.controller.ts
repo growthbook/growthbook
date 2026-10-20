@@ -23,6 +23,7 @@ import {
   getReportByUid,
   getReportsByExperimentId,
 } from "back-end/src/models/ReportModel";
+import { getOrgScopedPath } from "back-end/src/routers/upload/upload.util";
 
 const SIGNED_IMAGE_EXPIRY_MINUTES = 15;
 
@@ -61,7 +62,7 @@ export async function putUpload(
     );
   }
 
-  // The user can upload images if they have permission to add comments globally, or in atleast 1 project
+  // The user can upload images if they have permission to add comments globally, or in at least 1 project
   if (!context.permissions.canAddComment([])) {
     context.permissions.throwPermissionError();
   }
@@ -98,11 +99,9 @@ export function getImage(req: AuthRequest<{ path: string }>, res: Response) {
     );
   }
 
-  const path = req.path[0] === "/" ? req.path.substr(1) : req.path;
-
-  const orgFromPath = path.split("/")[0];
-  if (orgFromPath !== org.id) {
-    context.throwBadRequestError("Invalid organization");
+  const path = getOrgScopedPath(req.path, org.id);
+  if (!path) {
+    return context.throwBadRequestError("Invalid organization");
   }
 
   const ext = path.split(".")?.pop()?.toLowerCase() ?? "";
@@ -131,11 +130,12 @@ export async function getSignedImageToken(
     );
   }
 
-  const fullPath = req.path.substring("/signed-url/".length);
-
-  const orgFromPath = fullPath.split("/")[0];
-  if (orgFromPath !== org.id) {
-    context.throwBadRequestError("Invalid organization");
+  const fullPath = getOrgScopedPath(
+    req.path.substring("/signed-url/".length),
+    org.id,
+  );
+  if (!fullPath) {
+    return context.throwBadRequestError("Invalid organization");
   }
 
   const signedUrl = await getSignedImageUrl(
@@ -207,13 +207,14 @@ export async function getSignedPublicImageToken(
   res: Response<SignedImageUrlResponse | { status: number; message: string }>,
 ) {
   // Get the shareUid and shareType from query parameters
-  const shareUid = req.query.shareUid as string | undefined;
+  const { shareUid } = req.query;
   const shareType = req.query.shareType as "experiment" | "report" | undefined;
 
-  if (!shareUid) {
+  // An object would reach the database filter and act as a query operator.
+  if (!shareUid || typeof shareUid !== "string") {
     res.status(400).json({
       status: 400,
-      message: "Missing shareUid query parameter",
+      message: "Invalid or missing shareUid query parameter",
     });
     return;
   }
@@ -302,11 +303,11 @@ export async function getSignedPublicImageToken(
   // Extract the image path from the request
   // The route is /upload/public-signed-url/:path* so req.path will be like:
   // /upload/public-signed-url/org_xxx/2025-10/img_xxx.jpeg
-  const fullPath = req.path.substring("/upload/public-signed-url/".length);
-
-  // Verify the org in the path matches the organization
-  const orgFromPath = fullPath.split("/")[0];
-  if (orgFromPath !== organizationId) {
+  const fullPath = getOrgScopedPath(
+    req.path.substring("/upload/public-signed-url/".length),
+    organizationId,
+  );
+  if (!fullPath) {
     res.status(403).json({
       status: 403,
       message: "Invalid organization",

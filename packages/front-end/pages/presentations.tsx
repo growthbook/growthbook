@@ -243,7 +243,7 @@ const PresentationPage = (): React.ReactElement => {
       <Box className="container-fluid pagecontents pt-4 shares learnings">
         <Box mb="4" mt="3">
           <Flex justify="between" mb="3">
-            <Heading as="h1" size="large">
+            <Heading as="h1" size="lg">
               Presentations
             </Heading>
             {canCreatePresentation && (

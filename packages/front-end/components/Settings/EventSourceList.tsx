@@ -24,6 +24,7 @@ export default function EventSourceList({
       return {
         value: s.value,
         label: s.label,
+        badge: s.beta ? "Beta" : undefined,
         avatar:
           s.value === "mixpanel" ? (
             <SiMixpanel style={{ fontSize: "20px", marginRight: 8 }} />
@@ -35,6 +36,7 @@ export default function EventSourceList({
   options.push({
     value: "custom",
     label: "Custom",
+    badge: undefined,
     avatar: (
       <Avatar radius="small" mr="1">
         <FaGear style={{ fontSize: "20px" }} />
@@ -42,8 +44,15 @@ export default function EventSourceList({
     ),
   });
 
+  // Four cards across leaves no room for a title plus a Beta badge.
   const columns =
-    options.length % 3 === 0 ? "3" : options.length % 4 === 0 ? "4" : "3";
+    options.length === 4
+      ? "2"
+      : options.length % 3 === 0
+        ? "3"
+        : options.length % 4 === 0
+          ? "4"
+          : "3";
 
   return (
     <RadioCards

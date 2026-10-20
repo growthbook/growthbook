@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
-import { QueryInterface, QueryType } from "shared/types/query";
+import { QueryInterface, QueryStatistics, QueryType } from "shared/types/query";
 import { QueryLanguage } from "shared/types/datasource";
 import { ApiQuery } from "shared/validators";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
 import { generateId } from "back-end/src/util/uuid";
+import { logger } from "back-end/src/util/logger";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 
@@ -49,6 +50,11 @@ const querySchema = new mongoose.Schema({
   dependencies: [String],
   runAtEnd: Boolean,
   cachedQueryUsed: String,
+  cacheKey: String,
+  resolvedWindow: {
+    startDate: Date,
+    endDate: Date,
+  },
 });
 
 querySchema.index({ organization: 1, datasource: 1, status: 1, createdAt: -1 });
@@ -84,16 +90,23 @@ export async function getQueriesByIds(
 export async function getQueryStatusesByIds(
   organization: string,
   ids: string[],
-): Promise<Pick<QueryInterface, "id" | "status" | "finishedAt">[]> {
+): Promise<
+  Pick<
+    QueryInterface,
+    "id" | "status" | "finishedAt" | "heartbeat" | "createdAt"
+  >[]
+> {
   if (!ids.length) return [];
   const docs = await QueryModel.find(
     { organization, id: { $in: ids } },
-    { id: 1, status: 1, finishedAt: 1, _id: 0 },
+    { id: 1, status: 1, finishedAt: 1, heartbeat: 1, createdAt: 1, _id: 0 },
   );
   return docs.map((d) => ({
     id: d.id,
     status: d.status,
     finishedAt: d.finishedAt,
+    heartbeat: d.heartbeat,
+    createdAt: d.createdAt,
   }));
 }
 
@@ -108,17 +121,29 @@ export async function getQueryById(
   return doc ? toInterface(doc) : null;
 }
 
-export async function getQueriesByDatasource(
+// Queries still in flight; querylogs only gets a row once a query finishes
+export async function getRunningQueriesByDatasource(
   organization: string,
   datasource: string,
-  limit: number = 50,
-) {
-  const docs = await QueryModel.find({ organization, datasource })
-    .limit(limit)
-    .sort({
-      createdAt: -1,
-    });
-  return docs.map((doc) => toInterface(doc));
+): Promise<
+  Pick<
+    QueryInterface,
+    "id" | "queryType" | "status" | "createdAt" | "startedAt"
+  >[]
+> {
+  const docs = await QueryModel.find(
+    { organization, datasource, status: { $in: ["running", "queued"] } },
+    { id: 1, queryType: 1, status: 1, createdAt: 1, startedAt: 1, _id: 0 },
+  )
+    .sort({ createdAt: -1 })
+    .limit(50);
+  return docs.map((d) => ({
+    id: d.id,
+    queryType: d.queryType,
+    status: d.status,
+    createdAt: d.createdAt,
+    startedAt: d.startedAt,
+  }));
 }
 
 export async function countRunningQueries(
@@ -130,6 +155,29 @@ export async function countRunningQueries(
     datasource,
     status: "running",
   }).count();
+}
+
+export async function setQueryExternalId(
+  context: ReqContext,
+  query: QueryInterface,
+  externalId: string,
+  metadata?: QueryInterface["externalIdMetadata"],
+): Promise<QueryInterface["status"] | null> {
+  if (query.organization !== context.org.id) {
+    throw new Error("Cannot update query from different organization");
+  }
+
+  const doc = await QueryModel.findOneAndUpdate(
+    { organization: context.org.id, id: query.id },
+    {
+      $set: {
+        externalId,
+        ...(metadata ? { externalIdMetadata: metadata } : {}),
+      },
+    },
+    { new: true, projection: { status: 1 } },
+  );
+  return doc?.status ?? null;
 }
 
 export async function updateQuery(
@@ -258,6 +306,27 @@ export async function markPendingQueriesAsFailed(
   return result.modifiedCount;
 }
 
+/**
+ * Prove the owning runner is still alive for queries it hasn't started yet.
+ * Returns the number affected.
+ */
+export async function touchQueuedQueriesHeartbeat(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+): Promise<number> {
+  if (!ids.length) return 0;
+
+  const result = await QueryModel.updateMany(
+    {
+      organization: context.org.id,
+      id: { $in: ids },
+      status: "queued",
+    },
+    { $set: { heartbeat: new Date() } },
+  );
+  return result.modifiedCount;
+}
+
 export async function getRecentQuery(
   organization: string,
   datasource: string,
@@ -284,6 +353,40 @@ export async function getRecentQuery(
     .limit(1);
 
   return latest[0] ? toInterface(latest[0]) : null;
+}
+
+export async function getLatestQueryByCacheKey(
+  context: ReqContext,
+  datasource: string,
+  queryType: QueryType,
+  cacheKey: string,
+  cacheTTLMins?: number,
+) {
+  const ttl = cacheTTLMins ?? QUERY_CACHE_TTL_MINS;
+  const earliestDate = new Date();
+  earliestDate.setMinutes(earliestDate.getMinutes() - ttl);
+
+  const latest = await QueryModel.find({
+    organization: context.org.id,
+    datasource,
+    queryType,
+    cacheKey,
+    createdAt: {
+      $gt: earliestDate,
+    },
+    status: "succeeded",
+    // Exclude documents that were created from cache - they shouldn't reset the TTL
+    cachedQueryUsed: { $exists: false },
+  })
+    .sort({ createdAt: -1 })
+    .limit(1);
+
+  if (!latest[0]) return null;
+  const query = toInterface(latest[0]);
+  if (query.hasChunkedResults) {
+    await context.models.sqlResultChunks.addResultsToQueries([query]);
+  }
+  return query;
 }
 
 export async function getStaleQueries(): Promise<
@@ -317,7 +420,7 @@ export async function getStaleQueries(): Promise<
     {
       $set: {
         status: "failed",
-        error: "Query execution was interupted. Please try again.",
+        error: "Query execution was interrupted. Please try again.",
       },
     },
   );
@@ -333,7 +436,7 @@ export async function createNewQuery({
   displayTitle,
   dependencies = [],
   running = false,
-  queryType = "",
+  queryType = "unknown",
   runAtEnd = false,
 }: {
   organization: string;
@@ -398,6 +501,83 @@ export async function createNewQueryFromCached({
   };
   const doc = await QueryModel.create(data);
   return toInterface(doc);
+}
+
+export async function createCompletedQuery(
+  context: ReqContext,
+  {
+    datasource,
+    language,
+    query,
+    displayTitle,
+    queryType,
+    rawResult,
+    statistics,
+    cacheKey,
+    resolvedWindow,
+  }: {
+    datasource: string;
+    language: QueryLanguage;
+    query: string;
+    displayTitle?: string;
+    queryType: QueryType;
+    rawResult: Record<string, unknown>[];
+    statistics?: QueryStatistics;
+    cacheKey?: string;
+    resolvedWindow?: { startDate: Date; endDate: Date };
+  },
+): Promise<QueryInterface> {
+  const now = new Date();
+  const id = generateId("qry_");
+  const hasChunkedResults = rawResult.length > 0;
+  if (hasChunkedResults) {
+    try {
+      await context.models.sqlResultChunks.createFromResults(id, rawResult);
+    } catch (e) {
+      try {
+        await context.models.sqlResultChunks.deleteAllByQueryId(id);
+      } catch (cleanupError) {
+        logger.warn(
+          cleanupError,
+          "Failed to clean up incomplete SQL result chunks",
+        );
+      }
+      throw e;
+    }
+  }
+  const data: QueryInterface = {
+    id,
+    organization: context.org.id,
+    datasource,
+    language,
+    query,
+    displayTitle,
+    queryType,
+    status: "succeeded",
+    createdAt: now,
+    startedAt: now,
+    finishedAt: now,
+    heartbeat: now,
+    rawResult: hasChunkedResults ? [] : rawResult,
+    hasChunkedResults,
+    statistics,
+    cacheKey,
+    resolvedWindow,
+    dependencies: [],
+  };
+  try {
+    const doc = await QueryModel.create(data);
+    return toInterface(doc);
+  } catch (e) {
+    if (hasChunkedResults) {
+      try {
+        await context.models.sqlResultChunks.deleteAllByQueryId(id);
+      } catch (cleanupError) {
+        logger.warn(cleanupError, "Failed to clean up SQL result chunks");
+      }
+    }
+    throw e;
+  }
 }
 
 export function toQueryApiInterface(query: QueryInterface): ApiQuery {

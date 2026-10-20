@@ -6,11 +6,10 @@ import {
   Variation,
 } from "shared/types/experiment";
 import { useRouter } from "next/router";
-import { date, datetime, getValidDate } from "shared/dates";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { OrganizationSettings } from "shared/types/organization";
+import { date, getValidDate } from "shared/dates";
 import { getProviderFromEmbeddingModel } from "shared/ai";
 import {
+  getExposureQueryIdentifierTypes,
   isProjectListValidForProject,
   validateAndFixCondition,
 } from "shared/util";
@@ -30,11 +29,11 @@ import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
 import {
-  filterCustomFieldsForSectionAndProject,
-  useCustomFields,
-} from "@/hooks/useCustomFields";
+  AssignmentQueryCopySource,
+  getNewExperimentDatasourceDefaults,
+} from "@/services/datasources";
+import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import {
   generateVariationId,
   useAttributeSchema,
@@ -42,14 +41,15 @@ import {
   validateUnregisteredAttributes,
 } from "@/services/features";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
+import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
 import { hasOpenAIKey, hasMistralKey, hasGoogleAIKey } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import { useUser } from "@/services/UserContext";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
@@ -57,6 +57,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "@/components/Experiment/HashVersionSelector";
+import { useAttributeScopePicker } from "@/components/Experiment/useAttributeScopePicker";
 import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import TagsInput from "@/components/Tags/TagsInput";
 import Page from "@/components/Modal/Page";
@@ -77,7 +78,9 @@ import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFiel
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 import DatePicker from "@/components/DatePicker";
 import { useTemplates } from "@/hooks/useTemplates";
 import { convertTemplateToExperiment } from "@/services/experiments";
@@ -133,50 +136,6 @@ export function getDefaultVariations(num: number) {
     });
   }
   return variations;
-}
-
-export function getNewExperimentDatasourceDefaults({
-  datasources,
-  settings,
-  project,
-  initialValue,
-  initialHashAttribute,
-}: {
-  datasources: DataSourceInterfaceWithParams[];
-  settings: OrganizationSettings;
-  project?: string;
-  initialValue?: Partial<ExperimentInterfaceStringDates>;
-  initialHashAttribute?: string;
-}): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
-  const validDatasources = datasources.filter(
-    (d) =>
-      d.id === initialValue?.datasource ||
-      isProjectListValidForProject(d.projects, project),
-  );
-
-  if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };
-
-  const initialId = initialValue?.datasource || settings.defaultDataSource;
-
-  const initialDatasource =
-    (initialId && validDatasources.find((d) => d.id === initialId)) ||
-    validDatasources[0];
-
-  const initialUserIdType = initialHashAttribute
-    ? (initialDatasource.settings?.userIdTypes?.find((t) =>
-        t.attributes?.includes(initialHashAttribute),
-      )?.userIdType ?? "anonymous_id")
-    : "anonymous_id";
-
-  return {
-    datasource: initialDatasource.id,
-    exposureQueryId:
-      getExposureQuery(
-        initialDatasource.settings,
-        initialValue?.exposureQueryId,
-        initialUserIdType,
-      )?.id || "",
-  };
 }
 
 const NewExperimentForm: FC<NewExperimentFormProps> = ({
@@ -272,7 +231,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
-  const hasHashAttributes = hashAttributes.length > 0;
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
@@ -293,6 +251,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
+      attributeScopeAllProjects: initialValue?.attributeScopeAllProjects,
       trackingKey: initialValue?.trackingKey || "",
       ...getNewExperimentDatasourceDefaults({
         datasources,
@@ -300,6 +259,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         project: initialValue?.project || project || "",
         initialValue,
         initialHashAttribute,
+        isImport,
       }),
       name: initialValue?.name || "",
       type: initialValue?.type ?? "standard",
@@ -308,7 +268,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       hashAttribute: initialHashAttribute,
       hashVersion:
         initialValue?.hashVersion || (initialHasSDKWithNoBucketingV2 ? 1 : 2),
-      disableStickyBucketing: initialValue?.disableStickyBucketing ?? false,
+      disableStickyBucketing:
+        initialValue?.disableStickyBucketing ??
+        !settings.stickyBucketingOnByDefault,
       attributionModel:
         initialValue?.attributionModel ??
         settings?.attributionModel ??
@@ -325,17 +287,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           ? [
               {
                 ...initialValue.phases[lastPhase],
-                coverage: initialValue.phases?.[lastPhase]?.coverage || 1,
+                coverage: initialValue.phases?.[lastPhase]?.coverage ?? 1,
                 dateStarted: getValidDate(
                   initialValue.phases?.[lastPhase]?.dateStarted ?? "",
-                )
-                  .toISOString()
-                  .substring(0, 16),
+                ).toISOString(),
                 dateEnded: getValidDate(
                   initialValue.phases?.[lastPhase]?.dateEnded ?? "",
-                )
-                  .toISOString()
-                  .substring(0, 16),
+                ).toISOString(),
                 name: initialValue.phases?.[lastPhase]?.name || "Main",
                 reason: "",
                 variationWeights:
@@ -351,8 +309,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           : [
               {
                 coverage: 1,
-                dateStarted: new Date().toISOString().substring(0, 16),
-                dateEnded: new Date().toISOString().substring(0, 16),
+                dateStarted: new Date().toISOString(),
+                dateEnded: new Date().toISOString(),
                 name: "Main",
                 reason: "",
                 variationWeights: toEqualWeights(initialExpVariations),
@@ -379,16 +337,35 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   });
 
   const selectedProject = form.watch("project");
+
+  // Filter by the form-selected project — the page's project goes stale when
+  // the selector changes.
+  const { strictScoping, effectiveAttributeProjects, attributeScopeToggle } =
+    useAttributeScopePicker({
+      project: selectedProject,
+      scopeProjects: selectedProject ? [selectedProject] : null,
+      allProjects: form.watch("attributeScopeAllProjects"),
+      setAllProjects: (v) => form.setValue("attributeScopeAllProjects", v),
+    });
+  const scopedAttributeSchema = useAttributeSchema(
+    false,
+    effectiveAttributeProjects,
+  );
+  const hasScopedHashAttributes = scopedAttributeSchema.some(
+    (a) => a.hashAttribute,
+  );
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
     selectedProject,
   );
 
-  const customFields = filterCustomFieldsForSectionAndProject(
-    useCustomFields(),
-    "experiment",
-    selectedProject,
-  );
+  const { availableFields: customFields, value: customFieldValues } =
+    useReconciledCustomFields({
+      section: "experiment",
+      project: selectedProject,
+      value: form.watch("customFields"),
+      setValue: (value) => form.setValue("customFields", value),
+    });
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -494,21 +471,20 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
     const data = { ...value };
 
+    // A copy whose identifier no query declares is left for the user to pick,
+    // and the fields may be on a step that isn't showing.
+    if (
+      assignmentQueryCopySource &&
+      data.exposureQueryId &&
+      !data.exposureQueryIdentifierType
+    ) {
+      throw new Error("Choose an identifier type for the assignment query");
+    }
+
     if (data.status !== "stopped" && data.phases?.[0]) {
       data.phases[0].dateEnded = "";
     }
-    // Turn phase dates into proper UTC timestamps
     if (data.phases?.[0]) {
-      if (
-        data.phases[0].dateStarted &&
-        !data.phases[0].dateStarted.match(/Z$/)
-      ) {
-        data.phases[0].dateStarted += ":00Z";
-      }
-      if (data.phases[0].dateEnded && !data.phases[0].dateEnded.match(/Z$/)) {
-        data.phases[0].dateEnded += ":00Z";
-      }
-
       validateSavedGroupTargeting(data.phases[0].savedGroups);
 
       validateAndFixCondition(data.phases[0].condition, (condition) => {
@@ -533,7 +509,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         {
           attributeSchema: allAttributesSchema,
           requireRegisteredAttributes: settings.requireRegisteredAttributes,
-          project: data.project || project || undefined,
+          project:
+            data.attributeScopeAllProjects && !strictScoping
+              ? null
+              : data.project || undefined,
         },
       );
 
@@ -650,8 +629,55 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     ? permissionsUtils.canViewExperimentModal(selectedProject)
     : allowAllProjects;
 
-  const exposureQueries = datasource?.settings?.queries?.exposure || [];
-  const exposureQueryId = form.getValues("exposureQueryId");
+  const exposureQueryId = form.watch("exposureQueryId");
+  const exposureQueryIdentifierType = form.watch("exposureQueryIdentifierType");
+  const selectedHashAttribute = form.watch("hashAttribute");
+
+  const setExposureQueryId = useCallback(
+    (value: string) => form.setValue("exposureQueryId", value),
+    [form],
+  );
+  const setExposureQueryIdentifierType = useCallback(
+    (value: string | undefined) =>
+      form.setValue("exposureQueryIdentifierType", value),
+    [form],
+  );
+  const selectedTemplateId = form.watch("templateId");
+  const selectedTemplate = selectedTemplateId
+    ? templatesMap.get(selectedTemplateId)
+    : undefined;
+  const assignmentQueryCopySource: AssignmentQueryCopySource | null =
+    duplicate && initialValue
+      ? { kind: "copy", ...initialValue }
+      : selectedTemplate
+        ? { kind: "template", ...convertTemplateToExperiment(selectedTemplate) }
+        : null;
+  const selectedExposureQuery = datasource?.settings?.queries?.exposure?.find(
+    (q) => q.id === exposureQueryId,
+  );
+  const importNeedsIdentifierChoice =
+    !!isImport &&
+    !!selectedExposureQuery &&
+    !exposureQueryIdentifierType &&
+    getExposureQueryIdentifierTypes(selectedExposureQuery).length > 1;
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource,
+    project: selectedProject,
+    hashAttribute: selectedHashAttribute,
+    exposureQueryId,
+    identifierType: exposureQueryIdentifierType,
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+    /**
+     * New and duplicate flows render the fields (and repair) in
+     * ExperimentRefNewFields/BanditRefNewFields; two repairs would fight.
+     * An import whose query declares several identifiers stays blank until
+     * one is chosen.
+     */
+    autoRepair: !(isNewExperiment || duplicate) && !importNeedsIdentifierChoice,
+    // Import hides the hash attribute control, so it must not group or follow it.
+    useHashAttribute: !isImport,
+  });
   const status = form.watch("status");
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
@@ -700,13 +726,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     availableTemplates.length >= 1;
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
-  useEffect(() => {
-    if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
-      form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
-    }
-  }, [form, exposureQueries, exposureQueryId]);
-
-  const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(true);
+  const [linkNameWithTrackingKey, setLinkNameWithTrackingKey] = useState(
+    !settings.experimentKeyRegexValidator,
+  );
 
   let header = isNewExperiment
     ? `Add New ${isBandit ? "Bandit" : "Experiment"}`
@@ -720,6 +742,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     setValueAs: (s) => s?.trim(),
   });
   const trackingKeyFieldHandlers = form.register("trackingKey");
+  const trackingKeyFormatProps = useExperimentKeyFieldProps(
+    form.watch("trackingKey"),
+    isImport,
+  );
 
   const checkForSimilar = useCallback(async () => {
     if (!aiEnabled) return;
@@ -853,16 +879,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       >
         <Page display="Overview">
           <div className="px-2">
-            {msg && <div className="alert alert-info">{msg}</div>}
+            {msg && <Callout status="info">{msg}</Callout>}
 
             {currentProjectIsDemo && (
-              <div className="alert alert-warning">
-                You are creating an experiment under the demo datasource
-                project. This experiment will be deleted when the demo
-                datasource project is deleted.
-              </div>
+              <Callout status="warning">
+                You are creating an experiment in the Sample Data Project.
+              </Callout>
             )}
-            {availableTemplates.length >= 1 &&
+            {hasCommercialFeature("templates") &&
+              availableTemplates.length >= 1 &&
               !isBandit &&
               !isImport &&
               !duplicate && (
@@ -871,6 +896,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <label>Select Template</label>
                   </PremiumTooltip>
                   <SelectField
+                    size="legacy"
                     value={form.watch("templateId") ?? ""}
                     onChange={(t) => {
                       if (t === "") {
@@ -898,7 +924,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       return (
                         <Flex as="div" align="baseline">
                           <Text>{value.label}</Text>
-                          <Text size="small" color="text-mid" ml="auto">
+                          <Text size="sm" color="text-mid" ml="auto">
                             Created {date(t.dateCreated)}
                           </Text>
                         </Flex>
@@ -919,6 +945,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               <div className="form-group">
                 <label>Project</label>
                 <SelectField
+                  size="legacy"
                   value={form.watch("project") ?? ""}
                   onChange={(p) => {
                     form.setValue("project", p);
@@ -943,6 +970,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             </>
 
             <Field
+              size="legacy"
               label={isBandit ? "Bandit Name" : "Experiment Name"}
               required
               minLength={2}
@@ -973,6 +1001,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <div className="form-group">
               <Text as="label" weight="semibold" mb="1">
                 Tracking Key
+                {trackingKeyFormatProps.markRequired ? (
+                  <span
+                    style={{
+                      color: "var(--red-11)",
+                      marginLeft: "var(--space-1)",
+                    }}
+                  >
+                    *
+                  </span>
+                ) : null}
               </Text>
               <Text as="div" color="text-mid" mb="2">
                 {`Unique identifier for this ${
@@ -980,7 +1018,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 }, used to track impressions and analyze results`}
               </Text>
               <Field
+                size="legacy"
                 {...trackingKeyFieldHandlers}
+                {...trackingKeyFormatProps}
                 onChange={(e) => {
                   trackingKeyFieldHandlers.onChange(e);
                   setLinkNameWithTrackingKey(false);
@@ -1004,6 +1044,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
             {!isBandit && (
               <Field
+                size="legacy"
                 label="Hypothesis"
                 textarea
                 minRows={2}
@@ -1022,6 +1063,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             )}
             {includeDescription && (
               <Field
+                size="legacy"
                 label="Description"
                 textarea
                 minRows={2}
@@ -1151,7 +1193,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                                       </span>
                                     </Flex>
                                     <Flex gap="3" align="center">
-                                      <Text size="small" color="text-mid">
+                                      <Text size="sm" color="text-mid">
                                         {date(s.experiment.dateCreated)}
                                       </Text>
                                       <ExperimentStatusIndicator
@@ -1194,6 +1236,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             {!isNewExperiment && (
               <>
                 <SelectField
+                  size="legacy"
                   label="Status"
                   options={[
                     { label: "draft", value: "draft" },
@@ -1209,12 +1252,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 />
                 {status !== "draft" && (
                   <DatePicker
-                    label="Start Time (UTC)"
+                    label="Start time"
+                    timeZone="utc"
                     date={form.watch("phases.0.dateStarted")}
                     setDate={(v) => {
                       form.setValue(
                         "phases.0.dateStarted",
-                        v ? datetime(v) : "",
+                        v ? v.toISOString() : "",
                       );
                     }}
                     scheduleEndDate={form.watch("phases.0.dateEnded")}
@@ -1223,10 +1267,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 )}
                 {status === "stopped" && (
                   <DatePicker
-                    label="End Time (UTC)"
+                    label="End time"
+                    timeZone="utc"
                     date={form.watch("phases.0.dateEnded")}
                     setDate={(v) => {
-                      form.setValue("phases.0.dateEnded", v ? datetime(v) : "");
+                      form.setValue(
+                        "phases.0.dateEnded",
+                        v ? v.toISOString() : "",
+                      );
                     }}
                     scheduleStartDate={form.watch("phases.0.dateStarted")}
                     disableBefore={
@@ -1236,18 +1284,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 )}
               </>
             )}
-            {hasCommercialFeature("custom-metadata") &&
-              !!customFields?.length && (
-                <CustomFieldInput
-                  customFields={customFields}
-                  currentCustomFields={form.watch("customFields") || {}}
-                  setCustomFields={(value) => {
-                    form.setValue("customFields", value);
-                  }}
-                  section={"experiment"}
-                  project={selectedProject}
-                />
-              )}
+            {customFields.length > 0 && (
+              <CustomFieldInput
+                fields={customFields}
+                value={customFieldValues}
+                onChange={(value) => form.setValue("customFields", value)}
+              />
+            )}
           </div>
         </Page>
 
@@ -1262,7 +1305,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <ExperimentRefNewFields
                       step={i}
                       source="experiment"
+                      assignmentQueryCopySource={assignmentQueryCopySource}
                       project={selectedProject}
+                      attributeProjects={effectiveAttributeProjects}
+                      attributeSelectIndicator={attributeScopeToggle}
                       environments={envs}
                       noSchedule={true}
                       prerequisiteValue={
@@ -1315,7 +1361,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     <BanditRefNewFields
                       step={i}
                       source="experiment"
+                      assignmentQueryCopySource={assignmentQueryCopySource}
                       project={selectedProject}
+                      attributeProjects={effectiveAttributeProjects}
+                      attributeSelectIndicator={attributeScopeToggle}
                       environments={envs}
                       prerequisiteValue={
                         form.watch("phases.0.prerequisites") || []
@@ -1374,37 +1423,26 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         determine which variation to assign
                       </Text>
                       <SelectField
+                        size="legacy"
                         withRadixThemedPortal
-                        options={attributeSchema
-                          .filter((s) => !hasHashAttributes || s.hashAttribute)
-                          .map((s) => ({
-                            label: s.property,
-                            value: s.property,
-                            description: s.description,
-                            tags: s.tags,
-                            datatype: s.datatype,
-                            hashAttribute: s.hashAttribute,
-                          }))}
+                        extraIndicator={attributeScopeToggle}
+                        options={scopedAttributeSchema
+                          .filter(
+                            (s) => !hasScopedHashAttributes || s.hashAttribute,
+                          )
+                          .map(toAttributeOption)}
                         sort={false}
                         value={form.watch("hashAttribute") || ""}
                         onChange={(v) => {
                           form.setValue("hashAttribute", v);
                         }}
-                        formatOptionLabel={(o, meta) => {
-                          return (
-                            <AttributeOptionWithTooltip
-                              option={o as AttributeOptionForTooltip}
-                              context={meta.context}
-                            >
-                              {o.label}
-                            </AttributeOptionWithTooltip>
-                          );
-                        }}
+                        formatOptionLabel={formatAttributeOptionLabel}
                       />
                     </div>
                     <FallbackAttributeSelector
                       form={form}
-                      attributeSchema={attributeSchema}
+                      attributeSchema={scopedAttributeSchema}
+                      extraIndicator={attributeScopeToggle}
                     />
                   </div>
 
@@ -1432,6 +1470,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     }
                     key={conditionKey}
                     project={project}
+                    attributeProjects={effectiveAttributeProjects}
+                    attributeSelectIndicator={attributeScopeToggle}
                   />
                   <Separator size="4" my="5" />
                   <PrerequisiteInput
@@ -1493,6 +1533,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <div style={{ minHeight: 350 }}>
               {(!isImport || fromFeature) && (
                 <SelectField
+                  size="legacy"
                   label="Data Source"
                   labelClassName="font-weight-bold"
                   value={form.watch("datasource") ?? ""}
@@ -1512,42 +1553,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 />
               )}
               {datasource?.properties?.exposureQueries && (
-                <SelectField
-                  label={
-                    <>
-                      Experiment Assignment Table{" "}
-                      <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
-                    </>
-                  }
-                  labelClassName="font-weight-bold"
-                  value={form.watch("exposureQueryId") ?? ""}
-                  onChange={(v) => form.setValue("exposureQueryId", v)}
+                <AssignmentQueryFields
+                  selection={assignmentQuerySelection}
                   initialOption="Choose..."
-                  required
-                  options={exposureQueries?.map((q) => {
-                    return {
-                      label: q.name,
-                      value: q.id,
-                    };
-                  })}
-                  formatOptionLabel={({ label, value }) => {
-                    const userIdType = exposureQueries?.find(
-                      (e) => e.id === value,
-                    )?.userIdType;
-                    return (
-                      <>
-                        {label}
-                        {userIdType ? (
-                          <span
-                            className="text-muted small float-right position-relative"
-                            style={{ top: 3 }}
-                          >
-                            Identifier Type: <code>{userIdType}</code>
-                          </span>
-                        ) : null}
-                      </>
-                    );
-                  }}
                 />
               )}
 
@@ -1555,6 +1563,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 datasource={datasource?.id}
                 noLegacyMetrics={willExperimentBeIncludedInIncrementalRefresh}
                 exposureQueryId={exposureQueryId}
+                exposureQueryIdentifierType={exposureQueryIdentifierType}
                 project={project}
                 goalMetrics={form.watch("goalMetrics") ?? []}
                 secondaryMetrics={form.watch("secondaryMetrics") ?? []}
@@ -1569,6 +1578,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   form.setValue("guardrailMetrics", guardrailMetrics)
                 }
                 experimentId={initialValue?.id}
+                experimentType={type}
               />
             </div>
 

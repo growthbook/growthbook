@@ -6,7 +6,6 @@ import { BsSearch } from "react-icons/bs";
 import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { WhiteButton } from "@/ui/Button";
@@ -19,7 +18,7 @@ import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
 import { useSidebarOpen } from "./SidebarOpenProvider";
 
-const breadcumbLinks = [
+const breadcrumbLinks = [
   ...navlinks,
   {
     name: "Power Calculator",
@@ -46,6 +45,10 @@ const otherPageTitles = [
     title: "Personal Access Tokens",
   },
   {
+    path: /^account\/slack/,
+    title: "My Slack Links",
+  },
+  {
     path: /^getstarted/,
     title: "Get Started",
   },
@@ -55,25 +58,8 @@ const otherPageTitles = [
   },
 ];
 
-const backgroundShade = (color: string) => {
-  // convert to RGB
-  // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
-  const c = +("0x" + color.slice(1).replace(color.length < 5 && /./g, "$&$&"));
-  const r = c >> 16;
-  const g = (c >> 8) & 255;
-  const b = c & 255;
-  // http://alienryderflex.com/hsp.html
-  const hsp = Math.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b));
-  if (hsp > 127.5) {
-    return "light";
-  } else {
-    return "dark";
-  }
-};
-
 const Layout = (): React.ReactElement => {
   const { open, setOpen } = useSidebarOpen();
-  const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
   const { organization, canSubscribe } = useUser();
   const { breadcrumb } = usePageHead();
@@ -104,7 +90,7 @@ const Layout = (): React.ReactElement => {
       pageTitle = o.title;
     }
   });
-  breadcumbLinks.forEach((o) => {
+  breadcrumbLinks.forEach((o) => {
     if (o.subLinks) {
       o.subLinks.forEach((s) => {
         if (!pageTitle && s.path.test(path)) {
@@ -117,26 +103,6 @@ const Layout = (): React.ReactElement => {
     }
   });
 
-  let customStyles = ``;
-  if (settings?.customized) {
-    const textColor =
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-      backgroundShade(settings?.primaryColor) === "dark" ? "#fff" : "#444";
-
-    // we could support saving this CSS in the settings so it can be customized
-    customStyles = `
-      .sidebar { background-color: ${settings.primaryColor} !important; transition: none }
-      .sidebarlink { transition: none; } 
-      .sidebarlink:hover {
-        background-color: background-color: ${settings.secondaryColor} !important;
-      }
-      .sidebarlink a:hover, .sidebarlink.selected, .sublink.selected { background-color: ${settings.secondaryColor} !important; } 
-      .sublink {border-color: ${settings.secondaryColor} !important; }
-      .sublink:hover, .sublink:hover a { background-color: ${settings.secondaryColor} !important; }
-      .sidebarlink a, .sublink a {color: ${textColor}}
-      `;
-  }
-
   const build = getGrowthBookBuild();
 
   return (
@@ -147,9 +113,6 @@ const Layout = (): React.ReactElement => {
           source="layout"
           commercialFeature={null}
         />
-      )}
-      {settings?.customized && (
-        <style dangerouslySetInnerHTML={{ __html: customStyles }}></style>
       )}
       <div
         className={clsx(styles.sidebar, "sidebar mb-5", {
@@ -167,28 +130,16 @@ const Layout = (): React.ReactElement => {
                 onClick={() => setOpen(false)}
               >
                 <div className={styles.sidebarlogo}>
-                  {settings?.customized && settings?.logoPath ? (
-                    <>
-                      <img
-                        className={styles.userlogo}
-                        alt="GrowthBook"
-                        src={settings.logoPath}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <img
-                        className={styles.logo}
-                        alt="GrowthBook"
-                        src="/logo/growth-book-logomark-white.svg"
-                      />
-                      <img
-                        className={styles.logotext}
-                        alt="GrowthBook"
-                        src="/logo/growth-book-name-white.svg"
-                      />
-                    </>
-                  )}
+                  <img
+                    className={styles.logo}
+                    alt="GrowthBook"
+                    src="/logo/growth-book-logomark-white.svg"
+                  />
+                  <img
+                    className={styles.logotext}
+                    alt="GrowthBook"
+                    src="/logo/growth-book-name-white.svg"
+                  />
                 </div>
               </Link>
             </div>
@@ -244,8 +195,8 @@ const Layout = (): React.ReactElement => {
                   </button>
                 </li>
                 <ProjectSelector />
-                {navlinks.map((v, i) => (
-                  <SidebarLink {...v} key={i} />
+                {navlinks.map((v) => (
+                  <SidebarLink key={v.href} {...v} />
                 ))}
               </ul>
             </div>

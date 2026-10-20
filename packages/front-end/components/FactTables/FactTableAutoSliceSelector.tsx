@@ -4,7 +4,7 @@ import { Text, IconButton } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
@@ -93,7 +93,7 @@ export default function FactTableAutoSliceSelector({
           </Text>
         </div>
         {isEditing && (
-          <Button size="xs" onClick={cancelEditing} mr="1">
+          <Button size="sm" onClick={cancelEditing} mr="1">
             Cancel
           </Button>
         )}
@@ -106,6 +106,7 @@ export default function FactTableAutoSliceSelector({
       <div className="d-flex align-items-center" style={{ gap: "0.5rem" }}>
         <div className="flex-grow-1">
           <MultiSelectField
+            legacyHeight
             value={selectedSlices}
             onChange={setSelectedSlices}
             options={availableSlices}
@@ -116,7 +117,7 @@ export default function FactTableAutoSliceSelector({
           />
         </div>
         <Button
-          size={compactButtons ? "xs" : "sm"}
+          size={compactButtons ? "sm" : "md"}
           onClick={saveEditing}
           mr={compactButtons ? "1" : "2"}
         >

@@ -54,7 +54,7 @@ export default function EnvironmentToggle({
         if (on === (env?.enabled ?? false)) return;
         setConfirmingState(on);
       }}
-      size="3"
+      size="lg"
     />
   );
 

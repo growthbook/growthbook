@@ -1,0 +1,204 @@
+---
+title: Event Forwarder
+description: Forward GrowthBook Cloud tracking events to your warehouse so you can analyze experiments without instrumenting a tracker first.
+sidebarTitle: Event Forwarder
+---
+
+import SdkEventTracking from '/snippets/partials/_sdk-event-tracking.mdx';
+
+GrowthBook offers a fully managed event ingestion pipeline. Use our SDKs to track events in your app and we will enrich and forward them to your data warehouse in near real-time.
+
+## Benefits
+
+- **Fully Managed**: No need to worry about infrastructure management, scaling, or maintenance.
+- **Seamless Integration**: Built-in tracking in our SDKs.
+- **Near Real-Time**: Events are available in your warehouse typically within a few seconds.
+- **Broad Support**: Works with BigQuery, Snowflake, and Databricks today, with more warehouses coming soon.
+
+## How it Works
+
+1. Provide GrowthBook with your data warehouse connection details (see [Connection Permissions](#connection-permissions) for required permissions)
+2. We will create destination tables for `events`, `experiment_viewed`, and `feature_usage`
+3. You send analytics events to our scalable Ingestion API
+4. We enrich the events and stream them into your warehouse within seconds
+5. We will build a Fact Table, customize the Data Source's experiment assignment queries, and feature usage queries, so you can quickly start analyzing your experiment data and defining metrics.
+
+## Connection Permissions
+
+When setting up the Event Forwarder, GrowthBook uses your data warehouse connection to pre-create destination tables and validate write access.
+
+### BigQuery
+
+The service account configured in your GrowthBook BigQuery datasource must have the **BigQuery Data Editor** role on the destination dataset. This grants the necessary permissions to:
+
+- Check whether destination tables exist
+- Create the destination tables (`events`, `experiment_viewed`, `feature_usage`)
+- Write data via the BigQuery Storage Write API
+
+You can grant this at the dataset level in the BigQuery console or via the `roles/bigquery.dataEditor` IAM role binding.
+
+### Snowflake
+
+The Snowflake connection **must use key-pair authentication** — password authentication is not supported for the Event Forwarder. GrowthBook creates the three destination tables itself during setup, then streams events into them through [Snowpipe Streaming](https://docs.snowflake.com/en/user-guide/snowpipe-streaming/data-load-snowpipe-streaming-overview) as the connection's user.
+
+Snowpipe Streaming runs under the user's **default role**, so the role you enter in the Event Forwarder must be that user's default role (`ALTER USER <user> SET DEFAULT_ROLE = <role>`). Setup creates the tables and checks them as that same role, so it needs the following privileges:
+
+`CREATE TABLE` and `CREATE SCHEMA` are required because we use Snowpipe Streaming with schema evolution, which may create or alter tables and schemas as your event schema changes.
+
+Key-pair authentication must be configured on the Snowflake datasource connection itself — it is not set in the Event Forwarder UI. Update your datasource's connection settings to use key-pair auth before enabling the Event Forwarder.
+
+### Databricks
+
+#### Before you start: is Zerobus available for your workspace?
+
+The Databricks Event Forwarder writes through [Zerobus Ingest](https://www.databricks.com/product/data-engineering/lakeflow-connect/zerobus-ingest), which is not available everywhere yet. Check three things:
+
+- **Region.** Open the workspace switcher in the top navigation bar to see your workspace region, then confirm it has a check in the Zerobus Ingest column of Databricks' availability table for your cloud: [AWS](https://docs.databricks.com/aws/en/resources/feature-region-support#ingestion), [Azure](https://learn.microsoft.com/en-us/azure/databricks/resources/feature-region-support#ingestion), [Google Cloud](https://docs.databricks.com/gcp/en/resources/feature-region-support#ingestion).
+- **Unity Catalog.** Zerobus writes only to Unity Catalog managed tables. The catalog on your GrowthBook connection must be a Unity Catalog catalog, not `hive_metastore`.
+- **Databricks OAuth (machine-to-machine)** on the connection, as described below.
+
+Setup creates the tables through your SQL warehouse and does not test Zerobus itself. If your region is unsupported, setup succeeds and the forwarder shows an error after the first event arrives.
+
+The Databricks connection **must use Databricks OAuth (machine-to-machine) authentication** with a Databricks-issued client ID and secret. Personal access tokens keep working for queries, but the Event Forwarder writes through [Zerobus Ingest](https://www.databricks.com/product/data-engineering/lakeflow-connect/zerobus-ingest), which only accepts Databricks OAuth tokens. Switch the datasource connection to Databricks OAuth before enabling the Event Forwarder.
+
+Grant the service principal the following on the destination catalog and schema. GrowthBook creates the three Delta tables itself, so it also gets `SELECT` and `MODIFY` on them as their owner.
+
+```sql
+GRANT USE CATALOG ON CATALOG <catalog> TO `<service-principal-application-id>`;
+GRANT USE SCHEMA, CREATE TABLE ON SCHEMA <catalog>.<schema> TO `<service-principal-application-id>`;
+```
+
+In the Event Forwarder UI you provide:
+
+- **Catalog**, pre-filled from your connection when it names one.
+- **Schema**, an existing schema the service principal can create tables in. We suggest a dedicated one such as `growthbook`.
+- **Table prefix** (optional, default `gb`). GrowthBook creates `<prefix>_events`, `<prefix>_experiment_viewed`, and `<prefix>_feature_usage` in that schema, clustered on `received_at`, with `attributes` and `properties` stored as `VARIANT`.
+- **Zerobus endpoint** for your workspace. See [Finding your Zerobus endpoint](#finding-your-zerobus-endpoint) below.
+
+#### Finding your Zerobus endpoint
+
+The endpoint is not shown in the Databricks UI; you build it from two values:
+
+| Cloud        | Endpoint                                                       |
+| ------------ | -------------------------------------------------------------- |
+| AWS          | `https://<workspace-id>.zerobus.<region>.cloud.databricks.com` |
+| Azure        | `https://<workspace-id>.zerobus.<region>.azuredatabricks.net`  |
+| Google Cloud | `https://<workspace-id>.zerobus.<region>.gcp.databricks.com`   |
+
+- **Workspace ID** is the long number in your workspace URL. On AWS and Google Cloud it follows `?o=` (for example `https://dbc-a1b2c3d4-e5f6.cloud.databricks.com/?o=1234567890123456`). On Azure it follows `adb-` in the hostname (`https://adb-1234567890123456.7.azuredatabricks.net`). GrowthBook pre-fills it where the connection host carries it.
+- **Region** is the cloud region your workspace runs in, for example `us-east-1`, `eastus`, or `us-central1`. It is shown in the Databricks account console under **Workspaces**.
+
+Zerobus Ingest is a serverless Databricks feature billed to **your** Databricks account per GB ingested. No SQL warehouse or cluster runs on your side to receive events; the SQL warehouse configured on the datasource is only used to create the tables and to run your experiment queries.
+
+## Network Access
+
+For [Event Forwarder](/app/event-forwarder), you must always allow incoming connections from GrowthBook Cloud's primary ip address (`52.70.79.40/32`).
+
+If you are using our `eu-west-1` ingestor region, you also must allow traffic from `54.74.233.97/32`.
+
+## Get Started
+
+The event forwarder is an advanced Pro/Enterprise feature and must be enabled for your account. Contact your account manager or reach out to [sales@growthbook.io](mailto:sales@growthbook.io) to learn more and get started.
+
+## Sending Events
+
+There are 2 ways to send events to GrowthBook:
+
+1. With our [SDKs](#with-sdks)
+2. With our [Ingestion API](#ingestion-api)
+
+### With SDKs
+
+<SdkEventTracking />
+
+#### Sending events to the right region
+
+The tracking plugin sends events to `https://us-east-1.gb-ingest.com` by default. If you selected **eu-west-1** as your Event Forwarder's Data Region, set the ingestor host option shown for your SDK above to `https://eu-west-1.gb-ingest.com`. Otherwise events won't reach the proper ingestion server and your events will be dropped.
+
+You can find your Event Forwarder's configured region on the data source's Event Forwarder settings.
+
+### Ingestion API
+
+You can also send events directly to our ingestion API. Pass an array of event objects, each with the following properties:
+
+- **event_name**: The name of the event (e.g., "Purchase", "Button Click")
+- **properties**: Optional key-value pairs with properties of the event itself
+- **attributes**: Optional key-value pairs with attributes of the user or context at the time of the event
+- YOUR_WAREHOUSE_REGION: either us-east-1 or eu-west-1 depending on what you selected when creating your datasource
+- YOUR_CLIENT_KEY: The key from your sdk connection. Go to https://app.growthbook.io/sdks/ click on your connection or make a new one. Copy the text from the "Client Key"
+
+```bash
+curl -X POST "https://YOUR_WAREHOUSE_REGION.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
+-H "Content-Type: application/json" \
+-d '[{
+  "event_name": "Purchase",
+  "properties": {
+    "amount": 100
+  },
+  "attributes": {
+    "user_id": "12345"
+  }
+}]'
+```
+
+Using the wrong host means events won't reach the proper ingestion server and your events will be dropped.
+
+#### Experiment View Events
+
+In order to use GrowthBook's experiment analysis features, you must send an event every time a user views an experiment. It must match the following format:
+
+- **event_name**: Must be `"Experiment Viewed"`
+- **properties**: Must include the following key/value pairs:
+  - `experimentId`: The ID of the experiment being viewed
+  - `variationId`: The ID of the variation that was shown to the user
+
+In addition, you must include `attributes` with the user attributes that were used to evaluate the experiment, plus any attributes you want to use as dimensions for slicing and dicing.
+
+#### Feature Usage Events
+
+To take advantage of GrowthBook's feature usage analytics, you must send an event every time a feature is evaluated with a specific format.
+
+- **event_name**: Must be `"Feature Evaluated"`
+- **properties**: Must include the following key/value pairs:
+  - `feature`: The name of the feature being evaluated
+  - `value`: The feature's value that was returned from the evaluation
+  - `source`: (optional) The source of the feature value (e.g., "defaultValue", "experiment", "force")
+  - `ruleId`: (optional) The ID of the specific rule that was used to evaluate the feature (or `$default` if the default value was used)
+  - `variationId`: (optional) If the value came from an experiment, the ID of the variation that was returned
+
+#### Attributes
+
+Attributes are key-value pairs that provide context about the user or environment at the time of the event. They can be used to slice and dice your data in analysis.
+
+It's recommended to include the same attributes you use in your GrowthBook SDK.
+
+Some attributes are enriched in the ingestion API if provided:
+
+- `ip` - a geoip lookup is done and the following attributes are added. If an ip attribute is not provided, we will use the IP address of the request.
+  - `geo_country`
+  - `geo_city`
+  - `geo_lat`
+  - `geo_lon`
+- `ua` - the user agent is parsed and the following attributes are added. If a user agent attribute is not provided, we will use the user agent of the request.
+  - `ua_browser` (e.g. Safari)
+  - `ua_os` (e.g. macOS)
+  - `ua_device_type` (e.g. mobile)
+- `url` - the URL is parsed and the following attributes are added:
+  - `url_path` (e.g. /products/123)
+  - `url_host` (e.g. www.example.com)
+  - `url_query` (e.g. ?utm_source=google)
+  - `url_fragment` (e.g. #section1)
+
+It's also recommend to include attributes about which SDK is being used. This can help with debugging.
+
+- `sdk_language` (e.g. python)
+- `sdk_version` (e.g. 1.2.3)
+
+#### Limits
+
+When calling the ingestion API directly, please be aware of the following default limits:
+
+- Maximum of 100 events per request
+- Maximum of 1 request per second
+
+These limits are to protect accidental misuse of the API. Our Ingestion API can handle much higher volumes than this. Reach out to your account manager if you need to increase your limits.

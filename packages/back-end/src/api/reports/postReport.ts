@@ -12,6 +12,10 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { createReport, updateReport } from "back-end/src/models/ReportModel";
 import { createReportSnapshot } from "back-end/src/services/reports";
+import {
+  resolveOwnerEmail,
+  resolveOwnerToUserId,
+} from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { toReportApiInterface } from "./toReportApiInterface";
 
@@ -24,6 +28,7 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
     experimentId,
     title,
     description,
+    owner,
     statsEngine,
     goalMetrics,
     secondaryMetrics,
@@ -55,6 +60,13 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
     req.context.permissions.throwPermissionError();
   }
 
+  // Attribute the report to the explicit `owner` from the body, or fall back
+  // to the authenticated user. Report edit/delete permissions are gated on
+  // ownership, so an owner-less report can only be managed by admins.
+  const ownerId =
+    (await resolveOwnerToUserId(owner, req.context, { strict: true })) ??
+    req.context.actingUserId;
+
   const phaseIndex = Math.max(experiment.phases.length - 1, 0);
   const latestSnapshot = await getLatestSuccessfulSnapshot({
     context: req.context,
@@ -72,6 +84,14 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
     ...pick(experiment, Object.keys(experimentAnalysisSettings.shape)),
     trackingKey: experiment.trackingKey || experiment.id,
   } as ExperimentReportAnalysisSettings;
+  // Legacy experiments store no identifier; keep the one the snapshot ran on.
+  if (
+    !analysisSettings.exposureQueryIdentifierType &&
+    latestSnapshot.settings.exposureQueryId === analysisSettings.exposureQueryId
+  ) {
+    analysisSettings.exposureQueryIdentifierType =
+      latestSnapshot.settings.exposureQueryIdentifierType;
+  }
 
   if (statsEngine) {
     analysisSettings.statsEngine = statsEngine;
@@ -142,6 +162,7 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
 
   const report = await createReport(org.id, {
     experimentId: experiment.id,
+    ...(ownerId ? { userId: ownerId } : {}),
     title: title || `API Report - ${experiment.name}`,
     description: description || "",
     type: "experiment-snapshot",
@@ -191,9 +212,13 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
     await updateReport(org.id, report.id, { snapshot: newSnapshot.id });
 
     return {
-      report: toReportApiInterface(
-        { ...report, snapshot: newSnapshot.id },
-        newSnapshot,
+      report: await resolveOwnerEmail(
+        await toReportApiInterface(
+          req.context,
+          { ...report, snapshot: newSnapshot.id },
+          newSnapshot,
+        ),
+        req.context,
       ),
     };
   } catch (e) {
@@ -203,7 +228,10 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
     await updateReport(org.id, report.id, { snapshot: "" });
     return {
       report: {
-        ...toReportApiInterface({ ...report, snapshot: "" }),
+        ...(await resolveOwnerEmail(
+          await toReportApiInterface(req.context, { ...report, snapshot: "" }),
+          req.context,
+        )),
         snapshotStatus: "error" as const,
         snapshotError: (e as Error).message,
       },

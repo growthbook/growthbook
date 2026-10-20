@@ -3,16 +3,21 @@
 // no presets. Under the hood it writes into RampSectionState so the save path is
 // identical to the ramp schedule path.
 
-import { Box, Flex } from "@radix-ui/themes";
+import { ReactNode } from "react";
+import { Flex } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
-import Text from "@/ui/Text";
 import SelectField from "@/components/Forms/SelectField";
 import DatePicker from "@/components/DatePicker";
+import ScheduleRow from "@/components/Schedule/ScheduleRow";
 import type { RampSectionState } from "@/components/Features/RuleModal/RampScheduleSection";
 
 interface Props {
   state: RampSectionState;
   setState: (s: RampSectionState) => void;
+  disabled?: boolean;
+  // Lock only the Start row (e.g. an already-running schedule whose end date can
+  // still be edited but whose start has already passed).
+  disableStart?: boolean;
 }
 
 /** Auto-generate a human-readable schedule name based on start/end dates. */
@@ -61,7 +66,7 @@ const END_OPTIONS = [
 ];
 
 function formatOptionLabel(
-  option: { label: string; tooltip?: string },
+  option: { label: string; tooltip?: ReactNode },
   meta: { context: string },
 ) {
   if (meta.context === "value") return <>{option.label}</>;
@@ -79,8 +84,14 @@ function formatOptionLabel(
   );
 }
 
-export default function ScheduleInputs({ state, setState }: Props) {
+export default function ScheduleInputs({
+  state,
+  setState,
+  disabled,
+  disableStart,
+}: Props) {
   const endTriggerValue = state.endScheduleAt ? "specific-time" : "never";
+  const startDisabled = disabled || disableStart;
 
   function patchState(patch: Partial<RampSectionState>) {
     setState({ ...state, ...patch });
@@ -110,23 +121,20 @@ export default function ScheduleInputs({ state, setState }: Props) {
 
   return (
     <Flex direction="column" gap="1">
-      <Heading as="h3" size="small" mb="2">
+      <Heading as="h3" size="sm" mb="2">
         Schedule
       </Heading>
 
       {/* Start row */}
-      <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
-        <Box style={{ width: 70 }}>
-          <Text as="label" weight="medium" mb="0">
-            Start
-          </Text>
-        </Box>
+      <ScheduleRow label="Start">
         <SelectField
+          size="legacy"
           value={state.startDate ? "specific-time" : "immediately"}
           options={START_OPTIONS}
           onChange={handleStartChange}
+          disabled={startDisabled}
           containerClassName="mb-0"
-          containerStyle={{ minHeight: 38, width: 150 }}
+          containerStyle={{ width: 150 }}
           useMultilineLabels
           formatOptionLabel={formatOptionLabel}
         />
@@ -135,25 +143,24 @@ export default function ScheduleInputs({ state, setState }: Props) {
             date={state.startDate || undefined}
             setDate={(d) => patchState({ startDate: d ? d.toISOString() : "" })}
             precision="datetime"
+            timeZone="local"
             containerClassName="mb-0"
             scheduleEndDate={state.endScheduleAt || undefined}
+            disabled={startDisabled}
           />
         )}
-      </Flex>
+      </ScheduleRow>
 
       {/* End row */}
-      <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
-        <Box style={{ width: 70 }}>
-          <Text as="label" weight="medium" mb="0">
-            End
-          </Text>
-        </Box>
+      <ScheduleRow label="End">
         <SelectField
+          size="legacy"
           value={endTriggerValue}
           options={END_OPTIONS}
           onChange={handleEndChange}
+          disabled={disabled}
           containerClassName="mb-0"
-          containerStyle={{ minHeight: 38, width: 150 }}
+          containerStyle={{ width: 150 }}
           useMultilineLabels
           formatOptionLabel={formatOptionLabel}
         />
@@ -164,14 +171,16 @@ export default function ScheduleInputs({ state, setState }: Props) {
               patchState({ endScheduleAt: d ? d.toISOString() : "" })
             }
             precision="datetime"
+            timeZone="local"
             containerClassName="mb-0"
             scheduleStartDate={state.startDate || undefined}
             disableBefore={
               state.startDate ? new Date(state.startDate) : new Date()
             }
+            disabled={disabled}
           />
         )}
-      </Flex>
+      </ScheduleRow>
     </Flex>
   );
 }

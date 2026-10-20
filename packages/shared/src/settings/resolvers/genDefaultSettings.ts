@@ -21,7 +21,10 @@ import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_SRM_THRESHOLD,
   DEFAULT_USE_STICKY_BUCKETING,
+  DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT,
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
+  DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
+  DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
 } from "../../constants";
 import { Settings } from "../types";
 
@@ -96,6 +99,7 @@ export default function genDefaultSettings(): Settings {
     secureAttributeSalt: DEFAULT_SECURE_ATTRIBUTE_SALT,
     killswitchConfirmation: DEFAULT_KILLSWITCH_CONFIRMATION,
     requireReviews: DEFAULT_REQUIRE_REVIEW,
+    targetingReviewMode: [],
     featureKeyExample: DEFAULT_FEATURE_KEY_EXAMPLE,
     featureRegexValidator: DEFAULT_FEATURE_REGEX_VALIDATOR,
     banditScheduleValue: DEFAULT_BANDIT_SCHEDULE_VALUE,
@@ -105,7 +109,10 @@ export default function genDefaultSettings(): Settings {
     experimentMinLengthDays: DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
     experimentMaxLengthDays: DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
     maxMetricSliceLevels: DEFAULT_MAX_METRIC_SLICE_LEVELS,
+    topValuesLookbackValue: DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
+    topValuesLookbackUnit: DEFAULT_TOP_VALUES_LOOKBACK_UNIT,
     useStickyBucketing: DEFAULT_USE_STICKY_BUCKETING,
+    stickyBucketingOnByDefault: DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT,
     targetMDE: DEFAULT_TARGET_MDE,
   };
 }

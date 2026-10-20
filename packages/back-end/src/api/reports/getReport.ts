@@ -6,7 +6,9 @@ import {
   getMetricMapForExperiment,
   toSnapshotApiInterface,
 } from "back-end/src/services/experiments";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { toReportApiInterface } from "./toReportApiInterface";
 
 export const getReport = createApiRequestHandler(getReportValidator)(async (
@@ -31,19 +33,35 @@ export const getReport = createApiRequestHandler(getReportValidator)(async (
 
   if (report.type === "experiment-snapshot") {
     const snapshot = await findSnapshotById(req.context, report.snapshot);
-    const apiReport = toReportApiInterface(report, snapshot);
+    const apiReport = await resolveOwnerEmail(
+      await toReportApiInterface(req.context, report, snapshot),
+      req.context,
+    );
 
     if (snapshot?.status === "success" && experiment) {
       const metricsById = await getMetricMapForExperiment(
         req.context,
         experiment,
       );
-      const results = toSnapshotApiInterface(experiment, snapshot, metricsById);
+      const results = toSnapshotApiInterface(
+        experiment,
+        snapshot,
+        metricsById,
+        await getExposureQueriesForDatasource(
+          req.context,
+          experiment.datasource,
+        ),
+      );
       return { report: { ...apiReport, results } };
     }
 
     return { report: apiReport };
   }
 
-  return { report: toReportApiInterface(report) };
+  return {
+    report: await resolveOwnerEmail(
+      await toReportApiInterface(req.context, report),
+      req.context,
+    ),
+  };
 });

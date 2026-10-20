@@ -1,0 +1,15 @@
+.heatmap {
+  :global(.rt-TableRootTable) {
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  :global(.rt-TableCell:not(:first-child)) {
+    border-left: 1px solid var(--gray-a4);
+  }
+}
+
+.cell {
+  padding: 6px 8px !important;
+  vertical-align: middle;
+}

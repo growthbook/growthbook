@@ -1,4 +1,5 @@
 import { ReqContext } from "back-end/types/request";
+import { logger } from "back-end/src/util/logger";
 
 /**
  * Resolves an owner input value (userId or email address) to a userId.
@@ -36,6 +37,24 @@ export async function resolveOwnerToUserId(
   }
   // Non-strict: leave legacy display names / unresolvable emails unchanged.
   return ownerInput;
+}
+
+/**
+ * Resolves the owner for a create request, falling back to the person behind
+ * it: a personal access token's owner, or the member whose role an org key
+ * assumes. A key acting as itself must send an owner, or this throws.
+ */
+export async function resolveOwnerForCreate(
+  ownerInput: string | undefined,
+  context: ReqContext,
+  { strict = false }: { strict?: boolean } = {},
+): Promise<string> {
+  const resolved = await resolveOwnerToUserId(ownerInput, context, { strict });
+  if (resolved) return resolved;
+  if (context.actingUserId) return context.actingUserId;
+  throw new Error(
+    "Must specify an `owner` in the request body. It's optional only with a personal access token, or an organization API key that assumes a named member's role.",
+  );
 }
 
 // In-memory userId → email cache. Safe to key by userId alone because
@@ -129,6 +148,24 @@ function withOwnerEmail<T extends object>(
   const email = map.get(apiDoc.owner);
   if (email === undefined) return apiDoc;
   return { ...apiDoc, ownerEmail: email };
+}
+
+/**
+ * The owner's email for a notification payload, or undefined when the owner
+ * is unset or cannot be resolved to a known user. Never throws: the email
+ * decorates a notification, and a failed lookup must not suppress it.
+ */
+export async function getOwnerEmail(
+  owner: string | undefined,
+  context: ReqContext,
+): Promise<string | undefined> {
+  if (!owner) return undefined;
+  try {
+    return (await buildOwnerEmailMap([owner], context)).get(owner);
+  } catch (error) {
+    logger.warn(error, "Failed to resolve owner email for notification");
+    return undefined;
+  }
 }
 
 /**

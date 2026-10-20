@@ -16,6 +16,9 @@ import type {
   RenderFunction,
   Result,
   SubscriptionFunction,
+  FeatureUsageSubCallback,
+  CustomEventSubCallback,
+  ExperimentViewedSubCallback,
   TrackingCallback,
   TrackingData,
   WidenPrimitives,
@@ -43,18 +46,20 @@ import {
   clearAutoRefresh,
   configureCache,
   refreshFeatures,
-  startStreaming,
+  startBackgroundSync,
   unsubscribe,
 } from "./feature-repository";
 import {
   runExperiment,
   evalFeature as _evalFeature,
+  buildContextualBanditExperiment,
   getExperimentResult,
   getAllStickyBucketAssignmentDocs,
   decryptPayload,
   getApiHosts,
   getExperimentDedupeKey,
   getStickyBucketAttributes,
+  getTrackingUserContext,
 } from "./core";
 import { StickyBucketServiceSync } from "./sticky-bucket-service";
 
@@ -82,6 +87,9 @@ export class GrowthBook<
   private _completedChangeIds: Set<string>;
   private _trackedFeatures: Record<string, string>;
   private _subscriptions: Set<SubscriptionFunction>;
+  private _featureUsageSubs: Set<FeatureUsageSubCallback>;
+  private _customEventSubs: Set<CustomEventSubCallback>;
+  private _experimentViewedSubs: Set<ExperimentViewedSubCallback>;
   private _assigned: Map<
     string,
     {
@@ -121,6 +129,9 @@ export class GrowthBook<
     this._trackedFeatures = {};
     this.debug = !!options.debug;
     this._subscriptions = new Set();
+    this._featureUsageSubs = new Set();
+    this._customEventSubs = new Set();
+    this._experimentViewedSubs = new Set();
     this.ready = false;
     this._assigned = new Map();
     this._activeAutoExperiments = new Map();
@@ -221,8 +232,13 @@ export class GrowthBook<
     if (data.savedGroups) {
       this._options.savedGroups = data.savedGroups;
     }
+    if (data.contextualBandits) {
+      this._options.contextualBandits = data.contextualBandits;
+    }
     if (data.experiments) {
       this._options.experiments = data.experiments;
+    }
+    if (data.experiments || data.contextualBandits) {
       this._updateAllAutoExperiments();
     }
     this.ready = true;
@@ -254,14 +270,22 @@ export class GrowthBook<
     if (payload.features) {
       this._options.features = payload.features;
     }
+    if (payload.savedGroups) {
+      this._options.savedGroups = payload.savedGroups;
+    }
+    if (payload.contextualBandits) {
+      this._options.contextualBandits = payload.contextualBandits;
+    }
     if (payload.experiments) {
       this._options.experiments = payload.experiments;
+    }
+    if (payload.experiments || payload.contextualBandits) {
       this._updateAllAutoExperiments();
     }
 
     this.ready = true;
 
-    startStreaming(this, options);
+    startBackgroundSync(this, options);
 
     return this;
   }
@@ -276,7 +300,7 @@ export class GrowthBook<
 
     if (options.payload) {
       await this.setPayload(options.payload);
-      startStreaming(this, options);
+      startBackgroundSync(this, options);
       return {
         success: true,
         source: "init",
@@ -286,7 +310,7 @@ export class GrowthBook<
         ...options,
         allowStale: true,
       });
-      startStreaming(this, options);
+      startBackgroundSync(this, options);
       await this.setPayload(data || {});
       return res;
     }
@@ -519,6 +543,32 @@ export class GrowthBook<
     };
   }
 
+  // Internal — first-party plugin use only.
+  // Currently singleton-only. UserScopedGrowthBook could use the same signatures;
+  // GrowthBookClient would need UserContext in callbacks to identify the user.
+  // Fires on deduped feature value changes (not every evalFeature call). Overrides excluded.
+  // One of three plugin streams: feature usage, experiment assignments (_subscribeExperimentViewed), custom events.
+  public _subscribeFeatureUsage(cb: FeatureUsageSubCallback): () => void {
+    this._featureUsageSubs.add(cb);
+    return () => this._featureUsageSubs.delete(cb);
+  }
+
+  // Internal — first-party plugin use only.
+  // Fires once per deduped experiment assignment, alongside (not instead of) trackingCallback.
+  public _subscribeExperimentViewed(
+    cb: ExperimentViewedSubCallback,
+  ): () => void {
+    this._experimentViewedSubs.add(cb);
+    return () => this._experimentViewedSubs.delete(cb);
+  }
+
+  // Internal — first-party plugin use only.
+  // Fires for explicit logEvent() calls only, not SDK-internal events.
+  public _subscribeCustomEvents(cb: CustomEventSubCallback): () => void {
+    this._customEventSubs.add(cb);
+    return () => this._customEventSubs.delete(cb);
+  }
+
   private async _refreshForRemoteEval() {
     if (!this._options.remoteEval) return;
     if (!this._initialized) return;
@@ -558,6 +608,9 @@ export class GrowthBook<
 
     // Release references to save memory
     this._subscriptions.clear();
+    this._featureUsageSubs.clear();
+    this._customEventSubs.clear();
+    this._experimentViewedSubs.clear();
     this._assigned.clear();
     this._trackedExperiments.clear();
     this._completedChangeIds.clear();
@@ -652,6 +705,8 @@ export class GrowthBook<
       trackingCallback: this._options.trackingCallback,
       onFeatureUsage: this._options.onFeatureUsage,
       devLogs: this.logs,
+      featureUsageSubs: this._featureUsageSubs,
+      experimentViewedSubs: this._experimentViewedSubs,
       trackedExperiments: this._trackedExperiments,
       trackedFeatureUsage: this._trackedFeatures,
     };
@@ -664,6 +719,7 @@ export class GrowthBook<
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
+      contextualBandits: this._options.contextualBandits,
       groups: this._options.groups,
       overrides: this._options.overrides,
       onExperimentEval: this._onExperimentEval,
@@ -704,11 +760,18 @@ export class GrowthBook<
         "",
       );
     } else {
-      ({ result, trackingCall } = runExperiment(
-        experiment,
-        null,
-        this._getEvalContext(),
-      ));
+      const ctx = this._getEvalContext();
+      let expToRun = experiment;
+      if (experiment.contextualBanditRef) {
+        expToRun = { ...experiment };
+        buildContextualBanditExperiment(
+          expToRun,
+          experiment.contextualBanditRef,
+          experiment.key,
+          ctx,
+        );
+      }
+      ({ result, trackingCall } = runExperiment(expToRun, null, ctx));
       this._onExperimentEval(experiment, result);
     }
 
@@ -940,6 +1003,7 @@ export class GrowthBook<
           (this._options.trackingCallback as TrackingCallback)(
             call.experiment,
             call.result,
+            call.user,
           ),
         );
       }
@@ -977,12 +1041,21 @@ export class GrowthBook<
         logType: "event",
       });
     }
+    if (this._customEventSubs.size) {
+      this._customEventSubs.forEach((cb) => {
+        try {
+          cb(eventName, properties || {});
+        } catch (e) {
+          console.error(e);
+        }
+      });
+    }
     if (this._options.eventLogger) {
       try {
         await this._options.eventLogger(
           eventName,
           properties || {},
-          this._getUserContext(),
+          getTrackingUserContext(this._getUserContext()),
         );
       } catch (e) {
         console.error(e);

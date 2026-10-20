@@ -8,6 +8,8 @@ import { MakeModelClass } from "./BaseModel";
 const BaseClass = MakeModelClass({
   schema: segmentValidator,
   collectionName: "segments",
+  affectsDefinitionsVersion: true,
+  definitionsVersionProjectField: "projects",
   idPrefix: "seg_",
   auditLog: {
     entity: "segment",

@@ -29,20 +29,30 @@ export default function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
               )}
               <span
                 title={item.display}
-                className={!isLast ? styles.ancestor : undefined}
+                className={isLast ? styles.current : styles.ancestor}
               >
                 {item.href ? (
                   <Link
+                    className={!isLast ? styles.crumbLink : undefined}
+                    truncate
                     href={item.href}
-                    size="2"
+                    size="md"
                     weight="bold"
                     aria-current={isLast ? "page" : undefined}
                   >
                     {item.display}
                   </Link>
                 ) : (
-                  <span aria-current={isLast ? "page" : undefined}>
-                    <Text size="medium" weight="semibold" color="text-high">
+                  <span
+                    aria-current={isLast ? "page" : undefined}
+                    className={!isLast ? styles.crumbLink : undefined}
+                  >
+                    <Text
+                      size="md"
+                      weight="semibold"
+                      color="text-high"
+                      truncate
+                    >
                       {item.display}
                     </Text>
                   </span>

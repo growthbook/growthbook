@@ -1,3 +1,4 @@
+import { getRolePermissions } from "shared/permissions";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { OrganizationInterface, Permission } from "shared/types/organization";
 import { verifyApiKeyPermission } from "back-end/src/middleware/authenticateApiRequestMiddleware";
@@ -119,6 +120,24 @@ describe("REST API auth middleware", () => {
       }).toThrowError();
     });
 
+    it("judges an org key by its per-request permissions when given", () => {
+      const check = (apiKey: Partial<ApiKeyInterface>, role: string) => () =>
+        verifyApiKeyPermission({
+          apiKey,
+          permission: "createMetrics",
+          organization,
+          teams: [],
+          superAdmin: false,
+          keyPermissions: getRolePermissions(
+            { role, limitAccessByEnvironment: false, environments: [] },
+            organization,
+            [],
+          ),
+        });
+      expect(check(readOnlyKey, "admin")).not.toThrow();
+      expect(check(secretFullAccessKey, "readonly")).toThrow();
+    });
+
     it("should throw an error for user API keys where the user does not have access to the environment", () => {
       const permission: Permission = "createMetrics";
       const project = undefined;
@@ -173,7 +192,7 @@ describe("REST API auth middleware", () => {
     });
 
     it("should throw an error for user API keys where the user does not have access to the project", () => {
-      const permission: Permission = "manageFeatures";
+      const permission: Permission = "editFeatureDrafts";
       const project = "prj_xyz987";
       const environments = ["production"];
 

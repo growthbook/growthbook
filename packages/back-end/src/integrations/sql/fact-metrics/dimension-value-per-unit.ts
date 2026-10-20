@@ -5,6 +5,7 @@ import {
   UserDimension,
 } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
+import { concatSql } from "back-end/src/integrations/sql/primitives/concat";
 
 export function getDimensionValuePerUnit(
   dialect: SqlDialect,
@@ -22,11 +23,12 @@ export function getDimensionValuePerUnit(
   if (dimension.type === "experiment") {
     return `SUBSTRING(
         MIN(
-          CONCAT(SUBSTRING(${dialect.formatDateTimeString("e.timestamp")}, 1, 19),
-            coalesce(${dialect.castToString(
+          ${concatSql(
+            `SUBSTRING(${dialect.formatDateTimeString("e.timestamp")}, 1, 19)`,
+            `coalesce(${dialect.castToString(
               `e.${experimentDimensionPrefix ?? "dim_"}${dimension.id}`,
-            )}, ${dialect.castToString(`'${NULL_DIMENSION_VALUE}'`)})
-          )
+            )}, ${dialect.castToString(`'${NULL_DIMENSION_VALUE}'`)})`,
+          )}
         ),
         20,
         99999

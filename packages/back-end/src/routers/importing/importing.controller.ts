@@ -1,8 +1,10 @@
 import type { Response } from "express";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { fetch } from "back-end/src/util/http.util";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { cancellableFetch, fetch } from "back-end/src/util/http.util";
+import { getContextFromReq } from "back-end/src/services/organizations";
+import { EPPO_API_BASE_URL, IS_CLOUD } from "back-end/src/util/secrets";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
+import { resolveProxyUrl } from "back-end/src/routers/importing/importing.util";
 
 // Allowed HTTP methods for proxy requests
 const ALLOWED_HTTP_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH"] as const;
@@ -48,9 +50,11 @@ export const proxyStatsigRequest = async (
   // Validate HTTP method
   const validatedMethod = validateHttpMethod(method);
 
-  try {
-    const url = `https://statsigapi.net/console/v1/${endpoint}`;
+  // Resolve the URL before the try block so an invalid/origin-violating URL
+  // surfaces as a 4xx (via the global error handler) rather than a 500.
+  const url = resolveProxyUrl(endpoint, "https://statsigapi.net/console/v1/");
 
+  try {
     const response = await fetch(url, {
       method: validatedMethod,
       headers: {
@@ -78,6 +82,54 @@ export const proxyStatsigRequest = async (
   }
 };
 
+export const proxyEppoRequest = async (
+  req: AuthRequest<{
+    endpoint: string;
+    apiKey: string;
+  }>,
+  res: Response,
+) => {
+  getContextFromReq(req);
+  const { endpoint, apiKey } = req.body;
+
+  if (!endpoint || !apiKey) {
+    return res.status(400).json({
+      status: 400,
+      message: "Missing required fields: endpoint and apiKey",
+    });
+  }
+
+  const url = resolveProxyUrl(endpoint, EPPO_API_BASE_URL);
+
+  try {
+    const { responseWithoutBody: response, stringBody } =
+      await cancellableFetch(
+        url,
+        {
+          headers: {
+            "X-Eppo-Token": apiKey,
+          },
+          redirect: "error",
+        },
+        { maxTimeMs: 30000, maxContentSize: 50 * 1024 * 1024 },
+      );
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        status: response.status,
+        message: `Eppo API error: ${response.statusText} - ${stringBody}`,
+      });
+    }
+
+    res.status(200).json(JSON.parse(stringBody));
+  } catch (error) {
+    res.status(500).json({
+      status: 500,
+      message: error.message || "Failed to fetch from Eppo API",
+    });
+  }
+};
+
 export const proxyLaunchDarklyRequest = async (
   req: AuthRequest<{
     url: string;
@@ -101,9 +153,11 @@ export const proxyLaunchDarklyRequest = async (
     });
   }
 
-  try {
-    const fullUrl = `https://app.launchdarkly.com${url}`;
+  // Resolve the URL before the try block so an invalid/origin-violating URL
+  // surfaces as a 4xx (via the global error handler) rather than a 500.
+  const fullUrl = resolveProxyUrl(url, "https://app.launchdarkly.com");
 
+  try {
     const response = await fetch(fullUrl, {
       headers: {
         Authorization: apiToken,

@@ -13,7 +13,7 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import LinkButton from "@/ui/LinkButton";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import CreateExperimentModal from "@/components/Experiment/CreateExperimentModal";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -94,7 +94,10 @@ const ExperimentsPage = (): React.ReactElement => {
     error,
     loading,
     hasArchived,
-  } = useExperiments(project, activeTab === "archived", "standard");
+    tempRolloutExperimentIds,
+  } = useExperiments(project, activeTab === "archived", "standard", {
+    includeTempRollouts: true,
+  });
   const { watchedExperiments } = useWatching();
 
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
@@ -113,14 +116,14 @@ const ExperimentsPage = (): React.ReactElement => {
   } = useExperimentSearch({
     allExperiments,
     watchedExperimentIds: watchedExperiments,
+    tempRolloutExperimentIds,
     localStorageKey: "experiments-page",
   });
 
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     items.forEach((item) => {
-      counts[item.tab] = counts[item.tab] || 0;
-      counts[item.tab]++;
+      counts[item.tab] = (counts[item.tab] || 0) + 1;
     });
     return counts;
   }, [items]);
@@ -305,6 +308,7 @@ const ExperimentsPage = (): React.ReactElement => {
                   >
                     <Box flexBasis="300px" flexShrink="0">
                       <Field
+                        size="legacy"
                         placeholder="Search..."
                         type="search"
                         {...searchInputProps}
@@ -315,6 +319,7 @@ const ExperimentsPage = (): React.ReactElement => {
                       syntaxFilters={syntaxFilters}
                       setSearchValue={setSearchValue}
                       experiments={allExperiments}
+                      includeTempRollouts
                     />
                   </Flex>
                   <TabsContent value="all">
@@ -351,10 +356,9 @@ const ExperimentsPage = (): React.ReactElement => {
         </div>
       </div>
       {openNewExperimentModal && (
-        <NewExperimentForm
+        <CreateExperimentModal
           onClose={() => setOpenNewExperimentModal(false)}
           source="experiment-list"
-          isNewExperiment={true}
         />
       )}
       {openImportExperimentModal && (

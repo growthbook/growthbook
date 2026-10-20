@@ -42,7 +42,7 @@ const DeleteButton: FC<{
   text = "",
   title = "",
   useIcon = true,
-  useRadix = false,
+  useRadix = true,
   deleteMessage = "Are you sure? This action cannot be undone.",
   additionalMessage = "",
   getConfirmationContent,
@@ -108,6 +108,7 @@ const DeleteButton: FC<{
           variant="ghost"
           color="red"
           title={title}
+          disabled={disabled}
           stopPropagation={stopPropagation}
         >
           {text}

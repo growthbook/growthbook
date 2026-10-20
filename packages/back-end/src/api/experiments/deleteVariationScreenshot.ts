@@ -5,6 +5,7 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -26,6 +27,7 @@ const deleteVariationScreenshotValidator = {
   responseSchema: z.object({}).describe("Screenshot deleted successfully"),
   method: "delete" as const,
   path: "/experiments/:id/variation/:variationId/screenshot",
+  confirmation: ["experiment.draft"] as const,
   operationId: "deleteVariationScreenshot",
   summary: "Delete a variation screenshot",
   tags: ["experiments"],
@@ -47,6 +49,10 @@ export const deleteVariationScreenshot = createApiRequestHandler(
 
   if (!experiment) {
     throw new Error("Experiment not found");
+  }
+
+  if (experiment.type === "holdout") {
+    throw new Error("Holdouts are not supported via this API");
   }
 
   if (experiment.organization !== context.org.id) {
@@ -79,6 +85,7 @@ export const deleteVariationScreenshot = createApiRequestHandler(
     (s) => normalizeScreenshotPath(s.path) !== normalizedPath,
   );
 
+  await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
     context,
     experiment,

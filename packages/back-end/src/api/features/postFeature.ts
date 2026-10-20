@@ -1,32 +1,46 @@
 import { z } from "zod";
-import { validateFeatureValue } from "shared/util";
+import {
+  FEATURE_KEY_PATTERN,
+  FEATURE_KEY_PATTERN_ERROR,
+} from "shared/constants";
+import { normalizeTargetingProjects, validateFeatureValue } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { featurePublishEnvironmentIds } from "back-end/src/services/featurePublishGates";
+import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
-  resolveOwnerToUserId,
+  resolveOwnerForCreate,
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
-import { getEnabledEnvironments } from "back-end/src/util/features";
 import {
   addIdsToFlatRules,
   addIdsToRules,
   buildFeatureRulesFromApiEnvSettings,
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObj,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
 } from "back-end/src/services/features";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/services/organizations";
+import { holdFeatureCreate } from "back-end/src/services/confirmations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
-import { validateCustomFields } from "./validations";
+import { assertCanCreateFeatureInState } from "back-end/src/revisions/featureDraftAuthority";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
+import { validateCustomFields, validateRulesReferences } from "./validations";
 import {
   assertValidProjectId,
+  assertValidProjectIds,
+  assertValidRuleProjectIds,
+  assertUniqueRuleIdsByEnv,
+  assertValidRuleExperimentIds,
   validateEnvRulesScheduleRules,
+  assertValidBaseConfig,
+  assertConfigSchemaCompat,
 } from "./v2Shared";
 
 export type ApiFeatureEnvSettings = NonNullable<
@@ -54,7 +68,19 @@ export const validateEnvKeys = (
 export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   req,
 ) => {
-  if (!req.context.permissions.canCreateFeature(req.body)) {
+  if (
+    !req.context.permissions.canCreateFeature(
+      req.body,
+      // The API body carries `environments`, not the stored
+      // `environmentSettings` shape getEnabledEnvironments reads. Resolved the
+      // same way the create itself resolves it, so an environment left out of
+      // the body but enabled by its `defaultState` still counts.
+      getApiCreateEnabledEnvironments(
+        getEnvironments(req.context.org),
+        req.body.environments,
+      ),
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -63,10 +89,8 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     throw new Error(`Feature id '${req.body.id}' already exists.`);
   }
 
-  if (!req.body.id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
-    throw new Error(
-      "Feature keys can only include letters, numbers, hyphens, and underscores.",
-    );
+  if (!new RegExp(FEATURE_KEY_PATTERN).test(req.body.id)) {
+    throw new Error(FEATURE_KEY_PATTERN_ERROR);
   }
 
   const orgEnvs = getEnvironments(req.context.org);
@@ -78,6 +102,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   );
 
   validateEnvRulesScheduleRules(req.body.environments, req.context);
+  assertUniqueRuleIdsByEnv(req.body.environments);
 
   if (
     req.context.org.settings?.requireProjectForFeatures &&
@@ -96,16 +121,18 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
 
   const tags = req.body.tags || [];
 
-  if (tags.length > 0) {
-    await addTags(req.context.org.id, tags);
-  }
-
   const feature: FeatureInterface = {
     defaultValue: req.body.defaultValue ?? "",
     valueType: req.body.valueType,
-    owner: (await resolveOwnerToUserId(req.body.owner, req.context)) ?? "",
+    baseConfig: req.body.baseConfig ?? undefined,
+    owner: await resolveOwnerForCreate(req.body.owner, req.context),
     description: req.body.description || "",
     project: req.body.project || "",
+    ...normalizeTargetingProjects({
+      project: req.body.project || "",
+      targetingAllProjects: req.body.targetingAllProjects,
+      targetingProjects: req.body.targetingProjects,
+    }),
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: req.context.org.id,
@@ -137,32 +164,69 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     orgEnvs,
     req.body.environments ?? {},
   );
+  await assertValidRuleProjectIds(feature.rules, req.context);
+  await assertValidRuleExperimentIds(feature.rules, req.context);
+  await validateRulesReferences(feature.rules, req.context);
+  await assertValidPrerequisiteParents(req.context, feature);
 
-  const jsonSchema = parseApiJsonSchema(req.context.org, req.body.jsonSchema);
+  const jsonSchema = parseApiJsonSchema(
+    req.context.org,
+    req.body.jsonSchema,
+    req.body.valueType,
+  );
 
   feature.jsonSchema = jsonSchema;
 
-  // ensure default value matches value type
-  feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
+  // Config mode: baseConfig must be a live config on a JSON flag, and can't
+  // coexist with the flag's own JSON schema (the config's schema is authoritative).
+  await assertValidBaseConfig(
+    req.context,
+    feature.baseConfig,
+    feature.valueType,
+    feature.project,
+  );
+  assertConfigSchemaCompat({
+    jsonSchemaEnabled: feature.jsonSchema?.enabled,
+    baseConfig: feature.baseConfig,
+  });
 
-  if (
-    !req.context.permissions.canPublishFeature(
-      feature,
-      Array.from(
-        getEnabledEnvironments(
-          feature,
-          orgEnvs.map((e) => e.id),
-        ),
-      ),
-    )
-  ) {
-    req.context.permissions.throwPermissionError();
+  // ensure default value matches value type
+  feature.defaultValue = validateFeatureValue(
+    feature,
+    feature.defaultValue,
+    "Default value",
+  );
+
+  await assertCanCreateFeatureInState({
+    context: req.context,
+    feature,
+    environmentIds: featurePublishEnvironmentIds(req.context.org, feature),
+  });
+  // After the gate so an unreadable id cannot be probed for existence.
+  await assertValidProjectIds(req.body.targetingProjects, req.context);
+  await holdFeatureCreate(
+    req.context,
+    feature,
+    getApiCreateEnabledEnvironments(orgEnvs, req.body.environments),
+  );
+
+  // AFTER every authorization: tags are a persistent org-level side effect, and
+  // writing them first meant a request that then 403'd had already mutated tag state.
+  if (tags.length > 0) {
+    await addTags(req.context.org.id, tags);
   }
 
   addIdsToRules(feature.environmentSettings, feature.id);
   addIdsToFlatRules(feature.rules, feature.id);
 
-  await createFeature(req.context, feature);
+  await createFeature(req.context, feature, { comment: req.body.comment });
+  if (req.context.actingUserId) {
+    await req.context.models.watch.upsertWatch({
+      userId: req.context.actingUserId,
+      item: feature.id,
+      type: "features",
+    });
+  }
 
   await req.audit({
     event: "feature.create",
@@ -173,14 +237,14 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     details: auditDetailsCreate(feature),
   });
 
-  const groupMap = await getSavedGroupMap(req.context);
-
   const experimentMap = await getExperimentMapForFeature(
     req.context,
     feature.id,
   );
-  const safeRolloutMap =
-    await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+  const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+    req.context,
+    { features: [feature], experiments: experimentMap.values() },
+  );
   const revision = await getRevision({
     context: req.context,
     organization: feature.organization,

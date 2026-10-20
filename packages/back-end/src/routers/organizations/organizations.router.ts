@@ -3,7 +3,11 @@ import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
+  deleteApiKeyValidator,
+  postApiKeyRevealValidator,
+  postInviteAcceptValidator,
   postApiKeyValidator,
+  putApiKeyValidator,
   putApiKeyDisabledValidator,
   putDefaultRoleValidator,
   putMemberProjectRoleValidator,
@@ -16,7 +20,7 @@ const organizationsController = wrapController(organizationsControllerRaw);
 
 router.get("/organization/definitions", organizationsController.getDefinitions);
 router.get("/activity", organizationsController.getActivityFeed);
-router.get("/history/:type", organizationsController.getAllHistory);
+router.get("/history/:type", organizationsController.getHistory);
 router.get("/history/:type/:id", organizationsController.getHistory);
 router.get("/organization", organizationsController.getOrganization);
 router.post("/organization", organizationsController.signup);
@@ -44,7 +48,13 @@ router.post(
   organizationsController.autoAddGroupsAttribute,
 );
 router.get("/invite/:key", organizationsController.getInviteInfo);
-router.post("/invite/accept", organizationsController.postInviteAccept);
+router.post(
+  "/invite/accept",
+  validateRequestMiddleware({
+    body: postInviteAcceptValidator,
+  }),
+  organizationsController.postInviteAccept,
+);
 router.post("/invite", organizationsController.postInvite);
 router.post("/invite/resend", organizationsController.postInviteResend);
 router.put("/invite/:key/role", organizationsController.putInviteRole);
@@ -87,6 +97,11 @@ router.get(
 
 // API keys
 router.get("/keys", organizationsController.getApiKeys);
+router.get(
+  "/keys/personal-access-tokens",
+  organizationsController.getPersonalAccessTokens,
+);
+router.get("/keys/approver-roles", organizationsController.getApproverKeyRoles);
 router.post(
   "/keys",
   validateRequestMiddleware({
@@ -94,8 +109,31 @@ router.post(
   }),
   organizationsController.postApiKey,
 );
-router.delete("/keys", organizationsController.deleteApiKey);
-router.post("/keys/reveal", organizationsController.postApiKeyReveal);
+router.put(
+  "/keys/:id",
+  validateRequestMiddleware({
+    body: putApiKeyValidator,
+  }),
+  organizationsController.putApiKey,
+);
+router.delete(
+  "/keys",
+  validateRequestMiddleware({
+    body: deleteApiKeyValidator,
+  }),
+  organizationsController.deleteApiKey,
+);
+router.post(
+  "/keys/apply-expiration-policy",
+  organizationsController.postApplyExpirationPolicy,
+);
+router.post(
+  "/keys/reveal",
+  validateRequestMiddleware({
+    body: postApiKeyRevealValidator,
+  }),
+  organizationsController.postApiKeyReveal,
+);
 router.put(
   "/keys/:id/disabled",
   validateRequestMiddleware({

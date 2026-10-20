@@ -8,13 +8,17 @@ import Button from "@/components/Button";
 const RefreshSnapshotButton: FC<{
   mutate: () => void;
   safeRollout: SafeRolloutInterface;
-}> = ({ mutate, safeRollout }) => {
+  customValidation?: () => boolean | Promise<boolean>;
+}> = ({ mutate, safeRollout, customValidation }) => {
   const [loading, setLoading] = useState(false);
   const [longResult, setLongResult] = useState(false);
 
   const { apiCall } = useAuth();
 
   const refreshSnapshot = async () => {
+    if (customValidation && !(await customValidation())) {
+      return;
+    }
     await apiCall<{
       status: number;
       message: string;

@@ -9,7 +9,10 @@ import {
   DropdownMenuGroup,
 } from "@/ui/DropdownMenu";
 import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import { getRefreshInterval } from "@/enterprise/components/ProductAnalytics/util";
+import {
+  getRefreshInterval,
+  hasSubmittablePayload,
+} from "@/enterprise/components/ProductAnalytics/util";
 
 interface LastRefreshedIndicatorProps {
   lastRefreshedAt: Date | null;
@@ -53,7 +56,7 @@ export default function LastRefreshedIndicator({
   if (!lastRefreshedAt) return null;
 
   const isUpdateDisabled =
-    loading || !draftExploreState?.dataset?.values?.length || !isSubmittable;
+    loading || !hasSubmittablePayload(draftExploreState) || !isSubmittable;
 
   const trigger = (
     <Flex
@@ -65,7 +68,7 @@ export default function LastRefreshedIndicator({
       }}
     >
       <PiClockClockwise style={{ color: "var(--gray-11)", flexShrink: 0 }} />
-      <Text size="small" color="text-low">
+      <Text size="sm" color="text-low">
         {formatShortAgo(lastRefreshedAt)}
       </Text>
     </Flex>

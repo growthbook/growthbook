@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import { GENERIC_NAME_DESCRIPTION } from "./api-field-descriptions";
 
 const TYPES = ["SQL", "FACT"] as const;
 
@@ -15,7 +17,7 @@ export const segmentValidator = z
     dateCreated: z.date(),
     dateUpdated: z.date(),
     name: z.string(),
-    description: z.string(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH),
     userIdType: z.string(),
     type: z.enum(TYPES),
     managedBy: z.enum(["", "api", "config"]).optional(),
@@ -53,7 +55,7 @@ export const apiSegmentValidator = namedSchema(
       datasourceId: z.string(),
       identifierType: z.string(),
       name: z.string(),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       query: z.string().optional(),
       dateCreated: z.string(),
       dateUpdated: z.string(),
@@ -76,9 +78,13 @@ export type ApiSegment = z.infer<typeof apiSegmentValidator>;
 // Corresponds to payload-schemas/PostSegmentPayload.yaml
 const postSegmentBody = z
   .object({
-    name: z.string().describe("Name of the segment"),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION),
     owner: ownerInputField.optional(),
-    description: z.string().describe("Description of the segment").optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the segment")
+      .optional(),
     datasourceId: z
       .string()
       .describe("ID of the datasource this segment belongs to"),
@@ -162,6 +168,7 @@ export const postSegmentValidator = {
     })
     .strict(),
   summary: "Create a single segment",
+  confirmation: ["segment.create"] as const,
   operationId: "postSegment",
   tags: ["segments"],
   method: "post" as const,
@@ -204,6 +211,7 @@ export const updateSegmentValidator = {
     })
     .strict(),
   summary: "Update a single segment",
+  confirmation: ["segment.edit"] as const,
   operationId: "updateSegment",
   tags: ["segments"],
   method: "post" as const,
@@ -227,6 +235,7 @@ export const deleteSegmentValidator = {
     })
     .strict(),
   summary: "Deletes a single segment",
+  confirmation: ["segment.delete"] as const,
   operationId: "deleteSegment",
   tags: ["segments"],
   method: "delete" as const,

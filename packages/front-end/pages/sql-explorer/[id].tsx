@@ -119,9 +119,10 @@ export default function SqlQueryDetail() {
             Edit
           </Button>
         )}
-        <MoreMenu useRadix={true}>
+        <MoreMenu>
           {canDelete && (
             <DeleteButton
+              useRadix={false}
               className="dropdown-item"
               onClick={async () => {
                 await apiCall(`/saved-queries/${savedQuery.id}`, {
@@ -157,7 +158,6 @@ export default function SqlQueryDetail() {
             error={debugResults.error || ""}
             allowDownload={false}
             showSampleHeader={false}
-            renderedSQLLabel="Refresh Error"
             close={() => setDebugResults(null)}
           />
         )}
@@ -190,7 +190,6 @@ export default function SqlQueryDetail() {
               error={savedQuery.results?.error || ""}
               allowDownload={true}
               showSampleHeader={false}
-              renderedSQLLabel="SQL"
             />
           </Box>
         ) : null}

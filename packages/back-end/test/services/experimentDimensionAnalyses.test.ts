@@ -16,7 +16,7 @@ jest.mock("shared/experiments", () => ({
   ),
   getAllExpandedMetricIdsFromExperiment: jest.fn(() => ["met_1"]),
   isFactMetricId: jest.fn(() => false),
-  expandAllSliceMetricsInMap: jest.fn(),
+  expandDerivedMetricsInMap: jest.fn(),
   getLatestPhaseVariations: jest.fn(() => [
     { id: "0", name: "Control" },
     { id: "1", name: "Variation" },
@@ -34,6 +34,10 @@ jest.mock("back-end/src/models/FactTableModel", () => ({
 jest.mock("back-end/src/services/experimentDimensionTimeSeries", () => ({
   ...jest.requireActual("back-end/src/services/experimentDimensionTimeSeries"),
   getOrCreatePrecomputedDimensionTimeSeriesAnalyses: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/assignmentQuerySelection", () => ({
+  getExposureQueriesForDatasource: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("back-end/src/util/logger", () => ({

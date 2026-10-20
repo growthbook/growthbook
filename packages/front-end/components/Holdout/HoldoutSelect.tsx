@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { resolveAnalysisIdentifierType, getHoldoutStage } from "shared/util";
 import { PiArrowSquareOut, PiLightbulb, PiWarningFill } from "react-icons/pi";
 import { Flex, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -41,8 +42,7 @@ export const HoldoutSelect = ({
 
       const experiment = experimentsMap.get(h.experimentId);
 
-      // If the holdout is in draft or is in the analysis phase, don't show it
-      if (!!h.analysisStartDate || experiment?.status === "draft") {
+      if (!experiment || getHoldoutStage(h, experiment) !== "running") {
         return false;
       }
       // If the holdout is a part of the current project or all projects, show it
@@ -57,10 +57,16 @@ export const HoldoutSelect = ({
         ? getDatasourceById(experiment?.datasource ?? "")
         : null;
       const exposureQueries = datasource?.settings?.queries?.exposure || [];
-      const userIdType = experiment
-        ? exposureQueries?.find((e) => e.id === experiment.exposureQueryId)
-            ?.userIdType
-        : "";
+      const exposureQuery = experiment
+        ? exposureQueries.find((e) => e.id === experiment.exposureQueryId)
+        : undefined;
+      const userIdType =
+        (exposureQuery &&
+          resolveAnalysisIdentifierType(
+            exposureQuery,
+            experiment?.exposureQueryIdentifierType,
+          )) ||
+        "";
       return {
         ...holdout,
         experiment: experimentsMap.get(
@@ -76,6 +82,9 @@ export const HoldoutSelect = ({
     [holdoutsWithExperiment],
   );
 
+  const exemptingFromHoldout =
+    requiredSelectableHoldouts.length > 0 && selectedHoldoutId === "";
+
   useEffect(() => {
     // check to see if the holdout still exists and if not, set the holdout to the first valid holdout
     if (!holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId)) {
@@ -90,7 +99,7 @@ export const HoldoutSelect = ({
       <PremiumCallout
         id="holdout-select-promo"
         commercialFeature="holdouts"
-        dismissable={true}
+        dismissible={true}
         mt="3"
         mb="3"
       >
@@ -105,7 +114,7 @@ export const HoldoutSelect = ({
   }
 
   if (holdoutsWithExperiment.length === 0) {
-    if (hideEmptyStatePromo) return null;
+    if (hideEmptyStatePromo || holdouts.length > 0) return null;
     return (
       <Callout
         mt="3"
@@ -127,14 +136,20 @@ export const HoldoutSelect = ({
   return (
     <>
       <SelectField
+        size="legacy"
         label="Holdout"
         labelClassName="font-weight-bold"
         value={selectedHoldoutId || ""}
         onChange={(v) => {
           setHoldout(v);
         }}
+        className={exemptingFromHoldout ? "warning" : undefined}
         helpText={
-          holdoutsWithExperiment.length === 0 ? "No holdouts" : undefined
+          exemptingFromHoldout && (
+            <HelperText status="warning" size="sm" mt="2">
+              {`Exempting this ${formType} from a holdout may impact your organization's analysis. Proceed with caution.`}
+            </HelperText>
+          )
         }
         options={[
           ...(holdoutsWithExperiment?.map((h) => {
@@ -174,12 +189,6 @@ export const HoldoutSelect = ({
           );
         }}
       />
-      {requiredSelectableHoldouts.length > 0 && selectedHoldoutId === "" && (
-        <HelperText status="warning" size="sm" mb="3">
-          Exempting this {formType} from a holdout may impact your
-          organization&apos;s analysis. Proceed with caution.
-        </HelperText>
-      )}
     </>
   );
 };

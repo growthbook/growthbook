@@ -1,20 +1,32 @@
 import { z } from "zod";
+import { REQUIRES_PERSON_NOTE, REVIEW_VERDICT_NOTE } from "./event-user";
+import { apiAssignmentQueryInputFields } from "./assignment-query-field";
 import {
   featurePrerequisite,
   savedGroupTargeting,
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  publishOverrideBodyFields,
+  bypassApprovalPublishBodyField,
+  ignoreWarningsBodyField,
+  publishBypassedGatesField,
+  HUMAN_OVERRIDE_NOTE,
 } from "./shared";
 import {
   apiRevisionRampCreateAction,
   apiFeatureRevisionValidator,
-  JSONSchemaDef,
+  apiJSONSchemaDefInput,
   revisionStatusFilterSchema,
   featureRule,
   FEATURE_V1_DEPRECATED,
 } from "./features";
 import { ownerInputField } from "./owner-field";
+import {
+  REVIEW_ACTION_DESCRIPTION,
+  RULE_DESCRIPTION,
+} from "./api-field-descriptions";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // ---- Shared param schemas ----
 
@@ -131,8 +143,7 @@ export const getFeatureRevisionLatestValidator = {
   path: "/features/:id/revisions/latest",
   operationId: "getFeatureRevisionLatest",
   summary: "Get the most recent active draft revision",
-  description:
-    "**Deprecated.** Use [GET /v2/features/:id/revisions/latest](#operation/getFeatureRevisionLatestV2) instead.\n\nReturns the most recently updated draft revision for the feature. Returns 404 if there is no active draft. Pass `mine=true` to return the most recent draft authored by or contributed to by the calling user (requires a user-scoped API key).",
+  description: `**Deprecated.** Use [GET /v2/features/:id/revisions/latest](#operation/getFeatureRevisionLatestV2) instead.\n\nReturns the most recently updated draft revision for the feature. Returns 404 if there is no active draft. Pass \`mine=true\` to return the most recent draft authored by or contributed to by the calling user. ${REQUIRES_PERSON_NOTE}`,
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
@@ -141,7 +152,7 @@ export const getFeatureRevisionLatestValidator = {
   querySchema: z
     .object({
       mine: booleanQueryField.describe(
-        "If true, return only the most recent active draft authored by or contributed to by the calling user. Requires a user-scoped API key.",
+        `If true, return only the most recent active draft authored by or contributed to by the calling user. ${REQUIRES_PERSON_NOTE}`,
       ),
     })
     .strict(),
@@ -151,6 +162,7 @@ export const getFeatureRevisionLatestValidator = {
 export const postFeatureRevisionValidator = {
   method: "post" as const,
   path: "/features/:id/revisions",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevision",
   summary: "Create a draft revision",
   description:
@@ -163,15 +175,23 @@ export const postFeatureRevisionValidator = {
     .object({
       comment: z.string().optional(),
       title: z.string().optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z
+    .object({
+      overrideDraftLimit: booleanQueryField.describe(
+        `If the organization caps concurrent drafts per feature (\`maxConcurrentDrafts\` setting), requests at or over the cap are rejected with a 409. Pass \`true\` to create the draft anyway. ${HUMAN_OVERRIDE_NOTE}`,
+      ),
+    })
+    .strict(),
   responseSchema: revisionResponse,
 };
 
 export const postFeatureRevisionDiscardValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/discard",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionDiscard",
   summary: "Discard a draft revision",
   description:
@@ -188,10 +208,18 @@ export const postFeatureRevisionDiscardValidator = {
 export const postFeatureRevisionPublishValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/publish",
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    "rampSchedule.start",
+    "rampSchedule.edit",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionPublish",
   summary: "Publish a draft revision",
   description:
-    "**Deprecated.** Use [POST /v2/features/:id/revisions/:version/publish](#operation/postFeatureRevisionPublishV2) instead.\n\nImmediately publishes a draft revision, making it the live version of the feature. Blocked if the org requires approvals and `bypassApprovalChecks` is off.",
+    "**Deprecated.** Use [POST /v2/features/:id/revisions/:version/publish](#operation/postFeatureRevisionPublishV2) instead.\n\nPublishes the draft and makes its changes live. The caller needs Publish access for every affected environment. When approval is required, the draft must be approved unless the caller has Bypass draft approvals access.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
@@ -199,15 +227,26 @@ export const postFeatureRevisionPublishValidator = {
   bodySchema: z
     .object({
       comment: z.string().optional(),
+      bypassApproval: bypassApprovalPublishBodyField,
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const postFeatureRevisionRevertValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/revert",
+  confirmation: [
+    "feature.draft",
+    "feature.publish",
+    "feature.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionRevert",
   summary: "Revert the feature to a prior revision",
   description:
@@ -221,10 +260,16 @@ export const postFeatureRevisionRevertValidator = {
       strategy: z.enum(["draft", "publish"]).optional(),
       comment: z.string().optional(),
       title: z.string().optional(),
+      // Matches the v2 twin: publishing a revert that restores `archived` runs
+      // the bypassable dependent guard, and a strict body without these rejects
+      // the acknowledgment it asks for.
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    bypassedGates: publishBypassedGatesField,
+  }),
 };
 
 export const getFeatureRevisionMergeStatusValidator = {
@@ -242,7 +287,19 @@ export const getFeatureRevisionMergeStatusValidator = {
   querySchema: z.never(),
   responseSchema: z.object({
     success: z.boolean(),
+    liveVersion: z
+      .number()
+      .describe("The current live version the merge was computed against."),
+    draftDateUpdated: z
+      .string()
+      .meta({ format: "date-time" })
+      .describe("The draft's last-modified timestamp at merge time."),
     conflicts: z.array(mergeConflictSchema),
+    rebaseRequired: z
+      .boolean()
+      .describe(
+        "Whether the draft must be rebased before it can be published. This is true when the merge has conflicts, or when the organization requires rebasing and the draft or its approval is out of date. If there are no conflicts, a caller with Bypass draft approvals access can send `ignoreWarnings: true` to force-publish instead.",
+      ),
     result: mergeResultChangesSchema.optional(),
   }),
 };
@@ -250,10 +307,11 @@ export const getFeatureRevisionMergeStatusValidator = {
 export const postFeatureRevisionRebaseValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rebase",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionRebase",
   summary: "Rebase a draft revision onto the current live version",
   description:
-    "**Deprecated.** Use [POST /v2/features/:id/revisions/:version/rebase](#operation/postFeatureRevisionRebaseV2) instead.\n\nUpdates the draft's base revision to match the currently-live revision, applying the draft's changes on top. Supply `conflictResolutions` to resolve any conflicting fields.\n\n**Conflict key format changed for v1 clients.** Rules now merge as a single flat array, so the per-rule `envName.ruleId` keys used by older clients are no longer recognized. Valid keys: `defaultValue`, `rules`, `prerequisites`, `archived`, `holdout`, and `environmentsEnabled.<env>`. Unrecognized keys are ignored; unresolved conflicts respond with `409`.",
+    "**Deprecated.** Use [POST /v2/features/:id/revisions/:version/rebase](#operation/postFeatureRevisionRebaseV2) instead.\n\nUpdates the draft's base revision to match the currently-live revision, applying the draft's changes on top. Supply `conflictResolutions` to resolve any conflicting fields.\n\n**Conflict key format changed for v1 clients.** The per-rule `envName.ruleId` keys used by older clients are no longer recognized. Valid keys: `defaultValue`, `prerequisites`, `archived`, `holdout`, `environmentsEnabled.<env>`, `metadata.<field>`, `rules.<ruleId>`, `rules.order`, and the blanket `rules` (applies one strategy to all rule-level conflicts). Unrecognized keys are ignored; unresolved conflicts respond with `409`.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
@@ -263,6 +321,7 @@ export const postFeatureRevisionRebaseValidator = {
       conflictResolutions: z
         .record(z.string(), z.enum(["overwrite", "discard"]))
         .optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -272,6 +331,7 @@ export const postFeatureRevisionRebaseValidator = {
 export const postFeatureRevisionRequestReviewValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/request-review",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionRequestReview",
   summary: "Request review for a draft revision",
   description:
@@ -283,6 +343,7 @@ export const postFeatureRevisionRequestReviewValidator = {
   bodySchema: z
     .object({
       comment: z.string().optional(),
+      autoPublishOnApproval: z.boolean().optional(),
     })
     .strict(),
   querySchema: z.never(),
@@ -292,10 +353,10 @@ export const postFeatureRevisionRequestReviewValidator = {
 export const postFeatureRevisionSubmitReviewValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/submit-review",
+  confirmation: ["feature.review"] as const,
   operationId: "postFeatureRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
-  description:
-    "**Deprecated.** Use [POST /v2/features/:id/revisions/:version/submit-review](#operation/postFeatureRevisionSubmitReviewV2) instead.\n\nSubmits an `approve`, `request-changes`, or `comment` review on the draft. Contributors cannot approve their own drafts, but may submit comments or request changes.",
+  description: `**Deprecated.** Use [POST /v2/features/:id/revisions/:version/submit-review](#operation/postFeatureRevisionSubmitReviewV2) instead.\n\nSubmits an \`approve\`, \`request-changes\`, or \`comment\` review on the draft. ${REVIEW_VERDICT_NOTE} Contributors cannot approve their own drafts, but may submit comments or request changes.\n\nWhen \`action\` is \`approve\` and the revision has \`autoPublishOnApproval\` enabled, the revision is automatically published after approval. Pass \`skipAutoPublish: true\` to approve without triggering auto-publish.`,
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
@@ -303,11 +364,17 @@ export const postFeatureRevisionSubmitReviewValidator = {
   bodySchema: z
     .object({
       comment: z.string().optional(),
-      action: z.enum(["approve", "request-changes", "comment"]).optional(),
+      action: z
+        .enum(["approve", "request-changes", "comment"])
+        .describe(REVIEW_ACTION_DESCRIPTION)
+        .optional(),
+      skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    autoPublished: z.boolean().optional(),
+  }),
 };
 
 // ---- Rule validators ----
@@ -327,7 +394,7 @@ const scheduleShorthand = z
   .strict();
 
 const commonRuleFields = {
-  description: z.string().optional(),
+  description: z.string().describe(RULE_DESCRIPTION).optional(),
   enabled: z.boolean().optional(),
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
@@ -341,6 +408,7 @@ const forceRolloutCreateInput = z
     ...commonRuleFields,
     type: z.enum(["force", "rollout"]).optional(),
     value: z.string(),
+    sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),
@@ -358,6 +426,7 @@ const experimentRefCreateInput = z
         .object({ variationId: z.string().optional(), value: z.string() })
         .strict(),
     ),
+    sparse: z.boolean().optional(),
   })
   .strict();
 
@@ -373,7 +442,7 @@ const safeRolloutCreateInput = z
     safeRolloutFields: z
       .object({
         datasourceId: z.string(),
-        exposureQueryId: z.string(),
+        ...apiAssignmentQueryInputFields("exposureQuery"),
         guardrailMetricIds: z.array(z.string()).min(1),
         maxDuration: z
           .object({
@@ -408,6 +477,7 @@ const ruleCreateInput = z.union([
 export const postFeatureRevisionRuleAddValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rules",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionRuleAdd",
   summary: "Add a rule to a draft revision",
   description:
@@ -423,6 +493,7 @@ export const postFeatureRevisionRuleAddValidator = {
       rampSchedule: inlineRampScheduleInput.optional(),
       schedule: scheduleShorthand.optional(),
       ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -432,6 +503,7 @@ export const postFeatureRevisionRuleAddValidator = {
 export const postFeatureRevisionRulesReorderValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rules/reorder",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionRulesReorder",
   summary: "Reorder rules in an environment",
   description:
@@ -445,6 +517,7 @@ export const postFeatureRevisionRulesReorderValidator = {
       environment: z.string(),
       ruleIds: z.array(z.string()),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -455,7 +528,7 @@ export const postFeatureRevisionRulesReorderValidator = {
 // them in a patch.
 const rulePatchSchema = z
   .object({
-    description: z.string().optional(),
+    description: z.string().describe(RULE_DESCRIPTION).optional(),
     enabled: z.boolean().optional(),
     condition: z.string().optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
@@ -466,6 +539,7 @@ const rulePatchSchema = z
       .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
       .optional(),
     value: z.string().optional(),
+    sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),
@@ -482,6 +556,7 @@ const rulePatchSchema = z
 export const putFeatureRevisionRuleValidator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionRule",
   summary: "Update a rule in a draft revision",
   description:
@@ -497,6 +572,7 @@ export const putFeatureRevisionRuleValidator = {
       rampSchedule: inlineRampScheduleInput.optional(),
       schedule: scheduleShorthand.optional(),
       ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
     })
     .strict(),
   querySchema: z.never(),
@@ -506,6 +582,7 @@ export const putFeatureRevisionRuleValidator = {
 export const deleteFeatureRevisionRuleValidator = {
   method: "delete" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId",
+  confirmation: ["feature.draft"] as const,
   operationId: "deleteFeatureRevisionRule",
   summary: "Delete a rule from a draft revision",
   description:
@@ -518,6 +595,7 @@ export const deleteFeatureRevisionRuleValidator = {
     .object({
       environment: z.string(),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -527,6 +605,7 @@ export const deleteFeatureRevisionRuleValidator = {
 export const putFeatureRevisionRuleRampScheduleValidator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId/ramp-schedule",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionRuleRampSchedule",
   summary: "Set ramp schedule for a rule",
   description:
@@ -535,14 +614,23 @@ export const putFeatureRevisionRuleRampScheduleValidator = {
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
   paramsSchema: ruleParams,
-  bodySchema: standaloneRampScheduleInput.extend(newDraftMetadataFields),
+  bodySchema: standaloneRampScheduleInput.extend({
+    ...newDraftMetadataFields,
+    ignoreWarnings: ignoreWarningsBodyField,
+  }),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    warnings: z
+      .array(z.string())
+      .optional()
+      .describe("Non-fatal advisories about how the request was interpreted."),
+  }),
 };
 
 export const deleteFeatureRevisionRuleRampScheduleValidator = {
   method: "delete" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId/ramp-schedule",
+  confirmation: ["feature.draft"] as const,
   operationId: "deleteFeatureRevisionRuleRampSchedule",
   summary: "Remove ramp schedule from a rule",
   description:
@@ -555,6 +643,7 @@ export const deleteFeatureRevisionRuleRampScheduleValidator = {
     .object({
       environment: z.string().optional().meta({ deprecated: true }),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -566,6 +655,7 @@ export const deleteFeatureRevisionRuleRampScheduleValidator = {
 export const postFeatureRevisionToggleValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/toggle",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionToggle",
   summary: "Toggle an environment on/off in a draft revision",
   description:
@@ -579,6 +669,7 @@ export const postFeatureRevisionToggleValidator = {
       environment: z.string(),
       enabled: z.boolean(),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -588,6 +679,7 @@ export const postFeatureRevisionToggleValidator = {
 export const putFeatureRevisionDefaultValueValidator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/default-value",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionDefaultValue",
   summary: "Set the default value in a draft revision",
   description:
@@ -597,7 +689,11 @@ export const putFeatureRevisionDefaultValueValidator = {
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
-    .object({ defaultValue: z.string(), ...newDraftMetadataFields })
+    .object({
+      defaultValue: z.string(),
+      ...newDraftMetadataFields,
+      ...publishOverrideBodyFields,
+    })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
@@ -606,6 +702,7 @@ export const putFeatureRevisionDefaultValueValidator = {
 export const putFeatureRevisionPrerequisitesValidator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/prerequisites",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionPrerequisites",
   summary: "Set feature-level prerequisites in a draft revision",
   description:
@@ -618,6 +715,7 @@ export const putFeatureRevisionPrerequisitesValidator = {
     .object({
       prerequisites: z.array(featurePrerequisite),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -627,6 +725,7 @@ export const putFeatureRevisionPrerequisitesValidator = {
 export const putFeatureRevisionMetadataValidator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/metadata",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionMetadata",
   summary: "Update revision metadata (comment, title, feature metadata)",
   description:
@@ -642,10 +741,23 @@ export const putFeatureRevisionMetadataValidator = {
       description: z.string().optional(),
       owner: ownerInputField.optional(),
       project: z.string().optional(),
+      targetingAllProjects: z
+        .boolean()
+        .describe(
+          "Stage delivering this feature to every project. Requires the `targetFeatures` permission unscoped to any project.",
+        )
+        .optional(),
+      targetingProjects: z
+        .array(z.string())
+        .describe(
+          "Stage the secondary project IDs this feature is delivered to. Adding a project requires the `targetFeatures` permission (FlagsTarget policy) in that project.",
+        )
+        .optional(),
       tags: z.array(z.string()).optional(),
       neverStale: z.boolean().optional(),
       customFields: z.record(z.string(), z.unknown()).optional(),
-      jsonSchema: JSONSchemaDef.optional(),
+      jsonSchema: apiJSONSchemaDefInput.optional(),
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -655,6 +767,7 @@ export const putFeatureRevisionMetadataValidator = {
 export const putFeatureRevisionArchiveValidator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/archive",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionArchive",
   summary: "Set archived state in a draft revision",
   description:
@@ -664,7 +777,11 @@ export const putFeatureRevisionArchiveValidator = {
   tags: ["feature-revisions"],
   paramsSchema: revisionParams,
   bodySchema: z
-    .object({ archived: z.boolean(), ...newDraftMetadataFields })
+    .object({
+      archived: z.boolean(),
+      ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
+    })
     .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
@@ -673,6 +790,7 @@ export const putFeatureRevisionArchiveValidator = {
 export const putFeatureRevisionHoldoutValidator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/holdout",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionHoldout",
   summary: "Set holdout in a draft revision",
   description:
@@ -688,6 +806,7 @@ export const putFeatureRevisionHoldoutValidator = {
         .strict()
         .nullable(),
       ...newDraftMetadataFields,
+      ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z.never(),
@@ -714,7 +833,7 @@ export const listRevisionsValidator = {
       status: revisionStatusFilterSchema,
       author: z.string().optional(),
       mine: booleanQueryField.describe(
-        "If true, return only revisions authored by or contributed to by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+        `If true, return only revisions authored by or contributed to by the calling user. ${REQUIRES_PERSON_NOTE} Mutually exclusive with \`author\`.`,
       ),
     })
     .strict(),

@@ -1,45 +1,118 @@
-import { ChangeEventHandler, FC, useState } from "react";
+import { ChangeEventHandler, FC, useEffect, useRef, useState } from "react";
+import { stripLeadingUtf8ByteOrderMark } from "shared/util";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Button";
+import Callout from "@/ui/Callout";
+import TextField from "@/ui/TextField";
+import { useCanKeepExistingCredentials } from "@/components/Forms/secretInput";
+
+export function BigQueryAdvancedSettings({
+  params,
+  onParamChange,
+}: {
+  params: Partial<BigQueryConnectionParams>;
+  onParamChange: ChangeEventHandler<HTMLInputElement>;
+}) {
+  return (
+    <TextField
+      mb="3"
+      name="apiEndpoint"
+      label="API endpoint (optional)"
+      placeholder="https://proxy.example.com/"
+      value={params.apiEndpoint || ""}
+      onChange={onParamChange}
+      helpText="Default is https://bigquery.googleapis.com. '/bigquery/v2' is automatically appended to the URL."
+    />
+  );
+}
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
   existing: boolean;
-  setParams: (params: { [key: string]: string }) => void;
+  datasourceId?: string;
+  projects?: string[];
+  setParams: (params: { [key: string]: string | boolean }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-}> = ({ params, setParams, existing, onParamChange }) => {
+  /**
+   * Hide Default Dataset and the inline Test Connection button. The dataset
+   * only seeds generated SQL, and the inline test exists to list datasets for
+   * it, so neither applies when the caller tests the connection itself.
+   */
+  connectionOnly?: boolean;
+}> = ({
+  params,
+  setParams,
+  existing,
+  datasourceId,
+  projects,
+  onParamChange,
+  connectionOnly = false,
+}) => {
+  const cloud = isCloud();
+  const authType = cloud ? "json" : (params.authType ?? "json");
+  const canKeepExistingCredentials = useCanKeepExistingCredentials(
+    existing,
+    authType,
+  );
   const [testConnectionResults, setTestConnectionResults] = useState<{
-    status: "success" | "danger" | "warning";
+    status: "success" | "warning" | "danger";
     message: string;
     datasetOptions: string[];
   } | null>(null);
   const { apiCall } = useAuth();
+  const permissionsUtil = usePermissionsUtil();
+  // Without a saved Data Source, testing requires permission to create one in these projects.
+  const canTestConnection =
+    !!datasourceId ||
+    permissionsUtil.canCreateDataSource({ projects, type: "bigquery" });
+  const connectionTest = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    setTestConnectionResults(null);
+    return () => connectionTest.current?.abort();
+  }, [
+    authType,
+    params.projectId,
+    params.apiEndpoint,
+    params.clientEmail,
+    params.privateKey,
+    datasourceId,
+    projects,
+  ]);
 
   async function testConnection() {
+    connectionTest.current?.abort();
+    const controller = new AbortController();
+    connectionTest.current = controller;
     try {
       setTestConnectionResults(null);
-      const { datasets } = await apiCall<{ datasets: string[]; error: string }>(
-        "/datasources/fetch-bigquery-datasets",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            projectId: params.projectId,
-            client_email: params.clientEmail,
-            private_key: params.privateKey,
-          }),
-        },
-      );
+      const { datasets } = await apiCall<{
+        datasets: string[];
+      }>("/datasources/fetch-bigquery-datasets", {
+        method: "POST",
+        signal: controller.signal,
+        body: JSON.stringify({
+          projectId: params.projectId,
+          apiEndpoint: params.apiEndpoint,
+          client_email: params.clientEmail,
+          private_key: params.privateKey,
+          datasourceId,
+          projects,
+        }),
+      });
+      if (controller.signal.aborted) return;
       if (!datasets.length) {
         setTestConnectionResults({
           status: "warning",
           datasetOptions: [],
           message:
-            "We were able to connect to BigQuery, but we weren't able to retreive any datasets in this project.",
+            "We were able to connect to BigQuery, but we weren't able to retrieve any datasets in this project.",
         });
         return;
       }
@@ -53,6 +126,7 @@ const BigQueryForm: FC<{
         setParams({ ["defaultDataset"]: analyticsDataset });
       }
     } catch (e) {
+      if (controller.signal.aborted) return;
       setTestConnectionResults({
         status: "danger",
         message: e.message,
@@ -63,41 +137,33 @@ const BigQueryForm: FC<{
 
   return (
     <div className="row">
-      {!isCloud() && (
+      {!cloud && (
         <div className="col-md-12">
-          <Field
+          <SelectField
+            size="legacy"
             label="Authentication Method"
             options={[
-              {
-                value: "json",
-                display: "JSON key file",
-              },
-              {
-                value: "auto",
-                display: "Auto-discovery",
-              },
+              { value: "json", label: "JSON key file" },
+              { value: "auto", label: "Auto-discovery" },
             ]}
             helpText="'Auto-discovery' will look for credentials in environment variables and GCP metadata."
-            value={params.authType || "json"}
-            onChange={(e) => {
-              setParams({
-                authType: e.target.value,
-              });
-            }}
+            value={authType}
+            onChange={(value) => setParams({ authType: value })}
           />
         </div>
       )}
-      {(isCloud() || params.authType !== "auto") && (
+      {(cloud || authType !== "auto") && (
         <>
           <div className="form-group col-md-12">
             <div className="custom-file">
               <input
                 type="file"
-                required={!existing}
+                required={!canKeepExistingCredentials}
                 className="custom-file-input"
                 id="bigQueryFileInput"
                 accept="application/json"
                 onChange={(e) => {
+                  connectionTest.current?.abort();
                   setTestConnectionResults(null);
                   const file: File | undefined = e.target?.files?.[0];
                   if (!file) {
@@ -111,11 +177,12 @@ const BigQueryForm: FC<{
                       if (typeof str !== "string") {
                         return;
                       }
+                      const raw = stripLeadingUtf8ByteOrderMark(str);
                       const json: {
                         project_id: string;
                         private_key: string;
                         client_email: string;
-                      } = JSON.parse(str);
+                      } = JSON.parse(raw);
 
                       if (
                         json.project_id &&
@@ -127,6 +194,7 @@ const BigQueryForm: FC<{
                           projectId: json.project_id,
                           clientEmail: json.client_email,
                           defaultProject: json.project_id,
+                          serviceAccountJson: raw,
                         });
                       }
                     } catch (e) {
@@ -138,8 +206,13 @@ const BigQueryForm: FC<{
                 }}
               />
               <label className="custom-file-label" htmlFor="bigQueryFileInput">
-                Upload key file...
+                {canKeepExistingCredentials
+                  ? "Upload a new key file..."
+                  : "Upload key file..."}
               </label>
+              {canKeepExistingCredentials ? (
+                <small>Leave blank to keep the existing credentials.</small>
+              ) : null}
             </div>
           </div>
           <div className="form-group col-md-12">
@@ -157,37 +230,49 @@ const BigQueryForm: FC<{
                   </li>
                 </ul>
                 {testConnectionResults?.message ? (
-                  <div
-                    className={`alert alert-${testConnectionResults.status}`}
+                  <Callout
+                    status={
+                      testConnectionResults.status === "danger"
+                        ? "error"
+                        : testConnectionResults.status
+                    }
                   >
                     {testConnectionResults.message}
-                  </div>
+                  </Callout>
                 ) : null}
               </>
             ) : (
-              <div className="alert alert-info">
+              <Callout status="info">
                 Your connection info will appear here when you select a valid
                 JSON key file.
-              </div>
+              </Callout>
             )}
-            <Button
-              disabled={
-                !params.projectId || !params.clientEmail || !params.privateKey
-              }
-              color="primary"
-              className="mt-2"
-              onClick={async () => {
-                await testConnection();
-              }}
-            >
-              Test Connection
-            </Button>
+            {!connectionOnly && (
+              <Button
+                disabled={
+                  !canTestConnection ||
+                  !params.projectId ||
+                  !params.clientEmail ||
+                  (!params.privateKey && !datasourceId)
+                }
+                color="primary"
+                className="mt-2"
+                onClick={async () => {
+                  await testConnection();
+                }}
+              >
+                Test Connection
+              </Button>
+            )}
           </div>
         </>
       )}
-      <div className="form-group col-md-12">
+      <div
+        className={`form-group ${connectionOnly ? "col-md-12" : "col-md-6"}`}
+      >
         <label>BigQuery Project ID</label>
         <Field
+          size="legacy"
           type="text"
           className="form-control"
           name="defaultProject"
@@ -196,58 +281,63 @@ const BigQueryForm: FC<{
           placeholder=""
         />
       </div>
+      {!connectionOnly && (
+        <div className="form-group col-md-6">
+          <label>
+            Default Dataset{" "}
+            <Tooltip body="The default dataset is where your experiment assignments are stored. GrowthBook uses this to create default queries that define working assignments and metrics. This value can be edited later if needed." />
+          </label>
+          {testConnectionResults &&
+          testConnectionResults?.datasetOptions.length > 0 ? (
+            <SelectField
+              size="legacy"
+              placeholder="Choose a dataset or create a new one..."
+              name="defaultDataset"
+              autoComplete="off"
+              sort={false}
+              options={testConnectionResults.datasetOptions.map((option) => ({
+                label: option,
+                value: option,
+              }))}
+              createable
+              required
+              isClearable
+              value={params.defaultDataset || ""}
+              onChange={(value) => setParams({ ["defaultDataset"]: value })}
+              helpText="Select the dataset where your experiment assignments are or will be stored."
+            />
+          ) : (
+            <Field
+              size="legacy"
+              type="text"
+              className="form-control"
+              name="defaultDataset"
+              value={params.defaultDataset || ""}
+              onChange={onParamChange}
+              placeholder=""
+              helpText={
+                authType !== "auto"
+                  ? "Use the 'Test Connection' button to fetch a list of datasets from your BigQuery project."
+                  : ""
+              }
+              required
+            />
+          )}
+        </div>
+      )}
       <div className="form-group col-md-12">
         <label>
           Reservation (optional){" "}
           <Tooltip body="If set, GrowthBook will include this reservation on all BigQuery query jobs. Use the full reservation resource name (e.g. projects/my-project/locations/US/reservations/my-reservation)." />
         </label>
         <Field
+          size="legacy"
           type="text"
           className="form-control"
           name="reservation"
           value={params.reservation || ""}
           onChange={onParamChange}
         />
-      </div>
-      <div className="form-group col-md-12">
-        <label>
-          Default Dataset{" "}
-          <Tooltip body="The default dataset is where your experiment assignments are stored. GrowthBook uses this to create default queries that define working assignments and metrics. This value can be edited later if needed." />
-        </label>
-        {testConnectionResults &&
-        testConnectionResults?.datasetOptions.length > 0 ? (
-          <SelectField
-            placeholder="Choose a dataset or create a new one..."
-            name="defaultDataset"
-            autoComplete="off"
-            sort={false}
-            options={testConnectionResults.datasetOptions.map((option) => ({
-              label: option,
-              value: option,
-            }))}
-            createable
-            required
-            isClearable
-            value={params.defaultDataset || ""}
-            onChange={(value) => setParams({ ["defaultDataset"]: value })}
-            helpText="Select the dataset where your experiment assignments are or will be stored."
-          />
-        ) : (
-          <Field
-            type="text"
-            className="form-control"
-            name="defaultDataset"
-            value={params.defaultDataset || ""}
-            onChange={onParamChange}
-            placeholder=""
-            helpText={
-              params.authType !== "auto"
-                ? "Use the 'Test Connection' button to fetch a list of datasets from your BigQuery project."
-                : ""
-            }
-            required
-          />
-        )}
       </div>
     </div>
   );

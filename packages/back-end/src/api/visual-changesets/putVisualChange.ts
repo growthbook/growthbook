@@ -1,7 +1,11 @@
 import { putVisualChangeValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
-  findExperimentByVisualChangesetId,
+  ownerNotFoundMessage,
+  resolveChangesetOwner,
+} from "back-end/src/services/changesetOwner";
+import {
+  findVisualChangesetById,
   updateVisualChange,
 } from "back-end/src/models/VisualChangesetModel";
 
@@ -10,28 +14,37 @@ export const putVisualChange = createApiRequestHandler(
 )(async (req) => {
   const changesetId = req.params.id;
   const visualChangeId = req.params.visualChangeId;
-  const orgId = req.organization.id;
-  const payload = req.body;
+  // The opt-in flag gates the write; it is not part of the visual change.
+  const { allowRunningExperiment, ...payload } = req.body;
 
-  const experiment = await findExperimentByVisualChangesetId(
-    req.context,
+  const visualChangeset = await findVisualChangesetById(
     changesetId,
+    req.organization.id,
   );
-
-  if (!experiment) {
-    throw new Error("Experiment not found");
+  if (!visualChangeset) {
+    throw new Error("Visual Changeset not found");
   }
 
-  if (!req.context.permissions.canUpdateVisualChange(experiment)) {
+  const owner = await resolveChangesetOwner(req.context, visualChangeset);
+  if (!owner) {
+    throw new Error(ownerNotFoundMessage(visualChangeset));
+  }
+  if (!owner.canUpdateVisualChange()) {
     req.context.permissions.throwPermissionError();
   }
+  const auditLiveEdit = owner.requireWrite(req, {
+    allowRunning: !!allowRunningExperiment,
+    visualChangesetId: changesetId,
+  });
 
   const res = await updateVisualChange({
+    context: req.context,
+    owner,
     changesetId,
     visualChangeId,
-    organization: orgId,
     payload,
   });
+  await auditLiveEdit();
 
   return res;
 });

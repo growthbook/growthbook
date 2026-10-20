@@ -1,10 +1,25 @@
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type { ReqContext } from "back-end/types/organization";
+import type { ApiReqContext } from "back-end/types/api";
+import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import {
   ApiRuleV2Input,
+  assertCanUseRuleScheduling,
+  assertUniqueRuleIds,
+  assertUniqueRuleIdsByEnv,
+  assertValidChangedRuleExperimentIds,
+  assertRuleVariationsMatchExperiment,
+  assertValidRuleExperimentIds,
+  assertValidRuleProjectIds,
+  validateEnvRulesScheduleRules,
+  composeConfigBacking,
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
   resolveScopeFromInput,
+  validateRulesScheduleRules,
+  experimentRefChanged,
 } from "back-end/src/api/features/v2Shared";
+import { BadRequestError } from "back-end/src/util/errors";
 
 // ---------------------------------------------------------------------------
 // Pure-function unit tests for the v2 API mapping/extraction helpers.
@@ -19,6 +34,10 @@ import {
 //      `safeRolloutId` on `existingFeature`, otherwise the bulk path throws.
 //      New safe-rollouts must go through the per-rule add endpoint.
 // ---------------------------------------------------------------------------
+
+jest.mock("back-end/src/models/ExperimentModel", () => ({
+  getExperimentsByIds: jest.fn(),
+}));
 
 describe("resolveScopeFromInput", () => {
   it("allEnvironments:true drops environments[]", () => {
@@ -57,7 +76,65 @@ describe("resolveScopeFromInput", () => {
   });
 });
 
+describe("composeConfigBacking", () => {
+  it("composes an object patch onto the config backing", () => {
+    expect(
+      composeConfigBacking("pricing", '{"discount":5}', "Rule value"),
+    ).toBe('{"$extends":["@config:pricing"],"discount":5}');
+  });
+
+  it("keeps a pure backing ref for an empty/whitespace patch", () => {
+    expect(composeConfigBacking("pricing", "", "Rule value")).toBe(
+      '{"$extends":["@config:pricing"]}',
+    );
+    expect(composeConfigBacking("pricing", "   ", "Rule value")).toBe(
+      '{"$extends":["@config:pricing"]}',
+    );
+    expect(composeConfigBacking("pricing", undefined, "Rule value")).toBe(
+      '{"$extends":["@config:pricing"]}',
+    );
+  });
+
+  it("rejects a scalar or array value when a config is supplied (would silently drop the backing)", () => {
+    expect(() => composeConfigBacking("pricing", "42", "Rule value")).toThrow(
+      /must be a JSON object when backed by a Config/,
+    );
+    expect(() =>
+      composeConfigBacking("pricing", '"hello"', "Variation value"),
+    ).toThrow(/Variation value must be a JSON object/);
+    expect(() =>
+      composeConfigBacking("pricing", "[1,2]", "Rule value"),
+    ).toThrow(/must be a JSON object when backed by a Config/);
+    expect(() => composeConfigBacking("pricing", "true", "Rule value")).toThrow(
+      /must be a JSON object when backed by a Config/,
+    );
+  });
+
+  it("leaves a scalar value untouched when no config is supplied (detach)", () => {
+    expect(composeConfigBacking(null, "42", "Rule value")).toBe("42");
+  });
+});
+
 describe("mapV2ApiRuleToFeatureRule", () => {
+  it("rejects a config-backed variation whose value is a scalar", () => {
+    expect(() =>
+      mapV2ApiRuleToFeatureRule({
+        type: "experiment-ref",
+        experimentId: "exp_1",
+        variations: [{ variationId: "0", value: "42", config: "pricing" }],
+      } as ApiRuleV2Input),
+    ).toThrow(/Variation value must be a JSON object/);
+  });
+
+  it("composes a config-backed force value from an object patch", () => {
+    const out = mapV2ApiRuleToFeatureRule({
+      type: "force",
+      value: '{"discount":5}',
+      config: "pricing",
+    } as ApiRuleV2Input);
+    expect(out.value).toBe('{"$extends":["@config:pricing"],"discount":5}');
+  });
+
   describe("force rule", () => {
     it("maps minimal force input with default scope (allEnvironments:true)", () => {
       const out = mapV2ApiRuleToFeatureRule({
@@ -85,6 +162,25 @@ describe("mapV2ApiRuleToFeatureRule", () => {
       expect(out.savedGroups).toEqual([{ match: "any", ids: ["g1", "g2"] }]);
     });
 
+    it("takes savedGroups through as-is instead of dropping the targeting", () => {
+      const out = mapV2ApiRuleToFeatureRule({
+        type: "force",
+        value: "true",
+        savedGroups: [{ match: "all", ids: ["g1"] }],
+      } as ApiRuleV2Input);
+      expect(out.savedGroups).toEqual([{ match: "all", ids: ["g1"] }]);
+    });
+
+    it("prefers savedGroups when both spellings are supplied", () => {
+      const out = mapV2ApiRuleToFeatureRule({
+        type: "force",
+        value: "true",
+        savedGroups: [{ match: "all", ids: ["storage"] }],
+        savedGroupTargeting: [{ matchType: "any", savedGroups: ["response"] }],
+      } as ApiRuleV2Input);
+      expect(out.savedGroups).toEqual([{ match: "all", ids: ["storage"] }]);
+    });
+
     it("infers allEnvironments:false when only environments[] is provided", () => {
       const out = mapV2ApiRuleToFeatureRule({
         type: "force",
@@ -110,6 +206,37 @@ describe("mapV2ApiRuleToFeatureRule", () => {
         coverage: 0.5,
         hashAttribute: "userId",
       });
+    });
+
+    // GET→edit→PUT must persist id/seed/hashVersion verbatim (else re-bucketing).
+    it("preserves id, seed, and hashVersion on round-trip", () => {
+      const out = mapV2ApiRuleToFeatureRule({
+        id: "fr_explicit",
+        type: "rollout",
+        value: "v",
+        coverage: 0.5,
+        hashAttribute: "userId",
+        seed: "my-seed",
+        hashVersion: 2,
+      } as ApiRuleV2Input);
+      expect(out).toMatchObject({
+        id: "fr_explicit",
+        seed: "my-seed",
+        hashVersion: 2,
+        hashAttribute: "userId",
+      });
+    });
+
+    // Absent seed stays absent — the write-time backfill owns the default.
+    it("does not invent a seed when the caller omits one", () => {
+      const out = mapV2ApiRuleToFeatureRule({
+        type: "rollout",
+        value: "v",
+        coverage: 0.5,
+        hashAttribute: "userId",
+      } as ApiRuleV2Input);
+      expect(out).not.toHaveProperty("seed");
+      expect(out).not.toHaveProperty("hashVersion");
     });
   });
 
@@ -279,6 +406,151 @@ describe("mapV2ApiRuleToFeatureRule", () => {
 // regression to the in-place mutation pattern.
 // ---------------------------------------------------------------------------
 
+// Both fields are emitted on GET and accepted on every rule type, so the
+// mapper must carry them or a fetch → edit → send-back drops the gate/schedule.
+describe("mapV2ApiRuleToFeatureRule prerequisites + scheduleRules", () => {
+  const prerequisites = [{ id: "parent_flag", condition: '{"value": true}' }];
+  const scheduleRules = [
+    { timestamp: "2030-01-01T00:00:00.000Z", enabled: true },
+    { timestamp: null, enabled: false },
+  ];
+  const existingSafeRollout: FeatureInterface = {
+    rules: [
+      {
+        id: "fr_sr",
+        type: "safe-rollout",
+        safeRolloutId: "sr_1",
+        trackingKey: "tk",
+        seed: "seed",
+        status: "running",
+      },
+    ],
+  } as unknown as FeatureInterface;
+
+  it.each<[string, ApiRuleV2Input]>([
+    ["force", { type: "force", value: "true" } as ApiRuleV2Input],
+    [
+      "safe-rollout",
+      {
+        type: "safe-rollout",
+        id: "fr_sr",
+        controlValue: "false",
+        variationValue: "true",
+        hashAttribute: "id",
+        safeRolloutId: "sr_1",
+      } as ApiRuleV2Input,
+    ],
+  ])("carries both through for a %s rule", (_type, input) => {
+    const out = mapV2ApiRuleToFeatureRule(
+      { ...input, prerequisites, scheduleRules } as ApiRuleV2Input,
+      existingSafeRollout,
+    );
+    expect(out.prerequisites).toEqual(prerequisites);
+    expect(out.scheduleRules).toEqual(scheduleRules);
+  });
+
+  it("leaves both undefined when the input omits them", () => {
+    const out = mapV2ApiRuleToFeatureRule({
+      type: "force",
+      value: "true",
+    } as ApiRuleV2Input);
+    expect(out.prerequisites).toBeUndefined();
+    expect(out.scheduleRules).toBeUndefined();
+  });
+});
+
+describe("validateRulesScheduleRules", () => {
+  const valid = [
+    { timestamp: "2030-01-01T00:00:00.000Z", enabled: true },
+    { timestamp: null, enabled: false },
+  ];
+  const rule = (scheduleRules?: unknown) =>
+    ({ type: "force", value: "true", scheduleRules }) as FeatureRule;
+  const ctx = (premium: boolean) =>
+    ({
+      hasPremiumFeature: jest.fn(() => premium),
+      throwPlanDoesNotAllowError: (message: string) => {
+        throw new Error(message);
+      },
+    }) as unknown as ApiReqContext;
+
+  it("skips rules with no or empty scheduleRules without consulting the plan", () => {
+    const context = ctx(false);
+    validateRulesScheduleRules([rule(), rule([])], context);
+    expect(context.hasPremiumFeature).not.toHaveBeenCalled();
+  });
+
+  it("v1 shape: an empty scheduleRules array is unscheduled and skips the plan gate", () => {
+    const context = ctx(false);
+    validateEnvRulesScheduleRules(
+      {
+        production: {
+          enabled: true,
+          rules: [{ type: "force", value: "true", scheduleRules: [] }],
+        },
+      } as Parameters<typeof validateEnvRulesScheduleRules>[0],
+      context,
+    );
+    expect(context.hasPremiumFeature).not.toHaveBeenCalled();
+  });
+
+  it("refuses scheduleRules without the plan feature", () => {
+    expect(() => validateRulesScheduleRules([rule(valid)], ctx(false))).toThrow(
+      /schedule rules/,
+    );
+  });
+
+  it("does not consult the plan when the stored counterpart is already scheduled", () => {
+    const stored = { ...rule(valid), id: "fr_1", allEnvironments: true };
+    const edited = [
+      valid[0],
+      { timestamp: "2031-01-01T00:00:00.000Z", enabled: false },
+    ];
+    const v2 = ctx(false);
+    validateRulesScheduleRules(
+      [{ ...rule(edited), id: "fr_1" } as FeatureRule],
+      v2,
+      [stored],
+    );
+    expect(v2.hasPremiumFeature).not.toHaveBeenCalled();
+
+    const v1 = ctx(false);
+    validateEnvRulesScheduleRules(
+      {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              id: "fr_1__production",
+              type: "force",
+              value: "true",
+              scheduleRules: edited,
+            },
+          ],
+        },
+      } as Parameters<typeof validateEnvRulesScheduleRules>[0],
+      v1,
+      [stored],
+    );
+    expect(v1.hasPremiumFeature).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed scheduleRules and names the rule", () => {
+    expect(() =>
+      validateRulesScheduleRules([rule(valid), rule([valid[0]])], ctx(true)),
+    ).toThrow(BadRequestError);
+    expect(() =>
+      validateRulesScheduleRules([rule(valid), rule([valid[0]])], ctx(true)),
+    ).toThrow(/rule 2/);
+  });
+
+  it("accepts valid scheduleRules with the plan feature", () => {
+    expect(() =>
+      validateRulesScheduleRules([rule(valid)], ctx(true)),
+    ).not.toThrow();
+  });
+});
+
 describe("extractRevisionMetadata", () => {
   it("splits owner/description/project/tags/customFields/jsonSchema into metadata", () => {
     const updates: Partial<FeatureInterface> = {
@@ -346,5 +618,212 @@ describe("extractRevisionMetadata", () => {
     expect(remaining).toEqual(updates);
     // Returned `remaining` is a fresh object, not the same reference.
     expect(remaining).not.toBe(updates);
+  });
+});
+
+describe("assertValidRuleProjectIds", () => {
+  const context = {
+    getAllProjectIds: async () => ["p1", "p2"],
+  } as unknown as ReqContext;
+  const rule = (projects?: string[]) =>
+    ({ id: "r", type: "force", projects }) as unknown as FeatureRule;
+
+  it("resolves when every rule project exists", async () => {
+    await expect(
+      assertValidRuleProjectIds([rule(["p1"]), rule(["p2"])], context),
+    ).resolves.toBeUndefined();
+  });
+
+  it("resolves for rules with no project scope", async () => {
+    await expect(
+      assertValidRuleProjectIds([rule(), rule([])], context),
+    ).resolves.toBeUndefined();
+  });
+
+  it("throws when a rule references a non-existent project", async () => {
+    await expect(
+      assertValidRuleProjectIds([rule(["p1"]), rule(["ghost"])], context),
+    ).rejects.toThrow(/rule project ids.*ghost/);
+  });
+});
+
+describe("assertUniqueRuleIds", () => {
+  it("rejects a repeated id and ignores blank ones", () => {
+    expect(() =>
+      assertUniqueRuleIds([
+        { id: "a" },
+        { id: "" },
+        {},
+        { id: "b" },
+        { id: "a" },
+      ]),
+    ).toThrow("Duplicate rule ID(s): a.");
+    expect(() =>
+      assertUniqueRuleIds([{ id: "a" }, { id: "" }, {}]),
+    ).not.toThrow();
+  });
+
+  it("v1 shape: checks each environment on its own", () => {
+    const body = (prod: string[], dev: string[]) =>
+      ({
+        production: { enabled: true, rules: prod.map((id) => ({ id })) },
+        dev: { enabled: true, rules: dev.map((id) => ({ id })) },
+      }) as Parameters<typeof assertUniqueRuleIdsByEnv>[0];
+    expect(() => assertUniqueRuleIdsByEnv(body(["a"], ["a"]))).not.toThrow();
+    expect(() => assertUniqueRuleIdsByEnv(body(["a", "a"], []))).toThrow(
+      'Duplicate rule ID(s) in environment "production": a.',
+    );
+    // Migration-suffixed siblings read back as distinct ids and must echo.
+    expect(() =>
+      assertUniqueRuleIdsByEnv(
+        body(["fr_x__production", "fr_x__production__2"], []),
+      ),
+    ).not.toThrow();
+  });
+});
+
+describe("assertCanUseRuleScheduling", () => {
+  const ctx = (features: string[]) =>
+    ({
+      hasPremiumFeature: (f: string) => features.includes(f),
+      throwPlanDoesNotAllowError: (message: string) => {
+        throw new Error(message);
+      },
+    }) as unknown as ApiReqContext;
+
+  it("gates every scheduling shape on the one Pro feature the dashboard uses", () => {
+    const schedule = { startDate: "2030-01-01T00:00:00.000Z" };
+    const pro = ctx(["schedule-feature-flag"]);
+    for (const input of [
+      { schedule },
+      { scheduleRules: [{ timestamp: null, enabled: true }] },
+      { rampSchedule: { steps: [] } },
+    ]) {
+      expect(() => assertCanUseRuleScheduling(ctx([]), input)).toThrow(
+        /Pro plan/,
+      );
+      expect(() => assertCanUseRuleScheduling(pro, input)).not.toThrow();
+    }
+    expect(() => assertCanUseRuleScheduling(ctx([]), {})).not.toThrow();
+    expect(() =>
+      assertCanUseRuleScheduling(ctx([]), { scheduleRules: [] }),
+    ).not.toThrow();
+  });
+});
+
+describe("assertRuleVariationsMatchExperiment", () => {
+  const experiment = {
+    variations: [{ id: "v0" }, { id: "v1" }],
+    phases: [{}],
+  } as unknown as Parameters<typeof assertRuleVariationsMatchExperiment>[1];
+  const rule = (...ids: string[]) => ({
+    experimentId: "exp",
+    variations: ids.map((variationId) => ({ variationId })),
+  });
+
+  it.each([
+    [
+      "a stray id",
+      rule("v0", "v9"),
+      /"v9" is not a variation of experiment "exp"/,
+    ],
+    ["a duplicate", rule("v0", "v0"), /Duplicate variationId "v0"/],
+    ["too few arms", rule("v0"), /has 2 variation\(s\) but 1 were specified/],
+    [
+      "a legacy rule with no variations",
+      { experimentId: "exp" },
+      /has 2 variation\(s\) but 0/,
+    ],
+  ])("rejects %s", (_label, input, re) => {
+    expect(() =>
+      assertRuleVariationsMatchExperiment(input, experiment),
+    ).toThrow(re);
+  });
+
+  it("accepts the experiment's arms in any order", () => {
+    expect(() =>
+      assertRuleVariationsMatchExperiment(rule("v1", "v0"), experiment),
+    ).not.toThrow();
+  });
+});
+
+describe("experimentRefChanged", () => {
+  const ref = (experimentId: string, ...ids: string[]) =>
+    ({
+      type: "experiment-ref",
+      experimentId,
+      variations: ids.map((variationId) => ({ variationId, value: "1" })),
+    }) as FeatureRule;
+  const stored = ref("exp", "v0", "v1");
+
+  it.each([
+    ["no stored rule", ref("exp", "v0", "v1"), undefined, true],
+    ["a different experiment", ref("other", "v0", "v1"), stored, true],
+    ["a swapped id", ref("exp", "v0", "v9"), stored, true],
+    ["the same ids in another order", ref("exp", "v1", "v0"), stored, false],
+    [
+      "ids omitted on both sides",
+      { experimentId: "exp" },
+      { type: "experiment-ref", experimentId: "exp" } as FeatureRule,
+      false,
+    ],
+  ])("%s → %s", (_label, rule, prior, expected) => {
+    expect(experimentRefChanged(rule, prior)).toBe(expected);
+  });
+});
+
+describe("assertValidRuleExperimentIds", () => {
+  const context = {} as ApiReqContext;
+  const ref = (id: string, experimentId: string) =>
+    ({
+      id,
+      type: "experiment-ref",
+      experimentId,
+      variations: [{ variationId: "v0", value: "true" }],
+    }) as FeatureRule;
+
+  beforeEach(() => {
+    jest.mocked(getExperimentsByIds).mockReset();
+    jest
+      .mocked(getExperimentsByIds)
+      .mockImplementation(async (_ctx, ids) =>
+        ids
+          .filter((i) => i === "exp_known")
+          .map(
+            (id) => ({ id, variations: [{ id: "v0" }], phases: [{}] }) as never,
+          ),
+      );
+  });
+
+  it("looks up each referenced experiment once and reports the first missing one", async () => {
+    await expect(
+      assertValidRuleExperimentIds(
+        [
+          ref("r1", "exp_known"),
+          ref("r2", "exp_known"),
+          { type: "force" } as FeatureRule,
+        ],
+        context,
+      ),
+    ).resolves.toBeUndefined();
+    expect(getExperimentsByIds).toHaveBeenCalledWith(context, ["exp_known"]);
+    await expect(
+      assertValidRuleExperimentIds([ref("r1", "exp_missing")], context),
+    ).rejects.toThrow('Could not find experiment "exp_missing"');
+  });
+
+  it("update form: skips references unchanged from the stored rule", async () => {
+    const stored = [ref("r1", "exp_gone")];
+    await expect(
+      assertValidChangedRuleExperimentIds(stored, stored, context),
+    ).resolves.toBeUndefined();
+    expect(getExperimentsByIds).not.toHaveBeenCalled();
+    await expect(
+      assertValidChangedRuleExperimentIds(
+        [ref("r1", "exp_missing")],
+        stored,
+        context,
+      ),
+    ).rejects.toThrow(/exp_missing/);
   });
 });

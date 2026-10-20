@@ -1,3 +1,5 @@
+import { scrubSentryEvent } from "shared/sentry";
+
 export async function register() {
   // NB: Sentry for client-side is setup in initEnv
   if (
@@ -13,6 +15,13 @@ export async function register() {
         sendDefaultPii: true,
         environment: process.env.NODE_ENV || "development",
         release: process.env.DD_VERSION || undefined,
+        integrations: [
+          // `data` (the body) and `cookies` default to true, independent of `sendDefaultPii`
+          Sentry.requestDataIntegration({
+            include: { data: false, cookies: false },
+          }),
+        ],
+        beforeSend: (event) => scrubSentryEvent(event),
       });
     }
   }

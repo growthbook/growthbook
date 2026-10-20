@@ -21,12 +21,15 @@ const allCapabilities: Record<SDKCapability, boolean> = {
   remoteEval: true,
   redirects: true,
   savedGroupReferences: true,
+  savedGroupReferencesV2: true,
   visualEditor: true,
   visualEditorDragDrop: true,
   visualEditorJS: true,
   caseInsensitiveRegex: true,
   caseInsensitiveMembership: true,
   namespacesV2: true,
+  contextualBandits: true,
+  trackingPlugin: true,
 };
 
 const languages = Object.keys(sdks);

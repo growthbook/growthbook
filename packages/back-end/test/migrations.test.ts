@@ -11,6 +11,7 @@ import { LegacyMetricInterface } from "shared/types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
+  ExposureQuery,
 } from "shared/types/datasource";
 import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
@@ -38,11 +39,16 @@ import { ExperimentPhase } from "shared/types/experiment";
 import { LegacySavedGroupInterface } from "shared/types/saved-group";
 import { encryptParams } from "back-end/src/services/datasource";
 import { FactMetricModel } from "back-end/src/models/FactMetricModel";
+import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
+import { migrateBlock } from "back-end/src/enterprise/models/DashboardModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
 import {
   migrateExperimentReport,
   migrateSnapshot,
+  normalizeJsonSchemaDef,
+  pinLegacyRolloutSeeds,
   upgradeDatasourceObject,
+  upgradeExposureQuery,
   upgradeExperimentDoc,
   upgradeFeatureRule,
   upgradeMetricDoc,
@@ -50,6 +56,7 @@ import {
   upgradeV0Feature,
 } from "back-end/src/util/migrations";
 import { flattenV1ToV2Rules } from "back-end/src/util/flattenRules";
+import { deepFreeze } from "back-end/test/test-helpers";
 
 describe("Fact Metric Migration", () => {
   it("upgrades delay hours", () => {
@@ -368,6 +375,54 @@ describe("Fact Metric Migration", () => {
         rowFilters: [],
       });
     });
+    it("keeps a complete aggregate filter", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          rowFilters: [],
+          aggregateFilterColumn: "$$count",
+          aggregateFilter: ">= 1",
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+        aggregateFilterColumn: "$$count",
+        aggregateFilter: ">= 1",
+      });
+    });
+    it("drops an aggregate filter column with no filter", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          rowFilters: [],
+          aggregateFilterColumn: "$$count",
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+    it("drops an aggregate filter with a null column", () => {
+      expect(
+        FactMetricModel.migrateColumnRef({
+          factTableId: "ft_123",
+          column: "event_name",
+          rowFilters: [],
+          aggregateFilter: ">= 1",
+          // Mongo stores an explicit `undefined` as null
+          aggregateFilterColumn: null as unknown as string,
+        }),
+      ).toEqual({
+        factTableId: "ft_123",
+        column: "event_name",
+        rowFilters: [],
+      });
+    });
+
     it("Can unmigrate filters for API responses", () => {
       const original: LegacyColumnRef = {
         factTableId: "ft_123",
@@ -551,6 +606,53 @@ describe("Metric Migration", () => {
         delayValue: 3,
       },
     });
+  });
+
+  it("casts string runStarted values to Dates", () => {
+    const baseMetric: LegacyMetricInterface = {
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      id: "",
+      ignoreNulls: false,
+      inverse: false,
+      name: "",
+      organization: "",
+      owner: "",
+      queries: [],
+      runStarted: null,
+      type: "binomial",
+      userIdColumns: {
+        user_id: "user_id",
+        anonymous_id: "anonymous_id",
+      },
+      cappingSettings: {
+        type: "",
+        value: 0,
+      },
+      priorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+      },
+      userIdTypes: ["anonymous_id", "user_id"],
+    };
+
+    expect(
+      upgradeMetricDoc({
+        ...baseMetric,
+        runStarted: "2026-05-20T01:23:45.678Z" as unknown as Date,
+      }).runStarted,
+    ).toEqual(new Date("2026-05-20T01:23:45.678Z"));
+
+    // Dates and nulls pass through unchanged
+    const date = new Date();
+    expect(
+      upgradeMetricDoc({ ...baseMetric, runStarted: date }).runStarted,
+    ).toBe(date);
+    expect(upgradeMetricDoc(baseMetric).runStarted).toBe(null);
   });
 
   it("updates old metric objects - cap and capping", () => {
@@ -1041,6 +1143,7 @@ describe("Datasource Migration", () => {
             name: "Logged-in User Experiments",
             query: "testing",
             userIdType: "user_id",
+            userIdTypes: ["user_id"],
           },
           {
             id: "anonymous_id",
@@ -1049,6 +1152,7 @@ describe("Datasource Migration", () => {
             name: "Anonymous Visitor Experiments",
             query: "testing",
             userIdType: "anonymous_id",
+            userIdTypes: ["anonymous_id"],
           },
         ],
       },
@@ -1099,6 +1203,7 @@ describe("Datasource Migration", () => {
             query:
               "SELECT\n  user_id as user_id,\n  received_at as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM \n  test.experiment_viewed",
             userIdType: "user_id",
+            userIdTypes: ["user_id"],
           },
           {
             id: "anonymous_id",
@@ -1108,10 +1213,104 @@ describe("Datasource Migration", () => {
             query:
               "SELECT\n  anonymous_id as anonymous_id,\n  received_at as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM \n  test.experiment_viewed",
             userIdType: "anonymous_id",
+            userIdTypes: ["anonymous_id"],
           },
         ],
       },
     });
+  });
+
+  it("normalizes exposure query identifier types", () => {
+    const datasource = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      id: "",
+      name: "",
+      description: "",
+      organization: "",
+      params: "",
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "legacy",
+              name: "Legacy",
+              userIdType: "user_id",
+              dimensions: [],
+              query: "SELECT user_id",
+            },
+            {
+              id: "multi",
+              name: "Multi",
+              userIdType: "anonymous_id",
+              userIdTypes: ["user_id", "anonymous_id"],
+              dimensions: [],
+              query: "SELECT user_id, anonymous_id",
+            },
+          ],
+        },
+      },
+      type: "mixpanel",
+    } as DataSourceInterface;
+
+    const exposureQueries = upgradeDatasourceObject(cloneDeep(datasource))
+      .settings.queries?.exposure;
+
+    expect(exposureQueries?.[0]).toMatchObject({
+      userIdType: "user_id",
+      userIdTypes: ["user_id"],
+    });
+    // The legacy identifier is frozen, so it doesn't follow userIdTypes[0].
+    expect(exposureQueries?.[1]).toMatchObject({
+      userIdType: "anonymous_id",
+      userIdTypes: ["user_id", "anonymous_id"],
+    });
+  });
+
+  it("fills a missing legacy identifier from userIdTypes and drops empty scalars", () => {
+    expect(
+      upgradeExposureQuery({
+        id: "q",
+        name: "Q",
+        userIdType: "",
+        userIdTypes: ["user_id", "anonymous_id"],
+        dimensions: [],
+        query: "",
+      }),
+    ).toMatchObject({ userIdType: "user_id" });
+    expect(
+      upgradeExposureQuery({
+        id: "q",
+        name: "Q",
+        userIdType: "",
+        userIdTypes: [],
+        dimensions: [],
+        query: "",
+      }).userIdTypes,
+    ).toEqual([]);
+  });
+
+  it("upgrades exposure queries idempotently", () => {
+    const queries: ExposureQuery[] = [
+      {
+        id: "legacy",
+        name: "Legacy",
+        userIdType: "user_id",
+        dimensions: [],
+        query: "",
+      } as unknown as ExposureQuery,
+      {
+        id: "multi",
+        name: "Multi",
+        userIdType: "anonymous_id",
+        userIdTypes: ["user_id", "anonymous_id"],
+        dimensions: [],
+        query: "",
+      },
+    ];
+    const once = queries.map((q) => upgradeExposureQuery(cloneDeep(q)));
+    const twice = once.map((q) => upgradeExposureQuery(cloneDeep(q)));
+    expect(twice).toEqual(once);
   });
 
   it("migrates pipelineSettings: add mode if not existing", () => {
@@ -1343,6 +1542,31 @@ describe("v0 Feature Migration", () => {
       ...origFeature,
       draft: undefined,
     });
+  });
+
+  it("stores a rule value written as a raw JSON type as its string form", () => {
+    const force = (value: unknown) =>
+      ({ id: "r", type: "force", value }) as unknown as FeatureRule;
+    expect(upgradeFeatureRule(force(false)).value).toBe("false");
+    expect(upgradeFeatureRule(force({ limit: 5 })).value).toBe('{"limit":5}');
+    expect(upgradeFeatureRule(force("true")).value).toBe("true");
+    expect(upgradeFeatureRule(force(undefined))).toEqual(force(undefined));
+  });
+
+  it("reads a stored null environments list as no environments", () => {
+    const rule = (fields: Record<string, unknown>) =>
+      ({
+        id: "r",
+        type: "force",
+        value: "x",
+        ...fields,
+      }) as unknown as FeatureRule;
+    expect(
+      upgradeFeatureRule(rule({ allEnvironments: false, environments: null })),
+    ).toEqual(rule({ allEnvironments: false, environments: [] }));
+    expect(
+      upgradeFeatureRule(rule({ allEnvironments: true, environments: null })),
+    ).toEqual(rule({ allEnvironments: true }));
   });
 
   it("migrates old feature rules", () => {
@@ -1822,6 +2046,22 @@ describe("Experiment Migration", () => {
       releasedVariationId: "foo",
     });
   });
+  it("uses `winner` 0 (control won) for releasedVariationId, not the default 1", () => {
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        status: "stopped",
+        results: "won",
+        winner: 0,
+      }),
+    ).toEqual({
+      ...upgraded,
+      status: "stopped",
+      results: "won",
+      winner: 0,
+      releasedVariationId: "0",
+    });
+  });
   it("Doesn't overwrite other attribution models", () => {
     expect(
       upgradeExperimentDoc({
@@ -1966,6 +2206,12 @@ describe("Experiment Migration", () => {
 });
 
 describe("Organization Migration", () => {
+  // The upgrade shares nested values with its input, so a write to the input must throw
+  const upgradeFrozen = (doc: OrganizationInterface) => {
+    deepFreeze(doc as unknown as Record<string, unknown>);
+    return upgradeOrganizationDoc(doc);
+  };
+
   it("Upgrades old Organization objects", () => {
     const org: OrganizationInterface = {
       dateCreated: new Date(),
@@ -1978,7 +2224,7 @@ describe("Organization Migration", () => {
     };
 
     expect(
-      upgradeOrganizationDoc({
+      upgradeFrozen({
         ...org,
       }),
     ).toEqual({
@@ -2001,6 +2247,7 @@ describe("Organization Migration", () => {
         },
         statsEngine: DEFAULT_STATS_ENGINE,
         restApiBypassesReviews: true,
+        stickyBucketingOnByDefault: true,
         environments: [
           {
             id: "dev",
@@ -2017,6 +2264,67 @@ describe("Organization Migration", () => {
     });
   });
 
+  it("copies only the parts it upgrades and leaves the given document unchanged", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(0),
+      invites: [],
+      members: [
+        {
+          id: "u_1",
+          role: "designer",
+          dateCreated: new Date(0),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        {
+          id: "u_2",
+          role: "admin",
+          dateCreated: new Date(0),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      ] as OrganizationInterface["members"],
+      settings: {
+        implementationTypes: ["visual"],
+        requireReviews: true,
+        postStratificationDisabled: true,
+        namespaces: [{ name: "ns1", description: "", status: "active" }],
+        metricDefaults: {
+          priorSettings: {
+            override: false,
+            proper: true,
+            mean: 0,
+            stddev: -1,
+          },
+        },
+      } as OrganizationInterface["settings"],
+    };
+    const snapshot = cloneDeep(testOrg);
+
+    const result = upgradeFrozen(testOrg);
+
+    expect(testOrg).toStrictEqual(snapshot);
+    expect(result.members[0].role).toBe("collaborator");
+    expect(result.members[1]).toBe(testOrg.members[1]);
+    expect(result.settings.visualEditorEnabled).toBe(true);
+    expect(result.settings.implementationTypes).toBeUndefined();
+    expect(result.settings.postStratificationEnabled).toBe(false);
+    expect(result.settings.postStratificationDisabled).toBeUndefined();
+    expect(Array.isArray(result.settings.requireReviews)).toBe(true);
+    expect(result.settings.namespaces?.[0]).toMatchObject({
+      label: "ns1",
+      seed: "ns1",
+      format: "legacy",
+    });
+    expect(result.settings.metricDefaults?.priorSettings?.stddev).toBe(
+      DEFAULT_PROPER_PRIOR_STDDEV,
+    );
+  });
+
   it("backfills restApiBypassesReviews=true for orgs missing the setting", () => {
     const testOrg: OrganizationInterface = {
       id: "org_test",
@@ -2028,7 +2336,7 @@ describe("Organization Migration", () => {
       members: [],
       settings: {},
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.restApiBypassesReviews).toBe(true);
   });
 
@@ -2043,7 +2351,7 @@ describe("Organization Migration", () => {
       members: [],
       settings: { restApiBypassesReviews: false },
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.restApiBypassesReviews).toBe(false);
   });
 
@@ -2060,8 +2368,59 @@ describe("Organization Migration", () => {
       members: [],
       settings: { restApiBypassesReviews: false },
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.restApiBypassesReviews).toBe(false);
+  });
+
+  it("defaults stickyBucketingOnByDefault to true for orgs that predate the setting", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {},
+    };
+    const result = upgradeFrozen(testOrg);
+    expect(result.settings.stickyBucketingOnByDefault).toBe(true);
+  });
+
+  it("preserves an explicit stickyBucketingOnByDefault=false (per-experiment opt-in)", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {
+        useStickyBucketing: true,
+        stickyBucketingOnByDefault: false,
+      },
+    };
+    const result = upgradeFrozen(testOrg);
+    expect(result.settings.stickyBucketingOnByDefault).toBe(false);
+  });
+
+  it("preserves an explicit stickyBucketingOnByDefault=true", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(),
+      invites: [],
+      members: [],
+      settings: {
+        useStickyBucketing: true,
+        stickyBucketingOnByDefault: true,
+      },
+    };
+    const result = upgradeFrozen(testOrg);
+    expect(result.settings.stickyBucketingOnByDefault).toBe(true);
   });
 
   it("migrate approval flow settings", () => {
@@ -2077,7 +2436,7 @@ describe("Organization Migration", () => {
         requireReviews: true,
       },
     };
-    const org = upgradeOrganizationDoc(testOrg);
+    const org = upgradeFrozen(testOrg);
     expect(org).toEqual({
       ...org,
       settings: {
@@ -2869,6 +3228,25 @@ describe("saved group migrations", () => {
     });
   });
 
+  it("does not synthesize a runtime condition when the read omitted condition", () => {
+    expect(
+      SavedGroupModel.migrateSavedGroup(
+        {
+          ...baseSavedGroup,
+          attributeKey: "foo",
+          values: [],
+          source: "runtime",
+        },
+        { conditionOmitted: true },
+      ),
+    ).toEqual({
+      ...baseSavedGroup,
+      attributeKey: "foo",
+      values: [],
+      type: "condition",
+    });
+  });
+
   it("does not migrate saved groups that already have type=list", () => {
     expect(
       SavedGroupModel.migrateSavedGroup({
@@ -2902,6 +3280,215 @@ describe("saved group migrations", () => {
       values: [],
       type: "condition",
       condition: JSON.stringify({ id: { $eq: "123" } }),
+    });
+  });
+});
+
+// Documents written before `schemaType`/`simple` existed hold a three-key
+// jsonSchema that means exactly what the five-key one means. Both the feature
+// read and the revision read normalize through this, so an untouched schema
+// never surfaces as an edit.
+describe("normalizeJsonSchemaDef", () => {
+  const legacy = {
+    schema: "",
+    date: new Date("2024-02-26T04:27:49.018Z"),
+    enabled: false,
+  };
+
+  it("backfills the keys that postdate the oldest documents", () => {
+    expect(normalizeJsonSchemaDef(legacy)).toEqual({
+      ...legacy,
+      schemaType: "schema",
+      simple: { type: "object", fields: [] },
+    });
+  });
+
+  it("gives a legacy and an already-backfilled document the same spelling", () => {
+    const backfilled = {
+      ...legacy,
+      schemaType: "schema" as const,
+      simple: { type: "object" as const, fields: [] },
+    };
+    expect(normalizeJsonSchemaDef(legacy)).toEqual(
+      normalizeJsonSchemaDef(backfilled),
+    );
+  });
+
+  it("leaves a configured schema alone", () => {
+    const configured = {
+      schemaType: "simple" as const,
+      schema: '{"type":"object"}',
+      simple: {
+        type: "object" as const,
+        fields: [{ key: "a", type: "string" }],
+      },
+      date: legacy.date,
+      enabled: true,
+    };
+    expect(normalizeJsonSchemaDef(configured)).toEqual(configured);
+  });
+
+  it("does not mutate its input", () => {
+    const input = { ...legacy };
+    normalizeJsonSchemaDef(input);
+    expect(input).toEqual(legacy);
+  });
+});
+
+describe("pinLegacyRolloutSeeds", () => {
+  const rollout = (over: Partial<FeatureRule> = {}) =>
+    ({
+      id: "fr_rule",
+      type: "rollout",
+      value: "true",
+      coverage: 0.5,
+      hashAttribute: "id",
+      ...over,
+    }) as FeatureRule;
+
+  it("pins a seedless rollout rule to the feature id", () => {
+    const [pinned] = pinLegacyRolloutSeeds([rollout()], "feat_1");
+    expect((pinned as { seed?: string }).seed).toBe("feat_1");
+  });
+
+  it("leaves an explicitly-seeded rollout rule untouched", () => {
+    const [pinned] = pinLegacyRolloutSeeds(
+      [rollout({ seed: "fr_rule" })],
+      "feat_1",
+    );
+    // An existing seed (rule.id default or a custom seed) is never rewritten.
+    expect((pinned as { seed?: string }).seed).toBe("fr_rule");
+  });
+
+  it("does not touch non-rollout rules", () => {
+    const force = { id: "fr_f", type: "force", value: "true" } as FeatureRule;
+    const safe = {
+      id: "fr_s",
+      type: "safe-rollout",
+      safeRolloutId: "sr_1",
+    } as unknown as FeatureRule;
+    const [pForce, pSafe] = pinLegacyRolloutSeeds([force, safe], "feat_1");
+    expect(pForce).not.toHaveProperty("seed");
+    // Safe rollouts carry their own random seed and are never pinned.
+    expect((pSafe as { seed?: string }).seed).toBeUndefined();
+  });
+
+  it("does not mutate the input rule objects", () => {
+    const input = rollout();
+    pinLegacyRolloutSeeds([input], "feat_1");
+    expect((input as { seed?: string }).seed).toBeUndefined();
+  });
+
+  it("tolerates sparse null array entries", () => {
+    const rules = [null, rollout()] as unknown as FeatureRule[];
+    const out = pinLegacyRolloutSeeds(rules, "feat_1");
+    expect(out[0]).toBeNull();
+    expect((out[1] as { seed?: string }).seed).toBe("feat_1");
+  });
+});
+
+describe("Funnel Step Migration (factTable → factTableId)", () => {
+  const legacyStep = (factTable: string) => ({
+    name: "Step 1",
+    factTable,
+    rowFilters: [],
+    optional: false,
+  });
+
+  const migratedStep = (factTableId: string) => ({
+    name: "Step 1",
+    factTableId,
+    rowFilters: [],
+    optional: false,
+  });
+
+  describe("AnalyticsExplorationModel.migrateFunnelSteps", () => {
+    it("renames factTable to factTableId", () => {
+      const steps = [legacyStep("orders"), legacyStep("visits")];
+      const result = AnalyticsExplorationModel.migrateFunnelSteps(steps);
+      expect(result).toEqual([migratedStep("orders"), migratedStep("visits")]);
+    });
+
+    it("passes through steps that already have factTableId", () => {
+      const steps = [migratedStep("orders")];
+      const result = AnalyticsExplorationModel.migrateFunnelSteps(
+        steps as Record<string, unknown>[],
+      );
+      expect(result).toEqual([migratedStep("orders")]);
+    });
+
+    it("handles a mix of legacy and migrated steps", () => {
+      const steps = [legacyStep("orders"), migratedStep("visits")];
+      const result = AnalyticsExplorationModel.migrateFunnelSteps(steps);
+      expect(result).toEqual([migratedStep("orders"), migratedStep("visits")]);
+    });
+  });
+
+  describe("migrateBlock (funnel-exploration)", () => {
+    it("renames factTable to factTableId on funnel steps", () => {
+      const block = {
+        type: "funnel-exploration" as const,
+        title: "My funnel",
+        explorerAnalysisId: "ae_1",
+        config: {
+          type: "funnel" as const,
+          datasource: "ds_1",
+          chartType: "bar" as const,
+          dimensions: [],
+          dateRange: {
+            predefined: "last7Days" as const,
+            startDate: null,
+            endDate: null,
+            lookbackValue: null,
+            lookbackUnit: null,
+          },
+          dataset: {
+            type: "funnel" as const,
+            unit: "user_id",
+            steps: [legacyStep("orders"), legacyStep("visits")],
+          },
+        },
+      };
+      expect(migrateBlock(block)).toMatchObject({
+        config: {
+          dataset: {
+            steps: [migratedStep("orders"), migratedStep("visits")],
+          },
+        },
+      });
+    });
+
+    it("passes through blocks that already have factTableId", () => {
+      const block = {
+        type: "funnel-exploration" as const,
+        title: "My funnel",
+        explorerAnalysisId: "ae_1",
+        config: {
+          type: "funnel" as const,
+          datasource: "ds_1",
+          chartType: "bar" as const,
+          dimensions: [],
+          dateRange: {
+            predefined: "last7Days" as const,
+            startDate: null,
+            endDate: null,
+            lookbackValue: null,
+            lookbackUnit: null,
+          },
+          dataset: {
+            type: "funnel" as const,
+            unit: "user_id",
+            steps: [migratedStep("orders")],
+          },
+        },
+      };
+      expect(migrateBlock(block)).toMatchObject({
+        config: {
+          dataset: {
+            steps: [migratedStep("orders")],
+          },
+        },
+      });
     });
   });
 });

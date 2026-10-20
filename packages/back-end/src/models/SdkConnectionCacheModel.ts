@@ -43,8 +43,13 @@ export class SdkConnectionCacheModel extends BaseClass {
     contents: string,
     auditContext?: SdkConnectionCacheAuditContext,
   ) {
-    // Find existing doc by id only (ignore version) to support version upgrades
-    const existing = await this._findOne({ id });
+    // Find existing doc by id only (ignore version) to support version upgrades.
+    // Its contents can be tens of megabytes and are about to be replaced, so
+    // they stay in the database.
+    const [existing] = await this._find(
+      { id },
+      { projection: { contents: 0 }, limit: 1 },
+    );
     const updateData: {
       contents: string;
       schemaVersion: number;

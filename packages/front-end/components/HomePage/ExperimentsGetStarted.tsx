@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { useRouter } from "next/router";
 import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "shared/types/project";
+import { isProjectListValidForProject } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
-import MetricForm from "@/components/Metrics/MetricForm";
 import { DocLink } from "@/components/DocLink";
 import DocumentationLinksSidebar from "@/components/HomePage/DocumentationLinksSidebar";
 import GetStartedStep from "@/components/HomePage/GetStartedStep";
@@ -15,18 +16,25 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import Button from "@/components/Button";
+import CreateExperimentModal from "@/components/Experiment/CreateExperimentModal";
+import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
 
 const ExperimentsGetStarted = (): React.ReactElement => {
-  const { metrics, datasources, mutateDefinitions, project, projects } =
-    useDefinitions();
+  const {
+    metrics,
+    datasources,
+    factTables,
+    mutateDefinitions,
+    project,
+    projects,
+  } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
-  const [metricsOpen, setMetricsOpen] = useState(false);
   const [importExperimentsOpen, setImportExperimentsOpen] = useState(false);
   const [designExperimentOpen, setDesignExperimentOpen] = useState(false);
 
@@ -75,8 +83,15 @@ const ExperimentsGetStarted = (): React.ReactElement => {
     }
   };
 
+  const factMetricFlow = useFactMetricFlow("get-started");
+  // The new page explains a missing fact table; the old modal can't.
+  const canOpenFactMetricFlow =
+    factMetricFlow.newFlow ||
+    factTables.some((f) => isProjectListValidForProject(f.projects, project));
+
   return (
     <>
+      {factMetricFlow.modal}
       <div>
         {dataSourceOpen && (
           <NewDataSourceForm
@@ -90,16 +105,6 @@ const ExperimentsGetStarted = (): React.ReactElement => {
           />
         )}
 
-        {metricsOpen && (
-          <MetricForm
-            current={{}}
-            edit={false}
-            source="get-started"
-            onClose={() => {
-              setMetricsOpen(false);
-            }}
-          />
-        )}
         {importExperimentsOpen && (
           <ImportExperimentModal
             onClose={() => setImportExperimentsOpen(false)}
@@ -108,10 +113,9 @@ const ExperimentsGetStarted = (): React.ReactElement => {
         )}
 
         {designExperimentOpen && (
-          <NewExperimentForm
+          <CreateExperimentModal
             onClose={() => setDesignExperimentOpen(false)}
             source={"get-started"}
-            isNewExperiment={true}
           />
         )}
 
@@ -134,11 +138,13 @@ const ExperimentsGetStarted = (): React.ReactElement => {
               experiment.
             </p>
             {hasFileConfig() && (
-              <div className="alert alert-info">
+              <Callout status="info">
                 It looks like you have a <code>config.yml</code> file. Use that
                 to define data sources and metrics.{" "}
-                <DocLink docSection="config_yml">View Documentation</DocLink>
-              </div>
+                <DocLink useRadix={false} docSection="config_yml">
+                  View Documentation
+                </DocLink>
+              </Callout>
             )}
             <div className="row mb-3">
               <div className="col">
@@ -212,26 +218,33 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                         Create your first metric definition. Use this as a goal
                         or guardrail when analyzing your experiment results.
                         With GrowthBook, you can build out an entire metric
-                        library to represent all of the KPIs for your business
+                        library to represent all of the KPIs for your
+                        organization.
                       </p>
                     }
                     hideCTA={!envAllowsCreatingMetrics()}
-                    cta="Add metric"
+                    cta={
+                      canOpenFactMetricFlow ? "Add metric" : "Create Fact Table"
+                    }
                     finishedCTA="View metrics"
                     permissionsError={
                       envAllowsCreatingMetrics() &&
-                      !permissionsUtil.canCreateMetric({
-                        projects: [project],
-                      }) &&
-                      !hasMetrics
+                      !hasMetrics &&
+                      // Check the permission for the step the button names.
+                      (canOpenFactMetricFlow
+                        ? !permissionsUtil.canCreateFactMetric({
+                            projects: [project],
+                          })
+                        : !permissionsUtil.canViewCreateFactTableModal(
+                            project,
+                            projects,
+                          ))
                     }
                     imageLeft={false}
                     onClick={(finished) => {
-                      if (finished) {
-                        router.push("/metrics");
-                      } else {
-                        setMetricsOpen(true);
-                      }
+                      if (finished) router.push("/metrics");
+                      else if (canOpenFactMetricFlow) factMetricFlow.open();
+                      else router.push("/fact-tables");
                     }}
                   />
                   <GetStartedStep
@@ -264,15 +277,21 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                 </div>
               </div>
             </div>
-            <div className="alert alert-info text-center">
-              <p>
-                Not ready to connect to your data warehouse? Explore a sample
-                experiment first to get a feel for the GrowthBook platform.
-              </p>
-              <Button color="outline-primary" onClick={openSampleExperiment}>
-                View Sample Experiment
-              </Button>
-            </div>
+            <Callout status="info">
+              <Text as="div" align="center">
+                <p>
+                  Not ready to connect to your data warehouse? Explore a sample
+                  experiment first to get a feel for the GrowthBook platform.
+                </p>
+                <Button
+                  color="inherit"
+                  variant="outline"
+                  onClick={openSampleExperiment}
+                >
+                  View Sample Experiment
+                </Button>
+              </Text>
+            </Callout>
           </div>
         ) : (
           <div>

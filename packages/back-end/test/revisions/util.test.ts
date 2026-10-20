@@ -1,5 +1,10 @@
 import type { JsonPatchOperation } from "shared/enterprise";
-import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import {
+  buildMergeDesiredState,
+  isRevisionDiverged,
+} from "back-end/src/revisions/util";
+import { savedGroupAdapter } from "back-end/src/revisions/adapters/saved-group.adapter";
+import { configAdapter } from "back-end/src/revisions/adapters/config.adapter";
 
 const updatable = new Set([
   "groupName",
@@ -111,6 +116,29 @@ describe("buildMergeDesiredState", () => {
     expect(desired.description).toBe("d-set-out-of-band");
   });
 
+  // The schema-clear linchpin behind the config revert→publish path: a
+  // `replace /schema null` op must land as `schema: null` (a real cleared value),
+  // NOT be dropped or resurrected to the live schema. The publish handler reads
+  // desiredState.schema directly, so this is what lets a null clear survive.
+  it("carries a null clear through instead of resurrecting the live value", () => {
+    const withSchema = new Set(["groupName", "schema"]);
+    const schema = { type: "object", fields: [{ key: "color" }] };
+    const baseSnapshot = { groupName: "v1", schema };
+    const liveEntity = { groupName: "v1", schema };
+    const ops: JsonPatchOperation[] = [
+      { op: "replace", path: "/schema", value: null },
+    ];
+
+    const desired = buildMergeDesiredState(
+      liveEntity,
+      baseSnapshot,
+      ops,
+      withSchema,
+    );
+
+    expect(desired.schema).toBeNull();
+  });
+
   it("drops ops whose path is not in the updatable allowlist", () => {
     const baseSnapshot = { id: "sg-1", organization: "org-1", groupName: "v1" };
     const liveEntity = { id: "sg-1", organization: "org-1", groupName: "v1" };
@@ -190,5 +218,96 @@ describe("buildMergeDesiredState", () => {
     );
 
     expect(desired).toEqual(liveEntity);
+  });
+});
+
+describe("isRevisionDiverged", () => {
+  // Minimal live saved-group document as stored in the database.
+  const liveDoc = {
+    id: "sg-1",
+    organization: "org-1",
+    groupName: "My group",
+    type: "condition",
+    condition: '{"id": {"$in": ["a"]}}',
+    dateCreated: new Date("2024-01-01"),
+    dateUpdated: new Date("2024-01-02"),
+  };
+
+  const snapshotOf = (entity: Record<string, unknown>) =>
+    savedGroupAdapter.buildSnapshot(entity as never) as unknown as Record<
+      string,
+      unknown
+    >;
+
+  it("is not diverged when the live document only differs in representation", () => {
+    // Regression for raw stored documents carrying representation-only
+    // differences — see the rationale on isRevisionDiverged.
+    const snapshot = snapshotOf(liveDoc);
+    const rawWithNull = { ...liveDoc, description: null };
+    expect(isRevisionDiverged(savedGroupAdapter, snapshot, rawWithNull)).toBe(
+      false,
+    );
+
+    // Same for leftover fields that were removed from the schema.
+    const rawWithLegacyField = { ...liveDoc, passByReferenceOnly: true };
+    expect(
+      isRevisionDiverged(savedGroupAdapter, snapshot, rawWithLegacyField),
+    ).toBe(false);
+  });
+
+  it("is diverged when an updatable field genuinely changed", () => {
+    const snapshot = snapshotOf(liveDoc);
+    const changed = { ...liveDoc, condition: '{"id": {"$in": ["a", "b"]}}' };
+    expect(isRevisionDiverged(savedGroupAdapter, snapshot, changed)).toBe(true);
+  });
+
+  it("ignores changes to non-updatable fields", () => {
+    const snapshot = snapshotOf(liveDoc);
+    const touched = { ...liveDoc, dateUpdated: new Date("2024-06-01") };
+    expect(isRevisionDiverged(savedGroupAdapter, snapshot, touched)).toBe(
+      false,
+    );
+  });
+
+  // buildSnapshot only strips top-level nullish keys, so a nested optional-null
+  // shape (configs' schema/renderProjections objects) would reopen the
+  // false-positive divergence loop without the recursive normalization.
+  describe("nested nullish (config)", () => {
+    const liveConfig = {
+      id: "cfg-1",
+      organization: "org-1",
+      key: "k",
+      name: "n",
+      owner: "o",
+      value: "{}",
+      renderProjections: { typescript: { rootName: "Foo" } },
+      dateCreated: new Date("2024-01-01"),
+      dateUpdated: new Date("2024-01-02"),
+    };
+    const configSnapshotOf = (entity: Record<string, unknown>) =>
+      configAdapter.buildSnapshot(entity as never) as unknown as Record<
+        string,
+        unknown
+      >;
+
+    it("ignores a nested key that is null on one side and absent on the other", () => {
+      const snapshot = configSnapshotOf(liveConfig);
+      const rawWithNestedNull = {
+        ...liveConfig,
+        renderProjections: { typescript: { rootName: "Foo", rootPath: null } },
+      };
+      expect(
+        isRevisionDiverged(configAdapter, snapshot, rawWithNestedNull),
+      ).toBe(false);
+    });
+
+    it("still detects a genuine nested value change", () => {
+      const snapshot = configSnapshotOf(liveConfig);
+      const changed = {
+        ...liveConfig,
+        renderProjections: { typescript: { rootName: "Bar" } },
+      };
+      expect(isRevisionDiverged(configAdapter, snapshot, changed)).toBe(true);
+    });
   });
 });

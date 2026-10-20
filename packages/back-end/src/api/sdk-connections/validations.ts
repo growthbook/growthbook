@@ -54,6 +54,7 @@ interface CreateSdkConnectionRequestBody
   encryptPayload?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
+  includeDraftExperimentRefs?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
@@ -61,6 +62,7 @@ interface CreateSdkConnectionRequestBody
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeReferencedPrerequisites?: boolean;
   proxyHost?: string;
   hashSecureAttributes?: boolean;
 }
@@ -144,7 +146,7 @@ export function validateSdkCapabilities(
     if (payload[param] && !capabilities.includes(capability))
       if (latestCapabilities.includes(capability))
         throw new Error(
-          `You need to ugrade to version ${latestSdkVersion} to support ${capability}`,
+          `You need to upgrade to version ${latestSdkVersion} to support ${capability}`,
         );
       else
         throw new Error(
@@ -184,6 +186,7 @@ export async function validatePostPayload(
     encryptPayload = false,
     includeVisualExperiments = false,
     includeDraftExperiments = false,
+    includeDraftExperimentRefs = false,
     includeExperimentNames = false,
     includeRedirectExperiments = false,
     includeRuleIds = false,
@@ -222,6 +225,7 @@ export async function validatePostPayload(
     encryptPayload,
     includeVisualExperiments,
     includeDraftExperiments,
+    includeDraftExperimentRefs,
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
@@ -252,6 +256,7 @@ export async function validatePutPayload(
     encryptPayload,
     includeVisualExperiments,
     includeDraftExperiments,
+    includeDraftExperimentRefs,
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
@@ -295,6 +300,7 @@ export async function validatePutPayload(
     encryptPayload,
     includeVisualExperiments,
     includeDraftExperiments,
+    includeDraftExperimentRefs,
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,

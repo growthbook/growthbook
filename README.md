@@ -18,6 +18,8 @@ docker compose up -d
 
 Then visit http://localhost:3000. View the full [Self-Hosting Instructions](https://docs.growthbook.io/self-host) for more details.
 
+This pulls our prebuilt public Docker image and needs no registry credentials. If you instead build the image from the `Dockerfile` in this repo, its hardened base images come from Docker's `dhi.io` registry, which requires a one-time `docker login dhi.io` with any free Docker account — see [Building from source](https://docs.growthbook.io/self-host#building-from-source).
+
 [![GrowthBook Screenshot](/features-screenshot.png)](https://www.growthbook.io)
 
 ## Our Philosophy
@@ -53,7 +55,7 @@ We're here to help - and to make GrowthBook even better!
 
 We ❤️ all contributions, big and small!
 
-Read [CONTRIBUTING.md](/CONTRIBUTING.md) for how to setup your local development environment.
+Read [CONTRIBUTING.md](/CONTRIBUTING.md) for how to set up your local development environment.
 
 If you want to, you can reach out via [Slack](https://slack.growthbook.io?ref=readme-contributing) or [email](mailto:hello@growthbook.io) and we'll set up a pair programming session to get you started.
 

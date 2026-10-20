@@ -1,11 +1,12 @@
 import React, { ReactElement, useState } from "react";
-import { WebhookInterface } from "shared/types/webhook";
+import { Flex } from "@radix-ui/themes";
 import {
-  FaCheck,
-  FaExclamationTriangle,
-  FaInfoCircle,
-  FaPaperPlane,
-} from "react-icons/fa";
+  PiCheck,
+  PiInfo,
+  PiPaperPlaneTilt,
+  PiWarningFill,
+} from "react-icons/pi";
+import { WebhookInterface } from "shared/types/webhook";
 import { ago } from "shared/dates";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import useApi from "@/hooks/useApi";
@@ -24,7 +25,9 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
-import Callout from "@/ui/Callout";
+import { Popover } from "@/ui/Popover";
+import Text from "@/ui/Text";
+import WebhookErrorDetails from "./WebhookErrorDetails";
 
 const payloadFormatLabels: Record<string, string | ReactElement> = {
   standard: "Standard",
@@ -121,52 +124,39 @@ export default function SdkWebhooks({
           )}
         </td>
         <td>
-          {webhook.disabled ? (
-            <Tooltip
-              className="ml-1"
-              innerClassName="pb-3"
-              usePortal={true}
-              body={
-                <Callout key={webhook.id} status="error">
-                  <div style={{ wordBreak: "break-all" }}>
-                    Disabled after {webhook.consecutiveFailures} consecutive
-                    failures.
-                    {webhook.error ? (
-                      <>
-                        <br />
-                        Last error: {webhook.error}
-                      </>
-                    ) : null}
-                  </div>
-                </Callout>
+          {webhook.disabled || webhook.error ? (
+            <Popover
+              openOnHover
+              side="bottom"
+              contentStyle={{ maxWidth: 420 }}
+              trigger={
+                <Flex
+                  display="inline-flex"
+                  align="center"
+                  gap="1"
+                  style={{ color: "var(--red-11)", cursor: "default" }}
+                >
+                  <PiWarningFill />
+                  {webhook.disabled ? "disabled" : "error"}
+                </Flex>
               }
-            >
-              <span className="text-danger">
-                <FaExclamationTriangle /> disabled
-              </span>
-            </Tooltip>
-          ) : webhook.error ? (
-            <>
-              <Tooltip
-                className="ml-1"
-                innerClassName="pb-3"
-                usePortal={true}
-                body={
-                  <Callout key={webhook.id} status="error">
-                    <div style={{ wordBreak: "break-all" }}>
-                      {webhook.error}
-                    </div>
-                  </Callout>
-                }
-              >
-                <span className="text-danger">
-                  <FaExclamationTriangle /> error
-                </span>
-              </Tooltip>
-            </>
+              content={
+                <Flex direction="column" gap="2">
+                  {webhook.disabled ? (
+                    <Text weight="semibold">
+                      Disabled after {webhook.consecutiveFailures} consecutive
+                      failures.
+                    </Text>
+                  ) : null}
+                  {webhook.error ? (
+                    <WebhookErrorDetails error={webhook.error} />
+                  ) : null}
+                </Flex>
+              }
+            />
           ) : webhook.lastSuccess ? (
             <em className="small">
-              <FaCheck className="text-success" /> {ago(webhook.lastSuccess)}
+              <PiCheck className="text-success" /> {ago(webhook.lastSuccess)}
             </em>
           ) : (
             <em>never fired</em>
@@ -185,14 +175,14 @@ export default function SdkWebhooks({
               mutate();
             }}
           >
-            <FaPaperPlane className="mr-1" />
+            <PiPaperPlaneTilt className="mr-1" />
             Test
           </OldButton>
         </td>
         <td className="px-0">
           {!webhook.managedBy?.type ? (
             <div className="col-auto mr-1">
-              <MoreMenu>
+              <MoreMenu useRadix={false}>
                 {canUpdateWebhook ? (
                   <button
                     className="dropdown-item"
@@ -206,6 +196,7 @@ export default function SdkWebhooks({
                 ) : null}
                 {canDeleteWebhook ? (
                   <DeleteButton
+                    useRadix={false}
                     className="dropdown-item"
                     displayName="SDK Connection"
                     text="Delete"
@@ -228,7 +219,10 @@ export default function SdkWebhooks({
   const renderAddWebhookButton = () => (
     <>
       <div className="text-muted mb-3">
-        Refer to the <DocLink docSection="sdkWebhooks">documentation</DocLink>{" "}
+        Refer to the{" "}
+        <DocLink useRadix={false} docSection="sdkWebhooks">
+          documentation
+        </DocLink>{" "}
         for setup instructions
       </div>
       {canCreateWebhooks ? (
@@ -259,7 +253,7 @@ export default function SdkWebhooks({
             }
           >
             <span className="text-muted ml-2" style={{ fontSize: "0.75rem" }}>
-              What is this? <FaInfoCircle />
+              What is this? <PiInfo />
             </span>
           </Tooltip>
         </div>

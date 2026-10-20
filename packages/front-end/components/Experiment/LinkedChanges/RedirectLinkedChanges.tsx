@@ -101,7 +101,7 @@ export const RedirectLinkedChanges = ({
         }}
         canEdit={canEdit}
       >
-        <Box className="appbox">
+        <Box className="appbox" style={{ backgroundColor: "transparent" }}>
           <Flex width="100%" gap="4" py="4" px="5" direction="column">
             <Box flexGrow="1">
               <LinkedChangeVariationRows

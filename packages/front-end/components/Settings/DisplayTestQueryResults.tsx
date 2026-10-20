@@ -1,33 +1,37 @@
-import { FaExclamationTriangle } from "react-icons/fa";
-import { PiArrowLineDownThin, PiCaretLeft, PiCaretRight } from "react-icons/pi";
-import { Flex, Separator } from "@radix-ui/themes";
+import { PiCaretLeft, PiCaretRight, PiTimer, PiX } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { Flex, IconButton } from "@radix-ui/themes";
 import { useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { isManagedWarehousePendingQueryError } from "shared/util";
+import { SQL_ROW_LIMIT } from "shared/sql";
 import Code from "@/components/SyntaxHighlighting/Code";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { convertToCSV, downloadCSVFile } from "@/services/sql";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
+import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
+import QueryModal from "@/components/Experiment/QueryModal";
 import { floatRound } from "@/services/utils";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  flattenHeaderStructureForCsv,
+  type HeaderStructure,
+} from "@/components/Settings/flattenHeaderStructureForCsv";
 
-export type HeaderStructure = {
-  row1: { label: string; colSpan?: number; rowSpan?: number }[];
-  row2Labels: string[];
-};
+export type { HeaderStructure };
 
-export type Props = {
+export type TestQueryResultsTableProps = {
   results: Record<string, unknown>[];
   duration: number;
   sql: string;
   error: string;
-  close?: () => void;
   expandable?: boolean;
   allowDownload?: boolean;
   showSampleHeader?: boolean;
-  renderedSQLLabel?: string;
+  rowsLabel?: ReactNode;
   showDuration?: boolean;
   headerStructure?: HeaderStructure;
   orderedColumnKeys?: string[];
@@ -37,33 +41,87 @@ export type Props = {
    * pass human-readable keys).
    */
   columnLabels?: string[];
-  paddingTop?: number;
+  /**
+   * When set, CSV export includes only these keys (in order). Use to omit
+   * synthetic columns such as compare trend payloads.
+   */
+  csvColumnKeys?: string[];
+  /** Headers for CSV columns; must align 1:1 with `csvColumnKeys`. */
+  csvColumnLabels?: string[];
+  /**
+   * Custom cell renderer. Return `undefined` or `null` to fall back to the
+   * default string rendering for that cell.
+   */
+  renderCell?: (
+    key: string,
+    value: unknown,
+    row: Record<string, unknown>,
+  ) => ReactNode | undefined;
   showNoRowsWarning?: boolean;
+  emptyResultsContent?: ReactNode;
+  onViewSql?: () => void;
+  /** Extra style applied to the SQL code block's own container. */
+  sqlStyle?: CSSProperties;
+  /** Passed through to the SQL code block's own `maxHeight`. */
+  sqlMaxHeight?: string;
+  compact?: boolean;
+  onClose?: () => void;
 };
 
-export default function DisplayTestQueryResults({
+export type Props = Omit<TestQueryResultsTableProps, "onViewSql"> & {
+  close?: () => void;
+  paddingTop?: number;
+};
+
+export function TestQueryResultsTable({
   results,
   duration,
   sql,
   error,
-  close,
   expandable,
   allowDownload,
   showSampleHeader = true,
-  renderedSQLLabel = "Rendered SQL",
+  rowsLabel,
   showDuration = true,
   headerStructure,
   orderedColumnKeys,
   columnLabels,
-  paddingTop = 0,
+  csvColumnKeys,
+  csvColumnLabels,
+  renderCell,
   showNoRowsWarning = true,
-}: Props) {
+  emptyResultsContent,
+  onViewSql,
+  sqlStyle,
+  sqlMaxHeight,
+  compact,
+  onClose,
+}: TestQueryResultsTableProps) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const cols = orderedColumnKeys ?? Object.keys(results?.[0] || {});
   const labels = columnLabels ?? cols;
+  const canDownload =
+    !!allowDownload && results.length > 0 && (csvColumnKeys ?? cols).length > 0;
   const useTwoRowHeader = headerStructure != null && orderedColumnKeys != null;
+  const durationStatus = error ? "Query failed" : "Query succeeded";
+  const showDurationStatus = showDuration && duration > 0;
 
-  const forceShowSql = error || !results.length;
+  const closeButton = onClose ? (
+    <IconButton
+      type="button"
+      variant="ghost"
+      color="gray"
+      size="1"
+      aria-label="Close results"
+      onClick={onClose}
+    >
+      <PiX />
+    </IconButton>
+  ) : null;
+
+  const showRenderedSqlContent =
+    Boolean(error) ||
+    (showNoRowsWarning && !results.length && emptyResultsContent === undefined);
 
   const [page, setPage] = useState(1);
   const pageSize = 100;
@@ -81,21 +139,58 @@ export default function DisplayTestQueryResults({
     ? Number(errorLineMatch[1] || errorLineMatch[2])
     : undefined;
 
-  function handleDownload(results: Record<string, unknown>[]) {
-    // When the caller passes stable keys + separate labels, rewrite each row
-    // so the CSV column headers (derived from Object.keys) are the display
-    // labels. Otherwise fall through unchanged — the key *is* the label.
+  function defaultCellContent(value: unknown): string {
+    if (value == null) return "";
+    if (typeof value === "number") {
+      return value.toLocaleString();
+    }
+    if (typeof value === "string" || typeof value === "boolean") {
+      return String(value);
+    }
+    return JSON.stringify(value);
+  }
+
+  function handleDownload(rows: Record<string, unknown>[]) {
+    const keys = csvColumnKeys ?? orderedColumnKeys;
+
+    const labelsForCsv = ((): string[] | undefined => {
+      if (!keys?.length) return undefined;
+      if (csvColumnLabels && csvColumnLabels.length === keys.length) {
+        return csvColumnLabels;
+      }
+      if (
+        headerStructure &&
+        orderedColumnKeys &&
+        orderedColumnKeys.length === keys.length
+      ) {
+        const flat = flattenHeaderStructureForCsv(headerStructure);
+        if (flat.length === keys.length) {
+          return flat;
+        }
+      }
+      if (columnLabels && columnLabels.length === keys.length) {
+        return columnLabels;
+      }
+      return undefined;
+    })();
+
     const rowsForCsv =
-      columnLabels && orderedColumnKeys
-        ? results.map((row) =>
+      keys?.length && labelsForCsv && keys.length === labelsForCsv.length
+        ? rows.map((row) =>
             Object.fromEntries(
-              orderedColumnKeys.map((key, i) => [
-                columnLabels[i] ?? key,
-                row[key],
-              ]),
+              keys.map((key, i) => [labelsForCsv[i] ?? key, row[key] ?? ""]),
             ),
           )
-        : results;
+        : columnLabels && orderedColumnKeys
+          ? rows.map((row) =>
+              Object.fromEntries(
+                orderedColumnKeys.map((key, i) => [
+                  columnLabels[i] ?? key,
+                  row[key],
+                ]),
+              ),
+            )
+          : rows;
     const csv = convertToCSV(rowsForCsv);
     if (!csv) {
       throw new Error(
@@ -105,86 +200,97 @@ export default function DisplayTestQueryResults({
     downloadCSVFile(csv);
   }
 
-  return (
-    <Tabs
-      key={forceShowSql ? "sql" : "results"}
-      defaultValue={forceShowSql ? "sql" : "results"}
+  const renderedSqlContent = (
+    <div
       style={{
-        overflow: "hidden",
+        overflowY: "auto",
         height: "100%",
+        paddingLeft: "12px",
+        paddingRight: "12px",
+      }}
+      className="mt-3"
+    >
+      {closeButton ? (
+        <Flex justify="end" mb="2">
+          {closeButton}
+        </Flex>
+      ) : null}
+      {error ? (
+        isManagedWarehousePendingQueryError(error) ? (
+          <div className="mb-3 mr-auto" style={{ maxWidth: 720 }}>
+            <ManagedWarehouseNoEventsCallout size={compact ? "sm" : "md"} />
+          </div>
+        ) : (
+          <Callout status="error" size={compact ? "sm" : "md"} mr="auto">
+            {error}
+          </Callout>
+        )
+      ) : (
+        showNoRowsWarning &&
+        !results.length && (
+          <Callout status="warning" size={compact ? "sm" : "md"} mr="auto">
+            No rows returned, could not verify result
+          </Callout>
+        )
+      )}
+      <Code
+        code={sql}
+        language="sql"
+        errorLine={errorLine}
+        expandable={expandable}
+        style={sqlStyle}
+        maxHeight={sqlMaxHeight}
+      />
+    </div>
+  );
+
+  return (
+    <Flex
+      direction="column"
+      style={{
+        flex: 1,
+        minHeight: 0,
+        marginTop: compact ? 0 : 8,
+        marginBottom: compact ? 0 : 16,
+        border: "1px solid var(--gray-a3)",
+        borderRadius: "var(--radius-4)",
+        backgroundColor: "var(--color-panel-translucent)",
+        overflow: "hidden",
       }}
     >
-      <AreaWithHeader
-        headerStyles={{
-          paddingLeft: "12px",
-          paddingRight: "12px",
-          paddingTop: `${paddingTop}px`,
-        }}
-        header={
-          <TabsList>
-            {!forceShowSql && (
-              <TabsTrigger value="results">Results</TabsTrigger>
-            )}
-            <TabsTrigger value="sql">{renderedSQLLabel}</TabsTrigger>
-            <div className="flex-grow-1">
-              {close ? (
-                <button
-                  type="button"
-                  className="close"
-                  style={{ padding: "0.3rem 1rem" }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    close();
-                  }}
-                  aria-label="Close"
-                >
-                  <span aria-hidden="true">×</span>
-                </button>
-              ) : null}
-            </div>
-          </TabsList>
-        }
-      >
-        {!forceShowSql && (
-          <TabsContent
-            value="results"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              height: "100%",
-              paddingLeft: "12px",
-              paddingRight: "12px",
-            }}
-          >
-            <div className="mt-2 rounded p-2 bg-light">
-              {downloadError ? (
-                <div className="mb-2">
-                  <Callout status="error">{downloadError}</Callout>
-                </div>
-              ) : null}
-              <Flex align="center" gap="4">
-                <Flex align="center" flexGrow={"1"}>
-                  {showDuration && (
-                    <span className="font-weight-light pl-2">
-                      Succeeded in {floatRound(duration, 2)}ms
-                    </span>
-                  )}
-                </Flex>
+      {showRenderedSqlContent ? (
+        renderedSqlContent
+      ) : emptyResultsContent ? (
+        emptyResultsContent
+      ) : (
+        <>
+          <div className="rounded p-2 bg-light">
+            {downloadError ? (
+              <div className="mb-2">
+                <Callout status="error" size={compact ? "sm" : "md"}>
+                  {downloadError}
+                </Callout>
+              </div>
+            ) : null}
+            <Flex align="center" gap="4">
+              <Flex align="center" flexGrow="1">
                 {totalPages > 1 ? (
                   <Flex align="center">
                     <div className="mr-1">
                       Showing {page * pageSize - pageSize + 1} -{" "}
                       {Math.min(page * pageSize, results.length)} of{" "}
-                      <Tooltip
-                        body={"GrowthBook limits the result to 1,000 rows max"}
-                        shouldDisplay={results.length >= 1000}
-                      >
-                        <strong>{results.length}</strong> rows
-                      </Tooltip>
+                      {rowsLabel ?? (
+                        <Tooltip
+                          body={`GrowthBook limits the result to ${SQL_ROW_LIMIT} rows max`}
+                          shouldDisplay={results.length >= SQL_ROW_LIMIT}
+                        >
+                          <strong>{results.length}</strong> rows
+                        </Tooltip>
+                      )}
                     </div>
                     <Button
                       variant="ghost"
-                      size="xs"
+                      size="sm"
                       disabled={page <= 1}
                       onClick={() => {
                         setPage((p) => Math.max(p - 1, 1));
@@ -199,7 +305,7 @@ export default function DisplayTestQueryResults({
                     </Button>
                     <Button
                       variant="ghost"
-                      size="xs"
+                      size="sm"
                       disabled={page >= totalPages}
                       onClick={() => {
                         setPage((p) => Math.min(p + 1, totalPages));
@@ -214,125 +320,209 @@ export default function DisplayTestQueryResults({
                     </Button>
                   </Flex>
                 ) : (
-                  <Flex align="center">
-                    <strong className="pr-1">
-                      {showSampleHeader ? "Sample " : ""}
-                      {results?.length} Rows
-                    </strong>
-                  </Flex>
+                  <div className="mr-1">
+                    {rowsLabel ?? (
+                      <strong>
+                        {`${showSampleHeader ? "Sample " : ""}${results?.length} Rows`}
+                      </strong>
+                    )}
+                  </div>
                 )}
-                {allowDownload ? (
-                  <>
-                    <Separator orientation="vertical" />
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      disabled={!results.length}
-                      onClick={() => handleDownload(results)}
-                      setError={setDownloadError}
-                    >
-                      <PiArrowLineDownThin size={16} /> Download CSV
-                    </Button>
-                  </>
-                ) : null}
               </Flex>
-            </div>
-            <div
-              style={{ width: "100%", overflow: "auto", flexGrow: 1 }}
-              className="mb-3"
-              ref={tableBodyScrollRef}
-            >
-              <table className="table table-bordered appbox gbtable table-hover mb-0">
-                <thead
-                  style={{
-                    position: "sticky",
-                    top: -1,
-                    zIndex: 2,
-                    backgroundColor: "var(--color-panel-solid)",
-                  }}
+              {showDurationStatus ? (
+                <Tooltip body={durationStatus}>
+                  <span
+                    aria-label={`${durationStatus} in ${floatRound(duration, 2)} milliseconds`}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      color: error ? "var(--red-11)" : "var(--green-11)",
+                    }}
+                  >
+                    <PiTimer size={16} aria-hidden />
+                    {floatRound(duration, 2)}ms
+                  </span>
+                </Tooltip>
+              ) : null}
+              {onViewSql || canDownload ? (
+                <DropdownMenu
+                  menuPlacement="end"
+                  trigger={
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="1"
+                      aria-label="Query result options"
+                    >
+                      <BsThreeDotsVertical size={16} />
+                    </IconButton>
+                  }
                 >
-                  {useTwoRowHeader && headerStructure ? (
-                    <>
-                      <tr>
-                        {headerStructure.row1.map((cell, idx) => (
-                          <th
-                            key={idx}
-                            rowSpan={cell.rowSpan}
-                            colSpan={cell.colSpan ?? 1}
-                          >
-                            {cell.label}
-                          </th>
-                        ))}
-                      </tr>
-                      <tr>
-                        {headerStructure.row2Labels.map((label, idx) => (
-                          <th key={idx}>{label}</th>
-                        ))}
-                      </tr>
-                    </>
-                  ) : (
+                  {onViewSql ? (
+                    <DropdownMenuItem onClick={onViewSql}>
+                      View Rendered SQL
+                    </DropdownMenuItem>
+                  ) : null}
+                  {canDownload ? (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setDownloadError(null);
+                        try {
+                          handleDownload(results);
+                        } catch (e) {
+                          setDownloadError(
+                            e instanceof Error
+                              ? e.message
+                              : "Error downloading results.",
+                          );
+                        }
+                      }}
+                    >
+                      Download CSV
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenu>
+              ) : null}
+              {closeButton}
+            </Flex>
+          </div>
+          <div
+            style={{ width: "100%", overflow: "auto", flexGrow: 1 }}
+            className={compact ? undefined : "mb-3"}
+            ref={tableBodyScrollRef}
+          >
+            <table
+              className={`table table-bordered appbox gbtable table-hover mb-0${compact ? " table-sm" : ""}`}
+            >
+              <thead
+                style={{
+                  position: "sticky",
+                  top: -1,
+                  zIndex: 2,
+                  backgroundColor: "var(--color-panel-solid)",
+                }}
+              >
+                {useTwoRowHeader && headerStructure ? (
+                  <>
                     <tr>
-                      {cols.map((col, i) => (
-                        <th key={col}>{labels[i] ?? col}</th>
+                      {headerStructure.row1.map((cell, idx) => (
+                        <th
+                          key={idx}
+                          rowSpan={cell.rowSpan}
+                          colSpan={cell.colSpan ?? 1}
+                          style={{ minWidth: 150 }}
+                        >
+                          {cell.label}
+                        </th>
                       ))}
                     </tr>
-                  )}
-                </thead>
-                <tbody>
-                  {results
-                    .slice((page - 1) * pageSize, page * pageSize)
-                    .map((result, i) => (
-                      <tr key={i}>
-                        {cols.map((key, j) => (
-                          <td key={j}>{JSON.stringify(result[key])}</td>
-                        ))}
-                      </tr>
+                    <tr>
+                      {headerStructure.row2Labels.map((label, idx) => (
+                        <th key={idx} style={{ minWidth: 150 }}>
+                          {label}
+                        </th>
+                      ))}
+                    </tr>
+                  </>
+                ) : (
+                  <tr>
+                    {cols.map((col, i) => (
+                      <th key={col} style={{ minWidth: 150 }}>
+                        {labels[i] ?? col}
+                      </th>
                     ))}
-                </tbody>
-              </table>
-            </div>
-          </TabsContent>
-        )}
-
-        <TabsContent
-          value="sql"
-          style={{ display: "flex", flexDirection: "column", height: "100%" }}
-        >
-          <div
-            style={{
-              overflowY: "auto",
-              height: "100%",
-              paddingLeft: "12px",
-              paddingRight: "12px",
-            }}
-            className="mt-3"
-          >
-            {error ? (
-              isManagedWarehousePendingQueryError(error) ? (
-                <div className="mb-3 mr-auto" style={{ maxWidth: 720 }}>
-                  <ManagedWarehouseNoEventsCallout />
-                </div>
-              ) : (
-                <div className="alert alert-danger mr-auto">{error}</div>
-              )
-            ) : (
-              showNoRowsWarning &&
-              !results.length && (
-                <div className="alert alert-warning mr-auto">
-                  <FaExclamationTriangle /> No rows returned, could not verify
-                  result
-                </div>
-              )
-            )}
-            <Code
-              code={sql}
-              language="sql"
-              errorLine={errorLine}
-              expandable={expandable}
-            />
+                  </tr>
+                )}
+              </thead>
+              <tbody>
+                {results
+                  .slice((page - 1) * pageSize, page * pageSize)
+                  .map((result, i) => (
+                    <tr key={i}>
+                      {cols.map((key, j) => {
+                        const raw = result[key];
+                        const custom = renderCell?.(key, raw, result);
+                        return (
+                          <td key={j}>
+                            {custom !== undefined && custom !== null
+                              ? custom
+                              : defaultCellContent(raw)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
           </div>
-        </TabsContent>
+        </>
+      )}
+    </Flex>
+  );
+}
+
+export default function DisplayTestQueryResults({
+  close,
+  paddingTop = 0,
+  ...tableProps
+}: Props) {
+  const [showQueryModal, setShowQueryModal] = useState(false);
+
+  return (
+    <>
+      {showQueryModal ? (
+        <QueryModal
+          close={() => setShowQueryModal(false)}
+          language="sql"
+          queries={[tableProps.sql]}
+        />
+      ) : null}
+      <AreaWithHeader
+        headerStyles={{
+          paddingLeft: "12px",
+          paddingRight: "12px",
+          paddingTop: `${paddingTop}px`,
+        }}
+        header={
+          <Flex align="center" justify="between" width="100%" gap="2">
+            <Text weight="medium" mt="2" ml="2">
+              Results
+            </Text>
+            {close ? (
+              <button
+                type="button"
+                className="close"
+                style={{ padding: "0.3rem 1rem" }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  close();
+                }}
+                aria-label="Close"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            ) : null}
+          </Flex>
+        }
+      >
+        <Flex
+          direction="column"
+          height="100%"
+          style={{
+            paddingLeft: "12px",
+            paddingRight: "12px",
+          }}
+        >
+          <TestQueryResultsTable
+            {...tableProps}
+            onViewSql={
+              tableProps.sql ? () => setShowQueryModal(true) : undefined
+            }
+          />
+        </Flex>
       </AreaWithHeader>
-    </Tabs>
+    </>
   );
 }

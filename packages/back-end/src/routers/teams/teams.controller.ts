@@ -1,9 +1,9 @@
 import type { Response } from "express";
 import { TeamInterface } from "shared/types/team";
 import { MemberRoleWithProjects } from "shared/types/organization";
-import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   addMembersToTeam,
+  assertCanChangeTeamMembership,
   getContextFromReq,
   removeMembersFromTeam,
 } from "back-end/src/services/organizations";
@@ -35,18 +35,8 @@ export const postTeam = async (
   res: Response<CreateTeamResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const { org, userName } = context;
+  const { userName } = context;
   const { name, description, permissions, defaultProject } = req.body;
-
-  if (!orgHasPremiumFeature(org, "teams")) {
-    context.throwPlanDoesNotAllowError(
-      "Must have a commercial License Key to create a team.",
-    );
-  }
-
-  if (!context.permissions.canManageTeam()) {
-    context.permissions.throwPermissionError();
-  }
 
   const existingTeamWithName = await context.models.teams.findByName(name);
 
@@ -106,10 +96,6 @@ export const updateTeam = async (
   const context = getContextFromReq(req);
   const { id } = req.params;
 
-  if (!context.permissions.canManageTeam()) {
-    context.permissions.throwPermissionError();
-  }
-
   const team = await context.models.teams.getById(id);
 
   if (!team) {
@@ -154,10 +140,6 @@ export const deleteTeamById = async (
   const context = getContextFromReq(req);
   const { id } = req.params;
 
-  if (!context.permissions.canManageTeam()) {
-    context.permissions.throwPermissionError();
-  }
-
   const team = await context.models.teams.getById(id);
   if (!team) return context.throwNotFoundError();
 
@@ -187,10 +169,6 @@ export const addTeamMembers = async (
   const { id } = req.params;
   const { members } = req.body;
 
-  if (!context.permissions.canManageTeam()) {
-    context.permissions.throwPermissionError();
-  }
-
   const team = await context.models.teams.getById(id);
 
   if (!team) {
@@ -199,6 +177,8 @@ export const addTeamMembers = async (
       message: "Team does not exist. Cannot add members.",
     });
   }
+
+  assertCanChangeTeamMembership(context, team, members);
 
   await addMembersToTeam({
     organization: org,
@@ -228,10 +208,6 @@ export const deleteTeamMember = async (
   const { org } = context;
   const { id, memberId } = req.params;
 
-  if (!context.permissions.canManageTeam()) {
-    context.permissions.throwPermissionError();
-  }
-
   const team = await context.models.teams.getById(id);
 
   if (!team) {
@@ -240,6 +216,8 @@ export const deleteTeamMember = async (
       message: "Team does not exist. Cannot delete member.",
     });
   }
+
+  assertCanChangeTeamMembership(context, team, [memberId]);
 
   const member = org.members.find(
     (member) => member.teams?.includes(id) && member.id === memberId,

@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import type { MetricValue } from "shared/validators";
+import { getFactMetricPrimaryFactTableId } from "shared/experiments";
 import SelectField, {
   GroupedValue,
   SingleValue,
@@ -43,6 +44,8 @@ export default function MetricTabContent() {
     const unManagedMetrics: SingleValue[] = [];
     factMetrics.forEach((m) => {
       if (m.datasource !== draftExploreState.datasource) return;
+      // The Explorer can't chart funnel metrics yet.
+      if (m.metricType === "funnel") return;
       if (m.managedBy) {
         managedMetrics.push({ label: m.name, value: m.id });
       } else {
@@ -83,7 +86,7 @@ export default function MetricTabContent() {
   return (
     <Flex direction="column" gap="4">
       {!values.length && (
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           Add at least one metric to chart
         </Text>
       )}
@@ -95,6 +98,7 @@ export default function MetricTabContent() {
           <ValueCard key={idx} index={idx}>
             <Flex direction="column">
               <SelectField
+                size="legacy"
                 className={styles.metricSelect}
                 value={v.metricId}
                 disabled={
@@ -105,7 +109,9 @@ export default function MetricTabContent() {
                 onChange={(val) => {
                   const newMetric = factMetrics.find((m) => m.id === val);
                   const newFactTable = newMetric
-                    ? getFactTableById(newMetric.numerator.factTableId)
+                    ? getFactTableById(
+                        getFactMetricPrimaryFactTableId(newMetric),
+                      )
                     : null;
 
                   let unit = v.unit;
@@ -120,7 +126,10 @@ export default function MetricTabContent() {
                     name: newMetric?.name
                       ? generateUniqueValueName(
                           newMetric.name,
-                          draftExploreState.dataset.values,
+                          // Tab content only renders for "metric" datasets.
+                          draftExploreState.dataset.type === "metric"
+                            ? draftExploreState.dataset.values
+                            : [],
                         )
                       : v.name,
                   } as MetricValue;
@@ -166,15 +175,8 @@ export default function MetricTabContent() {
         );
       })}
       <Button
-        size="sm"
+        size="md"
         variant="outline"
-        // Big-number charts can only display a single metric, so cap the
-        // dataset at 1. The first metric must still be addable - otherwise a
-        // brand-new block with chartType=bigNumber has no way to ever get any
-        // metric configured.
-        disabled={
-          draftExploreState.chartType === "bigNumber" && values.length >= 1
-        }
         onClick={() => addValueToDataset("metric")}
       >
         <Flex align="center" gap="2">

@@ -12,13 +12,13 @@ case "$CMD" in
     pnpm install "$@"
     ;;
   start)
-    node_modules/.bin/pm2-runtime start ecosystem.config.js "$@"
+    node scripts/run-apps.js start ecosystem.config.js "$@"
     ;;
   start:with-tracing)
-    TRACING_PROVIDER=opentelemetry node_modules/.bin/pm2-runtime start ecosystem.config.js "$@"
+    TRACING_PROVIDER=opentelemetry node scripts/run-apps.js start ecosystem.config.js "$@"
     ;;
   start:with-datadog)
-    TRACING_PROVIDER=datadog node_modules/.bin/pm2-runtime start ecosystem.config.js "$@"
+    TRACING_PROVIDER=datadog node scripts/run-apps.js start ecosystem.config.js "$@"
     ;;
   workspace)
     WORKSPACE="$1"

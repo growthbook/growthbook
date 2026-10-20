@@ -3,7 +3,7 @@ import { SAVED_GROUP_SIZE_LIMIT_BYTES } from "shared/util";
 import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import { Container, Text } from "@radix-ui/themes";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import RadioGroup from "@/ui/RadioGroup";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Checkbox from "@/ui/Checkbox";
@@ -39,8 +39,7 @@ export const IdListItemInput: FC<{
   const [fileName, setFileName] = useState("");
   const [fileErrorMessage, setFileErrorMessage] = useState("");
 
-  const { unsupportedConnections, hasLargeSavedGroupFeature, connections } =
-    useLargeSavedGroupSupport();
+  const largeSavedGroupSupport = useLargeSavedGroupSupport();
 
   const resetFile = () => {
     setValues([]);
@@ -53,9 +52,7 @@ export const IdListItemInput: FC<{
     <>
       <LargeSavedGroupPerformanceWarning
         openUpgradeModal={openUpgradeModal}
-        hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-        unsupportedConnections={unsupportedConnections}
-        connections={connections}
+        {...largeSavedGroupSupport}
       />
       <label className="form-group font-weight-bold">
         Choose how to enter items for this group:
@@ -79,7 +76,7 @@ export const IdListItemInput: FC<{
         <Container mb="2">
           <Checkbox
             disabled={!canBypassSavedGroupSizeLimit(projects)}
-            disabledMessage="You don't have permission to bypass the size limit for this saved group"
+            disabledMessage="You don't have permission to bypass the size limit for this Saved Group"
             description={`Bypass the size limit of ${savedGroupSizeLimit} items`}
             value={bypassSizeLimit}
             setValue={setBypassSizeLimit}
@@ -184,6 +181,7 @@ export const IdListItemInput: FC<{
       )}
       {importMethod === "values" && (
         <StringArrayField
+          legacyHeight
           containerClassName="mb-0"
           label="List Values to Include"
           labelClassName="font-weight-bold"

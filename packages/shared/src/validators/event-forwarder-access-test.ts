@@ -1,0 +1,86 @@
+import { z } from "zod";
+
+const datasourceParamsSchema = z.record(z.string(), z.unknown());
+
+const eventForwarderRegionSchema = z.enum(["us-east-1", "eu-west-1"]);
+
+const bigQueryEventForwarderConfigSchema = z.object({
+  sinkType: z.literal("bigquery"),
+  region: eventForwarderRegionSchema.optional(),
+  config: z.object({
+    projectId: z.string(),
+    dataset: z.string(),
+    tablePrefix: z.string(),
+    serviceAccountKey: z.string().optional(),
+  }),
+});
+
+const snowflakeEventForwarderConfigSchema = z.object({
+  sinkType: z.literal("snowflake"),
+  region: eventForwarderRegionSchema.optional(),
+  config: z.object({
+    database: z.string(),
+    schema: z.string(),
+    tablePrefix: z.string(),
+    accessUrl: z.string().optional(),
+    role: z.string().optional(),
+    warehouse: z.string().optional(),
+  }),
+});
+
+const databricksEventForwarderConfigSchema = z.object({
+  sinkType: z.literal("databricks"),
+  region: eventForwarderRegionSchema.optional(),
+  config: z.object({
+    catalog: z.string(),
+    schema: z.string(),
+    tablePrefix: z.string(),
+    zerobusEndpoint: z.string(),
+  }),
+});
+
+export const eventForwarderAccessTestConfigSchema = z.discriminatedUnion(
+  "sinkType",
+  [
+    bigQueryEventForwarderConfigSchema,
+    snowflakeEventForwarderConfigSchema,
+    databricksEventForwarderConfigSchema,
+  ],
+);
+
+export const eventForwarderAccessTestCreateBodySchema = z.object({
+  type: z.enum(["bigquery", "snowflake", "databricks"]),
+  params: datasourceParamsSchema,
+  projects: z.array(z.string()).optional(),
+  eventForwarderConfig: eventForwarderAccessTestConfigSchema,
+});
+
+export const eventForwarderAccessTestEditBodySchema = z.object({
+  params: datasourceParamsSchema.optional(),
+  eventForwarderConfig: eventForwarderAccessTestConfigSchema.optional(),
+});
+
+export const eventForwarderAccessTestResultSchema = z.object({
+  result: z.enum(["success", "failed", "skipped"]),
+  resultMessage: z.string().optional(),
+});
+
+export const eventForwarderAccessTestResponseSchema = z.object({
+  status: z.literal(200),
+  results: z.object({
+    sinkWrite: eventForwarderAccessTestResultSchema,
+  }),
+});
+
+export type EventForwarderAccessTestCreateBody = z.infer<
+  typeof eventForwarderAccessTestCreateBodySchema
+>;
+export type EventForwarderAccessTestEditBody = z.infer<
+  typeof eventForwarderAccessTestEditBodySchema
+>;
+export type EventForwarderAccessTestResponse = z.infer<
+  typeof eventForwarderAccessTestResponseSchema
+>;
+export type EventForwarderAccessTestResult = z.infer<
+  typeof eventForwarderAccessTestResultSchema
+>;

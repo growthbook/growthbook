@@ -80,7 +80,7 @@ const WebhooksPage: FC = () => {
                   <td>{datetime(secret.dateCreated)}</td>
                   <td>{datetime(secret.dateUpdated)}</td>
                   <td>
-                    <MoreMenu>
+                    <MoreMenu useRadix={false}>
                       <a
                         href="#"
                         className="dropdown-item"
@@ -92,6 +92,7 @@ const WebhooksPage: FC = () => {
                         Edit
                       </a>
                       <DeleteButton
+                        useRadix={false}
                         onClick={async () => {
                           await apiCall<void>(`/webhook-secrets/${secret.id}`, {
                             method: "DELETE",

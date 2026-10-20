@@ -3,10 +3,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
-import {
-  EventUserLoggedIn,
-  EventUserApiKey,
-} from "shared/types/events/event-types";
+import { eventUserCredit } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
@@ -21,7 +18,7 @@ import {
 import {
   draftStatusDotColor,
   revisionStatusLabel,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 import Text from "@/ui/Text";
 import Table, {
   TableHeader,
@@ -56,10 +53,6 @@ export default function FeaturesDraftTable() {
   const featuresAndRevisions = data?.revisions;
 
   const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {
-    const createdBy = revision?.createdBy as
-      | EventUserLoggedIn
-      | EventUserApiKey
-      | null;
     let dateAndStatus = new Date(revision?.dateUpdated).getTime();
     switch (revision?.status) {
       case "draft":
@@ -74,6 +67,10 @@ export default function FeaturesDraftTable() {
       case "changes-requested":
         dateAndStatus = parseInt(`1${dateAndStatus}`);
         break;
+      case "discarded":
+      case "published":
+      case "pending-parent":
+        break;
     }
     return {
       // Composite ID so MiniSearch never sees duplicate IDs when a feature has
@@ -86,7 +83,7 @@ export default function FeaturesDraftTable() {
       dateCreated: revision?.dateCreated,
       dateUpdated: revision?.dateUpdated,
       project: revision.featureMeta?.project,
-      creator: createdBy?.name,
+      creator: eventUserCredit(revision?.createdBy ?? null).name,
       comment: revision?.comment,
       dateAndStatus,
     };
@@ -163,11 +160,13 @@ export default function FeaturesDraftTable() {
   const renderFeaturesTableDrafts = () => {
     return revisions.length > 0 ? (
       <div>
-        <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
+        <Flex gap="4" align="center" justify="between" mb="4" wrap="wrap">
           <Box style={{ flexBasis: 300, flexShrink: 0 }}>
             <Field
+              size="legacy"
               placeholder="Search..."
               type="search"
+              containerClassName="mb-0"
               {...searchInputProps}
             />
           </Box>
@@ -269,7 +268,7 @@ export default function FeaturesDraftTable() {
                           ),
                         }}
                       />
-                      <Text size="medium">
+                      <Text size="md">
                         {revisionStatusLabel(featureAndRevision.status)}
                       </Text>
                     </Flex>

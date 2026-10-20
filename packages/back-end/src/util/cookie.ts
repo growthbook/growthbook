@@ -43,8 +43,13 @@ class Cookie {
     req.cookies[this.key] = value;
   }
 
-  getValue(req: Request) {
-    return req.cookies[this.key] || "";
+  // cookie-parser JSON-decodes any cookie whose value starts with `j:`, so
+  // req.cookies can hold arbitrary attacker-controlled objects. Never hand one
+  // to a caller — an object reaching a Mongo filter turns into an operator
+  // injection (e.g. `j:{"$ne":""}` matching any refresh token).
+  getValue(req: Request): string {
+    const value = req.cookies[this.key];
+    return typeof value === "string" ? value : "";
   }
 }
 
@@ -61,7 +66,14 @@ export const RefreshTokenCookie = new Cookie(
   "/auth",
 );
 export const IdTokenCookie = new Cookie("AUTH_ID_TOKEN", minutes(15));
-export const AuthChecksCookie = new Cookie("AUTH_CHECKS", minutes(10));
+
+// Per-browser key that OAuth state/PKCE values derive from, so no per-flow storage is needed
+export const AuthSecretCookie = new Cookie("AUTH_SECRET", days(365));
+// Hint that this browser was recently sent to an enterprise IdP, for the confirm prompt
+export const PendingSSOConnectionCookie = new Cookie(
+  "AUTH_PENDING_SSO",
+  minutes(10),
+);
 
 // Read the JWT's `exp` claim without verifying the signature — we only trust
 // the cookie value once a downstream middleware has verified it.

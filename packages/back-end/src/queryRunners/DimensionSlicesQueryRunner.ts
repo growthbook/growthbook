@@ -7,6 +7,8 @@ import {
   DimensionSlicesResult,
 } from "shared/types/dimension";
 import { Queries } from "shared/types/query";
+import { ExposureQuery } from "shared/types/datasource";
+import { getExposureQueryIdentifierTypes } from "shared/util";
 import {
   getDimensionSlicesById,
   updateDimensionSlices,
@@ -16,6 +18,20 @@ export type DimensionSlicesParams = {
   exposureQueryId: string;
   lookbackDays: number;
 };
+
+/**
+ * Level counts work on any identifier the query declares. Prefers the legacy
+ * `userIdType` so reordering doesn't change the slices, but not once the query
+ * stops declaring it.
+ */
+export function getDimensionSlicesIdentifierType(
+  query: Pick<ExposureQuery, "userIdType" | "userIdTypes">,
+): string {
+  const declared = getExposureQueryIdentifierTypes(query);
+  return declared.includes(query.userIdType)
+    ? query.userIdType
+    : (declared[0] ?? "");
+}
 
 export class DimensionSlicesQueryRunner extends QueryRunner<
   DimensionSlicesInterface,
@@ -50,7 +66,12 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
       await this.startQuery({
         name: "dimensionSlices",
         query: this.integration.getDimensionSlicesQuery({
-          exposureQueryId: params.exposureQueryId,
+          exposureQuery: {
+            query: exposureQuery?.query ?? "",
+            identifierType: exposureQuery
+              ? getDimensionSlicesIdentifierType(exposureQuery)
+              : "",
+          },
           dimensions: dimensions,
           lookbackDays: params.lookbackDays,
         }),

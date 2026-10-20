@@ -1,12 +1,18 @@
+// `resolveRampTargets` moved to `shared/util` so the Publish control resolves ramp
+// targets the same way the gate and the executor do; re-exported here because every
+// caller looks for it in this module.
+export { resolveRampTargets, ruleFootprint } from "shared/util";
+export type { RampTargetQuery } from "shared/util";
+
+import {
+  resolveRampTargets,
+  ruleFootprint,
+  type RampTargetQuery,
+} from "shared/util";
 import isEqual from "lodash/isEqual";
 import { FeatureRule, V1FeatureRule } from "shared/validators";
-import { Environment } from "shared/types/organization";
-import {
-  isMigrationSuffixedRuleId,
-  parseRuleId,
-  stemRuleId,
-  suffixRuleId,
-} from "shared/util";
+import { parseRuleId, stemRuleId, suffixRuleId } from "shared/util";
+import { BadRequestError } from "back-end/src/util/errors";
 
 // Re-exported for back-end callers; new code should import from shared/validators.
 export type { V1FeatureRule };
@@ -90,35 +96,6 @@ export function ensureUniqueRuleIds(
   return { rules: out, collisions };
 }
 
-export function getApplicableEnvIds(
-  orgEnvs: Environment[],
-  featureProject?: string,
-): string[] {
-  return orgEnvs
-    .filter((env) => {
-      if (!featureProject) return true;
-      if (!env.projects?.length) return true;
-      return env.projects.includes(featureProject);
-    })
-    .map((env) => env.id);
-}
-
-// Footprint of a v2 rule, intersected with `applicableEnvs`. Must stay in sync
-// with shared `ruleAppliesToEnv`.
-//   allEnvironments:true            → every applicable env
-//   environments:[list]             → list ∩ applicable
-//   environments:[]                 → [] (pending)
-//   neither field declared (legacy) → every applicable env
-export function ruleFootprint(
-  rule: FeatureRule,
-  applicableEnvs: string[],
-): string[] {
-  if (rule.allEnvironments) return applicableEnvs;
-  if (rule.environments === undefined) return applicableEnvs;
-  const applicableSet = new Set(applicableEnvs);
-  return rule.environments.filter((e) => applicableSet.has(e));
-}
-
 // Tolerate sparse/legacy storage. `rules` is Mongoose `Mixed`, and pre-v2 docs
 // can survive with `null`/`undefined` array entries (partial imports, sparse
 // arrays). Narrows downstream consumers off `unknown` so the shape of a
@@ -192,45 +169,6 @@ export function narrowRuleForEnvRemoval(
   };
 }
 
-export interface RampTargetQuery {
-  ruleId?: string | null;
-  environment?: string | null;
-}
-
-// Resolve a ramp target to every matching unified rule. Semantics by
-// (ruleId shape, environment?):
-//   (bare, env)      → match stem or stem__env, filtered by rule scope
-//   (suffixed, env)  → stemmed; falls through to (bare, env)
-//   (bare, no env)   → stem fan-out across all env siblings
-//   (suffixed, no env) → exact id match
-// `target.environment` is retained for pre-migration stored ramps.
-export function resolveRampTargets(
-  target: RampTargetQuery,
-  unifiedRules: FeatureRule[],
-): FeatureRule[] {
-  if (!target.ruleId) return [];
-  const stem = stemRuleId(target.ruleId);
-
-  if (target.environment) {
-    const env = target.environment;
-    const suffixed = suffixRuleId(stem, env);
-    return unifiedRules.filter((r) => {
-      if (r.id !== stem && r.id !== suffixed) return false;
-      if (r.allEnvironments) return true;
-      return r.environments?.includes(env) ?? false;
-    });
-  }
-
-  // No env supplied.
-  if (isMigrationSuffixedRuleId(target.ruleId)) {
-    // Caller explicitly disambiguated with a suffix — exact match only.
-    const exact = target.ruleId;
-    return unifiedRules.filter((r) => r.id === exact);
-  }
-  // Bare id, no env — stem fan-out.
-  return unifiedRules.filter((r) => stemRuleId(r.id) === stem);
-}
-
 // First (or only) match. Execution paths (e.g. the ramp poller applying
 // patches) MUST use `resolveRampTargets` and iterate every match.
 export function resolveRampTarget(
@@ -263,6 +201,8 @@ export function rampTargetsEquivalent(
 const UNIFICATION_SCOPE_FIELDS = new Set([
   "allEnvironments",
   "environments",
+  "allProjects",
+  "projects",
   "id",
 ]);
 
@@ -519,4 +459,70 @@ export function flattenV1ToV2Rules(
   }
 
   return output;
+}
+
+export function mergeSyncRules({
+  liveRules,
+  environments,
+  envSettings,
+  rules,
+  knownEnvironments,
+}: {
+  liveRules: FeatureRule[];
+  environments: string[];
+  envSettings?: Record<string, { rules?: FeatureRule[] }>;
+  rules?: FeatureRule[];
+  // Environments the caller knows about; live rules in any other environment
+  // are kept when `rules` replaces the rest
+  knownEnvironments?: string[];
+}): { rules: FeatureRule[]; replacedAll: boolean } {
+  const inboundEnvs = new Set(
+    environments.filter((e) => envSettings?.[e]?.rules !== undefined),
+  );
+  if (rules?.length && inboundEnvs.size) {
+    throw new BadRequestError(
+      "Feature Flag sync received both top-level `rules` and `environmentSettings[env].rules`. Use one shape or the other.",
+    );
+  }
+  if (rules && !inboundEnvs.size) {
+    const known = new Set(knownEnvironments ?? environments);
+    const unknown = environments.filter((e) => !known.has(e));
+    const kept: FeatureRule[] = [];
+    for (const r of liveRules) {
+      const envs = r.allEnvironments ? environments : (r.environments ?? []);
+      const remaining = envs.filter((e) => unknown.includes(e));
+      if (!remaining.length) continue;
+      kept.push({ ...r, allEnvironments: false, environments: remaining });
+    }
+    return { rules: [...rules, ...kept], replacedAll: true };
+  }
+
+  const result: FeatureRule[] = [];
+  for (const r of liveRules) {
+    let remainingEnvs: string[];
+    if (r.allEnvironments) {
+      remainingEnvs = environments.filter((e) => !inboundEnvs.has(e));
+      if (remainingEnvs.length === 0) continue;
+      if (remainingEnvs.length === environments.length) {
+        result.push(r);
+        continue;
+      }
+    } else {
+      remainingEnvs = (r.environments ?? []).filter((e) => !inboundEnvs.has(e));
+      if (remainingEnvs.length === 0) continue;
+    }
+    result.push({ ...r, allEnvironments: false, environments: remainingEnvs });
+  }
+
+  environments.forEach((env) => {
+    envSettings?.[env]?.rules?.forEach((r) =>
+      result.push({
+        ...r,
+        allEnvironments: false,
+        environments: [env],
+      } as FeatureRule),
+    );
+  });
+
+  return { rules: result, replacedAll: false };
 }

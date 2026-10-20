@@ -5,12 +5,12 @@ import {
 } from "shared/types/experiment";
 import { useState } from "react";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
-import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import DatePicker from "@/components/DatePicker";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   close: () => void;
@@ -33,10 +33,8 @@ export default function EditPhaseModal({
     defaultValues: {
       ...experiment.phases[i],
       seed: experiment.phases[i]?.seed ?? experiment.trackingKey,
-      dateStarted: (experiment.phases[i]?.dateStarted ?? "").substr(0, 16),
-      dateEnded: experiment.phases[i]?.dateEnded
-        ? (experiment.phases[i]?.dateEnded ?? "").substr(0, 16)
-        : "",
+      dateStarted: experiment.phases[i]?.dateStarted ?? "",
+      dateEnded: experiment.phases[i]?.dateEnded ?? "",
     },
   });
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
@@ -65,12 +63,18 @@ export default function EditPhaseModal({
       })}
       size="lg"
     >
-      <Field label="Phase Name" {...form.register("name")} required />
+      <Field
+        size="legacy"
+        label="Phase Name"
+        {...form.register("name")}
+        required
+      />
       <DatePicker
-        label="Start Time (UTC)"
+        label="Start time"
+        timeZone="utc"
         date={form.watch("dateStarted")}
         setDate={(v) => {
-          form.setValue("dateStarted", v ? datetime(v) : "");
+          form.setValue("dateStarted", v ? v.toISOString() : "");
         }}
         scheduleEndDate={form.watch("dateEnded")}
         disableAfter={form.watch("dateEnded") || undefined}
@@ -78,10 +82,11 @@ export default function EditPhaseModal({
       {!(isDraft && !isMultiPhase) ? (
         <>
           <DatePicker
-            label="End Time (UTC)"
+            label="End time"
+            timeZone="utc"
             date={form.watch("dateEnded")}
             setDate={(v) => {
-              form.setValue("dateEnded", v ? datetime(v) : "");
+              form.setValue("dateEnded", v ? v.toISOString() : "");
             }}
             scheduleStartDate={form.watch("dateStarted")}
             disableBefore={form.watch("dateStarted") || undefined}
@@ -102,6 +107,7 @@ export default function EditPhaseModal({
           </div>
           {form.watch("dateEnded") && (
             <Field
+              size="legacy"
               label="Reason for Stopping"
               textarea
               {...form.register("reason")}
@@ -112,7 +118,7 @@ export default function EditPhaseModal({
       ) : null}
 
       {!isHoldout && !isDraft ? (
-        <div className="alert alert-info mt-4">
+        <Callout status="info" mt="4">
           Trying to change targeting rules, traffic allocation, or start a new
           phase? Use the{" "}
           <a
@@ -126,7 +132,7 @@ export default function EditPhaseModal({
             Make Changes
           </a>{" "}
           button instead.
-        </div>
+        </Callout>
       ) : null}
 
       {!isHoldout ? (
@@ -134,6 +140,7 @@ export default function EditPhaseModal({
           {advancedOptionsOpen && (
             //edit seed
             <Field
+              size="legacy"
               label="Seed"
               type="input"
               {...form.register("seed")}

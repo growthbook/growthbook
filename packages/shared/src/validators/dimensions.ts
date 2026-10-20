@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import { GENERIC_NAME_DESCRIPTION } from "./api-field-descriptions";
 
 // Corresponds to schemas/Dimension.yaml
 export const apiDimensionValidator = namedSchema(
@@ -17,7 +19,7 @@ export const apiDimensionValidator = namedSchema(
       datasourceId: z.string(),
       identifierType: z.string(),
       name: z.string(),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       query: z.string(),
       managedBy: z
         .enum(["", "api", "config"])
@@ -34,8 +36,12 @@ export type ApiDimension = z.infer<typeof apiDimensionValidator>;
 // Corresponds to payload-schemas/PostDimensionPayload.yaml
 const postDimensionBody = z
   .object({
-    name: z.string().describe("Name of the dimension"),
-    description: z.string().describe("Description of the dimension").optional(),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the dimension")
+      .optional(),
     owner: ownerInputField.optional(),
     datasourceId: z
       .string()
@@ -94,6 +100,7 @@ export const postDimensionValidator = {
     })
     .strict(),
   summary: "Create a single dimension",
+  confirmation: ["dimension.create"] as const,
   operationId: "postDimension",
   tags: ["dimensions"],
   method: "post" as const,
@@ -135,6 +142,7 @@ export const updateDimensionValidator = {
     })
     .strict(),
   summary: "Update a single dimension",
+  confirmation: ["dimension.edit"] as const,
   operationId: "updateDimension",
   tags: ["dimensions"],
   method: "post" as const,
@@ -158,6 +166,7 @@ export const deleteDimensionValidator = {
     })
     .strict(),
   summary: "Deletes a single dimension",
+  confirmation: ["dimension.delete"] as const,
   operationId: "deleteDimension",
   tags: ["dimensions"],
   method: "delete" as const,

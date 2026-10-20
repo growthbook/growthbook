@@ -11,6 +11,9 @@ import { setupApp } from "back-end/test/api/api.setup";
 
 jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
   EventNotifier: class Dummy {
+    static defineJob() {
+      return undefined;
+    }
     perform() {
       return undefined;
     }
@@ -55,14 +58,14 @@ describe("features events", () => {
       org,
       models: {
         safeRollout: {
-          getAllPayloadSafeRollouts: jest
-            .fn()
-            .mockResolvedValue(new Map([["sr_123", safeRollout]])),
+          getByIds: jest.fn().mockResolvedValue([safeRollout]),
         },
         savedGroups: {
-          getAll: jest.fn().mockResolvedValue([]),
+          getMetadata: jest.fn().mockResolvedValue([]),
         },
       },
+      getProjects: jest.fn().mockResolvedValue([]),
+      getAllProjectIds: jest.fn().mockResolvedValue([]),
       userId: "aabb",
       email: "user@mail.com",
       userName: "User Name",

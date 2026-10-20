@@ -6,7 +6,7 @@ import Button from "@/ui/Button";
 type Props = {
   setShowAutoGenerateMetricsModal: (value: boolean) => void;
   datasource?: DataSourceInterfaceWithParams;
-  size?: "sm" | "md";
+  size?: "md" | "lg";
 };
 
 export default function AutoGenerateMetricsButton({
@@ -35,7 +35,6 @@ export default function AutoGenerateMetricsButton({
           size={size}
           variant="outline"
           onClick={() => setShowAutoGenerateMetricsModal(true)}
-          mr="2"
         >
           Discover Metrics
         </Button>

@@ -1,3 +1,4 @@
+import type { Queries, QueryRunnerFailureCause } from "shared/types/query";
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
@@ -6,7 +7,11 @@ import {
   blockHasFieldOfType,
   DashboardInterface,
 } from "shared/enterprise";
-import { isString } from "shared/util";
+import {
+  findAnalysisComputeFailure,
+  getSnapshotAnalysis,
+  isString,
+} from "shared/util";
 import {
   SnapshotType,
   ExperimentSnapshotAnalysis,
@@ -20,12 +25,19 @@ import {
   AnalysisMetaEntry,
   buildAnalysisKey,
 } from "shared/snapshot-analysis-chunks";
+import type { ExperimentSnapshotReportInterface } from "shared/types/report";
+import { notifySnapshotUpdateFailure } from "back-end/src/services/experimentSnapshotNotifications";
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { runEagerExperimentAndUnitDimensionsAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
+import {
+  ExperimentUpdateExecutionLogger,
+  logExperimentUpdated,
+  SnapshotConclusion,
+} from "back-end/src/services/experimentUpdateExecutionLogger";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
@@ -72,7 +84,10 @@ const experimentSnapshotSchema = new mongoose.Schema({
   type: { type: String },
   triggeredBy: String,
   report: String,
+  runnerKind: String,
   dateCreated: Date,
+  sourceSnapshotId: String,
+  sourceSnapshotDateCreated: Date,
   runStarted: Date,
   manual: Boolean,
   query: String,
@@ -159,6 +174,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
         of: [experimentSnapshotTrafficObject],
       },
       error: String,
+      multipleExposures: Number,
     },
     power: {
       _id: false,
@@ -230,6 +246,20 @@ experimentSnapshotSchema.index({
   experiment: 1,
   dateCreated: -1,
 });
+// Backs the bulk-results export: organization + experiment equality, then
+// status (bounded by both branches of the query's $or), then dateCreated for
+// the window filter and the descending sort.
+experimentSnapshotSchema.index({
+  organization: 1,
+  experiment: 1,
+  status: 1,
+  dateCreated: -1,
+});
+// Backs the cross-org stalled-snapshot reaper scan, which runs every minute.
+experimentSnapshotSchema.index({
+  status: 1,
+  dateCreated: -1,
+});
 
 export type ExperimentSnapshotDocument = mongoose.Document &
   LegacyExperimentSnapshotInterface;
@@ -291,16 +321,19 @@ function getAnalysisIndexBySettings(
 async function populateSnapshotAnalyses(
   context: Context,
   snapshot: ExperimentSnapshotInterface,
+  metricIds?: string[],
 ): Promise<ExperimentSnapshotInterface>;
 async function populateSnapshotAnalyses(
   context: Context,
   snapshots: ExperimentSnapshotInterface[],
+  metricIds?: string[],
 ): Promise<ExperimentSnapshotInterface[]>;
 async function populateSnapshotAnalyses(
   context: Context,
   snapshotOrSnapshots:
     | ExperimentSnapshotInterface
     | ExperimentSnapshotInterface[],
+  metricIds?: string[],
 ): Promise<ExperimentSnapshotInterface | ExperimentSnapshotInterface[]> {
   const snapshots = Array.isArray(snapshotOrSnapshots)
     ? snapshotOrSnapshots
@@ -308,6 +341,7 @@ async function populateSnapshotAnalyses(
 
   await context.models.experimentSnapshotAnalysisChunks.populateChunkedAnalyses(
     snapshots,
+    metricIds,
   );
   return snapshotOrSnapshots;
 }
@@ -401,10 +435,18 @@ export async function updateSnapshot({
   context,
   id,
   updates,
+  failureCause,
+  conclusion,
+  experimentUpdateExecutionLogger,
 }: {
   context: Context;
   id: string;
   updates: Partial<ExperimentSnapshotInterface>;
+  failureCause?: QueryRunnerFailureCause;
+  // Who ends the snapshot if this update moves it out of "running"; null for
+  // updates that never change its status.
+  conclusion: SnapshotConclusion | null;
+  experimentUpdateExecutionLogger?: ExperimentUpdateExecutionLogger | null;
 }) {
   const organization = context.org.id;
 
@@ -417,112 +459,144 @@ export async function updateSnapshot({
   }
 
   const existingInterface = toInterface(existingSnapshotModel);
-  const updatesForDb: Partial<ExperimentSnapshotInterface> = { ...updates };
-  let deleteExistingChunksAfterUpdate = false;
-  let chunkResult: Awaited<ReturnType<typeof chunkAndStripAnalyses>> = null;
   let experimentSnapshot: ExperimentSnapshotInterface = {
     ...existingInterface,
     ...updates,
   };
+  const hasAnalysisUpdates = updates.analyses !== undefined;
 
-  const analysisUpdates = updates.analyses;
-  const hasAnalysisUpdates = analysisUpdates !== undefined;
+  experimentUpdateExecutionLogger?.startPhase("persistSnapshot");
 
-  // Normalize analysis keys up front: preserve keys by settings-match against
-  // the existing on-disk analyses so in-place updates stay on the same
-  // sub-path, mint fresh ones for analyses that don't match.
-  const normalizedAnalyses = hasAnalysisUpdates
-    ? analysisUpdates.map((analysis) => {
-        const resolvedKey = resolveAnalysisKey(
-          existingInterface.analyses,
-          analysis,
-        );
-        return analysis.analysisKey === resolvedKey
-          ? analysis
-          : { ...analysis, analysisKey: resolvedKey };
-      })
-    : undefined;
+  let currentExperimentModel: Awaited<ReturnType<typeof getExperimentById>> =
+    null;
+  let updatedExperimentModel: Awaited<
+    ReturnType<typeof updateExperimentAnalysisSummary>
+  > | null = null;
+  let shouldRunEagerDimensionAnalyses = false;
 
-  // If analyses have results, chunk them into separate documents
-  if (normalizedAnalyses) {
-    chunkResult = await chunkAndStripAnalyses({
-      context,
-      snapshotId: id,
-      experimentId: experimentSnapshot.experiment,
-      analyses: normalizedAnalyses,
-      settings: experimentSnapshot.settings,
-    });
-  }
+  try {
+    const updatesForDb: Partial<ExperimentSnapshotInterface> = { ...updates };
+    let deleteExistingChunksAfterUpdate = false;
+    let chunkResult: Awaited<ReturnType<typeof chunkAndStripAnalyses>> = null;
 
-  if (chunkResult && normalizedAnalyses) {
-    deleteExistingChunksAfterUpdate = chunkResult.metricIds.length === 0;
-    // Clear results from the main document while keeping the logical snapshot
-    // populated for post-success side effects below.
-    updatesForDb.analyses = chunkResult.strippedAnalyses;
-    updatesForDb.hasChunkedAnalyses = chunkResult.hasChunkedAnalyses;
-    updatesForDb.chunkedAnalysesMeta = chunkResult.chunkedAnalysesMeta;
-    experimentSnapshot = {
-      ...experimentSnapshot,
-      analyses: normalizedAnalyses,
-      hasChunkedAnalyses: chunkResult.hasChunkedAnalyses,
-      chunkedAnalysesMeta: chunkResult.chunkedAnalysesMeta,
-    };
-  } else if (normalizedAnalyses) {
-    deleteExistingChunksAfterUpdate = true;
-    updatesForDb.analyses = normalizedAnalyses;
-    updatesForDb.hasChunkedAnalyses = false;
-    updatesForDb.chunkedAnalysesMeta = {};
-    experimentSnapshot = {
-      ...experimentSnapshot,
-      analyses: normalizedAnalyses,
-      hasChunkedAnalyses: false,
-      chunkedAnalysesMeta: {},
-    };
-  }
+    // Normalize analysis keys up front: preserve keys by settings-match against
+    // the existing on-disk analyses so in-place updates stay on the same
+    // sub-path, mint fresh ones for analyses that don't match.
+    const normalizedAnalyses = updates.analyses
+      ? updates.analyses.map((analysis) => {
+          const resolvedKey = resolveAnalysisKey(
+            existingInterface.analyses,
+            analysis,
+          );
+          return analysis.analysisKey === resolvedKey
+            ? analysis
+            : { ...analysis, analysisKey: resolvedKey };
+        })
+      : undefined;
 
-  await ExperimentSnapshotModel.updateOne(
-    {
-      organization,
-      id,
-    },
-    {
-      $set: updatesForDb,
-    },
-  );
-
-  if (deleteExistingChunksAfterUpdate) {
-    await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotId(
-      id,
-    );
-  }
-
-  if (experimentSnapshot.hasChunkedAnalyses && !chunkResult) {
-    await populateSnapshotAnalyses(context, experimentSnapshot);
-  }
-
-  const shouldUpdateExperimentAnalysisSummary =
-    experimentSnapshot.type === "standard" &&
-    experimentSnapshot.status === "success";
-
-  const shouldRunEagerDimensionAnalyses =
-    shouldUpdateExperimentAnalysisSummary && hasAnalysisUpdates;
-
-  const currentExperimentModel = shouldUpdateExperimentAnalysisSummary
-    ? await getExperimentById(context, experimentSnapshot.experiment)
-    : null;
-
-  const isLatestPhase = currentExperimentModel
-    ? experimentSnapshot.phase === currentExperimentModel.phases.length - 1
-    : false;
-
-  if (currentExperimentModel && isLatestPhase) {
-    if (shouldUpdateExperimentAnalysisSummary) {
-      const updatedExperimentModel = await updateExperimentAnalysisSummary({
+    // If analyses have results, chunk them into separate documents
+    if (normalizedAnalyses) {
+      chunkResult = await chunkAndStripAnalyses({
         context,
-        experiment: currentExperimentModel,
-        experimentSnapshot,
+        snapshotId: id,
+        experimentId: experimentSnapshot.experiment,
+        analyses: normalizedAnalyses,
+        settings: experimentSnapshot.settings,
       });
+    }
 
+    if (chunkResult && normalizedAnalyses) {
+      deleteExistingChunksAfterUpdate = chunkResult.metricIds.length === 0;
+      // Clear results from the main document while keeping the logical snapshot
+      // populated for post-success side effects below.
+      updatesForDb.analyses = chunkResult.strippedAnalyses;
+      updatesForDb.hasChunkedAnalyses = chunkResult.hasChunkedAnalyses;
+      updatesForDb.chunkedAnalysesMeta = chunkResult.chunkedAnalysesMeta;
+      experimentSnapshot = {
+        ...experimentSnapshot,
+        analyses: normalizedAnalyses,
+        hasChunkedAnalyses: chunkResult.hasChunkedAnalyses,
+        chunkedAnalysesMeta: chunkResult.chunkedAnalysesMeta,
+      };
+    } else if (normalizedAnalyses) {
+      deleteExistingChunksAfterUpdate = true;
+      updatesForDb.analyses = normalizedAnalyses;
+      updatesForDb.hasChunkedAnalyses = false;
+      updatesForDb.chunkedAnalysesMeta = {};
+      experimentSnapshot = {
+        ...experimentSnapshot,
+        analyses: normalizedAnalyses,
+        hasChunkedAnalyses: false,
+        chunkedAnalysesMeta: {},
+      };
+    }
+
+    await ExperimentSnapshotModel.updateOne(
+      {
+        organization,
+        id,
+      },
+      {
+        $set: updatesForDb,
+      },
+    );
+
+    if (deleteExistingChunksAfterUpdate) {
+      await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotId(
+        id,
+      );
+    }
+
+    if (experimentSnapshot.hasChunkedAnalyses && !chunkResult) {
+      await populateSnapshotAnalyses(context, experimentSnapshot);
+    }
+
+    if (
+      (experimentSnapshot.status === "error" &&
+        existingInterface.status !== "error") ||
+      (hasAnalysisUpdates && experimentSnapshot.status === "success")
+    ) {
+      await notifySnapshotUpdateFailure({
+        context,
+        snapshot: experimentSnapshot,
+        failureCause,
+      });
+    }
+
+    const shouldUpdateExperimentAnalysisSummary =
+      experimentSnapshot.type === "standard" &&
+      experimentSnapshot.status === "success" &&
+      findAnalysisComputeFailure(getSnapshotAnalysis(experimentSnapshot)) ===
+        null;
+
+    shouldRunEagerDimensionAnalyses =
+      shouldUpdateExperimentAnalysisSummary && hasAnalysisUpdates;
+
+    if (shouldUpdateExperimentAnalysisSummary) {
+      currentExperimentModel = await getExperimentById(
+        context,
+        experimentSnapshot.experiment,
+      );
+
+      const isLatestPhase = currentExperimentModel
+        ? experimentSnapshot.phase === currentExperimentModel.phases.length - 1
+        : false;
+
+      if (currentExperimentModel && isLatestPhase) {
+        updatedExperimentModel = await updateExperimentAnalysisSummary({
+          context,
+          experiment: currentExperimentModel,
+          experimentSnapshot,
+        });
+      }
+    }
+  } finally {
+    experimentUpdateExecutionLogger?.endPhase("persistSnapshot");
+  }
+
+  if (updatedExperimentModel && currentExperimentModel) {
+    experimentUpdateExecutionLogger?.startPhase("propagateSnapshot");
+    try {
       const notificationsTriggered = await notifyExperimentChange({
         context,
         experiment: updatedExperimentModel,
@@ -565,6 +639,26 @@ export async function updateSnapshot({
           );
         });
       }
+    } finally {
+      experimentUpdateExecutionLogger?.endPhase("propagateSnapshot");
+    }
+  }
+
+  if (
+    experimentSnapshot.status !== "running" &&
+    experimentSnapshot.status !== existingInterface.status
+  ) {
+    if (conclusion) {
+      logExperimentUpdated(context, {
+        snapshot: experimentSnapshot,
+        snapshotStatus: experimentSnapshot.status,
+        conclusion,
+        executionLogger: experimentUpdateExecutionLogger ?? null,
+      });
+    } else {
+      logger.warn(
+        `Snapshot ${id} moved to "${experimentSnapshot.status}" by an update that passed no conclusion`,
+      );
     }
   }
 
@@ -825,6 +919,46 @@ export async function deleteSnapshotById(context: Context, id: string) {
   });
 }
 
+export async function deleteSnapshotIfRunning(
+  context: Context,
+  id: string,
+  conclusion: SnapshotConclusion,
+): Promise<boolean> {
+  const deleted = await ExperimentSnapshotModel.findOneAndDelete({
+    organization: context.org.id,
+    id,
+    status: "running",
+  });
+  if (!deleted) return false;
+  await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotId(id);
+  logExperimentUpdated(context, {
+    snapshot: toInterface(deleted),
+    snapshotStatus: "deleted",
+    conclusion,
+    executionLogger: null,
+  });
+  return true;
+}
+
+export async function deleteAllSnapshotsForExperiment(
+  context: Context,
+  experimentId: string,
+) {
+  const snapshots = await ExperimentSnapshotModel.find({
+    organization: context.org.id,
+    experiment: experimentId,
+  }).select({ id: 1 });
+  if (snapshots.length) {
+    await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotIds(
+      snapshots.map((s) => s.id),
+    );
+  }
+  await ExperimentSnapshotModel.deleteMany({
+    organization: context.org.id,
+    experiment: experimentId,
+  });
+}
+
 export async function findSnapshotById(
   context: Context,
   id: string,
@@ -850,6 +984,75 @@ export async function findSnapshotsByIds(
   return populateSnapshotAnalyses(context, snapshots);
 }
 
+export async function findSnapshotsByExperiment(
+  context: ReqContext | ApiReqContext,
+  {
+    experiment,
+    dateStart,
+    dateEnd,
+    phase,
+    type,
+    limit,
+    offset,
+  }: {
+    experiment: string;
+    dateStart: Date;
+    dateEnd: Date;
+    phase?: number;
+    type?: SnapshotType;
+    limit: number;
+    offset: number;
+  },
+): Promise<{ snapshots: ExperimentSnapshotInterface[]; total: number }> {
+  const query: FilterQuery<ExperimentSnapshotDocument> = {
+    organization: context.org.id,
+    experiment,
+    dateCreated: { $gte: dateStart, $lte: dateEnd },
+    // `status` is derived at read time by migrateSnapshot, so snapshots
+    // written before the field existed need the legacy results check too.
+    // Both branches pin `status` so the index below can bound them; without
+    // that, `status` stops being an equality match and the dateCreated range
+    // and sort fall out of the index.
+    $or: [
+      { status: "success" },
+      {
+        status: { $exists: false },
+        results: { $exists: true, $type: "array", $ne: [] },
+      },
+    ],
+  };
+  if (phase !== undefined) {
+    query.phase = phase;
+  }
+  // Only filter by type when requested; by default include every type
+  // (standard, exploratory, and report) since this endpoint dumps all runs.
+  if (type === "standard") {
+    // `type` was added in Oct 2024 and never backfilled; the serializer reads
+    // a missing type as "standard", so the filter has to match that.
+    query.type = { $in: ["standard", null] };
+  } else if (type) {
+    query.type = type;
+  }
+
+  const total = await ExperimentSnapshotModel.countDocuments(query);
+
+  // Paginate over snapshots at the DB level (backed by the
+  // { organization, experiment, status, dateCreated } index) since hydrating
+  // chunked analyses per snapshot is expensive.
+  const docs = await ExperimentSnapshotModel.find(query, null, {
+    sort: { dateCreated: -1 },
+    skip: offset,
+    limit,
+  }).exec();
+
+  const snapshots = await populateSnapshotAnalyses(
+    context,
+    docs.map(toInterface),
+  );
+
+  return { snapshots, total };
+}
+
 export async function findRunningSnapshotsByQueryId(ids: string[]) {
   // Only look for matches in the past 24 hours to make the query more efficient
   // Older snapshots should not still be running anyway
@@ -869,21 +1072,74 @@ export async function errorSnapshotIfStillRunning(
   context: Context,
   id: string,
   updates: Partial<ExperimentSnapshotInterface>,
+  failureCause: QueryRunnerFailureCause,
+  conclusion: SnapshotConclusion,
+  // A runner ending its own snapshot passes its logger so the line keeps the
+  // plan and timings.
+  executionLogger: ExperimentUpdateExecutionLogger | null = null,
 ): Promise<boolean> {
-  const res = await ExperimentSnapshotModel.updateOne(
+  const updated = await ExperimentSnapshotModel.findOneAndUpdate(
     {
       organization: context.org.id,
       id,
       status: "running",
     },
     { $set: { ...updates, status: "error" } },
+    { new: true },
   );
-  return res.modifiedCount > 0;
+  if (!updated) return false;
+  const snapshot = toInterface(updated);
+  logExperimentUpdated(context, {
+    snapshot,
+    snapshotStatus: "error",
+    conclusion,
+    executionLogger,
+  });
+  await notifySnapshotUpdateFailure({ context, snapshot, failureCause });
+  return true;
+}
+
+/** Rewrites only the pointers of a concluded snapshot; status, error and results are left alone. */
+export async function reconcileSnapshotQueryPointers(
+  context: Context,
+  id: string,
+  queries: Queries,
+): Promise<boolean> {
+  const { modifiedCount } = await ExperimentSnapshotModel.updateOne(
+    {
+      organization: context.org.id,
+      id,
+      status: { $in: ["success", "error"] },
+    },
+    { $set: { queries } },
+  );
+  return modifiedCount > 0;
+}
+
+/** Newest successful snapshot a report owns. `experiment` is in the filter so the experiment indexes serve it. */
+export async function findLatestSuccessfulReportSnapshotId(
+  context: Context,
+  report: Pick<ExperimentSnapshotReportInterface, "id" | "experimentId">,
+): Promise<string | null> {
+  const doc = await ExperimentSnapshotModel.findOne(
+    {
+      organization: context.org.id,
+      report: report.id,
+      ...(report.experimentId ? { experiment: report.experimentId } : {}),
+      status: "success",
+    },
+    { id: 1 },
+    { sort: { dateCreated: -1 } },
+  )
+    .lean<{ id: string }>()
+    .exec();
+  return doc?.id ?? null;
 }
 
 export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   stalledBefore: Date,
   limit: number,
+  excludeIds: string[] = [],
 ) {
   // Only look back 24 hours to keep the scan bounded
   const earliestDate = new Date();
@@ -892,29 +1148,12 @@ export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   const docs = await ExperimentSnapshotModel.find({
     status: "running",
     dateCreated: { $gt: earliestDate, $lt: stalledBefore },
-  }).limit(limit);
+    ...(excludeIds.length ? { id: { $nin: excludeIds } } : {}),
+  })
+    .sort({ dateCreated: 1 })
+    .limit(limit);
 
   return docs.map((doc) => toInterface(doc));
-}
-
-export async function findLatestRunningSnapshotByReportId(
-  context: Context,
-  report: string,
-) {
-  // Only look for match in the past 24 hours to make the query more efficient
-  // Older snapshots should not still be running anyway
-  const earliestDate = new Date();
-  earliestDate.setDate(earliestDate.getDate() - 1);
-
-  const doc = await ExperimentSnapshotModel.findOne({
-    organization: context.org.id,
-    report,
-    status: "running",
-    dateCreated: { $gt: earliestDate },
-    queries: { $elemMatch: { status: "running" } },
-  });
-
-  return doc ? toInterface(doc) : null;
 }
 
 export async function getLatestSuccessfulSnapshot({
@@ -924,6 +1163,7 @@ export async function getLatestSuccessfulSnapshot({
   dimension,
   beforeSnapshot,
   type,
+  metricIds,
 }: {
   context: Context;
   experiment: string;
@@ -931,6 +1171,8 @@ export async function getLatestSuccessfulSnapshot({
   dimension?: string;
   beforeSnapshot?: Pick<ExperimentSnapshotInterface, "dateCreated">;
   type?: SnapshotType;
+  // Load only these metrics' analysis chunks; omit for the full snapshot.
+  metricIds?: string[];
 }): Promise<ExperimentSnapshotInterface | null> {
   const query: FilterQuery<ExperimentSnapshotDocument> = {
     organization: context.org.id,
@@ -964,7 +1206,11 @@ export async function getLatestSuccessfulSnapshot({
   if (all[0]) {
     const mostRecentSnapshot = all[0];
 
-    return populateSnapshotAnalyses(context, toInterface(mostRecentSnapshot));
+    return populateSnapshotAnalyses(
+      context,
+      toInterface(mostRecentSnapshot),
+      metricIds,
+    );
   }
 
   // Otherwise, try getting old snapshot records
@@ -975,7 +1221,9 @@ export async function getLatestSuccessfulSnapshot({
     limit: 1,
   }).exec();
 
-  return all[0] ? populateSnapshotAnalyses(context, toInterface(all[0])) : null;
+  return all[0]
+    ? populateSnapshotAnalyses(context, toInterface(all[0]), metricIds)
+    : null;
 }
 
 // Mongo projection limited to fields needed for SnapshotStatusSummary.
@@ -1098,6 +1346,7 @@ export async function getLatestSnapshotMultipleExperiments(
   experimentPhaseMap: Map<string, number>,
   dimension?: string,
   withResults: boolean = true,
+  hydrateMetricIds?: string[],
 ): Promise<ExperimentSnapshotInterface[]> {
   const experimentPhasesToGet = new Map(experimentPhaseMap);
   const query: FilterQuery<ExperimentSnapshotDocument> = {
@@ -1152,7 +1401,7 @@ export async function getLatestSnapshotMultipleExperiments(
     });
   }
 
-  return populateSnapshotAnalyses(context, snapshots);
+  return populateSnapshotAnalyses(context, snapshots, hydrateMetricIds);
 }
 
 export async function createExperimentSnapshotModel({

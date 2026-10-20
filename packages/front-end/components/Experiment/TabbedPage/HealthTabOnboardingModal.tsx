@@ -19,6 +19,7 @@ import {
   CustomDimensionMetadata,
   DimensionSlicesRunner,
 } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
+import Callout from "@/ui/Callout";
 
 type HealthTabOnboardingModalProps = {
   open: boolean;
@@ -182,7 +183,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   };
 
   if (error) {
-    return <div className="alert alert-error">{error?.message}</div>;
+    return <Callout status="error">{error?.message}</Callout>;
   }
   const { status } = getQueryStatus(
     data?.dimensionSlices?.queries || [],

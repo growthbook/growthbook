@@ -29,3 +29,25 @@ export const ownerInputField = z
   .describe(
     "The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization.",
   );
+
+const OWNER_PERSON_DEFAULT =
+  "the requesting member: a personal access token's owner, or the member an organization API key assumes";
+
+/**
+ * Optional owner input for create endpoints. When omitted, the owner defaults to
+ * the person behind the request, or stays empty for a key acting as itself.
+ */
+export const optionalOwnerInputField = ownerInputField
+  .optional()
+  .describe(
+    `The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. When omitted, it defaults to ${OWNER_PERSON_DEFAULT}. An organization API key acting as itself leaves it empty.`,
+  );
+
+/**
+ * For create endpoints that must end up with an owner (resolveOwnerForCreate):
+ * the same default, but a request with no person behind it is rejected.
+ */
+export const requiredUnlessPersonOwnerInputField =
+  optionalOwnerInputField.describe(
+    `The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. When omitted, it defaults to ${OWNER_PERSON_DEFAULT}. An organization API key acting as itself must send it, or the request fails with a 400.`,
+  );

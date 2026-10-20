@@ -15,6 +15,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { StripeProvider } from "@/enterprise/components/Billing/StripeProvider";
 import { useStripeContext } from "@/hooks/useStripeContext";
+import { useForceLicenseRefresh } from "@/hooks/useForceLicenseRefresh";
 import { taxIdTypeOptions } from "@/enterprise/components/Billing/CloudProUpgradeModal";
 import RadioCards from "@/ui/RadioCards";
 import Field from "@/components/Forms/Field";
@@ -22,17 +23,30 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import Checkbox from "@/ui/Checkbox";
+import UIButton from "@/ui/Button";
 import Button from "@/components/Button";
 import track from "@/services/track";
+import Callout from "@/ui/Callout";
 import WelcomeFrame from "./WelcomeFrame";
 
 export type InitialPlanOptions = "" | "starter" | "pro";
 
 const leftside = (
-  <>
-    <h1 className="title h1">Confirm your plan</h1>
-    <p>You can change this later in your account settings.</p>
-  </>
+  <Flex direction="column" justify="between" height="100%" p="6">
+    <Box>
+      <a href="https://www.growthbook.io" target="_blank" rel="noreferrer">
+        <img
+          src="/logo/growth-book-logo-white.svg"
+          style={{ maxWidth: "150px" }}
+          alt="GrowthBook"
+        />
+      </a>
+    </Box>
+    <Box>
+      <h1 className="title h1">Confirm your plan</h1>
+      <p>You can change this later in your account settings.</p>
+    </Box>
+  </Flex>
 );
 type ProBillingData = {
   email: string;
@@ -42,8 +56,20 @@ type ProBillingData = {
 
 const SelectInitialPlan: FC = () => {
   const router = useRouter();
-  const { initialPlanSelection, setInitialPlanSelection } = useAuth();
+  const {
+    initialPlanSelection,
+    setInitialPlanSelection,
+    organizations,
+    orgId,
+    setOrgId,
+  } = useAuth();
   const { email } = useUser();
+  const {
+    status: organizationRefreshStatus,
+    refresh: refreshOrganizationAfterUpgrade,
+    retry: retryOrganizationRefresh,
+  } = useForceLicenseRefresh();
+  const organizationRefreshFailed = organizationRefreshStatus !== "idle";
   const plan: InitialPlanOptions =
     initialPlanSelection === "pro" || initialPlanSelection === "starter"
       ? initialPlanSelection
@@ -62,6 +88,12 @@ const SelectInitialPlan: FC = () => {
 
   const completeFlow = useCallback(() => {
     track("Initial signup: flow completed", { plan });
+    setInitialPlanSelection?.("");
+    router.push("/");
+  }, [plan, router, setInitialPlanSelection]);
+
+  const handleDismiss = useCallback(() => {
+    track("Initial signup: dismissed plan selection", { plan });
     setInitialPlanSelection?.("");
     router.push("/");
   }, [plan, router, setInitialPlanSelection]);
@@ -91,6 +123,24 @@ const SelectInitialPlan: FC = () => {
     <WelcomeFrame leftside={leftside} pathName="/select-initial-plan">
       {step === 1 && (
         <Flex direction="column" gap="4" width="100%">
+          {organizations && organizations.length > 1 && (
+            <SelectField
+              label="Organization"
+              value={orgId ?? ""}
+              options={(organizations ?? []).map((o) => ({
+                label: o.name,
+                value: o.id,
+              }))}
+              onChange={(id) => {
+                setOrgId?.(id);
+                try {
+                  localStorage.setItem("gb-last-picked-org", `"${id}"`);
+                } catch (e) {
+                  // ignore
+                }
+              }}
+            />
+          )}
           <Heading as="h1">Plan options</Heading>
           <RadioCards
             options={[
@@ -103,7 +153,7 @@ const SelectInitialPlan: FC = () => {
                     justify="between"
                     gap="2"
                   >
-                    <Heading as="h2" size="small">
+                    <Heading as="h2" size="sm">
                       Starter
                     </Heading>
                     <Text color="text-low">Free</Text>
@@ -149,7 +199,7 @@ const SelectInitialPlan: FC = () => {
                     justify="between"
                     gap="2"
                   >
-                    <Heading as="h2" size="small">
+                    <Heading as="h2" size="sm">
                       Pro
                     </Heading>
                     <Text color="text-low">Starts at $40/month</Text>
@@ -211,25 +261,68 @@ const SelectInitialPlan: FC = () => {
           onBack={handleBack}
           setLoading={setLoading}
           setError={setError}
+          refreshOrganizationAfterUpgrade={refreshOrganizationAfterUpgrade}
         />
       )}
       {step >= 4 && (
         <div style={{ maxWidth: "500px" }}>
-          <h2 className="h3 mb-1">Welcome to GrowthBook Pro!</h2>
-          <p className="text-muted mb-3">
-            You&apos;re all set! Go to your GrowthBook dashboard to start your
-            setup.
-          </p>
-          <Button color="primary" onClick={completeFlow} disabled={loading}>
+          <h2 className="h3 mb-1">
+            {organizationRefreshFailed
+              ? "GrowthBook Pro Subscription Created"
+              : "Welcome to GrowthBook Pro!"}
+          </h2>
+          {!organizationRefreshFailed && (
+            <p className="text-muted mb-3">
+              You&apos;re all set! Go to your GrowthBook dashboard to start your
+              setup.
+            </p>
+          )}
+          {organizationRefreshFailed && (
+            <Callout
+              status="warning"
+              mt="3"
+              action={
+                <UIButton
+                  size="sm"
+                  color="inherit"
+                  loading={organizationRefreshStatus === "loading"}
+                  onClick={retryOrganizationRefresh}
+                >
+                  Try again
+                </UIButton>
+              }
+            >
+              We couldn&apos;t refresh your organization details. Try again to
+              see your updated plan.
+            </Callout>
+          )}
+          <Button
+            color="primary"
+            onClick={completeFlow}
+            disabled={loading || organizationRefreshStatus === "loading"}
+          >
             Get started
           </Button>
         </div>
       )}
       {error && (
-        <div className="alert alert-danger mt-3" role="alert">
+        <Callout status="error" role="alert" mt="3">
           {error}
-        </div>
+        </Callout>
       )}
+      <Flex align="center" justify="center" mt="3">
+        <Text size="md" color="text-low">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              handleDismiss();
+            }}
+          >
+            Skip plan selection
+          </a>
+        </Text>
+      </Flex>
     </WelcomeFrame>
   );
 };
@@ -261,6 +354,7 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
         Enter your billing information. You can add your payment method next.
       </Text>
       <Field
+        size="legacy"
         type="email"
         required={true}
         label="Billing email"
@@ -270,6 +364,7 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
       <Flex gap="4">
         <Box style={{ flex: 1 }}>
           <SelectField
+            size="legacy"
             label="Tax ID type"
             options={taxIdTypeOptions}
             value={form.watch("taxIdType") || ""}
@@ -280,6 +375,7 @@ const ProBillingStep: FC<ProBillingStepProps> = ({
         </Box>
         <Box style={{ flex: 1 }}>
           <Field
+            size="legacy"
             type="text"
             {...form.register("taxIdValue")}
             placeholder="(optional)"
@@ -319,6 +415,7 @@ type ProPaymentStepProps = {
   onBack: () => void;
   setLoading: (v: boolean) => void;
   setError: (v: string | null) => void;
+  refreshOrganizationAfterUpgrade: () => Promise<void>;
 };
 
 const ProPaymentStep: FC<ProPaymentStepProps> = ({
@@ -328,6 +425,7 @@ const ProPaymentStep: FC<ProPaymentStepProps> = ({
   onBack,
   setLoading,
   setError,
+  refreshOrganizationAfterUpgrade,
 }) => {
   // StripeProvider now owns the load-Stripe-then-create-Radar-session-then-
   // fetch-SetupIntent flow, so this component just renders it directly.
@@ -340,6 +438,7 @@ const ProPaymentStep: FC<ProPaymentStepProps> = ({
         setLoading={setLoading}
         setError={setError}
         error={error}
+        refreshOrganizationAfterUpgrade={refreshOrganizationAfterUpgrade}
       />
     </StripeProvider>
   );
@@ -352,6 +451,7 @@ type ProPaymentFormProps = {
   setLoading: (v: boolean) => void;
   setError: (v: string | null) => void;
   error: string | null;
+  refreshOrganizationAfterUpgrade: () => Promise<void>;
 };
 
 const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
@@ -361,9 +461,10 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
   setLoading,
   setError,
   error,
+  refreshOrganizationAfterUpgrade,
 }) => {
   const { apiCall } = useAuth();
-  const { organization, refreshOrganization } = useUser();
+  const { organization } = useUser();
   const stripe = useStripe();
   const elements = useElements();
   const { clientSecret } = useStripeContext();
@@ -426,14 +527,16 @@ const ProPaymentFormInner: FC<ProPaymentFormProps> = ({
               : undefined,
         }),
       });
-      await refreshOrganization();
-      setLoading(false);
-      onSuccess();
     } catch (e) {
       setLoading(false);
       const message = e instanceof Error ? e.message : "Something went wrong";
       setError(message);
+      return;
     }
+
+    await refreshOrganizationAfterUpgrade();
+    setLoading(false);
+    onSuccess();
   };
 
   return (

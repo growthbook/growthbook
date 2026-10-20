@@ -1,6 +1,7 @@
 import dataclasses
 from functools import partial
 from unittest import TestCase, main as unittest_main
+from unittest.mock import patch
 import numpy as np
 import pandas as pd
 import copy
@@ -10,25 +11,29 @@ from gbstats.gbstats import (
     BanditSettingsForStatsEngine,
     MetricSettingsForStatsEngine,
     detect_unknown_variations,
+    get_dimension_column_name,
     reduce_dimensionality,
     analyze_metric_df,
     get_metric_dfs,
     variation_statistic_from_metric_row,
     process_analysis,
+    process_single_metric,
     get_bandit_result,
     create_bandit_statistics,
     preprocess_bandits,
 )
-from gbstats.bayesian.bandits import BanditsSimple
+from gbstats.bayesian.bandits import BanditsSimple, BanditConfig
 
 from gbstats.models.settings import BanditWeightsSinglePeriod
 from gbstats.models.statistics import (
     RegressionAdjustedStatistic,
+    ProportionStatistic,
     SampleMeanStatistic,
 )
 from gbstats.models.results import (
     BaselineResponse,
     BayesianVariationResponseIndividual,
+    DimensionResponse,
     FrequentistVariationResponseIndividual,
     MetricStats,
     FrequentistVariationResponse,
@@ -384,6 +389,174 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
 )
 
 
+class TestProcessSingleMetricAnalysisIsolation(TestCase):
+    def test_one_analysis_failure_does_not_discard_the_others(self):
+        good_analysis = dataclasses.replace(DEFAULT_ANALYSIS, dimension="All")
+        bad_analysis = dataclasses.replace(DEFAULT_ANALYSIS, dimension="country")
+        good_dimensions = [DimensionResponse(dimension="All", srm=1.0, variations=[])]
+
+        def process(**kwargs):
+            if kwargs["analysis"].dimension == "country":
+                raise ValueError("boom")
+            return good_dimensions
+
+        with patch("gbstats.gbstats.process_analysis", side_effect=process):
+            result = process_single_metric(
+                rows=QUERY_OUTPUT,
+                metric=COUNT_METRIC,
+                analyses=[good_analysis, bad_analysis],
+            )
+
+        # One aligned slot per requested analysis
+        self.assertEqual(len(result.analyses), 2)
+
+        self.assertIsNone(result.analyses[0].error)
+        self.assertEqual(result.analyses[0].dimensions, good_dimensions)
+
+        self.assertEqual(result.analyses[1].dimensions, [])
+        self.assertEqual(result.analyses[1].error, "boom")
+        analysis_traceback = result.analyses[1].traceback
+        assert analysis_traceback is not None
+        self.assertIn("ValueError: boom", analysis_traceback)
+
+    def test_quantile_skip_keeps_analyses_aligned(self):
+        quantile_metric = dataclasses.replace(
+            COUNT_METRIC, statistic_type="quantile_unit"
+        )
+        skipped_analysis = dataclasses.replace(DEFAULT_ANALYSIS, dimension="")
+        kept_analysis = dataclasses.replace(DEFAULT_ANALYSIS, dimension="country")
+        kept_dimensions = [
+            DimensionResponse(dimension="country", srm=1.0, variations=[])
+        ]
+
+        rows = [{**r, "dim_exp": r["dimension"]} for r in QUERY_OUTPUT]
+
+        with patch("gbstats.gbstats.process_analysis", return_value=kept_dimensions):
+            result = process_single_metric(
+                rows=rows,
+                metric=quantile_metric,
+                analyses=[skipped_analysis, kept_analysis],
+            )
+
+        self.assertEqual(len(result.analyses), 2)
+        self.assertEqual(result.analyses[0].dimensions, [])
+        self.assertIsNone(result.analyses[0].error)
+        self.assertEqual(result.analyses[1].dimensions, kept_dimensions)
+
+
+class TestCreateBanditStatisticsBinomial(TestCase):
+    """Binomial bandit rows carry the period-weighted variance in main_sum_squares."""
+
+    # One folded row per variation, as the bandit SQL produces it. The
+    # main_sum_squares values are not sum (what iid binomial data would give)
+    # because the period weighting inflates the variance of the mean.
+    ROWS = pd.DataFrame(
+        [
+            {
+                "dimension": "All",
+                "variation": "zero",
+                "main_sum": 30.0,
+                "main_sum_squares": 45.0,
+                "users": 300,
+                "count": 300,
+            },
+            {
+                "dimension": "All",
+                "variation": "one",
+                "main_sum": 36.0,
+                "main_sum_squares": 60.0,
+                "users": 300,
+                "count": 300,
+            },
+        ]
+    )
+    # Binomial is coerced to count upstream, so the metric that actually reaches
+    # create_bandit_statistics is a count metric.
+    METRIC = COUNT_METRIC
+
+    def _stats(self, rows):
+        df = get_metric_dfs(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        return create_bandit_statistics(df[0].data.iloc[0], self.METRIC, 2)
+
+    def test_uses_period_weighted_variance_from_row(self):
+        stats = self._stats(self.ROWS)
+        for stat, row in zip(stats, self.ROWS.itertuples()):
+            assert isinstance(stat, SampleMeanStatistic)
+            self.assertEqual(stat.n, row.users)
+            self.assertEqual(stat.sum, row.main_sum)
+            self.assertEqual(stat.sum_squares, row.main_sum_squares)
+            iid_variance = ProportionStatistic(n=stat.n, sum=stat.sum).variance
+            self.assertGreater(stat.variance, iid_variance)
+
+    def test_keeps_folded_sum_squares_below_the_sum(self):
+        # Two equally weighted periods at 10% and 90% conversion: the period
+        # weighting removes the between-period spread, so the folded
+        # main_sum_squares (102.09) is below the sum (150) and must be kept.
+        rows = self.ROWS.copy()
+        rows.loc[0, ["main_sum", "main_sum_squares"]] = [150.0, 102.09]
+        stat = self._stats(rows)[0]
+        assert isinstance(stat, SampleMeanStatistic)
+        self.assertEqual(stat.sum_squares, 102.09)
+        self.assertLess(
+            stat.variance,
+            SampleMeanStatistic(n=300, sum=150.0, sum_squares=150.0).variance,
+        )
+
+    def test_rejects_binomial_metric(self):
+        # A binomial metric should have been coerced to count upstream.
+        binomial_metric = dataclasses.replace(COUNT_METRIC, main_metric_type="binomial")
+        df = get_metric_dfs(self.ROWS, {"zero": 0, "one": 1}, ["zero", "one"])
+        with self.assertRaises(ValueError):
+            create_bandit_statistics(df[0].data.iloc[0], binomial_metric, 2)
+
+
+class TestBanditMinVariationWeightFloor(TestCase):
+    def _bandit(self, min_variation_weight):
+        # one dominant arm, so several raw Thompson weights fall below the floor
+        stats = [
+            SampleMeanStatistic(n=1000, sum=10, sum_squares=2000),
+            SampleMeanStatistic(n=1000, sum=20, sum_squares=2000),
+            SampleMeanStatistic(n=1000, sum=30, sum_squares=2000),
+            SampleMeanStatistic(n=1000, sum=300, sum_squares=20000),
+        ]
+        config = BanditConfig(
+            bandit_weights_seed=100,
+            top_two=True,
+            inverse=False,
+            min_variation_weight=min_variation_weight,
+        )
+        return BanditsSimple(stats, [1 / 4] * 4, config)
+
+    def test_floor_is_additive_on_the_simplex(self):
+        n, f = 4, 0.1
+        # same fixed seed -> identical Thompson draws, so the f=0 result is w
+        w = np.array(self._bandit(0.0).compute_result().bandit_weights)
+        p = np.array(self._bandit(f).compute_result().bandit_weights)
+        # every arm gets at least the floor, and the weights still sum to 1
+        self.assertTrue(np.all(p >= f - 1e-9))
+        self.assertAlmostEqual(float(np.sum(p)), 1.0, places=9)
+        # additive-simplex identity: p_i = f + (1 - n * f) * w_i
+        np.testing.assert_allclose(p, f + (1.0 - n * f) * w, atol=1e-9)
+
+    def test_zero_floor_is_pure_thompson(self):
+        w = np.array(self._bandit(0.0).compute_result().bandit_weights)
+        self.assertAlmostEqual(float(np.sum(w)), 1.0, places=9)
+        self.assertTrue(np.all(w >= -1e-12))
+
+    def test_floor_too_large_falls_back_to_uniform(self):
+        # n * f = 4 * 0.5 > 1 cannot fit on the simplex -> uniform allocation
+        p = np.array(self._bandit(0.5).compute_result().bandit_weights)
+        np.testing.assert_allclose(p, np.full(4, 1 / 4), atol=1e-9)
+
+    def test_negative_floor_is_clamped_to_zero(self):
+        # a negative floor must not produce weights outside [0, 1]; clamps to f=0
+        w = np.array(self._bandit(0.0).compute_result().bandit_weights)
+        p = np.array(self._bandit(-0.3).compute_result().bandit_weights)
+        self.assertTrue(np.all(p >= -1e-12) and np.all(p <= 1 + 1e-9))
+        self.assertAlmostEqual(float(np.sum(p)), 1.0, places=9)
+        np.testing.assert_allclose(p, w, atol=1e-9)
+
+
 class TestGetMetricDf(TestCase):
     def test_get_metric_dfs_missing_count(self):
         rows = MULTI_DIMENSION_STATISTICS_DF.drop("count", axis=1)
@@ -445,6 +618,30 @@ class TestVariationStatisticBuilder(TestCase):
                 n=expected_baseline_n,
                 theta=None,
             ),
+        )
+
+
+class TestGetDimensionColumnName(TestCase):
+    def test_get_dimension_column_name(self):
+        self.assertEqual(get_dimension_column_name("pre:date"), "dim_pre_date")
+        self.assertEqual(get_dimension_column_name("pre:activation"), "dim_activation")
+        self.assertEqual(get_dimension_column_name("exp:country"), "dim_exp_country")
+        self.assertEqual(
+            get_dimension_column_name("precomputed:country"), "dim_exp_country"
+        )
+        self.assertEqual(get_dimension_column_name("dim_abc"), "dim_unit_dim_abc")
+        self.assertEqual(get_dimension_column_name(""), "dimension")
+
+    def test_custom_dimension_column_names(self):
+        # Neither may map into the dim_exp_ namespace (post-stratification
+        # treats those as strata columns)
+        self.assertEqual(
+            get_dimension_column_name("cutoff:2026-01-15T00:12:00.000Z"),
+            "dim_cutoff",
+        )
+        self.assertEqual(
+            get_dimension_column_name("combo:exp:country::dim_abc"),
+            "dim_combo",
         )
 
 
@@ -797,7 +994,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
             analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
         )
 
-        # Test that meric mean is unadjusted
+        # Test that metric mean is unadjusted
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].dimension, "All")
         self.assertEqual(round_(result[0].variations[0].cr), 0.099966678)

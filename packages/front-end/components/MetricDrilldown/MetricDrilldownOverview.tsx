@@ -49,6 +49,7 @@ interface MetricDrilldownOverviewProps {
   dimensionInfo?: DrilldownDimensionInfo;
   valueColumnWidth?: number;
   labelMaxWidth?: number;
+  oneSided?: boolean;
 }
 
 function MetricDrilldownOverview({
@@ -79,6 +80,7 @@ function MetricDrilldownOverview({
   localBaselineRow = 0,
   valueColumnWidth,
   labelMaxWidth,
+  oneSided = false,
 }: MetricDrilldownOverviewProps) {
   const [statsExpanded, setStatsExpanded] = useState(false);
   const { isAuthenticated } = useAuth();
@@ -157,6 +159,7 @@ function MetricDrilldownOverview({
         dimensionValue={dimensionInfo?.rawValue}
         valueColumnWidth={valueColumnWidth}
         labelMaxWidth={labelMaxWidth}
+        oneSided={oneSided}
         snapshot={snapshot}
         analysis={analysis}
         setAnalysisSettings={setAnalysisSettings}

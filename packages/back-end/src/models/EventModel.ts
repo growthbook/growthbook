@@ -53,9 +53,9 @@ const eventSchema = new mongoose.Schema({
     enum: zodNotificationEventNamesEnum,
   },
   version: {
-    type: String,
+    type: Number,
     required: false,
-    enum: ["1"],
+    enum: [MODEL_VERSION],
   },
   data: {
     type: Object,
@@ -112,6 +112,7 @@ export const createEventWithPayload = async <
   payload,
   organizationId,
   objectId,
+  notify = true,
 }: {
   payload: Omit<
     NotificationEventPayload<Resource, Event>,
@@ -119,7 +120,11 @@ export const createEventWithPayload = async <
   >;
   organizationId: string;
   objectId?: string;
+  // Save event history even when webhook and legacy Slack dispatch is skipped.
+  notify?: boolean;
 }) => {
+  // Set once saved, so a failed dispatch still reports the event as created
+  let savedEventId: string | null = null;
   try {
     const eventId = `event-${randomUUID()}`;
 
@@ -138,11 +143,17 @@ export const createEventWithPayload = async <
       NotificationEventPayload<Resource, Event>,
       typeof MODEL_VERSION
     >;
+    savedEventId = event.id;
 
-    new EventNotifier(event.id).perform();
+    if (notify) await new EventNotifier(event.id).perform();
+
+    // Returned so callers that record having announced something can tell a
+    // swallowed failure from a delivered event.
+    return event.id;
   } catch (e) {
     logger.error(e);
   }
+  return savedEventId;
 };
 
 // createEvent can handle creating the diff
@@ -231,6 +242,7 @@ export type CreateEventParams<
   projects: string[];
   tags: string[];
   environments: string[];
+  notify?: boolean;
 };
 
 export const createEvent = async <
@@ -246,6 +258,7 @@ export const createEvent = async <
   projects,
   tags,
   environments,
+  notify = true,
 }: CreateEventParams<Resource, Event>) =>
   createEventWithPayload<Resource, Event>({
     payload: {
@@ -259,6 +272,7 @@ export const createEvent = async <
       user: context.auditUser ?? { type: "system" },
     },
     organizationId: context.org.id,
+    notify,
     ...(objectId ? { objectId } : {}),
   });
 
@@ -357,18 +371,10 @@ const applyFiltersToQuery = (
 };
 
 /**
- * Get all events for an organization
- * @param organizationId
- * @param limit  Providing 0 as a limit will return all events
- * @returns
+ * Stream all events for an organization, newest first, as plain objects
  */
-export const getLatestEventsForOrganization = async (
-  organizationId: string,
-  limit: number = 50,
-): Promise<EventInterface[]> => {
-  const docs = await EventModel.find({ organizationId })
+export const getEventsCursorForOrganization = (organizationId: string) =>
+  EventModel.find({ organizationId }, { _id: 0, __v: 0 })
     .sort([["dateCreated", -1]])
-    .limit(limit);
-
-  return docs.map(toInterface) as EventInterface[];
-};
+    .lean<EventInterface>()
+    .cursor();

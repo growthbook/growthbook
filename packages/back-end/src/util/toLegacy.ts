@@ -1,3 +1,4 @@
+import { getApplicableEnvIds } from "shared/util";
 import omit from "lodash/omit";
 import {
   FeatureInterface,
@@ -9,17 +10,16 @@ import {
 } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import {
-  getApplicableEnvIds,
-  ruleFootprint,
-} from "back-end/src/util/flattenRules";
+import { ruleFootprint } from "./flattenRules";
 
 // v2 -> v1 down-conversion for the /api/v1 REST surface. Rule ids round-trip
 // verbatim (including `__<env>` migration suffixes); the reverse flows
 // through `flattenV1ToV2Rules`, which merges by content for a byte-stable
 // cycle.
 
-// Strip v2-only scope fields; id is preserved verbatim.
+// Strip the v2-only environment-scope fields (env scope is implicit in v1's
+// per-environment rule buckets); id is preserved verbatim. Project scope
+// (allProjects/projects) is kept so it survives a v1 GET → PUT round-trip.
 export function toLegacyRule(rule: FeatureRule): V1FeatureRule {
   return omit(rule, [
     "allEnvironments",
@@ -70,7 +70,7 @@ export function toLegacyFeature(
   feature: FeatureInterface,
   orgEnvs: Environment[],
 ): V1FeatureInterface {
-  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature.project);
+  const applicableEnvs = getApplicableEnvIds(orgEnvs, feature);
   const existing = feature.environmentSettings || {};
 
   const rulesByEnv = bucketRulesByEnv(

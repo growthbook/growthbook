@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
+import { isAutoSnapshotScheduled } from "shared/experiments";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -14,7 +15,10 @@ import {
   getSettingsForSnapshotMetrics,
   updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
-import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
+import {
+  ConcurrentIncrementalRefreshError,
+  UnrecoverableSnapshotError,
+} from "back-end/src/util/errors";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
@@ -74,7 +78,7 @@ export default async function (agenda: Agenda) {
   async function startUpdateJob() {
     const updateResultsJob = agenda.create(QUEUE_EXPERIMENT_UPDATES, {});
     updateResultsJob.unique({});
-    updateResultsJob.repeatEvery("10 minutes");
+    updateResultsJob.repeatEvery("5 minutes");
     await updateResultsJob.save();
   }
 
@@ -96,7 +100,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
+export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const experimentId = job.attrs.data?.experimentId;
   const orgId = job.attrs.data?.organization;
 
@@ -107,7 +111,8 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const { org: organization } = context;
 
   const experiment = await getExperimentById(context, experimentId);
-  if (!experiment) return;
+  // Check if it is scheduled again because it might have changed between queued and now
+  if (!experiment || !isAutoSnapshotScheduled(experiment)) return;
 
   let project = null;
   if (experiment.project) {
@@ -140,7 +145,9 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       experiment.datasource || "",
     );
     if (!datasource) {
-      throw new Error("Error refreshing experiment, could not find datasource");
+      throw new UnrecoverableSnapshotError(
+        "Error refreshing experiment, could not find datasource",
+      );
     }
 
     const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
@@ -225,8 +232,13 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     }
 
     logger.error(e, "Failed to update experiment: " + experimentId);
-    // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)
-    if (experiment.type === "multi-armed-bandit") return;
+    // Turn off auto-updating for the future (bandits keep retrying unless the failure is deterministic)
+    if (
+      experiment.type === "multi-armed-bandit" &&
+      !(e instanceof UnrecoverableSnapshotError)
+    ) {
+      return;
+    }
     try {
       await updateExperiment({
         context,

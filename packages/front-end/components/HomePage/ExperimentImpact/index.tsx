@@ -13,7 +13,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import MetricSelector from "@/components/Experiment/MetricSelector";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -22,17 +22,22 @@ import Avatar from "@/ui/Avatar";
 import DSTooltip from "@/ui/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { GBInfo } from "@/components/Icons";
-import { jamesSteinAdjustment } from "./JamesSteinAdjustment";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
+import {
+  getStandardErrorFromLargestSample,
+  jamesSteinAdjustment,
+} from "./JamesSteinAdjustment";
 import ExperimentImpactTab from "./ExperimentImpactTab";
 
 export function NoExperimentsForImpactBanner() {
   return (
-    <div className={`mt-2 alert alert-warning`}>
+    <Callout status="warning" mt="2">
       <span style={{ fontSize: "1.2em" }}>
         0 experiments for which we could compute scaled impact match your
         filters.
       </span>
-    </div>
+    </Callout>
   );
 }
 
@@ -100,6 +105,7 @@ export function scaleImpactAndSetMissingExperiments({
   startDate,
   endDate,
   adjusted,
+  skipDateFilter = false,
 }: {
   experiments: ExperimentInterfaceStringDates[];
   snapshots: ExperimentSnapshotInterface[] | undefined;
@@ -108,6 +114,11 @@ export function scaleImpactAndSetMissingExperiments({
   startDate: string;
   endDate: string | undefined;
   adjusted: boolean;
+  // Skip this function's own date filter when the caller has already date-scoped
+  // `experiments`. This filter keys off the last phase's dateEnded with
+  // exclusive boundaries, which differs from callers that pre-filter on the
+  // result date with inclusive boundaries.
+  skipDateFilter?: boolean;
 }): {
   summaryObj: ExperimentImpactSummary | null;
   nExpsUsedForAdjustment: number;
@@ -130,7 +141,9 @@ export function scaleImpactAndSetMissingExperiments({
         (!endDate || getValidDate(endDate) > new Date());
 
       const fitsDateFilter =
-        (endedAfterStart && endedBeforeEnd) || isRunningAndEndInFuture;
+        skipDateFilter ||
+        (endedAfterStart && endedBeforeEnd) ||
+        isRunningAndEndInFuture;
       const { metricGroups } = useDefinitions();
       const hasMetric = getAllMetricIdsFromExperiment(
         e,
@@ -158,8 +171,10 @@ export function scaleImpactAndSetMissingExperiments({
   let summaryObj: ExperimentImpactSummary | null = null;
   if (snapshots && exps) {
     // use largest experiment for population sampling variance
-    const maxUnits = 0;
-    let overallSE: number | null = null;
+    const standardErrors: {
+      totalUnits: number;
+      standardError: number;
+    }[] = [];
     const allScaledImpacts: number[] = [];
     exps.forEach((e) => {
       const s = snapshots.find((s) => s.experiment === e.id);
@@ -206,9 +221,7 @@ export function scaleImpactAndSetMissingExperiments({
               allScaledImpacts.push(impact);
 
               const totalUnits = v.users + res.variations[0].users;
-              if (totalUnits > maxUnits && se > 0) {
-                overallSE = se;
-              }
+              standardErrors.push({ totalUnits, standardError: se });
             }
           });
         } else {
@@ -228,6 +241,7 @@ export function scaleImpactAndSetMissingExperiments({
       experimentImpacts.set(e.id, ei);
     });
 
+    const overallSE = getStandardErrorFromLargestSample(standardErrors);
     const adjustment = jamesSteinAdjustment(allScaledImpacts, overallSE ?? 0);
 
     const applyAdjustment = adjusted && nExpsUsedForAdjustment >= 5;
@@ -460,7 +474,8 @@ export default function ExperimentImpact({
         <div className="col-auto" style={{ maxWidth: 250 }}>
           <label className="mb-1">Projects</label>
           <MultiSelectField
-            placeholder="All projects"
+            legacyHeight
+            placeholder="All Projects"
             value={project ? [project] : selectedProjects}
             disabled={!!project}
             options={projects
@@ -549,28 +564,26 @@ export default function ExperimentImpact({
       ) : summaryObj ? (
         <>
           {experimentsWithNoImpact.length > 0 ? (
-            <div className={`mt-2 alert alert-warning`}>
-              <div className="row">
-                <div className="col-auto">
-                  <span style={{ fontSize: "1.2em" }}>
-                    Some experiments are missing scaled impact results.
-                  </span>
-                </div>
-                <div className="flex-1" />
-                <div className="col-auto">
-                  <button
-                    className="btn btn-sm btn-primary"
-                    onClick={() =>
-                      updateSnapshots(experimentsWithNoImpact).then(
-                        fetchSnapshots,
-                      )
-                    }
-                  >
-                    Calculate Scaled Impact
-                  </button>
-                </div>
-              </div>
-            </div>
+            <Callout
+              status="warning"
+              mt="2"
+              action={
+                <Button
+                  color="inherit"
+                  onClick={() =>
+                    updateSnapshots(experimentsWithNoImpact).then(
+                      fetchSnapshots,
+                    )
+                  }
+                >
+                  Calculate Scaled Impact
+                </Button>
+              }
+            >
+              <span style={{ fontSize: "1.2em" }}>
+                Some experiments are missing scaled impact results.
+              </span>
+            </Callout>
           ) : null}
           {summaryObj.losers.experiments.length +
             summaryObj.winners.experiments.length +

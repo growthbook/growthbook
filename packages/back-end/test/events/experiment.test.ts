@@ -15,8 +15,18 @@ import {
 } from "back-end/src/services/experimentNotifications";
 import { EventModel } from "back-end/src/models/EventModel";
 
+// Serializers resolve legacy identifiers through the request's data source cache,
+// which these mock contexts don't have.
+jest.mock("back-end/src/services/assignmentQuerySelection", () => ({
+  ...jest.requireActual("back-end/src/services/assignmentQuerySelection"),
+  getExposureQueriesForDatasource: jest.fn().mockResolvedValue([]),
+}));
+
 jest.mock("back-end/src/events/notifiers/EventNotifier", () => ({
   EventNotifier: class Dummy {
+    static defineJob() {
+      return undefined;
+    }
     perform() {
       return undefined;
     }
@@ -943,12 +953,32 @@ describe("experiments events", () => {
         },
       },
       experiment: experimentSnapshot,
+      snapshot: {
+        type: "standard",
+        health: {
+          traffic: { overall: { srm: 0.0004, variationUnits: [6200, 3800] } },
+        },
+      } as unknown as ExperimentSnapshotInterface,
       currentStatus: {
         status: "unhealthy",
         unhealthyData: { srm: true },
       },
       healthSettings: { srmThreshold: 0.5 },
     });
+
+    const srmObject = {
+      experimentId: "exp_dd4gxd4lyel8bwi",
+      experimentName: "Add To Cart",
+      threshold: 0.5,
+      type: "srm",
+      pValue: 0.0004,
+      variations: [
+        { name: "Control", users: 6200, weight: 0.5 },
+        { name: "Variation 1", users: 3800, weight: 0.5 },
+      ],
+      // The fixture's phase is still open, so the day count moves with the clock.
+      durationDays: expect.any(Number),
+    };
 
     expect(rawPayload).toEqual(
       expect.objectContaining({
@@ -960,14 +990,7 @@ describe("experiments events", () => {
         object: "experiment",
         projects: [],
         tags: [],
-        data: {
-          object: {
-            experimentId: "exp_dd4gxd4lyel8bwi",
-            experimentName: "Add To Cart",
-            threshold: 0.5,
-            type: "srm",
-          },
-        },
+        data: { object: srmObject },
         user: {
           email: "user@email.com",
           id: "user-aabb",
@@ -979,12 +1002,7 @@ describe("experiments events", () => {
 
     expect(getLegacyMessageForNotificationEvent(rawPayload)).toEqual({
       containsSecrets: false,
-      data: {
-        experimentId: "exp_dd4gxd4lyel8bwi",
-        experimentName: "Add To Cart",
-        threshold: 0.5,
-        type: "srm",
-      },
+      data: srmObject,
       environments: [],
       event: "experiment.warning",
       object: "experiment",
@@ -1126,6 +1144,7 @@ describe("experiments events", () => {
       },
       experiment: experimentSnapshot,
       currentStatus: { status: "ship-now", tooltip: tooltip },
+      source: "analysis",
     });
 
     expect(rawPayload).toEqual(
@@ -1143,6 +1162,7 @@ describe("experiments events", () => {
             experimentId: "exp_dd4gxd4lyel8bwi",
             experimentName: "Add To Cart",
             decisionDescription: tooltip,
+            source: "analysis",
           },
         },
         user: {
@@ -1184,6 +1204,7 @@ describe("experiments events", () => {
       },
       experiment: experimentSnapshot,
       currentStatus: { status: "rollback-now", tooltip: tooltip },
+      source: "analysis",
     });
 
     expect(rawPayload).toEqual(
@@ -1201,6 +1222,7 @@ describe("experiments events", () => {
             experimentId: "exp_dd4gxd4lyel8bwi",
             experimentName: "Add To Cart",
             decisionDescription: tooltip,
+            source: "analysis",
           },
         },
         user: {
@@ -1242,6 +1264,7 @@ describe("experiments events", () => {
       },
       experiment: experimentSnapshot,
       currentStatus: { status: "ready-for-review", tooltip: tooltip },
+      source: "analysis",
     });
 
     expect(rawPayload).toEqual(
@@ -1259,6 +1282,7 @@ describe("experiments events", () => {
             experimentId: "exp_dd4gxd4lyel8bwi",
             experimentName: "Add To Cart",
             decisionDescription: tooltip,
+            source: "analysis",
           },
         },
         user: {
@@ -1300,6 +1324,7 @@ describe("experiments events", () => {
       experiment: experimentSnapshot,
       currentStatus: { status: "ready-for-review" },
       lastStatus: { status: "ready-for-review" },
+      source: "analysis",
     });
 
     expect(rawPayload).toEqual(undefined);
@@ -1323,6 +1348,7 @@ describe("experiments events", () => {
       experiment: experimentSnapshot,
       currentStatus: { status: "ready-for-review", tooltip: tooltip },
       lastStatus: { status: "rollback-now" },
+      source: "analysis",
     });
 
     expect(rawPayload).toEqual(
@@ -1340,6 +1366,7 @@ describe("experiments events", () => {
             experimentId: "exp_dd4gxd4lyel8bwi",
             experimentName: "Add To Cart",
             decisionDescription: tooltip,
+            source: "analysis",
           },
         },
         user: {

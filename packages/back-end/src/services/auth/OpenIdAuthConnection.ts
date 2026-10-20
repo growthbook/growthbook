@@ -20,30 +20,38 @@ import {
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { MemoryCache } from "back-end/src/services/cache";
 import {
-  AuthChecksCookie,
+  AuthSecretCookie,
+  PendingSSOConnectionCookie,
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
-import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "back-end/src/util/secrets";
+import {
+  APP_ORIGIN,
+  IS_CLOUD,
+  USE_PROXY,
+  WEBHOOK_PROXY,
+} from "back-end/src/util/secrets";
 import { _dangerousGetSSOConnectionById } from "back-end/src/models/SSOConnectionModel";
 import {
   getUserLoginPropertiesFromRequest,
   trackLoginForUser,
 } from "back-end/src/services/users";
-import { getHttpOptions } from "back-end/src/util/http.util";
+import { getAuthHttpOptions } from "back-end/src/util/http.util";
 import {
   VERCEL_CLIENT_ID,
   VERCEL_CLIENT_SECRET,
 } from "back-end/src/services/vercel-native-integration.service";
+import { vercelInstallationExists } from "back-end/src/models/VercelNativeIntegrationModel";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
+import {
+  createNonce,
+  RetriableAuthError,
+  deriveAuthChecks,
+  isNonceExpired,
+  nonceFromState,
+} from "./authChecks";
 
-type AuthChecks = {
-  connection_id: string;
-  state: string;
-  code_verifier: string;
-};
-
-if (USE_PROXY) {
-  custom.setHttpOptionsDefaults(getHttpOptions());
+if (USE_PROXY || WEBHOOK_PROXY) {
+  custom.setHttpOptionsDefaults(getAuthHttpOptions());
 }
 
 const passthroughQueryParams = ["hypgen", "hypothesis"];
@@ -56,6 +64,8 @@ const ssoConnectionCache = new MemoryCache(async (ssoConnectionId: string) => {
   }
   throw new Error("Could not find SSO connection - " + ssoConnectionId);
 }, 30);
+
+const vercelInstallationCache = new MemoryCache(vercelInstallationExists, 30);
 
 // A stable key for clientMap
 // Cache key must include all fields that affect the OpenID Client, so updates
@@ -112,12 +122,14 @@ export class OpenIdAuthConnection implements AuthConnection {
     res: Response,
   ): Promise<UnauthenticatedResponse> {
     const { connection, client } = await getConnectionFromRequest(req, res);
-    const redirectURI = this.getRedirectURI(connection, client, req, res);
 
     // If there's an existing incomplete auth session for this Cloud SSO provider,
     // confirm with the user to give them a chance to cancel and reset to the default auth
-    const checks = this.getAuthChecks(req);
-    const confirm = !!connection.id && checks?.connection_id === connection.id;
+    const confirm =
+      !!connection.id &&
+      PendingSSOConnectionCookie.getValue(req) === connection.id;
+
+    const redirectURI = this.getRedirectURI(connection, client, req, res);
 
     return {
       redirectURI,
@@ -127,26 +139,26 @@ export class OpenIdAuthConnection implements AuthConnection {
   async processCallback(req: Request, res: Response): Promise<TokensResponse> {
     const { connection, client } = await getConnectionFromRequest(req, res);
 
-    // Get rid of temporary codeVerifier cookie
-    const checks = this.getAuthChecks(req);
-    AuthChecksCookie.setValue("", req, res);
-
-    if (!checks) {
-      throw new Error("Missing auth checks in session");
-    }
-    if (checks.connection_id !== (connection.id || "")) {
-      throw new Error("Invalid auth checks in session");
-    }
-
     const params = client.callbackParams(req.originalUrl);
+
+    const secret = AuthSecretCookie.getValue(req);
+    if (!secret) {
+      throw new RetriableAuthError("Missing auth secret cookie");
+    }
+
+    const nonce = nonceFromState(params.state);
+    if (isNonceExpired(nonce)) {
+      throw new RetriableAuthError("Login attempt expired");
+    }
+
+    // A wrong connection or forged state fails the HMAC comparison inside callback()
+    const checks = deriveAuthChecks(secret, connection.id || "", nonce);
     const tokenSet = await client.callback(
       `${APP_ORIGIN}/oauth/callback`,
       params,
-      {
-        code_verifier: checks.code_verifier,
-        state: checks.state,
-      },
+      checks,
     );
+    PendingSSOConnectionCookie.setValue("", req, res);
 
     const email = tokenSet.claims().email;
     if (email) {
@@ -213,7 +225,7 @@ export class OpenIdAuthConnection implements AuthConnection {
           rateLimit: false,
           jwksRequestsPerMinute: 10,
           jwksUri,
-          requestAgent: getHttpOptions().agent,
+          requestAgent: getAuthHttpOptions().agent,
         });
 
         const getKey: GetVerificationKey = (req, token) => {
@@ -246,11 +258,11 @@ export class OpenIdAuthConnection implements AuthConnection {
     }
   }
 
-  private getAuthChecks(req: Request) {
-    const checks = AuthChecksCookie.getValue(req);
-    if (!checks) return null;
-    const parsed: AuthChecks = JSON.parse(checks);
-    return parsed;
+  // Re-set on every use so the TTL slides for active browsers
+  private getAuthSecret(req: Request, res: Response): string {
+    const secret = AuthSecretCookie.getValue(req) || generators.random();
+    AuthSecretCookie.setValue(secret, req, res);
+    return secret;
   }
   private getMaxAge(tokenSet: TokenSet) {
     if (tokenSet.expires_in) {
@@ -267,6 +279,10 @@ export class OpenIdAuthConnection implements AuthConnection {
     req: Request,
     res: Response,
   ) {
+    if (ssoConnection.id) {
+      PendingSSOConnectionCookie.setValue(ssoConnection.id, req, res);
+    }
+
     // Vercel has a provider-initiated SSO flow that differs from the normal OAuth flow
     if (ssoConnection.id?.startsWith("vercel:")) {
       const installationId = ssoConnection.id.split(":")[1];
@@ -275,18 +291,12 @@ export class OpenIdAuthConnection implements AuthConnection {
       }/${installationId}`;
     }
 
-    const code_verifier = generators.codeVerifier();
+    const { state, code_verifier } = deriveAuthChecks(
+      this.getAuthSecret(req, res),
+      ssoConnection.id || "",
+      createNonce(),
+    );
     const code_challenge = generators.codeChallenge(code_verifier);
-
-    const state = generators.state();
-
-    const checks: AuthChecks = {
-      connection_id: ssoConnection.id || "",
-      code_verifier,
-      state,
-    };
-
-    AuthChecksCookie.setValue(JSON.stringify(checks), req, res);
 
     let url = client.authorizationUrl({
       scope: `openid email profile ${
@@ -338,6 +348,15 @@ async function getConnectionFromRequest(req: Request, res: Response) {
       persistSSOConnectionId = true;
       ssoConnectionId = ssoConnectionIdFromQuery;
     }
+  }
+
+  // A cookie naming a deleted installation redirects off-app forever, so drop it
+  if (
+    ssoConnectionId.startsWith("vercel:") &&
+    !(await vercelInstallationCache.get(ssoConnectionId.split(":")[1]))
+  ) {
+    SSOConnectionIdCookie.setValue("", req, res);
+    ssoConnectionId = "";
   }
 
   let connection: SSOConnectionInterface;

@@ -1,6 +1,5 @@
 import { subDays } from "date-fns";
 import { format } from "shared/sql";
-import type { DataSourceInterface } from "shared/types/datasource";
 import type { DimensionSlicesQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import {
@@ -9,20 +8,17 @@ import {
 } from "back-end/src/util/sql";
 
 import { getDimensionValuePerUnit } from "back-end/src/integrations/sql/fact-metrics/dimension-value-per-unit";
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getUnitCountCTE } from "back-end/src/integrations/sql/ctes/unit-count-cte";
 
 export function getDimensionSlicesQuery(
   dialect: SqlDialect,
-  datasource: DataSourceInterface,
   params: DimensionSlicesQueryParams,
 ): string {
-  const exposureQuery = getExposureQuery(
-    datasource,
-    params.exposureQueryId || "",
-  );
+  const { exposureQuery } = params;
 
-  const { baseIdType } = getBaseIdTypeAndJoins([[exposureQuery.userIdType]]);
+  const { baseIdType } = getBaseIdTypeAndJoins([
+    [exposureQuery.identifierType],
+  ]);
 
   const startDate = subDays(new Date(), params.lookbackDays);
   const timestampColumn = "e.timestamp";

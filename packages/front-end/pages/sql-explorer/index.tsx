@@ -10,6 +10,7 @@ import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import SavedQueriesList from "@/components/SavedQueries/SavedQueriesList";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumCallout from "@/ui/PremiumCallout";
+import Callout from "@/ui/Callout";
 
 export default function SqlExplorer() {
   const { datasources, project } = useDefinitions();
@@ -36,9 +37,9 @@ export default function SqlExplorer() {
   if (error) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">
+        <Callout status="error">
           Failed to load saved queries: {error.message}
-        </div>
+        </Callout>
       </div>
     );
   }

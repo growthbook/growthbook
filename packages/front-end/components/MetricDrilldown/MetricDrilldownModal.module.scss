@@ -9,7 +9,7 @@
 .metricDrilldownModalBody {
   padding: 0 var(--space-7) var(--space-7);
 
-  // FIXME: Ideally ResultsTable would have this style or a variation and not be overriden here
+  // FIXME: Ideally ResultsTable would have this style or a variation and not be overridden here
   :global(.experiment-results th.axis-col) {
     box-shadow: none;
   }

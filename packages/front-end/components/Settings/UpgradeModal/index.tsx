@@ -284,6 +284,11 @@ export default function UpgradeModal({
       "Create product analytics dashboards and control who can view and edit them.",
     "metric-groups": "Simplify experiment analysis with Metric Groups",
     "advanced-permissions": "Manage advanced user permissions",
+    "role-management":
+      "Assign roles to teammates instead of making everyone an admin",
+    "unlimited-projects": "Create as many projects as you need",
+    "custom-environments":
+      "Create custom environments beyond production, dev, staging, and test",
     "encrypt-features-endpoint": "SDK endpoint encryption",
     "schedule-feature-flag": "Schedule feature flag rollouts",
     "override-metrics": "Override metric definitions on a per-experiment basis",
@@ -315,6 +320,8 @@ export default function UpgradeModal({
       "Define retention metrics that measure return activity",
     "metric-populations": "Analyze metrics for different sub-populations",
     "multi-armed-bandits": "Run adaptive experiments with Bandits",
+    "contextual-bandits":
+      "Run context-aware adaptive experiments with Contextual Bandits",
     "historical-power":
       "Power calculator that uses historical data for accurate predictions",
     "decision-framework":
@@ -842,7 +849,7 @@ export default function UpgradeModal({
             {showEnterpriseTreatment ? enterpriseTreatment() : proTreatment()}
           </div>
 
-          {error && <div className="alert alert-danger">{error}</div>}
+          {error && <Callout status="error">{error}</Callout>}
         </Modal>
       )}
     </>

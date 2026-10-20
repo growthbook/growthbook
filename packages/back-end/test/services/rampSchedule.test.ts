@@ -14,18 +14,29 @@
  *   rollbackToStep and jumpAheadToStep apply the effective accumulated patch so that
  *   arriving at step N from any direction yields the same rule state.
  */
+import omit from "lodash/omit";
 
 import type {
   RampScheduleInterface,
+  RampStepAction,
   SafeRolloutInterface,
 } from "shared/validators";
-import type { FeatureRule } from "shared/types/feature";
+import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import {
   isAwaitingApproval,
   isReadyForApproval,
+  isAwaitingStartApproval,
+  startApprovalPending,
+  resolveStartApproval,
 } from "shared/src/validators/ramp-schedule";
+import { getJSONValue } from "shared/src/sdk-versioning/sdk-payload";
 import {
   computeNextStepAt,
+  computeAutoAdvanceTarget,
+  stepIsCollapsible,
+  withRampScheduleAdvanceLock,
+  withRampScheduleAdvanceLockRetry,
+  runLockedRampScheduleAction,
   computePhaseStartAfterApproval,
   applyPatchToRule,
   computeEffectivePatch,
@@ -39,9 +50,21 @@ import {
   advanceScheduleManually,
   completeRollout,
   getStartPatchForRule,
+  resolveRampStartState,
   applyRampStartActions,
   startReadyScheduleNow,
   approveAndPublishStep,
+  computeNextProcessAt,
+  pauseSchedule,
+  normalizeRampActionsForceValues,
+  normalizeRampPlanForceValues,
+  planRampBaseStateSync,
+  planRampBaseStateSyncForPublish,
+  applyRampBaseStateSync,
+  restoreRampBaseStates,
+  rampStartValuesOf,
+  forceMatchesValueType,
+  remapTemplateActions,
 } from "back-end/src/services/rampSchedule";
 
 // ---------------------------------------------------------------------------
@@ -53,11 +76,23 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
   publishRevision: jest.fn(),
 }));
 
+// The fire-time targeting check imports the whole validations module graph;
+// this suite asserts only that it is asked, and when.
+jest.mock("back-end/src/api/features/validations", () => ({
+  validateRampPlanPatches: jest.fn(),
+}));
+
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   createRevision: jest.fn(),
   getRevision: jest.fn(),
   discardRevision: jest.fn(),
   registerRevisionPublishedHook: jest.fn(),
+}));
+
+// These mock contexts have no request data source cache.
+jest.mock("back-end/src/services/assignmentQuerySelection", () => ({
+  ...jest.requireActual("back-end/src/services/assignmentQuerySelection"),
+  getExposureQueriesForDatasource: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("back-end/src/models/EventModel", () => ({
@@ -82,10 +117,20 @@ jest.mock("back-end/src/util/secrets", () => ({
 
 // Pull in mocked module references AFTER the mock declarations.
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
-import { createRevision } from "back-end/src/models/FeatureRevisionModel";
+import { validateRampPlanPatches } from "back-end/src/api/features/validations";
+import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import {
+  createRevision,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { createEvent } from "back-end/src/models/EventModel";
+import {
+  ConflictError,
+  RampAdvanceLockBusyError,
+} from "back-end/src/util/errors";
 
 const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
+const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
 const mockPublishRevision = publishRevision as jest.MockedFunction<
   typeof publishRevision
 >;
@@ -222,12 +267,17 @@ function makeContext(scheduleUpdates: Partial<RampScheduleInterface> = {}) {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
-        rampSchedules: { updateById, getById: jest.fn() },
+        rampSchedules: {
+          updateById,
+          getById: jest.fn(),
+          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+        },
       },
     },
     updateById,
@@ -247,6 +297,67 @@ describe("applyPatchToRule", () => {
     enabled: true,
     condition: "",
   };
+
+  it("promotes a force rule to a rollout once its anchor names a hash attribute", () => {
+    const force: FeatureRule = {
+      id: "r2",
+      type: "force",
+      value: "true",
+      enabled: true,
+    };
+    // Identity comes from the start anchor; seed and hash version default.
+    expect(applyPatchToRule(force, { hashAttribute: "user_id" })).toEqual({
+      ...force,
+      type: "rollout",
+      coverage: 1,
+      hashAttribute: "user_id",
+      seed: "r2",
+      hashVersion: 2,
+    });
+    expect(
+      applyPatchToRule(force, {
+        coverage: 0.5,
+        hashAttribute: "user_id",
+        seed: "s1",
+        hashVersion: 1,
+      }),
+    ).toMatchObject({
+      type: "rollout",
+      coverage: 0.5,
+      hashAttribute: "user_id",
+      seed: "s1",
+      hashVersion: 1,
+    });
+    // A hash attribute left on the rule (demoted from a rollout) serves too.
+    expect(
+      applyPatchToRule({ ...force, hashAttribute: "user_id" } as FeatureRule, {
+        coverage: 0.5,
+      }),
+    ).toMatchObject({ type: "rollout", hashAttribute: "user_id" });
+    // Without one anywhere nothing promotes: the engine refuses such a step
+    // before it gets here. Full or no coverage never promotes either.
+    expect(applyPatchToRule(force, { coverage: 0.5 }).type).toBe("force");
+    expect(applyPatchToRule(force, { coverage: 1 }).type).toBe("force");
+    expect(applyPatchToRule(force, { condition: "{}" }).type).toBe("force");
+  });
+
+  it("applies the anchor's identity to a rollout; clearing coverage means full coverage", () => {
+    expect(
+      applyPatchToRule(base, {
+        coverage: null,
+        hashAttribute: "user_id",
+        seed: "s1",
+      }),
+    ).toMatchObject({
+      type: "rollout",
+      coverage: 1,
+      hashAttribute: "user_id",
+      seed: "s1",
+    });
+    expect(applyPatchToRule(base, { hashAttribute: null })).toMatchObject({
+      hashAttribute: "id",
+    });
+  });
 
   it("applies coverage patch", () => {
     const result = applyPatchToRule(base, { coverage: 0.5 });
@@ -269,10 +380,28 @@ describe("applyPatchToRule", () => {
     expect(result.enabled).toBe(true);
   });
 
-  it("does not overwrite unpatchd fields", () => {
+  it("does not overwrite unpatched fields", () => {
     const result = applyPatchToRule(base, { coverage: 0.9 });
     expect(result.condition).toBe(base.condition);
     expect(result.enabled).toBe(base.enabled);
+  });
+
+  it("preserves the rule's sparse flag when applying a force patch", () => {
+    // A ramp step sets a new (partial) value on a sparse rule; the sparse flag
+    // must survive so the SDK payload still merges it onto the default.
+    const sparseRule = {
+      ...base,
+      type: "force",
+      value: JSON.stringify({ b: 1 }),
+      sparse: true,
+    } as FeatureRule;
+    const result = applyPatchToRule(sparseRule, {
+      force: JSON.stringify({ b: 9 }),
+    });
+    expect((result as { value?: unknown }).value).toBe(
+      JSON.stringify({ b: 9 }),
+    );
+    expect((result as { sparse?: boolean }).sparse).toBe(true);
   });
 
   it("allEnvironments:true wins when both allEnvironments and environments appear in the same patch", () => {
@@ -293,6 +422,33 @@ describe("applyPatchToRule", () => {
     expect(result.environments).toBeUndefined();
   });
 
+  it("a null environments patch leaves the rule's scope alone", () => {
+    const scoped: FeatureRule = {
+      ...base,
+      allEnvironments: false,
+      environments: ["dev"],
+    };
+    const result = applyPatchToRule(scoped, { environments: null });
+    expect(result.allEnvironments).toBe(false);
+    expect(result.environments).toEqual(["dev"]);
+  });
+
+  it("an anchor taken from a rule with no list restores every environment", () => {
+    const everywhere = { ...base } as FeatureRule;
+    delete everywhere.environments;
+    delete everywhere.allEnvironments;
+    const anchor = getStartPatchForRule(everywhere);
+    expect(anchor.allEnvironments).toBe(true);
+    const narrowed: FeatureRule = {
+      ...base,
+      allEnvironments: false,
+      environments: ["production"],
+    };
+    const restored = applyPatchToRule(narrowed, anchor);
+    expect(restored.allEnvironments).toBe(true);
+    expect("environments" in restored).toBe(false);
+  });
+
   it("environments patch correctly resets allEnvironments to false", () => {
     const allEnvRule: FeatureRule = {
       ...base,
@@ -307,7 +463,237 @@ describe("applyPatchToRule", () => {
   });
 });
 
+// A rule's `value` is a string; a ramp patch's `force` may arrive as any JSON
+// type (the schema allows it and older editors sent booleans/objects parsed
+// from the value field). Whatever arrives must land on the rule as its string
+// form, or the payload builder serves the wrong thing (boolean false -> true,
+// object -> null).
+describe("ramp force values are applied and stored as strings", () => {
+  const boolRule: FeatureRule = {
+    id: "r1",
+    type: "force",
+    value: "true",
+    enabled: true,
+    condition: "",
+  };
+
+  it("applyPatchToRule stores a force as the string the payload parses, and clears on undefined", () => {
+    const value = (rule: FeatureRule, force: unknown) =>
+      (applyPatchToRule(rule, { force }) as { value?: unknown }).value;
+    expect(value(boolRule, false)).toBe("false");
+    expect(getJSONValue("boolean", value(boolRule, false) as string)).toBe(
+      false,
+    );
+    expect(value({ ...boolRule, value: "{}" }, { limit: 5 })).toBe(
+      '{"limit":5}',
+    );
+    expect(value(boolRule, "false")).toBe("false");
+    expect(value(boolRule, undefined)).toBeUndefined();
+  });
+
+  it("normalizeRampActionsForceValues stringifies, validates against the feature, and leaves other actions alone", () => {
+    const feature = { valueType: "boolean" as const };
+    const actions: RampStepAction[] = [
+      {
+        targetType: "feature-rule",
+        targetId: "t1",
+        patch: { ruleId: "r1", force: false },
+      },
+      {
+        targetType: "feature-rule",
+        targetId: "t1",
+        patch: { ruleId: "r1", coverage: 0.5 },
+      },
+    ];
+    const out = normalizeRampActionsForceValues(actions, feature);
+    expect(out[0].patch.force).toBe("false");
+    expect(out[1]).toBe(actions[1]);
+    // Without a feature it only stringifies.
+    expect(
+      normalizeRampActionsForceValues(actions.slice(0, 1))[0].patch.force,
+    ).toBe("false");
+    // An action with no patch (unvalidated dashboard body) is left alone.
+    const noPatch = { targetType: "feature-rule" } as unknown as RampStepAction;
+    expect(normalizeRampActionsForceValues([noPatch], feature)[0]).toBe(
+      noPatch,
+    );
+  });
+
+  it("a start value echoing its target's rule or stored anchor is not judged; a typed one is", () => {
+    const feature = {
+      valueType: "boolean" as const,
+      rules: [{ id: "r1", type: "force", value: "True" }],
+    } as unknown as Pick<FeatureInterface, "valueType" | "rules">;
+    const stored: RampStepAction[] = [
+      { targetType: "feature-rule", targetId: "tgt_a", patch: { force: 1 } },
+    ];
+    const targets = [
+      { id: "tgt_a", ruleId: "r1" },
+      { id: "tgt_b", ruleId: "r2" },
+    ];
+    const known = rampStartValuesOf(feature, targets, stored);
+    expect([...known.get("tgt_a")!].sort()).toEqual(["1", "True"]);
+    expect(known.get("tgt_b")!.size).toBe(0);
+
+    const plan = (targetId: string, force: unknown) =>
+      ({
+        steps: [],
+        startActions: [
+          { targetType: "feature-rule", targetId, patch: { force } },
+        ],
+      }) as Pick<
+        RampScheduleInterface,
+        "steps" | "startActions" | "endActions"
+      >;
+    const opts = { knownStartValues: known };
+    expect(() =>
+      normalizeRampPlanForceValues(plan("tgt_a", "True"), feature, opts),
+    ).not.toThrow();
+    expect(() =>
+      normalizeRampPlanForceValues(plan("tgt_a", 1), feature, opts),
+    ).not.toThrow();
+    // Another target's legacy value is not an echo for this target.
+    expect(() =>
+      normalizeRampPlanForceValues(plan("tgt_b", "True"), feature, opts),
+    ).toThrow('Start value (action 1): Must be "true" or "false"');
+    expect(() =>
+      normalizeRampPlanForceValues(plan("tgt_a", "False"), feature, opts),
+    ).toThrow('Start value (action 1): Must be "true" or "false"');
+  });
+
+  it("normalizeRampActionsForceValues rejects a value the feature type does not accept", () => {
+    expect(() =>
+      normalizeRampActionsForceValues(
+        [
+          {
+            targetType: "feature-rule",
+            targetId: "t1",
+            patch: { ruleId: "r1", force: "False" },
+          },
+        ],
+        { valueType: "boolean" },
+        "Step 1 value",
+      ),
+    ).toThrow('Step 1 value (action 1): Must be "true" or "false"');
+    expect(() =>
+      normalizeRampActionsForceValues(
+        [
+          {
+            targetType: "feature-rule",
+            targetId: "t1",
+            patch: { ruleId: "r1", force: "ten" },
+          },
+        ],
+        { valueType: "number" },
+      ),
+    ).toThrow(/valid number/);
+  });
+
+  it("template values: a typed value that fits the feature is kept as its string form; a string that fits is kept; misfits are dropped", () => {
+    expect(forceMatchesValueType(false, "boolean")).toBe(true);
+    expect(forceMatchesValueType("false", "boolean")).toBe(true);
+    expect(forceMatchesValueType("nope", "boolean")).toBe(false);
+    expect(forceMatchesValueType("10", "number")).toBe(true);
+    expect(forceMatchesValueType(10, "boolean")).toBe(false);
+    const out = remapTemplateActions(
+      [
+        {
+          targetType: "feature-rule",
+          targetId: "template-target",
+          patch: { ruleId: "template-rule", coverage: 1, force: false },
+        },
+      ],
+      "t1",
+      "r1",
+      "boolean",
+    );
+    expect(out[0]).toEqual({
+      targetType: "feature-rule",
+      targetId: "t1",
+      patch: { ruleId: "r1", coverage: 1, force: "false" },
+    });
+  });
+
+  it("normalizeRampActionsForceValues checks the value type only, never the feature's JSON schema, and can leave start anchors unjudged", () => {
+    const feature = {
+      valueType: "json" as const,
+      jsonSchema: {
+        schemaType: "schema" as const,
+        schema: JSON.stringify({
+          type: "object",
+          required: ["limit"],
+          properties: { limit: { type: "number" } },
+        }),
+        simple: { type: "object" as const, fields: [] },
+        date: new Date(),
+        enabled: true,
+      },
+    };
+    const mk = (force: unknown): RampStepAction => ({
+      targetType: "feature-rule",
+      targetId: "t1",
+      patch: { ruleId: "r1", force },
+    });
+    // Fails the schema (no `limit`) but is valid JSON: accepted and stringified.
+    expect(
+      normalizeRampActionsForceValues([mk({ other: 1 })], feature)[0].patch
+        .force,
+    ).toBe('{"other":1}');
+    // Start anchors can be exempted from the type check entirely.
+    const plan = normalizeRampPlanForceValues(
+      { startActions: [mk("not json at all {")], steps: [] } as Pick<
+        RampScheduleInterface,
+        "steps" | "startActions" | "endActions"
+      >,
+      feature,
+      { validateStartActions: false },
+    );
+    expect(plan.startActions?.[0].patch.force).toBe("not json at all {");
+  });
+
+  it("normalizeRampPlanForceValues covers steps, startActions and endActions and leaves absent parts absent", () => {
+    const feature = { valueType: "number" as const };
+    const mk = (force: unknown): RampStepAction => ({
+      targetType: "feature-rule",
+      targetId: "t1",
+      patch: { ruleId: "r1", force },
+    });
+    const out = normalizeRampPlanForceValues(
+      {
+        steps: [{ interval: 60, actions: [mk(1)] }],
+        endActions: [mk(2.5)],
+      } as Pick<RampScheduleInterface, "steps" | "endActions" | "startActions">,
+      feature,
+    );
+    expect(out.steps?.[0].actions[0].patch.force).toBe("1");
+    expect(out.endActions?.[0].patch.force).toBe("2.5");
+    expect("startActions" in out).toBe(false);
+  });
+});
+
 describe("getStartPatchForRule", () => {
+  it("copies a rollout's bucketing identity; a force rule has none to copy", () => {
+    expect(
+      getStartPatchForRule({
+        id: "r1",
+        type: "rollout",
+        coverage: 0.2,
+        hashAttribute: "user_id",
+        seed: "s1",
+        hashVersion: 2,
+        enabled: true,
+      } as FeatureRule),
+    ).toMatchObject({ hashAttribute: "user_id", seed: "s1", hashVersion: 2 });
+    expect(
+      getStartPatchForRule({
+        id: "r2",
+        type: "force",
+        value: "true",
+        enabled: true,
+      } as FeatureRule),
+    ).not.toHaveProperty("hashAttribute");
+  });
+
   it("captures explicit null clears for absent rule fields", () => {
     const patch = getStartPatchForRule({
       id: "r1",
@@ -439,6 +825,54 @@ describe("getStartPatchForRule", () => {
     expect(restored.allEnvironments).toBe(false);
     expect(restored.environments).toEqual(["production"]);
   });
+
+  it("a list-only step narrows an all-environments anchor; a later wildcard widens it back", () => {
+    const rule = {
+      id: RULE_ID,
+      type: "force" as const,
+      value: "x",
+      enabled: true,
+      allEnvironments: true,
+    } as FeatureRule;
+    const stepWith = (patch: Record<string, unknown>) => ({
+      interval: 300,
+      actions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, ...patch },
+        },
+      ],
+    });
+    const sched = {
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, ...getStartPatchForRule(rule) },
+        },
+      ],
+      steps: [
+        stepWith({ environments: ["dev"] }),
+        stepWith({ allEnvironments: true }),
+      ],
+      endActions: [],
+    };
+
+    const narrowed = applyPatchToRule(
+      rule,
+      computeEffectivePatch(sched, 0).get(TARGET_ID)!,
+    );
+    expect(narrowed.allEnvironments).toBe(false);
+    expect(narrowed.environments).toEqual(["dev"]);
+
+    const widened = applyPatchToRule(
+      narrowed,
+      computeEffectivePatch(sched, 1).get(TARGET_ID)!,
+    );
+    expect(widened.allEnvironments).toBe(true);
+    expect("environments" in widened).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -473,6 +907,87 @@ function sparseSchedule(
   };
 }
 
+describe("resolveRampStartState", () => {
+  const rolloutRule = (coverage?: number) =>
+    ({
+      id: RULE_ID,
+      type: "rollout",
+      hashAttribute: "id",
+      enabled: true,
+      ...(coverage !== undefined ? { coverage } : {}),
+    }) as FeatureRule;
+
+  it("converts an explicit startState into startActions merged onto the rule state", () => {
+    const { startActions, warning } = resolveRampStartState({
+      rule: rolloutRule(0.1),
+      ruleId: RULE_ID,
+      startState: { coverage: 0 },
+      isCreate: true,
+    });
+
+    expect(warning).toBeUndefined();
+    expect(startActions).toHaveLength(1);
+    // Explicit coverage override wins; other targeting comes from the rule.
+    expect(startActions![0].patch).toMatchObject({
+      ruleId: RULE_ID,
+      coverage: 0,
+    });
+  });
+
+  it("warns on create when the anchor is inferred from a non-zero coverage", () => {
+    const { startActions, warning } = resolveRampStartState({
+      rule: rolloutRule(0.1),
+      ruleId: RULE_ID,
+      startState: undefined,
+      isCreate: true,
+    });
+
+    expect(startActions).toBeUndefined();
+    expect(warning).toContain("10%");
+  });
+
+  it("does not warn when the inferred coverage is already 0%", () => {
+    const { startActions, warning } = resolveRampStartState({
+      rule: rolloutRule(0),
+      ruleId: RULE_ID,
+      startState: undefined,
+      isCreate: true,
+    });
+
+    expect(startActions).toBeUndefined();
+    expect(warning).toBeUndefined();
+  });
+
+  it("does not warn for a rule with no coverage (e.g. a force rule)", () => {
+    const { warning } = resolveRampStartState({
+      rule: {
+        id: RULE_ID,
+        type: "force",
+        hashAttribute: "id",
+        enabled: true,
+        value: "x",
+      } as FeatureRule,
+      ruleId: RULE_ID,
+      startState: undefined,
+      isCreate: true,
+    });
+
+    expect(warning).toBeUndefined();
+  });
+
+  it("leaves the anchor alone (no warning) on update when startState is omitted", () => {
+    const { startActions, warning } = resolveRampStartState({
+      rule: rolloutRule(0.1),
+      ruleId: RULE_ID,
+      startState: undefined,
+      isCreate: false,
+    });
+
+    expect(startActions).toBeUndefined();
+    expect(warning).toBeUndefined();
+  });
+});
+
 describe("computeEffectivePatch", () => {
   // Returns the accumulated patch for TARGET_ID at the given stepIndex, as a plain object.
   function eff(
@@ -480,9 +995,26 @@ describe("computeEffectivePatch", () => {
     stepIndex: number,
   ): Record<string, unknown> {
     const map = computeEffectivePatch(sched, stepIndex);
-    const { ruleId: _, ...fields } = map.get(TARGET_ID) ?? {};
-    return fields as Record<string, unknown>;
+    return omit(map.get(TARGET_ID) ?? {}, "ruleId") as Record<string, unknown>;
   }
+
+  it("carries the anchor's identity into every step, so a jump buckets like stepping", () => {
+    const sched = {
+      ...sparseSchedule([
+        [action(TARGET_ID, { coverage: 0.1 })],
+        [action(TARGET_ID, { coverage: 0.5 })],
+      ]),
+      startActions: [action(TARGET_ID, { hashAttribute: "user_id" })],
+    } as unknown as ReturnType<typeof sparseSchedule>;
+    expect(eff(sched, 0)).toMatchObject({
+      coverage: 0.1,
+      hashAttribute: "user_id",
+    });
+    expect(eff(sched, 1)).toMatchObject({
+      coverage: 0.5,
+      hashAttribute: "user_id",
+    });
+  });
 
   it("stepIndex=-1 returns empty map (no steps applied yet)", () => {
     const sched = sparseSchedule([
@@ -669,6 +1201,57 @@ describe("computeEffectivePatch", () => {
       force: "variant-b",
     });
   });
+
+  it("drops enabled from the startActions seed", () => {
+    // A snapshot captured from a disabled rule must not re-disable the rule
+    // on forward publishes (e.g. zero-step schedule auto-completion).
+    const sched = {
+      steps: [],
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: {
+            ruleId: RULE_ID,
+            coverage: 1.0,
+            condition: "{}",
+            enabled: false,
+          },
+        },
+      ],
+    };
+    const patch = computeEffectivePatch(sched, 0).get(TARGET_ID);
+    expect(patch).not.toHaveProperty("enabled");
+    expect(patch).toMatchObject({ coverage: 1.0, condition: "{}" });
+  });
+
+  it("steps and endActions can still set enabled explicitly", () => {
+    const sched = {
+      steps: [
+        {
+          interval: 300,
+          actions: [action(TARGET_ID, { coverage: 0.5, enabled: true })],
+        },
+      ],
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, coverage: 0.0, enabled: false },
+        },
+      ],
+      endActions: [action(TARGET_ID, { enabled: false })],
+    } as Pick<RampScheduleInterface, "steps" | "endActions" | "startActions">;
+
+    // At step 0: enabled comes from the step, not the seed.
+    expect(computeEffectivePatch(sched, 0).get(TARGET_ID)).toMatchObject({
+      enabled: true,
+    });
+    // At completion: endActions' explicit enabled:false wins.
+    expect(computeEffectivePatch(sched, 1).get(TARGET_ID)).toMatchObject({
+      enabled: false,
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -686,8 +1269,7 @@ describe("sparse inherit vs explicit clear", () => {
     stepIndex: number,
   ): Record<string, unknown> {
     const map = computeEffectivePatch(sched, stepIndex);
-    const { ruleId: _, ...fields } = map.get(TARGET_ID) ?? {};
-    return fields as Record<string, unknown>;
+    return omit(map.get(TARGET_ID) ?? {}, "ruleId") as Record<string, unknown>;
   }
 
   // ── condition ────────────────────────────────────────────────────────────
@@ -884,6 +1466,452 @@ describe("computeNextStepAt", () => {
 
 // ---------------------------------------------------------------------------
 
+describe("computeAutoAdvanceTarget", () => {
+  const phaseStart = new Date("2025-01-01T00:00:00Z");
+  const plainStep = (interval: number) => ({ interval, actions: [] });
+
+  it("does not advance when the next step's timer has not elapsed", () => {
+    const now = new Date("2025-01-01T00:01:00Z"); // 60s in; step 0 fires at 300s
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: new Date("2025-01-01T00:05:00Z"),
+      phaseStartedAt: phaseStart,
+      steps: [plainStep(300), plainStep(300)],
+    });
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(-1);
+  });
+
+  it("chains through all due purely-time-gated steps to completion", () => {
+    const now = new Date("2025-01-01T01:00:00Z"); // all gates elapsed
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: phaseStart,
+      phaseStartedAt: phaseStart,
+      steps: [plainStep(300), plainStep(300)],
+    });
+    // steps.length signals "advance past the last step to completion"
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(2);
+  });
+
+  it("stops at (does not skip past) an approval hold", () => {
+    const now = new Date("2025-01-01T01:00:00Z");
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: phaseStart,
+      phaseStartedAt: phaseStart,
+      steps: [
+        plainStep(300),
+        {
+          interval: 600,
+          holdConditions: { requiresApproval: true },
+          actions: [],
+        },
+      ],
+    });
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(1);
+  });
+
+  it("stops at a monitored step", () => {
+    const now = new Date("2025-01-01T01:00:00Z");
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: phaseStart,
+      phaseStartedAt: phaseStart,
+      steps: [plainStep(300), { interval: 600, monitored: true, actions: [] }],
+    });
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(1);
+  });
+
+  it("advances only through the steps whose timers have elapsed", () => {
+    // 720s in: steps 0 (300s) and 1 (600s) are due; step 2 (900s) is not.
+    const now = new Date("2025-01-01T00:12:00Z");
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: phaseStart,
+      phaseStartedAt: phaseStart,
+      steps: [plainStep(300), plainStep(300), plainStep(300)],
+    });
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(2);
+  });
+
+  it("does not advance out of a hold step it is already sitting on", () => {
+    const now = new Date("2025-01-01T01:00:00Z");
+    const schedule = makeSchedule({
+      currentStepIndex: 1,
+      nextStepAt: phaseStart,
+      phaseStartedAt: phaseStart,
+      steps: [
+        plainStep(300),
+        {
+          interval: 600,
+          holdConditions: { requiresApproval: true },
+          actions: [],
+        },
+        plainStep(300),
+      ],
+    });
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(1);
+  });
+
+  it("stops at (does not fold past) a step with non-idempotent side effects", () => {
+    const now = new Date("2025-01-01T01:00:00Z");
+    // Simulate a hypothetical future per-step side effect (e.g. a webhook
+    // dispatch) via a non-"feature-rule" action so the collapse must land on
+    // the step individually rather than skip its effect.
+    const sideEffectStep = {
+      interval: 600,
+      actions: [
+        {
+          targetType: "webhook",
+          targetId: TARGET_ID,
+          patch: {},
+        } as unknown as RampStepAction,
+      ],
+    };
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: phaseStart,
+      phaseStartedAt: phaseStart,
+      steps: [plainStep(300), sideEffectStep, plainStep(300)],
+    });
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(1);
+  });
+
+  it("advances OUT of a non-collapsible step it is sitting on (no wedge)", () => {
+    const now = new Date("2025-01-01T01:00:00Z");
+    // The landing already happened for the current step, so its
+    // non-collapsibility must not gate exit — only unvisited steps are
+    // protected from folding.
+    const sideEffectStep = {
+      interval: 600,
+      actions: [
+        {
+          targetType: "webhook",
+          targetId: TARGET_ID,
+          patch: {},
+        } as unknown as RampStepAction,
+      ],
+    };
+    const schedule = makeSchedule({
+      currentStepIndex: 1,
+      nextStepAt: phaseStart, // gate to leave step 1 already elapsed
+      phaseStartedAt: phaseStart,
+      steps: [plainStep(300), sideEffectStep, plainStep(300)],
+    });
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(3);
+  });
+
+  it("currentStepCleared bypasses the first hop's hold and gate only", () => {
+    const now = new Date("2025-01-01T00:00:30Z"); // step timers NOT elapsed
+    const schedule = makeSchedule({
+      currentStepIndex: 0,
+      nextStepAt: null, // monitored steps have no nextStepAt gate
+      phaseStartedAt: phaseStart,
+      steps: [
+        { interval: 300, monitored: true, actions: [] },
+        plainStep(300),
+        plainStep(300),
+      ],
+    });
+
+    // Without the option, the monitored current step blocks everything.
+    expect(computeAutoAdvanceTarget(schedule, now)).toBe(0);
+    // With it, the evaluator-verified step is cleared, but subsequent steps
+    // still respect their own (unelapsed) time gates.
+    expect(
+      computeAutoAdvanceTarget(schedule, now, { currentStepCleared: true }),
+    ).toBe(1);
+  });
+
+  it("currentStepCleared folds the due backlog behind the cleared step", () => {
+    const now = new Date("2025-01-01T01:00:00Z"); // all timers elapsed
+    const schedule = makeSchedule({
+      currentStepIndex: 0,
+      nextStepAt: null,
+      phaseStartedAt: phaseStart,
+      steps: [
+        { interval: 300, monitored: true, actions: [] },
+        plainStep(300),
+        plainStep(300),
+      ],
+    });
+    expect(
+      computeAutoAdvanceTarget(schedule, now, { currentStepCleared: true }),
+    ).toBe(3);
+  });
+});
+
+describe("advanceStep past-end with a lapsed cutoff", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetFeature.mockResolvedValue(makeFeature() as never);
+    mockCreateRevision.mockResolvedValue(makeRevision() as never);
+    mockPublishRevision.mockResolvedValue(undefined);
+  });
+
+  it("completes WITH disableActiveTargets so the rule doesn't stay enabled past its end date", async () => {
+    // Regression: a catch-up fold can land past the end after the cutoff
+    // lapsed (hook race, or the cutoff lapsing during a slow evaluate); the
+    // completion must honor the cutoff's disable semantics.
+    const schedule = makeSchedule({
+      currentStepIndex: 2, // last step done
+      status: "running",
+      cutoffDate: new Date(Date.now() - 60_000), // lapsed
+    });
+    const { ctx } = makeContext();
+
+    await advanceStep(ctx as never, schedule, schedule.steps.length);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patched = rules.find((r) => r.id === RULE_ID);
+    expect(patched?.enabled).toBe(false);
+  });
+});
+
+describe("advanceStep target clamp", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("refuses a non-forward target from a stale caller instead of rewinding coverage", async () => {
+    const schedule = makeSchedule({ currentStepIndex: 2, status: "running" });
+    const updateById = jest.fn();
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {},
+      models: { rampSchedules: { updateById, getById: jest.fn() } },
+    };
+
+    const result = await advanceStep(ctx as never, schedule, 1);
+
+    expect(result).toBe(schedule);
+    expect(updateById).not.toHaveBeenCalled();
+    expect(mockPublishRevision).not.toHaveBeenCalled();
+  });
+});
+
+describe("withRampScheduleAdvanceLock", () => {
+  const makeLockCtx = (acquired: boolean) => {
+    const acquireAdvanceLock = jest.fn().mockResolvedValue(acquired);
+    const releaseAdvanceLock = jest.fn().mockResolvedValue(undefined);
+    // The doc exists — a failed acquire is diagnosed as contention, not 404.
+    const getById = jest.fn().mockResolvedValue({ id: "rs_1" });
+    const ctx = {
+      models: {
+        rampSchedules: { acquireAdvanceLock, releaseAdvanceLock, getById },
+      },
+    };
+    return { ctx, acquireAdvanceLock, releaseAdvanceLock, getById };
+  };
+
+  it("runs fn and releases the lock when acquired", async () => {
+    const { ctx, releaseAdvanceLock } = makeLockCtx(true);
+    const fn = jest.fn().mockResolvedValue("done");
+
+    const result = await withRampScheduleAdvanceLock(ctx as never, "rs_1", fn);
+
+    expect(result).toBe("done");
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(releaseAdvanceLock).toHaveBeenCalledWith("rs_1", expect.any(String));
+  });
+
+  it("throws and does not run fn when the lock is held by another advance", async () => {
+    const { ctx, releaseAdvanceLock } = makeLockCtx(false);
+    const fn = jest.fn();
+
+    await expect(
+      withRampScheduleAdvanceLock(ctx as never, "rs_1", fn),
+    ).rejects.toThrow();
+    expect(fn).not.toHaveBeenCalled();
+    expect(releaseAdvanceLock).not.toHaveBeenCalled();
+  });
+
+  it("releases the lock even if fn throws", async () => {
+    const { ctx, releaseAdvanceLock } = makeLockCtx(true);
+    const fn = jest.fn().mockRejectedValue(new Error("boom"));
+
+    await expect(
+      withRampScheduleAdvanceLock(ctx as never, "rs_1", fn),
+    ).rejects.toThrow("boom");
+    expect(releaseAdvanceLock).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws RampAdvanceLockBusyError (not a generic error) on contention", async () => {
+    const { ctx } = makeLockCtx(false);
+    await expect(
+      withRampScheduleAdvanceLock(ctx as never, "rs_1", jest.fn()),
+    ).rejects.toBeInstanceOf(RampAdvanceLockBusyError);
+  });
+
+  it("does not let a failing release mask the error fn threw", async () => {
+    const { ctx, releaseAdvanceLock } = makeLockCtx(true);
+    releaseAdvanceLock.mockRejectedValue(new Error("mongo down"));
+    const fn = jest.fn().mockRejectedValue(new Error("real failure"));
+
+    await expect(
+      withRampScheduleAdvanceLock(ctx as never, "rs_1", fn),
+    ).rejects.toThrow("real failure");
+  });
+});
+
+describe("withRampScheduleAdvanceLockRetry", () => {
+  it("retries contention and succeeds once the lock frees up (fn runs once)", async () => {
+    const acquireAdvanceLock = jest
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const releaseAdvanceLock = jest.fn().mockResolvedValue(undefined);
+    const getById = jest.fn().mockResolvedValue({ id: "rs_1" });
+    const ctx = {
+      models: {
+        rampSchedules: { acquireAdvanceLock, releaseAdvanceLock, getById },
+      },
+    };
+    const fn = jest.fn().mockResolvedValue("done");
+
+    const result = await withRampScheduleAdvanceLockRetry(
+      ctx as never,
+      "rs_1",
+      fn,
+    );
+    expect(result).toBe("done");
+    expect(acquireAdvanceLock).toHaveBeenCalledTimes(2);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces the busy error after exhausting attempts", async () => {
+    const acquireAdvanceLock = jest.fn().mockResolvedValue(false);
+    const ctx = {
+      models: {
+        rampSchedules: {
+          acquireAdvanceLock,
+          releaseAdvanceLock: jest.fn(),
+          getById: jest.fn().mockResolvedValue({ id: "rs_1" }),
+        },
+      },
+    };
+
+    await expect(
+      withRampScheduleAdvanceLockRetry(ctx as never, "rs_1", jest.fn(), 2),
+    ).rejects.toBeInstanceOf(RampAdvanceLockBusyError);
+    expect(acquireAdvanceLock).toHaveBeenCalledTimes(2);
+  }, 15_000);
+
+  it("fails fast with 404 semantics when the schedule was deleted", async () => {
+    const acquireAdvanceLock = jest.fn().mockResolvedValue(false);
+    const ctx = {
+      models: {
+        rampSchedules: {
+          acquireAdvanceLock,
+          releaseAdvanceLock: jest.fn(),
+          getById: jest.fn().mockResolvedValue(null),
+        },
+      },
+    };
+
+    await expect(
+      withRampScheduleAdvanceLockRetry(ctx as never, "rs_1", jest.fn()),
+    ).rejects.toThrow("no longer exists");
+    // No retry ladder for a missing doc.
+    expect(acquireAdvanceLock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry non-contention errors from fn", async () => {
+    const acquireAdvanceLock = jest.fn().mockResolvedValue(true);
+    const ctx = {
+      models: {
+        rampSchedules: {
+          acquireAdvanceLock,
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+        },
+      },
+    };
+    const fn = jest.fn().mockRejectedValue(new Error("boom"));
+
+    await expect(
+      withRampScheduleAdvanceLockRetry(ctx as never, "rs_1", fn),
+    ).rejects.toThrow("boom");
+    expect(acquireAdvanceLock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("runLockedRampScheduleAction", () => {
+  it("passes the fresh in-lock read to fn, not the caller's snapshot", async () => {
+    const freshDoc = { id: "rs_1", status: "completed" };
+    const ctx = {
+      models: {
+        rampSchedules: {
+          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+          getById: jest.fn().mockResolvedValue(freshDoc),
+        },
+      },
+    };
+    const fn = jest.fn().mockResolvedValue("ok");
+
+    await runLockedRampScheduleAction(ctx as never, "rs_1", fn);
+    expect(fn).toHaveBeenCalledWith(freshDoc, expect.any(Function));
+  });
+
+  it("throws when the schedule was deleted while waiting for the lock", async () => {
+    const ctx = {
+      models: {
+        rampSchedules: {
+          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+          getById: jest.fn().mockResolvedValue(null),
+        },
+      },
+    };
+
+    await expect(
+      runLockedRampScheduleAction(ctx as never, "rs_1", jest.fn()),
+    ).rejects.toThrow("no longer exists");
+  });
+});
+
+describe("stepIsCollapsible", () => {
+  it("is true for a step whose actions are all feature-rule patches", () => {
+    expect(
+      stepIsCollapsible({
+        interval: 300,
+        actions: [
+          {
+            targetType: "feature-rule",
+            targetId: TARGET_ID,
+            patch: { ruleId: RULE_ID, coverage: 0.5 },
+          },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("is true for a step with no actions", () => {
+    expect(stepIsCollapsible({ interval: 300, actions: [] })).toBe(true);
+  });
+
+  it("is false when a step carries a non-feature-rule (side-effecting) action", () => {
+    expect(
+      stepIsCollapsible({
+        interval: 300,
+        actions: [
+          {
+            targetType: "webhook",
+            targetId: TARGET_ID,
+            patch: {},
+          } as unknown as RampStepAction,
+        ],
+      }),
+    ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
 describe("computePhaseStartAfterApproval", () => {
   it("returns now - sum(previous interval steps) so next step fires correctly", () => {
     const now = new Date("2025-01-01T01:00:00Z");
@@ -931,6 +1959,67 @@ describe("featureEntityHandler.applyActions", () => {
     auditUser: { type: "system" },
   } as never;
 
+  it.each([false, true])(
+    "preserves persisted targeting only on restoration (forward=%s)",
+    async (forward) => {
+      const live = { ...makeFeature(), project: "b" } as FeatureInterface;
+      mockGetFeature.mockResolvedValue(live);
+      const strictContext = {
+        org: { id: ORG_ID, settings: { enforceSavedGroupProjectScope: true } },
+        environments: [],
+        scanContextOverride: {
+          models: {
+            savedGroups: {
+              getAllWithoutValues: jest
+                .fn()
+                .mockResolvedValue([
+                  { id: "old-group", type: "list", projects: ["a"] },
+                ]),
+            },
+          },
+        },
+      } as unknown as Parameters<typeof featureEntityHandler.applyActions>[0];
+      mockCreateRevision.mockImplementationOnce(
+        async ({ context, feature, changes, savedGroupScopeBaseline }) => {
+          await assertFeatureSavedGroupScope(
+            context,
+            { ...feature, rules: changes.rules ?? feature.rules },
+            savedGroupScopeBaseline
+              ? [feature, savedGroupScopeBaseline]
+              : feature,
+          );
+          return makeRevision() as never;
+        },
+      );
+      const action = featureEntityHandler.applyActions(
+        strictContext,
+        FEATURE_ID,
+        [
+          {
+            targetType: "feature-rule",
+            targetId: TARGET_ID,
+            patch: {
+              ruleId: RULE_ID,
+              savedGroups: [{ match: "all", ids: ["old-group"] }],
+            },
+          },
+        ],
+        {
+          stepLabel: forward ? "Advance" : "Rollback",
+          user: { type: "system" },
+          judgeTargeting: forward,
+        },
+      );
+      if (forward) {
+        await expect(action).rejects.toThrow("not available");
+        expect(mockPublishRevision).not.toHaveBeenCalled();
+      } else {
+        await expect(action).resolves.toBeUndefined();
+        expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
+
   it("calls publishRevision with sparse-patched rules", async () => {
     const actions = [
       {
@@ -949,6 +2038,113 @@ describe("featureEntityHandler.applyActions", () => {
     const rules: FeatureRule[] = forceResult.rules ?? [];
     const patchedRule = rules.find((r: FeatureRule) => r.id === RULE_ID);
     expect((patchedRule as { coverage?: number })?.coverage).toBe(0.5);
+  });
+
+  it('applies a raw boolean force as the string "false" so the payload serves false', async () => {
+    mockGetFeature.mockResolvedValue({
+      ...makeFeature([
+        {
+          id: RULE_ID,
+          uid: "ruid_" + RULE_ID,
+          allEnvironments: true,
+          type: "force" as const,
+          value: "true",
+          enabled: true,
+          condition: "",
+        },
+      ]),
+      valueType: "boolean" as const,
+      defaultValue: "false",
+    } as never);
+    const actions = [
+      {
+        targetType: "feature-rule" as const,
+        targetId: TARGET_ID,
+        // What older editors and REST callers send: a JSON boolean, not "false".
+        patch: { ruleId: RULE_ID, force: false as unknown },
+      },
+    ];
+    await featureEntityHandler.applyActions(ctx, FEATURE_ID, actions, {
+      stepLabel: "Ramp [1 of 1]: Test",
+      user: { type: "system" },
+    });
+
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
+    const patchedRule = (forceResult.rules ?? []).find(
+      (r: FeatureRule) => r.id === RULE_ID,
+    ) as FeatureRule & { value?: unknown };
+    expect(patchedRule.value).toBe("false");
+    expect(getJSONValue("boolean", patchedRule.value as string)).toBe(false);
+  });
+
+  it("never refuses at fire time: an anchor whose value fails the feature's current JSON schema (or is legacy text) is still applied, so a rollback cannot get stuck", async () => {
+    // The rule's pre-ramp value predates a schema that now requires `limit`.
+    mockGetFeature.mockResolvedValue({
+      ...makeFeature([
+        {
+          id: RULE_ID,
+          uid: "ruid_" + RULE_ID,
+          allEnvironments: true,
+          type: "force" as const,
+          value: '{"limit":9}',
+          enabled: true,
+          condition: "",
+        },
+      ]),
+      valueType: "json" as const,
+      defaultValue: "{}",
+      jsonSchema: {
+        schemaType: "schema" as const,
+        schema: JSON.stringify({
+          type: "object",
+          required: ["limit"],
+          properties: { limit: { type: "number" } },
+        }),
+        simple: { type: "object" as const, fields: [] },
+        date: new Date(),
+        enabled: true,
+      },
+    } as never);
+    // Rollback to the captured anchor: `force` is the old stored text.
+    const rollback = [
+      {
+        targetType: "feature-rule" as const,
+        targetId: TARGET_ID,
+        patch: { ruleId: RULE_ID, coverage: 1, force: '{"old":true}' },
+      },
+    ];
+    await featureEntityHandler.applyActions(ctx, FEATURE_ID, rollback, {
+      stepLabel: "Ramp rolled back",
+      user: { type: "system" },
+    });
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const rules: FeatureRule[] =
+      mockPublishRevision.mock.calls[0][0].result.rules ?? [];
+    expect(
+      (rules.find((r) => r.id === RULE_ID) as { value?: unknown }).value,
+    ).toBe('{"old":true}');
+
+    // And a value the TYPE does not accept (legacy "True" on a boolean flag)
+    // is applied as-is rather than refused.
+    mockPublishRevision.mockClear();
+    mockGetFeature.mockResolvedValue({
+      ...makeFeature(),
+      valueType: "boolean" as const,
+      defaultValue: "false",
+    } as never);
+    await featureEntityHandler.applyActions(
+      ctx,
+      FEATURE_ID,
+      [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, force: "True" },
+        },
+      ],
+      { stepLabel: "Ramp rolled back", user: { type: "system" } },
+    );
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
   });
 
   it("throws when the rule is not found (no env scope)", async () => {
@@ -1098,6 +2294,35 @@ describe("advanceStep — interval step", () => {
     mockGetFeature.mockResolvedValue(makeFeature() as never);
     mockCreateRevision.mockResolvedValue(makeRevision() as never);
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  it("judges the step's stored targeting against the live rule before it lands", async () => {
+    const { ctx } = makeContext({ currentStepIndex: -1 });
+    await advanceStep(ctx as never, makeSchedule({ currentStepIndex: -1 }));
+    expect(validateRampPlanPatches).toHaveBeenCalledTimes(1);
+    expect(validateRampPlanPatches).toHaveBeenCalledWith(
+      ctx,
+      [
+        expect.objectContaining({
+          patch: expect.objectContaining({ ruleId: RULE_ID, coverage: 0.3 }),
+          rule: expect.objectContaining({ id: RULE_ID }),
+        }),
+      ],
+      {
+        stored: [
+          {
+            startActions: [
+              {
+                patch: expect.objectContaining({
+                  ruleId: RULE_ID,
+                  environments: ["production"],
+                }),
+              },
+            ],
+          },
+        ],
+      },
+    );
   });
 
   it("increments currentStepIndex", async () => {
@@ -1385,9 +2610,9 @@ describe("advanceScheduleManually", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
@@ -1595,6 +2820,11 @@ describe("rollbackToStep", () => {
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
   });
 
+  afterEach(() => {
+    // Rollbacks are never judged; refusing a retreat is worse than a stale step.
+    expect(validateRampPlanPatches).not.toHaveBeenCalled();
+  });
+
   it("applies accumulated effective patch when rolling back — excludes steps after target", async () => {
     // Schedule at step 2 with condition that was set in step 0 and overridden in step 2.
     // Rolling back to step 0 should apply the step-0 effective state, not step-2's condition.
@@ -1685,6 +2915,49 @@ describe("rollbackToStep", () => {
     expect(mockPublishRevision).not.toHaveBeenCalled();
   });
 
+  it("restores a missing anchor from the activating revision before rolling back to -1", async () => {
+    const schedule = makeSchedule({
+      currentStepIndex: 1,
+      targets: [
+        {
+          id: TARGET_ID,
+          entityType: "feature",
+          entityId: FEATURE_ID,
+          ruleId: RULE_ID,
+          status: "active",
+          activatingRevisionVersion: 4,
+        },
+      ],
+    });
+    // The activating revision holds the rule at its pre-ramp 5%; the live
+    // feature (10%) is already at a ramp step and must not be used.
+    mockGetRevision.mockResolvedValue(
+      makeRevision({
+        version: 4,
+        rules: [{ ...makeFeature().rules[0], coverage: 0.05 }],
+      }) as never,
+    );
+    const { ctx, updateById } = makeContext({ currentStepIndex: 1 });
+
+    await rollbackToStep(ctx as never, schedule, -1);
+
+    expect(mockGetRevision).toHaveBeenCalledWith(
+      expect.objectContaining({ featureId: FEATURE_ID, version: 4 }),
+    );
+    const [, healed] = updateById.mock.calls[0];
+    expect(healed.startActions).toEqual([
+      expect.objectContaining({
+        targetId: TARGET_ID,
+        patch: expect.objectContaining({ ruleId: RULE_ID, coverage: 0.05 }),
+      }),
+    ]);
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
+    const patched = (forceResult.rules ?? []).find(
+      (r: FeatureRule) => r.id === RULE_ID,
+    );
+    expect((patched as { coverage?: number })?.coverage).toBe(0.05);
+  });
+
   it("sets status to rolled-back for full rollback (targetStepIndex=-1)", async () => {
     const schedule = makeSchedule({ currentStepIndex: 1 });
     const { ctx, updateById } = makeContext({ currentStepIndex: 1 });
@@ -1762,11 +3035,11 @@ describe("resumeSchedule", () => {
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
   });
 
-  it("resume after jump-to-last-step sets nextStepAt=now so advanceUntilBlocked can complete the schedule", async () => {
+  it("resume after jump-to-last-step honours the step interval before completing", async () => {
     // jumpAheadToStep stores nextStepAt:null and status:paused. The schedule
-    // has 3 steps; currentStepIndex=2 is the last one. Resuming should set
-    // nextStepAt to now so advanceUntilBlocked → advanceStep → completeRollout
-    // fires, rather than leaving the schedule stranded in "running" forever.
+    // has 3 steps; currentStepIndex=2 is the last one with interval=900s.
+    // Resuming should compute a future nextStepAt based on the step's interval
+    // so the step runs its hold time before advancing to completion.
     const schedule = makeSchedule({
       status: "paused",
       currentStepIndex: 2, // last step (steps.length - 1 = 2)
@@ -1789,27 +3062,38 @@ describe("resumeSchedule", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
-        rampSchedules: { updateById, getById },
+        rampSchedules: {
+          updateById,
+          getById,
+          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+        },
       },
     };
 
     await resumeSchedule(ctx as never, schedule);
 
-    // The first updateById call is the resume update — nextStepAt must be set
-    // so advanceUntilBlocked can gate on it.
     const [, resumeUpdates] = updateById.mock.calls[0];
     expect(resumeUpdates.nextStepAt).not.toBeNull();
     expect(resumeUpdates.nextStepAt).toBeInstanceOf(Date);
+    expect(mockCreateEvent.mock.calls.at(-1)?.[0].event).toBe(
+      "rampSchedule.actions.resumed",
+    );
 
-    // completeRollout (triggered by advanceUntilBlocked → advanceStep) calls
-    // publishRevision to apply endActions, confirming the schedule reached
-    // completion rather than stalling.
-    expect(mockPublishRevision).toHaveBeenCalled();
+    // nextStepAt should be in the future (step interval not yet elapsed),
+    // NOT set to now — the step needs to run its hold time first.
+    expect(resumeUpdates.nextStepAt.getTime()).toBeGreaterThan(
+      Date.now() - 1000,
+    );
+
+    // completeRollout should NOT fire immediately — the step interval must
+    // elapse first.
+    expect(mockPublishRevision).not.toHaveBeenCalled();
   });
 });
 
@@ -1852,9 +3136,9 @@ describe("restartSchedule", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: { updateById, getById },
@@ -2162,13 +3446,14 @@ describe("advanceUntilBlocked", () => {
     const schedule = makeSchedule({
       currentStepIndex: -1,
       nextStepAt: past,
+      // Overdue backlog: every time gate has elapsed, so the catch-up would
+      // reach the monitored step. It must still stop there (monitored steps
+      // need the evaluator's snapshot data before advancing).
+      phaseStartedAt: new Date(Date.now() - 10_000_000),
       status: "running",
       steps,
     });
 
-    // After advancing to step 0, return a schedule where step 1 is already due
-    // (simulates a late agenda tick). The loop must stop at step 1 because it's
-    // monitored, even though its timer has elapsed.
     let callCount = 0;
     const updateById = jest
       .fn()
@@ -2198,9 +3483,10 @@ describe("advanceUntilBlocked", () => {
 
     await advanceUntilBlocked(ctx as never, schedule, new Date());
 
-    // Advances step 0 (not monitored, continues) then step 1 (monitored, stops).
-    expect(callCount).toBe(2);
-    const [, lastUpdates] = updateById.mock.calls[1];
+    // Collapses steps 0→1 into one jump, landing on the monitored step 1 and
+    // stopping there (a single publish rather than one per step).
+    expect(callCount).toBe(1);
+    const [, lastUpdates] = updateById.mock.calls[0];
     expect(lastUpdates.currentStepIndex).toBe(1);
   });
 
@@ -2232,6 +3518,8 @@ describe("advanceUntilBlocked", () => {
     const schedule = makeSchedule({
       currentStepIndex: -1,
       nextStepAt: past,
+      // Overdue backlog so the catch-up reaches the minSampleSize step.
+      phaseStartedAt: new Date(Date.now() - 10_000_000),
       status: "running",
       steps,
     });
@@ -2264,9 +3552,10 @@ describe("advanceUntilBlocked", () => {
 
     await advanceUntilBlocked(ctx as never, schedule, new Date());
 
-    // Advances step 0 (no minSampleSize, continues) then step 1 (has minSampleSize, stops).
-    expect(callCount).toBe(2);
-    const [, lastUpdates] = updateById.mock.calls[1];
+    // Collapses steps 0→1 into one jump, landing on the minSampleSize step 1
+    // and stopping there (needs the evaluator + snapshot before advancing).
+    expect(callCount).toBe(1);
+    const [, lastUpdates] = updateById.mock.calls[0];
     expect(lastUpdates.currentStepIndex).toBe(1);
   });
 
@@ -2305,9 +3594,13 @@ describe("advanceUntilBlocked", () => {
         ],
       },
     ];
+    // phaseStartedAt is set so steps 0 and 1's time gates have elapsed but step
+    // 2's has not: the catch-up should advance through 0→1→2 and stop on step 2
+    // (still inside its interval), without completing.
     const schedule = makeSchedule({
       currentStepIndex: -1,
       nextStepAt: past,
+      phaseStartedAt: new Date(Date.now() - 700_000),
       status: "running",
       steps,
     });
@@ -2320,7 +3613,6 @@ describe("advanceUntilBlocked", () => {
           callCount++;
           const newStepIndex =
             updates.currentStepIndex ?? schedule.currentStepIndex;
-          // Steps 0 and 1 are due; step 2 lands in the future.
           const nextStepAt = newStepIndex < 2 ? past : future;
           return {
             ...schedule,
@@ -2342,10 +3634,9 @@ describe("advanceUntilBlocked", () => {
 
     await advanceUntilBlocked(ctx as never, schedule, new Date());
 
-    // Chains through steps 0, 1, and 2 (all due, all purely time-gated); stops
-    // when the loop exhausts the step array after landing on step 2.
-    expect(callCount).toBe(3);
-    const lastCall = updateById.mock.calls[callCount - 1];
+    // Collapses the 0→1→2 backlog into a single jump/publish landing on step 2.
+    expect(callCount).toBe(1);
+    const lastCall = updateById.mock.calls[0];
     expect(lastCall[1].currentStepIndex).toBe(2);
   });
 
@@ -2375,7 +3666,11 @@ describe("advanceUntilBlocked", () => {
       environments: [],
       permissions: {},
       models: {
-        rampSchedules: { updateById, getById: jest.fn(), deleteById },
+        rampSchedules: {
+          updateById,
+          getById: jest.fn(),
+          dangerousDeleteByIdBypassPermission: deleteById,
+        },
         safeRollout: { getById: jest.fn().mockResolvedValue(null) },
       },
     };
@@ -2406,7 +3701,11 @@ describe("advanceUntilBlocked", () => {
       environments: [],
       permissions: {},
       models: {
-        rampSchedules: { updateById, getById: jest.fn(), deleteById },
+        rampSchedules: {
+          updateById,
+          getById: jest.fn(),
+          dangerousDeleteByIdBypassPermission: deleteById,
+        },
         safeRollout: { getById: jest.fn().mockResolvedValue(null) },
       },
     };
@@ -2441,7 +3740,11 @@ describe("advanceUntilBlocked", () => {
       environments: [],
       permissions: {},
       models: {
-        rampSchedules: { updateById, getById: jest.fn(), deleteById },
+        rampSchedules: {
+          updateById,
+          getById: jest.fn(),
+          dangerousDeleteByIdBypassPermission: deleteById,
+        },
         safeRollout: { getById: jest.fn().mockResolvedValue(null) },
       },
     };
@@ -2529,6 +3832,42 @@ describe("advanceUntilBlocked", () => {
     const rules: FeatureRule[] = forceResult.rules ?? [];
     const patched = rules.find((r) => r.id === RULE_ID);
     expect(patched?.enabled).toBe(true);
+  });
+
+  // ------------------------------------------------------------------------
+  // Collapse straight past the end (never-started backlog + future cutoff)
+  // ------------------------------------------------------------------------
+
+  it("injects enabled:true when a never-started backlog collapses past the end (future cutoff)", async () => {
+    // Regression: the -1 → past-end jump routes through
+    // applyEndActionsAndAwaitCutoff, which must fold enabled:true like every
+    // other landing — otherwise the rule sits at 100% coverage but disabled
+    // and never serves traffic.
+    const past = new Date(Date.now() - 10_000_000);
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      status: "running",
+      nextStepAt: new Date(Date.now() - 1000),
+      phaseStartedAt: past, // every step's time gate elapsed
+      cutoffDate: new Date(Date.now() + 24 * 60 * 60_000),
+    });
+    const { ctx, updateById } = makeContext();
+
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const { result: forceResult } = mockPublishRevision.mock.calls[0][0];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patched = rules.find((r) => r.id === RULE_ID);
+    expect(patched?.enabled).toBe(true);
+    expect((patched as { coverage?: number })?.coverage).toBe(1.0);
+
+    // Lands past the end, awaiting cutoff, recorded as a jump (not a
+    // single-step advance).
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.currentStepIndex).toBe(schedule.steps.length);
+    const lastEvent = updates.eventHistory?.[updates.eventHistory.length - 1];
+    expect(lastEvent?.type).toBe("step-jumped");
   });
 });
 
@@ -2761,6 +4100,40 @@ describe("completeRollout", () => {
     expect((rule as { coverage?: number }).coverage).toBe(1.0);
     expect(rule?.condition).toBe('{"a":"1"}');
   });
+
+  it("refuses to complete a held approval-gated schedule (would enable without approval)", async () => {
+    // Held at -1, awaiting start approval: completing would inject enabled:true
+    // and serve traffic without the recorded approval — the gate must block it.
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      status: "ready",
+      requiresStartApproval: true,
+      startApprovedAt: null,
+    });
+
+    const { ctx } = makeContext();
+    await expect(completeRollout(ctx as never, schedule)).rejects.toThrow(
+      /start approval/i,
+    );
+    // Threw before publishing, so no revision was created.
+    expect(mockCreateRevision).not.toHaveBeenCalled();
+  });
+
+  it("still completes a held approval-gated schedule when disabling (cutoff path never serves)", async () => {
+    // disableActiveTargets disables the rule (e.g. cutoff-driven completion), so
+    // there's no -1 → serving crossing to gate — it must not be blocked.
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      status: "ready",
+      requiresStartApproval: true,
+      startApprovedAt: null,
+    });
+
+    const { ctx } = makeContext();
+    await expect(
+      completeRollout(ctx as never, schedule, { disableActiveTargets: true }),
+    ).resolves.toBeDefined();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -2822,12 +4195,19 @@ describe("startReadyScheduleNow", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
-        rampSchedules: { updateById, getById, deleteById },
+        rampSchedules: {
+          updateById,
+          getById,
+          dangerousDeleteByIdBypassPermission: deleteById,
+          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+          touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(true),
+        },
         safeRollout: {
           getById: safeRolloutGetById,
           create: safeRolloutCreate,
@@ -2921,19 +4301,15 @@ describe("startReadyScheduleNow", () => {
   it("sets nextStepAt≈now for multi-step schedules", async () => {
     // Multi-step schedule with a far-future cutoffDate to keep advanceUntilBlocked
     // from completing. nextStepAt in the initial update must be ≈ now so step 0
-    // is immediately eligible.
-    const { ctx, updateById } = makeStartNowCtx();
-    const multiStepSchedule = makeSchedule({
-      status: "ready",
-      currentStepIndex: -1,
+    // is immediately eligible. The steps live on the stored doc (the in-lock
+    // fresh read is authoritative, not the caller's snapshot).
+    const { ctx, updateById, schedule } = makeStartNowCtx({
+      steps: makeSchedule({}).steps,
       nextStepAt: null,
-      startedAt: null,
-      phaseStartedAt: null,
-      cutoffDate: new Date(Date.now() + 24 * 60 * 60_000),
     });
 
     const before = Date.now();
-    await startReadyScheduleNow(ctx as never, multiStepSchedule);
+    await startReadyScheduleNow(ctx as never, schedule);
     const after = Date.now();
 
     // The first updateById call is the transition; subsequent calls may come
@@ -3096,19 +4472,27 @@ describe("startReadyScheduleNow", () => {
       auditUser: { type: "system" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
           updateById,
-          getById: jest.fn().mockImplementation(async () => ({
-            ...base,
-            status: "running",
-            nextStepAt: new Date(Date.now() + 3_600_000),
-          })),
+          // First read is the lock wrapper's freshness check (must be ready);
+          // later reads reflect the post-start running state.
+          getById: jest
+            .fn()
+            .mockImplementationOnce(async () => base)
+            .mockImplementation(async () => ({
+              ...base,
+              status: "running",
+              nextStepAt: new Date(Date.now() + 3_600_000),
+            })),
           deleteById: jest.fn().mockResolvedValue(undefined),
+          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+          touchAdvanceLockHeartbeat: jest.fn().mockResolvedValue(true),
         },
         safeRollout: {
           getById: jest.fn().mockResolvedValue(null),
@@ -3216,6 +4600,45 @@ describe("startReadyScheduleNow", () => {
     const [eventArgs] = mockCreateEvent.mock.calls[0];
     expect(eventArgs.objectId).toBe(schedule.id);
   });
+
+  it("a first step the engine refuses pauses the schedule with the reason and rethrows", async () => {
+    const { ctx, schedule, updateById } = makeStartNowCtx({
+      steps: [
+        {
+          interval: 60,
+          actions: [
+            {
+              targetType: "feature-rule",
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+    });
+    (validateRampPlanPatches as jest.Mock).mockRejectedValueOnce(
+      new Error("step refused"),
+    );
+
+    await expect(startReadyScheduleNow(ctx as never, schedule)).rejects.toThrow(
+      "step refused",
+    );
+    expect(updateById).toHaveBeenCalledWith(
+      schedule.id,
+      expect.objectContaining({
+        status: "paused",
+        eventHistory: expect.arrayContaining([
+          expect.objectContaining({
+            type: "error-paused",
+            reason: "step refused",
+          }),
+        ]),
+      }),
+    );
+    expect(mockCreateEvent.mock.calls.map(([e]) => e.event)).toContain(
+      "rampSchedule.actions.errorPaused",
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -3263,13 +4686,15 @@ describe("approveAndPublishStep", () => {
     return {
       ctx: {
         userId: USER_ID,
+        actingUserId: USER_ID,
+        actorId: USER_ID,
         org: { id: ORG_ID, settings: {} },
         auditUser: { type: "session" as const, userAgent: "", ip: "" },
         environments: [],
         permissions: {
-          canUpdateFeature: jest.fn().mockReturnValue(true),
           canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
           canPublishFeature: jest.fn().mockReturnValue(true),
+          canEditFeatureDrafts: jest.fn().mockReturnValue(true),
         },
         models: {
           rampSchedules: { updateById, getById: jest.fn() },
@@ -3296,6 +4721,7 @@ describe("approveAndPublishStep", () => {
     expect(updates.stepApproval).toMatchObject({
       stepIndex: 0,
       approvedBy: USER_ID,
+      approvedByUser: ctx.auditUser,
       context: "api",
     });
     expect(updates.stepApproval?.approvedAt).toBeInstanceOf(Date);
@@ -3389,9 +4815,9 @@ describe("approveAndPublishStep", () => {
       auditUser: { type: "session" as const, userAgent: "", ip: "" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
@@ -3462,9 +4888,9 @@ describe("approveAndPublishStep", () => {
       auditUser: { type: "session" as const, userAgent: "", ip: "" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
@@ -3530,9 +4956,9 @@ describe("approveAndPublishStep", () => {
       auditUser: { type: "session" as const, userAgent: "", ip: "" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
@@ -3602,9 +5028,9 @@ describe("approveAndPublishStep", () => {
       auditUser: { type: "session" as const, userAgent: "", ip: "" },
       environments: [],
       permissions: {
-        canUpdateFeature: jest.fn().mockReturnValue(true),
         canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
         canPublishFeature: jest.fn().mockReturnValue(true),
+        canEditFeatureDrafts: jest.fn().mockReturnValue(true),
       },
       models: {
         rampSchedules: {
@@ -3694,6 +5120,116 @@ describe("isAwaitingApproval", () => {
 });
 
 // ---------------------------------------------------------------------------
+// isAwaitingStartApproval
+// ---------------------------------------------------------------------------
+
+describe("isAwaitingStartApproval", () => {
+  const held = {
+    status: "ready" as const,
+    currentStepIndex: -1,
+    requiresStartApproval: true,
+    startApprovedAt: null,
+  };
+
+  it("returns true for a ready, unapproved, pre-start approval schedule", () => {
+    expect(isAwaitingStartApproval(held)).toBe(true);
+  });
+
+  it("returns false once approved", () => {
+    expect(
+      isAwaitingStartApproval({
+        ...held,
+        startApprovedAt: new Date(),
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when the schedule does not require approval", () => {
+    expect(
+      isAwaitingStartApproval({
+        ...held,
+        requiresStartApproval: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false once past step -1 (already crossed into a step)", () => {
+    expect(isAwaitingStartApproval({ ...held, currentStepIndex: 0 })).toBe(
+      false,
+    );
+  });
+
+  it("returns false for a running schedule (only the ready hold counts)", () => {
+    expect(
+      isAwaitingStartApproval({ ...held, status: "running" as const }),
+    ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// startApprovalPending — the status-independent invariant used at the crossing
+// ---------------------------------------------------------------------------
+
+describe("startApprovalPending", () => {
+  it("is true when required and not yet approved (any status)", () => {
+    expect(
+      startApprovalPending({
+        requiresStartApproval: true,
+        startApprovedAt: null,
+      }),
+    ).toBe(true);
+    // Status-independent: still pending even mid-transition to running.
+    expect(
+      startApprovalPending({
+        requiresStartApproval: true,
+        startApprovedAt: undefined,
+      }),
+    ).toBe(true);
+  });
+
+  it("is false once approved", () => {
+    expect(
+      startApprovalPending({
+        requiresStartApproval: true,
+        startApprovedAt: new Date(),
+      }),
+    ).toBe(false);
+  });
+
+  it("is false when approval isn't required", () => {
+    expect(
+      startApprovalPending({
+        requiresStartApproval: false,
+        startApprovedAt: null,
+      }),
+    ).toBe(false);
+    expect(startApprovalPending({})).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveStartApproval — tri-state (true/false/null = set, undefined = keep)
+// ---------------------------------------------------------------------------
+
+describe("resolveStartApproval", () => {
+  it("uses the action value when explicitly set", () => {
+    expect(resolveStartApproval(true, false)).toBe(true);
+    expect(resolveStartApproval(false, true)).toBe(false);
+  });
+
+  it("treats null as an explicit off (does not fall back to base)", () => {
+    expect(resolveStartApproval(null, true)).toBe(false);
+  });
+
+  it("falls back to the base value when the action omits it (undefined)", () => {
+    expect(resolveStartApproval(undefined, true)).toBe(true);
+    expect(resolveStartApproval(undefined, false)).toBe(false);
+    expect(resolveStartApproval(undefined, null)).toBe(false);
+    expect(resolveStartApproval(undefined, undefined)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // isReadyForApproval — approval is gated behind the step's interval
 // ---------------------------------------------------------------------------
 
@@ -3776,5 +5312,679 @@ describe("isReadyForApproval", () => {
         steps: [{ interval: null, holdConditions: {} }],
       }),
     ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeNextProcessAt
+// ---------------------------------------------------------------------------
+
+describe("computeNextProcessAt", () => {
+  it("running: returns earliest of nextStepAt, nextSnapshotAt, cutoffDate", () => {
+    const step = new Date("2026-06-10T00:00:00Z");
+    const snapshot = new Date("2026-06-08T00:00:00Z");
+    const cutoff = new Date("2026-06-15T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "running",
+      nextStepAt: step,
+      nextSnapshotAt: snapshot,
+      cutoffDate: cutoff,
+    });
+    expect(result).toEqual(snapshot);
+  });
+
+  it("running: returns cutoffDate when no step or snapshot timers exist", () => {
+    const cutoff = new Date("2026-06-15T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "running",
+      nextStepAt: null,
+      nextSnapshotAt: null,
+      cutoffDate: cutoff,
+    });
+    expect(result).toEqual(cutoff);
+  });
+
+  it("running: returns null when no timers exist at all", () => {
+    const result = computeNextProcessAt({
+      status: "running",
+      nextStepAt: null,
+      nextSnapshotAt: null,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("ready: returns startDate", () => {
+    const start = new Date("2026-06-05T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "ready",
+      startDate: start,
+    });
+    expect(result).toEqual(start);
+  });
+
+  it("ready: returns null when no startDate", () => {
+    const result = computeNextProcessAt({ status: "ready" });
+    expect(result).toBeNull();
+  });
+
+  it("ready: returns null while awaiting start approval, even with a startDate", () => {
+    const result = computeNextProcessAt({
+      status: "ready",
+      startDate: new Date("2026-06-05T00:00:00Z"),
+      requiresStartApproval: true,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("ready: arms for startDate once the start is approved", () => {
+    const start = new Date("2026-06-05T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "ready",
+      startDate: start,
+      requiresStartApproval: true,
+      startApprovedAt: new Date("2026-06-01T00:00:00Z"),
+    });
+    expect(result).toEqual(start);
+  });
+
+  it("paused: returns cutoffDate so scheduler can enforce the cutoff", () => {
+    const cutoff = new Date("2026-06-15T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "paused",
+      cutoffDate: cutoff,
+    });
+    expect(result).toEqual(cutoff);
+  });
+
+  it("paused: returns null when no cutoffDate", () => {
+    const result = computeNextProcessAt({ status: "paused" });
+    expect(result).toBeNull();
+  });
+
+  it("completed: returns null (terminal state)", () => {
+    const result = computeNextProcessAt({
+      status: "completed",
+      cutoffDate: new Date("2026-06-15T00:00:00Z"),
+    });
+    expect(result).toBeNull();
+  });
+
+  it("rolled-back: returns null (terminal state)", () => {
+    const result = computeNextProcessAt({
+      status: "rolled-back",
+      cutoffDate: new Date("2026-06-15T00:00:00Z"),
+    });
+    expect(result).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// advanceStep — future cutoffDate keeps schedule running
+// ---------------------------------------------------------------------------
+
+describe("advanceStep — future cutoffDate keeps schedule running", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetFeature.mockResolvedValue(makeFeature() as never);
+    mockCreateRevision.mockResolvedValue(makeRevision() as never);
+    mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  it("stays running with nextProcessAt=cutoffDate when all steps are done but cutoff is future", async () => {
+    const futureCutoff = new Date(Date.now() + 60 * 60_000);
+    const schedule = makeSchedule({
+      currentStepIndex: 2,
+      cutoffDate: futureCutoff,
+    });
+    const { ctx, updateById } = makeContext({
+      currentStepIndex: 2,
+      cutoffDate: futureCutoff,
+    });
+
+    await advanceStep(ctx as never, schedule);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("running");
+    expect(updates.currentStepIndex).toBe(3);
+    expect(updates.nextProcessAt).toEqual(futureCutoff);
+    expect(updates.nextStepAt).toBeNull();
+  });
+
+  it("completes normally when cutoffDate is in the past", async () => {
+    const pastCutoff = new Date(Date.now() - 60_000);
+    const schedule = makeSchedule({
+      currentStepIndex: 2,
+      cutoffDate: pastCutoff,
+    });
+    const { ctx, updateById } = makeContext({
+      currentStepIndex: 2,
+      cutoffDate: pastCutoff,
+    });
+
+    await advanceStep(ctx as never, schedule);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("completed");
+  });
+
+  it("completes normally when no cutoffDate exists", async () => {
+    const schedule = makeSchedule({ currentStepIndex: 2 });
+    const { ctx, updateById } = makeContext({ currentStepIndex: 2 });
+
+    await advanceStep(ctx as never, schedule);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("completed");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pauseSchedule — nextProcessAt from cutoffDate
+// ---------------------------------------------------------------------------
+
+describe("pauseSchedule", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("sets nextProcessAt to cutoffDate when a cutoff exists", async () => {
+    const futureCutoff = new Date(Date.now() + 60 * 60_000);
+    const schedule = makeSchedule({
+      status: "running",
+      currentStepIndex: 1,
+      cutoffDate: futureCutoff,
+    });
+
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => ({
+          ...schedule,
+          ...updates,
+        }),
+      );
+
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {},
+      models: {
+        rampSchedules: { updateById, getById: jest.fn() },
+      },
+    };
+
+    await pauseSchedule(ctx as never, schedule, "Guardrail breach");
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("paused");
+    expect(updates.nextProcessAt).toEqual(futureCutoff);
+    expect(updates.nextSnapshotAt).toBeNull();
+    const [eventArgs] = mockCreateEvent.mock.calls.at(-1) ?? [];
+    expect(eventArgs.event).toBe("rampSchedule.actions.paused");
+    expect(eventArgs.data.object).toMatchObject({
+      status: "paused",
+      reason: "Guardrail breach",
+    });
+  });
+
+  it("sets nextProcessAt to null when no cutoffDate exists", async () => {
+    const schedule = makeSchedule({
+      status: "running",
+      currentStepIndex: 1,
+    });
+
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => ({
+          ...schedule,
+          ...updates,
+        }),
+      );
+
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {},
+      models: {
+        rampSchedules: { updateById, getById: jest.fn() },
+      },
+    };
+
+    await pauseSchedule(ctx as never, schedule);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("paused");
+    expect(updates.nextProcessAt).toBeNull();
+  });
+});
+
+describe("planRampBaseStateSync", () => {
+  const rule = (over: Record<string, unknown> = {}) =>
+    ({
+      type: "rollout",
+      id: "r1",
+      description: "",
+      value: "a",
+      coverage: 0.5,
+      hashAttribute: "id",
+      enabled: true,
+      allEnvironments: true,
+      ...over,
+    }) as FeatureRule;
+  const schedule = (over: Record<string, unknown> = {}) =>
+    ({
+      id: "rs_1",
+      name: "Ramp",
+      status: "paused",
+      targets: [
+        {
+          id: "t1",
+          entityType: "feature",
+          entityId: "f1",
+          ruleId: "r1",
+          status: "active",
+        },
+      ],
+      startActions: [
+        {
+          targetType: "feature-rule",
+          targetId: "t1",
+          patch: { ruleId: "r1", coverage: 0, condition: null, force: "a" },
+        },
+      ],
+      steps: [
+        {
+          interval: 3600,
+          actions: [
+            {
+              targetType: "feature-rule",
+              targetId: "t1",
+              patch: { ruleId: "r1", coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+      endActions: [],
+      ...over,
+    }) as unknown as RampScheduleInterface;
+  const plan = (
+    live: FeatureRule,
+    next: FeatureRule,
+    s: RampScheduleInterface = schedule(),
+    { featureId = "f1", apiRequest = true } = {},
+  ) =>
+    planRampBaseStateSync({
+      featureId,
+      schedules: [s],
+      liveRules: [live],
+      nextRules: [next],
+      apiRequest,
+    });
+  const dashboard = (next: FeatureRule, s = schedule()) =>
+    plan(rule(), next, s, { apiRequest: false }).refusals[0].message;
+  const untouched = { refusals: [], updates: [] };
+
+  it("writes fields no step sets into the start action, the environment pair and identity included", () => {
+    const { refusals, updates } = plan(
+      rule(),
+      rule({
+        condition: '{"a":1}',
+        value: "b",
+        allEnvironments: false,
+        environments: ["production"],
+        hashAttribute: "email",
+      }),
+    );
+    expect(refusals).toEqual([]);
+    expect(updates[0].patches).toEqual([
+      {
+        targetId: "t1",
+        ruleId: "r1",
+        patch: {
+          condition: '{"a":1}',
+          force: "b",
+          allEnvironments: false,
+          environments: ["production"],
+          hashAttribute: "email",
+        },
+      },
+    ]);
+  });
+
+  it("refuses a field a step sets, naming the step and, for the API, the plan routes", () => {
+    const { refusals, updates } = plan(rule(), rule({ coverage: 0.9 }));
+    expect(updates).toEqual([]);
+    expect(refusals).toHaveLength(1);
+    expect(refusals[0].kind).toBe("ramp-controlled-field");
+    expect(refusals[0].message).toMatch(
+      /coverage is set by step 1 of ramp schedule "Ramp"/,
+    );
+    expect(refusals[0].message).toMatch(/PUT \/api\/v1\/ramp-schedules\/rs_1/);
+    expect(dashboard(rule({ coverage: 0.9 }))).toMatch(
+      /the rollout % is set by step 1 of its ramp-up\. Change it in the ramp-up plan/,
+    );
+  });
+
+  describe("a legacy all-environment target over migrated siblings", () => {
+    const sibling = (env: string, over: Record<string, unknown> = {}) =>
+      rule({
+        id: `r1__${env}`,
+        allEnvironments: false,
+        environments: [env],
+        ...over,
+      });
+    const live = [sibling("dev"), sibling("production")];
+    const legacy = schedule({
+      targets: [
+        {
+          id: "t1",
+          entityType: "feature",
+          entityId: "f1",
+          ruleId: "r1",
+          environment: null,
+          status: "active",
+        },
+      ],
+    });
+    const planSiblings = (next: FeatureRule[], apiRequest = true) =>
+      planRampBaseStateSync({
+        featureId: "f1",
+        schedules: [legacy],
+        liveRules: live,
+        nextRules: next,
+        apiRequest,
+      });
+
+    it.each([
+      [
+        "edited differently",
+        [
+          sibling("dev", { condition: '{"a":1}' }),
+          sibling("production", { condition: '{"b":2}' }),
+        ],
+      ],
+      [
+        "edited in one environment only",
+        [sibling("dev", { condition: '{"a":1}' }), sibling("production")],
+      ],
+    ])(
+      "refuses siblings %s, since their one anchor replays onto both",
+      (_, next) => {
+        const { refusals, updates } = planSiblings(next);
+        expect(updates).toEqual([]);
+        expect(refusals).toHaveLength(1);
+        expect(refusals[0]).toMatchObject({
+          kind: "ramp-shared-base-state",
+          scheduleId: "rs_1",
+        });
+        expect(refusals[0].message).toMatch(
+          /DELETE \/api\/v2\/features\/f1\/revisions\/\{version\}\/rules\/r1__dev\/ramp-schedule/,
+        );
+        expect(planSiblings(next, false).refusals[0].message).toBe(
+          'Rule "r1__dev" shares its ramp-up with Rule "r1__production", so this change would also apply there. Remove the ramp-up, publish the change, then add a new ramp-up.',
+        );
+      },
+    );
+
+    it("syncs an edit every sibling agrees on into their shared anchor", () => {
+      expect(
+        planSiblings([
+          sibling("dev", { condition: '{"a":1}' }),
+          sibling("production", { condition: '{"a":1}' }),
+        ]),
+      ).toEqual({
+        refusals: [],
+        updates: [
+          {
+            schedule: legacy,
+            patches: [
+              { targetId: "t1", ruleId: "r1", patch: { condition: '{"a":1}' } },
+            ],
+          },
+        ],
+      });
+    });
+  });
+
+  it("refuses any change while a stepped schedule runs; a step-less one just syncs", () => {
+    const running = schedule({ status: "running" });
+    const { refusals, updates } = plan(
+      rule(),
+      rule({ condition: "{}" }),
+      running,
+    );
+    expect(updates).toEqual([]);
+    expect(refusals).toHaveLength(1);
+    expect(refusals[0].kind).toBe("ramp-running");
+    expect(refusals[0].message).toMatch(
+      /POST \/api\/v1\/ramp-schedules\/rs_1\/actions\/pause/,
+    );
+    expect(dashboard(rule({ condition: "{}" }), running)).toMatch(
+      /has a running ramp-up\. Pause it before publishing/,
+    );
+    const stepless = plan(
+      rule(),
+      rule({ condition: "{}" }),
+      schedule({ status: "running", steps: [] }),
+    );
+    expect(stepless.refusals).toEqual([]);
+    expect(stepless.updates[0].patches[0].patch).toEqual({ condition: "{}" });
+  });
+
+  it("leaves unanchored statuses, other features, `enabled`, unchanged and merely re-shaped rules alone", () => {
+    for (const status of ["pending", "completed", "rolled-back"]) {
+      expect(
+        plan(rule(), rule({ condition: "{}" }), schedule({ status })),
+      ).toEqual(untouched);
+    }
+    expect(
+      plan(rule(), rule({ condition: "{}" }), schedule(), { featureId: "f2" }),
+    ).toEqual(untouched);
+    expect(plan(rule(), rule({ enabled: false }))).toEqual(untouched);
+    expect(plan(rule(), rule())).toEqual(untouched);
+    // The rule editor fills in what a REST-created rule left implicit.
+    expect(
+      plan(
+        rule({
+          hashVersion: undefined,
+          savedGroups: undefined,
+          condition: undefined,
+        }),
+        rule({ hashVersion: 1, savedGroups: [], condition: "" }),
+      ),
+    ).toEqual(untouched);
+  });
+
+  it("leaves out targets the publish detaches, except under a running stepped schedule", async () => {
+    const plan = (s: RampScheduleInterface, detaching = false) =>
+      planRampBaseStateSyncForPublish(
+        {
+          isApiRequest: true,
+          models: {
+            rampSchedules: {
+              findAnchoredByTargetFeature: jest.fn().mockResolvedValue([s]),
+            },
+          },
+        } as never,
+        { id: "f1", rules: [rule()] } as never,
+        // Coverage is set by the plan's step, so it is refused either way.
+        { rules: [rule({ coverage: 1 })] },
+        detaching
+          ? {
+              detaching: [
+                {
+                  mode: "detach",
+                  rampScheduleId: "rs_1",
+                  ruleId: "r1",
+                  deleteScheduleWhenEmpty: true,
+                },
+              ],
+            }
+          : {},
+      );
+    const paused = schedule();
+    expect((await plan(paused)).refusals).toHaveLength(1);
+    expect(await plan(paused, true)).toEqual(untouched);
+    // The detach lands after the save; a firing step could win the lock.
+    const running = await plan(schedule({ status: "running" }), true);
+    expect(running.refusals.map((r) => r.kind)).toEqual(["ramp-running"]);
+  });
+});
+
+describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
+  const anchor = (patch: Record<string, unknown>) => ({
+    targetType: "feature-rule",
+    targetId: "t1",
+    patch: { ruleId: "r1", coverage: 0, ...patch },
+  });
+  const fresh = (over: Record<string, unknown> = {}) =>
+    ({
+      id: "rs_1",
+      name: "Ramp",
+      status: "paused",
+      steps: [],
+      endActions: [],
+      startActions: [anchor({ condition: null })],
+      eventHistory: [],
+      ...over,
+    }) as unknown as RampScheduleInterface;
+  const makeCtx = (doc: RampScheduleInterface) => {
+    const updateById = jest.fn().mockResolvedValue(doc);
+    const ctx = {
+      userId: "u1",
+      actingUserId: "u1",
+      actorId: "u1",
+      models: {
+        rampSchedules: {
+          getById: jest.fn().mockResolvedValue(doc),
+          updateById,
+          acquireAdvanceLock: jest.fn().mockResolvedValue(true),
+          releaseAdvanceLock: jest.fn().mockResolvedValue(undefined),
+        },
+      },
+    } as unknown as Parameters<typeof applyRampBaseStateSync>[0];
+    return { ctx, updateById };
+  };
+  const update = {
+    schedule: fresh(),
+    patches: [
+      { targetId: "t1", ruleId: "r1", patch: { condition: '{"a":1}' } },
+    ],
+    fields: ["condition"],
+  };
+  const reason = "Base state updated by publishing revision 3: r1: condition";
+
+  it("patches the fresh anchor, appends the event and keeps a pre-image for the rewind", async () => {
+    const paused = { type: "paused", timestamp: new Date() };
+    const { ctx, updateById } = makeCtx(fresh({ eventHistory: [paused] }));
+    const written: Parameters<typeof restoreRampBaseStates>[1] = [];
+    await applyRampBaseStateSync(ctx, [update], 3, written);
+    const [, writes] = updateById.mock.calls[0];
+    expect(writes.startActions[0].patch).toEqual({
+      ruleId: "r1",
+      coverage: 0,
+      condition: '{"a":1}',
+    });
+    expect(writes.eventHistory).toEqual([
+      paused,
+      expect.objectContaining({ type: "config-edited", reason, userId: "u1" }),
+    ]);
+    expect(written[0].patches[0].before).toEqual({ condition: null });
+  });
+
+  it("refuses when the schedule resumed, the plan took the field or the anchor moved since planning", async () => {
+    const step = (patch: Record<string, unknown>) => ({
+      interval: 1,
+      actions: [anchor(patch)],
+    });
+    for (const doc of [
+      fresh({ status: "running", steps: [step({ coverage: 1 })] }),
+      fresh({ steps: [step({ condition: "{}" })] }),
+      fresh({ startActions: [] }),
+    ]) {
+      const { ctx, updateById } = makeCtx(doc);
+      await expect(
+        applyRampBaseStateSync(ctx, [update], 3, []),
+      ).rejects.toThrow(ConflictError);
+      expect(updateById).not.toHaveBeenCalled();
+    }
+  });
+
+  it("rewinds only the fields it still owns and drops only its own event", async () => {
+    const event = { type: "config-edited", timestamp: new Date(), reason };
+    const older = { ...event, timestamp: new Date(Date.now() - 1000) };
+    const { ctx, updateById } = makeCtx(
+      fresh({
+        startActions: [anchor({ condition: '{"a":1}', force: "later" })],
+        eventHistory: [older, event],
+      }),
+    );
+    await restoreRampBaseStates(ctx, [
+      {
+        id: "rs_1",
+        patches: [
+          {
+            targetId: "t1",
+            ruleId: "r1",
+            patch: { condition: '{"a":1}', force: "b" },
+            before: { condition: null },
+          },
+        ],
+        event,
+      },
+    ]);
+    const [, writes] = updateById.mock.calls[0];
+    expect(writes.startActions[0].patch).toEqual({
+      ruleId: "r1",
+      coverage: 0,
+      condition: null,
+      force: "later",
+    });
+    expect(writes.eventHistory).toEqual([older]);
+  });
+
+  it("leaves a field alone once a later publish rewrote it on the same rule, same value, even same millisecond", async () => {
+    const event = { type: "config-edited", timestamp: new Date(1000), reason };
+    const preImage = {
+      id: "rs_1",
+      patches: [
+        {
+          targetId: "t1",
+          ruleId: "r1",
+          patch: { condition: '{"a":1}' },
+          before: { condition: null },
+        },
+      ],
+      event,
+    };
+    const restoredWith = async (later: { reason: string }) => {
+      const laterEvent = { ...event, ...later };
+      const { ctx, updateById } = makeCtx(
+        fresh({
+          startActions: [anchor({ condition: '{"a":1}' })],
+          eventHistory: [event, laterEvent],
+        }),
+      );
+      await restoreRampBaseStates(ctx, [preImage]);
+      const [, writes] = updateById.mock.calls[0];
+      expect(writes.eventHistory).toEqual([laterEvent]);
+      return writes.startActions[0].patch.condition;
+    };
+    expect(await restoredWith({ reason })).toBe('{"a":1}');
+    expect(
+      await restoredWith({
+        reason: "Base state updated by publishing revision 4: r2: condition",
+      }),
+    ).toBeNull();
+    expect(
+      await restoredWith({
+        reason: "Base state updated by publishing revision 4: r1: value",
+      }),
+    ).toBeNull();
   });
 });

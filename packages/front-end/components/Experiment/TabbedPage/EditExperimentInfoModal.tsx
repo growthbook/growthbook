@@ -6,6 +6,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsInput from "@/components/Tags/TagsInput";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import useExperimentKeyFieldProps from "@/hooks/useExperimentKeyFieldProps";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
@@ -43,6 +44,11 @@ export default function EditExperimentInfoModal({
       project: experiment.project || "",
     },
   });
+  const trackingKey = form.watch("trackingKey");
+  const trackingKeyFormatProps = useExperimentKeyFieldProps(
+    trackingKey,
+    trackingKey === experiment.trackingKey,
+  );
 
   return (
     <ModalStandard
@@ -61,16 +67,19 @@ export default function EditExperimentInfoModal({
       })}
     >
       <Field
+        size="legacy"
         autoFocus={focusSelector === "name"}
         label="Experiment Name"
         {...form.register("name")}
         required
       />
       <Field
+        size="legacy"
         disabled={experiment.status !== "draft"}
         label="Experiment Key"
         {...form.register("trackingKey")}
         required
+        {...trackingKeyFormatProps}
       />
       <SelectOwner
         value={form.watch("owner")}
@@ -87,6 +96,7 @@ export default function EditExperimentInfoModal({
         />
       </div>
       <SelectField
+        size="legacy"
         label={
           <>
             <Text weight="semibold">Project</Text>

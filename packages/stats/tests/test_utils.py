@@ -6,11 +6,39 @@ import numpy as np
 from scipy.stats import norm
 import copy
 
-from gbstats.utils import multinomial_covariance, truncated_normal_mean
+from gbstats.utils import (
+    frequentist_diff,
+    multinomial_covariance,
+    truncated_normal_mean,
+)
 from scipy.stats import truncnorm
 
 DECIMALS = 5
 round_ = partial(np.round, decimals=DECIMALS)
+
+
+class TestFrequentistDiff(TestCase):
+    def test_absolute_is_plain_difference(self):
+        self.assertEqual(frequentist_diff(-10, -5, relative=False), 5)
+        self.assertEqual(frequentist_diff(10, 15, relative=False), 5)
+
+    def test_relative_positive_baseline(self):
+        self.assertAlmostEqual(frequentist_diff(10, 15, relative=True), 0.5)
+        self.assertAlmostEqual(frequentist_diff(10, 5, relative=True), -0.5)
+
+    def test_relative_negative_baseline_keeps_direction(self):
+        # -10 -> -5 is an increase; the relative difference must be positive
+        self.assertAlmostEqual(frequentist_diff(-10, -5, relative=True), 0.5)
+        # -10 -> -15 is a decrease
+        self.assertAlmostEqual(frequentist_diff(-10, -15, relative=True), -0.5)
+        # crossing zero
+        self.assertAlmostEqual(frequentist_diff(-2, 3, relative=True), 2.5)
+
+    def test_relative_uses_unadjusted_baseline_magnitude(self):
+        # CUPED-adjusted means with an unadjusted (negative) baseline
+        self.assertAlmostEqual(
+            frequentist_diff(-9, -4, relative=True, mean_a_unadjusted=-10), 0.5
+        )
 
 
 class TestTruncatedNormalMean(TestCase):

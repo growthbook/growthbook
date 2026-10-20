@@ -1,6 +1,5 @@
 import { FC, useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { Flex } from "@radix-ui/themes";
 import { LicenseInterface } from "shared/enterprise";
 import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -56,7 +55,7 @@ const BillingPage: FC = () => {
     }
   }, [apiCall, refreshOrganization, router]);
 
-  if (accountPlan === "enterprise") {
+  if (accountPlan === "enterprise" && subscription?.billingPlatform !== "orb") {
     return (
       <div className="container pagecontents">
         <Callout status="info">
@@ -105,21 +104,23 @@ const BillingPage: FC = () => {
           <SubscriptionInfo />
         ) : canSubscribe ? (
           <div className="p-3">
-            <Callout status="info" mb="0" contentsAs="div">
-              <Flex justify="between">
-                <span>
-                  You are currently on the <strong>Starter Plan</strong>.
-                </span>
-
+            <Callout
+              status="info"
+              mb="0"
+              action={
                 <Button
-                  my="-1"
+                  color="inherit"
                   onClick={() => {
                     setUpgradeModal(true);
                   }}
                 >
                   Upgrade Now
                 </Button>
-              </Flex>
+              }
+            >
+              <span>
+                You are currently on the <strong>Starter Plan</strong>.
+              </span>
             </Callout>
           </div>
         ) : (

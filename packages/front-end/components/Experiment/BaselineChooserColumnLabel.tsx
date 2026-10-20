@@ -6,7 +6,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "shared/types/experiment-snapshot";
-import { Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
 import { getSnapshotAnalysis } from "shared/util";
 import { useAuth } from "@/services/auth";
@@ -20,6 +20,7 @@ import {
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import VariationLabel from "@/ui/VariationLabel";
 import { analysisUpdate } from "@/services/snapshots";
 
 export interface BaselineChooserColumnLabelProps {
@@ -137,32 +138,11 @@ export default function BaselineChooserColumnLabel({
             setDropdownOpen(false);
           }}
         >
-          <Flex
-            align="center"
-            className={`variation variation${variation.index} with-variation-label`}
-            style={{ maxWidth: 200, flex: 1, minWidth: 0 }}
-          >
-            <span
-              className="label"
-              style={{
-                width: 20,
-                height: 20,
-                flex: "none",
-                marginTop: "-1px",
-              }}
-            >
-              {variation.index}
-            </span>
-            <Text
-              style={{
-                whiteSpace: "normal",
-                wordBreak: "break-word",
-                lineHeight: "1.4",
-              }}
-            >
-              {variation.name}
-            </Text>
-          </Flex>
+          <VariationLabel
+            number={variation.index}
+            name={variation.name}
+            maxWidth="200px"
+          />
         </DropdownMenuItem>
       );
     });
@@ -179,50 +159,43 @@ export default function BaselineChooserColumnLabel({
           {isHoldout
             ? "The holdout variation that all variations are compared against."
             : "The baseline that all variations are compared against."}
-          <div
-            className={`variation variation${baselineRow} with-variation-label d-flex mt-1 align-items-top`}
-            style={{ marginBottom: 2 }}
-          >
-            <span
-              className="label mr-1"
-              style={{
-                width: 16,
-                height: 16,
-                marginTop: 2,
-              }}
-            >
-              {baselineRow}
-            </span>
-            <span className="font-weight-bold">{baselineVariation.name}</span>
-          </div>
+          <Box mt="1" style={{ marginBottom: 2 }}>
+            <VariationLabel
+              number={baselineRow}
+              name={baselineVariation.name}
+              size="md"
+              disableTooltip
+            />
+          </Box>
         </div>
       }
     >
       <Flex align="center" gap="1">
-        <Flex
-          align="center"
-          className={`variation variation${baselineVariation.index} with-variation-label`}
-        >
-          {!isHoldout && (
-            <span
-              className="label"
+        <Flex align="center">
+          {isHoldout ? (
+            <OverflowText
+              maxWidth={labelMaxWidth}
+              style={{ color: "var(--color-text-mid)", fontSize: "12px" }}
+            >
+              Holdout
+            </OverflowText>
+          ) : (
+            <Box
               style={{
-                width: 16,
-                height: 16,
-                flex: "none",
-                marginRight: "4px",
-                marginLeft: "-4px",
+                width: labelMaxWidth + 20,
+                maxWidth: "100%",
+                minWidth: 0,
+                marginLeft: -4,
               }}
             >
-              {baselineVariation.index}
-            </span>
+              <VariationLabel
+                number={baselineVariation.index}
+                name={baselineVariation.name}
+                size="sm"
+                disableTooltip
+              />
+            </Box>
           )}
-          <OverflowText
-            maxWidth={labelMaxWidth}
-            style={{ color: "var(--color-text-mid)", fontSize: "13px" }}
-          >
-            {isHoldout ? "Holdout" : baselineVariation.name}
-          </OverflowText>
           {dropdownEnabled && setBaselineRow && (
             <Flex align="center" gap="1">
               <PiCaretDownFill style={{ fontSize: "12px" }} />
@@ -250,7 +223,7 @@ export default function BaselineChooserColumnLabel({
     >
       <DropdownMenuGroup>
         <DropdownMenuLabel
-          textSize="1"
+          textSize="sm"
           textStyle={{ textTransform: "uppercase", fontWeight: 600 }}
         >
           Baseline

@@ -63,7 +63,7 @@ describe("planMetricFanOut", () => {
       });
       const fanOut = planMetricFanOut([meanA, sameFtRatio]);
 
-      expect(fanOut.crossFtPairs).toEqual([]);
+      expect(fanOut.multiSourceGroups).toEqual([]);
       expect(fanOut.perFt).toHaveLength(1);
       expect(fanOut.perFt[0].factTableId).toBe("ft_a");
       expect(fanOut.perFt[0].metrics.map((m) => m.id)).toEqual([
@@ -89,9 +89,13 @@ describe("planMetricFanOut", () => {
       expect(ftA?.metrics.map((m) => m.id)).toEqual(["cross_ft_ratio"]);
       expect(ftB?.metrics.map((m) => m.id)).toEqual(["cross_ft_ratio"]);
 
-      expect(fanOut.crossFtPairs).toHaveLength(1);
-      expect(fanOut.crossFtPairs[0].factTableIds).toEqual(["ft_a", "ft_b"]);
-      expect(fanOut.crossFtPairs[0].metrics).toEqual([
+      expect(fanOut.multiSourceGroups).toHaveLength(1);
+      expect(fanOut.multiSourceGroups[0].factTableIds).toEqual([
+        "ft_a",
+        "ft_b",
+      ]);
+      expect(fanOut.multiSourceGroups[0].metrics).toEqual([crossFtRatio]);
+      expect(fanOut.multiSourceGroups[0].crossFtRatioMetrics).toEqual([
         {
           metric: crossFtRatio,
           numeratorFactTableId: "ft_a",
@@ -118,12 +122,14 @@ describe("planMetricFanOut", () => {
       });
       const fanOut = planMetricFanOut([aOverB, bOverA]);
 
-      expect(fanOut.crossFtPairs).toHaveLength(1);
-      expect(fanOut.crossFtPairs[0].factTableIds).toEqual(["ft_a", "ft_b"]);
-      expect(fanOut.crossFtPairs[0].metrics.map((m) => m.metric.id)).toEqual([
-        "a_over_b",
-        "b_over_a",
+      expect(fanOut.multiSourceGroups).toHaveLength(1);
+      expect(fanOut.multiSourceGroups[0].factTableIds).toEqual([
+        "ft_a",
+        "ft_b",
       ]);
+      expect(
+        fanOut.multiSourceGroups[0].crossFtRatioMetrics.map((m) => m.metric.id),
+      ).toEqual(["a_over_b", "b_over_a"]);
 
       // Both FT caches end up with both metrics — orientation is recovered
       // per-metric by comparing column refs to the cache's factTableId.
@@ -170,7 +176,7 @@ describe("planMetricFanOut", () => {
         "cross_ft",
         "mean_b",
       ]);
-      expect(fanOut.crossFtPairs).toHaveLength(1);
+      expect(fanOut.multiSourceGroups).toHaveLength(1);
     });
 
     it("throws when a metric lacks a numerator fact table", () => {
@@ -181,6 +187,125 @@ describe("planMetricFanOut", () => {
       // Force-clear the factTableId to simulate a malformed metric.
       (broken.numerator as { factTableId: string }).factTableId = "";
       expect(() => planMetricFanOut([broken])).toThrow();
+    });
+
+    it("fans a multifact funnel metric into all its step fact tables", () => {
+      const funnel = {
+        ...factMetricFactory.build({ id: "mf_funnel" }),
+        metricType: "funnel" as const,
+        numerator: null,
+        funnelSettings: {
+          concurrencyWindowSeconds: 0,
+          steps: [
+            {
+              name: "view",
+              factTableId: "ft_a",
+              rowFilters: [],
+              optional: false,
+              conversionWindow: null,
+            },
+            {
+              name: "purchase",
+              factTableId: "ft_b",
+              rowFilters: [],
+              optional: false,
+              conversionWindow: null,
+            },
+          ],
+        },
+      };
+      const fanOut = planMetricFanOut([funnel]);
+
+      expect(fanOut.perFt).toHaveLength(2);
+      const ftA = fanOut.perFt.find((g) => g.factTableId === "ft_a");
+      const ftB = fanOut.perFt.find((g) => g.factTableId === "ft_b");
+      expect(ftA?.metrics.map((m) => m.id)).toEqual(["mf_funnel"]);
+      expect(ftB?.metrics.map((m) => m.id)).toEqual(["mf_funnel"]);
+
+      expect(fanOut.multiSourceGroups).toHaveLength(1);
+      expect(fanOut.multiSourceGroups[0].metrics.map((m) => m.id)).toEqual([
+        "mf_funnel",
+      ]);
+      expect(fanOut.multiSourceGroups[0].factTableIds).toEqual([
+        "ft_a",
+        "ft_b",
+      ]);
+      expect(fanOut.multiSourceGroups[0].crossFtRatioMetrics).toEqual([]);
+    });
+
+    it("does not add a single-FT funnel to multiSourceGroups", () => {
+      const funnel = {
+        ...factMetricFactory.build({ id: "sf_funnel" }),
+        metricType: "funnel" as const,
+        numerator: null,
+        funnelSettings: {
+          concurrencyWindowSeconds: 0,
+          steps: [
+            {
+              name: "view",
+              factTableId: "ft_a",
+              rowFilters: [],
+              optional: false,
+              conversionWindow: null,
+            },
+            {
+              name: "purchase",
+              factTableId: "ft_a",
+              rowFilters: [],
+              optional: false,
+              conversionWindow: null,
+            },
+          ],
+        },
+      };
+      const fanOut = planMetricFanOut([funnel]);
+
+      expect(fanOut.perFt).toHaveLength(1);
+      expect(fanOut.perFt[0].factTableId).toBe("ft_a");
+      expect(fanOut.multiSourceGroups).toEqual([]);
+    });
+
+    it("mixes a multifact funnel with a same-FT mean metric", () => {
+      const funnel = {
+        ...factMetricFactory.build({ id: "mf_funnel" }),
+        metricType: "funnel" as const,
+        numerator: null,
+        funnelSettings: {
+          concurrencyWindowSeconds: 0,
+          steps: [
+            {
+              name: "view",
+              factTableId: "ft_a",
+              rowFilters: [],
+              optional: false,
+              conversionWindow: null,
+            },
+            {
+              name: "purchase",
+              factTableId: "ft_b",
+              rowFilters: [],
+              optional: false,
+              conversionWindow: null,
+            },
+          ],
+        },
+      };
+      const meanA = factMetricFactory.build({
+        id: "mean_a",
+        metricType: "mean",
+        numerator: { factTableId: "ft_a" },
+      });
+      const fanOut = planMetricFanOut([funnel, meanA]);
+
+      expect(fanOut.perFt.map((g) => g.factTableId)).toEqual(["ft_a", "ft_b"]);
+      expect(fanOut.perFt[0].metrics.map((m) => m.id)).toEqual([
+        "mf_funnel",
+        "mean_a",
+      ]);
+      expect(fanOut.perFt[1].metrics.map((m) => m.id)).toEqual(["mf_funnel"]);
+
+      expect(fanOut.multiSourceGroups).toHaveLength(1);
+      expect(fanOut.multiSourceGroups[0].crossFtRatioMetrics).toEqual([]);
     });
   });
 });

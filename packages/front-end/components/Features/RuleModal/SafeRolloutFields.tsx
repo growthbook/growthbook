@@ -1,40 +1,51 @@
 import { useFormContext } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FaExclamationTriangle } from "react-icons/fa";
-import { Box, TextField, Text, Flex, Grid, Separator } from "@radix-ui/themes";
+import { Box, TextField, Text, Flex, Grid } from "@radix-ui/themes";
 import {
   PiCaretUpFill,
   PiCaretDownFill,
   PiLockBold,
   PiLockOpenBold,
 } from "react-icons/pi";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SelectField from "@/components/Forms/SelectField";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
-import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
-import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
-import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteInput, {
-  type RuleCyclicResult,
-} from "@/components/Features/PrerequisiteInput";
+import {
+  NewExperimentRefRule,
+  useAttributeSchema,
+  resolveAttributeFilter,
+} from "@/services/features";
+import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
+import { type RuleCyclicResult } from "@/components/Features/PrerequisiteInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Checkbox from "@/ui/Checkbox";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import {
-  AttributeOptionWithTooltip,
-  type AttributeOptionForTooltip,
+  formatAttributeOptionLabel,
+  toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
+import RuleProjectScopeField, {
+  type ProjectScopeProps,
+} from "@/components/Features/RuleModal/ProjectScopeField";
+import Callout from "@/ui/Callout";
 
 export default function SafeRolloutFields({
   feature,
+  attributeProjects,
+  savedGroupProjects,
+  attributeSelectIndicator,
   environment,
   setPrerequisiteTargetingSdkIssues,
   isCyclic,
@@ -46,9 +57,13 @@ export default function SafeRolloutFields({
   setScheduleToggleEnabled,
   scheduleToggleEnabled,
   envScope,
+  projectScope,
   onRuleCyclicChange,
 }: {
   feature: FeatureInterface;
+  attributeProjects?: string[] | null;
+  savedGroupProjects?: string[] | null;
+  attributeSelectIndicator?: React.ReactNode;
   environment: string;
   defaultValues: FeatureRule | NewExperimentRefRule;
   setPrerequisiteTargetingSdkIssues: (b: boolean) => void;
@@ -60,12 +75,16 @@ export default function SafeRolloutFields({
   mode: "create" | "edit" | "duplicate";
   isDraft: boolean;
   envScope: EnvScopeProps;
+  projectScope: ProjectScopeProps;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
   const [advancedOptionsSeedOpen, setAdvancedOptionsSeedOpen] = useState(false);
-  const attributeSchema = useAttributeSchema(false, feature.project);
+  const attributeSchema = useAttributeSchema(
+    false,
+    resolveAttributeFilter(attributeProjects, feature.project),
+  );
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
   const { datasources } = useDefinitions();
@@ -81,7 +100,27 @@ export default function SafeRolloutFields({
     (ds) => ds.id === form.watch("safeRolloutFields.datasourceId"),
   );
   const settings = useOrgSettings();
-  const exposureQueries = dataSource?.settings?.queries?.exposure || [];
+  const { setValue } = form;
+  const setExposureQueryId = useCallback(
+    (value: string) => setValue("safeRolloutFields.exposureQueryId", value),
+    [setValue],
+  );
+  const setExposureQueryIdentifierType = useCallback(
+    (value: string | undefined) =>
+      setValue("safeRolloutFields.exposureQueryIdentifierType", value),
+    [setValue],
+  );
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource: dataSource,
+    project: feature.project,
+    hashAttribute: form.watch("hashAttribute"),
+    exposureQueryId: form.watch("safeRolloutFields.exposureQueryId"),
+    identifierType: form.watch("safeRolloutFields.exposureQueryIdentifierType"),
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+    autoRepair: mode !== "edit" && !!dataSource?.properties?.exposureQueries,
+    keepCurrentSelection: mode === "edit",
+  });
 
   const durationValue = form.watch("safeRolloutFields.maxDuration.amount");
   const unit = form.watch("safeRolloutFields.maxDuration.unit") || "days";
@@ -100,35 +139,31 @@ export default function SafeRolloutFields({
   const renderTargeting = () => {
     return (
       <>
-        <SavedGroupTargetingField
-          value={form.watch("savedGroups") || []}
-          setValue={(savedGroups) => form.setValue("savedGroups", savedGroups)}
+        <TargetingFieldsGroup
           project={feature.project || ""}
-        />
-        <Separator size="4" my="5" />
-        <ConditionInput
-          defaultValue={form.watch("condition") || ""}
-          onChange={(value) => form.setValue("condition", value)}
-          key={conditionKey}
-          project={feature.project || ""}
-        />
-        <Separator size="4" my="5" />
-        <PrerequisiteInput
-          value={form.watch("prerequisites") || []}
-          setValue={(prerequisites) =>
+          attributeProjects={attributeProjects}
+          savedGroupProjects={savedGroupProjects}
+          environments={[environment]}
+          feature={feature}
+          savedGroups={form.watch("savedGroups") || []}
+          setSavedGroups={(savedGroups) =>
+            form.setValue("savedGroups", savedGroups)
+          }
+          condition={form.watch("condition") || ""}
+          setCondition={(value) => form.setValue("condition", value)}
+          conditionKey={conditionKey}
+          prerequisites={form.watch("prerequisites") || []}
+          setPrerequisites={(prerequisites) =>
             form.setValue("prerequisites", prerequisites)
           }
-          feature={feature}
-          environments={[environment]}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
           onRuleCyclicChange={onRuleCyclicChange}
         />
         {isCyclic && (
-          <div className="alert alert-danger">
-            <FaExclamationTriangle /> A prerequisite (
-            <code>{cyclicFeatureId}</code>) creates a circular dependency.
-            Remove this prerequisite to continue.
-          </div>
+          <Callout status="error">
+            A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
+            dependency. Remove this prerequisite to continue.
+          </Callout>
         )}
 
         {mode === "duplicate" && !!form.watch("seed") && (
@@ -166,33 +201,19 @@ export default function SafeRolloutFields({
     return (
       <>
         <SelectField
+          size="legacy"
           withRadixThemedPortal
           disabled={disableFields}
           label="Sample based on attribute"
+          extraIndicator={attributeSelectIndicator}
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
-            .map((s) => ({
-              label: s.property,
-              value: s.property,
-              description: s.description,
-              tags: s.tags,
-              datatype: s.datatype,
-              hashAttribute: s.hashAttribute,
-            }))}
+            .map(toAttributeOption)}
           value={form.watch("hashAttribute")}
           onChange={(v) => {
             form.setValue("hashAttribute", v);
           }}
-          formatOptionLabel={(o, meta) => {
-            return (
-              <AttributeOptionWithTooltip
-                option={o as AttributeOptionForTooltip}
-                context={meta.context}
-              >
-                {o.label}
-              </AttributeOptionWithTooltip>
-            );
-          }}
+          formatOptionLabel={formatAttributeOptionLabel}
           className="mb-2"
           required
         />
@@ -227,6 +248,7 @@ export default function SafeRolloutFields({
         <div className="bg-highlight rounded p-3 mb-4">
           <div className="mb-3 pb-1">
             <SelectField
+              size="legacy"
               label="Data source"
               className="portal-overflow-ellipsis"
               options={datasources.map((d) => {
@@ -248,48 +270,21 @@ export default function SafeRolloutFields({
               disabled={!dataSourceOptions || disableFields}
             />
             {dataSourceOptions.length === 0 && (
-              <div className="alert alert-warning mt-2">
+              <Callout status="warning" mt="2">
                 <small>
                   No data sources configured. Please add a data source in the
                   settings.
                 </small>
-              </div>
+              </Callout>
             )}
           </div>
           <div className="pb-1">
-            <SelectField
-              label="Experiment assignment table"
-              className="portal-overflow-ellipsis"
-              options={exposureQueries.map((q) => ({
-                label: q.name,
-                value: q.id,
-              }))}
-              required
+            <AssignmentQueryFields
+              selection={assignmentQuerySelection}
+              size="legacy"
               disabled={
                 disableFields || !form.watch("safeRolloutFields.datasourceId")
               }
-              value={form.watch("safeRolloutFields.exposureQueryId")}
-              onChange={(v) =>
-                form.setValue("safeRolloutFields.exposureQueryId", v)
-              }
-              formatOptionLabel={({ label, value }) => {
-                const userIdType = exposureQueries?.find(
-                  (e) => e.id === value,
-                )?.userIdType;
-                return (
-                  <>
-                    {label}
-                    {userIdType ? (
-                      <span
-                        className="text-muted small float-right position-relative"
-                        style={{ top: 3 }}
-                      >
-                        Identifier Type: <code>{userIdType}</code>
-                      </span>
-                    ) : null}
-                  </>
-                );
-              }}
             />
           </div>
           <div className="pb-1 ">
@@ -304,11 +299,13 @@ export default function SafeRolloutFields({
             <MetricsSelector
               datasource={form.watch("safeRolloutFields.datasourceId")}
               exposureQueryId={form.watch("safeRolloutFields.exposureQueryId")}
+              exposureQueryIdentifierType={form.watch(
+                "safeRolloutFields.exposureQueryIdentifierType",
+              )}
               project={feature.project}
               includeFacts={true}
               forceSingleMetric={false}
               includeGroups={true}
-              excludeQuantiles={true}
               selected={
                 form.watch("safeRolloutFields.guardrailMetricIds") || []
               }
@@ -461,10 +458,12 @@ export default function SafeRolloutFields({
       </Text>
       <TextField.Root
         mb="6"
+        maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
         placeholder="Short human-readable description of the safe rollout"
       />
       <RuleEnvironmentScopeField {...envScope} mt="2" mb="7" />
+      <RuleProjectScopeField {...projectScope} mb="7" />
       {renderVariationFieldSelector()}
       {renderDataAndMetrics()}
       <ScheduleInputs

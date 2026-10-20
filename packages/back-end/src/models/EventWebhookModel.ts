@@ -8,15 +8,17 @@ import { NotificationEventName } from "shared/types/events/base-types";
 import {
   zodNotificationEventNamesEnum,
   eventWebHookPayloadTypes,
-  EventWebHookPayloadType,
   eventWebHookMethods,
-  EventWebHookMethod,
+  notificationSettingsSchema,
   isEventWebhookWildcard,
   getWildcardPatternsForEvent,
+  NotificationFilters,
+  NotificationDelivery,
 } from "shared/validators";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
+import { validateWebhookTimeoutSeconds } from "back-end/src/util/http.util";
 import { ReqContext } from "back-end/types/request";
 import { createEvent } from "./EventModel";
 
@@ -38,6 +40,17 @@ const eventWebHookSchema = new mongoose.Schema({
     type: Map,
     of: String,
     required: false,
+  },
+  slack: {
+    teamId: String,
+    channelName: String,
+    channelId: String,
+    configurationUrl: String,
+  },
+  notificationSettings: {
+    type: Object,
+    validate: (value: unknown) =>
+      notificationSettingsSchema.safeParse(value).success,
   },
   method: {
     type: String,
@@ -99,6 +112,8 @@ const eventWebHookSchema = new mongoose.Schema({
     type: [String],
     required: false,
   },
+  excludeBookkeepingUpdates: { type: Boolean, required: false },
+  timeoutSeconds: { type: Number, required: false },
   dateCreated: {
     type: Date,
     required: true,
@@ -217,19 +232,13 @@ export const EventWebHookModel = mongoose.model<EventWebHookInterface>(
   eventWebHookSchema,
 );
 
-type CreateEventWebHookOptions = {
-  name: string;
-  url: string;
-  organizationId: string;
-  enabled: boolean;
-  events: NotificationEventName[];
-  projects: string[];
-  tags: string[];
-  environments: string[];
-  payloadType: EventWebHookPayloadType;
-  method: EventWebHookMethod;
-  headers: Record<string, string>;
-};
+type EditableEventWebHook = NotificationFilters &
+  NotificationDelivery &
+  Pick<EventWebHookInterface, "name" | "enabled">;
+
+type CreateEventWebHookOptions = EditableEventWebHook &
+  Pick<EventWebHookInterface, "organizationId" | "excludeBookkeepingUpdates"> &
+  Partial<Pick<EventWebHookInterface, "id">>;
 
 /**
  * Create an event web hook for an organization for the given events
@@ -237,6 +246,7 @@ type CreateEventWebHookOptions = {
  * @returns Promise<EventWebHookInterface>
  */
 export const createEventWebHook = async ({
+  id,
   name,
   url,
   organizationId,
@@ -248,12 +258,17 @@ export const createEventWebHook = async ({
   payloadType,
   method,
   headers,
+  timeoutSeconds,
+  slack,
+  notificationSettings,
+  excludeBookkeepingUpdates,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
+  validateWebhookTimeoutSeconds(timeoutSeconds);
   const now = new Date();
   const signingKey = "ewhk_" + md5(randomUUID()).substr(0, 32);
 
   const doc = await EventWebHookModel.create({
-    id: `ewh-${randomUUID()}`,
+    id: id || `ewh-${randomUUID()}`,
     organizationId,
     name,
     dateCreated: now,
@@ -268,6 +283,10 @@ export const createEventWebHook = async ({
     payloadType,
     method,
     headers,
+    timeoutSeconds,
+    slack,
+    notificationSettings,
+    excludeBookkeepingUpdates,
     lastRunAt: null,
     lastState: "none",
     lastResponseBody: null,
@@ -331,18 +350,7 @@ export const deleteOrganizationventWebHook = async (
   return result.deletedCount > 0;
 };
 
-export type UpdateEventWebHookAttributes = {
-  name?: string;
-  url?: string;
-  enabled?: boolean;
-  events?: NotificationEventName[];
-  tags?: string[];
-  environments?: string[];
-  projects?: string[];
-  payloadType?: EventWebHookPayloadType;
-  method?: EventWebHookMethod;
-  headers?: Record<string, string>;
-};
+export type UpdateEventWebHookAttributes = Partial<EditableEventWebHook>;
 
 /**
  * Given an EventWebHook.id allows updating some of the properties on the document
@@ -357,6 +365,7 @@ export const updateEventWebHook = async (
   { eventWebHookId, organizationId }: UpdateEventWebHookQueryOptions,
   updates: UpdateEventWebHookAttributes,
 ): Promise<boolean> => {
+  validateWebhookTimeoutSeconds(updates.timeoutSeconds);
   const result = await EventWebHookModel.updateOne(
     { id: eventWebHookId, organizationId },
     {
@@ -412,6 +421,66 @@ export const getAllEventWebHooks = async (
   ]);
 
   return docs.map(toInterface);
+};
+
+export const findSlackChannelEventWebhook = async ({
+  organizationId,
+  teamId,
+  channelId,
+}: {
+  organizationId: string;
+  teamId: string;
+  channelId: string;
+}): Promise<EventWebHookInterface | null> => {
+  const doc = await EventWebHookModel.findOne({
+    organizationId,
+    payloadType: "slack",
+    "slack.teamId": teamId,
+    "slack.channelId": channelId,
+  });
+  return doc ? toInterface(doc) : null;
+};
+
+export const updateSlackChannelName = async ({
+  eventWebHookId,
+  organizationId,
+  channelName,
+}: {
+  eventWebHookId: string;
+  organizationId: string;
+  channelName: string;
+}): Promise<void> => {
+  await EventWebHookModel.updateOne(
+    { id: eventWebHookId, organizationId, payloadType: "slack" },
+    { $set: { "slack.channelName": channelName } },
+  );
+};
+
+export const reconnectSlackEventWebhook = async ({
+  eventWebHookId,
+  organizationId,
+  url,
+  slack,
+  enabled,
+}: {
+  eventWebHookId: string;
+  organizationId: string;
+  url?: string;
+  slack: NonNullable<EventWebHookInterface["slack"]>;
+  enabled?: boolean;
+}): Promise<void> => {
+  const set: Record<string, unknown> = {
+    ...(url ? { url } : {}),
+    ...(enabled !== undefined ? { enabled } : {}),
+    dateUpdated: new Date(),
+  };
+  for (const [key, value] of Object.entries(slack)) {
+    if (value !== undefined) set[`slack.${key}`] = value;
+  }
+  await EventWebHookModel.updateOne(
+    { id: eventWebHookId, organizationId, payloadType: "slack" },
+    { $set: set },
+  );
 };
 
 const filterOptional = <T>(want: T[] = [], has: T[]) => {

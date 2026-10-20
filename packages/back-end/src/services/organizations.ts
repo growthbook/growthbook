@@ -1,12 +1,30 @@
 import { randomBytes } from "crypto";
+import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
+import { PermissionError } from "shared/util";
 import {
+  areAdditionalRolesValid,
   areProjectRolesValid,
   isRoleValid,
   getDefaultRole,
+  pickDefaultRoleFields,
+  assertDefaultRoleListsAreArrays,
+  withDefaultRoleDefaults,
+  pruneRoleEnvironments,
+  roleSupportsEnvLimit,
+  changedProjectRoleProjects,
+  sameRoleValue,
+  assumesRequesterRole,
+  requesterHeaderPolicy,
 } from "shared/permissions";
+import {
+  DUPLICATE_PROJECT_ROLES_MESSAGE,
+  hasNoDuplicateProjects,
+  memberRoleWithProjects,
+} from "shared/validators";
+import { accountFeatures } from "shared/enterprise";
 import {
   DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_MAX_PERCENT_CHANGE,
@@ -21,7 +39,22 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import { AIModel, EmbeddingModel } from "shared/ai";
+import {
+  AIModel,
+  AIModelKind,
+  AIProvider,
+  AI_PROVIDERS,
+  CLOUD_MANAGED_AI_MODEL,
+  SELF_HOSTED_DEFAULT_AI_MODELS,
+  CLOUD_MANAGED_IMAGE_MODEL,
+  CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
+  AUTOCOMPLETE_AI_MODEL,
+  DEFAULT_EMBEDDING_MODEL,
+  EmbeddingModel,
+  STTModel,
+  resolveDefaultSTTModel,
+  getProviderForAIModel,
+} from "shared/ai";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import {
   MetricCappingSettings,
@@ -37,6 +70,7 @@ import {
   MemberRoleWithProjects,
   MetricDefaults,
   OrganizationInterface,
+  OrganizationSettings,
   PendingMember,
   ProjectMemberRole,
 } from "shared/types/organization";
@@ -46,7 +80,13 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { LegacyExperimentPhase } from "shared/types/experiment";
 import { PValueCorrection } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
+import { TeamInterface } from "shared/types/team";
+import { isExpired } from "shared/api-key-expiration";
+import type { ApiKeyInterface } from "shared/types/apikey";
 import {
+  acceptOrganizationInvite,
+  addOrganizationInviteIfSeatAvailable,
+  addOrganizationMemberIfSeatAvailable,
   createOrganization,
   findAllOrganizations,
   findOrganizationById,
@@ -54,7 +94,19 @@ import {
   findOrganizationsByDomain,
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
-import { APP_ORIGIN, IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
+import {
+  APP_ORIGIN,
+  GEMINI_IMAGE_MODEL,
+  IS_CLOUD,
+  IS_MULTI_ORG,
+  SECRET_API_KEY,
+  SECRET_API_KEY_ROLE,
+} from "back-end/src/util/secrets";
+import {
+  AIKeySource,
+  canOrgChooseProviderModels,
+  getResolvedAIKeys,
+} from "back-end/src/services/aiCredentials";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
@@ -75,23 +127,48 @@ import {
   updateDimension,
 } from "back-end/src/models/DimensionModel";
 import { logger } from "back-end/src/util/logger";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
+import { PaymentRequiredError } from "back-end/src/util/errors";
+import { apiKeyEventUser, migrateApiKey } from "back-end/src/util/api-key.util";
+import {
+  decodeArmingApiKeyId,
+  isArmingApiKeyId,
+  SECRET_API_KEY_ID,
+} from "back-end/src/util/armingApiKeyId";
+import { getKeyPermissionsForRequest } from "back-end/src/util/organization.util";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
-import { getUsersByIds } from "back-end/src/models/UserModel";
+import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { getLicense, licenseInit } from "back-end/src/enterprise";
+import {
+  getAccountPlan,
+  getLicense,
+  getLowestPlanPerFeature,
+  licenseInit,
+  orgHasPremiumFeature,
+} from "back-end/src/enterprise";
+import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
+import { TeamModel } from "back-end/src/models/TeamModel";
+import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   encryptParams,
   getSourceIntegrationObject,
   mergeParams,
 } from "./datasource";
 import { createMetric } from "./experiments";
-import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
+import {
+  isEmailEnabled,
+  sendInviteEmail,
+  sendNewMemberEmail,
+  sendPendingMemberEmail,
+} from "./email";
 import { ReqContextClass } from "./context";
+import { queueSDKPayloadRefresh } from "./features";
 
 export {
   getEnvironments,
@@ -112,8 +189,16 @@ export async function setLicenseKey(
     );
   }
 
+  const license = await licenseInit(
+    { ...org, licenseKey },
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true,
+  );
+  if (license?.organizationId && license.organizationId !== org.id) {
+    throw new Error("This license key belongs to a different organization");
+  }
   org.licenseKey = licenseKey;
-  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 }
 
 export function validateLoginMethod(
@@ -126,7 +211,7 @@ export function validateLoginMethod(
     !req.superAdmin
   ) {
     throw new Error(
-      `Your organization requires you to login with ${
+      `Your organization requires you to log in with ${
         org.restrictLoginMethod.startsWith("vercel:")
           ? "Vercel"
           : "Enterprise SSO"
@@ -150,7 +235,7 @@ export function validateLoginMethod(
     !req.superAdmin
   ) {
     throw new Error(
-      `Your organization requires you to login with ${org.restrictAuthSubPrefix}`,
+      `Your organization requires you to log in with ${org.restrictAuthSubPrefix}`,
     );
   }
 
@@ -181,6 +266,7 @@ export function getContextFromReq(req: AuthRequest): ReqContext {
     },
     teams: req.teams,
     req: req as Request,
+    restrictedProjects: req.restrictedProjects,
   });
 }
 
@@ -248,52 +334,145 @@ export async function getSignificanceSettingsForProject(
   };
 }
 
-export function getAISettingsForOrg(
+export async function getAISettingsForOrg(
   context: ReqContext,
   includeKey: boolean = false,
-): {
+): Promise<{
   aiEnabled: boolean;
   openAIAPIKey: string;
   anthropicAPIKey: string;
   xaiAPIKey: string;
   mistralAPIKey: string;
   googleAPIKey: string;
+  // Where each provider's key came from. Non-secret, so returned regardless of
+  // `includeKey`.
+  keySource: Record<AIProvider, AIKeySource>;
   defaultAIModel: AIModel;
   embeddingModel: EmbeddingModel;
-} {
-  const openAIKey = process.env.OPENAI_API_KEY || "";
-  const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
-  const xaiKey = process.env.XAI_API_KEY || "";
-  const mistralKey = process.env.MISTRAL_API_KEY || "";
-  const googleKey = process.env.GOOGLE_AI_API_KEY || "";
+  // Dictation model, or null when unavailable (hides the mic button).
+  sttModel: STTModel | null;
+  // Resolved Visual Editor overrides — both already fall back to a
+  // sensible default so callers don't need their own resolution logic.
+  visualEditorAIModel: AIModel;
+  visualEditorImageModel: string;
+  // Resolved AI Assistant autocomplete model.
+  autocompleteAIModel: AIModel;
+  // Free-text brand guidelines appended to the AI system prompt.
+  visualEditorAIContext: string;
+}> {
+  // Cloud: a stored key beats the env var. Self-hosted: the env var wins.
+  // Either way it only counts while the plan allows it — see getResolvedAIKeys.
+  // Memoized per request, so repeated calls cost one query.
+  const resolvedKeys = await getResolvedAIKeys(context);
 
-  const hasValidKey = !!(
-    openAIKey ||
-    anthropicKey ||
-    xaiKey ||
-    mistralKey ||
-    googleKey
+  const keySource = AI_PROVIDERS.reduce(
+    (acc, provider) => {
+      acc[provider] = resolvedKeys[provider].source;
+      return acc;
+    },
+    {} as Record<AIProvider, AIKeySource>,
   );
 
+  const hasValidKey = AI_PROVIDERS.some((p) => !!resolvedKeys[p].key);
+
+  // Cloud ships with GrowthBook's own managed keys, so AI only needs the org
+  // toggle. Self-hosted additionally needs a key from somewhere.
   const aiEnabled = IS_CLOUD
     ? !!context.org.settings?.aiEnabled
     : !!(context.org.settings?.aiEnabled && hasValidKey);
 
+  // Cloud pins the cheap managed model because GrowthBook pays for it; an org on
+  // its own key for that model's provider picks its own.
+  const orgDefaultAIModel = getAllowedAIModel(
+    "text",
+    context.org.settings?.defaultAIModel ||
+      context.org.settings?.openAIDefaultModel,
+    keySource,
+  );
+  const selfHostedDefaultAIModel: AIModel =
+    SELF_HOSTED_DEFAULT_AI_MODELS.find(
+      ([provider]) => keySource[provider] !== "none",
+    )?.[1] ?? SELF_HOSTED_DEFAULT_AI_MODELS[0][1];
+  const defaultAIModel: AIModel =
+    orgDefaultAIModel ||
+    (IS_CLOUD ? CLOUD_MANAGED_AI_MODEL : selfHostedDefaultAIModel);
+
+  // Cloud gets the Visual Editor's own managed default (the Opus tier) unless
+  // the org's Visual Editor setting overrides it: its structured-output +
+  // vision workload is the most demanding one we run.
+  const visualEditorAIModel: AIModel =
+    getAllowedAIModel(
+      "text",
+      context.org.settings?.visualEditorAIModel,
+      keySource,
+    ) || (IS_CLOUD ? CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL : defaultAIModel);
+  // Managed Cloud gets Gemini 3 Pro Image for aspect-ratio fidelity. An org on
+  // its own Google key gets the stable default, since a preview model isn't
+  // enabled on every account.
+  const visualEditorImageModel: string =
+    getAllowedAIModel(
+      "image",
+      context.org.settings?.visualEditorImageModel,
+      keySource,
+    ) ||
+    (IS_CLOUD && !canOrgChooseProviderModels(keySource, "google")
+      ? CLOUD_MANAGED_IMAGE_MODEL
+      : GEMINI_IMAGE_MODEL);
+
+  // Cheapest tier unless the org picked one; it runs on every pause in
+  // typing. Cloud's managed Anthropic key covers it, self-hosted needs a key.
+  const autocompleteAIModel: AIModel =
+    getAllowedAIModel(
+      "text",
+      context.org.settings?.aiAutocompleteModel,
+      keySource,
+    ) ||
+    (keySource.anthropic !== "none" ? AUTOCOMPLETE_AI_MODEL : defaultAIModel);
+
+  const sttModel: STTModel | null = !aiEnabled
+    ? null
+    : getAllowedAIModel("stt", context.org.settings?.sttModel, keySource) ||
+      resolveDefaultSTTModel(
+        AI_PROVIDERS.filter((p) => keySource[p] !== "none"),
+      );
+
   return {
     aiEnabled,
-    openAIAPIKey: includeKey ? openAIKey : "",
-    anthropicAPIKey: includeKey ? anthropicKey : "",
-    xaiAPIKey: includeKey ? xaiKey : "",
-    mistralAPIKey: includeKey ? mistralKey : "",
-    googleAPIKey: includeKey ? googleKey : "",
-    defaultAIModel: IS_CLOUD
-      ? "claude-haiku-4-5-20251001"
-      : context.org.settings?.defaultAIModel ||
-        context.org.settings?.openAIDefaultModel ||
-        "gpt-5.4-mini",
+    openAIAPIKey: includeKey ? resolvedKeys.openai.key : "",
+    anthropicAPIKey: includeKey ? resolvedKeys.anthropic.key : "",
+    xaiAPIKey: includeKey ? resolvedKeys.xai.key : "",
+    mistralAPIKey: includeKey ? resolvedKeys.mistral.key : "",
+    googleAPIKey: includeKey ? resolvedKeys.google.key : "",
+    keySource,
+    defaultAIModel,
     embeddingModel:
-      context.org.settings?.embeddingModel || "text-embedding-ada-002",
+      getAllowedAIModel(
+        "embedding",
+        context.org.settings?.embeddingModel,
+        keySource,
+      ) || DEFAULT_EMBEDDING_MODEL,
+    sttModel,
+    visualEditorAIModel,
+    visualEditorImageModel,
+    autocompleteAIModel,
+    visualEditorAIContext: (
+      context.org.settings?.visualEditorAIContext || ""
+    ).trim(),
   };
+}
+
+// Stored and request-level model choices use the same runtime entitlement rule.
+// A disallowed legacy value reads as unset so callers fall back safely.
+export function getAllowedAIModel<T extends string>(
+  kind: AIModelKind,
+  model: T | undefined,
+  keySource: Record<AIProvider, AIKeySource>,
+): T | undefined {
+  if (!model) return undefined;
+  const provider = getProviderForAIModel(kind, model);
+  return provider && canOrgChooseProviderModels(keySource, provider)
+    ? model
+    : undefined;
 }
 
 export function getMetricDefaultsForOrg(context: ReqContext): MetricDefaults {
@@ -391,6 +570,45 @@ export function getNumberOfUniqueMembersAndInvites(
   return numMembers + numInvites;
 }
 
+type OrganizationSeatLimit = {
+  maxSeats: number;
+  error: () => Error;
+};
+
+async function getOrganizationSeatLimit(
+  organization: OrganizationInterface,
+): Promise<OrganizationSeatLimit | null> {
+  const license =
+    getLicense(organization.licenseKey) ||
+    (await licenseInit(organization, getUserCodesForOrg, getLicenseMetaData));
+
+  const hardCapLimit: OrganizationSeatLimit | null = license?.hardCap
+    ? {
+        maxSeats: license.seats || 0,
+        error: () =>
+          new Error(
+            "Whoops! You've reached the seat limit on your license. Please contact sales@growthbook.io to increase your seat limit.",
+          ),
+      }
+    : null;
+  const starterLimit: OrganizationSeatLimit | null =
+    IS_CLOUD && getAccountPlan(organization) === "starter"
+      ? {
+          maxSeats: organization.freeSeats ?? 3,
+          error: () =>
+            new PaymentRequiredError(
+              "You've reached the free seat limit. Upgrade your plan to add more team members.",
+            ),
+        }
+      : null;
+
+  if (!hardCapLimit) return starterLimit;
+  if (!starterLimit) return hardCapLimit;
+  return hardCapLimit.maxSeats <= starterLimit.maxSeats
+    ? hardCapLimit
+    : starterLimit;
+}
+
 export async function removeMember(
   organization: OrganizationInterface,
   id: string,
@@ -449,6 +667,159 @@ export function getInviteUrl(key: string) {
   return `${APP_ORIGIN}/invitation?key=${key}`;
 }
 
+type RoleRuleInput = {
+  role: string;
+  limitAccessByEnvironment?: boolean;
+  environments?: string[];
+};
+
+// One rule: a valid role the plan allows, with a coherent environment limit.
+function assertRoleRuleValid(
+  organization: OrganizationInterface,
+  { role, limitAccessByEnvironment, environments }: RoleRuleInput,
+) {
+  if (!isRoleValid(role, organization)) {
+    throw new Error(`${role} is not a valid role`);
+  }
+
+  const lowestPlanMap = getLowestPlanPerFeature(accountFeatures);
+
+  if (
+    role === "noaccess" &&
+    !orgHasPremiumFeature(organization, "no-access-role")
+  ) {
+    throw new Error(
+      `Must have a ${lowestPlanMap["no-access-role"]} plan to gain access to the no-access role.`,
+    );
+  }
+
+  if (
+    role === "gbDefault_projectAdmin" &&
+    !orgHasPremiumFeature(organization, "project-admin-role")
+  ) {
+    throw new Error(
+      `Must have a ${lowestPlanMap["project-admin-role"]} plan to gain access to the project admin role.`,
+    );
+  }
+
+  if (limitAccessByEnvironment && environments?.length) {
+    if (!orgHasPremiumFeature(organization, "advanced-permissions")) {
+      throw new Error(
+        `Must have a ${lowestPlanMap["advanced-permissions"]} plan to restrict permissions by environment.`,
+      );
+    }
+
+    if (!roleSupportsEnvLimit(role, organization)) {
+      throw new Error(
+        `${role} does not support restricting access to certain environments.`,
+      );
+    }
+
+    const environmentIds =
+      organization.settings?.environments?.map((e) => e.id) || [];
+    environments.forEach((env) => {
+      if (!environmentIds.includes(env)) {
+        throw new Error(
+          `${env} is not a valid environment ID for this organization.`,
+        );
+      }
+    });
+  }
+}
+
+// The whole shape a member-role writer accepts. Every human-payload writer
+// validates through here, so no rule rides in unchecked on just one path.
+// Project rules must name real projects. Only the rules a write adds or
+// changes are checked, so a record pointing at a since-deleted project stays
+// editable.
+export async function assertProjectRulesReferenceProjects(
+  context: ReqContext | ApiReqContext,
+  before: ProjectMemberRole[] | undefined,
+  after: ProjectMemberRole[] | undefined,
+) {
+  const submitted = new Set((after ?? []).map((rule) => rule.project));
+  const changed = changedProjectRoleProjects(before, after).filter((project) =>
+    submitted.has(project),
+  );
+  if (!changed.length) return;
+  const known = new Set(await context.models.projects.getAllIdsForOrg());
+  const unknown = changed.filter((project) => !known.has(project));
+  if (unknown.length) {
+    throw new Error(`Unknown project: ${unknown.join(", ")}`);
+  }
+}
+
+export function assertMemberRoleInfoValid(
+  organization: OrganizationInterface,
+  roleInfo: RoleRuleInput & {
+    additionalRoles?: RoleRuleInput[];
+    projectRoles?: (RoleRuleInput & {
+      project: string;
+      additionalRoles?: RoleRuleInput[];
+    })[];
+  },
+) {
+  const rules = [roleInfo, ...(roleInfo.additionalRoles ?? [])];
+  rules.forEach((rule) =>
+    assertRoleRuleValid(organization, {
+      ...rule,
+      // An extra rule's env list is its limit; there is no unlimited form.
+      limitAccessByEnvironment:
+        rule === roleInfo
+          ? rule.limitAccessByEnvironment
+          : (rule.limitAccessByEnvironment ?? !!rule.environments?.length),
+    }),
+  );
+
+  const projectRoles = roleInfo.projectRoles ?? [];
+  if (!projectRoles.length) return;
+
+  if (!orgHasPremiumFeature(organization, "advanced-permissions")) {
+    throw new Error(
+      "Your plan does not support providing users with project-level permissions.",
+    );
+  }
+  if (!hasNoDuplicateProjects(projectRoles)) {
+    throw new Error(DUPLICATE_PROJECT_ROLES_MESSAGE);
+  }
+  projectRoles.forEach((projectRole) => {
+    [projectRole, ...(projectRole.additionalRoles ?? [])].forEach((rule) =>
+      assertRoleRuleValid(organization, {
+        ...rule,
+        limitAccessByEnvironment:
+          rule === projectRole
+            ? rule.limitAccessByEnvironment
+            : (rule.limitAccessByEnvironment ?? !!rule.environments?.length),
+      }),
+    );
+  });
+}
+
+// Free (role-restricted) plans can only assign the admin global role. Only the
+// global role is checked here.
+export function assertRoleAssignmentAllowed(
+  organization: OrganizationInterface,
+  role: string,
+) {
+  if (getEffectiveOrgLimits(organization).orgSupportsRoles()) return;
+  if (role === "admin") return;
+
+  throw new PaymentRequiredError(
+    "Your plan only supports the admin role. Upgrade your plan to assign other roles.",
+  );
+}
+
+// Gate a human role selection but only when the role actually changes, so
+// existing assignments keep working.
+export function assertRoleChangeAllowed(
+  organization: OrganizationInterface,
+  existingRole: string,
+  newRole: string,
+) {
+  if (existingRole === newRole) return;
+  assertRoleAssignmentAllowed(organization, newRole);
+}
+
 export async function addMemberToOrg({
   organization,
   userId,
@@ -456,59 +827,66 @@ export async function addMemberToOrg({
   environments,
   limitAccessByEnvironment,
   projectRoles,
+  additionalRoles,
   externalId,
   managedByIdp,
   teams = [],
 }: {
   organization: OrganizationInterface;
   userId: string;
-  role: string;
-  limitAccessByEnvironment: boolean;
-  environments: string[];
-  projectRoles?: ProjectMemberRole[];
   externalId?: string;
   managedByIdp?: boolean;
   teams?: string[];
-}) {
+} & MemberRoleWithProjects) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
     return;
   }
-  // If member is also a pending member, remove
-  let pendingMembers: PendingMember[] = organization?.pendingMembers || [];
-  pendingMembers = pendingMembers.filter((m) => m.id !== userId);
 
   // Ensure roles are valid
   if (
     !isRoleValid(role, organization) ||
-    !areProjectRolesValid(projectRoles, organization)
+    !areProjectRolesValid(projectRoles, organization) ||
+    !areAdditionalRolesValid(additionalRoles, organization)
   ) {
     throw new Error("Invalid role");
   }
 
-  const members: Member[] = [
-    ...organization.members,
-    {
-      id: userId,
-      role,
-      limitAccessByEnvironment,
-      environments,
-      projectRoles,
-      dateCreated: new Date(),
-      externalId,
-      managedByIdp,
-      teams,
-    },
-  ];
+  // Role limits are gated where a human picks a role; automated joins keep
+  // the configured default so they never throw or escalate to admin.
 
-  await updateOrganization(organization.id, {
-    members,
-    pendingMembers,
-  });
+  const member: Member = {
+    id: userId,
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+    additionalRoles,
+    dateCreated: new Date(),
+    externalId,
+    managedByIdp,
+    teams,
+  };
+  const seatLimit = await getOrganizationSeatLimit(organization);
+  const updatedOrganization = await addOrganizationMemberIfSeatAvailable(
+    organization.id,
+    member,
+    seatLimit?.maxSeats ?? null,
+  );
 
-  const updatedOrganization = cloneDeep(organization);
-  updatedOrganization.members = members;
-  updatedOrganization.pendingMembers = pendingMembers;
+  if (!updatedOrganization) {
+    const latestOrganization = await findOrganizationById(organization.id);
+    if (!latestOrganization) {
+      throw new Error("Unable to locate organization");
+    }
+    if (latestOrganization.members.some((existing) => existing.id === userId)) {
+      return;
+    }
+    if (seatLimit) {
+      throw seatLimit.error();
+    }
+    throw new Error("Unable to add organization member");
+  }
 
   await licenseInit(
     updatedOrganization,
@@ -536,6 +914,26 @@ export async function addMembersToTeam({
   });
 
   await updateOrganization(organization.id, { members: updatedMembers });
+}
+
+// Membership hands out the team's authority, so it is gated like the team
+// itself. A caller relying on project authority alone also can't change their
+// own membership, mirroring the member project-role rule.
+export function assertCanChangeTeamMembership(
+  context: ReqContext | ApiReqContext,
+  team: TeamInterface,
+  userIds: string[],
+) {
+  if (!context.permissions.canManageTeamMembership(team)) {
+    context.permissions.throwPermissionError();
+  }
+  if (
+    !context.permissions.canManageTeam() &&
+    context.userId &&
+    userIds.includes(context.userId)
+  ) {
+    context.throwBadRequestError("Cannot change your own team membership");
+  }
 }
 
 export function getMembersOfTeam(org: OrganizationInterface, teamId: string) {
@@ -600,16 +998,13 @@ export async function addPendingMemberToOrg({
   environments,
   limitAccessByEnvironment,
   projectRoles,
+  additionalRoles,
 }: {
   organization: OrganizationInterface;
   name: string;
   userId: string;
   email: string;
-  role: string;
-  limitAccessByEnvironment: boolean;
-  environments: string[];
-  projectRoles?: ProjectMemberRole[];
-}) {
+} & MemberRoleWithProjects) {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
     return;
@@ -622,7 +1017,8 @@ export async function addPendingMemberToOrg({
   // Ensure roles are valid
   if (
     !isRoleValid(role, organization) ||
-    !areProjectRolesValid(projectRoles, organization)
+    !areProjectRolesValid(projectRoles, organization) ||
+    !areAdditionalRolesValid(additionalRoles, organization)
   ) {
     throw new Error("Invalid role");
   }
@@ -637,6 +1033,7 @@ export async function addPendingMemberToOrg({
       limitAccessByEnvironment,
       environments,
       projectRoles,
+      additionalRoles,
       dateCreated: new Date(),
     },
   ];
@@ -644,7 +1041,42 @@ export async function addPendingMemberToOrg({
   await updateOrganization(organization.id, { pendingMembers });
 }
 
-export async function acceptInvite(key: string, userId: string) {
+// Spread the default role first so explicit organization/userId always win.
+export async function addMemberToOrgWithDefaultRole({
+  organization,
+  userId,
+}: {
+  organization: OrganizationInterface;
+  userId: string;
+}) {
+  await addMemberToOrg({
+    ...getDefaultRole(organization),
+    organization,
+    userId,
+  });
+}
+
+export async function addPendingMemberToOrgWithDefaultRole({
+  organization,
+  userId,
+  name,
+  email,
+}: {
+  organization: OrganizationInterface;
+  userId: string;
+  name: string;
+  email: string;
+}) {
+  await addPendingMemberToOrg({
+    ...getDefaultRole(organization),
+    organization,
+    userId,
+    name,
+    email,
+  });
+}
+
+export async function acceptInvite(key: string, userId: string, email: string) {
   const organization = await findOrganizationByInviteKey(key);
   if (!organization) {
     throw new Error("Invalid key");
@@ -662,41 +1094,44 @@ export async function acceptInvite(key: string, userId: string) {
     throw new Error("Could not find invitation with that key");
   }
 
-  // Remove invite
-  const invites = organization.invites.filter((invite) => invite.key !== key);
-  // Remove from pending members
-  const pendingMembers = (organization?.pendingMembers || []).filter(
-    (m) => m.id !== userId,
-  );
+  // Ensure the invite was issued to the authenticated user's email; otherwise a
+  // leaked invite key would let any logged-in user join with the invited role.
+  if (!email || email.toLowerCase() !== invite.email.toLowerCase()) {
+    throw new Error("This invitation was sent to a different email address");
+  }
 
-  // Add to member list
-  const members: Member[] = [
-    ...organization.members,
+  const updatedOrganization = await acceptOrganizationInvite(
+    organization.id,
+    key,
     {
       id: userId,
       role: invite.role || "admin",
       limitAccessByEnvironment: !!invite.limitAccessByEnvironment,
       environments: invite.environments || [],
       projectRoles: invite.projectRoles,
+      additionalRoles: invite.additionalRoles,
       teams: invite.teams,
       dateCreated: new Date(),
     },
-  ];
+  );
 
-  await updateOrganization(organization.id, {
-    invites,
-    members,
-    pendingMembers,
-  });
-
-  // fetch a fresh instance of the org now that the members & invites lists have changed
-  const updatedOrg = await getOrganizationById(organization.id);
-
-  if (!updatedOrg) {
-    throw new Error("Unable to locate org");
+  if (!updatedOrganization) {
+    const latestOrganization = await findOrganizationById(organization.id);
+    if (!latestOrganization) {
+      throw new Error("Unable to locate organization");
+    }
+    if (latestOrganization.members.some((member) => member.id === userId)) {
+      throw new Error(
+        "Whoops! You're already a user, you can't accept a new invitation.",
+      );
+    }
+    if (!latestOrganization.invites.some((existing) => existing.key === key)) {
+      throw new Error("Could not find invitation with that key");
+    }
+    throw new Error("Unable to accept organization invitation");
   }
 
-  return updatedOrg;
+  return updatedOrganization;
 }
 
 export async function inviteUser({
@@ -706,6 +1141,7 @@ export async function inviteUser({
   limitAccessByEnvironment,
   environments,
   projectRoles,
+  additionalRoles,
   invitedBy,
 }: {
   organization: OrganizationInterface;
@@ -714,7 +1150,14 @@ export async function inviteUser({
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
-  email = email.toLowerCase();
+  email = email
+    .toLowerCase()
+    .replace(/^[\s;,]+/, "")
+    .replace(/[\s;,]+$/, "");
+
+  if (!z.string().email().safeParse(email).success) {
+    throw new Error(`Invalid email address: ${email}`);
+  }
 
   // User is already invited (legacy invites may have been stored with
   // mixed case, so compare case-insensitively).
@@ -731,10 +1174,13 @@ export async function inviteUser({
   // Ensure roles are valid
   if (
     !isRoleValid(role, organization) ||
-    !areProjectRolesValid(projectRoles, organization)
+    !areProjectRolesValid(projectRoles, organization) ||
+    !areAdditionalRolesValid(additionalRoles, organization)
   ) {
     throw new Error("Invalid role");
   }
+  assertRoleAssignmentAllowed(organization, role);
+  const seatLimit = await getOrganizationSeatLimit(organization);
 
   // Generate random key for invite
   const buffer: Buffer = await new Promise((resolve, reject) => {
@@ -747,27 +1193,42 @@ export async function inviteUser({
   });
   const key = buffer.toString("base64").replace(/[^a-zA-Z0-9]+/g, "");
 
-  // Save invite in Mongo
-  const invites: Invite[] = [
-    ...organization.invites,
-    {
-      email,
-      key,
-      dateCreated: new Date(),
-      role,
-      limitAccessByEnvironment,
-      environments,
-      projectRoles,
-      invitedBy,
-    },
-  ];
+  const invite: Invite = {
+    email,
+    key,
+    dateCreated: new Date(),
+    role,
+    limitAccessByEnvironment,
+    environments,
+    projectRoles,
+    additionalRoles,
+    invitedBy,
+  };
+  const updatedOrganization = await addOrganizationInviteIfSeatAvailable(
+    organization.id,
+    invite,
+    seatLimit?.maxSeats ?? null,
+  );
 
-  await updateOrganization(organization.id, {
-    invites,
-  });
-
-  const updatedOrganization = cloneDeep(organization);
-  updatedOrganization.invites = invites;
+  if (!updatedOrganization) {
+    const latestOrganization = await findOrganizationById(organization.id);
+    if (!latestOrganization) {
+      throw new Error("Unable to locate organization");
+    }
+    const latestInvite = latestOrganization.invites.find(
+      (existing) => existing.email.toLowerCase() === email,
+    );
+    if (latestInvite) {
+      return {
+        emailSent: true,
+        inviteUrl: getInviteUrl(latestInvite.key),
+      };
+    }
+    if (seatLimit) {
+      throw seatLimit.error();
+    }
+    throw new Error("Unable to add organization invite");
+  }
 
   await licenseInit(
     updatedOrganization,
@@ -874,6 +1335,82 @@ function validateConfig(context: ReqContext, config: ConfigFile) {
   return errors;
 }
 
+export async function assertCanUpdateDefaultRole(
+  context: ReqContext | ApiReqContext,
+  defaultRole: MemberRoleWithProjects,
+  environments: OrganizationSettings["environments"] = context.org.settings
+    ?.environments,
+) {
+  const { org } = context;
+
+  if (!context.hasPremiumFeature("sso")) {
+    throw new Error(
+      "Must have a commercial License Key to update the organization's default role.",
+    );
+  }
+
+  if (!context.permissions.canManageTeam()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const current = getDefaultRole(org);
+  assertRoleChangeAllowed(org, current.role, defaultRole.role);
+
+  assertMemberRoleInfoValid(
+    { ...org, settings: { ...org.settings, environments } },
+    defaultRole,
+  );
+  // Only re-check project rules that changed, so a round-tripped stale rule
+  // doesn't block unrelated edits.
+  await assertProjectRulesReferenceProjects(
+    context,
+    current.projectRoles,
+    defaultRole.projectRoles,
+  );
+}
+
+// Runs the PUT /organization/default-role checks before a generic settings
+// write (PUT /organization, config import) merges the default role in.
+export async function sanitizeDefaultRoleUpdate(
+  context: ReqContext | ApiReqContext,
+  settings: OrganizationSettings,
+) {
+  const { defaultRole } = settings;
+  if (defaultRole === undefined || defaultRole === null) {
+    // Don't persist null; reads would fall back to collaborator with no check.
+    delete settings.defaultRole;
+    return;
+  }
+  try {
+    assertDefaultRoleListsAreArrays(defaultRole);
+  } catch (e) {
+    throw new Error(`Invalid defaultRole: ${e.message}`);
+  }
+  const clean = (role: MemberRoleWithProjects) =>
+    withDefaultRoleDefaults(pickDefaultRoleFields(role));
+  const submitted = clean(defaultRole);
+  const stored = context.org.settings?.defaultRole;
+  if (stored && sameRoleValue(submitted, clean(stored))) {
+    const validEnvironments = (
+      settings.environments ??
+      context.org.settings?.environments ??
+      []
+    ).map((e) => e.id);
+    settings.defaultRole = pruneRoleEnvironments(
+      getDefaultRole(context.org),
+      validEnvironments,
+    );
+    return;
+  }
+  // Validate as submitted so unknown roles error instead of being dropped.
+  const parsed = memberRoleWithProjects.safeParse(submitted);
+  if (!parsed.success) {
+    throw new Error(`Invalid defaultRole: ${errorStringFromZodResult(parsed)}`);
+  }
+  await assertCanUpdateDefaultRole(context, parsed.data, settings.environments);
+  settings.defaultRole = parsed.data;
+}
+
 export async function importConfig(
   context: ReqContext | ApiReqContext,
   config: ConfigFile,
@@ -885,10 +1422,29 @@ export async function importConfig(
   }
 
   if (config.organization?.settings) {
-    await updateOrganization(organization.id, {
-      settings: {
-        ...organization.settings,
-        ...config.organization.settings,
+    await sanitizeDefaultRoleUpdate(context, config.organization.settings);
+    const settings = {
+      ...organization.settings,
+      ...config.organization.settings,
+    };
+    await updateOrganization(organization.id, { settings });
+
+    // The request snapshot cannot prove this write was a no-op.
+    // Refresh now because later resource imports can fail after settings persist.
+    const refreshContext = await getContextForAgendaJobByOrgId(organization.id);
+    queueSDKPayloadRefresh({
+      context: refreshContext,
+      payloadKeys: refreshContext.environments.map((environment) => ({
+        environment,
+        project: "",
+      })),
+      // Include connections whose environments were removed by the import.
+      sdkConnections: await findSDKConnectionsByOrganization(refreshContext),
+      treatEmptyProjectAsGlobal: true,
+      auditContext: {
+        event: "config imported",
+        model: "organization",
+        id: organization.id,
       },
     });
   }
@@ -905,6 +1461,20 @@ export async function importConfig(
           }
           const existing = await getDataSourceById(context, k);
           if (existing) {
+            if (
+              ds.params &&
+              !context.permissions.canUpdateDataSourceParams(existing)
+            ) {
+              context.permissions.throwPermissionError();
+            }
+            if (!context.permissions.canUpdateDataSourceSettings(existing)) {
+              context.permissions.throwPermissionError();
+            }
+            if (ds.type && ds.type !== existing.type) {
+              throw new Error(
+                "Cannot change the type of an existing data source. Create a new one instead.",
+              );
+            }
             let params = existing.params;
             // If params are changing, merge them with existing and test the connection
             if (ds.params) {
@@ -917,7 +1487,6 @@ export async function importConfig(
             const updates: Partial<DataSourceInterface> = {
               name: ds.name || existing.name,
               description: ds.description || existing.description,
-              type: ds.type || existing.type,
               params,
               settings: {
                 ...existing.settings,
@@ -934,6 +1503,14 @@ export async function importConfig(
             };
             await updateDataSource(context, existing, updates);
           } else {
+            if (
+              !context.permissions.canCreateDataSource({
+                projects: [],
+                type: ds.type,
+              })
+            ) {
+              context.permissions.throwPermissionError();
+            }
             await createDataSource(
               context,
               ds.name || k,
@@ -945,6 +1522,7 @@ export async function importConfig(
             );
           }
         } catch (e) {
+          if (e instanceof PermissionError) throw e;
           throw new Error(`Datasource ${k}: ${e.message}`);
         }
       }),
@@ -1000,6 +1578,13 @@ export async function importConfig(
 
         try {
           const existing = await findDimensionById(k, organization.id);
+          if (
+            existing
+              ? !context.permissions.canUpdateDimension()
+              : !context.permissions.canCreateDimension()
+          ) {
+            context.permissions.throwPermissionError();
+          }
           if (existing) {
             const updates: Partial<DimensionInterface> = {
               ...d,
@@ -1016,6 +1601,7 @@ export async function importConfig(
             });
           }
         } catch (e) {
+          if (e instanceof PermissionError) throw e;
           throw new Error(`Dimension ${k}: ${e.message}`);
         }
       }),
@@ -1187,12 +1773,41 @@ export async function addMemberFromSSOConnection(
 
     organization = orgs[0];
   }
-  if (!organization) return null;
+  // Never auto-join users into a disabled organization
+  if (!organization || organization.disabled) return null;
 
-  await addMemberToOrg({
+  // If the org has explicitly disabled autoApproveMembers, add the user as a pending member
+  // This differs from the non-SSO path (`undefined` is auto-approved there) to preserve existing behavior
+  if (organization.autoApproveMembers === false) {
+    const alreadyPending = organization.pendingMembers?.some(
+      (m) => m.id === req.userId,
+    );
+    if (!alreadyPending) {
+      await addPendingMemberToOrgWithDefaultRole({
+        organization,
+        name: req.name || "",
+        email: req.email || "",
+        userId: req.userId,
+      });
+      try {
+        const teamUrl = APP_ORIGIN + "/settings/team/?org=" + organization.id;
+        await sendPendingMemberEmail(
+          req.name || "",
+          req.email || "",
+          organization.name,
+          organization.ownerEmail,
+          teamUrl,
+        );
+      } catch (e) {
+        req.log.error(e, "Failed to send pending member email");
+      }
+    }
+    return null;
+  }
+
+  await addMemberToOrgWithDefaultRole({
     organization,
     userId: req.userId,
-    ...getDefaultRole(organization),
   });
   try {
     await sendNewMemberEmail(
@@ -1320,4 +1935,148 @@ export async function getContextForAgendaJobByOrgId(
   }
 
   return getContextForAgendaJobByOrgObject(organization);
+}
+
+// An API key as a principal, built the way the request middleware builds it.
+// Null when the key is gone, disabled or expired. A PAT runs as its user, under
+// its cap when scoped.
+export async function getContextForApiKeyIdInOrg(
+  org: OrganizationInterface,
+  armingId: string,
+): Promise<ApiReqContext | null> {
+  const { apiKeyId, requesterId } = decodeArmingApiKeyId(armingId);
+  const key = await getOrgApiKey(org, apiKeyId);
+  if (
+    !key ||
+    key.disabled ||
+    (!key.role && !key.userId) ||
+    isExpired(key.expiresAt)
+  ) {
+    return null;
+  }
+  // Armed while assuming a member, it replays only while the key still would.
+  if (
+    requesterId &&
+    (!assumesRequesterRole(key) || requesterHeaderPolicy(key) === "rejected")
+  ) {
+    return null;
+  }
+  const user = key.userId ? await getUserById(key.userId) : null;
+  if (key.userId && (!user || org.settings?.disablePersonalAccessTokens)) {
+    return null;
+  }
+  // Super-admin authority bypasses roles, so a scoped token never carries it.
+  const superAdmin = !!user?.superAdmin && !key.scoped;
+  if (user && !superAdmin && !org.members.some((m) => m.id === user.id)) {
+    return null;
+  }
+  // Like a user who armed it and left, a requester who left fires nothing.
+  const requester = requesterId ? await getUserById(requesterId) : null;
+  if (
+    requesterId &&
+    (key.userId || !requester || !org.members.some((m) => m.id === requesterId))
+  ) {
+    return null;
+  }
+  const [teams, restrictedProjects] = await Promise.all([
+    TeamModel.dangerousGetTeamsForOrganization(org.id),
+    ProjectModel.dangerousGetRestrictedProjectIds(org.id),
+  ]);
+  return new ReqContextClass({
+    org,
+    auditUser: apiKeyEventUser({
+      apiKeyId,
+      key,
+      owner: user,
+      requester: requester && {
+        id: requester.id,
+        name: requester.name || "",
+        email: requester.email,
+      },
+    }),
+    user: user
+      ? { id: user.id, email: user.email, name: user.name || "", superAdmin }
+      : undefined,
+    role: key.role,
+    apiKey: apiKeyId,
+    apiKeyData: key,
+    teams,
+    restrictedProjects,
+    userPermissions: getKeyPermissionsForRequest({
+      apiKey: key,
+      requesterId,
+      org,
+      teams,
+      restrictedProjects,
+    }),
+  });
+}
+
+// An org API key by id, including the self-hosted env-var key.
+export async function getOrgApiKey(
+  org: OrganizationInterface,
+  apiKeyId: string,
+): Promise<ApiKeyInterface | null> {
+  return apiKeyId === SECRET_API_KEY_ID
+    ? secretApiKeyDoc(org)
+    : await getContextForAgendaJobByOrgObject(
+        org,
+      ).models.apiKeys.dangerousGetById(apiKeyId);
+}
+
+function secretApiKeyDoc(org: OrganizationInterface): ApiKeyInterface | null {
+  if (IS_MULTI_ORG || !SECRET_API_KEY) return null;
+  return migrateApiKey({
+    id: SECRET_API_KEY_ID,
+    key: SECRET_API_KEY,
+    secret: true,
+    organization: org.id,
+    role: SECRET_API_KEY_ROLE,
+    dateCreated: new Date(),
+  });
+}
+
+// A stored armer id is a user or an org API key; each runs as itself, on the
+// authority it holds now.
+export async function getContextForArmedPublisherInOrg(
+  org: OrganizationInterface,
+  id: string,
+): Promise<ReqContext | ApiReqContext | null> {
+  return isArmingApiKeyId(id)
+    ? getContextForApiKeyIdInOrg(org, id)
+    : getContextForUserIdInOrg(org, id);
+}
+
+export async function getContextForUserIdInOrg(
+  org: OrganizationInterface,
+  userId: string,
+): Promise<ApiReqContext | null> {
+  const user = await getUserById(userId);
+  if (!user) return null;
+
+  const isMember = org.members.some((m) => m.id === user.id);
+  if (!isMember) return null;
+
+  const [teams, restrictedProjects] = await Promise.all([
+    TeamModel.dangerousGetTeamsForOrganization(org.id),
+    ProjectModel.dangerousGetRestrictedProjectIds(org.id),
+  ]);
+
+  return new ReqContextClass({
+    org,
+    auditUser: {
+      type: "dashboard",
+      id: user.id,
+      email: user.email,
+      name: user.name || "",
+    },
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name || "",
+      superAdmin: user.superAdmin,
+    },
+    teams,
+    restrictedProjects,
+  });
 }

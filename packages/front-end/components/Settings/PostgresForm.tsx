@@ -1,5 +1,6 @@
 import { FC, ChangeEventHandler } from "react";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
+import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 import HostWarning from "./HostWarning";
 import SSLConnectionFields from "./SSLConnectionFields";
 
@@ -31,7 +32,7 @@ const PostgresForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Port</label>
           <input
             type="number"
@@ -42,7 +43,7 @@ const PostgresForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Database</label>
           <input
             type="text"
@@ -53,7 +54,7 @@ const PostgresForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>User</label>
           <input
             type="text"
@@ -64,7 +65,7 @@ const PostgresForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Password</label>
           <input
             type="text"
@@ -74,10 +75,10 @@ const PostgresForm: FC<{
             required={!existing}
             value={params.password || ""}
             onChange={onParamChange}
-            placeholder={existing ? "(Keep existing)" : ""}
+            placeholder={existing ? KEEP_EXISTING_PLACEHOLDER : ""}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Default Schema</label>
           <input
             type="text"
@@ -89,6 +90,7 @@ const PostgresForm: FC<{
           />
         </div>
         <SSLConnectionFields
+          existing={existing}
           onParamChange={onParamChange}
           setSSL={(ssl) => setParams({ ssl: ssl ? "true" : "" })}
           value={{

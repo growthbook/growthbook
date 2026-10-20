@@ -196,15 +196,8 @@ export default function UpdateOrbSubscriptionModal({
           className="mb-1"
           style={{ color: "var(--color-text-high)", fontSize: "20px" }}
         >
-          Upgrade to Pro
+          Update Invoice Details
         </h3>
-        <p
-          className="mb-0"
-          style={{ color: "var(--color-text-mid)", fontSize: "16px" }}
-        >
-          Get instant access to advanced experimentation, permissioning and
-          security features.
-        </p>
         {customerDataError ? (
           <div className="my-4">
             <Callout status="error">{customerDataError}</Callout>
@@ -217,6 +210,7 @@ export default function UpdateOrbSubscriptionModal({
                 Monthly invoices will be sent to this address
               </Text>
               <Field
+                size="legacy"
                 type="email"
                 required={true}
                 {...form.register("email")}
@@ -226,6 +220,7 @@ export default function UpdateOrbSubscriptionModal({
             <Flex align="center" width="100%" gap="4">
               <Box style={{ width: "50%" }}>
                 <SelectField
+                  size="legacy"
                   label="Tax ID type"
                   placeholder="(optional)"
                   options={taxIdTypeOptions}
@@ -238,6 +233,7 @@ export default function UpdateOrbSubscriptionModal({
               </Box>
               <Box style={{ width: "50%" }}>
                 <Field
+                  size="legacy"
                   type="text"
                   placeholder="(optional)"
                   {...form.register("taxIdValue")}

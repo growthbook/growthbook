@@ -2,8 +2,49 @@ import path from "path";
 import fs from "fs";
 import { z, ZodNever } from "zod";
 import yaml from "js-yaml";
-import { namedSchemaRegistry } from "shared/validators";
+import {
+  namedSchemaRegistry,
+  apiErrorRegistry,
+  ApiErrorCode,
+  CONFIRM_OVERRIDE_FLAGS,
+} from "shared/validators";
+import { armableActions, routeConfirmation } from "shared/util";
+import type { ApiEndpointSpec } from "shared/api-spec";
+import * as endpointModules from "shared/api-endpoints";
 import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
+import { getBuild } from "back-end/src/util/build";
+
+// Top-level body fields, across the arms of a union body.
+function bodyFieldNames(schema: unknown): string[] {
+  if (!schema || typeof schema !== "object") return [];
+  const s = schema as Record<string, unknown>;
+  const arms = [s.anyOf, s.oneOf, s.allOf].flatMap((a) =>
+    Array.isArray(a) ? a : [],
+  );
+  return [
+    ...Object.keys((s.properties as object | undefined) ?? {}),
+    ...arms.flatMap(bodyFieldNames),
+  ];
+}
+
+// The docs site's API introduction, minus its frontmatter, so the spec and the
+// docs can't drift apart.
+function readApiIntroduction(): string {
+  const mdx = fs.readFileSync(
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "docs",
+      "api",
+      "introduction.mdx",
+    ),
+    "utf8",
+  );
+  return mdx.replace(/^---\n[\s\S]*?\n---\n+/, "");
+}
 
 const openApiTags = [
   "projects",
@@ -27,6 +68,12 @@ const openApiTags = [
   "visual-changesets",
   "saved-groups",
   "saved-group-revisions",
+  "constants",
+  "constant-revisions",
+  "configs",
+  "config-revisions",
+  "releases",
+  "custom-hooks",
   "organizations",
   "members",
   "code-references",
@@ -35,6 +82,7 @@ const openApiTags = [
   "settings",
   "attributes",
   "usage",
+  "meta",
 ] as const;
 
 export type OpenApiTag = (typeof openApiTags)[number];
@@ -53,7 +101,7 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   features: {
     display: "Feature Flags (legacy)",
     description:
-      "Control your feature flags programatically.\n\n**These are v1 endpoints.** New integrations should use the v2 Feature Flags endpoints, which expose a unified per-rule environment scope instead of per-environment rule arrays.",
+      "Control your feature flags programmatically.\n\n**These are v1 endpoints.** New integrations should use the v2 Feature Flags endpoints, which expose a unified per-rule environment scope instead of per-environment rule arrays.",
   },
   "feature-revisions": {
     display: "Feature Revisions (legacy)",
@@ -63,7 +111,7 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   "features-v2": {
     display: "Feature Flags",
     description:
-      "Control your feature flags programatically.\n\nRules are returned as a unified top-level array; each rule carries `allEnvironments` / `environments` scope fields instead of being bucketed by environment.",
+      "Control your feature flags programmatically.\n\nRules are returned as a unified top-level array; each rule carries `allEnvironments` / `environments` scope fields instead of being bucketed by environment.",
   },
   "feature-revisions-v2": {
     display: "Feature Revisions",
@@ -140,6 +188,36 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     description:
       'Draft revisions for saved groups, including pending changes, approvals, and lifecycle (publish, discard, revert).\n\nMost callers can interact with these endpoints via shorthand actions (`/items/add`, `/items/remove`, single-field PUTs) instead of authoring JSON Patch ops directly. Pass `version: "new"` on edit endpoints to auto-create a draft.',
   },
+  constants: {
+    display: "Constants",
+    description:
+      "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nReusable named values referenced from feature flag values as `@const:key` and resolved into the SDK payload at build time. String constants are interpolated via `{{ @const:key }}`; JSON (object) constants are composed via an `$extends` array. A constant's own keys **replace** what its `$extends` bases provide, wholesale — constants are atomic building blocks. (Config and feature values compose as deep, targeted patches instead.)",
+  },
+  "constant-revisions": {
+    display: "Constant Revisions",
+    description:
+      '**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nDraft revisions for constants, including pending changes, approvals, and lifecycle (publish, discard, revert). Pass `version: "new"` on edit endpoints to auto-create a draft.',
+  },
+  configs: {
+    display: "Configs",
+    description:
+      "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nReusable, typed, inheritable JSON objects referenced from feature flag values as `@config:key`. A config carries a field `schema` (with TypeScript/JSON Schema import-export) and a lineage `parent`. Inheritance is expressed via `parent`, never an in-value `@config:` entry. Values layer as a **deep, targeted patch**: a child (or a config-backed feature value) restates only the leaves it changes and inherits the rest — unlike a constant's `$extends`, whose own keys replace wholesale. Schema fields colliding with a published ancestor's key follow 'base wins': identical re-declarations are stripped with a warning, differing ones are rejected.",
+  },
+  "config-revisions": {
+    display: "Config Revisions",
+    description:
+      '**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nDraft revisions for configs, including value and schema edits, schema import (JSON Schema / TypeScript / inferred), approvals, and lifecycle (publish, discard, revert). Publishing a schema change cascades the "base wins" normalization to descendant configs; a publish that removes or retypes fields descendants still use soft-blocks with a 422 unless the request body sets `ignoreWarnings: true`. Pass `version: "new"` on edit endpoints to auto-create a draft.',
+  },
+  releases: {
+    display: "Releases",
+    description:
+      "**Beta** — these endpoints are new and may change in backwards-incompatible ways.\n\nCoordinated multi-entity publishing: publish a set of revisions across Feature Flags, Saved Groups, configs, and constants as one all-or-nothing operation, validated against the combined end-state instead of each in-between state. Requires the `releases` commercial feature.",
+  },
+  "custom-hooks": {
+    display: "Custom Hooks",
+    description:
+      "Sandboxed JavaScript validation hooks that run when features, configs, or their revisions are saved or published. Throwing an Error blocks the save; `addWarning(msg)` raises a soft warning. Hooks are scoped by projects, or pinned to a single feature/config via `entityType`/`entityId`; a config-scoped hook also runs for every config inheriting from it (its whole descendant lineage). Scope can be retargeted on update (or cleared with nulls). Requires an enterprise plan; not available on GrowthBook Cloud.",
+  },
   members: {
     display: "Members",
     description: "Members are users who have been invited to an organization.",
@@ -175,6 +253,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "Usage",
     description: "Usage information for metrics in experiments.",
   },
+  meta: {
+    display: "Meta",
+    description:
+      "Server metadata, including the running build's version and commit for version-skew checks.",
+  },
 };
 
 function isNonEmptySchema(schema: z.ZodType | undefined): schema is z.ZodType {
@@ -184,29 +267,59 @@ function isNonEmptySchema(schema: z.ZodType | undefined): schema is z.ZodType {
 // Accumulated component schemas — populated as we call toOpenApiSchema.
 const componentSchemas: Record<string, unknown> = {};
 
+/** Human label for a schema id. Mintlify oneOf/anyOf tabs read `title`, not the $ref name. */
+function schemaTitle(name: string): string {
+  return name
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function addTitleToUnionRef(item: unknown): unknown {
+  if (!item || typeof item !== "object") return item;
+  const record = item as Record<string, unknown>;
+  if (typeof record.$ref !== "string" || record.title != null) return item;
+  const name = record.$ref.split("/").pop() ?? "";
+  if (!name) return item;
+  return { title: schemaTitle(name), ...record };
+}
+
 /**
  * Recursively replace `{ $ref: "#/$defs/X" }` with `{ $ref: "#/components/schemas/X" }`.
+ * Preserves $ref siblings (OpenAPI 3.1). Adds `title` on anyOf/oneOf $refs so
+ * Mintlify can label the tabs instead of "Option 1".
  */
-function rewriteRefs(obj: unknown): unknown {
-  if (Array.isArray(obj)) return obj.map(rewriteRefs);
+function rewriteRefs(obj: unknown, parentKey?: string): unknown {
+  if (Array.isArray(obj)) {
+    const rewritten = obj.map((item) => rewriteRefs(item));
+    if (parentKey === "anyOf" || parentKey === "oneOf") {
+      return rewritten.map(addTitleToUnionRef);
+    }
+    return rewritten;
+  }
   if (obj && typeof obj === "object") {
     const record = obj as Record<string, unknown>;
     if ("$ref" in record && typeof record.$ref === "string") {
-      return { $ref: record.$ref.replace("#/$defs/", "#/components/schemas/") };
+      const { $ref, ...siblings } = record;
+      return {
+        ...Object.fromEntries(
+          Object.entries(siblings).map(([k, v]) => [k, rewriteRefs(v, k)]),
+        ),
+        $ref: $ref.replace("#/$defs/", "#/components/schemas/"),
+      };
     }
     return Object.fromEntries(
-      Object.entries(record).map(([k, v]) => [k, rewriteRefs(v)]),
+      Object.entries(record).map(([k, v]) => [k, rewriteRefs(v, k)]),
     );
   }
   return obj;
 }
 
-/**
- * Convert a ZodType to an OpenAPI-compatible JSON Schema object.
- * - Strips the top-level `$schema` meta-field emitted by `z.toJSONSchema`.
- * - Hoists any `$defs` (produced by `namedSchema`) into `componentSchemas`.
- * - Rewrites `$ref` pointers from `#/$defs/X` to `#/components/schemas/X`.
- */
+// Convert a ZodType to an OpenAPI-compatible JSON Schema object.
+// - Strips the top-level `$schema` meta-field emitted by `z.toJSONSchema`.
+// - Hoists any `$defs` (produced by `namedSchema`) into `componentSchemas`.
+// - Rewrites `$ref` pointers from `#/$defs/X` to `#/components/schemas/X`.
 function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
   const {
     $schema: _$schema,
@@ -247,6 +360,40 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
     }
   }
   return rewriteRefs(rest) as z.core.JSONSchema.BaseSchema;
+}
+
+// Remove `default`-bearing properties from every `required` array in a schema
+// tree (recursing through properties, items, anyOf/oneOf/allOf, etc.).
+//
+// `z.toJSONSchema` runs in "output" mode, where a field with a Zod
+// `.default()` is always present in the parsed result and so gets listed as
+// `required`. That's correct for responses, but for REQUEST schemas it's
+// contradictory: `default` means the client may omit the field, so it must not
+// also be `required`. We only call this on request (params/query/body) schemas;
+// response schemas keep the output-mode `required` set. Skips `$ref` nodes, so
+// shared component schemas (used by responses) are never mutated.
+function stripDefaultedFromRequired(node: unknown): void {
+  if (Array.isArray(node)) {
+    node.forEach(stripDefaultedFromRequired);
+    return;
+  }
+  if (!node || typeof node !== "object") return;
+  const obj = node as Record<string, unknown>;
+
+  const props = obj.properties as Record<string, unknown> | undefined;
+  if (props && Array.isArray(obj.required)) {
+    const filtered = (obj.required as string[]).filter((name) => {
+      const prop = props[name] as Record<string, unknown> | undefined;
+      return !(prop && typeof prop === "object" && "default" in prop);
+    });
+    // Drop the key entirely when empty so we don't emit `required: []`.
+    if (filtered.length) obj.required = filtered;
+    else delete obj.required;
+  }
+
+  for (const value of Object.values(obj)) {
+    stripDefaultedFromRequired(value);
+  }
 }
 
 /**
@@ -314,13 +461,52 @@ type RequestBody = {
 };
 
 type Response = {
-  description?: string;
+  description: string;
+  headers?: Record<
+    string,
+    { description: string; schema: z.core.JSONSchema.BaseSchema }
+  >;
   content: {
     "application/json": {
       schema: z.core.JSONSchema.BaseSchema;
     };
   };
 };
+
+// Any write that can be held answers this way, so it's one shared response.
+const HELD_RESPONSE: Response = {
+  description:
+    "Held until a person confirms it in GrowthBook. Poll the Location until the confirmation completes.",
+  headers: {
+    Location: {
+      description: "The confirmation to poll",
+      schema: { type: "string" },
+    },
+    "Retry-After": {
+      description: "Seconds to wait before polling",
+      schema: { type: "integer" },
+    },
+  },
+  content: {
+    "application/json": {
+      schema: { $ref: "#/components/schemas/ConfirmationHeld" },
+    },
+  },
+};
+
+function defaultResponseDescription(method: string): string {
+  switch (method.toLowerCase()) {
+    case "post":
+      return "Resource created";
+    case "put":
+    case "patch":
+      return "Resource updated";
+    case "delete":
+      return "Resource deleted";
+    default:
+      return "Successful response";
+  }
+}
 
 type Path = {
   operationId: string;
@@ -330,14 +516,47 @@ type Path = {
   tags?: string[];
   parameters?: (Parameter | Ref)[];
   requestBody?: RequestBody;
-  responses: Record<string, Response>;
+  responses: Record<string, Response | Ref>;
   "x-codeSamples"?: CodeSample[];
 };
 
 type CodeSample = { lang: string; source: string };
 
+// The front-end calls shared/api-endpoints by path, so an endpoint with no
+// mounted route type-checks everywhere and only fails as a 404 at runtime.
+function assertSharedEndpointsMounted() {
+  const endpoints: Pick<
+    ApiEndpointSpec<unknown, unknown, unknown, unknown>,
+    "method" | "path" | "operationId" | "version"
+  >[] = Object.values(endpointModules).flatMap((m) => Object.values(m));
+  const unmounted = endpoints.filter(
+    (endpoint) =>
+      allRoutes.filter(
+        (route) =>
+          route.operationId === endpoint.operationId &&
+          route.method === endpoint.method &&
+          route.path === endpoint.path &&
+          (route.version ?? "v1") === (endpoint.version ?? "v1"),
+      ).length !== 1,
+  );
+  if (unmounted.length > 0) {
+    throw new Error(
+      "These shared/api-endpoints endpoints are not mounted exactly once by the back-end:\n" +
+        unmounted
+          .map(
+            ({ method, path, operationId }) =>
+              `  ${method.toUpperCase()} ${path} (${operationId})`,
+          )
+          .join("\n"),
+    );
+  }
+}
+
 async function run() {
+  assertSharedEndpointsMounted();
+
   // TODO: add security, etc.
+  const version = getBuild().lastVersion || "1.0.0";
   const openapiSpec: {
     openapi: string;
     info: {
@@ -348,6 +567,10 @@ async function run() {
     servers: {
       url: string;
       description: string;
+      variables?: Record<
+        string,
+        { default: string; description?: string; enum?: string[] }
+      >;
     }[];
     tags: {
       name: string;
@@ -358,6 +581,7 @@ async function run() {
     paths: Record<string, Record<string, Path>>;
     components: {
       parameters: Record<string, Parameter>;
+      responses: Record<string, Response>;
       schemas: Record<string, z.core.JSONSchema.BaseSchema>;
       securitySchemes: Record<
         string,
@@ -371,62 +595,9 @@ async function run() {
   } = {
     openapi: "3.1.0",
     info: {
-      version: "1.0.0",
+      version,
       title: "GrowthBook REST API",
-      description: `GrowthBook offers a full REST API for interacting with the application.
-
-Request data can use either JSON or Form data encoding (with proper \`Content-Type\` headers). All response bodies are JSON-encoded.
-
-The API base URL for GrowthBook Cloud is \`https://api.growthbook.io/api\`. For self-hosted deployments, it is the same as your API_HOST environment variable (defaults to \`http://localhost:3100/api\`). The rest of these docs will assume you are using GrowthBook Cloud.
-
-## Versioning
-
-Endpoints are versioned by path prefix:
-
-- \`/v1/...\` — stable, widely-supported endpoints
-- \`/v2/...\` — updated endpoints with improved shapes (e.g. unified per-rule environment scope for feature flags)
-
-New integrations should prefer v2 where available.
-
-## Authentication
-
-We support both the HTTP Basic and Bearer authentication schemes for convenience.
-
-You first need to generate a new API Key in GrowthBook. Different keys have different permissions:
-
-- **Personal Access Tokens**: These are sensitive and provide the same level of access as the user has to an organization. These can be created by going to \`Personal Access Tokens\` under the your user menu.
-- **Secret Keys**: These are sensitive and provide the level of access for the role, which currently is either \`admin\` or \`readonly\`. Only Admins with the \`manageApiKeys\` permission can manage Secret Keys on behalf of an organization. These can be created by going to \`Settings -> API Keys\`
-
-If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank (when using curl, add \`:\` at the end of the secret to indicate an empty password)
-
-\`\`\`bash
-curl https://api.growthbook.io/api/v1/features \\
-  -u secret_abc123DEF456:
-\`\`\`
-
-If using Bearer auth, pass the Secret Key as the token:
-
-\`\`\`bash
-curl https://api.growthbook.io/api/v1/features \\
--H "Authorization: Bearer secret_abc123DEF456"
-\`\`\`
-
-## Errors
-
-The API may return the following error status codes:
-
-- **400** - Bad Request - Often due to a missing required parameter
-- **401** - Unauthorized - No valid API key provided
-- **402** - Request Failed - The parameters are valid, but the request failed
-- **403** - Forbidden - Provided API key does not have the required access
-- **404** - Not Found - Unknown API route or requested resource
-- **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
-- **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
-
-The response body will be a JSON object with the following properties:
-
-- **message** - Information about the error
-`,
+      description: readApiIntroduction(),
     },
     servers: [
       {
@@ -436,6 +607,12 @@ The response body will be a JSON object with the following properties:
       {
         url: "https://{domain}/api",
         description: "Self-hosted GrowthBook",
+        variables: {
+          domain: {
+            default: "localhost:3100",
+            description: "Your self-hosted GrowthBook host (and port)",
+          },
+        },
       },
     ],
     tags: openApiTags.map((id) => ({
@@ -447,6 +624,7 @@ The response body will be a JSON object with the following properties:
     paths: {},
     components: {
       parameters: {},
+      responses: { ConfirmationHeld: HELD_RESPONSE },
       schemas: {},
       securitySchemes: {
         bearerAuth: {
@@ -480,6 +658,32 @@ curl https://api.growthbook.io/api/v1/features \
   // Be able to look up a schema by its JSON stringified schema
   const schemaHashMap: Record<string, string> = {};
 
+  // Register per-code error detail schemas. These live in schemaRefs (not
+  // componentSchemas) so they don't pick up the auto-generated `_model` doc
+  // tags reserved for user-facing API resource models. We don't document
+  // generic errors per-endpoint — only the actionable, declared ones below.
+  // e.g. "pending_draft_publish_failed" → "ApiErrorPendingDraftPublishFailedDetails"
+  const errorDetailsSchemaName = (code: string) =>
+    `ApiError${code
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join("")}Details`;
+  for (const [code, { detailsSchema }] of Object.entries(apiErrorRegistry)) {
+    schemaRefs[errorDetailsSchemaName(code)] = toOpenApiSchema(detailsSchema);
+  }
+
+  // The response-level description is rendered prominently next to the status
+  // code (even when the response section is collapsed), so we use the standard
+  // HTTP reason phrase here. Per-code descriptions live on each schema variant.
+  const HTTP_STATUS_REASONS: Record<string, string> = {
+    "400": "Bad Request",
+    "401": "Unauthorized",
+    "403": "Forbidden",
+    "404": "Not Found",
+    "409": "Conflict",
+    "500": "Internal Server Error",
+  };
+
   for (const route of allRoutes) {
     if (route.excludeFromSpec) {
       continue;
@@ -496,6 +700,8 @@ curl https://api.growthbook.io/api/v1/features \
       exampleRequest,
       version,
       deprecated,
+      possibleErrors,
+      confirmation,
     } = route;
 
     if (!path || !method || !operationId) {
@@ -508,6 +714,7 @@ curl https://api.growthbook.io/api/v1/features \
     // URL params
     if (isNonEmptySchema(schemas?.params)) {
       const jsonSchema = toOpenApiSchema(schemas.params);
+      stripDefaultedFromRequired(jsonSchema);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
         const isRequired = (jsonSchema.required ?? []).includes(name);
         const parameter: Parameter = {
@@ -542,13 +749,16 @@ curl https://api.growthbook.io/api/v1/features \
     // Query params
     if (isNonEmptySchema(schemas?.query)) {
       const jsonSchema = toOpenApiSchema(schemas.query);
+      stripDefaultedFromRequired(jsonSchema);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
         const isRequired = (jsonSchema.required ?? []).includes(name);
-        // Hoist x- extension fields from schema to parameter level
+        // Hoist x- extension fields — plus serialization fields like
+        // `explode`/`style`, which schemas can set via .meta() but belong on
+        // the parameter — from schema to parameter level
         const schemaObj = schema as Record<string, unknown>;
         const extensions: Record<string, unknown> = {};
         for (const key of Object.keys(schemaObj)) {
-          if (key.startsWith("x-")) {
+          if (key.startsWith("x-") || key === "explode" || key === "style") {
             extensions[key] = schemaObj[key];
             delete schemaObj[key];
           }
@@ -587,6 +797,7 @@ curl https://api.growthbook.io/api/v1/features \
     let requestBody: RequestBody | undefined = undefined;
     if (isNonEmptySchema(schemas?.body)) {
       const jsonSchema = toOpenApiSchema(schemas.body);
+      stripDefaultedFromRequired(jsonSchema);
       requestBody = {
         required: !(schemas.body instanceof z.ZodOptional),
         content: {
@@ -674,9 +885,9 @@ curl https://api.growthbook.io/api/v1/features \
       delete responseSchema.description;
     }
 
-    const responses: Record<string, Response> = {
+    const responses: Record<string, Response | Ref> = {
       "200": {
-        ...(responseDescription && { description: responseDescription }),
+        description: responseDescription || defaultResponseDescription(method),
         content: {
           "application/json": {
             schema: responseSchema,
@@ -684,6 +895,44 @@ curl https://api.growthbook.io/api/v1/features \
         },
       },
     };
+
+    if (possibleErrors && possibleErrors.length > 0) {
+      const errorsByStatus: Partial<Record<string, ApiErrorCode[]>> = {};
+      for (const code of possibleErrors) {
+        const status = String(apiErrorRegistry[code].status);
+        (errorsByStatus[status] ??= []).push(code);
+      }
+
+      for (const [status, codes] of Object.entries(errorsByStatus)) {
+        if (!codes) continue;
+        const errorSchemas: z.core.JSONSchema.BaseSchema[] = codes.map(
+          (code) => ({
+            type: "object",
+            description: apiErrorRegistry[code].description,
+            properties: {
+              message: { type: "string" },
+              code: { type: "string", enum: [code] },
+              details: {
+                $ref: `#/components/schemas/${errorDetailsSchemaName(code)}`,
+              },
+            },
+            required: ["message", "code", "details"],
+          }),
+        );
+
+        responses[status] = {
+          description: HTTP_STATUS_REASONS[status] ?? "Error",
+          content: {
+            "application/json": {
+              schema:
+                errorSchemas.length === 1
+                  ? errorSchemas[0]
+                  : { oneOf: errorSchemas },
+            },
+          },
+        };
+      }
+    }
 
     // Replace express style path parameters with OpenAPI style path parameters,
     // and prefix with the version segment so the spec uses /v1/... or /v2/...
@@ -697,6 +946,23 @@ curl https://api.growthbook.io/api/v1/features \
       },
     ];
 
+    // Held for its own actions, a skip flag it accepts, or a publish it can arm.
+    const accepted = [
+      // Shared parameters are refs keyed by their name.
+      ...parameters.map((p) =>
+        "name" in p ? p.name : (p.$ref.split("/").pop() ?? ""),
+      ),
+      ...bodyFieldNames(requestBody?.content["application/json"].schema),
+    ];
+    if (
+      routeConfirmation(method, tags, confirmation).length > 0 ||
+      Object.keys(CONFIRM_OVERRIDE_FLAGS).some((flag) =>
+        accepted.includes(flag),
+      ) ||
+      armableActions(tags, accepted).length > 0
+    ) {
+      responses["202"] = { $ref: "#/components/responses/ConfirmationHeld" };
+    }
     openapiSpec.paths[fullPath] = openapiSpec.paths[fullPath] || {};
     openapiSpec.paths[fullPath][method] = {
       operationId,
@@ -761,9 +1027,11 @@ curl https://api.growthbook.io/api/v1/features \
     openapiSpec.components.schemas[name] = schema;
   });
 
-  // Generate _model tags for each named component schema (powers the "Models" section in docs)
+  // Generate _model tags for registered API resource models (powers the "Models"
+  // section in docs). Hoisted $defs from `componentSchema()` are omitted.
   const modelTags: string[] = [];
-  for (const name of Object.keys(componentSchemas).sort()) {
+  for (const name of [...namedSchemaRegistry.keys()].sort()) {
+    if (!componentSchemas[name]) continue;
     const tagName = `${name}_model`;
     modelTags.push(tagName);
     const modelDisplayName = name.replace(/([a-z])([A-Z])/g, "$1 $2");

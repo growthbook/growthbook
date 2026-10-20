@@ -26,6 +26,24 @@ function SubmitButton({
   );
 }
 
+// Disabled while submitting, since closing wouldn't stop the in-flight submit.
+function CloseButton({
+  closeCta,
+  close,
+}: {
+  closeCta: string;
+  close: () => void;
+}) {
+  const { loading } = useModalForm();
+  return (
+    <Modal.Close>
+      <Button variant="ghost" onClick={close} disabled={loading}>
+        {closeCta}
+      </Button>
+    </Modal.Close>
+  );
+}
+
 export type Props = TrackingEventModalProps & {
   open: boolean;
   header: string;
@@ -42,6 +60,7 @@ export type Props = TrackingEventModalProps & {
   // destructive or out-of-flow actions that shouldn't be the primary CTA.
   secondaryAction?: ReactNode;
   close: () => void;
+  closeCta?: string;
   children: ReactNode;
 };
 
@@ -61,6 +80,7 @@ export default function ModalStandard({
   submit,
   secondaryAction,
   close,
+  closeCta = "Cancel",
   children,
   trackingEventModalType,
   trackingEventModalSource,
@@ -79,11 +99,7 @@ export default function ModalStandard({
       <Modal.Footer justify={secondaryAction ? "between" : "end"}>
         {secondaryAction ? <Box>{secondaryAction}</Box> : null}
         <Flex gap="3" align="center">
-          <Modal.Close>
-            <Button variant="ghost" onClick={close}>
-              Cancel
-            </Button>
-          </Modal.Close>
+          <CloseButton closeCta={closeCta} close={close} />
           {submit && (
             <SubmitButton
               cta={cta}

@@ -4,6 +4,9 @@ export interface SSOConnectionInterface {
   id?: string;
   dateCreated?: Date;
   organization?: string;
+  // Disabled connections cannot be used to log in (kept in sync with the
+  // organization's disabled state by the admin enable/disable endpoints)
+  disabled?: boolean;
   emailDomains?: string[];
   additionalScope?: string;
   idpType?:

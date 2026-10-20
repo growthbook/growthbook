@@ -1,15 +1,7 @@
-import {
-  Box,
-  Flex,
-  Inset,
-  Dialog,
-  ScrollArea,
-  Separator,
-} from "@radix-ui/themes";
+import { Box, Flex, Dialog, ScrollArea, Separator } from "@radix-ui/themes";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import {
   createContext,
-  CSSProperties,
   ReactNode,
   useCallback,
   useContext,
@@ -20,16 +12,23 @@ import {
 } from "react";
 import { v4 as uuidv4 } from "uuid";
 import track, { TrackEventProps } from "@/services/track";
+import { Size as SharedSize } from "@/ui/sizes";
 import ErrorDisplay from "../ErrorDisplay";
 import styles from "./Modal.module.scss";
 
-export type Size = "md" | "lg";
+export type Size = SharedSize<"md" | "lg"> | "xl" | "fill";
 
+// Modal does not use the shared Radix map. Radix Dialog's size drives padding
+// and border radius rather than a step on the control scale, its own default is
+// "3", and the visible width comes from getMaxWidth below. So md is Radix "3"
+// here where it is "2" everywhere else.
 function getRadixSize(size: Size): Responsive<"3" | "4"> {
   switch (size) {
     case "md":
       return "3";
     case "lg":
+    case "xl":
+    case "fill":
       return "4";
   }
 }
@@ -40,6 +39,10 @@ function getMaxWidth(size: Size) {
       return "500px";
     case "lg":
       return "800px";
+    case "xl":
+      return "1100px";
+    case "fill":
+      return "calc(100vw - 32px)";
   }
 }
 
@@ -54,13 +57,17 @@ function getMaxWidth(size: Size) {
 
 type ModalContextValue = {
   error: string | null;
-  setError: (error: string | null) => void;
+  errorDetails: string | null;
+  setError: (error: string | null, details?: string | null) => void;
   scrollBodyToTop: () => void;
   bodyRef: React.RefObject<HTMLDivElement>;
   sendTrackingEvent: (
     eventName: string,
     additionalProps?: Record<string, unknown>,
   ) => void;
+  // True while a ModalForm submit is in flight. Root uses it to block dismiss.
+  loading: boolean;
+  setLoading: (loading: boolean) => void;
 };
 
 const ModalContext = createContext<ModalContextValue | null>(null);
@@ -71,6 +78,10 @@ export function useModalContext(): ModalContextValue {
     throw new Error("Modal primitives must be rendered inside <Modal.Root>.");
   }
   return ctx;
+}
+
+export function useOptionalModalContext(): ModalContextValue | null {
+  return useContext(ModalContext);
 }
 
 // ---------------------------------------------------------------------------
@@ -108,9 +119,19 @@ function Root({
   children,
 }: RootProps) {
   const [modalUuid] = useState(uuidv4());
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorMessage] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  const setError = useCallback(
+    (message: string | null, details: string | null = null) => {
+      setErrorMessage(message);
+      setErrorDetails(details);
+    },
+    [],
+  );
 
   const scrollBodyToTop = useCallback(() => {
     setTimeout(() => {
@@ -150,18 +171,29 @@ function Root({
       sendTrackingEvent("modal-open");
     } else if (!open && prevOpen) {
       setError(null);
+      setLoading(false);
     }
-  }, [open, sendTrackingEvent]);
+  }, [open, sendTrackingEvent, setError]);
 
   const ctx = useMemo<ModalContextValue>(
     () => ({
       error,
+      errorDetails,
       setError,
       scrollBodyToTop,
       bodyRef,
       sendTrackingEvent,
+      loading,
+      setLoading,
     }),
-    [error, scrollBodyToTop, sendTrackingEvent],
+    [
+      error,
+      errorDetails,
+      setError,
+      scrollBodyToTop,
+      sendTrackingEvent,
+      loading,
+    ],
   );
 
   const ariaDescribedBy = hasDescription
@@ -174,26 +206,28 @@ function Root({
         ref={contentRef}
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
-        maxHeight="85vh"
+        maxHeight={size === "fill" ? "calc(100vh - 32px)" : "85vh"}
         {...ariaDescribedBy}
         onEscapeKeyDown={(e) => {
-          if (!dismissible) e.preventDefault();
+          // A submit in flight keeps the dialog up even when it is otherwise dismissible.
+          if (!dismissible || loading) e.preventDefault();
         }}
         onPointerDownOutside={(e) => {
-          if (!dismissible) e.preventDefault();
+          if (!dismissible || loading) e.preventDefault();
         }}
-        style={
-          {
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            paddingTop: "32px",
-            paddingLeft: "40px",
-            paddingRight: "0",
-            paddingBottom: "20px",
-            "--inset-padding-left": "40px",
-          } as CSSProperties
-        }
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          // Header, body and footer each carry their own padding.
+          padding: 0,
+          ...(size === "fill"
+            ? {
+                width: "calc(100vw - 32px)",
+                height: "calc(100vh - 32px)",
+              }
+            : {}),
+        }}
       >
         <ModalContext.Provider value={ctx}>{children}</ModalContext.Provider>
       </Dialog.Content>
@@ -211,7 +245,7 @@ function Root({
 
 function Header({ children }: { children: ReactNode }) {
   return (
-    <Flex flexShrink="0" justify="between" align="center" gap="3" pr="7">
+    <Flex flexShrink="0" justify="between" align="center" gap="3" pt="6" px="7">
       {children}
     </Flex>
   );
@@ -219,7 +253,7 @@ function Header({ children }: { children: ReactNode }) {
 
 function Title({ children }: { children: ReactNode }) {
   return (
-    <Dialog.Title size="5" mb="0">
+    <Dialog.Title size="5" mb="0" style={{ color: "var(--color-text-high)" }}>
       {children}
     </Dialog.Title>
   );
@@ -227,7 +261,7 @@ function Title({ children }: { children: ReactNode }) {
 
 function Description({ children }: { children: ReactNode }) {
   return (
-    <Box flexShrink="0" pr="7" mt="1">
+    <Box flexShrink="0" px="7" mt="1">
       <Dialog.Description size="3" style={{ color: "var(--color-text-mid)" }}>
         {children}
       </Dialog.Description>
@@ -243,11 +277,20 @@ function Description({ children }: { children: ReactNode }) {
 // ---------------------------------------------------------------------------
 
 function Body({ children }: { children: ReactNode }) {
-  const { bodyRef, error } = useModalContext();
+  const { bodyRef, error, errorDetails } = useModalContext();
   return (
-    <ScrollArea type="auto" mt="5" mb="3" ml="-1" ref={bodyRef}>
-      <Box pr="7" pl="1" className={styles.body}>
-        {error && <ErrorDisplay error={error} mb="5" />}
+    <ScrollArea
+      type="auto"
+      mt="5"
+      ref={bodyRef}
+      scrollbars="vertical"
+      className={styles.bodyScrollArea}
+    >
+      <Box
+        className={styles.body}
+        style={{ padding: "0 var(--space-7) var(--space-5)" }}
+      >
+        {error && <ErrorDisplay error={error} details={errorDetails} mb="5" />}
         {children}
       </Box>
     </ScrollArea>
@@ -268,11 +311,18 @@ function Footer({
   justify?: "start" | "center" | "end" | "between";
 }) {
   return (
-    <Box flexShrink="0" ml="-3">
-      <Inset side="x">
-        <Separator size="4" mt="5" style={{ marginBottom: "20px" }} />
-      </Inset>
-      <Flex gap="3" justify={justify} pr="7">
+    <Box flexShrink="0">
+      <Separator size="4" />
+      <Flex
+        gap="3"
+        justify={justify}
+        // The left inset is short by a ghost button's padding, so a ghost
+        // action on the left lines up with the content.
+        style={{
+          padding:
+            "20px var(--space-7) 20px calc(var(--space-7) - var(--space-3))",
+        }}
+      >
         {children}
       </Flex>
     </Box>

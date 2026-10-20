@@ -2,6 +2,10 @@ import { FC, ChangeEventHandler } from "react";
 import { PrestoConnectionParams } from "shared/types/integrations/presto";
 import SelectField from "@/components/Forms/SelectField";
 import { isCloud } from "@/services/env";
+import {
+  KEEP_EXISTING_PLACEHOLDER,
+  useCanKeepExistingCredentials,
+} from "@/components/Forms/secretInput";
 import HostWarning from "./HostWarning";
 import SSLConnectionFields from "./SSLConnectionFields";
 
@@ -12,6 +16,11 @@ const PrestoForm: FC<{
   onManualParamChange: (name: string, value: string) => void;
   setParams: (params: { [key: string]: string | boolean }) => void;
 }> = ({ params, existing, onParamChange, onManualParamChange, setParams }) => {
+  const authType = params.authType ?? "basicAuth";
+  const canKeepExistingCredentials = useCanKeepExistingCredentials(
+    existing,
+    authType,
+  );
   const authMethodOptions = [
     {
       value: "basicAuth",
@@ -40,6 +49,7 @@ const PrestoForm: FC<{
       <div className="form-group col-md-12">
         <label>Engine</label>
         <SelectField
+          size="legacy"
           name="engine"
           required
           value={params.engine || ""}
@@ -73,7 +83,7 @@ const PrestoForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>Port</label>
         <input
           type="number"
@@ -85,7 +95,7 @@ const PrestoForm: FC<{
         />
       </div>
       {params.engine === "trino" ? (
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Trino User</label>
           <input
             type="text"
@@ -100,7 +110,7 @@ const PrestoForm: FC<{
           </small>
         </div>
       ) : (
-        <div className="form-group col-md-12">
+        <div className="form-group col-md-6">
           <label>Query User</label>
           <input
             type="text"
@@ -117,10 +127,11 @@ const PrestoForm: FC<{
       )}
       <div className="col-md-12">
         <SelectField
+          size="legacy"
           label="Authentication Method"
           options={authMethodOptions}
           helpText="Basic Auth is the most common method. Custom Auth sets HTTP Authorization header with the provided string. Kerberos auth uses KRB5 authentication with client principal. 'None' only is used for custom authentication methods."
-          value={params.authType || "basicAuth"}
+          value={authType}
           onChange={(v) => {
             setParams({
               authType: v,
@@ -128,9 +139,9 @@ const PrestoForm: FC<{
           }}
         />
       </div>
-      {(params.authType ?? "basicAuth") === "basicAuth" && (
+      {authType === "basicAuth" && (
         <>
-          <div className="form-group col-md-12">
+          <div className="form-group col-md-6">
             <label>Username</label>
             <input
               type="text"
@@ -142,32 +153,39 @@ const PrestoForm: FC<{
             />
           </div>
 
-          <div className="form-group col-md-12">
+          <div className="form-group col-md-6">
             <label>Password</label>
             <input
               type="text"
               className="form-control"
               name="password"
+              required={!canKeepExistingCredentials}
               value={params.password || ""}
               onChange={onParamChange}
-              placeholder={existing ? "(Keep existing)" : ""}
+              placeholder={
+                canKeepExistingCredentials ? KEEP_EXISTING_PLACEHOLDER : ""
+              }
             />
           </div>
         </>
       )}
-      {params.authType === "customAuth" && (
+      {authType === "customAuth" && (
         <div className="form-group col-md-12">
           <label>Custom Auth String</label>
           <input
             type="text"
             className="form-control"
             name="customAuth"
+            required={!canKeepExistingCredentials}
             value={params.customAuth || ""}
             onChange={onParamChange}
+            placeholder={
+              canKeepExistingCredentials ? KEEP_EXISTING_PLACEHOLDER : ""
+            }
           />
         </div>
       )}
-      {params.authType === "kerberos" && (
+      {authType === "kerberos" && (
         <>
           <div className="form-group col-md-12">
             <label>Service Principal</label>
@@ -222,13 +240,23 @@ const PrestoForm: FC<{
           </div>
         </>
       )}
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>Default Catalog</label>
         <input
           type="text"
           className="form-control"
           name="catalog"
           value={params.catalog || ""}
+          onChange={onParamChange}
+        />
+      </div>
+      <div className="form-group col-md-6">
+        <label>Default Schema</label>
+        <input
+          type="text"
+          className="form-control"
+          name="schema"
+          value={params.schema || ""}
           onChange={onParamChange}
         />
       </div>
@@ -255,16 +283,6 @@ const PrestoForm: FC<{
         </div>
       </div>
       <div className="form-group col-md-12">
-        <label>Default Schema</label>
-        <input
-          type="text"
-          className="form-control"
-          name="schema"
-          value={params.schema || ""}
-          onChange={onParamChange}
-        />
-      </div>
-      <div className="form-group col-md-12">
         <label>Source</label>
         <input
           type="text"
@@ -278,6 +296,7 @@ const PrestoForm: FC<{
         </small>
       </div>
       <SSLConnectionFields
+        existing={existing}
         onParamChange={onParamChange}
         setSSL={(ssl) => setParams({ ssl })}
         value={{

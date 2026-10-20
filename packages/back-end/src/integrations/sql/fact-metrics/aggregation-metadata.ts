@@ -1,9 +1,22 @@
-import { getAggregateFilters, isBinomialMetric } from "shared/experiments";
+import {
+  getAggregateFilters,
+  isBinomialMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import type { FactMetricAggregationMetadata } from "shared/types/integrations";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import type { SqlDialect } from "shared/types/sql";
 
 import { castToHllDataType } from "back-end/src/integrations/sql/primitives/cast-to-hll-data-type";
+
+// Whether daily partials can be merged into a per-user covariate value.
+// Event-quantile metrics store KLL sketches that can't recover a per-user value
+// by merging, so the covariate read must fall back to a raw scan for them.
+export function canReAggregateDailyPartialsForCovariate(
+  metric: FactMetricInterface,
+): boolean {
+  return quantileMetricType(metric) !== "event";
+}
 
 export function getAggregationMetadata(
   dialect: SqlDialect,

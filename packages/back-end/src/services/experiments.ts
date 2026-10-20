@@ -1,4 +1,5 @@
 import uniqid from "uniqid";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import cronParser from "cron-parser";
 import { z } from "zod";
 import { isEqual } from "lodash";
@@ -16,16 +17,20 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
-  PRECOMPUTED_DIMENSION_PREFIX,
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
   autoMerge,
-  draftHasChangesOutsideExperiment,
+  draftHasChangesOutsideTargetRef,
   DRAFT_REVISION_STATUSES,
+  findAnalysisComputeFailure,
   fillRevisionFromFeature,
   generateVariationId,
+  getAffectedEnvsForExperiment,
+  getExperimentAttributeScopeProjectIds,
+  getFeatureAttributeScopeWithDrafts,
   getMatchingRules,
+  getRequireRegisteredAttributesSettings,
   getNamespaceRanges,
   getReviewSetting,
   getSnapshotAnalysis,
@@ -34,32 +39,46 @@ import {
   liveRevisionFromFeature,
   MatchingRule,
   naiveFlattenV1Rules,
-  validateCondition,
+  assertExposureQueryDeclaresIdentifierType,
+  toApiAssignmentQueryRef,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
-import { getBanditSRMValue, getExperimentSRMValue } from "shared/health";
 import {
+  getBanditSRMValue,
+  getExperimentSRMValue,
+  getExperimentVariationUnitsFromHealth,
+} from "shared/health";
+import {
+  needsPercentileCapSubquery,
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
-  expandAllSliceMetricsInMap,
+  expandDerivedMetricsInMap,
   getEqualWeights,
   getEffectiveLookbackOverride,
+  getFunnelStepMetric,
   getMetricResultStatus,
   getMetricSnapshotSettings,
+  isFactFunnelMetric,
   isFactMetric,
   isFactMetricId,
+  isFactMetricJoinable,
   isMetricJoinable,
-  isDimensionPrecomputed,
+  parseDimensionId,
+  parseFunnelStepMetricId,
   parseSliceMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
   getAllVariations,
   getLatestPhaseVariations,
   getPhaseVariations,
+  isVariationWeightsSumValid,
+  scheduleWriteNeedsRunPermission,
+  withScheduledBy,
 } from "shared/experiments";
-import { getValidDate, hoursBetween } from "shared/dates";
+import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInMinutes } from "date-fns";
@@ -70,6 +89,7 @@ import {
   BanditResult,
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
+  ApiVariationInput,
   GoalMetricResult,
   SafeRolloutInterface,
   postExperimentValidator,
@@ -83,9 +103,10 @@ import {
   ApiExperimentMetric,
   ApiExperimentResults,
   ApiMetric,
-  ExperimentType,
+  ScheduledStopPlan,
+  resolveSavedGroupsInput,
 } from "shared/validators";
-import { Dimension } from "shared/types/integrations";
+import { ComboConstituent, Dimension } from "shared/types/integrations";
 import {
   ConversionWindowUnit,
   MetricPriorSettings,
@@ -96,6 +117,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  SnapshotQueryRunnerKind,
   SnapshotTriggeredBy,
   SnapshotType,
   SnapshotBanditSettings,
@@ -112,6 +134,7 @@ import {
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
   LinkedFeatureState,
+  StagedRefDraft,
   Variation,
 } from "shared/types/experiment";
 import {
@@ -126,11 +149,23 @@ import {
   MetricSnapshotSettings,
 } from "shared/types/report";
 import { StatsEngine } from "shared/types/stats";
-import { ExperimentRefRule, FeatureRule } from "shared/types/feature";
+import {
+  ContextualBanditRefRule,
+  ExperimentRefRule,
+  FeatureInterface,
+  FeatureRule,
+} from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentQueryMetadata } from "shared/types/query";
-import { isExperimentIncrementalEnabled } from "shared/enterprise";
+import {
+  isExperimentCoveredByIncrementalPipeline,
+  getUnsupportedIncrementalExperimentTypeReason,
+  PRESET_DECISION_CRITERIA,
+  getPresetDecisionCriteriaForOrg,
+} from "shared/enterprise";
+import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
+import { generateId } from "back-end/src/util/uuid";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import {
@@ -150,11 +185,14 @@ import {
   addOrUpdateSnapshotAnalysis,
   addOrUpdateSnapshotMultipleAnalysis,
   createExperimentSnapshotModel,
+  findSnapshotById,
   getLatestSnapshotMultipleExperiments,
+  getLatestSuccessfulSnapshot,
   updateSnapshot,
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { findDimensionById } from "back-end/src/models/DimensionModel";
+import { getPastExperimentsModelByDatasource } from "back-end/src/models/PastExperimentsModel";
 import {
   APP_ORIGIN,
   DEFAULT_CONVERSION_WINDOW_HOURS,
@@ -173,9 +211,17 @@ import {
   FactTableMap,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import {
+  getFeatureProjectsByIds,
+  getFeature,
+  getFeaturesByIds,
+} from "back-end/src/models/FeatureModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
-import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
+import {
+  getRevision,
+  getActiveDraftMetadataByFeatureIds,
+  getFeatureRevisionsByFeatureIds,
+} from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -188,13 +234,30 @@ import {
   getEligiblePrecomputedUnitDimensionIds,
   getExposureQueryEligibleDimensions,
 } from "back-end/src/services/dimensions";
-import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
-import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
+import {
+  getErrorMessage,
+  BadRequestError,
+  ConcurrentIncrementalRefreshError,
+  ExperimentIncrementalPipelineRequiresFullRefreshError,
+  InvalidTrackingKeyError,
+} from "back-end/src/util/errors";
+import {
+  getExperimentSettingsHashForIncrementalRefresh,
+  legacyDocDescribesPhase,
+  assertIncrementalRefreshPrerequisites,
+  exploratoryOverallRequiresFullRefresh,
+} from "back-end/src/enterprise/services/data-pipeline";
+import {
+  ExperimentUpdateLogPlan,
+  ExperimentUpdateExecutionLogger,
+} from "back-end/src/services/experimentUpdateExecutionLogger";
+import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
 } from "./datasource";
+import { getExposureQueriesForDatasource } from "./assignmentQuerySelection";
 import {
   analyzeExperimentResults,
   getMetricsAndQueryDataForStatsEngine,
@@ -202,6 +265,9 @@ import {
   writeSnapshotAnalyses,
 } from "./stats";
 import {
+  getContextForAgendaJobByOrgObject,
+  getContextForApiKeyIdInOrg,
+  getContextForUserIdInOrg,
   getEnvironmentIdsFromOrg,
   getMetricDefaultsForOrg,
   getSignificanceSettingsForProject,
@@ -213,7 +279,7 @@ export async function createMetric(
   context: Context,
   data: Partial<MetricInterface>,
 ) {
-  const metric = insertMetric(context, {
+  const metric = await insertMetric(context, {
     id: uniqid("met_"),
     ...data,
     dateCreated: new Date(),
@@ -231,6 +297,20 @@ export async function getExperimentMetricById(
   context: Context,
   metricId: string,
 ): Promise<ExperimentMetricInterface | null> {
+  // Funnel step metrics are derived from their parent rather than stored. Check
+  // first: parseSliceMetricId reports a step id as a non-slice, which would
+  // otherwise send the full `<id>?step=k` to the lookup and miss.
+  const stepInfo = parseFunnelStepMetricId(metricId);
+  if (stepInfo.isFunnelStepMetric && stepInfo.stepIndex !== null) {
+    const parent = await getExperimentMetricById(
+      context,
+      stepInfo.baseMetricId,
+    );
+    return parent && isFactFunnelMetric(parent)
+      ? getFunnelStepMetric(parent, stepInfo.stepIndex)
+      : null;
+  }
+
   // Handle slice metric IDs by extracting the base metric ID
   const sliceInfo = parseSliceMetricId(metricId);
   const actualMetricId = sliceInfo.isSliceMetric
@@ -241,6 +321,35 @@ export async function getExperimentMetricById(
     return context.models.factMetrics.getById(actualMetricId);
   }
   return getMetricById(context, actualMetricId);
+}
+
+// Resolve the decision criteria that governs an experiment: its own configured
+// criteria, else the org default, else the org/global preset. Shared so the
+// scheduling verdict and the API's enhanced status resolve it identically.
+export async function getExperimentDecisionCriteria(
+  context: Context,
+  experiment: Pick<ExperimentInterface, "decisionFrameworkSettings">,
+) {
+  const id =
+    experiment.decisionFrameworkSettings?.decisionCriteriaId ??
+    context.org.settings?.defaultDecisionCriteriaId;
+  if (id) {
+    try {
+      const dc = await context.models.decisionCriteria.getById(id);
+      if (dc) return dc;
+    } catch (e) {
+      // Degrade to the preset rather than failing the caller (e.g. the enhanced
+      // experiment API response) on a transient lookup error.
+      logger.warn(
+        e,
+        `Failed to load decision criteria ${id}; falling back to preset`,
+      );
+    }
+  }
+  return (
+    getPresetDecisionCriteriaForOrg(context.org.settings) ??
+    PRESET_DECISION_CRITERIA
+  );
 }
 
 export async function getExperimentMetricsByIds(
@@ -276,6 +385,36 @@ export async function getMetricMapForExperiment(
     metricGroups,
   );
   const metrics = await getExperimentMetricsByIds(context, metricIds);
+  return new Map(metrics.map((m) => [m.id, m]));
+}
+
+// Like getMetricMapForExperiment, but also resolves metrics referenced only by
+// the given snapshots (e.g. metrics since removed from the experiment but still
+// present in the org). Used to enrich bulk-result display names by id.
+export async function getMetricMapForExperimentSnapshots(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  snapshots: ExperimentSnapshotInterface[],
+): Promise<Map<string, ExperimentMetricInterface>> {
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = new Set(
+    getAllMetricIdsFromExperiment(experiment, true, metricGroups),
+  );
+  for (const snapshot of snapshots) {
+    const settings = snapshot.settings;
+    settings.metricSettings.forEach((m) => metricIds.add(m.id));
+    settings.goalMetrics.forEach((m) => metricIds.add(m));
+    settings.secondaryMetrics.forEach((m) => metricIds.add(m));
+    settings.guardrailMetrics.forEach((m) => metricIds.add(m));
+    if (settings.activationMetric) metricIds.add(settings.activationMetric);
+  }
+  // Snapshot ids may be slice-metric ids; resolve to base metric ids to fetch.
+  const baseMetricIds = Array.from(
+    new Set(
+      Array.from(metricIds).map((id) => parseSliceMetricId(id).baseMetricId),
+    ),
+  );
+  const metrics = await getExperimentMetricsByIds(context, baseMetricIds);
   return new Map(metrics.map((m) => [m.id, m]));
 }
 
@@ -425,20 +564,19 @@ export function isJoinableMetric({
   metricId,
   metricMap,
   factTableMap,
-  exposureQuery,
+  identifierType,
   datasource,
 }: {
   metricId: string;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
-  exposureQuery?: ExposureQuery;
+  identifierType?: string;
   datasource?: DataSourceInterface;
 }): boolean {
-  if (!exposureQuery || !datasource) {
+  if (!identifierType || !datasource) {
     // be lenient and allow metrics through
     return true;
   }
-  const experimentIdType = exposureQuery.userIdType;
   const metric = metricMap.get(metricId);
 
   if (!metric) {
@@ -446,12 +584,20 @@ export function isJoinableMetric({
     return true;
   }
 
-  const metricIdTypes =
-    (isFactMetric(metric)
-      ? factTableMap.get(metric.numerator.factTableId)?.userIdTypes
-      : metric.userIdTypes) ?? [];
+  if (isFactMetric(metric)) {
+    return isFactMetricJoinable(
+      metric,
+      identifierType,
+      (id) => factTableMap.get(id),
+      datasource.settings,
+    );
+  }
 
-  return isMetricJoinable(metricIdTypes, experimentIdType, datasource.settings);
+  return isMetricJoinable(
+    metric.userIdTypes ?? [],
+    identifierType,
+    datasource.settings,
+  );
 }
 
 export function getSnapshotSettings({
@@ -506,6 +652,17 @@ export function getSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === experiment.exposureQueryId,
   );
+  // A missing query is left to the query builder to surface.
+  if (exposureQuery) {
+    assertExposureQueryDeclaresIdentifierType(
+      exposureQuery,
+      experiment.exposureQueryIdentifierType,
+    );
+  }
+  const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
+    exposureQuery,
+    experiment.exposureQueryIdentifierType,
+  );
 
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
@@ -557,7 +714,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -569,7 +726,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -581,7 +738,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -602,8 +759,8 @@ export function getSnapshotSettings({
   // Set currentDate in a const to use the same date for all metric settings
   const currentDate = new Date();
 
-  // Expand all slice metrics (auto and custom) and add them to the metricMap
-  expandAllSliceMetricsInMap({
+  // Expand all derived metrics (slices and funnel steps) into the metricMap
+  expandDerivedMetricsInMap({
     metricMap,
     factTableMap,
     experiment,
@@ -758,6 +915,7 @@ export function getSnapshotSettings({
     regressionAdjustmentEnabled,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
+    exposureQueryIdentifierType,
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
       id: v.key || i + "",
@@ -768,40 +926,66 @@ export function getSnapshotSettings({
   };
 }
 
+async function parseComboConstituent(
+  constituentId: string,
+  organization: string,
+): Promise<ComboConstituent> {
+  const parsed = parseDimensionId(constituentId);
+  if (parsed.kind === "experiment") {
+    return { type: "experiment", id: parsed.column };
+  }
+  if (parsed.kind === "user") {
+    const obj = await findDimensionById(parsed.id, organization);
+    if (obj) {
+      return { type: "user", dimension: obj };
+    }
+    throw new Error(`Dimension "${constituentId}" not found`);
+  }
+  throw new Error(
+    `Invalid combination dimension "${constituentId}". Each must be an experiment dimension ("exp:<name>") or a unit dimension id`,
+  );
+}
+
 export async function parseDimension(
   dimension: string | null | undefined,
   slices: string[] | undefined,
   organization: string,
 ): Promise<Dimension | null> {
-  if (dimension) {
-    if (dimension.match(/^exp:/)) {
+  if (!dimension) return null;
+
+  const parsed = parseDimensionId(dimension);
+  switch (parsed.kind) {
+    case "experiment":
       return {
         type: "experiment",
-        id: dimension.substring(4),
+        id: parsed.column,
         specifiedSlices: slices,
       };
-    } else if (isDimensionPrecomputed(dimension, [])) {
+    case "date":
+      return { type: "date" };
+    case "activation":
+      return { type: "activation" };
+    case "datecutoff":
+      return { type: "datecutoff", cutoff: parsed.cutoff };
+    case "combo":
       return {
-        type: "experiment",
-        id: dimension.substring(PRECOMPUTED_DIMENSION_PREFIX.length),
-        specifiedSlices: slices,
+        type: "combo",
+        dimensions: await Promise.all(
+          parsed.constituentIds.map((c) =>
+            parseComboConstituent(c, organization),
+          ),
+        ),
       };
-    } else if (dimension.substring(0, 4) === "pre:") {
-      return {
-        // eslint-disable-next-line
-        type: dimension.substring(4) as any,
-      };
-    } else {
-      const obj = await findDimensionById(dimension, organization);
+    case "invalid":
+      throw new Error(parsed.reason);
+    case "user": {
+      const obj = await findDimensionById(parsed.id, organization);
       if (obj) {
-        return {
-          type: "user",
-          dimension: obj,
-        };
+        return { type: "user", dimension: obj };
       }
+      return null;
     }
   }
-  return null;
 }
 
 export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
@@ -911,10 +1095,10 @@ export function resetExperimentBanditSettings({
     changes.goalMetrics = [];
   }
 
-  // No quantile metrics allowed (only need to check for endpoints that change metrics)
+  // Percentile caps on either tail are incompatible with Bandits.
   if (goalMetric && metricMap) {
     const metric = metricMap.get(goalMetric);
-    if (metric && metric?.cappingSettings?.type === "percentile") {
+    if (metric && needsPercentileCapSubquery(metric)) {
       changes.goalMetrics = [];
     }
   }
@@ -1035,7 +1219,7 @@ export async function syncVisualChangesetsAndUrlRedirectsForExperiment({
       visualChangesets.map((vc) =>
         syncVisualChangesWithVariations({
           visualChangeset: vc,
-          experiment: updated,
+          owner: new ExperimentChangesetOwner(context, updated),
           context,
         }),
       ),
@@ -1104,6 +1288,18 @@ export function updateExperimentBanditSettings({
   reweight?: boolean;
   isScheduled?: boolean;
 }): Changeset {
+  const computeFailure = snapshot
+    ? findAnalysisComputeFailure(getSnapshotAnalysis(snapshot))
+    : null;
+  if (computeFailure !== null) {
+    throw new Error(
+      `Bandit analysis failed: ${
+        computeFailure.errorMessage ||
+        `Metric ${computeFailure.metricId} failed to compute`
+      }`,
+    );
+  }
+
   if (!changes) changes = {};
   if (!changes.phases) {
     changes.phases = cloneDeep<ExperimentPhase[]>(experiment.phases);
@@ -1215,131 +1411,432 @@ export type ExperimentSnapshotQueryRunner =
   | ExperimentIncrementalRefreshQueryRunner
   | ExperimentIncrementalRefreshExploratoryQueryRunner;
 
-export type SnapshotQueryRunnerKind =
+type SnapshotQueryRunnerFamily =
   | "results"
   | "incremental"
   | "incremental-exploratory";
 
-function isIncrementalRefreshEnabledForSnapshot({
-  datasource,
-  experiment,
-}: {
-  datasource: DataSourceInterface;
-  experiment: ExperimentInterface;
-}): boolean {
-  return isExperimentIncrementalEnabled(
-    datasource.settings.pipelineSettings,
-    experiment.id,
-  );
-}
-
-export function getSnapshotQueryRunnerKind({
-  allowIncrementalRefresh,
-  isExperimentCompatibleWithIncrementalRefresh,
+export function resolveSnapshotRunner({
   datasource,
   experiment,
   snapshotType,
   hasSnapshotDimensions,
   hasMaterializedUnitsTable,
 }: {
-  allowIncrementalRefresh: boolean;
-  isExperimentCompatibleWithIncrementalRefresh: boolean;
   datasource: DataSourceInterface;
   experiment: ExperimentInterface;
   snapshotType: SnapshotType;
   hasSnapshotDimensions: boolean;
   hasMaterializedUnitsTable: boolean;
-}): SnapshotQueryRunnerKind {
+}): {
+  runnerFamily: SnapshotQueryRunnerFamily;
+  incrementalFallbackReason: string | null;
+  dimensionBlockedOnOverallResults?: true;
+} {
   if (
-    allowIncrementalRefresh &&
-    isIncrementalRefreshEnabledForSnapshot({ datasource, experiment }) &&
-    (experiment.type === undefined || experiment.type === "standard") &&
-    isExperimentCompatibleWithIncrementalRefresh
+    !isExperimentCoveredByIncrementalPipeline(
+      datasource.settings.pipelineSettings,
+      experiment.id,
+    )
   ) {
-    if (snapshotType === "exploratory" && !hasSnapshotDimensions) {
-      // Dimension-less exploratory snapshots reuse the incremental runner in
-      // read-only mode (fullRefresh is clamped to false downstream). That only
-      // works if the warehouse units table has already been created by a prior
-      // standard snapshot — otherwise fall back to the non-pipeline runner.
-      return hasMaterializedUnitsTable ? "incremental" : "results";
-    }
-
-    return snapshotType === "exploratory"
-      ? "incremental-exploratory"
-      : "incremental";
+    return { runnerFamily: "results", incrementalFallbackReason: null };
   }
 
-  return "results";
+  const unsupportedTypeReason = getUnsupportedIncrementalExperimentTypeReason(
+    experiment.type,
+  );
+  if (unsupportedTypeReason) {
+    return {
+      runnerFamily: "results",
+      incrementalFallbackReason: unsupportedTypeReason,
+    };
+  }
+
+  if (snapshotType === "exploratory") {
+    // Exploratory snapshots can use the incremental runner only after Overall
+    // Results have materialized the units table.
+    if (!hasMaterializedUnitsTable) {
+      return {
+        runnerFamily: "results",
+        incrementalFallbackReason:
+          "No materialized units table yet for Overall Results.",
+        // Only a breakdown is blocked by this. A dimensionless run is what
+        // materializes the units table in the first place.
+        ...(hasSnapshotDimensions
+          ? { dimensionBlockedOnOverallResults: true as const }
+          : {}),
+      };
+    }
+    return {
+      runnerFamily: hasSnapshotDimensions
+        ? "incremental-exploratory"
+        : "incremental",
+      incrementalFallbackReason: null,
+    };
+  }
+
+  return { runnerFamily: "incremental", incrementalFallbackReason: null };
+}
+
+function getSnapshotQueryRunnerKind({
+  runnerFamily,
+  fullRefresh,
+}: {
+  runnerFamily: SnapshotQueryRunnerFamily;
+  fullRefresh: boolean;
+}): SnapshotQueryRunnerKind {
+  switch (runnerFamily) {
+    case "results":
+      return "results";
+    case "incremental":
+      return fullRefresh ? "incremental-full" : "incremental-update";
+    case "incremental-exploratory":
+      return "incremental-exploratory";
+    default:
+      runnerFamily satisfies never;
+      throw new Error(`Unknown snapshot runner family: ${runnerFamily}`);
+  }
+}
+
+/**
+ * Determines if a full refresh is needed for an incremental experiment snapshot.
+ *
+ * Returns true in the following cases:
+ * - A full refresh is explicitly requested (`useCache` is false).
+ * - There is no prior incremental state for this experiment.
+ * - The state document exists but has no `unitsTableFullName`, meaning
+ *   the warehouse units table was never created (e.g., the initial attempt failed).
+ */
+function resolveFullRefresh(
+  useCache: boolean,
+  incrementalRefreshModel: IncrementalRefreshInterface | null,
+): { fullRefresh: boolean; fullRefreshReason: string | null } {
+  if (!useCache) {
+    return {
+      fullRefresh: true,
+      fullRefreshReason: "Full refresh explicitly requested.",
+    };
+  }
+
+  if (!incrementalRefreshModel) {
+    return {
+      fullRefresh: true,
+      fullRefreshReason:
+        "No prior Incremental Pipeline state for this experiment.",
+    };
+  }
+
+  if (!incrementalRefreshModel.unitsTableFullName) {
+    return {
+      fullRefresh: true,
+      fullRefreshReason: "Units table was never materialized by a prior run.",
+    };
+  }
+
+  return { fullRefresh: false, fullRefreshReason: null };
+}
+
+type IncrementalRefreshPrerequisiteArgs = {
+  org: OrganizationInterface;
+  integration: SourceIntegrationInterface;
+  experiment: ExperimentInterface;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  snapshotSettings: ExperimentSnapshotSettings;
+  incrementalRefreshModel: IncrementalRefreshInterface | null;
+};
+
+async function getOverallResultsFullRefreshError({
+  prerequisites,
+}: {
+  prerequisites: IncrementalRefreshPrerequisiteArgs;
+}): Promise<string | null> {
+  try {
+    await assertIncrementalRefreshPrerequisites({
+      ...prerequisites,
+      analysisType: "main-fullRefresh",
+    });
+    return null;
+  } catch (error) {
+    return getErrorMessage(error);
+  }
+}
+
+/**
+ * In case we cannot run an incremental update as planned, we need to determine
+ * the best fallback strategy.
+ *
+ * - If this is from the scheduled job and the error is an
+ *   `ExperimentIncrementalPipelineRequiresFullRefreshError`, we can
+ *   promote the scheduled job to a full refresh.
+ * - Otherwise, we downgrade to the non-incremental results runner.
+ */
+async function resolveIncrementalPrerequisiteFailure({
+  error,
+  decision,
+  experiment,
+  triggeredBy,
+  snapshotType,
+  fullRefresh,
+  fullRefreshReason,
+  prerequisites,
+  throwOnErrorInsteadOfFallback,
+}: {
+  error: unknown;
+  decision: {
+    runnerFamily: SnapshotQueryRunnerFamily;
+    incrementalFallbackReason: string | null;
+  };
+  experiment: ExperimentInterface;
+  triggeredBy: SnapshotTriggeredBy;
+  snapshotType: SnapshotType;
+  fullRefresh: boolean;
+  fullRefreshReason: string | null;
+  prerequisites: IncrementalRefreshPrerequisiteArgs;
+  throwOnErrorInsteadOfFallback: boolean;
+}): Promise<{
+  runnerFamily: SnapshotQueryRunnerFamily;
+  incrementalFallbackReason: string | null;
+  fullRefresh: boolean;
+  fullRefreshReason: string | null;
+}> {
+  const validationError =
+    error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
+      ? error.details.reason
+      : getErrorMessage(error);
+  const canPromoteToFullRefresh =
+    error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError &&
+    triggeredBy === "schedule" &&
+    snapshotType === "standard" &&
+    !fullRefresh;
+
+  if (canPromoteToFullRefresh) {
+    try {
+      await assertIncrementalRefreshPrerequisites({
+        ...prerequisites,
+        analysisType: "main-fullRefresh",
+      });
+      logger.info(
+        `Experiment ${experiment.id}: scheduled incremental refresh requires a full refresh (${validationError}); running a full refresh automatically.`,
+      );
+      return {
+        ...decision,
+        incrementalFallbackReason: null,
+        fullRefresh: true,
+        fullRefreshReason: validationError,
+      };
+    } catch (fullRefreshError) {
+      const fullRefreshValidationError = getErrorMessage(fullRefreshError);
+      logger.info(
+        `Experiment ${experiment.id} does not support incremental refresh even as a full refresh: ${fullRefreshValidationError}`,
+      );
+      return {
+        runnerFamily: "results",
+        incrementalFallbackReason: fullRefreshValidationError,
+        fullRefresh,
+        fullRefreshReason,
+      };
+    }
+  }
+
+  if (
+    throwOnErrorInsteadOfFallback &&
+    error instanceof ExperimentIncrementalPipelineRequiresFullRefreshError
+  ) {
+    throw error;
+  }
+
+  logger.info(
+    `Experiment ${experiment.id} does not support incremental refresh: ${validationError}`,
+  );
+  return {
+    runnerFamily: "results",
+    incrementalFallbackReason: validationError,
+    fullRefresh,
+    fullRefreshReason,
+  };
 }
 
 async function planSnapshotQueryRunner({
-  allowIncrementalRefresh,
   organization,
   datasource,
   integration,
   snapshotSettings,
   metricMap,
-  factTableMap,
   experiment,
   incrementalRefreshModel,
+  latestOverallSnapshotId,
   snapshotType,
   fullRefresh,
+  fullRefreshReason,
+  triggeredBy,
+  throwOnErrorInsteadOfFallback,
+  isLatestPhase,
 }: {
-  allowIncrementalRefresh: boolean;
   organization: OrganizationInterface;
   datasource: DataSourceInterface;
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
-  factTableMap: FactTableMap;
   experiment: ExperimentInterface;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
+  latestOverallSnapshotId: string | null;
   snapshotType: SnapshotType;
   fullRefresh: boolean;
-}): Promise<SnapshotQueryRunnerKind> {
-  let isExperimentCompatibleWithIncrementalRefresh = false;
-  if (allowIncrementalRefresh) {
-    try {
-      await validateIncrementalPipeline({
-        org: organization,
-        integration,
-        snapshotSettings,
-        metricMap,
-        factTableMap,
-        experiment,
-        incrementalRefreshModel,
-        analysisType: fullRefresh
-          ? "main-fullRefresh"
-          : snapshotType === "standard"
-            ? "main-update"
-            : "exploratory",
-      });
-      isExperimentCompatibleWithIncrementalRefresh = true;
-    } catch (error) {
-      logger.info(
-        `Experiment ${experiment.id} does not support incremental refresh: ${"message" in error ? error.message : error}`,
-      );
-    }
-  }
-
-  return getSnapshotQueryRunnerKind({
-    allowIncrementalRefresh,
-    isExperimentCompatibleWithIncrementalRefresh,
+  fullRefreshReason: string | null;
+  triggeredBy: SnapshotTriggeredBy;
+  throwOnErrorInsteadOfFallback: boolean;
+  isLatestPhase: boolean;
+}): Promise<{
+  runnerFamily: SnapshotQueryRunnerFamily;
+  incrementalFallbackReason: string | null;
+  fullRefresh: boolean;
+  fullRefreshReason: string | null;
+}> {
+  const decision = resolveSnapshotRunner({
     datasource,
     experiment,
     snapshotType,
     hasSnapshotDimensions: snapshotSettings.dimensions.length > 0,
     hasMaterializedUnitsTable: !!incrementalRefreshModel?.unitsTableFullName,
   });
+
+  const prerequisites: IncrementalRefreshPrerequisiteArgs = {
+    org: organization,
+    integration,
+    experiment,
+    metricMap,
+    snapshotSettings,
+    incrementalRefreshModel,
+  };
+
+  if (decision.dimensionBlockedOnOverallResults) {
+    const unavailableReason = isLatestPhase
+      ? await getOverallResultsFullRefreshError({ prerequisites })
+      : null;
+    if (isLatestPhase && throwOnErrorInsteadOfFallback && !unavailableReason) {
+      throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+        "Overall Results have not been computed yet, so there is no units table for a dimension breakdown to read.",
+      );
+    }
+    return {
+      runnerFamily: "results",
+      incrementalFallbackReason:
+        unavailableReason ?? decision.incrementalFallbackReason,
+      fullRefresh,
+      fullRefreshReason,
+    };
+  }
+
+  if (decision.runnerFamily === "results") {
+    const { runnerFamily, incrementalFallbackReason } = decision;
+    return {
+      runnerFamily,
+      incrementalFallbackReason,
+      fullRefresh,
+      fullRefreshReason,
+    };
+  }
+
+  // Dimension breakdowns read the Overall Results units table. If experiment
+  // settings drifted, Overall Results must rebuild that table first.
+  if (
+    decision.runnerFamily === "incremental-exploratory" &&
+    incrementalRefreshModel &&
+    exploratoryOverallRequiresFullRefresh({
+      snapshotSettings,
+      exposureQueries: datasource.settings.queries?.exposure ?? [],
+      incrementalRefreshModel,
+      latestOverallSnapshotId,
+    })
+  ) {
+    const unavailableReason = isLatestPhase
+      ? await getOverallResultsFullRefreshError({ prerequisites })
+      : null;
+    if (isLatestPhase && throwOnErrorInsteadOfFallback && !unavailableReason) {
+      throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+        "Overall Results require a full refresh before Dimension Results can be updated.",
+      );
+    }
+    return {
+      runnerFamily: "results",
+      incrementalFallbackReason:
+        unavailableReason ??
+        (isLatestPhase
+          ? "Overall Results need a full refresh; running non-incremental update instead of reading stale data."
+          : "The requested phase's materialized units table is stale; running a non-incremental update instead."),
+      fullRefresh,
+      fullRefreshReason,
+    };
+  }
+
+  try {
+    await assertIncrementalRefreshPrerequisites({
+      ...prerequisites,
+      analysisType: fullRefresh
+        ? "main-fullRefresh"
+        : snapshotType === "standard"
+          ? "main-update"
+          : "exploratory",
+    });
+    return {
+      ...decision,
+      fullRefresh,
+      fullRefreshReason,
+    };
+  } catch (error) {
+    return resolveIncrementalPrerequisiteFailure({
+      error,
+      decision,
+      experiment,
+      triggeredBy,
+      snapshotType,
+      fullRefresh,
+      fullRefreshReason,
+      prerequisites,
+      throwOnErrorInsteadOfFallback,
+    });
+  }
 }
 
 export type PlannedExperimentSnapshot = {
-  snapshot: ExperimentSnapshotInterface;
-  runnerKind: SnapshotQueryRunnerKind;
+  snapshot: ExperimentSnapshotInterface & {
+    runnerKind: SnapshotQueryRunnerKind;
+  };
   useCache: boolean;
   fullRefresh: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
+  incrementalFallbackReason: string | null;
+  fullRefreshReason: string | null;
 };
+
+function shouldIncrementalThrowErrorInsteadOfFallback(
+  useCache: boolean,
+  triggeredBy: SnapshotTriggeredBy,
+  throwIfRequiresFullRefresh?: boolean,
+): boolean {
+  if (!useCache) {
+    return false;
+  }
+
+  // A request-path caller will act on the error and resubmit, so surface it
+  // instead of guessing from triggeredBy (which a public API caller controls).
+  if (throwIfRequiresFullRefresh) {
+    return true;
+  }
+
+  switch (triggeredBy) {
+    case "manual":
+      return true;
+    case "manual-dashboard":
+    case "schedule":
+    case "update-dashboards":
+      return false;
+    default: {
+      triggeredBy satisfies never;
+      return false;
+    }
+  }
+}
 
 export async function planSnapshot({
   experiment,
@@ -1354,7 +1851,7 @@ export async function planSnapshot({
   metricMap,
   factTableMap,
   reweight,
-  allowIncrementalRefresh = true,
+  throwIfRequiresFullRefresh,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1368,7 +1865,7 @@ export async function planSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
-  allowIncrementalRefresh?: boolean;
+  throwIfRequiresFullRefresh?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -1378,21 +1875,6 @@ export async function planSnapshot({
   if (!datasource) {
     throw new Error("Could not load data source");
   }
-
-  const incrementalRefreshModel = useCache
-    ? await context.models.incrementalRefresh.getByExperimentId(experiment.id)
-    : null;
-
-  // Full refresh when explicitly requested (!useCache), when no prior
-  // incremental state exists, or when the state doc exists but has no
-  // unitsTableFullName. The latter happens because acquireLock() upserts the
-  // doc before any warehouse table is created — unitsTableFullName is only
-  // populated after a successful CREATE, so a null value means the units
-  // table was never materialized (e.g. lock acquired but first run failed).
-  const fullRefresh =
-    !useCache ||
-    !incrementalRefreshModel ||
-    !incrementalRefreshModel.unitsTableFullName;
 
   const requestedPrecomputedUnitDimensionIds =
     experiment.precomputedUnitDimensionIds ?? [];
@@ -1406,7 +1888,7 @@ export async function planSnapshot({
         })
       : [];
 
-  const snapshotSettings = getSnapshotSettings({
+  const snapshotSettingsArgs = {
     experiment,
     phaseIndex,
     orgPriorSettings: organization.settings?.metricDefaults?.priorSettings,
@@ -1421,15 +1903,62 @@ export async function planSnapshot({
     metricGroups,
     reweight,
     datasource,
-    incrementalRefreshModel,
     useStickyBucketing:
       organization.settings?.useStickyBucketing &&
       !experiment.disableStickyBucketing,
     eligiblePrecomputedUnitDimensionIds,
+  };
+
+  const incrementalRefresh = useCache
+    ? await context.models.incrementalRefresh.getByExperimentIdAndPhase(
+        experiment.id,
+        phaseIndex,
+      )
+    : null;
+
+  // A pre-phase document belongs to the phase whose settings hash it matches,
+  // not to whatever phase is latest now. The hashed fields do not depend on the
+  // state document, so probing with a null model yields the same hash the real
+  // settings will carry.
+  let legacyIncrementalRefresh: IncrementalRefreshInterface | null = null;
+  if (useCache && !incrementalRefresh) {
+    const legacyDoc =
+      await context.models.incrementalRefresh.getLegacyByExperimentIdWithoutPhase(
+        experiment.id,
+      );
+    if (
+      legacyDoc &&
+      legacyDocDescribesPhase({
+        legacyDoc,
+        snapshotSettings: getSnapshotSettings({
+          ...snapshotSettingsArgs,
+          incrementalRefreshModel: null,
+        }),
+        exposureQueries: datasource.settings.queries?.exposure ?? [],
+      })
+    ) {
+      legacyIncrementalRefresh = legacyDoc;
+    }
+  }
+
+  const incrementalRefreshModel =
+    incrementalRefresh ?? legacyIncrementalRefresh;
+
+  const {
+    fullRefresh: standardFullRefresh,
+    fullRefreshReason: standardFullRefreshReason,
+  } = resolveFullRefresh(useCache, incrementalRefreshModel);
+  const fullRefresh = type === "standard" ? standardFullRefresh : false;
+  const fullRefreshReason =
+    type === "standard" ? standardFullRefreshReason : null;
+
+  const snapshotSettings = getSnapshotSettings({
+    ...snapshotSettingsArgs,
+    incrementalRefreshModel,
   });
 
   const data: ExperimentSnapshotInterface = {
-    id: uniqid("snp_"),
+    id: generateId("snp_"),
     organization: experiment.organization,
     experiment: experiment.id,
     runStarted: new Date(),
@@ -1468,25 +1997,74 @@ export async function planSnapshot({
   };
   const integration = getSourceIntegrationObject(context, datasource, true);
 
-  const runnerKind = await planSnapshotQueryRunner({
-    allowIncrementalRefresh,
+  let latestOverallSnapshotId: string | null = null;
+  if (
+    type === "exploratory" &&
+    incrementalRefreshModel?.materializedBySnapshotId
+  ) {
+    const latestOverallSnapshot = await getLatestSuccessfulSnapshot({
+      context,
+      experiment: experiment.id,
+      phase: phaseIndex,
+    });
+    latestOverallSnapshotId = latestOverallSnapshot?.id ?? null;
+  }
+
+  const runnerPlan = await planSnapshotQueryRunner({
     organization,
     datasource,
     integration,
     snapshotSettings: data.settings,
     metricMap,
-    factTableMap,
     experiment,
     incrementalRefreshModel,
+    latestOverallSnapshotId,
     snapshotType: type,
     fullRefresh,
+    fullRefreshReason,
+    triggeredBy,
+    throwOnErrorInsteadOfFallback: shouldIncrementalThrowErrorInsteadOfFallback(
+      useCache,
+      triggeredBy,
+      throwIfRequiresFullRefresh,
+    ),
+    isLatestPhase: phaseIndex === experiment.phases.length - 1,
   });
 
+  if (runnerPlan.runnerFamily === "incremental-exploratory") {
+    // The snapshot whose run materialized the tables this breakdown reads is
+    // the source of its freshness date. Absent for legacy docs that predate the
+    // field; the UI falls back to the breakdown's own dateCreated in that case.
+    const materializedBySnapshotId =
+      incrementalRefreshModel?.materializedBySnapshotId;
+    const sourceSnapshot = materializedBySnapshotId
+      ? await findSnapshotById(context, materializedBySnapshotId)
+      : null;
+    if (sourceSnapshot) {
+      data.sourceSnapshotId = sourceSnapshot.id;
+      data.sourceSnapshotDateCreated = sourceSnapshot.dateCreated;
+    } else if (materializedBySnapshotId) {
+      logger.error(
+        { experimentId: experiment.id, phaseIndex, materializedBySnapshotId },
+        "Source snapshot for exploratory dimension breakdown not found",
+      );
+    }
+  }
+
+  const snapshot = {
+    ...data,
+    runnerKind: getSnapshotQueryRunnerKind({
+      runnerFamily: runnerPlan.runnerFamily,
+      fullRefresh: runnerPlan.fullRefresh,
+    }),
+  };
+
   return {
-    snapshot: data,
-    runnerKind,
+    snapshot,
+    incrementalFallbackReason: runnerPlan.incrementalFallbackReason,
     useCache,
-    fullRefresh,
+    fullRefresh: runnerPlan.fullRefresh,
+    fullRefreshReason: runnerPlan.fullRefreshReason,
     settingsForSnapshotMetrics,
   };
 }
@@ -1509,25 +2087,32 @@ export async function createSnapshotFromPlan({
     throw new Error("Could not load data source");
   }
   const integration = getSourceIntegrationObject(context, datasource, true);
+  const { runnerKind } = plan.snapshot;
 
-  // Both incremental runner kinds need exclusive access to the per-experiment
-  // pipeline tables: "incremental" mutates them (DROP/CREATE/RENAME on the
-  // units + metric-source tables), and "incremental-exploratory" reads them.
-  // Locking both prevents concurrent triggers (e.g. scheduled auto-refresh +
-  // manual Update) from racing on those tables and producing empty or
-  // malformed results. The "results" runner writes only to per-snapshot
-  // ephemeral tables, so it does not need this lock.
+  // Incremental full/update mutate the per-experiment pipeline tables
+  // (DROP/CREATE/RENAME on units + metric-source tables). Exploratory reads
+  // those tables. Lock all three so concurrent triggers (scheduled
+  // auto-refresh + manual Update) cannot race and produce empty or malformed
+  // results. The results runner only writes per-snapshot ephemeral tables, so
+  // it does not need this lock.
   const needsIncrementalRefreshLock =
-    plan.runnerKind === "incremental" ||
-    plan.runnerKind === "incremental-exploratory";
+    runnerKind === "incremental-full" ||
+    runnerKind === "incremental-update" ||
+    runnerKind === "incremental-exploratory";
 
   let hasIncrementalRefreshLock = false;
   if (needsIncrementalRefreshLock) {
     hasIncrementalRefreshLock =
-      await context.models.incrementalRefresh.acquireLock(
-        experiment.id,
-        plan.snapshot.id,
-      );
+      await context.models.incrementalRefresh.acquireLock({
+        experimentId: experiment.id,
+        phase: plan.snapshot.phase,
+        snapshotId: plan.snapshot.id,
+        legacyExperimentSettingsHash:
+          getExperimentSettingsHashForIncrementalRefresh(
+            plan.snapshot.settings,
+            datasource.settings.queries?.exposure ?? [],
+          ),
+      });
     if (!hasIncrementalRefreshLock) {
       throw new ConcurrentIncrementalRefreshError(
         "There is already an update in progress for this experiment.",
@@ -1536,6 +2121,8 @@ export async function createSnapshotFromPlan({
   }
 
   let createdSnapshotId: string | null = null;
+  let experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
+    null;
 
   try {
     let scheduleNextSnapshot = true;
@@ -1570,8 +2157,26 @@ export async function createSnapshotFromPlan({
     });
     createdSnapshotId = snapshot.id;
 
+    const experimentUpdateLog: ExperimentUpdateLogPlan = {
+      runnerKind,
+      incrementalFallbackReason: plan.incrementalFallbackReason,
+      useCache: plan.useCache,
+      fullRefresh: plan.fullRefresh,
+      fullRefreshReason: plan.fullRefreshReason,
+    };
+
+    const snapshotType = plan.snapshot.type;
+    if (!snapshotType) {
+      throw new Error("Snapshot plan is missing a snapshot type");
+    }
+
+    experimentUpdateExecutionLogger = new ExperimentUpdateExecutionLogger(
+      experimentUpdateLog,
+      { datasource },
+    );
+
     let queryRunner: ExperimentSnapshotQueryRunner;
-    switch (plan.runnerKind) {
+    switch (runnerKind) {
       case "incremental-exploratory":
         queryRunner = new ExperimentIncrementalRefreshExploratoryQueryRunner(
           context,
@@ -1580,7 +2185,8 @@ export async function createSnapshotFromPlan({
           false, // TODO(incremental-refresh): allow cache + cache override for exploratory queries
         );
         break;
-      case "incremental":
+      case "incremental-full":
+      case "incremental-update":
         queryRunner = new ExperimentIncrementalRefreshQueryRunner(
           context,
           snapshot,
@@ -1597,14 +2203,13 @@ export async function createSnapshotFromPlan({
         );
         break;
       default:
-        plan.runnerKind satisfies never;
-        throw new Error(`Unknown snapshot runner kind: ${plan.runnerKind}`);
+        runnerKind satisfies never;
+        throw new Error(`Unknown snapshot runner kind: ${runnerKind}`);
     }
 
-    const snapshotType = plan.snapshot.type;
-    if (!snapshotType) {
-      throw new Error("Snapshot plan is missing a snapshot type");
-    }
+    queryRunner.setExperimentUpdateExecutionLogger(
+      experimentUpdateExecutionLogger,
+    );
 
     const analysisProps = {
       snapshotType,
@@ -1619,16 +2224,19 @@ export async function createSnapshotFromPlan({
       },
     };
 
-    if (plan.runnerKind === "incremental") {
+    if (
+      runnerKind === "incremental-full" ||
+      runnerKind === "incremental-update"
+    ) {
       await (
         queryRunner as ExperimentIncrementalRefreshQueryRunner
       ).startAnalysis({
         ...analysisProps,
         experimentId: experiment.id,
         incrementalRefreshStartTime: new Date(),
-        fullRefresh: plan.fullRefresh && plan.snapshot.type === "standard",
+        fullRefresh: runnerKind === "incremental-full",
       });
-    } else if (plan.runnerKind === "incremental-exploratory") {
+    } else if (runnerKind === "incremental-exploratory") {
       await (
         queryRunner as ExperimentIncrementalRefreshExploratoryQueryRunner
       ).startAnalysis({
@@ -1691,6 +2299,8 @@ export async function createSnapshotFromPlan({
           status: "error",
           error: e.message,
         },
+        conclusion: { concludedBy: "runner" },
+        experimentUpdateExecutionLogger,
       });
     }
     throw e;
@@ -1710,7 +2320,6 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   reweight,
-  allowIncrementalRefresh = true,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1724,7 +2333,6 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
-  allowIncrementalRefresh?: boolean;
 }): Promise<ExperimentSnapshotQueryRunner> {
   const plan = await planSnapshot({
     experiment,
@@ -1739,7 +2347,6 @@ export async function createSnapshot({
     metricMap,
     factTableMap,
     reweight,
-    allowIncrementalRefresh,
   });
 
   return createSnapshotFromPlan({
@@ -1784,15 +2391,335 @@ export function fillEmptyVariationKeys(
   }
 }
 
-export function validateVariationIds(variations: Variation[]) {
+const inUnitInterval = (n: number) => n >= 0 && n <= 1;
+
+// Only phases that differ from the stored phase at the same index are checked,
+// so an unrelated edit to an experiment with legacy data is not rejected.
+export function assertValidExperimentPhases(
+  phases: ExperimentPhase[],
+  existing: ExperimentPhase[] = [],
+): void {
+  phases.forEach((phase, i) => {
+    if (isEqual(phase, existing[i])) return;
+    if (!inUnitInterval(phase.coverage)) {
+      throw new BadRequestError(
+        `invalid_coverage: phase ${i} coverage must be between 0 and 1`,
+      );
+    }
+    const weights = phase.variationWeights;
+    if (
+      !weights.every(inUnitInterval) ||
+      !isVariationWeightsSumValid(weights)
+    ) {
+      throw new BadRequestError(
+        `invalid_variation_weights: phase ${i} variation weights must each be between 0 and 1 and sum to 1`,
+      );
+    }
+  });
+}
+
+// A change that touches a payload field needs run-experiments permission in the
+// environments the experiment affects (on both the current project and, if it
+// moves, the new one); other edits need only the update permission the caller
+// has already been checked for. Shared by the dashboard POST /experiment/:id
+// and the REST POST /api/v1/experiments/:id so the two agree on which fields
+// count.
+export async function assertCanRunExperimentChanges(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  changes: Changeset,
+): Promise<void> {
+  // A schedule that will start, stop or ship is a deferred status change;
+  // so is re-timing or clearing one that is still pending.
+  const needsRunExperimentsPermission =
+    PAYLOAD_AFFECTING_EXPERIMENT_FIELDS.some((key) => key in changes) ||
+    ("statusUpdateSchedule" in changes &&
+      scheduleWriteNeedsRunPermission(
+        experiment,
+        changes.statusUpdateSchedule,
+      ));
+  if (!needsRunExperimentsPermission) return;
+
+  await assertCanRunExperimentInAffectedEnvironments(
+    context,
+    experiment,
+    "project" in changes ? [changes.project || undefined] : [],
+  );
+}
+
+// The environments the experiment serves now plus those its pending drafts
+// reach once it starts, so a launch is gated like the live change it makes.
+export async function getExperimentAffectedEnvs(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<string[]> {
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+
+  // getFeaturesByIds drops features the caller cannot read. A feature we cannot
+  // see still serves the experiment, so if any real one is missing we ask for
+  // permission in every environment. Ids of deleted features don't count.
+  let hasUnreadableFeature = false;
+  if (linkedFeatures.length < linkedFeatureIds.length) {
+    const existingFeatures = await getFeatureProjectsByIds(
+      context,
+      linkedFeatureIds,
+    );
+    hasUnreadableFeature = existingFeatures.size > linkedFeatures.length;
+  }
+
+  const pendingDrafts = await loadPendingFeatureDrafts(
+    context,
+    experiment,
+    linkedFeatures,
+  );
+
+  return getAffectedEnvsForExperiment({
+    experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+    // Passing undefined here makes it return __ALL__ envs.
+    linkedFeatures: hasUnreadableFeature ? undefined : linkedFeatures,
+    pendingDrafts,
+  });
+}
+
+// The principal a staged status change runs as: whoever armed it, user or org
+// API key, with the rights they hold now, project restrictions included.
+// Nobody recorded means nobody to run as.
+export async function getScheduledStatusContext(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "nextScheduledStatusUpdate" | "owner">,
+): Promise<ReqContext | ApiReqContext | null> {
+  const staged = experiment.nextScheduledStatusUpdate;
+  if (staged?.scheduledBy) {
+    return getContextForUserIdInOrg(context.org, staged.scheduledBy);
+  }
+  if (staged?.scheduledByApiKey) {
+    return getContextForApiKeyIdInOrg(context.org, staged.scheduledByApiKey);
+  }
+  // A stop staged before armers were recorded runs as the owner, as it did
+  // then; a start would publish drafts, so it has nobody to run as.
+  if (staged?.type === "stop" && experiment.owner) {
+    return getContextForUserIdInOrg(context.org, experiment.owner);
+  }
+  return null;
+}
+
+// The drafts a start publishes, with the features they land on.
+async function loadPendingFeatureDrafts(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  linkedFeatures: FeatureInterface[] = [],
+): Promise<
+  { feature: FeatureInterface; revision: FeatureRevisionInterface }[]
+> {
+  const pendingDrafts: {
+    feature: FeatureInterface;
+    revision: FeatureRevisionInterface;
+  }[] = [];
+  for (const {
+    featureId,
+    revisionVersion,
+  } of experiment.pendingFeatureDrafts ?? []) {
+    const feature =
+      linkedFeatures.find((f) => f.id === featureId) ??
+      (await getFeature(context, featureId));
+    if (!feature) continue;
+    const revision = await getRevision({
+      context,
+      organization: context.org.id,
+      featureId,
+      feature,
+      version: revisionVersion,
+    });
+    if (revision && !["published", "discarded"].includes(revision.status)) {
+      pendingDrafts.push({ feature, revision });
+    }
+  }
+  return pendingDrafts;
+}
+
+// The fire publishes the pending drafts as the armer, so the arm asks the same
+// question up front. Loaded org-wide: a draft the armer cannot read is refused.
+export async function assertCanPublishPendingFeatureDrafts(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  const orgEnvironments = context.org.settings?.environments || [];
+  const drafts = await loadPendingFeatureDrafts(
+    getContextForAgendaJobByOrgObject(context.org),
+    experiment,
+  );
+  for (const draft of drafts) {
+    const envs = getAffectedEnvsForExperiment({
+      experiment: {
+        ...experiment,
+        hasVisualChangesets: false,
+        hasURLRedirects: false,
+      },
+      orgEnvironments,
+      linkedFeatures: [],
+      pendingDrafts: [draft],
+    });
+    if (!context.permissions.canPublishFeature(draft.feature, envs)) {
+      context.permissions.throwPermissionError();
+    }
+  }
+}
+
+// Run-experiments permission over the affected environments, on the
+// experiment's project and on any additional (e.g. destination) project.
+export async function assertCanRunExperimentInAffectedEnvironments(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  additionalProjects: (string | undefined)[] = [],
+): Promise<void> {
+  const envs = await getExperimentAffectedEnvs(context, experiment);
+  if (envs.length > 0) {
+    const projects = [experiment.project || undefined, ...additionalProjects];
+    // check user's permission on existing experiment project and the updated project, if changed
+    for (const project of projects) {
+      if (!context.permissions.canRunExperiment({ project }, envs)) {
+        context.permissions.throwPermissionError();
+      }
+    }
+  }
+}
+
+type ReleasedVariationFields = Pick<
+  ExperimentInterface,
+  "releasedVariationId" | "variations"
+>;
+
+// A mismatched releasedVariationId silently drops the release from the SDK
+// payload. Only a write that introduces the mismatch is rejected; a
+// pre-existing one is left alone.
+export function assertValidReleasedVariationId(
+  updated: Partial<ReleasedVariationFields>,
+  existing?: ReleasedVariationFields,
+): void {
+  const releasedVariationId = updated.releasedVariationId || "";
+  if (!releasedVariationId) return;
+
+  const variationIds = new Set((updated.variations ?? []).map((v) => v.id));
+  if (variationIds.has(releasedVariationId)) return;
+
+  const previousReleasedVariationId = existing?.releasedVariationId || "";
+  const idChanged = previousReleasedVariationId !== releasedVariationId;
+  const wasValid =
+    !!existing && existing.variations.some((v) => v.id === releasedVariationId);
+
+  if (idChanged || wasValid) {
+    throw new BadRequestError(
+      "invalid_released_variation_id: releasedVariationId must match one of the experiment's variation ids",
+    );
+  }
+}
+
+type BucketVersionFields = Pick<
+  ExperimentInterface,
+  "bucketVersion" | "minBucketVersion"
+>;
+
+// A minBucketVersion above bucketVersion blocks every sticky-bucketed user after
+// their first exposure. Only a write that introduces a bad pair is rejected; a
+// pre-existing one is left alone.
+export function assertValidBucketVersions(
+  updated: Partial<BucketVersionFields>,
+  existing?: Partial<BucketVersionFields>,
+): void {
+  const bucketVersion = updated.bucketVersion ?? 0;
+  const minBucketVersion = updated.minBucketVersion ?? 0;
+  if (
+    existing &&
+    (existing.bucketVersion ?? 0) === bucketVersion &&
+    (existing.minBucketVersion ?? 0) === minBucketVersion
+  ) {
+    return;
+  }
+
+  for (const [field, value] of [
+    ["bucketVersion", bucketVersion],
+    ["minBucketVersion", minBucketVersion],
+  ] as const) {
+    if (!Number.isInteger(value) || value < 0) {
+      throw new BadRequestError(
+        `invalid_bucket_version: ${field} must be a non-negative integer`,
+      );
+    }
+  }
+  if (minBucketVersion > bucketVersion) {
+    throw new BadRequestError(
+      "invalid_bucket_version: minBucketVersion cannot be greater than bucketVersion",
+    );
+  }
+}
+
+export async function assertExperimentKeyFormat(
+  context: ReqContext | ApiReqContext,
+  trackingKey: string | undefined,
+  datasourceId: string | undefined,
+) {
+  const { experimentKeyRegexValidator: pattern, experimentKeyExample } =
+    context.org.settings ?? {};
+  if (!pattern) return;
+  const example = experimentKeyExample ?? "";
+  if (!trackingKey) {
+    throw new InvalidTrackingKeyError(
+      "Your organization requires an experiment tracking key to be entered.",
+      pattern,
+      example,
+    );
+  }
+  if (new RegExp(pattern).test(trackingKey)) return;
+  // Keys discovered in the Data Source can't be renamed, so they're exempt
+  const pastExperiments = datasourceId
+    ? await getPastExperimentsModelByDatasource(context.org.id, datasourceId)
+    : null;
+  if (pastExperiments?.experiments?.some((e) => e.trackingKey === trackingKey))
+    return;
+  throw new InvalidTrackingKeyError(
+    `Experiment tracking key must match the regex validator. '${pattern}' Example: '${example}'`,
+    pattern,
+    example,
+  );
+}
+
+// Assigns missing ids and keys, then checks both are unique. On an update
+// (`existing`), an omitted id keeps the stored one by key, else by position,
+// so linked feature rules keep pointing at the same variations.
+
+export function validateVariationIds(
+  variations: Partial<Pick<ApiVariationInput, "id" | "variationId" | "key">>[],
+  existing?: Pick<Variation, "id" | "key">[],
+) {
+  if (existing && existing.length === variations.length) {
+    const claimed = new Set(variations.map((v) => v.id || v.variationId));
+    const idByKey = new Map(existing.map((v) => [v.key, v.id]));
+    variations.forEach((v, i) => {
+      if (v.id || v.variationId) return;
+      const stored = [
+        v.key === undefined ? undefined : idByKey.get(v.key),
+        existing[i].id,
+      ].find((id) => id && !claimed.has(id));
+      if (stored) {
+        v.variationId = stored;
+        claimed.add(stored);
+      }
+    });
+  }
   variations.forEach((variation, i) => {
     if (!variation.id) {
-      variation.id = uniqid("var_");
+      variation.id = variation.variationId || uniqid("var_");
     }
     if (!variation.key) {
       variation.key = i + "";
     }
   });
+  const ids = variations.map((v) => v.id);
+  if (ids.length !== new Set(ids).size) {
+    throw new Error("Variation IDs must be unique.");
+  }
   const keys = variations.map((v) => v.key);
   if (keys.length !== new Set(keys).size) {
     throw new Error("Variation keys must be unique");
@@ -1831,7 +2758,6 @@ export async function createExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
-  allowIncrementalRefresh = true,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -1842,7 +2768,6 @@ export async function createExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
-  allowIncrementalRefresh?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentSnapshotQueryRunner;
@@ -1857,7 +2782,6 @@ export async function createExperimentSnapshot({
     triggeredBy,
     type,
     reweight,
-    allowIncrementalRefresh,
   });
 
   return createExperimentSnapshotFromPlan({
@@ -1883,7 +2807,7 @@ export async function createExperimentSnapshotFromPlan({
   const factTableMap = await getFactTableMap(context);
   const metricGroups = await context.models.metricGroups.getAll();
 
-  expandAllSliceMetricsInMap({
+  expandDerivedMetricsInMap({
     metricMap,
     factTableMap,
     experiment,
@@ -1910,7 +2834,7 @@ export async function planExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
-  allowIncrementalRefresh = true,
+  throwIfRequiresFullRefresh,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -1921,7 +2845,7 @@ export async function planExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
-  allowIncrementalRefresh?: boolean;
+  throwIfRequiresFullRefresh?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
   const snapshotType =
     type ??
@@ -1930,6 +2854,19 @@ export async function planExperimentSnapshot({
       dimension,
       phaseIndex: phase,
     });
+
+  const metricGroups = await context.models.metricGroups.getAll();
+  const metricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
+
+  if (metricIds.length === 0) {
+    throw new BadRequestError(
+      "Experiment must have at least 1 metric selected to be analyzed.",
+    );
+  }
 
   let project = null;
   if (experiment.project) {
@@ -1946,17 +2883,16 @@ export async function planExperimentSnapshot({
   });
   const statsEngine = settings.statsEngine.value;
   const postStratificationEnabled = settings.postStratificationEnabled.value;
+
   const metricMap = await getMetricMap(context);
-  const factTableMap = await getFactTableMap(context);
-
-  const metricGroups = await context.models.metricGroups.getAll();
-  const metricIds = getAllMetricIdsFromExperiment(
-    experiment,
-    false,
-    metricGroups,
+  const allExperimentMetrics = metricIds.map(
+    (metricId) => metricMap.get(metricId) ?? null,
   );
-
-  const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
+  if (!allExperimentMetrics.some(isDefined)) {
+    throw new BadRequestError(
+      "Experiment must have at least 1 metric selected to be analyzed.",
+    );
+  }
 
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
@@ -1966,6 +2902,8 @@ export async function planExperimentSnapshot({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
+
+  const factTableMap = await getFactTableMap(context);
 
   const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
     getAllMetricSettingsForSnapshot({
@@ -2012,7 +2950,7 @@ export async function planExperimentSnapshot({
     reweight,
     type: snapshotType,
     triggeredBy: triggeredBy ?? "manual",
-    allowIncrementalRefresh,
+    throwIfRequiresFullRefresh,
   });
   return plan;
 }
@@ -2029,6 +2967,7 @@ export async function _getSnapshots(
   experimentObjs: ExperimentInterface[],
   dimension?: string,
   withResults: boolean = true,
+  hydrateMetricIds?: string[],
 ): Promise<ExperimentSnapshotInterface[]> {
   const experimentPhaseMap: Map<string, number> = new Map();
   experimentObjs.forEach((e) => {
@@ -2043,6 +2982,7 @@ export async function _getSnapshots(
     experimentPhaseMap,
     dimension,
     withResults,
+    hydrateMetricIds,
   );
 }
 
@@ -2066,9 +3006,9 @@ async function getSnapshotAnalyses(
   const createAnalysisPromises: (() => Promise<void>)[] = [];
   params.forEach(({ experiment, analysisSettings, metricMap, snapshot }, i) => {
     const expandedMetricMap = new Map(metricMap);
-    // Ensure slice metrics from existing snapshot query results can always
+    // Ensure derived metrics from existing snapshot query results can always
     // be resolved during re-analysis, regardless of caller behavior.
-    expandAllSliceMetricsInMap({
+    expandDerivedMetricsInMap({
       metricMap: expandedMetricMap,
       factTableMap,
       experiment,
@@ -2467,8 +3407,9 @@ export async function toExperimentApiInterface(
     ),
     phases: experiment.phases.map((p) => ({
       name: p.name,
-      dateStarted: p.dateStarted.toISOString(),
-      dateEnded: p.dateEnded ? p.dateEnded.toISOString() : "",
+      // dateStarted is required by the API but some legacy phases might not have one
+      dateStarted: p.dateStarted?.toISOString() ?? "",
+      dateEnded: p.dateEnded?.toISOString() ?? "",
       reasonForStopping: p.reason || "",
       seed: p.seed || experiment.trackingKey,
       coverage: p.coverage,
@@ -2487,6 +3428,7 @@ export async function toExperimentApiInterface(
             const ranges = getNamespaceRanges(p.namespace);
             return {
               namespaceId: p.namespace.name,
+              enabled: p.namespace.enabled,
               range: ranges[0] ?? [0, 0],
               ranges,
             };
@@ -2495,6 +3437,11 @@ export async function toExperimentApiInterface(
     })),
     settings: {
       datasourceId: experiment.datasource || "",
+      assignmentQuery: toApiAssignmentQueryRef(
+        experiment.exposureQueryId,
+        experiment.exposureQueryIdentifierType,
+        await getExposureQueriesForDatasource(context, experiment.datasource),
+      ),
       assignmentQueryId: experiment.exposureQueryId || "",
       experimentId: experiment.trackingKey,
       segmentId: experiment.segment || "",
@@ -2576,6 +3523,7 @@ export async function toExperimentApiInterface(
         }
       : null),
     linkedFeatures: experiment.linkedFeatures || [],
+    attributeScopeAllProjects: experiment.attributeScopeAllProjects || false,
     hasVisualChangesets: experiment.hasVisualChangesets || false,
     hasURLRedirects: experiment.hasURLRedirects || false,
     customFields: experiment.customFields ?? {},
@@ -2583,56 +3531,85 @@ export async function toExperimentApiInterface(
     precomputedUnitDimensionIds: experiment.precomputedUnitDimensionIds ?? [],
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
-    statusUpdateSchedule: experiment.statusUpdateSchedule
+    statusUpdateSchedule: (() => {
+      const s = experiment.statusUpdateSchedule;
+      if (!s) return s === undefined ? undefined : null;
+      const out = {
+        ...(s.startAt ? { startAt: s.startAt.toISOString() } : {}),
+        ...(s.stopAt ? { stopAt: s.stopAt.toISOString() } : {}),
+        ...(s.stopAfter ? { stopAfter: s.stopAfter } : {}),
+        ...(s.scheduledStopPlan
+          ? { scheduledStopPlan: s.scheduledStopPlan }
+          : {}),
+      };
+      return Object.keys(out).length > 0 ? out : null;
+    })(),
+    nextScheduledStatusUpdate: experiment.nextScheduledStatusUpdate
       ? {
-          startAt: experiment.statusUpdateSchedule.startAt.toISOString(),
+          type: experiment.nextScheduledStatusUpdate.type,
+          date: experiment.nextScheduledStatusUpdate.date.toISOString(),
         }
-      : experiment.statusUpdateSchedule,
-    // Only "start" is produced for experiments; updateExperimentStatus.ts
-    // clears any other type before it can be observed. Filter defensively
-    // so the API response always matches the documented schema.
-    nextScheduledStatusUpdate:
-      experiment.nextScheduledStatusUpdate?.type === "start"
-        ? {
-            type: "start" as const,
-            date: experiment.nextScheduledStatusUpdate.date.toISOString(),
-          }
-        : experiment.nextScheduledStatusUpdate === undefined
-          ? undefined
-          : null,
+      : experiment.nextScheduledStatusUpdate === undefined
+        ? undefined
+        : null,
   };
   return apiExperiment;
 }
 
 // Round to 20 decimal places to avoid returning subnormal floats (e.g. 2.7e-313)
-// that break many real-world JSON parsers.
+// that break many real-world JSON parsers. Emits 0 rather than null for missing
+// values to preserve this serializer's established API contract.
 function safeFloat(n: number | undefined, fallback = 0): number {
   if (n == null || !isFinite(n)) return fallback;
   return parseFloat(n.toFixed(20));
+}
+
+// Round to 20 decimal places to avoid returning subnormal floats (e.g. 2.7e-313)
+// that break many real-world JSON parsers.
+export function safeFloatOrNull(n: number | undefined): number | null {
+  if (n === undefined || !Number.isFinite(n)) return null;
+  return parseFloat(n.toFixed(20));
+}
+
+export function toApiDimension(
+  dimensionId: string | null | undefined,
+): ApiExperimentResults["dimension"] {
+  if (!dimensionId) return { type: "none" };
+  const parsed = parseDimensionId(dimensionId);
+  switch (parsed.kind) {
+    case "experiment":
+      return { type: "experiment", id: parsed.column };
+    case "date":
+      return { type: "date" };
+    case "activation":
+      return { type: "activation" };
+    case "datecutoff":
+      return { type: "datecutoff", id: parsed.cutoff.toISOString() };
+    case "combo":
+      return {
+        type: "combo",
+        dimensions: parsed.constituentIds.map((c) => {
+          const constituent = parseDimensionId(c);
+          return constituent.kind === "experiment"
+            ? { type: "experiment", id: constituent.column }
+            : { type: "user", id: c };
+        }),
+      };
+    case "invalid":
+      // Preserve legacy output for unrecognized "pre:*" ids stored on old snapshots
+      return { type: dimensionId.replace(/^pre:/, "") };
+    case "user":
+      return { type: "user", id: parsed.id };
+  }
 }
 
 export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
+  exposureQueries: ExposureQuery[],
 ): ApiExperimentResults {
-  const dimension = !snapshot.dimension
-    ? {
-        type: "none",
-      }
-    : snapshot.dimension.match(/^exp:/)
-      ? {
-          type: "experiment",
-          id: snapshot.dimension.substring(4),
-        }
-      : snapshot.dimension.match(/^pre:/)
-        ? {
-            type: snapshot.dimension.substring(4),
-          }
-        : {
-            type: "user",
-            id: snapshot.dimension,
-          };
+  const dimension = toApiDimension(snapshot.dimension);
 
   const phase = experiment.phases[snapshot.phase];
 
@@ -2697,6 +3674,15 @@ export function toSnapshotApiInterface(
       "",
     settings: {
       datasourceId: experiment.datasource || "",
+      /**
+       * Legacy contract: settings describe the current experiment, not the
+       * snapshot (bulk results are the snapshot-authoritative view).
+       */
+      assignmentQuery: toApiAssignmentQueryRef(
+        experiment.exposureQueryId,
+        experiment.exposureQueryIdentifierType,
+        exposureQueries,
+      ),
       assignmentQueryId: experiment.exposureQueryId || "",
       experimentId: experiment.trackingKey,
       segmentId: snapshot.settings.segment,
@@ -2750,11 +3736,15 @@ export function toSnapshotApiInterface(
                     mean: safeFloat(data?.stats?.mean),
                     stddev: safeFloat(data?.stats?.stddev),
                     percentChange: safeFloat(data?.expected),
+                    effectStandardError: safeFloat(data?.uplift?.stddev),
                     ciLow: safeFloat(data?.ci?.[0]),
                     ciHigh: safeFloat(data?.ci?.[1]),
                     pValue: safeFloat(data?.pValue),
                     risk: safeFloat(data?.risk?.[1]),
                     chanceToBeatControl: safeFloat(data?.chanceToWin),
+                    ...(data?.errorMessage
+                      ? { errorMessage: data.errorMessage }
+                      : null),
                   },
                 ],
               };
@@ -3154,13 +4144,11 @@ export function postMetricApiPayloadToMetricInterface(
   // Assign all undefined behavior fields to the metric
   if (behavior) {
     if (typeof behavior.cappingSettings !== "undefined") {
+      const cs = behavior.cappingSettings;
       metric.cappingSettings = {
-        type:
-          behavior.cappingSettings.type === "none"
-            ? ""
-            : (behavior.cappingSettings.type ?? ""),
-        value: behavior.cappingSettings.value ?? DEFAULT_METRIC_CAPPING_VALUE,
-        ignoreZeros: behavior.cappingSettings.ignoreZeros,
+        type: cs.type === "none" ? "" : (cs.type ?? ""),
+        value: cs.value ?? DEFAULT_METRIC_CAPPING_VALUE,
+        ignoreZeros: cs.ignoreZeros,
       };
       // handle old post requests
     } else if (typeof behavior.capping !== "undefined") {
@@ -3308,14 +4296,11 @@ export function putMetricApiPayloadToMetricInterface(
     }
 
     if (typeof behavior.cappingSettings !== "undefined") {
+      const cs = behavior.cappingSettings;
       metric.cappingSettings = {
-        ...behavior.cappingSettings,
-        type:
-          behavior.cappingSettings.type === "none"
-            ? ""
-            : (behavior.cappingSettings.type ?? ""),
-        value: behavior.cappingSettings.value ?? DEFAULT_METRIC_CAPPING_VALUE,
-        ignoreZeros: behavior.cappingSettings.ignoreZeros,
+        type: cs.type === "none" ? "" : (cs.type ?? ""),
+        value: cs.value ?? DEFAULT_METRIC_CAPPING_VALUE,
+        ignoreZeros: cs.ignoreZeros,
       };
     } else if (typeof behavior.capping !== "undefined") {
       metric.cappingSettings = {
@@ -3621,6 +4606,27 @@ function toPhaseNamespaceValue(
 }
 
 /**
+ * Maps the GET-response `trafficSplit` shape ([{ variationId, weight }]) back
+ * to the internal `variationWeights` array, ordered to match `variationIds`.
+ * Each weight is resolved by `variationId` so a reordered/filtered trafficSplit
+ * is still assigned correctly, falling back to positional order when an id has
+ * no match (e.g. create, where variation ids are freshly generated). Returns
+ * undefined when no trafficSplit is provided so callers can fall through to
+ * their own default (e.g. an even split).
+ */
+function phaseWeightsFromTrafficSplit(
+  trafficSplit: { variationId: string; weight: number }[] | undefined,
+  variationIds: string[],
+): number[] | undefined {
+  if (!trafficSplit) return undefined;
+  return variationIds.map(
+    (id, i) =>
+      (trafficSplit.find((e) => e.variationId === id) ?? trafficSplit[i])
+        ?.weight ?? 0,
+  );
+}
+
+/**
  * Converts an API lookbackOverride payload to the internal representation.
  * Validates that "date" values are strings (not raw numbers) and that
  * "window" values are non-negative numbers with a valid unit.
@@ -3668,48 +4674,82 @@ function toLookbackOverrideForSave(lookbackOverride: {
  * @param datasource
  * @param userId
  */
+// Map an API statusUpdateSchedule payload to the internal (Date-based) shape.
+// Returns null for an empty/removed schedule, undefined when the key is absent.
+function apiScheduleToInterface(
+  s:
+    | {
+        startAt?: string;
+        stopAt?: string;
+        stopAfter?: { value: number; unit: "hours" | "days" };
+        scheduledStopPlan?: ScheduledStopPlan;
+      }
+    | null
+    | undefined,
+): ExperimentInterface["statusUpdateSchedule"] {
+  if (s === undefined) return undefined;
+  if (s === null) return null;
+  const dates = {
+    ...(s.startAt ? { startAt: getValidDate(s.startAt) } : {}),
+    ...(s.stopAt ? { stopAt: getValidDate(s.stopAt) } : {}),
+    ...(s.stopAfter ? { stopAfter: s.stopAfter } : {}),
+  };
+  if (Object.keys(dates).length === 0) return null;
+  // The stop plan only fires at a scheduled end, so keep it only when there is
+  // one; an inert plan on a start-only schedule is dropped.
+  const hasScheduledEnd = !!(s.stopAt || s.stopAfter);
+  return {
+    ...dates,
+    ...(hasScheduledEnd && s.scheduledStopPlan
+      ? { scheduledStopPlan: s.scheduledStopPlan }
+      : {}),
+  };
+}
+
+export type PostExperimentApiPayload = z.infer<
+  typeof postExperimentValidator.bodySchema
+> & {
+  /**
+   * Internal-only: the handler resolves this from assignmentQuery or a
+   * template.
+   */
+  assignmentQueryIdentifierType?: string;
+};
+
 export function postExperimentApiPayloadToInterface(
-  payload: z.infer<typeof postExperimentValidator.bodySchema>,
+  payload: PostExperimentApiPayload,
   organization: OrganizationInterface,
   datasource: DataSourceInterface | null,
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
-  const variationIds = payload.variations.map(() => generateVariationId());
+  const variationIds = payload.variations.map(
+    (variation) =>
+      variation.id || variation.variationId || generateVariationId(),
+  );
 
   const toPhaseVariations = (variationIds: string[]) =>
     variationIds.map((id) => ({ id, status: "active" as const }));
 
   const phases: ExperimentPhase[] = payload.phases?.map((p) => {
-    const conditionRes = validateCondition(p.condition);
-    if (!conditionRes.success) {
-      throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
-    }
-    p.prerequisites?.forEach((prerequisite) => {
-      const conditionRes = validateCondition(prerequisite.condition);
-      if (!conditionRes.success) {
-        throw new Error(
-          `Invalid prerequisite condition: ${conditionRes.error}`,
-        );
-      }
-    });
+    // Accept the GET-response field names as aliases so a GET -> POST
+    // round-trip is lossless. The POST-only fields take precedence when set.
+    const condition = p.condition || p.targetingCondition || "{}";
 
     return {
       ...p,
       dateStarted: new Date(p.dateStarted),
       dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
-      reason: p.reason || "",
+      reason: p.reason || p.reasonForStopping || "",
       coverage: p.coverage != null ? p.coverage : 1,
-      condition: p.condition || "{}",
+      condition,
       prerequisites: p.prerequisites || [],
-      savedGroups: (p.savedGroupTargeting || []).map((s) => ({
-        match: s.matchType,
-        ids: s.savedGroups,
-      })),
+      savedGroups: resolveSavedGroupsInput(p) ?? [],
       namespace: toPhaseNamespaceValue(
         p.namespace,
         organization.settings?.namespaces,
       ),
       variationWeights:
         p.variationWeights ||
+        phaseWeightsFromTrafficSplit(p.trafficSplit, variationIds) ||
         payload.variations.map(() => 1 / payload.variations.length),
       variations: toPhaseVariations(variationIds),
     };
@@ -3739,8 +4779,13 @@ export function postExperimentApiPayloadToInterface(
     archived: payload.archived ?? false,
     hashAttribute: payload.hashAttribute ?? "",
     fallbackAttribute: payload.fallbackAttribute || "",
+    ...(payload.attributeScopeAllProjects !== undefined
+      ? { attributeScopeAllProjects: payload.attributeScopeAllProjects }
+      : {}),
     hashVersion: payload.hashVersion ?? 2,
-    disableStickyBucketing: payload.disableStickyBucketing ?? false,
+    disableStickyBucketing:
+      payload.disableStickyBucketing ??
+      !organization.settings?.stickyBucketingOnByDefault,
     ...(payload.bucketVersion !== undefined
       ? { bucketVersion: payload.bucketVersion }
       : {}),
@@ -3760,6 +4805,8 @@ export function postExperimentApiPayloadToInterface(
       payload.assignmentQueryId ||
       datasource?.settings.queries?.exposure?.[0]?.id ||
       "",
+    /** Parsed by the caller, which has the data source's queries. */
+    exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
     name: payload.name || "",
     type: payload.type || "standard",
     phases,
@@ -3820,10 +4867,7 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.defaultDashboardId !== undefined
       ? { defaultDashboardId: payload.defaultDashboardId }
       : {}),
-    statusUpdateSchedule:
-      payload.statusUpdateSchedule && payload.statusUpdateSchedule.startAt
-        ? { startAt: getValidDate(payload.statusUpdateSchedule.startAt) }
-        : undefined,
+    statusUpdateSchedule: apiScheduleToInterface(payload.statusUpdateSchedule),
   };
 
   const { settings } = getScopedSettings({
@@ -3854,7 +4898,7 @@ export function postExperimentApiPayloadToInterface(
   return obj;
 }
 
-type UpdateExperimentApiPayload = z.infer<
+export type UpdateExperimentApiPayload = z.infer<
   typeof updateExperimentValidator.bodySchema
 >;
 
@@ -3932,18 +4976,9 @@ function resolveExperimentUpdateVariationsAndPhases(
 
   if (hasPhasePayload) {
     resolvedPhases = phases.map((p, phaseIndex) => {
-      const conditionRes = validateCondition(p.condition);
-      if (!conditionRes.success) {
-        throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
-      }
-      p.prerequisites?.forEach((prerequisite) => {
-        const conditionRes = validateCondition(prerequisite.condition);
-        if (!conditionRes.success) {
-          throw new Error(
-            `Invalid prerequisite condition: ${conditionRes.error}`,
-          );
-        }
-      });
+      // Accept the GET-response field names as aliases so a GET -> POST
+      // round-trip is lossless. The POST-only fields take precedence when set.
+      const condition = p.condition || p.targetingCondition || "{}";
 
       // Update phase variations to match new variations payload if it exists
       // otherwise, use the existing phase variations
@@ -3955,19 +4990,20 @@ function resolveExperimentUpdateVariationsAndPhases(
 
       const variationWeights =
         p.variationWeights ||
+        phaseWeightsFromTrafficSplit(
+          p.trafficSplit,
+          phaseVariations.map((v) => v.id),
+        ) ||
         phaseVariations.map((_) => 1 / phaseVariations.length);
       return {
         ...p,
         dateStarted: new Date(p.dateStarted),
         dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
-        reason: p.reason || "",
+        reason: p.reason || p.reasonForStopping || "",
         coverage: p.coverage != null ? p.coverage : 1,
-        condition: p.condition || "{}",
+        condition,
         prerequisites: p.prerequisites || [],
-        savedGroups: (p.savedGroupTargeting || []).map((s) => ({
-          match: s.matchType,
-          ids: s.savedGroups,
-        })),
+        savedGroups: resolveSavedGroupsInput(p) ?? [],
         namespace: toPhaseNamespaceValue(p.namespace, orgNamespaces),
         variationWeights,
         variations: phaseVariations,
@@ -3994,22 +5030,6 @@ function resolveExperimentUpdateVariationsAndPhases(
   };
 }
 
-export function validateStatusUpdateSchedule(
-  experimentType: ExperimentType,
-  statusUpdateSchedule: ExperimentInterfaceStringDates["statusUpdateSchedule"],
-): void {
-  if (experimentType === "multi-armed-bandit" && statusUpdateSchedule) {
-    throw new Error("Bandit experiments do not support scheduled starts.");
-  }
-  if (
-    statusUpdateSchedule &&
-    statusUpdateSchedule.startAt &&
-    getValidDate(statusUpdateSchedule.startAt) <= new Date()
-  ) {
-    throw new Error("statusUpdateSchedule.startAt must be in the future");
-  }
-}
-
 /**
  * Normalize `statusUpdateSchedule` / `nextScheduledStatusUpdate` on an in-progress
  * Changeset:
@@ -4023,6 +5043,7 @@ export function validateStatusUpdateSchedule(
 export function normalizeStatusUpdateScheduleChanges(
   experiment: ExperimentInterface,
   changes: Changeset,
+  by?: { userId?: string; apiKey?: string },
 ): void {
   if ("statusUpdateSchedule" in changes) {
     const incoming = changes.statusUpdateSchedule;
@@ -4033,8 +5054,41 @@ export function normalizeStatusUpdateScheduleChanges(
       const startAt = incoming?.startAt
         ? getValidDate(incoming.startAt)
         : undefined;
-      changes.statusUpdateSchedule = startAt ? { startAt } : null;
-      changes.nextScheduledStatusUpdate = null;
+      // Key off the ACTUAL current status, not `changes.status`: a draft→running
+      // transition must NOT resolve/stage here — executeExperimentStart resolves
+      // a relative stopAfter off the real start time. Resolving off the pre-start
+      // draft (stale/absent dateStarted) would produce a wrong stopAt.
+      const running = experiment.status === "running";
+      const dateStarted =
+        experiment.phases[experiment.phases.length - 1]?.dateStarted;
+      const { stopAt, stopAfter, stagedStop } = resolveScheduledStop({
+        stopAt: incoming?.stopAt,
+        stopAfter: incoming?.stopAfter,
+        base: dateStarted ? getValidDate(dateStarted) : new Date(),
+        active: running,
+      });
+
+      // Past stopAts (whether absolute or a stopAfter that resolves into the
+      // past) are never staged for the scheduler; validateScheduleUpdate
+      // rejects them up front, so here we just build the normalized schedule.
+      // The stop plan only fires at a scheduled end, so it's kept only when
+      // there is one; an inert plan on a start-only schedule is dropped.
+      changes.statusUpdateSchedule =
+        startAt || stopAt || stopAfter
+          ? {
+              ...(startAt ? { startAt } : {}),
+              ...(stopAt ? { stopAt } : {}),
+              ...(stopAfter ? { stopAfter } : {}),
+              ...((stopAt || stopAfter) && incoming?.scheduledStopPlan
+                ? { scheduledStopPlan: incoming.scheduledStopPlan }
+                : {}),
+            }
+          : null;
+
+      // Re-stage the single pending action from the new schedule:
+      //  - running experiment: (re)stage the stop from the resolved stopAt
+      //  - otherwise (draft): clear any staged start; it must be re-approved
+      changes.nextScheduledStatusUpdate = withScheduledBy(stagedStop, by);
     }
   } else if (
     changes.status &&
@@ -4120,6 +5174,9 @@ export function updateExperimentApiPayloadToInterface(
     ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
+    ...(payload.attributeScopeAllProjects !== undefined
+      ? { attributeScopeAllProjects: payload.attributeScopeAllProjects }
+      : {}),
     ...(disableStickyBucketing !== undefined ? { disableStickyBucketing } : {}),
     ...(bucketVersion !== undefined ? { bucketVersion } : {}),
     ...(minBucketVersion !== undefined ? { minBucketVersion } : {}),
@@ -4131,8 +5188,8 @@ export function updateExperimentApiPayloadToInterface(
     ...(metrics ? { goalMetrics: metrics } : {}),
     ...(guardrailMetrics ? { guardrailMetrics } : {}),
     ...(secondaryMetrics ? { secondaryMetrics } : {}),
-    ...(activationMetric ? { activationMetric } : {}),
-    ...(segmentId ? { segment: segmentId } : {}),
+    ...(activationMetric !== undefined ? { activationMetric } : {}),
+    ...(segmentId !== undefined ? { segment: segmentId } : {}),
     ...(queryFilter !== undefined ? { queryFilter } : {}),
     ...(archived !== undefined ? { archived } : {}),
     ...(status ? { status } : {}),
@@ -4318,47 +5375,63 @@ export function visualChangesetsHaveChanges({
   return false;
 }
 
-export async function getLinkedFeatureInfo(
-  context: ReqContext,
-  experiment: ExperimentInterface,
-) {
-  const linkedFeatures = experiment.linkedFeatures || [];
-  if (!linkedFeatures.length) return [];
+/**
+ * Generic linked-feature enrichment shared by Experiments and Contextual
+ * Bandits. `matchRule` selects the ref rules that point at the parent entity
+ * (experiment-ref / contextual-bandit-ref). Returns the same `LinkedFeatureInfo`
+ * shape for both, so the detail-page UI can be reused.
+ */
+export async function getRefLinkedFeatureInfo({
+  context,
+  linkedFeatureIds,
+  refIsDraft,
+  matchRule,
+  pendingFeatureDrafts,
+  publisher = context,
+}: {
+  context: ReqContext | ApiReqContext;
+  linkedFeatureIds: string[];
+  refIsDraft: boolean;
+  matchRule: (rule: FeatureRule) => boolean;
+  pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
+  // Who a start would publish each draft as; null when nobody can be resolved.
+  publisher?: ReqContext | ApiReqContext | null;
+}): Promise<LinkedFeatureInfo[]> {
+  if (!linkedFeatureIds.length) return [];
 
-  const features = await getFeaturesByIds(context, linkedFeatures);
+  const pendingVersionsByFeatureId = new Map<string, Set<number>>();
+  (pendingFeatureDrafts ?? []).forEach(({ featureId, revisionVersion }) => {
+    const versions = pendingVersionsByFeatureId.get(featureId) ?? new Set();
+    versions.add(revisionVersion);
+    pendingVersionsByFeatureId.set(featureId, versions);
+  });
+
+  const features = await getFeaturesByIds(context, linkedFeatureIds);
 
   const featuresByFeatureId = Object.fromEntries(
     features.map((f) => [f.id, f]),
   );
-  const revisionsByFeatureId = await getFeatureRevisionsByFeatureIds(
-    context,
-    context.org.id,
-    linkedFeatures,
-    featuresByFeatureId,
-  );
+  const [revisionsByFeatureId, draftMetadataByFeatureId] = await Promise.all([
+    getFeatureRevisionsByFeatureIds(
+      context,
+      context.org.id,
+      linkedFeatureIds,
+      featuresByFeatureId,
+    ),
+    getActiveDraftMetadataByFeatureIds(context.org.id, linkedFeatureIds),
+  ]);
 
   const environments = getEnvironmentIdsFromOrg(context.org);
 
-  const filter = (rule: FeatureRule) =>
-    rule.type === "experiment-ref" && rule.experimentId === experiment.id;
-
-  // Slice the experiment-ref rules matching this experiment from a rules
-  // array (works for both feature.rules and revision.rules). Used to detect
-  // whether a draft is actually changing this experiment's rule vs. just
-  // inheriting it unchanged from live.
-  const refRulesForExperiment = (rules: unknown): FeatureRule[] =>
-    naiveFlattenV1Rules(rules).filter(
-      (r) =>
-        r.type === "experiment-ref" &&
-        (r as ExperimentRefRule).experimentId === experiment.id,
-    );
+  const refRulesForEntity = (rules: unknown): FeatureRule[] =>
+    naiveFlattenV1Rules(rules).filter(matchRule);
 
   const linkedFeatureInfo = await Promise.all(
     features.map(async (feature) => {
       const revisions = revisionsByFeatureId[feature.id] || [];
 
-      const liveMatches = getMatchingRules(feature, filter, environments);
-      const liveRefRules = refRulesForExperiment(feature.rules);
+      const liveMatches = getMatchingRules(feature, matchRule, environments);
+      const liveRefRules = refRulesForEntity(feature.rules);
 
       // Walk draft revisions newest-first and pick:
       //   1. (preferred) a draft whose experiment-ref rule slice DIFFERS from
@@ -4373,27 +5446,32 @@ export async function getLinkedFeatureInfo(
         .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
         .sort((a, b) => b.version - a.version);
 
-      let matchedDraftRevision: (typeof revisions)[0] | undefined;
-      let draftMatches: MatchingRule[] = [];
-      let draftDiffersFromLive = false;
+      type DraftMatch = {
+        revision: (typeof revisions)[0];
+        matches: MatchingRule[];
+      };
+      const differingDrafts: DraftMatch[] = [];
+      let unchangedDraft: DraftMatch | undefined;
 
       for (const r of activeDrafts) {
-        const m = getMatchingRules(feature, filter, environments, r);
+        const m = getMatchingRules(feature, matchRule, environments, r);
         if (m.length === 0) continue;
-        const draftRefRules = refRulesForExperiment(r.rules);
+        const draftRefRules = refRulesForEntity(r.rules);
         if (liveRefRules.length > 0 && !isEqual(draftRefRules, liveRefRules)) {
-          matchedDraftRevision = r;
-          draftMatches = m;
-          draftDiffersFromLive = true;
-          break;
+          differingDrafts.push({ revision: r, matches: m });
+          continue;
         }
         // Remember the first draft with matches as a fallback if no draft
         // actually modifies the rule.
-        if (!matchedDraftRevision) {
-          matchedDraftRevision = r;
-          draftMatches = m;
+        if (!unchangedDraft) {
+          unchangedDraft = { revision: r, matches: m };
         }
       }
+
+      const primaryDraft = differingDrafts[0] ?? unchangedDraft;
+      const matchedDraftRevision = primaryDraft?.revision;
+      const draftMatches: MatchingRule[] = primaryDraft?.matches ?? [];
+      const draftDiffersFromLive = differingDrafts.length > 0;
 
       const lockedMatches =
         revisions
@@ -4401,16 +5479,14 @@ export async function getLinkedFeatureInfo(
             (r) => r.status === "published" && r.version !== feature.version,
           )
           .sort((a, b) => b.version - a.version)
-          .map((r) => getMatchingRules(feature, filter, environments, r))
+          .map((r) => getMatchingRules(feature, matchRule, environments, r))
           .filter((matches) => matches.length > 0)[0] || [];
 
       let state: LinkedFeatureState = "discarded";
       let matches: MatchingRule[] = [];
       if (feature.archived) {
         state = "archived";
-      } else if (draftDiffersFromLive && experiment.status === "draft") {
-        // A draft is changing this experiment's rule and the experiment is
-        // still in draft — surface the pending change even if the rule is already live.
+      } else if (draftDiffersFromLive && refIsDraft) {
         // Render uses draft values so the user sees what publishing will produce.
         state = "draft";
         matches = draftMatches;
@@ -4445,58 +5521,85 @@ export async function getLinkedFeatureInfo(
         }
       }
 
-      // Mirrors publishPendingFeatureDraftsForExperiment's pre-flight: same
-      // autoMerge used on the FF detail page, plus an "unrelated edits" check.
-      let hasMergeConflict: boolean | undefined;
-      let hasUnrelatedDraftChanges: boolean | undefined;
-      if (state === "draft" && matchedDraftRevision) {
+      const checkDraftCleanliness = async (
+        revision: (typeof revisions)[0],
+      ): Promise<{
+        hasMergeConflict?: boolean;
+        hasUnrelatedDraftChanges?: boolean;
+      }> => {
         try {
           const { live, base } = await getLiveAndBaseRevisionsForFeature({
             context,
             feature,
-            revision: matchedDraftRevision,
+            revision,
           });
           const filledLive = liveRevisionFromFeature(live, feature);
           const mergeResult = autoMerge(
             filledLive,
             fillRevisionFromFeature(base, feature),
-            matchedDraftRevision,
+            revision,
             environments,
             {},
           );
           if (!mergeResult.success) {
-            hasMergeConflict = true;
-          } else if (
-            draftHasChangesOutsideExperiment(
-              matchedDraftRevision,
-              filledLive,
-              experiment.id,
-            )
-          ) {
-            hasUnrelatedDraftChanges = true;
+            return { hasMergeConflict: true };
           }
+          if (
+            draftHasChangesOutsideTargetRef(revision, filledLive, matchRule)
+          ) {
+            return { hasUnrelatedDraftChanges: true };
+          }
+          return {};
         } catch (e) {
           logger.warn(
             { featureId: feature.id, err: e },
-            "[getLinkedFeatureInfo] draft cleanliness check failed",
+            "[getRefLinkedFeatureInfo] draft cleanliness check failed",
           );
+          return {};
         }
+      };
+
+      let hasMergeConflict: boolean | undefined;
+      let hasUnrelatedDraftChanges: boolean | undefined;
+      if (state === "draft" && matchedDraftRevision) {
+        ({ hasMergeConflict, hasUnrelatedDraftChanges } =
+          await checkDraftCleanliness(matchedDraftRevision));
       }
+
+      const refRuleValues = (rule: FeatureRule | undefined) =>
+        (rule as ExperimentRefRule | ContextualBanditRefRule | undefined)
+          ?.variations || [];
 
       const uniqueValues: Set<string> = new Set(
         matches.map((m) =>
           JSON.stringify(
-            [...(m.rule as ExperimentRefRule).variations].sort((a, b) =>
+            [...refRuleValues(m.rule)].sort((a, b) =>
               b.variationId.localeCompare(a.variationId),
             ),
           ),
         ),
       );
 
+      const envEnabled = (environmentId: string): boolean =>
+        (state === "draft"
+          ? matchedDraftRevision?.environmentsEnabled?.[environmentId]
+          : undefined) ??
+        !!feature.environmentSettings?.[environmentId]?.enabled;
+
+      const cannotPublish =
+        state === "draft" && !!matchedDraftRevision
+          ? !publisher ||
+            !publisher.permissions.canPublishFeature(
+              feature,
+              matches
+                .filter((m) => envEnabled(m.environmentId))
+                .map((m) => m.environmentId),
+            )
+          : undefined;
       const environmentStates: Record<string, LinkedFeatureEnvState> = {};
       environments.forEach((env) => (environmentStates[env] = "missing"));
       matches.forEach((match) => {
-        if (!match.environmentEnabled) {
+        if (!envEnabled(match.environmentId)) {
           environmentStates[match.environmentId] = "disabled-env";
         } else if (
           match.rule.enabled === false &&
@@ -4508,11 +5611,54 @@ export async function getLinkedFeatureInfo(
         }
       });
 
+      const stagedDrafts: StagedRefDraft[] =
+        state === "live"
+          ? differingDrafts.map((d) => ({
+              version: d.revision.version,
+              status: d.revision.status,
+              values: refRuleValues(d.matches[0]?.rule),
+            }))
+          : [];
+      if (stagedDrafts.length > 0) {
+        Object.assign(
+          stagedDrafts[0],
+          await checkDraftCleanliness(differingDrafts[0].revision),
+        );
+      }
+
+      // Envs the pending draft will turn on when it's auto-published on start.
+      let environmentsToEnable: string[] | undefined;
+      if (
+        state === "draft" &&
+        matchedDraftRevision &&
+        pendingVersionsByFeatureId
+          .get(feature.id)
+          ?.has(matchedDraftRevision.version)
+      ) {
+        const enabled = new Set<string>();
+        matches.forEach((match) => {
+          if (
+            envEnabled(match.environmentId) &&
+            !feature.environmentSettings?.[match.environmentId]?.enabled
+          ) {
+            enabled.add(match.environmentId);
+          }
+        });
+        if (enabled.size > 0) environmentsToEnable = [...enabled];
+      }
+
+      const attributeScopeProjects = getFeatureAttributeScopeWithDrafts(
+        feature,
+        draftMetadataByFeatureId[feature.id] || [],
+      );
+
       const info: LinkedFeatureInfo = {
         feature,
         state,
         environmentStates,
-        values: (matches[0]?.rule as ExperimentRefRule)?.variations || [],
+        attributeScopeProjects,
+        values: refRuleValues(matches[0]?.rule),
+        sparse: !!(matches[0]?.rule as ExperimentRefRule)?.sparse,
         valuesFrom: matches[0]?.environmentId || "",
         rulesAbove: matches.some((m) => m.i > 0),
         inconsistentValues: uniqueValues.size > 1,
@@ -4523,10 +5669,15 @@ export async function getLinkedFeatureInfo(
             draftRevisionVersion: matchedDraftRevision.version,
             draftRevisionStatus: matchedDraftRevision.status,
           }),
+        // `state` is "live" whenever the live revision has the rule, even if a
+        // draft is changing it, so report that draft separately.
+        ...(stagedDrafts.length > 0 && { stagedDrafts }),
         ...(hasMergeConflict !== undefined && { hasMergeConflict }),
         ...(hasUnrelatedDraftChanges !== undefined && {
           hasUnrelatedDraftChanges,
         }),
+        ...(cannotPublish !== undefined && { cannotPublish }),
+        ...(environmentsToEnable !== undefined && { environmentsToEnable }),
       };
 
       return info;
@@ -4534,6 +5685,69 @@ export async function getLinkedFeatureInfo(
   );
 
   return linkedFeatureInfo;
+}
+
+export async function getLinkedFeatureInfo(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+  { publisher }: { publisher?: ReqContext | ApiReqContext } = {},
+) {
+  // Once a start is armed the drafts publish as the armer, so judge as them;
+  // a caller about to arm replaces the armer and is judged as itself.
+  const judgedAs =
+    publisher ??
+    (experiment.nextScheduledStatusUpdate?.type === "start"
+      ? await getScheduledStatusContext(context, experiment)
+      : context);
+  return getRefLinkedFeatureInfo({
+    context,
+    linkedFeatureIds: experiment.linkedFeatures || [],
+    refIsDraft: experiment.status === "draft",
+    matchRule: (rule) =>
+      rule.type === "experiment-ref" && rule.experimentId === experiment.id,
+    pendingFeatureDrafts: experiment.pendingFeatureDrafts,
+    publisher: judgedAs,
+  });
+}
+
+// Enforcement scope for `assertRegisteredAttributes`; undefined = unscoped.
+// The `attributeScopeAllProjects` picker preference never loosens this.
+export async function getExperimentAttributeScopeProjects(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "project" | "linkedFeatures">,
+  preloadedFeatures?: FeatureInterface[],
+): Promise<string[] | undefined> {
+  const { isOn, requireProjectScoping } =
+    getRequireRegisteredAttributesSettings(
+      context.org.settings?.requireRegisteredAttributes,
+    );
+  if (!isOn || !requireProjectScoping) return undefined;
+  if (!experiment.project) {
+    return undefined;
+  }
+
+  const linkedFeatureIds = experiment.linkedFeatures || [];
+  const scopes: Array<string[] | null> = [];
+  if (linkedFeatureIds.length) {
+    const [features, draftMetadataByFeatureId] = await Promise.all([
+      preloadedFeatures
+        ? Promise.resolve(
+            preloadedFeatures.filter((f) => linkedFeatureIds.includes(f.id)),
+          )
+        : getFeaturesByIds(context, linkedFeatureIds),
+      getActiveDraftMetadataByFeatureIds(context.org.id, linkedFeatureIds),
+    ]);
+    for (const feature of features) {
+      scopes.push(
+        getFeatureAttributeScopeWithDrafts(
+          feature,
+          draftMetadataByFeatureId[feature.id] || [],
+        ),
+      );
+    }
+  }
+
+  return getExperimentAttributeScopeProjectIds(experiment, scopes) ?? undefined;
 }
 
 export async function getLinkedChangeEnvironmentStates(
@@ -4649,7 +5863,7 @@ export async function getChangesToStartExperiment(
     if (!metric) {
       throw new Error("Invalid metric: " + experiment.goalMetrics[0]);
     }
-    if (metric.cappingSettings.type === "percentile") {
+    if (needsPercentileCapSubquery(metric)) {
       throw new Error("Goal metric must not use percentile capping");
     }
   }
@@ -4675,25 +5889,15 @@ export async function getExperimentAnalysisSummary({
     ),
   };
 
-  const overallTraffic = experimentSnapshot.health?.traffic?.overall;
   const snapshotHealthPower = experimentSnapshot.health?.power;
   const snapshotCovariateImbalance =
     experimentSnapshot.health?.covariateImbalance;
 
-  const standardSnapshot =
-    experimentSnapshot.type === "standard" &&
-    experimentSnapshot.analyses?.[0]?.results?.length === 1;
   const totalUsers =
-    (overallTraffic?.variationUnits.length
-      ? overallTraffic.variationUnits.reduce((acc, a) => acc + a, 0)
-      : standardSnapshot
-        ? // fall back to first result for standard snapshots if overall traffic
-          // is missing
-          experimentSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
-            (acc, a) => acc + a.users,
-            0,
-          )
-        : null) ?? null;
+    getExperimentVariationUnitsFromHealth(experimentSnapshot)?.reduce(
+      (acc, a) => acc + a,
+      0,
+    ) ?? null;
 
   const srm =
     experiment.type === "multi-armed-bandit"

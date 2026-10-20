@@ -134,6 +134,7 @@ export default function ResultsVariationsFilter({
             <div className="mt-3 mb-2">
               <label className="uppercase-title mb-0">Filter variations</label>
               <SelectField
+                size="legacy"
                 containerClassName="select-dropdown-underline"
                 isSearchable={false}
                 sort={false}

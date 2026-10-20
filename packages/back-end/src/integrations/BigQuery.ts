@@ -1,10 +1,14 @@
-import * as bq from "@google-cloud/bigquery";
+import {
+  BigQueryDate,
+  BigQueryDatetime,
+  BigQueryTimestamp,
+  type TableField,
+} from "@google-cloud/bigquery";
 import { QueryResultsResponse } from "@google-cloud/bigquery/build/src/bigquery";
 import {
   bigQueryCreateTableOptions,
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
-import { SqlDialect } from "shared/types/sql";
 import { format } from "shared/sql";
 import {
   ExternalIdCallback,
@@ -16,18 +20,20 @@ import {
   MaxTimestampIncrementalUnitsQueryParams,
 } from "shared/types/integrations";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { QueryMetadata } from "shared/types/query";
+import { RunQueryMetadata } from "shared/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { IS_CLOUD } from "back-end/src/util/secrets";
+import { ExternalQueryStatus } from "back-end/src/types/Integration";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
+import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { toOptionalNumber } from "back-end/src/util/integration";
 import {
   BigQueryDataType,
   getFactTableTypeFromBigQueryType,
   sanitizeQueryMetadataForBigQueryLabels,
 } from "back-end/src/services/bigquery";
+import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 import SqlIntegration from "./SqlIntegration";
-import { bigQueryDialect } from "./dialects/bigquery";
 
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
@@ -39,26 +45,9 @@ export default class BigQuery extends SqlIntegration {
   isWritingTablesSupported(): boolean {
     return true;
   }
-  getSqlDialect(): SqlDialect {
-    return bigQueryDialect;
-  }
-  getSensitiveParamKeys(): string[] {
-    return ["privateKey"];
-  }
 
   private getClient() {
-    // If pull credentials from env or the metadata server
-    if (!IS_CLOUD && this.params.authType === "auto") {
-      return new bq.BigQuery();
-    }
-
-    return new bq.BigQuery({
-      projectId: this.params.projectId,
-      credentials: {
-        client_email: this.params.clientEmail,
-        private_key: this.params.privateKey,
-      },
-    });
+    return createBigQueryClient(this.params);
   }
 
   async cancelQuery(
@@ -84,10 +73,49 @@ export default class BigQuery extends SqlIntegration {
     );
   }
 
+  async getExternalQueryStatus(
+    externalId: string,
+    metadata?: Record<string, string>,
+  ): Promise<ExternalQueryStatus> {
+    const client = this.getClient();
+
+    const location = metadata?.location;
+    const job = location
+      ? client.job(externalId, { location })
+      : client.job(externalId);
+
+    try {
+      const [md] = await job.getMetadata();
+      const status = md.status;
+      if (!status) return { state: "unknown", reason: "unrecognized" };
+      switch (status.state) {
+        case "PENDING":
+        case "RUNNING":
+          return { state: "running" };
+        case "DONE":
+          if (status.errorResult) {
+            return {
+              state: "failed",
+              error: status.errorResult.message || "BigQuery job failed",
+            };
+          }
+          return { state: "succeeded" };
+        default:
+          return { state: "unknown", reason: "unrecognized" };
+      }
+    } catch (e) {
+      const code = (e as { code?: unknown })?.code;
+      if (code === 404 || /not found/i.test(getErrorMessage(e))) {
+        return { state: "unknown", reason: "expired" };
+      }
+      return { state: "unknown", reason: "unreachable" };
+    }
+  }
+
   async runQuery(
     sql: string,
-    setExternalId?: ExternalIdCallback,
-    queryMetadata?: QueryMetadata,
+    setExternalId: ExternalIdCallback | undefined,
+    queryMetadata: RunQueryMetadata,
   ): Promise<QueryResponse> {
     const client = this.getClient();
 
@@ -118,20 +146,26 @@ export default class BigQuery extends SqlIntegration {
 
     const rowsInserted =
       metadata?.statistics?.query?.statementType === "INSERT"
-        ? Number(metadata?.statistics?.query?.numDmlAffectedRows)
+        ? toOptionalNumber(metadata?.statistics?.query?.numDmlAffectedRows)
         : undefined;
+    const partitionsScanned = toOptionalNumber(
+      metadata?.statistics?.query?.totalPartitionsProcessed,
+    );
     const statistics = {
-      executionDurationMs: Number(
+      executionDurationMs: toOptionalNumber(
         metadata?.statistics?.finalExecutionDurationMs,
       ),
-      totalSlotMs: Number(metadata?.statistics?.totalSlotMs),
-      bytesProcessed: Number(metadata?.statistics?.totalBytesProcessed),
-      bytesBilled: Number(metadata?.statistics?.query?.totalBytesBilled),
+      totalSlotMs: toOptionalNumber(metadata?.statistics?.totalSlotMs),
+      bytesProcessed: toOptionalNumber(
+        metadata?.statistics?.totalBytesProcessed,
+      ),
+      bytesBilled: toOptionalNumber(
+        metadata?.statistics?.query?.totalBytesBilled,
+      ),
       warehouseCachedResult: metadata?.statistics?.query?.cacheHit,
       partitionsUsed:
-        metadata?.statistics?.query?.totalPartitionsProcessed !== undefined
-          ? metadata.statistics.query.totalPartitionsProcessed > 0
-          : undefined,
+        partitionsScanned !== undefined ? partitionsScanned > 0 : undefined,
+      partitionsScanned,
       ...(rowsInserted !== undefined && { rowsInserted }),
     };
 
@@ -143,11 +177,11 @@ export default class BigQuery extends SqlIntegration {
     for (const row of rows) {
       for (const key in row) {
         const value = row[key];
-        if (value instanceof bq.BigQueryDatetime) {
+        if (value instanceof BigQueryDatetime) {
           row[key] = value.value + "Z"; // Convert to ISO date
         } else if (
-          value instanceof bq.BigQueryTimestamp ||
-          value instanceof bq.BigQueryDate
+          value instanceof BigQueryTimestamp ||
+          value instanceof BigQueryDate
         ) {
           row[key] = value.value; // Already in ISO format
         }
@@ -173,9 +207,6 @@ export default class BigQuery extends SqlIntegration {
   hasQuantileSketch(): boolean {
     return true;
   }
-  supportsLimitZeroColumnValidation(): boolean {
-    return true;
-  }
   getDefaultDatabase() {
     return this.params.projectId || "";
   }
@@ -185,6 +216,9 @@ export default class BigQuery extends SqlIntegration {
       schema,
       database,
     );
+  }
+  getPartitionColumnCondition(): string {
+    return "is_partitioning_column = 'YES'";
   }
 
   async listDatasets(): Promise<string[]> {
@@ -226,6 +260,8 @@ export default class BigQuery extends SqlIntegration {
       try {
         const { rows: datasetResults } = await this.runQuery(
           format(query, this.getSqlDialect().formatDialect),
+          undefined,
+          { queryType: "informationSchema" },
         );
 
         if (datasetResults.length > 0) {
@@ -246,10 +282,28 @@ export default class BigQuery extends SqlIntegration {
     return formatInformationSchema(results as RawInformationSchema[]);
   }
 
+  async estimateQueryCost(
+    sql: string,
+  ): Promise<{ bytesProcessed: number; costEstimateUsd?: number }> {
+    const client = this.getClient();
+    const [job] = await client.createQueryJob({
+      query: sql,
+      useLegacySql: false,
+      dryRun: true,
+    });
+    const metadata = job.metadata;
+    const bytes = Number(metadata?.statistics?.totalBytesProcessed ?? 0);
+    const TIB = 1024 ** 4;
+    return {
+      bytesProcessed: bytes,
+      costEstimateUsd: (bytes / TIB) * 6.25,
+    };
+  }
+
   getQueryResultResponseColumns(
     bqQueryResultsResponse: QueryResultsResponse,
   ): QueryResponseColumnData[] | undefined {
-    const mapField = (field: bq.TableField): QueryResponseColumnData => {
+    const mapField = (field: TableField): QueryResponseColumnData => {
       let childFields: QueryResponseColumnData[] | undefined = undefined;
       if (field.type === "RECORD" || field.type === "STRUCT") {
         childFields = field.fields
@@ -262,7 +316,7 @@ export default class BigQuery extends SqlIntegration {
         : undefined;
 
       return {
-        name: field.name!.toLowerCase(),
+        name: field.name!,
         ...(dataType && { dataType }),
         ...(childFields && { fields: childFields }),
       };
@@ -273,8 +327,11 @@ export default class BigQuery extends SqlIntegration {
       .map((field) => mapField(field));
   }
 
-  createTablePartitions(columns: string[]): string {
-    return bigQueryCreateTablePartitions(columns);
+  createTablePartitions(
+    columns: string[],
+    opts?: { partitionByDate?: boolean; partitionExpirationDays?: number },
+  ): string {
+    return bigQueryCreateTablePartitions(columns, opts);
   }
 
   getMaxTimestampMetricSourceQuery(
@@ -284,6 +341,7 @@ export default class BigQuery extends SqlIntegration {
       `
       SELECT
         MAX(max_timestamp) AS max_timestamp
+        , ${this.getSqlDialect().formatTimestampExact("MAX(max_timestamp)")} AS max_timestamp_raw
         FROM ${params.metricSourceTableFullName}
         ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.getSqlDialect().toTimestamp(params.lastMaxTimestamp)}` : ""}
       `,
@@ -298,6 +356,7 @@ export default class BigQuery extends SqlIntegration {
       `
       SELECT
         MAX(max_timestamp) AS max_timestamp
+        , ${this.getSqlDialect().formatTimestampExact("MAX(max_timestamp)")} AS max_timestamp_raw
         FROM ${params.unitsTableFullName}
         ${params.lastMaxTimestamp ? `WHERE max_timestamp >= ${this.getSqlDialect().toTimestamp(params.lastMaxTimestamp)}` : ""}
       `,

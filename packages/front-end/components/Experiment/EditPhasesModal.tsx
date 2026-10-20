@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { phaseSummary } from "@/services/utils";
@@ -21,6 +24,7 @@ import NewPhaseForm from "./NewPhaseForm";
 export interface Props {
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
+  linkedFeatures?: LinkedFeatureInfo[];
   mutateExperiment: () => void;
   editTargeting: (() => void) | null;
   source?: string;
@@ -29,6 +33,7 @@ export interface Props {
 export default function EditPhasesModal({
   close,
   experiment,
+  linkedFeatures,
   mutateExperiment,
   editTargeting,
   source,
@@ -57,6 +62,7 @@ export default function EditPhasesModal({
           }
         }}
         experiment={experiment}
+        linkedFeatures={linkedFeatures}
         mutate={mutateExperiment}
       />
     );
@@ -98,7 +104,7 @@ export default function EditPhasesModal({
             <TableRow>
               <TableColumnHeader></TableColumnHeader>
               <TableColumnHeader>Name</TableColumnHeader>
-              <TableColumnHeader>Dates</TableColumnHeader>
+              <TableColumnHeader>Dates (UTC)</TableColumnHeader>
               {!isHoldout ? (
                 <TableColumnHeader>Traffic</TableColumnHeader>
               ) : null}
@@ -114,11 +120,19 @@ export default function EditPhasesModal({
                 <TableCell>{i + 1}</TableCell>
                 <TableCell>{phase.name}</TableCell>
                 <TableCell>
-                  <strong title={datetime(phase.dateStarted ?? "", "UTC")}>
+                  <strong
+                    title={`${datetime(phase.dateStarted ?? "", "UTC")} UTC`}
+                  >
                     {date(phase.dateStarted ?? "", "UTC")}
                   </strong>{" "}
                   to{" "}
-                  <strong title={datetime(phase.dateEnded ?? "", "UTC")}>
+                  <strong
+                    title={
+                      phase.dateEnded
+                        ? `${datetime(phase.dateEnded, "UTC")} UTC`
+                        : undefined
+                    }
+                  >
                     {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
                   </strong>
                 </TableCell>
@@ -153,7 +167,6 @@ export default function EditPhasesModal({
                       (experiment.status !== "running" || !hasLinkedChanges) &&
                       experiment.phases.length > 1 && (
                         <DeleteButton
-                          useRadix
                           text="Delete"
                           displayName="phase"
                           onClick={async () => {

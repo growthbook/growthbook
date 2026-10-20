@@ -7,7 +7,7 @@ import { canUseRestApiBypassSetting } from "./reviewBypass";
 export const postFeatureRevisionRevertV2 = createApiRequestHandler(
   postFeatureRevisionRevertV2Validator,
 )(async (req) => {
-  const { revision } = await revertFeatureRevision(
+  const { revision, bypassedGates } = await revertFeatureRevision(
     req.context,
     req.organization,
     req.eventAudit,
@@ -16,5 +16,8 @@ export const postFeatureRevisionRevertV2 = createApiRequestHandler(
     req.audit,
     canUseRestApiBypassSetting(req),
   );
-  return { revision: toApiRevisionV2(revision) };
+  return {
+    revision: toApiRevisionV2(revision),
+    ...(bypassedGates.length ? { bypassedGates } : {}),
+  };
 });

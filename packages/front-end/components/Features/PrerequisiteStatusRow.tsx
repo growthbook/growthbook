@@ -15,9 +15,11 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { useAuth } from "@/services/auth";
+import { getPrerequisites } from "@/services/features";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ValueDisplay from "@/components/Features/ValueDisplay";
+import InvalidPrereqConditionBadge from "@/components/Features/InvalidPrereqConditionBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Modal from "@/components/Modal";
@@ -68,10 +70,16 @@ export default function PrerequisiteStatusRow({
   colWidth = 120,
 }: Props) {
   const permissionsUtil = usePermissionsUtil();
-  const canEdit = permissionsUtil.canViewFeatureModal(feature.project);
+  const canEdit = permissionsUtil.canEditFeatureDrafts(feature);
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  // Pinned when the modal opens: `feature` is reactive, so reading the list at
+  // submit time would compare the current list against itself while `i` still
+  // points at the row the user saw.
+  const [deleteBaseline, setDeleteBaseline] = useState<
+    FeaturePrerequisite[] | null
+  >(null);
 
   const latestActiveDraft = useMemo(
     () =>
@@ -124,7 +132,12 @@ export default function PrerequisiteStatusRow({
           `/feature/${feature.id}/prerequisite`,
           {
             method: "DELETE",
-            body: JSON.stringify({ i, ...draftBody }),
+            // Index-addressed, so the list it was read from has to match.
+            body: JSON.stringify({
+              i,
+              baseline: deleteBaseline ?? getPrerequisites(feature),
+              ...draftBody,
+            }),
           },
         );
         await mutate();
@@ -182,6 +195,7 @@ export default function PrerequisiteStatusRow({
           color="red"
           onClick={() => {
             setOpen(false);
+            setDeleteBaseline(getPrerequisites(feature));
             setShowDeleteModal(true);
           }}
         >
@@ -211,6 +225,10 @@ export default function PrerequisiteStatusRow({
             >
               {prerequisite.id}
             </a>
+            <InvalidPrereqConditionBadge
+              condition={prerequisite.condition}
+              iconOnly
+            />
             <Box style={{ flexShrink: 0 }}>{menu}</Box>
           </Flex>
         </Box>
@@ -236,6 +254,7 @@ export function PrerequisiteStatesCols({
   loading = false,
   tooltipBodyWrapper,
   colWidth = 120,
+  compact = false,
 }: {
   prereqStates?: Record<string, PrerequisiteStateResult>;
   defaultValues?: Record<string, string>;
@@ -245,7 +264,9 @@ export function PrerequisiteStatesCols({
   /** When set (e.g. from Features overview), appended after each tooltip body. */
   tooltipBodyWrapper?: (body: ReactElement) => ReactElement;
   colWidth?: number;
+  compact?: boolean;
 }) {
+  const iconSize = compact ? 14 : 20;
   const featureLabel = isSummaryRow
     ? "The current feature"
     : "This prerequisite";
@@ -261,7 +282,7 @@ export function PrerequisiteStatesCols({
               <Tooltip
                 flipTheme={false}
                 body={
-                  <Text size="small" color="text-high">
+                  <Text size="sm" color="text-high">
                     Loading prerequisite state...
                   </Text>
                 }
@@ -276,7 +297,7 @@ export function PrerequisiteStatesCols({
                   popperClassName="text-left"
                   flipTheme={false}
                   body={wrapTooltipBody(
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       {defaultValues?.[env] === undefined && (
                         <>
                           {featureLabel} is{" "}
@@ -326,23 +347,23 @@ export function PrerequisiteStatesCols({
                   {defaultValues?.[env] === "false" ? (
                     isSummaryRow ? (
                       <FaCircleXmark
-                        size={20}
+                        size={iconSize}
                         style={{ color: featureStatusColors.offMuted }}
                       />
                     ) : (
                       <FaRegCircleXmark
-                        size={20}
+                        size={iconSize}
                         style={{ color: featureStatusColors.offMuted }}
                       />
                     )
                   ) : isSummaryRow ? (
                     <FaCircleCheck
-                      size={20}
+                      size={iconSize}
                       style={{ color: featureStatusColors.on }}
                     />
                   ) : (
                     <FaRegCircleCheck
-                      size={20}
+                      size={iconSize}
                       style={{ color: featureStatusColors.on }}
                     />
                   )}
@@ -355,7 +376,7 @@ export function PrerequisiteStatesCols({
                   popperClassName="text-left"
                   flipTheme={false}
                   body={wrapTooltipBody(
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       {featureLabel} is{" "}
                       <strong style={{ color: featureStatusColors.off }}>
                         not live
@@ -372,12 +393,12 @@ export function PrerequisiteStatesCols({
                 >
                   {isSummaryRow ? (
                     <FaCircleXmark
-                      size={20}
+                      size={iconSize}
                       style={{ color: featureStatusColors.offMuted }}
                     />
                   ) : (
                     <FaRegCircleXmark
-                      size={20}
+                      size={iconSize}
                       style={{ color: featureStatusColors.offMuted }}
                     />
                   )}
@@ -389,7 +410,7 @@ export function PrerequisiteStatesCols({
                 flipTheme={false}
                 body={wrapTooltipBody(
                   isSummaryRow ? (
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       {featureLabel} is in a{" "}
                       <strong style={{ color: featureStatusColors.warning }}>
                         Schrödinger state
@@ -399,7 +420,7 @@ export function PrerequisiteStatesCols({
                       the SDK. It may evaluate to <code>null</code> at runtime.
                     </Text>
                   ) : (
-                    <Text as="div" size="small" color="text-high">
+                    <Text as="div" size="sm" color="text-high">
                       {featureLabel} is in a{" "}
                       <strong style={{ color: featureStatusColors.warning }}>
                         Schrödinger state
@@ -412,12 +433,12 @@ export function PrerequisiteStatesCols({
               >
                 {isSummaryRow ? (
                   <FaCircleQuestion
-                    size={20}
+                    size={iconSize}
                     style={{ color: featureStatusColors.warning }}
                   />
                 ) : (
                   <FaRegCircleQuestion
-                    size={20}
+                    size={iconSize}
                     style={{ color: featureStatusColors.warning }}
                   />
                 )}
@@ -428,13 +449,13 @@ export function PrerequisiteStatesCols({
                 popperClassName="text-left"
                 flipTheme={false}
                 body={wrapTooltipBody(
-                  <Text as="div" size="small" color="text-high">
+                  <Text as="div" size="sm" color="text-high">
                     Circular dependency detected. Please fix.
                   </Text>,
                 )}
               >
                 <FaExclamationCircle
-                  size={20}
+                  size={iconSize}
                   style={{ color: featureStatusColors.danger }}
                 />
               </Tooltip>
@@ -445,13 +466,13 @@ export function PrerequisiteStatesCols({
                 popperClassName="text-left"
                 flipTheme={false}
                 body={wrapTooltipBody(
-                  <Text as="div" size="small" color="text-high">
+                  <Text as="div" size="sm" color="text-high">
                     Unable to determine prerequisite state.
                   </Text>,
                 )}
               >
                 <FaQuestion
-                  size={20}
+                  size={iconSize}
                   style={{ color: featureStatusColors.offMuted }}
                 />
               </Tooltip>
@@ -461,7 +482,7 @@ export function PrerequisiteStatesCols({
 
         return (
           <Box key={env} style={{ width: colWidth, flexShrink: 0 }}>
-            <Flex justify="center" align="center" py="2">
+            <Flex justify="center" align="center" py={compact ? "0" : "2"}>
               {content}
             </Flex>
           </Box>

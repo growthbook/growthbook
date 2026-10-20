@@ -3,6 +3,7 @@ import {
   rampStep,
   rampStepAction,
 } from "../src/validators/ramp-schedule";
+import { unanchoredRampTargets } from "../src/util/features";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -343,5 +344,44 @@ describe("rampScheduleValidator — invalid documents", () => {
       }),
     );
     expect(result.success).toBe(true);
+  });
+});
+
+describe("unanchoredRampTargets", () => {
+  const target = (
+    id: string,
+    overrides: { status?: "pending-join"; ruleId?: null } = {},
+  ) => ({
+    id,
+    entityType: "feature" as const,
+    entityId: "feat_1",
+    ruleId: `rule_${id}`,
+    status: "active" as const,
+    ...overrides,
+  });
+  const anchor = (targetId: string) => ({
+    targetType: "feature-rule" as const,
+    targetId,
+    patch: { ruleId: `rule_${targetId}`, coverage: 0 },
+  });
+
+  it("returns the active rule targets no start action points at", () => {
+    expect(
+      unanchoredRampTargets({
+        targets: [
+          target("t1"),
+          target("t2"),
+          target("t3", { status: "pending-join" }),
+          target("t4", { ruleId: null }),
+        ],
+        startActions: [anchor("t1")],
+      }).map((t) => t.id),
+    ).toEqual(["t2"]);
+  });
+
+  it("returns every active target when there are no start actions", () => {
+    expect(
+      unanchoredRampTargets({ targets: [target("t1")] }).map((t) => t.id),
+    ).toEqual(["t1"]);
   });
 });

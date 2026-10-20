@@ -1,8 +1,13 @@
 import { z } from "zod";
+import {
+  apiAssignmentQueryInputFields,
+  apiAssignmentQueryResponseFields,
+} from "./assignment-query-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 import { apiBaseSchema, baseSchema } from "./base-model";
 
 import { namedSchema } from "./openapi-helpers";
+import { apiEventUser, eventUser } from "./event-user";
 
 export const DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS = 24;
 
@@ -22,10 +27,39 @@ export const featureRulePatch = z.object({
   prerequisites: z.array(featurePrerequisite).nullish(),
   allEnvironments: z.boolean().nullish(),
   environments: z.array(z.string()).nullish(),
-  force: z.unknown().optional().describe("Force value (any JSON type)"),
+  force: z
+    .unknown()
+    .optional()
+    .describe(
+      'Value to serve, in the string form rule values use ("false", "10", \'{"limit": 5}\'). A non-string JSON value is accepted and stored as its JSON text. Must be valid for the feature\'s value type.',
+    ),
   enabled: z.boolean().nullish(),
 });
 export type FeatureRulePatch = z.infer<typeof featureRulePatch>;
+
+// The rule's pre-ramp state: the rollback anchor, the base every step builds
+// on, and the only place a plan names how a rule buckets.
+export const rampStartPatch = featureRulePatch.extend({
+  hashAttribute: z
+    .string()
+    .nullish()
+    .describe(
+      "Attribute the rule buckets on. Required (here or on the rule) when a step sets partial coverage on a force rule, which becomes a rollout.",
+    ),
+  seed: z
+    .string()
+    .nullish()
+    .describe("Hash seed for a promoted force rule. Defaults to the rule id."),
+  hashVersion: z
+    .union([z.literal(1), z.literal(2)])
+    .nullish()
+    .describe(
+      "Hash algorithm version for a promoted force rule. Defaults to 2.",
+    ),
+});
+export type RampStartPatch = z.infer<typeof rampStartPatch>;
+export const rampStartState = rampStartPatch.omit({ ruleId: true });
+export type RampStartState = z.infer<typeof rampStartState>;
 
 export const lockdownModeArray = ["none", "locked"] as const;
 export type LockdownMode = (typeof lockdownModeArray)[number];
@@ -55,6 +89,7 @@ export type RampMonitoringMode = z.infer<typeof rampMonitoringMode>;
 export const rampMonitoringConfig = z.object({
   datasourceId: z.string(),
   exposureQueryId: z.string(),
+  exposureQueryIdentifierType: z.string().optional(),
   guardrailMetricIds: z.array(z.string()).min(1),
   signalMetricIds: z.array(z.string()).optional(),
   updateScheduleMinutes: z.number().min(10).optional().nullable(),
@@ -73,12 +108,32 @@ export const rampMonitoringConfig = z.object({
 });
 export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
 
+/**
+ * API shape: `exposureQuery` supersedes the deprecated `exposureQueryId`. The
+ * internal rampMonitoringConfig stays flat.
+ */
+export const apiRampMonitoringConfig = rampMonitoringConfig
+  .omit({ exposureQueryId: true, exposureQueryIdentifierType: true })
+  .extend(apiAssignmentQueryResponseFields("exposureQuery"));
+export type ApiRampMonitoringConfig = z.infer<typeof apiRampMonitoringConfig>;
+
+export const apiRampMonitoringConfigInput = rampMonitoringConfig
+  .omit({ exposureQueryId: true, exposureQueryIdentifierType: true })
+  .extend(apiAssignmentQueryInputFields("exposureQuery"));
+export type ApiRampMonitoringConfigInput = z.infer<
+  typeof apiRampMonitoringConfigInput
+>;
+
 export const rampStepAction = z.object({
   targetType: z.literal("feature-rule"),
   targetId: z.string(),
   patch: featureRulePatch,
 });
 export type RampStepAction = z.infer<typeof rampStepAction>;
+export const rampStartAction = rampStepAction.extend({
+  patch: rampStartPatch,
+});
+export type RampStartAction = z.infer<typeof rampStartAction>;
 
 export const rampTarget = z.object({
   id: z.string(),
@@ -140,6 +195,19 @@ export const rampScheduleStatusArray = [
   "rolled-back",
 ] as const;
 export type RampScheduleStatus = (typeof rampScheduleStatusArray)[number];
+export const TERMINAL_RAMP_SCHEDULE_STATUSES: RampScheduleStatus[] = [
+  "completed",
+  "rolled-back",
+];
+export const isTerminalRampScheduleStatus = (status: RampScheduleStatus) =>
+  TERMINAL_RAMP_SCHEDULE_STATUSES.includes(status);
+// Statuses whose start anchor is fixed and replayed by every forward step, so a
+// publish must reconcile a direct rule edit with the plan (planRampBaseStateSync).
+export const ANCHORED_RAMP_SCHEDULE_STATUSES: RampScheduleStatus[] = [
+  "ready",
+  "running",
+  "paused",
+];
 
 export const rampEventTypeArray = [
   "started",
@@ -149,6 +217,8 @@ export const rampEventTypeArray = [
   "resumed",
   "approval-requested",
   "approval-granted",
+  "awaiting-start-approval",
+  "start-approved",
   "rollback",
   "reset",
   "restart",
@@ -180,12 +250,21 @@ export const rampScheduleValidator = baseSchema
     entityId: z.string(),
     targets: z.array(rampTarget),
     // Restores the controlled rules to their pre-ramp state when rolling back to start.
-    startActions: z.array(rampStepAction).optional(),
+    startActions: z.array(rampStartAction).optional(),
     steps: z.array(rampStep),
     // Applied on top of accumulated step patches when the ramp completes.
     endActions: z.array(rampStepAction).optional(),
     // When set, the rule stays disabled until this activation date.
     startDate: z.date().nullish(),
+    // Persistent config: when true, the -1 → step 0 crossing is gated behind an
+    // explicit human approval instead of firing on publish / at startDate.
+    // The rule stays disabled (zero traffic) until approved. Composes with
+    // startDate: "hold until approved, then arm for that date".
+    requiresStartApproval: z.boolean().optional(),
+    // Transient marker: set when the current launch is approved, cleared on
+    // every return to step -1 (publish, rollback). While requiresStartApproval
+    // is true and this is unset, the schedule is held awaiting approval.
+    startApprovedAt: z.date().nullish(),
     cutoffDate: z.date().nullish(),
     status: z.enum(rampScheduleStatusArray),
     currentStepIndex: z.number().int().min(-1),
@@ -195,6 +274,20 @@ export const rampScheduleValidator = baseSchema
     nextStepAt: z.date().nullable(),
     nextProcessAt: z.date().nullish(),
     elapsedMs: z.number().int().nullish(),
+    // The health-check hold last reported for the current step, so the
+    // evaluator notifies once per check instead of on every tick.
+    healthHold: z
+      .object({
+        stepIndex: z.number().int(),
+        kind: z.enum([
+          "srm",
+          "multipleExposures",
+          "noTraffic",
+          "guardrailCompute",
+          "signalMetric",
+        ]),
+      })
+      .nullish(),
 
     lockdownConfig: lockdownConfigSchema.optional(),
 
@@ -212,7 +305,14 @@ export const rampScheduleValidator = baseSchema
           .int()
           .describe("Index of the step that was approved."),
         approvedAt: z.date().describe("When the approval was granted."),
-        approvedBy: z.string().describe("User ID of the approver."),
+        approvedBy: z
+          .string()
+          .describe(
+            "Who approved: the approver's user ID, or the API key's ID when a key approved as itself.",
+          ),
+        approvedByUser: eventUser
+          .optional()
+          .describe("The approver, with an API key's name."),
         context: z
           .enum(["ui", "api"])
           .describe("Surface through which the approval was granted."),
@@ -227,6 +327,13 @@ export const rampScheduleValidator = baseSchema
     nextSnapshotAt: z.date().nullish(),
     lastRollbackAt: z.date().nullish(),
     lastRollbackReason: z.string().nullish(),
+
+    // Per-schedule advance lock. Serializes progression across the resume HTTP
+    // path and the scheduler job so they can't concurrently replay/publish and
+    // clobber each other's coverage. `advanceLockAt` powers a stale fallback so
+    // a crashed holder can't wedge the schedule forever.
+    advanceLockToken: z.string().nullish(),
+    advanceLockAt: z.date().nullish(),
 
     // Append-only playhead history.
     eventHistory: z.array(rampEvent).optional(),
@@ -269,6 +376,52 @@ export const rampScheduleValidator = baseSchema
   });
 
 export type RampScheduleInterface = z.infer<typeof rampScheduleValidator>;
+
+// The start-approval gate is armed but not yet cleared for the current launch:
+// the schedule opted into requiresStartApproval and hasn't recorded an approval.
+// Status-independent — use this at the actual -1 → 0 crossing (where the status
+// is already "running") as the invariant. `isAwaitingStartApproval` layers the
+// pre-start status/step conditions on top for UI/notification display.
+export function startApprovalPending(schedule: {
+  requiresStartApproval?: boolean | null;
+  startApprovedAt?: Date | null;
+}): boolean {
+  return !!schedule.requiresStartApproval && !schedule.startApprovedAt;
+}
+
+// Resolve the post-edit start-approval value from a pending action against a
+// base (live/existing) schedule. Tri-state: `true`/`false` = explicit set,
+// `null` = explicit off, `undefined` = leave the base value. Centralizes the
+// null-vs-undefined handling so serialization/merge sites can't drift.
+export function resolveStartApproval(
+  actionValue: boolean | null | undefined,
+  baseValue: boolean | null | undefined,
+): boolean {
+  return actionValue !== undefined ? !!actionValue : !!baseValue;
+}
+
+// Derives the "awaiting start approval" state: a pre-start schedule that
+// opted into requiresStartApproval and hasn't been approved for the
+// current launch yet. This is the one-time hold on the -1 → step 0 crossing;
+// it re-arms on every return to step -1 (publish, rollback) because
+// startApprovedAt is cleared there. Used by UI, notifications, and the
+// engine's start/advance gating in lieu of a stored status.
+export function isAwaitingStartApproval(schedule: {
+  status: string;
+  currentStepIndex: number;
+  requiresStartApproval?: boolean;
+  startApprovedAt?: Date | null;
+}): boolean {
+  return (
+    startApprovalPending(schedule) &&
+    schedule.currentStepIndex < 0 &&
+    // "ready" is the live pre-start hold. "pending" is the same intent before
+    // the activating revision publishes (including synthetic draft-preview
+    // schedules) — both surface as "awaiting approval". A running schedule
+    // at -1 is a transient mid-transition state, not a user-facing hold.
+    (schedule.status === "ready" || schedule.status === "pending")
+  );
+}
 
 // Derives the "awaiting approval" display state. A `running` schedule whose
 // current step has `holdConditions.requiresApproval` set and whose
@@ -377,10 +530,22 @@ export const rampScheduleTemplateValidator = baseSchema.extend({
   official: z.boolean().optional(),
   lockdownConfig: lockdownConfigSchema.optional(),
   monitoringConfig: rampMonitoringConfig.nullish(),
+  // Manual display/priority order within the org. Lower sorts first; the first
+  // official template in this order is used as the editor default.
+  order: z.number(),
 });
 export type RampScheduleTemplateInterface = z.infer<
   typeof rampScheduleTemplateValidator
 >;
+
+// Body for reordering templates: move `oldId` to the slot currently held by
+// `newId` (mirrors the custom-fields reorder contract).
+export const reorderRampScheduleTemplatesValidator = z
+  .object({
+    oldId: z.string(),
+    newId: z.string(),
+  })
+  .strict();
 
 // Public API step shape. `interval` is the hold duration in seconds; `null`
 // means no time gate. Pure approval steps use
@@ -403,10 +568,28 @@ const apiRampStepCommon = {
   holdConditions: stepHoldConditions.optional(),
 };
 
-export const apiTemplateRampStep = z.object({
-  ...apiRampStepCommon,
-  actions: z.array(templateRampStepAction),
-});
+export const apiTemplateRampStep = z
+  .object({
+    ...apiRampStepCommon,
+    holdConditions: stepHoldConditions.strict().optional(),
+    actions: z.array(
+      templateRampStepAction
+        .extend({
+          patch: templateFeatureRulePatch
+            .extend({
+              force: z
+                .unknown()
+                .optional()
+                .describe(
+                  "Ignored: templates never carry force values. Accepted so a schedule's steps can be copied into a template.",
+                ),
+            })
+            .strict(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
 export type ApiTemplateRampStep = z.infer<typeof apiTemplateRampStep>;
 
 export const apiRampScheduleTemplateValidator = namedSchema(
@@ -416,10 +599,18 @@ export const apiRampScheduleTemplateValidator = namedSchema(
     steps: z.array(apiTemplateRampStep),
     endPatch: templateEndPatchValidator.optional(),
     official: z.boolean().optional(),
-    monitoringConfig: rampMonitoringConfig.nullish(),
+    monitoringConfig: apiRampMonitoringConfig.nullish(),
     lockdownConfig: lockdownConfigSchema.nullish(),
+    order: z
+      .number()
+      .describe(
+        "Manual display order within the org (read-only; managed via the app).",
+      ),
   }),
 );
+export type ApiRampScheduleTemplateInterface = z.infer<
+  typeof apiRampScheduleTemplateValidator
+>;
 
 const apiRampStep = z.object({
   ...apiRampStepCommon,
@@ -435,10 +626,10 @@ export const apiRampScheduleInterface = namedSchema(
     entityId: z.string(),
     targets: z.array(rampTarget).describe("Controlled entity references"),
     startActions: z
-      .array(rampStepAction)
+      .array(rampStartAction)
       .optional()
       .describe(
-        "Actions that restore controlled rules to their pre-ramp state. Applied when rolling back or jumping to start.",
+        "Actions that restore controlled rules to their pre-ramp state. Applied when rolling back or jumping to start, and the base every step accumulates on; the only place a plan can set hashAttribute, seed or hashVersion.",
       ),
     steps: z.array(apiRampStep).describe("Ordered ramp steps"),
     endActions: z
@@ -458,6 +649,18 @@ export const apiRampScheduleInterface = namedSchema(
       .nullish()
       .describe(
         "Rule-level kill date. When reached, the ramp is completed and the rule is disabled (enabled=false). Use for time-boxed rules that must stop serving on a fixed date regardless of ramp progress. Set to null to clear.",
+      ),
+    requiresStartApproval: z
+      .boolean()
+      .optional()
+      .describe(
+        "When true, the ramp holds at step -1 with its rule disabled (zero traffic) until a human approves the start via /actions/approve-step. Composes with startDate ('hold until approved, then arm for that date').",
+      ),
+    startApprovedAt: z.iso
+      .datetime()
+      .nullish()
+      .describe(
+        "When the current launch's start was approved. Cleared on every return to step -1 (publish, rollback), re-arming the approval gate.",
       ),
     status: z.enum(rampScheduleStatusArray),
     currentStepIndex: z
@@ -488,7 +691,7 @@ export const apiRampScheduleInterface = namedSchema(
         "Milliseconds since startedAt (computed at response time, not stored)",
       ),
     lockdownConfig: lockdownConfigSchema.optional(),
-    monitoringConfig: rampMonitoringConfig.nullish(),
+    monitoringConfig: apiRampMonitoringConfig.nullish(),
     experimentHealthAction: experimentHealthAction.optional(),
     currentStepEnteredAt: z.iso.datetime().nullish(),
     stepApproval: z
@@ -498,7 +701,14 @@ export const apiRampScheduleInterface = namedSchema(
           .int()
           .describe("Index of the step that was approved."),
         approvedAt: z.iso.datetime().describe("When the approval was granted."),
-        approvedBy: z.string().describe("User ID of the approver."),
+        approvedBy: z
+          .string()
+          .describe(
+            "Who approved: the approver's user ID, or the API key's ID when a key approved as itself.",
+          ),
+        approvedByUser: apiEventUser
+          .optional()
+          .describe("The approver, with an API key's name."),
         context: z
           .enum(["ui", "api"])
           .describe("Surface through which the approval was granted."),
@@ -506,6 +716,11 @@ export const apiRampScheduleInterface = namedSchema(
       .nullish()
       .describe(
         "Approval record for the current step. Valid only while `stepApproval.stepIndex === currentStepIndex`.",
+      ),
+    awaitingApproval: z
+      .boolean()
+      .describe(
+        "Computed at read time: whether a human approval is the gate blocking the schedule right now — either the start-approval gate (`requiresStartApproval` before step 0) or the current step's `holdConditions.requiresApproval` once its time hold (if any) has elapsed. Paused schedules report `false` (the pause is the blocking gate). For monitored steps the approve-step endpoint may still reject an approval until analysis-based gates clear.",
       ),
     monitoringStartDate: z.iso
       .datetime()

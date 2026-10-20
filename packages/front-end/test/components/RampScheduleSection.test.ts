@@ -16,6 +16,7 @@ vi.mock("@/services/UserContext", () => ({ useUser: vi.fn() }));
 import type { RampScheduleTemplateInterface } from "shared/validators";
 import {
   formatRampStepSummary,
+  isMonitoredTemplate,
   buildTemplatePayload,
   findMatchingTemplate,
   templateToSectionState,
@@ -43,6 +44,7 @@ function makeTemplate(
     dateCreated: new Date(),
     dateUpdated: new Date(),
     official: false,
+    order: 0,
     ...buildTemplatePayload(state),
     ...overrides,
   } as RampScheduleTemplateInterface;
@@ -89,6 +91,38 @@ describe("formatRampStepSummary", () => {
 
   it("'0 steps' for empty array", () => {
     expect(formatRampStepSummary([])).toBe("0 steps");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isMonitoredTemplate
+// ---------------------------------------------------------------------------
+
+describe("isMonitoredTemplate", () => {
+  it("is false for a plain ramp template (no monitoring config, no monitored steps)", () => {
+    expect(isMonitoredTemplate(makeTemplate(freshState()))).toBe(false);
+  });
+
+  it("is true when any step is monitored", () => {
+    const s = freshState();
+    const monitored = {
+      ...s,
+      steps: s.steps.map((st) => ({ ...st, monitored: true })),
+    };
+    expect(isMonitoredTemplate(makeTemplate(monitored))).toBe(true);
+  });
+
+  it("is true when a monitoring config is present even with no monitored steps", () => {
+    expect(
+      isMonitoredTemplate({
+        monitoringConfig: {
+          datasourceId: "ds_1",
+          exposureQueryId: "eq_1",
+          guardrailMetricIds: ["met_1"],
+        },
+        steps: [],
+      } as Pick<RampScheduleTemplateInterface, "monitoringConfig" | "steps">),
+    ).toBe(true);
   });
 });
 

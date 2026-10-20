@@ -1,12 +1,12 @@
 import { z } from "zod";
 import {
+  apiRampMonitoringConfigInput,
   apiRampScheduleTemplateValidator,
   apiTemplateRampStep,
   lockdownConfigSchema,
-  rampMonitoringConfig,
   templateEndPatchValidator,
 } from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 export const rampScheduleTemplateApiSpec = {
   modelSingular: "rampScheduleTemplate",
@@ -19,19 +19,34 @@ export const rampScheduleTemplateApiSpec = {
       steps: z.array(apiTemplateRampStep),
       endPatch: templateEndPatchValidator.optional(),
       official: z.boolean().optional(),
-      monitoringConfig: rampMonitoringConfig.nullish(),
+      monitoringConfig: apiRampMonitoringConfigInput.nullish(),
       lockdownConfig: lockdownConfigSchema.optional(),
+      order: z
+        .number()
+        .optional()
+        .describe(
+          "Display order within the org (lower sorts first). Omit to append to the end.",
+        ),
     }),
     updateBody: z.object({
       name: z.string().optional(),
       steps: z.array(apiTemplateRampStep).optional(),
       endPatch: templateEndPatchValidator.optional(),
       official: z.boolean().optional(),
-      monitoringConfig: rampMonitoringConfig.nullish(),
+      monitoringConfig: apiRampMonitoringConfigInput.nullish(),
       lockdownConfig: lockdownConfigSchema.optional(),
+      order: z
+        .number()
+        .optional()
+        .describe("Display order within the org (lower sorts first)."),
     }),
   },
   includeDefaultCrud: true,
+  confirmation: {
+    create: ["other.write"],
+    update: ["other.write"],
+    delete: ["other.write"],
+  },
   navDescription: "Reusable step configurations for ramp schedules.",
   navAfterTag: "ramp-schedules",
 } satisfies OpenApiModelSpec;

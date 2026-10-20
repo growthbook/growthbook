@@ -25,51 +25,41 @@ export default function HeadingStories() {
       </Flex>
       <Flex direction="column" gap="3">
         <Grid columns="repeat(2, 1fr)" gap="2" align="baseline">
-          <Heading as="h3" size="small" weight="medium" color={headingColor}>
+          <Heading as="h3" size="sm" weight="medium" color={headingColor}>
             heading/small/medium
           </Heading>
-          <Heading as="h3" size="small" weight="semibold" color={headingColor}>
+          <Heading as="h3" size="sm" weight="semibold" color={headingColor}>
             heading/small/semibold
           </Heading>
-          <Heading as="h3" size="medium" weight="medium" color={headingColor}>
+          <Heading as="h3" size="md" weight="medium" color={headingColor}>
             heading/medium/medium
           </Heading>
-          <Heading as="h3" size="medium" weight="semibold" color={headingColor}>
+          <Heading as="h3" size="md" weight="semibold" color={headingColor}>
             heading/medium/semibold
           </Heading>
-          <Heading as="h3" size="large" weight="medium" color={headingColor}>
+          <Heading as="h3" size="lg" weight="medium" color={headingColor}>
             heading/large/medium
           </Heading>
-          <Heading as="h3" size="large" weight="semibold" color={headingColor}>
+          <Heading as="h3" size="lg" weight="semibold" color={headingColor}>
             heading/large/semibold
           </Heading>
-          <Heading as="h3" size="x-large" weight="medium" color={headingColor}>
+          <Heading as="h3" size="xl" weight="medium" color={headingColor}>
             heading/x-large/medium
           </Heading>
-          <Heading
-            as="h3"
-            size="x-large"
-            weight="semibold"
-            color={headingColor}
-          >
+          <Heading as="h3" size="xl" weight="semibold" color={headingColor}>
             heading/x-large/semibold
           </Heading>
-          <Heading as="h3" size="2x-large" weight="medium" color={headingColor}>
+          <Heading as="h3" size="2xl" weight="medium" color={headingColor}>
             heading/2x-large/medium
           </Heading>
-          <Heading
-            as="h3"
-            size="2x-large"
-            weight="semibold"
-            color={headingColor}
-          >
+          <Heading as="h3" size="2xl" weight="semibold" color={headingColor}>
             heading/2x-large/semibold
           </Heading>
         </Grid>
         <Separator size="4" />
         <Flex direction="column" gap="2">
           <Callout status="warning">
-            <Text size="medium">
+            <Text size="md">
               Unstyled headings are for reference only, not recommended for new
               usages.
             </Text>

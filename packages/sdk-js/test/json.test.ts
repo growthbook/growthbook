@@ -12,6 +12,7 @@ import {
 import { evalCondition } from "../src/mongrule";
 import {
   SavedGroupsValues,
+  SavedGroupsPayload,
   StickyAssignmentsDocument,
   StickyAttributeKey,
   VariationRange,
@@ -35,8 +36,18 @@ type Cases = {
   run: [string, Context, Experiment<any>, any, boolean, boolean][];
   // name, context, feature key, result
   feature: [string, Context, string, FeatureResult][];
+  // name, context, feature key, result (contextual-bandit feature rules)
+  contextualBandit: [string, Context, string, FeatureResult][];
   // name, condition, attribute, result
   evalCondition: [string, any, any, boolean, SavedGroupsValues][];
+  // Gated behind the savedGroupReferencesV2 capability. An SDK that has not
+  // implemented $savedGroup skips this whole key, the same way it would skip
+  // stickyBucket or contextualBandit.
+  savedGroupReferencesV2: {
+    evalCondition: [string, any, any, boolean, SavedGroupsPayload][];
+    feature: [string, Context, string, FeatureResult][];
+    run: [string, Context, Experiment<any>, any, boolean, boolean][];
+  };
   // name, args ([numVariations, coverage, weights]), result
   getBucketRange: [
     string,
@@ -95,6 +106,15 @@ describe("json test suite", () => {
     },
   );
 
+  it.each((cases as Cases).contextualBandit)(
+    "contextualBandit[%#] %s",
+    (name, ctx, key, expected) => {
+      const growthbook = new GrowthBook(ctx);
+      expect(growthbook.evalFeature(key)).toEqual(expected);
+      growthbook.destroy();
+    },
+  );
+
   it.each((cases as Cases).evalCondition)(
     "evalCondition[%#] %s",
     (name, condition, value, expected, savedGroups = {}) => {
@@ -103,6 +123,36 @@ describe("json test suite", () => {
         .mockImplementation();
       expect(evalCondition(value, condition, savedGroups)).toEqual(expected);
       consoleErrorMock.mockRestore();
+    },
+  );
+
+  const v2 = (cases as Cases).savedGroupReferencesV2;
+
+  it.each(v2.evalCondition)(
+    "savedGroupReferencesV2.evalCondition[%#] %s",
+    (name, condition, value, expected, savedGroups = {}) => {
+      expect(evalCondition(value, condition, savedGroups)).toEqual(expected);
+    },
+  );
+
+  it.each(v2.feature)(
+    "savedGroupReferencesV2.feature[%#] %s",
+    (name, ctx, key, expected) => {
+      const growthbook = new GrowthBook(ctx);
+      expect(growthbook.evalFeature(key)).toEqual(expected);
+      growthbook.destroy();
+    },
+  );
+
+  it.each(v2.run)(
+    "savedGroupReferencesV2.run[%#] %s",
+    (name, ctx, exp, value, inExperiment, hashUsed) => {
+      const growthbook = new GrowthBook(ctx);
+      const res = growthbook.run(exp);
+      expect(res.value).toEqual(value);
+      expect(res.inExperiment).toEqual(inExperiment);
+      expect(res.hashUsed).toEqual(hashUsed);
+      growthbook.destroy();
     },
   );
 

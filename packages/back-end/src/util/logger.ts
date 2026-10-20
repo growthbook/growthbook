@@ -14,6 +14,9 @@ import { ENVIRONMENT, IS_CLOUD, LOG_LEVEL } from "./secrets";
 
 const redactPaths = [
   "req.headers.authorization",
+  'req.headers["proxy-authorization"]',
+  'req.headers["x-api-key"]',
+  'req.headers["x-vercel-auth"]',
   'req.headers["upgrade-insecure-requests"]',
   "req.headers.cookie",
   "req.headers.connection",

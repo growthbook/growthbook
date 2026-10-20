@@ -170,7 +170,12 @@ export default function ProjectSelector() {
         }
       >
         <div className="mt-2 mx-2">
-          <Field placeholder="Search..." type="search" {...searchInputProps} />
+          <Field
+            size="legacy"
+            placeholder="Search..."
+            type="search"
+            {...searchInputProps}
+          />
         </div>
         <DropdownLink
           onClick={() => {

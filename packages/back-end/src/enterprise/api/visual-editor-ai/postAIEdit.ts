@@ -1,0 +1,1438 @@
+import { z } from "zod";
+import type { ModelMessage } from "ai";
+import { pickVisionModel } from "shared/ai";
+import { updateVisualChange } from "back-end/src/models/VisualChangesetModel";
+import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
+import { changesetOwnerConfirmationLink } from "back-end/src/services/changesetOwner";
+import {
+  DeferredToolCallsError,
+  parsePrompt,
+  secondsUntilAICanBeUsedAgainForModel,
+} from "back-end/src/enterprise/services/ai";
+import { getAISettingsForOrg } from "back-end/src/services/organizations";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { logger } from "back-end/src/util/logger";
+import { IS_CLOUD, JWT_SECRET } from "back-end/src/util/secrets";
+import {
+  answeredToolCalls,
+  generatedImagesIn,
+  pendingToolCalls,
+  requestHash,
+  signEnvelope,
+  toolLoopEnvelopeSchema,
+  toolResultsMessage,
+  verifyEnvelope,
+} from "back-end/src/api/visual-editor-ai/toolLoopEnvelope";
+import { clientToolArgs } from "back-end/src/api/visual-editor-ai/aiTools/clientSideTools";
+import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
+import {
+  buildVisualEditorTools,
+  newImageTurnState,
+  VISUAL_EDITOR_MAX_STEPS,
+} from "back-end/src/api/visual-editor-ai/aiTools";
+import { aiEditJobStore } from "back-end/src/api/visual-editor-ai/aiTools/clientJob";
+import {
+  buildInsertJs,
+  makeScopeToken,
+  normalizeInsertPlacement,
+  wrapWithScope,
+} from "back-end/src/api/visual-editor-ai/insertPrimitive";
+import {
+  appendSkipped,
+  hasUnguardedDomInsert,
+  isUserNamedSelector,
+  mergeGlobalCss,
+  movePlacementProblem,
+  selectorsFoundByTool,
+} from "back-end/src/api/visual-editor-ai/editOutput";
+import { renderPageOutline } from "back-end/src/api/visual-editor-ai/pageStructure";
+import { requireConfirmation } from "back-end/src/services/confirmations";
+
+// A `css` rewrite plus a multi-part edit truncates at parsePrompt's 8000 default.
+const EDIT_MAX_OUTPUT_TOKENS = 16000;
+// Only for models with a documented ceiling; not higher, since the call isn't streamed.
+const EDIT_EXTENDED_MAX_OUTPUT_TOKENS = 32000;
+
+const elementContextSchema = z.object({
+  selector: z.string(),
+  tagName: z.string(),
+  textSnippet: z.string(),
+  outerHTML: z.string(),
+  attrs: z.record(z.string(), z.string()),
+  // Computed CSS subset captured at pick time. Lets the model see the
+  // CURRENT styling for prompts like "make it more rounded" or "match
+  // the header font". Optional for older extensions that don't send it.
+  computedStyles: z.record(z.string(), z.string()).optional(),
+});
+
+// One container in the page's structural snapshot (sections, layout
+// wrappers, ancestors of catalog headings), captured client-side with a
+// durable selector precomputed per node. Backs the page outline and the
+// server-side `findElements` / `describeContainer` tools.
+const structureNodeSchema = z.object({
+  selector: z.string(),
+  // The direct parent element — the destination of a sibling move.
+  parentSelector: z.string().optional(),
+  tag: z.string(),
+  id: z.string().optional(),
+  classes: z.array(z.string()).optional(),
+  role: z.string().optional(),
+  // Short trimmed text label for matching by visible content.
+  label: z.string().optional(),
+  // Newer extensions only; the siblings are the nearest visible ones.
+  docOrder: z.number().int().nonnegative().optional(),
+  prevSiblingSelector: z.string().optional(),
+  nextSiblingSelector: z.string().optional(),
+  layout: z.enum(["flex-row", "flex-column", "grid"]).optional(),
+});
+
+const layoutSchema = z.enum(["flex-row", "flex-column", "grid"]).optional();
+
+// Compact element catalog from visual-editor/src/content_script/pageDigest.ts —
+// gives the LLM real selectors to pick from rather than guessing.
+const domDigestSchema = z.object({
+  url: z.string(),
+  title: z.string(),
+  // Page-structure entries (html, body, header, main, etc.) — always-valid
+  // targets for global styling requests.
+  structural: z
+    .array(
+      z.object({
+        selector: z.string(),
+        tag: z.string(),
+        note: z.string().optional(),
+      }),
+    )
+    .default([]),
+  // `sectionSelector` (newer extensions): the enclosing snapshot container.
+  headings: z
+    .array(
+      z.object({
+        selector: z.string(),
+        tag: z.string(),
+        text: z.string(),
+        sectionSelector: z.string().optional(),
+      }),
+    )
+    .default([]),
+  // `parentLayout` (newer extensions) lets an insert below a row anchor to the row.
+  buttons: z
+    .array(
+      z.object({
+        selector: z.string(),
+        tag: z.string(),
+        text: z.string(),
+        href: z.string().optional(),
+        sectionSelector: z.string().optional(),
+        parentSelector: z.string().optional(),
+        parentLayout: layoutSchema,
+      }),
+    )
+    .default([]),
+  links: z
+    .array(
+      z.object({
+        selector: z.string(),
+        text: z.string(),
+        href: z.string(),
+        sectionSelector: z.string().optional(),
+        parentSelector: z.string().optional(),
+        parentLayout: layoutSchema,
+      }),
+    )
+    .default([]),
+  inputs: z
+    .array(
+      z.object({
+        selector: z.string(),
+        type: z.string(),
+        name: z.string().optional(),
+        placeholder: z.string().optional(),
+        label: z.string().optional(),
+        sectionSelector: z.string().optional(),
+      }),
+    )
+    .default([]),
+  images: z
+    .array(
+      z.object({
+        selector: z.string(),
+        alt: z.string().optional(),
+        src: z.string(),
+        sectionSelector: z.string().optional(),
+        parentSelector: z.string().optional(),
+        parentLayout: layoutSchema,
+      }),
+    )
+    .default([]),
+  // Rendered as the page outline when it carries document order.
+  pageStructure: z.array(structureNodeSchema).max(400).optional(),
+  // Flat alternative to the typed arrays above; both may be populated.
+  elements: z
+    .array(
+      z.object({
+        selector: z.string(),
+        tag: z.string(),
+        text: z.string().optional(),
+        href: z.string().optional(),
+        src: z.string().optional(),
+        alt: z.string().optional(),
+        placeholder: z.string().optional(),
+      }),
+    )
+    .max(300)
+    .optional(),
+});
+
+// Capped at 12 turns + 4000 chars/turn to bound prompt size.
+const conversationTurnSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  text: z.string().max(4000),
+});
+
+const bodySchema = z
+  .object({
+    prompt: z.string().min(1).max(8000),
+    elementContext: z.array(elementContextSchema).max(20).default([]),
+    variationId: z.string(),
+    visualChangesetId: z.string(),
+    domDigest: domDigestSchema.optional(),
+    conversationHistory: z.array(conversationTurnSchema).max(12).optional(),
+    // BCP-47 primary subtag (with optional region suffix). When non-English,
+    // the model writes its `explanation` in that language; mutations/CSS/JS
+    // stay language-neutral.
+    locale: z
+      .string()
+      .min(2)
+      .max(10)
+      .regex(/^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})?$/)
+      .optional(),
+    // Opt-in protocol flag. When true, the response is wrapped as
+    //   { kind: "final", payload: { mutations, css, js, explanation } }
+    // or
+    //   { kind: "tool-call", jobId, callId, tool, args }
+    // and DOM-side tools (getComputedStyles, findElements, getInnerHTML)
+    // are included in the toolset — the client is expected to service
+    // their results via POST /visual-editor/ai/edit/resume.
+    // When omitted/false, the response is the original unwrapped shape
+    // and only server-side tools (generateImage, etc.) are available.
+    streamingMode: z.boolean().optional(),
+    // Save the result rather than returning it for the caller to persist.
+    persist: z.boolean().optional(),
+    allowRunningExperiment: z.boolean().optional(),
+    // Bytes so the back-end never fetches; `url` is the hosted copy for placing it.
+    attachments: z
+      .array(
+        z.object({
+          data: z
+            .string()
+            .min(1)
+            // Two at this cap, plus the rest of the body, fit the 10mb limit.
+            .max(3 * 1024 * 1024),
+          mimeType: z.enum([
+            "image/png",
+            "image/jpeg",
+            "image/gif",
+            "image/webp",
+          ]),
+          url: z.string().url().max(2000).optional(),
+          name: z.string().max(200).optional(),
+        }),
+      )
+      .max(2)
+      .optional(),
+    // Stateless tool loop, round 2+: the signed envelope plus the pending DOM-tool results.
+    resume: z
+      .object({
+        envelope: toolLoopEnvelopeSchema,
+        results: z
+          .array(
+            z.object({
+              toolCallId: z.string().min(1).max(200),
+              toolName: z.string().min(1).max(100),
+              result: z.unknown(),
+            }),
+          )
+          .max(10),
+      })
+      .optional(),
+  })
+  .strict();
+
+const validation = {
+  bodySchema,
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+  responseSchema: z.any(),
+  method: "post" as const,
+  path: "/visual-editor/ai/edit",
+  confirmation: ["experiment.draft"] as const,
+  confirmationInHandler: true,
+  operationId: "postVisualEditorAIEdit",
+  // Internal Visual Editor extension endpoint — not part of the
+  // public OpenAPI spec.
+  excludeFromSpec: true,
+};
+
+// OpenAI strict JSON mode rejects `.optional()` — every property must be
+// required. We use `.nullable()` and convert nulls to undefined before returning.
+const mutationSchema = z.object({
+  selector: z.string().describe("CSS selector for the element to modify"),
+  action: z.enum(["set", "append", "remove"]),
+  attribute: z
+    .string()
+    .describe(
+      'Which thing on the element to modify. Allowed values: "html" (replaces innerHTML — use this for ANY text or HTML content change), "style" (inline style declaration string), "class" (className), "position" (move the element — see parentSelector + insertBeforeSelector), or any real HTML attribute (e.g. "src", "href", "alt", "title", "aria-label", "data-*"). Do NOT invent attribute names like "text" — use "html" for visible text changes.',
+    ),
+  value: z
+    .string()
+    .nullable()
+    .describe(
+      'New value for set/append. Use null for "remove" and for "position" moves (the destination lives in parentSelector / insertBeforeSelector instead). For "style" use a CSS declaration string, e.g. "display:none;color:red". For "html" provide plain text or HTML markup.',
+    ),
+  parentSelector: z
+    .string()
+    .nullable()
+    .describe(
+      'Position moves only: CSS selector of the destination parent element. Required when attribute === "position", null otherwise. Must be present in the page-elements catalog.',
+    ),
+  insertBeforeSelector: z
+    .string()
+    .nullable()
+    .describe(
+      "Position moves only: CSS selector of the sibling inside parentSelector to insert this element BEFORE. Null to append at the end of the parent. Must be present in the page-elements catalog when provided.",
+    ),
+  options: z
+    .array(z.string())
+    .nullable()
+    // Models routinely omit this key entirely rather than sending null — it
+    // reads as inapplicable on a normal edit. `.catch` treats a missing key
+    // as null while keeping the property in the schema's `required` list, so
+    // OpenAI strict mode is unaffected (it rejects optional properties).
+    .catch(null)
+    .describe(
+      'Alternative candidate values for `value`, shown to the user as a pick-one chooser in the UI. Populate ONLY when the user explicitly asks for multiple options/alternatives to choose from (e.g. "give me some alternative titles", "a few hero image options"). Include 2-5 entries. `value` must be your top recommendation AND must also be the first entry of this array. For text, each entry is an alternative string (plain text or HTML, matching the attribute). For images, each entry is a separate generated image URL — call generateImage once per option, never a collage. Null when not offering a choice.',
+    ),
+});
+
+const outputSchema = z.object({
+  mutations: z
+    .array(mutationSchema)
+    .describe("DOM mutations to apply. Return an empty array when none apply."),
+  cssAppend: z
+    .string()
+    .nullable()
+    // Missing key → null; see `options`.
+    .catch(null)
+    .describe(
+      "NEW global CSS rules to add after the variation's existing global CSS, which is kept as-is. Use this for every ADD. Null when adding nothing.",
+    ),
+  css: z
+    .string()
+    .nullable()
+    .describe(
+      "Complete REPLACEMENT for the variation's global CSS: existing rules verbatim, with your edits. Use it to MODIFY or REMOVE an existing rule, edited in place. Never use it just to add rules. Null otherwise — null never changes anything; a partial fragment here wipes the rest.",
+    ),
+  js: z
+    .string()
+    .nullable()
+    .describe(
+      "Complete global JS for this variation. REPLACES any prior JS — to add, modify, or remove code, return the rest of the existing JS verbatim alongside your change. Set to null when the user's request doesn't touch global JS (the existing JS stays as-is). Do NOT return a partial fragment or an empty string when JS exists; that wipes it.",
+    ),
+  insert: z
+    .array(
+      z.object({
+        targetSelector: z
+          .string()
+          .describe(
+            'Existing element to position the new content relative to. Must be a real selector from the Page elements catalog (e.g. "body", "header", a section selector). For a site-wide banner at the very top of the page, use "body".',
+          ),
+        position: z
+          .enum(["beforebegin", "afterbegin", "beforeend", "afterend"])
+          .describe(
+            'Where to place the new content relative to targetSelector: "beforebegin" = immediately before it (previous sibling); "afterbegin" = as its FIRST child (use this with "body" for a banner at the top of the page); "beforeend" = as its LAST child; "afterend" = immediately after it (next sibling).',
+          ),
+        html: z
+          .string()
+          .describe(
+            "Complete HTML markup for the NEW content only — never include the page's existing DOM. Put styling inline or in `cssAppend`. Keep it a single logical block (wrap multiple elements in one container).",
+          ),
+      }),
+    )
+    .describe(
+      "New elements to INSERT into the page — use this for ANY request to ADD, insert, prepend, or append NEW content (banners, notices, sections, blocks, buttons that don't exist yet). This is the ONLY correct way to add content: NEVER add content by setting/appending \"html\" on body/html or another container (that replaces its entire contents and crashes the page). Return an empty array when the request doesn't add any new elements.",
+    ),
+  skipped: z
+    .array(
+      z.object({
+        request: z
+          .string()
+          .describe("The part of the request you did not do, in a few words."),
+        reason: z
+          .string()
+          .describe(
+            "One line: why, and what would unblock it (e.g. click the element so its selector can be captured).",
+          ),
+      }),
+    )
+    .nullable()
+    .catch(null)
+    .describe(
+      "Parts of the request you did NOT do, one entry each. Fill this instead of abandoning the whole request when one part is blocked. Null when everything was done.",
+    ),
+  explanation: z
+    .string()
+    .describe(
+      "One-paragraph summary of what you changed, for the editor user. Parts you could not do belong in `skipped`, not here.",
+    ),
+});
+
+// Selectors whose innerHTML must never be replaced.
+const PAGE_ROOT_SELECTOR_RE = /^\s*(?::root|html|body)\s*$/i;
+
+// Backstop for the crash the `insert` field + prompt rules are meant to
+// prevent: an html mutation is unsafe when it targets a page-root container
+// (replacing body/html innerHTML wipes the page, and dom-mutator's observer
+// then re-fires → freeze) OR its value echoes whole-document markup (a sign
+// the model serialized the existing page instead of a small content swap).
+// The same mutation would run in the production SDK, so this guard protects
+// real visitors, not just the editor preview.
+function isUnsafeHtmlMutation(selector: string, value: string | null): boolean {
+  if (PAGE_ROOT_SELECTOR_RE.test(selector)) return true;
+  if (value && /<\s*(?:!doctype|html|head|body)[\s>]/i.test(value)) return true;
+  return false;
+}
+
+const instructions = `You are GrowthBook's Visual Editor assistant. Your job is to translate natural-language change requests into a structured set of DOM mutations that GrowthBook can apply to a web page in an A/B test variation.
+
+Allowed attribute values and what they do:
+- "html" — replaces the element's innerHTML. Use this for ANY visible text change (plain text is valid HTML). Example: { selector: ".headline", action: "set", attribute: "html", value: "Welcome back!" }
+  CRITICAL: "html" REPLACES everything inside the target element. Only ever target a small, specific element whose entire contents you intend to swap. NEVER use "html" (with "set" OR "append") on "body", "html", ":root", or any large structural/layout container — that destroys the whole page and crashes it. NEVER put the page's existing DOM into an html value (don't echo the current markup back). To ADD new content to the page, use the \`insert\` field (see "Inserting new elements" below) — never an html mutation on a container.
+- "style" — replaces the element's inline style. Value is a CSS declaration string, e.g. "display:none" or "color:red;font-size:20px".
+- "class" — with action "set" replaces the className, with action "append" adds classes (space-separated).
+- "position" — moves the element into a new parent. Use action "set". value MUST be null. Set parentSelector to the destination parent (required, must be in the catalog). Set insertBeforeSelector to a sibling inside that parent to insert this element BEFORE it; omit (null) to append at the end. Example to move a CTA above the headline:
+    { selector: ".cta-button", action: "set", attribute: "position", value: null, parentSelector: ".hero", insertBeforeSelector: ".hero-headline" }
+  Use moves only when the user explicitly asks to reorder, swap, or relocate elements, AND the elements involved are already direct children of their destination parent. To reorder items that sit inside wrappers (nav menus, lists, cards), prefer a CSS \`order\` rule instead of a move — see "Position-move rules" below.
+- Any real HTML attribute name: "src", "href", "alt", "title", "aria-label", "data-foo", etc.
+
+DO NOT invent attribute names. There is NO "text" attribute. To change visible text, ALWAYS use attribute "html". To hide an element use attribute "style" with value containing "display:none".
+
+Inserting new elements (banners, notices, sections, new blocks) — use the \`insert\` field, NOT an html mutation:
+- When the user asks to ADD, insert, prepend, append, or place NEW content on the page (a promotional banner, an announcement bar, a new section, a CTA that doesn't exist yet), return it in the \`insert\` array. Do NOT try to add content by setting or appending "html" on "body"/"html"/a container — that replaces the container's entire contents and crashes the page.
+- Each insert entry has: \`targetSelector\` (an existing element from the catalog to anchor to), \`position\` (beforebegin / afterbegin / beforeend / afterend, relative to that element), and \`html\` (the NEW markup ONLY — never the page's existing content).
+- "A full-width banner at the TOP of the page" → { targetSelector: "body", position: "afterbegin", html: "<div …>…</div>" }. "At the very bottom" → targetSelector "body", position "beforeend". Directly before/after a specific section → that section's selector with "beforebegin"/"afterend".
+- BELOW or ABOVE a row of items — buttons in a row, cards in a grid, nav links: anchor to the items' CONTAINER (\`afterend\` / \`beforebegin\` on the container), never to one of the items. An item's parent is almost always a flex row or a grid, so a sibling inserted next to an item lands on the same row no matter what width you give it. The catalog shows each button's and image's direct parent with its layout — e.g. \`parent: .hero-buttons (flex-row)\` — and the Page outline marks containers \`<div flex-row>\` / \`<div grid>\`; when the parent is one of those, target the parent. \`describeContainer\` and \`getComputedStyles\` (display) answer it for anything else.
+- Style the inserted markup with inline styles, or add rules in \`cssAppend\`. Give your new elements their own class names so your CSS can target them. (If the request wants a photographic image inside the banner, call \`generateImage\` and place the returned URL in the markup.)
+- You may return \`insert\` alongside \`mutations\` and \`cssAppend\` in one response. Inserts are applied idempotently and are safe on "body". Return an empty \`insert\` array when the request doesn't add any new elements.
+
+Position-move rules (critical):
+- A move is applied as parentSelector.insertBefore(element, insertBeforeSelector). The hard DOM requirement is on insertBeforeSelector ONLY: it must resolve to a DIRECT CHILD of parentSelector — it's the reference node the browser inserts before, and insertBefore fails if it isn't a direct child of the parent. The moved element (selector) can live ANYWHERE in the DOM — it's detached from its current spot and re-inserted — so relocating an element into a different container is perfectly valid. The common mistake is naming a deeper descendant as insertBeforeSelector (e.g. a link nested inside a list item), which is NOT a direct child of the parent, so the insert fails.
+- parentSelector MUST be a real selector from the Page elements catalog.
+- insertBeforeSelector (when provided) MUST also be from the catalog AND be a DIRECT child of parentSelector. If you can't be sure it's a direct child, omit it (null) — appending at the end is safer than guessing.
+- Reordering nav / menu / list items — do NOT use a position move on the inner link or text. These items are almost always wrapped (\`<li><a href="…">…</a></li>\`), and the catalog lists the INNER element (e.g. \`[href="#deals"]\`), which is NOT a direct child of the list container — moving it, or naming it as insertBeforeSelector, rips the link out of its \`<li>\` and breaks the nav (this is a common failure). Instead, reorder with a CSS \`order\` rule in \`cssAppend\`: global CSS is NOT restricted to catalog selectors, so you can target the wrapper with \`:has()\`, and \`order\` works on flex/grid containers (navs usually are one) without restructuring the DOM. Example — put "Flight Deals" before "Destinations":
+    cssAppend: \`.nav-links li:has(a[href="#deals"]) { order: -1; }\`
+- Real position moves are well-suited to relocating a block-level element into a different container (e.g. moving a <section> to before another <section> under <main>) and to reordering siblings that are themselves direct children of the parent. They're a poor fit for reordering items wrapped in <li>/<div> (nav menus, lists) — prefer the CSS \`order\` approach above for those.
+- Reordering a SET of sibling items — pricing plans, feature cards, columns, steps: one \`findElements\` on an item's title gives its \`selector\` and \`parentSelector\`; one \`describeContainer\` on that parentSelector lists every sibling in page order. That is all the lookup this needs — the shared parent is parentSelector for every move, and each sibling's selector is a valid insertBeforeSelector. Emit the new order as position moves that each insert an item before the one that should follow it (Starter, Pro, Enterprise → Enterprise, Pro, Starter: move Enterprise before Starter, then move Pro before Starter), or, when the parent is flex-row / grid, as one \`order\` rule per item in \`cssAppend\`. Don't re-describe each item or verify what a tool already told you. If the shared parent is NOT a captured container (findElements says \`parentCaptured: false\`, or describeContainer only knows it by selector), don't hunt for it and never guess a selector from a class name: emit one \`order\` rule per ITEM in \`cssAppend\` — card rows are almost always flex or grid — or list the reorder in \`skipped\` and ask the user to click one of the items. \`order\` only moves the flex/grid items themselves, the direct children of the shared row, so target the item and not something inside it: a findElements match with \`parentCaptured: false\` is usually an inner wrapper and the item is its \`parentSelector\`; in describeContainer's \`descendants\`, the items are the nearest entries with \`captured: false\`. A rule on a wrapper inside the item does nothing.
+- The source selector and parentSelector must NOT match the same element — that's a no-op or, worse, a self-cycle.
+- The moved element can never be its own destination: insertBeforeSelector must be a DIFFERENT element, a sibling. To move an element UP, insertBeforeSelector is the sibling currently ABOVE it; to move it above section Y, insertBeforeSelector is Y's selector. Get them from \`describeContainer\` (its prevSiblingSelector / nextSiblingSelector) or \`findElements\`. If you can't identify the destination sibling, don't guess — leave the move out and list it in \`skipped\`, asking the user to click the element it should go before.
+- For every move you propose, set value to null. Do not put position data in value.
+- Never combine position with action "append" or "remove". Always action "set".
+
+SELECTOR GROUNDING — this is critical:
+- You will be given a "Page elements" catalog with the actual selectors present on the page. It includes a "Page structure" section (html, body, header, main, footer, etc.) plus catalogs of headings, buttons, links, inputs, and images. When a "Page outline" block is present it lists the page's containers in document order with nesting shown by indentation, and catalog entries end with \`(in \`…\`)\` naming their enclosing container — use it to resolve "the button in the hero" or "the section after Features" directly, and pass any outline selector to \`describeContainer\` for its siblings and children.
+- You MUST pick selectors verbatim from this catalog or from the user's picked elementContext. Do NOT invent selectors like ".cta", ".hero-cta", "h1.headline" unless you can see them in the catalog.
+- PICKED ELEMENTS WIN — when the user has selected element(s) (the elementContext block, shown below as "selected the following elements … as context"), they are the DEFAULT target: apply the request to the picked element(s) or on an element inside of the context if it makes sense- unless the user's message explicitly names a different one. This takes PRECEDENCE over the keyword/semantic heuristics below. Example: the user picked an \`<div>\` that contains an \`<h2>\` and says "rewrite the heading to be funnier" → edit THAT \`<h2>\`, NOT the page's \`<h1>\`. If the user selects directly a \`<p>\` that contains text, and says to "make it shorter", it should apply directly to that text of the container. Using "this" or other pronouns in the prompt when the context or picked element is passed, refer to that picked element. Only fall back to the keyword/catalog rules when nothing relevant inside the context found or is picked.
+- EXCEPTION — selectors the USER names explicitly: when the user's own message contains a concrete class, id, or attribute selector (e.g. "elements with the \`section_bg-gradient-2\` class", "the \`#pricing\` section", "everything matching \`[data-card]\`"), treat it as ground truth and use it verbatim — even if it is NOT in the catalog. The catalog is a NON-EXHAUSTIVE sample: it only lists structural nodes (html/body/header/main/footer…) plus headings, buttons, links, inputs, and images. A class on a \`<section>\`, \`<div>\`, \`<li>\`, etc. will routinely be absent from it. Never refuse or ask for clarification just because a user-supplied class/id isn't in the catalog. The grounding rule above exists to stop you HALLUCINATING selectors from vague descriptions — not to override a selector the user handed you directly.
+- Apply any "style every element matching this class / id / attribute" request through GLOBAL CSS (\`cssAppend\`), not DOM mutations. A CSS rule targets any selector regardless of catalog membership, and styling a whole class of elements is exactly what global CSS is for.
+- When the user's request matches a semantic concept (e.g. "the hero CTA", "the signup button"), find the closest match by text content or position in the catalog and use that exact selector.
+- "Title" / "the title" / "page title" / "headline" / "heading" → when the user has NOT picked a relevant element (a picked element always wins — see "PICKED ELEMENTS WIN" above), interpret this as the visible main heading on the page — pick the first \`h1\` from the catalog (or the most prominent heading if no h1 is present). NEVER target the \`<title>\` element in \`<head>\`, \`document.title\`, or set the HTML "title" attribute (tooltip) for these requests. Users running an A/B test want to test what readers see on the page, not the browser tab text. The same applies to "subtitle" / "subheading" → the visible \`h2\` (or first heading below the h1), not anything in \`<head>\`.
+- For "the page", "the background", "the whole site", "globally", and similar broad requests, prefer "body" or "html" from the Page structure section. These are always valid targets — never refuse a global styling request because the more-specific catalogs only list components.
+- "html" and "body" are ALWAYS valid selectors even if the Page structure section is missing (e.g. older content scripts). Treat them as if they were in the catalog.
+- If the target is a section or container that isn't in the catalog (e.g. "the Trusted-by section", a named wrapper), call the \`findElements\` tool (when available) to look it up by text or class BEFORE giving up — sections are deliberately absent from the catalog. Only if findElements also finds nothing, the user named no explicit selector, AND the request isn't a global styling change, say so in the explanation and return mutations = []. Do not guess invented selectors.
+- Prefer PARTIAL completion over wholesale refusal. When a request has several targets and only some are grounded, fulfill the parts you can — the global/body portion, and any user-named class via global CSS — and list any genuinely unverifiable target in \`skipped\`. Do not refuse the entire request because one target couldn't be confirmed.
+
+Other rules:
+- Prefer the smallest, most targeted mutation.
+- Reuse selectors from elementContext when relevant.
+- When asked to change color/size/spacing, prefer "style" mutations over global CSS.
+- Use global CSS for sweeping changes (e.g. "make all buttons green", styling every element matching a class/attribute), for ::pseudo-element edits, and for any CSS \`@keyframes\` animation.
+- "Animated" effects are CSS, not images: an animated gradient, shimmering/pulsing/rotating background, "psychedelic rainbow", etc. is a global-CSS \`@keyframes\` + \`animation\` rule (often a \`linear-gradient\` with oversized \`background-size\` animating its \`background-position\`). Do NOT reach for \`generateImage\` for these — it only produces a STATIC image. Reserve \`generateImage\` for requests that genuinely want a photographic/illustrated picture.
+- Never produce destructive JS. Only emit JS when the request cannot be done declaratively.
+
+Selector durability — critical for variations that survive future deploys:
+- Many sites (Next.js, CSS Modules, styled-components, Emotion, stitches) emit class names that include build-time hashes — e.g. \`styles_slice-homepage__hnn7Q\`, \`css-1abc234\`, \`sc-bdAaNb\`. These hashes ROTATE on every deploy. A mutation anchored to \`.styles_title__hnn7Q\` works today and silently breaks on the next ship.
+- The page-elements catalog above and elementContext have already been pre-filtered for you: hashed classes were removed from generated selectors and replaced with \`[class*="stem"]\` partial matches (e.g. \`[class*="slice-homepage"]\`) when a stable middle is recoverable. Trust these — use them verbatim.
+- When you must construct a selector that isn't already in the catalog, prefer this order:
+  1. \`[data-testid="..."]\`, other \`[data-*]\` attributes, and \`[id]\` — author-defined hooks; most durable.
+  2. \`[aria-*]\`, \`[role]\`, \`[name]\`, \`[type]\`, \`[href]\`, \`[alt]\` — semantic attributes.
+  3. Semantic tag selectors (\`h1\`, \`nav button\`, \`article\`, \`main > section\`).
+  4. \`[class*="stem"]\` partial-class matches (the catalog already does this where possible).
+  5. \`nth-of-type(...)\` position selectors — last resort; fragile to sibling additions.
+- NEVER emit a hash-bearing class verbatim in a selector. Specifically, do not write \`.styles_*__XXXXX\`, \`.css-XXXXXX\`, \`.sc-XXXXXX\`, or any all-lowercase-and-digits class name of length 8+ that mixes letters and digits — these are bundler hashes that change on every deploy. If those are the only class signals available, switch to a tag + ancestor structural path (e.g. \`section[data-text-color="black"] > div > p\`) anchored under the nearest element that DOES have a stable attribute.
+
+DOM mutations vs global JS precedence — critical:
+- Saved DOM mutations re-apply automatically via a MutationObserver. If JS modifies the same element + attribute after the mutation lands, the observer will overwrite the JS change on the next frame. The mutation effectively "wins" against any one-shot JS.
+- Therefore: NEVER emit BOTH a DOM mutation AND JS that target the same selector + attribute. Pick exactly one approach:
+  • Declarative effects (set text via "html", set style, set class, set src/href, position moves, hide via display:none) → DOM mutation.
+  • Imperative effects (event listeners, setInterval/setTimeout, dynamic computation, async work, conditional logic, code that must respond to user interaction) → global JS only. Do not also produce a mutation on that element.
+- When in doubt about an overlap: read the "Existing mutations" and "Existing global JS" blocks above. If the request would touch an element already targeted by the other category, switch to the matching approach instead of producing a duplicate.
+- Example A — "change the headline to Welcome": DOM mutation on the headline. No JS.
+- Example B — "show a countdown timer in the headline that updates every second": JS only — the timer needs to keep writing. Do NOT also emit a mutation setting the headline text, or the mutation will fight the timer.
+- Example C — "when the button is clicked, swap its label": JS only — the label change is event-driven. Do NOT emit a class/text mutation on the button.
+
+Global JS that adds elements must be idempotent:
+- The SDK re-runs variation JS every time it re-applies the variation (SPA navigation, re-evaluation), and removing the <script> doesn't undo what it did. JS that inserts nodes without checking first duplicates them on the live site.
+- Prefer \`insert\` for new content — it is already guarded. When JS must create DOM, stamp a marker attribute on what you insert (e.g. \`data-gb-promo\`) and return early if \`document.querySelector('[data-gb-promo]')\` already exists.
+
+Tools you may call before producing the final JSON output:
+- \`generateImage\` — generate a single AI image and get a hosted URL. Call when the user asks to replace, set, or insert an image that does not exist yet (or any background-image). Never call it to recreate or approximate an image the user ATTACHED this turn — place the attachment's hosted URL from the Attached images block instead. A request for a distinct NEW image alongside an attachment ("place this logo and generate a hero background") still generates the new one. The URL you get back can be placed directly into a mutation's \`value\` — as a \`src\` for <img>, inside a \`background-image: url(...)\` style, or as part of HTML markup for a new <img>. Pick the aspectRatio that matches where the image will appear (16:9 hero, 1:1 avatar, etc.). Call once per image; for multi-image requests (e.g. "build a carousel of 3 slides"), call multiple times. You are budgeted up to 3 image generations per turn.
+- \`searchImageLibrary\` — list recent images the user has previously uploaded or generated. Useful when the user says "use one of my existing images" or references a prior visual. The results don't include visual content, only URLs and dates — prefer \`generateImage\` when the user describes a specific look.
+- \`getDesignTokens\` — fetch the organization's brand guidelines. Call when the user asks for changes that should be "on brand", "match our style", or "use our colors". Skip for purely tactical edits.
+- \`searchPastExperiments\` — search the user's previous A/B tests by name, hypothesis, or description. Call when the user references prior work ("similar to the pricing test", "what's worked here before", "try what we did on signup"). Returns experiment names + hypotheses + ids — never raw conversion numbers or revenue. Use the results to inform DIRECTION ("similar prior tests have leaned warmer/bolder/shorter"), not as a source of quoted numeric claims.
+- \`getExperimentVariations\` — given an experimentId from searchPastExperiments, fetch the variations' actual mutations + CSS + JS. Call this when the user explicitly wants to mirror or adapt the changes from a prior experiment. Long mutation values are truncated — treat them as patterns, not as verbatim source.
+- \`findElements\` — locate a container/section that is NOT in the page-elements catalog. The catalog only lists headings, buttons, links, inputs, images, and top-level landmarks — it does NOT list \`<section>\`s or layout wrapper \`<div>\`s. When the user refers to a whole section to move, reorder, hide, or restyle (e.g. "move the Trusted-by section above the features section"), call \`findElements\` with a word from the section's visible text or class name to get its durable \`selector\`, \`parentSelector\`, and \`prevSiblingSelector\` / \`nextSiblingSelector\`. Use those verbatim (they're real, captured from the live DOM). Prefer this over asking the user to click. (Not available on every deployment; if it returns nothing useful, fall back to asking the user to click.)
+- \`describeContainer\` — given a container selector from the Page outline or a findElements match, returns its parentSelector, its visible previous/next siblings, and its direct child containers in page order. This is how you build a move: up one place → insertBeforeSelector = its prevSiblingSelector; above Y → insertBeforeSelector = Y's selector; after Y → Y's nextSiblingSelector (null appends). Prefer it over guessing or asking the user to click. (Only offered when the extension sent the page in document order; when it's absent, ask the user to click the destination element.)
+
+Tool-use guidance:
+- Don't call tools just because they're available. If the user request can be fulfilled with information already in the prompt, return mutations directly without any tool calls.
+- Tool budget: at most ${VISUAL_EDITOR_MAX_STEPS - 1} tool calls per request, and the request FAILS for the user if you're still looking things up when it runs out. Decide the lookups you need up front, use each result the first time you get it, and stop looking once you have selectors for everything the request names.
+- ALWAYS finish your turn by emitting the final JSON output that matches the schema — this is mandatory and there is no other valid way to end. Never stop on a tool call, and never reply with prose alone: a turn that ends without the JSON object produces NO output and the whole request fails with an error the user can't act on. This holds even when you cannot complete the request — if a target can't be found (findElements returned nothing, nothing was picked, no explicit selector was given), still return the JSON with mutations: [] and an \`explanation\` saying what you need (e.g. ask the user to click the element). A declined request expressed as valid JSON is a success; a perfect plan left in prose or a dangling tool call is a failure.
+- When you place a generated image URL into a mutation, make sure the surrounding markup makes sense: <img> needs src + alt; CSS \`background-image: url(...)\` needs background-size and background-position too; an inserted <img> in an HTML mutation should be wrapped in an appropriate container.
+- Past-experiment data is sensitive. When you call \`searchPastExperiments\` or \`getExperimentVariations\`, the chat that contains your explanation persists with the changeset and may later be read by users with different permissions. Never quote specific experiment names, IDs, hypotheses, or numeric outcomes in the \`explanation\` field. Use only directional language ("Similar past tests in this account have favored a warmer color", "Previous attempts have leaned toward shorter copy"). The mutations + CSS + JS you emit are fine — those don't surface raw experiment metadata.
+
+Offering alternatives for the user to choose from:
+- When the user asks for MULTIPLE options or alternatives ("give me some alternative titles", "a few fun headline options", "show me a few hero images to pick from"), do NOT pick one silently. Return ONE mutation for the target element with the \`options\` array populated (2-5 candidates) and \`value\` set to your top recommendation (which must also be options[0]). The user picks one in the UI; the chosen value becomes the applied change.
+- Text alternatives: each entry in \`options\` is an alternative string (plain text or HTML, matching the attribute — usually "html"). Make them genuinely distinct, not trivial rewordings.
+- Image alternatives: call \`generateImage\` once PER option (each a single standalone image — never one collage of variants), then put the returned URLs into \`options\` with \`value\` = the first URL. Respect the per-turn image budget; 2-3 options is plenty.
+- Only one element per "alternatives" request. If the user asks for alternatives on several elements at once, return one options-bearing mutation per element.
+- For ordinary single changes (no "alternatives"/"options" language), leave \`options\` null and just set \`value\`.
+
+Conversation continuity:
+- You may be given a "Previous conversation" block. Use it to resolve pronouns ("it", "them", "the same one") and references to earlier edits. Do not re-apply mutations, or re-insert content, already accepted in earlier turns unless explicitly asked (re-inserting a banner you already added would duplicate it).
+
+Picked-element computed styles:
+- Picked elements may carry a \`computedStyles\` map — a subset of the element's CURRENT CSS (font-family, font-size, color, background-color, padding, margin, border, border-radius, box-shadow, etc.) as the browser is rendering it right now.
+- Use these as your baseline for relative requests. "More rounded" / "increase the padding" / "darker" / "bigger" should produce a value that's clearly different from the current one, not a generic default. "Match the header style" / "match the buttons above" should mirror those properties exactly when a header or button is also in elementContext.
+- Computed values are RESOLVED (e.g. \`color: rgb(0, 0, 0)\`, \`border-radius: 8px\`, not the original keywords). You may emit any equivalent form in your style mutation.
+- The keys are CSS property names (kebab-case). When the user describes a relative change, prefer modifying a property that's already set over introducing a new one.
+- Do NOT echo every computed style back as a mutation — only emit properties you're actually changing.
+
+When you don't have the reference element's styles:
+- If the user asks you to match the style of an element that ISN'T in elementContext (e.g. "match the homepage hero", "make this look like the testimonial cards", "use the same font as the navigation"), you don't have its computed styles — the page-elements catalog only lists selectors and text, not styling.
+- Do NOT guess values for the reference element. Inventing a font-family or color you can't see produces a worse result than asking. Specifically: don't return a mutation that hard-codes a font / color / size you guessed.
+- Instead, return mutations: [] and use the \`explanation\` field to ask the user to click the reference element on the page (it'll show up as a new picked element with computedStyles, and you can match it on the next turn). Be specific about what they should click — e.g. "Click one of the testimonial cards so I can see its background color and border radius."
+- This only applies when the request HINGES on the reference element's actual styling. "Match the header" needs styles. "Move it next to the header" only needs the header's selector, which is in the catalog — proceed normally.
+
+Iterating on existing mutations:
+- The "Existing mutations" block shows what's already applied to this variation. When the user wants to MODIFY an existing change (e.g. "actually make it red instead of blue", "increase the size further"), emit a new mutation with the SAME selector + attribute + action as the existing one and the updated value. The back-end automatically deduplicates — your new mutation replaces or merges with the existing one, you don't end up with two contradicting mutations stacked together.
+- For style mutations specifically: the merge is property-by-property. So if the existing mutation is "background-color:blue;padding:20px" and the user asks for red, you can emit ONLY "background-color:red" — the existing padding is preserved automatically. Don't restate properties you aren't changing.
+- This dedupe only applies when the (selector, attribute, action) triple matches exactly. If the user asks for a genuinely additive change (e.g. existing mutation sets the color; user now wants to also change the font-size), emit a separate mutation for the new property — those won't collide.
+
+Iterating on existing global CSS / JS (different rule from mutations — read carefully):
+- Two ways to change global CSS. \`cssAppend\` ADDS rules: they are appended after the current stylesheet, which is kept as-is. \`css\` REPLACES the whole stylesheet: return the complete intended CSS — existing rules verbatim, with your edits. ADD a rule → \`cssAppend\`. MODIFY or REMOVE an existing rule → \`css\`, edited in place; don't append an overriding copy, it leaves the old rule behind. Adding a rule through \`css\` forces you to re-emit everything and risks dropping rules — never do that.
+- \`js\` REPLACES the variation's prior global JS entirely — return the complete intended JS (existing code verbatim plus/minus your change). There is NO merge for js.
+- The "Current variation global CSS" / "Current variation global JS" blocks above are the AUTHORITATIVE record of what is currently applied. Build \`css\`/\`js\` from those blocks — never from earlier in the conversation. A rule you proposed in a previous turn is only applied if it appears in the Current block; if it doesn't (e.g. the user rejected or undid it), do NOT re-add it.
+- Examples (assume existing CSS is \`body { background: red; }\`):
+  • "Also make buttons pink" → cssAppend: \`button { color: pink; }\`, css: null.
+  • "Make the background blue instead" → css: \`body { background: blue; }\`, cssAppend: null.
+  • "Take out the background" → css: the rest of the stylesheet without that rule, cssAppend: null. If nothing would remain, leave css null and put it in \`skipped\` — clearing all CSS needs the manual editor.
+- Set \`cssAppend\`, \`css\`, and \`js\` to null when the request doesn't touch them. Null is always SAFE (no change). A partial fragment in \`css\` when CSS exists is UNSAFE (it clobbers the rest).
+
+Bias toward action when grounded:
+- If the catalog contains plausible targets and the request describes a visible change, ALWAYS attempt at least one mutation, with the rationale in the explanation.
+- If the request is ambiguous (e.g. "make it pop"), pick the most likely concrete change against a catalog element and call out that choice in the explanation.
+- Multi-part requests ("swap the images, move the pricing section up, and fix the padding") are the norm. Do every part you can in this one response. Never return mutations: [] because ONE part is blocked — complete the others and list the blocked part in \`skipped\`.
+- \`explanation\` covers what you DID. \`skipped\` covers what you did NOT do: one entry per undone part, with a one-line reason and what would unblock it (e.g. "click the section so I can capture its selector"). The user sees \`skipped\` rendered below your explanation, so don't repeat it there. Null when everything was done.
+- The ONLY cases where you may return an empty mutations array are: (a) the request is unrelated to visual changes (e.g. "how do A/B tests work?"), (b) the request is unsafe, or (c) NO part of the request has a plausible target. In those cases explain in detail what would be needed to proceed.`;
+
+// Bulleted text rather than JSON — fewer tokens, easier for LLMs to scan.
+// Selectors wrapped in backticks so the model treats them as opaque strings.
+const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
+  const lines: string[] = [];
+  const section = (label: string, items: string[]) => {
+    if (items.length === 0) return;
+    lines.push(`\n${label}:`);
+    for (const it of items) lines.push(`- ${it}`);
+  };
+  const inSection = (s?: string) => (s ? ` (in \`${s}\`)` : "");
+  // Section plus the direct parent and its layout.
+  const where = (e: {
+    sectionSelector?: string;
+    parentSelector?: string;
+    parentLayout?: string;
+  }) => {
+    const parts = [
+      e.sectionSelector ? `in \`${e.sectionSelector}\`` : "",
+      e.parentSelector
+        ? `parent: \`${e.parentSelector}\`${e.parentLayout ? ` (${e.parentLayout})` : ""}`
+        : "",
+    ].filter(Boolean);
+    return parts.length ? ` (${parts.join("; ")})` : "";
+  };
+  // Structural section first so the model treats body/html/main as
+  // first-class targets for global styling requests, not fallbacks.
+  section(
+    "Page structure",
+    digest.structural.map(
+      (s) => `\`${s.selector}\` <${s.tag}>${s.note ? ` — ${s.note}` : ""}`,
+    ),
+  );
+  const outline = digest.pageStructure
+    ? renderPageOutline(digest.pageStructure)
+    : "";
+  if (outline) {
+    lines.push(
+      "\nPage outline (containers in document order; indentation = nesting; call describeContainer for a container's siblings and children):",
+    );
+    lines.push(outline);
+  }
+  section(
+    "Headings",
+    digest.headings.map(
+      (h) =>
+        `\`${h.selector}\` <${h.tag}> "${h.text}"${inSection(h.sectionSelector)}`,
+    ),
+  );
+  section(
+    "Buttons / CTAs",
+    digest.buttons.map(
+      (b) =>
+        `\`${b.selector}\` <${b.tag}> "${b.text}"${
+          b.href ? ` → ${b.href}` : ""
+        }${where(b)}`,
+    ),
+  );
+  section(
+    "Links",
+    digest.links.map(
+      (l) => `\`${l.selector}\` "${l.text}" → ${l.href}${where(l)}`,
+    ),
+  );
+  section(
+    "Form fields",
+    digest.inputs.map((i) => {
+      const meta = [
+        i.label ? `label="${i.label}"` : "",
+        i.placeholder ? `placeholder="${i.placeholder}"` : "",
+        i.name ? `name="${i.name}"` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return `\`${i.selector}\` <${i.type}>${meta ? ` ${meta}` : ""}${inSection(
+        i.sectionSelector,
+      )}`;
+    }),
+  );
+  section(
+    "Images",
+    digest.images.map(
+      (img) =>
+        `\`${img.selector}\`${img.alt ? ` alt="${img.alt}"` : ""} src=${
+          img.src
+        }${where(img)}`,
+    ),
+  );
+  section(
+    "Other elements",
+    (digest.elements ?? []).map((el) => {
+      const meta = [
+        el.href ? `→ ${el.href}` : "",
+        el.src ? `src=${el.src}` : "",
+        el.alt ? `alt="${el.alt}"` : "",
+        el.placeholder ? `placeholder="${el.placeholder}"` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return `\`${el.selector}\` <${el.tag}>${
+        el.text ? ` "${el.text}"` : ""
+      }${meta ? ` ${meta}` : ""}`;
+    }),
+  );
+  if (lines.length === 0) {
+    return "\n(No editable elements were detected on the page.)\n";
+  }
+  return `\nPage elements (use selectors verbatim from this catalog):\nURL: ${digest.url}\nTitle: ${digest.title}${lines.join("\n")}\n`;
+};
+
+// Every selector the model can legitimately reference, used by the
+// self-correct validation pass to detect hallucinations.
+const allDigestSelectors = (
+  digest: z.infer<typeof domDigestSchema>,
+): Set<string> => {
+  const out = new Set<string>();
+  for (const s of digest.structural) out.add(s.selector);
+  for (const h of digest.headings) out.add(h.selector);
+  for (const b of digest.buttons) {
+    out.add(b.selector);
+    if (b.parentSelector) out.add(b.parentSelector);
+  }
+  for (const l of digest.links) {
+    out.add(l.selector);
+    if (l.parentSelector) out.add(l.parentSelector);
+  }
+  for (const i of digest.inputs) out.add(i.selector);
+  for (const img of digest.images) {
+    out.add(img.selector);
+    if (img.parentSelector) out.add(img.parentSelector);
+  }
+  for (const el of digest.elements ?? []) out.add(el.selector);
+  // html/body always resolve, even without a content-script digest.
+  out.add("html");
+  out.add("body");
+  return out;
+};
+
+const buildPrompt = ({
+  prompt,
+  elementContext,
+  existingMutations,
+  existingCss,
+  existingJs,
+  domDigest,
+  conversationHistory,
+  attachments,
+  retryHint,
+}: {
+  prompt: string;
+  elementContext: z.infer<typeof elementContextSchema>[];
+  existingMutations: {
+    selector: string;
+    action: string;
+    attribute: string;
+    value?: string;
+  }[];
+  existingCss?: string;
+  existingJs?: string;
+  domDigest?: z.infer<typeof domDigestSchema>;
+  conversationHistory?: z.infer<typeof conversationTurnSchema>[];
+  attachments?: Array<{ url?: string; mimeType: string; name?: string }>;
+  retryHint?: string;
+}): string => {
+  // The bytes ride as image parts on this message; this block names them.
+  const attachmentsBlock =
+    attachments && attachments.length > 0
+      ? `\nAttached images (${attachments.length}, included above in this message):\n${attachments
+          .map(
+            (a, i) =>
+              `${i + 1}. ${a.name ?? "image"} (${a.mimeType})${
+                a.url ? ` — hosted at ${a.url}` : ""
+              }`,
+          )
+          .join(
+            "\n",
+          )}\nDecide from the request what each is for. To PLACE it on the page (replace an image, set a background, insert it), use its hosted URL verbatim as the src / background-image / <img> in inserted markup — never a data: URI. As a REFERENCE ("make it look like this", "match this layout"), read it for colors, layout, and copy, and don't put it on the page unless asked. Never call generateImage to recreate an attached image — the attachment already has a hosted URL.\n`
+      : "";
+  const historyBlock =
+    conversationHistory && conversationHistory.length > 0
+      ? `\nPrevious conversation (most recent last):\n${conversationHistory
+          .map(
+            (t) =>
+              `${t.role === "user" ? "User" : "Assistant"}: ${t.text.replace(/\n+/g, " ").trim()}`,
+          )
+          .join("\n")}\n`
+      : "";
+
+  const digestBlock = domDigest ? formatDigest(domDigest) : "";
+
+  const contextBlock = elementContext.length
+    ? `\nThe user has selected the following elements on the page as context. These are the DEFAULT target for the request — apply the change to them unless the user explicitly names a different element. They take precedence over the "title"/"heading" keyword rules (e.g. a picked <h2> + "rewrite the heading" means THAT <h2>, not the page <h1>):\n\`\`\`json\n${JSON.stringify(elementContext, null, 2)}\n\`\`\`\n`
+    : !domDigest
+      ? "\n(No specific elements were selected and no page catalog is available. Operate on the user's request alone.)\n"
+      : "";
+
+  const existingBlock = existingMutations.length
+    ? `\nThe current variation already contains these mutations (do not duplicate them):\n\`\`\`json\n${JSON.stringify(existingMutations, null, 2)}\n\`\`\`\n`
+    : "";
+
+  // ALWAYS emit the current-state block, even when empty. This is the
+  // authoritative record of what global CSS/JS is currently applied to the
+  // variation (the committed changeset). When it's empty we say so explicitly
+  // ("(none)") rather than omitting the block — otherwise the model has no
+  // anchor and infers the current state from the conversation, which may
+  // include changes the user REJECTED or undid (e.g. re-adding a rejected
+  // `a{color:red}` on the next turn). The model is instructed to build its
+  // returned CSS/JS from THIS block, not from the chat history.
+  const existingCssBlock = existingCss
+    ? `\nCurrent variation global CSS (authoritative — kept as-is unless you return \`css\`; add rules with \`cssAppend\`):\n\`\`\`css\n${existingCss}\n\`\`\`\n`
+    : `\nCurrent variation global CSS: (none — this variation has no global CSS applied. Do not re-add CSS from earlier in the conversation; it may have been rejected.)\n`;
+  const existingJsBlock = existingJs
+    ? `\nCurrent variation global JS (authoritative — build on this, not the conversation):\n\`\`\`js\n${existingJs}\n\`\`\`\n`
+    : `\nCurrent variation global JS: (none — this variation has no global JS applied. Do not re-add JS from earlier in the conversation; it may have been rejected.)\n`;
+
+  const retryBlock = retryHint ? `\n${retryHint}\n` : "";
+
+  return `${historyBlock}${digestBlock}${contextBlock}${attachmentsBlock}${existingBlock}${existingCssBlock}${existingJsBlock}${retryBlock}
+User request:
+"""
+${prompt}
+"""
+Return a JSON object that conforms to the response schema.`;
+};
+
+export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
+  const {
+    prompt,
+    elementContext,
+    variationId,
+    visualChangesetId,
+    domDigest,
+    conversationHistory,
+    locale,
+    persist,
+    allowRunningExperiment,
+    attachments,
+    resume,
+  } = req.body;
+
+  const pageStructure = domDigest?.pageStructure;
+
+  const context = req.context;
+  requireUserAuth(context);
+
+  // Streaming finalizes in postAIEditResume; one write path, not two.
+  if (persist && req.body.streamingMode) {
+    context.throwBadRequestError(
+      "`persist` cannot be combined with `streamingMode`.",
+    );
+  }
+
+  const { changeset, owner } = await loadChangesetWithOwner(
+    context,
+    visualChangesetId,
+  );
+  if (!owner.canUpdateVisualChange()) {
+    context.permissions.throwPermissionError();
+  }
+  // Before the generation, so a doomed save doesn't burn AI quota first. Only a
+  // save is held; a preview changes nothing.
+  if (persist) {
+    owner.requireWrite(req, {
+      allowRunning: !!allowRunningExperiment,
+      visualChangesetId,
+    });
+    await requireConfirmation(context, {
+      actions: ["experiment.draft"],
+      project: owner.project,
+      summary: `Edit ${owner.name} with AI`,
+      links: [changesetOwnerConfirmationLink(owner)],
+      pin: null,
+    });
+  }
+
+  // Gated on the model this request will actually run: an org on its own key
+  // for that provider pays its own bill, so the managed cap doesn't apply.
+  const { visualEditorAIModel: cappedModel } =
+    await getAISettingsForOrg(context);
+  if (await secondsUntilAICanBeUsedAgainForModel(context, cappedModel)) {
+    throw new Error(
+      "Daily AI usage limit reached. Try again later or upgrade your plan.",
+    );
+  }
+
+  logger.info(
+    {
+      orgId: req.organization.id,
+      userId: context.userId,
+      visualChangesetId,
+      variationId,
+      promptLength: prompt.length,
+      conversationTurns: conversationHistory?.length ?? 0,
+      elementContextCount: elementContext.length,
+      hasDomDigest: !!domDigest,
+      attachmentCount: attachments?.length ?? 0,
+      prompt,
+    },
+    "[visual-editor-ai/edit] user prompt",
+  );
+
+  const currentChange = changeset.visualChanges.find(
+    (vc) => vc.variation === variationId,
+  );
+  // Fail fast on a variationId that isn't part of this changeset.
+  // Otherwise currentChange is undefined and the LLM sees empty
+  // existing mutations/CSS/JS — a "replace" response would then wipe
+  // the variation's real content because the model believes it's blank.
+  if (!currentChange) {
+    return context.throwBadRequestError(
+      "variationId does not belong to the given changeset",
+    );
+  }
+
+  // Selectors the LLM may reference without triggering a retry.
+  // Picked elements are trusted even when not in the digest — the user
+  // just clicked them, so they exist.
+  const trustedSelectors = new Set<string>();
+  if (domDigest) {
+    for (const s of allDigestSelectors(domDigest)) trustedSelectors.add(s);
+  }
+  for (const e of elementContext) trustedSelectors.add(e.selector);
+  // Selectors surfaced via the findElements tool are real (the snapshot was
+  // built from the live DOM), so trust them too — otherwise a move the model
+  // discovered through the tool would be dropped by the self-correct retry.
+  if (pageStructure) {
+    for (const n of pageStructure) {
+      trustedSelectors.add(n.selector);
+      if (n.parentSelector) trustedSelectors.add(n.parentSelector);
+      if (n.prevSiblingSelector) trustedSelectors.add(n.prevSiblingSelector);
+      if (n.nextSiblingSelector) trustedSelectors.add(n.nextSiblingSelector);
+    }
+  }
+  // Live findElements matches are added as the tool answers (onStepFinish).
+  const isTrusted = (s: string) =>
+    trustedSelectors.has(s) || isUserNamedSelector(prompt, s);
+
+  // visualEditorAIContext is the free-text brand guidelines admins set in
+  // Settings → AI Settings. Appended to the system prompt (not the user
+  // message) so the LLM treats it as instructions, not ignorable input.
+  const aiSettings = await getAISettingsForOrg(context, true);
+  const { visualEditorAIModel, visualEditorAIContext } = aiSettings;
+
+  // Attachments need a vision model; fail clearly when the org's keys offer none.
+  const images = attachments?.map((a) => ({
+    data: a.data,
+    mimeType: a.mimeType,
+  }));
+  let editModel = visualEditorAIModel;
+  if (images && images.length > 0) {
+    const visionModel = pickVisionModel(aiSettings);
+    if (!visionModel) {
+      return context.throwBadRequestError(
+        "No vision-capable AI model is available for image attachments. Configure a Google (Gemini), OpenAI (GPT-4o/5), or Anthropic (Claude) API key, or set the Visual Editor model to a vision-capable one in Settings → AI Settings.",
+      );
+    }
+    editModel = visionModel;
+  }
+  const attachmentMeta = attachments?.map(({ url, mimeType, name }) => ({
+    url,
+    mimeType,
+    name,
+  }));
+  let effectiveInstructions = visualEditorAIContext
+    ? `${instructions}\n\nAdditional brand guidelines / context provided by the organization (these MUST be respected unless they conflict with the JSON output schema):\n${visualEditorAIContext}`
+    : instructions;
+
+  // No chooser without a preview, so alternatives cost a paid call and are binned.
+  if (persist) {
+    effectiveInstructions = `${effectiveInstructions}\n\nThis request is saved directly, with no preview and no way for the user to pick between alternatives:\n- NEVER populate \`options\`. Return your single best \`value\`, even if the user asked for a few choices — say in the \`explanation\` that you picked one, and that they can ask again for a different take.\n- Call \`generateImage\` at most once per element you are changing. Never generate variants of the same image to choose from.`;
+  }
+
+  if (locale && !locale.toLowerCase().startsWith("en")) {
+    effectiveInstructions = `${effectiveInstructions}\n\nLanguage:\n- The user's interface is set to locale "${locale}". Write the \`explanation\` and \`skipped\` fields in that language (the natural language the user reads on screen).\n- Keep the JSON keys, selectors, attribute names, mutation actions ("set"/"append"/"remove"), CSS, JS, and any code identifiers in English — only the explanation and skipped prose is localized.`;
+  }
+
+  // Single-shot retry without tools — fired by finalize() if the LLM
+  // proposed selectors not in the catalog. Tools aren't useful here:
+  // the retry hint already names the missing selectors and tells the
+  // model to pick from the catalog.
+  const runRetry = async (retryHint: string) =>
+    parsePrompt({
+      context,
+      instructions: effectiveInstructions,
+      prompt: buildPrompt({
+        prompt,
+        elementContext,
+        existingMutations: currentChange?.domMutations ?? [],
+        existingCss: currentChange?.css,
+        existingJs: currentChange?.js,
+        domDigest,
+        conversationHistory,
+        attachments: attachmentMeta,
+        retryHint,
+      }),
+      temperature: 0.2,
+      type: "visual-editor-ai-edit",
+      isDefaultPrompt: true,
+      zodObjectSchema: outputSchema,
+      overrideModel: editModel,
+      images,
+      cacheSystemPrompt: true,
+      maxOutputTokens: EDIT_MAX_OUTPUT_TOKENS,
+      extendedMaxOutputTokens: EDIT_EXTENDED_MAX_OUTPUT_TOKENS,
+      // This is itself a retry (selector self-correction), so disable
+      // parsePrompt's no-object retry — otherwise one request could fan
+      // out to 4 LLM calls. finalizeOutput's try/catch already keeps the
+      // original result if this correction returns no object.
+      retryOnNoObject: false,
+    });
+
+  // Every selector a mutation requires on the page. Position moves
+  // additionally require parentSelector (and insertBeforeSelector when set).
+  const requiredSelectors = (m: {
+    selector: string;
+    attribute: string;
+    parentSelector?: string | null;
+    insertBeforeSelector?: string | null;
+  }): string[] => {
+    if (m.attribute !== "position") return [m.selector];
+    return [
+      m.selector,
+      ...(m.parentSelector ? [m.parentSelector] : []),
+      ...(m.insertBeforeSelector ? [m.insertBeforeSelector] : []),
+    ];
+  };
+
+  // Validate selectors, retry once on miss, sanitize, and return the
+  // final response shape. Used in both modes — non-streaming inlines
+  // it; streaming attaches it to the job so /edit/resume can run the
+  // same logic after the LLM's final output arrives.
+  const finalizeOutput = async (
+    raw: z.infer<typeof outputSchema>,
+  ): Promise<{
+    mutations: unknown[];
+    css?: string;
+    js?: string;
+    insert?: Array<{
+      targetSelector: string;
+      position: "beforebegin" | "afterbegin" | "beforeend" | "afterend";
+      html: string;
+      scopeToken: string;
+    }>;
+    explanation: string;
+  }> => {
+    let result = raw;
+    // One self-correct retry covers both uncatalogued selectors and bad moves.
+    const hints: string[] = [];
+    if (domDigest && trustedSelectors.size > 0 && result.mutations.length > 0) {
+      const misses = result.mutations
+        .flatMap(requiredSelectors)
+        .filter((s) => !isTrusted(s));
+      if (misses.length > 0) {
+        const uniqueMisses = Array.from(new Set(misses));
+        hints.push(
+          `RETRY: Your previous attempt used selectors that are NOT in the page-elements catalog: ${uniqueMisses
+            .map((s) => `\`${s}\``)
+            .join(
+              ", ",
+            )}. For position moves, the parent and insert-before targets count too — they must be in the catalog. Resolve this ONE of two ways: (1) if the user NAMED one of these selectors explicitly in their request (a class/id/attribute), it's valid — don't drop it, move that change into \`cssAppend\` instead (a CSS rule can target selectors the catalog doesn't list); (2) otherwise pick a matching selector verbatim from the catalog. Only return mutations = [] if neither applies and no catalog entry plausibly matches — and even then, still complete any global/body or user-named-class portion via \`cssAppend\`.`,
+        );
+      }
+    }
+    const badMoves = result.mutations.flatMap((m) => {
+      const problem = movePlacementProblem(m);
+      return problem ? [`\`${m.selector}\`: ${problem}`] : [];
+    });
+    if (badMoves.length > 0) {
+      hints.push(
+        `RETRY: These position moves can't be applied — ${badMoves.join("; ")}. The moved element can never be its own destination: insertBeforeSelector must be a DIFFERENT sibling (the one currently above it to move up; section Y's selector to move above Y) and parentSelector must be its container. Get them from \`describeContainer\` (its prevSiblingSelector) or \`findElements\`. If you can't identify the destination, leave the move out and list it in \`skipped\`.`,
+      );
+    }
+    if (hints.length > 0) {
+      try {
+        result = await runRetry(hints.join("\n\n"));
+      } catch (e) {
+        logger.warn({ err: e }, "[visual-editor-ai] self-correct retry failed");
+      }
+    }
+
+    let droppedUnsafeHtml = false;
+    const droppedMoves: Array<{ selector: string; problem: string }> = [];
+    const droppedUnknown: Array<{ selector: string; missing: string[] }> = [];
+    // The retry's selectors get the same check: an uncatalogued one silently no-ops.
+    const canJudgeSelectors = !!domDigest && trustedSelectors.size > 0;
+    const sanitizedMutations = result.mutations.filter((m) => {
+      const attr = m.attribute === "text" ? "html" : m.attribute;
+      // Guard (#3): never let an html mutation replace a page-root container
+      // or carry whole-document markup. Adding content must go through
+      // `insert`; this backstops the prompt rules and protects visitors
+      // (the same mutation runs in the SDK).
+      if (attr === "html" && isUnsafeHtmlMutation(m.selector, m.value)) {
+        droppedUnsafeHtml = true;
+        logger.warn(
+          { selector: m.selector },
+          "[visual-editor-ai] dropping unsafe html mutation (page-root target or full-document value)",
+        );
+        return false;
+      }
+      const problem = movePlacementProblem(m);
+      if (problem) {
+        droppedMoves.push({ selector: m.selector, problem });
+        logger.warn(
+          { selector: m.selector, problem },
+          "[visual-editor-ai] dropping position mutation",
+        );
+        return false;
+      }
+      if (canJudgeSelectors) {
+        const missing = requiredSelectors(m).filter((s) => !isTrusted(s));
+        if (missing.length > 0) {
+          droppedUnknown.push({ selector: m.selector, missing });
+          logger.warn(
+            { selector: m.selector, missing },
+            "[visual-editor-ai] dropping mutation with uncatalogued selectors after retry",
+          );
+          return false;
+        }
+      }
+      return true;
+    });
+
+    // Compile any `insert`s the model returned into idempotent
+    // insertAdjacentHTML snippets (see insertPrimitive.ts). Adding new DOM
+    // goes through the variation's `js`, never a dom-mutation — dom-mutator
+    // has no safe insert primitive.
+    const insertDescriptors: Array<{
+      targetSelector: string;
+      position: "beforebegin" | "afterbegin" | "beforeend" | "afterend";
+      html: string;
+      scopeToken: string;
+    }> = [];
+    const insertJsSnippets: string[] = [];
+    for (const ins of result.insert) {
+      const rawTarget = ins.targetSelector.trim();
+      const rawHtml = ins.html.trim();
+      if (!rawTarget || !rawHtml) continue;
+      // Remap root-relative positions insertAdjacentHTML can't do on <html>
+      // (e.g. "beforebegin" on the root) to a valid spot inside <body>, so a
+      // top/bottom-of-page insert actually lands instead of silently failing.
+      // Normalize once, then use for both the script and the preview descriptor.
+      const { targetSelector, position } = normalizeInsertPlacement(
+        rawTarget,
+        ins.position,
+      );
+      const scopeToken = makeScopeToken();
+      const html = wrapWithScope(rawHtml, scopeToken);
+      insertJsSnippets.push(
+        buildInsertJs({ scopeToken, targetSelector, position, html }),
+      );
+      insertDescriptors.push({ targetSelector, position, html, scopeToken });
+    }
+
+    // Merge the insert snippets into the variation's JS. The model's `js`
+    // (per its contract) is the COMPLETE new global JS; fall back to the
+    // existing JS when it left js null, then append our snippets.
+    let finalJs: string | undefined;
+    if (insertJsSnippets.length > 0) {
+      // Only treat the model's `js` as the new base when it actually has
+      // content. A schema-valid empty string must NOT drop the variation's
+      // existing JS — a plain "add a banner" edit leaves js empty, and `??`
+      // wouldn't catch "" (only null/undefined), so fall back explicitly.
+      const baseJs =
+        result.js && result.js.trim().length > 0
+          ? result.js.trim()
+          : (currentChange?.js ?? "").trim();
+      finalJs = [baseJs, ...insertJsSnippets]
+        .filter((s) => s.length > 0)
+        .join("\n\n");
+    } else if (result.js && result.js !== currentChange?.js) {
+      finalJs = result.js;
+    }
+
+    let explanation = result.explanation;
+    if (droppedUnsafeHtml) {
+      explanation +=
+        " (Skipped an unsafe change that would have replaced the entire page. To add content to the page, ask me to insert a banner or section instead.)";
+    }
+    if (
+      result.js &&
+      result.js !== currentChange?.js &&
+      hasUnguardedDomInsert(result.js)
+    ) {
+      logger.warn(
+        { visualChangesetId, variationId },
+        "[visual-editor-ai] js inserts DOM without an existence guard",
+      );
+      explanation +=
+        " (This change adds elements with custom JavaScript that doesn't check whether they already exist, so they may duplicate when the page re-renders. If you see duplicates, ask me to make it idempotent.)";
+    }
+    explanation = appendSkipped(explanation, [
+      ...(result.skipped ?? []),
+      ...droppedMoves.map((d) => ({
+        request: `Move \`${d.selector}\``,
+        reason: `${d.problem}. Click the element it should go before and ask again.`,
+      })),
+      ...droppedUnknown.map((d) => ({
+        request: `Change \`${d.selector}\``,
+        reason: `${d.missing
+          .map((s) => `\`${s}\``)
+          .join(
+            ", ",
+          )} isn't among the captured page elements. Click the element on the page and ask again.`,
+      })),
+    ]);
+
+    const css = mergeGlobalCss({
+      existing: currentChange?.css,
+      replace: result.css,
+      append: result.cssAppend,
+    });
+
+    return {
+      mutations: sanitizedMutations.map((m) => {
+        const attribute = m.attribute === "text" ? "html" : m.attribute;
+        const isPosition = attribute === "position";
+        // Surface `options` only when it's a genuine multi-choice set
+        // (≥2 distinct entries). A single-entry or null options array is
+        // just a normal mutation — don't burden the client with a
+        // chooser of one. Dedupe defensively (the model occasionally
+        // repeats its top pick).
+        const opts =
+          !isPosition && !persist && m.options
+            ? Array.from(new Set(m.options.filter((o) => o && o.length > 0)))
+            : [];
+        return {
+          selector: m.selector,
+          action: m.action,
+          attribute,
+          ...(!isPosition && m.value !== null ? { value: m.value } : {}),
+          ...(opts.length >= 2 ? { options: opts } : {}),
+          ...(isPosition && m.parentSelector
+            ? { parentSelector: m.parentSelector }
+            : {}),
+          ...(isPosition && m.insertBeforeSelector
+            ? { insertBeforeSelector: m.insertBeforeSelector }
+            : {}),
+        };
+      }),
+      // Clearing CSS or JS through the AI is unsupported, so empty means no change.
+      ...(css !== undefined ? { css } : {}),
+      ...(finalJs ? { js: finalJs } : {}),
+      ...(insertDescriptors.length > 0 ? { insert: insertDescriptors } : {}),
+      explanation,
+    };
+  };
+
+  // Three shapes: stateless (signed transcript, works on Cloud), streaming
+  // (in-memory job, self-hosted only), and plain (server-side tools only).
+  const streamingMode = !!req.body.streamingMode;
+  const stateless = req.headers["x-gb-tool-loop"] === "stateless";
+  if (resume && !stateless) {
+    return context.throwBadRequestError(
+      "`resume` requires the stateless tool loop.",
+    );
+  }
+  // Tool-call rounds are `{ kind }` envelopes, so the final answer must be too.
+  if (stateless && !streamingMode) {
+    return context.throwBadRequestError(
+      "The stateless tool loop requires `streamingMode`.",
+    );
+  }
+  const useToolLoop = streamingMode && !IS_CLOUD && !stateless;
+  const job = aiEditJobStore.create();
+  const imageState = newImageTurnState();
+  const tools = buildVisualEditorTools({
+    context,
+    job: useToolLoop ? job : undefined,
+    deferDomTools: stateless,
+    pageStructure,
+    imageState,
+    quarantineImages: !persist,
+    attachmentCount: attachments?.length ?? 0,
+  });
+  // Cast through unknown — the job store is invariant in TFinal for
+  // type-erasure reasons but each job is used with one schema only.
+  (
+    job as unknown as {
+      finalize: (raw: z.infer<typeof outputSchema>) => Promise<unknown>;
+    }
+  ).finalize = finalizeOutput;
+
+  const parsePromptArgs = {
+    context,
+    instructions: effectiveInstructions,
+    prompt: buildPrompt({
+      prompt,
+      elementContext,
+      existingMutations: currentChange?.domMutations ?? [],
+      existingCss: currentChange?.css,
+      existingJs: currentChange?.js,
+      domDigest,
+      conversationHistory,
+      attachments: attachmentMeta,
+    }),
+    temperature: 0.2,
+    type: "visual-editor-ai-edit" as const,
+    isDefaultPrompt: true,
+    zodObjectSchema: outputSchema,
+    overrideModel: editModel,
+    images,
+    tools,
+    maxSteps: VISUAL_EDITOR_MAX_STEPS,
+    cacheSystemPrompt: true,
+    maxOutputTokens: EDIT_MAX_OUTPUT_TOKENS,
+    extendedMaxOutputTokens: EDIT_EXTENDED_MAX_OUTPUT_TOKENS,
+    // Diagnostic context for structured-output failure logs: which changeset
+    // and which selectors (e.g. hashed classes) correlate with failures.
+    logContext: {
+      visualChangesetId,
+      variationId,
+      pickedSelectors: elementContext.map((e) => e.selector),
+    },
+    onStepFinish: ({
+      toolCalls,
+      toolResults,
+    }: {
+      toolCalls?: Array<{ toolName: string }>;
+      toolResults?: Array<{
+        toolName: string;
+        input: unknown;
+        output: unknown;
+      }>;
+    }) => {
+      for (const r of toolResults ?? []) {
+        for (const s of selectorsFoundByTool(r)) trustedSelectors.add(s);
+      }
+      if (toolCalls && toolCalls.length > 0) {
+        logger.debug(
+          {
+            orgId: context.org.id,
+            tools: toolCalls.map((c) => c.toolName),
+          },
+          "[visual-editor-ai/edit] tool calls",
+        );
+      }
+    },
+  };
+
+  // The tail every path shares.
+  const completeTurn = async (raw: z.infer<typeof outputSchema>) => {
+    const finalized = await finalizeOutput(raw);
+    if (persist) {
+      // Re-checked against the stored owner: it may have started during the generation.
+      const { owner: storedOwner } = await loadChangesetWithOwner(
+        context,
+        visualChangesetId,
+      );
+      if (!storedOwner.canUpdateVisualChange()) {
+        context.permissions.throwPermissionError();
+      }
+      const auditLiveEdit = storedOwner.requireWrite(req, {
+        allowRunning: !!allowRunningExperiment,
+        visualChangesetId,
+      });
+      const change = currentChange;
+      await updateVisualChange({
+        context,
+        owner: storedOwner,
+        changesetId: visualChangesetId,
+        visualChangeId: change.id,
+        payload: {
+          // The model returns only new mutations, but complete css/js.
+          domMutations: [
+            ...(change.domMutations ?? []),
+            ...(finalized.mutations as typeof change.domMutations),
+          ],
+          ...(finalized.css !== undefined ? { css: finalized.css } : {}),
+          ...(finalized.js !== undefined ? { js: finalized.js } : {}),
+        },
+      });
+      await auditLiveEdit();
+      return {
+        ...finalized,
+        saved: true as const,
+        visualChangeId: change.id,
+        images: imageState.generated,
+        warnings: imageState.warnings,
+      };
+    }
+    return streamingMode
+      ? { kind: "final" as const, payload: finalized }
+      : finalized;
+  };
+
+  if (stateless) {
+    aiEditJobStore.delete(job.id);
+    const scope = {
+      orgId: req.organization.id,
+      userId: context.userId ?? "",
+      visualChangesetId,
+      variationId,
+      requestHash: requestHash({ ...req.body, resume: undefined }),
+    };
+    let priorMessages: ModelMessage[] | undefined;
+    let stepsAlreadyUsed = 0;
+    if (resume) {
+      if (!verifyEnvelope(JWT_SECRET, scope, resume.envelope)) {
+        return context.throwBadRequestError(
+          "The AI edit transcript failed verification. Start the prompt again.",
+        );
+      }
+      // Signed by us last round, so it is the SDK's own shape.
+      const transcript = resume.envelope.transcript as ModelMessage[];
+      const answered = toolResultsMessage(
+        pendingToolCalls(transcript),
+        resume.results,
+      );
+      if (!answered.ok) return context.throwBadRequestError(answered.error);
+      priorMessages = [...transcript, answered.message];
+      for (const r of answeredToolCalls(priorMessages)) {
+        for (const s of selectorsFoundByTool(r)) trustedSelectors.add(s);
+      }
+      stepsAlreadyUsed = resume.envelope.stepsUsed;
+      // Re-seed the image budget from the transcript so a resume can't buy three more.
+      const priorImages = generatedImagesIn(transcript);
+      imageState.count = priorImages.length;
+      imageState.generated.push(...priorImages);
+    }
+    try {
+      const raw = await parsePrompt({
+        ...parsePromptArgs,
+        priorMessages,
+        stepsAlreadyUsed,
+        deferToolCalls: true,
+      });
+      return await completeTurn(raw);
+    } catch (e) {
+      if (!(e instanceof DeferredToolCallsError)) throw e;
+      const { transcript, pending, stepsUsed } = e.deferred;
+      return {
+        kind: "tool-call" as const,
+        envelope: signEnvelope(
+          JWT_SECRET,
+          scope,
+          [...(priorMessages ?? []), ...transcript],
+          stepsAlreadyUsed + stepsUsed,
+        ),
+        calls: pending.map((c) => ({
+          toolCallId: c.toolCallId,
+          toolName: c.toolName,
+          args: clientToolArgs(c.toolName, c.input),
+        })),
+      };
+    }
+  }
+
+  const generation = parsePrompt(parsePromptArgs);
+  (
+    job as unknown as {
+      setGenerationPromise: (p: Promise<unknown>) => void;
+    }
+  ).setGenerationPromise(generation);
+
+  const outcome = await (
+    job as unknown as {
+      race: () => Promise<
+        | { kind: "toolCall"; callId: string; tool: string; args: unknown }
+        | { kind: "final"; payload: z.infer<typeof outputSchema> }
+        | { kind: "error"; error: string }
+      >;
+    }
+  ).race();
+
+  if (outcome.kind === "error") {
+    aiEditJobStore.delete(job.id);
+    throw new Error(outcome.error);
+  }
+  if (outcome.kind === "toolCall") {
+    // DOM-side tools are only attached when useToolLoop is true, so this
+    // branch is unreachable otherwise — defensive throw makes that
+    // explicit. Server-side tools execute synchronously inside
+    // generateText and never reach the race.
+    if (!useToolLoop) {
+      aiEditJobStore.delete(job.id);
+      throw new Error(
+        "Internal: unexpected client-side tool call without the tool loop.",
+      );
+    }
+    return {
+      kind: "tool-call" as const,
+      jobId: job.id,
+      callId: outcome.callId,
+      tool: outcome.tool,
+      args: outcome.args,
+    };
+  }
+
+  // outcome.kind === "final"
+  aiEditJobStore.delete(job.id);
+  return await completeTurn(outcome.payload);
+});

@@ -14,7 +14,7 @@ import {
 import Modal from "@/components/Modal";
 import TagsInput from "@/components/Tags/TagsInput";
 import Field from "@/components/Forms/Field";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 
 type SlackIntegrationAddEditModalProps = {
   projects: {
@@ -25,7 +25,6 @@ type SlackIntegrationAddEditModalProps = {
   tagOptions: TagInterface[];
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (data: SlackIntegrationEditParams) => void;
   onUpdate: (id: string, data: SlackIntegrationEditParams) => void;
   mode: SlackIntegrationModalMode;
   error: string | null;
@@ -41,41 +40,17 @@ export const SlackIntegrationAddEditModal: FC<
   mode,
   error,
   onClose,
-  onCreate,
   onUpdate,
 }) => {
   const [ctaEnabled, setCtaEnabled] = useState(false);
 
   const form = useForm<SlackIntegrationEditParams>({
-    defaultValues:
-      mode.mode === "edit"
-        ? mode.data
-        : {
-            name: "",
-            events: [],
-            description: "",
-            slackAppId: "",
-            environments: [],
-            projects: [],
-            slackSigningKey: "",
-            slackIncomingWebHook: "",
-            tags: [],
-          },
+    defaultValues: mode.data,
   });
 
   const handleSubmit = form.handleSubmit(async (values) => {
-    if (mode.mode === "edit") {
-      onUpdate(mode.id, values);
-    } else {
-      onCreate(values);
-    }
+    onUpdate(mode.id, values);
   });
-
-  const modalTitle =
-    mode.mode == "edit"
-      ? "Edit Slack integration"
-      : "Create a new Slack integration";
-  const buttonText = mode.mode == "edit" ? "Save" : "Create";
 
   const handleFormValidation = useCallback(() => {
     const formValues = form.getValues();
@@ -111,8 +86,8 @@ export const SlackIntegrationAddEditModal: FC<
   return (
     <Modal
       trackingEventModalType=""
-      header={modalTitle}
-      cta={buttonText}
+      header="Edit Slack integration"
+      cta="Save"
       close={onClose}
       open={isOpen}
       autoCloseOnSubmit={false}
@@ -133,6 +108,7 @@ export const SlackIntegrationAddEditModal: FC<
         .
       </p>
       <Field
+        size="legacy"
         label="Name"
         placeholder="My Slack integration"
         autoComplete="off"
@@ -145,6 +121,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <Field
+        size="legacy"
         label="Description"
         placeholder="(optional description)"
         autoComplete="off"
@@ -156,6 +133,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <MultiSelectField
+        legacyHeight
         label="Event filters"
         helpText="Only receive notifications for matching events."
         value={form.watch("events")}
@@ -169,6 +147,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <Field
+        size="legacy"
         label="Slack App ID"
         autoComplete="off"
         helpText="Copy the Slack App ID from the app's Basic Information page"
@@ -181,6 +160,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <Field
+        size="legacy"
         label="Slack App Incoming Webhook URL"
         autoComplete="off"
         helpText="Copy the Incoming Webhook URL for your Slack App. This can be found on the Incoming Webhooks page under Features for your Slack app configuration"
@@ -193,6 +173,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <Field
+        size="legacy"
         label="Slack Signing Key"
         autoComplete="off"
         required
@@ -205,6 +186,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <MultiSelectField
+        legacyHeight
         label="Environment filters"
         helpText="Only receive notifications for matching environments."
         value={form.watch("environments")}
@@ -219,6 +201,7 @@ export const SlackIntegrationAddEditModal: FC<
       />
 
       <MultiSelectField
+        legacyHeight
         label="Project filters"
         helpText="Only receive notifications for matching projects."
         value={form.watch("projects")}

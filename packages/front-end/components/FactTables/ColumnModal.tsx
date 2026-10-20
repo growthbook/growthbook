@@ -1,6 +1,7 @@
 import {
   CreateColumnProps,
   ColumnInterface,
+  JSONColumnFields,
   NumberFormat,
   FactTableInterface,
   UpdateColumnProps,
@@ -27,8 +28,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import SelectField, { SingleValue } from "@/components/Forms/SelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Checkbox from "@/ui/Checkbox";
 import RadixButton from "@/ui/Button";
@@ -39,11 +40,35 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import track from "@/services/track";
 import { getAutoSliceUpdateFrequencyHours } from "@/services/env";
 import { DocLink } from "@/components/DocLink";
+import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
 
 export interface Props {
   factTable: FactTableInterface;
   existing?: ColumnInterface;
   close: () => void;
+}
+
+// Form values allow an omitted json field datatype; a persisted column always
+// carries one, defaulting to "" until detection fills it in.
+function toPersistedJSONFields(
+  jsonFields: CreateColumnProps["jsonFields"],
+): JSONColumnFields | undefined {
+  if (!jsonFields) return undefined;
+  return Object.fromEntries(
+    Object.entries(jsonFields).map(([field, value]) => [
+      field,
+      { ...value, datatype: value.datatype ?? "" },
+    ]),
+  );
+}
+
+function toConditionalInlineFilters(
+  mappings: { value: string; column: string }[],
+): Record<string, string> {
+  return Object.fromEntries(
+    mappings.filter((m) => m.value && m.column).map((m) => [m.value, m.column]),
+  );
 }
 
 export default function ColumnModal({ existing, factTable, close }: Props) {
@@ -97,6 +122,13 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     }
   };
 
+  const [valueMappings, setValueMappings] = useState<
+    { value: string; column: string }[]
+  >(() =>
+    Object.entries(existing?.conditionalInlineFilters ?? {}).map(
+      ([value, column]) => ({ value, column }),
+    ),
+  );
   const form = useForm<CreateColumnProps>({
     defaultValues: {
       column: existing?.column || "",
@@ -238,14 +270,39 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     name: form.watch("name") || form.watch("column"),
     description: form.watch("description") || "",
     numberFormat: form.watch("numberFormat") || "",
-    datatype: form.watch("datatype"),
-    jsonFields: form.watch("jsonFields"),
+    datatype: form.watch("datatype") ?? "",
+    jsonFields: toPersistedJSONFields(form.watch("jsonFields")),
     alwaysInlineFilter: form.watch("alwaysInlineFilter"),
     isAutoSliceColumn: form.watch("isAutoSliceColumn"),
     autoSlices: form.watch("autoSlices"),
     lockedAutoSlices: form.watch("lockedAutoSlices"),
     deleted: false,
   };
+
+  // Other string columns a conditional prompt can key off.
+  // Columns (or JSON fields) that can be prompted for alongside this one
+  const mappingColumnOptions: SingleValue[] = [];
+  factTable.columns.forEach((c) => {
+    if (c.deleted || c.column === existing?.column) return;
+    if (c.datatype === "json") {
+      Object.entries(c.jsonFields ?? {}).forEach(([field, f]) => {
+        if (
+          f.datatype === "string" ||
+          f.datatype === "boolean" ||
+          !f.datatype
+        ) {
+          mappingColumnOptions.push({
+            label: `${c.name || c.column}.${field}`,
+            value: `${c.column}.${field}`,
+          });
+        }
+      });
+      return;
+    }
+    if (canInlineFilterColumn(factTable, c.column)) {
+      mappingColumnOptions.push({ label: c.name || c.column, value: c.column });
+    }
+  });
 
   return (
     <Modal
@@ -264,6 +321,9 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             numberFormat: value.numberFormat,
             datatype: value.datatype,
             alwaysInlineFilter: value.alwaysInlineFilter,
+            conditionalInlineFilters: value.alwaysInlineFilter
+              ? toConditionalInlineFilters(valueMappings)
+              : {},
             isAutoSliceColumn: value.isAutoSliceColumn,
             autoSlices: value.autoSlices,
             lockedAutoSlices: value.lockedAutoSlices,
@@ -278,7 +338,16 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             const updatedFactTable = {
               ...factTable,
               columns: factTable.columns.map((c) =>
-                c.column === existing.column ? { ...c, ...data } : c,
+                c.column === existing.column
+                  ? {
+                      ...c,
+                      ...data,
+                      datatype: data.datatype ?? c.datatype,
+                      jsonFields: data.jsonFields
+                        ? toPersistedJSONFields(data.jsonFields)
+                        : c.jsonFields,
+                    }
+                  : c,
               ),
             };
             if (!canInlineFilterColumn(updatedFactTable, existing.column)) {
@@ -308,26 +377,33 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
 
           await apiCall(`/fact-tables/${factTable.id}/column`, {
             method: "POST",
-            body: JSON.stringify(value),
+            body: JSON.stringify({
+              ...value,
+              conditionalInlineFilters: value.alwaysInlineFilter
+                ? toConditionalInlineFilters(valueMappings)
+                : undefined,
+            }),
           });
         }
         mutateDefinitions();
       })}
     >
       {!existing && (
-        <div className="alert alert-warning">
+        <Callout status="warning">
           This should only be used if we did not auto-detect your Fact Table
           columns. Please double check your SQL first before using this form.
-        </div>
+        </Callout>
       )}
       <Field
+        size="legacy"
         label="Column"
         {...form.register("column")}
         disabled={!!existing}
       />
       <SelectField
+        size="legacy"
         label="Data Type"
-        value={form.watch("datatype")}
+        value={form.watch("datatype") ?? ""}
         onChange={(f) => form.setValue("datatype", f as FactTableColumnType)}
         initialOption="Unknown"
         required
@@ -365,6 +441,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       />
       {form.watch("datatype") === "number" && (
         <SelectField
+          size="legacy"
           label="Number Format"
           value={form.watch("numberFormat") || ""}
           helpText="Used to properly format numbers in the UI"
@@ -381,6 +458,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             {
               label: "Time (seconds)",
               value: "time:seconds",
+            },
+            {
+              label: "Time (milliseconds)",
+              value: "time:milliseconds",
             },
             {
               label: "Memory (bytes)",
@@ -460,6 +541,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                           />
                           <div style={{ minWidth: 115 }}>
                             <SelectField
+                              size="legacy"
                               value={newJSONField.value}
                               onChange={(f) =>
                                 setNewJSONField({
@@ -537,6 +619,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       )}
 
       <Field
+        size="legacy"
         label="Display Name"
         {...form.register("name")}
         placeholder={form.watch("column")}
@@ -592,7 +675,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                   <>
                     Column may be used to automatically slice metrics during
                     experiment analysis.{" "}
-                    <DocLink docSection="autoSlices">
+                    <DocLink useRadix={false} docSection="autoSlices">
                       Learn More <PiArrowSquareOut />
                     </DocLink>
                   </>
@@ -735,7 +818,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                       )}
                     </Flex>
                     <RadixButton
-                      size="xs"
+                      size="sm"
                       variant="outline"
                       onClick={refreshTopValues}
                       loading={refreshingTopValues}
@@ -864,6 +947,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                         <Flex mt="2" gap="2" align="center">
                           <div style={{ flex: 1 }}>
                             <Field
+                              size="legacy"
                               style={{ height: 28 }}
                               value={newSliceValue}
                               onChange={(e) => setNewSliceValue(e.target.value)}
@@ -896,7 +980,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                             />
                           </div>
                           <RadixButton
-                            size="sm"
+                            size="md"
                             variant="ghost"
                             ml="2"
                             style={{ height: 28 }}
@@ -935,6 +1019,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                         </div>
                       )}
                       <MultiSelectField
+                        legacyHeight
                         value={form.watch("autoSlices") || []}
                         onChange={(values) => {
                           if (values.length > maxMetricSliceLevels) {
@@ -972,9 +1057,101 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           <Checkbox
             value={form.watch("alwaysInlineFilter") ?? false}
             setValue={(v) => form.setValue("alwaysInlineFilter", v === true)}
-            label="Prompt all metrics to filter on this column"
+            label="Prompt metrics to filter on this column"
             description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
           />
+          {form.watch("alwaysInlineFilter") &&
+            mappingColumnOptions.length > 0 && (
+              <Frame mt="2" ml="4" py="4" px="4">
+                <Text size="2" weight="medium">
+                  Secondary filters
+                </Text>
+                <Text as="p" size="1" color="gray" mb="2">
+                  When certain values are chosen, prompt for an additional
+                  filter.
+                </Text>
+                <Flex direction="column" gap="2">
+                  {valueMappings.map((m, i) => (
+                    <Flex key={i} gap="2" align="center">
+                      <SelectField
+                        containerStyle={{
+                          flex: 1,
+                          minWidth: 0,
+                          marginBottom: 0,
+                        }}
+                        value={m.value}
+                        createable
+                        onChange={(value) =>
+                          setValueMappings((prev) =>
+                            // A value maps once; a duplicate would overwrite on save
+                            prev.some((x, j) => j !== i && x.value === value)
+                              ? prev
+                              : prev.map((x, j) =>
+                                  j === i ? { ...x, value } : x,
+                                ),
+                          )
+                        }
+                        options={topValues
+                          .filter(
+                            (v) =>
+                              v === m.value ||
+                              !valueMappings.some((x) => x.value === v),
+                          )
+                          .map((v) => ({ label: v, value: v }))}
+                        placeholder="Value..."
+                      />
+                      <Text>→</Text>
+                      <SelectField
+                        containerStyle={{
+                          flex: 1,
+                          minWidth: 0,
+                          marginBottom: 0,
+                        }}
+                        value={m.column}
+                        onChange={(column) =>
+                          setValueMappings((prev) =>
+                            prev.map((x, j) =>
+                              j === i ? { ...x, column } : x,
+                            ),
+                          )
+                        }
+                        options={mappingColumnOptions}
+                        placeholder="Filter on..."
+                      />
+                      <RadixButton
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Remove"
+                        onClick={() =>
+                          setValueMappings((prev) =>
+                            prev.filter((_, j) => j !== i),
+                          )
+                        }
+                      >
+                        <PiX size={14} />
+                      </RadixButton>
+                    </Flex>
+                  ))}
+                  {valueMappings.every((m) => m.value && m.column) && (
+                    <Flex>
+                      <RadixButton
+                        variant="ghost"
+                        size="sm"
+                        icon={<PiPlus size={14} />}
+                        onClick={() =>
+                          setValueMappings((prev) => [
+                            ...prev,
+                            { value: "", column: "" },
+                          ])
+                        }
+                      >
+                        Add value
+                      </RadixButton>
+                    </Flex>
+                  )}
+                </Flex>
+              </Frame>
+            )}
         </div>
       )}
     </Modal>

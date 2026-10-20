@@ -3,7 +3,7 @@ import { Box, Flex, Text, TextField } from "@radix-ui/themes";
 import { PiTrash } from "react-icons/pi";
 import { Select, SelectItem } from "@/ui/Select";
 import Button from "@/ui/Button";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import { ColumnFilterOption } from "./DataVizFilterPanel";
 
 type Props = {
@@ -106,7 +106,7 @@ export default function DataVizFilter({
           // Calculate last 30 days as default
           const today = new Date();
           const thirtyDaysAgo = new Date(today);
-          thirtyDaysAgo.setDate(today.getDate() - 30);
+          thirtyDaysAgo.setUTCDate(today.getUTCDate() - 30);
 
           return {
             column,
@@ -224,7 +224,7 @@ export default function DataVizFilter({
             }
             value={filter.column}
             setValue={changeColumn}
-            size="2"
+            size="sm"
             placeholder="Select a column to filter by"
           >
             {columnFilterOptions.map((option, i) => (
@@ -248,7 +248,7 @@ export default function DataVizFilter({
                 );
                 onFilterChange(newFilter);
               }}
-              size="2"
+              size="md"
               placeholder="Select type"
             >
               <SelectItem value="string">String</SelectItem>
@@ -263,7 +263,7 @@ export default function DataVizFilter({
             </Text>
             <Select
               style={{ flex: 1 }}
-              size="2"
+              size="md"
               placeholder="Select Option"
               value={filter.filterMethod || ""}
               setValue={(v) => {
@@ -382,6 +382,7 @@ export default function DataVizFilter({
             filter.filterMethod === "includes" &&
             rows && (
               <MultiSelectField
+                legacyHeight
                 label={
                   <Text as="label" weight="regular">
                     Select Values

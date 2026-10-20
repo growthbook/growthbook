@@ -4,8 +4,10 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
+  DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT,
 } from "shared/constants";
 import { RESERVED_ROLE_IDS, getDefaultRole } from "shared/permissions";
+import { stringifyFeatureValue } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
 import { accountFeatures } from "shared/enterprise";
 import {
@@ -17,6 +19,7 @@ import { LegacyMetricInterface, MetricInterface } from "shared/types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
+  ExposureQuery,
 } from "shared/types/datasource";
 import {
   FeatureDraftChanges,
@@ -48,6 +51,10 @@ import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { SdkWebHookLogDocument } from "back-end/src/models/SdkWebhookLogModel";
 import { getAccountPlan } from "back-end/src/enterprise";
 import { logger } from "back-end/src/util/logger";
+import {
+  healPriorSettings,
+  healMetricOverrides,
+} from "back-end/src/util/priors";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -72,6 +79,11 @@ function adjustWeights(weights: number[]): number[] {
 
 export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
   const newDoc = { ...doc };
+
+  // Raw-driver reads skip Mongoose date casting; legacy docs may store strings
+  if (typeof newDoc.runStarted === "string") {
+    newDoc.runStarted = new Date(newDoc.runStarted);
+  }
 
   if (doc.windowSettings === undefined) {
     if (doc.conversionDelayHours == null && doc.earlyStart) {
@@ -113,6 +125,7 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
       stddev: DEFAULT_PROPER_PRIOR_STDDEV,
     };
   }
+  healPriorSettings(newDoc.priorSettings);
 
   if (!doc.userIdTypes?.length) {
     if (doc.userIdType === "user") {
@@ -197,6 +210,22 @@ FROM
   }`;
 }
 
+/**
+ * `userIdType` is the identifier records without a stored one (everything saved
+ * before multi-identifier queries) analyze on. It is set once and never follows
+ * `userIdTypes`, so reordering or adding identifiers can't move those records.
+ * Idempotent.
+ */
+export function upgradeExposureQuery(query: ExposureQuery): ExposureQuery {
+  if (!query.userIdTypes?.length) {
+    query.userIdTypes = [query.userIdType].filter(Boolean);
+  }
+  if (!query.userIdType && query.userIdTypes[0]) {
+    query.userIdType = query.userIdTypes[0];
+  }
+  return query;
+}
+
 export function upgradeDatasourceObject(
   datasource: DataSourceInterface,
 ): DataSourceInterface {
@@ -241,6 +270,7 @@ export function upgradeDatasourceObject(
           name: "Logged-in User Experiments",
           description: "",
           userIdType: "user_id",
+          userIdTypes: ["user_id"],
           dimensions: settings.experimentDimensions || [],
           query:
             settings.queries.experimentsQuery ||
@@ -251,6 +281,7 @@ export function upgradeDatasourceObject(
           name: "Anonymous Visitor Experiments",
           description: "",
           userIdType: "anonymous_id",
+          userIdTypes: ["anonymous_id"],
           dimensions: settings.experimentDimensions || [],
           query:
             settings.queries.experimentsQuery ||
@@ -259,6 +290,8 @@ export function upgradeDatasourceObject(
       ];
     }
   }
+
+  settings.queries?.exposure?.forEach(upgradeExposureQuery);
 
   // mode field was added later -- default to ephemeral if missing
   if (
@@ -344,6 +377,20 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   // feature. Pass nullish through; downstream callers filter via
   // `isPlausibleFeatureRule` before relying on the rule shape.
   if (rule == null || typeof rule !== "object") return rule;
+  // Ramp steps once wrote a rule's value as the raw JSON type their plan
+  // carried; rule values are strings, and the payload builder parses them.
+  const { value } = rule as { value?: unknown };
+  if (value !== undefined && typeof value !== "string") {
+    rule = { ...rule, value: stringifyFeatureValue(value) } as FeatureRule;
+  }
+  // A stored `environments: null` (an undefined key written through Mongo) is
+  // read as no environments, not as every environment; a rule whose list is
+  // wildcarded drops the key so the two spellings compare equal.
+  if (rule.environments === null) {
+    const scoped = { ...rule };
+    delete scoped.environments;
+    rule = rule.allEnvironments ? scoped : { ...scoped, environments: [] };
+  }
   // Old style experiment rule without coverage
   if (rule.type === "experiment" && !("coverage" in rule)) {
     const weights = rule.values
@@ -373,6 +420,38 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
   return rule;
 }
 
+// Materialize the SDK's own no-seed fallback (`rule.seed || featureId`) for
+// seedless rollout rules, so the write-time default (rule.id) can't re-bucket a
+// legacy rollout on its next save. New rules are seeded at write, so anything
+// seedless on read is legacy. Safe rollouts keep their own seed.
+export function pinLegacyRolloutSeeds<T extends FeatureRule>(
+  rules: T[] = [],
+  featureId: string,
+): T[] {
+  return rules.map((r) =>
+    r != null && r.type === "rollout" && !r.seed
+      ? { ...r, seed: featureId }
+      : r,
+  );
+}
+
+// Backfills the `jsonSchema` keys that postdate the oldest documents, returning
+// a new object. Docs written before `schemaType`/`simple` existed hold a
+// three-key shape that means exactly what the five-key one means, so leaving
+// them unequal makes an untouched schema read as an edit.
+//
+// Applied to the feature on read and to every revision's metadata snapshot, so
+// the two always compare in the same spelling.
+export function normalizeJsonSchemaDef<T extends Partial<JSONSchemaDef>>(
+  jsonSchema: T,
+): T {
+  return {
+    ...jsonSchema,
+    schemaType: jsonSchema.schemaType || "schema",
+    simple: jsonSchema.simple || { type: "object", fields: [] },
+  };
+}
+
 // Non-rule backfills shared by v1 and v2 docs (`version`, `jsonSchema.*`).
 // Mutates and returns. Rules go through `upgradeFeatureRule` separately.
 export function applyNonRuleFeatureUpgrades<
@@ -384,26 +463,20 @@ export function applyNonRuleFeatureUpgrades<
   feature.version = feature.version || 1;
 
   if (feature.jsonSchema) {
-    feature.jsonSchema.schemaType = feature.jsonSchema.schemaType || "schema";
-    feature.jsonSchema.simple = feature.jsonSchema.simple || {
-      type: "object",
-      fields: [],
-    };
+    feature.jsonSchema = normalizeJsonSchemaDef(feature.jsonSchema);
   }
 
   return feature;
 }
 
-/**
- * v0 → v1 upgrade. Redistributes top-level rules into
- * `environmentSettings.{dev,production}.rules`, seeds `enabled` from the
- * legacy env list, promotes `draft` → `legacyDraft`, and applies rule and
- * non-rule backfills.
- *
- * CRITICAL: callers MUST discriminate v0 first (no `environmentSettings`).
- * Running this on a v1/v2 doc would redistribute legitimate v2 top-level
- * rules into v1-only storage.
- */
+// v0 → v1 upgrade. Redistributes top-level rules into
+// `environmentSettings.{dev,production}.rules`, seeds `enabled` from the
+// legacy env list, promotes `draft` → `legacyDraft`, and applies rule and
+// non-rule backfills.
+//
+// CRITICAL: callers MUST discriminate v0 first (no `environmentSettings`).
+// Running this on a v1/v2 doc would redistribute legitimate v2 top-level
+// rules into v1-only storage.
 export function upgradeV0Feature(
   feature: LegacyFeatureInterface,
 ): V1FeatureInterface {
@@ -481,10 +554,13 @@ export function upgradeV0Feature(
   return newFeature;
 }
 
+// Runs on every organization read, and `doc` lists every user, so this copies
+// only the parts it may write to and shares the rest with `doc`. Copy a nested
+// value here before writing to it. Callers edit the result: never reuse `doc`.
 export function upgradeOrganizationDoc(
   doc: OrganizationInterface,
 ): OrganizationInterface {
-  const org = cloneDeep(doc);
+  const org: OrganizationInterface = { ...doc };
   const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
 
   // Add settings from config.json
@@ -546,7 +622,16 @@ export function upgradeOrganizationDoc(
     org.settings.restApiBypassesReviews = true;
   }
 
-  // Migrate Arroval Flow Settings
+  // Default stickyBucketingOnByDefault for orgs that predate this field. Unset
+  // means "on by default" so existing orgs keep defaulting new experiments to
+  // sticky bucketing exactly as they did before the setting existed. An explicit
+  // false (per-experiment opt-in) is preserved.
+  if (org.settings.stickyBucketingOnByDefault === undefined) {
+    org.settings.stickyBucketingOnByDefault =
+      DEFAULT_STICKY_BUCKETING_ON_BY_DEFAULT;
+  }
+
+  // Migrate Approval Flow Settings
   if (
     org.settings?.requireReviews === true ||
     org.settings?.requireReviews === false
@@ -565,11 +650,11 @@ export function upgradeOrganizationDoc(
     designer: "collaborator",
     developer: "experimenter",
   };
-  org.members.forEach((m) => {
-    if (m.role in legacyRoleMap) {
-      m.role = legacyRoleMap[m.role];
-    }
-  });
+  if (org.members.some((m) => m.role in legacyRoleMap)) {
+    org.members = org.members.map((m) =>
+      m.role in legacyRoleMap ? { ...m, role: legacyRoleMap[m.role] } : m,
+    );
+  }
 
   // Make sure namespaces have labels, seeds, and format flags - if missing, use deterministic defaults.
   // Note: do NOT use uuidv4() here. This function runs on every DB read and is never
@@ -598,6 +683,15 @@ export function upgradeOrganizationDoc(
         !org.settings.postStratificationDisabled;
     }
     delete org.settings.postStratificationDisabled;
+  }
+
+  // Copy first: healPriorSettings edits its argument in place
+  if (org.settings.metricDefaults?.priorSettings) {
+    org.settings.metricDefaults = {
+      ...org.settings.metricDefaults,
+      priorSettings: { ...org.settings.metricDefaults.priorSettings },
+    };
+    healPriorSettings(org.settings.metricDefaults.priorSettings);
   }
 
   return org;
@@ -721,6 +815,7 @@ export function upgradeExperimentDoc(
       }
     });
   }
+  healMetricOverrides(experiment.metricOverrides);
 
   if (experiment.decisionFrameworkSettings === undefined) {
     experiment.decisionFrameworkSettings = {};
@@ -733,7 +828,7 @@ export function upgradeExperimentDoc(
         experiment.releasedVariationId = experiment.variations[0]?.id || "";
       } else if (experiment.results === "won") {
         experiment.releasedVariationId =
-          experiment.variations[experiment.winner || 1]?.id || "";
+          experiment.variations[experiment.winner ?? 1]?.id || "";
       } else {
         experiment.releasedVariationId = "";
       }
@@ -802,6 +897,8 @@ export function migrateExperimentReport(
       }),
     );
   }
+
+  healMetricOverrides(newArgs.metricOverrides);
 
   return {
     ...report,

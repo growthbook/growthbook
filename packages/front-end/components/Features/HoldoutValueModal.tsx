@@ -170,6 +170,7 @@ const HoldoutValueModal = ({
           value={holdoutValue}
           setValue={setHoldoutValue}
           valueType={feature.valueType}
+          feature={feature}
           useCodeInput={true}
           showFullscreenButton={true}
         />

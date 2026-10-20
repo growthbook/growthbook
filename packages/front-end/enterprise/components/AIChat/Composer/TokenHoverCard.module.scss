@@ -1,0 +1,14 @@
+// Positioning for the editor's token card. The card's own chrome comes from
+// `PopoverContent`, so this only places it — and keeps the pointer's path to it
+// unbroken.
+.anchor {
+  position: absolute;
+  z-index: 10;
+
+  // The card sits flush on top of the token, and this lifts it clear by the
+  // same amount a popover offsets from its trigger. The gap is padding on the
+  // card's own hit area rather than empty space between two elements, so
+  // moving from the token to the card never leaves the card — which is what
+  // stops it closing before the link can be clicked.
+  padding-bottom: 6px;
+}

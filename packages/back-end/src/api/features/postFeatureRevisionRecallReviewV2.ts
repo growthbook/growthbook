@@ -1,0 +1,63 @@
+import { postFeatureRevisionRecallReviewV2Validator } from "shared/validators";
+import { toApiRevisionV2 } from "back-end/src/services/features";
+import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getFeature } from "back-end/src/models/FeatureModel";
+import { canRecallFeatureReview } from "back-end/src/revisions/featureDraftAuthority";
+import {
+  getRevision,
+  recallReview,
+} from "back-end/src/models/FeatureRevisionModel";
+
+export const postFeatureRevisionRecallReviewV2 = createApiRequestHandler(
+  postFeatureRevisionRecallReviewV2Validator,
+)(async (req) => {
+  const feature = await getFeature(req.context, req.params.id);
+  if (!feature) throw new NotFoundError("Could not find feature");
+
+  const revision = await getRevision({
+    context: req.context,
+    organization: req.organization.id,
+    featureId: feature.id,
+    feature,
+    version: req.params.version,
+  });
+  if (!revision) throw new NotFoundError("Could not find feature revision");
+
+  if (
+    !(await canRecallFeatureReview({
+      context: req.context,
+      feature,
+      draft: revision,
+    }))
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
+  const allowed = ["pending-review", "changes-requested", "approved"];
+  if (!allowed.includes(revision.status)) {
+    throw new BadRequestError(
+      `Can only recall a review on a pending-review, changes-requested, or approved draft (status is "${revision.status}")`,
+    );
+  }
+
+  await recallReview(req.context, revision, req.context.auditUser);
+
+  const updated = await getRevision({
+    context: req.context,
+    organization: req.organization.id,
+    featureId: feature.id,
+    feature,
+    version: req.params.version,
+  });
+  await dispatchFeatureRevisionEvent(
+    req.context,
+    feature,
+    updated ?? revision,
+    "revision.recalled",
+    {},
+  );
+
+  return { revision: toApiRevisionV2(updated ?? revision) };
+});

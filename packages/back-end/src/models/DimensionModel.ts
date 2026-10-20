@@ -5,6 +5,8 @@ import { getConfigDimensions, usingFileConfig } from "back-end/src/init/config";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { ALLOW_CREATE_DIMENSIONS } from "back-end/src/util/secrets";
+import { touchDefinitionsVersion } from "back-end/src/models/DefinitionsVersionModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 
 const dimensionSchema = new mongoose.Schema({
   id: String,
@@ -39,7 +41,9 @@ export async function createDimension(dimension: Partial<DimensionInterface>) {
       "Cannot add new dimensions. Dimensions managed by config.yml",
     );
   }
-  return toInterface(await DimensionModel.create(dimension));
+  const created = toInterface(await DimensionModel.create(dimension));
+  await touchDefinitionsVersion(created.organization);
+  return created;
 }
 
 export async function findDimensionsByOrganization(organization: string) {
@@ -107,6 +111,16 @@ export async function findDimensionById(id: string, organization: string) {
   return doc ? toInterface(doc) : null;
 }
 
+// A dimension inherits project access from its datasource, so access is granted
+// only when that datasource is readable. A dimension whose datasource is
+// inaccessible or no longer exists is treated as not found.
+export async function hasDimensionDatasourceAccess(
+  context: ReqContext | ApiReqContext,
+  dimension: DimensionInterface,
+): Promise<boolean> {
+  return !!(await getDataSourceById(context, dimension.datasource));
+}
+
 export async function findDimensionsByDataSource(
   datasource: string,
   organization: string,
@@ -130,17 +144,18 @@ export async function updateDimension(
 ) {
   // If the dimension is managed by the config.yml, don't allow updates
   if (existing.managedBy === "config") {
-    throw new Error("Cannot update. Dimenision managed by config.yml");
+    throw new Error("Cannot update. Dimension managed by config.yml");
   }
   // If the dimension is managed by the API, only allow updates via the API
   if (existing.managedBy === "api" && context.auditUser?.type !== "api_key") {
-    throw new Error("Cannot update. Dimenision managed by the API");
+    throw new Error("Cannot update. Dimension managed by the API");
   }
 
   await DimensionModel.updateOne(
     { id: existing.id, organization: context.org.id },
     { $set: updates },
   );
+  await touchDefinitionsVersion(context.org.id);
 }
 
 export async function deleteDimensionById(
@@ -163,6 +178,7 @@ export async function deleteDimensionById(
     id: dimension.id,
     organization: context.org.id,
   });
+  await touchDefinitionsVersion(context.org.id);
 }
 
 export function toDimensionApiInterface(

@@ -4,9 +4,15 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { Revision, RevisionStatus } from "shared/enterprise";
+import {
+  EventUser as EventUserType,
+  eventUserLabel,
+  revisionActor,
+} from "shared/validators";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useUser } from "@/services/UserContext";
+import EventUser from "@/components/Avatar/EventUser";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/ui/Pagination";
 import {
@@ -31,7 +37,7 @@ import Table, {
 import {
   draftStatusDotColor,
   revisionStatusLabel,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 import Text from "@/ui/Text";
 
 const ITEMS_PER_PAGE = 10;
@@ -51,6 +57,7 @@ type ReviewRow = {
   groupName: string;
   groupId: string;
   authorId: string;
+  author: EventUserType;
   authorDisplay: string;
   status: RevisionStatus;
   dateCreated: Date;
@@ -59,7 +66,9 @@ type ReviewRow = {
 };
 
 function revisionToRow(revision: Revision): ReviewRow {
-  const groupName = revision.target.snapshot?.groupName || revision.target.id;
+  const snapshot =
+    revision.target.type === "saved-group" ? revision.target.snapshot : null;
+  const groupName = snapshot?.groupName || revision.target.id;
   return {
     id: revision.id,
     title: revision.title || "",
@@ -68,6 +77,7 @@ function revisionToRow(revision: Revision): ReviewRow {
     groupName,
     groupId: revision.target.id,
     authorId: revision.authorId,
+    author: revisionActor(revision, revision.authorId),
     authorDisplay: "",
     status: revision.status,
     dateCreated: new Date(revision.dateCreated),
@@ -105,15 +115,26 @@ const SavedGroupReviews: FC = () => {
     [revisions],
   );
 
-  const authors = useMemo(() => {
-    const authorSet = new Set(rows.map((r) => r.authorId));
-    return Array.from(authorSet).filter(Boolean);
-  }, [rows]);
+  const reviewItems = useAddComputedFields(
+    rows,
+    (item) => ({
+      ...item,
+      authorDisplay: eventUserLabel(item.author, {
+        nameFor: (id) => getUserDisplay(id, false),
+      }),
+    }),
+    [getUserDisplay],
+  );
 
-  const reviewItems = useAddComputedFields(rows, (item) => ({
-    ...item,
-    authorDisplay: item.authorDisplay || getUserDisplay(item.authorId) || "",
-  }));
+  const authors = useMemo(
+    () =>
+      new Map(
+        reviewItems
+          .filter((r) => r.authorId)
+          .map((r) => [r.authorId, r.authorDisplay] as const),
+      ),
+    [reviewItems],
+  );
 
   const {
     items,
@@ -240,9 +261,14 @@ const SavedGroupReviews: FC = () => {
 
   return (
     <Box mt="4">
-      <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
+      <Flex gap="4" align="center" justify="between" mb="4" wrap="wrap">
         <Box style={{ flexBasis: 300, flexShrink: 0 }}>
-          <Field placeholder="Search..." type="search" {...searchInputProps} />
+          <Field
+            size="legacy"
+            placeholder="Search..."
+            type="search"
+            {...searchInputProps}
+          />
         </Box>
         <Flex gap="5" align="center">
           <FilterDropdown
@@ -251,10 +277,10 @@ const SavedGroupReviews: FC = () => {
             syntaxFilters={syntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
-            items={authors.map((a) => ({
-              name: getUserDisplay(a) || a,
-              id: a,
-              searchValue: getUserDisplay(a) || a,
+            items={Array.from(authors, ([id, label]) => ({
+              name: getUserDisplay(id, false) || label,
+              id,
+              searchValue: getUserDisplay(id, false) || label,
             }))}
             updateQuery={updateQuery}
           />
@@ -273,7 +299,7 @@ const SavedGroupReviews: FC = () => {
       {isLoading ? (
         <LoadingOverlay />
       ) : statusFilteredItems.length === 0 ? (
-        <Callout status="info">No drafts for saved groups.</Callout>
+        <Callout status="info">No drafts for Saved Groups.</Callout>
       ) : (
         <>
           <Table variant="list" stickyHeader roundedCorners>
@@ -333,7 +359,9 @@ const SavedGroupReviews: FC = () => {
                   <TableCell>
                     <OverflowText maxWidth={400}>{row.title}</OverflowText>
                   </TableCell>
-                  <TableCell>{row.authorDisplay}</TableCell>
+                  <TableCell>
+                    <EventUser user={row.author} display="name" />
+                  </TableCell>
                   <TableCell title={datetime(row.dateUpdated)}>
                     {date(row.dateUpdated)}
                   </TableCell>
@@ -349,9 +377,7 @@ const SavedGroupReviews: FC = () => {
                           background: draftStatusDotColor(row.status),
                         }}
                       />
-                      <Text size="medium">
-                        {revisionStatusLabel(row.status)}
-                      </Text>
+                      <Text size="md">{revisionStatusLabel(row.status)}</Text>
                     </Flex>
                   </TableCell>
                 </TableRow>

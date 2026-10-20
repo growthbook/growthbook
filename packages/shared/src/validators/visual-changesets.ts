@@ -3,6 +3,31 @@ import { apiExperimentValidator } from "./experiments";
 
 import { namedSchema } from "./openapi-helpers";
 
+export const apiVisualEditorCbExperimentStubValidator = namedSchema(
+  "VisualEditorCbExperimentStub",
+  z
+    .object({
+      id: z.string(),
+      trackingKey: z.string(),
+      name: z.string(),
+      status: z.string(),
+      project: z.string(),
+      hashAttribute: z.string(),
+      hashVersion: z.literal(2),
+      type: z.literal("contextual-bandit"),
+      variations: z.array(
+        z.object({
+          variationId: z.string(),
+          key: z.string(),
+          name: z.string(),
+          description: z.string(),
+          status: z.enum(["active", "pending", "deactivated"]).optional(),
+        }),
+      ),
+    })
+    .strict(),
+);
+
 // Corresponds to schemas/VisualChange.yaml
 export const apiVisualChangeValidator = namedSchema(
   "VisualChange",
@@ -42,7 +67,8 @@ export const apiVisualChangesetValidator = namedSchema(
         }),
       ),
       editorUrl: z.string(),
-      experiment: z.string(),
+      experiment: z.string().optional(),
+      contextualBandit: z.string().optional(),
       visualChanges: z.array(
         z.object({
           description: z.string().optional(),
@@ -62,10 +88,18 @@ export const apiVisualChangesetValidator = namedSchema(
         }),
       ),
     })
-    .strict(),
+    .strict()
+    .refine((v) => !!v.experiment !== !!v.contextualBandit, {
+      message:
+        "VisualChangeset must have exactly one of `experiment` or `contextualBandit`",
+      path: ["experiment"],
+    }),
 );
 
 export type ApiVisualChangeset = z.infer<typeof apiVisualChangesetValidator>;
+export type ApiVisualEditorCbExperimentStub = z.infer<
+  typeof apiVisualEditorCbExperimentStubValidator
+>;
 
 // Corresponds to payload-schemas/PostExperimentVisualChangesetPayload.yaml
 const postVisualChangesetBody = z
@@ -130,6 +164,7 @@ export const postVisualChangesetsValidator = {
     })
     .strict(),
   summary: "Create a visual changeset for an experiment",
+  confirmation: ["experiment.visualEditor"] as const,
   operationId: "postVisualChangesets",
   tags: ["visual-changesets"],
   method: "post" as const,
@@ -158,7 +193,12 @@ export const getVisualChangesetValidator = {
   responseSchema: z
     .object({
       visualChangeset: apiVisualChangesetValidator,
-      experiment: apiExperimentValidator.optional(),
+      experiment: z
+        .union([
+          apiExperimentValidator,
+          apiVisualEditorCbExperimentStubValidator,
+        ])
+        .optional(),
     })
     .strict(),
   summary: "Get a single visual changeset",
@@ -189,6 +229,12 @@ const putVisualChangesetBody = z
       )
       .describe(
         "URL patterns that determine which pages this visual changeset applies to",
+      )
+      .optional(),
+    allowRunningExperiment: z
+      .boolean()
+      .describe(
+        "Also accept the write when the experiment is running. Off by default so a stale editor can't change a live test. When set, the change reaches live traffic immediately and the caller needs the runExperiments permission on the affected environments; the write is audited.",
       )
       .optional(),
     visualChanges: z
@@ -232,6 +278,7 @@ export const putVisualChangesetValidator = {
     })
     .strict(),
   summary: "Update a visual changeset",
+  confirmation: ["experiment.visualEditor"] as const,
   operationId: "putVisualChangeset",
   tags: ["visual-changesets"],
   method: "put" as const,
@@ -251,6 +298,12 @@ const visualChangeBody = z
     css: z.string().optional(),
     js: z.string().optional(),
     variation: z.string(),
+    allowRunningExperiment: z
+      .boolean()
+      .describe(
+        "Also accept the write when the experiment is running. Off by default so a stale editor can't change a live test. When set, the change reaches live traffic immediately and the caller needs the runExperiments permission on the affected environments; the write is audited.",
+      )
+      .optional(),
     domMutations: z
       .array(
         z
@@ -279,6 +332,7 @@ export const postVisualChangeValidator = {
     })
     .strict(),
   summary: "Create a visual change for a visual changeset",
+  confirmation: ["experiment.visualEditor"] as const,
   operationId: "postVisualChange",
   tags: ["visual-changesets"],
   method: "post" as const,
@@ -293,7 +347,10 @@ export const postVisualChangeValidator = {
 };
 
 export const putVisualChangeValidator = {
-  bodySchema: visualChangeBody.partial(),
+  // The body `id` field is intentionally omitted: the server strips it from
+  // the payload (a client can't rename a visual change via PUT), and keeping
+  // it would collide with the path `id` param in SDK code generation.
+  bodySchema: visualChangeBody.omit({ id: true }).partial(),
   querySchema: z.never(),
   paramsSchema: z
     .object({
@@ -307,6 +364,7 @@ export const putVisualChangeValidator = {
     })
     .strict(),
   summary: "Update a visual change for a visual changeset",
+  confirmation: ["experiment.visualEditor"] as const,
   operationId: "putVisualChange",
   tags: ["visual-changesets"],
   method: "put" as const,

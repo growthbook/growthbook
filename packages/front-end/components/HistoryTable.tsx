@@ -1,15 +1,21 @@
 import { FC, useState, useMemo } from "react";
 import { AuditInterface, EventType } from "shared/types/audit";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import { DiffMethod } from "react-diff-viewer-continued";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { datetime } from "shared/dates";
+import { entityEvents } from "shared/constants";
+import { auditUserToEventUser } from "shared/validators";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import Link from "@/ui/Link";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
+import Callout from "@/ui/Callout";
+import { Select, SelectItem } from "@/ui/Select";
 import Button from "./Button";
 import Code from "./SyntaxHighlighting/Code";
 import LoadingOverlay from "./LoadingOverlay";
+import EventUser from "./Avatar/EventUser";
 
 function EventDetails({
   eventType,
@@ -55,7 +61,7 @@ function EventDetails({
             ))}
           </div>
         )}
-        <ReactDiffViewer
+        <LazyDiffViewer
           oldValue={JSON.stringify(json.pre || {}, null, 2)}
           newValue={JSON.stringify(json.post || {}, null, 2)}
           compareMethod={DiffMethod.LINES}
@@ -100,12 +106,6 @@ export function HistoryTableRow({
   itemName?: string;
   url?: string;
 }) {
-  const user = event.user;
-  const userDisplay =
-    ("name" in user && user.name) ||
-    ("email" in user && user.email) ||
-    ("apiKey" in user && "API Key") ||
-    ("system" in user && "System");
   let colSpanNum = 4;
   if (showName) colSpanNum++;
   if (showType) colSpanNum++;
@@ -134,7 +134,9 @@ export function HistoryTableRow({
         {showName && (
           <td>{url ? <Link href={url}>{displayName}</Link> : displayName}</td>
         )}
-        <td>{userDisplay}</td>
+        <td>
+          <EventUser user={auditUserToEventUser(event.user)} display="name" />
+        </td>
         <td>{event.event}</td>
         <td style={{ width: 30 }}>
           {event.details && (open ? <FaAngleUp /> : <FaAngleDown />)}
@@ -162,18 +164,24 @@ const HistoryTable: FC<{
     | "feature"
     | "savedGroup"
     | "factTable"
-    | "datasource";
+    | "datasource"
+    | "apiKey"
+    | "project";
   showName?: boolean;
   showType?: boolean;
   id?: string;
 }> = ({ id, type, showName = false, showType = false }) => {
   const [cursor, setCursor] = useState<string | null>(null);
   const [cursors, setCursors] = useState<(string | null)[]>([null]); // Stack of cursors for each page
+  const [eventFilter, setEventFilter] = useState("");
   const limit = 50;
 
+  const query = `limit=${limit}${cursor ? `&cursor=${cursor}` : ""}${
+    eventFilter ? `&event=${eventFilter}` : ""
+  }`;
   const apiPath = id
-    ? `/history/${type}/${id}?limit=${limit}${cursor ? `&cursor=${cursor}` : ""}`
-    : `/history/${type}?limit=${limit}${cursor ? `&cursor=${cursor}` : ""}`;
+    ? `/history/${type}/${id}?${query}`
+    : `/history/${type}?${query}`;
 
   const { data, error, mutate } = useApi<{
     events: AuditInterface[];
@@ -207,7 +215,7 @@ const HistoryTable: FC<{
   const hasMore = data ? currentPage < totalPages : false;
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -223,6 +231,25 @@ const HistoryTable: FC<{
           {data.total} total event{data.total !== 1 ? "s" : ""}
         </div>
         <div className="col-auto ml-auto">
+          <Select
+            value={eventFilter || "all"}
+            setValue={(v) => {
+              setEventFilter(v === "all" ? "" : v);
+              setCursor(null);
+              setCursors([null]);
+              setOpen("");
+            }}
+            size="sm"
+          >
+            <SelectItem value="all">All events</SelectItem>
+            {[...new Set<string>(entityEvents[type])].map((e) => (
+              <SelectItem key={e} value={`${type}.${e}`}>
+                {type}.{e}
+              </SelectItem>
+            ))}
+          </Select>
+        </div>
+        <div className="col-auto">
           <Button
             color="link btn-sm"
             onClick={async () => {

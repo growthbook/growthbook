@@ -1,5 +1,6 @@
 import { useState, useMemo, ReactNode } from "react";
 import { SavedGroupTargeting, FeaturePrerequisite } from "shared/types/feature";
+import { hasTargetingConfigured } from "shared/experiments";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -27,7 +28,10 @@ export default function TruncatedConditionDisplay({
     return condition.length > maxLength;
   }, [condition, maxLength]);
 
-  if (!condition) {
+  // Saved-group-only and prerequisite-only targeting have an empty attribute
+  // condition; ConditionDisplay renders them on its own, so only a rule with
+  // no targeting at all renders nothing.
+  if (!hasTargetingConfigured({ condition, savedGroups, prerequisites })) {
     return null;
   }
 

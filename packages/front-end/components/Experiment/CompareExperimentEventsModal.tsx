@@ -163,6 +163,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   bucketVersion: "targeting-top-level",
   minBucketVersion: "targeting-top-level",
   disableStickyBucketing: "targeting-top-level",
+  attributeScopeAllProjects: "targeting-top-level",
 
   // — Variations —
   variations: "variations",
@@ -181,6 +182,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   queryFilter: "analysis",
   skipPartialData: "analysis",
   exposureQueryId: "analysis",
+  exposureQueryIdentifierType: "analysis",
   datasource: "analysis",
   trackingKey: "analysis",
   statsEngine: "analysis",

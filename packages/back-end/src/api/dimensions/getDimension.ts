@@ -1,6 +1,7 @@
 import { getDimensionValidator } from "shared/validators";
 import {
   findDimensionById,
+  hasDimensionDatasourceAccess,
   toDimensionApiInterface,
 } from "back-end/src/models/DimensionModel";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
@@ -12,7 +13,10 @@ export const getDimension = createApiRequestHandler(getDimensionValidator)(
       req.params.id,
       req.organization.id,
     );
-    if (!dimension) {
+    if (
+      !dimension ||
+      !(await hasDimensionDatasourceAccess(req.context, dimension))
+    ) {
       throw new Error("Could not find dimension with that id");
     }
 

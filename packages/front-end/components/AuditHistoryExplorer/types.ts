@@ -1,5 +1,7 @@
 import { ReactNode } from "react";
 import { EntityType } from "shared/types/audit";
+import type { EventUserRequestedBy } from "shared/validators";
+import type { Language } from "@/components/SyntaxHighlighting/Code";
 
 export type DiffBadge = { label: string; action: string };
 
@@ -11,6 +13,8 @@ export interface AuditUserInfo {
   email?: string;
   name?: string;
   apiKey?: string;
+  requestedBy?: EventUserRequestedBy;
+  assumedRole?: boolean;
 }
 
 /** A single item displayed in the left-column list. May represent 1 or N raw audit entries that were coarsened into a single group (same time bucket + same author). */
@@ -166,6 +170,23 @@ export interface AuditDiffConfig<T> {
    * Sections are still used for diff grouping and left-column labels.
    */
   hideFilters?: boolean;
+  /**
+   * Single-select mode: no quick actions, no checkboxes/multi-select, no "View"
+   * button. Clicking a row shows that entry vs its previous state (the default
+   * "view single" behavior). Pagination still works.
+   */
+  singleSelect?: boolean;
+  /**
+   * Adds a view that renders one field of the selected version as formatted,
+   * syntax-highlighted content (with a copy button) — no diff, no audit-record
+   * envelope. Also drops the "Full JSON" toggle option, which is redundant with
+   * a focused content view. Becomes the default view when present.
+   */
+  contentView?: {
+    label: string;
+    language: Language;
+    get: (snapshot: T) => string;
+  };
 }
 
 export interface AuditDiffItem {

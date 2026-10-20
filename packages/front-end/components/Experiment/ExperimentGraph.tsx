@@ -15,6 +15,7 @@ import useApi from "@/hooks/useApi";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Callout from "@/ui/Callout";
 import styles from "./ExperimentGraph.module.scss";
 
 export default function ExperimentGraph({
@@ -97,7 +98,7 @@ export default function ExperimentGraph({
     projects.forEach((p) => {
       pMap.set(p.id, p.name);
     });
-    pMap.set("all", "All projects");
+    pMap.set("all", "All Projects");
     return pMap;
   }, [projects]);
 
@@ -119,13 +120,13 @@ export default function ExperimentGraph({
           (pid) => !pid.includes("_demo-datasource-project"),
         );
         // pretty sure the results won't have any holes in it, but just in case, this zeros out the values, which will be updated later.
-        const projectsZerodRow = {};
+        const projectsZeroedRow = {};
         allProjects.forEach((p) => {
-          projectsZerodRow[projectMap.get(p) || p] = 0;
+          projectsZeroedRow[projectMap.get(p) || p] = 0;
         });
         const dateRows = {};
         allDates.forEach((d) => {
-          dateRows[d] = { date: d, ...projectsZerodRow };
+          dateRows[d] = { date: d, ...projectsZeroedRow };
         });
         // now loop and append the actual values
         allProjects.forEach((p) => {
@@ -184,9 +185,9 @@ export default function ExperimentGraph({
   const downloadCSV = useCallback(
     (type) => {
       try {
-        const formatedData = parseDataForCSV(type);
+        const formattedData = parseDataForCSV(type);
         const json2csvParser = new Parser();
-        const csv = json2csvParser.parse(formatedData);
+        const csv = json2csvParser.parse(formattedData);
 
         const blob = new Blob([csv], { type: "text/csv" });
         const downloadUrl = window.URL.createObjectURL(blob);
@@ -206,11 +207,7 @@ export default function ExperimentGraph({
   );
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -286,6 +283,7 @@ export default function ExperimentGraph({
         </div>
         <div className="col-auto">
           <SelectField
+            size="legacy"
             containerClassName="d-inline-block ml-2 mb-0"
             options={showSelectOptions}
             value={showBy}
@@ -303,7 +301,7 @@ export default function ExperimentGraph({
           />
         </div>
         <div className="pt-2">
-          <MoreMenu>
+          <MoreMenu useRadix={false}>
             <div className="p-2 px-3">Download data as CSV...</div>
             <a
               href="#"
@@ -436,7 +434,7 @@ export default function ExperimentGraph({
                                 {projectMap.has(k)
                                   ? projectMap.get(k)
                                   : k === "all"
-                                    ? "All projects"
+                                    ? "All Projects"
                                     : k}
                               </div>
                               <div className={styles.tooltipValue}>
@@ -615,7 +613,7 @@ export default function ExperimentGraph({
                           {projectMap.has(k)
                             ? projectMap.get(k)
                             : k === "all"
-                              ? "All projects"
+                              ? "All Projects"
                               : k}
                         </div>
                       </div>

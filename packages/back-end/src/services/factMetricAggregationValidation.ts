@@ -27,6 +27,28 @@ export function validateAggregationSpecification({
     factTable,
     column: column.column,
   });
+
+  const isNamedColumnReference =
+    !!column.column &&
+    column.column !== "$$count" &&
+    column.column !== "$$distinctUsers" &&
+    column.column !== "$$distinctDates";
+  const typeUnknown = datatype === undefined || datatype === "";
+
+  if (isNamedColumnReference && typeUnknown) {
+    if (factTable.columnRefreshPending) {
+      throw new Error(
+        `Column "${column.column}" type is still being detected. Wait for column detection to finish (check factTable.columnRefreshPending), then retry.`,
+      );
+    }
+
+    if (factTable.columnsError) {
+      throw new Error(
+        `Column detection failed for fact table "${factTable.name}": ${factTable.columnsError}. Fix the error before creating this metric.`,
+      );
+    }
+  }
+
   if (column.aggregation === "count distinct" && datatype !== "string") {
     throw new Error(
       `${errorPrefix}Cannot use 'count distinct' aggregation with the special or numeric column '${column.column}'.`,
@@ -122,6 +144,11 @@ export function validateAggregationSpecification({
     if (pairedColumn.datatype !== "number") {
       throw new Error(
         `${errorPrefix}Paired event-count column '${expectedNEventsColumn}' must have a numeric datatype (got '${pairedColumn.datatype || "unknown"}').`,
+      );
+    }
+    if (pairedColumn.isVirtual) {
+      throw new Error(
+        `${errorPrefix}Paired event-count column '${expectedNEventsColumn}' cannot be a virtual column.`,
       );
     }
   } else if (

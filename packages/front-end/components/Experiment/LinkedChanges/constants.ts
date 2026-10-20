@@ -16,7 +16,7 @@ export const ICON_PROPERTIES = {
     component: FaLink,
     radixColor: "teal",
   },
-};
+} as const;
 
 export const LINKED_CHANGE_CONTAINER_PROPERTIES = {
   "feature-flag": {
@@ -24,8 +24,8 @@ export const LINKED_CHANGE_CONTAINER_PROPERTIES = {
     addButtonCopy: "Add Feature Flag",
   },
   "visual-editor": {
-    header: "Visual Editor Changes",
-    addButtonCopy: "Add Visual Editor Change",
+    header: "AI Visual Editor Changes",
+    addButtonCopy: "Add AI Visual Editor Change",
   },
   redirects: {
     header: "URL Redirects",

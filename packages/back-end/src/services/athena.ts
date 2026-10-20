@@ -5,9 +5,13 @@ import {
   StartQueryExecutionCommandInput,
 } from "@aws-sdk/client-athena";
 import { ExternalIdCallback, QueryResponse } from "shared/types/integrations";
+import { QueryStatistics } from "shared/types/query";
 import { AthenaConnectionParams } from "shared/types/integrations/athena";
 import { parseEnvInt, parseOptionalInt } from "shared/util";
+import { ExternalQueryStatus } from "back-end/src/types/Integration";
+import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { getFactTableTypeFromTrinoType } from "back-end/src/util/warehouseColumnTypes";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 async function assumeRole(params: AthenaConnectionParams) {
@@ -64,6 +68,50 @@ export async function cancelAthenaQuery(
   await athena.stopQueryExecution({
     QueryExecutionId: id,
   });
+}
+
+export function athenaStateToStatus(
+  state: string | undefined,
+  stateChangeReason: string | undefined,
+): ExternalQueryStatus {
+  switch (state) {
+    case "QUEUED":
+    case "RUNNING":
+      return { state: "running" };
+    case "SUCCEEDED":
+      return { state: "succeeded" };
+    case "FAILED":
+      return { state: "failed", error: stateChangeReason || "Query failed" };
+    case "CANCELLED":
+      return {
+        state: "failed",
+        error: stateChangeReason || "Query was cancelled",
+      };
+    case undefined:
+    default:
+      return { state: "unknown", reason: "unrecognized" };
+  }
+}
+
+export async function getAthenaQueryStatus(
+  conn: AthenaConnectionParams,
+  id: string,
+): Promise<ExternalQueryStatus> {
+  try {
+    const athena = await getAthenaInstance(conn);
+    const resp = await athena.getQueryExecution({ QueryExecutionId: id });
+    return athenaStateToStatus(
+      resp.QueryExecution?.Status?.State,
+      resp.QueryExecution?.Status?.StateChangeReason,
+    );
+  } catch (e) {
+    // Athena throws InvalidRequestException when the execution id is
+    // unknown/purged.
+    if (/was not found|not found|does not exist/i.test(getErrorMessage(e))) {
+      return { state: "unknown", reason: "expired" };
+    }
+    return { state: "unknown", reason: "unreachable" };
+  }
 }
 
 export async function runAthenaQuery(
@@ -132,6 +180,7 @@ export async function runAthenaQuery(
   }
 
   let timeWaitingForFailure = 0;
+  let statistics: QueryStatistics | undefined;
   const waitAndCheck = (delay: number) => {
     return new Promise<false | ResultSet>((resolve, reject) => {
       setTimeout(() => {
@@ -141,6 +190,11 @@ export async function runAthenaQuery(
             const State = resp.QueryExecution?.Status?.State;
             const StateChangeReason =
               resp.QueryExecution?.Status?.StateChangeReason;
+            // Keep Athena's error type so failures can be grouped by code
+            const failure = (message: string) =>
+              Object.assign(new Error(message), {
+                code: resp.QueryExecution?.Status?.AthenaError?.ErrorType,
+              });
 
             if (State === "RUNNING" || State === "QUEUED") {
               if (timeWaitingForFailure > 0) {
@@ -168,16 +222,23 @@ export async function runAthenaQuery(
                   logger.debug(
                     `Athena query (${QueryExecutionId}) received SlowDown error, has not recovered within ${timeWaitingForFailure}ms, failing query`,
                   );
-                  reject(new Error(StateChangeReason));
+                  reject(failure(StateChangeReason));
                 } else {
                   resolve(false);
                 }
               } else {
-                reject(new Error(StateChangeReason || "Query failed"));
+                reject(failure(StateChangeReason || "Query failed"));
               }
             } else if (State === "CANCELLED") {
               reject(new Error("Query was cancelled"));
             } else {
+              const stats = resp.QueryExecution?.Statistics;
+              statistics = stats && {
+                executionDurationMs: stats.EngineExecutionTimeInMillis,
+                bytesProcessed: stats.DataScannedInBytes,
+                warehouseCachedResult:
+                  stats.ResultReuseInformation?.ReusedPreviousResult,
+              };
               athena
                 .getQueryResults({ QueryExecutionId })
                 .then(({ ResultSet }) => {
@@ -206,7 +267,8 @@ export async function runAthenaQuery(
   for (let i = 0; i < 62; i++) {
     const result = await waitAndCheck(500 * Math.pow(1.1, i));
     if (result && result.Rows && result.ResultSetMetadata?.ColumnInfo) {
-      const keys = result.ResultSetMetadata.ColumnInfo.map((info) => info.Name);
+      const columnInfo = result.ResultSetMetadata.ColumnInfo;
+      const keys = columnInfo.map((info) => info.Name);
       return {
         rows: result.Rows.slice(1).map((row) => {
           // eslint-disable-next-line
@@ -218,6 +280,19 @@ export async function runAthenaQuery(
           }
           return obj;
         }),
+        // Athena returns every value as a string, so use its declared types.
+        columns: columnInfo
+          .filter((info) => info.Name !== undefined)
+          .map((info) => {
+            const dataType = info.Type
+              ? getFactTableTypeFromTrinoType(info.Type)
+              : undefined;
+            return {
+              name: info.Name as string,
+              ...(dataType && { dataType }),
+            };
+          }),
+        statistics,
       };
     }
   }

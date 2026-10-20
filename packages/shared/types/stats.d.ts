@@ -166,6 +166,8 @@ export type ExperimentMetricAnalysis = {
     unknownVariations: string[];
     multipleExposures: number;
     dimensions: StatsEngineDimensionResponse[];
+    error?: string;
+    traceback?: string;
   }[];
 }[];
 
@@ -173,6 +175,114 @@ export type SingleVariationResult = {
   users?: number;
   cr?: number;
   ci?: [number, number];
+};
+
+/** One contextual slice from gbstats; stored on snapshots as `contextualBanditSnapshot`. */
+export type ContextualBanditResponseSnapshot = {
+  context: Record<string, unknown>;
+  /** Id of the regression-tree leaf this context is routed to. */
+  leafId?: number;
+  sampleSizePerVariation?: number[] | null;
+  /** Per-variation sample (data-only) means; not posterior means. */
+  sampleMeans?: number[] | null;
+  /** Per-variation sample (data-only) variances; not posterior variances. */
+  sampleVariances?: number[] | null;
+  updatedWeights?: number[] | null;
+  /** Per-variation P(best) among qualifying arms with sample size >= 100, otherwise the uniform prior 1/K.*/
+  bestArmProbabilities?: number[] | null;
+  updateMessage?: string | null;
+  error?: string | null;
+};
+
+/** `in` lists an attribute's allowed levels; `not in` lists excluded levels. */
+export type LeafConditionOperator = "in" | "not in";
+
+/** One per-attribute targeting clause of a regression-tree leaf's condition. */
+export type ContextualLeafClause = {
+  attribute: string;
+  levels: string[];
+  operator: LeafConditionOperator;
+};
+
+/**
+ * One regression-tree leaf's targeting condition: the AND of its per-attribute
+ * clauses. There is one entry per leaf (not per observed context).
+ */
+export type ContextualLeafMapEntry = {
+  leafId: number;
+  context: ContextualLeafClause[];
+};
+
+/** Aggregated per-leaf sample (data-only) statistics. */
+export type ContextualLeafStatsEntry = {
+  leafId: number;
+  sampleSizePerVariation?: number[] | null;
+  sampleMeans?: number[] | null;
+  sampleVariances?: number[] | null;
+};
+
+/**
+ * Metadata describing a single greedy regression-tree split.
+ */
+export type ContextualTreeSplit = {
+  /**
+   * The AND of per-attribute clauses defining the leaf node that was split,
+   * as it existed before this split (empty for the root node).
+   */
+  leafClauses: ContextualLeafClause[];
+  /** The attribute the tree split this node on. */
+  attribute: string;
+  /** Categories routed to the retained parent leaf (label 0). */
+  leftLevels: string[];
+  /** Categories routed to the new child leaf (label 1). */
+  rightLevels: string[];
+};
+
+/**
+ * Within-tree SSE captured at each stage of greedy regression-tree growth,
+ * summed over variations with at least 100 users: index 0 is the root (before the first
+ * split), the next entry is the error after the first split, etc.
+ */
+export type ContextualSseTrajectoryEntry = {
+  /** Number of splits applied so far. 0 = root, before the first split. */
+  numSplits: number;
+  totalSse: number;
+  /** The split that produced this stage; absent on the root (`numSplits === 0`). */
+  split?: ContextualTreeSplit;
+};
+
+/**
+ * BIC model-selection statistic for one greedy regression-tree split, derived
+ * from the per-(split, variation) SSE trajectory.
+ */
+export type ContextualBicTrajectoryEntry = {
+  /**
+   * Resulting number of splits this candidate would produce if applied (>= 1).
+   */
+  numSplits: number;
+  logLikelihoodRatio: number;
+  /** Full gate penalty: base BIC `K*ln(N)` plus the EBIC multiplicity term. */
+  penalty: number;
+  /** `penalty - logLikelihoodRatio`; a negative value favors keeping the split. */
+  deltaBic: number;
+  /**
+   * Number of candidate splits searched for this split (M).
+   */
+  numCandidates?: number;
+  /**
+   * EBIC multiplicity penalty `2*gamma*ln(M)` included in `penalty`.
+   */
+  multiplicityPenalty?: number;
+};
+
+/** Full contextual bandit output for a decision-metric run (mirrors gbstats `ContextualBanditResult`). */
+export type ContextualBanditSnapshot = {
+  attributes: string[];
+  responses: ContextualBanditResponseSnapshot[];
+  leaf_map?: ContextualLeafMapEntry[];
+  leaf_stats?: ContextualLeafStatsEntry[];
+  sse_trajectory?: ContextualSseTrajectoryEntry[];
+  bic_trajectory?: ContextualBicTrajectoryEntry[];
 };
 
 export type MultipleExperimentMetricAnalysis = {
@@ -218,6 +328,7 @@ export interface BanditSettingsForStatsEngine {
   reweight: boolean;
   decision_metric: string;
   bandit_weights_seed: number;
+  contexts?: string[];
 }
 
 export type BusinessMetricTypeForStatsEngine =

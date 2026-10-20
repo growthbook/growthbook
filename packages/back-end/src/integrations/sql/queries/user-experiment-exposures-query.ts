@@ -1,11 +1,10 @@
 import { subDays } from "date-fns";
 import { format, SQL_ROW_LIMIT } from "shared/sql";
+import { getExposureQueryIdentifierTypes } from "shared/util";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { UserExperimentExposuresQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
-
-import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 
 export function getUserExperimentExposuresQuery(
   dialect: SqlDialect,
@@ -13,9 +12,11 @@ export function getUserExperimentExposuresQuery(
   params: UserExperimentExposuresQueryParams,
 ): string {
   const { userIdType } = params;
-  const allExposureQueries = (datasource.settings.queries?.exposure || [])
-    .map(({ id }) => getExposureQuery(datasource, id))
-    .filter((query) => query.userIdType === userIdType);
+  const allExposureQueries = (
+    datasource.settings.queries?.exposure || []
+  ).filter((query) =>
+    getExposureQueryIdentifierTypes(query).includes(userIdType),
+  );
 
   const allDimensionNames = Array.from(
     new Set(allExposureQueries.flatMap((query) => query.dimensions || [])),
@@ -50,7 +51,7 @@ export function getUserExperimentExposuresQuery(
                   dialect,
                 )}
               ) ${tableAlias}
-              WHERE ${dialect.castToString(exposureQuery.userIdType)} = '${params.unitId}' AND timestamp >= ${dialect.toTimestamp(startDate)}
+              WHERE ${(dialect.castToFilterString ?? dialect.castToString)(userIdType)} = '${params.unitId}' AND timestamp >= ${dialect.toTimestamp(startDate)}
             `;
           })
           .join("\nUNION ALL\n")}

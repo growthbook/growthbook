@@ -1,10 +1,12 @@
 import { DashboardInterface } from "shared/enterprise";
+import type { PopulationInterface } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { MetricInterface } from "shared/types/metric";
 import {
   EnvScopedPermission,
   Environment,
   GlobalPermission,
+  MemberRoleWithProjects,
   Permission,
   ProjectScopedPermission,
   SDKAttribute,
@@ -21,22 +23,81 @@ import {
   ExperimentTemplateInterface,
   UpdateTemplateProps,
 } from "shared/types/experiment";
-import { DataSourceInterface } from "shared/types/datasource";
+import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import { UpdateProps } from "shared/types/base-model";
 import { SegmentInterface } from "shared/types/segment";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/saved-group";
+import { ConstantInterface } from "shared/types/constant";
+import { ConfigInterface } from "shared/types/config";
 import { CustomHookInterface } from "../validators/custom-hooks";
+import { ContextualBanditInterface } from "../validators/contextual-bandit";
+import { InterleavingInterface } from "../validators/interleaving";
+import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
-import { PermissionError } from "../util/";
+import type { ExplorationDataset } from "../validators/product-analytics";
+import {
+  PermissionError,
+  getExposureQueryProjects,
+  isEventForwarderEventsFactTable,
+} from "../util/";
+// Specific module, not the util barrel: the barrel imports back from
+// shared/permissions, and the require cycle leaves re-exports uninitialized.
+import {
+  getTargetingProjectIds,
+  TargetingScopedEntity,
+} from "../util/features";
+import type { ReviewAuthorityFootprint } from "../util/features";
+import {
+  changedProjectRoleProjects,
+  envsAllowedBy,
+  hasUnrestrictedEnvAuthority,
+  isProjectScopedTeam,
+  sameRoleValue,
+  TeamAuthority,
+  teamProjects,
+} from "./permissions.utils";
+// Type-only: erased at runtime, so no cycle back through the util barrel.
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
+import {
+  NO_ENVIRONMENT_BINDING,
+  revisionActionPermission,
+  RevisionAction,
+  RevisionModel,
+} from "./revisionPermissions";
 
 type NotificationEvent = {
   containsSecrets: boolean;
   projects: string[];
 };
+
+// The Event Forwarder Events fact table is `managedBy: "api"` but is
+// intentionally editable and deletable by users for now, so it skips the
+// manageOfficialResources checks below.
+function isEventForwarderManagedFactTable(
+  factTable: Partial<
+    Pick<FactTableInterface, "id" | "managedBy" | "datasource">
+  >,
+): boolean {
+  if (!factTable.id || !factTable.datasource) return false;
+  return isEventForwarderEventsFactTable(
+    { id: factTable.id, managedBy: factTable.managedBy },
+    factTable.datasource,
+  );
+}
+
+// "everywhere"/"unbound" → [] (fail closed); "any" → null (not sanctioning).
+function footprintEnvironments(
+  footprint: ReviewAuthorityFootprint,
+): string[] | null {
+  if (footprint.scope === "environments") return footprint.environments;
+  return footprint.scope === "any" ? null : [];
+}
+
+export const DEFAULT_PERMISSION_ERROR_MESSAGE =
+  "You do not have permission to perform this action";
 
 export class Permissions {
   private userPermissions: UserPermissions;
@@ -106,12 +167,24 @@ export class Permissions {
     return this.checkGlobalPermission("manageIntegrations");
   };
 
+  public canViewApiKeys = (): boolean => {
+    return this.checkGlobalPermission("viewApiKeys");
+  };
+
   public canCreateApiKey = (): boolean => {
-    return this.checkGlobalPermission("manageApiKeys");
+    return this.checkGlobalPermission("createApiKeys");
+  };
+
+  public canUpdateApiKey = (): boolean => {
+    return this.checkGlobalPermission("editApiKeys");
   };
 
   public canDeleteApiKey = (): boolean => {
-    return this.checkGlobalPermission("manageApiKeys");
+    return this.checkGlobalPermission("deleteApiKeys");
+  };
+
+  public canManagePersonalAccessTokens = (): boolean => {
+    return this.checkGlobalPermission("managePersonalAccessTokens");
   };
 
   public canManageTeam = (): boolean => {
@@ -128,6 +201,24 @@ export class Permissions {
 
   public canDeleteMetricGroup = (): boolean => {
     return this.checkGlobalPermission("createMetricGroups");
+  };
+
+  public canViewSessionReplay = (
+    session?: { projects?: string[] } | null,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: session?.projects },
+      "viewSessionReplay",
+    );
+  };
+
+  public canDeleteSessionReplay = (
+    session?: { projects?: string[] } | null,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: session?.projects },
+      "deleteSessionReplay",
+    );
   };
 
   public canManageOrgSettings = (): boolean => {
@@ -244,6 +335,29 @@ export class Permissions {
     return this.checkProjectFilterPermission(segment, "createSegments");
   };
 
+  public canCreatePopulation = (
+    population: Pick<PopulationInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(population, "managePopulations");
+  };
+
+  public canUpdatePopulation = (
+    existing: Pick<PopulationInterface, "projects">,
+    updates: Pick<PopulationInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "managePopulations",
+    );
+  };
+
+  public canDeletePopulation = (
+    population: Pick<PopulationInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(population, "managePopulations");
+  };
+
   public canCreateVisualChange = (
     experiment: Pick<ExperimentInterface, "project">,
   ): boolean => {
@@ -270,8 +384,13 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.canCreateAttribute({ projects: [p.id] }),
+      // Allow if the user can create an attribute with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateAttribute({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateAttribute({ projects: [p.id] }))
       );
     }
     return this.canCreateAttribute({ projects: project ? [project] : [] });
@@ -306,6 +425,41 @@ export class Permissions {
     );
   };
 
+  // The single entry point for a revisioned entity's lifecycle permissions.
+  // Maps (model, action) -> atom+scope via REVISION_PERMISSIONS. Env-scoped
+  // actions gate on `environments`; project-scoped actions ignore them.
+  public canRevisionAction = (
+    model: RevisionModel,
+    action: RevisionAction,
+    obj: { project?: string; projects?: string[] },
+    // `null` = no environment constraint. `[]` = unbound, which fails closed.
+    environments: string[] | null = [],
+  ): boolean => {
+    const projects = obj.projects ?? (obj.project ? [obj.project] : []);
+    const { permission, scope } = revisionActionPermission(model, action);
+    if (scope === "environment") {
+      if (environments === null) {
+        return this.checkProjectFilterPermission(
+          { projects },
+          permission as ProjectScopedPermission,
+        );
+      }
+      // Unbound changes take authority no environment limit restricts.
+      if (action === "review" && !environments.length) {
+        return this.checkUnrestrictedEnvAuthority({ projects }, permission);
+      }
+      return this.checkEnvFilterPermission(
+        { projects },
+        environments,
+        permission as EnvScopedPermission,
+      );
+    }
+    return this.checkProjectFilterPermission(
+      { projects },
+      permission as ProjectScopedPermission,
+    );
+  };
+
   // Frontend helper to gate "Create Feature" UI.
   // Pass allProjects on list pages where "All Projects" may be selected;
   // omit it when checking a specific resource's project or global-only access.
@@ -314,49 +468,60 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.checkProjectFilterPermission(
-          { projects: [p.id] },
-          "manageFeatures",
-        ),
+      // Allow if the user has the permission with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.canCreateFeature({ project: undefined }, NO_ENVIRONMENT_BINDING) ||
+        allProjects.some((p) =>
+          this.canCreateFeature({ project: p.id }, NO_ENVIRONMENT_BINDING),
+        )
       );
     }
-    return this.checkProjectFilterPermission(
-      { projects: project ? [project] : [] },
-      "manageFeatures",
-    );
+    return this.canCreateFeature({ project }, NO_ENVIRONMENT_BINDING);
   };
 
+  // Creating a flag writes live state, so it takes the publish-class create
+  // atom with the environments the new flag is enabled in. The create UI passes
+  // NO_ENVIRONMENT_BINDING (no payload yet); the endpoint re-checks the real
+  // footprint on submit.
   public canCreateFeature = (
     feature: Pick<FeatureInterface, "project">,
+    environments: string[],
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      {
-        projects: feature.project ? [feature.project] : [],
-      },
-      "manageFeatures",
+    return this.canRevisionAction(
+      "feature",
+      "create",
+      { projects: feature.project ? [feature.project] : [] },
+      environments,
     );
   };
 
-  public canUpdateFeature = (
-    existing: Pick<FeatureInterface, "project">,
-    updated: Pick<FeatureInterface, "project">,
-  ): boolean => {
-    return this.checkProjectFilterUpdatePermission(
-      { projects: existing.project ? [existing.project] : [] },
-      "project" in updated ? { projects: [updated.project || ""] } : {},
-      "manageFeatures",
-    );
-  };
-
+  /** Archiving and deleting both take the flag out of service in `environments`. */
   public canDeleteFeature = (
     feature: Pick<FeatureInterface, "project">,
+    environments: string[],
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      {
-        projects: feature.project ? [feature.project] : [],
-      },
-      "manageFeatures",
+    return this.canRevisionAction(
+      "feature",
+      "delete",
+      { projects: feature.project ? [feature.project] : [] },
+      environments,
+    );
+  };
+
+  // Revert a feature to a previously-published revision. Env-scoped: gate on the
+  // environments the revert would change.
+  public canRevertFeature = (
+    feature: Pick<FeatureInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    return this.canRevisionAction(
+      "feature",
+      "revert",
+      { projects: feature.project ? [feature.project] : [] },
+      environments,
     );
   };
 
@@ -368,11 +533,18 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.checkProjectFilterPermission(
-          { projects: [p.id] },
-          "createAnalyses",
-        ),
+      // Allow if the user has the permission with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.checkProjectFilterPermission({ projects: [] }, "createAnalyses") ||
+        allProjects.some((p) =>
+          this.checkProjectFilterPermission(
+            { projects: [p.id] },
+            "createAnalyses",
+          ),
+        )
       );
     }
     return this.checkProjectFilterPermission(
@@ -412,6 +584,112 @@ export class Permissions {
     );
   };
 
+  public canViewContextualBanditModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.checkProjectFilterPermission(
+          { projects: [p.id] },
+          "createAnalyses",
+        ),
+      );
+    }
+    return this.checkProjectFilterPermission(
+      { projects: project ? [project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canCreateContextualBandit = (
+    cb: Pick<ContextualBanditInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: cb.project ? [cb.project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canUpdateContextualBandit = (
+    existing: Pick<ContextualBanditInterface, "project">,
+    updated: Pick<ContextualBanditInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "createAnalyses",
+    );
+  };
+
+  public canDeleteContextualBandit = (
+    cb: Pick<ContextualBanditInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: cb.project ? [cb.project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canRunContextualBandit = (
+    cb: Pick<ContextualBanditInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      { projects: cb.project ? [cb.project] : [] },
+      environments,
+      "runExperiments",
+    );
+  };
+
+  public canCreateInterleaving = (
+    interleaving: Pick<InterleavingInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: interleaving.project ? [interleaving.project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canUpdateInterleaving = (
+    existing: Pick<InterleavingInterface, "project">,
+    updated: Pick<InterleavingInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "createAnalyses",
+    );
+  };
+
+  public canDeleteInterleaving = (
+    interleaving: Pick<InterleavingInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: interleaving.project ? [interleaving.project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  // Starting/stopping changes what the generated pseudo flag serves, so it
+  // needs the same environment-scoped permission as running an experiment.
+  public canRunInterleaving = (
+    interleaving: Pick<InterleavingInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      { projects: interleaving.project ? [interleaving.project] : [] },
+      environments,
+      "runExperiments",
+    );
+  };
+
+  public canRunContextualBanditQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
   // Frontend helper to gate "Create Holdout" UI.
   // Pass allProjects on list pages where "All Projects" may be selected;
   // omit it when checking a specific resource's project or global-only access.
@@ -420,8 +698,13 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.canCreateHoldout({ projects: [p.id] }),
+      // Allow if the user can create a holdout with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.canCreateHoldout({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateHoldout({ projects: [p.id] }))
       );
     }
     return this.canCreateHoldout({ projects: project ? [project] : [] });
@@ -464,11 +747,21 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
+      // Allow if the user has the permission with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
         this.checkProjectFilterPermission(
-          { projects: [p.id] },
+          { projects: [] },
           "manageTemplates",
-        ),
+        ) ||
+        allProjects.some((p) =>
+          this.checkProjectFilterPermission(
+            { projects: [p.id] },
+            "manageTemplates",
+          ),
+        )
       );
     }
     return this.checkProjectFilterPermission(
@@ -591,7 +884,14 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) => this.canCreateIdea({ project: p.id }));
+      // Allow if the user can create an idea with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.canCreateIdea({ project: "" }) ||
+        allProjects.some((p) => this.canCreateIdea({ project: p.id }))
+      );
     }
     return this.canCreateIdea({ project });
   };
@@ -661,8 +961,13 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.canCreateFactTable({ projects: [p.id] }),
+      // Allow if the user can create a fact table with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateFactTable({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateFactTable({ projects: [p.id] }))
       );
     }
     return this.canCreateFactTable({ projects: project ? [project] : [] });
@@ -680,12 +985,20 @@ export class Permissions {
   };
 
   public canUpdateFactTable = (
-    existing: Pick<FactTableInterface, "projects" | "managedBy">,
+    existing: Pick<FactTableInterface, "projects" | "managedBy"> &
+      Partial<Pick<FactTableInterface, "id" | "datasource">>,
     updates: UpdateFactTableProps,
   ): boolean => {
     // We allow changing columns even for managed fact tables
     const changedKeys = Object.keys(updates);
-    const requireManagedByCheck = changedKeys.some((k) => k !== "columns");
+    // The Event Forwarder exception never covers changing managedBy itself —
+    // promoting the table to an official resource still needs the permission.
+    const changesManagedBy =
+      updates.managedBy !== undefined &&
+      updates.managedBy !== existing.managedBy;
+    const requireManagedByCheck =
+      changedKeys.some((k) => k !== "columns") &&
+      (changesManagedBy || !isEventForwarderManagedFactTable(existing));
 
     if (requireManagedByCheck && (existing.managedBy || updates.managedBy)) {
       if (!this.canUpdateOfficialResources(existing, updates)) {
@@ -700,10 +1013,37 @@ export class Permissions {
     );
   };
 
-  public canDeleteFactTable = (
+  // Virtual columns carry a raw SQL expression that is inlined into generated
+  // queries, so creating, editing, testing, or deleting one is equivalent in
+  // power to editing the fact table's own SQL.
+  //
+  // `canUpdateFactTable` deliberately skips the managedBy check for
+  // `columns`-only updates, because column metadata is refreshed automatically
+  // even on managed fact tables. That carve-out predates virtual columns, when
+  // `columns` held metadata only. Routing virtual column writes through
+  // `canUpdateFactTable(ft, { columns: [] })` would therefore let a user
+  // without official-resource access inject SQL into a managed fact table, so
+  // apply both gates explicitly here.
+  public canManageFactTableVirtualColumn = (
     factTable: Pick<FactTableInterface, "projects" | "managedBy">,
   ): boolean => {
-    if (factTable.managedBy && ["admin", "api"].includes(factTable.managedBy)) {
+    if (factTable.managedBy) {
+      if (!this.canUpdateOfficialResources(factTable, factTable)) {
+        return false;
+      }
+    }
+    return this.checkProjectFilterPermission(factTable, "manageFactTables");
+  };
+
+  public canDeleteFactTable = (
+    factTable: Pick<FactTableInterface, "projects" | "managedBy"> &
+      Partial<Pick<FactTableInterface, "id" | "datasource">>,
+  ): boolean => {
+    if (
+      factTable.managedBy &&
+      ["admin", "api"].includes(factTable.managedBy) &&
+      !isEventForwarderManagedFactTable(factTable)
+    ) {
       if (!this.canDeleteOfficialResources(factTable)) {
         return false;
       }
@@ -811,31 +1151,67 @@ export class Permissions {
     return this.checkProjectFilterPermission(metric, "createMetrics");
   };
 
-  public canManageFeatureDrafts = (
+  public canEditFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
   ) => {
-    return this.checkProjectFilterPermission(
-      { projects: feature.project ? [feature.project] : [] },
-      "manageFeatureDrafts",
-    );
+    return this.canRevisionAction("feature", "draft", {
+      projects: feature.project ? [feature.project] : [],
+    });
   };
 
+  // Required: there is no safe default for "what does this draft change".
+  // Pass `{ scope: "any" }` when not sanctioning a change.
+  //
+  // Eligibility follows the primary project, plus any targeting project whose
+  // own review rule the draft triggered (`approverProjects`): a project that
+  // can demand review also gets to give it. An approval from such a reviewer
+  // satisfies that project's requirement, never the primary's.
   public canReviewFeatureDrafts = (
     feature: Pick<FeatureInterface, "project">,
+    footprint: ReviewAuthorityFootprint,
+    approverProjects: string[] = [],
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      { projects: feature.project ? [feature.project] : [] },
-      "canReview",
+    return [feature.project ?? "", ...approverProjects].some((project) =>
+      this.canReviewRevision("feature", project ? [project] : [], footprint),
     );
   };
 
-  public canBypassApprovalChecks = (
-    feature: Pick<FeatureInterface, "project">,
+  // Saved-group review is project-scoped, so it takes no env requirement.
+  public canReviewRevision = (
+    model: RevisionModel,
+    projects: string[],
+    footprint: ReviewAuthorityFootprint,
   ): boolean => {
-    return this.checkProjectFilterPermission(
-      { projects: feature.project ? [feature.project] : [] },
-      "bypassApprovalChecks",
+    return this.canRevisionAction(
+      model,
+      "review",
+      { projects },
+      footprintEnvironments(footprint),
     );
+  };
+
+  /**
+   * Bypass the review requirement on a Feature Flag, Config, or Constant.
+   * Atoms are per entity, so a Config unlock must consult the Config atom, not
+   * the Feature one. Saved Groups: see canBypassSavedGroupApprovalChecks.
+   */
+  public canBypassFlagApprovalChecks = (
+    obj: {
+      project?: string;
+      projects?: string[];
+    },
+    // No default: defaulting to "feature" would let Config/Constant call sites
+    // silently consult the wrong entity's bypass atom.
+    model: Extract<RevisionModel, "feature" | "config" | "constant">,
+  ): boolean => {
+    return this.canRevisionAction(model, "bypass", obj);
+  };
+
+  public canBypassSavedGroupApprovalChecks = (obj: {
+    project?: string;
+    projects?: string[];
+  }): boolean => {
+    return this.canRevisionAction("saved-group", "bypass", obj);
   };
 
   public canManageCustomFields = (): boolean => {
@@ -881,6 +1257,19 @@ export class Permissions {
     );
   };
 
+  // Used to determine if we should show the Settings > Projects link in SideNav
+  // Returns true if user can view any projects (even without manage permission)
+  public canViewProjectsPage = (): boolean => {
+    // If user can manage some projects, they should see the page
+    if (this.canManageSomeProjects()) {
+      return true;
+    }
+
+    // Otherwise, check if they have readData permission globally or in any project
+    const projectsToCheck = ["", ...Object.keys(this.userPermissions.projects)];
+    return projectsToCheck.some((p) => this.hasPermission("readData", p));
+  };
+
   public canUpdateProject = (project: string): boolean => {
     return this.checkProjectFilterPermission(
       { projects: [project] },
@@ -895,6 +1284,79 @@ export class Permissions {
     );
   };
 
+  // Teams hand out authority. Without manageTeam a caller may only shape a
+  // project-scoped team, and only on projects they administer: the same
+  // authority manageProjects already carries for a member's project roles.
+  public canCreateTeam = (team: TeamAuthority): boolean => {
+    return this.canAdministerProjectScopedTeam(team);
+  };
+
+  public canUpdateTeam = (
+    existing: TeamAuthority,
+    updates: Partial<TeamAuthority>,
+  ): boolean => {
+    if (this.canManageTeam()) return true;
+    if (!isProjectScopedTeam(existing)) return false;
+    const changedKeys = Object.keys(updates).filter(
+      (key) =>
+        !sameRoleValue(
+          (existing as Record<string, unknown>)[key],
+          (updates as Record<string, unknown>)[key],
+        ),
+    );
+    if (!changedKeys.length) return true;
+    if (changedKeys.some((key) => key !== "projectRoles")) return false;
+    return this.canManageProjectRoles(
+      changedProjectRoleProjects(
+        existing.projectRoles,
+        updates.projectRoles ?? existing.projectRoles,
+      ),
+    );
+  };
+
+  public canDeleteTeam = (team: TeamAuthority): boolean => {
+    return this.canAdministerProjectScopedTeam(team);
+  };
+
+  // Membership grants the whole team's authority, so it is gated like the team.
+  public canManageTeamMembership = (team: TeamAuthority): boolean => {
+    return this.canAdministerProjectScopedTeam(team);
+  };
+
+  // A whole-member write without manageTeam must leave the global role alone
+  // and only change project rules on projects the caller administers.
+  public canUpdateMemberRole = (
+    existing: MemberRoleWithProjects,
+    updated: MemberRoleWithProjects,
+  ): boolean => {
+    if (this.canManageTeam()) return true;
+    const globalRole = (info: MemberRoleWithProjects) => ({
+      role: info.role,
+      limitAccessByEnvironment: !!info.limitAccessByEnvironment,
+      environments: info.environments,
+      additionalRoles: info.additionalRoles,
+    });
+    if (!sameRoleValue(globalRole(existing), globalRole(updated))) return false;
+    return this.canManageProjectRoles(
+      changedProjectRoleProjects(existing.projectRoles, updated.projectRoles),
+    );
+  };
+
+  // Whole-team authority: manageTeam, or manageProjects on every project a
+  // project-scoped team covers.
+  private canAdministerProjectScopedTeam(team: TeamAuthority): boolean {
+    return (
+      this.canManageTeam() ||
+      (isProjectScopedTeam(team) &&
+        this.canManageProjectRoles(teamProjects(team)))
+    );
+  }
+
+  // An empty list resolves to the global grant, as every project filter does.
+  private canManageProjectRoles(projects: string[]): boolean {
+    return this.checkProjectFilterPermission({ projects }, "manageProjects");
+  }
+
   // Frontend helper to gate "Create Data Source" UI.
   // Pass allProjects on list pages where "All Projects" may be selected;
   // omit it when checking a specific resource's project or global-only access.
@@ -903,8 +1365,15 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.canCreateDataSource({ projects: [p.id], type: undefined }),
+      // Allow if the user can create a data source with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateDataSource({ projects: [], type: undefined }) ||
+        allProjects.some((p) =>
+          this.canCreateDataSource({ projects: [p.id], type: undefined }),
+        )
       );
     }
     return this.canCreateDataSource({
@@ -938,6 +1407,29 @@ export class Permissions {
     );
   };
 
+  /** An assignment query needs the permission in every project it covers. */
+  public canUpdateExposureQuery = (
+    query: Pick<ExposureQuery, "projects">,
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: getExposureQueryProjects(query, datasource.projects) },
+      "editDatasourceSettings",
+    );
+  };
+
+  /** Whether some project scope exists that the user could add a query in. */
+  public canAddExposureQuery = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    const projects = datasource.projects?.length
+      ? datasource.projects
+      : ["", ...Object.keys(this.userPermissions.projects)];
+    return projects.some((p) =>
+      this.hasPermission("editDatasourceSettings", p),
+    );
+  };
+
   public canDeleteDataSource = (
     datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
@@ -950,10 +1442,29 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
-  public canRunPastExperimentQueries = (
+  /**
+   * Experiment import runs an assignment query's past experiments query for
+   * users who can run queries in any Project it covers.
+   */
+  public canRunPastExperimentQuery = (
+    query: Pick<ExposureQuery, "projects">,
     datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
-    return this.checkProjectFilterPermission(datasource, "runQueries");
+    return this.checkProjectFilterPermission(
+      { projects: getExposureQueryProjects(query, datasource.projects) },
+      "runQueries",
+    );
+  };
+
+  /** An import refresh runs only the assignment queries the user can run. */
+  public canRunPastExperimentQueries = (
+    datasource: Pick<DataSourceInterface, "projects" | "settings">,
+  ): boolean => {
+    const queries = datasource.settings?.queries?.exposure ?? [];
+    if (!queries.length) {
+      return this.checkProjectFilterPermission(datasource, "runQueries");
+    }
+    return queries.some((q) => this.canRunPastExperimentQuery(q, datasource));
   };
 
   public canRunFactQueries = (
@@ -1016,10 +1527,20 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
+  // Diagnostics read the flag and write nothing, so any flag authority — or
+  // runQueries on the datasource it reads — qualifies. NO_ENVIRONMENT_BINDING:
+  // no write, so no footprint to narrow an env-limited publisher against.
   public canRunFeatureDiagnosticsQueries = (
-    datasource: Pick<DataSourceInterface, "projects">,
+    feature: Pick<FeatureInterface, "project">,
+    datasource?: Pick<DataSourceInterface, "projects">,
   ): boolean => {
-    return this.checkProjectFilterPermission(datasource, "runQueries");
+    return (
+      this.canEditFeatureDrafts(feature) ||
+      this.canPublishFeature(feature, NO_ENVIRONMENT_BINDING) ||
+      this.canReviewFeatureDrafts(feature, { scope: "any" }) ||
+      (!!datasource &&
+        this.checkProjectFilterPermission(datasource, "runQueries"))
+    );
   };
 
   public canViewSqlExplorerQueries = (
@@ -1066,6 +1587,21 @@ export class Permissions {
     );
   };
 
+  public canRunProductAnalyticsExplorationQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+    datasetType: ExplorationDataset["type"],
+  ): boolean => {
+    if (
+      datasetType === "metric" ||
+      datasetType === "fact_table" ||
+      datasetType === "funnel" ||
+      datasetType === "journey"
+    ) {
+      return this.canRunMetricAnalysisQueries(datasource);
+    }
+    return this.canRunSqlExplorerQueries(datasource);
+  };
+
   public canCreateGeneralDashboards = (
     dashboard: Pick<DashboardInterface, "projects">,
   ): boolean => {
@@ -1100,12 +1636,11 @@ export class Permissions {
     feature: Pick<FeatureInterface, "project">,
     environments: string[],
   ): boolean => {
-    return this.checkEnvFilterPermission(
-      {
-        projects: feature.project ? [feature.project] : [],
-      },
+    return this.canRevisionAction(
+      "feature",
+      "publish",
+      { projects: feature.project ? [feature.project] : [] },
       environments,
-      "publishFeatures",
     );
   };
 
@@ -1185,8 +1720,13 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.canCreateSavedGroup({ projects: [p.id] }),
+      // Allow if the user can create a saved group with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateSavedGroup({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateSavedGroup({ projects: [p.id] }))
       );
     }
     return this.canCreateSavedGroup({ projects: project ? [project] : [] });
@@ -1195,24 +1735,100 @@ export class Permissions {
   public canCreateSavedGroup = (
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
-    return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
-  };
-
-  public canUpdateSavedGroup = (
-    existing: Pick<SavedGroupInterface, "projects">,
-    updates: Pick<SavedGroupInterface, "projects">,
-  ): boolean => {
-    return this.checkProjectFilterUpdatePermission(
-      existing,
-      updates,
-      "manageSavedGroups",
+    return this.canRevisionAction(
+      "saved-group",
+      "create",
+      savedGroup,
+      NO_ENVIRONMENT_BINDING,
     );
   };
 
   public canDeleteSavedGroup = (
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
-    return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+    return this.canRevisionAction("saved-group", "delete", savedGroup);
+  };
+
+  public canCreateLearning = (learning: { projects?: string[] }): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: learning.projects || [] },
+      "manageLearnings",
+    );
+  };
+
+  public canUpdateLearning = (
+    existing: { projects?: string[] },
+    updates: { projects?: string[] },
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.projects || [] },
+      { projects: updates.projects || [] },
+      "manageLearnings",
+    );
+  };
+
+  public canDeleteLearning = (learning: { projects?: string[] }): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: learning.projects || [] },
+      "manageLearnings",
+    );
+  };
+
+  /**
+   * Project-scoped only. A create body CAN declare `environmentValues`; that
+   * env-scoped half is a publish and is gated at the create surfaces by
+   * `assertCanCreateConstantInState`, not here.
+   */
+  public canCreateConstant = (
+    constant: Pick<ConstantInterface, "project">,
+  ): boolean => {
+    return this.canRevisionAction(
+      "constant",
+      "create",
+      { projects: constant.project ? [constant.project] : [] },
+      NO_ENVIRONMENT_BINDING,
+    );
+  };
+
+  public canDeleteConstant = (
+    constant: Pick<ConstantInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    return this.canRevisionAction(
+      "constant",
+      "delete",
+      { projects: constant.project ? [constant.project] : [] },
+      environments,
+    );
+  };
+
+  /**
+   * Project-scoped only. A create body CAN attach `scopedOverrides` (env-scoped
+   * flavors that serve immediately — a feature may already embed a `@config:`
+   * ref to the new key); that half is a publish and is gated at the create
+   * surfaces by `assertCanCreateConfigInState`, not here.
+   */
+  public canCreateConfig = (
+    config: Pick<ConfigInterface, "project">,
+  ): boolean => {
+    return this.canRevisionAction(
+      "config",
+      "create",
+      { projects: config.project ? [config.project] : [] },
+      NO_ENVIRONMENT_BINDING,
+    );
+  };
+
+  public canDeleteConfig = (
+    config: Pick<ConfigInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    return this.canRevisionAction(
+      "config",
+      "delete",
+      { projects: config.project ? [config.project] : [] },
+      environments,
+    );
   };
 
   public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {
@@ -1223,9 +1839,9 @@ export class Permissions {
   };
 
   // UI helper - when determining if we can show the `Create SDK Connection` button, this ignores any env level restrictions
-  // and just takes in the current project
+  // and just takes in the current project. Same atom as the create itself.
   public canViewCreateSDKConnectionModal = (project?: string): boolean => {
-    return this.hasPermission("manageEnvironments", project || "");
+    return this.hasPermission("manageSDKConnections", project || "");
   };
 
   public canCreateSDKConnection = (
@@ -1318,10 +1934,56 @@ export class Permissions {
     return this.checkProjectFilterPermission(customHook, "manageCustomHooks");
   };
 
-  public throwPermissionError(message?: string): void {
-    throw new PermissionError(
-      message ?? "You do not have permission to perform this action",
+  // A hook constrains which future writes are allowed and serves no value to any
+  // user, so it is not publish-class — and draft-class keeps whoever writes the
+  // rules distinct from whoever lands changes. Org/config hooks take
+  // `manageCustomHooks`.
+  public canManageFeatureCustomHooks = (
+    feature: Pick<FeatureInterface, "project">,
+  ): boolean => {
+    return this.canEditFeatureDrafts(feature);
+  };
+
+  public canManageExperimentCustomHooks = (
+    experiment: Pick<ExperimentInterface, "project">,
+  ): boolean => {
+    return this.canUpdateExperiment(experiment, {});
+  };
+
+  public canCreateEventForwarderConfig = (
+    config: Pick<EventForwarderConfigInterface, "projects">,
+  ): boolean => {
+    return (
+      this.checkProjectFilterPermission(config, "editDatasourceSettings") &&
+      this.checkProjectFilterPermission(config, "runQueries")
     );
+  };
+
+  public canUpdateEventForwarderConfig = (
+    existing: Pick<EventForwarderConfigInterface, "projects">,
+    updates: Pick<EventForwarderConfigInterface, "projects">,
+  ): boolean => {
+    return (
+      this.checkProjectFilterUpdatePermission(
+        existing,
+        updates,
+        "editDatasourceSettings",
+      ) &&
+      this.checkProjectFilterUpdatePermission(existing, updates, "runQueries")
+    );
+  };
+
+  public canDeleteEventForwarderConfig = (
+    config: Pick<EventForwarderConfigInterface, "projects">,
+  ): boolean => {
+    return (
+      this.checkProjectFilterPermission(config, "editDatasourceSettings") &&
+      this.checkProjectFilterPermission(config, "runQueries")
+    );
+  };
+
+  public throwPermissionError(message?: string): void {
+    throw new PermissionError(message ?? DEFAULT_PERMISSION_ERROR_MESSAGE);
   }
 
   public canReadSingleProjectResource = (
@@ -1335,13 +1997,20 @@ export class Permissions {
   //   string[] = specific projects
   //   [] = no projects
   //   null = global (all projects)
+  // null = unrestricted. Needs the org's full project list because a global
+  // grant can coexist with per-project denials (access-restricted projects),
+  // and the allowlist must then include projects with no explicit entry.
   public getProjectsWithPermission = (
     permission: Permission,
+    allProjects: string[],
   ): string[] | null => {
-    if (this.hasPermission(permission, "")) return null;
-    return Object.keys(this.userPermissions.projects).filter((p) =>
-      this.hasPermission(permission, p),
-    );
+    if (this.hasPermission(permission, "")) {
+      const hasDenial = Object.keys(this.userPermissions.projects).some(
+        (p) => !this.hasPermission(permission, p),
+      );
+      if (!hasDenial) return null;
+    }
+    return allProjects.filter((p) => this.hasPermission(permission, p));
   };
 
   public canReadMultiProjectResource = (
@@ -1358,8 +2027,28 @@ export class Permissions {
       return projectsToCheck.some((p) => this.hasPermission("readData", p));
     }
 
-    // Otherwise, check if they have read access for atleast 1 of the resource's projects
+    // Otherwise, check if they have read access for at least 1 of the resource's projects
     return projects.some((p) => this.hasPermission("readData", p));
+  };
+
+  // Targeting-scoped READ: readable via the governance project OR any targeting
+  // project (or all). Widens read/discovery only; governance/write keys on `project`.
+  public canReadTargetingScopedResource = (
+    entity: TargetingScopedEntity,
+  ): boolean => {
+    // null (all projects) maps to the empty-array "all" convention.
+    return this.canReadMultiProjectResource(
+      getTargetingProjectIds(entity) ?? [],
+    );
+  };
+
+  // Deliver a Feature Flag into projects beyond its primary. "all" reaches
+  // projects that do not exist yet, so it takes the atom unscoped.
+  public canTargetFeatureProjects = (projects: string[] | "all"): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: projects === "all" ? [] : projects },
+      "targetFeatures",
+    );
   };
 
   public canManageCustomRoles = (): boolean => {
@@ -1412,6 +2101,20 @@ export class Permissions {
     return true;
   }
 
+  private checkUnrestrictedEnvAuthority(
+    obj: { projects?: string[] },
+    permission: Permission,
+  ): boolean {
+    const projects = obj.projects?.length ? obj.projects : [""];
+
+    return projects.every((project) => {
+      const scoped =
+        this.userPermissions.projects[project] || this.userPermissions.global;
+      if (!scoped?.permissions[permission]) return false;
+      return hasUnrestrictedEnvAuthority(scoped, permission);
+    });
+  }
+
   public checkEnvFilterPermission(
     obj: { projects?: string[] },
     envs: string[],
@@ -1460,11 +2163,8 @@ export class Permissions {
       return false;
     }
 
-    if (!envs || !usersPermissionsToCheck.limitAccessByEnvironment) {
-      return true;
-    }
-    return envs.every((env) =>
-      usersPermissionsToCheck.environments.includes(env),
-    );
+    // One implementation, shared with the standalone `hasPermission` used by
+    // middleware and API keys — see `envsAllowedBy`.
+    return envsAllowedBy(usersPermissionsToCheck, permissionToCheck, envs);
   }
 }

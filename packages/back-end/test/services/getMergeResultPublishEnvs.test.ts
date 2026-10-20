@@ -57,6 +57,12 @@ function ctxWith(
   holdoutsById: Record<string, HoldoutInterface | null> = {},
 ): ReqContext {
   return {
+    // A project/targeting move re-derives the destination's applicable envs
+    // from the org's environment list, so the context must carry it.
+    org: {
+      id: "org_test",
+      settings: { environments: ENVS.map((id) => ({ id })) },
+    },
     models: {
       holdout: {
         getById: jest.fn(async (id: string) => holdoutsById[id] ?? null),
@@ -80,7 +86,12 @@ describe("getMergeResultPublishEnvs", () => {
       ["defaultValue", { defaultValue: "b" }],
       ["prerequisites", { prerequisites: [] }],
       ["archived", { archived: true }],
-      ["metadata", { metadata: { description: "x" } }],
+      // A metadata key that DOES reach the payload. `description` does not, and
+      // pinning it here asserted the over-demand: editing a dev rule plus the
+      // description refused a dev-limited publisher, while dropping the
+      // description from the same request succeeded. The publish gate skips the
+      // check entirely for inert metadata; both now read one shared rule.
+      ["metadata", { metadata: { project: "prj_other" } }],
     ])("%s", async (_label, change) => {
       const envs = await getMergeResultPublishEnvs({
         context: ctxWith(),
@@ -90,6 +101,87 @@ describe("getMergeResultPublishEnvs", () => {
         environmentIds: ENVS,
       });
       expect(envs.sort()).toEqual([...ENVS].sort());
+    });
+
+    it("widens to what a rewritten ramp anchor can reach, not to every env for a coverage-only step", async () => {
+      const devRule = {
+        type: "rollout",
+        id: "r1",
+        value: "a",
+        coverage: 0.5,
+        hashAttribute: "id",
+        environments: ["dev"],
+      } as unknown as FeatureRule;
+      const anchored = (anchorPatch: Record<string, unknown>) => ({
+        context: ctxWith(),
+        feature: feat(),
+        filledLiveRules: [devRule],
+        result: {
+          metadata: { description: "x" },
+          environmentsEnabled: { dev: true },
+        } as unknown as MergeResultChanges,
+        environmentIds: ENVS,
+        anchoredUpdates: [
+          {
+            schedule: {
+              targets: [
+                {
+                  id: "t1",
+                  entityType: "feature" as const,
+                  entityId: "f1",
+                  ruleId: "r1",
+                  status: "active" as const,
+                },
+              ],
+              startActions: [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: "t1",
+                  patch: { ruleId: "r1", ...anchorPatch },
+                },
+              ],
+              steps: [
+                {
+                  interval: 1,
+                  actions: [
+                    {
+                      targetType: "feature-rule" as const,
+                      targetId: "t1",
+                      patch: { ruleId: "r1", coverage: 0.5 },
+                    },
+                  ],
+                },
+              ],
+              endActions: [],
+            },
+            patches: [{ targetId: "t1", ruleId: "r1" }],
+          },
+        ],
+      });
+      expect(
+        await getMergeResultPublishEnvs(anchored({ environments: ["dev"] })),
+      ).toEqual(["dev"]);
+      expect(
+        (
+          await getMergeResultPublishEnvs(anchored({ allEnvironments: true }))
+        ).sort(),
+      ).toEqual([...ENVS].sort());
+    });
+
+    it("does NOT widen for metadata that never reaches an SDK", async () => {
+      const envs = await getMergeResultPublishEnvs({
+        context: ctxWith(),
+        feature: feat(),
+        filledLiveRules: [],
+        result: {
+          metadata: { description: "x" },
+          environmentsEnabled: { dev: true },
+        } as unknown as MergeResultChanges,
+        environmentIds: ENVS,
+      });
+      // Only the environment the change actually reaches. Widening to everything
+      // served refused a dev-limited publisher for adding a description.
+      expect(envs).toEqual(["dev"]);
     });
 
     it("excludes envs disabled on the feature", async () => {
@@ -289,6 +381,88 @@ describe("getMergeResultPublishEnvs", () => {
         environmentIds: ENVS,
       });
       expect(envs.sort()).toEqual([...ENVS].sort());
+    });
+
+    it("defaultValue + enabling a disabled env includes the env being enabled", async () => {
+      const feature = feat({
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+          staging: { enabled: true, rules: [] },
+          production: { enabled: false, rules: [] },
+        },
+      });
+      const envs = await getMergeResultPublishEnvs({
+        context: ctxWith(),
+        feature,
+        filledLiveRules: [],
+        result: {
+          defaultValue: "b",
+          environmentsEnabled: { production: true },
+        },
+        environmentIds: ENVS,
+      });
+      expect(envs).toContain("production");
+    });
+  });
+
+  describe("a project move widens to destination-applicable envs", () => {
+    function moveCtx(): ReqContext {
+      return {
+        org: {
+          id: "org_test",
+          settings: {
+            environments: [
+              { id: "dev" },
+              { id: "staging" },
+              // production only serves the destination project.
+              { id: "production", projects: ["prj_dest"] },
+            ],
+          },
+        },
+        models: { holdout: { getById: jest.fn(async () => null) } },
+      } as unknown as ReqContext;
+    }
+
+    it("demands authority over a destination-only env the move activates", async () => {
+      const feature = feat({
+        project: "prj_src",
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+          staging: { enabled: true, rules: [] },
+          // Enabled but dormant: prj_src does not serve production.
+          production: { enabled: true, rules: [] },
+        },
+      });
+      // Pre-move applicable set excludes production (source can't serve it).
+      const sourceApplicable = ["dev", "staging"];
+      const envs = await getMergeResultPublishEnvs({
+        context: moveCtx(),
+        feature,
+        filledLiveRules: [],
+        result: { metadata: { project: "prj_dest" } },
+        environmentIds: sourceApplicable,
+      });
+      expect(envs).toContain("production");
+    });
+
+    it("does not widen when nothing moves", async () => {
+      // Same dormant-production feature, but a non-move change — production must
+      // stay out of the footprint (the source still cannot serve it).
+      const feature = feat({
+        project: "prj_src",
+        environmentSettings: {
+          dev: { enabled: true, rules: [] },
+          production: { enabled: true, rules: [] },
+        },
+      });
+      const envs = await getMergeResultPublishEnvs({
+        context: moveCtx(),
+        feature,
+        filledLiveRules: [],
+        result: { defaultValue: "b" },
+        environmentIds: ["dev"],
+      });
+      expect(envs).not.toContain("production");
     });
   });
 });

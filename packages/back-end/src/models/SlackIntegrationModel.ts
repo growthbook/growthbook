@@ -8,9 +8,9 @@ import { SlackIntegrationInterface } from "shared/types/slack-integration";
 import { NotificationEventName } from "shared/types/events/base-types";
 import {
   zodNotificationEventNamesEnum,
-  getWildcardPatternsForEvent,
   isEventWebhookWildcard,
   NotificationEventNameOrWildcard,
+  getWildcardPatternsForEvent,
 } from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import { logger } from "back-end/src/util/logger";
@@ -352,6 +352,16 @@ export const deleteSlackIntegration = async ({
  * @param organization
  * @param user
  */
+export const projectHasSlackIntegrations = async (
+  organizationId: string,
+  projectId: string,
+): Promise<boolean> => {
+  return !!(await SlackIntegrationModel.exists({
+    organizationId,
+    projects: [projectId],
+  }));
+};
+
 export const deleteAllSlackIntegrationsForAProject = async ({
   projectId,
   organization,

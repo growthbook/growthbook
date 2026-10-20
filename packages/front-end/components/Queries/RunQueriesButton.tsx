@@ -6,7 +6,6 @@ import {
   useState,
 } from "react";
 import { QueryStatus, Queries } from "shared/types/query";
-import clsx from "clsx";
 import { PiPlay, PiArrowClockwise, PiXBold } from "react-icons/pi";
 import { getValidDate } from "shared/dates";
 import { IconButton, Progress, Text } from "@radix-ui/themes";
@@ -64,21 +63,25 @@ export function getQueryStatus(
   return { status, numFailed, failedNames };
 }
 
-type Props = {
+type CancelProps =
+  // An internal API path, POSTed to with apiCall
+  | { cancelEndpoint: string; onCancel?: never }
+  // For endpoints that need another client
+  | { onCancel: () => Promise<unknown>; cancelEndpoint?: never };
+
+type Props = CancelProps & {
   cta?: string;
   loadingText?: string;
-  cancelEndpoint: string;
   model: { queries: Queries; runStarted: string | Date | undefined | null };
   mutate: () => Promise<unknown> | unknown;
   icon?: "run" | "refresh";
-  color?: string;
   position?: "left" | "right";
   resetFilters?: () => void | Promise<void>;
   radixVariant?: "outline" | "solid" | "soft";
-  size?: "xs" | "sm";
+  size?: "sm" | "md";
   onSubmit?: () => void | Promise<void>;
+  setError?: (error: string | null) => void;
   disabled?: boolean;
-  useRadixButton?: boolean;
 };
 
 const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
@@ -87,17 +90,17 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
       cta = "Run Queries",
       loadingText = "Running",
       cancelEndpoint,
+      onCancel,
       model,
       mutate,
       icon = "run",
-      color = "primary",
       position = "right",
       resetFilters,
       radixVariant = "outline",
-      size = "sm",
+      size = "md",
       onSubmit,
+      setError,
       disabled,
-      useRadixButton = false,
     },
     ref: ForwardedRef<HTMLButtonElement>,
   ) => {
@@ -193,7 +196,9 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
                     e.stopPropagation();
                     resetFilters?.();
                     try {
-                      await apiCall(cancelEndpoint, { method: "POST" });
+                      await (onCancel
+                        ? onCancel()
+                        : apiCall(cancelEndpoint, { method: "POST" }));
                     } catch (e) {
                       console.error(e);
                     }
@@ -206,51 +211,30 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
             </div>
           )}
           <div className="position-relative">
-            {useRadixButton ? (
-              <Button
-                ref={ref}
-                variant={radixVariant}
-                size={size}
-                disabled={status === "running" || disabled}
-                type="button"
-                onClick={async () => {
-                  await resetFilters?.();
-                  await onSubmit?.();
-                }}
-                icon={buttonIcon}
-                style={{
-                  minWidth: size === "xs" ? 90 : 110,
-                }}
-              >
-                {status === "running" ? (
-                  <Text className="small">
-                    {loadingText} ({getTimeDisplay(elapsed)})
-                  </Text>
-                ) : (
-                  <Text>{cta}</Text>
-                )}
-              </Button>
-            ) : (
-              <button
-                ref={ref}
-                className={clsx("btn font-weight-bold my-0", `btn-${color}`, {
-                  disabled: status === "running",
-                })}
-                disabled={status === "running" || disabled}
-                type="submit"
-                onClick={async () => {
-                  await resetFilters?.();
-                  await onSubmit?.();
-                }}
-              >
-                <span className="h4 pr-2 m-0 d-inline-block align-top">
-                  {buttonIcon}
-                </span>
-                {status === "running"
-                  ? `${loadingText} (${getTimeDisplay(elapsed)})...`
-                  : cta}
-              </button>
-            )}
+            <Button
+              ref={ref}
+              variant={radixVariant}
+              size={size}
+              disabled={status === "running" || disabled}
+              type="button"
+              onClick={async () => {
+                await resetFilters?.();
+                await onSubmit?.();
+              }}
+              setError={setError}
+              icon={buttonIcon}
+              style={{
+                minWidth: size === "sm" ? 90 : 110,
+              }}
+            >
+              {status === "running" ? (
+                <Text className="small">
+                  {loadingText} ({getTimeDisplay(elapsed)})
+                </Text>
+              ) : (
+                <Text>{cta}</Text>
+              )}
+            </Button>
             {status === "running" && numQueries > 1 && (
               <Progress
                 value={Math.floor((100 * numFinished) / numQueries)}

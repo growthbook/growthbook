@@ -1,6 +1,12 @@
 import type { OrganizationInterface } from "shared/types/organization";
-import { putFeatureRevisionArchiveValidator } from "shared/validators";
-import { resetReviewOnChange } from "shared/util";
+import {
+  eventUserIdentity,
+  putFeatureRevisionArchiveValidator,
+} from "shared/validators";
+import {
+  canRequestArchiveIntoDraft,
+  canStageArchiveDraft,
+} from "back-end/src/revisions/landAuthority";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
@@ -27,8 +33,12 @@ export async function archiveRevision(
   if (!feature) throw new NotFoundError("Could not find feature");
 
   if (
-    !context.permissions.canUpdateFeature(feature, {}) ||
-    !context.permissions.canManageFeatureDrafts(feature)
+    !canStageArchiveDraft({
+      permissions: context.permissions,
+      model: "feature",
+      entity: feature,
+      archived: body.archived,
+    })
   ) {
     context.permissions.throwPermissionError();
   }
@@ -40,6 +50,23 @@ export async function archiveRevision(
     params.version,
     { title: body.revisionTitle, comment: body.revisionComment },
   );
+
+  // Writing `archived` into a PINNED revision is a write into someone else's
+  // draft: it makes that draft delete-class, so its author — a publisher without
+  // delete — can no longer publish their own work.
+  if (
+    !created &&
+    !canRequestArchiveIntoDraft(context, {
+      model: "feature",
+      entity: feature,
+      revision: {
+        authorId: eventUserIdentity(revision.createdBy) ?? undefined,
+        contributors: revision.contributors,
+      },
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   try {
     if (!isDraftStatus(revision.status)) {
@@ -65,12 +92,6 @@ export async function archiveRevision(
         subject: "",
         value: JSON.stringify({ archived: body.archived }),
       },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: [],
-        defaultValueChanged: false,
-        settings: organization.settings,
-      }),
     );
 
     const updated = await getRevision({

@@ -35,11 +35,11 @@ const ExpandableSavedQuery: FC<{
       </h4>
       <Code language={"sql"} code={savedQuery.sql} expandable={true} />
       {savedQuery.results.error && (
-        <div className="alert alert-danger">
+        <Callout status="error">
           <pre className="m-0 p-0" style={{ whiteSpace: "pre-wrap" }}>
             {savedQuery.results.error}
           </pre>
-        </div>
+        </Callout>
       )}
       {savedQuery.results.results[0] ? (
         <div style={{ maxHeight: 300, overflowY: "auto" }}>

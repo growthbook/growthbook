@@ -1,11 +1,14 @@
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { metricGroupValidator } from "shared/validators";
 import { metricGroupApiSpec } from "back-end/src/api/specs/metric-group.spec";
+import { touchDefinitionsVersion } from "./DefinitionsVersionModel";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
   schema: metricGroupValidator,
   collectionName: "metricgroups",
+  affectsDefinitionsVersion: true,
+  definitionsVersionProjectField: "projects",
   idPrefix: "mg_",
   auditLog: {
     entity: "metricGroup",
@@ -60,5 +63,7 @@ export class MetricGroupModel extends BaseClass {
         $set: { dateUpdated: new Date() },
       },
     );
+    // Raw write bypasses the BaseModel affectsDefinitionsVersion hook.
+    await touchDefinitionsVersion(this.context.org.id);
   }
 }

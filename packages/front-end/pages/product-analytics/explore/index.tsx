@@ -24,8 +24,14 @@ export default function ExplorePage() {
   } as ExplorationConfig;
 
   return (
-    <Box className="position-relative" style={{ padding: "8px" }}>
-      <Box width="100%">
+    <Box
+      className="pagecontents container-fluid position-relative"
+      style={{ display: "flex", flex: 1, flexDirection: "column" }}
+    >
+      <Box
+        width="100%"
+        style={{ display: "flex", flex: 1, flexDirection: "column" }}
+      >
         <ExplorerProvider initialConfig={defaultDraftState}>
           <EmptyState />
         </ExplorerProvider>
@@ -33,3 +39,5 @@ export default function ExplorePage() {
     </Box>
   );
 }
+
+ExplorePage.mainClassName = "product-analytics-explore-landing";

@@ -56,10 +56,17 @@ $sidebarwidth: 240px;
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   display: inline-block;
   white-space: nowrap;
   vertical-align: middle;
+  // Fades a title the notices crowd out instead of cutting it hard. The box
+  // fills the free space, so a title that fits never reaches the fade.
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - 32px),
+    transparent
+  );
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
 }
 .mobilemenu {
   display: none;
@@ -72,6 +79,11 @@ $sidebarwidth: 240px;
   justify-content: flex-start;
   align-items: center;
   width: 100%;
+
+  // A notice slot whose notice renders nothing would otherwise keep its padding.
+  > :global(.nav-link):empty {
+    display: none;
+  }
 }
 
 .dropdownItemIconColor {
@@ -82,5 +94,40 @@ $sidebarwidth: 240px;
   }
   svg {
     color: var(--text-color-muted);
+  }
+}
+
+.agentTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-color-main);
+  padding: 6px 8px;
+  margin-right: 4px;
+  border-radius: 6px;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+
+  &:hover {
+    background-color: var(--gray-a3);
+    color: var(--violet-11);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--violet-8);
+    outline-offset: 2px;
+  }
+}
+
+.agentTriggerActive {
+  background-color: var(--violet-a3);
+  color: var(--violet-11);
+
+  &:hover {
+    background-color: var(--violet-a4);
   }
 }

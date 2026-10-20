@@ -1,0 +1,26 @@
+import Tabs from '@theme/Tabs'
+import TabItem from '@theme/TabItem'
+
+```mdx-code-block
+<Tabs>
+  <TabItem value="java" label="Java">
+```
+
+```java Java
+// todo: java
+```
+
+```mdx-code-block
+</TabItem>
+
+<TabItem value="kotlin" label="Kotlin">
+```
+
+```kotlin Kotlin
+// todo: kotlin
+```
+
+```mdx-code-block
+</TabItem>
+</Tabs>
+```

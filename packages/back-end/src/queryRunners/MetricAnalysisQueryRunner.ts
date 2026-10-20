@@ -1,11 +1,16 @@
 import { UpdateProps } from "shared/types/base-model";
 import { getValidDateOffsetByUTC } from "shared/dates";
-import { isBinomialMetric, isRatioMetric } from "shared/experiments";
+import {
+  getFactMetricFactTableIds,
+  isBinomialMetric,
+  isRatioMetric,
+} from "shared/experiments";
 import {
   meanVarianceFromSums,
   proportionVarianceFromSums,
   ratioVarianceFromSums,
   returnZeroIfNotFinite,
+  getExposureQueryIdentifierTypes,
 } from "shared/util";
 import { DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
 import {
@@ -42,10 +47,51 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
 
   async startQueries(params: MetricAnalysisParams): Promise<Queries> {
     this.metric = getMetricWithFiltersApplied(params);
+
+    const populationExposureQuery =
+      params.settings.populationType === "exposureQuery"
+        ? (this.integration.datasource.settings?.queries?.exposure || []).find(
+            (q) => q.id === params.settings.populationId,
+          )
+        : undefined;
+
+    if (
+      params.settings.populationType === "exposureQuery" &&
+      !populationExposureQuery
+    ) {
+      throw new Error(
+        `Unknown population exposure query: ${params.settings.populationId}`,
+      );
+    }
+
+    if (
+      populationExposureQuery &&
+      !getExposureQueryIdentifierTypes(populationExposureQuery).includes(
+        params.settings.userIdType,
+      )
+    ) {
+      throw new Error(
+        `Population exposure query "${populationExposureQuery.id}" does not declare identifier type "${params.settings.userIdType}"`,
+      );
+    }
+
+    const paramsWithPopulation: MetricAnalysisParams = {
+      ...params,
+      populationExposureQuery: populationExposureQuery
+        ? {
+            query: populationExposureQuery.query,
+            identifierType: params.settings.userIdType,
+          }
+        : undefined,
+    };
+
     return [
       await this.startQuery({
         name: "metricAnalysis",
-        query: this.integration.getMetricAnalysisQuery(this.metric, params),
+        query: this.integration.getMetricAnalysisQuery(
+          this.metric,
+          paramsWithPopulation,
+        ),
         dependencies: [],
         run: (query, setExternalId, queryMetadata) =>
           this.integration.runMetricAnalysisQuery(
@@ -53,6 +99,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
             setExternalId,
             queryMetadata,
           ),
+        metadata: { factTableIds: getFactMetricFactTableIds(this.metric) },
         queryType: "metricAnalysis",
       }),
     ];

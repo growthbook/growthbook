@@ -4,7 +4,7 @@ import { BsArrowRepeat } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
-import Code from "@/components/SyntaxHighlighting/Code";
+import Callout from "@/ui/Callout";
 
 export default function ProxyTestButton({
   host,
@@ -48,29 +48,13 @@ export default function ProxyTestButton({
                   Status Code: <code>{proxyTestResult.status}</code>
                 </div>
               )}
-              {proxyTestResult.body && (
-                <Code
-                  language={
-                    proxyTestResult.body.trim().substring(0, 1) === "<"
-                      ? "html"
-                      : proxyTestResult.body.trim().substring(0, 1) === "{"
-                        ? "json"
-                        : "none"
-                  }
-                  code={proxyTestResult.body}
-                  filename="response.body"
-                  expandable={true}
-                />
-              )}
-              <div className="alert alert-danger">
-                Error: {proxyTestResult.error}
-              </div>
+              <Callout status="error">Error: {proxyTestResult.error}</Callout>
             </div>
           ) : (
-            <div className="alert alert-success">
+            <Callout status="success">
               Successfully Connected. Proxy Server running version{" "}
               <strong>{proxyTestResult.version}</strong>.
-            </div>
+            </Callout>
           )}
         </Modal>
       )}

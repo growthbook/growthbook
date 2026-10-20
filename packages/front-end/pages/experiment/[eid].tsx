@@ -23,6 +23,8 @@ import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
+import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
+import EditNamespaceModal from "@/components/Experiment/EditNamespaceModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -44,10 +46,12 @@ const ExperimentPage = (): ReactElement => {
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
-  const [checklistItemsRemaining, setChecklistItemsRemaining] = useState<
-    number | null
+  const [trafficModalOpen, setTrafficModalOpen] = useState(false);
+  const [trafficFocusVariation, setTrafficFocusVariation] = useState<
+    string | null
   >(null);
-  const [checklistHardBlockerCount, setChecklistHardBlockerCount] = useState(0);
+  const [addVariationOnOpen, setAddVariationOnOpen] = useState(false);
+  const [namespaceModalOpen, setNamespaceModalOpen] = useState(false);
   const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
@@ -136,6 +140,22 @@ const ExperimentPage = (): ReactElement => {
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
     : null;
+  const editTraffic = canRunExperiment
+    ? (variationId?: string) => {
+        setTrafficFocusVariation(variationId ?? null);
+        setTrafficModalOpen(true);
+      }
+    : null;
+  const addVariation = canRunExperiment
+    ? () => {
+        setTrafficFocusVariation(null);
+        setAddVariationOnOpen(true);
+        setTrafficModalOpen(true);
+      }
+    : null;
+  const editNamespace = canRunExperiment
+    ? () => setNamespaceModalOpen(true)
+    : null;
   const editSchedule = canEditExperiment
     ? () => setEditScheduleModalOpen(true)
     : null;
@@ -207,6 +227,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setPhaseModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           source="eid"
         />
       )}
@@ -225,6 +246,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setEditPhasesOpen(false)}
           mutateExperiment={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           editTargeting={editTargeting}
           source="eid"
         />
@@ -234,8 +256,33 @@ const ExperimentPage = (): ReactElement => {
           close={() => setTargetingModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
           // source="eid"
+        />
+      )}
+      {trafficModalOpen && (
+        <EditTrafficModal
+          close={() => {
+            setTrafficModalOpen(false);
+            setTrafficFocusVariation(null);
+            setAddVariationOnOpen(false);
+          }}
+          mutate={mutate}
+          experiment={experiment}
+          linkedFeatures={linkedFeatures}
+          safeToEdit={safeToEdit}
+          focusVariationId={trafficFocusVariation}
+          addVariationOnOpen={addVariationOnOpen}
+        />
+      )}
+      {namespaceModalOpen && (
+        <EditNamespaceModal
+          close={() => setNamespaceModalOpen(false)}
+          mutate={mutate}
+          experiment={experiment}
+          linkedFeatures={linkedFeatures}
+          safeToEdit={safeToEdit}
         />
       )}
       {editScheduleModalOpen && (
@@ -243,6 +290,7 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           close={() => setEditScheduleModalOpen(false)}
           mutate={mutate}
+          envs={envs}
         />
       )}
 
@@ -273,10 +321,9 @@ const ExperimentPage = (): ReactElement => {
           editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
-          checklistItemsRemaining={checklistItemsRemaining}
-          checklistHardBlockerCount={checklistHardBlockerCount}
-          setChecklistItemsRemaining={setChecklistItemsRemaining}
-          setChecklistHardBlockerCount={setChecklistHardBlockerCount}
+          editTraffic={editTraffic}
+          addVariation={addVariation}
+          editNamespace={editNamespace}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}
           editSchedule={editSchedule}

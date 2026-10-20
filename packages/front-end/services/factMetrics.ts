@@ -7,10 +7,10 @@ export const REST_API_ONLY_EDIT_MESSAGE =
   "This is a metric that can only be managed via the REST API";
 
 export function isMergeAggregationMetric(metric: {
-  numerator: { aggregation?: string };
+  numerator: { aggregation?: string } | null;
   denominator?: { aggregation?: string } | null;
 }): boolean {
-  return [metric.numerator.aggregation, metric.denominator?.aggregation].some(
+  return [metric.numerator?.aggregation, metric.denominator?.aggregation].some(
     (aggregation) => aggregation === "kll merge" || aggregation === "hll merge",
   );
 }

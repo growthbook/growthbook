@@ -1,13 +1,19 @@
 import { useState, useMemo } from "react";
+import { resolveAnalysisIdentifierType } from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
 import {
   expandMetricGroups,
   quantileMetricType,
   isFactMetric,
+  isFactFunnelMetric,
   getUserIdTypes,
 } from "shared/experiments";
-import { FactTableMap } from "shared/types/fact-table";
+import {
+  FactMetricType,
+  FactTableDefinitionMap,
+} from "shared/types/fact-table";
+import { ExperimentType } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { getExposureQuery } from "@/services/datasources";
@@ -17,6 +23,7 @@ import MetricsSelector from "./MetricsSelector";
 export interface Props {
   datasource?: string;
   exposureQueryId?: string;
+  exposureQueryIdentifierType?: string;
   project?: string;
   goalMetrics: string[];
   secondaryMetrics: string[];
@@ -27,6 +34,7 @@ export interface Props {
   autoFocus?: boolean;
   forceSingleGoalMetric?: boolean;
   noQuantileGoalMetrics?: boolean;
+  goalMetricAllowedFactMetricTypes?: FactMetricType[];
   noLegacyMetrics?: boolean;
   disabled?: boolean;
   goalDisabled?: boolean;
@@ -36,11 +44,14 @@ export interface Props {
   filterConversionWindowMetrics?: boolean;
   excludeQuantiles?: boolean;
   experimentId?: string;
+  requireDatasource?: boolean;
+  experimentType: ExperimentType | undefined;
 }
 
 export default function ExperimentMetricsSelector({
   datasource,
   exposureQueryId,
+  exposureQueryIdentifierType,
   project,
   goalMetrics,
   secondaryMetrics,
@@ -51,6 +62,7 @@ export default function ExperimentMetricsSelector({
   autoFocus = false,
   forceSingleGoalMetric = false,
   noQuantileGoalMetrics = false,
+  goalMetricAllowedFactMetricTypes,
   noLegacyMetrics = false,
   disabled,
   goalDisabled,
@@ -60,6 +72,8 @@ export default function ExperimentMetricsSelector({
   filterConversionWindowMetrics,
   excludeQuantiles = false,
   experimentId,
+  requireDatasource = false,
+  experimentType,
 }: Props) {
   const {
     getExperimentMetricById,
@@ -75,7 +89,28 @@ export default function ExperimentMetricsSelector({
         getIsExperimentIncludedInIncrementalRefresh(
           datasourceObj ?? undefined,
           experimentId,
+          experimentType,
         );
+
+      // Query generation rejects funnel metrics for bandits.
+      if (experimentType === "multi-armed-bandit") {
+        const ids = isGroup
+          ? expandMetricGroups(
+              metricGroups.find((mg) => mg.id === metricId)?.metrics ?? [],
+              metricGroups,
+            )
+          : [metricId];
+        const hasFunnelMetric = ids.some((id) => {
+          const metric = getExperimentMetricById(id);
+          return metric && isFactFunnelMetric(metric);
+        });
+        if (hasFunnelMetric) {
+          return {
+            disabled: true,
+            reason: "Funnel metrics are not supported in Bandit experiments",
+          };
+        }
+      }
 
       if (!isExperimentIncludedInIncrementalRefresh) {
         return { disabled: false };
@@ -151,6 +186,7 @@ export default function ExperimentMetricsSelector({
     [
       datasource,
       experimentId,
+      experimentType,
       getExperimentMetricById,
       getDatasourceById,
       metricGroups,
@@ -180,7 +216,12 @@ export default function ExperimentMetricsSelector({
       datasourceObj?.settings,
       exposureQueryId,
     );
-    const randomizationUnitUserIdType = exposureQuery?.userIdType;
+    const randomizationUnitUserIdType = exposureQuery
+      ? resolveAnalysisIdentifierType(
+          exposureQuery,
+          exposureQueryIdentifierType,
+        )
+      : undefined;
 
     if (!randomizationUnitUserIdType) {
       return false;
@@ -193,7 +234,7 @@ export default function ExperimentMetricsSelector({
     }
 
     // Build factTableMap for getUserIdTypes
-    const factTableMap: FactTableMap = new Map();
+    const factTableMap: FactTableDefinitionMap = new Map();
     factTables.forEach((ft) => {
       factTableMap.set(ft.id, ft);
     });
@@ -205,6 +246,7 @@ export default function ExperimentMetricsSelector({
     goalMetrics,
     datasource,
     exposureQueryId,
+    exposureQueryIdentifierType,
     getDatasourceById,
     getExperimentMetricById,
     factTables,
@@ -234,15 +276,18 @@ export default function ExperimentMetricsSelector({
             onChange={setGoalMetrics}
             datasource={datasource}
             exposureQueryId={exposureQueryId}
+            exposureQueryIdentifierType={exposureQueryIdentifierType}
             project={project}
             autoFocus={autoFocus}
             includeFacts={true}
             forceSingleMetric={forceSingleGoalMetric}
             includeGroups={!forceSingleGoalMetric}
             excludeQuantiles={noQuantileGoalMetrics || excludeQuantiles}
+            allowedFactMetricTypes={goalMetricAllowedFactMetricTypes}
             filterConversionWindowMetrics={filterConversionWindowMetrics}
             noLegacyMetrics={noLegacyMetrics}
             disabled={disabled || goalDisabled}
+            requireDatasource={requireDatasource}
             getMetricDisabledInfo={getMetricDisabledInfo}
           />
           {hasIdentifierTypeMismatch && (
@@ -284,6 +329,7 @@ export default function ExperimentMetricsSelector({
                 onChange={setSecondaryMetrics}
                 datasource={datasource}
                 exposureQueryId={exposureQueryId}
+                exposureQueryIdentifierType={exposureQueryIdentifierType}
                 project={project}
                 includeFacts={true}
                 filterConversionWindowMetrics={filterConversionWindowMetrics}
@@ -325,6 +371,7 @@ export default function ExperimentMetricsSelector({
                 onChange={setGuardrailMetrics}
                 datasource={datasource}
                 exposureQueryId={exposureQueryId}
+                exposureQueryIdentifierType={exposureQueryIdentifierType}
                 project={project}
                 includeFacts={true}
                 filterConversionWindowMetrics={filterConversionWindowMetrics}

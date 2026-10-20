@@ -69,6 +69,8 @@ export default function RemoveFromHoldoutModal({
     if (resolvedVersion !== null) setVersion(resolvedVersion);
   };
 
+  // TODO(holdouts): add a check to see if the publish will work, and if not, show a warning to
+  // remove the experiment first
   return (
     <ModalStandard
       header="Remove from holdout"

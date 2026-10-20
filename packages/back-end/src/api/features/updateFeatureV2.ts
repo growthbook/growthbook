@@ -1,16 +1,29 @@
-import { validateFeatureValue } from "shared/util";
+import {
+  validateFeatureValue,
+  getRuleAttributeScopeProjectIds,
+  getConfigBackingPatch,
+  getConfigBackingKey,
+  normalizeTargetingInUpdates,
+  rulesEqualIgnoringScopeEncoding,
+} from "shared/util";
 import { isEqual } from "lodash";
+import {
+  assertTargetingDestination,
+  withStagedTargeting,
+} from "shared/permissions";
 import { updateFeatureV2Validator } from "shared/validators";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { assertFeatureMoveDependentsGuard } from "back-end/src/services/moveDependentsGuard";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import type { BypassedGate } from "back-end/src/revisions/publishGates";
+import { BadRequestError } from "back-end/src/util/errors";
 import {
   resolveOwnerEmail,
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
 import {
   getFeature,
-  updateFeature as updateFeatureToDb,
   createAndPublishRevision,
 } from "back-end/src/models/FeatureModel";
 import {
@@ -19,23 +32,51 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   addIdsToFlatRules,
+  assertFeatureValuesValid,
   getApiFeatureObjV2,
-  getNextScheduledUpdate,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
+  inheritStoredRolloutSeeds,
 } from "back-end/src/services/features";
-import { getEnabledEnvironments } from "back-end/src/util/features";
+import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
+import {
+  getArchiveFootprint,
+  getEnabledEnvironments,
+} from "back-end/src/util/features";
+import { isArchiveTransition } from "back-end/src/revisions/archiveTransition";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
-import { validateEnvKeys } from "./postFeature";
-import { validateCustomFields, validateRuleAttributes } from "./validations";
-import { canBypassReviewChecks } from "./reviewBypass";
+import { logger } from "back-end/src/util/logger";
 import {
+  dispatchFeatureRevisionEvent,
+  getPublishedRevisionForEvents,
+} from "back-end/src/services/featureRevisionEvents";
+import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
+import { holdFeatureUpdate } from "back-end/src/services/confirmations";
+import { validateEnvKeys } from "./postFeature";
+import {
+  assertValidFeatureRules,
+  validateCustomFields,
+  validateRuleAttributes,
+} from "./validations";
+import {
+  canBypassReviewChecks,
+  canUseRestApiBypassSetting,
+} from "./reviewBypass";
+import {
+  assertConfigSchemaCompat,
   assertValidHoldout,
   assertValidProjectId,
+  assertValidProjectIds,
+  assertUniqueRuleIds,
+  assertValidRuleConfigKeys,
+  assertValidBaseConfig,
+  assertValidDefaultValueConfig,
+  assertNoRawConfigExtends,
+  composeConfigBacking,
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
 } from "./v2Shared";
@@ -53,6 +94,8 @@ export const updateFeatureV2 = createApiRequestHandler(
     archived,
     description,
     project,
+    targetingAllProjects,
+    targetingProjects,
     tags,
     customFields,
   } = req.body;
@@ -63,19 +106,23 @@ export const updateFeatureV2 = createApiRequestHandler(
 
   const orgEnvs = getEnvironmentIdsFromOrg(req.context.org);
 
-  if (!req.context.permissions.canUpdateFeature(feature, req.body)) {
+  // Authoring gate. Landing authority is checked below, per part of the body
+  // that reaches the payload — a publisher alone may land someone else's draft,
+  // not write new content through this endpoint.
+  if (!req.context.permissions.canEditFeatureDrafts(feature)) {
     req.context.permissions.throwPermissionError();
   }
   if (
     req.context.org.settings?.requireProjectForFeatures &&
     feature.project &&
-    (effectiveProject == null || effectiveProject === "")
+    (effectiveProject ?? "") === ""
   ) {
     throw new Error("Must specify a project");
   }
 
   if (project != null) {
     if (
+      !req.context.permissions.canEditFeatureDrafts({ project }) ||
       !req.context.permissions.canPublishFeature(
         feature,
         Array.from(getEnabledEnvironments(feature, orgEnvs)),
@@ -90,6 +137,17 @@ export const updateFeatureV2 = createApiRequestHandler(
   }
 
   await assertValidProjectId(project, req.context);
+  assertTargetingDestination({
+    permissions: req.context.permissions,
+    existing: feature,
+    proposed: withStagedTargeting(feature, {
+      project,
+      targetingAllProjects,
+      targetingProjects,
+    }),
+    optedOut: await req.context.getTargetingOptOutProjectIds(),
+  });
+  await assertValidProjectIds(targetingProjects, req.context);
 
   const projectChanged = project !== undefined && project !== feature.project;
   const customFieldsChanged = shouldValidateCustomFieldsOnUpdate({
@@ -102,6 +160,9 @@ export const updateFeatureV2 = createApiRequestHandler(
       customFields ?? feature.customFields,
       req.context,
       effectiveProject,
+      // A project change must re-validate all values against the new
+      // project's fields, so only grandfather unchanged values in place
+      projectChanged ? undefined : feature.customFields,
     );
   }
 
@@ -109,9 +170,89 @@ export const updateFeatureV2 = createApiRequestHandler(
     validateEnvKeys(orgEnvs, Object.keys(req.body.environments ?? {}));
   }
 
+  const jsonSchema =
+    feature.valueType !== "boolean" && (req.body.jsonSchema ?? null) !== null
+      ? parseApiJsonSchema(
+          req.organization,
+          req.body.jsonSchema,
+          feature.valueType,
+        )
+      : null;
+
+  // Validate values against the EFFECTIVE schema — the inbound `jsonSchema` when
+  // one is sent, else the flag's current schema — so a request that relaxes or
+  // tightens the schema is judged against the schema it's also setting.
+  const effectiveFeature = {
+    ...feature,
+    ...(jsonSchema !== null ? { jsonSchema } : {}),
+  };
+
   let defaultValue: string | undefined;
   if (req.body.defaultValue != null) {
-    defaultValue = validateFeatureValue(feature, req.body.defaultValue);
+    // Always normalize (parse / dirty-json fixup), but only enforce the schema
+    // when not explicitly skipped.
+    defaultValue = validateFeatureValue(
+      req.context.canSkipSchemaValidationFor("feature")
+        ? { ...effectiveFeature, jsonSchema: undefined }
+        : effectiveFeature,
+      req.body.defaultValue,
+      "Default value",
+    );
+  }
+
+  // The backing config is fixed at creation — reject any attempt to change it
+  // (a no-op resend of the same value is allowed). Matches the UI, which only
+  // sets baseConfig when the feature is created.
+  if (
+    req.body.baseConfig !== undefined &&
+    (req.body.baseConfig ?? null) !== (feature.baseConfig ?? null)
+  ) {
+    throw new BadRequestError(
+      `The backing Config cannot be changed after creation (existing: ${
+        feature.baseConfig ? `"${feature.baseConfig}"` : "none"
+      }, provided: ${
+        req.body.baseConfig ? `"${req.body.baseConfig}"` : "none"
+      }).`,
+    );
+  }
+
+  // Config backing via dedicated fields. `baseConfig` (Config mode) and
+  // `defaultValueConfig` (the default's optional descendant extension) are set
+  // through fields, never a raw `@config:` in the value.
+  const effectiveBaseConfig =
+    req.body.baseConfig !== undefined
+      ? (req.body.baseConfig ?? null)
+      : (feature.baseConfig ?? null);
+  if (req.body.defaultValue != null) {
+    assertNoRawConfigExtends(req.body.defaultValue, "defaultValue");
+  }
+  await assertValidBaseConfig(
+    req.context,
+    effectiveBaseConfig,
+    feature.valueType,
+    effectiveProject,
+  );
+  await assertValidDefaultValueConfig(
+    req.context,
+    effectiveBaseConfig,
+    req.body.defaultValueConfig,
+    effectiveProject,
+  );
+
+  // Recompose the stored default when its value or its extension changes: a
+  // `defaultValueConfig` descendant becomes the value's own `$extends`; a bare
+  // `baseConfig` leaves it a pure patch the compiler resolves. Editing only the
+  // value keeps the existing extension; editing only the extension re-points the
+  // existing patch.
+  const dvcProvided = req.body.defaultValueConfig !== undefined;
+  let storedDefault: string | undefined;
+  if (defaultValue != null || dvcProvided) {
+    const patch = getConfigBackingPatch(defaultValue ?? feature.defaultValue);
+    const dvc = dvcProvided
+      ? (req.body.defaultValueConfig ?? null)
+      : getConfigBackingKey(feature.defaultValue);
+    storedDefault =
+      dvc !== null ? composeConfigBacking(dvc, patch, "Default value") : patch;
   }
 
   const prerequisites =
@@ -122,12 +263,21 @@ export const updateFeatureV2 = createApiRequestHandler(
         }))
       : null;
 
-  await assertValidHoldout(req.body.holdout, req.context);
+  if (req.body.holdout !== undefined || req.body.project !== undefined) {
+    await assertValidHoldout(
+      req.body.holdout !== undefined ? req.body.holdout : feature.holdout,
+      req.context,
+      req.body.project ?? feature.project,
+    );
+  }
 
-  const jsonSchema =
-    feature.valueType === "json" && req.body.jsonSchema != null
-      ? parseApiJsonSchema(req.organization, req.body.jsonSchema)
-      : null;
+  // Block a config-backed default value coexisting with an enabled JSON schema
+  // (either inbound or already on the flag), using the effective post-update
+  // values.
+  assertConfigSchemaCompat({
+    jsonSchemaEnabled: (jsonSchema ?? feature.jsonSchema)?.enabled,
+    baseConfig: effectiveBaseConfig,
+  });
 
   let inboundFlatRules: FeatureRule[] | null = null;
   if (req.body.rules != null) {
@@ -135,17 +285,75 @@ export const updateFeatureV2 = createApiRequestHandler(
     // DB writes. `mapV2ApiRuleToFeatureRule` doesn't validate, so we cover
     // flat v2 rules explicitly here (env-rules go through `fromApiEnvSettings…`).
     for (const rule of req.body.rules) {
+      const existingRule = rule.id
+        ? feature.rules?.find((r) => r.id === rule.id)
+        : undefined;
       validateRuleAttributes(
         rule as Parameters<typeof validateRuleAttributes>[0],
         req.context,
-        feature.project,
+        // Validate against the post-update targeting state so a single PUT
+        // can't narrow targeting while keeping out-of-scope rules, narrowed
+        // further to the projects the rule itself targets.
+        getRuleAttributeScopeProjectIds(
+          {
+            project: req.body.project ?? feature.project,
+            targetingAllProjects:
+              req.body.targetingAllProjects ?? feature.targetingAllProjects,
+            targetingProjects:
+              req.body.targetingProjects ?? feature.targetingProjects,
+          },
+          undefined,
+          rule,
+        ) ?? undefined,
+        existingRule,
       );
     }
     inboundFlatRules = req.body.rules.map((rule) =>
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
+    assertUniqueRuleIds(inboundFlatRules);
+    await assertValidFeatureRules(
+      req.context,
+      inboundFlatRules,
+      feature.rules ?? [],
+    );
+    // Request-supplied config keys must exist, be live, and belong to the
+    // default config's family — same gate as the revision rule endpoints.
+    await assertValidRuleConfigKeys(
+      req.context,
+      req.body.rules.flatMap((rule) => [
+        "config" in rule ? (rule as { config?: string | null }).config : null,
+        ...(rule.type === "experiment-ref"
+          ? rule.variations.map((v) => v.config)
+          : []),
+      ]),
+      defaultValue ?? feature.defaultValue,
+      effectiveBaseConfig,
+      effectiveProject,
+    );
+    // Inherit stored seed/hashVersion first so the backfill can't re-bucket a legacy rollout.
+    inheritStoredRolloutSeeds(inboundFlatRules, feature.rules ?? []);
     addIdsToFlatRules(inboundFlatRules, feature.id);
+    // `mapV2ApiRuleToFeatureRule` doesn't validate values; enforce the schema
+    // here (against the effective schema, opt-out via ?skipSchemaValidation).
+    assertFeatureValuesValid(
+      req.context,
+      effectiveFeature,
+      { rules: inboundFlatRules },
+      jsonSchema === null ? feature : undefined,
+    );
   }
+
+  // Config-backed values (default + rules) validate against the backing config's
+  // schema + invariants, using the effective post-update baseConfig.
+  await assertConfigBackedFeatureValuesValid(
+    req.context,
+    { valueType: feature.valueType, baseConfig: effectiveBaseConfig },
+    {
+      defaultValue: storedDefault ?? feature.defaultValue,
+      rules: inboundFlatRules ?? feature.rules,
+    },
+  );
 
   const changedEnvEnabled: Record<string, boolean> = {};
   if (req.body.environments) {
@@ -164,17 +372,45 @@ export const updateFeatureV2 = createApiRequestHandler(
     ...(archived != null ? { archived } : {}),
     ...(description != null ? { description } : {}),
     ...(project != null ? { project } : {}),
+    ...(targetingAllProjects != null ? { targetingAllProjects } : {}),
+    ...(targetingProjects != null ? { targetingProjects } : {}),
     ...(tags != null ? { tags } : {}),
-    ...(defaultValue != null ? { defaultValue } : {}),
+    ...(storedDefault !== undefined ? { defaultValue: storedDefault } : {}),
+    ...(req.body.baseConfig !== undefined
+      ? { baseConfig: req.body.baseConfig ?? null }
+      : {}),
     ...(prerequisites != null ? { prerequisites } : {}),
     ...(jsonSchema != null ? { jsonSchema } : {}),
     ...(customFields != null ? { customFields } : {}),
   };
+  normalizeTargetingInUpdates(updates, feature);
+
+  // Archiving takes the flag out of service, so it is delete-class wherever it
+  // lands — the same rule the archive endpoints and the revision publish path
+  // apply. Unarchiving returns it to service and stays an ordinary publish.
+  const archiving = isArchiveTransition({
+    proposed: updates.archived ?? undefined,
+    current: feature.archived,
+  });
+  if (
+    archiving &&
+    !req.context.permissions.canDeleteFeature(
+      { project: effectiveProject },
+      getArchiveFootprint(feature, req.context.org),
+    )
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
 
   if (
     updates.defaultValue != null ||
     updates.project != null ||
-    updates.archived != null ||
+    // Archiving is delete-class INSTEAD of publish-class, not as well as — the gate
+    // above is the whole check. A re-send of the state the flag already has isn't a
+    // transition either way, so it must not fall through and 403 a no-op.
+    (updates.archived != null &&
+      !archiving &&
+      (updates.archived ?? false) !== (feature.archived ?? false)) ||
     inboundFlatRules != null
   ) {
     if (
@@ -187,12 +423,6 @@ export const updateFeatureV2 = createApiRequestHandler(
     }
   }
 
-  if (inboundFlatRules != null || updates.defaultValue !== undefined) {
-    updates.nextScheduledUpdate = getNextScheduledUpdate(
-      inboundFlatRules ?? feature.rules,
-    );
-  }
-
   // JWT-backed REST calls should behave like dashboard actions: the org-level
   // REST bypass setting only applies to API keys/PATs.
   const canBypass = canBypassReviewChecks(req, feature);
@@ -202,6 +432,16 @@ export const updateFeatureV2 = createApiRequestHandler(
   const { metadata: metadataChanges, remaining: updatesAfterMetadata } =
     extractRevisionMetadata(updates);
   updates = updatesAfterMetadata;
+
+  await assertValidPrerequisiteParents(
+    req.context,
+    {
+      ...feature,
+      rules: inboundFlatRules ?? feature.rules,
+      prerequisites: updates.prerequisites ?? feature.prerequisites,
+    },
+    feature,
+  );
 
   const newPrerequisites = updates.prerequisites ?? null;
   if (newPrerequisites !== null) {
@@ -227,14 +467,19 @@ export const updateFeatureV2 = createApiRequestHandler(
   const defaultValueChanged =
     updates.defaultValue !== undefined &&
     updates.defaultValue !== feature.defaultValue;
-  const hasRuleChanges =
-    defaultValueChanged ||
-    (inboundFlatRules != null &&
-      !isEqual(inboundFlatRules, feature.rules ?? []));
+  const rulesChanged =
+    inboundFlatRules !== null &&
+    !rulesEqualIgnoringScopeEncoding(inboundFlatRules, feature.rules ?? []);
+  const hasRuleChanges = defaultValueChanged || rulesChanged;
   const hasEnvEnabledChanges = Object.keys(changedEnvEnabled).length > 0;
   const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
   const hasPrereqChanges = newPrerequisites !== null;
   const hasArchivedChange = newArchived !== null;
+  // Set when this request lands a live revision; dispatched after the commit.
+  // Gates this request stepped over, named in the response like every other publish
+  // surface — without it a caller cannot tell a publish that needed no approval from
+  // one that bypassed a live requirement.
+  const bypassedGates: BypassedGate[] = [];
 
   const hasRevisionChanges =
     hasEnvEnabledChanges ||
@@ -244,7 +489,28 @@ export const updateFeatureV2 = createApiRequestHandler(
     hasArchivedChange ||
     hasHoldoutChange;
 
+  // The landing inside createAndPublishRevision is this handler's only write
+  // to the feature document. A second write would not refuse to land over a
+  // newer revision and could put this request's value back over a rival's.
+  let updatedFeature: FeatureInterface = feature;
+
   if (hasRevisionChanges) {
+    if (hasMetadataChanges) {
+      await assertFeatureMoveDependentsGuard(
+        req.context,
+        feature,
+        metadataChanges,
+      );
+    }
+    // `canBypass` ORs the two sources, so it cannot name which one applied.
+    // Ask the org setting directly; the permission is what remains.
+    const approvalGate: BypassedGate = {
+      type: "approval-required",
+      outcome: "bypassed",
+      via: canUseRestApiBypassSetting(req)
+        ? "restApiBypassesReviews"
+        : "bypassApprovalPermission",
+    };
     const revisionChanges: Partial<FeatureRevisionInterface> = {
       ...(hasEnvEnabledChanges
         ? { environmentsEnabled: changedEnvEnabled }
@@ -263,19 +529,61 @@ export const updateFeatureV2 = createApiRequestHandler(
       ...(hasHoldoutChange ? { holdout: newHoldout ?? null } : {}),
     };
 
-    const { revision, updatedFeature: updatedFeatureFromRevision } =
-      await createAndPublishRevision({
-        context: req.context,
-        feature,
-        user: req.eventAudit,
-        org: req.organization,
-        changes: revisionChanges,
-        comment: "Created via REST API",
-        canBypassApprovalChecks: canBypass,
-      });
+    const {
+      revision,
+      updatedFeature: updatedFeatureFromRevision,
+      bypassedApproval,
+    } = await createAndPublishRevision({
+      context: req.context,
+      feature,
+      user: req.eventAudit,
+      org: req.organization,
+      changes: revisionChanges,
+      comment: req.body.comment ?? "Created via REST API",
+      canBypassApprovalChecks: canBypass,
+      beforeLanding: ({ bypassesApproval }) =>
+        holdFeatureUpdate(
+          req.context,
+          feature,
+          {
+            archived: newArchived,
+            envEnabled: changedEnvEnabled,
+            defaultValue: defaultValueChanged,
+            rules: rulesChanged,
+            metadata: Object.keys(metadataChanges),
+            prerequisites: hasPrereqChanges,
+            holdout: hasHoldoutChange,
+          },
+          bypassesApproval ? [approvalGate] : [],
+        ),
+    });
 
-    Object.assign(feature, updatedFeatureFromRevision);
-    updates.version = revision.version;
+    updatedFeature = updatedFeatureFromRevision;
+
+    // See updateFeature: this path lands a live revision, so it owes the same
+    // `revision.published` webhook the dedicated publish endpoints emit.
+
+    // Immediately after the revision commits, not at the end of the handler — see
+    // updateFeature. Best-effort: a failed notification must not fail a committed write.
+    try {
+      await dispatchFeatureRevisionEvent(
+        req.context,
+        updatedFeature,
+        await getPublishedRevisionForEvents(
+          req.context,
+          updatedFeature,
+          revision,
+        ),
+        "revision.published",
+        {},
+      );
+    } catch (e) {
+      logger.error(
+        e,
+        `Failed to dispatch revision.published for feature ${feature.id}`,
+      );
+    }
+    if (bypassedApproval) bypassedGates.push(approvalGate);
 
     // Ensure linkedFeatures is set on any experiments referenced by the
     // newly-live rules. Fire-and-forget; clearPendingFeatureDraftsForRevision
@@ -295,8 +603,6 @@ export const updateFeatureV2 = createApiRequestHandler(
     }
   }
 
-  const updatedFeature = await updateFeatureToDb(req.context, feature, updates);
-
   await addTagsDiff(
     req.context.org.id,
     feature.tags || [],
@@ -312,7 +618,6 @@ export const updateFeatureV2 = createApiRequestHandler(
     details: auditDetailsUpdate(feature, updatedFeature),
   });
 
-  const groupMap = await getSavedGroupMap(req.context);
   const experimentMap = await getExperimentMapForFeature(
     req.context,
     feature.id,
@@ -324,8 +629,10 @@ export const updateFeatureV2 = createApiRequestHandler(
     feature: updatedFeature,
     version: updatedFeature.version,
   });
-  const safeRolloutMap =
-    await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+  const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+    req.context,
+    { features: [updatedFeature], experiments: experimentMap.values() },
+  );
   return {
     feature: await resolveOwnerEmail(
       getApiFeatureObjV2({
@@ -338,5 +645,6 @@ export const updateFeatureV2 = createApiRequestHandler(
       }),
       req.context,
     ),
+    ...(bypassedGates.length ? { bypassedGates } : {}),
   };
 });

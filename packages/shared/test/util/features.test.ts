@@ -1,3 +1,4 @@
+import { ConditionInterface, evalCondition } from "@growthbook/growthbook";
 import {
   FeatureInterface,
   FeatureRule,
@@ -7,19 +8,34 @@ import {
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
+  rampPlanLacksHashAttribute,
+  rampPlanControlledFields,
+  getDefaultHashAttribute,
+  stringifyFeatureValue,
   validateFeatureValue,
+  assertSchemaMatchesValueType,
   getValidation,
   validateJSONFeatureValue,
   autoMerge,
+  getLiveChangesSinceBase,
+  evaluatePublishGovernance,
+  isScheduledPublishPending,
+  pendingScheduleWarning,
+  isScheduledPublishDue,
+  isScheduledPublishLockActive,
+  isRevisionEditLockedBySchedule,
+  findPublishLockingScheduledRevision,
   RevisionFields,
   MergeConflict,
   validateCondition,
+  validatePrerequisiteCondition,
   checkEnvironmentsMatch,
   checkIfRevisionNeedsReview,
   getDraftAffectedEnvironments,
+  getEnvsForRampTarget,
+  rampControlFootprint,
   getEnvsFromRampSchedule,
   liveRevisionFromFeature,
-  resetReviewOnChange,
   simpleToJSONSchema,
   inferSchemaField,
   inferSchemaFields,
@@ -29,11 +45,25 @@ import {
   categorizeUnregisteredAttributes,
   getRequireRegisteredAttributesSettings,
   ruleAppliesToEnv,
+  ruleProjectScope,
+  ruleServedToConnection,
+  rulesEqualIgnoringScopeEncoding,
   ruleFootprint,
   getRulesForEnvironment,
+  getRevertValueValidationWarnings,
+  pruneOrphanedRampActions,
   toV2FeatureSnapshot,
+  parsePlainJSONObject,
+  resolveSparseJSONValue,
+  stripDefaultsForSparse,
+  expandSparseToFull,
+  draftHasChangesOutsideTargetRef,
+  evaluatePrerequisiteState,
+  evalDeterministicPrereqValue,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
+
+const toEnvs = (ids: string[]) => ids.map((id) => ({ id, description: "" }));
 
 const feature: FeatureInterface = {
   dateCreated: new Date("2020-04-20"),
@@ -235,16 +265,16 @@ describe("autoMerge", () => {
       live: "live",
       revision: "revision",
     };
-    // v2: rules merge at the whole-array level — a single "rules" conflict
-    // bucket, not per-env. `sharedForce` was edited by both sides, so
-    // tryRuleLevelMerge bails and we escalate.
+    // Granular rule merge: `sharedForce` was edited by both sides, so it gets
+    // its own per-rule conflict (`rules.<ruleId>`), while the draft's
+    // independent `revisionForce` addition merges automatically.
     const rulesConflict: MergeConflict = {
-      key: "rules",
-      name: "Rules",
+      key: "rules.sharedForce",
+      name: "Rule – sharedForce",
       resolved: false,
-      base: JSON.stringify([baseShared], null, 2),
-      live: JSON.stringify([liveShared], null, 2),
-      revision: JSON.stringify([revisionForce, revisionShared], null, 2),
+      base: JSON.stringify(baseShared, null, 2),
+      live: JSON.stringify(liveShared, null, 2),
+      revision: JSON.stringify(revisionShared, null, 2),
     };
 
     expect(autoMerge(live, base, revision, ["dev", "prod"], {})).toEqual({
@@ -269,6 +299,9 @@ describe("autoMerge", () => {
       ],
     });
 
+    // Discarding the conflicted rule no longer throws away the draft's
+    // independent `revisionForce` addition — it still merges in. (Previously
+    // the whole-array conflict made "discard" drop every draft rule change.)
     expect(
       autoMerge(live, base, revision, ["dev", "prod"], {
         rules: "discard",
@@ -286,7 +319,9 @@ describe("autoMerge", () => {
           resolved: true,
         },
       ],
-      result: {},
+      result: {
+        rules: [liveShared, revisionForce],
+      },
     });
 
     expect(
@@ -308,6 +343,7 @@ describe("autoMerge", () => {
       ],
       result: {
         defaultValue: revision.defaultValue,
+        rules: [liveShared, revisionForce],
       },
     });
 
@@ -330,12 +366,14 @@ describe("autoMerge", () => {
       ],
       result: {
         defaultValue: revision.defaultValue,
-        rules: [revisionForce, revisionShared],
+        // Live ordering wins (neither side reordered); the draft's edit of
+        // sharedForce and its new rule both land.
+        rules: [revisionShared, revisionForce],
       },
     });
   });
 
-  describe("tryRuleLevelMerge (via autoMerge)", () => {
+  describe("granular rule merge (via autoMerge)", () => {
     // v2: flat FeatureRule[]. We keep the `environments: ["dev"]` scope on
     // every rule so the merge semantics match the v1 "dev-only" tests.
     const A = devRule("a", "a");
@@ -440,11 +478,104 @@ describe("autoMerge", () => {
       const result = autoMerge(live, base, revision, ["dev"], {});
       expect(result.success).toBe(false);
       if (!result.success) {
-        // v2: a single "rules" conflict for the whole flat array, not
-        // per-env buckets.
+        // Granular merge: the delete-vs-modify clash surfaces as a conflict
+        // scoped to the specific rule, not the whole array.
         expect(result.conflicts).toEqual(
-          expect.arrayContaining([expect.objectContaining({ key: "rules" })]),
+          expect.arrayContaining([expect.objectContaining({ key: "rules.b" })]),
         );
+      }
+    });
+
+    // Regression: a draft that DELETES a rule must not have that deletion
+    // silently dropped just because live happened to edit a *different* rule.
+    // Previously the live-walk pushed the live copy of any rule missing from
+    // the revision, so the draft's intent to remove `B` was lost and `B`
+    // reappeared in the published feature with no conflict warning.
+    it("draft deletes a rule, live modifies a different rule — deletion honored", () => {
+      const Cmod = { ...C, value: "c-updated" };
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B, C],
+        version: 1,
+      };
+      // live left B untouched but rolled out C
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B, Cmod],
+        version: 2,
+      };
+      // draft removed B, left C alone
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, C],
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // B is gone (draft deletion respected) and live's C rollout is kept.
+        expect(result.result.rules).toEqual([A, Cmod]);
+      }
+    });
+
+    // Mirror of the existing "live deletes / draft modifies" conflict: when the
+    // draft deletes a rule that live concurrently MODIFIED, that is a genuine
+    // delete-vs-modify conflict and must not auto-merge.
+    it("draft deletes a rule that live also modified — conflict", () => {
+      const Bmod = { ...B, value: "b-live-updated" };
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B],
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, Bmod],
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [A],
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.conflicts).toEqual(
+          expect.arrayContaining([expect.objectContaining({ key: "rules.b" })]),
+        );
+      }
+    });
+
+    // Honoring deletions must not over-correct: a rule that is brand new in
+    // live (never in base, absent from the draft) is NOT a draft deletion and
+    // must be preserved, otherwise publishing would silently drop a concurrent
+    // live addition.
+    it("draft deletes a rule while live adds a new rule — both respected", () => {
+      const E = devRule("e", "e");
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B],
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B, E],
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [A],
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // B removed (draft deletion), E kept (live addition).
+        expect(result.result.rules).toEqual([A, E]);
       }
     });
 
@@ -479,6 +610,692 @@ describe("autoMerge", () => {
         expect(result.result.rules.map((r) => r.id)).toEqual(["a", "b"]);
         expect(result.result.rules[1].value).toBe("b-updated");
       }
+    });
+
+    it("emits one conflict per clashing rule, each independently resolvable", () => {
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B, C],
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [{ ...A, value: "a-live" }, { ...B, value: "b-live" }, C],
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [
+          { ...A, value: "a-draft" },
+          { ...B, value: "b-draft" },
+          { ...C, value: "c-draft" },
+        ],
+        version: 1,
+      };
+
+      const unresolved = autoMerge(live, base, revision, ["dev"], {});
+      expect(unresolved.success).toBe(false);
+      expect(unresolved.conflicts.map((c) => c.key).sort()).toEqual([
+        "rules.a",
+        "rules.b",
+      ]);
+
+      // Mixed resolution: keep live's edit of A, the draft's edit of B. The
+      // draft's uncontested edit of C merges automatically either way.
+      const resolved = autoMerge(live, base, revision, ["dev"], {
+        "rules.a": "discard",
+        "rules.b": "overwrite",
+      });
+      expect(resolved.success).toBe(true);
+      if (resolved.success) {
+        expect(resolved.result.rules).toEqual([
+          { ...A, value: "a-live" },
+          { ...B, value: "b-draft" },
+          { ...C, value: "c-draft" },
+        ]);
+      }
+    });
+
+    it("resolves a delete-vs-modify conflict in either direction", () => {
+      const Bmod = { ...B, value: "b-draft" };
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B],
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [A],
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, Bmod],
+        version: 1,
+      };
+
+      const keepDraft = autoMerge(live, base, revision, ["dev"], {
+        "rules.b": "overwrite",
+      });
+      expect(keepDraft.success).toBe(true);
+      if (keepDraft.success) {
+        expect(keepDraft.result.rules).toEqual([A, Bmod]);
+      }
+
+      const keepDeletion = autoMerge(live, base, revision, ["dev"], {
+        "rules.b": "discard",
+      });
+      expect(keepDeletion.success).toBe(true);
+      if (keepDeletion.success) {
+        // Live's deletion stands; merged rules equal live so no rules delta.
+        expect(keepDeletion.result.rules).toBeUndefined();
+      }
+    });
+
+    it("honors a draft-only reorder when live changed content but not order", () => {
+      const Amod = { ...A, value: "a-live" };
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B, C],
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [Amod, B, C],
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [C, A, B],
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // Draft ordering with live's content edit of A substituted in.
+        expect(result.result.rules).toEqual([C, Amod, B]);
+      }
+    });
+
+    it("escalates competing reorders to a rules.order conflict", () => {
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B, C],
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [B, A, C],
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [C, A, B],
+        version: 1,
+      };
+
+      const unresolved = autoMerge(live, base, revision, ["dev"], {});
+      expect(unresolved.success).toBe(false);
+      expect(unresolved.conflicts).toEqual([
+        expect.objectContaining({ key: "rules.order", resolved: false }),
+      ]);
+
+      const draftOrder = autoMerge(live, base, revision, ["dev"], {
+        "rules.order": "overwrite",
+      });
+      expect(draftOrder.success).toBe(true);
+      if (draftOrder.success) {
+        expect(draftOrder.result.rules).toEqual([C, A, B]);
+      }
+
+      const liveOrder = autoMerge(live, base, revision, ["dev"], {
+        "rules.order": "discard",
+      });
+      expect(liveOrder.success).toBe(true);
+      if (liveOrder.success) {
+        // Live's order is the merged outcome — identical to live, no delta.
+        expect(liveOrder.result.rules).toBeUndefined();
+      }
+    });
+
+    it("applies the blanket 'rules' strategy to every rule-level conflict", () => {
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B],
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [
+          { ...A, value: "a-live" },
+          { ...B, value: "b-live" },
+        ],
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [
+          { ...A, value: "a-draft" },
+          { ...B, value: "b-draft" },
+        ],
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {
+        rules: "overwrite",
+      });
+      expect(result.success).toBe(true);
+      expect(result.conflicts.every((c) => c.resolved)).toBe(true);
+      if (result.success) {
+        expect(result.result.rules).toEqual([
+          { ...A, value: "a-draft" },
+          { ...B, value: "b-draft" },
+        ]);
+      }
+    });
+  });
+});
+
+describe("getLiveChangesSinceBase", () => {
+  const envs = ["dev", "prod"];
+  const rule = (id: string, value = "force"): FeatureRule => ({
+    type: "force",
+    description: "",
+    id,
+    value,
+    allEnvironments: true,
+  });
+
+  const makeBase = (): RevisionFields => ({
+    version: 1,
+    defaultValue: "base",
+    rules: [rule("a", "a")],
+    environmentsEnabled: { dev: true, prod: false },
+    prerequisites: [],
+    archived: false,
+    holdout: null,
+    metadata: { description: "d0", owner: "o0", project: "", tags: [] },
+  });
+
+  it("returns no changes when live equals base", () => {
+    expect(getLiveChangesSinceBase(makeBase(), makeBase(), envs)).toEqual([]);
+  });
+
+  it("detects a defaultValue change", () => {
+    const live = { ...makeBase(), defaultValue: "live" };
+    expect(getLiveChangesSinceBase(live, makeBase(), envs)).toEqual([
+      { key: "defaultValue", name: "Default Value" },
+    ]);
+  });
+
+  it("detects a rules change", () => {
+    const live = { ...makeBase(), rules: [rule("a", "a"), rule("b", "b")] };
+    expect(getLiveChangesSinceBase(live, makeBase(), envs)).toEqual([
+      { key: "rules", name: "Rules" },
+    ]);
+  });
+
+  it("ignores rule array identity (same content, different reference)", () => {
+    const base = makeBase();
+    const live = { ...makeBase(), rules: [rule("a", "a")] };
+    expect(getLiveChangesSinceBase(live, base, envs)).toEqual([]);
+  });
+
+  it("detects a per-environment enabled change with the env in the key", () => {
+    const live = {
+      ...makeBase(),
+      environmentsEnabled: { dev: true, prod: true },
+    };
+    expect(getLiveChangesSinceBase(live, makeBase(), envs)).toEqual([
+      { key: "environmentsEnabled.prod", name: "Env Enabled - prod" },
+    ]);
+  });
+
+  it("only considers environments passed in", () => {
+    const live = {
+      ...makeBase(),
+      environmentsEnabled: { dev: true, prod: true, staging: true },
+    };
+    // staging is not in the provided env list, so it's ignored
+    const base = {
+      ...makeBase(),
+      environmentsEnabled: { dev: true, prod: false, staging: false },
+    };
+    expect(getLiveChangesSinceBase(live, base, envs)).toEqual([
+      { key: "environmentsEnabled.prod", name: "Env Enabled - prod" },
+    ]);
+  });
+
+  it("detects a prerequisites change", () => {
+    const live = {
+      ...makeBase(),
+      prerequisites: [{ id: "parent", condition: "{}" }],
+    };
+    expect(getLiveChangesSinceBase(live, makeBase(), envs)).toEqual([
+      { key: "prerequisites", name: "Prerequisites" },
+    ]);
+  });
+
+  it("detects an archived change", () => {
+    const live = { ...makeBase(), archived: true };
+    expect(getLiveChangesSinceBase(live, makeBase(), envs)).toEqual([
+      { key: "archived", name: "Archived" },
+    ]);
+  });
+
+  it("detects a holdout change (added)", () => {
+    const live = { ...makeBase(), holdout: { id: "ho_1", value: "0" } };
+    expect(getLiveChangesSinceBase(live, makeBase(), envs)).toEqual([
+      { key: "holdout", name: "Holdout" },
+    ]);
+  });
+
+  it("detects per-field metadata changes", () => {
+    const live = {
+      ...makeBase(),
+      metadata: { description: "d1", owner: "o0", project: "", tags: [] },
+    };
+    expect(getLiveChangesSinceBase(live, makeBase(), envs)).toEqual([
+      { key: "metadata.description", name: "Metadata - description" },
+    ]);
+  });
+
+  it("treats normalized-equal metadata as unchanged", () => {
+    const base = {
+      ...makeBase(),
+      metadata: { description: "", owner: "", project: "", tags: [] },
+    };
+    const live = {
+      ...makeBase(),
+      // null/undefined normalize to the same empty values as base
+      metadata: {
+        description: undefined,
+        owner: null,
+        project: undefined,
+        tags: undefined,
+      } as unknown as RevisionFields["metadata"],
+    };
+    expect(getLiveChangesSinceBase(live, base, envs)).toEqual([]);
+  });
+
+  it("reports every changed field when several change at once", () => {
+    const live: RevisionFields = {
+      ...makeBase(),
+      defaultValue: "live",
+      rules: [rule("a", "a"), rule("b", "b")],
+      environmentsEnabled: { dev: false, prod: false },
+      archived: true,
+    };
+    const result = getLiveChangesSinceBase(live, makeBase(), envs);
+    expect(result.map((c) => c.key).sort()).toEqual(
+      ["archived", "defaultValue", "environmentsEnabled.dev", "rules"].sort(),
+    );
+  });
+});
+
+describe("evaluatePublishGovernance", () => {
+  const baseInput = {
+    revisionStatus: "draft" as const,
+    baseVersion: 5,
+    liveVersion: 5,
+    mergeSuccess: true,
+    liveChanges: [],
+  };
+
+  it("current draft (base === live, no conflicts): publish allowed, no rebase", () => {
+    const r = evaluatePublishGovernance(baseInput);
+    expect(r.divergence).toBe("current");
+    expect(r.diverged).toBe(false);
+    expect(r.staleApproval).toBe(false);
+    expect(r.recommendRebase).toBe(false);
+    expect(r.rebaseRequired).toBe(false);
+    expect(r.canPublish).toBe(true);
+    expect(r.blockReason).toBe(null);
+  });
+
+  it("diverged but auto-mergeable, setting OFF: encourage rebase, still publishable", () => {
+    const r = evaluatePublishGovernance({
+      ...baseInput,
+      liveVersion: 8,
+      liveChanges: [{ key: "rules", name: "Rules" }],
+    });
+    expect(r.divergence).toBe("diverged");
+    expect(r.diverged).toBe(true);
+    expect(r.recommendRebase).toBe(true);
+    expect(r.rebaseRequired).toBe(false);
+    expect(r.canPublish).toBe(true);
+    expect(r.liveChanges).toHaveLength(1);
+  });
+
+  it("diverged but auto-mergeable, setting ON: rebase required, publish blocked", () => {
+    const r = evaluatePublishGovernance({
+      ...baseInput,
+      liveVersion: 8,
+      requireRebaseBeforePublish: true,
+    });
+    expect(r.divergence).toBe("diverged");
+    expect(r.rebaseRequired).toBe(true);
+    expect(r.canPublish).toBe(false);
+    expect(r.blockReason).toMatch(/older version/i);
+  });
+
+  it("hard conflict: always blocks publish and requires resolution", () => {
+    const r = evaluatePublishGovernance({
+      ...baseInput,
+      liveVersion: 8,
+      mergeSuccess: false,
+    });
+    expect(r.divergence).toBe("conflict");
+    expect(r.recommendRebase).toBe(true);
+    expect(r.rebaseRequired).toBe(true);
+    expect(r.canPublish).toBe(false);
+    expect(r.blockReason).toMatch(/resolve conflicts/i);
+  });
+
+  it("approved + live advanced past approval point: stale approval surfaced", () => {
+    const r = evaluatePublishGovernance({
+      ...baseInput,
+      revisionStatus: "approved",
+      baseVersion: 5,
+      liveVersion: 7,
+      approvedBaseVersion: 5,
+    });
+    expect(r.staleApproval).toBe(true);
+    expect(r.recommendRebase).toBe(true);
+    // setting off → still publishable, just warned
+    expect(r.rebaseRequired).toBe(false);
+    expect(r.canPublish).toBe(true);
+  });
+
+  it("approved + live unchanged since approval: not stale", () => {
+    const r = evaluatePublishGovernance({
+      ...baseInput,
+      revisionStatus: "approved",
+      baseVersion: 7,
+      liveVersion: 7,
+      approvedBaseVersion: 7,
+    });
+    expect(r.staleApproval).toBe(false);
+    expect(r.divergence).toBe("current");
+    expect(r.canPublish).toBe(true);
+  });
+
+  it("approved legacy (no approvedBaseVersion) but diverged: treated as stale", () => {
+    const r = evaluatePublishGovernance({
+      ...baseInput,
+      revisionStatus: "approved",
+      baseVersion: 5,
+      liveVersion: 9,
+      approvedBaseVersion: null,
+    });
+    expect(r.staleApproval).toBe(true);
+  });
+
+  it("approved + stale + setting ON: blocked with re-approval guidance", () => {
+    const r = evaluatePublishGovernance({
+      ...baseInput,
+      revisionStatus: "approved",
+      baseVersion: 5,
+      liveVersion: 7,
+      approvedBaseVersion: 5,
+      requireRebaseBeforePublish: true,
+    });
+    expect(r.staleApproval).toBe(true);
+    expect(r.rebaseRequired).toBe(true);
+    expect(r.canPublish).toBe(false);
+    expect(r.blockReason).toMatch(/approved/i);
+  });
+});
+
+describe("scheduled / deferred publish helpers", () => {
+  const future = new Date(Date.now() + 60 * 60 * 1000);
+  const past = new Date(Date.now() - 60 * 60 * 1000);
+
+  type SchedRev = Parameters<typeof isScheduledPublishPending>[0] &
+    Partial<Parameters<typeof isRevisionEditLockedBySchedule>[0]>;
+
+  const rev = (over: Partial<SchedRev> = {}): SchedRev => ({
+    status: "approved",
+    autoPublishOnApproval: true,
+    scheduledPublishAt: future,
+    ...over,
+  });
+
+  describe("rampPlanControlledFields", () => {
+    it("maps each field a step or the end state sets on the target to where it is first set", () => {
+      const plan = {
+        steps: [
+          {
+            actions: [
+              { targetId: "t1", patch: { ruleId: "r1", coverage: 0.25 } },
+              { targetId: "t2", patch: { ruleId: "r2", condition: "{}" } },
+            ],
+          },
+          {
+            actions: [
+              {
+                targetId: "t1",
+                patch: { ruleId: "r1", coverage: 0.5, force: "b" },
+              },
+            ],
+          },
+        ],
+        endActions: [
+          {
+            targetId: "t1",
+            patch: { ruleId: "r1", coverage: 1, savedGroups: [] },
+          },
+        ],
+      };
+      expect([...rampPlanControlledFields(plan, "t1")]).toEqual([
+        ["coverage", "step 1"],
+        ["value", "step 2"],
+        ["savedGroups", "end state"],
+      ]);
+      expect([...rampPlanControlledFields(plan, "t3")]).toEqual([]);
+    });
+  });
+
+  describe("rampPlanLacksHashAttribute", () => {
+    it("is true when a patch for the rule sets partial coverage and none names a hash attribute", () => {
+      const plan = (patches: Record<string, unknown>[]) => ({
+        steps: patches.map((patch) => ({ actions: [{ patch }] })),
+      });
+      expect(rampPlanLacksHashAttribute(plan([{ coverage: 0.5 }]), "r1")).toBe(
+        true,
+      );
+      expect(
+        rampPlanLacksHashAttribute(
+          {
+            startActions: [{ patch: { hashAttribute: "id" } }],
+            ...plan([{ coverage: 0.5 }]),
+          },
+          "r1",
+        ),
+      ).toBe(false);
+      expect(rampPlanLacksHashAttribute(plan([{ coverage: 1 }]), "r1")).toBe(
+        false,
+      );
+      expect(
+        rampPlanLacksHashAttribute(
+          plan([{ ruleId: "r2", coverage: 0.5 }]),
+          "r1",
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe("getDefaultHashAttribute", () => {
+    it("prefers a marked id, then the first marked attribute, then id", () => {
+      const attr = (property: string, hashAttribute?: boolean) =>
+        ({ property, datatype: "string", hashAttribute }) as never;
+      expect(
+        getDefaultHashAttribute([attr("device", true), attr("id", true)]),
+      ).toBe("id");
+      expect(getDefaultHashAttribute([attr("device", true), attr("id")])).toBe(
+        "device",
+      );
+      expect(getDefaultHashAttribute([attr("id")])).toBe("id");
+      expect(getDefaultHashAttribute(undefined)).toBe("id");
+    });
+  });
+
+  describe("isScheduledPublishPending", () => {
+    it("true for an armed, dated, active draft", () => {
+      expect(isScheduledPublishPending(rev())).toBe(true);
+    });
+    it("false when not armed", () => {
+      expect(
+        isScheduledPublishPending(rev({ autoPublishOnApproval: false })),
+      ).toBe(false);
+    });
+    it("false when no date (on-approval, not deferred)", () => {
+      expect(isScheduledPublishPending(rev({ scheduledPublishAt: null }))).toBe(
+        false,
+      );
+    });
+    it("warns about a pending schedule, naming its date", () => {
+      expect(pendingScheduleWarning(rev())).toMatch(
+        new RegExp(`scheduled to publish on ${future.toUTCString()}`),
+      );
+      expect(pendingScheduleWarning(rev({ status: "published" }))).toBeNull();
+      expect(
+        pendingScheduleWarning(rev({ autoPublishOnApproval: false })),
+      ).toBeNull();
+    });
+    it("false once published or discarded", () => {
+      expect(isScheduledPublishPending(rev({ status: "published" }))).toBe(
+        false,
+      );
+      expect(isScheduledPublishPending(rev({ status: "discarded" }))).toBe(
+        false,
+      );
+    });
+  });
+
+  describe("isScheduledPublishDue", () => {
+    it("false while the target date is in the future", () => {
+      expect(isScheduledPublishDue(rev())).toBe(false);
+    });
+    it("true once the target date has passed", () => {
+      expect(isScheduledPublishDue(rev({ scheduledPublishAt: past }))).toBe(
+        true,
+      );
+    });
+    it("coerces ISO-string dates (front-end JSON shape)", () => {
+      expect(
+        isScheduledPublishDue(
+          rev({ scheduledPublishAt: past.toISOString() as unknown as Date }),
+        ),
+      ).toBe(true);
+    });
+    it("false when not pending even if date passed", () => {
+      expect(
+        isScheduledPublishDue(
+          rev({ scheduledPublishAt: past, status: "published" }),
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe("isScheduledPublishLockActive", () => {
+    it("true for an armed, dated, approved revision", () => {
+      expect(isScheduledPublishLockActive(rev())).toBe(true);
+    });
+    it("true for an armed draft (no-approval committed schedule)", () => {
+      // The schedule-publish endpoint only commits a schedule on a draft when
+      // the change doesn't require review, so a pending draft schedule is
+      // locked in and its locks engage.
+      expect(isScheduledPublishLockActive(rev({ status: "draft" }))).toBe(true);
+    });
+    it("false while still awaiting approval (locks don't apply yet)", () => {
+      expect(
+        isScheduledPublishLockActive(rev({ status: "pending-review" })),
+      ).toBe(false);
+      expect(
+        isScheduledPublishLockActive(rev({ status: "changes-requested" })),
+      ).toBe(false);
+    });
+  });
+
+  describe("isRevisionEditLockedBySchedule", () => {
+    it("true when an active (approved) schedule locks edits", () => {
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: true }),
+        ),
+      ).toBe(true);
+    });
+    it("true when a committed draft (no-approval) schedule locks edits", () => {
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: true, status: "draft" }),
+        ),
+      ).toBe(true);
+    });
+    it("false while still pending approval — edits stay open", () => {
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: true, status: "pending-review" }),
+        ),
+      ).toBe(false);
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: true, status: "changes-requested" }),
+        ),
+      ).toBe(false);
+    });
+    it("false when lock flag is off", () => {
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: false }),
+        ),
+      ).toBe(false);
+    });
+    it("false when the schedule isn't pending", () => {
+      expect(
+        isRevisionEditLockedBySchedule(
+          rev({ scheduledPublishLockEdits: true, scheduledPublishAt: null }),
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe("findPublishLockingScheduledRevision", () => {
+    const list = [
+      { version: 1, ...rev({ scheduledPublishLockOthers: true }) },
+      { version: 2, ...rev({ scheduledPublishLockOthers: false }) },
+    ];
+    it("finds a sibling whose pending schedule locks others", () => {
+      expect(findPublishLockingScheduledRevision(list, 2)?.version).toBe(1);
+    });
+    it("excludes the revision being published itself", () => {
+      expect(findPublishLockingScheduledRevision(list, 1)).toBe(null);
+    });
+    it("ignores schedules without the lock-others flag", () => {
+      expect(
+        findPublishLockingScheduledRevision(
+          [{ version: 2, ...rev({ scheduledPublishLockOthers: false }) }],
+          99,
+        ),
+      ).toBe(null);
+    });
+    it("ignores a sibling still pending approval (lock not active yet)", () => {
+      expect(
+        findPublishLockingScheduledRevision(
+          [
+            {
+              version: 1,
+              ...rev({
+                scheduledPublishLockOthers: true,
+                status: "pending-review",
+              }),
+            },
+          ],
+          99,
+        ),
+      ).toBe(null);
     });
   });
 });
@@ -558,6 +1375,40 @@ describe("simpleToJSONSchema", () => {
       type: "object",
       properties: expectedProperties,
       required: ["a_string", "a_float"],
+      additionalProperties: false,
+    });
+  });
+  it("honors a field's raw jsonSchema, superseding the simple type", () => {
+    const schema: SimpleSchema = {
+      type: "object",
+      fields: [
+        {
+          key: "kv",
+          type: "string",
+          description: "",
+          required: true,
+          enum: [],
+          default: "",
+          jsonSchema: JSON.stringify({ type: "object" }),
+        },
+        {
+          key: "ship",
+          type: "string",
+          description: "how it ships",
+          required: true,
+          enum: [],
+          default: "",
+          jsonSchema: JSON.stringify({ type: ["string", "null"] }),
+        },
+      ],
+    };
+    expect(JSON.parse(simpleToJSONSchema(schema))).toEqual({
+      type: "object",
+      properties: {
+        kv: { type: "object" },
+        ship: { type: ["string", "null"], description: "how it ships" },
+      },
+      required: ["kv", "ship"],
       additionalProperties: false,
     });
   });
@@ -1111,7 +1962,7 @@ describe("inferSimpleSchemaFromValue", () => {
       fields: [],
     });
   });
-  it("Inferes a primitive array", () => {
+  it("Infers a primitive array", () => {
     expect(
       inferSimpleSchemaFromValue(JSON.stringify(["test", "test2"])),
     ).toEqual({
@@ -1317,20 +2168,35 @@ describe("validateJSONFeatureValue", () => {
   });
 });
 
+describe("stringifyFeatureValue", () => {
+  it("leaves strings alone and JSON-encodes everything else", () => {
+    expect(stringifyFeatureValue('{"limit": 5}')).toBe('{"limit": 5}');
+    expect(stringifyFeatureValue(false)).toBe("false");
+    expect(stringifyFeatureValue(10)).toBe("10");
+    expect(stringifyFeatureValue(null)).toBe("null");
+    expect(stringifyFeatureValue({ limit: 5 })).toBe('{"limit":5}');
+  });
+});
+
 describe("validateFeatureValue", () => {
   beforeAll(() => {
     feature.valueType = "boolean";
   });
   describe("boolean values", () => {
-    it('returns "true" if value is truthy', () => {
+    it('returns "true" and "false" unchanged', () => {
       expect(validateFeatureValue(feature, "true", "testVal")).toEqual("true");
-      expect(validateFeatureValue(feature, "0", "testVal")).toEqual("true");
-    });
-    it('returns "false" if value is "false"', () => {
       expect(validateFeatureValue(feature, "false", "testVal")).toEqual(
         "false",
       );
     });
+    it.each(["False", "TRUE", "0", "1", "", "yes"])(
+      "throws for a non-canonical boolean string %j",
+      (value) => {
+        expect(() => validateFeatureValue(feature, value, "testVal")).toThrow(
+          'testVal: Must be "true" or "false"',
+        );
+      },
+    );
   });
 
   describe("number values", () => {
@@ -1378,6 +2244,290 @@ describe("validateFeatureValue", () => {
         validateFeatureValue(feature, value, "testVal"),
       ).toThrowError();
     });
+  });
+
+  describe("string values with a schema", () => {
+    const stringFeature = (
+      schema: object,
+    ): Pick<FeatureInterface, "valueType" | "jsonSchema"> => ({
+      valueType: "string",
+      jsonSchema: {
+        schemaType: "schema",
+        schema: JSON.stringify(schema),
+        simple: { type: "primitive", fields: [] },
+        date: new Date(),
+        enabled: true,
+      },
+    });
+
+    it("accepts a string within maxLength and rejects one over it", () => {
+      const f = stringFeature({ type: "string", maxLength: 5 });
+      expect(validateFeatureValue(f, "hello", "testVal")).toEqual("hello");
+      expect(() =>
+        validateFeatureValue(f, "toolong", "testVal"),
+      ).toThrowError();
+    });
+
+    it("enforces an enum", () => {
+      const f = stringFeature({ type: "string", enum: ["a", "b"] });
+      expect(validateFeatureValue(f, "a", "testVal")).toEqual("a");
+      expect(() => validateFeatureValue(f, "c", "testVal")).toThrowError();
+    });
+  });
+
+  describe("number values with a schema", () => {
+    const numberFeature = (
+      schema: object,
+    ): Pick<FeatureInterface, "valueType" | "jsonSchema"> => ({
+      valueType: "number",
+      jsonSchema: {
+        schemaType: "schema",
+        schema: JSON.stringify(schema),
+        simple: { type: "primitive", fields: [] },
+        date: new Date(),
+        enabled: true,
+      },
+    });
+
+    it("enforces minimum and maximum", () => {
+      const f = numberFeature({ type: "number", minimum: 1, maximum: 10 });
+      expect(validateFeatureValue(f, "5", "testVal")).toEqual("5");
+      expect(() => validateFeatureValue(f, "0", "testVal")).toThrowError();
+      expect(() => validateFeatureValue(f, "50", "testVal")).toThrowError();
+    });
+
+    it("enforces integer type", () => {
+      const f = numberFeature({ type: "integer" });
+      expect(validateFeatureValue(f, "5", "testVal")).toEqual("5");
+      expect(() => validateFeatureValue(f, "5.5", "testVal")).toThrowError();
+    });
+  });
+});
+
+describe("getRevertValueValidationWarnings", () => {
+  const numberSchema: Pick<FeatureInterface, "valueType" | "jsonSchema"> = {
+    valueType: "number",
+    jsonSchema: {
+      schemaType: "schema",
+      schema: JSON.stringify({ type: "number", minimum: 1, maximum: 10 }),
+      simple: { type: "primitive", fields: [] },
+      date: new Date(),
+      enabled: true,
+    },
+  };
+
+  it("returns no warnings when all restored values are valid", () => {
+    expect(
+      getRevertValueValidationWarnings(numberSchema, {
+        defaultValue: "5",
+        rules: [
+          { id: "a", type: "force", value: "3" } as never,
+          {
+            id: "b",
+            type: "experiment-ref",
+            variations: [
+              { variationId: "0", value: "2" },
+              { variationId: "1", value: "9" },
+            ],
+          } as never,
+        ],
+      }),
+    ).toEqual([]);
+  });
+
+  it("flags a default value that no longer parses under the current schema", () => {
+    const warnings = getRevertValueValidationWarnings(numberSchema, {
+      defaultValue: "50",
+    });
+    expect(warnings.length).toBe(1);
+    expect(warnings[0]).toContain("Default value");
+  });
+
+  it("flags invalid values inside reverted rules", () => {
+    const warnings = getRevertValueValidationWarnings(numberSchema, {
+      rules: [
+        { id: "a", type: "force", value: "not-a-number" } as never,
+        {
+          id: "b",
+          type: "experiment",
+          values: [
+            { value: "5", weight: 0.5 },
+            { value: "999", weight: 0.5 },
+          ],
+        } as never,
+      ],
+    });
+    expect(warnings.length).toBe(2);
+    expect(warnings[0]).toContain("Rule #1");
+    expect(warnings[1]).toContain("Rule #2 variation #2");
+  });
+
+  it("validates against the revert's own metadata schema when it changes too", () => {
+    // Reverting valueType back to json: a value that fails as a number should
+    // pass once the schema is also reverted to json.
+    const warnings = getRevertValueValidationWarnings(numberSchema, {
+      defaultValue: '{"a":1}',
+      metadata: { valueType: "json", jsonSchema: undefined },
+    });
+    expect(warnings).toEqual([]);
+  });
+
+  it("flags invalid control and variation values in a reverted safe-rollout rule", () => {
+    const warnings = getRevertValueValidationWarnings(numberSchema, {
+      rules: [
+        {
+          id: "a",
+          type: "safe-rollout",
+          controlValue: "not-a-number",
+          variationValue: "999",
+        } as never,
+      ],
+    });
+    expect(warnings.length).toBe(2);
+    expect(warnings[0]).toContain("Rule #1");
+    expect(warnings[1]).toContain("Rule #1");
+  });
+
+  it("flags an invalid variation value in a reverted contextual-bandit-ref rule", () => {
+    const warnings = getRevertValueValidationWarnings(numberSchema, {
+      rules: [
+        {
+          id: "a",
+          type: "contextual-bandit-ref",
+          variations: [
+            { variationId: "0", value: "5" },
+            { variationId: "1", value: "999" },
+          ],
+        } as never,
+      ],
+    });
+    expect(warnings.length).toBe(1);
+    expect(warnings[0]).toContain("Rule #1 variation #2");
+  });
+});
+
+describe("assertSchemaMatchesValueType", () => {
+  const rawSchema = (schema: object, enabled = true) => ({
+    schemaType: "schema" as const,
+    schema: JSON.stringify(schema),
+    simple: { type: "primitive" as const, fields: [] },
+    enabled,
+  });
+
+  it("allows any schema for json flags", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ type: "object" }), "json"),
+    ).not.toThrow();
+  });
+
+  it("rejects any schema for boolean flags", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ type: "string" }), "boolean"),
+    ).toThrow();
+  });
+
+  it("requires a number/integer top-level type for number flags", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ type: "number" }), "number"),
+    ).not.toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ type: "integer" }), "number"),
+    ).not.toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ type: "object" }), "number"),
+    ).toThrow();
+  });
+
+  it("requires a string top-level type for string flags", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ type: "string" }), "string"),
+    ).not.toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ type: "number" }), "string"),
+    ).toThrow();
+  });
+
+  it("allows type-less schemas with an enum matching the value type", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(
+        rawSchema({ enum: ["red", "green", "blue"] }),
+        "string",
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ enum: [1, 2, 3] }), "number"),
+    ).not.toThrow();
+  });
+
+  it("rejects type-less schemas whose enum values don't match the value type", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ enum: [1, 2, 3] }), "string"),
+    ).toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ enum: ["red", 2] }), "string"),
+    ).toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ enum: ["1", "2"] }), "number"),
+    ).toThrow();
+  });
+
+  it("rejects type-less schemas without an enum", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(
+        rawSchema({ properties: { test: { type: "string" } } }),
+        "string",
+      ),
+    ).toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(
+        rawSchema({ items: { type: "number" } }),
+        "number",
+      ),
+    ).toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(
+        rawSchema({ anyOf: [{ const: "a" }, { const: "b" }] }),
+        "string",
+      ),
+    ).toThrow();
+  });
+
+  it("does not enforce anything when the schema is disabled", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(
+        rawSchema({ type: "object" }, false),
+        "number",
+      ),
+    ).not.toThrow();
+  });
+
+  it("validates a simple primitive schema against the flag type", () => {
+    const simpleString = {
+      schemaType: "simple" as const,
+      schema: "",
+      simple: {
+        type: "primitive" as const,
+        fields: [
+          {
+            key: "",
+            type: "string" as const,
+            required: true,
+            default: "",
+            description: "",
+            enum: [],
+            min: 0,
+            max: 10,
+          },
+        ],
+      },
+      enabled: true,
+    };
+    expect(() =>
+      assertSchemaMatchesValueType(simpleString, "string"),
+    ).not.toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(simpleString, "number"),
+    ).toThrow();
   });
 });
 
@@ -1453,7 +2603,67 @@ describe("validateCondition", () => {
     ).toEqual({
       success: false,
       empty: false,
-      error: "Condition includes invalid or cyclic saved group reference",
+      error: 'Saved Group "a" does not exist',
+    });
+  });
+  describe("names the Saved Group a condition cannot use", () => {
+    const group = (id: string, condition: object) =>
+      [
+        id,
+        { id, type: "condition", condition: JSON.stringify(condition) },
+      ] as const;
+    const chain = Array.from({ length: 12 }, (_, i) =>
+      group(`g${i}`, { $savedGroups: [`g${i + 1}`] }),
+    );
+    it.each([
+      [
+        "a nested group that is missing",
+        [group("a", { $savedGroups: ["b"] })],
+        'Saved Group "b" does not exist',
+      ],
+      [
+        "a cycle",
+        [
+          group("a", { $savedGroups: ["b"] }),
+          group("b", { $savedGroups: ["a"] }),
+        ],
+        'Saved Group "a" is nested inside itself',
+      ],
+      [
+        "a list group without an attribute key",
+        [["a", { id: "a", type: "list" }] as const],
+        'Saved Group "a" has no attribute key or an invalid condition',
+      ],
+      [
+        "a chain past the depth limit",
+        chain,
+        "Saved Groups are nested more than 10 levels deep",
+      ],
+    ])("%s", (_, groups, error) => {
+      expect(
+        validateCondition(
+          JSON.stringify({ $savedGroups: [groups[0][0]] }),
+          new Map(groups),
+        ),
+      ).toEqual({ success: false, empty: false, error });
+    });
+    it("points to Saved Group targeting when there are no groups to check against", () => {
+      expect(validateCondition('{"$savedGroups":["a"]}').error).toBe(
+        "Saved Groups cannot be referenced inside this condition. Use Saved Group targeting instead.",
+      );
+    });
+    it("skipping cycle checks still reports an unusable group", () => {
+      const cyclic = new Map([group("a", { $savedGroups: ["a"] })]);
+      expect(
+        validateCondition('{"$savedGroups":["a"]}', cyclic, true).success,
+      ).toBe(true);
+      expect(
+        validateCondition(
+          '{"$savedGroups":["a"]}',
+          new Map([["a", { id: "a", type: "list" }]]),
+          true,
+        ).error,
+      ).toBe('Saved Group "a" has no attribute key or an invalid condition');
     });
   });
   it("returns success when condition has known nested saved group id", () => {
@@ -1480,6 +2690,101 @@ describe("validateCondition", () => {
       success: true,
       empty: false,
     });
+  });
+});
+
+describe("validatePrerequisiteCondition", () => {
+  it("rejects $savedGroups, which never sees attributes", () => {
+    expect(
+      validatePrerequisiteCondition(
+        '{"$or":[{"value":true},{"$savedGroups":["grp_vip"]}]}',
+      ).error,
+    ).toMatch(/^\$savedGroups cannot be used in prerequisite conditions/);
+  });
+  it("otherwise validates like any condition", () => {
+    expect(
+      validatePrerequisiteCondition('{"value":{"$inGroup":"grp_vip"}}'),
+    ).toEqual({ success: true, empty: false });
+    expect(validatePrerequisiteCondition("{value: true}").suggestedValue).toBe(
+      '{"value":true}',
+    );
+  });
+});
+
+describe("validateCondition operator structure", () => {
+  const sdkInput = {
+    value: true,
+    tags: ["a"],
+    items: [{ id: 1 }],
+    nested: [[1]],
+  };
+
+  it.each([
+    [{ $not: null }, "$not cannot be null"],
+    [{ $or: null }, "$or cannot be null"],
+    [{ $nor: null }, "$nor cannot be null"],
+    [{ $and: [null] }, "$and cannot contain null"],
+    [{ $or: [{ $not: null }] }, "$not cannot be null"],
+    [{ tags: { $elemMatch: null } }, "$elemMatch cannot be null"],
+    [{ tags: { $not: { $elemMatch: null } } }, "$elemMatch cannot be null"],
+    [
+      { items: { $elemMatch: { id: 1, $and: [null] } } },
+      "$and cannot contain null",
+    ],
+    [{ nested: { $all: [{ $elemMatch: null }] } }, "$elemMatch cannot be null"],
+    [
+      { nested: { $alli: [{ $elemMatch: null }] } },
+      "$elemMatch cannot be null",
+    ],
+  ])("rejects %j", (condition, error) => {
+    expect(validateCondition(JSON.stringify(condition))).toEqual({
+      success: false,
+      empty: false,
+      error,
+    });
+    expect(() =>
+      evalCondition(sdkInput, condition as ConditionInterface),
+    ).toThrow();
+  });
+
+  // These evaluate without throwing today, so existing flags keep saving.
+  it.each([
+    { $not: { value: true } },
+    { $not: 5 },
+    { $or: [] },
+    { $and: {} },
+    { $and: [{ value: true }, { $or: [{ value: false }] }] },
+    { value: { $not: null } },
+    { value: { $not: { $in: [1, 2] } } },
+    { tags: { $elemMatch: { $eq: "a" } } },
+    { items: { $elemMatch: { id: 1 } } },
+    { tags: { $elemMatch: { $and: [null] } } },
+    { nested: { $all: [[1]] } },
+  ])("accepts %j", (condition) => {
+    expect(validateCondition(JSON.stringify(condition))).toEqual({
+      success: true,
+      empty: false,
+    });
+    expect(() =>
+      evalCondition(sdkInput, condition as ConditionInterface),
+    ).not.toThrow();
+  });
+});
+
+describe("evalDeterministicPrereqValue", () => {
+  it("fails and reports a condition that throws during evaluation", () => {
+    const onError = jest.fn();
+    for (const condition of [{ $not: null }, { $or: null }, { $and: [null] }]) {
+      expect(
+        evalDeterministicPrereqValue(true, JSON.stringify(condition), onError),
+      ).toBe("fail");
+    }
+    expect(onError).toHaveBeenCalledTimes(3);
+  });
+
+  it("evaluates well-formed conditions", () => {
+    expect(evalDeterministicPrereqValue(true, '{"value": true}')).toBe("pass");
+    expect(evalDeterministicPrereqValue(false, '{"value": true}')).toBe("fail");
   });
 });
 
@@ -1709,7 +3014,7 @@ describe("getRequireRegisteredAttributesSettings", () => {
   });
 });
 
-describe("check enviroments match", () => {
+describe("check environments match", () => {
   it("should find a environment match", () => {
     const environments = ["prod", "staging"];
     const reviewSetting = {
@@ -1760,7 +3065,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -1781,7 +3086,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(false);
@@ -1815,7 +3120,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -1848,7 +3153,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(false);
@@ -1914,7 +3219,7 @@ describe("check revision needs review", () => {
         feature: newFeature,
         baseRevision: filledLive,
         revision: effectiveRevision,
-        allEnvironments,
+        orgEnvironments: toEnvs(allEnvironments),
         settings,
       }),
     ).toEqual(false);
@@ -1928,7 +3233,7 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -1938,167 +3243,52 @@ describe("check revision needs review", () => {
         feature,
         baseRevision,
         revision,
-        allEnvironments: ["prod", "dev", "staging"],
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
-      }),
-    ).toEqual(false);
-  });
-});
-
-describe("reset review on change", () => {
-  it("require reset with single rule", () => {
-    const settings: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: ["prod"],
-          projects: [],
-        },
-      ],
-    };
-    const settingsOff: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: false,
-          environments: ["prod"],
-          projects: [],
-        },
-      ],
-    };
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(true);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings: settingsOff,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
-        settings: settingsOff,
       }),
     ).toEqual(false);
   });
 
-  it("require reset with multiple rules", () => {
+  it("an all-projects feature is governed by a strict targeting project's review rule", () => {
+    // A rule requiring review only for project "eu" (strict by default). The
+    // feature's primary is "" and doesn't match it.
     const settings: OrganizationSettings = {
       requireReviews: [
         {
           requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: ["prod"],
-          projects: [],
-        },
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: [],
-          projects: [],
-        },
-      ],
-    };
-    const settingsOff: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: true,
           resetReviewOnChange: false,
-          environments: ["prod"],
-          projects: [],
-        },
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
           environments: [],
-          projects: [],
+          projects: ["eu"],
         },
       ],
     };
+    // Not all-projects: only the primary governs → "eu" rule never applies.
     expect(
-      resetReviewOnChange({
+      checkIfRevisionNeedsReview({
         feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
+        baseRevision,
+        revision,
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(false);
+    // targetingAllProjects reaches "eu", so its strict review rule applies.
     expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
+      checkIfRevisionNeedsReview({
+        feature: { ...feature, targetingAllProjects: true },
+        baseRevision,
+        revision,
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
+    // Staged all-projects (via revision metadata) is honored too.
     expect(
-      resetReviewOnChange({
+      checkIfRevisionNeedsReview({
         feature,
-        changedEnvironments: ["prod"],
-        defaultValueChanged: false,
-        settings: settingsOff,
-      }),
-    ).toEqual(false);
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
-        settings: settingsOff,
-      }),
-    ).toEqual(false);
-  });
-  it("turn off for first project", () => {
-    const settings: OrganizationSettings = {
-      requireReviews: [
-        {
-          requireReviewOn: false,
-          resetReviewOnChange: false,
-          environments: [],
-          projects: ["a"],
-        },
-        {
-          requireReviewOn: true,
-          resetReviewOnChange: true,
-          environments: [],
-          projects: [],
-        },
-      ],
-    };
-    feature.project = "a";
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["env"],
-        defaultValueChanged: false,
-        settings,
-      }),
-    ).toEqual(false);
-    feature.project = "b";
-    expect(
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: ["staging"],
-        defaultValueChanged: false,
+        baseRevision,
+        revision: { ...revision, metadata: { targetingAllProjects: true } },
+        orgEnvironments: toEnvs(["prod", "dev", "staging"]),
         settings,
       }),
     ).toEqual(true);
@@ -2154,6 +3344,110 @@ describe("ruleAppliesToEnv", () => {
   });
 });
 
+describe("ruleProjectScope / ruleServedToConnection", () => {
+  const baseRule = {
+    type: "force" as const,
+    id: "r1",
+    description: "",
+    enabled: true,
+    allEnvironments: true,
+    value: "x",
+  };
+  const scoped = (projects: string[]) =>
+    ({ ...baseRule, allProjects: false, projects }) as FeatureRule;
+
+  describe("ruleProjectScope", () => {
+    it("null (all) for allProjects, and for the legacy/default absent state", () => {
+      expect(
+        ruleProjectScope({ ...baseRule, allProjects: true } as FeatureRule),
+      ).toBeNull();
+      expect(ruleProjectScope(baseRule as FeatureRule)).toBeNull();
+    });
+    it("returns the explicit list, and [] (no project) for a scoped-empty rule", () => {
+      expect(ruleProjectScope(scoped(["p1", "p2"]))).toEqual(["p1", "p2"]);
+      expect(ruleProjectScope(scoped([]))).toEqual([]);
+    });
+    it("allProjects:false with no projects list is [] (no project), never all", () => {
+      // A REST round-trip could send allProjects:false without an explicit list;
+      // it must not silently widen the rule to every project.
+      expect(
+        ruleProjectScope({ ...baseRule, allProjects: false } as FeatureRule),
+      ).toEqual([]);
+    });
+  });
+
+  describe("ruleServedToConnection", () => {
+    it("unscoped rule + feature delivering everywhere + all-projects connection", () => {
+      expect(ruleServedToConnection(baseRule as FeatureRule, null, [])).toBe(
+        true,
+      );
+    });
+    it("serves only where rule scope, delivery set, and served set overlap", () => {
+      // feature delivers p1,p2; connection serves p1
+      expect(ruleServedToConnection(scoped(["p1"]), ["p1", "p2"], ["p1"])).toBe(
+        true,
+      );
+      expect(ruleServedToConnection(scoped(["p2"]), ["p1", "p2"], ["p1"])).toBe(
+        false,
+      );
+    });
+    it("SCRUBS a rule scoped outside the feature's delivery set (the orphan case)", () => {
+      // rule still references p1, but the feature no longer delivers to p1
+      expect(ruleServedToConnection(scoped(["p1"]), ["p2"], [])).toBe(false);
+      expect(ruleServedToConnection(scoped(["p1"]), ["p2"], ["p1", "p2"])).toBe(
+        false,
+      );
+    });
+    it("LEAK-SAFE: a scoped-empty rule is served nowhere", () => {
+      expect(ruleServedToConnection(scoped([]), ["p1", "p2"], [])).toBe(false);
+      expect(ruleServedToConnection(scoped([]), null, [])).toBe(false);
+    });
+    it("unscoped rule follows the feature delivery set into the served set", () => {
+      expect(ruleServedToConnection(baseRule as FeatureRule, ["p1"], [])).toBe(
+        true,
+      );
+      expect(
+        ruleServedToConnection(baseRule as FeatureRule, ["p1"], ["p2"]),
+      ).toBe(false);
+    });
+  });
+
+  describe("rulesEqualIgnoringScopeEncoding", () => {
+    it("treats a legacy rule and its allProjects:true round-trip as equal", () => {
+      const stored = [baseRule as FeatureRule];
+      const roundTripped = [
+        { ...baseRule, allProjects: true, projects: undefined } as FeatureRule,
+      ];
+      expect(rulesEqualIgnoringScopeEncoding(stored, roundTripped)).toBe(true);
+    });
+    it("ignores undefined-valued keys (Mongo drops them, the mapper stamps them)", () => {
+      const stored = [baseRule as FeatureRule];
+      const stamped = [{ ...baseRule, environments: undefined } as FeatureRule];
+      expect(rulesEqualIgnoringScopeEncoding(stored, stamped)).toBe(true);
+    });
+    it("still detects a real project-scope change", () => {
+      expect(
+        rulesEqualIgnoringScopeEncoding([scoped(["p1"])], [scoped(["p2"])]),
+      ).toBe(false);
+      // all → specific is a real change
+      expect(
+        rulesEqualIgnoringScopeEncoding(
+          [baseRule as FeatureRule],
+          [scoped(["p1"])],
+        ),
+      ).toBe(false);
+    });
+    it("still detects a non-scope change", () => {
+      expect(
+        rulesEqualIgnoringScopeEncoding(
+          [baseRule as FeatureRule],
+          [{ ...baseRule, value: "y" } as FeatureRule],
+        ),
+      ).toBe(false);
+    });
+  });
+});
+
 describe("ruleFootprint", () => {
   const baseRule = {
     type: "force" as const,
@@ -2196,6 +3490,15 @@ describe("ruleFootprint", () => {
       allEnvironments: false,
       environments: [],
     } as FeatureRule;
+    expect(ruleFootprint(rule, applicable)).toEqual([]);
+  });
+
+  it("a stored null list applies nowhere rather than throwing", () => {
+    const rule = {
+      ...baseRule,
+      allEnvironments: false,
+      environments: null,
+    } as unknown as FeatureRule;
     expect(ruleFootprint(rule, applicable)).toEqual([]);
   });
 
@@ -2455,7 +3758,191 @@ const noReviewSettings: OrganizationSettings = {
   ],
 };
 
+describe("getEnvsForRampTarget", () => {
+  const target = (patch: Record<string, unknown>) => ({
+    startActions: [],
+    steps: [{ actions: [{ targetId: "t1", patch }] }],
+    endActions: [],
+  });
+
+  it("is the environments the target's patches name", () => {
+    expect(
+      getEnvsForRampTarget(
+        target({ coverage: 1, environments: ["dev"] }) as never,
+        "t1",
+      ),
+    ).toEqual(["dev"]);
+  });
+
+  // The patch REPLACES the rule's `environments`, so narrowing production→dev
+  // stops the rule serving production. Reading the patch alone made that a
+  // dev-only footprint, and a caller with publish in dev could strip a rule off
+  // production traffic. The union is what the revision-embedded ramp path already
+  // computes via `getDraftAffectedEnvironments`.
+  it("unions the environments the rule currently serves", () => {
+    expect(
+      getEnvsForRampTarget(
+        target({ coverage: 0, environments: ["dev"] }) as never,
+        "t1",
+        ["production"],
+      ).sort(),
+    ).toEqual(["dev", "production"]);
+  });
+
+  it("is 'all' when the rule currently serves all environments", () => {
+    expect(
+      getEnvsForRampTarget(
+        target({ coverage: 0, environments: ["dev"] }) as never,
+        "t1",
+        "all",
+      ),
+    ).toBe("all");
+  });
+
+  it("is 'all' for an explicitly all-environments patch", () => {
+    expect(
+      getEnvsForRampTarget(
+        target({ coverage: 1, allEnvironments: true }) as never,
+        "t1",
+      ),
+    ).toBe("all");
+  });
+
+  // An unscoped patch inherits the target rule's environments.
+  it("answers for what the rule serves when the patch names nothing", () => {
+    expect(
+      getEnvsForRampTarget(target({ coverage: 1 }) as never, "t1", ["dev"]),
+    ).toEqual(["dev"]);
+  });
+
+  it("widens to 'all' when nothing is known — patch and rule both silent", () => {
+    expect(getEnvsForRampTarget(target({ coverage: 1 }) as never, "t1")).toBe(
+      "all",
+    );
+  });
+
+  // A target without matching patches still participates in schedule actions.
+  it("widens a target no patch names to 'all', never []", () => {
+    expect(
+      getEnvsForRampTarget(
+        target({ coverage: 1, environments: ["production"] }) as never,
+        "t2",
+      ),
+    ).toBe("all");
+  });
+
+  it("widens a schedule with no patches at all to 'all'", () => {
+    expect(
+      getEnvsForRampTarget(
+        { startActions: [], steps: [], endActions: [] } as never,
+        "t1",
+      ),
+    ).toBe("all");
+  });
+});
+
+describe("rampControlFootprint", () => {
+  const ORG_ENVS = ["dev", "staging", "production"];
+
+  const schedule = (
+    patch: Record<string, unknown>,
+    targets: { id: string; ruleId?: string }[],
+  ) =>
+    ({
+      startActions: [],
+      steps: [{ actions: targets.map((t) => ({ targetId: t.id, patch })) }],
+      endActions: [],
+      targets,
+    }) as never;
+
+  // Runtime controls use the target rule's current environments.
+  it("answers for what the rule serves when the patch names no environments", () => {
+    expect(
+      rampControlFootprint({
+        schedule: schedule({ coverage: 0 }, [{ id: "t1", ruleId: "fr_1" }]),
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: () => ["dev"],
+      }),
+    ).toEqual(["dev"]);
+  });
+
+  it("unions the patch's environments with the rule's", () => {
+    expect(
+      rampControlFootprint({
+        schedule: schedule({ coverage: 0, environments: ["staging"] }, [
+          { id: "t1", ruleId: "fr_1" },
+        ]),
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: () => ["dev"],
+      }).sort(),
+    ).toEqual(["dev", "staging"]);
+  });
+
+  // Unresolved target rules widen the footprint to fail closed.
+  it("widens to every environment when a target's rule cannot be resolved", () => {
+    expect(
+      rampControlFootprint({
+        schedule: schedule({ coverage: 0 }, [
+          { id: "t1", ruleId: "fr_1" },
+          { id: "t2", ruleId: "fr_other" },
+        ]),
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: (t) => (t.ruleId === "fr_1" ? ["dev"] : undefined),
+      }).sort(),
+    ).toEqual([...ORG_ENVS].sort());
+  });
+
+  it("widens when a target's rule serves every environment", () => {
+    expect(
+      rampControlFootprint({
+        schedule: schedule({ coverage: 0 }, [{ id: "t1", ruleId: "fr_1" }]),
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: () => "all",
+      }).sort(),
+    ).toEqual([...ORG_ENVS].sort());
+  });
+
+  it("unions across resolvable targets rather than taking the first", () => {
+    expect(
+      rampControlFootprint({
+        schedule: schedule({ coverage: 0 }, [
+          { id: "t1", ruleId: "fr_dev" },
+          { id: "t2", ruleId: "fr_prod" },
+        ]),
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: (t) =>
+          t.ruleId === "fr_dev" ? ["dev"] : ["production"],
+      }).sort(),
+    ).toEqual(["dev", "production"]);
+  });
+
+  it("falls back to the schedule-wide footprint with no targets", () => {
+    expect(
+      rampControlFootprint({
+        schedule: {
+          startActions: [],
+          steps: [],
+          endActions: [],
+          targets: [],
+        } as never,
+        allEnvironments: ORG_ENVS,
+        ruleEnvsForTarget: () => undefined,
+      }).sort(),
+    ).toEqual([...ORG_ENVS].sort());
+  });
+});
+
 describe("getEnvsFromRampSchedule", () => {
+  it("widens a schedule with no patches to 'all', never []", () => {
+    expect(
+      getEnvsFromRampSchedule({
+        startActions: [],
+        steps: [],
+        endActions: [],
+      } as never),
+    ).toBe("all");
+  });
+
   it("collects all environments mentioned in any step patch", () => {
     const sched = makeSchedule([
       { environments: ["dev"] },
@@ -2475,9 +3962,10 @@ describe("getEnvsFromRampSchedule", () => {
     expect(getEnvsFromRampSchedule(sched)).toBe("all");
   });
 
-  it("returns empty array when no patches specify environments", () => {
+  it("widens to all when a patch names no environments", () => {
+    // Unscoped patches inherit rule scope, so an empty footprint would fail open.
     const sched = makeSchedule([{ environments: [] }, {}]);
-    expect(getEnvsFromRampSchedule(sched)).toEqual([]);
+    expect(getEnvsFromRampSchedule(sched)).toBe("all");
   });
 
   it("includes patches from startActions and endActions", () => {
@@ -2798,7 +4286,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(true);
@@ -2831,7 +4319,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(false);
@@ -2888,7 +4376,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draft,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(true);
@@ -2935,7 +4423,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draftRemovesProd,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
         liveRampScheduleEnvs,
       }),
@@ -2982,7 +4470,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draftRemovesProd,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
         // no liveRampScheduleEnvs
       }),
@@ -3015,7 +4503,7 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: draftDetach,
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: prodGatedSettings,
       }),
     ).toBe(true);
@@ -3027,9 +4515,430 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         feature,
         baseRevision: baseRev,
         revision: { ...baseRev },
-        allEnvironments: allEnvs,
+        orgEnvironments: toEnvs(allEnvs),
         settings: noReviewSettings,
       }),
     ).toBe(false);
+  });
+});
+
+describe("pruneOrphanedRampActions", () => {
+  const rule = (id: string): FeatureRule => ({
+    id,
+    type: "force",
+    value: "true",
+    description: "",
+    environments: ["production"],
+  });
+
+  it("keeps actions whose target rule survived the merge", () => {
+    const actions = [
+      { mode: "create" as const, ruleId: "a" },
+      { mode: "detach" as const, ruleId: "b" },
+    ];
+    const { kept, pruned } = pruneOrphanedRampActions(actions, [
+      rule("a"),
+      rule("b"),
+    ]);
+    expect(kept).toEqual(actions);
+    expect(pruned).toEqual([]);
+  });
+
+  it("prunes actions whose target rule no longer exists", () => {
+    const actions = [
+      { mode: "create" as const, ruleId: "a" },
+      { mode: "update" as const, ruleId: "gone" },
+      { mode: "detach" as const, ruleId: "also-gone" },
+    ];
+    const { kept, pruned } = pruneOrphanedRampActions(actions, [rule("a")]);
+    expect(kept).toEqual([{ mode: "create", ruleId: "a" }]);
+    expect(pruned).toEqual([
+      { mode: "update", ruleId: "gone" },
+      { mode: "detach", ruleId: "also-gone" },
+    ]);
+  });
+
+  it("keeps actions without a rule reference", () => {
+    const actions = [{ mode: "create" as const, ruleId: undefined }];
+    const { kept, pruned } = pruneOrphanedRampActions(actions, []);
+    expect(kept).toEqual(actions);
+    expect(pruned).toEqual([]);
+  });
+
+  it("handles undefined rampActions", () => {
+    const { kept, pruned } = pruneOrphanedRampActions(undefined, [rule("a")]);
+    expect(kept).toEqual([]);
+    expect(pruned).toEqual([]);
+  });
+});
+
+describe("sparse JSON rule helpers", () => {
+  describe("parsePlainJSONObject", () => {
+    it("returns the object for a plain key/val object", () => {
+      expect(parsePlainJSONObject('{"a":1,"b":"x"}')).toEqual({ a: 1, b: "x" });
+    });
+    it("returns null for arrays", () => {
+      expect(parsePlainJSONObject("[1,2,3]")).toBeNull();
+    });
+    it("returns null for null", () => {
+      expect(parsePlainJSONObject("null")).toBeNull();
+    });
+    it("returns null for primitives", () => {
+      expect(parsePlainJSONObject("42")).toBeNull();
+      expect(parsePlainJSONObject('"hi"')).toBeNull();
+    });
+    it("returns null for unparseable input", () => {
+      expect(parsePlainJSONObject("not json")).toBeNull();
+    });
+  });
+
+  describe("resolveSparseJSONValue", () => {
+    const defaultObj = { a: "default", b: 1, c: true };
+
+    it("merges the sparse value onto the default object", () => {
+      expect(resolveSparseJSONValue('{"a":"over"}', defaultObj)).toEqual({
+        a: "over",
+        b: 1,
+        c: true,
+      });
+    });
+
+    it("adds keys not present in the default (no schema filtering for json)", () => {
+      expect(resolveSparseJSONValue('{"d":"new"}', defaultObj)).toEqual({
+        a: "default",
+        b: 1,
+        c: true,
+        d: "new",
+      });
+    });
+
+    it("replaces nested objects wholesale (top-level merge, not deep merge)", () => {
+      // A nested object in the patch overwrites the default's entire object for
+      // that key — keys only present in the default's nested object are dropped.
+      expect(
+        resolveSparseJSONValue('{"theme":{"primary":"green"}}', {
+          theme: { primary: "blue", secondary: "red" },
+          other: 1,
+        }),
+      ).toEqual({
+        theme: { primary: "green" },
+        other: 1,
+      });
+    });
+
+    it("returns the parsed value as-is when the default isn't an object", () => {
+      expect(resolveSparseJSONValue('{"a":"over"}', null)).toEqual({
+        a: "over",
+      });
+    });
+
+    it("returns the parsed value as-is when the rule value isn't an object", () => {
+      // Misconfigured sparse flag degrades to full-value behavior.
+      expect(resolveSparseJSONValue("[1,2]", defaultObj)).toEqual([1, 2]);
+      expect(resolveSparseJSONValue("42", defaultObj)).toEqual(42);
+    });
+
+    it("returns null when the rule value is unparseable and there's no object default", () => {
+      expect(resolveSparseJSONValue("not json", null)).toBeNull();
+    });
+  });
+
+  describe("stripDefaultsForSparse", () => {
+    const def = JSON.stringify({ a: "x", b: { n: 1 }, c: [1, 2] });
+
+    it("drops keys equal to the default (full default → clean slate)", () => {
+      expect(JSON.parse(stripDefaultsForSparse(def, def))).toEqual({});
+    });
+
+    it("keeps changed and added keys, order-insensitive on nested values", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(
+            // b is deep-equal (key order flipped), so it's dropped; a changed, d added
+            JSON.stringify({ a: "y", b: { n: 1 }, d: true }),
+            def,
+          ),
+        ),
+      ).toEqual({ a: "y", d: true });
+    });
+
+    it("treats a nested object as changed when it differs", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(JSON.stringify({ b: { n: 2 } }), def),
+        ),
+      ).toEqual({ b: { n: 2 } });
+    });
+
+    it("returns the input unchanged when either side isn't a plain object", () => {
+      expect(stripDefaultsForSparse("[1,2]", def)).toBe("[1,2]");
+      expect(stripDefaultsForSparse('{"a":"x"}', "not json")).toBe('{"a":"x"}');
+    });
+
+    it("keeps only $extends refs not already in the default", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(
+            JSON.stringify({ $extends: ["@const:foo", "@const:bar"], b: 2 }),
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+          ),
+        ),
+      ).toEqual({ $extends: ["@const:bar"], b: 2 });
+    });
+
+    it("drops $extends entirely when identical to the default's", () => {
+      expect(
+        JSON.parse(
+          stripDefaultsForSparse(
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+          ),
+        ),
+      ).toEqual({});
+    });
+  });
+
+  describe("expandSparseToFull", () => {
+    const def = JSON.stringify({ a: "x", b: 1 });
+
+    it("merges the patch onto the default (top-level)", () => {
+      expect(
+        JSON.parse(expandSparseToFull(JSON.stringify({ a: "y" }), def)),
+      ).toEqual({ a: "y", b: 1 });
+    });
+
+    it("round-trips with stripDefaultsForSparse", () => {
+      const full = JSON.stringify({ a: "y", b: 1 });
+      const patch = stripDefaultsForSparse(full, def);
+      expect(JSON.parse(patch)).toEqual({ a: "y" });
+      expect(JSON.parse(expandSparseToFull(patch, def))).toEqual({
+        a: "y",
+        b: 1,
+      });
+    });
+
+    it("returns the input unchanged when either side isn't a plain object", () => {
+      expect(expandSparseToFull("[1,2]", def)).toBe("[1,2]");
+    });
+
+    it("unions $extends refs instead of clobbering the default's", () => {
+      expect(
+        JSON.parse(
+          expandSparseToFull(
+            JSON.stringify({ $extends: ["@const:bar"], b: 2 }),
+            JSON.stringify({ $extends: ["@const:foo"], a: 1 }),
+          ),
+        ),
+      ).toEqual({ $extends: ["@const:foo", "@const:bar"], a: 1, b: 2 });
+    });
+
+    it("round-trips $extends with stripDefaultsForSparse", () => {
+      const def2 = JSON.stringify({ $extends: ["@const:foo"], a: 1 });
+      const full = JSON.stringify({
+        $extends: ["@const:foo", "@const:bar"],
+        a: 1,
+        b: 2,
+      });
+      const patch = stripDefaultsForSparse(full, def2);
+      expect(JSON.parse(patch)).toEqual({ $extends: ["@const:bar"], b: 2 });
+      expect(JSON.parse(expandSparseToFull(patch, def2))).toEqual({
+        $extends: ["@const:foo", "@const:bar"],
+        a: 1,
+        b: 2,
+      });
+    });
+
+    it("preserves an inline-object $extends entry through a round-trip", () => {
+      // Inline objects are positional, so the toggle keeps the $extends array
+      // verbatim rather than ref-diffing it.
+      const def2 = JSON.stringify({ $extends: ["@const:foo"], a: 1 });
+      const full = JSON.stringify({
+        $extends: ["@const:foo", { b: 2 }],
+        a: 1,
+        c: 3,
+      });
+      const patch = stripDefaultsForSparse(full, def2);
+      // $extends kept verbatim; own keys still diffed (a stripped, c kept)
+      expect(JSON.parse(patch)).toEqual({
+        $extends: ["@const:foo", { b: 2 }],
+        c: 3,
+      });
+      expect(JSON.parse(expandSparseToFull(patch, def2))).toEqual(
+        JSON.parse(full),
+      );
+    });
+  });
+});
+
+describe("evaluatePrerequisiteState", () => {
+  const makeFeature = (
+    id: string,
+    prerequisites: string[] = [],
+    overrides: Partial<FeatureInterface> = {},
+  ): FeatureInterface => ({
+    ...feature,
+    id,
+    environmentSettings: { production: { enabled: true } },
+    rules: [],
+    prerequisites: prerequisites.map((id) => ({
+      id,
+      condition: '{"value": true}',
+    })),
+    ...overrides,
+  });
+
+  const evaluate = (features: FeatureInterface[]) =>
+    evaluatePrerequisiteState(
+      features[0],
+      new Map(features.map((f) => [f.id, f])),
+      "production",
+      false,
+      true,
+    );
+
+  it("allows a prerequisite shared by separate branches", () => {
+    expect(
+      evaluate([
+        makeFeature("a", ["b", "c"]),
+        makeFeature("b", ["d"]),
+        makeFeature("c", ["d"]),
+        makeFeature("d"),
+      ]),
+    ).toEqual({ state: "deterministic", value: true });
+  });
+
+  it("allows repeated references to the same prerequisite", () => {
+    expect(evaluate([makeFeature("a", ["b", "b"]), makeFeature("b")])).toEqual({
+      state: "deterministic",
+      value: true,
+    });
+  });
+
+  it("propagates a cycle to a feature outside the cycle", () => {
+    expect(
+      evaluate([
+        makeFeature("a", ["b"]),
+        makeFeature("b", ["c"]),
+        makeFeature("c", ["b"]),
+      ]),
+    ).toEqual({ state: "cyclic", value: null });
+  });
+
+  it("stops at a disabled prerequisite before following its cycle", () => {
+    expect(
+      evaluate([
+        makeFeature("a", ["b"]),
+        makeFeature("b", ["a"], {
+          environmentSettings: { production: { enabled: false } },
+        }),
+      ]),
+    ).toEqual({ state: "deterministic", value: null });
+  });
+
+  it("stops at a missing prerequisite before following a later cycle", () => {
+    expect(
+      evaluate([makeFeature("a", ["missing", "b"]), makeFeature("b", ["a"])]),
+    ).toEqual({ state: "deterministic", value: null });
+  });
+
+  it("stops at a failed condition before following a later cycle", () => {
+    expect(
+      evaluate([
+        makeFeature("a", ["off", "b"]),
+        makeFeature("off", [], { defaultValue: "false" }),
+        makeFeature("b", ["a"]),
+      ]),
+    ).toEqual({ state: "deterministic", value: null });
+  });
+});
+
+describe("draftHasChangesOutsideTargetRef", () => {
+  const makeRev = (overrides: Partial<RevisionFields>): RevisionFields => ({
+    defaultValue: "control",
+    rules: {},
+    version: 1,
+    environmentsEnabled: { production: true },
+    prerequisites: [],
+    archived: false,
+    metadata: {},
+    holdout: null,
+    rampActions: [],
+    ...overrides,
+  });
+
+  const targetRule = {
+    id: "tr_1",
+    type: "contextual-bandit-ref",
+    contextualBanditId: "cb_1",
+    description: "",
+    enabled: true,
+  } as unknown as FeatureRule;
+
+  const isTarget = (rule: FeatureRule): boolean =>
+    rule.type === "contextual-bandit-ref" &&
+    (rule as unknown as { contextualBanditId?: string }).contextualBanditId ===
+      "cb_1";
+
+  it("returns false when the draft only adds the target ref rule", () => {
+    const live = makeRev({ rules: { production: [] } });
+    const draft = makeRev({ rules: { production: [targetRule] } });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(false);
+  });
+
+  it("returns false when live and draft are identical", () => {
+    const live = makeRev({ rules: { production: [targetRule] } });
+    const draft = makeRev({ rules: { production: [targetRule] } });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(false);
+  });
+
+  it("returns true when defaultValue changes alongside the target ref", () => {
+    const live = makeRev({
+      defaultValue: "control",
+      rules: { production: [] },
+    });
+    const draft = makeRev({
+      defaultValue: "treatment",
+      rules: { production: [targetRule] },
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(true);
+  });
+
+  it("returns true when a non-target rule is added", () => {
+    const otherRule = {
+      id: "fr_1",
+      type: "force",
+      description: "",
+      enabled: true,
+      value: "treatment",
+    } as unknown as FeatureRule;
+    const live = makeRev({ rules: { production: [] } });
+    const draft = makeRev({
+      rules: { production: [targetRule, otherRule] },
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(true);
+  });
+
+  it("ignores a different ref id (only the matched target is stripped)", () => {
+    const otherCbRule = {
+      id: "tr_2",
+      type: "contextual-bandit-ref",
+      contextualBanditId: "cb_2",
+      description: "",
+      enabled: true,
+    } as unknown as FeatureRule;
+    const live = makeRev({ rules: { production: [otherCbRule] } });
+    const draft = makeRev({
+      rules: { production: [otherCbRule, targetRule] },
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(false);
+  });
+
+  it("returns true when prerequisites change", () => {
+    const live = makeRev({ rules: { production: [targetRule] } });
+    const draft = makeRev({
+      rules: { production: [targetRule] },
+      prerequisites: [{ id: "feat_x", condition: '{"value": true}' }],
+    });
+    expect(draftHasChangesOutsideTargetRef(draft, live, isTarget)).toBe(true);
   });
 });

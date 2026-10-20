@@ -1,0 +1,8 @@
+---
+description: "TypeScript and React conventions for front-end development"
+globs: packages/front-end/**/*.tsx,packages/front-end/**/*.ts
+alwaysApply: false
+---
+# Front-end React Patterns
+
+Before changing front-end React code, read and follow `.agents/guides/frontend/react-patterns.md`.

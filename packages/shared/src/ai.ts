@@ -1,24 +1,82 @@
 import { parseOptionalInt } from "./util/numbers";
 
-// AI Provider types and configurations
-export type AIProvider = "openai" | "anthropic" | "xai" | "mistral" | "google";
+export const AI_PROVIDERS = [
+  "openai",
+  "anthropic",
+  "google",
+  "xai",
+  "mistral",
+] as const;
+export type AIProvider = (typeof AI_PROVIDERS)[number];
 
-// Available text generation models for each provider
+export const AI_PROVIDER_META: Record<
+  AIProvider,
+  {
+    label: string;
+    envVar: string;
+    legacyEnvVars?: string[];
+    keyPlaceholder: string;
+    consoleUrl: string;
+  }
+> = {
+  openai: {
+    label: "OpenAI",
+    envVar: "OPENAI_API_KEY",
+    keyPlaceholder: "sk-...",
+    consoleUrl: "https://platform.openai.com/api-keys",
+  },
+  anthropic: {
+    label: "Anthropic",
+    envVar: "ANTHROPIC_API_KEY",
+    keyPlaceholder: "sk-ant-...",
+    consoleUrl: "https://console.anthropic.com/settings/keys",
+  },
+  google: {
+    label: "Google",
+    envVar: "GOOGLE_AI_API_KEY",
+    legacyEnvVars: ["GEMINI_API_KEY"],
+    keyPlaceholder: "AIza...",
+    consoleUrl: "https://aistudio.google.com/apikey",
+  },
+  xai: {
+    label: "xAI",
+    envVar: "XAI_API_KEY",
+    keyPlaceholder: "xai-...",
+    consoleUrl: "https://console.x.ai",
+  },
+  mistral: {
+    label: "Mistral",
+    envVar: "MISTRAL_API_KEY",
+    keyPlaceholder: "...",
+    consoleUrl: "https://console.mistral.ai/api-keys",
+  },
+};
+
+// Only ids the provider still serves. Retired ones come out; a stored setting
+// naming one reads as unset (getAllowedAIModel) and falls back to the default.
+// Audited 2026-10-12.
+// Newest generation first, larger tier first within it. The model pickers
+// keep this order, so it is also what admins see.
 export const AI_PROVIDER_MODEL_MAP = {
   openai: [
+    "gpt-6.1-sol",
+    "gpt-6-astra",
+    "gpt-6-sol",
+    "gpt-6-luna",
+    // GPT-5.6 series. `gpt-5.6` is an alias for sol; we list the explicit
+    // ids so a stored setting can't shift under an org when the alias moves.
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
     // GPT-5 series
     "gpt-5.4-mini",
     "gpt-5.4-nano",
-    "gpt-5.2",
     "gpt-5.2-pro",
-    "gpt-5.1-codex",
-    "gpt-5.1-codex-max",
-    "gpt-5.1-codex-mini",
-    "gpt-5",
-    "gpt-5-nano",
-    "gpt-5-mini",
+    "gpt-5.2",
     "gpt-5-pro",
-    "gpt-5-codex",
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
     // GPT-4 series
     "gpt-4.1",
     "gpt-4.1-mini",
@@ -32,52 +90,496 @@ export const AI_PROVIDER_MODEL_MAP = {
     "o1",
   ],
   anthropic: [
-    "claude-haiku-4-5-20251001",
+    // Current generation. These ids are complete as published — Anthropic
+    // stopped issuing dated snapshots for them, so there is nothing to pin.
+    "claude-opus-5-5",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5",
+    "claude-opus-5",
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    // Intentional rolling alias — Anthropic hasn't published a dated snapshot
+    // for Sonnet 4.6 yet, so this tracks the latest build. Pin to a dated id
+    // (claude-sonnet-4-6-YYYYMMDD) here once one exists if you need stable
+    // behaviour. The older Claude entries are dated for exactly that reason.
+    "claude-sonnet-4-6",
     "claude-sonnet-4-5-20250929",
-    "claude-opus-4-1-20250805",
+    "claude-haiku-4-5-20251001",
     "claude-opus-4-20250514",
     "claude-sonnet-4-20250514",
-    "claude-3-7-sonnet-20250219",
-    "claude-3-5-haiku-20241022",
-    "claude-3-haiku-20240307",
   ],
-  xai: [
-    "grok-code-fast-1",
-    "grok-4-fast-non-reasoning",
-    "grok-4-fast-reasoning",
-    "grok-4",
-    "grok-3",
-    "grok-3-mini",
-    "grok-3-fast",
-    "grok-3-mini-fast",
-    "grok-2",
+  // The grok-4-fast / grok-4-0709 / grok-3 / grok-2 families were retired on
+  // 2026-05-15 — xAI redirects them to grok-4.3 and bills at 4.3 rates, so
+  // keeping them listed only misrepresents what an org is selecting.
+  xai: ["grok-4.7", "grok-4.6", "grok-4.5", "grok-4.3"],
+  // Rolling aliases rather than dated snapshots. Mistral supports both, but
+  // its dated ids (mistral-medium-2508) turn over far faster than we update
+  // this list, and the previous pinned entries had all reached end of life —
+  // pixtral-12b in Dec 2025, Medium 3/3.1 on 2026-08-31, Pixtral Large on
+  // 2026-05-31. The tradeoff is that a model's behaviour can shift under an
+  // org when Mistral moves an alias.
+  mistral: [
+    "mistral-large-latest",
+    "mistral-medium-latest",
+    "mistral-small-latest",
   ],
-  mistral: ["mistral-small", "mistral-medium", "pixtral-12b"],
+  // gemini-3-pro-preview was shut down on 2026-03-09 (superseded by
+  // gemini-3.1-pro-preview), and the gemini-2.0 pair is likewise retired.
   google: [
-    "gemini-3-pro-preview",
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-pro-preview",
     "gemini-3-flash-preview",
+    "gemini-2.5-pro",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
-    "gemini-2.5-pro",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
     "gemini-flash-latest",
     "gemini-flash-lite-latest",
     "gemini-pro-latest",
   ],
 } as const;
 
-// Derive AIModel type from the models defined in AI_PROVIDER_MODEL_MAP
 export type AIModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
 
-// Helper to determine which provider a model belongs to
+export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-sonnet-5-5";
+// The visual editor is the most schema-sensitive workload we run: multi-step
+// tool loops that must end in a large, exact JSON object, plus vision. It
+// gets the Opus tier while the general default stays on Sonnet.
+export const CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL: AIModel = "claude-opus-5-5";
+// Autocomplete runs on every pause in typing, so it gets the cheapest tier.
+export const AUTOCOMPLETE_AI_MODEL: AIModel = "claude-haiku-5-5";
+// Self-hosted has no managed key, so the default has to follow whichever
+// provider the admin actually configured. A fixed OpenAI default told an
+// admin who set only ANTHROPIC_API_KEY that no OpenAI key was configured.
+// OpenAI is first so existing installs keep the model they run today.
+export const SELF_HOSTED_DEFAULT_AI_MODELS: ReadonlyArray<
+  [AIProvider, AIModel]
+> = [
+  ["openai", "gpt-5.4-mini"],
+  ["anthropic", "claude-sonnet-5-5"],
+  ["google", "gemini-3.5-flash"],
+  ["xai", "grok-4.3"],
+  ["mistral", "mistral-medium-latest"],
+];
+
+export const CLOUD_MANAGED_IMAGE_MODEL = "gemini-3-pro-image";
+export const DEFAULT_EMBEDDING_MODEL = "text-embedding-ada-002";
+
+function providerOf(
+  map: Readonly<Record<string, readonly string[]>>,
+  model: string,
+  label: string,
+): AIProvider {
+  for (const [provider, models] of Object.entries(map)) {
+    if (models.includes(model)) return provider as AIProvider;
+  }
+  throw new Error(`${label} ${model} is not supported.`);
+}
+
 export function getProviderFromModel(model: AIModel): AIProvider {
-  for (const [provider, models] of Object.entries(AI_PROVIDER_MODEL_MAP)) {
-    if (models.includes(model as never)) {
-      return provider as AIProvider;
+  return providerOf(AI_PROVIDER_MODEL_MAP, model, "Model");
+}
+
+// OpenAI reasoning models (the o-series and the entire GPT-5 family) are
+// served through the Responses API and reject the `temperature`
+// parameter — the AI SDK logs a warning and silently drops it. Callers
+// should omit `temperature` for these models. Non-reasoning OpenAI models
+// (gpt-4*, gpt-4o*) and every other provider still accept it.
+export function isReasoningModel(model: AIModel): boolean {
+  return /^(o[0-9]|gpt-[5-9])/.test(model);
+}
+
+// Claude models that removed the sampling parameters: sending `temperature`
+// returns a 400 rather than being ignored. Claude 4.6 and older still accept
+// it, so this can't be a version-range check — add new ids here as they ship.
+const CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS: ReadonlySet<string> = new Set([
+  "claude-opus-5-5",
+  "claude-opus-5",
+  "claude-sonnet-5-5",
+  "claude-sonnet-5",
+  "claude-haiku-5-5",
+  "claude-opus-4-8",
+]);
+
+// Whether `temperature` can be sent for this model at all. Callers should
+// omit it entirely when false — passing it is a hard error on the newer
+// Claude models and a silently-dropped no-op on OpenAI reasoning models.
+export function supportsTemperature(model: AIModel): boolean {
+  if (isReasoningModel(model)) return false;
+  return !CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS.has(model);
+}
+
+// Claude models without native structured output. For these the only way to
+// get schema-shaped JSON is the AI SDK's json-tool fallback: a forced call to
+// a synthetic tool. The newest models (Opus 5.5) reject forced tool use
+// outright, so the fallback is a 400 there — the mode has to follow the
+// model. Only Opus 5.5 and Sonnet 5 are spike-verified against the real API;
+// the other entries below Sonnet 5 mirror @ai-sdk/anthropic's own
+// getModelCapabilities() table (supportsStructuredOutput), since it's the
+// only signal we have for models we haven't individually tested.
+const CLAUDE_MODELS_WITHOUT_STRUCTURED_OUTPUT: ReadonlySet<string> = new Set([
+  "claude-opus-4-8",
+  "claude-sonnet-4-6",
+  "claude-haiku-4-5-20251001",
+  "claude-opus-4-20250514",
+  "claude-sonnet-4-20250514",
+]);
+
+// How the AI SDK's Anthropic provider should produce schema-shaped output for
+// this model, or null when the model isn't Claude. Native mode also lifts the
+// json-tool fallback's ban on parallel tool calls.
+export function anthropicStructuredOutputMode(
+  model: AIModel,
+): "outputFormat" | "jsonTool" | null {
+  if (getProviderFromModel(model) !== "anthropic") return null;
+  return CLAUDE_MODELS_WITHOUT_STRUCTURED_OUTPUT.has(model)
+    ? "jsonTool"
+    : "outputFormat";
+}
+
+export const DEFAULT_MAX_OUTPUT_TOKENS = 8000;
+
+// Documented ceilings only: over-asking is a 400, not a clamp.
+const MODEL_MAX_OUTPUT_TOKENS: Partial<Record<AIModel, number>> = {
+  "claude-opus-5-5": 128000,
+  "claude-opus-5": 128000,
+  "claude-haiku-5-5": 128000,
+  "claude-sonnet-5-5": 128000,
+  "claude-sonnet-5": 128000,
+  "claude-opus-4-8": 128000,
+  "claude-sonnet-4-6": 128000,
+  "claude-haiku-4-5-20251001": 64000,
+};
+
+// `extended` applies only where the ceiling is known, capped at it; otherwise `safe`.
+export function resolveMaxOutputTokens(
+  model: AIModel,
+  safe: number,
+  extended?: number,
+): number {
+  const ceiling = MODEL_MAX_OUTPUT_TOKENS[model];
+  return ceiling === undefined ? safe : Math.min(ceiling, extended ?? safe);
+}
+
+// Whether a text model can accept image input (vision). The model
+// registry carries no capability metadata, so this is a hand-maintained
+// allow-list — keep it in sync with AI_PROVIDER_MODEL_MAP. Routing an
+// image to a text-only model fails opaquely at the provider, so callers
+// that attach an image MUST gate on this.
+export function isVisionCapableModel(model: AIModel): boolean {
+  // All Gemini models are multimodal.
+  if (model.startsWith("gemini-")) return true;
+  // All Claude 3+ models (3, 3.5, 3.7, 4.x) accept image input.
+  if (model.startsWith("claude-")) return true;
+  // OpenAI: gpt-4o*, gpt-4.1*, and GPT-5 onward see images. The o-series
+  // reasoning models do not.
+  if (/^gpt-4o/.test(model)) return true;
+  if (/^gpt-4\.1/.test(model)) return true;
+  if (/^gpt-[5-9]/.test(model)) return true;
+  // Mistral's generalist models have gained vision, but an alias can move
+  // off it and routing an image at a text-only model fails opaquely.
+  // xAI: the grok-4 family is multimodal; grok-3/grok-2 are not.
+  if (/^grok-4/.test(model)) return true;
+  return false;
+}
+
+// Pick a vision-capable text model for a design-analysis turn. Prefers the
+// org's configured visual-editor model when it can see images; otherwise
+// falls back to a strong vision model on whichever provider has a key,
+// Google → OpenAI → Anthropic. Returns null when no vision-capable
+// provider is available (caller should surface a helpful error).
+export function pickVisionModel(settings: {
+  visualEditorAIModel?: AIModel;
+  openAIAPIKey?: string;
+  anthropicAPIKey?: string;
+  googleAPIKey?: string;
+}): AIModel | null {
+  if (
+    settings.visualEditorAIModel &&
+    isVisionCapableModel(settings.visualEditorAIModel)
+  ) {
+    return settings.visualEditorAIModel;
+  }
+  if (settings.googleAPIKey) return "gemini-3.8-flash";
+  if (settings.openAIAPIKey) return "gpt-6.1-sol";
+  if (settings.anthropicAPIKey) return "claude-sonnet-5-5";
+  return null;
+}
+
+// Image generation model registry. Add new models here — back-end
+// dispatches off `provider` + `kind`; front-end reads `label`.
+// `kind`:
+//   "image-endpoint"   = dedicated text-to-image endpoint (DALL-E, Imagen, Grok)
+//   "multimodal-text"  = LM that emits image bytes (Gemini *-image); the only
+//                        kind that currently accepts reference images.
+
+export type AIImageProvider = "openai" | "google" | "xai";
+
+export type AIImageModelKind = "image-endpoint" | "multimodal-text";
+
+export interface AIImageModelMeta {
+  // Canonical SDK model id. See resolveImageModelIdForSdk for aliases.
+  id: string;
+  provider: AIImageProvider;
+  kind: AIImageModelKind;
+  // Human-readable label for the AI Settings dropdown.
+  label: string;
+  supportsReferenceImage: boolean;
+  // Aspect ratios this model can actually be steered to. A requested ratio
+  // is snapped to the closest entry here before generation, so we never
+  // hand a model (e.g. gpt-image-1) a ratio it rejects.
+  supportedAspectRatios: readonly string[];
+  // Whether the model respects a programmatic aspect-ratio hint
+  // (`imageConfig.aspectRatio` for Gemini, the `aspectRatio`/size arg for
+  // dedicated endpoints). When false (e.g. gemini-2.5-flash-image), the
+  // output shape is unpredictable and the only reliable lever is the text
+  // prompt — so the framing/safe-area instruction is always applied.
+  honorsAspectRatio: boolean;
+}
+
+// Ratios Gemini 3 Pro Image accepts via imageConfig.aspectRatio.
+const GEMINI_ASPECT_RATIOS = [
+  "1:1",
+  "2:3",
+  "3:2",
+  "3:4",
+  "4:3",
+  "4:5",
+  "5:4",
+  "9:16",
+  "16:9",
+  "21:9",
+] as const;
+
+export const AI_IMAGE_MODELS: ReadonlyArray<AIImageModelMeta> = [
+  // Google multimodal-text (nano-banana lineage). The old `-preview`
+  // path 404s at v1beta now; legacy ids are remapped via
+  // IMAGE_MODEL_ALIASES.
+  {
+    id: "gemini-2.5-flash-image",
+    provider: "google",
+    kind: "multimodal-text",
+    label: "Gemini 2.5 Flash Image (nano-banana)",
+    supportsReferenceImage: true,
+    // Ignores imageConfig.aspectRatio, so output shape is driven entirely
+    // by the prompt. The extra-wide/tall entries give the framing
+    // instruction a cleaner target for banner-shaped slots.
+    supportedAspectRatios: [...GEMINI_ASPECT_RATIOS, "3:1", "1:3"],
+    honorsAspectRatio: false,
+  },
+  {
+    id: "gemini-3-pro-image",
+    provider: "google",
+    kind: "multimodal-text",
+    label: "Gemini 3 Pro Image",
+    supportsReferenceImage: true,
+    supportedAspectRatios: GEMINI_ASPECT_RATIOS,
+    honorsAspectRatio: true,
+  },
+  // Google Imagen (dedicated endpoint)
+  {
+    id: "imagen-4.0-fast-generate-001",
+    provider: "google",
+    kind: "image-endpoint",
+    label: "Imagen 4 Fast",
+    supportsReferenceImage: false,
+    supportedAspectRatios: ["1:1", "3:4", "4:3", "9:16", "16:9"],
+    honorsAspectRatio: true,
+  },
+  {
+    id: "imagen-4.0-generate-001",
+    provider: "google",
+    kind: "image-endpoint",
+    label: "Imagen 4",
+    supportsReferenceImage: false,
+    supportedAspectRatios: ["1:1", "3:4", "4:3", "9:16", "16:9"],
+    honorsAspectRatio: true,
+  },
+  {
+    id: "imagen-4.0-ultra-generate-001",
+    provider: "google",
+    kind: "image-endpoint",
+    label: "Imagen 4 Ultra",
+    supportsReferenceImage: false,
+    supportedAspectRatios: ["1:1", "3:4", "4:3", "9:16", "16:9"],
+    honorsAspectRatio: true,
+  },
+  // OpenAI
+  {
+    id: "dall-e-3",
+    provider: "openai",
+    kind: "image-endpoint",
+    label: "DALL-E 3",
+    supportsReferenceImage: false,
+    // 1024², 1792×1024, 1024×1792.
+    supportedAspectRatios: ["1:1", "16:9", "9:16"],
+    honorsAspectRatio: true,
+  },
+  {
+    id: "gpt-image-1",
+    provider: "openai",
+    kind: "image-endpoint",
+    label: "GPT Image 1",
+    supportsReferenceImage: false,
+    // 1024², 1536×1024, 1024×1536.
+    supportedAspectRatios: ["1:1", "3:2", "2:3"],
+    honorsAspectRatio: true,
+  },
+  {
+    id: "gpt-image-1-mini",
+    provider: "openai",
+    kind: "image-endpoint",
+    label: "GPT Image 1 Mini",
+    supportsReferenceImage: false,
+    supportedAspectRatios: ["1:1", "3:2", "2:3"],
+    honorsAspectRatio: true,
+  },
+  // xAI
+  {
+    id: "grok-2-image",
+    provider: "xai",
+    kind: "image-endpoint",
+    label: "Grok 2 Image",
+    supportsReferenceImage: false,
+    // Grok image returns a fixed shape; no ratio control.
+    supportedAspectRatios: ["1:1"],
+    honorsAspectRatio: false,
+  },
+];
+
+// Legacy → SDK id aliases. Mapped at dispatch so existing org settings
+// keep working without a migration.
+const IMAGE_MODEL_ALIASES: Record<string, string> = {
+  "gemini-2.5-flash-image-preview": "gemini-2.5-flash-image",
+  // Retired 2026-06-25; the GA id took over.
+  "gemini-3-pro-image-preview": "gemini-3-pro-image",
+};
+
+export function resolveImageModelIdForSdk(model: string): string {
+  return IMAGE_MODEL_ALIASES[model] ?? model;
+}
+
+export function getImageModelMeta(model: string): AIImageModelMeta | undefined {
+  const resolved = resolveImageModelIdForSdk(model);
+  return AI_IMAGE_MODELS.find((m) => m.id === resolved);
+}
+
+// ---------------------------------------------------------------------------
+// Image aspect-ratio helpers
+//
+// When an AI-generated image replaces an existing one on the page, it drops
+// into a slot with a fixed aspect ratio. If the generated image's shape
+// differs, the browser center-crops (object-fit: cover) or overflows, which
+// clips the subject. These pure helpers let the image-gen service (a) snap a
+// requested ratio to the closest shape a given model supports, and (b) build
+// a prompt instruction that keeps the subject inside a centered safe area and
+// pads the rest, so a center crop never removes anything important.
+// ---------------------------------------------------------------------------
+
+// Parse a "w:h" ratio string into a numeric width/height ratio. Returns null
+// for anything unparseable.
+export function parseAspectRatio(
+  input: string | undefined | null,
+): number | null {
+  if (!input) return null;
+  const m = input.trim().match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
+  if (!m) return null;
+  const w = Number(m[1]);
+  const h = Number(m[2]);
+  if (!(w > 0) || !(h > 0)) return null;
+  return w / h;
+}
+
+// Snap a requested ratio to the closest value a model supports. Compared in
+// log space so e.g. 2:1-vs-1:1 and 1:1-vs-1:2 are treated symmetrically.
+// Falls back to "1:1" (or the first supported entry) for unparseable input.
+export function snapAspectRatio(
+  requested: string | undefined | null,
+  supported: readonly string[],
+): string {
+  const pool = supported.length ? supported : ["1:1"];
+  const want = parseAspectRatio(requested);
+  if (want == null) return pool.includes("1:1") ? "1:1" : pool[0];
+  let best = pool[0];
+  let bestDelta = Infinity;
+  for (const ar of pool) {
+    const r = parseAspectRatio(ar);
+    if (r == null) continue;
+    const delta = Math.abs(Math.log(want / r));
+    if (delta < bestDelta) {
+      best = ar;
+      bestDelta = delta;
     }
   }
-  throw new Error(`Model ${model} is not supported.`);
+  return best;
+}
+
+// Approximate output dimensions for a ratio (longer edge = 1024px). Used only
+// as a pre-decode layout hint; real dimensions come from the encoded bytes.
+export function aspectRatioToDims(ratio: string): {
+  width: number;
+  height: number;
+} {
+  const r = parseAspectRatio(ratio) ?? 1;
+  const LONG = 1024;
+  if (r >= 1) return { width: LONG, height: Math.round(LONG / r) };
+  return { width: Math.round(LONG * r), height: LONG };
+}
+
+// Reduce a "w:h" ratio to a readable form (e.g. "1920:480" -> "4:1"). Decimal
+// or awkwardly-large reduced terms fall back to `fallback` (the snapped clean
+// ratio) so the prompt never contains something like "91:51".
+export function humanizeAspectRatio(ratio: string, fallback: string): string {
+  const m = ratio.trim().match(/^(\d+):(\d+)$/);
+  if (!m) return fallback;
+  let a = Number(m[1]);
+  let b = Number(m[2]);
+  if (!(a > 0) || !(b > 0)) return fallback;
+  const gcd = (x: number, y: number): number => (y === 0 ? x : gcd(y, x % y));
+  const g = gcd(a, b);
+  a /= g;
+  b /= g;
+  if (a > 20 || b > 20) return fallback;
+  return `${a}:${b}`;
+}
+
+// Build a framing instruction to append to an image-gen prompt so the result
+// fits an existing slot of `requestedRatio` without clipping the subject.
+// `snappedRatio` is the closest shape the model can emit. Returns "" when
+// there's no slot to match (no parseable requested ratio).
+export function buildImageAspectInstruction({
+  requestedRatio,
+  snappedRatio,
+  honorsAspectRatio,
+}: {
+  requestedRatio: string | undefined | null;
+  snappedRatio: string;
+  honorsAspectRatio: boolean;
+}): string {
+  const want = parseAspectRatio(requestedRatio);
+  if (want == null) return "";
+  const snapped = parseAspectRatio(snappedRatio) ?? want;
+  // Expected distance between the model's emitted shape and the slot. For
+  // models that ignore aspect-ratio hints the output is unpredictable, so we
+  // always treat it as a mismatch and apply the safe-area instruction.
+  const delta = honorsAspectRatio
+    ? Math.abs(Math.log(snapped / want))
+    : Infinity;
+  // ~6%: close enough that a center crop loses nothing meaningful.
+  const MATCH_THRESHOLD = 0.06;
+  const ratioText = humanizeAspectRatio(
+    typeof requestedRatio === "string" ? requestedRatio : "",
+    snappedRatio,
+  );
+
+  if (delta < MATCH_THRESHOLD) {
+    return `\n\nFraming: render the image at a ${ratioText} aspect ratio, filling the frame. Keep the main subject and any text a little inside the edges so nothing important is clipped.`;
+  }
+
+  return `\n\nFraming (important): this image will be placed into a ${ratioText} slot and center-cropped to fit — anything outside a centered ${ratioText} area is cut off. Aim to render the overall image at a ${ratioText} aspect ratio. If the composition can't naturally fill a ${ratioText} frame, keep the main subject and any text within a centered ${ratioText} region and extend the background (or add matching padding) around it, so a centered ${ratioText} crop preserves the entire subject. Don't place key content near the outer edges.`;
 }
 
 // Available embedding models for each provider
@@ -99,18 +601,140 @@ export const AI_PROVIDER_EMBEDDING_MODEL_MAP = {
 export type EmbeddingModel =
   (typeof AI_PROVIDER_EMBEDDING_MODEL_MAP)[keyof typeof AI_PROVIDER_EMBEDDING_MODEL_MAP][number];
 
-// Helper to determine which provider an embedding model belongs to
 export function getProviderFromEmbeddingModel(
   model: EmbeddingModel,
 ): AIProvider {
-  for (const [provider, models] of Object.entries(
-    AI_PROVIDER_EMBEDDING_MODEL_MAP,
-  )) {
-    if (models.includes(model as never)) {
-      return provider as AIProvider;
-    }
+  return providerOf(AI_PROVIDER_EMBEDDING_MODEL_MAP, model, "Embedding model");
+}
+
+// Batch (file-POST) transcription models. Anthropic and Google are absent: no audio input, or upload-only.
+export const AI_PROVIDER_STT_MODEL_MAP = {
+  openai: [
+    "gpt-transcribe",
+    "gpt-4o-transcribe",
+    "gpt-4o-mini-transcribe",
+    "whisper-1",
+  ],
+  xai: ["grok-stt-1.0"],
+  mistral: ["voxtral-mini-latest"],
+} as const;
+
+export type STTModel =
+  (typeof AI_PROVIDER_STT_MODEL_MAP)[keyof typeof AI_PROVIDER_STT_MODEL_MAP][number];
+
+export type STTProvider = keyof typeof AI_PROVIDER_STT_MODEL_MAP;
+
+export function getProviderFromSTTModel(model: STTModel): STTProvider {
+  return providerOf(
+    AI_PROVIDER_STT_MODEL_MAP,
+    model,
+    "Transcription model",
+  ) as STTProvider;
+}
+
+// Each provider's first model, in registry order: a missing key degrades to the next provider.
+export const DEFAULT_STT_MODELS = Object.entries(AI_PROVIDER_STT_MODEL_MAP).map(
+  ([provider, models]) => [provider, models[0]] as [STTProvider, STTModel],
+);
+
+export const DEFAULT_STT_MODEL: STTModel = DEFAULT_STT_MODELS[0][1];
+
+/** Which model "use default" resolves to, given the providers that have a key. */
+export function resolveDefaultSTTModel(
+  providersWithKeys: readonly AIProvider[],
+): STTModel | null {
+  return (
+    DEFAULT_STT_MODELS.find(([provider]) =>
+      providersWithKeys.includes(provider),
+    )?.[1] ?? null
+  );
+}
+
+// Text, embedding, image and transcription models each have their own
+// registry, so callers holding an org setting must say which one it came from.
+export type AIModelKind = "text" | "embedding" | "image" | "stt";
+
+// Provider that serves `model`, or null when the id isn't in that registry.
+// Null rather than a throw: a stale org setting should read as "not selectable",
+// not fail the request that looked at it.
+export function getProviderForAIModel(
+  kind: AIModelKind,
+  model: string,
+): AIProvider | null {
+  try {
+    if (kind === "text") return getProviderFromModel(model as AIModel);
+    if (kind === "embedding")
+      return getProviderFromEmbeddingModel(model as EmbeddingModel);
+    if (kind === "stt") return getProviderFromSTTModel(model as STTModel);
+    return getImageModelMeta(model)?.provider ?? null;
+  } catch {
+    return null;
   }
-  throw new Error(`Embedding model ${model} is not supported.`);
+}
+
+// Org settings that name a model. Removing a provider key has to find every
+// one of them, so they are listed here rather than at each call site.
+// `fallback` mirrors getAISettingsForOrg, so the UI can name what takes over.
+export const AI_MODEL_SETTINGS = [
+  {
+    key: "defaultAIModel",
+    kind: "text",
+    label: "Default AI model",
+    fallback: CLOUD_MANAGED_AI_MODEL,
+  },
+  // Legacy field still read as a fallback for defaultAIModel.
+  {
+    key: "openAIDefaultModel",
+    kind: "text",
+    label: "Default AI model",
+    fallback: CLOUD_MANAGED_AI_MODEL,
+  },
+  {
+    key: "visualEditorAIModel",
+    kind: "text",
+    label: "Visual Editor text model",
+    fallback: CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
+  },
+  {
+    key: "aiAutocompleteModel",
+    kind: "text",
+    label: "AI Assistant autocomplete model",
+    fallback: AUTOCOMPLETE_AI_MODEL,
+  },
+  {
+    key: "visualEditorImageModel",
+    kind: "image",
+    label: "Visual Editor image model",
+    fallback: CLOUD_MANAGED_IMAGE_MODEL,
+  },
+  {
+    key: "embeddingModel",
+    kind: "embedding",
+    label: "Embedding model",
+    fallback: DEFAULT_EMBEDDING_MODEL,
+  },
+  {
+    key: "sttModel",
+    kind: "stt",
+    label: "Dictation model",
+    fallback: DEFAULT_STT_MODEL,
+  },
+] as const;
+
+export type AIModelSettingKey = (typeof AI_MODEL_SETTINGS)[number]["key"];
+
+/**
+ * Which model settings would stop resolving if `provider` lost its key. Used
+ * both to warn before removing one and to clear them after.
+ */
+export function getAIModelSettingsUsingProvider(
+  settings: Partial<Record<AIModelSettingKey, string | undefined>>,
+  provider: AIProvider,
+): { key: AIModelSettingKey; label: string; fallback: string }[] {
+  return AI_MODEL_SETTINGS.filter((s) => {
+    const model = settings[s.key];
+    return !!model && getProviderForAIModel(s.kind, model) === provider;
+  }).map(({ key, label, fallback }) => ({ key, label, fallback }));
 }
 
 export interface AITokenUsageInterface {
@@ -130,7 +754,14 @@ export const AI_PROMPT_TYPES = [
   "visual-changeset-copy-transform-energetic",
   "visual-changeset-copy-transform-concise",
   "visual-changeset-copy-transform-humorous",
+  "visual-editor-ai-edit",
+  "visual-editor-ai-suggestions",
+  "visual-editor-ai-image-gen",
+  "visual-editor-ai-figma",
   "product-analytics-chat",
+  "find-learnings-context",
+  "general-chat",
+  "chat-autocomplete",
 ] as const;
 export type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
 
@@ -163,7 +794,14 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "visual-changeset-copy-transform-energetic": "", // Always uses the default prompt set in postCopyTransform.ts
   "visual-changeset-copy-transform-concise": "", // Always uses the default prompt set in postCopyTransform.ts
   "visual-changeset-copy-transform-humorous": "", // Always uses the default prompt set in postCopyTransform.ts
+  "visual-editor-ai-edit": "", // Always uses the default prompt set in postAIEdit.ts
+  "visual-editor-ai-suggestions": "", // Always uses the default prompt set in postAISuggestions.ts
+  "visual-editor-ai-image-gen": "", // Image generation does not currently use a text prompt template
+  "visual-editor-ai-figma": "", // Always uses the default prompt set in postFigmaToVariant.ts
   "product-analytics-chat": "",
+  "find-learnings-context": "", // Org-specific context appended when finding cross-experiment insights
+  "general-chat": "",
+  "chat-autocomplete": "", // Always uses the default prompt set in agent.controller.ts
 };
 
 // Prompt types that have default values and can be customized by users
@@ -171,7 +809,8 @@ export const CUSTOMIZABLE_PROMPT_TYPES = Object.keys(AI_PROMPT_DEFAULTS).filter(
   (key) =>
     AI_PROMPT_DEFAULTS[key as AIPromptType] !== "" ||
     key === "generate-sql-query" ||
-    key === "product-analytics-chat",
+    key === "product-analytics-chat" ||
+    key === "find-learnings-context",
 ) as AIPromptType[];
 
 export interface AIUsageData {

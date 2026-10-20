@@ -65,7 +65,6 @@ export default function SqlExplorerBlock({
               error={savedQuery.results?.error || ""}
               allowDownload={true}
               showSampleHeader={false}
-              renderedSQLLabel="SQL"
             />
           </Box>
         </div>

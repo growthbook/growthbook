@@ -74,8 +74,10 @@ export default function FeatureImplementationModal({
         </h3>
         <p>
           Read the{" "}
-          <DocLink docSection={data.docs}>{data.label} SDK docs</DocLink> or
-          view a{" "}
+          <DocLink useRadix={false} docSection={data.docs}>
+            {data.label} SDK docs
+          </DocLink>{" "}
+          or view a{" "}
           <a
             href="#"
             onClick={(e) => {

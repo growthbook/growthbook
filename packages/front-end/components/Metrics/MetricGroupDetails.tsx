@@ -18,7 +18,7 @@ import {
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { CSS } from "@dnd-kit/utilities";
 import { GrDrag } from "react-icons/gr";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
@@ -39,7 +39,7 @@ export default function MetricGroupDetails({
   const permissionsUtil = usePermissionsUtil();
   const { getMetricById, getFactMetricById } = useDefinitions();
   const factMetricsInList: string[] = [];
-  const metricObjs: ExperimentMetricInterface[] = metricGroup.metrics
+  const metricObjs: ExperimentMetricDefinition[] = metricGroup.metrics
     .map((id) => {
       const mi = getMetricById(id);
       if (mi) return mi;
@@ -49,7 +49,7 @@ export default function MetricGroupDetails({
         return fm;
       }
     })
-    .filter((m) => m) as ExperimentMetricInterface[];
+    .filter((m) => m) as ExperimentMetricDefinition[];
 
   const [items, setItems] = useState(metricObjs.length ? metricObjs : []);
   useEffect(() => {
@@ -213,7 +213,7 @@ function SortableMetricRow(props) {
 }
 
 interface SortableProps {
-  metric: ExperimentMetricInterface;
+  metric: ExperimentMetricDefinition;
   metricGroupId: string;
   i: number;
   mutate?: () => void;
@@ -273,6 +273,7 @@ function MetricRow({
       </td>
       <td style={{ width: "3%" }}>
         <DeleteButton
+          useRadix={false}
           className="dropdown-item text-danger"
           displayName="Metric from Group"
           deleteMessage="Remove this metric from the group?"

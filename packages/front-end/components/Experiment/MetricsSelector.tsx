@@ -1,17 +1,23 @@
 import { FC, ReactNode, useCallback, useMemo, useState } from "react";
-import { isProjectListValidForProject } from "shared/util";
 import {
-  ExperimentMetricInterface,
+  resolveAnalysisIdentifierType,
+  isProjectListValidForProject,
+} from "shared/util";
+import {
+  ExperimentMetricDefinition,
+  getFactMetricFactTableIds,
   isFactMetric,
+  isFactMetricJoinable,
   isMetricGroupId,
   isMetricJoinable,
   quantileMetricType,
 } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
+import { FactMetricType } from "shared/types/fact-table";
 import { PiInfo } from "react-icons/pi";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField, {
   GroupedValue,
   SingleValue,
@@ -30,7 +36,7 @@ type MetricOption = {
   tags: string[];
   projects: string[];
   factTables: string[];
-  userIdTypes: string[];
+  joinable: boolean;
   isGroup: boolean;
   metrics?: string[];
   managedBy?: string;
@@ -41,12 +47,14 @@ type MetricOption = {
 type MetricsSelectorTooltipProps = {
   onlyBinomial?: boolean;
   noQuantileGoalMetrics?: boolean;
+  noFactFunnelMetrics?: boolean;
   isSingular?: boolean;
 };
 
 export const MetricsSelectorTooltip = ({
   onlyBinomial = false,
   noQuantileGoalMetrics = false,
+  noFactFunnelMetrics = false,
   isSingular = false,
 }: MetricsSelectorTooltipProps) => {
   return (
@@ -76,6 +84,13 @@ export const MetricsSelectorTooltip = ({
                   : "are not quantile metrics"}
               </li>
             ) : null}
+            {noFactFunnelMetrics ? (
+              <li>
+                {isSingular
+                  ? "is not a funnel metric"
+                  : "are not funnel metrics"}
+              </li>
+            ) : null}
           </ul>
         </>
       }
@@ -87,12 +102,14 @@ const MetricsSelector: FC<{
   datasource?: string;
   project?: string;
   exposureQueryId?: string;
+  exposureQueryIdentifierType?: string;
   selected: string[];
   onChange: (metrics: string[]) => void;
   autoFocus?: boolean;
   includeFacts?: boolean;
   includeGroups?: boolean;
   excludeQuantiles?: boolean;
+  allowedFactMetricTypes?: FactMetricType[];
   forceSingleMetric?: boolean;
   noManual?: boolean;
   noLegacyMetrics?: boolean;
@@ -107,16 +124,19 @@ const MetricsSelector: FC<{
     disabled: boolean;
     reason?: string;
   };
+  requireDatasource?: boolean;
 }> = ({
   datasource,
   project,
   exposureQueryId,
+  exposureQueryIdentifierType,
   selected,
   onChange,
   autoFocus,
   includeFacts,
   includeGroups = true,
   excludeQuantiles,
+  allowedFactMetricTypes,
   forceSingleMetric = false,
   noManual = false,
   noLegacyMetrics = false,
@@ -125,14 +145,15 @@ const MetricsSelector: FC<{
   helpText,
   groupOptions = true,
   getMetricDisabledInfo,
+  requireDatasource = false,
 }) => {
   const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
     metrics,
     metricGroups,
     factMetrics,
-    factTables,
     getExperimentMetricById,
+    getFactTableById,
     getDatasourceById,
     mutateDefinitions,
   } = useDefinitions();
@@ -147,10 +168,12 @@ const MetricsSelector: FC<{
   const datasourceSettings = datasource
     ? getDatasourceById(datasource)?.settings
     : undefined;
-  // todo: get specific exposure query from experiment?
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
+  const exposureQuery = datasourceSettings?.queries?.exposure?.find(
     (e) => e.id === exposureQueryId,
-  )?.userIdType;
+  );
+  const userIdType = exposureQuery
+    ? resolveAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
+    : undefined;
 
   const filteredOptions = useMemo(() => {
     const options: MetricOption[] = [
@@ -174,7 +197,16 @@ const MetricsSelector: FC<{
             tags: m.tags || [],
             projects: m.projects || [],
             factTables: [],
-            userIdTypes: m.userIdTypes || [],
+            joinable:
+              !datasourceSettings ||
+              !userIdType ||
+              !(m.userIdTypes || []).length
+                ? true
+                : isMetricJoinable(
+                    m.userIdTypes || [],
+                    userIdType,
+                    datasourceSettings,
+                  ),
             isGroup: false,
             managedBy: m.managedBy,
             disabled: disabledInfo.disabled,
@@ -185,6 +217,12 @@ const MetricsSelector: FC<{
         ? factMetrics
             .filter((m) => {
               if (quantileMetricType(m) && excludeQuantiles) {
+                return false;
+              }
+              if (
+                allowedFactMetricTypes &&
+                !allowedFactMetricTypes.includes(m.metricType)
+              ) {
                 return false;
               }
               if (filterConversionWindowMetrics) {
@@ -204,16 +242,16 @@ const MetricsSelector: FC<{
                 tags: m.tags || [],
                 projects: m.projects || [],
                 managedBy: m.managedBy,
-                factTables: [
-                  m.numerator.factTableId,
-                  (m.metricType === "ratio" && m.denominator
-                    ? m.denominator.factTableId
-                    : "") || "",
-                ],
-                // only focus on numerator user id types
-                userIdTypes:
-                  factTables.find((f) => f.id === m.numerator.factTableId)
-                    ?.userIdTypes || [],
+                factTables: getFactMetricFactTableIds(m),
+                joinable:
+                  !datasourceSettings || !userIdType
+                    ? true
+                    : isFactMetricJoinable(
+                        m,
+                        userIdType,
+                        getFactTableById,
+                        datasourceSettings,
+                      ),
                 isGroup: false,
                 disabled: disabledInfo.disabled,
                 disabledReason: disabledInfo.reason,
@@ -235,7 +273,7 @@ const MetricsSelector: FC<{
                 tags: mg.tags || [],
                 projects: mg.projects || [],
                 factTables: [],
-                userIdTypes: [],
+                joinable: true,
                 isGroup: true,
                 metrics: mg.metrics,
                 disabled: disabledInfo.disabled,
@@ -246,17 +284,15 @@ const MetricsSelector: FC<{
     ];
 
     return options
-      .filter((m) => (datasource ? m.datasource === datasource : true))
       .filter((m) =>
-        datasourceSettings && userIdType && m.userIdTypes.length
-          ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
-          : true,
+        datasource ? m.datasource === datasource : !requireDatasource,
       )
+      .filter((m) => m.joinable)
       .filter((m) => isProjectListValidForProject(m.projects, project));
   }, [
     metrics,
     factMetrics,
-    factTables,
+    getFactTableById,
     metricGroups,
     datasource,
     datasourceSettings,
@@ -267,8 +303,10 @@ const MetricsSelector: FC<{
     includeFacts,
     includeGroups,
     excludeQuantiles,
+    allowedFactMetricTypes,
     filterConversionWindowMetrics,
     getMetricDisabledInfo,
+    requireDatasource,
   ]);
 
   // O(1) lookup map for filteredOptions by id
@@ -317,7 +355,7 @@ const MetricsSelector: FC<{
   const groupMetricsJoinableMap = useMemo(() => {
     const map = new Map<
       string,
-      { metric: ExperimentMetricInterface | null; joinable: boolean }[]
+      { metric: ExperimentMetricDefinition | null; joinable: boolean }[]
     >();
     for (const opt of filteredOptions) {
       if (!opt.isGroup || !opt.metrics) continue;
@@ -326,10 +364,20 @@ const MetricsSelector: FC<{
         opt.metrics.map((m) => {
           const metric = getExperimentMetricById(m);
           if (!metric) return { metric, joinable: false };
-          const userIdTypes = isFactMetric(metric)
-            ? factTables.find((f) => f.id === metric.numerator.factTableId)
-                ?.userIdTypes || []
-            : metric.userIdTypes || [];
+          if (isFactMetric(metric)) {
+            return {
+              metric,
+              joinable: userIdType
+                ? isFactMetricJoinable(
+                    metric,
+                    userIdType,
+                    getFactTableById,
+                    datasourceSettings,
+                  )
+                : true,
+            };
+          }
+          const userIdTypes = metric.userIdTypes || [];
           return {
             metric,
             joinable:
@@ -344,7 +392,7 @@ const MetricsSelector: FC<{
   }, [
     filteredOptions,
     getExperimentMetricById,
-    factTables,
+    getFactTableById,
     userIdType,
     datasourceSettings,
   ]);
@@ -465,8 +513,11 @@ const MetricsSelector: FC<{
     [],
   );
 
+  const selectorDisabled = disabled || (requireDatasource && !datasource);
+
   const selector = !forceSingleMetric ? (
     <MultiSelectField
+      legacyHeight
       value={selected}
       onChange={onChange}
       options={multiSelectOptions}
@@ -474,7 +525,7 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={multiFormatOptionLabel}
-      disabled={disabled}
+      disabled={selectorDisabled}
       helpText={
         <>
           {helpText}
@@ -496,7 +547,7 @@ const MetricsSelector: FC<{
                     style={{ color: "var(--violet-11)" }}
                   >
                     <PiInfo color="var(--color-text-low)" className="mr-1" />
-                    <Text size="small">
+                    <Text size="sm">
                       Create a Metric Group so you can easily re-use this set of
                       metrics in other experiments.
                     </Text>
@@ -534,6 +585,7 @@ const MetricsSelector: FC<{
                       </Tooltip>
                     </span>
                     <SelectField
+                      size="legacy"
                       value="choose"
                       placeholder="choose"
                       className="ml-3"
@@ -569,6 +621,7 @@ const MetricsSelector: FC<{
     />
   ) : (
     <SelectField
+      size="legacy"
       key={datasource ?? "__no_datasource__"} // forces selector UI to clear when changing datasource
       value={selected[0]}
       onChange={(m) => onChange([m])}
@@ -577,7 +630,7 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={singleFormatOptionLabel}
-      disabled={disabled}
+      disabled={selectorDisabled}
       helpText={helpText}
     />
   );

@@ -26,11 +26,13 @@ export default function SavedGroupDeleteModal({
 
   const referencingFeatures = references?.features ?? [];
   const referencingExperiments = references?.experiments ?? [];
+  const referencingBandits = references?.contextualBandits ?? [];
   const referencingSavedGroups = references?.savedGroups ?? [];
 
   const hasReferences =
     !isEmpty(referencingFeatures) ||
     !isEmpty(referencingExperiments) ||
+    !isEmpty(referencingBandits) ||
     !isEmpty(referencingSavedGroups);
 
   const canDelete = !loading && !hasReferences;
@@ -52,23 +54,23 @@ export default function SavedGroupDeleteModal({
         close();
       }}
       ctaEnabled={canDelete}
-      useRadixButton={true}
     >
       {loading ? (
         <Text color="gray">
-          <LoadingSpinner /> Checking saved group references...
+          <LoadingSpinner /> Checking Saved Group references...
         </Text>
       ) : hasReferences ? (
         <>
           <Callout status="error" mb="4">
             <Text as="p" weight="bold" mb="2">
-              Cannot delete saved group
+              Cannot delete Saved Group
             </Text>
             <Text as="p" mb="0">
               Before you can delete this group, you will need to remove any
               references to it. Check the following item
               {referencingFeatures.length +
                 referencingExperiments.length +
+                referencingBandits.length +
                 referencingSavedGroups.length >
                 1 && "s"}{" "}
               below:
@@ -77,6 +79,7 @@ export default function SavedGroupDeleteModal({
           <SavedGroupReferencesList
             features={referencingFeatures}
             experiments={referencingExperiments}
+            contextualBandits={referencingBandits}
             savedGroups={referencingSavedGroups}
           />
         </>

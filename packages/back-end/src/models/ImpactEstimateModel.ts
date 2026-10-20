@@ -108,6 +108,7 @@ export async function getImpactEstimate(
     async () => {
       // Ignore calls to setExternalId
     },
+    { queryType: "impactEstimate" },
   );
   const value = processMetricValueQueryResponse(queryResponse.rows);
 

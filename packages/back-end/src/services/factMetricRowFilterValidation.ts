@@ -1,9 +1,10 @@
+import { getFactTableTimestampColumn } from "shared/experiments";
 import { FactTableInterface, RowFilter } from "shared/types/fact-table";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 
 type FactTableForRowFilterValidation = Pick<
   FactTableInterface,
-  "sql" | "eventName"
+  "id" | "sql" | "eventName" | "timestampColumn"
 >;
 
 function getNormalizedSqlExpr(rowFilter: RowFilter): string | null {
@@ -84,7 +85,9 @@ export async function validateFactMetricRowFilterSql({
     return;
   }
 
-  const query = `SELECT timestamp FROM (
+  const timestampColumn = getFactTableTimestampColumn(factTable);
+
+  const query = `SELECT ${timestampColumn} FROM (
   ${factTable.sql}
 ) f
 WHERE ${riskyFilterExpressions.join(" AND ")}`;
@@ -95,11 +98,16 @@ WHERE ${riskyFilterExpressions.join(" AND ")}`;
     {
       eventName: factTable.eventName,
     },
-    "timestamp",
+    timestampColumn,
   );
 
   try {
-    await integration.runTestQuery(sql, undefined, "factTableValidation");
+    await integration.runTestQuery(
+      sql,
+      undefined,
+      "factTableValidation",
+      factTable.id,
+    );
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     throw new Error(`${errorPrefix}${message}`);

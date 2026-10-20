@@ -1,8 +1,10 @@
 import express from "express";
 import { z } from "zod";
 import {
+  blockComparisonValidator,
   createDashboardBlockInterface,
   dashboardBlockInterface,
+  dashboardGlobalControlsValidator,
   legacyDashboardBlockInterface,
   dashboardEditLevel,
   dashboardShareLevel,
@@ -24,6 +26,8 @@ export const createDashboardBody = z
     shareLevel: dashboardShareLevel,
     enableAutoUpdates: z.boolean(),
     updateSchedule: dashboardUpdateSchedule.optional(),
+    globalControls: dashboardGlobalControlsValidator.optional(),
+    comparison: blockComparisonValidator.optional(),
     blocks: z.array(createDashboardBlockInterface),
     projects: z.array(z.string()).optional(),
     userId: z.string().optional(),
@@ -38,6 +42,11 @@ export const updateDashboardBody = z
     shareLevel: dashboardShareLevel.optional(),
     enableAutoUpdates: z.boolean().optional(),
     updateSchedule: dashboardUpdateSchedule.optional(),
+    globalControls: dashboardGlobalControlsValidator.optional(),
+    // Dashboard-wide period comparison. Declared here because the body is
+    // `.strict()` — without it the field is rejected rather than ignored, so
+    // the dashboard-level compare toggle can never persist.
+    comparison: blockComparisonValidator.optional(),
     projects: z.array(z.string()).optional(),
     blocks: z
       .array(

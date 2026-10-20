@@ -8,7 +8,7 @@ import { isEventWebhookWildcard } from "shared/validators";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
-import MultiSelectField from "@/components/Forms/MultiSelectField";
+import MultiSelectField from "@/ui/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
@@ -27,6 +27,8 @@ import {
   EventWebHookModalMode,
   notificationEventNames,
   WebhookIcon,
+  timeoutError,
+  timeoutSecondsFromInput,
 } from "@/components/EventWebHooks/utils";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -43,14 +45,17 @@ type EventWebHookAddEditModalProps = {
 
 const detailedWebhook = (s: string) => ["raw", "json"].includes(s);
 
+// These types hide the method, headers, and timeout fields, so their values
+// are forced here for both validation and submit
 const forcedParamsMap: {
   [key in EventWebHookPayloadType]?: {
     method: EventWebHookMethod;
     headers: string;
+    timeoutSeconds: null;
   };
 } = {
-  slack: { method: "POST", headers: "{}" },
-  discord: { method: "POST", headers: "{}" },
+  slack: { method: "POST", headers: "{}", timeoutSeconds: null },
+  discord: { method: "POST", headers: "{}", timeoutSeconds: null },
 };
 
 const eventWebHookPayloadValues: { [k in EventWebHookPayloadType]: string } = {
@@ -188,6 +193,7 @@ const EventWebHookAddEditSettings = ({
   return (
     <>
       <SelectField
+        size="legacy"
         label="Payload Type"
         value={form.watch("payloadType")}
         placeholder="Choose payload type"
@@ -218,6 +224,7 @@ const EventWebHookAddEditSettings = ({
 
       <Box mt="4">
         <Field
+          size="legacy"
           label="Webhook Name"
           placeholder="My Webhook"
           {...form.register("name")}
@@ -231,6 +238,7 @@ const EventWebHookAddEditSettings = ({
       {isDetailedWebhook && (
         <Box mt="4">
           <SelectField
+            size="legacy"
             label="Method"
             value={forcedParams?.method || form.watch("method")}
             placeholder="Choose HTTP method"
@@ -249,6 +257,7 @@ const EventWebHookAddEditSettings = ({
 
       <Box mt="4">
         <Field
+          size="legacy"
           label="Endpoint URL"
           placeholder="https://example.com/growthbook-webhook"
           {...form.register("url")}
@@ -257,7 +266,10 @@ const EventWebHookAddEditSettings = ({
               <>
                 Must accept <code>{form.watch("method")}</code> requests.
                 Supports{" "}
-                <DocLink docSection="webhookSecrets">Webhook Secrets</DocLink>.
+                <DocLink useRadix={false} docSection="webhookSecrets">
+                  Webhook Secrets
+                </DocLink>
+                .
               </>
             )
           }
@@ -288,7 +300,7 @@ const EventWebHookAddEditSettings = ({
                 ) : (
                   <Text>
                     JSON format for headers. Supports{" "}
-                    <DocLink docSection="webhookSecrets">
+                    <DocLink useRadix={false} docSection="webhookSecrets">
                       Webhook Secrets
                     </DocLink>
                     .
@@ -300,8 +312,25 @@ const EventWebHookAddEditSettings = ({
         </Box>
       )}
 
+      {isDetailedWebhook && (
+        <Box mt="4">
+          <Field
+            label="Timeout (seconds)"
+            type="number"
+            min={1}
+            placeholder="30"
+            error={timeoutError(form.watch("timeoutSeconds"))}
+            {...form.register("timeoutSeconds", {
+              setValueAs: timeoutSecondsFromInput,
+              onChange: handleFormValidation,
+            })}
+          />
+        </Box>
+      )}
+
       <Box mt="4">
         <MultiSelectField
+          legacyHeight
           label="Events"
           value={form.watch("events")}
           placeholder="Choose events"
@@ -319,7 +348,7 @@ const EventWebHookAddEditSettings = ({
       </Box>
 
       <Box mt="4" className="webhook-filters">
-        <Text size="small" weight="medium" mb="2" as="p">
+        <Text size="sm" weight="medium" mb="2" as="p">
           Apply Filters
         </Text>
 
@@ -330,6 +359,7 @@ const EventWebHookAddEditSettings = ({
             })}
           >
             <MultiSelectField
+              legacyHeight
               label={
                 <FilterLabel
                   name="Environment"
@@ -359,6 +389,7 @@ const EventWebHookAddEditSettings = ({
             })}
           >
             <MultiSelectField
+              legacyHeight
               label={
                 <FilterLabel
                   name="Projects"
@@ -484,6 +515,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
             payloadType: "json",
             method: "POST",
             headers: "{}",
+            timeoutSeconds: null,
           },
   });
 
@@ -511,6 +543,8 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   const handleFormValidation = useCallback(() => {
     const formValues = filteredValues(form.getValues());
     if (!validateHeaders(formValues.headers)) return setSubmitEnabled(false);
+    // Same check the field shows, including the Cloud cap
+    if (timeoutError(formValues.timeoutSeconds)) return setSubmitEnabled(false);
 
     const schema = z.object({
       url: z.string().url(),
@@ -537,6 +571,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       environments: z.array(z.string()),
       method: z.enum(eventWebHookMethods),
       headers: z.string(),
+      timeoutSeconds: z.number().nullish(),
     });
 
     setSubmitEnabled(schema.safeParse(formValues).success);
@@ -571,7 +606,6 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
           </Button>
         ) : undefined
       }
-      useRadixButton={true}
     >
       {step === "confirm" ? (
         <EventWebHookAddConfirm form={form} />

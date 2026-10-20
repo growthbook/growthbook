@@ -1,19 +1,34 @@
+import { SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES } from "shared/constants";
+import { forEachSavedGroupIdInCondition } from "shared/sdk-versioning";
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { isEqual, omit } from "lodash";
 import {
   SavedGroupInterface,
   LegacySavedGroupInterface,
   SavedGroupWithoutValues,
+  SavedGroupForDefinitions,
+  SavedGroupMetadata,
 } from "shared/types/saved-group";
 import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+import { assertSavedGroupProjectScope } from "back-end/src/services/savedGroupProjectScope";
+import {
+  captureEventBuffer,
+  emitOrDeferBulkPublishEvent,
+  entityKey,
+} from "back-end/src/events/bulkPublishCorrelation";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
+import { loadSavedGroupsWithNested } from "back-end/src/util/featureDefinitionReferences.util";
+import { canLandEntityUpdate } from "back-end/src/revisions/archiveTransition";
 import {
   logSavedGroupCreatedEvent,
   logSavedGroupUpdatedEvent,
   logSavedGroupDeletedEvent,
 } from "back-end/src/services/savedGroupEvents";
+import { touchDefinitionsVersion } from "./DefinitionsVersionModel";
 import { MakeModelClass } from "./BaseModel";
 
 // `skipAttributeValidation` lets revert flows write a previously-published
@@ -21,11 +36,17 @@ import { MakeModelClass } from "./BaseModel";
 // or archived from the org schema. Normal create/update paths leave it unset.
 type WriteOptions = {
   skipAttributeValidation?: boolean;
+  isCompensation?: boolean;
 };
 
 const BaseClass = MakeModelClass({
   schema: savedGroupValidator,
   collectionName: "savedgroups",
+  affectsDefinitionsVersion: true,
+  definitionsVersionProjectField: "projects",
+  // `values`/`condition` are projected out of the definitions response
+  // (getAllForDefinitions).
+  definitionsVersionExcludedFields: ["values", "condition"],
   idPrefix: "grp_",
   auditLog: {
     entity: "savedGroup",
@@ -34,9 +55,31 @@ const BaseClass = MakeModelClass({
     deleteEvent: "savedGroup.deleted",
   },
   globallyUniquePrimaryKeys: true,
+  // Org-scoped `getAll()` is on the SDK-payload build path. The default indexes
+  // are id-leading (`{id, organization}`, `{id}`), which can't serve a filter on
+  // `organization` alone — without this a payload rebuild full-scans the
+  // collection. Mirrors FeatureModel's org-leading index.
+  additionalIndexes: [{ fields: { organization: 1 } }],
 });
 
+const idsQuery = (ids?: string[]) => (ids ? { id: { $in: ids } } : {});
+
 export class SavedGroupModel extends BaseClass<WriteOptions> {
+  // Substitutes proposed (unwritten) saved-group docs into full and metadata reads so a
+  // publish-time scan (the archive-dependents gate resolves saved-group →
+  // saved-group condition references) sees the batch's combined end-state.
+  // Only ever set on a dedicated plan-scoped scan context — never a request
+  // context that writes. No-op when unset (overlayDocsById returns as-is).
+  private scanOverlay: Map<string, SavedGroupInterface> | null = null;
+
+  public setScanOverlay(docs: SavedGroupInterface[]): void {
+    this.scanOverlay = new Map(docs.map((d) => [d.id, d]));
+  }
+
+  public async getAll(): Promise<SavedGroupInterface[]> {
+    return overlayDocsById(await super.getAll(), this.scanOverlay);
+  }
+
   protected canRead(doc: SavedGroupInterface): boolean {
     return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }
@@ -50,7 +93,13 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     _updates: UpdateProps<SavedGroupInterface>,
     newDoc: SavedGroupInterface,
   ): boolean {
-    return this.context.permissions.canUpdateSavedGroup(existing, newDoc);
+    return canLandEntityUpdate({
+      permissions: this.context.permissions,
+      model: "saved-group",
+      existing,
+      newDoc,
+      environments: NO_ENVIRONMENT_BINDING,
+    });
   }
 
   protected canDelete(doc: SavedGroupInterface): boolean {
@@ -59,6 +108,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
 
   public static migrateSavedGroup(
     legacyDoc: LegacySavedGroupInterface,
+    { conditionOmitted = false }: { conditionOmitted?: boolean } = {},
   ): SavedGroupInterface {
     // Add `type` field to legacy groups
     const { source, type, ...otherFields } = legacyDoc;
@@ -67,10 +117,12 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       type: type || (source === "runtime" ? "condition" : "list"),
     };
 
-    // Migrate legacy runtime groups to use a condition
+    // Migrate legacy runtime groups to use a condition.
+    // Do not synthesize a condition when it was excluded from the read.
     if (
       group.type === "condition" &&
       !group.condition &&
+      !conditionOmitted &&
       source === "runtime" &&
       group.attributeKey
     ) {
@@ -86,8 +138,13 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     return group;
   }
 
-  protected migrate(legacyDoc: LegacySavedGroupInterface): SavedGroupInterface {
-    return SavedGroupModel.migrateSavedGroup(legacyDoc);
+  protected migrate(
+    legacyDoc: LegacySavedGroupInterface,
+    omittedFields?: ReadonlySet<string>,
+  ): SavedGroupInterface {
+    return SavedGroupModel.migrateSavedGroup(legacyDoc, {
+      conditionOmitted: omittedFields?.has("condition") ?? false,
+    });
   }
 
   protected async customValidation(
@@ -95,6 +152,9 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     previousDoc?: SavedGroupInterface,
     writeOptions?: WriteOptions,
   ) {
+    if (!this.context.bulkPublishApplying && !writeOptions?.isCompensation) {
+      await assertSavedGroupProjectScope(this.context, doc, previousDoc);
+    }
     if (writeOptions?.skipAttributeValidation) return;
     if (doc.type === "condition" && doc.condition) {
       assertRegisteredAttributes(
@@ -120,16 +180,21 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     updates: UpdateProps<SavedGroupInterface>,
     newDoc: SavedGroupInterface,
   ) {
-    // If the values, condition, or projects change, we need to invalidate
-    // cached feature rules.
-    //
-    // We don't refresh on `archived` changes: archiving is blocked while the
-    // group is referenced (see the controller / archive endpoint guards), so
-    // `filterUsedSavedGroups` will already exclude it from the payload, and
-    // unarchiving doesn't change anything live until the group is referenced
-    // again (which itself triggers a refresh via the feature edit).
-    if (updates.values || updates.condition || updates.projects) {
-      savedGroupUpdated(this.context).catch((e) => {
+    // If the values, condition, projects, or archived state change, we need to
+    // invalidate cached feature rules. `archived` IS refreshed: the archive
+    // guard is only a bypassable warning, so a still-referenced group can be
+    // archived (ignoreWarnings) — `getUsedSavedGroupIds` then drops it from
+    // every referencing feature's payload, and unarchiving restores it, both
+    // of which change served values.
+    if (
+      updates.values ||
+      updates.condition ||
+      updates.projects ||
+      updates.archived !== undefined
+    ) {
+      savedGroupUpdated(this.context, newDoc.id, {
+        projectsChanged: !!updates.projects,
+      }).catch((e) => {
         this.context.logger.error(
           e,
           "Error refreshing SDK Payload on saved group update",
@@ -138,13 +203,18 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
     }
 
     // Don't emit `savedGroup.updated` if nothing meaningful changed (e.g. only
-    // `dateUpdated` was bumped) — mirrors the feature webhook behavior.
+    // `dateUpdated` was bumped) — mirrors the feature webhook behavior. During
+    // a bulk-publish commit the emission defers to the post-commit flush.
     const previous = this.toApiInterface(existing);
     const current = this.toApiInterface(newDoc);
     if (
       !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
     ) {
-      await logSavedGroupUpdatedEvent(this.context, previous, current);
+      await emitOrDeferBulkPublishEvent(
+        () => logSavedGroupUpdatedEvent(this.context, previous, current),
+        entityKey("saved-group", newDoc.id),
+        captureEventBuffer(this.context),
+      );
     }
   }
 
@@ -160,11 +230,132 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       { organization: this.context.org.id, projects: projectId },
       { $pull: pullOperation },
     );
+    // Raw write bypasses the BaseModel affectsDefinitionsVersion hook.
+    await touchDefinitionsVersion(this.context.org.id);
   }
 
-  public async getAllWithoutValues(): Promise<SavedGroupWithoutValues[]> {
-    const groups = await this._find({}, { projection: { values: 0 } });
-    return groups as SavedGroupWithoutValues[];
+  /** Full groups, ID lists included, for the given ids. */
+  public async getByIdsWithValues(
+    ids: string[],
+  ): Promise<SavedGroupInterface[]> {
+    if (!ids.length) return [];
+    const groups = await this._find(idsQuery(ids));
+    return overlayDocsById(groups, this.overlayFor(ids));
+  }
+
+  // The bulk publisher's proposed groups, limited to `ids` when given.
+  private overlayFor(ids?: string[]) {
+    if (!ids || !this.scanOverlay) return this.scanOverlay;
+    const requested = new Set(ids);
+    return new Map([...this.scanOverlay].filter(([id]) => requested.has(id)));
+  }
+
+  /** The groups a condition names and those they reach, without values. */
+  public async getReferencedWithoutValues(
+    condition: string | undefined,
+  ): Promise<SavedGroupWithoutValues[]> {
+    if (!condition) return [];
+    const ids: string[] = [];
+    try {
+      forEachSavedGroupIdInCondition(JSON.parse(condition), (id) =>
+        ids.push(id),
+      );
+    } catch {
+      return [];
+    }
+    return loadSavedGroupsWithNested(ids, (wanted) =>
+      this.getAllWithoutValues(wanted),
+    );
+  }
+
+  /** Metadata for `ids` and every group they reach through condition groups. */
+  public async getMetadataWithNested(
+    ids: string[],
+  ): Promise<SavedGroupMetadata[]> {
+    return loadSavedGroupsWithNested(ids, (wanted) => this.getMetadata(wanted));
+  }
+
+  /**
+   * Which of `ids` don't exist in the organization at all. Unlike reads, this
+   * ignores the viewer's project access: a group they can't read still exists,
+   * and they already have its id.
+   */
+  public async getMissingIds(ids: string[]): Promise<string[]> {
+    if (!ids.length) return [];
+    const found = await this._dangerousGetCollection()
+      .find(
+        { organization: this.context.org.id, id: { $in: ids } },
+        { projection: { id: 1 } },
+      )
+      .toArray();
+    const existing = new Set(found.map((doc) => doc.id));
+    return ids.filter((id) => !existing.has(id));
+  }
+
+  /** Everything but the ID lists, which can be enormous. All groups, or `ids`. */
+  public async getAllWithoutValues(
+    ids?: string[],
+  ): Promise<SavedGroupWithoutValues[]> {
+    if (ids && !ids.length) return [];
+    const groups = await this._find(idsQuery(ids), {
+      projection: { values: 0 },
+    });
+    return overlayDocsById(
+      groups as SavedGroupWithoutValues[],
+      this.overlayFor(ids),
+      (group) => omit(group, "values"),
+    );
+  }
+
+  /** As `getAllWithoutValues`, with whether each ID list is non-empty. */
+  public async getMetadata(ids: string[]): Promise<SavedGroupMetadata[]> {
+    if (!ids.length) return [];
+    const [groups, withValues, large] = await Promise.all([
+      this.getAllWithoutValues(ids),
+      this._find(
+        { ...idsQuery(ids), values: { $type: "array", $ne: [] } } as Parameters<
+          typeof this._find
+        >[0],
+        { projection: { values: 0, condition: 0 } },
+      ),
+      // Only a list longer than the cap has an element past it. Sized in
+      // Mongo so no ID list leaves the database.
+      this._find(
+        {
+          ...idsQuery(ids),
+          [`values.${SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES}`]: {
+            $exists: true,
+          },
+        } as Parameters<typeof this._find>[0],
+        { projection: { values: 0, condition: 0 } },
+      ),
+    ]);
+    const nonEmpty = new Set(withValues.map((group) => group.id));
+    const largeIds = new Set(large.map((group) => group.id));
+    return groups.map((group) => {
+      const proposed = this.scanOverlay?.get(group.id);
+      return {
+        ...group,
+        hasValues: proposed
+          ? !!proposed.values?.length
+          : nonEmpty.has(group.id),
+        largeValues: proposed
+          ? (proposed.values?.length ?? 0) >
+            SAVED_GROUP_CONFLICT_ANALYSIS_MAX_VALUES
+          : largeIds.has(group.id),
+      };
+    });
+  }
+
+  /**
+   * Returns saved-group metadata without the payload-heavy values and condition.
+   */
+  public async getAllForDefinitions(): Promise<SavedGroupForDefinitions[]> {
+    const groups = await this._find(
+      {},
+      { projection: { values: 0, condition: 0 } },
+    );
+    return groups as SavedGroupForDefinitions[];
   }
 
   public toApiInterface(savedGroup: SavedGroupInterface): ApiSavedGroup {
@@ -183,5 +374,18 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       archived: !!savedGroup.archived,
       useEmptyListGroup: savedGroup.useEmptyListGroup,
     };
+  }
+  /**
+   * Project scope only, for the given ids — what a read check consults.
+   * Revision listings ask this for every target in a filtered scan, so the
+   * heavy value fields are projected out (`values` can be enormous).
+   * Read-filtered like any other find, so what comes back is what may be read.
+   */
+  public async getReadScopesByIds(ids: string[]) {
+    if (!ids.length) return [];
+    return this._find(
+      { id: { $in: ids } } as Parameters<typeof this._find>[0],
+      { projection: { values: 0, condition: 0 } },
+    );
   }
 }

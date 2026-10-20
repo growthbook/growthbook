@@ -9,23 +9,26 @@ import {
 import Text from "@/ui/Text";
 import aiChatStyles from "./AIChatPrimitives.module.scss";
 
-interface AssistantBubbleProps {
+export function AssistantBubble({
+  children,
+  variant = "message",
+}: {
   children: React.ReactNode;
-  wide?: boolean;
-}
-
-export function AssistantBubble({ children, wide }: AssistantBubbleProps) {
+  variant?: "message" | "artifact";
+}) {
   return (
     <Box
       style={{
-        borderRadius: "var(--radius-3)",
-        padding: "8px 12px",
+        borderRadius: variant === "artifact" ? "var(--radius-3)" : undefined,
+        padding: variant === "artifact" ? "8px 12px 12px" : "2px 0",
         alignSelf: "flex-start",
-        background: "var(--color-panel-solid)",
-        border: "1px solid var(--slate-a5)",
-        ...(wide
-          ? { width: "min(920px, 100%)", paddingBottom: 12 }
-          : { maxWidth: "85%" }),
+        width: "min(920px, 100%)",
+        maxWidth: "100%",
+        minWidth: 0,
+        background:
+          variant === "artifact" ? "var(--color-panel-solid)" : undefined,
+        border:
+          variant === "artifact" ? "1px solid var(--slate-a5)" : undefined,
       }}
       className={aiChatStyles.bubble}
     >
@@ -77,7 +80,7 @@ export function ThinkingBubble({ label }: { label: string }) {
         <span className={aiChatStyles.spinIcon}>
           <PiCircleNotch size={12} />
         </span>
-        <Text size="small" color="text-low">
+        <Text size="sm" color="text-low">
           {label}
         </Text>
       </Flex>
@@ -85,9 +88,27 @@ export function ThinkingBubble({ label }: { label: string }) {
   );
 }
 
-export function AIAnalystLabel() {
+export function InlineLinkLoadingIndicator() {
   return (
-    <Flex align="center" gap="2" mb="1">
+    <span
+      className={`${aiChatStyles.spinIcon} ${aiChatStyles.inlineLinkLoading}`}
+      role="status"
+      aria-label="Loading link"
+    >
+      <PiCircleNotch size={12} />
+    </span>
+  );
+}
+
+export function AIAnalystLabel({
+  label = "AI Analyst",
+  mb = "1",
+}: {
+  label?: string;
+  mb?: React.ComponentProps<typeof Flex>["mb"];
+} = {}) {
+  return (
+    <Flex align="center" gap="2" mb={mb}>
       <Flex
         align="center"
         justify="center"
@@ -100,8 +121,8 @@ export function AIAnalystLabel() {
       >
         <PiSparkle size={12} color="var(--violet-11)" />
       </Flex>
-      <Text size="small" weight="medium" color="text-low">
-        AI Analyst
+      <Text size="sm" weight="medium" color="text-low">
+        {label}
       </Text>
     </Flex>
   );

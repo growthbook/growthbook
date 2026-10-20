@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { StaleFeatureReason } from "shared/util";
+import { OLD_TEMP_ROLLOUT_DAYS, StaleFeatureReason } from "shared/util";
 import { FeatureValueType } from "shared/types/feature";
 import { ago } from "shared/dates";
 import { PiArrowClockwise } from "react-icons/pi";
@@ -11,8 +11,10 @@ import { Popover } from "@/ui/Popover";
 import Modal from "@/components/Modal";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { StaleStateEntry } from "@/hooks/useFeatureStaleStates";
+import { FeatureHealthStateEntry } from "@/hooks/useFeatureHealthStates";
 import { useIncrementer } from "@/hooks/useIncrementer";
+import { isPartiallyStale } from "@/services/health";
+import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import styles from "./StaleFeatureIcon.module.scss";
 
 const staleReasonToMessageMap: Record<StaleFeatureReason, string> = {
@@ -25,9 +27,26 @@ const staleReasonToMessageMap: Record<StaleFeatureReason, string> = {
   "abandoned-draft": "Draft not updated in over a month.",
   "toggled-off": "Environment is disabled.",
   "active-experiment": "Live experiment rule in this environment.",
+  "temp-rollout": "Temp rollout from a recently stopped experiment.",
+  "old-temp-rollout": `Only serves a temp rollout from an experiment stopped ${OLD_TEMP_ROLLOUT_DAYS}+ days ago.`,
   "has-rules": "Has rules with targeting conditions.",
   error: "Error evaluating staleness.",
 };
+
+function VerdictChip({
+  color,
+  label,
+}: {
+  color: "yellow" | "green" | "gray";
+  label: string;
+}) {
+  return (
+    <Flex gap="1" align="center" style={{ whiteSpace: "nowrap" }}>
+      <ExperimentDot color={color} />
+      {label}
+    </Flex>
+  );
+}
 
 export default function StaleFeatureIcon({
   neverStale,
@@ -38,17 +57,15 @@ export default function StaleFeatureIcon({
   context = "detail",
   open: controlledOpen,
   onOpenChange,
-  labelPrefix = "",
 }: {
   neverStale?: boolean;
   valueType?: FeatureValueType;
-  staleData?: StaleStateEntry;
+  staleData?: FeatureHealthStateEntry;
   fetchStaleData?: () => Promise<void>;
   onDisable?: () => void;
   context?: "list" | "detail";
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  labelPrefix?: string;
 }) {
   const [rerunning, setRerunning] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
@@ -73,11 +90,11 @@ export default function StaleFeatureIcon({
       <Flex direction="column" gap="4">
         <Box>
           <span style={{ color: "var(--gray-11)" }}>
-            <Text size="large" weight="semibold">
-              Detection Off
+            <Text size="lg" weight="semibold">
+              Stale detection off
             </Text>
           </span>
-          <Text as="div" size="medium" color="text-low" mt="1">
+          <Text as="div" size="md" color="text-low" mt="1">
             Stale detection is disabled for this feature.
           </Text>
         </Box>
@@ -85,7 +102,7 @@ export default function StaleFeatureIcon({
       {onDisable && (
         <Flex justify="end" mt="4">
           <Button
-            size="xs"
+            size="sm"
             variant="outline"
             onClick={() => {
               setOpen(false);
@@ -111,12 +128,8 @@ export default function StaleFeatureIcon({
           showArrow={true}
           contentStyle={{ maxWidth: 600, textAlign: "left" }}
           trigger={
-            <span
-              className={styles.listTrigger}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-            >
-              <span className={`${styles.dot} ${styles.freshDot}`} />
-              {labelPrefix}Stale detection off
+            <span className={styles.listTrigger}>
+              <VerdictChip color="gray" label="Stale detection off" />
             </span>
           }
           content={neverStaleContent}
@@ -134,18 +147,19 @@ export default function StaleFeatureIcon({
           className={styles.freshBadge}
           onClick={() => setOpen(true)}
         >
-          {labelPrefix}Stale detection off
+          Stale detection off
         </Badge>
-        <Modal
-          open={open}
-          close={() => setOpen(false)}
-          header="Stale Status"
-          trackingEventModalType="stale-feature-status"
-          closeCta="Close"
-          useRadixButton={true}
-        >
-          {neverStaleContent}
-        </Modal>
+        {open && (
+          <Modal
+            open={open}
+            close={() => setOpen(false)}
+            header="Stale Status"
+            trackingEventModalType="stale-feature-status"
+            closeCta="Close"
+          >
+            {neverStaleContent}
+          </Modal>
+        )}
       </>
     );
   }
@@ -158,24 +172,11 @@ export default function StaleFeatureIcon({
     );
     if (context === "list") {
       return (
-        <Popover
-          open={open}
-          onOpenChange={setOpen}
-          side="bottom"
-          align="start"
-          showArrow={true}
-          contentStyle={{ maxWidth: 600, textAlign: "left" }}
-          trigger={
-            <span
-              className={styles.listTrigger}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-            >
-              <span className={`${styles.dot} ${styles.freshDot}`} />
-              {labelPrefix}—
-            </span>
-          }
-          content={loadingContent}
-        />
+        <span style={{ whiteSpace: "nowrap" }}>
+          <Text size="sm" color="text-low">
+            Computing staleness…
+          </Text>
+        </span>
       );
     }
     return (
@@ -188,29 +189,28 @@ export default function StaleFeatureIcon({
           className={styles.permanentBadge}
           onClick={() => setOpen(true)}
         >
-          {labelPrefix}—
+          —
         </Badge>
-        <Modal
-          open={open}
-          close={() => setOpen(false)}
-          header="Stale Status"
-          trackingEventModalType="stale-feature-status"
-          closeCta="Close"
-          useRadixButton={true}
-        >
-          {loadingContent}
-        </Modal>
+        {open && (
+          <Modal
+            open={open}
+            close={() => setOpen(false)}
+            header="Stale Status"
+            trackingEventModalType="stale-feature-status"
+            closeCta="Close"
+          >
+            {loadingContent}
+          </Modal>
+        )}
       </>
     );
   }
 
-  const isStale = staleData.stale;
   const staleReason: StaleFeatureReason | undefined = staleData.reason;
   const envResults = staleData.envResults ?? {};
   const computedAt = staleData.computedAt;
 
-  const hasSomeStaleEnvs = Object.values(envResults).some((e) => e.stale);
-  const mixed = !isStale && hasSomeStaleEnvs;
+  const mixed = isPartiallyStale(staleData);
 
   const envEntries = Object.entries(envResults);
 
@@ -231,7 +231,7 @@ export default function StaleFeatureIcon({
         <Box>
           <Text
             as="div"
-            size="small"
+            size="sm"
             weight="semibold"
             color="text-mid"
             textTransform="uppercase"
@@ -239,20 +239,20 @@ export default function StaleFeatureIcon({
           >
             Overall Status
           </Text>
-          {isStale ? (
+          {staleData.stale ? (
             <span style={{ color: "var(--yellow-11)" }}>
-              <Text size="large" weight="semibold">
+              <Text size="lg" weight="semibold">
                 Stale
               </Text>
             </span>
           ) : (
             <span style={{ color: "var(--green-10)" }}>
-              <Text size="large" weight="semibold">
-                Not Stale
+              <Text size="lg" weight="semibold">
+                Not stale
               </Text>
               {mixed && (
-                <Text as="div" size="medium" color="text-low" mt="1">
-                  Some environments may be stale
+                <Text as="div" size="md" color="text-low" mt="1">
+                  Some environments are stale. See the breakdown below.
                 </Text>
               )}
             </span>
@@ -263,7 +263,7 @@ export default function StaleFeatureIcon({
           <Box>
             <Text
               as="div"
-              size="small"
+              size="sm"
               weight="semibold"
               color="text-mid"
               textTransform="uppercase"
@@ -271,7 +271,7 @@ export default function StaleFeatureIcon({
             >
               Reason
             </Text>
-            <Text size="medium" as="div">
+            <Text size="md" as="div">
               {staleReasonToMessageMap[staleReason]}
             </Text>
           </Box>
@@ -281,7 +281,7 @@ export default function StaleFeatureIcon({
           <Box mt="4">
             <Text
               as="div"
-              size="small"
+              size="sm"
               weight="semibold"
               color="text-mid"
               textTransform="uppercase"
@@ -306,12 +306,7 @@ export default function StaleFeatureIcon({
                   {envEntries.map(([envId, info]) => (
                     <tr key={envId} style={{ verticalAlign: "top" }}>
                       <td style={{ overflow: "hidden" }}>
-                        <Text
-                          size="medium"
-                          weight="medium"
-                          truncate
-                          title={envId}
-                        >
+                        <Text size="md" weight="medium" truncate title={envId}>
                           {envId}
                         </Text>
                       </td>
@@ -327,7 +322,7 @@ export default function StaleFeatureIcon({
                         )}
                       </td>
                       <td>
-                        <Text size="small" color="text-mid">
+                        <Text size="sm" color="text-mid">
                           {info.reason
                             ? (staleReasonToMessageMap[
                                 info.reason as StaleFeatureReason
@@ -372,7 +367,7 @@ export default function StaleFeatureIcon({
       {(handleRerun || onDisable || computedAt) && (
         <Flex direction="column" align="end" gap="2" mt="2">
           {computedAt && (
-            <Text size="small" color="text-low">
+            <Text size="sm" color="text-low">
               Last calculated: {ago(new Date(computedAt))}
             </Text>
           )}
@@ -380,7 +375,7 @@ export default function StaleFeatureIcon({
             <Flex gap="2">
               {handleRerun && (
                 <Button
-                  size="xs"
+                  size="sm"
                   variant="ghost"
                   onClick={handleRerun}
                   disabled={rerunning}
@@ -390,7 +385,7 @@ export default function StaleFeatureIcon({
               )}
               {onDisable && (
                 <Button
-                  size="xs"
+                  size="sm"
                   color="red"
                   variant="outline"
                   onClick={() => {
@@ -408,6 +403,10 @@ export default function StaleFeatureIcon({
     </Box>
   );
 
+  const badgeColor = staleData.stale ? "yellow" : "green";
+  const badgeClass = staleData.stale ? styles.staleBadge : styles.freshBadge;
+  const label = staleData.stale ? "Stale" : mixed ? "Not stale*" : "Not stale";
+
   if (context === "list") {
     return (
       <Popover
@@ -418,15 +417,11 @@ export default function StaleFeatureIcon({
         showArrow={true}
         contentStyle={{ maxWidth: 600, textAlign: "left" }}
         trigger={
-          <span
-            className={styles.listTrigger}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-          >
-            <span
-              className={`${styles.dot} ${isStale ? styles.staleDot : styles.freshDot}`}
+          <span className={styles.listTrigger}>
+            <VerdictChip
+              color={staleData.stale ? "yellow" : "green"}
+              label={label}
             />
-            {labelPrefix}
-            {isStale ? "Stale" : mixed ? "Not Stale*" : "Not stale"}
           </span>
         }
         content={body}
@@ -437,27 +432,27 @@ export default function StaleFeatureIcon({
   return (
     <>
       <Badge
-        color={isStale ? "yellow" : "green"}
+        color={badgeColor}
         variant="soft"
         radius="full"
         size="2"
-        className={isStale ? styles.staleBadge : styles.freshBadge}
+        className={badgeClass}
         onClick={() => setOpen(true)}
       >
-        {labelPrefix}
-        {isStale ? "Stale" : mixed ? "Not Stale*" : "Not stale"}
+        {label}
       </Badge>
-      <Modal
-        open={open}
-        close={() => setOpen(false)}
-        header="Stale Status"
-        trackingEventModalType="stale-feature-status"
-        closeCta="Close"
-        size="lg"
-        useRadixButton={true}
-      >
-        {body}
-      </Modal>
+      {open && (
+        <Modal
+          open={open}
+          close={() => setOpen(false)}
+          header="Stale Status"
+          trackingEventModalType="stale-feature-status"
+          closeCta="Close"
+          size="lg"
+        >
+          {body}
+        </Modal>
+      )}
     </>
   );
 }

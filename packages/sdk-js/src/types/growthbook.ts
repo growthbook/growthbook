@@ -48,7 +48,23 @@ export type FeatureRule<T = any> = {
     experiment: Experiment<T>;
     result: Result<T>;
   }>;
+  contextualBanditRef?: string;
+  contextualVariations?: T[];
 };
+
+export type ContextualBanditDefinition = {
+  banditVersion?: number;
+  contexts: {
+    leafId: number;
+    condition: Record<string, unknown>;
+    weights: number[];
+  }[];
+};
+
+export type ContextualBanditDefinitions = Record<
+  string,
+  ContextualBanditDefinition
+>;
 
 export interface FeatureDefinition<T = any> {
   defaultValue?: T;
@@ -111,6 +127,7 @@ export type Experiment<T> = {
   minBucketVersion?: number;
   active?: boolean;
   persistQueryString?: boolean;
+  contextualBandit?: CBContext;
   /** @deprecated */
   status?: ExperimentStatus;
   /** @deprecated */
@@ -125,6 +142,7 @@ export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
   changeId?: string;
   // If true, require the experiment to be manually triggered
   manual?: boolean;
+  contextualBanditRef?: string;
 };
 
 export type ExperimentOverride = {
@@ -152,30 +170,43 @@ export interface Result<T> {
   hashValue: string;
   featureId: string | null;
   stickyBucketUsed?: boolean;
+  leafId?: number;
+  variationWeights?: number[];
+  banditVersion?: number;
 }
 
+export type CBContext = {
+  leafId: number;
+  variationWeights: number[];
+  banditVersion?: number;
+};
+
 export type Attributes = Record<string, any>;
+
+export type TrackingUserContext = Pick<UserContext, "attributes" | "url">;
 
 export interface TrackingData {
   experiment: Experiment<any>;
   result: Result<any>;
+  user?: TrackingUserContext;
 }
 
 export interface TrackingDataWithUser {
   experiment: Experiment<any>;
   result: Result<any>;
-  user: UserContext;
+  user: TrackingUserContext;
 }
 
 export type TrackingCallback = (
   experiment: Experiment<any>,
   result: Result<any>,
+  user?: TrackingUserContext,
 ) => Promise<void> | void;
 
 export type TrackingCallbackWithUser = (
   experiment: Experiment<any>,
   result: Result<any>,
-  user: UserContext,
+  user: TrackingUserContext,
 ) => Promise<void> | void;
 
 export type FeatureUsageCallback = (
@@ -186,7 +217,25 @@ export type FeatureUsageCallback = (
 export type FeatureUsageCallbackWithUser = (
   key: string,
   result: FeatureResult<any>,
-  user: UserContext,
+  user: TrackingUserContext,
+) => void;
+
+// Callback types for internal plugin subscriptions (e.g. session replay).
+// Must be synchronous — async callbacks are not awaited and rejected promises won't be caught.
+export type FeatureUsageSubCallback = (
+  key: string,
+  result: Readonly<FeatureResult<any>>,
+) => void;
+
+export type CustomEventSubCallback = (
+  eventName: string,
+  properties: Readonly<Record<string, unknown>>,
+) => void;
+
+export type ExperimentViewedSubCallback = (
+  experiment: Readonly<Experiment<unknown>>,
+  result: Readonly<Result<unknown>>,
+  user: TrackingUserContext,
 ) => void;
 
 export type Plugin = (
@@ -197,7 +246,7 @@ export type EventProperties = Record<string, unknown>;
 export type EventLogger = (
   eventName: string,
   properties: EventProperties,
-  userContext: UserContext,
+  userContext: TrackingUserContext,
 ) => void | Promise<void>;
 
 export type NavigateCallback = (url: string) => void | Promise<void>;
@@ -271,7 +320,8 @@ export type Options = {
   /** @deprecated */
   antiFlickerTimeout?: number;
   applyDomChangesCallback?: ApplyDomChangesCallback;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
+  contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
 
@@ -288,7 +338,7 @@ export type ClientOptions = {
   onFeatureUsage?: (
     key: string,
     result: FeatureResult<any>,
-    user: UserContext,
+    user: TrackingUserContext,
   ) => void;
   eventLogger?: EventLogger;
   apiHost?: string;
@@ -297,7 +347,8 @@ export type ClientOptions = {
   streamingHostRequestHeaders?: Record<string, string>;
   clientKey?: string;
   decryptionKey?: string;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
+  contextualBandits?: ContextualBanditDefinitions;
   plugins?: Plugin[];
 };
 
@@ -308,7 +359,8 @@ export type GlobalContext = {
   experiments?: AutoExperiment[];
   enabled?: boolean;
   qaMode?: boolean;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
+  contextualBandits?: ContextualBanditDefinitions;
   forcedVariations?: Record<string, number>;
   forcedFeatureValues?: Map<string, any>;
   trackingCallback?: TrackingCallbackWithUser;
@@ -353,6 +405,8 @@ export type UserContext = {
   trackedExperiments?: Set<string>;
   trackedFeatureUsage?: Record<string, string>;
   devLogs?: LogUnion[];
+  featureUsageSubs?: Set<FeatureUsageSubCallback>;
+  experimentViewedSubs?: Set<ExperimentViewedSubCallback>;
 };
 
 export type StackContext = {
@@ -443,8 +497,10 @@ export type FeatureApiResponse = {
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
-  savedGroups?: SavedGroupsValues;
+  savedGroups?: SavedGroupsPayload;
   encryptedSavedGroups?: string;
+  contextualBandits?: ContextualBanditDefinitions;
+  encryptedContextualBandits?: string;
 };
 
 // Alias
@@ -454,9 +510,7 @@ export type GrowthBookPayload = FeatureApiResponse;
 // These are typed as `any` since polyfills like `node-fetch` are not 100% compatible with native types
 export type Polyfills = {
   fetch: any;
-
   SubtleCrypto: any;
-
   EventSource: any;
   localStorage?: LocalStorageCompat;
 };
@@ -520,12 +574,16 @@ export type InitOptions = {
   skipCache?: boolean;
   payload?: FeatureApiResponse;
   streaming?: boolean;
+  /** Refresh the payload on this interval (ms). Ignored when streaming is active. */
+  pollingInterval?: number;
   cacheSettings?: CacheSettings;
 };
 
 export type InitSyncOptions = {
   payload: FeatureApiResponse;
   streaming?: boolean;
+  /** Refresh the payload on this interval (ms). Ignored when streaming is active. */
+  pollingInterval?: number;
 };
 
 export type LoadFeaturesOptions = {
@@ -564,7 +622,19 @@ export interface StickyAssignmentsDocument {
   assignments: StickyAssignments;
 }
 
+/** The v1 shape: an ID list's values. New code should use SavedGroupsPayload. */
 export type SavedGroupsValues = Record<string, (string | number)[]>;
+
+/** The savedGroupReferencesV2 shape of one saved group, of any type. */
+export type SavedGroupPayloadEntry =
+  | { type: "list"; attributeKey: string; values: (string | number)[] }
+  | { type: "condition"; condition: ConditionInterface };
+
+/** The `savedGroups` payload field. Entries may use either shape above. */
+export type SavedGroupsPayload = Record<
+  string,
+  (string | number)[] | SavedGroupPayloadEntry
+>;
 
 export type BaseLog = {
   timestamp: string;

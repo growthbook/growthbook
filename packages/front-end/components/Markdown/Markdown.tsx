@@ -1,8 +1,10 @@
 import { DetailedHTMLProps, FC, HTMLAttributes, useMemo } from "react";
+import Link from "next/link";
 import clsx from "clsx";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import AuthorizedImage from "@/components/AuthorizedImage";
+import MarkdownCodeBlock from "@/components/SyntaxHighlighting/MarkdownCodeBlock";
 import styles from "./Markdown.module.scss";
 
 const imageCache = {};
@@ -12,6 +14,16 @@ interface MarkdownProps
   isPublic?: boolean;
   shareUid?: string;
   shareType?: "experiment" | "report";
+  /**
+   * Recognizes and rewrites hrefs for SPA navigation.
+   * Return a root-relative href to render with Next.js Link, or null to leave
+   * the link external.
+   */
+  resolveInternalHref?: (href: string) => string | null;
+  // Opt-in: syntax-highlight fenced code blocks (lazy-loaded Prism). Enabled
+  // on the review surfaces (revision descriptions / comments); other markdown
+  // surfaces keep plain code blocks.
+  highlightCode?: boolean;
 }
 
 const Markdown: FC<MarkdownProps> = ({
@@ -20,6 +32,8 @@ const Markdown: FC<MarkdownProps> = ({
   isPublic = false,
   shareUid,
   shareType = "experiment",
+  resolveInternalHref,
+  highlightCode = false,
   ...props
 }) => {
   if (typeof children !== "string") {
@@ -33,12 +47,18 @@ const Markdown: FC<MarkdownProps> = ({
 
   const components = useMemo(
     () => ({
-      // open external links in new tab
-      a: ({ ...props }) => (
-        <a href={props.href} target="_blank" rel="noreferrer">
-          {props.children}
-        </a>
-      ),
+      a: ({ ...props }) => {
+        const href = props.href ?? "";
+        const internalHref = resolveInternalHref?.(href) ?? null;
+        if (internalHref !== null) {
+          return <Link href={internalHref}>{props.children}</Link>;
+        }
+        return (
+          <a href={href} target="_blank" rel="noreferrer">
+            {props.children}
+          </a>
+        );
+      },
       img: ({ ...props }) => (
         <AuthorizedImage
           imageCache={imageCache}
@@ -48,8 +68,15 @@ const Markdown: FC<MarkdownProps> = ({
           {...props}
         />
       ),
+      ...(highlightCode
+        ? {
+            pre: ({ ...props }) => (
+              <MarkdownCodeBlock>{props.children}</MarkdownCodeBlock>
+            ),
+          }
+        : {}),
     }),
-    [isPublic, shareUid, shareType],
+    [isPublic, shareUid, shareType, resolveInternalHref, highlightCode],
   );
 
   return (

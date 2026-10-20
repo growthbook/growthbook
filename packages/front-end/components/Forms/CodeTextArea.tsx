@@ -58,9 +58,16 @@ const AceEditor = dynamic(
       import("ace-builds/src-min-noconflict/ext-searchbox"),
       import("ace-builds/src-min-noconflict/mode-sql"),
       import("ace-builds/src-min-noconflict/mode-javascript"),
+      // TypeScript mode is highlighting-only (its `createWorker` returns null),
+      // so TS schemas don't get flagged by the JavaScript (JSHint) validator.
+      import("ace-builds/src-min-noconflict/mode-typescript"),
       import("ace-builds/src-min-noconflict/mode-python"),
       import("ace-builds/src-min-noconflict/mode-yaml"),
       import("ace-builds/src-min-noconflict/mode-json"),
+      // Highlighting-only modes (no worker).
+      import("ace-builds/src-min-noconflict/mode-protobuf"),
+      import("ace-builds/src-min-noconflict/mode-golang"),
+      import("ace-builds/src-min-noconflict/mode-rust"),
       import("ace-builds/src-min-noconflict/theme-textmate"),
       import("ace-builds/src-min-noconflict/theme-tomorrow_night"),
     ]);
@@ -78,6 +85,16 @@ const AceEditor = dynamic(
     aceTyped.config.setModuleUrl("ace/mode/json_worker", jsonWorkerUrl);
     aceTyped.config.setModuleUrl("ace/mode/javascript_worker", jsWorkerUrl);
     aceTyped.config.setModuleUrl("ace/mode/yaml_worker", yamlWorkerUrl);
+
+    // Ace leaves the rest of a line unstyled after 2,000 tokens, and a stored
+    // condition or JSON value is often one minified line of far more
+    (
+      aceTyped.require("ace/tokenizer") as {
+        Tokenizer: {
+          prototype: { $setMaxTokenCount: (count: number) => void };
+        };
+      }
+    ).Tokenizer.prototype.$setMaxTokenCount(100_000);
 
     const langTools = aceTyped.require("ace/ext/language_tools") as LangTools;
 
@@ -168,7 +185,16 @@ const AceEditor = dynamic(
   },
 );
 
-export type Language = "sql" | "json" | "javascript" | "python" | "yml";
+export type Language =
+  | "sql"
+  | "json"
+  | "javascript"
+  | "typescript"
+  | "python"
+  | "yml"
+  | "protobuf"
+  | "golang"
+  | "rust";
 
 export const FIVE_LINES_HEIGHT = 97;
 export const TEN_LINES_HEIGHT = 194;
@@ -181,7 +207,6 @@ type CodeTextAreaFieldProps = Omit<
   | "multi"
   | "initialOption"
   | "render"
-  | "containerClassName"
   | "ref"
 >;
 
@@ -192,14 +217,28 @@ export type Props = CodeTextAreaFieldProps & {
   setCursorData?: (data: CursorData) => void;
   minLines?: number;
   maxLines?: number;
+  paddingTop?: number;
+  // Editor font size (Ace accepts px number or any CSS size). Smaller values
+  // also shrink line height, so a fixed line count takes less vertical space.
+  fontSize?: string | number;
+  // Hide the fold-widget caret so the line-number gutter is as narrow as
+  // possible — useful for cramped inline editors (e.g. feature/config values).
+  slimGutter?: boolean;
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
+  onFormatShortcut?: () => void;
   wrapperClassName?: string;
   completions?: AceCompletion[];
   resizable?: boolean;
   defaultHeight?: number;
   showCopyButton?: boolean;
   showFullscreenButton?: boolean;
+  // When set, the in-editor fullscreen button calls this instead of toggling
+  // CodeTextArea's own fullscreen — lets a parent own a custom fullscreen view.
+  onRequestFullscreen?: () => void;
+  // Exposes the underlying Ace editor once loaded, so a parent can do cursor-
+  // aware edits (e.g. inserting a token at the cursor).
+  onEditorLoad?: (editor: Ace.Editor) => void;
 };
 
 const LIGHT_THEME = "textmate";
@@ -212,15 +251,22 @@ export default function CodeTextArea({
   placeholder,
   minLines = 10,
   maxLines = 50,
+  paddingTop = 0,
+  fontSize = "1em",
+  slimGutter = false,
   setCursorData,
   fullHeight,
   onCtrlEnter,
+  onFormatShortcut,
   wrapperClassName,
   completions,
   resizable = false,
   defaultHeight = TEN_LINES_HEIGHT, // for resizable
   showCopyButton = false,
   showFullscreenButton = false,
+  onRequestFullscreen,
+  onEditorLoad,
+  containerClassName,
   ...otherProps
 }: Props) {
   const fieldProps = otherProps as CodeTextAreaFieldProps;
@@ -256,6 +302,21 @@ export default function CodeTextArea({
       },
     );
   }, [editor, onCtrlEnter]);
+
+  useEffect(() => {
+    if (!editor || !onFormatShortcut) return;
+
+    editor.commands.addCommand({
+      name: "format-shortcut",
+      bindKey: { win: "Ctrl-Shift-F", mac: "Command-Shift-F" },
+      exec: onFormatShortcut,
+    });
+    return () => editor.commands.removeCommand("format-shortcut");
+  }, [editor, onFormatShortcut]);
+
+  useEffect(() => {
+    editor?.renderer.setScrollMargin(paddingTop, 0, 0, 0);
+  }, [editor, paddingTop]);
 
   // Auto-resize editor when container size changes
   useEffect(() => {
@@ -314,8 +375,9 @@ export default function CodeTextArea({
 
   return (
     <Field
+      size="legacy"
       {...fieldProps}
-      containerClassName={fullHeight ? "h-100" : ""}
+      containerClassName={clsx(fullHeight ? "h-100" : "", containerClassName)}
       render={(id) => {
         return (
           <>
@@ -339,6 +401,7 @@ export default function CodeTextArea({
             `}</style>
             <div
               id={editorUid}
+              data-editor-uid={editorUid}
               className={clsx({
                 "ace-editor-disabled": fieldProps.disabled,
                 "h-100": fullHeight && !isFullscreen,
@@ -352,7 +415,7 @@ export default function CodeTextArea({
                   </label>
                   <Button
                     type="button"
-                    size="xs"
+                    size="sm"
                     color="gray"
                     variant="ghost"
                     onClick={() => setIsFullscreen(false)}
@@ -403,6 +466,7 @@ export default function CodeTextArea({
                   name={id}
                   onLoad={(e) => {
                     setEditor(e);
+                    onEditorLoad?.(e);
                     // Clear auto-selection after editor loads
                     setTimeout(() => {
                       e.clearSelection();
@@ -414,11 +478,12 @@ export default function CodeTextArea({
                   value={value}
                   onChange={(newValue) => setValue(newValue)}
                   placeholder={placeholder}
-                  fontSize="1em"
+                  fontSize={fontSize}
                   completions={completions}
                   {...heightProps}
                   setOptions={{
                     wrap: true,
+                    ...(slimGutter ? { showFoldWidgets: false } : {}),
                     ...(language === "sql"
                       ? {
                           enableBasicAutocompletion: true,
@@ -489,7 +554,11 @@ export default function CodeTextArea({
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            setIsFullscreen(!isFullscreen);
+                            if (onRequestFullscreen) {
+                              onRequestFullscreen();
+                            } else {
+                              setIsFullscreen(!isFullscreen);
+                            }
                           }}
                           style={{ position: "relative", zIndex: 1000 }}
                         >

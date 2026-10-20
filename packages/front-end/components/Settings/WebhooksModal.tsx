@@ -9,6 +9,7 @@ import {
 } from "shared/types/webhook";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { SDKLanguage } from "shared/types/sdk-connection";
+import { CLOUD_EGRESS_IP } from "shared/constants";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { isCloud } from "@/services/env";
@@ -19,7 +20,12 @@ import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { DocLink } from "@/components/DocLink";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
+import {
+  timeoutError,
+  timeoutSecondsFromInput,
+} from "@/components/EventWebHooks/utils";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 const methodTypes: WebhookMethod[] = [
   "GET",
@@ -52,6 +58,7 @@ interface SdkWebhookInputs {
   payloadFormat: WebhookPayloadFormat;
   httpMethod: WebhookMethod;
   headers: string;
+  timeoutSeconds: number | null;
 }
 
 function getWebhookFromType(
@@ -165,12 +172,14 @@ export function CreateSDKWebhookModal({
       payloadFormat: "standard",
       httpMethod: "POST",
       headers: "{}",
+      timeoutSeconds: null,
     },
   });
 
   const SelectWebhookSecretField = ({ label }: { label: string }) => {
     return (
       <SelectField
+        size="legacy"
         label={label}
         required
         value={form.watch("webhookSecretKey")}
@@ -184,10 +193,7 @@ export function CreateSDKWebhookModal({
         helpText={
           <>
             Please select an existing{" "}
-            <DocLink useRadix docSection="webhookSecrets">
-              webhook secret
-            </DocLink>{" "}
-            or{" "}
+            <DocLink docSection="webhookSecrets">webhook secret</DocLink> or{" "}
             <Link onClick={() => setIsSecretModalOpen(true)}>
               create a new one
             </Link>
@@ -225,14 +231,20 @@ export function CreateSDKWebhookModal({
         header="Create New SDK Webhook"
         open={true}
         size="lg"
+        ctaEnabled={!timeoutError(form.watch("timeoutSeconds"))}
         submit={form.handleSubmit(async (inputs) => {
           if (!webhookType) {
             throw new Error("Please select a Webhook type");
           }
 
+          if (timeoutError(inputs.timeoutSeconds)) {
+            throw new Error(timeoutError(inputs.timeoutSeconds));
+          }
+
           const data: CreateSdkWebhookProps = {
             ...getWebhookFromType(webhookType, inputs),
             name: inputs.name,
+            timeoutSeconds: inputs.timeoutSeconds,
           };
 
           if (data.endpoint.match(/localhost/g)) {
@@ -253,9 +265,15 @@ export function CreateSDKWebhookModal({
           onSave();
         })}
       >
-        <Field label="Display Name" required {...form.register("name")} />
+        <Field
+          size="legacy"
+          label="Display Name"
+          required
+          {...form.register("name")}
+        />
 
         <SelectField
+          size="legacy"
           label="Webhook Type"
           required
           value={webhookType || ""}
@@ -277,18 +295,21 @@ export function CreateSDKWebhookModal({
         {webhookType === "cloudflare" ? (
           <>
             <Field
+              size="legacy"
               label="Cloudflare Account ID"
               key="cf_account_id"
               required
               {...form.register("accountId")}
             />
             <Field
+              size="legacy"
               label="KV Namespace ID"
               key="cf_namespace_id"
               required
               {...form.register("namespaceId")}
             />
             <Field
+              size="legacy"
               label="Key"
               required
               {...form.register("key")}
@@ -302,12 +323,14 @@ export function CreateSDKWebhookModal({
         ) : webhookType === "fastly" ? (
           <>
             <Field
+              size="legacy"
               label="Store ID"
               required
               {...form.register("storeId")}
               key="fastly_store_id"
             />
             <Field
+              size="legacy"
               label="Key"
               required
               {...form.register("key")}
@@ -321,18 +344,21 @@ export function CreateSDKWebhookModal({
         ) : webhookType === "vercel" ? (
           <>
             <Field
+              size="legacy"
               label="Vercel Edge Config ID"
               required
               {...form.register("edgeConfigId")}
               key="vercel_edge_config_id"
             />
             <Field
+              size="legacy"
               label="Item Key"
               required
               {...form.register("key")}
               key="vercel_payload_key"
             />
             <Field
+              size="legacy"
               label="Team ID (optional)"
               {...form.register("teamId")}
               key="vercel_team_id"
@@ -345,6 +371,7 @@ export function CreateSDKWebhookModal({
         ) : webhookType === "http" ? (
           <>
             <Field
+              size="legacy"
               label="Endpoint URL"
               placeholder="https://example.com"
               {...form.register("endpoint")}
@@ -354,20 +381,22 @@ export function CreateSDKWebhookModal({
                   {isCloud() ? (
                     <>
                       {" "}
-                      from <code>52.70.79.40</code>
+                      from <code>{CLOUD_EGRESS_IP}</code>
                     </>
                   ) : (
                     ""
                   )}
                   . Supports{" "}
-                  <DocLink docSection="webhookSecrets">Webhook Secrets</DocLink>
+                  <DocLink useRadix={false} docSection="webhookSecrets">
+                    Webhook Secrets
+                  </DocLink>
                   .
                 </>
               }
               key="http_endpoint_url"
             />
             {form.watch("endpoint").match(/localhost/) && (
-              <div className="alert alert-danger">
+              <Callout status="error">
                 <strong>Error: </strong>Localhost not supported directly. Try
                 using{" "}
                 <a
@@ -378,10 +407,11 @@ export function CreateSDKWebhookModal({
                   ngrok
                 </a>{" "}
                 instead.
-              </div>
+              </Callout>
             )}
 
             <SelectField
+              size="legacy"
               label="Method"
               required
               placeholder="POST"
@@ -407,13 +437,13 @@ export function CreateSDKWebhookModal({
               helpText={
                 <>
                   {!validHeaders ? (
-                    <div className="alert alert-danger mr-auto">
+                    <Callout status="error" mr="auto">
                       Invalid JSON
-                    </div>
+                    </Callout>
                   ) : (
                     <div>
                       JSON format for headers. Supports{" "}
-                      <DocLink docSection="webhookSecrets">
+                      <DocLink useRadix={false} docSection="webhookSecrets">
                         Webhook Secrets
                       </DocLink>
                       .
@@ -427,6 +457,7 @@ export function CreateSDKWebhookModal({
             {form.watch("httpMethod") !== "GET" && (
               <>
                 <SelectField
+                  size="legacy"
                   label="Payload Format"
                   value={form.watch("payloadFormat")}
                   onChange={(v: WebhookPayloadFormat) =>
@@ -463,7 +494,10 @@ export function CreateSDKWebhookModal({
                   disabled={form.watch("httpMethod") === "GET"}
                   sort={false}
                   helpText={
-                    <DocLink docSection="sdkWebhooks#payload-format">
+                    <DocLink
+                      useRadix={false}
+                      docSection="sdkWebhooks#payload-format"
+                    >
                       Learn More <FaExternalLinkAlt />
                     </DocLink>
                   }
@@ -473,6 +507,7 @@ export function CreateSDKWebhookModal({
                 {(form.watch("payloadFormat") === "edgeConfig" ||
                   form.watch("payloadFormat") === "edgeConfigUnescaped") && (
                   <Field
+                    size="legacy"
                     label="Edge Config Key"
                     placeholder="gb_payload"
                     {...form.register("key")}
@@ -489,6 +524,17 @@ export function CreateSDKWebhookModal({
             )}
           </>
         ) : null}
+
+        <Field
+          label="Timeout (seconds)"
+          type="number"
+          min={1}
+          placeholder="30"
+          error={timeoutError(form.watch("timeoutSeconds"))}
+          {...form.register("timeoutSeconds", {
+            setValueAs: timeoutSecondsFromInput,
+          })}
+        />
       </Modal>
     </>
   );
@@ -512,6 +558,7 @@ const EditSDKWebhooksModal: FC<{
       payloadKey: current?.payloadKey || "",
       httpMethod: current?.httpMethod || "POST",
       headers: current?.headers || "{}",
+      timeoutSeconds: current?.timeoutSeconds ?? null,
       sdkid: sdkConnectionId,
     },
   });
@@ -523,6 +570,9 @@ const EditSDKWebhooksModal: FC<{
     if (!isValidHttp(value.endpoint)) {
       throw new Error("Invalid URL");
     }
+    if (timeoutError(value.timeoutSeconds)) {
+      throw new Error(timeoutError(value.timeoutSeconds));
+    }
 
     if (current.id) {
       const data: UpdateSdkWebhookProps = {
@@ -532,6 +582,7 @@ const EditSDKWebhooksModal: FC<{
         headers: value.headers,
         payloadFormat: value.payloadFormat,
         payloadKey: value.payloadKey,
+        timeoutSeconds: value.timeoutSeconds,
       };
 
       await apiCall(`/sdk-webhooks/${current.id}`, {
@@ -546,6 +597,7 @@ const EditSDKWebhooksModal: FC<{
         headers: value.headers,
         payloadFormat: value.payloadFormat,
         payloadKey: value.payloadKey,
+        timeoutSeconds: value.timeoutSeconds,
       };
       await apiCall(`/sdk-connections/${sdkConnectionId}/webhooks`, {
         method: "POST",
@@ -580,7 +632,9 @@ const EditSDKWebhooksModal: FC<{
       helpText={
         <>
           {!validHeaders ? (
-            <div className="alert alert-danger mr-auto">Invalid JSON</div>
+            <Callout status="error" mr="auto">
+              Invalid JSON
+            </Callout>
           ) : (
             <div>JSON format for headers.</div>
           )}
@@ -597,12 +651,18 @@ const EditSDKWebhooksModal: FC<{
       open={true}
       submit={onSubmit}
       autoCloseOnSubmit={false}
-      ctaEnabled={validHeaders}
+      ctaEnabled={validHeaders && !timeoutError(form.watch("timeoutSeconds"))}
       cta={current.id ? "Update" : "Create"}
       size="lg"
     >
-      <Field label="Display Name" required {...form.register("name")} />
       <Field
+        size="legacy"
+        label="Display Name"
+        required
+        {...form.register("name")}
+      />
+      <Field
+        size="legacy"
         label="Endpoint URL"
         placeholder="https://example.com"
         {...form.register("endpoint")}
@@ -612,7 +672,7 @@ const EditSDKWebhooksModal: FC<{
             {isCloud() ? (
               <>
                 {" "}
-                from <code>52.70.79.40</code>
+                from <code>{CLOUD_EGRESS_IP}</code>
               </>
             ) : (
               ""
@@ -622,7 +682,7 @@ const EditSDKWebhooksModal: FC<{
         }
       />
       {form.watch("endpoint").match(/localhost/) && (
-        <div className="alert alert-danger">
+        <Callout status="error">
           <strong>Error: </strong>Localhost not supported directly. Try using{" "}
           <a
             href="https://www.npmjs.com/package/ngrok"
@@ -632,10 +692,11 @@ const EditSDKWebhooksModal: FC<{
             ngrok
           </a>{" "}
           instead.
-        </div>
+        </Callout>
       )}
 
       <SelectField
+        size="legacy"
         label="Method"
         required
         placeholder="POST"
@@ -652,6 +713,7 @@ const EditSDKWebhooksModal: FC<{
       {form.watch("httpMethod") !== "GET" && (
         <>
           <SelectField
+            size="legacy"
             label="Payload Format"
             value={form.watch("payloadFormat")}
             onChange={(v: WebhookPayloadFormat) =>
@@ -694,7 +756,7 @@ const EditSDKWebhooksModal: FC<{
             disabled={form.watch("httpMethod") === "GET"}
             sort={false}
             helpText={
-              <DocLink docSection="sdkWebhooks#payload-format">
+              <DocLink useRadix={false} docSection="sdkWebhooks#payload-format">
                 Learn More <FaExternalLinkAlt />
               </DocLink>
             }
@@ -703,6 +765,7 @@ const EditSDKWebhooksModal: FC<{
           {(form.watch("payloadFormat") === "edgeConfig" ||
             form.watch("payloadFormat") === "edgeConfigUnescaped") && (
             <Field
+              size="legacy"
               label="Edge Config Key"
               placeholder="gb_payload"
               {...form.register("payloadKey")}
@@ -716,6 +779,17 @@ const EditSDKWebhooksModal: FC<{
           )}
         </>
       )}
+
+      <Field
+        label="Timeout (seconds)"
+        type="number"
+        min={1}
+        placeholder="30"
+        error={timeoutError(form.watch("timeoutSeconds"))}
+        {...form.register("timeoutSeconds", {
+          setValueAs: timeoutSecondsFromInput,
+        })}
+      />
     </Modal>
   );
 };

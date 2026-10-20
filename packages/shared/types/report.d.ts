@@ -87,6 +87,7 @@ export interface ExperimentReportInterface extends ReportInterfaceBase {
 
 export interface ExperimentReportVariation {
   id: string;
+  experimentVariationId?: string;
   name: string;
   weight: number;
   index: number;
@@ -117,6 +118,7 @@ export interface LegacyExperimentReportArgs {
   /** @deprecated */
   userIdType?: "anonymous" | "user";
   exposureQueryId: string;
+  exposureQueryIdentifierType?: string;
   startDate: Date;
   endDate?: Date;
   dimension?: string | null;

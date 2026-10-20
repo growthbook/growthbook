@@ -6,6 +6,7 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { uploadFile } from "back-end/src/services/files";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -47,6 +48,7 @@ const postVariationImageUploadValidator = {
   }),
   method: "post" as const,
   path: "/experiments/:id/variation/:variationId/screenshot/upload",
+  confirmation: ["experiment.draft"] as const,
   operationId: "postVariationImageUpload",
   summary: "Upload a variation screenshot",
   tags: ["experiments"],
@@ -84,6 +86,10 @@ export const postVariationImageUpload = createApiRequestHandler(
     throw new Error("Experiment not found");
   }
 
+  if (experiment.type === "holdout") {
+    throw new Error("Holdouts are not supported via this API");
+  }
+
   if (experiment.organization !== context.org.id) {
     throw new Error("You do not have access to this experiment");
   }
@@ -116,6 +122,7 @@ export const postVariationImageUpload = createApiRequestHandler(
     description,
   });
 
+  await validateExperimentChange({ context, experiment, changes });
   await updateExperiment({
     context,
     experiment,
@@ -135,9 +142,9 @@ export const postVariationImageUpload = createApiRequestHandler(
     }),
   });
 
-  if (context.userId) {
+  if (context.actingUserId) {
     await context.models.watch.upsertWatch({
-      userId: context.userId,
+      userId: context.actingUserId,
       item: experiment.id,
       type: "experiments",
     });

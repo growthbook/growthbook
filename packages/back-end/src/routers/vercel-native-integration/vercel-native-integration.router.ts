@@ -50,6 +50,12 @@ router.get(
   vercelController.getResource,
 );
 
+router.get(
+  "/v1/installations/:installation_id/resources/:resource_id/plans",
+  validateRequestMiddleware({}),
+  vercelController.getPlans,
+);
+
 router.patch(
   "/v1/installations/:installation_id/resources/:resource_id",
   validateRequestMiddleware({ body: updateResourceValidator }),
@@ -59,7 +65,7 @@ router.patch(
 router.get(
   "/v1/installations/:installation_id/plans",
   validateRequestMiddleware({}),
-  vercelController.getInstallationProducts,
+  vercelController.getPlans,
 );
 
 router.delete(

@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
+import { PLAIN_DESCRIPTION } from "./api-field-descriptions";
 
 // Corresponds to schemas/Archetype.yaml
 export const apiArchetypeValidator = namedSchema(
@@ -11,7 +13,7 @@ export const apiArchetypeValidator = namedSchema(
       dateCreated: z.string(),
       dateUpdated: z.string(),
       name: z.string(),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       owner: ownerField,
       ownerEmail: ownerEmailField,
       isPublic: z.boolean(),
@@ -19,6 +21,12 @@ export const apiArchetypeValidator = namedSchema(
         .record(z.string(), z.any())
         .describe("The attributes to set when using this Archetype"),
       projects: z.array(z.string()).optional(),
+      environments: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "Limit this Archetype to specific environments. Omit or leave empty to apply to all environments.",
+        ),
     })
     .strict(),
 );
@@ -28,8 +36,14 @@ export type ApiArchetype = z.infer<typeof apiArchetypeValidator>;
 // Corresponds to payload-schemas/PostArchetypePayload.yaml
 const postArchetypeBody = z
   .object({
-    name: z.string(),
-    description: z.string().optional(),
+    name: z
+      .string()
+      .describe("Short display name (e.g. `Logged-out US visitor`)."),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(PLAIN_DESCRIPTION)
+      .optional(),
     isPublic: z
       .boolean()
       .describe(
@@ -40,6 +54,12 @@ const postArchetypeBody = z
       .describe("The attributes to set when using this Archetype")
       .optional(),
     projects: z.array(z.string()).optional(),
+    environments: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Limit this Archetype to specific environments. Omit or leave empty to apply to all environments.",
+      ),
   })
   .strict();
 
@@ -78,6 +98,7 @@ export const postArchetypeValidator = {
     })
     .strict(),
   summary: "Create a single archetype",
+  confirmation: ["other.write"] as const,
   operationId: "postArchetype",
   tags: ["archetypes"],
   method: "post" as const,
@@ -111,6 +132,7 @@ export const putArchetypeValidator = {
     })
     .strict(),
   summary: "Update a single archetype",
+  confirmation: ["other.write"] as const,
   operationId: "putArchetype",
   tags: ["archetypes"],
   method: "put" as const,
@@ -131,6 +153,7 @@ export const deleteArchetypeValidator = {
     })
     .strict(),
   summary: "Deletes a single archetype",
+  confirmation: ["other.write"] as const,
   operationId: "deleteArchetype",
   tags: ["archetypes"],
   method: "delete" as const,

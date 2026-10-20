@@ -1,5 +1,6 @@
 import { postFactMetricAnalysisValidator } from "shared/validators";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
+import { isFactFunnelMetric } from "shared/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -42,6 +43,10 @@ export const postFactMetricAnalysis = createApiRequestHandler(
     populationType !== "factTable"
   ) {
     throw new Error("Custom metric populations are a premium feature");
+  }
+
+  if (isFactFunnelMetric(factMetric)) {
+    throw new Error("Metric analysis is not supported for funnel metrics");
   }
 
   // Get fact table to determine default user ID types

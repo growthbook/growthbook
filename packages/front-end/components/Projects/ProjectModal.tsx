@@ -1,9 +1,11 @@
 import { ProjectInterface } from "shared/types/project";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { postProjectValidator, putProjectValidator } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import SelectOwner from "@/components/Owner/SelectOwner";
 
 export default function ProjectModal({
   existing,
@@ -19,6 +21,7 @@ export default function ProjectModal({
       name: existing.name || "",
       description: existing.description || "",
       publicId: existing.publicId || "",
+      owner: existing.owner || "",
     },
   });
   const restApiCall = useRestApiCall();
@@ -34,6 +37,7 @@ export default function ProjectModal({
           name: value.name || "",
           description: value.description,
           publicId: value.publicId,
+          owner: value.owner,
         };
         if (existing.id) {
           await restApiCall(putProjectValidator, {
@@ -57,12 +61,19 @@ export default function ProjectModal({
       />
       <Field
         label="Description"
-        maxLength={100}
+        maxLength={MAX_DESCRIPTION_LENGTH}
         minRows={3}
         maxRows={8}
         textarea={true}
         {...form.register("description")}
       />
+      {existing.id && (
+        <SelectOwner
+          placeholder="Optional"
+          value={form.watch("owner") || ""}
+          onChange={(v) => form.setValue("owner", v)}
+        />
+      )}
     </ModalStandard>
   );
 }

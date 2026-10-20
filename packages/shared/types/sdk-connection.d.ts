@@ -1,4 +1,9 @@
-import { ManagedBy } from "shared/validators";
+import {
+  ManagedBy,
+  SavedGroupFormat,
+  SdkPayloadSize,
+  SdkPayloadSizeLevel,
+} from "shared/validators";
 
 // GrowthBook Proxy
 export interface ProxyConnection {
@@ -25,6 +30,7 @@ export type EditSDKConnectionParams = {
   hashSecureAttributes?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
+  includeDraftExperimentRefs?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
@@ -32,6 +38,7 @@ export type EditSDKConnectionParams = {
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
   remoteEvalEnabled?: boolean;
   eventTracker?: string;
 };
@@ -48,6 +55,7 @@ export type CreateSDKConnectionParams = {
   hashSecureAttributes: boolean;
   includeVisualExperiments: boolean;
   includeDraftExperiments: boolean;
+  includeDraftExperimentRefs?: boolean;
   includeExperimentNames: boolean;
   includeRedirectExperiments: boolean;
   includeRuleIds: boolean;
@@ -55,6 +63,7 @@ export type CreateSDKConnectionParams = {
   includeCustomFieldsInMetadata: boolean;
   allowedCustomFieldsInMetadata: string[];
   includeTagsInMetadata: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
   remoteEvalEnabled?: boolean;
   managedBy?: ManagedBy;
 };
@@ -62,6 +71,8 @@ export type CreateSDKConnectionParams = {
 import { sdkLanguages } from "shared/constants";
 
 export type SDKLanguage = (typeof sdkLanguages)[number];
+
+export type { SavedGroupFormat };
 
 export interface SDKConnectionInterface {
   id: string;
@@ -84,6 +95,7 @@ export interface SDKConnectionInterface {
   hashSecureAttributes?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
+  includeDraftExperimentRefs?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
@@ -91,6 +103,10 @@ export interface SDKConnectionInterface {
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
+  includeExperimentScheduleInMetadata?: boolean;
+  // Carry prerequisite features into this payload even when they target other
+  // projects. Absent = off; new connections are created with it on.
+  includeReferencedPrerequisites?: boolean;
 
   // URL slug for fetching features from the API
   key: string;
@@ -100,13 +116,27 @@ export interface SDKConnectionInterface {
   proxy: ProxyConnection;
 
   remoteEvalEnabled?: boolean;
+  /**
+   * How Saved Groups are written into this connection's payload. Absent on
+   * connections created before the setting existed; `toInterface` derives it
+   * from `savedGroupReferencesEnabled` for those.
+   */
+  savedGroupFormat?: SavedGroupFormat;
+  /**
+   * @deprecated Superseded by `savedGroupFormat`. Still written and still
+   * accepted by the API so existing integrations keep working.
+   */
   savedGroupReferencesEnabled?: boolean;
   managedBy?: ManagedBy;
+
+  // Size of the last payload built for this connection
+  payloadSize?: SdkPayloadSize;
+  // The level last announced by event and email, so only changes notify
+  notifiedPayloadSizeLevel?: SdkPayloadSizeLevel;
 }
 
 export interface ProxyTestResult {
   status: number;
-  body: string;
   error: string;
   version: string;
   url: string;

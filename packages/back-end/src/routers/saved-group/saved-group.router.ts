@@ -12,7 +12,17 @@ const router = express.Router();
 
 const savedGroupController = wrapController(rawSavedGroupController);
 
+router.get("/", savedGroupController.getSavedGroups);
+
 router.get("/draft-states", savedGroupController.getSavedGroupDraftStates);
+
+router.get(
+  "/metadata",
+  validateRequestMiddleware({
+    query: z.object({ ids: z.string() }).strict(),
+  }),
+  savedGroupController.getSavedGroupsMetadata,
+);
 
 router.get(
   "/:id/references",

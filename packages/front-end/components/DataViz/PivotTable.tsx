@@ -69,62 +69,60 @@ function formatXValue(
     if (isDateType && xVal instanceof Date) {
       const unit = xConfig?.dateAggregationUnit || "none";
       const d = xVal;
+      // Values are parsed as UTC, so formatting in UTC shows the warehouse's dates and times unshifted.
+      const fmt = (date: Date, opts: Intl.DateTimeFormatOptions) =>
+        new Intl.DateTimeFormat(undefined, { ...opts, timeZone: "UTC" }).format(
+          date,
+        );
       switch (unit) {
         case "second":
-          return new Intl.DateTimeFormat(undefined, {
+          return fmt(d, {
             year: "numeric",
             month: "short",
             day: "2-digit",
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit",
-          }).format(d);
+          });
         case "minute":
-          return new Intl.DateTimeFormat(undefined, {
+          return fmt(d, {
             year: "numeric",
             month: "short",
             day: "2-digit",
             hour: "2-digit",
             minute: "2-digit",
-          }).format(d);
+          });
         case "hour":
-          return new Intl.DateTimeFormat(undefined, {
+          return fmt(d, {
             year: "numeric",
             month: "short",
             day: "2-digit",
             hour: "2-digit",
-          }).format(d);
+          });
         case "day":
-          return new Intl.DateTimeFormat(undefined, {
-            year: "numeric",
-            month: "short",
-            day: "2-digit",
-          }).format(d);
+          return fmt(d, { year: "numeric", month: "short", day: "2-digit" });
         case "week": {
-          // Use Monday as the start of the week
-          const day = d.getDay();
-          const diffToMonday = (day + 6) % 7; // 0 for Monday, 6 for Sunday
-          const start = new Date(d);
-          start.setHours(0, 0, 0, 0);
-          start.setDate(d.getDate() - diffToMonday);
-          return `Week of ${new Intl.DateTimeFormat(undefined, {
+          // Sunday-start, matching the week buckets the rows were grouped into.
+          const start = new Date(
+            Date.UTC(
+              d.getUTCFullYear(),
+              d.getUTCMonth(),
+              d.getUTCDate() - d.getUTCDay(),
+            ),
+          );
+          return `Week of ${fmt(start, {
             year: "numeric",
             month: "short",
             day: "2-digit",
-          }).format(start)}`;
+          })}`;
         }
         case "month":
-          return new Intl.DateTimeFormat(undefined, {
-            year: "numeric",
-            month: "short",
-          }).format(d);
+          return fmt(d, { year: "numeric", month: "short" });
         case "year":
-          return new Intl.DateTimeFormat(undefined, {
-            year: "numeric",
-          }).format(d);
+          return fmt(d, { year: "numeric" });
         case "none":
         default:
-          return d.toLocaleDateString();
+          return fmt(d, { year: "numeric", month: "numeric", day: "numeric" });
       }
     }
     return String(xVal);
@@ -560,7 +558,7 @@ export default function PivotTable({
   return (
     <div className="px-2 py-4">
       <h4 className="text-center mb-4">{dataVizConfig.title}</h4>
-      <Table variant="surface" size="1">
+      <Table variant="surface" size="sm">
         <TableHeader>
           {data.columns.map((headerRow, rowIndex) => (
             <TableRow key={rowIndex}>

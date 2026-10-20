@@ -6,6 +6,12 @@ import {
   ResourceEvents,
   WebhookEntry,
 } from "shared/types/events/base-types";
+import {
+  holdoutCreatedNotificationPayload,
+  holdoutStatusChangedNotificationPayload,
+  holdoutNewLinkageNotificationPayload,
+} from "./holdout-notifications";
+import { sdkConnectionPayloadSizeNotificationPayload } from "./sdk-connection-notifications";
 import { apiExperimentValidator } from "./experiments";
 import { featureWebhookPayload } from "./feature-webhook-schemas";
 import {
@@ -18,9 +24,15 @@ import {
   rampScheduleStepApprovalRequiredPayload,
   rampScheduleCompletedPayload,
   rampScheduleRolledBackPayload,
+  rampScheduleErrorPausedPayload,
+  rampScheduleStepHeldPayload,
+  rampSchedulePausedPayload,
+  rampScheduleResumedPayload,
   rampScheduleCreatedPayload,
   rampScheduleDeletedPayload,
   rampScheduleJumpedPayload,
+  rampScheduleAwaitingStartApprovalPayload,
+  rampScheduleStartApprovedPayload,
 } from "./ramp-schedule-notifications";
 import {
   featureRevisionCreatedPayload,
@@ -30,14 +42,30 @@ import {
   featureRevisionChangesRequestedPayload,
   featureRevisionCommentedPayload,
   featureRevisionDiscardedPayload,
+  featureRevisionReopenedPayload,
+  featureRevisionRecalledPayload,
+  featureRevisionReviewRetractedPayload,
+  featureRevisionPublishScheduleChangedPayload,
   featureRevisionRebasedPayload,
   featureRevisionPublishedPayload,
   featureRevisionRevertedPayload,
+  featureRevisionPublishFailedPayload,
 } from "./feature-revision-notifications";
 
 import { experimentWarningNotificationPayload } from "./experiment-warnings";
-import { experimentInfoSignificance } from "./experiment-info";
+import {
+  experimentInfoSignificance,
+  experimentInfoScheduledStatusUpdate,
+} from "./experiment-info";
 import { experimentDecisionNotificationPayload } from "./experiment-decision";
+import {
+  experimentStartedNotificationPayload,
+  experimentStoppedNotificationPayload,
+  experimentEndingSoonNotificationPayload,
+  experimentStaleNotificationPayload,
+  experimentGuardrailFailedNotificationPayload,
+  experimentBanditChangedNotificationPayload,
+} from "./experiment-alerts";
 import { userLoginInterface } from "./users";
 import { apiSavedGroupValidator } from "./saved-group";
 import {
@@ -52,14 +80,71 @@ import {
   savedGroupRevisionPublishedPayload,
   savedGroupRevisionRevertedPayload,
   savedGroupRevisionReopenedPayload,
+  savedGroupRevisionRecalledPayload,
+  savedGroupRevisionReviewRetractedPayload,
+  savedGroupRevisionPublishScheduleChangedPayload,
+  savedGroupRevisionPublishFailedPayload,
 } from "./saved-group-revision-notifications";
+import { apiConstantValidator } from "./constant";
+import {
+  constantRevisionCreatedPayload,
+  constantRevisionUpdatedPayload,
+  constantRevisionReviewRequestedPayload,
+  constantRevisionApprovedPayload,
+  constantRevisionChangesRequestedPayload,
+  constantRevisionCommentedPayload,
+  constantRevisionDiscardedPayload,
+  constantRevisionRebasedPayload,
+  constantRevisionPublishedPayload,
+  constantRevisionRevertedPayload,
+  constantRevisionReopenedPayload,
+  constantRevisionRecalledPayload,
+  constantRevisionReviewRetractedPayload,
+  constantRevisionPublishScheduleChangedPayload,
+  constantRevisionPublishFailedPayload,
+} from "./constant-revision-notifications";
+import { apiConfigValidator } from "./config";
+import {
+  configRevisionCreatedPayload,
+  configRevisionUpdatedPayload,
+  configRevisionReviewRequestedPayload,
+  configRevisionApprovedPayload,
+  configRevisionChangesRequestedPayload,
+  configRevisionCommentedPayload,
+  configRevisionDiscardedPayload,
+  configRevisionRebasedPayload,
+  configRevisionPublishedPayload,
+  configRevisionRevertedPayload,
+  configRevisionReopenedPayload,
+  configRevisionRecalledPayload,
+  configRevisionReviewRetractedPayload,
+  configRevisionPublishScheduleChangedPayload,
+  configRevisionPublishFailedPayload,
+} from "./config-revision-notifications";
 
 // Re-export for consumers of shared/validators
 export { eventUser } from "./event-user";
+export {
+  apiEventUser,
+  assumingKeyOf,
+  auditUserToEventUser,
+  eventUserLabel,
+  eventUserPerson,
+  eventUserPersonId,
+  eventUserIdentity,
+  eventUserKeyName,
+  eventUserLegacyLabel,
+  eventUserCredit,
+  eventUserToApiEventUser,
+  revisionActor,
+  revisionActors,
+} from "./event-user";
 export type {
+  ApiEventUser,
   EventUser,
   EventUserLoggedIn,
   EventUserApiKey,
+  EventUserRequestedBy,
 } from "./event-user";
 
 import { eventUser, eventUserLoggedIn } from "./event-user";
@@ -82,232 +167,381 @@ export const eventData = <T extends z.ZodTypeAny>(data: T) =>
 
 const webhookTestEventSchema = z.object({ webhookId: z.string() }).strict();
 
+// Deliberately omits the token value and the owning user's identity: these are
+// delivered to customer-configured webhooks, so they carry only what is needed
+// to find the key in the UI.
+const apiKeyExpirationEventSchema = z
+  .object({
+    id: z.string(),
+    description: z.string().optional(),
+    expiresAt: z.string(),
+  })
+  .strict();
+
 export const notificationEvents = {
   feature: {
     created: {
       schema: featureWebhookPayload,
-      description: "Triggered when a feature is created",
     },
     updated: {
       schema: featureWebhookPayload,
-      description: "Triggered when a feature is updated",
       isDiff: true,
     },
     deleted: {
       schema: featureWebhookPayload,
-      description: "Triggered when a feature is deleted",
     },
     "saferollout.ship": {
       schema: safeRolloutDecisionNotificationPayload,
-      description:
-        "Triggered when a safe rollout is completed and safe to rollout to 100%.",
     },
     "saferollout.rollback": {
       schema: safeRolloutDecisionNotificationPayload,
-      description:
-        "Triggered when a safe rollout has a failing guardrail and should be reverted.",
     },
     "saferollout.unhealthy": {
       schema: safeRolloutUnhealthyNotificationPayload,
-      description:
-        "Triggered when a safe rollout is failing a health check and may not be working as expected.",
     },
     "rampSchedule.created": {
       schema: rampScheduleCreatedPayload,
-      description: "Triggered when a ramp schedule is created for a feature",
     },
     "rampSchedule.deleted": {
       schema: rampScheduleDeletedPayload,
-      description: "Triggered when a ramp schedule is deleted from a feature",
     },
     "rampSchedule.actions.started": {
       schema: rampScheduleStartedPayload,
-      description: "Triggered when a feature ramp schedule starts",
     },
     "rampSchedule.actions.completed": {
       schema: rampScheduleCompletedPayload,
-      description: "Triggered when a feature ramp schedule completes all steps",
     },
     "rampSchedule.actions.rolledBack": {
       schema: rampScheduleRolledBackPayload,
-      description:
-        "Triggered when a feature ramp schedule is rolled back or reset to start",
     },
     "rampSchedule.actions.jumped": {
       schema: rampScheduleJumpedPayload,
-      description:
-        "Triggered when a feature ramp schedule is jumped to a specific step",
     },
     "rampSchedule.actions.step.advanced": {
       schema: rampScheduleStepAdvancedPayload,
-      description:
-        "Triggered when a feature ramp schedule advances to the next step",
     },
     "rampSchedule.actions.step.approvalRequired": {
       schema: rampScheduleStepApprovalRequiredPayload,
-      description: "Triggered when a feature ramp step is waiting for approval",
+    },
+    "rampSchedule.actions.awaitingStartApproval": {
+      schema: rampScheduleAwaitingStartApprovalPayload,
+    },
+    "rampSchedule.actions.startApproved": {
+      schema: rampScheduleStartApprovedPayload,
+    },
+    "rampSchedule.actions.errorPaused": {
+      schema: rampScheduleErrorPausedPayload,
+    },
+    "rampSchedule.actions.stepHeld": {
+      schema: rampScheduleStepHeldPayload,
+    },
+    "rampSchedule.actions.paused": {
+      schema: rampSchedulePausedPayload,
+    },
+    "rampSchedule.actions.resumed": {
+      schema: rampScheduleResumedPayload,
     },
     "revision.created": {
       schema: featureRevisionCreatedPayload,
-      description:
-        "Triggered when a new draft revision is created for a feature",
     },
     "revision.updated": {
       schema: featureRevisionUpdatedPayload,
-      description:
-        "Triggered when a draft revision is modified (rules, default value, toggles, prerequisites, metadata, etc.). The `change` field indicates the specific kind of mutation.",
     },
     "revision.reviewRequested": {
       schema: featureRevisionReviewRequestedPayload,
-      description: "Triggered when a draft revision is submitted for review",
     },
     "revision.approved": {
       schema: featureRevisionReviewApprovedPayload,
-      description: "Triggered when a draft revision is approved by a reviewer",
     },
     "revision.changesRequested": {
       schema: featureRevisionChangesRequestedPayload,
-      description:
-        "Triggered when a reviewer requests changes on a draft revision",
     },
     "revision.commented": {
       schema: featureRevisionCommentedPayload,
-      description: "Triggered when a comment is added to a draft revision",
     },
     "revision.discarded": {
       schema: featureRevisionDiscardedPayload,
-      description: "Triggered when a draft revision is discarded",
+    },
+    "revision.reopened": {
+      schema: featureRevisionReopenedPayload,
+    },
+    "revision.recalled": {
+      schema: featureRevisionRecalledPayload,
+    },
+    "revision.reviewRetracted": {
+      schema: featureRevisionReviewRetractedPayload,
+    },
+    "revision.publishScheduleChanged": {
+      schema: featureRevisionPublishScheduleChangedPayload,
     },
     "revision.rebased": {
       schema: featureRevisionRebasedPayload,
-      description:
-        "Triggered when a draft revision is rebased onto the latest published version",
     },
     "revision.published": {
       schema: featureRevisionPublishedPayload,
-      description:
-        "Triggered when a draft revision is published. Overlaps with `feature.updated` but provides revision-specific context (base version, comment, author).",
     },
     "revision.reverted": {
       schema: featureRevisionRevertedPayload,
-      description:
-        "Triggered when a feature is reverted to a previous published revision",
+    },
+    "revision.publishFailed": {
+      schema: featureRevisionPublishFailedPayload,
     },
   },
   experiment: {
     created: {
       schema: apiExperimentValidator,
-      description: "Triggered when an experiment is created",
     },
     updated: {
       schema: apiExperimentValidator,
-      description: "Triggered when an experiment is updated",
       isDiff: true,
     },
     deleted: {
       schema: apiExperimentValidator,
-      description: "Triggered when an experiment is deleted",
     },
     warning: {
       schema: experimentWarningNotificationPayload,
-      description:
-        "Triggered when a warning condition is detected on an experiment",
+    },
+    "status.started": {
+      schema: experimentStartedNotificationPayload,
+    },
+    "status.stopped": {
+      schema: experimentStoppedNotificationPayload,
+    },
+    "status.endingSoon": {
+      schema: experimentEndingSoonNotificationPayload,
+    },
+    "status.stale": {
+      schema: experimentStaleNotificationPayload,
+    },
+    guardrailFailed: {
+      schema: experimentGuardrailFailedNotificationPayload,
+    },
+    "bandit.weightsChanged": {
+      schema: experimentBanditChangedNotificationPayload,
     },
     "info.significance": {
       schema: experimentInfoSignificance,
-      description: `Triggered when a goal or guardrail metric reaches significance in an experiment (e.g. either above 95% or below 5% chance to win). Be careful using this without Sequential Testing as it can lead to peeking problems.`,
+    },
+    "info.scheduled-status-update": {
+      schema: experimentInfoScheduledStatusUpdate,
     },
     "decision.ship": {
       schema: experimentDecisionNotificationPayload,
-      description: `Triggered when an experiment is ready to ship a variation.`,
     },
     "decision.rollback": {
       schema: experimentDecisionNotificationPayload,
-      description: `Triggered when an experiment should be rolled back to the control.`,
     },
     "decision.review": {
       schema: experimentDecisionNotificationPayload,
-      description: `Triggered when an experiment has reached the desired power point, but the results may be ambiguous.`,
+    },
+  },
+  holdout: {
+    created: {
+      schema: holdoutCreatedNotificationPayload,
+    },
+    "status.changed": {
+      schema: holdoutStatusChangedNotificationPayload,
+    },
+    "config.newLinkage": {
+      schema: holdoutNewLinkageNotificationPayload,
+    },
+  },
+  sdkConnection: {
+    "payloadSize.warning": {
+      schema: sdkConnectionPayloadSizeNotificationPayload,
     },
   },
   savedGroup: {
     created: {
       schema: apiSavedGroupValidator,
-      description: "Triggered when a saved group is created",
     },
     updated: {
       schema: apiSavedGroupValidator,
-      description: "Triggered when a saved group is updated",
       isDiff: true,
     },
     deleted: {
       schema: apiSavedGroupValidator,
-      description: "Triggered when a saved group is deleted",
     },
     "revision.created": {
       schema: savedGroupRevisionCreatedPayload,
-      description:
-        "Triggered when a new draft revision is created for a saved group",
     },
     "revision.updated": {
       schema: savedGroupRevisionUpdatedPayload,
-      description:
-        "Triggered when a draft revision's proposed changes are modified (values, condition, archive, or metadata). The `change` field indicates the kind of mutation.",
     },
     "revision.reviewRequested": {
       schema: savedGroupRevisionReviewRequestedPayload,
-      description: "Triggered when a draft revision is submitted for review",
     },
     "revision.approved": {
       schema: savedGroupRevisionApprovedPayload,
-      description: "Triggered when a draft revision is approved by a reviewer",
     },
     "revision.changesRequested": {
       schema: savedGroupRevisionChangesRequestedPayload,
-      description:
-        "Triggered when a reviewer requests changes on a draft revision",
     },
     "revision.commented": {
       schema: savedGroupRevisionCommentedPayload,
-      description: "Triggered when a comment is added to a draft revision",
     },
     "revision.discarded": {
       schema: savedGroupRevisionDiscardedPayload,
-      description: "Triggered when a draft revision is discarded",
     },
     "revision.rebased": {
       schema: savedGroupRevisionRebasedPayload,
-      description:
-        "Triggered when a draft revision is rebased onto the latest live state",
     },
     "revision.published": {
       schema: savedGroupRevisionPublishedPayload,
-      description:
-        "Triggered when a draft revision is published. Overlaps with `savedGroup.updated` but provides revision-specific context.",
     },
     "revision.reverted": {
       schema: savedGroupRevisionRevertedPayload,
-      description:
-        "Triggered when a saved group is reverted to a previous published revision",
     },
     "revision.reopened": {
       schema: savedGroupRevisionReopenedPayload,
-      description: "Triggered when a discarded revision is reopened",
+    },
+    "revision.recalled": {
+      schema: savedGroupRevisionRecalledPayload,
+    },
+    "revision.reviewRetracted": {
+      schema: savedGroupRevisionReviewRetractedPayload,
+    },
+    "revision.publishScheduleChanged": {
+      schema: savedGroupRevisionPublishScheduleChangedPayload,
+    },
+    "revision.publishFailed": {
+      schema: savedGroupRevisionPublishFailedPayload,
+    },
+  },
+  constant: {
+    created: {
+      schema: apiConstantValidator,
+    },
+    updated: {
+      schema: apiConstantValidator,
+      isDiff: true,
+    },
+    deleted: {
+      schema: apiConstantValidator,
+    },
+    "revision.created": {
+      schema: constantRevisionCreatedPayload,
+    },
+    "revision.updated": {
+      schema: constantRevisionUpdatedPayload,
+    },
+    "revision.reviewRequested": {
+      schema: constantRevisionReviewRequestedPayload,
+    },
+    "revision.approved": {
+      schema: constantRevisionApprovedPayload,
+    },
+    "revision.changesRequested": {
+      schema: constantRevisionChangesRequestedPayload,
+    },
+    "revision.commented": {
+      schema: constantRevisionCommentedPayload,
+    },
+    "revision.discarded": {
+      schema: constantRevisionDiscardedPayload,
+    },
+    "revision.rebased": {
+      schema: constantRevisionRebasedPayload,
+    },
+    "revision.published": {
+      schema: constantRevisionPublishedPayload,
+    },
+    "revision.reverted": {
+      schema: constantRevisionRevertedPayload,
+    },
+    "revision.reopened": {
+      schema: constantRevisionReopenedPayload,
+    },
+    "revision.recalled": {
+      schema: constantRevisionRecalledPayload,
+    },
+    "revision.reviewRetracted": {
+      schema: constantRevisionReviewRetractedPayload,
+    },
+    "revision.publishScheduleChanged": {
+      schema: constantRevisionPublishScheduleChangedPayload,
+    },
+    "revision.publishFailed": {
+      schema: constantRevisionPublishFailedPayload,
+    },
+  },
+  config: {
+    created: {
+      schema: apiConfigValidator,
+    },
+    updated: {
+      schema: apiConfigValidator,
+      isDiff: true,
+    },
+    deleted: {
+      schema: apiConfigValidator,
+    },
+    "revision.created": {
+      schema: configRevisionCreatedPayload,
+    },
+    "revision.updated": {
+      schema: configRevisionUpdatedPayload,
+    },
+    "revision.reviewRequested": {
+      schema: configRevisionReviewRequestedPayload,
+    },
+    "revision.approved": {
+      schema: configRevisionApprovedPayload,
+    },
+    "revision.changesRequested": {
+      schema: configRevisionChangesRequestedPayload,
+    },
+    "revision.commented": {
+      schema: configRevisionCommentedPayload,
+    },
+    "revision.discarded": {
+      schema: configRevisionDiscardedPayload,
+    },
+    "revision.rebased": {
+      schema: configRevisionRebasedPayload,
+    },
+    "revision.published": {
+      schema: configRevisionPublishedPayload,
+    },
+    "revision.reverted": {
+      schema: configRevisionRevertedPayload,
+    },
+    "revision.reopened": {
+      schema: configRevisionReopenedPayload,
+    },
+    "revision.recalled": {
+      schema: configRevisionRecalledPayload,
+    },
+    "revision.reviewRetracted": {
+      schema: configRevisionReviewRetractedPayload,
+    },
+    "revision.publishScheduleChanged": {
+      schema: configRevisionPublishScheduleChangedPayload,
+    },
+    "revision.publishFailed": {
+      schema: configRevisionPublishFailedPayload,
     },
   },
   user: {
     login: {
       schema: userLoginInterface,
-      description: "Triggered when a user logs in",
+      isDiff: false,
+    },
+  },
+  apiKey: {
+    expiring: {
+      schema: apiKeyExpirationEventSchema,
+      isDiff: false,
+    },
+    expired: {
+      schema: apiKeyExpirationEventSchema,
       isDiff: false,
     },
   },
   webhook: {
     test: {
       schema: webhookTestEventSchema,
-      description: "Triggered when a webhook is being tested",
       isDiff: false,
-      noDoc: true,
     },
   },
 } as const;
@@ -335,9 +569,16 @@ export const notificationEventNames = (
   [] as NotificationEventName[],
 );
 
-// Only use this for zod validations!
-export const zodNotificationEventNamesEnum =
-  notificationEventNames as UnionToTuple<NotificationEventName>;
+// Only use this for zod validations! Asserted to a non-empty tuple of the union
+// element type rather than `UnionToTuple<NotificationEventName>` — that maps a
+// union to an exact ordered tuple by recursing once per member, and the event
+// union has grown large enough to blow tsc's instantiation-depth limit (TS2589).
+// z.enum only needs `[string, ...string[]]`, and infers the same
+// `NotificationEventName` value type either way, so runtime behavior is identical.
+export const zodNotificationEventNamesEnum = notificationEventNames as [
+  NotificationEventName,
+  ...NotificationEventName[],
+];
 
 export const notificationEventPayloadData = <
   Resource extends NotificationEventResource,
@@ -359,7 +600,7 @@ export const notificationEventPayloadData = <
             .object({
               added: z.record(z.string(), z.unknown()),
               removed: z.record(z.string(), z.unknown()),
-              modified: z.record(z.string(), z.unknown()),
+              modified: z.array(z.unknown()),
             })
             .optional(),
         }
@@ -386,6 +627,10 @@ export const notificationEventPayload = <
     data: notificationEventPayloadData(resource, event),
     user: eventUser,
     tags: z.array(z.string()),
-    environments: z.array(z.string()),
+    environments: z
+      .array(z.string())
+      .describe(
+        "The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter).",
+      ),
     containsSecrets: z.boolean(),
   });

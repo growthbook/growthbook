@@ -99,6 +99,7 @@ export default function ExperimentMetricBlock({
 
   const variations = getLatestPhaseVariations(experiment).map((v, i) => ({
     id: v.key || v.index + "",
+    experimentVariationId: v.id,
     index: v.index,
     name: v.name,
     weight:
@@ -156,7 +157,7 @@ export default function ExperimentMetricBlock({
     }
     // When no filter, filter out slice rows that aren't expanded
     return rows.filter((row) => {
-      if (!row.isSliceRow) return true; // Always include parent rows
+      if (!row.isChildRow) return true; // Always include parent rows
       // For slice rows, check if parent metric is expanded
       if (row.parentRowId) {
         const expandedKey = `${row.parentRowId}:${row.resultGroup}`;

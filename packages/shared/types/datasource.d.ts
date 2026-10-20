@@ -8,9 +8,11 @@ import { PostgresConnectionParams } from "./integrations/postgres";
 import { PrestoConnectionParams } from "./integrations/presto";
 import { SnowflakeConnectionParams } from "./integrations/snowflake";
 import { DatabricksConnectionParams } from "./integrations/databricks";
+import { AdobeExperiencePlatformQueryServiceConnectionParams } from "./integrations/adobe-experience-platform-query-service";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
 import { FactTableColumnType } from "./fact-table";
+import { EventForwarderConfigWithMetadata } from "./event-forwarder";
 
 export type DataSourceType =
   | "growthbook_clickhouse"
@@ -26,7 +28,8 @@ export type DataSourceType =
   | "presto"
   | "databricks"
   | "mixpanel"
-  | "vertica";
+  | "vertica"
+  | "adobe_experience_platform_query_service";
 
 export type DataSourceParams =
   | PostgresConnectionParams
@@ -39,7 +42,8 @@ export type DataSourceParams =
   | SnowflakeConnectionParams
   | BigQueryConnectionParams
   | ClickHouseConnectionParams
-  | MixpanelConnectionParams;
+  | MixpanelConnectionParams
+  | AdobeExperiencePlatformQueryServiceConnectionParams;
 
 export type QueryLanguage = "sql" | "javascript" | "json" | "none";
 
@@ -59,6 +63,9 @@ export type SchemaFormat =
   | "firebase"
   | "keen"
   | "clevertap"
+  | "langfuse"
+  | "phoenix"
+  | "eventForwarder"
   | "custom";
 
 export type AutoFactTableSchemas = "segment" | "rudderstack" | "amplitude";
@@ -76,6 +83,7 @@ type GetExperimentSqlOptions = {
   actionName?: string;
   eventType?: string;
   projectId?: string;
+  projectName?: string;
   tablePrefix?: string;
   actionPrefix?: string;
   siteId?: string | number;
@@ -119,7 +127,8 @@ export interface SchemaFormatConfig {
     schema?: string;
   }) => string;
   getEventFilterWhereClause: (metricName: string) => string;
-  getDateLimitClause: (dates?: { start: Date; end: Date }) => string;
+  // Lower bound only: a day-precision upper bound drops the end date's rows
+  getDateLimitClause: (start?: Date) => string;
   displayNameColumn?: string;
 }
 
@@ -146,6 +155,7 @@ export interface DataSourceProperties {
   hasCountDistinctHLL?: boolean;
   hasQuantileSketch?: boolean;
   hasIncrementalRefresh?: boolean;
+  hasArrayQuantileGrid?: boolean;
   maxColumns: number;
 }
 
@@ -153,6 +163,7 @@ type WithParams<B, P> = Omit<B, "params"> & {
   params: P;
   properties?: DataSourceProperties;
   decryptionError: boolean;
+  eventForwarderConfig?: EventForwarderConfigWithMetadata | null;
 };
 
 export type IdentityJoinQuery = {
@@ -170,24 +181,39 @@ export interface ExposureQuery {
   id: string;
   name: string;
   description?: string;
+  /**
+   * Frozen legacy identifier: what records without a stored identifier analyze
+   * on. Set once when the query is created and never follows `userIdTypes`.
+   */
   userIdType: string;
+  userIdTypes: string[];
   query: string;
   hasNameCol?: boolean;
   dimensions: string[];
   dimensionSlicesId?: string;
   dimensionMetadata?: ExperimentDimensionMetadata[];
   error?: string;
+  /** Set to "api" for queries auto-created by Event Forwarder. */
+  managedBy?: "" | "api";
+  /** Projects this query is scoped to. Empty = all of the data source's projects; when set, a subset of them. */
+  projects?: string[];
 }
 
 export interface FeatureUsageQuery {
   id: string;
   query: string;
+  description?: string;
+  error?: string;
+  /** Set to "api" for queries auto-created by Event Forwarder. */
+  managedBy?: "" | "api";
 }
 
 export interface UserIdType {
   userIdType: string;
   description?: string;
   attributes?: string[];
+  /** Set to "api" for identifier types auto-created by Event Forwarder. */
+  managedBy?: "" | "api";
 }
 
 export type DataSourceEvents = {
@@ -260,6 +286,18 @@ export type MaterializedColumn = {
   type?: MaterializedColumnType;
 };
 
+/**
+ * A schema-declared attribute exposed as a typed ALIAS column literally named
+ * `attributes.<property>` on the per-org managed-warehouse JSON tables, so
+ * hand-written SQL can reference the path bare (typed, drift-safe) instead of
+ * casting. `number` maps to Nullable(Float64) via toFloat64OrNull; everything
+ * else to Nullable(String) (mirroring the dialect's jsonExtract semantics).
+ */
+export type TypedAttributeColumn = {
+  property: string;
+  datatype: "string" | "number";
+};
+
 export type DataSourceSettings = {
   // @deprecated
   experimentDimensions?: string[];
@@ -278,6 +316,11 @@ export type DataSourceSettings = {
     featureUsage?: FeatureUsageQuery[];
   };
   events?: DataSourceEvents;
+  askData?: {
+    enabled?: boolean;
+    runPolicy?: "auto-below-threshold" | "always-confirm";
+    thresholdBytes?: number;
+  };
   default?: {
     timestampColumn?: string;
     userIdColumn?: string;
@@ -308,7 +351,66 @@ export type DataSourceSettings = {
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {
   /** When false, the warehouse exists in GrowthBook but ClickHouse was not provisioned yet. */
   hasBeenProvisioned?: boolean;
+  sessionReplayProvisioned?: boolean;
+  /** AWS region the managed warehouse is provisioned in. Absent means `us-east-1` (pre-EU warehouses). */
+  region?: "us-east-1" | "eu-west-1";
+  /** @deprecated Replaced by native JSON columns (`useJsonColumns`); kept for legacy warehouses. */
   materializedColumns?: MaterializedColumn[];
+  /**
+   * When true, per-org tables store `attributes`/`properties` as native JSON columns
+   * (vs String + materialized columns), with identifiers aliased in the fact-table SQL.
+   */
+  useJsonColumns?: boolean;
+  /**
+   * Transient: set while a provisioned warehouse's per-org tables are being recreated
+   * for the JSON-columns migration. Queries are blocked and the UI shows an "upgrading"
+   * state during this window. Distinct from `hasBeenProvisioned: false` (never set up).
+   */
+  migrating?: boolean;
+  /**
+   * Custom identifiers preserved from a legacy materialized-column warehouse during the
+   * JSON migration that aren't current `hashAttribute`s. They're aliased out of the
+   * `attributes` JSON column (like hashAttribute identifiers) so legacy `userIdType`s and
+   * the joins keyed on them survive. Persisted so the attribute-change sync re-includes
+   * them rather than regenerating identifiers from the schema alone.
+   */
+  migratedIdentifiers?: string[];
+  /**
+   * Non-identifier materialized columns (dimensions) preserved from a legacy warehouse
+   * during the JSON migration. Like `migratedIdentifiers`, each is re-exposed as a
+   * top-level SELECT alias out of the `attributes` JSON column (`attributes.<sourceField>
+   * AS <columnName>`, cast to its declared datatype) so bare references to it — raw-SQL
+   * fact filters, `sql_expr` row filters, exposure breakdowns, fact-table-routed metrics —
+   * keep resolving without rewriting any stored SQL. Persisted so the attribute-change
+   * sync re-emits the aliases. A live attribute also remains an `attributes.<field>` JSON
+   * field; that duplicate listing is harmless — both resolve to the same data.
+   */
+  migratedColumns?: MaterializedColumn[];
+  /**
+   * Schema-declared attributes exposed as typed `attributes.<property>` ALIAS
+   * columns on the per-org JSON tables (see TypedAttributeColumn). Derived from
+   * the org attribute schema on every attribute-change sync and persisted here
+   * so the license server (which applies the DDL at provision/recreate/sync
+   * time) reads the desired state from this doc.
+   */
+  typedAttributeColumns?: TypedAttributeColumn[];
+  /**
+   * Version of the JSON-ergonomics setup (user settings + typed attribute
+   * columns) last applied to this warehouse. The backfill sweep enqueues
+   * provisioned JSON warehouses whose version is behind
+   * MANAGED_WAREHOUSE_JSON_ERGONOMICS_VERSION; bump that constant to re-sweep.
+   */
+  jsonErgonomicsVersion?: number;
+  /**
+   * Which built-in identifier the `id` attribute folds into in generated SQL.
+   * Defaults to "device_id" (the SDK tracking plugin's contract). Orgs that send
+   * a logged-in user ID under the `id` key via the Ingestion API can set
+   * "user_id" so `attributes.id` participates in user_id joins instead. Only
+   * meaningful on JSON-column warehouses, and incompatible with the tracking
+   * plugin: the plugin folds `id` into the physical device_id column client-side
+   * and strips it from the JSON, where this query-time remap can't see it.
+   */
+  idAttributeIdentifier?: "user_id" | "device_id";
 }
 
 interface DataSourceBase {
@@ -368,6 +470,10 @@ interface VerticaDataSource extends DataSourceBase {
   type: "vertica";
 }
 
+interface AdobeExperiencePlatformQueryServiceDataSource extends DataSourceBase {
+  type: "adobe_experience_platform_query_service";
+}
+
 interface BigQueryDataSource extends DataSourceBase {
   type: "bigquery";
 }
@@ -412,11 +518,15 @@ export type PostgresDataSourceWithParams = WithParams<
   PostgresDataSource,
   PostgresConnectionParams
 >;
-
 export type VerticaDataSourceWithParams = WithParams<
   VerticaDataSource,
   PostgresConnectionParams
 >;
+export type AdobeExperiencePlatformQueryServiceDataSourceWithParams =
+  WithParams<
+    AdobeExperiencePlatformQueryServiceDataSource,
+    AdobeExperiencePlatformQueryServiceConnectionParams
+  >;
 export type MysqlDataSourceWithParams = WithParams<
   MysqlDataSource,
   MysqlConnectionParams
@@ -452,7 +562,8 @@ export type DataSourceInterface =
   | MssqlDataSource
   | BigQueryDataSource
   | ClickHouseDataSource
-  | MixpanelDataSource;
+  | MixpanelDataSource
+  | AdobeExperiencePlatformQueryServiceDataSource;
 
 export type DataSourceInterfaceWithParams =
   | GrowthbookClickhouseDataSourceWithParams
@@ -468,4 +579,5 @@ export type DataSourceInterfaceWithParams =
   | MssqlDataSourceWithParams
   | BigQueryDataSourceWithParams
   | ClickHouseDataSourceWithParams
-  | MixpanelDataSourceWithParams;
+  | MixpanelDataSourceWithParams
+  | AdobeExperiencePlatformQueryServiceDataSourceWithParams;

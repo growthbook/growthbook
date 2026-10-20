@@ -3,6 +3,11 @@ import { RampScheduleTemplateInterface } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  collectRampPlanPatches,
+  rampPatchEntries,
+  validateRampPlanPatches,
+} from "back-end/src/api/features/validations";
 
 // GET /ramp-schedule-templates
 export const getRampScheduleTemplates = async (
@@ -10,7 +15,7 @@ export const getRampScheduleTemplates = async (
   res: Response,
 ) => {
   const context = getContextFromReq(req);
-  const templates = await context.models.rampScheduleTemplates.getAll();
+  const templates = await context.models.rampScheduleTemplates.getAllSorted();
   res.status(200).json({ status: 200, rampScheduleTemplates: templates });
 };
 
@@ -43,7 +48,7 @@ export const postRampScheduleTemplate = async (
 
   if (!context.hasPremiumFeature("ramp-schedules")) {
     context.throwPlanDoesNotAllowError(
-      "Ramp schedule templates require an Enterprise plan.",
+      "Ramp schedule templates require a Pro plan or above.",
     );
   }
 
@@ -51,6 +56,10 @@ export const postRampScheduleTemplate = async (
 
   const { steps, name, official, endPatch, monitoringConfig, lockdownConfig } =
     body;
+  await validateRampPlanPatches(
+    context,
+    rampPatchEntries(collectRampPlanPatches({ steps, endPatch }), null),
+  );
 
   const created = await context.models.rampScheduleTemplates.create({
     name,
@@ -59,8 +68,33 @@ export const postRampScheduleTemplate = async (
     official,
     monitoringConfig,
     lockdownConfig,
+    order: await context.models.rampScheduleTemplates.getNextOrder(),
   });
   res.status(201).json({ status: 201, rampScheduleTemplate: created });
+};
+
+// POST /ramp-schedule-templates/reorder
+export const reorderRampScheduleTemplates = async (
+  req: AuthRequest<{ oldId: string; newId: string }>,
+  res: Response,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.hasPremiumFeature("ramp-schedules")) {
+    context.throwPlanDoesNotAllowError(
+      "Ramp schedule templates require a Pro plan or above.",
+    );
+  }
+
+  const { oldId, newId } = req.body;
+  const reordered = await context.models.rampScheduleTemplates.reorder(
+    oldId,
+    newId,
+  );
+  if (!reordered) {
+    return res.status(404).json({ status: 404, message: "Template not found" });
+  }
+  res.status(200).json({ status: 200, rampScheduleTemplates: reordered });
 };
 
 // PUT /ramp-schedule-templates/:id
@@ -72,7 +106,7 @@ export const putRampScheduleTemplate = async (
 
   if (!context.hasPremiumFeature("ramp-schedules")) {
     context.throwPlanDoesNotAllowError(
-      "Ramp schedule templates require an Enterprise plan.",
+      "Ramp schedule templates require a Pro plan or above.",
     );
   }
 
@@ -93,6 +127,11 @@ export const putRampScheduleTemplate = async (
     updates.monitoringConfig = body.monitoringConfig;
   if (body.lockdownConfig !== undefined)
     updates.lockdownConfig = body.lockdownConfig;
+  await validateRampPlanPatches(
+    context,
+    rampPatchEntries(collectRampPlanPatches(updates), null),
+    { stored: [template] },
+  );
 
   const updated = await context.models.rampScheduleTemplates.updateById(
     template.id,
@@ -107,6 +146,13 @@ export const deleteRampScheduleTemplate = async (
   res: Response,
 ) => {
   const context = getContextFromReq(req);
+
+  if (!context.hasPremiumFeature("ramp-schedules")) {
+    context.throwPlanDoesNotAllowError(
+      "Ramp schedule templates require a Pro plan or above.",
+    );
+  }
+
   const template = await context.models.rampScheduleTemplates.getById(
     req.params.id,
   );

@@ -1,9 +1,9 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { resolveAnalysisIdentifierType } from "shared/util";
 import { Fragment, useMemo, useState } from "react";
 import { getScopedSettings } from "shared/settings";
 import {
   expandMetricGroups,
-  ExperimentMetricInterface,
   getMetricLink,
   isFactMetric,
 } from "shared/experiments";
@@ -14,10 +14,15 @@ import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Link from "@/ui/Link";
-import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
-import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
-import TargetMDEModal from "@/components/Experiment/TabbedPage/TargetMDEModal";
 import Text from "@/ui/Text";
+import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
+import Heading from "@/ui/Heading";
+import Frame from "@/ui/Frame";
+import {
+  getExposureQueriesInScope,
+  isIdentifierUndeclared,
+} from "@/services/datasources";
+import { AssignmentQueryDriftIcon } from "@/components/Experiment/AssignmentQueryFields";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -26,20 +31,8 @@ export interface Props {
   canEdit: boolean;
   ssrPolyfills?: SSRPolyfills;
   isPublic?: boolean;
+  holdoutProjects?: string[];
 }
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
-
-export type ExperimentMetricInterfaceWithComputedTargetMDE = Omit<
-  ExperimentMetricInterface,
-  "targetMDE"
-> & {
-  computedTargetMDE: number;
-  metricTargetMDE: number;
-};
 
 export default function AnalysisSettings({
   experiment,
@@ -48,6 +41,7 @@ export default function AnalysisSettings({
   canEdit,
   ssrPolyfills,
   isPublic,
+  holdoutProjects,
 }: Props) {
   const {
     getDatasourceById,
@@ -57,21 +51,10 @@ export default function AnalysisSettings({
     segments,
     metricGroups,
   } = useDefinitions();
-  const { organization, hasCommercialFeature } = useUser();
+  const { organization } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
-  const hasDecisionFramework =
-    organization?.settings?.decisionFrameworkEnabled &&
-    hasCommercialFeature("decision-framework");
-
-  const { getDecisionCriteria } = useRunningExperimentStatus();
-  const decisionCriteria = getDecisionCriteria(
-    experiment.decisionFrameworkSettings?.decisionCriteriaId,
-  );
-
   const [analysisModal, setAnalysisModal] = useState(false);
-  const [targetMDEModal, setTargetMDEModal] = useState(false);
-  const [decisionCriteriaModal, setDecisionCriteriaModal] = useState(false);
 
   const canEditAnalysisSettings =
     canEdit && permissionsUtil.canUpdateExperiment(experiment, {});
@@ -83,6 +66,13 @@ export default function AnalysisSettings({
   const assignmentQuery = datasource?.settings?.queries?.exposure?.find(
     (e) => e.id === experiment.exposureQueryId,
   );
+  const identifierType = resolveAnalysisIdentifierType(
+    assignmentQuery,
+    experiment.exposureQueryIdentifierType,
+  );
+  const scopedQueries = datasource
+    ? getExposureQueriesInScope(datasource, experiment.project, holdoutProjects)
+    : [];
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
     useMemo(() => {
@@ -175,80 +165,92 @@ export default function AnalysisSettings({
           editMetrics={true}
           source={"analysis-settings"}
           envs={envs}
+          holdoutProjects={holdoutProjects}
         />
       ) : null}
 
-      {decisionCriteriaModal && mutate ? (
-        <DecisionCriteriaSelectorModal
-          initialCriteria={decisionCriteria}
-          experiment={experiment}
-          onSubmit={() => {
-            setDecisionCriteriaModal(false);
-            mutate();
-          }}
-          onClose={() => setDecisionCriteriaModal(false)}
-          canEdit={canEditAnalysisSettings}
-        />
-      ) : null}
-      {targetMDEModal && mutate ? (
-        <TargetMDEModal
-          goalsWithTargetMDE={goalsWithTargetMDE}
-          experiment={experiment}
-          onSubmit={() => {
-            setTargetMDEModal(false);
-            mutate();
-          }}
-          onClose={() => setTargetMDEModal(false)}
-        />
-      ) : null}
-
-      <div className="box p-4 my-4">
+      <Frame>
         <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-          <h4 className="m-0">Analysis Settings</h4>
+          <Heading color="text-high" as="h4" size="sm" mb="0">
+            Analysis Settings
+          </Heading>
           <div className="flex-1" />
           {canEditAnalysisSettings ? (
-            <button
-              className="btn p-0 link-purple"
-              onClick={() => {
-                setAnalysisModal(true);
-              }}
-            >
-              Edit
-            </button>
+            <Link onClick={() => setAnalysisModal(true)}>
+              <Text weight="semibold">Edit</Text>
+            </Link>
           ) : null}
         </div>
 
         {!isPublic && (
           <div className="row">
             <div className="col-4 mb-4">
-              <div className="h5">Data Source</div>
-              <div>{datasource ? datasource.name : <em>none</em>}</div>
+              <Text color="text-high" weight="semibold">
+                Data Source
+              </Text>
+              <div>
+                <Text color="text-mid">
+                  {datasource ? datasource.name : "--"}
+                </Text>
+              </div>
             </div>
 
             <div className="col-4 mb-4">
-              <div className="h5">Experiment Assignment Table</div>
+              <Text color="text-high" weight="semibold">
+                Experiment Assignment Table
+              </Text>
               <div>
-                {assignmentQuery ? assignmentQuery.name : <em>none</em>}
+                <Text color="text-mid">
+                  {assignmentQuery ? assignmentQuery.name : "--"}
+                </Text>{" "}
+                <AssignmentQueryDriftIcon
+                  selection={{
+                    outOfScope:
+                      !!assignmentQuery &&
+                      !scopedQueries.some((q) => q.id === assignmentQuery.id),
+                    identifierUndeclared: isIdentifierUndeclared(
+                      assignmentQuery,
+                      identifierType,
+                    ),
+                    identifierType,
+                    holdoutProjects,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="col-4 mb-4">
+              <Text color="text-high" weight="semibold">
+                Identifier Type
+              </Text>
+              <div>
+                <Text color="text-mid">{identifierType || "--"}</Text>
               </div>
             </div>
 
             {experiment.activationMetric && (
               <div className="col-4 mb-4">
-                <div className="h5">Activation Metric</div>
+                <Text color="text-high" weight="semibold">
+                  Activation Metric
+                </Text>
                 <div>
-                  {getExperimentMetricById(experiment.activationMetric)?.name}
+                  <Text color="text-mid">
+                    {getExperimentMetricById(experiment.activationMetric)?.name}
+                  </Text>
                 </div>
               </div>
             )}
             {!isHoldout && (segments.length > 0 || experiment.segment) && (
               <div className="col-4 mb-4">
-                <div className="h5">Segment</div>
+                <Text color="text-high" weight="semibold">
+                  Segment
+                </Text>
                 <div>
-                  {experiment.segment ? (
-                    <>{getSegmentById(experiment.segment)?.name}</>
-                  ) : (
-                    <em>none (all users)</em>
-                  )}
+                  <Text color="text-mid">
+                    {experiment.segment
+                      ? getSegmentById(experiment.segment)?.name
+                      : "all users"}
+                  </Text>
                 </div>
               </div>
             )}
@@ -257,9 +259,9 @@ export default function AnalysisSettings({
 
         <div className="row mt-4">
           <div className="col-4 mb-4">
-            <div className="h5">
+            <Text color="text-high" weight="semibold">
               {!isBandit ? "Goal Metrics" : "Decision Metric"}
-            </div>
+            </Text>
             <div>
               {goalsWithTargetMDE.length ? (
                 <ul className="list-unstyled mb-0">
@@ -276,7 +278,7 @@ export default function AnalysisSettings({
                           {isBandit &&
                             experiment.banditConversionWindowValue &&
                             experiment.banditConversionWindowUnit && (
-                              <Text size="small">
+                              <Text size="sm" color="text-mid">
                                 Conversion Window:{" "}
                                 {experiment.banditConversionWindowValue}{" "}
                                 {experiment.banditConversionWindowValue === 1
@@ -293,13 +295,15 @@ export default function AnalysisSettings({
                   })}
                 </ul>
               ) : (
-                <em>none</em>
+                <Text color="text-mid">--</Text>
               )}
             </div>
           </div>
 
           <div className="col-4">
-            <div className="h5">Secondary Metrics</div>
+            <Text color="text-high" weight="semibold">
+              Secondary Metrics
+            </Text>
             <div>
               {secondary.length ? (
                 <ul className="list-unstyled mb-0">
@@ -310,13 +314,15 @@ export default function AnalysisSettings({
                   ))}
                 </ul>
               ) : (
-                <em>none</em>
+                <Text color="text-mid">--</Text>
               )}
             </div>
           </div>
           {!isHoldout && (
             <div className="col-4">
-              <div className="h5">Guardrail Metrics</div>
+              <Text color="text-high" weight="semibold">
+                Guardrail Metrics
+              </Text>
               <div>
                 {guardrails.length ? (
                   <ul className="list-unstyled mb-0">
@@ -329,87 +335,45 @@ export default function AnalysisSettings({
                     ))}
                   </ul>
                 ) : (
-                  <em>none</em>
+                  <Text color="text-mid">--</Text>
                 )}
               </div>
             </div>
           )}
         </div>
-        {!isBandit && !isHoldout && hasDecisionFramework && (
-          <div className="row mt-4">
-            <div className="col-4">
-              <div className="h5">Target MDE</div>
-              <div>
-                {goalsWithTargetMDE.length ? (
-                  <ul className="list-unstyled mb-0">
-                    {goalsWithTargetMDE.map((metric, i) => {
-                      return (
-                        <li key={`goal-mde-${i}`}>
-                          {metric.name} (
-                          {percentFormatter.format(metric.computedTargetMDE)})
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
-                  <em>none</em>
-                )}
-              </div>
-              {canEditAnalysisSettings ? (
-                <div className="mt-1">
-                  <Link
-                    onClick={() => {
-                      setTargetMDEModal(true);
-                    }}
-                  >
-                    View/Edit
-                  </Link>
-                </div>
-              ) : null}
-            </div>
-            <div className="col-4">
-              <div className="h5">Decision Criteria</div>
-              <div>
-                <Text weight="regular">{decisionCriteria.name}</Text>
-                <Text color="text-mid">{`: ${decisionCriteria.description}`}</Text>
-              </div>
-              <div className="mt-1">
-                <Link
-                  onClick={() => {
-                    setDecisionCriteriaModal(true);
-                  }}
-                >
-                  {canEditAnalysisSettings ? "View/Edit" : "View"}
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
         {isBandit && (
           <div className="row mt-4">
             <div className="col-4">
-              <div className="h5">Exploratory Stage</div>
+              <Text color="text-high" weight="semibold">
+                Exploratory Stage
+              </Text>
               <div>
-                {experiment.banditBurnInValue ?? 1}{" "}
-                {(experiment.banditBurnInUnit ?? "days") === "days"
-                  ? "day"
-                  : "hour"}
-                {(experiment.banditBurnInValue ?? 1) !== 1 ? "s" : ""}
+                <Text color="text-mid">
+                  {experiment.banditBurnInValue ?? 1}{" "}
+                  {(experiment.banditBurnInUnit ?? "days") === "days"
+                    ? "day"
+                    : "hour"}
+                  {(experiment.banditBurnInValue ?? 1) !== 1 ? "s" : ""}
+                </Text>
               </div>
             </div>
 
             <div className="col-4">
-              <div className="h5">Update Cadence</div>
+              <Text color="text-high" weight="semibold">
+                Update Cadence
+              </Text>
               <div>
-                Every {experiment.banditScheduleValue ?? 1}{" "}
-                {(experiment.banditScheduleUnit ?? "days") === "days"
-                  ? "days"
-                  : "hours"}
+                <Text color="text-mid">
+                  Every {experiment.banditScheduleValue ?? 1}{" "}
+                  {(experiment.banditScheduleUnit ?? "days") === "days"
+                    ? "days"
+                    : "hours"}
+                </Text>
               </div>
             </div>
           </div>
         )}
-      </div>
+      </Frame>
     </>
   );
 }

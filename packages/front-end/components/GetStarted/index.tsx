@@ -1,3 +1,4 @@
+import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { useState, useEffect, useMemo } from "react";
 import {
   Box,
@@ -26,7 +27,9 @@ import {
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
 import WorkspaceLinks from "@/components/GetStarted/WorkspaceLinks";
+import { HomeMarketingBanner } from "@/components/Marketing/MarketingBanner";
 import Callout from "@/ui/Callout";
+import AutoRunCallout from "@/components/GetStarted/AutoRunCallout";
 import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import NeedingAttention from "@/components/GetStarted/NeedingAttention";
@@ -34,12 +37,13 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import AdvancedFeaturesCard from "@/components/GetStarted/AdvancedFeaturesCard";
-import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
+import CreateExperimentModal from "@/components/Experiment/CreateExperimentModal";
 import FeatureModal from "@/components/Features/FeatureModal";
 import { isCloud } from "@/services/env";
 import { isExperimentationLeaning } from "@/services/onboarding";
 import { DocSection } from "@/components/DocLink";
 import useApi from "@/hooks/useApi";
+import useAgentOnboarding from "@/hooks/useAgentOnboarding";
 
 type AdvancedFeature = (
   | { docSection: DocSection; href?: never }
@@ -118,7 +122,11 @@ const advancedFeatureList: AdvancedFeature[] = [
   ...dataScientistFeatureList,
 ];
 
-const GetStartedAndHomePage = (): React.ReactElement => {
+const GetStartedAndHomePage = ({
+  showMarketingBanner = false,
+}: {
+  showMarketingBanner?: boolean;
+} = {}): React.ReactElement => {
   const [showVideoId, setShowVideoId] = useState<string>("");
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
   const { clearStep } = useGetStarted();
@@ -141,9 +149,10 @@ const GetStartedAndHomePage = (): React.ReactElement => {
       projects: [project],
       id: "production",
     });
-  const canCreateFeature = permissionsUtils.canCreateFeature({
-    project,
-  });
+  const canCreateFeature = permissionsUtils.canCreateFeature(
+    { project },
+    NO_ENVIRONMENT_BINDING,
+  );
   const canCreateExperiment = permissionsUtils.canCreateExperiment({
     project,
   });
@@ -170,6 +179,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const orgHasConnectedSDK =
     sdkConnectionData && sdkConnectionData.connections.some((c) => c.connected);
   const showSetUpFlow = canUseSetupFlow && !orgHasConnectedSDK;
+  const agentOnboarding = useAgentOnboarding();
 
   // If they view the guide, clear the current step
   useEffect(() => {
@@ -206,10 +216,9 @@ const GetStartedAndHomePage = (): React.ReactElement => {
         />
       )}
       {openNewExperimentModal && (
-        <NewExperimentForm
+        <CreateExperimentModal
           onClose={() => setOpenNewExperimentModal(false)}
           source="home-page"
-          isNewExperiment={true}
         />
       )}
       {openNewFeatureFlagModal && (
@@ -235,6 +244,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
         px={{ initial: "2", xs: "4", sm: "7" }}
         py={{ initial: "1", xs: "3", sm: "6" }}
       >
+        {showMarketingBanner && <HomeMarketingBanner />}
         <Grid columns={`minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`}>
           <Text size="7" weight="regular" mb="5" as="div">
             Home
@@ -331,6 +341,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                   </Button>
                 )}
               </Flex>
+              <AutoRunCallout />
               {!showGettingStarted && (
                 <Callout status="info" size="md" mb="4">
                   <Text size="2">
@@ -368,7 +379,7 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                     <Callout status="wizard" size="md" mb="6">
                       Connect to your SDK to get started.{" "}
                       <Link
-                        href="/setup"
+                        href={agentOnboarding ? "/connect" : "/setup"}
                         className="font-weight-bold"
                         style={{ color: "inherit" }}
                       >

@@ -8,7 +8,9 @@ import {
   getMetricMapForExperiment,
   toSnapshotApiInterface,
 } from "back-end/src/services/experiments";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { toReportApiInterface } from "./toReportApiInterface";
 
 export const putReportSettings = createApiRequestHandler(
@@ -160,14 +162,22 @@ export const putReportSettings = createApiRequestHandler(
   const snapshot = updatedReport.snapshot
     ? await findSnapshotById(req.context, updatedReport.snapshot)
     : null;
-  const apiReport = toReportApiInterface(updatedReport, snapshot);
+  const apiReport = await resolveOwnerEmail(
+    await toReportApiInterface(req.context, updatedReport, snapshot),
+    req.context,
+  );
 
   if (snapshot?.status === "success" && experiment) {
     const metricsById = await getMetricMapForExperiment(
       req.context,
       experiment,
     );
-    const results = toSnapshotApiInterface(experiment, snapshot, metricsById);
+    const results = toSnapshotApiInterface(
+      experiment,
+      snapshot,
+      metricsById,
+      await getExposureQueriesForDatasource(req.context, experiment.datasource),
+    );
     return { report: { ...apiReport, results } };
   }
 

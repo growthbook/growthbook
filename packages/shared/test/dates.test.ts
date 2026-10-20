@@ -1,4 +1,13 @@
-import { dateStringArrayBetweenDates, getValidDate } from "../src/dates";
+import {
+  dateStringArrayBetweenDates,
+  getValidDate,
+  lastMondayString,
+  parseWarehouseDate,
+  resolveScheduleStopAfter,
+  resolveScheduledStop,
+  snapToMinuteEnd,
+  snapToMinuteStart,
+} from "../src/dates";
 
 describe("getValidDate", () => {
   it("Uses the fallback", () => {
@@ -17,6 +26,32 @@ describe("getValidDate", () => {
     expect(getValidDate(d, fallback)).toEqual(d);
     expect(getValidDate(t, fallback)).toEqual(d);
     expect(getValidDate(d.toISOString(), fallback)).toEqual(d);
+  });
+});
+
+describe("parseWarehouseDate", () => {
+  it("reads zoneless warehouse timestamps as UTC", () => {
+    expect(parseWarehouseDate("2026-10-01 07:00:00").toISOString()).toBe(
+      "2026-10-01T07:00:00.000Z",
+    );
+    expect(parseWarehouseDate("2026-10-01T07:00:00.123").toISOString()).toBe(
+      "2026-10-01T07:00:00.123Z",
+    );
+    expect(parseWarehouseDate("2026-03-08 02:30").toISOString()).toBe(
+      "2026-03-08T02:30:00.000Z",
+    );
+  });
+
+  it("leaves Dates, timestamps and explicit zones alone", () => {
+    expect(parseWarehouseDate("2026-10-01").toISOString()).toBe(
+      "2026-10-01T00:00:00.000Z",
+    );
+    expect(parseWarehouseDate("2026-10-01T07:00:00+02:00").toISOString()).toBe(
+      "2026-10-01T05:00:00.000Z",
+    );
+    const d = new Date("2026-10-01T07:00:00Z");
+    expect(parseWarehouseDate(d).getTime()).toBe(d.getTime());
+    expect(parseWarehouseDate(d.getTime()).getTime()).toBe(d.getTime());
   });
 });
 
@@ -57,5 +92,178 @@ describe("dateStringArrayBetweenDates", () => {
       "'2020-01-05'",
       "'2020-01-07'",
     ]);
+  });
+});
+
+describe("resolveScheduleStopAfter", () => {
+  it("adds days", () => {
+    const base = new Date(Date.UTC(2020, 0, 5, 10, 0, 0));
+    expect(resolveScheduleStopAfter(base, { value: 14, unit: "days" })).toEqual(
+      new Date(Date.UTC(2020, 0, 19, 10, 0, 0)),
+    );
+  });
+
+  it("adds hours", () => {
+    const base = new Date(Date.UTC(2020, 0, 5, 10, 0, 0));
+    expect(resolveScheduleStopAfter(base, { value: 6, unit: "hours" })).toEqual(
+      new Date(Date.UTC(2020, 0, 5, 16, 0, 0)),
+    );
+  });
+
+  it("truncates seconds and milliseconds", () => {
+    const base = new Date(Date.UTC(2020, 0, 5, 10, 30, 45, 123));
+    const result = resolveScheduleStopAfter(base, { value: 1, unit: "days" });
+    expect(result.getSeconds()).toBe(0);
+    expect(result.getMilliseconds()).toBe(0);
+  });
+});
+
+describe("resolveScheduledStop", () => {
+  const base = new Date(Date.UTC(2020, 0, 1, 0, 0, 0));
+  const now = new Date(Date.UTC(2020, 0, 2, 0, 0, 0));
+
+  it("keeps an absolute stopAt and stages it when active + future", () => {
+    const future = new Date(Date.UTC(2020, 0, 10, 0, 0, 0));
+    const r = resolveScheduledStop({
+      stopAt: future,
+      base,
+      active: true,
+      now,
+    });
+    expect(r.stopAt).toEqual(future);
+    expect(r.stopAfter).toBeNull();
+    expect(r.stagedStop).toEqual({ type: "stop", date: future });
+  });
+
+  it("does not stage an absolute stopAt when inactive", () => {
+    const future = new Date(Date.UTC(2020, 0, 10, 0, 0, 0));
+    const r = resolveScheduledStop({
+      stopAt: future,
+      base,
+      active: false,
+      now,
+    });
+    expect(r.stopAt).toEqual(future);
+    expect(r.stagedStop).toBeNull();
+  });
+
+  it("does not stage a past stopAt even when active", () => {
+    const past = new Date(Date.UTC(2019, 0, 1, 0, 0, 0));
+    const r = resolveScheduledStop({ stopAt: past, base, active: true, now });
+    expect(r.stopAt).toEqual(past);
+    expect(r.stagedStop).toBeNull();
+  });
+
+  it("resolves a relative stopAfter off base and stages it when active", () => {
+    const r = resolveScheduledStop({
+      stopAfter: { value: 7, unit: "days" },
+      base,
+      active: true,
+      now,
+    });
+    expect(r.stopAt).toEqual(new Date(Date.UTC(2020, 0, 8, 0, 0, 0)));
+    expect(r.stopAfter).toBeNull();
+    expect(r.stagedStop).toEqual({
+      type: "stop",
+      date: new Date(Date.UTC(2020, 0, 8, 0, 0, 0)),
+    });
+  });
+
+  it("defers a relative stopAfter when inactive (draft)", () => {
+    const r = resolveScheduledStop({
+      stopAfter: { value: 7, unit: "days" },
+      base,
+      active: false,
+      now,
+    });
+    expect(r.stopAt).toBeNull();
+    expect(r.stopAfter).toEqual({ value: 7, unit: "days" });
+    expect(r.stagedStop).toBeNull();
+  });
+
+  it("returns nulls when no end is set", () => {
+    const r = resolveScheduledStop({ base, active: true, now });
+    expect(r.stopAt).toBeNull();
+    expect(r.stopAfter).toBeNull();
+    expect(r.stagedStop).toBeNull();
+  });
+});
+
+describe("lastMondayString", () => {
+  it("returns the date itself when it is already a Monday", () => {
+    expect(lastMondayString("2026-09-07")).toBe("2026-09-07");
+    expect(lastMondayString("2026-09-14")).toBe("2026-09-14");
+  });
+
+  it("returns the start of the week for every other day", () => {
+    expect(lastMondayString("2026-09-08")).toBe("2026-09-07");
+    expect(lastMondayString("2026-09-10")).toBe("2026-09-07");
+    expect(lastMondayString("2026-09-13")).toBe("2026-09-07");
+    expect(lastMondayString("2026-09-15")).toBe("2026-09-14");
+  });
+
+  it("buckets on the UTC calendar day regardless of local timezone", () => {
+    // Timestamps late in the UTC day land on the prior day in western
+    // timezones, which previously shifted them into the wrong week.
+    expect(lastMondayString("2026-09-07T23:30:00Z")).toBe("2026-09-07");
+    expect(lastMondayString("2026-09-06T23:30:00Z")).toBe("2026-08-31");
+  });
+});
+
+describe("snapToMinuteStart", () => {
+  it("Drops seconds and milliseconds without mutating the input", () => {
+    const input = new Date("2026-03-01T12:34:56.789Z");
+    expect(snapToMinuteStart(input).toISOString()).toBe(
+      "2026-03-01T12:34:00.000Z",
+    );
+    expect(input.toISOString()).toBe("2026-03-01T12:34:56.789Z");
+  });
+
+  it("Collapses timestamps in the same minute and separates adjacent ones", () => {
+    // This is the whole point: identical bounds produce identical SQL, which is
+    // what the query cache matches on.
+    const early = snapToMinuteStart(new Date("2026-03-01T12:34:00.001Z"));
+    const late = snapToMinuteStart(new Date("2026-03-01T12:34:59.999Z"));
+    const next = snapToMinuteStart(new Date("2026-03-01T12:35:00.000Z"));
+
+    expect(early.getTime()).toBe(late.getTime());
+    expect(next.getTime()).not.toBe(early.getTime());
+  });
+
+  it("Is a no-op on a date already on the minute", () => {
+    const onTheMinute = new Date("2026-03-01T12:34:00.000Z");
+    expect(snapToMinuteStart(onTheMinute).getTime()).toBe(
+      onTheMinute.getTime(),
+    );
+  });
+});
+
+describe("snapToMinuteEnd", () => {
+  it("Rounds up to the next minute without mutating the input", () => {
+    const input = new Date("2026-03-01T12:34:56.789Z");
+    expect(snapToMinuteEnd(input).toISOString()).toBe(
+      "2026-03-01T12:35:00.000Z",
+    );
+    expect(input.toISOString()).toBe("2026-03-01T12:34:56.789Z");
+  });
+
+  it("Leaves a value already on the minute alone", () => {
+    // Otherwise every window would silently grow by a minute.
+    const onTheMinute = new Date("2026-03-01T12:34:00.000Z");
+    expect(snapToMinuteEnd(onTheMinute).getTime()).toBe(onTheMinute.getTime());
+  });
+
+  it("Keeps the last minute of a calendar day inside an exclusive bound", () => {
+    // The bug this exists for: a range ending 23:59:59.999 floored to 23:59:00
+    // dropped that day's final minute from `timestamp < end`.
+    expect(
+      snapToMinuteEnd(new Date("2026-03-01T23:59:59.999Z")).toISOString(),
+    ).toBe("2026-03-02T00:00:00.000Z");
+  });
+
+  it("Still collapses a minute's worth of instants onto one value", () => {
+    const early = snapToMinuteEnd(new Date("2026-03-01T12:34:00.001Z"));
+    const late = snapToMinuteEnd(new Date("2026-03-01T12:34:59.999Z"));
+    expect(early.getTime()).toBe(late.getTime());
   });
 });

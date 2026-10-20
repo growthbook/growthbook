@@ -109,6 +109,7 @@ const ImpactModal: FC<{
       close={close}
     >
       <SelectField
+        size="legacy"
         label="Primary Metric"
         value={form.watch("metric")}
         onChange={(v) => form.setValue("metric", v)}
@@ -119,19 +120,22 @@ const ImpactModal: FC<{
         autoFocus={true}
         helpText="Only binomial metrics are supported at this time"
       />
-      <Field
+      <SelectField
+        size="legacy"
         label="Effect Size"
-        {...form.register("improvement", { valueAsNumber: true })}
         options={[
-          { display: "Tiny (<1%)", value: "1" },
-          { display: "Small (5%)", value: "5" },
-          { display: "Medium (10%)", value: "10" },
-          { display: "Large (20%)", value: "20" },
-          { display: "Huge (50%)", value: "50" },
+          { label: "Tiny (<1%)", value: "1" },
+          { label: "Small (5%)", value: "5" },
+          { label: "Medium (10%)", value: "10" },
+          { label: "Large (20%)", value: "20" },
+          { label: "Huge (50%)", value: "50" },
         ]}
+        value={String(form.watch("improvement") || "")}
+        onChange={(value) => form.setValue("improvement", Number(value))}
         helpText="How much do you think this will improve the metric?"
       />
       <Field
+        size="legacy"
         label="Number of Variations"
         type="number"
         min="2"
@@ -141,6 +145,7 @@ const ImpactModal: FC<{
         helpText="Including the baseline"
       />
       <Field
+        size="legacy"
         label="Percent of Total Traffic"
         {...form.register("userAdjustment", {
           valueAsNumber: true,
@@ -153,6 +158,7 @@ const ImpactModal: FC<{
         helpText="If this experiment is on a subset of your application, approx what percent of users will see it?"
       />
       <SelectField
+        size="legacy"
         label="User Segment"
         disabled={!possibleSegments?.length}
         value={form.watch("segment")}

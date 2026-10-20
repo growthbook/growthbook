@@ -41,6 +41,21 @@ export class AIConversationModel extends BaseClass {
     return existing.userId === this.context.userId;
   }
 
+  // Avoid loading the embedded messages for this periodic update.
+  public async touchStreamedAt(
+    id: string,
+  ): Promise<{ isStreaming: boolean } | null> {
+    const now = new Date();
+    const { value } = await this._dangerousGetCollection().findOneAndUpdate(
+      { organization: this.context.org.id, id, userId: this.context.userId },
+      { $set: { lastStreamedAt: now, dateUpdated: now } },
+      { returnDocument: "after", projection: { isStreaming: 1 } },
+    );
+    if (!value) return null;
+
+    return { isStreaming: !!value.isStreaming };
+  }
+
   /**
    * Returns all non-empty conversations for the current user, sorted
    * newest-first, without loading the messages array.

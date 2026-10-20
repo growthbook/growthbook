@@ -4,6 +4,19 @@ import type {
   DimensionColumnData,
 } from "shared/types/integrations";
 
+export function banditDimensionJoinCondition(
+  leftPrefix: string,
+  rightPrefix: string,
+  dimensionCols: DimensionColumnData[],
+): string {
+  if (!dimensionCols.length) {
+    return "1=1";
+  }
+  return dimensionCols
+    .map((d) => `${leftPrefix}.${d.alias} = ${rightPrefix}.${d.alias}`)
+    .join(" AND ");
+}
+
 export function getBanditStatisticsCTE(
   dialect: SqlDialect,
   {
@@ -11,19 +24,23 @@ export function getBanditStatisticsCTE(
     metricData,
     dimensionCols,
     hasRegressionAdjustment,
-    hasCapping,
     ignoreNulls,
-    denominatorIsPercentileCapped,
+    denominatorIsUpperPercentileCapped,
   }: {
     baseIdType: string;
     metricData: BanditMetricData[];
     dimensionCols: DimensionColumnData[];
     hasRegressionAdjustment: boolean;
-    hasCapping: boolean;
     ignoreNulls?: boolean;
-    denominatorIsPercentileCapped?: boolean;
+    denominatorIsUpperPercentileCapped?: boolean;
   },
 ): string {
+  // Legacy (non-fact) bandit path is upper-tail capping only; lower-tail
+  // capping is a fact-metric-only feature.
+  const denominatorCapJoinsSql = denominatorIsUpperPercentileCapped
+    ? "CROSS JOIN __capValueDenominator capd"
+    : "";
+
   return `-- One row per variation/dimension with aggregations
   , __banditPeriodStatistics AS (
     SELECT
@@ -36,7 +53,7 @@ export function getBanditStatisticsCTE(
           const alias = data.alias;
           return `
         ${
-          data.isPercentileCapped
+          data.isUpperPercentileCapped
             ? `, MAX(COALESCE(cap.${alias}value_cap, 0)) AS ${alias}main_cap_value`
             : ""
         }
@@ -50,7 +67,7 @@ export function getBanditStatisticsCTE(
           data.ratioMetric
             ? `
           ${
-            denominatorIsPercentileCapped
+            denominatorIsUpperPercentileCapped
               ? `, MAX(COALESCE(capd.${alias}value_cap, 0)) as ${alias}denominator_cap_value`
               : ""
           }
@@ -90,11 +107,7 @@ export function getBanditStatisticsCTE(
         ? `LEFT JOIN __userDenominatorAgg d ON (
             d.${baseIdType} = m.${baseIdType}
           )
-          ${
-            denominatorIsPercentileCapped
-              ? "CROSS JOIN __capValueDenominator capd"
-              : ""
-          }`
+          ${denominatorCapJoinsSql}`
         : ""
     }
     ${
@@ -105,7 +118,7 @@ export function getBanditStatisticsCTE(
         `
         : ""
     }
-    ${hasCapping ? `CROSS JOIN __capValue cap` : ""}
+    ${metricData.some((d) => d.isUpperPercentileCapped) ? `CROSS JOIN __capValue cap` : ""}
     ${ignoreNulls ? `WHERE m.value != 0` : ""}
     GROUP BY
       m.variation
@@ -119,7 +132,7 @@ export function getBanditStatisticsCTE(
     FROM 
       __banditPeriodStatistics
     GROUP BY
-      ${dimensionCols.map((d) => `${d.alias}`).join(", ")}
+      ${dimensionCols.map((d) => `${d.alias}`).join(", ") || "1"}
   ),
   __banditPeriodWeights AS (
     SELECT
@@ -156,10 +169,9 @@ export function getBanditStatisticsCTE(
         .join("\n")}
     FROM 
       __banditPeriodStatistics bps
-    LEFT JOIN __dimensionTotals dt ON
-      (${dimensionCols
-        .map((d) => `bps.${d.alias} = dt.${d.alias}`)
-        .join(" AND ")})
+    LEFT JOIN __dimensionTotals dt ON (
+      ${banditDimensionJoinCondition("bps", "dt", dimensionCols)}
+    )
     GROUP BY
       bps.bandit_period
       ${dimensionCols.map((d) => `, bps.${d.alias}`).join("\n")}
@@ -192,7 +204,7 @@ export function getBanditStatisticsCTE(
       FROM
         __banditPeriodWeights
       GROUP BY
-        ${dimensionCols.map((d) => `${d.alias}`).join(", ")}  
+        ${dimensionCols.map((d) => `${d.alias}`).join(", ") || "1"}
       )
     `
       : ""
@@ -287,19 +299,21 @@ export function getBanditStatisticsCTE(
   LEFT JOIN
     __banditPeriodWeights bpw
     ON (
-      bps.bandit_period = bpw.bandit_period 
-      ${dimensionCols
-        .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
-        .join("\n")}
+      bps.bandit_period = bpw.bandit_period
+      ${
+        dimensionCols.length
+          ? dimensionCols
+              .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
+              .join("\n")
+          : ""
+      }
     )
   ${
     hasRegressionAdjustment
       ? `
     LEFT JOIN
       __theta t
-      ON (${dimensionCols
-        .map((d) => `bps.${d.alias} = t.${d.alias}`)
-        .join(" AND ")})
+      ON (${banditDimensionJoinCondition("bps", "t", dimensionCols)})
     `
       : ""
   }

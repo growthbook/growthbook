@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   filterEnvironmentsByFeature,
   getDefaultPrerequisiteCondition,
+  getMalformedPrereqConditionError,
   getReviewSetting,
 } from "shared/util";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
@@ -26,6 +27,9 @@ import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
+import { ConflictShell } from "@/components/DraftConflicts/ConflictContext";
+import HelperText from "@/ui/HelperText";
+import Button from "@/ui/Button";
 import {
   PrerequisiteStateResult,
   useBatchPrerequisiteStates,
@@ -78,6 +82,10 @@ export default function PrerequisiteModal({
 
   const defaultDraft = useDefaultDraft(revisionList);
 
+  // Pinned at open: an index-based edit is only meaningful against this list.
+  const [baselineList] = useState(() => prerequisites);
+  const [staleList, setStaleList] = useState(false);
+
   const [mode, setMode] = useState<DraftMode>(
     defaultDraft !== null ? "existing" : "new",
   );
@@ -96,10 +104,17 @@ export default function PrerequisiteModal({
     condition: getDefaultPrerequisiteCondition(),
   };
 
+  const malformedConditionError = prerequisite
+    ? getMalformedPrereqConditionError(prerequisite.condition)
+    : null;
+
   const form = useForm<FeaturePrerequisite>({
     defaultValues: {
       id: prerequisite?.id ?? defaultValues.id,
-      condition: prerequisite?.condition ?? defaultValues.condition,
+      // Saving resets a malformed condition to the parent's default.
+      condition: malformedConditionError
+        ? ""
+        : (prerequisite?.condition ?? defaultValues.condition),
     },
   });
 
@@ -237,6 +252,11 @@ export default function PrerequisiteModal({
         },
         project: projectId,
         projectName,
+        valueType: f.valueType,
+        configBackingKey: f.configBackingKey,
+        tags: f.tags,
+        description: f.description,
+        states: featuresStates[f.id],
       };
     });
 
@@ -255,9 +275,13 @@ export default function PrerequisiteModal({
       close={close}
       size="lg"
       cta="Save"
-      ctaEnabled={canSubmit}
+      ctaEnabled={canSubmit && !staleList}
+      disabledMessage={
+        staleList ? "Reload to edit against the current list." : undefined
+      }
       header={prerequisite ? "Edit Prerequisite" : "New Prerequisite"}
       submit={form.handleSubmit(async (values) => {
+        if (staleList) return;
         if (!values.condition) {
           values.condition = getDefaultPrerequisiteCondition(parentFeature);
         }
@@ -276,7 +300,17 @@ export default function PrerequisiteModal({
           `/feature/${feature.id}/prerequisite`,
           {
             method: action === "add" ? "POST" : "PUT",
-            body: JSON.stringify({ prerequisite: values, i, ...draftBody }),
+            body: JSON.stringify({
+              prerequisite: values,
+              i,
+              // An add appends to the current list, so only an edit needs the
+              // guard — its index would otherwise retarget.
+              ...(action === "edit" ? { baseline: baselineList } : {}),
+              ...draftBody,
+            }),
+          },
+          (responseData) => {
+            if (responseData?.status === 409) setStaleList(true);
           },
         );
         await mutate();
@@ -294,7 +328,38 @@ export default function PrerequisiteModal({
         setSelectedDraft={setSelectedDraft}
         canAutoPublish={false}
         gatedEnvSet={gatedEnvSet}
+        alert={
+          staleList ? (
+            <HelperText status="warning" icon={null}>
+              The prerequisites changed while you were editing, so this edit no
+              longer points at the same one.
+            </HelperText>
+          ) : undefined
+        }
       />
+      {staleList && (
+        <ConflictShell
+          resolved={false}
+          message={<Text>Reload to edit against the current list.</Text>}
+          choices={
+            <Button
+              size="sm"
+              onClick={async () => {
+                await mutate();
+                close();
+              }}
+            >
+              Reload
+            </Button>
+          }
+        />
+      )}
+      {malformedConditionError && (
+        <Callout status="error" mb="3">
+          Invalid condition: {malformedConditionError}. Saving replaces it with
+          the default.
+        </Callout>
+      )}
       <Text as="div" mt="2" mb="3">
         Prerequisite features must evaluate to{" "}
         <span className="rounded px-1 bg-light">
