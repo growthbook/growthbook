@@ -63,7 +63,7 @@ export interface Props {
   datasourceId?: string;
   exposureQueryId?: string;
   activationMetric?: boolean;
-  userIdType?: string;
+  userIdType?: "user" | "anonymous";
   labelClassName?: string;
   showHelp?: boolean;
   newUi?: boolean;

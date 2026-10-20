@@ -92,10 +92,7 @@ export default function PublicExperimentAnalysisSettingsBar({
               activationMetric={!!snapshot.settings.activationMetric}
               datasourceId={snapshot.settings.datasourceId}
               exposureQueryId={snapshot.settings.exposureQueryId}
-              userIdType={
-                snapshot.settings.exposureQueryIdentifierType ??
-                experiment?.userIdType
-              }
+              userIdType={experiment?.userIdType}
               labelClassName="mr-2"
               disabled={true}
               ssrPolyfills={ssrPolyfills}
