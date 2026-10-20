@@ -1,5 +1,6 @@
 import { EventEmitter } from "events";
 
+// Each call marks the start of one refresh: it is refreshSDKPayloadCache's first step.
 const mockGetContextForAgendaJob = jest.fn((org: { id: string }) => {
   throw new Error(`refresh started for ${org.id}`);
 });
@@ -13,9 +14,6 @@ import type { Request } from "express";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
-
-// refreshSDKPayloadCache switches to a background context first, so each
-// call to the mock marks the start of exactly one refresh.
 
 function makeRequest() {
   const res = Object.assign(new EventEmitter(), { headersSent: false });

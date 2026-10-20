@@ -953,8 +953,7 @@ export function queueSDKPayloadRefresh(data: QueueSDKPayloadRefreshData) {
   const rawStack = new Error().stack || "";
   const stackTrace = rawStack.replace(/^Error.*?\n/, "");
 
-  // Coalesce every refresh one request queues (e.g. a feature publish that
-  // also starts its linked experiment) into a single rebuild when it ends.
+  // Merge every refresh queued during one request into one rebuild when it ends.
   const req = data.context.req;
   const res = req?.res;
   if (req && res && !res.headersSent && !data.skipRefreshForProject) {
