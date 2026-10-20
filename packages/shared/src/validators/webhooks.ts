@@ -99,12 +99,12 @@ export const apiSdkWebhookValidator = namedSchema(
       headers: z
         .string()
         .describe(
-          "JSON-encoded object of extra headers. Empty unless the caller can edit the webhook.",
+          "JSON-encoded object of extra headers. Only returned by GET, and only to callers who can edit the webhook; empty otherwise.",
         ),
       signingKey: z
         .string()
         .describe(
-          "Empty unless the caller can edit the webhook. Used to verify the signature header.",
+          "Used to verify the signature header. Only returned by GET, and only to callers who can edit the webhook; empty otherwise.",
         ),
       lastSuccess: z.string().meta({ format: "date-time" }).nullable(),
       error: z.string(),

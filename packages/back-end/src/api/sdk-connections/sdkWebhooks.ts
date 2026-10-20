@@ -18,6 +18,8 @@ import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
+// Write and test responses pass false: a held request's response is saved on
+// its confirmation, which other members can open
 function toApiSdkWebhook(w: WebhookInterface, canSeeSecrets: boolean) {
   return {
     id: w.id,
@@ -139,7 +141,7 @@ export const postSdkConnectionWebhook = createApiRequestHandler(
     httpMethod: req.body.httpMethod ?? "POST",
     payloadFormat: req.body.payloadFormat ?? "standard",
   });
-  return { sdkWebhook: toApiSdkWebhook(webhook, true) };
+  return { sdkWebhook: toApiSdkWebhook(webhook, false) };
 });
 
 export const putSdkWebhook = createApiRequestHandler(putSdkWebhookValidator)(
@@ -184,7 +186,7 @@ export const putSdkWebhook = createApiRequestHandler(putSdkWebhookValidator)(
     fireSdkWebhook(context, updated).catch(() => {
       // Already logged on the webhook
     });
-    return { sdkWebhook: toApiSdkWebhook(updated, true) };
+    return { sdkWebhook: toApiSdkWebhook(updated, false) };
   },
 );
 
@@ -214,5 +216,5 @@ export const postSdkWebhookTest = createApiRequestHandler(
   });
   const after =
     (await context.models.sdkWebhooks.getById(webhook.id)) ?? webhook;
-  return { sdkWebhook: toApiSdkWebhook(after, true) };
+  return { sdkWebhook: toApiSdkWebhook(after, false) };
 });
