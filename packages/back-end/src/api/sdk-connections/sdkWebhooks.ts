@@ -165,11 +165,20 @@ export const putSdkWebhook = createApiRequestHandler(putSdkWebhookValidator)(
     }
 
     if (sdkConnections) {
-      await assertCanUseSDKConnections(
-        context,
-        sdkConnections.filter((id) => !webhook.sdks.includes(id)),
-        can,
-      );
+      const added = sdkConnections.filter((id) => !webhook.sdks.includes(id));
+      await assertCanUseSDKConnections(context, added, can);
+      // Stale ids already on the webhook may round-trip unchanged, but a
+      // narrowed list must keep a live connection or the webhook is stranded
+      const removed = webhook.sdks.some((id) => !sdkConnections.includes(id));
+      if (
+        !added.length &&
+        removed &&
+        !(await findSDKConnectionsByIds(context, sdkConnections)).length
+      ) {
+        context.throwBadRequestError(
+          "sdkConnections must include at least one existing SDK Connection",
+        );
+      }
     }
 
     // Reset failure state when the endpoint changes, as the app does
