@@ -30,7 +30,6 @@ import {
   NamespaceFormat,
   NamespaceUsage,
   OrganizationInterface,
-  OrganizationSettings,
   ProjectMemberRole,
   Role,
   SDKAttribute,
@@ -170,7 +169,10 @@ import {
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
-import { validatePriorSettings } from "back-end/src/util/priors";
+import {
+  assertCanUpdateOrgSettings,
+  validateOrgSettingsUpdate,
+} from "back-end/src/services/orgSettings";
 import {
   getInstallation,
   setInstallationName,
@@ -1658,38 +1660,7 @@ export async function putOrganization(
     context.permissions.throwPermissionError();
   }
   if (settings) {
-    (Object.keys(settings) as (keyof OrganizationSettings)[]).forEach((k) => {
-      if (k === "environments") {
-        throw new Error(
-          "Not supported: Updating organization environments not supported via this route.",
-        );
-      } else if (k === "sdkInstructionsViewed" || k === "visualEditorEnabled") {
-        if (
-          !context.permissions.canCreateSDKConnection({
-            projects: [],
-            environment: "",
-          })
-        ) {
-          context.permissions.throwPermissionError();
-        }
-      } else if (k === "attributeSchema") {
-        throw new Error(
-          "Not supported: Updating organization attributes not supported via this route.",
-        );
-      } else if (k === "northStar") {
-        if (!context.permissions.canManageNorthStarMetric()) {
-          context.permissions.throwPermissionError();
-        }
-      } else if (k === "namespaces") {
-        throw new Error(
-          "Not supported: Updating namespaces not supported via this route.",
-        );
-      } else {
-        if (!context.permissions.canManageOrgSettings()) {
-          context.permissions.throwPermissionError();
-        }
-      }
-    });
+    assertCanUpdateOrgSettings(context, settings);
     if ("defaultRole" in settings) {
       await sanitizeDefaultRoleUpdate(context, settings);
     }
@@ -1699,12 +1670,8 @@ export async function putOrganization(
     const updates: Partial<OrganizationInterface> = {};
 
     const orig: Partial<OrganizationInterface> = {};
-    if (!context.hasPremiumFeature("require-approvals")) {
-      if (settings?.approvalFlows?.savedGroups?.some((sg) => sg?.required)) {
-        throw new Error(
-          "Saved Groups approval flows require the Require Approvals enterprise feature.",
-        );
-      }
+    if (settings) {
+      validateOrgSettingsUpdate(context, settings);
     }
 
     if (name) {
@@ -1779,8 +1746,6 @@ export async function putOrganization(
       await setLicenseKey(org, updates.licenseKey);
     }
 
-    validatePriorSettings(updates.settings?.metricDefaults?.priorSettings);
-
     for (const field of [
       "maxPatLifetimeDays",
       "maxApiKeyLifetimeDays",
@@ -1796,18 +1761,6 @@ export async function putOrganization(
           "Maximum token lifetime must be a whole number of days, at least 1",
         );
       }
-    }
-
-    const topValuesLookbackValue = settings?.topValuesLookbackValue;
-    if (
-      typeof topValuesLookbackValue === "number" &&
-      (!Number.isInteger(topValuesLookbackValue) ||
-        topValuesLookbackValue <= 0 ||
-        topValuesLookbackValue > 365)
-    ) {
-      throw new Error(
-        "Top values lookback value must be an integer between 1 and 365",
-      );
     }
 
     await updateOrganization(org.id, updates);

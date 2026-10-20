@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const AGREEMENT_TYPE_AI = "ai";
 export const AGREEMENT_TYPE_MANAGED_WAREHOUSE = "managed-warehouse";
+export const AI_AGREEMENT_VERSION = "2025-06-19";
 
 export const agreementType = z.enum([
   AGREEMENT_TYPE_AI,
