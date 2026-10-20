@@ -1025,4 +1025,180 @@ describe("applyExperimentChanges", () => {
       ).rejects.toMatchObject({ status: 409 });
     });
   });
+
+  describe("rules that disagree", () => {
+    const groupRule = (
+      id: string,
+      environment: string,
+      variations: ReturnType<typeof arms>,
+    ) => ({
+      ...expRule(variations),
+      id,
+      allEnvironments: false,
+      environments: [environment],
+    });
+    const splitRules = [
+      groupRule("fr_prod", "production", arms("a", "b")),
+      groupRule("fr_stage", "staging", arms("a", "c")),
+    ];
+    const LIVE = { version: 1, dateUpdated: null };
+
+    async function seedSplit() {
+      await seed({ withDraft: false });
+      await collection("features").updateOne(
+        { id: FLAG },
+        {
+          $set: {
+            rules: splitRules,
+            environmentSettings: {
+              production: { enabled: true, rules: [] },
+              staging: { enabled: true, rules: [] },
+            },
+          },
+        },
+      );
+      await collection("featurerevisions").updateOne(
+        { featureId: FLAG, version: 1 },
+        { $set: { rules: splitRules } },
+      );
+    }
+
+    const draftValuesByRule = async () =>
+      Object.fromEntries(
+        (await refRules("draft")).map(
+          (r: { id: string; variations: ReturnType<typeof arms> }) => [
+            r.id,
+            r.variations,
+          ],
+        ),
+      );
+
+    it("shows each set of values as its own group", async () => {
+      await seedSplit();
+      const experiment = await getExperimentById(context, EXP);
+      if (!experiment) throw new Error("missing experiment");
+      const [info] = await getLinkedFeatureInfo(context, experiment, {
+        includeValueGroups: true,
+      });
+      expect(info.inconsistentValues).toBe(true);
+      expect(
+        info.valueGroups?.map((g) => ({
+          ruleIds: g.ruleIds,
+          environments: g.environments,
+          values: g.values,
+          inconsistentValues: g.inconsistentValues,
+        })),
+      ).toEqual([
+        {
+          ruleIds: ["fr_prod"],
+          environments: ["production"],
+          values: arms("a", "b"),
+          inconsistentValues: false,
+        },
+        {
+          ruleIds: ["fr_stage"],
+          environments: ["staging"],
+          values: arms("a", "c"),
+          inconsistentValues: false,
+        },
+      ]);
+
+      const [plain] = await getLinkedFeatureInfo(context, experiment);
+      expect(plain.valueGroups).toBeUndefined();
+    });
+
+    it("writes each group's values to its own rules, in one draft", async () => {
+      await seedSplit();
+      const result = await run({
+        flagValues: [
+          {
+            featureId: FLAG,
+            ruleIds: ["fr_prod"],
+            variations: arms("a", "prod"),
+            revision: LIVE,
+          },
+          {
+            featureId: FLAG,
+            ruleIds: ["fr_stage"],
+            variations: arms("a", "stage"),
+            revision: LIVE,
+          },
+        ],
+      });
+      expect(result.flags).toEqual([{ featureId: FLAG, version: 2 }]);
+      expect(await draftValuesByRule()).toEqual({
+        fr_prod: arms("a", "prod"),
+        fr_stage: arms("a", "stage"),
+      });
+    });
+
+    it("leaves the other group's rules alone", async () => {
+      await seedSplit();
+      await run({
+        flagValues: [
+          {
+            featureId: FLAG,
+            ruleIds: ["fr_stage"],
+            variations: arms("a", "stage"),
+            revision: LIVE,
+          },
+        ],
+      });
+      expect(await draftValuesByRule()).toEqual({
+        fr_prod: arms("a", "b"),
+        fr_stage: arms("a", "stage"),
+      });
+    });
+
+    it.each([
+      [
+        "without naming the rules",
+        [{ featureId: FLAG, variations: arms("a", "x"), revision: LIVE }],
+        "variation values must be identical",
+      ],
+      [
+        "twice without separate groups",
+        [
+          { featureId: FLAG, variations: arms("a", "x"), revision: LIVE },
+          { featureId: FLAG, variations: arms("a", "y"), revision: LIVE },
+        ],
+        "only to set values for separate groups",
+      ],
+      [
+        "with a rule in two groups",
+        [
+          {
+            featureId: FLAG,
+            ruleIds: ["fr_prod"],
+            variations: arms("a", "x"),
+            revision: LIVE,
+          },
+          {
+            featureId: FLAG,
+            ruleIds: ["fr_prod", "fr_stage"],
+            variations: arms("a", "y"),
+            revision: LIVE,
+          },
+        ],
+        "is in more than one group",
+      ],
+      [
+        "re-scoping environments for some of the rules",
+        [
+          {
+            featureId: FLAG,
+            ruleIds: ["fr_prod"],
+            variations: arms("a", "x"),
+            environments: { allEnvironments: true, environments: [] },
+            revision: LIVE,
+          },
+        ],
+        "environments can only change for all",
+      ],
+    ])("refuses values %s", async (description, flagValues, message) => {
+      await seedSplit();
+      await expect(run({ flagValues })).rejects.toThrow(message);
+      expect(await refRules("draft")).toEqual([]);
+    });
+  });
 });

@@ -405,7 +405,21 @@ export interface LinkedFeatureInfo {
   cannotPublish?: boolean;
   /** Environments disabled live that the pending draft's auto-publish will enable. Only for `pendingFeatureDrafts` drafts. */
   environmentsToEnable?: string[];
+  /**
+   * Set on the Setup page when the experiment's rules on this flag disagree:
+   * one entry per set of identical values, each read from its own rules.
+   */
+  valueGroups?: LinkedFeatureValueGroup[];
 }
+
+export type LinkedFeatureValueGroup = Omit<
+  LinkedFeatureInfo,
+  "feature" | "valueGroups"
+> & {
+  ruleIds: string[];
+  /** Where the group's rules apply. */
+  environments: string[];
+};
 
 export type LinkedChangeEnvState = "active" | "no-sdk-connection";
 

@@ -5456,6 +5456,7 @@ export async function getRefLinkedFeatureInfo({
   pendingFeatureDrafts,
   pendingUnlinks = [],
   includeOtherPendingDrafts = false,
+  includeValueGroups = false,
   publisher = context,
 }: {
   context: ReqContext | ApiReqContext;
@@ -5467,6 +5468,8 @@ export async function getRefLinkedFeatureInfo({
   pendingUnlinks?: string[];
   // Only the Setup page chooses between drafts; each one costs a merge.
   includeOtherPendingDrafts?: boolean;
+  // Only the Setup page shows disagreeing rules as separate groups.
+  includeValueGroups?: boolean;
   // Who a start would publish each draft as; null when nobody can be resolved.
   publisher?: ReqContext | ApiReqContext | null;
 }): Promise<LinkedFeatureInfo[]> {
@@ -5711,15 +5714,12 @@ export async function getRefLinkedFeatureInfo({
         (rule as ExperimentRefRule | ContextualBanditRefRule | undefined)
           ?.variations || [];
 
-      const uniqueValues: Set<string> = new Set(
-        matches.map((m) =>
-          JSON.stringify(
-            [...refRuleValues(m.rule)].sort((a, b) =>
-              b.variationId.localeCompare(a.variationId),
-            ),
+      const valuesKey = (rule: FeatureRule) =>
+        JSON.stringify(
+          [...refRuleValues(rule)].sort((a, b) =>
+            b.variationId.localeCompare(a.variationId),
           ),
-        ),
-      );
+        );
 
       // `getMatchingRules` reports live enablement even for a revision, which stages its own.
       const envEnabledIn = (
@@ -5771,56 +5771,6 @@ export async function getRefLinkedFeatureInfo({
       // Only a draft the feature actually resolved to stages its own enablement.
       const statesRevision =
         state === "draft" ? matchedDraftRevision : undefined;
-      const environmentStates = buildEnvironmentStates(matches, statesRevision);
-      const cannotPublish =
-        state === "draft" && !!matchedDraftRevision
-          ? !publisher ||
-            !publisher.permissions.canPublishFeature(
-              feature,
-              matches
-                .filter((m) => envEnabledIn(m.environmentId, statesRevision))
-                .map((m) => m.environmentId),
-            )
-          : undefined;
-
-      const stagedDrafts: StagedRefDraft[] =
-        state === "live"
-          ? differingDrafts.map((d) => ({
-              version: d.revision.version,
-              status: d.revision.status,
-              values: refRuleValues(d.matches[0]?.rule),
-            }))
-          : [];
-      // The first staged draft is the chosen one, so its facts are in hand.
-      if (stagedDrafts.length > 0 && facts) {
-        if (facts.hasMergeConflict) {
-          stagedDrafts[0].hasMergeConflict = true;
-        } else if (facts.hasUnrelatedDraftChanges) {
-          stagedDrafts[0].hasUnrelatedDraftChanges = true;
-        }
-      }
-
-      // Envs the pending draft will turn on when it's auto-published on start.
-      let environmentsToEnable: string[] | undefined;
-      if (
-        state === "draft" &&
-        matchedDraftRevision &&
-        pendingVersionsByFeatureId
-          .get(feature.id)
-          ?.has(matchedDraftRevision.version)
-      ) {
-        const enabled = new Set<string>();
-        matches.forEach((match) => {
-          if (
-            envEnabledIn(match.environmentId, statesRevision) &&
-            !feature.environmentSettings?.[match.environmentId]?.enabled
-          ) {
-            enabled.add(match.environmentId);
-          }
-        });
-        if (enabled.size > 0) environmentsToEnable = [...enabled];
-      }
-
       const attributeScopeProjects = getFeatureAttributeScopeWithDrafts(
         feature,
         draftMetadataByFeatureId[feature.id] || [],
@@ -5857,71 +5807,164 @@ export async function getRefLinkedFeatureInfo({
         environmentStates: buildEnvironmentStates(revisionMatches, revision),
         environmentInputs: buildEnvironmentInputs(revisionMatches, revision),
       });
-      const pendingDraft =
-        hasPendingDraft && matchedDraftRevision && facts
-          ? pendingDraftFor(matchedDraftRevision, draftMatches, facts)
-          : undefined;
-      const otherPendingDrafts: LinkedFeaturePendingDraft[] =
-        includeOtherPendingDrafts && pendingDraft
+      // Each one costs a merge, so read once for every group below.
+      const otherDrafts =
+        includeOtherPendingDrafts &&
+        hasPendingDraft &&
+        matchedDraftRevision &&
+        facts
           ? await Promise.all(
               differingDrafts
                 .filter((d) => d.revision !== matchedDraftRevision)
-                .map(async (d) =>
-                  pendingDraftFor(
-                    d.revision,
-                    d.matches,
-                    await draftFacts(d.revision),
-                  ),
-                ),
+                .map(async (d) => ({
+                  ...d,
+                  facts: await draftFacts(d.revision),
+                })),
             )
           : [];
 
-      const info: LinkedFeatureInfo = {
-        feature,
-        state,
-        environmentStates,
-        environmentInputs: buildEnvironmentInputs(matches, statesRevision),
-        attributeScopeProjects,
-        values: refRuleValues(matches[0]?.rule),
-        sparse: !!(matches[0]?.rule as ExperimentRefRule)?.sparse,
-        valuesFrom: matches[0]?.environmentId || "",
-        ...(relinkFrom && { relinkFrom }),
-        rulesAbove: matches.some((m) => m.i > 0),
-        inconsistentValues: uniqueValues.size > 1,
-        liveHasMatchingRule: liveMatches.length > 0,
-        ...(liveMatches.length > 0 && {
-          liveValues: refRuleValues(liveMatches[0]?.rule),
-          liveSparse: !!(liveMatches[0]?.rule as ExperimentRefRule)?.sparse,
-          liveAllEnvironments: !!(liveMatches[0]?.rule as ExperimentRefRule)
-            ?.allEnvironments,
-          liveEnvironmentStates: buildEnvironmentStates(liveMatches),
-          liveEnvironmentInputs: buildEnvironmentInputs(liveMatches),
-        }),
-        ...(pendingDraft && { pendingDraft }),
-        ...(otherPendingDrafts.length > 0 && { otherPendingDrafts }),
-        ...(removalDraft && {
-          pendingRemoval: {
-            version: removalDraft.version,
-            status: removalDraft.status,
-          },
-        }),
-        ...(pendingApproval !== undefined && { pendingApproval }),
-        ...(matchedDraftRevision &&
-          state === "draft" && {
-            draftRevisionVersion: matchedDraftRevision.version,
-            draftRevisionStatus: matchedDraftRevision.status,
-            ...(draftApproval && {
-              draftApprovalSatisfied: draftApproval.satisfied,
-            }),
+      // What the page shows for the experiment's rules, or a group of them.
+      const buildInfo = (
+        keep: (match: MatchingRule) => boolean,
+      ): Omit<LinkedFeatureInfo, "feature"> => {
+        const scoped = matches.filter(keep);
+        const scopedLive = liveMatches.filter(keep);
+        const uniqueValues = new Set(scoped.map((m) => valuesKey(m.rule)));
+        const environmentStates = buildEnvironmentStates(
+          scoped,
+          statesRevision,
+        );
+        const cannotPublish =
+          state === "draft" && !!matchedDraftRevision
+            ? !publisher ||
+              !publisher.permissions.canPublishFeature(
+                feature,
+                scoped
+                  .filter((m) => envEnabledIn(m.environmentId, statesRevision))
+                  .map((m) => m.environmentId),
+              )
+            : undefined;
+
+        const stagedDrafts: StagedRefDraft[] =
+          state === "live"
+            ? differingDrafts.map((d) => ({
+                version: d.revision.version,
+                status: d.revision.status,
+                values: refRuleValues(d.matches.filter(keep)[0]?.rule),
+              }))
+            : [];
+        // The first staged draft is the chosen one, so its facts are in hand.
+        if (stagedDrafts.length > 0 && facts) {
+          if (facts.hasMergeConflict) {
+            stagedDrafts[0].hasMergeConflict = true;
+          } else if (facts.hasUnrelatedDraftChanges) {
+            stagedDrafts[0].hasUnrelatedDraftChanges = true;
+          }
+        }
+
+        // Envs the pending draft will turn on when it's auto-published on start.
+        let environmentsToEnable: string[] | undefined;
+        if (
+          state === "draft" &&
+          matchedDraftRevision &&
+          pendingVersionsByFeatureId
+            .get(feature.id)
+            ?.has(matchedDraftRevision.version)
+        ) {
+          const enabled = new Set<string>();
+          scoped.forEach((match) => {
+            if (
+              envEnabledIn(match.environmentId, statesRevision) &&
+              !feature.environmentSettings?.[match.environmentId]?.enabled
+            ) {
+              enabled.add(match.environmentId);
+            }
+          });
+          if (enabled.size > 0) environmentsToEnable = [...enabled];
+        }
+
+        const pendingDraft =
+          hasPendingDraft && matchedDraftRevision && facts
+            ? pendingDraftFor(
+                matchedDraftRevision,
+                draftMatches.filter(keep),
+                facts,
+              )
+            : undefined;
+        const otherPendingDrafts = pendingDraft
+          ? otherDrafts.map((d) =>
+              pendingDraftFor(d.revision, d.matches.filter(keep), d.facts),
+            )
+          : [];
+
+        return {
+          state,
+          environmentStates,
+          environmentInputs: buildEnvironmentInputs(scoped, statesRevision),
+          attributeScopeProjects,
+          values: refRuleValues(scoped[0]?.rule),
+          sparse: !!(scoped[0]?.rule as ExperimentRefRule)?.sparse,
+          valuesFrom: scoped[0]?.environmentId || "",
+          ...(relinkFrom && { relinkFrom }),
+          rulesAbove: scoped.some((m) => m.i > 0),
+          inconsistentValues: uniqueValues.size > 1,
+          liveHasMatchingRule: scopedLive.length > 0,
+          ...(scopedLive.length > 0 && {
+            liveValues: refRuleValues(scopedLive[0]?.rule),
+            liveSparse: !!(scopedLive[0]?.rule as ExperimentRefRule)?.sparse,
+            liveAllEnvironments: !!(scopedLive[0]?.rule as ExperimentRefRule)
+              ?.allEnvironments,
+            liveEnvironmentStates: buildEnvironmentStates(scopedLive),
+            liveEnvironmentInputs: buildEnvironmentInputs(scopedLive),
           }),
-        ...(state === "draft" &&
-          draftHasMergeConflict && { hasMergeConflict: true }),
-        ...(state === "draft" &&
-          draftHasUnrelatedChanges && { hasUnrelatedDraftChanges: true }),
-        ...(stagedDrafts.length > 0 && { stagedDrafts }),
-        ...(cannotPublish !== undefined && { cannotPublish }),
-        ...(environmentsToEnable !== undefined && { environmentsToEnable }),
+          ...(pendingDraft && { pendingDraft }),
+          ...(otherPendingDrafts.length > 0 && { otherPendingDrafts }),
+          ...(removalDraft && {
+            pendingRemoval: {
+              version: removalDraft.version,
+              status: removalDraft.status,
+            },
+          }),
+          ...(pendingApproval !== undefined && { pendingApproval }),
+          ...(matchedDraftRevision &&
+            state === "draft" && {
+              draftRevisionVersion: matchedDraftRevision.version,
+              draftRevisionStatus: matchedDraftRevision.status,
+              ...(draftApproval && {
+                draftApprovalSatisfied: draftApproval.satisfied,
+              }),
+            }),
+          ...(state === "draft" &&
+            draftHasMergeConflict && { hasMergeConflict: true }),
+          ...(state === "draft" &&
+            draftHasUnrelatedChanges && { hasUnrelatedDraftChanges: true }),
+          ...(stagedDrafts.length > 0 && { stagedDrafts }),
+          ...(cannotPublish !== undefined && { cannotPublish }),
+          ...(environmentsToEnable !== undefined && { environmentsToEnable }),
+        };
       };
+
+      const info: LinkedFeatureInfo = { feature, ...buildInfo(() => true) };
+      if (includeValueGroups && info.inconsistentValues) {
+        const ruleIdsByValues = new Map<string, Set<string>>();
+        matches.forEach((m) => {
+          const key = valuesKey(m.rule);
+          ruleIdsByValues.set(
+            key,
+            (ruleIdsByValues.get(key) ?? new Set()).add(m.rule.id),
+          );
+        });
+        info.valueGroups = [...ruleIdsByValues.values()].map((ruleIds) => {
+          const keep = (m: MatchingRule) => ruleIds.has(m.rule.id);
+          return {
+            ...buildInfo(keep),
+            ruleIds: [...ruleIds],
+            environments: [
+              ...new Set(matches.filter(keep).map((m) => m.environmentId)),
+            ],
+          };
+        });
+      }
 
       return info;
     }),
@@ -5935,9 +5978,11 @@ export async function getLinkedFeatureInfo(
   experiment: ExperimentInterface,
   {
     includeOtherPendingDrafts = false,
+    includeValueGroups = false,
     publisher,
   }: {
     includeOtherPendingDrafts?: boolean;
+    includeValueGroups?: boolean;
     publisher?: ReqContext | ApiReqContext;
   } = {},
 ) {
@@ -5957,6 +6002,7 @@ export async function getLinkedFeatureInfo(
     pendingFeatureDrafts: experiment.pendingFeatureDrafts,
     pendingUnlinks: experiment.pendingFeatureUnlinks,
     includeOtherPendingDrafts,
+    includeValueGroups,
     publisher: judgedAs,
   });
 }

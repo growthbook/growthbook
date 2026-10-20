@@ -45,6 +45,7 @@ export default function FeatureValueCell({
   label: string;
 }) {
   const isJson = feature.valueType === "json";
+  const showsCode = value !== undefined && feature.valueType !== "boolean";
 
   return (
     <Box flexGrow="1" minWidth="0" position="relative" className={styles.root}>
@@ -66,6 +67,7 @@ export default function FeatureValueCell({
         <Box
           className={clsx(
             styles.value,
+            showsCode ? styles.code : styles.centered,
             (editable || error) && styles.frame,
             cornerStyles.hoverActions,
             error && styles.error,

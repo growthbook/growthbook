@@ -72,10 +72,60 @@ export type ExperimentChangesResult = {
   flags: { featureId: string; version: number }[];
 };
 
-type FlagValuesPlan = ExperimentFeatureUpdatePlan & {
+type FlagValuesGroupPlan = Pick<
+  ExperimentFeatureUpdatePlan,
+  "matchingRules"
+> & {
   update: ExperimentLinkedFeatureValueUpdate;
   scope: ReturnType<typeof planExperimentRuleEnvironments> | null;
 };
+
+// One flag's values, written into one draft: all of its experiment rules, or
+// several groups of them when those rules disagree.
+type FlagValuesPlan = Omit<ExperimentFeatureUpdatePlan, "matchingRules"> & {
+  groups: FlagValuesGroupPlan[];
+};
+
+type FlagValuesEntry = NonNullable<ExperimentChangesBody["flagValues"]>[number];
+
+function assertFlagValuesEntries(
+  featureId: string,
+  entries: FlagValuesEntry[],
+) {
+  if (entries.length === 1) {
+    if (entries[0].ruleIds && entries[0].environments) {
+      throw new BadRequestError(
+        `Feature Flag ${featureId}: environments can only change for all of the experiment's rules at once.`,
+      );
+    }
+    return;
+  }
+  const [{ revision }] = entries;
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    if (!entry.ruleIds || entry.environments) {
+      throw new BadRequestError(
+        `Feature Flag ${featureId} can appear more than once only to set values for separate groups of its rules.`,
+      );
+    }
+    if (
+      entry.revision.version !== revision.version ||
+      entry.revision.dateUpdated !== revision.dateUpdated
+    ) {
+      throw new BadRequestError(
+        `Feature Flag ${featureId}: every group of rules must be loaded from the same revision.`,
+      );
+    }
+    for (const id of entry.ruleIds) {
+      if (seen.has(id)) {
+        throw new BadRequestError(
+          `Feature Flag ${featureId}: rule ${id} is in more than one group.`,
+        );
+      }
+      seen.add(id);
+    }
+  }
+}
 
 type Compensation = {
   featureId: string;
@@ -124,10 +174,17 @@ async function planFlagValues(
   experimentPlan: ExperimentUpdatePlan | null,
   flagValues: NonNullable<ExperimentChangesBody["flagValues"]>,
 ): Promise<FlagValuesPlan[]> {
-  const ids = flagValues.map((f) => f.featureId);
-  if (new Set(ids).size !== ids.length) {
-    throw new BadRequestError("Each Feature Flag can appear only once.");
+  const entriesByFeature = new Map<string, FlagValuesEntry[]>();
+  for (const entry of flagValues) {
+    entriesByFeature.set(entry.featureId, [
+      ...(entriesByFeature.get(entry.featureId) ?? []),
+      entry,
+    ]);
   }
+  entriesByFeature.forEach((entries, featureId) =>
+    assertFlagValuesEntries(featureId, entries),
+  );
+  const ids = [...entriesByFeature.keys()];
   const linked = experiment.linkedFeatures ?? [];
   const unlinked = ids.find((id) => !linked.includes(id));
   if (unlinked) {
@@ -138,131 +195,141 @@ async function planFlagValues(
   const features = await getFeaturesByIds(context, ids);
   const byId = new Map(features.map((f) => [f.id, f]));
 
-  const updates: Record<string, ExperimentLinkedFeatureValueUpdate> = {};
-  const entries = new Map<string, (typeof flagValues)[number]>();
-  for (const entry of flagValues) {
-    const feature = byId.get(entry.featureId);
-    if (!feature) throw new NotFoundError(`Feature Flag ${entry.featureId}`);
-    if (!context.permissions.canEditFeatureDrafts(feature)) {
-      context.permissions.throwPermissionError();
-    }
-
-    const loaded = await getRevision({
-      context,
-      organization: feature.organization,
-      featureId: feature.id,
-      feature,
-      version: entry.revision.version,
-    });
-    // A published revision never changes, so its version alone pins it.
-    const startsDraft = entry.revision.version === feature.version;
-    if (
-      !loaded ||
-      (!startsDraft &&
-        (isoOrNull(loaded.dateUpdated) !== entry.revision.dateUpdated ||
-          !isEditableDraft(loaded)))
-    ) {
-      throw changedSinceLoaded(`Feature Flag ${feature.id}`);
-    }
-
-    entries.set(feature.id, entry);
-    updates[feature.id] = {
-      variations: entry.variations,
-      ...(entry.sparse !== undefined && { sparse: entry.sparse }),
-      ...(entry.environments && { environments: entry.environments }),
-      revisionOptions: startsDraft
-        ? { forceNewDraft: true }
-        : { targetVersion: loaded.version },
-    };
-  }
-
   const nextExperiment = { ...experiment, ...experimentPlan?.changes };
   const nextWeights = latestWeights(nextExperiment);
   if (!nextWeights) {
     throw new BadRequestError("Experiment must have at least one phase");
   }
-  // Against the variations this save leaves, which the plan already vetted.
-  validateExperimentFeatureVariations({
-    variations: nextExperiment.variations,
-    variationWeights: nextWeights,
-    experiment: nextExperiment,
-    features: updates,
-  });
-
-  const plans = await validateExperimentFeatureUpdates({
-    experiment,
-    features: updates,
-    linkedFeatures: features,
-    context,
-  });
 
   const result: FlagValuesPlan[] = [];
-  for (const plan of plans) {
-    const { feature, existingRevision, matchingRules } = plan;
-    const update = updates[feature.id];
-    const entry = entries.get(feature.id)!;
-    // Re-read inside validateExperimentFeatureUpdates; it must still be the one checked above.
+  for (const [featureId, entries] of entriesByFeature) {
+    const feature = byId.get(featureId);
+    if (!feature) throw new NotFoundError(`Feature Flag ${featureId}`);
+    if (!context.permissions.canEditFeatureDrafts(feature)) {
+      context.permissions.throwPermissionError();
+    }
+
+    const loadedFrom = entries[0].revision;
+    const loaded = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: loadedFrom.version,
+    });
+    // A published revision never changes, so its version alone pins it.
+    const startsDraft = loadedFrom.version === feature.version;
     if (
-      existingRevision &&
-      isoOrNull(existingRevision.dateUpdated) !== entry.revision.dateUpdated
+      !loaded ||
+      (!startsDraft &&
+        (isoOrNull(loaded.dateUpdated) !== loadedFrom.dateUpdated ||
+          !isEditableDraft(loaded)))
     ) {
       throw changedSinceLoaded(`Feature Flag ${feature.id}`);
     }
-    const base =
-      existingRevision ?? (await getLiveRevisionForFeature(context, feature));
 
-    const judgedFeature = withStagedSchema(feature, base);
-    // Normalizes too: loose JSON is repaired rather than stored malformed.
-    update.variations.forEach((v, i) => {
-      v.value = validateFeatureValue(judgedFeature, v.value, `Variation ${i}`);
-    });
-
-    // One rule can match in several environments.
-    const rules = [
-      ...new Map(matchingRules.map(({ rule }) => [rule.id, rule])).values(),
-    ];
-    const scope = update.environments
-      ? planExperimentRuleEnvironments({
-          feature,
-          revision: base,
-          experimentId: experiment.id,
-          orgEnvironments: context.environments,
-          scope: update.environments,
-        })
-      : null;
-    const ruleUpdate = {
-      variations: update.variations,
-      ...(update.sparse !== undefined && { sparse: update.sparse }),
-      ...scope?.ruleUpdate,
-    };
-    const projected = applyPartialFeatureRuleUpdatesToRevision(
-      base,
-      rules.map((r) => r.id),
-      ruleUpdate,
-    );
-    for (const rule of rules) {
-      await assertValidRuleWrite(
+    let existingRevision: FeatureRevisionInterface | undefined;
+    let startingRevision: FeatureRevisionInterface | undefined;
+    let projected: FeatureRevisionInterface | undefined;
+    const groups: FlagValuesGroupPlan[] = [];
+    for (const entry of entries) {
+      const update: ExperimentLinkedFeatureValueUpdate = {
+        variations: entry.variations,
+        ...(entry.sparse !== undefined && { sparse: entry.sparse }),
+        ...(entry.environments && { environments: entry.environments }),
+        ...(entry.ruleIds && { ruleIds: entry.ruleIds }),
+        revisionOptions: startsDraft
+          ? { forceNewDraft: true }
+          : { targetVersion: loaded.version },
+      };
+      // Against the variations this save leaves, which the plan already vetted.
+      validateExperimentFeatureVariations({
+        variations: nextExperiment.variations,
+        variationWeights: nextWeights,
+        experiment: nextExperiment,
+        features: { [feature.id]: update },
+      });
+      const [plan] = await validateExperimentFeatureUpdates({
+        experiment,
+        features: { [feature.id]: update },
+        linkedFeatures: [feature],
         context,
-        judgedFeature,
-        { ...rule, ...ruleUpdate } as ExperimentRefRule,
-        rule,
-        [nextExperiment],
+      });
+      if (!plan) continue;
+      // Re-read inside validateExperimentFeatureUpdates; it must still be the one checked above.
+      if (
+        plan.existingRevision &&
+        isoOrNull(plan.existingRevision.dateUpdated) !== loadedFrom.dateUpdated
+      ) {
+        throw changedSinceLoaded(`Feature Flag ${feature.id}`);
+      }
+      existingRevision = plan.existingRevision;
+      startingRevision ??=
+        existingRevision ?? (await getLiveRevisionForFeature(context, feature));
+      const base = projected ?? startingRevision;
+
+      const judgedFeature = withStagedSchema(feature, base);
+      // Normalizes too: loose JSON is repaired rather than stored malformed.
+      update.variations.forEach((v, i) => {
+        v.value = validateFeatureValue(
+          judgedFeature,
+          v.value,
+          `Variation ${i}`,
+        );
+      });
+
+      // One rule can match in several environments.
+      const rules = [
+        ...new Map(
+          plan.matchingRules.map(({ rule }) => [rule.id, rule]),
+        ).values(),
+      ];
+      const scope = update.environments
+        ? planExperimentRuleEnvironments({
+            feature,
+            revision: base,
+            experimentId: experiment.id,
+            orgEnvironments: context.environments,
+            scope: update.environments,
+          })
+        : null;
+      const ruleUpdate = {
+        variations: update.variations,
+        ...(update.sparse !== undefined && { sparse: update.sparse }),
+        ...scope?.ruleUpdate,
+      };
+      projected = applyPartialFeatureRuleUpdatesToRevision(
+        base,
+        rules.map((r) => r.id),
+        ruleUpdate,
       );
+      for (const rule of rules) {
+        await assertValidRuleWrite(
+          context,
+          judgedFeature,
+          { ...rule, ...ruleUpdate } as ExperimentRefRule,
+          rule,
+          [nextExperiment],
+        );
+      }
+      groups.push({ matchingRules: plan.matchingRules, update, scope });
     }
+    if (!projected || !startingRevision) continue;
+
+    const environmentsEnabled = groups.find((g) => g.scope?.environmentsEnabled)
+      ?.scope?.environmentsEnabled;
     // Off live, the values land on a new draft cut from it.
     await prevalidateRevisionUpdate(
       context,
       feature,
-      existingRevision ?? { ...base, status: "draft" },
+      existingRevision ?? { ...startingRevision, status: "draft" },
       {
         rules: projected.rules ?? [],
-        ...(scope?.environmentsEnabled && {
-          environmentsEnabled: scope.environmentsEnabled,
-        }),
+        ...(environmentsEnabled && { environmentsEnabled }),
       },
     );
 
-    result.push({ ...plan, update, scope });
+    result.push({ feature, existingRevision, groups });
   }
   return result;
 }
@@ -282,7 +349,7 @@ async function writeFlagValues({
   eventAudit: EventUser;
   compensations: Compensation[];
 }): Promise<{ featureId: string; version: number }> {
-  const { feature, existingRevision, matchingRules, update, scope } = plan;
+  const { feature, existingRevision, groups } = plan;
 
   let snapshot: RevisionSnapshot | null = null;
   if (existingRevision) {
@@ -304,36 +371,38 @@ async function writeFlagValues({
   };
   compensations.push(compensation);
 
-  revision = await updateExperimentRefVariations({
-    context,
-    feature,
-    revision,
-    matchingRules,
-    updatedVariationValues: update.variations,
-    sparse: update.sparse,
-    ruleUpdates: scope?.ruleUpdate,
-    user: eventAudit,
-    guardDateUpdated: true,
-  });
-  compensation.writtenDateUpdated = revision.dateUpdated;
-
-  // The rule's new footprint switches its environments on, one way.
-  if (scope?.environmentsEnabled) {
-    revision =
-      (await updateRevision(
-        context,
-        feature,
-        revision,
-        { environmentsEnabled: scope.environmentsEnabled },
-        {
-          user: eventAudit,
-          action: "update experiment environments",
-          subject: `to ${scope.scopedEnvironments.join(", ") || "no environments"}`,
-          value: JSON.stringify(update.environments),
-        },
-        { guardDateUpdated: true },
-      )) ?? revision;
+  for (const { matchingRules, update, scope } of groups) {
+    revision = await updateExperimentRefVariations({
+      context,
+      feature,
+      revision,
+      matchingRules,
+      updatedVariationValues: update.variations,
+      sparse: update.sparse,
+      ruleUpdates: scope?.ruleUpdate,
+      user: eventAudit,
+      guardDateUpdated: true,
+    });
     compensation.writtenDateUpdated = revision.dateUpdated;
+
+    // The rule's new footprint switches its environments on, one way.
+    if (scope?.environmentsEnabled) {
+      revision =
+        (await updateRevision(
+          context,
+          feature,
+          revision,
+          { environmentsEnabled: scope.environmentsEnabled },
+          {
+            user: eventAudit,
+            action: "update experiment environments",
+            subject: `to ${scope.scopedEnvironments.join(", ") || "no environments"}`,
+            value: JSON.stringify(update.environments),
+          },
+          { guardDateUpdated: true },
+        )) ?? revision;
+      compensation.writtenDateUpdated = revision.dateUpdated;
+    }
   }
 
   return { featureId: feature.id, version: revision.version };

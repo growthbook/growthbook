@@ -817,6 +817,7 @@ export async function getExperiment(
 
   const linkedFeatureInfo = await getLinkedFeatureInfo(context, experiment, {
     includeOtherPendingDrafts: true,
+    includeValueGroups: true,
   });
 
   const envs = await getExperimentAffectedEnvs(context, experiment);

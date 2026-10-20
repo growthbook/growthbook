@@ -244,7 +244,7 @@ export function VariationBox({
 
   const descriptionSnippet = !showDescription ? null : v.description ? (
     v.description
-  ) : experiment.status === "draft" ? (
+  ) : experiment.status === "draft" || canEdit ? (
     <Text color="text-disabled">No description</Text>
   ) : null;
   // Beside the placeholder without a screenshot, below the carousel with one.
@@ -473,7 +473,9 @@ const VariationsTable: FC<Props> = ({
               onEditKey={onEditKey}
               onReorder={onReorder}
               showNoImage={
-                experiment.status === "draft" || someVariationHasImage
+                experiment.status === "draft" ||
+                canEditExperiment ||
+                someVariationHasImage
               }
             />
           );

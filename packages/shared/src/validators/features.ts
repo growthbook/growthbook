@@ -2254,6 +2254,9 @@ export const experimentChangesBody = z
             sparse: z.boolean().optional(),
             // The rule's environment scope. Omitted leaves it as it is.
             environments: experimentRuleEnvironments.optional(),
+            // Only these of the experiment's rules, when its rules on the flag
+            // disagree. Omitted writes every one of them.
+            ruleIds: z.array(z.string()).min(1).optional(),
             // The revision the values were loaded from: the live version starts
             // a new draft (dateUpdated unused), a draft version writes into it.
             revision: z

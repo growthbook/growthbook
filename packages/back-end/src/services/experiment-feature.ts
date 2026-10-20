@@ -402,6 +402,8 @@ export type ExperimentLinkedFeatureValueUpdate = {
   sparse?: boolean;
   /** Re-scopes the rule; omitted leaves its environments as they are. */
   environments?: ExperimentRuleEnvironments;
+  /** Only these of the experiment's rules; omitted means all of them. */
+  ruleIds?: string[];
   revisionOptions: ExperimentFeatureValueRevisionOptions;
 };
 
@@ -594,10 +596,13 @@ export async function validateExperimentFeatureUpdates({
       ? await getDraftRevision(context, feature, targetVersion)
       : await getLiveRevisionForFeature(context, feature);
 
+    const onlyRuleIds = entry.ruleIds;
     const matchingRules = getMatchingRules(
       feature,
       (r: FeatureRule) =>
-        r.type === "experiment-ref" && r.experimentId === experiment.id,
+        r.type === "experiment-ref" &&
+        r.experimentId === experiment.id &&
+        (!onlyRuleIds || onlyRuleIds.includes(r.id)),
       context.environments,
       revision,
     );
@@ -606,6 +611,13 @@ export async function validateExperimentFeatureUpdates({
       throw new Error(
         `No experiment-ref rules found for this experiment on feature ${feature.id}, version ${revision.version}`,
       );
+    if (
+      onlyRuleIds?.some((id) => !matchingRules.some((m) => m.rule.id === id))
+    ) {
+      throw new Error(
+        `Feature ${feature.id}: one of the experiment's rules is no longer on version ${revision.version}.`,
+      );
+    }
 
     const baselineVariations = (matchingRules[0].rule as ExperimentRefRule)
       .variations;

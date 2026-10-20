@@ -176,7 +176,21 @@ export default function VariationValuesTable({
 }: Props) {
   const variations = getLatestPhaseVariations(experiment);
   const hasMenu = !!(onEditKeys || onRemoveVariation || onReorder);
-  const columnCount = linkedFeatures.length + implementationColumns.length;
+  const flagColumns = linkedFeatures.flatMap((info): FlagColumnSource[] =>
+    info.valueGroups?.length
+      ? info.valueGroups.map((group, index, groups) => ({
+          key: `${info.feature.id}:${group.ruleIds.join(",")}`,
+          info: { ...group, feature: info.feature },
+          group: {
+            ruleIds: group.ruleIds,
+            environments: group.environments,
+            first: index === 0,
+            count: groups.length,
+          },
+        }))
+      : [{ key: info.feature.id, info, group: null }],
+  );
+  const columnCount = flagColumns.length + implementationColumns.length;
   const flagTrack = `clamp(${FLAG_WIDTH}px, (100cqw - ${
     BORDERS + VARIATION_WIDTH + SPLIT_WIDTH
   }px) / ${columnCount}, ${MAX_FLAG_WIDTH}px)`;
@@ -343,15 +357,13 @@ export default function VariationValuesTable({
               note={splitNote}
             />
 
-            {linkedFeatures.map((info, i) => (
-              <div
-                key={info.feature.id}
-                className={styles.implementationColumn}
-              >
+            {flagColumns.map(({ key, info, group }, i) => (
+              <div key={key} className={styles.implementationColumn}>
                 <FlagColumn
                   layout={layoutFor(i)}
                   experiment={experiment}
                   info={info}
+                  group={group}
                   canEdit={canEditFlagValues}
                   flagEnvironments={flagEnvironments}
                   draftPicks={draftPicks}
@@ -360,7 +372,7 @@ export default function VariationValuesTable({
             ))}
             {implementationColumns.map((c, i) => (
               <div key={c.key} className={styles.implementationColumn}>
-                {c.render(layoutFor(linkedFeatures.length + i))}
+                {c.render(layoutFor(flagColumns.length + i))}
               </div>
             ))}
           </div>
@@ -452,10 +464,24 @@ function SplitColumn({
   );
 }
 
+type ValueGroup = {
+  ruleIds: string[];
+  environments: string[];
+  first: boolean;
+  count: number;
+};
+
+type FlagColumnSource = {
+  key: string;
+  info: LinkedFeatureInfo;
+  group: ValueGroup | null;
+};
+
 function FlagColumn({
   layout,
   experiment,
   info,
+  group,
   canEdit,
   flagEnvironments,
   draftPicks,
@@ -463,6 +489,7 @@ function FlagColumn({
   layout: ColumnLayout;
   experiment: ExperimentInterfaceStringDates;
   info: LinkedFeatureInfo;
+  group: ValueGroup | null;
   canEdit: boolean;
   flagEnvironments?: FlagEnvironmentsDraft;
   draftPicks: FlagDraftPicks;
@@ -515,7 +542,7 @@ function FlagColumn({
 
   const [stagedFor, setStaged] = useStagedState<
     (Staged & { for: number | "new" }) | null
-  >(`flag:${feature.id}`, null);
+  >(`flag:${feature.id}${group ? `:${group.ruleIds.join(",")}` : ""}`, null);
   const staged = stagedFor?.for === workingOn ? stagedFor : null;
   const pinTarget = (next: number | "new") =>
     draftPicks.set(feature.id, {
@@ -526,10 +553,12 @@ function FlagColumn({
     pinTarget(next);
     setStaged(null);
   };
-  const stagedScope = flagEnvironments?.value[feature.id] ?? null;
+  const stagedScope = group
+    ? null
+    : (flagEnvironments?.value[feature.id] ?? null);
   const clearStaged = () => {
     setStaged(null);
-    flagEnvironments?.set(feature.id, null);
+    if (!group) flagEnvironments?.set(feature.id, null);
   };
   const [editingValues, setEditingValues] = useState<string | null>(null);
   const storedValue = (variationId: string) =>
@@ -607,55 +636,64 @@ function FlagColumn({
     return checked;
   };
 
-  useRegisterExperimentEdit(`flag:${feature.id}`, dirty && !linkAction, {
-    changes: (options) => ({
-      flagValues: [
-        {
-          featureId: feature.id,
-          variations: checkedValues(options),
-          ...(sparse !== storedSparse && { sparse }),
-          ...(stagedScope && { environments: stagedScope }),
-          revision: fromDraft
-            ? {
-                version: pendingDraft.version,
-                dateUpdated: pendingDraft.dateUpdated,
-              }
-            : { version: feature.version, dateUpdated: null },
-        },
-      ],
-    }),
-    onSaved: clearStaged,
-    discard: clearStaged,
-  });
+  useRegisterExperimentEdit(
+    `flag:${feature.id}${group ? `:${group.ruleIds.join(",")}` : ""}`,
+    dirty && !linkAction,
+    {
+      changes: (options) => ({
+        flagValues: [
+          {
+            featureId: feature.id,
+            variations: checkedValues(options),
+            ...(sparse !== storedSparse && { sparse }),
+            ...(stagedScope && { environments: stagedScope }),
+            ...(group && { ruleIds: group.ruleIds }),
+            revision: fromDraft
+              ? {
+                  version: pendingDraft.version,
+                  dateUpdated: pendingDraft.dateUpdated,
+                }
+              : { version: feature.version, dateUpdated: null },
+          },
+        ],
+      }),
+      onSaved: clearStaged,
+      discard: clearStaged,
+    },
+  );
 
   const clearLinkAction = () => {
     setLinkAction(null);
     clearStaged();
   };
-  useRegisterExperimentEdit(`link:${feature.id}`, !!linkAction, {
-    changes: (options) =>
-      removing
-        ? { unlinkFeatures: [feature.id] }
-        : linkAction === "keep"
-          ? { keepFeatures: [feature.id] }
-          : {
-              linkFeatures: [
-                {
-                  featureId: feature.id,
-                  variations: checkedValues(options),
-                  ...(sparse && { sparse }),
-                  ...(info.relinkFrom && {
-                    environments: {
-                      allEnvironments: info.relinkFrom.allEnvironments,
-                      environments: info.relinkFrom.environments,
-                    },
-                  }),
-                },
-              ],
-            },
-    onSaved: clearLinkAction,
-    discard: clearLinkAction,
-  });
+  useRegisterExperimentEdit(
+    `link:${feature.id}`,
+    !!linkAction && (!group || group.first),
+    {
+      changes: (options) =>
+        removing
+          ? { unlinkFeatures: [feature.id] }
+          : linkAction === "keep"
+            ? { keepFeatures: [feature.id] }
+            : {
+                linkFeatures: [
+                  {
+                    featureId: feature.id,
+                    variations: checkedValues(options),
+                    ...(sparse && { sparse }),
+                    ...(info.relinkFrom && {
+                      environments: {
+                        allEnvironments: info.relinkFrom.allEnvironments,
+                        environments: info.relinkFrom.environments,
+                      },
+                    }),
+                  },
+                ],
+              },
+      onSaved: clearLinkAction,
+      discard: clearLinkAction,
+    },
+  );
 
   const draftMention = pendingDraft ? `Revision ${pendingDraft.version}` : null;
   const labelFor = (d: (typeof drafts)[number]) => (
@@ -788,7 +826,12 @@ function FlagColumn({
   const describesShown = showsDraft
     ? info.state === "draft" && pendingDraft.version === drafts[0]?.version
     : info.state === "live";
-  if (onFlag && describesShown && info.inconsistentValues) {
+  if (group) {
+    notices.push({
+      status: "warning",
+      text: "Flag's experiment rules have different values.",
+    });
+  } else if (onFlag && describesShown && info.inconsistentValues) {
     notices.push({
       status: "warning",
       text: `This experiment is on the Feature Flag more than once with different values. Showing the first, from ${info.valuesFrom}.`,
@@ -893,7 +936,7 @@ function FlagColumn({
   ];
   const showEnvironments =
     environmentStates.length > 0 && !orphaned && !removing && !notLive;
-  const canEditEnvironments = canEditFlag && showEnvironments;
+  const canEditEnvironments = canEditFlag && showEnvironments && !group;
   const startsDraft =
     !showsDraft && !showingLive && (editable || canChooseTarget);
   const revisionName = showsDraft
@@ -1106,11 +1149,22 @@ function FlagColumn({
         layout={layout}
         icon={<PiFlag />}
         title={
-          <HeaderText truncate>
-            <Link href={`/features/${feature.id}`} external>
-              {feature.id}
-            </Link>
-          </HeaderText>
+          <>
+            <HeaderText truncate>
+              <Link href={`/features/${feature.id}`} external>
+                {feature.id}
+              </Link>
+            </HeaderText>
+            {group ? (
+              <Flex minWidth="0">
+                <HeaderText muted>(</HeaderText>
+                <HeaderText muted truncate>
+                  {group.environments.join(", ") || "no environments"}
+                </HeaderText>
+                <HeaderText muted>)</HeaderText>
+              </Flex>
+            ) : null}
+          </>
         }
         problem={problem}
         kind={VALUE_TYPE_LABELS[valueType]}

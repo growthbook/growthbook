@@ -16,38 +16,47 @@
   position: relative;
   box-sizing: border-box;
   min-height: 32px;
-  padding-top: calc((32px - var(--line-height-2)) / 2);
   font-size: var(--font-size-2);
   line-height: var(--line-height-2);
   color: var(--color-text-high);
-
-  :global(code)::before {
-    content: "\200b";
-    display: inline-block;
-    font-family: var(--default-font-family);
-    font-size: var(--font-size-2);
-    line-height: var(--line-height-2);
-  }
-
-  :global([data-index]:not([data-index="0"])) :global(code)::before {
-    content: none;
-  }
 }
 
+// The code block has 1px above its text and 2px below; this evens them out.
+.code {
+  padding: 3px 0 2px;
+}
+
+.centered {
+  display: flex;
+  align-items: center;
+}
+
+// Drawn outside the value's box, so rows keep their size when values become
+// editable. It extends as far above the value as below, centering it in the row.
 .frame {
-  border: 1px solid var(--gray-a3);
-  border-radius: var(--radius-2);
-  padding: calc((32px - var(--line-height-2)) / 2 - 1px) var(--space-1)
-    var(--space-1) var(--space-2);
-  background: var(--color-surface);
+  --frame-y: 3px;
+  --frame-start: calc(var(--space-2) + 1px);
+  --frame-end: calc(var(--space-1) + 1px);
+  isolation: isolate;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: calc(-1 * var(--frame-y)) calc(-1 * var(--frame-end))
+      calc(-1 * var(--frame-y)) calc(-1 * var(--frame-start));
+    z-index: -1;
+    border: 1px solid var(--gray-a3);
+    border-radius: var(--radius-2);
+    background: var(--color-surface);
+  }
 }
 
-.error {
+.error::before {
   border-color: var(--red-8);
 }
 
 .openEditor {
   position: absolute;
-  top: var(--space-1);
-  right: var(--space-1);
+  top: calc(var(--space-1) - var(--frame-y));
+  right: calc(var(--space-1) - var(--frame-end));
 }
