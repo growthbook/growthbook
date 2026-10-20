@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { managedByValidator } from "./managed-by";
+import { namedSchema } from "./openapi-helpers";
+import { apiBaseSchema } from "./base-model";
 
 export const payloadFormatValidator = z.enum([
   "standard",
@@ -26,6 +28,11 @@ export const webhookTimeoutSecondsValidator = z
   .int()
   .min(1)
   .nullable();
+
+// REST shape of the timeout, on SDK and event webhooks alike
+export const apiWebhookTimeoutSeconds = webhookTimeoutSecondsValidator.describe(
+  "Request timeout in seconds, up to the server maximum (120 unless configured). Null uses the default.",
+);
 
 export const webhookSchema = z.strictObject({
   id: z.string(),
@@ -78,3 +85,106 @@ export const updateSdkWebhookValidator = createSdkWebhookValidator
   .partial();
 
 export type UpdateSdkWebhookProps = z.infer<typeof updateSdkWebhookValidator>;
+
+export const apiSdkWebhookValidator = namedSchema(
+  "SdkWebhook",
+  apiBaseSchema.safeExtend({
+    name: z.string(),
+    endpoint: z.string(),
+    sdkConnections: z.array(z.string()),
+    httpMethod: z.enum(webhookMethods),
+    payloadFormat: payloadFormatValidator,
+    payloadKey: z.string().optional(),
+    headers: z
+      .string()
+      .optional()
+      .describe(
+        "JSON-encoded object of extra headers. Only returned by GET, to callers who can edit the webhook.",
+      ),
+    signingKey: z
+      .string()
+      .optional()
+      .describe(
+        "Used to verify the signature header. Only returned by GET, to callers who can edit the webhook.",
+      ),
+    lastSuccess: z.string().meta({ format: "date-time" }).nullable(),
+    error: z.string(),
+    consecutiveFailures: z.number(),
+    disabled: z
+      .boolean()
+      .describe("Set after repeated failures; changing the endpoint clears it"),
+    timeoutSeconds: apiWebhookTimeoutSeconds,
+  }),
+);
+
+const sdkWebhookFields = {
+  name: z.string(),
+  endpoint: z.string().url(),
+  httpMethod: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "PURGE"]),
+  payloadFormat: payloadFormatValidator
+    .exclude(["vercelNativeIntegration"])
+    .optional(),
+  payloadKey: z.string().optional(),
+  headers: z
+    .string()
+    .optional()
+    .describe('JSON-encoded object, e.g. "{\\"X-Token\\": \\"abc\\"}"'),
+  timeoutSeconds: apiWebhookTimeoutSeconds.optional(),
+};
+
+// Unused: SDK webhooks are created through their SDK Connection
+export const apiCreateSdkWebhookBody = z.strictObject({});
+export const apiUpdateSdkWebhookBody = z.strictObject({});
+
+export const apiSdkWebhookReturn = z
+  .object({ sdkWebhook: apiSdkWebhookValidator })
+  .strict();
+export const apiSdkWebhookListReturn = z
+  .object({ sdkWebhooks: z.array(apiSdkWebhookValidator) })
+  .strict();
+export const apiSdkWebhookDeleteReturn = z
+  .object({ deletedId: z.string() })
+  .strict();
+
+const connectionParams = z
+  .object({ id: z.string().describe("The SDK Connection id") })
+  .strict();
+const idParams = z.object({ id: z.string() }).strict();
+
+export const listSdkConnectionWebhooksValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: connectionParams,
+};
+
+export const postSdkConnectionWebhookValidator = {
+  bodySchema: z.object(sdkWebhookFields).strict(),
+  querySchema: z.never(),
+  paramsSchema: connectionParams,
+};
+
+export const putSdkWebhookValidator = {
+  bodySchema: z
+    .object({
+      ...sdkWebhookFields,
+      payloadFormat: payloadFormatValidator
+        .optional()
+        .describe(
+          "`vercelNativeIntegration` is accepted only on webhooks that already use it",
+        ),
+      sdkConnections: z
+        .array(z.string())
+        .min(1)
+        .describe("Replaces the SDK Connections this webhook fires for"),
+    })
+    .partial()
+    .strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+};
+
+export const sdkWebhookIdValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+};

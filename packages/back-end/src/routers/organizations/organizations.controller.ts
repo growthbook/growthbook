@@ -80,6 +80,7 @@ import {
   getRecentWatchedAudits,
   isValidAuditEntityType,
 } from "back-end/src/services/audit";
+import { parseDateCursor } from "back-end/src/util/dateCursor";
 import {
   getAllFeatures,
   hasNonDemoFeature,
@@ -146,18 +147,21 @@ import {
   getExperimentsForActivityFeed,
   hasNonDemoExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { getAuditHistory } from "back-end/src/models/AuditModel";
 import {
-  getAuditHistory,
-  getAuditedApiKeyKinds,
-} from "back-end/src/models/AuditModel";
-import { ReqContext } from "back-end/types/request";
+  canReadApiKeyHistory,
+  getApiKeyIdsHiddenFromKeyViewers,
+} from "back-end/src/services/apiKeyHistory";
 import { fireSdkWebhook } from "back-end/src/jobs/sdkWebhooks";
 import {
   getInstallationName,
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
+import {
+  assertCanUseSDKConnections,
+  findSDKConnectionsByIds,
+} from "back-end/src/models/SdkConnectionModel";
 import {
   getLicense,
   licenseInit,
@@ -319,51 +323,12 @@ export async function getHistory(
     parseIntWithDefaultCapped(req.query.limit, 50, 100), // Max 100 per page
     {
       event: parseEventParam(req.query.event),
-      before: req.query.cursor ? new Date(req.query.cursor) : undefined,
+      before: parseDateCursor(context, req.query.cursor),
       excludeIds,
     },
   );
 
   res.status(200).json({ status: 200, ...history });
-}
-
-async function canReadApiKeyHistory(
-  context: ReqContext,
-  id: string | undefined,
-): Promise<boolean> {
-  const { permissions } = context;
-  if (!id) return permissions.canViewApiKeys();
-  const key = await context.models.apiKeys.dangerousGetById(id);
-  if (key) {
-    return key.userId
-      ? key.userId === context.userId ||
-          permissions.canManagePersonalAccessTokens()
-      : permissions.canViewApiKeys();
-  }
-  // A deleted key is known only by its audits. One they can't place needs both.
-  const kinds = await getAuditedApiKeyKinds(context.org.id);
-  if (kinds.tokens.has(id)) return permissions.canManagePersonalAccessTokens();
-  if (kinds.orgKeys.has(id)) return permissions.canViewApiKeys();
-  return (
-    permissions.canViewApiKeys() && permissions.canManagePersonalAccessTokens()
-  );
-}
-
-// Members' tokens, and deleted keys their audits can't place as org keys.
-async function getApiKeyIdsHiddenFromKeyViewers(
-  context: ReqContext,
-): Promise<string[]> {
-  const [keys, kinds] = await Promise.all([
-    context.models.apiKeys.dangerousGetAllApiKeysInOrg(),
-    getAuditedApiKeyKinds(context.org.id),
-  ]);
-  const live = new Map(keys.map((k) => [k.id, k]));
-  return kinds.all.filter((id) => {
-    // Org-wide entries, like applying the expiration policy, name no key.
-    if (!id) return false;
-    const key = live.get(id);
-    return key ? !!key.userId : !kinds.orgKeys.has(id);
-  });
 }
 
 export async function putMemberRole(
@@ -2270,6 +2235,13 @@ export async function putSDKWebhook(
   }
 
   const parsedUpdates = updateSdkWebhookValidator.parse(req.body);
+  if (parsedUpdates.sdks) {
+    await assertCanUseSDKConnections(
+      context,
+      parsedUpdates.sdks.filter((sdk) => !webhook.sdks.includes(sdk)),
+      (c) => context.permissions.canUpdateSDKWebhook(c),
+    );
+  }
 
   // Reset failure state when endpoint changes
   const resetFields =

@@ -561,6 +561,16 @@ tags:
     description: >-
       Organization secret API keys. Key values are never returned; keys are
       created in the app.
+  - name: event-webhooks
+    x-displayName: Event Webhooks
+    description: >-
+      Send GrowthBook events (feature, experiment and other changes) to your own
+      endpoint.
+  - name: audits
+    x-displayName: Audit Logs
+    description: >-
+      Audit history of who changed what, and the event log that drives event
+      webhooks. Requires permission to view audit logs.
   - name: code-references
     x-displayName: Code References
     description: >-
@@ -645,6 +655,16 @@ tags:
 
       Populations define a set of units by the steps they must complete, such as
       appearing in a fact table. Populations are not yet used in analysis.
+  - name: WebhookSecrets
+    x-displayName: Webhook Secrets
+    description: >-
+      Secrets substituted into webhook URLs and headers at send time. Values are
+      set in the app and never returned.
+  - name: SdkWebhooks
+    x-displayName: SDK Webhooks
+    description: >-
+      Webhooks that fire when an SDK Connection's payload changes. Signing keys
+      and headers are only returned by GET.
   - name: AggregatedFactTable_model
     x-displayName: Aggregated Fact Table
     description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />
@@ -660,6 +680,9 @@ tags:
   - name: Attribute_model
     x-displayName: Attribute
     description: <SchemaDefinition schemaRef="#/components/schemas/Attribute" />
+  - name: Audit_model
+    x-displayName: Audit
+    description: <SchemaDefinition schemaRef="#/components/schemas/Audit" />
   - name: AutoRun_model
     x-displayName: Auto Run
     description: <SchemaDefinition schemaRef="#/components/schemas/AutoRun" />
@@ -761,9 +784,18 @@ tags:
   - name: Environment_model
     x-displayName: Environment
     description: <SchemaDefinition schemaRef="#/components/schemas/Environment" />
+  - name: Event_model
+    x-displayName: Event
+    description: <SchemaDefinition schemaRef="#/components/schemas/Event" />
   - name: EventUser_model
     x-displayName: Event User
     description: <SchemaDefinition schemaRef="#/components/schemas/EventUser" />
+  - name: EventWebhook_model
+    x-displayName: Event Webhook
+    description: <SchemaDefinition schemaRef="#/components/schemas/EventWebhook" />
+  - name: EventWebhookLog_model
+    x-displayName: Event Webhook Log
+    description: <SchemaDefinition schemaRef="#/components/schemas/EventWebhookLog" />
   - name: Experiment_model
     x-displayName: Experiment
     description: <SchemaDefinition schemaRef="#/components/schemas/Experiment" />
@@ -1018,6 +1050,9 @@ tags:
   - name: SdkConnection_model
     x-displayName: Sdk Connection
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
+  - name: SdkWebhook_model
+    x-displayName: Sdk Webhook
+    description: <SchemaDefinition schemaRef="#/components/schemas/SdkWebhook" />
   - name: Segment_model
     x-displayName: Segment
     description: <SchemaDefinition schemaRef="#/components/schemas/Segment" />
@@ -1044,6 +1079,9 @@ tags:
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/VisualEditorCbExperimentStub" />
+  - name: WebhookSecret_model
+    x-displayName: Webhook Secret
+    description: <SchemaDefinition schemaRef="#/components/schemas/WebhookSecret" />
 security:
   - bearerAuth: []
   - basicAuth: []
@@ -40876,6 +40914,483 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/roles/{id}/deactivate' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/event-webhooks:
+    get:
+      operationId: listEventWebhooks
+      summary: Get all event webhooks
+      tags:
+        - event-webhooks
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventWebhooks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EventWebhook'
+                required:
+                  - eventWebhooks
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/event-webhooks' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postEventWebhook
+      summary: Create an event webhook
+      description: >-
+        The URL and header values can reference webhook secrets as `{{ KEY }}`,
+        which are filled in at send time.
+      tags:
+        - event-webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                events:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                environments:
+                  type: array
+                  items:
+                    type: string
+                url:
+                  type: string
+                  format: uri
+                name:
+                  type: string
+                  minLength: 2
+                enabled:
+                  type: boolean
+                payloadType:
+                  type: string
+                  enum:
+                    - raw
+                    - json
+                    - slack
+                    - discord
+                method:
+                  type: string
+                  enum:
+                    - POST
+                    - PUT
+                    - PATCH
+                headers:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                timeoutSeconds:
+                  description: >-
+                    Request timeout in seconds, up to the server maximum (120
+                    unless configured). Null uses the default.
+                  anyOf:
+                    - type: integer
+                      minimum: 1
+                    - type: 'null'
+              required:
+                - events
+                - url
+                - name
+                - enabled
+                - payloadType
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventWebhook:
+                    $ref: '#/components/schemas/EventWebhook'
+                required:
+                  - eventWebhook
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/event-webhooks' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"name":"Feature changes to Datadog","url":"https://example.com/growthbook-events","enabled":true,"events":["feature.*"],"payloadType":"json"}'
+  /v1/event-webhooks/{id}:
+    get:
+      operationId: getEventWebhook
+      summary: Get a single event webhook
+      tags:
+        - event-webhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventWebhook:
+                    $ref: '#/components/schemas/EventWebhook'
+                required:
+                  - eventWebhook
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/event-webhooks/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: putEventWebhook
+      summary: Update an event webhook
+      tags:
+        - event-webhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                events:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                environments:
+                  type: array
+                  items:
+                    type: string
+                url:
+                  type: string
+                  format: uri
+                name:
+                  type: string
+                  minLength: 2
+                enabled:
+                  type: boolean
+                payloadType:
+                  type: string
+                  enum:
+                    - raw
+                    - json
+                    - slack
+                    - discord
+                method:
+                  type: string
+                  enum:
+                    - POST
+                    - PUT
+                    - PATCH
+                headers:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                timeoutSeconds:
+                  description: >-
+                    Request timeout in seconds, up to the server maximum (120
+                    unless configured). Null uses the default.
+                  anyOf:
+                    - type: integer
+                      minimum: 1
+                    - type: 'null'
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventWebhook:
+                    $ref: '#/components/schemas/EventWebhook'
+                required:
+                  - eventWebhook
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/event-webhooks/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteEventWebhook
+      summary: Delete an event webhook
+      tags:
+        - event-webhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/event-webhooks/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/event-webhooks/{id}/logs:
+    get:
+      operationId: listEventWebhookLogs
+      summary: Get the 50 most recent deliveries for an event webhook
+      tags:
+        - event-webhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EventWebhookLog'
+                required:
+                  - logs
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/event-webhooks/{id}/logs' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/event-webhooks/{id}/test:
+    post:
+      operationId: postEventWebhookTest
+      summary: Send a test event to an event webhook
+      description: Delivery is asynchronous; check the webhook's logs for the result.
+      tags:
+        - event-webhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    type: boolean
+                    const: true
+                required:
+                  - queued
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/event-webhooks/{id}/test' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/audits:
+    get:
+      operationId: listAudits
+      summary: Get audit history for an entity or entity type
+      description: >-
+        Includes changes to child entities (e.g. a feature's revisions). Newest
+        first. Requires permission to view audit logs.
+      tags:
+        - audits
+      parameters:
+        - $ref: '#/components/parameters/entityType'
+        - $ref: '#/components/parameters/entityId'
+        - name: limit
+          in: query
+          description: Defaults to 50
+          schema:
+            description: Defaults to 50
+            type: integer
+            minimum: 1
+            maximum: 100
+        - $ref: '#/components/parameters/before'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  audits:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Audit'
+                  nextCursor:
+                    description: >-
+                      Pass as `before` to get the next page. Null when there are
+                      no older entries
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                required:
+                  - audits
+                  - nextCursor
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/audits' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/events:
+    get:
+      operationId: listEvents
+      summary: Get the organization's event log
+      description: >-
+        The events that drive event webhooks and notifications. Newest first.
+        Requires permission to view audit logs.
+      tags:
+        - audits
+      parameters:
+        - $ref: '#/components/parameters/events'
+        - $ref: '#/components/parameters/after'
+        - name: limit
+          in: query
+          description: Defaults to 50
+          schema:
+            description: Defaults to 50
+            type: integer
+            minimum: 1
+            maximum: 100
+        - $ref: '#/components/parameters/before'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+                  nextCursor:
+                    description: >-
+                      Pass as `before` to get the next page. Null when there are
+                      no older entries
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                required:
+                  - events
+                  - nextCursor
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/events' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/events/{id}:
+    get:
+      operationId: getEvent
+      summary: Get a single event
+      tags:
+        - audits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event:
+                    $ref: '#/components/schemas/Event'
+                required:
+                  - event
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/events/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/transform-copy:
     post:
       operationId: postCopyTransform
@@ -66542,6 +67057,373 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v1/api-keys/{id}/enable'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/webhook-secrets/{id}:
+    get:
+      operationId: getWebhookSecret
+      summary: Get a single webhookSecret
+      tags:
+        - WebhookSecrets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhookSecret:
+                    $ref: '#/components/schemas/WebhookSecret'
+                required:
+                  - webhookSecret
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET 'https://api.growthbook.io/api/v1/webhook-secrets/{id}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteWebhookSecret
+      summary: Delete a single webhookSecret
+      tags:
+        - WebhookSecrets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/webhook-secrets/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/webhook-secrets:
+    get:
+      operationId: listWebhookSecrets
+      summary: Get all webhookSecrets
+      tags:
+        - WebhookSecrets
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhookSecrets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WebhookSecret'
+                required:
+                  - webhookSecrets
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/webhook-secrets' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-connections/{id}/webhooks:
+    get:
+      operationId: listSdkConnectionWebhooks
+      summary: Get the webhooks for an SDK Connection
+      tags:
+        - SdkWebhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            description: The SDK Connection id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sdkWebhooks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SdkWebhook'
+                required:
+                  - sdkWebhooks
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/sdk-connections/{id}/webhooks' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postSdkConnectionWebhook
+      summary: Add a webhook to an SDK Connection
+      description: >-
+        Called whenever the connection's payload changes. More than one webhook
+        per organization requires a paid plan.
+      tags:
+        - SdkWebhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The SDK Connection id
+          schema:
+            description: The SDK Connection id
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                endpoint:
+                  type: string
+                  format: uri
+                httpMethod:
+                  type: string
+                  enum:
+                    - GET
+                    - POST
+                    - PUT
+                    - DELETE
+                    - PATCH
+                    - PURGE
+                payloadFormat:
+                  type: string
+                  enum:
+                    - standard
+                    - standard-no-payload
+                    - sdkPayload
+                    - edgeConfig
+                    - edgeConfigUnescaped
+                    - none
+                payloadKey:
+                  type: string
+                headers:
+                  description: 'JSON-encoded object, e.g. "{\"X-Token\": \"abc\"}"'
+                  type: string
+                timeoutSeconds:
+                  description: >-
+                    Request timeout in seconds, up to the server maximum (120
+                    unless configured). Null uses the default.
+                  anyOf:
+                    - type: integer
+                      minimum: 1
+                    - type: 'null'
+              required:
+                - name
+                - endpoint
+                - httpMethod
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sdkWebhook:
+                    $ref: '#/components/schemas/SdkWebhook'
+                required:
+                  - sdkWebhook
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-connections/{id}/webhooks' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-webhooks/{id}:
+    put:
+      operationId: putSdkWebhook
+      summary: Update an SDK webhook
+      description: The webhook fires once after an update.
+      tags:
+        - SdkWebhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                endpoint:
+                  type: string
+                  format: uri
+                httpMethod:
+                  type: string
+                  enum:
+                    - GET
+                    - POST
+                    - PUT
+                    - DELETE
+                    - PATCH
+                    - PURGE
+                payloadFormat:
+                  description: >-
+                    `vercelNativeIntegration` is accepted only on webhooks that
+                    already use it
+                  type: string
+                  enum:
+                    - standard
+                    - standard-no-payload
+                    - sdkPayload
+                    - edgeConfig
+                    - edgeConfigUnescaped
+                    - vercelNativeIntegration
+                    - none
+                payloadKey:
+                  type: string
+                headers:
+                  description: 'JSON-encoded object, e.g. "{\"X-Token\": \"abc\"}"'
+                  type: string
+                timeoutSeconds:
+                  description: >-
+                    Request timeout in seconds, up to the server maximum (120
+                    unless configured). Null uses the default.
+                  anyOf:
+                    - type: integer
+                      minimum: 1
+                    - type: 'null'
+                sdkConnections:
+                  description: Replaces the SDK Connections this webhook fires for
+                  minItems: 1
+                  type: array
+                  items:
+                    type: string
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sdkWebhook:
+                    $ref: '#/components/schemas/SdkWebhook'
+                required:
+                  - sdkWebhook
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/sdk-webhooks/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteSdkWebhook
+      summary: Delete an SDK webhook
+      tags:
+        - SdkWebhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/sdk-webhooks/{id}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/sdk-webhooks/{id}/test:
+    post:
+      operationId: postSdkWebhookTest
+      summary: Fire an SDK webhook now
+      description: Returns the webhook with the outcome in `error` / `lastSuccess`.
+      tags:
+        - SdkWebhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sdkWebhook:
+                    $ref: '#/components/schemas/SdkWebhook'
+                required:
+                  - sdkWebhook
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/sdk-webhooks/{id}/test' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
     limit:
@@ -67295,6 +68177,102 @@ components:
       description: ''
       schema:
         type: string
+    entityType:
+      name: entityType
+      in: query
+      required: true
+      description: ''
+      schema:
+        type: string
+        enum:
+          - agreement
+          - approvalFlow
+          - revision
+          - aiPrompt
+          - aiCredential
+          - attribute
+          - experiment
+          - project
+          - environment
+          - feature
+          - featureRevisionLog
+          - urlRedirect
+          - metric
+          - metricAnalysis
+          - metricGroup
+          - populationData
+          - population
+          - datasource
+          - comment
+          - sdk-connection
+          - user
+          - organization
+          - apiKey
+          - oauthAuthCode
+          - oauthGrant
+          - oauthRefreshToken
+          - installation
+          - savedGroup
+          - constant
+          - config
+          - segment
+          - archetype
+          - team
+          - vercelNativeIntegration
+          - factTable
+          - customField
+          - autoRun
+          - experimentTemplate
+          - safeRollout
+          - decisionCriteria
+          - execReport
+          - holdout
+          - savedQuery
+          - dashboard
+          - dashboardTemplate
+          - incrementalRefresh
+          - vector
+          - customHook
+          - ssoConnection
+          - sqlResultChunk
+          - rampSchedule
+          - rampScheduleTemplate
+          - learning
+          - contextualBandit
+          - interleaving
+          - eventForwarderConfig
+    entityId:
+      name: entityId
+      in: query
+      description: Omit for every entity of this type
+      schema:
+        description: Omit for every entity of this type
+        type: string
+    before:
+      name: before
+      in: query
+      description: >-
+        Only return entries older than this date-time. To page back, pass the
+        previous page's `nextCursor` instead.
+      schema:
+        description: >-
+          Only return entries older than this date-time. To page back, pass the
+          previous page's `nextCursor` instead.
+        type: string
+    events:
+      name: events
+      in: query
+      description: Comma-separated event names, e.g. "feature.updated"
+      schema:
+        description: Comma-separated event names, e.g. "feature.updated"
+        type: string
+    after:
+      name: after
+      in: query
+      description: ''
+      schema:
+        type: string
+        format: date-time
     index:
       name: index
       in: query
@@ -78277,6 +79255,7 @@ components:
                   - rampSchedule.other
                   - settings.approvals
                   - settings.dataSources
+                  - settings.webhooks
                   - settings.other
                   - access.members
                   - access.teams
@@ -79601,6 +80580,257 @@ components:
         - policies
         - isCustom
         - deactivated
+      additionalProperties: false
+    EventWebhook:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        url:
+          type: string
+        enabled:
+          type: boolean
+        events:
+          description: Event names or wildcards such as "feature.*"
+          type: array
+          items:
+            type: string
+        projects:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        environments:
+          type: array
+          items:
+            type: string
+        payloadType:
+          type: string
+          enum:
+            - raw
+            - json
+            - slack
+            - discord
+        method:
+          type: string
+          enum:
+            - POST
+            - PUT
+            - PATCH
+        headers:
+          description: Only returned by GET
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: string
+        timeoutSeconds:
+          description: >-
+            Request timeout in seconds, up to the server maximum (120 unless
+            configured). Null uses the default.
+          anyOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+        signingKey:
+          description: >-
+            Used to verify the signature header on each request. Only returned
+            by GET.
+          type: string
+        lastRunAt:
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        lastState:
+          type: string
+          enum:
+            - none
+            - success
+            - error
+        lastResponseBody:
+          anyOf:
+            - type: string
+            - type: 'null'
+        dateCreated:
+          format: date-time
+          type: string
+        dateUpdated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - name
+        - url
+        - enabled
+        - events
+        - projects
+        - tags
+        - environments
+        - payloadType
+        - method
+        - timeoutSeconds
+        - lastRunAt
+        - lastState
+        - lastResponseBody
+        - dateCreated
+        - dateUpdated
+      additionalProperties: false
+    EventWebhookLog:
+      type: object
+      properties:
+        id:
+          type: string
+        event:
+          type: string
+        url:
+          type: string
+        method:
+          type: string
+          enum:
+            - POST
+            - PUT
+            - PATCH
+        result:
+          type: string
+          enum:
+            - success
+            - error
+        responseCode:
+          anyOf:
+            - type: number
+            - type: 'null'
+        responseBody:
+          anyOf:
+            - type: string
+            - type: 'null'
+        payload:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties: {}
+        dateCreated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - result
+        - responseCode
+        - responseBody
+        - payload
+        - dateCreated
+      additionalProperties: false
+    Audit:
+      type: object
+      properties:
+        id:
+          type: string
+        event:
+          description: e.g. "feature.update"
+          type: string
+        entity:
+          type: object
+          properties:
+            object:
+              type: string
+            id:
+              type: string
+            name:
+              type: string
+          required:
+            - object
+            - id
+          additionalProperties: false
+        parent:
+          type: object
+          properties:
+            object:
+              type: string
+            id:
+              type: string
+          required:
+            - object
+            - id
+          additionalProperties: false
+        user:
+          description: 'Who made the change: a member, an API key, or the system'
+          type: object
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+            name:
+              type: string
+            apiKey:
+              description: Id of the API key that made the change
+              type: string
+            requestedBy:
+              description: The member named with `X-GrowthBook-Requested-By`
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+              required:
+                - id
+                - name
+                - email
+              additionalProperties: false
+            assumedRole:
+              description: Whether the key assumed the named member's role
+              type: boolean
+            system:
+              type: boolean
+          additionalProperties: false
+        reason:
+          type: string
+        details:
+          description: JSON-encoded, usually `pre`, `post` and `context`
+          type: string
+        dateCreated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - event
+        - entity
+        - user
+        - dateCreated
+      additionalProperties: false
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+        event:
+          description: e.g. "feature.updated"
+          type: string
+        version:
+          description: Absent on legacy events
+          type: number
+        data:
+          description: The same payload event webhooks receive
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties: {}
+        dateCreated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - event
+        - data
+        - dateCreated
       additionalProperties: false
     Dashboard:
       type: object
@@ -87134,6 +88364,117 @@ components:
         - disabled
         - lastUsed
       additionalProperties: false
+    WebhookSecret:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        key:
+          type: string
+        description:
+          type: string
+        allowedOrigins:
+          description: Origins the secret may be sent to. Empty allows any.
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - key
+      additionalProperties: false
+    SdkWebhook:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        name:
+          type: string
+        endpoint:
+          type: string
+        sdkConnections:
+          type: array
+          items:
+            type: string
+        httpMethod:
+          type: string
+          enum:
+            - GET
+            - PUT
+            - POST
+            - DELETE
+            - PURGE
+            - PATCH
+        payloadFormat:
+          type: string
+          enum:
+            - standard
+            - standard-no-payload
+            - sdkPayload
+            - edgeConfig
+            - edgeConfigUnescaped
+            - vercelNativeIntegration
+            - none
+        payloadKey:
+          type: string
+        headers:
+          description: >-
+            JSON-encoded object of extra headers. Only returned by GET, to
+            callers who can edit the webhook.
+          type: string
+        signingKey:
+          description: >-
+            Used to verify the signature header. Only returned by GET, to
+            callers who can edit the webhook.
+          type: string
+        lastSuccess:
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        error:
+          type: string
+        consecutiveFailures:
+          type: number
+        disabled:
+          description: Set after repeated failures; changing the endpoint clears it
+          type: boolean
+        timeoutSeconds:
+          description: >-
+            Request timeout in seconds, up to the server maximum (120 unless
+            configured). Null uses the default.
+          anyOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - endpoint
+        - sdkConnections
+        - httpMethod
+        - payloadFormat
+        - lastSuccess
+        - error
+        - consecutiveFailures
+        - disabled
+        - timeoutSeconds
+      additionalProperties: false
     ConfirmationHeld:
       type: object
       properties:
@@ -87215,6 +88556,7 @@ components:
                       - rampSchedule.other
                       - settings.approvals
                       - settings.dataSources
+                      - settings.webhooks
                       - settings.other
                       - access.members
                       - access.teams
@@ -90621,6 +91963,8 @@ x-tagGroups:
       - members
       - roles
       - api-keys
+      - event-webhooks
+      - audits
       - code-references
       - archetypes
       - queries
@@ -90643,6 +91987,8 @@ x-tagGroups:
       - Holdouts
       - AutoRuns
       - Populations
+      - WebhookSecrets
+      - SdkWebhooks
   - name: Models
     tags:
       - AggregatedFactTable_model
@@ -90650,6 +91996,7 @@ x-tagGroups:
       - ApiKey_model
       - Archetype_model
       - Attribute_model
+      - Audit_model
       - AutoRun_model
       - CodeRef_model
       - Config_model
@@ -90681,7 +92028,10 @@ x-tagGroups:
       - DecisionCriteria_model
       - Dimension_model
       - Environment_model
+      - Event_model
       - EventUser_model
+      - EventWebhook_model
+      - EventWebhookLog_model
       - Experiment_model
       - Experiment Rule_model
       - ExperimentAnalysisSettings_model
@@ -90754,6 +92104,7 @@ x-tagGroups:
       - ScheduleRule_model
       - ScheduledStopPlan_model
       - SdkConnection_model
+      - SdkWebhook_model
       - Segment_model
       - Settings_model
       - Targeting Rule_model
@@ -90762,3 +92113,4 @@ x-tagGroups:
       - VisualChange_model
       - VisualChangeset_model
       - VisualEditorCbExperimentStub_model
+      - WebhookSecret_model
