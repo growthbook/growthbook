@@ -100,12 +100,20 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     ]);
     const existing = await this.getById(req.params.id);
     if (!existing) req.context.throwNotFoundError();
+    const destinationsChanged =
+      updates.destinationURLs !== undefined &&
+      !isEqual(updates.destinationURLs, existing.destinationURLs);
+    if (updates.destinationURLs !== undefined && destinationsChanged) {
+      this.assertEveryVariationHasDestination({
+        ...existing,
+        destinationURLs: updates.destinationURLs,
+      });
+    }
     // Unchanged URLs skip the loop check so redirects saved without it round-trip
     const urlsChanged =
       (updates.urlPattern !== undefined &&
         updates.urlPattern !== existing.urlPattern) ||
-      (updates.destinationURLs !== undefined &&
-        !isEqual(updates.destinationURLs, existing.destinationURLs));
+      destinationsChanged;
     const doc = await this.update(existing, updates, {
       checkCircularDependencies: urlsChanged,
     });
@@ -141,6 +149,10 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
   }
 
   protected async beforeCreate(doc: URLRedirectInterface) {
+    this.assertEveryVariationHasDestination(doc);
+  }
+
+  private assertEveryVariationHasDestination(doc: URLRedirectInterface) {
     const { experiment } = this.getForeignRefs(doc);
     if (!experiment) {
       throw new Error("Could not find experiment");

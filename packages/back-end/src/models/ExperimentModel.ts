@@ -2377,6 +2377,7 @@ const getExperimentChanges = (
     "trackingKey",
     "project",
     "hashAttribute",
+    "fallbackAttribute",
     "hashVersion",
     "name",
     "archived",
