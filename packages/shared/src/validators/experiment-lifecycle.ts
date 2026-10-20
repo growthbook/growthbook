@@ -17,8 +17,9 @@ export const deleteExperimentValidator = {
   responseSchema: z.object({ deletedId: z.string() }).strict(),
   summary: "Delete an experiment",
   description:
-    "Also deletes its visual changesets and removes it from presentations and its holdout. Experiment rules on linked Feature Flags are not removed.",
-  confirmation: ["experiment.delete"] as const,
+    "Also deletes its visual changesets and URL redirects, and removes it from presentations and its holdout. Experiment rules on linked Feature Flags are not removed.",
+  // A running experiment leaves the SDK payload
+  confirmation: ["experiment.delete", "experiment.stop"] as const,
   operationId: "deleteExperiment",
   tags: ["experiments"],
   method: "delete" as const,

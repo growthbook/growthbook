@@ -203,7 +203,9 @@ import {
   addNewExperimentToHoldout,
   applyExperimentHoldoutChange,
   assertExperimentHoldoutChange,
+  canLinkExperimentToHoldoutFromFeatures,
 } from "back-end/src/services/holdouts";
+import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
@@ -1472,6 +1474,21 @@ export async function postExperiments(
       context,
       phasePrerequisites(obj.phases),
     );
+
+    // Checked before creating so a bad holdout can't leave an orphan behind
+    if (holdoutId) {
+      await getHoldoutAvailableForProject({
+        context,
+        holdoutId,
+        project: obj.project,
+        bypassReadPermissionChecks:
+          await canLinkExperimentToHoldoutFromFeatures(
+            context,
+            holdoutId,
+            data.linkedFeatures ?? [],
+          ),
+      });
+    }
 
     const experiment = await createExperiment({
       data: obj,

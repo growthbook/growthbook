@@ -63,7 +63,8 @@ export const holdoutApiSpec = {
   confirmation: {
     create: ["experiment.create"],
     update: ["experiment.other"],
-    delete: ["experiment.delete"],
+    // Also ungates its Feature Flags in live SDK payloads
+    delete: ["experiment.delete", "experiment.stop", "feature.publish"],
   },
   customEndpoints: [
     holdoutStartEndpoint,

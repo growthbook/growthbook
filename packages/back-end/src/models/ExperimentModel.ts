@@ -1613,6 +1613,7 @@ export async function deleteExperimentByIdForOrganization(
     });
 
     await onExperimentDelete(context, experiment);
+    await context.models.urlRedirects.deleteByExperiment(experiment.id);
   } catch (e) {
     logger.error(e);
   }

@@ -72,7 +72,12 @@ import {
 } from "back-end/src/services/owner";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { MakeModelClass } from "./BaseModel";
-import { getExperimentById, getExperimentsByIds } from "./ExperimentModel";
+import {
+  getExistingExperimentIds,
+  getExperimentById,
+  getExperimentsByIds,
+} from "./ExperimentModel";
+import { getFeatureProjectsByIds, getFeaturesByIds } from "./FeatureModel";
 
 const COLLECTION_NAME = "holdouts";
 
@@ -542,6 +547,33 @@ export class HoldoutModel extends BaseClass {
     if (!holdout) req.context.throwNotFoundError();
     if (!this.context.permissions.canDeleteHoldout(holdout)) {
       this.context.permissions.throwPermissionError();
+    }
+    // Deleting ungates its Feature Flags wherever it runs, like stop
+    assertCanRunHoldoutEnvironments(this.context, {
+      enabledEnvironments: getEnabledHoldoutEnvironments(
+        holdout.environmentSettings,
+      ),
+      projects: holdout.projects,
+    });
+    // Unreadable links would be skipped and left pointing at a deleted holdout
+    const featureIds = Object.keys(holdout.linkedFeatures ?? {});
+    const experimentIds = Object.keys(holdout.linkedExperiments ?? {});
+    const [features, existingFeatures, experiments, existingExperiments] =
+      await Promise.all([
+        getFeaturesByIds(this.context, featureIds),
+        getFeatureProjectsByIds(this.context, featureIds),
+        getExperimentsByIds(this.context, experimentIds),
+        getExistingExperimentIds(this.context, experimentIds),
+      ]);
+    const readable = new Set([...features, ...experiments].map((r) => r.id));
+    if (
+      [...existingFeatures.keys(), ...existingExperiments].some(
+        (id) => !readable.has(id),
+      )
+    ) {
+      this.context.permissions.throwPermissionError(
+        "This holdout is linked to Feature Flags or experiments in Projects you can't access.",
+      );
     }
     // Null when the caller can't read it too, so stop before deleting half the pair
     const experiment = await this.getExperimentOrThrow(holdout);

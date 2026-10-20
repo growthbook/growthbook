@@ -13,13 +13,6 @@ export const deleteReport = createApiRequestHandler(deleteReportValidator)(
     const report = await getReportById(context.org.id, req.params.id);
     if (!report) throw new NotFoundError("Could not find report");
 
-    // Same rules as the app: someone else's report needs the admin permission
-    if (
-      (!report.userId || report.userId !== context.userId) &&
-      !context.permissions.canSuperDeleteReport()
-    ) {
-      context.permissions.throwPermissionError();
-    }
     const experiment = await getExperimentById(
       context,
       report.experimentId || "",
@@ -27,6 +20,13 @@ export const deleteReport = createApiRequestHandler(deleteReportValidator)(
     // Unreadable resolves to null; don't fall back to org scope
     if (report.experimentId && !experiment) {
       throw new NotFoundError("Could not find report");
+    }
+    // Same rules as the app: someone else's report needs the admin permission
+    if (
+      (!report.userId || report.userId !== context.userId) &&
+      !context.permissions.canSuperDeleteReport()
+    ) {
+      context.permissions.throwPermissionError();
     }
     if (!context.permissions.canDeleteReport(experiment || {})) {
       context.permissions.throwPermissionError();

@@ -51,6 +51,14 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     return this._find({ experiment }, { bypassReadPermissionChecks: true });
   }
 
+  // Raw: once the experiment is gone, canRead and canWrite throw on its redirects
+  public async deleteByExperiment(experiment: string) {
+    await this._dangerousGetCollection().deleteMany({
+      organization: this.context.org.id,
+      experiment,
+    });
+  }
+
   public countByExperiment(experiment: string): Promise<number> {
     return this._countDocuments({ experiment });
   }
