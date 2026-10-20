@@ -230,14 +230,15 @@ export default function CloudUsage() {
         requests: Math.floor(Math.random() * 1000000),
         bandwidth: Math.floor(Math.random() * 2000000000),
         managedClickhouseEvents: Math.floor(Math.random() * 1000000),
-        eventForwarderEvents: Math.floor(Math.random() * 100000),
+        eventForwarderEvents: 1000,
       });
       current.setUTCDate(current.getUTCDate() + 1);
     }
 
     limits.cdnRequests = 1_000_000;
     limits.cdnBandwidth = 5_000_000_000;
-    limits.eventForwarderEvents = 1_000_000;
+    // Meter sits at 80% so the approaching state is screenshot-able
+    limits.eventForwarderEvents = Math.round((usage.length * 1000) / 0.8);
   }
 
   const connections = sdkData?.connections ?? [];
