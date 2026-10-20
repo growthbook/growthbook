@@ -60,7 +60,6 @@ export default function PopulationMoreMenu({
           Audit log
         </DropdownMenuItem>
       )}
-      {onAuditLog && (canDuplicate || canDelete) && <DropdownMenuSeparator />}
       {canDuplicate && (
         <DropdownMenuItem
           onClick={async () => {
