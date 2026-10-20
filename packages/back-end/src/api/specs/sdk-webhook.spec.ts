@@ -12,8 +12,7 @@ import {
 } from "shared/validators";
 import { OpenApiModelSpec } from "shared/api-model";
 
-// Paths are absolute (pathBase "/"): webhooks are listed and created under
-// their SDK Connection but updated by their own id.
+// Absolute paths: webhooks are created under their connection but updated by id
 export const listSdkConnectionWebhooksEndpoint = {
   pathFragment: "/sdk-connections/:id/webhooks",
   verb: "get" as const,

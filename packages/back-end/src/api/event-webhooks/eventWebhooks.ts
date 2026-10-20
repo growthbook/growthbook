@@ -21,8 +21,7 @@ import { getLatestRunsForWebHook } from "back-end/src/models/EventWebHookLogMode
 import { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
-// Write responses can be saved on a confirmation that other members can open,
-// so only reads carry the signing key and headers
+// Writes omit secrets: a held write's response is shown on its confirmation
 function toApiEventWebhook(w: EventWebHookInterface, withSecrets = true) {
   return {
     id: w.id,
@@ -35,9 +34,8 @@ function toApiEventWebhook(w: EventWebHookInterface, withSecrets = true) {
     environments: w.environments,
     payloadType: w.payloadType,
     method: w.method,
-    headers: withSecrets ? w.headers : {},
+    ...(withSecrets ? { headers: w.headers, signingKey: w.signingKey } : {}),
     timeoutSeconds: w.timeoutSeconds ?? null,
-    signingKey: withSecrets ? w.signingKey : "",
     lastRunAt: w.lastRunAt?.toISOString() ?? null,
     lastState: w.lastState,
     lastResponseBody: w.lastResponseBody ?? null,

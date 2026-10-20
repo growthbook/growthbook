@@ -114,8 +114,7 @@ export class SdkWebhookModel extends BaseClass {
     return this.context.permissions.canDeleteEventWebhook();
   }
 
-  // Write and test responses leave secrets out: a held request's response is
-  // saved on its confirmation, which other members can open
+  // Writes omit secrets: a held write's response is shown on its confirmation
   protected toApiInterface(
     w: WebhookInterface,
     canSeeSecrets = false,
@@ -128,10 +127,10 @@ export class SdkWebhookModel extends BaseClass {
       httpMethod: w.httpMethod ?? "POST",
       payloadFormat: w.payloadFormat ?? "standard",
       payloadKey: w.payloadKey,
-      // Headers often carry credentials, so they are hidden like the signing key
-      headers: canSeeSecrets ? (w.headers ?? "") : "",
+      ...(canSeeSecrets
+        ? { headers: w.headers ?? "", signingKey: w.signingKey }
+        : {}),
       timeoutSeconds: w.timeoutSeconds ?? null,
-      signingKey: canSeeSecrets ? w.signingKey : "",
       lastSuccess: w.lastSuccess?.toISOString() ?? null,
       error: w.error,
       consecutiveFailures: w.consecutiveFailures ?? 0,
@@ -163,8 +162,7 @@ export class SdkWebhookModel extends BaseClass {
     }
   }
 
-  // Webhooks can span connections, so every one of them must allow the action.
-  // As in the app, only delete may act on a webhook whose connections are gone.
+  // Every connection must allow the action; as in the app, only delete may act on an orphan
   private async getWebhookForApiUpdate(
     id: string,
     can: (conn: SDKConnectionInterface) => boolean,
@@ -188,8 +186,7 @@ export class SdkWebhookModel extends BaseClass {
   ): Promise<ApiSdkWebhookListReturn> {
     const conn = await this.getConnectionForApi(connectionId);
     const webhooks = await this.findAllSdkWebhooksByConnection(conn.id);
-    // Secrets go to whoever could update the webhook: edit rights on every
-    // connection it still has, as getWebhookForApiUpdate requires
+    // Secrets go to whoever could update the webhook, as getWebhookForApiUpdate requires
     const conns = await findSDKConnectionsByIds(this.context, [
       ...new Set(webhooks.flatMap((w) => w.sdks)),
     ]);
@@ -267,8 +264,7 @@ export class SdkWebhookModel extends BaseClass {
     if (sdkConnections) {
       const added = sdkConnections.filter((id) => !webhook.sdks.includes(id));
       await assertCanUseSDKConnections(context, added, can);
-      // Stale ids already on the webhook may round-trip unchanged, but a
-      // narrowed list must keep a live connection or the webhook is stranded
+      // Stale ids may round-trip, but a narrowed list must keep a live connection
       const removed = webhook.sdks.some((id) => !sdkConnections.includes(id));
       if (
         !added.length &&
