@@ -221,6 +221,7 @@ export async function generateNotebook({
         })),
         snapshotSettings.coverage ?? 1,
         phaseLengthDays,
+        !!snapshotSettings.isClusterExperiment,
       ),
     ],
     metrics: metricSettings,

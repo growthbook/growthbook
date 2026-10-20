@@ -177,6 +177,7 @@ function buildContextualBanditWeightsInput(
     reportVariations,
     coverage,
     phaseLengthDays,
+    !!snapshotSettings.isClusterExperiment,
   );
 
   return {

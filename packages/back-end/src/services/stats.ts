@@ -86,6 +86,7 @@ export function getAnalysisSettingsForStatsEngine(
   variations: ExperimentReportVariation[],
   coverage: number,
   phaseLengthDays: number,
+  isClusterExperiment: boolean = false,
 ): AnalysisSettingsForStatsEngine {
   const sortedVariations = putBaselineVariationFirst(
     variations,
@@ -125,7 +126,8 @@ export function getAnalysisSettingsForStatsEngine(
     num_guardrail_metrics: settings.numGuardrailMetrics ?? 0,
     one_sided_intervals: !!settings.oneSidedIntervals,
     use_covariate_as_response: !!settings.useCovariateAsResponse,
-    post_stratification_enabled: !!settings.postStratificationEnabled,
+    post_stratification_enabled:
+      !isClusterExperiment && !!settings.postStratificationEnabled,
   };
 
   return analysisData;
@@ -230,6 +232,7 @@ function createStatsEngineData(
         variations,
         coverage,
         phaseLengthDays,
+        !!params.isClusterExperiment,
       ),
     ),
     bandit_settings: banditSettings
@@ -790,6 +793,7 @@ export async function analyzeExperimentResults({
   const params: ExperimentMetricAnalysisParams = {
     id: snapshotSettings.experimentId,
     coverage: snapshotSettings.coverage ?? 1,
+    isClusterExperiment: !!snapshotSettings.isClusterExperiment,
     phaseLengthHours: Math.max(
       hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
       1,
