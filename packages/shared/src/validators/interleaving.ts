@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { FEATURE_KEY_PATTERN, MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { apiBaseSchema, baseSchema } from "./base-model";
-import {
-  apiJSONSchemaDefInput,
-  featureEnvironment,
-  JSONSchemaDef,
-} from "./features";
+import { apiJSONSchemaDefInput, JSONSchemaDef } from "./features";
 import { namedSchema } from "./openapi-helpers";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
@@ -72,6 +68,8 @@ export type InterleavingVariation = z.infer<
   typeof interleavingVariationValidator
 >;
 
+const interleavingEnvironment = z.object({ enabled: z.boolean() }).strict();
+
 const interleavingKeyField = z
   .string()
   .regex(
@@ -126,7 +124,7 @@ export const interleavingValidator = baseSchema
     prerequisites: z.array(featurePrerequisite).optional(),
 
     // Per-environment on/off for the generated pseudo flag (holdout pattern).
-    environmentSettings: z.record(z.string(), featureEnvironment),
+    environmentSettings: z.record(z.string(), interleavingEnvironment),
   })
   .strict();
 
@@ -195,7 +193,7 @@ export const apiInterleavingValidator = namedSchema(
     condition: z.string().optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
-    environmentSettings: z.record(z.string(), featureEnvironment),
+    environmentSettings: z.record(z.string(), interleavingEnvironment),
   }),
 );
 
@@ -239,7 +237,7 @@ export const apiCreateInterleavingBody = z.strictObject({
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
   prerequisites: z.array(featurePrerequisite).optional(),
-  environmentSettings: z.record(z.string(), featureEnvironment).optional(),
+  environmentSettings: z.record(z.string(), interleavingEnvironment).optional(),
 });
 
 export type ApiCreateInterleavingBody = z.infer<
@@ -276,7 +274,7 @@ export const apiUpdateInterleavingBody = z.strictObject({
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
   prerequisites: z.array(featurePrerequisite).optional(),
-  environmentSettings: z.record(z.string(), featureEnvironment).optional(),
+  environmentSettings: z.record(z.string(), interleavingEnvironment).optional(),
 });
 
 export type ApiUpdateInterleavingBody = z.infer<

@@ -172,6 +172,55 @@ describe("featuresWithPrerequisiteClosure", () => {
     expect(result.features.map((f) => f.id)).toEqual(["child"]);
   });
 
+  // Interleavings gate on flags too, but this walk only reaches features, so
+  // their parents arrive as seeds.
+  it("carries a seeded parent no feature names", () => {
+    const unrelated = feature("unrelated", "prj_b");
+    const root = feature("root", "prj_a");
+
+    const result = featuresWithPrerequisiteClosure(
+      [unrelated],
+      mapOf([unrelated, root]),
+      undefined,
+      ["root"],
+    );
+
+    expect(result.features.map((f) => f.id).sort()).toEqual([
+      "root",
+      "unrelated",
+    ]);
+    expect([...result.carried]).toEqual(["root"]);
+  });
+
+  it("is transitive through a seeded parent", () => {
+    const unrelated = feature("unrelated", "prj_b");
+    const parent = feature("parent", "prj_a", { prerequisites: ["grandpa"] });
+    const grandpa = feature("grandpa", "prj_a");
+
+    const result = featuresWithPrerequisiteClosure(
+      [unrelated],
+      mapOf([unrelated, parent, grandpa]),
+      undefined,
+      ["parent"],
+    );
+
+    expect([...result.carried].sort()).toEqual(["grandpa", "parent"]);
+  });
+
+  it("ignores a dangling seed", () => {
+    const unrelated = feature("unrelated", "prj_b");
+
+    const result = featuresWithPrerequisiteClosure(
+      [unrelated],
+      mapOf([unrelated]),
+      undefined,
+      ["gone"],
+    );
+
+    expect(result.carried.size).toBe(0);
+    expect(result.features.map((f) => f.id)).toEqual(["unrelated"]);
+  });
+
   it("terminates on a prerequisite cycle", () => {
     const a = feature("a", "prj_b", { prerequisites: ["b"] });
     const b = feature("b", "prj_a", { prerequisites: ["a"] });

@@ -23145,6 +23145,10 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/SavedGroupReferenceResource'
+                  interleavings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SavedGroupReferenceResource'
                   savedGroups:
                     type: array
                     items:
@@ -23153,6 +23157,7 @@ paths:
                   - features
                   - experiments
                   - contextualBandits
+                  - interleavings
                   - savedGroups
                 additionalProperties: false
       x-codeSamples:
@@ -54403,19 +54408,6 @@ paths:
                     properties:
                       enabled:
                         type: boolean
-                      prerequisites:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            id:
-                              type: string
-                            condition:
-                              type: string
-                          required:
-                            - id
-                            - condition
-                          additionalProperties: false
                     required:
                       - enabled
                     additionalProperties: false
@@ -54721,19 +54713,6 @@ paths:
                     properties:
                       enabled:
                         type: boolean
-                      prerequisites:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            id:
-                              type: string
-                            condition:
-                              type: string
-                          required:
-                            - id
-                            - condition
-                          additionalProperties: false
                     required:
                       - enabled
                     additionalProperties: false
@@ -81659,19 +81638,6 @@ components:
             properties:
               enabled:
                 type: boolean
-              prerequisites:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    id:
-                      type: string
-                    condition:
-                      type: string
-                  required:
-                    - id
-                    - condition
-                  additionalProperties: false
             required:
               - enabled
             additionalProperties: false
@@ -85744,6 +85710,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SavedGroupReferenceResource'
+        interleavings:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedGroupReferenceResource'
         savedGroups:
           type: array
           items:
@@ -85764,6 +85734,7 @@ components:
         - features
         - experiments
         - contextualBandits
+        - interleavings
         - savedGroups
       additionalProperties: false
       $defs:

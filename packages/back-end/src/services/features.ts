@@ -40,7 +40,9 @@ import {
   contextualBanditTargetingServes,
   monitoringConfigToApi,
   getInterleavingFeatureDefId,
-  interleavingInSDKPayload,
+  interleavingInPayloadScope,
+  interleavingPrerequisiteIds,
+  interleavingTargetingServes,
   parseInterleavingRankerConfig,
 } from "shared/util";
 import {
@@ -460,14 +462,7 @@ export function generateInterleavingsPayload({
   const features: Record<string, FeatureDefinition> = {};
   const defs: InterleavingDefinitions = {};
   interleavings.forEach((il) => {
-    if (!interleavingInSDKPayload(il)) return;
-    if (!il.environmentSettings[environment]?.enabled) return;
-    if (
-      projects.length > 0 &&
-      !projects.some((p) => entityTargetsProject(il, p))
-    ) {
-      return;
-    }
+    if (!interleavingInPayloadScope(il, environment, projects)) return;
 
     let variations: InterleavingDefinitions[string]["variations"];
     try {
@@ -1104,16 +1099,41 @@ export async function getContextualBanditsDependingOnAsPrerequisite(
     .map((cb) => cb.id);
 }
 
+export async function getInterleavingsDependingOnAsPrerequisite(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+): Promise<string[]> {
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
+  const interleavings = await scanContext.models.interleavings.getAll();
+  return interleavings
+    .filter(
+      (il) =>
+        interleavingTargetingServes(il) &&
+        il.prerequisites?.some((p) => p.id === featureId),
+    )
+    .map((il) => il.id);
+}
+
 export async function assertFeatureDeletable(
   context: ReqContext | ApiReqContext,
   featureId: string,
 ): Promise<void> {
-  const [features, experiments, bandits] = await Promise.all([
+  const [features, experiments, bandits, interleavings] = await Promise.all([
     getFeaturesDependingOnAsPrerequisite(context, featureId),
     getExperimentsDependingOnAsPrerequisite(context, featureId),
     getContextualBanditsDependingOnAsPrerequisite(context, featureId),
+    getInterleavingsDependingOnAsPrerequisite(context, featureId),
   ]);
-  if (!features.length && !experiments.length && !bandits.length) return;
+  if (
+    !features.length &&
+    !experiments.length &&
+    !bandits.length &&
+    !interleavings.length
+  ) {
+    return;
+  }
   // Count only — the dependent scan is org-wide (so a dependent in a project
   // the caller can't read still blocks), so naming ids would disclose
   // cross-project resources. Mirrors assertSavedGroupDeletable / assertConstantArchivable.
@@ -1121,6 +1141,7 @@ export async function assertFeatureDeletable(
     [features.length, "live Feature Flag(s)"],
     [experiments.length, "Experiment(s)"],
     [bandits.length, "Contextual Bandit(s)"],
+    [interleavings.length, "Interleaving Experiment(s)"],
   ]
     .filter(([n]) => n)
     .map(([n, label]) => `${n} ${label}`)
@@ -1854,6 +1875,13 @@ export async function buildSDKPayloadForConnection(
           scopedFeatures,
           data.featuresMap ?? new Map(data.features.map((f) => [f.id, f])),
           data.experimentMap,
+          capabilities.includes("interleaving")
+            ? interleavingPrerequisiteIds(
+                data.interleavings ?? [],
+                environment,
+                projectList,
+              )
+            : [],
         )
       : { features: scopedFeatures, carried: new Set<string>() };
   const filteredExperimentMap =
@@ -2089,8 +2117,14 @@ export async function getFeatureDefinitions(
   let allFeatures = await getAllFeatures(context, {
     projects: projectFilter,
   });
+  const interleavings =
+    await context.models.interleavings.getAllPayloadInterleavings();
   if (projectFilter && args.includeReferencedPrerequisites) {
-    allFeatures = await loadMissingPrerequisites(context, allFeatures);
+    allFeatures = await loadMissingPrerequisites(
+      context,
+      allFeatures,
+      interleavingPrerequisiteIds(interleavings, environment, projectFilter),
+    );
   }
   let experimentMap = await getAllPayloadExperiments(
     context,
@@ -2126,8 +2160,6 @@ export async function getFeatureDefinitions(
   const rampMonitoredRuleMap =
     await context.models.rampSchedules.getPayloadRampMonitoredRuleMap();
   const cbMap = await getPayloadContextualBandits(context, allFeatures);
-  const interleavings =
-    await context.models.interleavings.getAllPayloadInterleavings();
 
   const allSavedGroups = await loadSavedGroupsForDefinitions(context, {
     features: allFeatures,

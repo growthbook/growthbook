@@ -727,14 +727,21 @@ export function featuresWithPrerequisiteClosure(
   features: FeatureInterface[],
   featuresMap: Map<string, FeatureInterface>,
   experimentMap?: Map<string, ExperimentInterface>,
+  seedIds: string[] = [],
 ): { features: FeatureInterface[]; carried: Set<string> } {
   const carried = new Set<string>();
   const present = new Set(features.map((f) => f.id));
 
   let frontier = features;
-  while (frontier.length) {
+  let seeded = seedIds;
+  while (frontier.length || seeded.length) {
     const next: FeatureInterface[] = [];
-    for (const id of getPrerequisiteIdsInFeatures(frontier, experimentMap)) {
+    const wanted = [
+      ...getPrerequisiteIdsInFeatures(frontier, experimentMap),
+      ...seeded,
+    ];
+    seeded = [];
+    for (const id of wanted) {
       if (present.has(id)) continue;
       const parent = featuresMap.get(id);
       if (!parent) continue;

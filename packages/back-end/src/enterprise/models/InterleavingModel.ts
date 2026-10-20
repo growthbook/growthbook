@@ -15,6 +15,7 @@ import {
   assertUsableRankerSchema,
   generateVariationId,
   interleavingInSDKPayload,
+  interleavingTargetingServes,
   parseInterleavingRankerConfig,
 } from "shared/util";
 import { interleavingEnvsForChange } from "shared/permissions";
@@ -44,6 +45,8 @@ import {
   stopInterleaving,
 } from "back-end/src/enterprise/services/interleavingChanges";
 import { toApiInterleaving } from "back-end/src/enterprise/services/interleavingApi";
+import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import { PAYLOAD_AFFECTING_INTERLEAVING_FIELDS } from "back-end/src/services/experimentPayloadFields";
 
 type ApiVariationInput = NonNullable<
   ReturnType<typeof apiUpdateInterleavingBody.parse>["variations"]
@@ -51,6 +54,16 @@ type ApiVariationInput = NonNullable<
 type ApiJSONSchemaInput = NonNullable<
   ReturnType<typeof apiUpdateInterleavingBody.parse>["jsonSchema"]
 >;
+
+function payloadAffectingChanges(
+  existing: InterleavingInterface,
+  changes?: Partial<InterleavingInterface>,
+): (keyof InterleavingInterface)[] {
+  if (!changes) return [];
+  return PAYLOAD_AFFECTING_INTERLEAVING_FIELDS.filter(
+    (field) => field in changes && !isEqual(changes[field], existing[field]),
+  );
+}
 
 function toJSONSchema(
   input: ApiJSONSchemaInput | null | undefined,
@@ -360,15 +373,27 @@ export class InterleavingModel extends BaseClass {
 
     // Targeting reaches the SDK payload as the pseudo flag's rule, so it gets
     // the feature-rule write checks (changed fields only), as CBs do.
+    // A stopped interleaving doesn't block deleting the saved groups and
+    // features its targeting names, so everything is re-checked on the way back
+    // to serving — a dangling reference silently flips a `none` match open.
+    const goingLive =
+      !!previousDoc &&
+      !interleavingTargetingServes(previousDoc) &&
+      interleavingTargetingServes(doc);
+    // Org-wide on the way live: a reference in a project the caller can't read
+    // still has to resolve, or the re-check would reject a valid restart.
     await validateChangedRuleReferences(
       [doc],
-      previousDoc ? [previousDoc] : [],
-      this.context,
+      previousDoc && !goingLive ? [previousDoc] : [],
+      goingLive
+        ? (this.context.scanContextOverride ??
+            getContextForAgendaJobByOrgObject(this.context.org))
+        : this.context,
     );
     await assertValidExperimentPrerequisites(
       this.context,
       doc.prerequisites,
-      previousDoc?.prerequisites,
+      goingLive ? undefined : previousDoc?.prerequisites,
     );
     assertRegisteredAttributes(
       this.context,
@@ -388,9 +413,10 @@ export class InterleavingModel extends BaseClass {
 
   protected async afterUpdate(
     existing: InterleavingInterface,
-    _updates: UpdateProps<InterleavingInterface>,
+    updates: UpdateProps<InterleavingInterface>,
     newDoc: InterleavingInterface,
   ) {
+    if (!payloadAffectingChanges(existing, updates).length) return;
     this.refreshSDKPayload([existing, newDoc], "updated");
   }
 
@@ -438,13 +464,19 @@ export class InterleavingModel extends BaseClass {
     const envsChanged =
       updated?.environmentSettings !== undefined &&
       !isEqual(updated.environmentSettings, existing.environmentSettings);
+    // Editing a running interleaving's targeting, traffic or bucketing changes
+    // what SDKs serve right away, the same as starting it, so it answers to the
+    // same run permission. Drafts don't serve, so they stay on createAnalyses.
+    const servesNow =
+      interleavingInSDKPayload(existing) &&
+      payloadAffectingChanges(existing, updated).length > 0;
     const envs = interleavingEnvsForChange({
       existing,
       updated,
       environmentIds: this.context.environments,
     });
     if (
-      (statusChanged || envsChanged) &&
+      (statusChanged || envsChanged || servesNow) &&
       envs.length > 0 &&
       !this.context.permissions.canRunInterleaving(existing, envs)
     ) {

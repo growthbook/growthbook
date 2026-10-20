@@ -16,6 +16,7 @@ import {
 } from "back-end/src/services/constants";
 import {
   getContextualBanditsDependingOnAsPrerequisite,
+  getInterleavingsDependingOnAsPrerequisite,
   getExperimentsDependingOnAsPrerequisite,
   getFeaturesDependingOnAsPrerequisite,
 } from "back-end/src/services/features";
@@ -82,17 +83,23 @@ export async function collectFeatureArchiveDependents(
   const scanContext =
     context.scanContextOverride ??
     getContextForAgendaJobByOrgObject(context.org);
-  const [dependentFeatureIds, dependentExperimentIds, dependentBanditIds] =
-    await Promise.all([
-      getFeaturesDependingOnAsPrerequisite(scanContext, featureId),
-      getExperimentsDependingOnAsPrerequisite(scanContext, featureId),
-      getContextualBanditsDependingOnAsPrerequisite(scanContext, featureId),
-    ]);
+  const [
+    dependentFeatureIds,
+    dependentExperimentIds,
+    dependentBanditIds,
+    dependentInterleavingIds,
+  ] = await Promise.all([
+    getFeaturesDependingOnAsPrerequisite(scanContext, featureId),
+    getExperimentsDependingOnAsPrerequisite(scanContext, featureId),
+    getContextualBanditsDependingOnAsPrerequisite(scanContext, featureId),
+    getInterleavingsDependingOnAsPrerequisite(scanContext, featureId),
+  ]);
 
   const ids = [
     ...dependentFeatureIds.map((id) => `feature:${id}`),
     ...dependentExperimentIds.map((id) => `experiment:${id}`),
     ...dependentBanditIds.map((id) => `contextualBandit:${id}`),
+    ...dependentInterleavingIds.map((id) => `interleaving:${id}`),
   ];
   return {
     ids,
@@ -101,6 +108,7 @@ export async function collectFeatureArchiveDependents(
       [dependentFeatureIds.length, "feature flag(s)"],
       [dependentExperimentIds.length, "experiment(s)"],
       [dependentBanditIds.length, "contextual bandit(s)"],
+      [dependentInterleavingIds.length, "interleaving experiment(s)"],
     ]),
   };
 }
