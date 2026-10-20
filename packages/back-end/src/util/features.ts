@@ -524,6 +524,18 @@ export function getSDKPayloadKeys(
   return keys;
 }
 
+// A bandit's visual changesets reach the SDK through no feature rule: they are
+// served in the bandit's project and the no-project payload of every environment.
+export function getContextualBanditVisualPayloadKeys(
+  cb: Pick<ContextualBanditInterface, "project">,
+  environments: string[],
+): SDKPayloadKey[] {
+  return getSDKPayloadKeys(
+    new Set(environments),
+    new Set(["", cb.project || ""]),
+  );
+}
+
 export function getSDKPayloadKeysByDiff(
   originalFeature: FeatureInterface,
   updatedFeature: FeatureInterface,
@@ -1001,7 +1013,7 @@ export function applyNamespaceToPayload(
 
 // Prerequisites become parentConditions, saved groups resolved the way the
 // rule's own condition is; one that no longer parses is dropped.
-function prerequisiteParentConditions(
+export function prerequisiteParentConditions(
   prerequisites: { id: string; condition: string }[],
   savedGroupStrategy: SavedGroupPayloadStrategy,
 ): ParentConditionInterface[] {

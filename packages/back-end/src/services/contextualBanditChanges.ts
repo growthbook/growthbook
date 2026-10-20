@@ -11,7 +11,7 @@ import {
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import {
   getAffectedSDKPayloadKeys,
-  getSDKPayloadKeys,
+  getContextualBanditVisualPayloadKeys,
 } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
@@ -78,10 +78,7 @@ export async function refreshLinkedFeaturePayloads(
 
   const visualKeys =
     options.includeVisualKeys || cb.hasVisualChangesets
-      ? getSDKPayloadKeys(
-          new Set(environments),
-          new Set(["", cb.project || ""]),
-        )
+      ? getContextualBanditVisualPayloadKeys(cb, environments)
       : [];
   const payloadKeys = uniqBy(
     [...ruleKeys, ...visualKeys],
