@@ -97,13 +97,15 @@ export const apiSdkWebhookValidator = namedSchema(
     payloadKey: z.string().optional(),
     headers: z
       .string()
+      .optional()
       .describe(
-        "JSON-encoded object of extra headers. Only returned by GET, and only to callers who can edit the webhook; empty otherwise.",
+        "JSON-encoded object of extra headers. Only returned by GET, to callers who can edit the webhook.",
       ),
     signingKey: z
       .string()
+      .optional()
       .describe(
-        "Used to verify the signature header. Only returned by GET, and only to callers who can edit the webhook; empty otherwise.",
+        "Used to verify the signature header. Only returned by GET, to callers who can edit the webhook.",
       ),
     lastSuccess: z.string().meta({ format: "date-time" }).nullable(),
     error: z.string(),
@@ -130,8 +132,7 @@ const sdkWebhookFields = {
   timeoutSeconds: apiWebhookTimeoutSeconds.optional(),
 };
 
-// SDK webhooks are created through their SDK Connection, so the spec's
-// default CRUD bodies are unused
+// Unused: SDK webhooks are created through their SDK Connection
 export const apiCreateSdkWebhookBody = z.strictObject({});
 export const apiUpdateSdkWebhookBody = z.strictObject({});
 
