@@ -244,13 +244,9 @@ export default function ResultsTab({
     ) ?? false;
   const priorUsed = hasData && engineIsBayesian && anyMetricUsesProperPrior;
   const cupedUsed = hasData && !!analysis?.settings?.regressionAdjusted;
-  // The stats engine skips post-stratification for cluster experiments.
-  const postStratificationEnabled =
-    !!analysis?.settings?.postStratificationEnabled &&
-    !snapshot?.settings?.isClusterExperiment;
   const postStratificationUsed =
     hasData &&
-    postStratificationEnabled &&
+    !!analysis?.settings?.postStratificationEnabled &&
     !organization?.settings?.disablePrecomputedDimensions;
 
   return (
@@ -314,7 +310,11 @@ export default function ResultsTab({
                 <Flex align="center" gap="1">
                   <Metadata
                     label="Post-Stratification"
-                    value={postStratificationEnabled ? "Enabled" : "Disabled"}
+                    value={
+                      analysis?.settings?.postStratificationEnabled
+                        ? "Enabled"
+                        : "Disabled"
+                    }
                   />
                   {postStratificationUsed ? (
                     <AnalysisSettingInfo

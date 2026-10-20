@@ -24,6 +24,7 @@ import {
   isDimensionPrecomputed,
   getExperimentOutdatedReasonLabel,
   isAutoSnapshotScheduled,
+  getClusterSubUnit,
 } from "shared/experiments";
 import {
   isNewerOverallResultsDataAvailable,
@@ -841,8 +842,11 @@ export default function AnalysisSettingsSummary({
       );
     }
 
+    // Mirrors the back-end, which stores it as off for cluster experiments.
     const experimentPostStratificationEnabled =
-      !hasPostStratificationFeature || org.disablePrecomputedDimensions
+      !hasPostStratificationFeature ||
+      org.disablePrecomputedDimensions ||
+      getClusterSubUnit(exp)
         ? false
         : (exp.postStratificationEnabled ??
           org.postStratificationEnabled ??
