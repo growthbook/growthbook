@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
 import {
   type ComponentType,
+  type ReactNode,
   useEffect,
   useState,
   useRef,
@@ -17,7 +18,13 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import {
+  getAceColorCss,
+  getAceTypeCss,
+  getCodeTheme,
+} from "@/components/SyntaxHighlighting/codeTheme";
 import Field, { FieldProps } from "./Field";
+import styles from "./CodeTextArea.module.scss";
 
 export type AceCompletion = {
   caption: string;
@@ -239,7 +246,74 @@ export type Props = CodeTextAreaFieldProps & {
   // Exposes the underlying Ace editor once loaded, so a parent can do cursor-
   // aware edits (e.g. inserting a token at the cursor).
   onEditorLoad?: (editor: Ace.Editor) => void;
+  // A value's editor: typeset and framed like the value's display, with quieter
+  // chrome (no print margin, cursor line only while focused, scrollbars only
+  // on hover).
+  matchValueDisplay?: boolean;
+  // 1-based lines to highlight, marking fields that differ from sibling values.
+  highlightLines?: number[];
+  // More `EditorAction`s, shown before copy and fullscreen.
+  actions?: ReactNode;
 };
+
+// Ace re-wraps a line on every edit, so wrapping one this long (minified JSON)
+// makes typing lag; such text scrolls sideways instead.
+const MAX_WRAPPED_LINE = 10_000;
+
+function hasLongLine(text: string): boolean {
+  if (text.length <= MAX_WRAPPED_LINE) return false;
+  let start = 0;
+  while (start < text.length) {
+    const end = text.indexOf("\n", start);
+    const stop = end === -1 ? text.length : end;
+    if (stop - start > MAX_WRAPPED_LINE) return true;
+    start = stop + 1;
+  }
+  return false;
+}
+
+// Every corner button's icon, fullscreen or not, so the row stays even.
+export const EDITOR_ACTION_ICON_SIZE = 12;
+
+// An icon button in the editor's corner, beside copy and fullscreen.
+export function EditorAction({
+  label,
+  icon,
+  onClick,
+  disabled = false,
+}: {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Tooltip body={label}>
+      <IconButton
+        type="button"
+        radius="full"
+        variant="ghost"
+        aria-label={label}
+        disabled={disabled}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClick();
+        }}
+        style={{ position: "relative", zIndex: 1000 }}
+      >
+        {icon}
+      </IconButton>
+    </Tooltip>
+  );
+}
+
+type AceRange = new (
+  startRow: number,
+  startColumn: number,
+  endRow: number,
+  endColumn: number,
+) => Ace.Range;
 
 const LIGHT_THEME = "textmate";
 const DARK_THEME = "tomorrow_night";
@@ -266,6 +340,9 @@ export default function CodeTextArea({
   showFullscreenButton = false,
   onRequestFullscreen,
   onEditorLoad,
+  matchValueDisplay = false,
+  highlightLines,
+  actions,
   containerClassName,
   ...otherProps
 }: Props) {
@@ -275,6 +352,8 @@ export default function CodeTextArea({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const editorUid = useId();
+  const editorScope = `[data-editor-uid="${editorUid}"]`;
+  const codeTheme = getCodeTheme(theme);
 
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
@@ -317,6 +396,21 @@ export default function CodeTextArea({
   useEffect(() => {
     editor?.renderer.setScrollMargin(paddingTop, 0, 0, 0);
   }, [editor, paddingTop]);
+
+  useEffect(() => {
+    if (!editor || !highlightLines?.length) return;
+    const ace = (window as unknown as { ace: AceModule }).ace;
+    const { Range } = ace.require("ace/range") as { Range: AceRange };
+    const session = editor.session;
+    const markers = highlightLines.map((line) =>
+      session.addMarker(
+        new Range(line - 1, 0, line - 1, 1),
+        styles.highlightedLine,
+        "fullLine",
+      ),
+    );
+    return () => markers.forEach((id) => session.removeMarker(id));
+  }, [editor, highlightLines]);
 
   // Auto-resize editor when container size changes
   useEffect(() => {
@@ -398,11 +492,14 @@ export default function CodeTextArea({
                 flex: 1;
                 overflow: hidden;
               }
+              ${getAceColorCss(editorScope, codeTheme, language)}
+              ${matchValueDisplay ? getAceTypeCss(editorScope, codeTheme) : ""}
             `}</style>
             <div
               id={editorUid}
               data-editor-uid={editorUid}
               className={clsx({
+                [styles.valueEditor]: matchValueDisplay,
                 "ace-editor-disabled": fieldProps.disabled,
                 "h-100": fullHeight && !isFullscreen,
                 "code-editor-fullscreen": isFullscreen,
@@ -482,7 +579,8 @@ export default function CodeTextArea({
                   completions={completions}
                   {...heightProps}
                   setOptions={{
-                    wrap: true,
+                    wrap: !hasLongLine(value),
+                    ...(matchValueDisplay ? { showPrintMargin: false } : {}),
                     ...(slimGutter ? { showFoldWidgets: false } : {}),
                     ...(language === "sql"
                       ? {
@@ -505,16 +603,18 @@ export default function CodeTextArea({
                     }, 150);
                   }}
                 />
-                {(showCopyButton || showFullscreenButton) && (
+                {(actions || showCopyButton || showFullscreenButton) && (
                   <Flex
                     align="center"
                     gap="3"
                     style={{
                       position: "absolute",
                       bottom: 0,
-                      right: 14,
+                      // A value display's buttons sit 16px in.
+                      right: matchValueDisplay ? 16 : 14,
                     }}
                   >
+                    {actions}
                     {showCopyButton && (
                       <Tooltip
                         body={copySuccess ? "Copied" : "Copy to clipboard"}
@@ -531,9 +631,9 @@ export default function CodeTextArea({
                           style={{ position: "relative", zIndex: 1000 }}
                         >
                           {copySuccess ? (
-                            <PiCheck size={isFullscreen ? 16 : 12} />
+                            <PiCheck size={EDITOR_ACTION_ICON_SIZE} />
                           ) : (
-                            <PiCopy size={isFullscreen ? 14 : 12} />
+                            <PiCopy size={EDITOR_ACTION_ICON_SIZE} />
                           )}
                         </IconButton>
                       </Tooltip>
@@ -563,9 +663,9 @@ export default function CodeTextArea({
                           style={{ position: "relative", zIndex: 1000 }}
                         >
                           {isFullscreen ? (
-                            <PiCornersIn size={isFullscreen ? 16 : 12} />
+                            <PiCornersIn size={EDITOR_ACTION_ICON_SIZE} />
                           ) : (
-                            <PiCornersOut size={isFullscreen ? 16 : 12} />
+                            <PiCornersOut size={EDITOR_ACTION_ICON_SIZE} />
                           )}
                         </IconButton>
                       </Tooltip>

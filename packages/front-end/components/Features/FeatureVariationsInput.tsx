@@ -37,6 +37,7 @@ import {
   SortableVariation,
 } from "./SortableFeatureVariationRow";
 import SortableVariationsList from "./SortableVariationsList";
+import { ValueDiffProvider } from "./ValueDiffContext";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -488,42 +489,46 @@ export default function FeatureVariationsInput({
                 )}
               </Grid>
               {variations && (
-                <SortableVariationsList
-                  valuesAsIds={idsMatchIndexes}
-                  forceRenormalizeVariationKeysOnSort={
-                    forceRenormalizeVariationKeysOnSort
-                  }
-                  variations={variations}
-                  setVariations={!disableVariations ? setVariations : undefined}
-                >
-                  {variations.map((variation, i) => (
-                    <SortableFeatureVariationRow
-                      i={i}
-                      key={variation.id}
-                      variation={variation}
-                      variations={variations}
-                      setVariations={
-                        !disableVariations ? setVariations : undefined
-                      }
-                      setWeight={!disableVariations ? setWeight : undefined}
-                      onlySafeToEditVariationMetadata={
-                        onlySafeToEditVariationMetadata
-                      }
-                      customSplit={editingSplits}
-                      valueType={valueType}
-                      valueAsId={valueAsId}
-                      valueIsKey={valueIsKey}
-                      hideVariationIds={hideVariationIds}
-                      hideValueField={!editingIds}
-                      hideSplit={hideSplits}
-                      feature={feature}
-                      showDescription={showDescriptions}
-                      showDragHandle={showDragHandle}
-                      autoFocusName={variation.id === autoFocusVariationId}
-                      sparse={sparse}
-                    />
-                  ))}
-                </SortableVariationsList>
+                <ValueDiffProvider>
+                  <SortableVariationsList
+                    valuesAsIds={idsMatchIndexes}
+                    forceRenormalizeVariationKeysOnSort={
+                      forceRenormalizeVariationKeysOnSort
+                    }
+                    variations={variations}
+                    setVariations={
+                      !disableVariations ? setVariations : undefined
+                    }
+                  >
+                    {variations.map((variation, i) => (
+                      <SortableFeatureVariationRow
+                        i={i}
+                        key={variation.id}
+                        variation={variation}
+                        variations={variations}
+                        setVariations={
+                          !disableVariations ? setVariations : undefined
+                        }
+                        setWeight={!disableVariations ? setWeight : undefined}
+                        onlySafeToEditVariationMetadata={
+                          onlySafeToEditVariationMetadata
+                        }
+                        customSplit={editingSplits}
+                        valueType={valueType}
+                        valueAsId={valueAsId}
+                        valueIsKey={valueIsKey}
+                        hideVariationIds={hideVariationIds}
+                        hideValueField={!editingIds}
+                        hideSplit={hideSplits}
+                        feature={feature}
+                        showDescription={showDescriptions}
+                        showDragHandle={showDragHandle}
+                        autoFocusName={variation.id === autoFocusVariationId}
+                        sparse={sparse}
+                      />
+                    ))}
+                  </SortableVariationsList>
+                </ValueDiffProvider>
               )}
               {!disableVariations &&
                 variations &&

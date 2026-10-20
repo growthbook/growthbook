@@ -31,19 +31,14 @@ import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
 import clsx from "clsx";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import {
-  PiCheck,
-  PiCopy,
-  PiBracketsCurly,
-  PiCaretDownFill,
-} from "react-icons/pi";
+import { PiCheck, PiCopy, PiCaretDownFill, PiMagicWand } from "react-icons/pi";
 import Link from "@/ui/Link";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuGroup,
 } from "@/ui/DropdownMenu";
-import { formatJSON, LARGE_FILE_SIZE } from "@/services/features";
+import { formatJSON } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -56,7 +51,10 @@ import UITooltip from "@/ui/Tooltip";
 import TextField from "@/ui/TextField";
 import RadioGroup from "@/ui/RadioGroup";
 import ConfigOverrideEditor from "@/components/Features/ConfigOverrideEditor";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
+import CodeTextArea, {
+  EDITOR_ACTION_ICON_SIZE,
+  EditorAction,
+} from "@/components/Forms/CodeTextArea";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Text from "@/ui/Text";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
@@ -71,6 +69,7 @@ import {
 } from "@/components/Constants/jsonConstantInsert";
 import CornerActions, { ActionsOverlay } from "./CornerActions";
 import { ConfigEnvironmentsBadge } from "./ConfigValueBadges";
+import { useEditorDiffLines } from "./ValueDiffContext";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -272,9 +271,12 @@ export default function FeatureValueField({
     }
   };
 
-  const defaultCodeEditorToggledOn = value.length <= LARGE_FILE_SIZE;
-  const [codeEditorToggledOn, setCodeEditorToggledOn] = useState(
-    defaultCodeEditorToggledOn,
+  // A whole-value JSON code editor marks the fields that differ from its
+  // sibling values; a sparse patch's editor does its own.
+  const codeEditorDiffLines = useEditorDiffLines(
+    valueType === "json" && !sparse && !allowConfigBacking && useCodeInput
+      ? value
+      : null,
   );
 
   // Local buffer for the config-backed override editor. The stored value
@@ -633,8 +635,7 @@ export default function FeatureValueField({
     // above the editor (matching the feature value editors) — even in inline
     // contexts — so the multi-line JSON editor keeps the full width.
     const insertConstantButton =
-      showConstantPicker &&
-      (isSparse || (useCodeInput && codeEditorToggledOn)) ? (
+      showConstantPicker && (isSparse || useCodeInput) ? (
         <InsertConstantButton
           valueType="json"
           project={pickerProject}
@@ -741,36 +742,20 @@ export default function FeatureValueField({
         </Flex>
       ) : null;
 
-    const formatted = formatJSON(value);
-
-    const codeEditorToggleButton =
-      useCodeInput && !disabled ? (
-        <a
-          href="#"
-          className="text-purple"
-          onClick={(e) => {
-            e.preventDefault();
-            setCodeEditorToggledOn(!codeEditorToggledOn);
-          }}
-          style={{ whiteSpace: "nowrap" }}
-        >
-          <PiBracketsCurly />{" "}
-          {codeEditorToggledOn ? "Use text editor" : "Use code editor"}
-        </a>
-      ) : null;
+    // Formats only when asked: formatting a large value on every keystroke
+    // makes typing lag.
+    const formatValue = () => {
+      const formatted = formatJSON(value);
+      if (formatted && formatted !== value) setValue(formatted);
+    };
 
     const formatJSONButton = disabled ? null : (
       <a
         href="#"
-        className={clsx("text-purple", {
-          "text-muted cursor-default no-underline":
-            !formatted || formatted === value,
-        })}
+        className="text-purple"
         onClick={(e) => {
           e.preventDefault();
-          if (formatted && formatted !== value) {
-            setValue(formatted);
-          }
+          formatValue();
         }}
         style={{ whiteSpace: "nowrap" }}
       >
@@ -785,7 +770,6 @@ export default function FeatureValueField({
     const combinedHelpText = (
       <Box width="100%">
         <Flex gap="3" justify="end" wrap="wrap" width="100%">
-          {codeEditorToggleButton}
           {formatJSONButton}
         </Flex>
         {(helpText || usedConstantTags) && (
@@ -797,7 +781,22 @@ export default function FeatureValueField({
       </Box>
     );
 
-    if (useCodeInput && codeEditorToggledOn) {
+    const codeEditorActions = disabled ? null : (
+      <EditorAction
+        label="Format JSON"
+        icon={<PiMagicWand size={EDITOR_ACTION_ICON_SIZE} />}
+        onClick={formatValue}
+      />
+    );
+    const codeEditorHelpText =
+      helpText || usedConstantTags ? (
+        <Box style={{ minWidth: 0 }}>
+          {helpText}
+          {usedConstantTags}
+        </Box>
+      ) : undefined;
+
+    if (useCodeInput) {
       // In tabular/inline layouts, float the insert-constant button just above
       // the editor (out of flow) so the editor's top lines up with the sibling
       // grid cells (type select, actions) instead of being pushed down by the
@@ -828,7 +827,8 @@ export default function FeatureValueField({
             language="json"
             value={value}
             setValue={setValue}
-            helpText={combinedHelpText}
+            helpText={codeEditorHelpText}
+            actions={codeEditorActions}
             placeholder={placeholder}
             disabled={disabled}
             resizable={true}
@@ -838,6 +838,8 @@ export default function FeatureValueField({
             fontSize={CODE_FONT_SIZE}
             slimGutter
             onEditorLoad={(e) => (jsonEditorRef.current = e)}
+            highlightLines={codeEditorDiffLines}
+            matchValueDisplay
           />
         </Box>
       );

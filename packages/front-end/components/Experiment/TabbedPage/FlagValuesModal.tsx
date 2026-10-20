@@ -4,6 +4,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { expandSparseToFull, stripDefaultsForSparse } from "shared/util";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
+import { ValueDiffProvider } from "@/components/Features/ValueDiffContext";
 import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import { formatJSON } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -128,37 +129,39 @@ export default function FlagValuesModal({
       cta="Apply"
       size="lg"
     >
-      <Flex direction="column" gap="4" pt="2">
-        {variations.map((v) => (
-          <Box key={v.id} id={`flag-values-${v.id}`}>
-            <FeatureValueField
-              // On the same row as the constant picker.
-              label={
-                <Flex as="span" align="center" gap="2">
-                  <VariationNumber number={v.index} />
-                  <Text weight="medium">{variationLabel(v)}</Text>
-                </Flex>
-              }
-              id={`flag-values-${feature.id}-${v.id}`}
-              value={values[v.id] ?? ""}
-              setValue={(next) =>
-                setValues((prev) => ({ ...prev, [v.id]: next }))
-              }
-              valueType={feature.valueType}
-              feature={displayFeature}
-              renderJSONInline
-              useCodeInput
-              showFullscreenButton
-              codeInputDefaultHeight={FIVE_LINES_HEIGHT}
-              sparse={sparse}
-              allowConfigBacking={configBacked}
-              configBackingOptionKeys={configBackingOptionKeys}
-              configBackingShowPatch={configBacked}
-              lockConfigBacking={configBacked}
-            />
-          </Box>
-        ))}
-      </Flex>
+      <ValueDiffProvider>
+        <Flex direction="column" gap="4" pt="2">
+          {variations.map((v) => (
+            <Box key={v.id} id={`flag-values-${v.id}`}>
+              <FeatureValueField
+                // On the same row as the constant picker.
+                label={
+                  <Flex as="span" align="center" gap="2">
+                    <VariationNumber number={v.index} />
+                    <Text weight="medium">{variationLabel(v)}</Text>
+                  </Flex>
+                }
+                id={`flag-values-${feature.id}-${v.id}`}
+                value={values[v.id] ?? ""}
+                setValue={(next) =>
+                  setValues((prev) => ({ ...prev, [v.id]: next }))
+                }
+                valueType={feature.valueType}
+                feature={displayFeature}
+                renderJSONInline
+                useCodeInput
+                showFullscreenButton
+                codeInputDefaultHeight={FIVE_LINES_HEIGHT}
+                sparse={sparse}
+                allowConfigBacking={configBacked}
+                configBackingOptionKeys={configBackingOptionKeys}
+                configBackingShowPatch={configBacked}
+                lockConfigBacking={configBacked}
+              />
+            </Box>
+          ))}
+        </Flex>
+      </ValueDiffProvider>
     </ModalStandard>
   );
 }

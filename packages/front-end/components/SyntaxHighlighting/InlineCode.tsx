@@ -1,7 +1,3 @@
-import {
-  tomorrow as dark,
-  ghcolors as light,
-} from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { CSSProperties, Suspense, lazy } from "react";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
@@ -9,6 +5,7 @@ import { createElement, createElementProps } from "react-syntax-highlighter";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { Language } from "./Code";
 import PrismFallback from "./PrismFallback";
+import { CODE_FONT_WEIGHT, CODE_LINE_HEIGHT, getCodeTheme } from "./codeTheme";
 
 // Turn substrings of the highlighted code that match `pattern` (a regex with a
 // single capture group) into links. `getHref` receives the captured group; a
@@ -123,18 +120,16 @@ export default function InlineCode({
   highlightLines,
   linkify,
   fontSize = "0.85rem",
-  lineHeight = 1.5,
+  lineHeight = CODE_LINE_HEIGHT,
   firstLineNumber = 1,
   monochrome = false,
 }: Props) {
   const { theme } = useAppearanceUITheme();
 
-  const style = cloneDeep(
-    theme === "light" ? (inTooltip ? dark : light) : inTooltip ? light : dark,
-  );
+  const style = cloneDeep(getCodeTheme(theme, inTooltip));
   style['code[class*="language-"]'].fontSize = fontSize;
   style['code[class*="language-"]'].lineHeight = lineHeight;
-  style['code[class*="language-"]'].fontWeight = 600;
+  style['code[class*="language-"]'].fontWeight = CODE_FONT_WEIGHT;
   // this next line actually doesn't do anything- its overridden somewhere in Prism.
   style['code[class*="language-"]'].whiteSpace = "pre-wrap";
   style['pre[class*="language-"]'].whiteSpace = "pre-wrap";

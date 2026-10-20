@@ -31,6 +31,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
 import CornerActions, { ActionsOverlay } from "./CornerActions";
 import { useValueDiff } from "./ValueDiffContext";
+import { getFieldLineNumbers } from "./jsonFieldLines";
 
 // For sparse JSON rules, the stored `value` is only the patch. We display the
 // fully expanded value (default merged with the patch) and bold the keys that
@@ -47,25 +48,6 @@ function getSparseMerge(
     merged: { ...defaultObj, ...patch },
     patchKeys: new Set(Object.keys(patch)),
   };
-}
-
-// Given fully-expanded (one-key-per-line) JSON and a set of top-level keys,
-// returns the 1-based line numbers that make up those keys' entries — including
-// the continuation lines of multi-line (nested) values. Top-level keys sit at a
-// 2-space indent; a line at column 0 (the closing brace) ends the object.
-function getKeyLineNumbers(formatted: string, keys: Set<string>): number[] {
-  const bold: number[] = [];
-  let inPatchedEntry = false;
-  formatted.split("\n").forEach((line, i) => {
-    const topLevelKey = line.match(/^ {2}"([^"]+)":/);
-    if (topLevelKey) {
-      inPatchedEntry = keys.has(topLevelKey[1]);
-    } else if (/^[}\]]/.test(line)) {
-      inPatchedEntry = false;
-    }
-    if (inPatchedEntry) bold.push(i + 1);
-  });
-  return bold;
 }
 
 export default function ValueDisplay({
@@ -166,7 +148,7 @@ export default function ValueDisplay({
   // 1-based line numbers of the overridden keys, bolded in the expanded value.
   const boldLines = useMemo(
     () =>
-      sparseMerge ? getKeyLineNumbers(formatted, sparseMerge.patchKeys) : [],
+      sparseMerge ? getFieldLineNumbers(formatted, sparseMerge.patchKeys) : [],
     [sparseMerge, formatted],
   );
 
@@ -181,7 +163,7 @@ export default function ValueDisplay({
   );
   const differingKeys = useValueDiff(isFullscreen ? null : shown);
   const highlightLines = useMemo(
-    () => (differingKeys ? getKeyLineNumbers(formatted, differingKeys) : []),
+    () => (differingKeys ? getFieldLineNumbers(formatted, differingKeys) : []),
     [differingKeys, formatted],
   );
   const emphasizedLines = differingKeys ? highlightLines : boldLines;
