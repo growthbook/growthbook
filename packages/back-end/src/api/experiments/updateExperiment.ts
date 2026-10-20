@@ -3,7 +3,6 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   parseAssignmentQueryInput,
   resolveAssignmentQuerySelectionChange,
-  validateClusterExperimentIdentifiers,
 } from "shared/util";
 import {
   CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
@@ -19,7 +18,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   assertCanRunExperimentChanges,
-  assertClusterExperimentMetricsSupported,
+  assertValidClusterExperimentConfig,
   assertExperimentKeyFormat,
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
@@ -52,7 +51,6 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
@@ -163,22 +161,6 @@ export const updateExperiment = createApiRequestHandler(
   ) {
     throw new Error(CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE);
   }
-  if (effectiveIsClusterExperiment) {
-    if (!datasource) {
-      throw new Error("Datasource not found.");
-    }
-    const effectiveExposureQueryId =
-      payload.assignmentQueryId ?? experiment.exposureQueryId;
-    const clusterValidation = validateClusterExperimentIdentifiers(
-      datasource.settings.queries?.exposure?.find(
-        (q) => q.id === effectiveExposureQueryId,
-      ),
-      exposureQueryIdentifierType,
-      payload.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
-    );
-    if (!clusterValidation.ok) throw new Error(clusterValidation.error);
-  }
-
   if (
     req.body.trackingKey !== undefined &&
     req.body.trackingKey !== experiment.trackingKey
@@ -299,21 +281,31 @@ export const updateExperiment = createApiRequestHandler(
     }
   }
 
-  if (effectiveIsClusterExperiment) {
-    const clusterFactTableMap = await getFactTableMap(req.context);
-    assertClusterExperimentMetricsSupported({
+  await assertValidClusterExperimentConfig({
+    context: req.context,
+    datasource,
+    current: {
+      isClusterExperiment: effectiveIsClusterExperiment,
+      exposureQueryId: payload.assignmentQueryId ?? experiment.exposureQueryId,
+      exposureQueryIdentifierType,
+      clusterSubUnitIdentifier:
+        payload.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
       goalMetrics: payload.metrics ?? experiment.goalMetrics,
       secondaryMetrics: payload.secondaryMetrics ?? experiment.secondaryMetrics,
       guardrailMetrics: payload.guardrailMetrics ?? experiment.guardrailMetrics,
-      metricMap: map,
-      metricGroups,
-      clusterIdentifier: exposureQueryIdentifierType,
-      clusterSubUnitIdentifier:
-        payload.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
-      factTableMap: clusterFactTableMap,
-      datasource,
-    });
-  }
+    },
+    previous: {
+      isClusterExperiment: experiment.isClusterExperiment,
+      exposureQueryId: experiment.exposureQueryId,
+      exposureQueryIdentifierType: experiment.exposureQueryIdentifierType,
+      clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,
+      goalMetrics: experiment.goalMetrics,
+      secondaryMetrics: experiment.secondaryMetrics,
+      guardrailMetrics: experiment.guardrailMetrics,
+    },
+    metricMap: map,
+    metricGroups,
+  });
 
   if (payload.variations) {
     validateVariationIds(payload.variations, experiment.variations);

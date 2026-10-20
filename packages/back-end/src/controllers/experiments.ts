@@ -12,7 +12,6 @@ import {
   reconcileMergeBaselines,
   includeExperimentInPayload,
   parseAssignmentQuerySelection,
-  validateClusterExperimentIdentifiers,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -62,7 +61,7 @@ import {
   _getSnapshots,
   applyVariationWeightsToLatestPhase,
   assertCanRunExperimentChanges,
-  assertClusterExperimentMetricsSupported,
+  assertValidClusterExperimentConfig,
   assertExperimentKeyFormat,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
@@ -1406,35 +1405,21 @@ export async function postExperiments(
       );
       if (!parsed.ok) throw new Error(parsed.error);
       obj.exposureQueryIdentifierType = parsed.identifierType;
-
-      if (obj.isClusterExperiment) {
-        const clusterValidation = validateClusterExperimentIdentifiers(
-          datasource.settings.queries?.exposure?.find(
-            (q) => q.id === obj.exposureQueryId,
-          ),
-          obj.exposureQueryIdentifierType,
-          obj.clusterSubUnitIdentifier,
-        );
-        if (!clusterValidation.ok) throw new Error(clusterValidation.error);
-      }
     }
 
-    if (obj.isClusterExperiment) {
-      const clusterMetricGroups = await context.models.metricGroups.getAll();
-      const clusterMetricMap = await getMetricMap(context);
-      const clusterFactTableMap = await getFactTableMap(context);
-      assertClusterExperimentMetricsSupported({
+    await assertValidClusterExperimentConfig({
+      context,
+      datasource,
+      current: {
+        isClusterExperiment: obj.isClusterExperiment,
+        exposureQueryId: obj.exposureQueryId,
+        exposureQueryIdentifierType: obj.exposureQueryIdentifierType,
+        clusterSubUnitIdentifier: obj.clusterSubUnitIdentifier,
         goalMetrics: obj.goalMetrics,
         secondaryMetrics: obj.secondaryMetrics,
         guardrailMetrics: obj.guardrailMetrics,
-        metricMap: clusterMetricMap,
-        metricGroups: clusterMetricGroups,
-        clusterIdentifier: obj.exposureQueryIdentifierType,
-        clusterSubUnitIdentifier: obj.clusterSubUnitIdentifier,
-        factTableMap: clusterFactTableMap,
-        datasource,
-      });
-    }
+      },
+    });
 
     if (data.precomputedUnitDimensionIds !== undefined) {
       await assertExperimentPrecomputedUnitDimensionIdsAreValid({
@@ -2096,38 +2081,37 @@ export async function postExperiment(
   ) {
     throw new Error(CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE);
   }
-  if (effectiveIsClusterExperiment) {
-    const clusterDatasourceId =
-      changes.datasource ?? experiment.datasource ?? "";
-    const clusterDatasource = clusterDatasourceId
-      ? await getDataSourceById(context, clusterDatasourceId)
-      : null;
-    const clusterValidation = validateClusterExperimentIdentifiers(
-      clusterDatasource?.settings.queries?.exposure?.find(
-        (q) => q.id === (changes.exposureQueryId ?? experiment.exposureQueryId),
-      ),
-      changes.exposureQueryIdentifierType ??
-        experiment.exposureQueryIdentifierType,
-      changes.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
-    );
-    if (!clusterValidation.ok) throw new Error(clusterValidation.error);
-
-    const clusterFactTableMap = await getFactTableMap(context);
-    assertClusterExperimentMetricsSupported({
-      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
-      secondaryMetrics: changes.secondaryMetrics ?? experiment.secondaryMetrics,
-      guardrailMetrics: changes.guardrailMetrics ?? experiment.guardrailMetrics,
-      metricMap,
-      metricGroups: allMetricGroups,
-      clusterIdentifier:
+  const clusterDatasourceId = changes.datasource ?? experiment.datasource ?? "";
+  const clusterDatasource = clusterDatasourceId
+    ? await getDataSourceById(context, clusterDatasourceId)
+    : null;
+  await assertValidClusterExperimentConfig({
+    context,
+    datasource: clusterDatasource,
+    current: {
+      isClusterExperiment: effectiveIsClusterExperiment,
+      exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
+      exposureQueryIdentifierType:
         changes.exposureQueryIdentifierType ??
         experiment.exposureQueryIdentifierType,
       clusterSubUnitIdentifier:
         changes.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
-      factTableMap: clusterFactTableMap,
-      datasource: clusterDatasource,
-    });
-  }
+      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
+      secondaryMetrics: changes.secondaryMetrics ?? experiment.secondaryMetrics,
+      guardrailMetrics: changes.guardrailMetrics ?? experiment.guardrailMetrics,
+    },
+    previous: {
+      isClusterExperiment: experiment.isClusterExperiment,
+      exposureQueryId: experiment.exposureQueryId,
+      exposureQueryIdentifierType: experiment.exposureQueryIdentifierType,
+      clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,
+      goalMetrics: experiment.goalMetrics,
+      secondaryMetrics: experiment.secondaryMetrics,
+      guardrailMetrics: experiment.guardrailMetrics,
+    },
+    metricMap,
+    metricGroups: allMetricGroups,
+  });
 
   const shouldValidatePrecomputedUnitDimensionIds =
     changes.precomputedUnitDimensionIds !== undefined ||

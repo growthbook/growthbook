@@ -2,7 +2,6 @@ import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
   parseAssignmentQuerySelection,
   parseAssignmentQueryInput,
-  validateClusterExperimentIdentifiers,
 } from "shared/util";
 import {
   CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
@@ -18,7 +17,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
-  assertClusterExperimentMetricsSupported,
+  assertValidClusterExperimentConfig,
   assertExperimentKeyFormat,
   getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
@@ -38,7 +37,6 @@ import {
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
   assertValidExperimentPrerequisites,
   phasePrerequisites,
@@ -222,26 +220,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       throw new Error(CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE);
     }
 
-    if (payload.isClusterExperiment) {
-      if (!datasource) {
-        throw new Error("Datasource not found.");
-      }
-      const clusterValidation = validateClusterExperimentIdentifiers(
-        datasource.settings.queries?.exposure?.find(
-          (q) => q.id === payload.assignmentQueryId,
-        ),
-        payload.assignmentQueryIdentifierType,
-        payload.clusterSubUnitIdentifier,
-      );
-      if (!clusterValidation.ok) {
-        throw new Error(
-          templateId
-            ? `Template "${templateId}": ${clusterValidation.error}`
-            : clusterValidation.error,
-        );
-      }
-    }
-
     await assertExperimentKeyFormat(
       req.context,
       payload.trackingKey,
@@ -301,11 +279,11 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       true,
       metricGroups,
     );
+    const map = await getMetricMap(req.context);
     if (metricIds.length) {
       if (!datasource) {
         throw new Error("Must provide a datasource when including metrics");
       }
-      const map = await getMetricMap(req.context);
       for (let i = 0; i < metricIds.length; i++) {
         const metric = map.get(metricIds[i]);
         if (metric) {
@@ -335,22 +313,27 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
           }
         }
       }
-
-      if (payload.isClusterExperiment) {
-        const clusterFactTableMap = await getFactTableMap(req.context);
-        assertClusterExperimentMetricsSupported({
-          goalMetrics: payload.metrics,
-          secondaryMetrics: payload.secondaryMetrics,
-          guardrailMetrics: payload.guardrailMetrics,
-          metricMap: map,
-          metricGroups,
-          clusterIdentifier: payload.assignmentQueryIdentifierType,
-          clusterSubUnitIdentifier: payload.clusterSubUnitIdentifier,
-          factTableMap: clusterFactTableMap,
-          datasource,
-        });
-      }
     }
+
+    await assertValidClusterExperimentConfig({
+      context: req.context,
+      datasource,
+      current: {
+        isClusterExperiment: payload.isClusterExperiment,
+        exposureQueryId: payload.assignmentQueryId,
+        exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
+        clusterSubUnitIdentifier: payload.clusterSubUnitIdentifier,
+        goalMetrics: payload.metrics,
+        secondaryMetrics: payload.secondaryMetrics,
+        guardrailMetrics: payload.guardrailMetrics,
+      },
+      metricMap: map,
+      metricGroups,
+      wrapIdentifierError: templateId
+        ? (message) => `Template "${templateId}": ${message}`
+        : undefined,
+    });
+
     if (payload.variations) {
       validateVariationIds(payload.variations);
     }
