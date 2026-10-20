@@ -13,7 +13,11 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
-import { ArchivedLabel } from "@/components/Experiment/MetricsSelector";
+import {
+  ARCHIVED_METRIC_NOTE,
+  ArchivedLabel,
+  getArchivedFactMetricNote,
+} from "@/components/Experiment/MetricsSelector";
 
 export type MetricOption = {
   id: string;
@@ -26,7 +30,6 @@ export type MetricOption = {
   isBinomial: boolean;
   isConversionWindowMetric: boolean;
   isFactFunnelMetric: boolean;
-  archived?: boolean;
 };
 
 const MetricSelector: FC<
@@ -77,18 +80,17 @@ const MetricSelector: FC<
     !!selectedId &&
     !metrics.some((m) => m.id === selectedId) &&
     !factMetrics.some((m) => m.id === selectedId);
-  const legacyMetrics = selectionIsArchived
-    ? [
-        ...metrics,
-        ..._metricsIncludingArchived.filter((m) => m.id === selectedId),
-      ]
-    : metrics;
-  const factMetricsWithSelected = selectionIsArchived
-    ? [
-        ...factMetrics,
-        ..._factMetricsIncludingArchived.filter((m) => m.id === selectedId),
-      ]
-    : factMetrics;
+  const archivedMetric = selectionIsArchived
+    ? _metricsIncludingArchived.find((m) => m.id === selectedId)
+    : undefined;
+  const archivedFactMetric = selectionIsArchived
+    ? _factMetricsIncludingArchived.find((m) => m.id === selectedId)
+    : undefined;
+  const archivedNote = archivedFactMetric
+    ? getArchivedFactMetricNote(archivedFactMetric, getFactTableById)
+    : archivedMetric
+      ? ARCHIVED_METRIC_NOTE
+      : undefined;
 
   // get data to help filter metrics to those with joinable userIdTypes to
   // the experiment assignment table
@@ -103,7 +105,7 @@ const MetricSelector: FC<
     : undefined;
 
   const options: MetricOption[] = [
-    ...legacyMetrics.map((m) => ({
+    ...[...metrics, ...(archivedMetric ? [archivedMetric] : [])].map((m) => ({
       id: m.id,
       name: m.name,
       datasource: m.datasource || "",
@@ -121,10 +123,12 @@ const MetricSelector: FC<
       isBinomial: isBinomialMetric(m) && !m.denominator,
       isFactFunnelMetric: isFactFunnelMetric(m),
       isConversionWindowMetric: m?.windowSettings?.type === "conversion",
-      archived: selectionIsArchived && m.id === selectedId,
     })),
     ...(includeFacts
-      ? factMetricsWithSelected.map((m) => ({
+      ? [
+          ...factMetrics,
+          ...(archivedFactMetric ? [archivedFactMetric] : []),
+        ].map((m) => ({
           id: m.id,
           name: m.name,
           datasource: m.datasource,
@@ -142,7 +146,6 @@ const MetricSelector: FC<
           isBinomial: isBinomialMetric(m),
           isFactFunnelMetric: isFactFunnelMetric(m),
           isConversionWindowMetric: m?.windowSettings?.type === "conversion",
-          archived: selectionIsArchived && m.id === selectedId,
         }))
       : []),
   ].filter((m) => (filterMetrics ? filterMetrics(m) : true));
@@ -183,12 +186,16 @@ const MetricSelector: FC<
         return {
           value: m.id,
           label: m.name,
+          tooltip: m.id === selectedId ? archivedNote : undefined,
         };
       })}
       formatOptionLabel={({ value, label }) => {
         if (!value) return label;
         return (
-          <ArchivedLabel archived={selectionIsArchived && value === selectedId}>
+          <ArchivedLabel
+            archived={!!archivedNote && value === selectedId}
+            alignRight
+          >
             <MetricName id={value} />
           </ArchivedLabel>
         );
