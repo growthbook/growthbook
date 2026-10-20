@@ -5,7 +5,7 @@ import { populationEndpoints } from "shared/api-endpoints";
 import { ApiPopulation } from "shared/validators";
 import { usePopulations, useRefreshPopulations } from "@/hooks/usePopulations";
 import { useAuth } from "@/services/auth";
-import { useRestApiCall } from "@/services/restApi";
+import { getRestApiCacheKey, useRestApiCall } from "@/services/restApi";
 
 vi.mock("@/services/auth", () => ({ useAuth: vi.fn() }));
 vi.mock("@/services/restApi", async (importOriginal) => ({
@@ -227,8 +227,12 @@ describe("useRefreshPopulations", () => {
     return renderHook(
       () => {
         usePopulations();
-        // Same key usePopulation reads through useRestApi.
-        useSWR("org_1::/api/v1/populations/pop_a", detailFetcher);
+        useSWR(
+          getRestApiCacheKey("org_1", populationEndpoints.getPopulation, {
+            params: { id: "pop_a" },
+          }),
+          detailFetcher,
+        );
         return useRefreshPopulations();
       },
       {
