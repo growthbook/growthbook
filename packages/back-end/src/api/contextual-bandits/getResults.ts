@@ -19,6 +19,7 @@ export const getContextualBanditResults = createApiRequestHandler(
     contextualBanditSnapshot,
     latestSnapshotSummary,
     snapshotVariationIds,
+    healthVariations,
     srm,
     traffic,
   } = await getContextualBanditResultsForUi(req.context, contextualBandit);
@@ -27,6 +28,15 @@ export const getContextualBanditResults = createApiRequestHandler(
     snapshotVariationIds ?? [],
     contextualBandit.variations,
   );
+
+  const healthVariationViews = (healthVariations ?? []).map((v) => {
+    const match = contextualBandit.variations.find((cv) => cv.id === v.id);
+    return {
+      variationId: v.id,
+      ...(match?.name !== undefined ? { variationName: match.name } : {}),
+      weight: v.weight,
+    };
+  });
 
   const overallWeights = contextualBanditSnapshot
     ? computeOverallVariationWeights(
@@ -71,6 +81,7 @@ export const getContextualBanditResults = createApiRequestHandler(
           multipleExposures: latestSnapshotSummary.multipleExposures,
           type: latestSnapshotSummary.type ?? "standard",
           triggeredBy: latestSnapshotSummary.triggeredBy ?? "manual",
+          variations: healthVariationViews,
           srm: srm
             ? {
                 statistic: srm.statistic,

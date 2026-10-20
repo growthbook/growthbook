@@ -1539,7 +1539,13 @@ export async function reconcileLinkedFeatureVariations(
 export type ContextualBanditResultsForUi = {
   contextualBanditSnapshot: ContextualBanditSnapshot | null;
   latestSnapshotSummary: SnapshotStatusSummary | null;
+  /** Variations frozen by the snapshot that produced `contextualBanditSnapshot`
+   * (the decision event). Labels the decision-results view. */
   snapshotVariationIds: string[] | null;
+  /** Variations frozen by the run whose health payload (srm/traffic) is shown.
+   * This can be an older completed run than the decision event while the newest
+   * run is in-flight/failed.*/
+  healthVariations: { id: string; weight: number }[] | null;
   /** SRM of the latest snapshot run; null when the run has no SRM result. */
   srm: ContextualBanditSrmResult | null;
   /** Health traffic of the latest snapshot run; null when unavailable. */
@@ -1623,10 +1629,17 @@ export async function getContextualBanditResultsForUi(
   const snapshotVariationIds =
     decisionSnapshot?.frozenSettings?.variations?.map((v) => v.id) ?? null;
 
+  const healthVariations =
+    resultsSnapshot?.frozenSettings?.variations?.map((v) => ({
+      id: v.id,
+      weight: v.weight,
+    })) ?? null;
+
   return {
     contextualBanditSnapshot,
     latestSnapshotSummary,
     snapshotVariationIds,
+    healthVariations,
     srm: resultsSnapshot?.srm ?? null,
     traffic: resultsSnapshot?.traffic ?? null,
   };

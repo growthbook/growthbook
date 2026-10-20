@@ -18382,6 +18382,21 @@ paths:
                             type: string
                           triggeredBy:
                             type: string
+                          variations:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                variationId:
+                                  type: string
+                                variationName:
+                                  type: string
+                                weight:
+                                  type: number
+                              required:
+                                - variationId
+                                - weight
+                              additionalProperties: false
                           srm:
                             anyOf:
                               - type: object
@@ -18487,6 +18502,7 @@ paths:
                           - multipleExposures
                           - type
                           - triggeredBy
+                          - variations
                           - srm
                           - traffic
                         additionalProperties: false

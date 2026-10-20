@@ -252,6 +252,13 @@ export const getContextualBanditResults = {
           multipleExposures: z.number(),
           type: z.string(),
           triggeredBy: z.string(),
+          variations: z.array(
+            z.object({
+              variationId: z.string(),
+              variationName: z.string().optional(),
+              weight: z.number(),
+            }),
+          ),
           srm: z
             .object({
               statistic: z.number(),

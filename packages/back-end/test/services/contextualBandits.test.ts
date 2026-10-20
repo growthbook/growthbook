@@ -1302,8 +1302,15 @@ describe("getContextualBanditResultsForUi", () => {
     expect(results.snapshotVariationIds).toEqual(["v0", "v2"]);
     // ...the latest snapshot is reused directly (it is the event's snapshot)...
     expect(getBySnapshotIdInOrg).not.toHaveBeenCalled();
-    // ...while the health payload still comes from the completed fallback run.
+    // ...while the health payload still comes from the completed fallback run...
     expect(results.traffic?.overall.variationUnits).toEqual([10, 20, 30]);
+    // ...and the health cards are labeled with that fallback run's own arms,
+    // kept separate from the decision ids above.
+    expect(results.healthVariations?.map((v) => v.id)).toEqual([
+      "v0",
+      "v1",
+      "v2",
+    ]);
   });
 
   it("looks up the event's snapshot by id when the newest run is a different, newer snapshot", async () => {
@@ -1373,6 +1380,7 @@ describe("getContextualBanditResultsForUi", () => {
     const completedSnapshot = makeCbs({
       id: "cbs_done",
       status: "success",
+      frozenSettings: frozenVariations(["v0", "v1"]),
       srm: {
         statistic: 10,
         pValue: 0.001,
@@ -1411,6 +1419,60 @@ describe("getContextualBanditResultsForUi", () => {
     expect(results.latestSnapshotSummary?.multipleExposures).toBe(42);
     expect(results.srm?.multipleExposures).toBe(42);
     expect(results.traffic?.overall.variationUnits).toEqual([100, 100]);
+    // ...and the health cards are labeled with the fallback run's variations.
+    expect(results.healthVariations?.map((v) => v.id)).toEqual(["v0", "v1"]);
+  });
+
+  it("does not clear the multiple-exposure finding when the newest snapshot failed", async () => {
+    const cb = makeCb();
+    // Newest run errored out, so it has no srm/traffic of its own. The UI must
+    // not read a missing multipleExposures as 0 and hide a real finding.
+    const failedSnapshot = makeCbs({
+      id: "cbs_failed",
+      status: "error",
+      error: "SQL boom",
+    });
+    // Previous completed run that detected a multiple-exposure problem.
+    const completedSnapshot = makeCbs({
+      id: "cbs_done",
+      status: "success",
+      frozenSettings: frozenVariations(["v0", "v1"]),
+      srm: {
+        statistic: 10,
+        pValue: 0.001,
+        degreesOfFreedom: 1,
+        multipleExposures: 42,
+      },
+      traffic: {
+        overall: { name: "", srm: 0.001, variationUnits: [100, 100] },
+        dimension: {},
+      },
+    });
+    const getLatestCompleted = jest.fn().mockResolvedValue(completedSnapshot);
+
+    const context = {
+      models: {
+        contextualBanditSnapshots: {
+          getLatestForContextualBandit: jest
+            .fn()
+            .mockResolvedValue(failedSnapshot),
+          getLatestCompletedForContextualBandit: getLatestCompleted,
+        },
+        contextualBanditEvents: {
+          getLatestForContextualBandit: jest.fn().mockResolvedValue(null),
+        },
+      },
+    } as unknown as ReqContext;
+
+    const results = await getContextualBanditResultsForUi(context, cb);
+
+    // The failure surfaces in the status so the UI can show the error...
+    expect(results.latestSnapshotSummary?.status).toBe("error");
+    // ...but the multiple-exposure finding is preserved, not cleared to 0.
+    expect(results.latestSnapshotSummary?.multipleExposures).toBe(42);
+    expect(results.srm?.multipleExposures).toBe(42);
+    expect(results.traffic?.overall.variationUnits).toEqual([100, 100]);
+    expect(results.healthVariations?.map((v) => v.id)).toEqual(["v0", "v1"]);
   });
 
   it("does not consult the completed-run fallback when the newest snapshot already has results", async () => {

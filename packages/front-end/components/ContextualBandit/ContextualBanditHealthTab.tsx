@@ -18,16 +18,10 @@ export default function ContextualBanditHealthTab({
 }: {
   cb: ApiContextualBanditInterface;
 }) {
-  const { results, latest, loading, error } = useContextualBanditResults(cb.id);
+  const { latest, loading, error } = useContextualBanditResults(cb.id);
   const healthIssues = useContextualBanditHealthIssues(cb);
 
-  // Build the labels and per-variation values from `results.overall.variations` rather than
-  // matching positions against `cb.variations` — otherwise a removed or pending
-  // arm shifts every slot and mislabels (or drops) the counts.
-  const frozenVariations = useMemo(
-    () => results?.overall.variations ?? [],
-    [results],
-  );
+  const frozenVariations = useMemo(() => latest?.variations ?? [], [latest]);
 
   const variations: ExperimentReportVariation[] = useMemo(
     () =>
@@ -35,9 +29,7 @@ export default function ContextualBanditHealthTab({
         id: v.variationId,
         index: i,
         name: v.variationName ?? v.variationId,
-        weight:
-          v.weight ??
-          (frozenVariations.length ? 1 / frozenVariations.length : 0),
+        weight: v.weight,
       })),
     [frozenVariations],
   );
