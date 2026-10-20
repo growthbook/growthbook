@@ -144,11 +144,10 @@ export default function PermissionsField({
           options={presetsFor(holder).map((preset) => ({
             value: preset,
             label: labels[preset],
-            description: descriptions[preset],
-            ...(!presetAllowed(preset, allowed) && {
-              disabled: true,
-              tooltip: disabledReason[preset],
-            }),
+            // A disabled card gets no hover, so the reason replaces its description.
+            ...(presetAllowed(preset, allowed)
+              ? { description: descriptions[preset] }
+              : { description: disabledReason[preset], disabled: true }),
           }))}
         />
       ) : (
