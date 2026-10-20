@@ -42,6 +42,31 @@ export const visualChangesetEdit = z
   .partial()
   .strict();
 
+export const apiVisualEditorCbExperimentStubValidator = namedSchema(
+  "VisualEditorCbExperimentStub",
+  z
+    .object({
+      id: z.string(),
+      trackingKey: z.string(),
+      name: z.string(),
+      status: z.string(),
+      project: z.string(),
+      hashAttribute: z.string(),
+      hashVersion: z.literal(2),
+      type: z.literal("contextual-bandit"),
+      variations: z.array(
+        z.object({
+          variationId: z.string(),
+          key: z.string(),
+          name: z.string(),
+          description: z.string(),
+          status: z.enum(["active", "pending", "deactivated"]).optional(),
+        }),
+      ),
+    })
+    .strict(),
+);
+
 // Corresponds to schemas/VisualChange.yaml
 export const apiVisualChangeValidator = namedSchema(
   "VisualChange",
@@ -81,7 +106,8 @@ export const apiVisualChangesetValidator = namedSchema(
         }),
       ),
       editorUrl: z.string(),
-      experiment: z.string(),
+      experiment: z.string().optional(),
+      contextualBandit: z.string().optional(),
       visualChanges: z.array(
         z.object({
           description: z.string().optional(),
@@ -101,10 +127,18 @@ export const apiVisualChangesetValidator = namedSchema(
         }),
       ),
     })
-    .strict(),
+    .strict()
+    .refine((v) => !!v.experiment !== !!v.contextualBandit, {
+      message:
+        "VisualChangeset must have exactly one of `experiment` or `contextualBandit`",
+      path: ["experiment"],
+    }),
 );
 
 export type ApiVisualChangeset = z.infer<typeof apiVisualChangesetValidator>;
+export type ApiVisualEditorCbExperimentStub = z.infer<
+  typeof apiVisualEditorCbExperimentStubValidator
+>;
 
 // Corresponds to payload-schemas/PostExperimentVisualChangesetPayload.yaml
 const postVisualChangesetBody = z
@@ -198,7 +232,12 @@ export const getVisualChangesetValidator = {
   responseSchema: z
     .object({
       visualChangeset: apiVisualChangesetValidator,
-      experiment: apiExperimentValidator.optional(),
+      experiment: z
+        .union([
+          apiExperimentValidator,
+          apiVisualEditorCbExperimentStubValidator,
+        ])
+        .optional(),
     })
     .strict(),
   summary: "Get a single visual changeset",

@@ -17,6 +17,7 @@ import {
   getAllMetricIdsFromExperiment,
   getAllVariations,
   getActivePhase,
+  canEditContextualBanditVisualChanges,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
@@ -43,7 +44,14 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import { experimentChangesBody } from "shared/validators";
-import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
+import {
+  ContextualBanditChangesetOwner,
+  ExperimentChangesetOwner,
+  contextualBanditVisualChangesBlocked,
+  ownerNotFoundMessage,
+  resolveChangesetOwner,
+} from "back-end/src/services/changesetOwner";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -3385,12 +3393,26 @@ export async function putVisualChangeset(
     throw new Error("Visual Changeset not found");
   }
 
-  const experiment = await getExperimentById(
-    context,
-    visualChangeset.experiment,
-  );
-  if (!experiment) {
-    throw new Error("Could not find experiment");
+  const owner = await resolveChangesetOwner(context, visualChangeset);
+  if (!owner) {
+    throw new Error(ownerNotFoundMessage(visualChangeset));
+  }
+  if (owner instanceof ContextualBanditChangesetOwner) {
+    if (!canEditContextualBanditVisualChanges(owner.cb)) {
+      throw new Error(contextualBanditVisualChangesBlocked(owner.cb, "edited"));
+    }
+    if (!owner.canUpdateVisualChange()) {
+      context.permissions.throwPermissionError();
+    }
+    if (owner.cb.status === "running") {
+      const envs = getEnvironments(context.org).map((e) => e.id);
+      if (!context.permissions.canRunContextualBandit(owner.cb, envs)) {
+        context.permissions.throwPermissionError();
+      }
+    }
+  } else if (owner instanceof ExperimentChangesetOwner) {
+    assertVisualChangesEditable(owner.experiment);
+    assertCanRunLinkedChanges(context, owner.experiment);
   }
 
   const updates: Partial<VisualChangesetInterface> = {
@@ -3399,12 +3421,9 @@ export async function putVisualChangeset(
     visualChanges: req.body.visualChanges,
   };
 
-  assertVisualChangesEditable(experiment);
-  assertCanRunLinkedChanges(context, experiment);
-
   const ret = await updateVisualChangeset({
     visualChangeset,
-    owner: new ExperimentChangesetOwner(context, experiment),
+    owner,
     context,
     updates,
   });
@@ -3431,18 +3450,26 @@ export async function deleteVisualChangeset(
     throw new Error("Visual Changeset not found");
   }
 
-  const experiment = await getExperimentById(
-    context,
-    visualChangeset.experiment,
-  );
-  if (experiment) assertVisualChangesEditable(experiment);
-  assertCanRunLinkedChanges(context, experiment ?? {});
+  const owner = await resolveChangesetOwner(context, visualChangeset);
+
+  if (owner instanceof ContextualBanditChangesetOwner) {
+    const envs = getEnvironments(context.org).map((e) => e.id);
+    if (
+      !owner.canUpdateOwner() ||
+      !context.permissions.canRunContextualBandit(owner.cb, envs)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  } else {
+    const experiment =
+      owner instanceof ExperimentChangesetOwner ? owner.experiment : null;
+    if (experiment) assertVisualChangesEditable(experiment);
+    assertCanRunLinkedChanges(context, experiment ?? {});
+  }
 
   await deleteVisualChangesetById({
     visualChangeset,
-    owner: experiment
-      ? new ExperimentChangesetOwner(context, experiment)
-      : null,
+    owner,
     context,
   });
 

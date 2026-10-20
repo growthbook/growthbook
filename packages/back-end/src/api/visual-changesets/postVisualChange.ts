@@ -26,7 +26,7 @@ export const postVisualChange = createApiRequestHandler(
 
   const owner = await resolveChangesetOwner(req.context, visualChangeset);
   if (!owner) {
-    throw new Error(ownerNotFoundMessage());
+    throw new Error(ownerNotFoundMessage(visualChangeset));
   }
   if (!owner.canUpdateVisualChange()) {
     req.context.permissions.throwPermissionError();

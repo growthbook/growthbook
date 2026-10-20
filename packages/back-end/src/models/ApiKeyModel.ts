@@ -2,7 +2,12 @@ import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { apiKeySchema, ConfirmRule } from "shared/validators";
-import { apiKeyToggleRequiresAdmin, getRoleById } from "shared/permissions";
+import {
+  apiKeyToggleRequiresAdmin,
+  canSetApiKeyDisabled,
+  changesApiKeyAuthority,
+  getRoleById,
+} from "shared/permissions";
 import {
   addDays,
   EXPIRING_SOON_DAYS,
@@ -76,8 +81,10 @@ export class ApiKeyModel extends BaseClass {
       // filters to the caller's userId and postApiKeyReveal checks ownership.
       return (
         apiKey.userId === this.context.userId ||
-        this.context.permissions.canDeleteApiKey()
+        this.context.permissions.canManagePersonalAccessTokens()
       );
+    } else if (apiKey.secret) {
+      return this.context.permissions.canViewApiKeys();
     } else {
       return this.context.permissions.canReadSingleProjectResource(
         apiKey.project,
@@ -96,8 +103,17 @@ export class ApiKeyModel extends BaseClass {
     if (!keys.length || keys.some((k) => !editable.has(k))) return false;
     // Admins can disable another member's PAT without being able to delete it —
     // the disabled doc keeps `lastUsed` ticking so they can see continued use.
+    if (apiKey.secret && updates.disabled !== undefined) {
+      return canSetApiKeyDisabled(
+        this.context.permissions,
+        apiKey,
+        this.context.userId,
+        updates.disabled,
+      );
+    }
+    // Expiry-only updates come from applying the expiration policy.
     if (apiKeyToggleRequiresAdmin(apiKey, this.context.userId)) {
-      return this.context.permissions.canDeleteApiKey();
+      return this.context.permissions.canManagePersonalAccessTokens();
     }
     return this.canDelete(apiKey);
   }
@@ -135,8 +151,8 @@ export class ApiKeyModel extends BaseClass {
     return {
       id: doc.id,
       description: doc.description,
-      // Records whose PAT an admin revoked; absent for org keys.
-      userId: doc.userId,
+      // A token's owner, null for an org key: history access tells them apart.
+      userId: doc.userId ?? null,
       role: doc.role,
       scoped: doc.scoped,
       limitAccessByEnvironment: doc.limitAccessByEnvironment,
@@ -483,7 +499,9 @@ export class ApiKeyModel extends BaseClass {
     const doc = await this._findOne(id ? { id } : { key }, {
       bypassSanitization: true,
     });
-    if (!doc) this.context.throwNotFoundError();
+    // Missing and not permitted get the same answer, so the lookup tells a
+    // caller without delete rights nothing.
+    if (!doc || !this.canDelete(doc)) this.context.throwNotFoundError();
 
     await this.delete(doc);
     return doc;
@@ -577,17 +595,36 @@ export class ApiKeyModel extends BaseClass {
       return { before: doc, after };
     }
 
-    // Editing a key's authority is at least as sensitive as revealing it, so we
-    // mirror the admin/owner-only gate that postApiKeyReveal uses for non-user keys.
-    if (!this.context.permissions.canCreateApiKey()) {
+    if (!this.context.permissions.canUpdateApiKey()) {
       this.context.permissions.throwPermissionError();
     }
-    if (!role) {
+    // An edit that names no role leaves the role and scope as they are.
+    const authority = {
+      ...(role !== undefined && {
+        role,
+        limitAccessByEnvironment,
+        environments,
+        additionalRoles,
+        projectRoles,
+      }),
+      ...(requesterHeader !== undefined && { requesterHeader }),
+      ...(requesterPermissions !== undefined && { requesterPermissions }),
+      ...(confirmRules !== undefined && { confirmRules }),
+    };
+    if (
+      changesApiKeyAuthority(doc, { ...doc, ...authority }) &&
+      !this.context.permissions.canCreateApiKey()
+    ) {
+      this.context.permissions.throwPermissionError(
+        "Changing an API key's role, scope, requester settings, or confirmations requires permission to create API keys.",
+      );
+    }
+    if (role !== undefined && !role) {
       this.context.throwBadRequestError("A role is required.");
     }
 
-    // Permission fields (role/scope/description) are intentionally editable by
-    // admins, as is the expiry, while the token's value and identity fields
+    // Permission fields (role/scope/description) are intentionally editable, as
+    // is the expiry, while the token's value and identity fields
     // (key, secret, userId) stay immutable. `canUpdate` blocks these fields, so we
     // bypass it for this specific permission-only update via `forceCanUpdate`;
     // the update object below is limited to permission fields, so identity
@@ -601,16 +638,9 @@ export class ApiKeyModel extends BaseClass {
     const after = await this._updateOne(
       doc,
       {
-        role,
-        limitAccessByEnvironment,
-        environments,
-        additionalRoles,
-        projectRoles,
+        ...authority,
         description,
-        ...(requesterHeader !== undefined && { requesterHeader }),
-        ...(requesterPermissions !== undefined && { requesterPermissions }),
         ...(expiresAt !== undefined && { expiresAt }),
-        ...(confirmRules !== undefined && { confirmRules }),
       },
       { forceCanUpdate: true },
     );
