@@ -45,6 +45,7 @@ import {
   BadRequestError,
   ChecklistIncompleteError,
   InvalidStatusError,
+  NotFoundError,
   PendingDraftPublishFailedError,
 } from "back-end/src/util/errors";
 import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
@@ -408,14 +409,13 @@ export async function loadAndValidateExperimentForStatusChange(
   experimentId: string,
 ) {
   const experiment = await getExperimentById(context, experimentId);
-  if (!experiment) {
-    throw new Error("Could not find experiment");
-  }
-  if (experiment.organization !== context.org.id) {
-    throw new Error("You do not have access to this experiment");
+  if (!experiment || experiment.organization !== context.org.id) {
+    throw new NotFoundError("Could not find experiment");
   }
   if (experiment.type === "holdout") {
-    throw new Error("Holdouts are not supported through this endpoint");
+    throw new BadRequestError(
+      "Holdouts are not supported through this endpoint",
+    );
   }
 
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
