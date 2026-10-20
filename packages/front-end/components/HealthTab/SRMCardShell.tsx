@@ -11,9 +11,6 @@ import Text from "@/ui/Text";
 import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
-/**
- * Computes the SRM health status using the org's configured threshold.
- */
 export function useSrmHealth({
   srm,
   numOfVariations,
