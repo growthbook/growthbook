@@ -293,7 +293,7 @@ info:
     it. Do not assume that `ignoreWarnings` clears every 422 response.
 
     - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
-    per minute. Try again later.
+    per minute, or the limit your self-hosted server sets. Try again later.
 
     - **5XX** - Server Error - Something went wrong on GrowthBook's end (these
     are rare)
@@ -63841,10 +63841,11 @@ paths:
                     type: string
                 steps:
                   description: >-
-                    Steps a unit must complete, in order, to be included. The
-                    steps can read from at most 5 distinct fact tables
+                    Steps a unit must complete, in order, to be included.
+                    Currently limited to 1 step with support for multiple steps
+                    coming soon.
                   minItems: 1
-                  maxItems: 20
+                  maxItems: 1
                   type: array
                   items:
                     type: object
@@ -64048,10 +64049,11 @@ paths:
                     type: string
                 steps:
                   description: >-
-                    Steps a unit must complete, in order, to be included. The
-                    steps can read from at most 5 distinct fact tables
+                    Steps a unit must complete, in order, to be included.
+                    Currently limited to 1 step with support for multiple steps
+                    coming soon.
                   minItems: 1
-                  maxItems: 20
+                  maxItems: 1
                   type: array
                   items:
                     type: object

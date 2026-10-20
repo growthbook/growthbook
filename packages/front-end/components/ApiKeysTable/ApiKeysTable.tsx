@@ -1,6 +1,6 @@
 import React, { FC, ReactNode, useState } from "react";
-import { Flex } from "@radix-ui/themes";
-import { PiIdentificationCard } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiIdentificationCard, PiInfo } from "react-icons/pi";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
   canSetApiKeyDisabled,
@@ -9,6 +9,7 @@ import {
 import { ago, datetime } from "shared/dates";
 import { getExpirationStatus } from "shared/api-key-expiration";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import HumanInTheLoopIcon from "@/components/Confirmations/HumanInTheLoopIcon";
 import ApiKeyRowMenu from "@/components/ApiKeysTable/ApiKeyRowMenu";
 import ExpiresCell from "@/components/ApiKeysTable/ExpiresCell";
@@ -123,17 +124,30 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           />
         </Flex>
       )}
-      <Table variant="surface" layout="fixed" mb="3">
+      <Table variant="surface" layout="fixed" minTableWidth={950} mb="3">
         <TableHeader>
-          <TableRow>
+          <TableRow style={{ whiteSpace: "nowrap" }}>
             <TableColumnHeader>Description</TableColumnHeader>
-            <TableColumnHeader width="240px">Key</TableColumnHeader>
+            <TableColumnHeader width="170px">Key</TableColumnHeader>
+            <TableColumnHeader width="110px">
+              Internal ID{" "}
+              <Tooltip content="Identifies this key in logs and server settings. REST requests authenticate with the secret key, not this ID.">
+                <Box
+                  as="span"
+                  display="inline-block"
+                  tabIndex={0}
+                  aria-label="More information about Internal ID"
+                >
+                  <PiInfo />
+                </Box>
+              </Tooltip>
+            </TableColumnHeader>
             <TableColumnHeader>Role</TableColumnHeader>
             <TableColumnHeader>Project Roles</TableColumnHeader>
-            <TableColumnHeader width="150px">Last Used</TableColumnHeader>
+            <TableColumnHeader width="120px">Last Used</TableColumnHeader>
             <SortableTableColumnHeader
               field="expiresAtSort"
-              style={{ width: 170 }}
+              style={{ width: 150 }}
             >
               Expires
             </SortableTableColumnHeader>
@@ -144,7 +158,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           {!visibleKeys.length && (
             <TableRow>
               <TableCell
-                colSpan={hasActions ? 7 : 6}
+                colSpan={hasActions ? 8 : 7}
                 style={{ textAlign: "center" }}
               >
                 <Text color="text-low">All of these keys have expired.</Text>
@@ -206,7 +220,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               <TableCell style={dimStyle(key)}>
                 {canCreateKeys ? (
                   <ClickToReveal
-                    valueWhenHidden="secret_abcdefghijklmnop123"
+                    valueWhenHidden="secret_abcdefghijkl"
                     getValue={onReveal(key.id)}
                   />
                 ) : (
@@ -216,6 +230,9 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     </span>
                   </Tooltip>
                 )}
+              </TableCell>
+              <TableCell style={dimStyle(key)}>
+                {key.id ? <CopyableCode value={key.id} muted /> : "-"}
               </TableCell>
               <TableCell style={dimStyle(key)}>
                 {key.role ? (
@@ -235,7 +252,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   )}
                 />
               </TableCell>
-              <TableCell style={{ whiteSpace: "nowrap", ...dimStyle(key) }}>
+              <TableCell style={dimStyle(key)}>
                 {key.lastUsed ? (
                   <Tooltip
                     content={

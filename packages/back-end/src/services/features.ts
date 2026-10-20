@@ -188,6 +188,7 @@ import {
   getVisualExperimentPrerequisiteDependents,
   getVisualExperimentPrerequisiteIds,
   getReferenceIdsInFeatures,
+  prerequisiteParentConditions,
 } from "back-end/src/util/features";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
@@ -738,16 +739,10 @@ function generateCbVisualExperimentsPayload({
       );
     if (removeRule) return null;
 
-    const parsedPrerequisites = newPrerequisites
-      .map((p) => {
-        const condition = mergeConditionAndSavedGroups({
-          savedGroupStrategy,
-          condition: p.condition,
-        });
-        if (!condition) return null;
-        return { id: p.id, condition };
-      })
-      .filter(isDefined);
+    const parsedPrerequisites = prerequisiteParentConditions(
+      newPrerequisites,
+      savedGroupStrategy,
+    );
 
     if (
       capabilities &&

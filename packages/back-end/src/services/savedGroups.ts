@@ -25,7 +25,7 @@ import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
 import { BadRequestError } from "back-end/src/util/errors";
 import {
   getAffectedSDKPayloadKeys,
-  getSDKPayloadKeys,
+  getContextualBanditVisualPayloadKeys,
 } from "back-end/src/util/features";
 import {
   getSavedGroupIdsForFeatureDefinitions,
@@ -143,14 +143,10 @@ export async function getSavedGroupPayloadKeys(
       undefined,
       allProjectIds,
     ),
-    // A bandit's visual changesets are served in its project without any rule.
     ...dependents.bandits
       .filter((bandit) => bandit.hasVisualChangesets)
       .flatMap((bandit) =>
-        getSDKPayloadKeys(
-          new Set(environments),
-          new Set(["", bandit.project || ""]),
-        ),
+        getContextualBanditVisualPayloadKeys(bandit, environments),
       ),
     ...dependents.experiments.flatMap((experiment) =>
       getPayloadKeys(
