@@ -122,6 +122,16 @@ describe("describePopulationStep", () => {
   const eventsTable: PopulationStepFactTable = {
     name: "Events",
     columns: events.columns,
+    filters: [
+      {
+        id: "flt_purchases",
+        dateCreated: new Date(0),
+        dateUpdated: new Date(0),
+        name: "Purchases only",
+        description: "",
+        value: "event_name = 'purchase'",
+      },
+    ],
   };
   const country: RowFilter = {
     column: "country",
@@ -256,6 +266,34 @@ describe("describePopulationStep", () => {
     expect(
       getFilterDescription({ operator: "sql_expr", values: ["amount > 0"] }),
     ).toBe("sql_expr amount > 0");
+  });
+
+  describe("saved filters", () => {
+    const savedFilter = (id: string): RowFilter => ({
+      operator: "saved_filter",
+      values: [id],
+    });
+
+    it("uses the saved filter's name", () => {
+      expect(
+        getStepDescription({ rowFilters: [savedFilter("flt_purchases")] }),
+      ).toBe("Has Events matching the row filter: Purchases only");
+    });
+
+    it("says when the saved filter was deleted", () => {
+      expect(
+        getStepDescription({ rowFilters: [savedFilter("flt_gone")] }),
+      ).toBe("Has Events matching the row filter: Deleted saved filter");
+    });
+
+    it("falls back to the saved filter id when the fact table is missing", () => {
+      expect(
+        getStepDescription(
+          { rowFilters: [savedFilter("flt_purchases")] },
+          null,
+        ),
+      ).toBe("Has ftb_events matching the row filter: flt_purchases");
+    });
   });
 
   it("uses column display names", () => {

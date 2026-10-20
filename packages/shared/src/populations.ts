@@ -51,7 +51,7 @@ function pluralize(n: number, unit: string): string {
 
 export type PopulationStepFactTable = Pick<
   FactTableInterface,
-  "name" | "columns"
+  "name" | "columns" | "filters"
 >;
 
 export type PopulationStepDescriptionParts = {
@@ -73,6 +73,16 @@ function describeRowFilter(
   { column, operator, values = [] }: RowFilter,
   factTable: PopulationStepFactTable | null,
 ): string {
+  if (operator === "saved_filter") {
+    const filterId = values[0] ?? "";
+    // Without the fact table there's no way to tell a deleted filter from one
+    // that still exists, so show the id like the fact table name does.
+    if (!factTable) return filterId;
+    return (
+      factTable.filters.find((f) => f.id === filterId)?.name ??
+      "Deleted saved filter"
+    );
+  }
   return [
     column && getColumnDisplayName(column, factTable),
     operator,
