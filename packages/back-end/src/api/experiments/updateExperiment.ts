@@ -6,7 +6,9 @@ import {
   validateClusterExperimentIdentifiers,
 } from "shared/util";
 import {
+  CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
   ExperimentInterfaceExcludingHoldouts,
+  isUnsupportedClusterBanditCombination,
   updateExperimentValidator,
 } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -152,6 +154,15 @@ export const updateExperiment = createApiRequestHandler(
 
   const effectiveIsClusterExperiment =
     payload.isClusterExperiment ?? experiment.isClusterExperiment;
+  const effectiveType = payload.type ?? experiment.type ?? "standard";
+  if (
+    isUnsupportedClusterBanditCombination({
+      type: effectiveType,
+      isClusterExperiment: effectiveIsClusterExperiment,
+    })
+  ) {
+    throw new Error(CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE);
+  }
   if (effectiveIsClusterExperiment) {
     if (!datasource) {
       throw new Error("Datasource not found.");

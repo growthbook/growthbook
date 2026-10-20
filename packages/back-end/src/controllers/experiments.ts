@@ -21,6 +21,10 @@ import {
   getAllVariations,
   getActivePhase,
 } from "shared/experiments";
+import {
+  CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
+  isUnsupportedClusterBanditCombination,
+} from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { v4 as uuidv4 } from "uuid";
@@ -1382,6 +1386,15 @@ export async function postExperiments(
   try {
     validateVariationIds(obj.variations);
 
+    if (
+      isUnsupportedClusterBanditCombination({
+        type: experimentType,
+        isClusterExperiment: obj.isClusterExperiment,
+      })
+    ) {
+      throw new Error(CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE);
+    }
+
     if (datasource && obj.exposureQueryId) {
       const parsed = parseAssignmentQuerySelection(
         datasource.settings.queries?.exposure ?? [],
@@ -2074,6 +2087,15 @@ export async function postExperiment(
 
   const effectiveIsClusterExperiment =
     changes.isClusterExperiment ?? experiment.isClusterExperiment;
+  const effectiveExperimentType = changes.type ?? experiment.type ?? "standard";
+  if (
+    isUnsupportedClusterBanditCombination({
+      type: effectiveExperimentType,
+      isClusterExperiment: effectiveIsClusterExperiment,
+    })
+  ) {
+    throw new Error(CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE);
+  }
   if (effectiveIsClusterExperiment) {
     const clusterDatasourceId =
       changes.datasource ?? experiment.datasource ?? "";

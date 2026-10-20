@@ -215,6 +215,19 @@ export const experimentType = [
 ] as const;
 export type ExperimentType = (typeof experimentType)[number];
 
+export const CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE =
+  "Cluster-randomized experiments can't be run as Bandits.";
+
+export function isUnsupportedClusterBanditCombination({
+  type,
+  isClusterExperiment,
+}: {
+  type?: string | null;
+  isClusterExperiment?: boolean | null;
+}): boolean {
+  return !!isClusterExperiment && type === "multi-armed-bandit";
+}
+
 export const banditStageType = ["explore", "exploit", "paused"] as const;
 export type BanditStageType = (typeof banditStageType)[number];
 
@@ -1582,7 +1595,21 @@ const postExperimentBody = z
     statusUpdateSchedule: apiStatusUpdateScheduleInput.optional(),
     ignoreWarnings: ignoreWarningsBodyField,
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    if (
+      isUnsupportedClusterBanditCombination({
+        type: body.type,
+        isClusterExperiment: body.isClusterExperiment,
+      })
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
+        path: ["isClusterExperiment"],
+      });
+    }
+  });
 
 // UpdateExperimentPayload.yaml
 const updateExperimentBody = z
@@ -1814,7 +1841,21 @@ const updateExperimentBody = z
       .optional(),
     ignoreWarnings: ignoreWarningsBodyField,
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    if (
+      isUnsupportedClusterBanditCombination({
+        type: body.type,
+        isClusterExperiment: body.isClusterExperiment,
+      })
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
+        path: ["isClusterExperiment"],
+      });
+    }
+  });
 
 const postExperimentStartBody = z
   .object({

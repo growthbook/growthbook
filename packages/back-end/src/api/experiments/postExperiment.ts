@@ -5,8 +5,10 @@ import {
   validateClusterExperimentIdentifiers,
 } from "shared/util";
 import {
+  CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
+  isUnsupportedClusterBanditCombination,
   postExperimentValidator,
 } from "shared/validators";
 import { omit } from "lodash";
@@ -210,6 +212,15 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         ? parsed.identifierType
         : requestedIdentifierType,
     };
+
+    if (
+      isUnsupportedClusterBanditCombination({
+        type: payload.type,
+        isClusterExperiment: payload.isClusterExperiment,
+      })
+    ) {
+      throw new Error(CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE);
+    }
 
     if (payload.isClusterExperiment) {
       if (!datasource) {
