@@ -144,6 +144,26 @@ export class SegmentModel extends BaseClass {
     }
   }
 
+  // Ignores read permissions, so a dependency check can't miss a hidden segment
+  public async dangerousHasAnyForDataSource(
+    datasourceId: string,
+  ): Promise<boolean> {
+    if (
+      usingFileConfig() &&
+      STORE_SEGMENTS_IN_MONGO &&
+      getConfigSegments(this.context.org.id).some(
+        (segment) => segment.datasource === datasourceId,
+      )
+    ) {
+      return true;
+    }
+    const [segment] = await this._find(
+      { datasource: datasourceId },
+      { bypassReadPermissionChecks: true, limit: 1 },
+    );
+    return !!segment;
+  }
+
   public async getByFactTableId(
     factTableId: string,
   ): Promise<SegmentInterface[]> {
