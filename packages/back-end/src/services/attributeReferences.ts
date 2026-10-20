@@ -22,10 +22,7 @@ export type AttributeReferencesMap = Record<
   }
 >;
 
-/**
- * Requested keys a condition key references: itself and each dotted parent,
- * so a condition on `user.country` counts for both `user.country` and `user`.
- */
+// A condition on `user.country` also references `user`
 export function getConditionKeyMatches(
   conditionKey: string,
   keySet: Set<string>,
@@ -40,11 +37,7 @@ export function getConditionKeyMatches(
   }
 }
 
-/**
- * Features, experiments, and saved groups that reference each attribute key.
- * Walks rule/phase/group condition JSON, checks hash and fallback attributes on
- * rules and experiments, and matches ID lists by attributeKey.
- */
+// Hash and fallback attributes and ID lists keyed on an attribute count too
 export async function getAttributeReferences(
   context: ReqContext | ApiReqContext,
   attributeKeys: string[],
