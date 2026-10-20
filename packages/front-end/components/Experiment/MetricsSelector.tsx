@@ -255,8 +255,9 @@ const MetricsSelector: FC<{
       ]),
     [metrics, factMetrics, metricGroups],
   );
-  // A string key so the options below only rebuild when the archived
-  // selections change, not on every change to `selected`.
+  // Selected chips are looked up in the options, so an archived selection stays
+  // an option until it's removed. Key on just those ids so other selection
+  // changes don't rebuild every option.
   const archivedSelectionKey = selected
     .filter((id) => !activeIds.has(id))
     .join(",");
