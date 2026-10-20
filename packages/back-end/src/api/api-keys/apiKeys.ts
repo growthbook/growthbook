@@ -33,13 +33,6 @@ function toApiApiKey(key: ApiKeyInterface) {
   };
 }
 
-// Same admin gate as editing or revealing a key in the app.
-function assertCanManageApiKeys(context: ApiReqContext) {
-  if (!context.permissions.canCreateApiKey()) {
-    context.permissions.throwPermissionError();
-  }
-}
-
 async function getOrgSecretKey(context: ApiReqContext, id: string) {
   const key = await context.models.apiKeys.getById(id);
   if (!key || !isOrgSecretKey(key)) {
@@ -53,7 +46,14 @@ async function setDisabled(
   id: string,
   disabled: boolean,
 ) {
-  assertCanManageApiKeys(req.context);
+  // Disabling takes Disable & delete; re-enabling restores access, so Edit
+  if (
+    disabled
+      ? !req.context.permissions.canDeleteApiKey()
+      : !req.context.permissions.canUpdateApiKey()
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
   await getOrgSecretKey(req.context, id);
   const { before, after } = await req.context.models.apiKeys.setDisabled(
     id,
@@ -73,7 +73,9 @@ async function setDisabled(
 export const listApiKeys = createApiRequestHandler(listApiKeysValidator)(async (
   req,
 ) => {
-  assertCanManageApiKeys(req.context);
+  if (!req.context.permissions.canViewApiKeys()) {
+    req.context.permissions.throwPermissionError();
+  }
   const keys = await req.context.models.apiKeys.getAll();
   return { apiKeys: keys.filter(isOrgSecretKey).map(toApiApiKey) };
 });
@@ -88,7 +90,9 @@ export const postApiKeyEnable = createApiRequestHandler(
 
 export const deleteApiKey = createApiRequestHandler(deleteApiKeyValidator)(
   async (req) => {
-    assertCanManageApiKeys(req.context);
+    if (!req.context.permissions.canDeleteApiKey()) {
+      req.context.permissions.throwPermissionError();
+    }
     await getOrgSecretKey(req.context, req.params.id);
     const deleted = await req.context.models.apiKeys.deleteByIdOrKey(
       req.params.id,
