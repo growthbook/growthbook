@@ -2,9 +2,9 @@ import { FeatureInterface } from "shared/types/feature";
 import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
-import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import { AttributeBadge } from "./AttributeBadge";
+import { PlainEntityBadge } from "./EntityBadge";
 import ConfigBackedSummary from "./ConfigBackedSummary";
 import ValueDisplay from "./ValueDisplay";
 
@@ -83,18 +83,12 @@ export default function RolloutSummary({
               />
             </Box>
           </Box>
-          <Box>
-            <Badge
-              color="gray"
-              mr="2"
-              label={
-                <Text color="text-high">
-                  {percentFormatter.format(displayCoverage)}
-                </Text>
-              }
+          <Flex align="center" gap="2">
+            <PlainEntityBadge
+              label={percentFormatter.format(displayCoverage)}
             />
             of units
-          </Box>
+          </Flex>
         </Flex>
       </Box>
       {configKey !== null ? (

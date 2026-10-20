@@ -821,12 +821,7 @@ function FlagColumn({
   const describesShown = showsDraft
     ? info.state === "draft" && pendingDraft.version === drafts[0]?.version
     : info.state === "live";
-  if (group) {
-    notices.push({
-      status: "warning",
-      text: "Flag's experiment rules have different values.",
-    });
-  } else if (onFlag && describesShown && info.inconsistentValues) {
+  if (!group && onFlag && describesShown && info.inconsistentValues) {
     notices.push({
       status: "warning",
       text: `This experiment is on the Feature Flag more than once with different values. Showing the first, from ${info.valuesFrom}.`,
@@ -1152,11 +1147,15 @@ function FlagColumn({
             </HeaderText>
             {group ? (
               <Flex minWidth="0">
-                <HeaderText muted>(</HeaderText>
-                <HeaderText muted truncate>
+                <HeaderText muted small>
+                  (
+                </HeaderText>
+                <HeaderText muted small truncate>
                   {group.environments.join(", ") || "no environments"}
                 </HeaderText>
-                <HeaderText muted>)</HeaderText>
+                <HeaderText muted small>
+                  )
+                </HeaderText>
               </Flex>
             ) : null}
           </>

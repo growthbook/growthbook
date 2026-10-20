@@ -32,10 +32,11 @@ import { arrayMove } from "@dnd-kit/sortable";
 import CreatableSelect from "react-select/creatable";
 import { isDefined } from "shared/util";
 import clsx from "clsx";
-import { PiCaretDown, PiCopy, PiX } from "react-icons/pi";
+import { PiCaretDown, PiX } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
 import VirtualizedMenuList from "@/components/Forms/VirtualizedMenuList";
 import Text, { TextSizes, TextWeights } from "@/ui/Text";
+import { CopyIcon } from "@/ui/ActionIcons";
 import Badge from "@/ui/Badge";
 import {
   ReactSelectProps,
@@ -204,7 +205,7 @@ function CopyButton({ value }: { value: string[] }) {
         onClick={handleCopy}
         onMouseDown={handleMouseDown}
       >
-        <PiCopy />
+        <CopyIcon />
       </button>
     </Tooltip>
   );

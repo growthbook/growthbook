@@ -9,7 +9,6 @@ import { hasTargetingConfigured } from "shared/experiments";
 import { useContextualBandits } from "@/hooks/useContextualBandits";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import Badge from "@/ui/Badge";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
 import Text from "@/ui/Text";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -18,6 +17,7 @@ import ConfigBackedSummary from "@/components/Features/ConfigBackedSummary";
 import { ValueDiffProvider } from "@/components/Features/ValueDiffContext";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
+import { PlainEntityBadge } from "@/components/Features/EntityBadge";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -114,14 +114,7 @@ export default function ContextualBanditRefSummary({
 
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">INCLUDE</Text>
-        <Badge
-          color="gray"
-          label={
-            <Text color="text-high">
-              {percentFormatter.format(cb.coverage ?? 1)}
-            </Text>
-          }
-        />
+        <PlainEntityBadge label={percentFormatter.format(cb.coverage ?? 1)} />
         of units in the Contextual Bandit
       </Flex>
 

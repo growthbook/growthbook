@@ -42,13 +42,16 @@ export function HeaderText({
   children,
   truncate = false,
   muted = false,
+  small = false,
 }: {
   children: ReactNode;
   truncate?: boolean;
   muted?: boolean;
+  small?: boolean;
 }) {
   return (
     <Text
+      size={small ? "sm" : "md"}
       weight={muted ? "regular" : "medium"}
       color={muted ? "text-mid" : "text-high"}
       whiteSpace="nowrap"
@@ -109,7 +112,7 @@ export function ColumnHeader({
           </Flex>
         ) : null}
         {title ? (
-          <Flex align="center" gap="1" minWidth="0">
+          <Flex align="baseline" gap="1" minWidth="0">
             {title}
           </Flex>
         ) : null}

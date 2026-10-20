@@ -1,4 +1,4 @@
-import React from "react";
+import React, { CSSProperties, ReactElement } from "react";
 import clsx from "clsx";
 import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
@@ -6,6 +6,29 @@ import Text from "@/ui/Text";
 import styles from "./EntityBadge.module.scss";
 
 const ENTITY_BADGE_MAX_WIDTH = 400;
+
+// The gray chip every entity and value in a rule or condition summary shares.
+export function EntityBadge({
+  label,
+  title,
+  className,
+  style,
+}: {
+  label: string | ReactElement;
+  title?: string;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <Badge
+      color="gray"
+      className={clsx(styles.badge, className)}
+      title={title}
+      style={style}
+      label={label}
+    />
+  );
+}
 
 export function LinkedEntityBadge({
   href,
@@ -17,9 +40,7 @@ export function LinkedEntityBadge({
   label: string;
 }) {
   return (
-    <Badge
-      color="gray"
-      className={styles.badge}
+    <EntityBadge
       label={
         <Link
           href={href}
@@ -58,9 +79,8 @@ export function PlainEntityBadge({
   maxWidth?: number;
 }) {
   return (
-    <Badge
-      color="gray"
-      className={clsx(styles.badge, "text-ellipsis d-inline-block")}
+    <EntityBadge
+      className="text-ellipsis d-inline-block"
       style={{ maxWidth }}
       title={label}
       label={

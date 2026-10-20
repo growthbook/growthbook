@@ -12,7 +12,6 @@ import type { Ace } from "ace-builds";
 import type { IAceEditorProps } from "react-ace";
 import clsx from "clsx";
 import { Flex, IconButton } from "@radix-ui/themes";
-import { PiCornersOut, PiCornersIn, PiCopy, PiCheck } from "react-icons/pi";
 import Button from "@/ui/Button";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
@@ -23,6 +22,7 @@ import {
   getAceTypeCss,
   getCodeTheme,
 } from "@/components/SyntaxHighlighting/codeTheme";
+import { CopyIcon, FullscreenIcon } from "@/ui/ActionIcons";
 import Field, { FieldProps } from "./Field";
 import styles from "./CodeTextArea.module.scss";
 
@@ -631,9 +631,9 @@ export default function CodeTextArea({
                           style={{ position: "relative", zIndex: 1000 }}
                         >
                           {copySuccess ? (
-                            <PiCheck size={EDITOR_ACTION_ICON_SIZE} />
+                            <CopyIcon copied size={EDITOR_ACTION_ICON_SIZE} />
                           ) : (
-                            <PiCopy size={EDITOR_ACTION_ICON_SIZE} />
+                            <CopyIcon size={EDITOR_ACTION_ICON_SIZE} />
                           )}
                         </IconButton>
                       </Tooltip>
@@ -663,9 +663,12 @@ export default function CodeTextArea({
                           style={{ position: "relative", zIndex: 1000 }}
                         >
                           {isFullscreen ? (
-                            <PiCornersIn size={EDITOR_ACTION_ICON_SIZE} />
+                            <FullscreenIcon
+                              exit
+                              size={EDITOR_ACTION_ICON_SIZE}
+                            />
                           ) : (
-                            <PiCornersOut size={EDITOR_ACTION_ICON_SIZE} />
+                            <FullscreenIcon size={EDITOR_ACTION_ICON_SIZE} />
                           )}
                         </IconButton>
                       </Tooltip>

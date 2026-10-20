@@ -20,6 +20,7 @@ import Text from "@/ui/Text";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import InvalidPrereqConditionBadge from "@/components/Features/InvalidPrereqConditionBadge";
+import ValueGroup from "@/components/Features/ValueGroup";
 import styles from "./ConditionDisplay.module.scss";
 
 type ConditionWithParentId = Condition & { parentId?: string };
@@ -221,15 +222,13 @@ function MultiValueDisplay({
     );
   }
   return (
-    <Flex wrap="wrap" gap="2">
-      {!skipParens && <Text weight="medium">(</Text>}
+    <ValueGroup parens={!skipParens}>
       <MultiValuesDisplay
         values={parts}
         displayMap={displayMap}
         savedGroupIds={savedGroupIds}
       />
-      {!skipParens && <Text weight="medium">)</Text>}
-    </Flex>
+    </ValueGroup>
   );
 }
 

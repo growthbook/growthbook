@@ -31,7 +31,7 @@ import stringify from "json-stringify-pretty-compact";
 import { BsBoxArrowUpRight } from "react-icons/bs";
 import clsx from "clsx";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiCheck, PiCopy, PiCaretDownFill } from "react-icons/pi";
+import { PiCaretDownFill } from "react-icons/pi";
 import Link from "@/ui/Link";
 import {
   DropdownMenu,
@@ -55,6 +55,7 @@ import CodeTextArea, {
   FIVE_LINES_HEIGHT,
 } from "@/components/Forms/CodeTextArea";
 import FormatJsonAction from "@/components/Features/FormatJsonAction";
+import { CopyIcon } from "@/ui/ActionIcons";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Text from "@/ui/Text";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
@@ -858,7 +859,7 @@ export default function FeatureValueField({
           if (!copySuccess) performCopy(value);
         }}
       >
-        {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
+        <CopyIcon copied={copySuccess} size={12} />
       </IconButton>
     </Tooltip>
   );
@@ -924,7 +925,7 @@ export default function FeatureValueField({
           if (!copySuccess) performCopy(value);
         }}
       >
-        {copySuccess ? <PiCheck /> : <PiCopy />}
+        <CopyIcon copied={copySuccess} />
       </button>
     </UITooltip>
   );

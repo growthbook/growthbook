@@ -13,7 +13,7 @@ import React, {
 } from "react";
 import stringify from "json-stringify-pretty-compact";
 import { IconButton, ScrollArea } from "@radix-ui/themes";
-import { PiCheck, PiCornersOut, PiCopy } from "react-icons/pi";
+import { PiCheck, PiCopy } from "react-icons/pi";
 import { parsePlainJSONObject } from "shared/util";
 import InlineCode, {
   LinkifyConfig,
@@ -29,6 +29,7 @@ import { parseFeatureResult } from "@/hooks/useArchetype";
 import Modal from "@/components/Modal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
+import { CopyIcon, FullscreenIcon } from "@/ui/ActionIcons";
 import CornerActions, { ActionsOverlay } from "./CornerActions";
 import { useValueDiff } from "./ValueDiffContext";
 import { getFieldLineNumbers } from "./jsonFieldLines";
@@ -262,7 +263,7 @@ export default function ValueDisplay({
                       }
                     }}
                   >
-                    {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
+                    <CopyIcon copied={copySuccess} size={12} />
                   </IconButton>
                 </Tooltip>
               ) : null}
@@ -278,7 +279,7 @@ export default function ValueDisplay({
                       setModalOpen(true);
                     }}
                   >
-                    <PiCornersOut size={12} />
+                    <FullscreenIcon size={12} />
                   </IconButton>
                 </Tooltip>
               )}

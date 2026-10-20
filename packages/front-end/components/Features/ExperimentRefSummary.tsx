@@ -20,7 +20,6 @@ import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
-import Badge from "@/ui/Badge";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
@@ -30,6 +29,7 @@ import { ValueDiffProvider } from "./ValueDiffContext";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
 import { AttributeBadge } from "./AttributeBadge";
+import { EntityBadge, PlainEntityBadge } from "./EntityBadge";
 import ForceSummary from "./ForceSummary";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -183,8 +183,7 @@ export default function ExperimentRefSummary({
           <>
             in the namespace
             <NextLink href={`/namespaces`}>
-              <Badge
-                color="gray"
+              <EntityBadge
                 label={
                   <Text color="text-high">
                     {namespaces?.find((n) => n.name === phase.namespace!.name)
@@ -205,34 +204,15 @@ export default function ExperimentRefSummary({
       </Flex>
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">INCLUDE</Text>
-        <Badge
-          color="gray"
-          label={
-            <Text color="text-high">
-              {percentFormatter.format(effectiveCoverage)}
-            </Text>
-          }
-        />
+        <PlainEntityBadge label={percentFormatter.format(effectiveCoverage)} />
         of units in the {isBandit ? "Bandit" : "experiment"}
         {hasNamespace && (
           <>
             (
-            <Badge
-              color="gray"
-              label={
-                <Text color="text-high">
-                  {percentFormatter.format(namespaceRange)}
-                </Text>
-              }
-            />
+            <PlainEntityBadge label={percentFormatter.format(namespaceRange)} />
             of the namespace and
-            <Badge
-              color="gray"
-              label={
-                <Text color="text-high">
-                  {percentFormatter.format(phase?.coverage ?? 1)}
-                </Text>
-              }
+            <PlainEntityBadge
+              label={percentFormatter.format(phase?.coverage ?? 1)}
             />
             exposure)
           </>
@@ -399,10 +379,7 @@ export default function ExperimentRefSummary({
           <Flex direction="row" gap="2" mb="3">
             <Text weight="medium">TRACK</Text>
             the result using the key
-            <Badge
-              color="gray"
-              label={<Text color="text-high">{experiment.trackingKey}</Text>}
-            />
+            <PlainEntityBadge label={experiment.trackingKey} />
           </Flex>
         </>
       )}
