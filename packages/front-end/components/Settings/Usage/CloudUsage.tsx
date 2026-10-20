@@ -649,7 +649,7 @@ export default function CloudUsage() {
   );
 }
 
-// "X of 1M events": amber from 80%, red at the limit, matching the usage statuses.
+// "X of 1M events"; amber from 80%, red at the limit
 export function UsageMeter({
   used,
   limit,
@@ -659,7 +659,6 @@ export function UsageMeter({
   used: number;
   limit: number;
   noun: string;
-  // "this month" or e.g. "in Sep 2026" for a past month
   period?: string;
 }) {
   const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
@@ -670,7 +669,7 @@ export function UsageMeter({
         {requestsFormatter.format(used)} of {requestsFormatter.format(limit)}{" "}
         {noun} {period}
       </Text>
-      {/* Used share as a complete segment; ProgressBar's slate filler is the headroom */}
+      {/* Used share as a full segment; the bar's filler is the headroom */}
       <ProgressBar
         segments={[{ id: "usage", weight: pct, completion: 100, color }]}
       />

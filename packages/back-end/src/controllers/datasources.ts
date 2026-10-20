@@ -253,8 +253,7 @@ export async function postDataSources(
   }
 
   try {
-    // Reject before anything is saved, so a refused forwarder doesn't leave
-    // an orphan Data Source behind.
+    // Before the save, so a refused forwarder leaves no orphan Data Source
     if (eventForwarderConfig) await assertNoEventForwarderInOrg(context);
 
     // Set default event properties and queries

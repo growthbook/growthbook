@@ -138,10 +138,8 @@ export async function hasAnyEventForwarderConfig(
   return configs.length > 0;
 }
 
-// One forwarder per org: usage is metered per org. Org-wide lookup, so a
-// forwarder on a Project the caller can't read still counts. Called before the
-// Data Source is saved (postDataSources) and again at create as the backstop.
-// Lift when per-destination event splitting lands.
+// One forwarder per org (usage is metered per org); org-wide so forwarders on
+// unreadable Projects count. Lift when per-destination event splitting lands.
 export async function assertNoEventForwarderInOrg(
   context: ReqContext,
 ): Promise<void> {

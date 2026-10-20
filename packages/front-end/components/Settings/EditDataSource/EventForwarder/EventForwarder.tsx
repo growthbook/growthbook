@@ -618,7 +618,6 @@ export default function EventForwarder({
     useUser();
   const permissionsUtil = usePermissionsUtil();
   const eventForwarderConfig = dataSource.eventForwarderConfig;
-  // Metered plans only; the month-to-date total comes from the usage endpoint.
   const isMetered =
     isCloud() && !hasCommercialFeature("unlimited-event-forwarder-usage");
   const { data: usageData } = useApi<{
@@ -674,8 +673,7 @@ export default function EventForwarder({
           eventForwarderConfig?.status === "schema_update_error" ||
           pollTimedOut ||
           !!primaryConnectorErrorMessage)));
-  // Resume can't lift a usage block, so hide it while blocked; Pause stays so
-  // a manual pause can still be saved before the block clears.
+  // Resume can't lift a usage block; Pause stays so a manual pause can be saved
   const canToggle = canEdit && (isReady || (isPaused && !isBlocked));
   const action = isReady ? "pause" : "resume";
   const databricksParams =

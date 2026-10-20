@@ -307,7 +307,7 @@ const commercialFeaturesEnterprise: CommercialFeature[] = [
 
 export const accountFeatures: CommercialFeaturesMap = {
   oss: new Set<CommercialFeature>([]),
-  // Metered on cloud: 1M forwarded events/month, see license-server STARTER_USAGE_LIMITS.
+  // Metered on cloud (license-server STARTER_USAGE_LIMITS)
   starter: new Set<CommercialFeature>(["events-forwarder"]),
   pro: new Set<CommercialFeature>(commercialFeaturesPro),
   pro_sso: new Set<CommercialFeature>(commercialFeaturesProSso),

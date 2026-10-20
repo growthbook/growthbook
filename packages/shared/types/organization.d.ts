@@ -625,7 +625,7 @@ export type OrganizationUsage = {
   eventForwarder?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
-    // Set by the license server past a hidden hard limit; forwarding has stopped.
+    // Past the license server's hidden hard limit; forwarding has stopped
     blocked?: boolean;
   };
 };
