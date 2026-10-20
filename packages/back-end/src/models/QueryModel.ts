@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { omit } from "lodash";
 import { QueryInterface, QueryStatistics, QueryType } from "shared/types/query";
 import { QueryLanguage } from "shared/types/datasource";
-import { ApiQuery } from "shared/validators";
+import { ApiQuery, queryStatusValidator } from "shared/validators";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
 import { generateId } from "back-end/src/util/uuid";
 import { logger } from "back-end/src/util/logger";
@@ -128,7 +128,12 @@ export async function getQueriesByDatasource(
 ) {
   // Results aren't returned and can be large
   const docs = await QueryModel.find(
-    { organization, datasource },
+    {
+      organization,
+      datasource,
+      // Every status, so the status-first index can merge-sort by createdAt
+      status: { $in: queryStatusValidator.options },
+    },
     { result: 0, rawResult: 0 },
   )
     .limit(limit)
