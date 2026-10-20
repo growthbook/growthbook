@@ -29,6 +29,7 @@ import {
 import { logger } from "back-end/src/util/logger";
 import {
   deleteExperimentPhase,
+  restartExperiment,
   startNewExperimentPhase,
 } from "back-end/src/services/experimentChanges/phases";
 
@@ -574,5 +575,147 @@ describe("deleteExperimentPhase", () => {
 
     expect(result.updated.phases).toEqual([experiment.phases[0]]);
     expect(logger.warn).toHaveBeenCalledWith(releaseError, expect.any(String));
+  });
+});
+
+describe("restartExperiment", () => {
+  function stoppedExperiment(overrides: Partial<ExperimentInterface> = {}) {
+    return makeExperiment({
+      status: "stopped",
+      phases: [makePhase({ dateEnded: new Date("2026-02-01T00:00:00Z") })],
+      ...overrides,
+    });
+  }
+
+  async function restart(
+    experiment: ExperimentInterface,
+    status: "running" | "draft" = "running",
+  ) {
+    jest
+      .mocked(loadAndValidateExperimentForStatusChange)
+      .mockResolvedValue(experiment);
+    const { context } = makeContext();
+    const result = await restartExperiment({
+      context,
+      experimentId: experiment.id,
+      status,
+    });
+    return { context, result };
+  }
+
+  it.each(["draft", "running"] as const)(
+    "refuses a %s experiment without validating or saving",
+    async (status) => {
+      await expect(
+        restart(stoppedExperiment({ status })),
+      ).rejects.toBeInstanceOf(InvalidStatusError);
+      expect(validateExperimentChange).not.toHaveBeenCalled();
+      expect(updateExperiment).not.toHaveBeenCalled();
+    },
+  );
+
+  it("doesn't save when the experiment fails to load", async () => {
+    jest
+      .mocked(loadAndValidateExperimentForStatusChange)
+      .mockRejectedValue(new NotFoundError("Experiment not found"));
+    const { context } = makeContext();
+    await expect(
+      restartExperiment({ context, experimentId: "exp_1", status: "running" }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(updateExperiment).not.toHaveBeenCalled();
+  });
+
+  it("refuses to save when validation fails", async () => {
+    jest
+      .mocked(validateExperimentChange)
+      .mockRejectedValueOnce(new BadRequestError("invalid change"));
+    await expect(restart(stoppedExperiment())).rejects.toThrow(
+      "invalid change",
+    );
+    expect(validateExperimentChange).toHaveBeenCalled();
+    expect(updateExperiment).not.toHaveBeenCalled();
+  });
+
+  it("reopens the last phase and saves the validated changes", async () => {
+    const experiment = stoppedExperiment();
+    const { context, result } = await restart(experiment);
+
+    expect(getScopedSettings).toHaveBeenCalledWith({
+      organization: context.org,
+      experiment,
+    });
+    const changes = lastUpdateChanges();
+    expect(changes.status).toBe("running");
+    expect(changes.phases).toHaveLength(1);
+    expect(changes.phases?.[0].dateEnded).toBeUndefined();
+    expect(changes.phases?.[0].seed).toBe("seed_1");
+    expect("nextScheduledStatusUpdate" in changes).toBe(false);
+    // The stored experiment isn't mutated
+    expect(experiment.phases[0].dateEnded).toBeInstanceOf(Date);
+    expect(validateExperimentChange).toHaveBeenCalledWith({
+      context,
+      experiment,
+      changes,
+    });
+    expect(updateExperiment).toHaveBeenCalledWith({
+      context,
+      experiment,
+      changes,
+    });
+    expect(resetExperimentBanditSettings).not.toHaveBeenCalled();
+    expect(result.experiment).toBe(experiment);
+    expect(result.updated.status).toBe("running");
+  });
+
+  it("restarts into draft when asked", async () => {
+    await restart(stoppedExperiment(), "draft");
+    expect(lastUpdateChanges().status).toBe("draft");
+  });
+
+  it("clears a pending scheduled status update", async () => {
+    await restart(
+      stoppedExperiment({
+        nextScheduledStatusUpdate: {
+          type: "start",
+          date: new Date("2026-03-01T00:00:00Z"),
+        },
+      }),
+    );
+    expect(lastUpdateChanges()).toMatchObject({
+      nextScheduledStatusUpdate: null,
+    });
+  });
+
+  it("only changes the status of an experiment with no phases", async () => {
+    await restart(stoppedExperiment({ phases: [] }));
+    expect(lastUpdateChanges()).toEqual({ status: "running" });
+  });
+
+  it("starts a fresh phase with new buckets for a bandit", async () => {
+    jest
+      .mocked(resetExperimentBanditSettings)
+      .mockReturnValueOnce({ statsEngine: "bayesian" });
+    await restart(
+      stoppedExperiment({ type: "multi-armed-bandit", bucketVersion: 2 }),
+    );
+
+    const changes = lastUpdateChanges();
+    expect(changes.phases).toHaveLength(2);
+    expect(changes.phases?.[0].dateEnded).toBeInstanceOf(Date);
+    expect(changes.phases?.[1]).toMatchObject({
+      name: "Main",
+      reason: "",
+      condition: LAST_CONDITION,
+      variationWeights: [0.5, 0.5],
+    });
+    expect(changes.phases?.[1].dateEnded).toBeUndefined();
+    expect(changes.phases?.[1].seed).not.toBe("seed_1");
+    expect(changes).toMatchObject({
+      status: "running",
+      bucketVersion: 3,
+      minBucketVersion: 3,
+      statsEngine: "bayesian",
+    });
+    expect(resetExperimentBanditSettings).toHaveBeenCalledTimes(1);
   });
 });
