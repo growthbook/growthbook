@@ -22,11 +22,11 @@ type DraftInReview = {
 function reviewSentence({ featureId, draft }: DraftInReview): ReactNode {
   const subject = (
     <>
-      <strong>Revision {draft.version}</strong> of{" "}
       <strong style={{ whiteSpace: "nowrap" }}>
         <PiFlag style={{ verticalAlign: "-0.125em", marginRight: "0.2em" }} />
         {featureId}
-      </strong>
+      </strong>{" "}
+      · <strong>Revision {draft.version}</strong>
     </>
   );
   if (draft.status === "changes-requested") {
@@ -110,6 +110,7 @@ export default function DraftReviewCallouts({
     );
   }
 
+  // TODO: Replace with a single CTA once multi-entity / multi-draft releases are available in-app
   return (
     <Callout status="info" mb="4">
       <Box mb="2">

@@ -472,7 +472,8 @@ export default function Implementation({
       {!isBandit ? <Separator size="4" my="2" /> : null}
       <div
         id={IMPLEMENTATION_ID}
-        className="my-4"
+        // First on a bandit's page, it's inset like the hypothesis it replaces.
+        className={isBandit ? "pt-2 mb-4" : "my-4"}
         style={{ scrollMarginTop: "100px" }}
       >
         <Heading as="h4" size="sm" color="text-high" mb="2">
