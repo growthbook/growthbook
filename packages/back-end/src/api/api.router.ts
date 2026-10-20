@@ -22,6 +22,7 @@ import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { AutoRunModel } from "back-end/src/models/AutoRunModel";
 import { PopulationModel } from "back-end/src/models/PopulationModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
+import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -99,6 +100,7 @@ const API_MODELS: ModelClass[] = [
   AutoRunModel,
   PopulationModel,
   WebhookSecretDataModel,
+  SdkWebhookModel,
 ];
 
 const router = Router();

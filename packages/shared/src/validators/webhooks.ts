@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { managedByValidator } from "./managed-by";
 import { namedSchema } from "./openapi-helpers";
+import { apiBaseSchema } from "./base-model";
 
 export const payloadFormatValidator = z.enum([
   "standard",
@@ -87,38 +88,31 @@ export type UpdateSdkWebhookProps = z.infer<typeof updateSdkWebhookValidator>;
 
 export const apiSdkWebhookValidator = namedSchema(
   "SdkWebhook",
-  z
-    .object({
-      id: z.string(),
-      name: z.string(),
-      endpoint: z.string(),
-      sdkConnections: z.array(z.string()),
-      httpMethod: z.enum(webhookMethods),
-      payloadFormat: payloadFormatValidator,
-      payloadKey: z.string().optional(),
-      headers: z
-        .string()
-        .describe(
-          "JSON-encoded object of extra headers. Only returned by GET, and only to callers who can edit the webhook; empty otherwise.",
-        ),
-      signingKey: z
-        .string()
-        .describe(
-          "Used to verify the signature header. Only returned by GET, and only to callers who can edit the webhook; empty otherwise.",
-        ),
-      lastSuccess: z.string().meta({ format: "date-time" }).nullable(),
-      error: z.string(),
-      consecutiveFailures: z.number(),
-      disabled: z
-        .boolean()
-        .describe(
-          "Set after repeated failures; changing the endpoint clears it",
-        ),
-      timeoutSeconds: apiWebhookTimeoutSeconds,
-      dateCreated: z.string().meta({ format: "date-time" }),
-      dateUpdated: z.string().meta({ format: "date-time" }),
-    })
-    .strict(),
+  apiBaseSchema.safeExtend({
+    name: z.string(),
+    endpoint: z.string(),
+    sdkConnections: z.array(z.string()),
+    httpMethod: z.enum(webhookMethods),
+    payloadFormat: payloadFormatValidator,
+    payloadKey: z.string().optional(),
+    headers: z
+      .string()
+      .describe(
+        "JSON-encoded object of extra headers. Only returned by GET, and only to callers who can edit the webhook; empty otherwise.",
+      ),
+    signingKey: z
+      .string()
+      .describe(
+        "Used to verify the signature header. Only returned by GET, and only to callers who can edit the webhook; empty otherwise.",
+      ),
+    lastSuccess: z.string().meta({ format: "date-time" }).nullable(),
+    error: z.string(),
+    consecutiveFailures: z.number(),
+    disabled: z
+      .boolean()
+      .describe("Set after repeated failures; changing the endpoint clears it"),
+    timeoutSeconds: apiWebhookTimeoutSeconds,
+  }),
 );
 
 const sdkWebhookFields = {
@@ -136,42 +130,36 @@ const sdkWebhookFields = {
   timeoutSeconds: apiWebhookTimeoutSeconds.optional(),
 };
 
-const sdkWebhookResponse = z
+// SDK webhooks are created through their SDK Connection, so the spec's
+// default CRUD bodies are unused
+export const apiCreateSdkWebhookBody = z.strictObject({});
+export const apiUpdateSdkWebhookBody = z.strictObject({});
+
+export const apiSdkWebhookReturn = z
   .object({ sdkWebhook: apiSdkWebhookValidator })
+  .strict();
+export const apiSdkWebhookListReturn = z
+  .object({ sdkWebhooks: z.array(apiSdkWebhookValidator) })
+  .strict();
+export const apiSdkWebhookDeleteReturn = z
+  .object({ deletedId: z.string() })
+  .strict();
+
+const connectionParams = z
+  .object({ id: z.string().describe("The SDK Connection id") })
   .strict();
 const idParams = z.object({ id: z.string() }).strict();
 
 export const listSdkConnectionWebhooksValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
-  paramsSchema: z
-    .object({ id: z.string().describe("The SDK Connection id") })
-    .strict(),
-  responseSchema: z
-    .object({ sdkWebhooks: z.array(apiSdkWebhookValidator) })
-    .strict(),
-  summary: "Get the webhooks for an SDK Connection",
-  operationId: "listSdkConnectionWebhooks",
-  tags: ["sdk-connections"],
-  method: "get" as const,
-  path: "/sdk-connections/:id/webhooks",
+  paramsSchema: connectionParams,
 };
 
 export const postSdkConnectionWebhookValidator = {
   bodySchema: z.object(sdkWebhookFields).strict(),
   querySchema: z.never(),
-  paramsSchema: z
-    .object({ id: z.string().describe("The SDK Connection id") })
-    .strict(),
-  responseSchema: sdkWebhookResponse,
-  summary: "Add a webhook to an SDK Connection",
-  description:
-    "Called whenever the connection's payload changes. More than one webhook per organization requires a paid plan.",
-  confirmation: ["sdkConnection.edit"] as const,
-  operationId: "postSdkConnectionWebhook",
-  tags: ["sdk-connections"],
-  method: "post" as const,
-  path: "/sdk-connections/:id/webhooks",
+  paramsSchema: connectionParams,
 };
 
 export const putSdkWebhookValidator = {
@@ -192,40 +180,10 @@ export const putSdkWebhookValidator = {
     .strict(),
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: sdkWebhookResponse,
-  summary: "Update an SDK webhook",
-  description: "The webhook fires once after an update.",
-  confirmation: ["sdkConnection.edit"] as const,
-  operationId: "putSdkWebhook",
-  tags: ["sdk-connections"],
-  method: "put" as const,
-  path: "/sdk-webhooks/:id",
 };
 
-export const deleteSdkWebhookValidator = {
+export const sdkWebhookIdValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: z.object({ deletedId: z.string() }).strict(),
-  summary: "Delete an SDK webhook",
-  confirmation: ["sdkConnection.edit"] as const,
-  operationId: "deleteSdkWebhook",
-  tags: ["sdk-connections"],
-  method: "delete" as const,
-  path: "/sdk-webhooks/:id",
-};
-
-export const postSdkWebhookTestValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: idParams,
-  responseSchema: sdkWebhookResponse,
-  summary: "Fire an SDK webhook now",
-  description:
-    "Returns the webhook with the outcome in `error` / `lastSuccess`.",
-  confirmation: ["other.write"] as const,
-  operationId: "postSdkWebhookTest",
-  tags: ["sdk-connections"],
-  method: "post" as const,
-  path: "/sdk-webhooks/:id/test",
 };
