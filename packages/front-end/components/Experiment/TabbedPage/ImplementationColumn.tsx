@@ -59,6 +59,16 @@ export function HeaderText({
   );
 }
 
+export function HeaderKind({ children }: { children: ReactNode }) {
+  return (
+    <span className={styles.headerType}>
+      <Text size="sm" color="text-high" whiteSpace="nowrap">
+        {children}
+      </Text>
+    </span>
+  );
+}
+
 export function ColumnHeader({
   layout,
   icon = null,
@@ -120,15 +130,7 @@ export function ColumnHeader({
               menuOnly && styles.menuOnly,
             )}
           >
-            {typeof kind === "string" ? (
-              <span className={styles.headerType}>
-                <Text size="sm" color="text-high" whiteSpace="nowrap">
-                  {kind}
-                </Text>
-              </span>
-            ) : (
-              kind
-            )}
+            {typeof kind === "string" ? <HeaderKind>{kind}</HeaderKind> : kind}
             {kind && menu.length ? <CardHeaderDivider /> : null}
             {menu.length ? (
               <DropdownMenu

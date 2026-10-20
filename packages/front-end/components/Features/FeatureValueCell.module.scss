@@ -21,9 +21,11 @@
   color: var(--color-text-high);
 }
 
-// The code block has 1px above its text and 2px below; this evens them out.
+// Text sits as far inside the box as an input's; the code block itself has
+// 1px above its text and 2px below.
 .code {
-  padding: 3px 0 2px;
+  padding: calc((32px - var(--line-height-2)) / 2) 0
+    calc((32px - var(--line-height-2)) / 2 - 1px);
 }
 
 .centered {
@@ -31,10 +33,9 @@
   align-items: center;
 }
 
-// Drawn outside the value's box, so rows keep their size when values become
-// editable. It extends as far above the value as below, centering it in the row.
+// Drawn beside the value's box, so rows keep their size when values become
+// editable. Its top and bottom are the box's, lining up with the row's inputs.
 .frame {
-  --frame-y: 3px;
   --frame-start: calc(var(--space-2) + 1px);
   --frame-end: calc(var(--space-1) + 1px);
   isolation: isolate;
@@ -42,8 +43,7 @@
   &::before {
     content: "";
     position: absolute;
-    inset: calc(-1 * var(--frame-y)) calc(-1 * var(--frame-end))
-      calc(-1 * var(--frame-y)) calc(-1 * var(--frame-start));
+    inset: 0 calc(-1 * var(--frame-end)) 0 calc(-1 * var(--frame-start));
     z-index: -1;
     border: 1px solid var(--gray-a3);
     border-radius: var(--radius-2);
@@ -55,8 +55,9 @@
   border-color: var(--red-8);
 }
 
+// Inset like the copy and expand buttons, clear of the scrollbar.
 .openEditor {
   position: absolute;
-  top: calc(var(--space-1) - var(--frame-y));
-  right: calc(var(--space-1) - var(--frame-end));
+  top: var(--space-2);
+  right: var(--space-3);
 }

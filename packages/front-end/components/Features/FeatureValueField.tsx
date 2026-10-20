@@ -70,6 +70,7 @@ import {
   buildStringRefInsertion,
 } from "@/components/Constants/jsonConstantInsert";
 import CornerActions, { ActionsOverlay } from "./CornerActions";
+import { ConfigEnvironmentsBadge } from "./ConfigValueBadges";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -556,6 +557,12 @@ export default function FeatureValueField({
                   </DropdownMenuGroup>
                 </DropdownMenu>
               )}
+              {configKey ? (
+                <ConfigEnvironmentsBadge
+                  configKey={configKey}
+                  project={backingProject}
+                />
+              ) : null}
             </Flex>
             {showPatchEditor && (
               <Box mt="3">

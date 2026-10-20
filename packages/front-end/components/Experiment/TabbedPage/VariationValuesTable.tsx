@@ -11,7 +11,6 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { FeatureValueType } from "shared/types/feature";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import {
   getConfigSubtree,
@@ -60,6 +59,8 @@ import Tooltip from "@/ui/Tooltip";
 import SegmentedControl from "@/ui/SegmentedControl";
 import VariationLabel from "@/ui/VariationLabel";
 import FeatureValueCell from "@/components/Features/FeatureValueCell";
+import { ValueDiffProvider } from "@/components/Features/ValueDiffContext";
+import FeatureValueTypeDisplay from "@/components/Features/FeatureValueTypeDisplay";
 import { getDefaultVariationValue } from "@/services/features";
 import {
   decimalToPercent,
@@ -74,6 +75,7 @@ import {
   ColumnFooter,
   ColumnHeader,
   ColumnLayout,
+  HeaderKind,
   HeaderText,
   ImplementationColumn,
   StagedNote,
@@ -106,13 +108,6 @@ const FLAG_WIDTH = 280;
 const MAX_FLAG_WIDTH = 350;
 const BORDERS = 2;
 const VARIATION_WIDTH = TABLE_MIN_WIDTH - BORDERS - SPLIT_WIDTH - FLAG_WIDTH;
-
-const VALUE_TYPE_LABELS: Record<FeatureValueType, string> = {
-  boolean: "Boolean",
-  number: "Number",
-  string: "String",
-  json: "JSON",
-};
 
 const CaretTrigger = forwardRef<
   HTMLSpanElement,
@@ -1110,7 +1105,7 @@ function FlagColumn({
       ].filter(Boolean);
 
   return (
-    <>
+    <ValueDiffProvider>
       {editingValues !== null ? (
         <FlagValuesModal
           feature={displayFeature}
@@ -1167,7 +1162,16 @@ function FlagColumn({
           </>
         }
         problem={problem}
-        kind={VALUE_TYPE_LABELS[valueType]}
+        kind={
+          <HeaderKind>
+            <FeatureValueTypeDisplay
+              valueType={valueType}
+              baseConfig={feature.baseConfig}
+              link={false}
+              maxWidth={120}
+            />
+          </HeaderKind>
+        }
         menu={menuItems}
         menuLabel={`${feature.id} actions`}
       />
@@ -1252,6 +1256,6 @@ function FlagColumn({
           </Flex>
         ) : null}
       </ColumnFooter>
-    </>
+    </ValueDiffProvider>
   );
 }

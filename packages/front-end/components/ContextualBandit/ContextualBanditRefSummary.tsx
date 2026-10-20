@@ -15,6 +15,7 @@ import Text from "@/ui/Text";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import VariationLabel from "@/ui/VariationLabel";
 import ConfigBackedSummary from "@/components/Features/ConfigBackedSummary";
+import { ValueDiffProvider } from "@/components/Features/ValueDiffContext";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 
@@ -145,54 +146,56 @@ export default function ContextualBanditRefSummary({
           borderRadius: "var(--radius-2)",
         }}
       >
-        <Table>
-          <TableBody>
-            {cb.variations.map((v, i) => {
-              const ruleVariation = rule.variations.find(
-                (rv) => rv.variationId === v.id,
-              );
-              return (
-                <TableRow
-                  key={v.id}
-                  style={{ color: "var(--color-text-high)" }}
-                >
-                  <TableCell style={{ whiteSpace: "nowrap" }}>
-                    <VariationLabel number={i} name={v.name || v.key} />
-                  </TableCell>
-                  <TableCell width="100%">
-                    {ruleVariation ? (
-                      (() => {
-                        const defaultConfigKey =
-                          getFeatureBaseConfigKey(feature);
-                        const configKey =
-                          defaultConfigKey !== null
-                            ? (getConfigBackingKey(ruleVariation.value) ??
-                              defaultConfigKey)
-                            : null;
-                        return configKey !== null ? (
-                          <ConfigBackedSummary
-                            value={ruleVariation.value}
-                            configKey={configKey}
-                            feature={feature}
-                            sparse={defaultConfigKey !== null}
-                            environment={environment}
-                          />
-                        ) : (
-                          <ValueDisplay
-                            value={ruleVariation.value}
-                            type={type}
-                          />
-                        );
-                      })()
-                    ) : (
-                      <em>not set</em>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+        <ValueDiffProvider>
+          <Table>
+            <TableBody>
+              {cb.variations.map((v, i) => {
+                const ruleVariation = rule.variations.find(
+                  (rv) => rv.variationId === v.id,
+                );
+                return (
+                  <TableRow
+                    key={v.id}
+                    style={{ color: "var(--color-text-high)" }}
+                  >
+                    <TableCell style={{ whiteSpace: "nowrap" }}>
+                      <VariationLabel number={i} name={v.name || v.key} />
+                    </TableCell>
+                    <TableCell width="100%">
+                      {ruleVariation ? (
+                        (() => {
+                          const defaultConfigKey =
+                            getFeatureBaseConfigKey(feature);
+                          const configKey =
+                            defaultConfigKey !== null
+                              ? (getConfigBackingKey(ruleVariation.value) ??
+                                defaultConfigKey)
+                              : null;
+                          return configKey !== null ? (
+                            <ConfigBackedSummary
+                              value={ruleVariation.value}
+                              configKey={configKey}
+                              feature={feature}
+                              sparse={defaultConfigKey !== null}
+                              environment={environment}
+                            />
+                          ) : (
+                            <ValueDisplay
+                              value={ruleVariation.value}
+                              type={type}
+                            />
+                          );
+                        })()
+                      ) : (
+                        <em>not set</em>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </ValueDiffProvider>
       </Box>
     </Box>
   );

@@ -60,6 +60,9 @@ export default function ForceSummary({
         environment={environment}
         label={label}
         showCopyButton={showCopyButton}
+        fontSize={fontSize}
+        lineHeight={lineHeight}
+        actionsOverlay={actionsOverlay}
       />
     );
   }

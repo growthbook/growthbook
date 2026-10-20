@@ -12,7 +12,8 @@ import styles from "./FeatureValueCell.module.scss";
 
 const JSON_ACTIONS: ActionsOverlay = {
   revealOnHover: true,
-  style: { bottom: -9, right: 2, gap: "var(--space-2)" },
+  // Clear of the scroll area's scrollbar.
+  style: { bottom: -9, right: 12, gap: "var(--space-2)" },
 };
 const ONE_LINE_ACTIONS: ActionsOverlay = {
   revealOnHover: true,
@@ -83,7 +84,7 @@ export default function FeatureValueCell({
               sparse={sparse}
               fontSize="0.7rem"
               lineHeight={1.3}
-              monochrome
+              monochrome={!isJson}
               actionsOverlay={isJson ? JSON_ACTIONS : ONE_LINE_ACTIONS}
             />
           )}
