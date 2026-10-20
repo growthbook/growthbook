@@ -195,9 +195,9 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   <KeyTrait
                     icon={<PiIdentificationCard size={18} />}
                     color="var(--brown-10)"
-                    tooltip="Every request must name a member with X-GrowthBook-Requested-By, and acts as that member"
+                    tooltip="Every request must name a member with X-GrowthBook-Requested-By. The key acts as that member."
                   >
-                    Acts as User
+                    Acts as user
                   </KeyTrait>
                 )}
                 {key.confirmRules && (
@@ -206,7 +206,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     color="var(--violet-11)"
                     tooltip="Risky actions made with this key wait for a person to confirm them."
                   >
-                    Human-in-the-loop
+                    Human-in-the-Loop
                   </KeyTrait>
                 )}
               </TableCell>

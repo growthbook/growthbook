@@ -243,13 +243,13 @@ const ApiKeysModal: FC<{
               {
                 value: "system",
                 label: "System",
-                description: "Not tied to a specific user",
+                description: "Not tied to a specific user.",
                 avatar: <PiHardDrives size={20} />,
               },
               {
                 value: "user",
                 label: "User",
-                description: "Pass a user in a header to act on their behalf",
+                description: "Pass a user in a header to act on their behalf.",
                 avatar: <PiUser size={20} />,
               },
             ]}
@@ -257,7 +257,7 @@ const ApiKeysModal: FC<{
           {actAs === "user" && (
             <>
               <Text as="p" mt="3" mb="3">
-                All requests must have a <code>X-GrowthBook-Requested-By</code>{" "}
+                All requests must have an <code>X-GrowthBook-Requested-By</code>{" "}
                 header with email or member ID.
               </Text>
               <Callout status="info">

@@ -105,8 +105,9 @@ export default function PermissionsField({
   };
   const disabledReason: Partial<Record<Preset, string>> = {
     readonly: allowed.roles
-      ? "Your organization has deactivated the Read only role."
+      ? "Your organization has deactivated the Read Only role."
       : "Your plan only supports the admin role.",
+    hitl: "Human-in-the-Loop requires an Enterprise plan.",
   };
 
   return (

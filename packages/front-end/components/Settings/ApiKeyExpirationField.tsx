@@ -145,16 +145,18 @@ const ApiKeyExpirationField: FC<{
   return (
     <>
       <Flex direction="column" style={{ minWidth: 0 }}>
-        {/* Styled like the TextField label beside it. */}
-        <Text as="label" size="md" weight="semibold">
-          Expires
-        </Text>
         {expired ? (
-          <Text color="text-mid">Expired</Text>
+          <>
+            <Text as="div" size="md" weight="semibold">
+              Expires
+            </Text>
+            <Text color="text-mid">Expired</Text>
+          </>
         ) : (
           <>
             <SelectField
-              aria-label="Expires"
+              label="Expires"
+              legacyLabelFormatting={false}
               size="small"
               maxMenuHeight={360}
               sort={false}
