@@ -15,6 +15,7 @@ export type AttributeExperimentRef = {
 export type AttributeSavedGroupRef = {
   id: string;
   groupName: string;
+  type: "condition" | "list";
   projects?: string[];
 };
 

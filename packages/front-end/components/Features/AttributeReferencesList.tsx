@@ -17,7 +17,12 @@ type ExperimentRef = {
   project?: string;
   projects?: string[];
 };
-type SavedGroupRef = { id: string; groupName?: string; projects?: string[] };
+type SavedGroupRef = {
+  id: string;
+  groupName?: string;
+  type?: "condition" | "list";
+  projects?: string[];
+};
 
 interface AttributeReferencesListProps {
   features?: FeatureRef[];
@@ -248,6 +253,18 @@ const AttributeReferencesList: FC<AttributeReferencesListProps> = ({
                         {savedGroup.groupName ?? savedGroup.id}
                       </Link>
                     </Box>
+                    {savedGroup.type ? (
+                      <Box flexShrink="0">
+                        <Badge
+                          variant="soft"
+                          label={
+                            savedGroup.type === "list"
+                              ? "ID list"
+                              : "Condition group"
+                          }
+                        />
+                      </Box>
+                    ) : null}
                     <Box flexShrink="0">
                       <ProjectBadges
                         resourceType="saved group"
