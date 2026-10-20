@@ -270,6 +270,7 @@ export class ApiKeyModel extends BaseClass {
       this.assertPlanAllowsScope({
         ...permissions,
         role: permissions.scopedRole,
+        limitAccessByEnvironment: permissions.limitAccessByEnvironment ?? false,
       });
     }
   }
