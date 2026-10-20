@@ -1,6 +1,7 @@
 import { ApiContextualBanditInterface } from "shared/validators";
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { z } from "zod";
 import {
   getContextualBanditResultStatus,
   getHealthSettings,
@@ -151,6 +152,44 @@ export type ContextualBanditStatusHealth = {
   multipleExposures: number;
 };
 
+type ContextualBanditResultsLatest = z.infer<
+  typeof contextualBanditEndpoints.getContextualBanditResults.responseSchema
+>["latest"];
+
+/**
+ * Health inputs from the newest successful run, falling back to the summary
+ * persisted on the CB doc. Undefined when there is no traffic to assess.
+ */
+export function resolveContextualBanditStatusHealth(
+  latest: ContextualBanditResultsLatest,
+  persisted: ApiContextualBanditInterface["analysisSummary"],
+): ContextualBanditStatusHealth | undefined {
+  if (latest?.status === "success") {
+    const totalUsers =
+      latest.traffic?.overall?.variationUnits?.reduce((sum, n) => sum + n, 0) ??
+      0;
+    // With no traffic there is nothing to assess. Return undefined so callers
+    // treat this as "no health data" rather than an assessed, healthy result.
+    if (totalUsers === 0) {
+      return undefined;
+    }
+    return {
+      srm: latest.srm?.pValue ?? null,
+      totalUsers,
+      multipleExposures: latest.multipleExposures ?? 0,
+    };
+  }
+  const health = persisted?.health;
+  if (health && health.totalUsers > 0) {
+    return {
+      srm: health.srm ?? null,
+      totalUsers: health.totalUsers,
+      multipleExposures: health.multipleExposures ?? 0,
+    };
+  }
+  return undefined;
+}
+
 /**
  * Resolves the health inputs for a CB's status badge and Health tab.
  */
@@ -158,34 +197,10 @@ export function useContextualBanditStatusHealth(
   cb: ApiContextualBanditInterface,
 ): ContextualBanditStatusHealth | undefined {
   const { latest } = useContextualBanditResults(cb.id);
-  return useMemo(() => {
-    if (latest?.status === "success") {
-      const totalUsers =
-        latest.traffic?.overall?.variationUnits?.reduce(
-          (sum, n) => sum + n,
-          0,
-        ) ?? 0;
-      // With no traffic there is nothing to assess. Return undefined so callers
-      // treat this as "no health data" rather than an assessed, healthy result.
-      if (totalUsers === 0) {
-        return undefined;
-      }
-      return {
-        srm: latest.srm?.pValue ?? null,
-        totalUsers,
-        multipleExposures: latest.multipleExposures ?? 0,
-      };
-    }
-    const persisted = cb.analysisSummary?.health;
-    if (persisted && persisted.totalUsers > 0) {
-      return {
-        srm: persisted.srm ?? null,
-        totalUsers: persisted.totalUsers,
-        multipleExposures: persisted.multipleExposures ?? 0,
-      };
-    }
-    return undefined;
-  }, [cb.analysisSummary, latest]);
+  return useMemo(
+    () => resolveContextualBanditStatusHealth(latest, cb.analysisSummary),
+    [cb.analysisSummary, latest],
+  );
 }
 
 /**

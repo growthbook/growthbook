@@ -300,7 +300,7 @@ export function isMultiStatementSQL(sql: string, backslashEscapes: boolean) {
   }
 }
 
-export function stripCommentsAndStrings(
+function stripCommentsAndStrings(
   sql: string,
   backslashEscapes: boolean,
 ): {
