@@ -199,7 +199,7 @@ export default function FactMetricList({
     let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
     if (
       factMetric.managedBy &&
-      ["api", "config"].includes(factMetric.managedBy)
+      ["api", "dbt", "config"].includes(factMetric.managedBy)
     ) {
       canEdit = false;
     }
@@ -209,7 +209,7 @@ export default function FactMetricList({
     let canDelete = permissionsUtil.canDeleteFactMetric(factMetric);
     if (
       factMetric.managedBy &&
-      ["api", "config"].includes(factMetric.managedBy)
+      ["api", "dbt", "config"].includes(factMetric.managedBy)
     ) {
       canDelete = false;
     }

@@ -6,7 +6,7 @@ sidebarTitle: dbt (Semantic Layer)
 
 If you define metrics in dbt's semantic layer (MetricFlow), the `@growthbook/dbt` CLI turns them into GrowthBook Fact Tables and Fact Metrics and keeps them in sync. It reads the artifacts dbt writes after `dbt parse`, so it needs no warehouse connection and no dbt runtime of its own.
 
-This builds on the same bulk import API as the [GitHub metrics guide](/integrations/github-metrics). Fact Tables and Fact Metrics it creates are marked as managed by the API, so they can only be changed from dbt.
+This builds on the same bulk import API as the [GitHub metrics guide](/integrations/github-metrics). Fact Tables and Fact Metrics it creates are marked as managed by dbt, so they can only be changed from dbt. Self-hosted GrowthBook needs a version that supports dbt-managed resources.
 
 ## How Definitions Map
 
@@ -33,6 +33,8 @@ This builds on the same bulk import API as the [GitHub metrics guide](/integrati
 | `config.meta.growthbook.*`                          | Merged onto the Fact Table or Fact Metric (see [Overrides](#overrides))                                                                                                                                                                         |
 
 Both the legacy YAML spec (`semantic_models` with `measures`) and the dbt v1.12 spec (`semantic_model` nested under a model, measures replaced by simple metrics) are supported, because the CLI reads `manifest.json` rather than your YAML.
+
+dbt aggregates a metric over a time grain, while GrowthBook aggregates it per experiment unit and then compares variations. A synced metric therefore will not reproduce the values on your dbt-powered dashboards: a `sum` becomes the average per-user total, and an `average` becomes total value over total rows across all exposed users.
 
 ### Not Supported
 
@@ -105,7 +107,7 @@ npx @growthbook/dbt sync --datasource ds_abc123 --select tag:growthbook
 npx @growthbook/dbt sync --datasource ds_abc123 --exclude 'stg_*,internal_revenue'
 ```
 
-By default, metrics removed from dbt stay in GrowthBook. Add `--prune` to archive API-managed Fact Tables and Fact Metrics on the Data Source that are no longer produced by the sync. They are archived rather than deleted so existing experiment results keep working, and they are unarchived automatically if they reappear in dbt. Because a selected subset is not the full picture, `--prune` cannot be combined with `--select` or `--exclude`; metrics disabled with `meta.growthbook.enabled: false` are still archived.
+By default, metrics removed from dbt stay in GrowthBook. Add `--prune` to archive dbt-managed Fact Tables and Fact Metrics on the Data Source that are no longer produced by the sync. Resources created any other way, including through the API, are never touched. They are archived rather than deleted so existing experiment results keep working, and they are unarchived automatically if they reappear in dbt. Because a selected subset is not the full picture, `--prune` cannot be combined with `--select` or `--exclude`; metrics disabled with `meta.growthbook.enabled: false` are still archived.
 
 ## Overrides
 
@@ -164,7 +166,7 @@ growthbook-dbt sync --datasource <ds_id> [options]
   --exclude <list>      never sync these metrics/models
   --dry-run             validate against the API without writing
   --strict              exit 1 if anything was skipped
-  --prune               archive API-managed resources no longer in dbt
+  --prune               archive dbt-managed resources no longer in dbt
   --out <path>          write the payload to a file instead of calling the API
 ```
 

@@ -24,7 +24,7 @@ Options:
   --exclude <list>      never sync these metrics/models (name globs or tag:<tag>)
   --dry-run             validate against the API without writing
   --strict              exit 1 if anything was skipped
-  --prune               archive api-managed Fact Tables/Metrics on the Data Source that are no longer in dbt (and unarchive ones that return)
+  --prune               archive dbt-managed Fact Tables/Metrics on the Data Source that are no longer in dbt (and unarchive ones that return)
   --out <path>          write the payload to a file instead of calling the API
   -h, --help
 `;
@@ -164,6 +164,11 @@ async function main() {
       method: "POST",
       body: JSON.stringify({ ...payload, dryRun }),
     });
+    if (!r.ok && JSON.stringify(r.body).includes("defaultManagedBy")) {
+      throw new Error(
+        "This GrowthBook server does not support dbt-managed resources yet. Upgrade it to sync from dbt.",
+      );
+    }
     const body: BulkImportResponse = isRecord(r.body) ? r.body : {};
     for (const e of body.errors ?? []) {
       console.log(`[error] ${e.resourceType} ${e.id}: ${e.message}`);

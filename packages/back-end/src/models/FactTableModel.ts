@@ -26,6 +26,7 @@ import {
   ApiFactTable,
   ApiFactTableColumn,
   ApiFactTableFilter,
+  isExternallyManaged,
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -384,7 +385,7 @@ export async function updateFactTable(
   // system/background contexts (which have no audit user) through, e.g. the
   // event forwarder sync.
   if (
-    factTable.managedBy === "api" &&
+    isExternallyManaged(factTable.managedBy) &&
     context.auditUser?.type !== "api_key" &&
     context.auditUser !== null &&
     Object.keys(changes).some((k) => k !== "columns")

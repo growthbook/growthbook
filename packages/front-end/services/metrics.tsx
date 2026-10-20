@@ -106,7 +106,7 @@ export function getDefaultFactMetricProps({
   // Starting data source when no fact table is chosen yet (e.g. "Add" from a
   // data source's page) - otherwise the org default wins.
   initialDatasource?: string;
-  managedBy?: "" | "api" | "admin";
+  managedBy?: FactMetricInterface["managedBy"];
 }): CreateFactMetricFormProps & { targetMDE: number } {
   const existingMetricType = existing?.metricType;
   return {

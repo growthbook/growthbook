@@ -180,7 +180,7 @@ export interface FactMetricData {
   [key: string]: unknown;
 }
 export interface BulkImportPayload {
-  defaultManagedBy: "api";
+  defaultManagedBy: "dbt";
   factTables: { id: string; data: FactTableData }[];
   factMetrics: { id: string; data: FactMetricData }[];
 }
@@ -1294,7 +1294,7 @@ export function translate(
     a.id.localeCompare(b.id);
   return {
     payload: {
-      defaultManagedBy: "api",
+      defaultManagedBy: "dbt",
       factTables: factTables
         .filter((t) => usedTables.has(t.id) || plainTables.has(t.id))
         .sort(byId),

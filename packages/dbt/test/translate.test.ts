@@ -29,7 +29,7 @@ describe("translate (legacy spec)", () => {
     expect(() =>
       postBulkImportFactsValidator.bodySchema.parse(payload),
     ).not.toThrow();
-    expect(payload.defaultManagedBy).toBe("api");
+    expect(payload.defaultManagedBy).toBe("dbt");
   });
 
   it("groups metrics into the fewest fact tables", () => {

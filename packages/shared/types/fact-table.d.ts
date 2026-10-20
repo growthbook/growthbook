@@ -12,6 +12,7 @@ import {
   metricTypeValidator,
   factTableColumnTypeValidator,
   factTableTypeValidator,
+  factManagedByValidator,
   testFactFilterPropsValidator,
   testRowFiltersPropsValidator,
   testVirtualColumnPropsValidator,
@@ -39,6 +40,7 @@ import { TestQueryRow } from "shared/types/integrations";
 
 export type FactTableColumnType = z.infer<typeof factTableColumnTypeValidator>;
 export type FactTableType = z.infer<typeof factTableTypeValidator>;
+export type FactManagedBy = z.infer<typeof factManagedByValidator>;
 
 // Funnel step / settings types (validators live in validators/fact-table).
 export type ConversionWindow = z.infer<typeof conversionWindowValidator>;
@@ -90,7 +92,7 @@ export interface FactFilterInterface {
 export interface FactTableInterface {
   organization: string;
   id: string;
-  managedBy?: "" | "api" | "admin";
+  managedBy?: FactManagedBy;
   dateCreated: Date | null;
   dateUpdated: Date | null;
   name: string;

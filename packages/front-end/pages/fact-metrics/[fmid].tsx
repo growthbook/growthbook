@@ -104,7 +104,7 @@ export default function FactMetricPage() {
       .length ?? 0;
 
   const factMetric = getFactMetricById(fmid as string);
-  const externallyManaged = ["api", "config"].includes(
+  const externallyManaged = ["api", "dbt", "config"].includes(
     factMetric?.managedBy || "",
   );
   const canEdit =
