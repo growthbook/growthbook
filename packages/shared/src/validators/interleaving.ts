@@ -218,7 +218,7 @@ export const apiCreateInterleavingBody = z.strictObject({
   tags: z.array(z.string()).optional(),
 
   key: interleavingKeyField.describe(
-    "The key your code passes to `interleave()` as `ranker`. Unique in the organization and can't be changed later.",
+    "The key your code passes to `interleave()` as `ranker`. Can't be changed later. Several experiments may share a key so you can iterate without changing code, but only one of them can be running in a given environment, and each needs its own `trackingKey`.",
   ),
   trackingKey: z
     .string()

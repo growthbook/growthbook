@@ -96,7 +96,6 @@ const BaseClass = MakeModelClass({
         organization: 1,
         key: 1,
       },
-      unique: true,
     },
     {
       fields: {
@@ -278,12 +277,42 @@ export class InterleavingModel extends BaseClass {
     doc: InterleavingInterface,
     previousDoc?: InterleavingInterface,
   ): Promise<void> {
-    // The unique index is the backstop; this gives a readable error.
-    if (!previousDoc) {
-      const clash = await this._findOne({ key: doc.key });
-      if (clash && clash.id !== doc.id) {
+    const identityChanged =
+      doc.key !== previousDoc?.key ||
+      doc.trackingKey !== previousDoc?.trackingKey;
+    const servingChanged =
+      doc.status !== previousDoc?.status ||
+      doc.archived !== previousDoc?.archived ||
+      !isEqual(doc.environmentSettings, previousDoc?.environmentSettings);
+    if (identityChanged || servingChanged) {
+      const servingEnvs = (il: InterleavingInterface) =>
+        interleavingEnvsForChange({
+          existing: il,
+          environmentIds: this.context.environments,
+        });
+      const sharing = (
+        await (
+          this.context.scanContextOverride ??
+          getContextForAgendaJobByOrgObject(this.context.org)
+        ).models.interleavings.getAll()
+      ).filter((il) => il.id !== doc.id && il.key === doc.key);
+
+      if (interleavingInSDKPayload(doc)) {
+        const serving = new Set(servingEnvs(doc));
+        for (const other of sharing) {
+          if (!interleavingInSDKPayload(other)) continue;
+          const overlap = servingEnvs(other).filter((env) => serving.has(env));
+          if (overlap.length) {
+            throw new Error(
+              `Another interleaving experiment with the key "${doc.key}" is already running in ${overlap.join(", ")}. Stop it, or turn that environment off for one of them.`,
+            );
+          }
+        }
+      }
+
+      if (sharing.some((other) => other.trackingKey === doc.trackingKey)) {
         throw new Error(
-          `An interleaving experiment with the key "${doc.key}" already exists.`,
+          `Another interleaving experiment with the key "${doc.key}" already reports as "${doc.trackingKey}". Set a different tracking key so their exposures can be told apart.`,
         );
       }
     }
@@ -380,18 +409,17 @@ export class InterleavingModel extends BaseClass {
       !!previousDoc &&
       !interleavingTargetingServes(previousDoc) &&
       interleavingTargetingServes(doc);
-    // Org-wide on the way live: a reference in a project the caller can't read
-    // still has to resolve, or the re-check would reject a valid restart.
+    const referenceContext = goingLive
+      ? (this.context.scanContextOverride ??
+        getContextForAgendaJobByOrgObject(this.context.org))
+      : this.context;
     await validateChangedRuleReferences(
       [doc],
       previousDoc && !goingLive ? [previousDoc] : [],
-      goingLive
-        ? (this.context.scanContextOverride ??
-            getContextForAgendaJobByOrgObject(this.context.org))
-        : this.context,
+      referenceContext,
     );
     await assertValidExperimentPrerequisites(
-      this.context,
+      referenceContext,
       doc.prerequisites,
       goingLive ? undefined : previousDoc?.prerequisites,
     );
@@ -503,10 +531,5 @@ export class InterleavingModel extends BaseClass {
     interleavingQueryId: string,
   ): Promise<InterleavingInterface[]> {
     return this._find({ interleavingQueryId });
-  }
-
-  /** Looks up an interleaving by its code-facing key (what `interleave()` receives). */
-  public getByKey(key: string): Promise<InterleavingInterface | null> {
-    return this._findOne({ key });
   }
 }

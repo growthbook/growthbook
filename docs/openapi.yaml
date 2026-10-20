@@ -54466,7 +54466,10 @@ paths:
                 key:
                   description: >-
                     The key your code passes to `interleave()` as `ranker`.
-                    Unique in the organization and can't be changed later.
+                    Can't be changed later. Several experiments may share a key
+                    so you can iterate without changing code, but only one of
+                    them can be running in a given environment, and each needs
+                    its own `trackingKey`.
                   type: string
                   pattern: ^[a-zA-Z0-9_.:\|\-]+$
                 trackingKey:
@@ -54478,8 +54481,8 @@ paths:
                   type: string
                 variations:
                   description: >-
-                    Exactly two rankers. Users who aren't interleaved get the
-                    first ranker's list.
+                    Exactly two rankers. Users who are not exposed to
+                    interleaved rankings get the first ranker's list.
                   type: array
                   prefixItems:
                     - type: object
