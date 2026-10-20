@@ -2,6 +2,7 @@ import { isEqual } from "lodash";
 import { pruneApprovalRuleReferences } from "shared/util";
 import { TeamInterface } from "shared/types/team";
 import {
+  OAuthGrantInterface,
   ManagedBy,
   ProjectInterface,
   projectValidator,
@@ -22,6 +23,7 @@ import {
 } from "./OrganizationModel";
 import { MakeModelClass } from "./BaseModel";
 import { ApiKeyModel } from "./ApiKeyModel";
+import { COLLECTION_NAME as OAUTH_GRANTS } from "./OAuthGrantModel";
 
 function slugify(text: string): string {
   return text
@@ -133,6 +135,14 @@ export class ProjectModel extends BaseClass {
       ApiKeyModel.dangerousRemoveProjectRolesForProject(
         this.context.org.id,
         doc.id,
+      ),
+      // Every refresh mints an access token from these, and minting rejects a missing project.
+      getCollection<OAuthGrantInterface>(OAUTH_GRANTS).updateMany(
+        {
+          organization: this.context.org.id,
+          "permissions.projectRoles.project": doc.id,
+        },
+        { $pull: { "permissions.projectRoles": { project: doc.id } } },
       ),
     ]);
     for (const result of cleanups) {

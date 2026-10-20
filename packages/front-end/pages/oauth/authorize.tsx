@@ -7,14 +7,17 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { DefinitionsProvider } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
-import useOrgLimits from "@/hooks/useOrgLimits";
 import { allowSelfOrgCreation } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import UserAvatar from "@/components/Avatar/UserAvatar";
-import PermissionsField from "@/components/Settings/PermissionsField";
+import PermissionsField, {
+  useAllowedPermissions,
+} from "@/components/Settings/PermissionsField";
 import {
   initialPermissions,
   isComplete,
+  PermissionsValue,
+  rulesProblem,
   tokenFields,
 } from "@/components/Settings/apiKeyPermissions";
 import Button from "@/ui/Button";
@@ -183,7 +186,7 @@ export default function OAuthAuthorizePage() {
     setOrgId: setActiveOrgId,
   } = useAuth();
   const { organization } = useUser();
-  const { orgSupportsRoles } = useOrgLimits();
+  const allowed = useAllowedPermissions();
 
   const query = useMemo(() => {
     const q = router.query;
@@ -203,9 +206,11 @@ export default function OAuthAuthorizePage() {
     };
   }, [router.query]);
 
-  const [permissions, setPermissions] = useState(() =>
-    initialPermissions(undefined, "pat"),
-  );
+  // The default waits on the organization's plan, so it's derived until changed.
+  const [changedPermissions, setPermissions] =
+    useState<PermissionsValue | null>(null);
+  const permissions =
+    changedPermissions ?? initialPermissions(undefined, "pat", allowed);
   const [actionError, setActionError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -301,7 +306,9 @@ export default function OAuthAuthorizePage() {
     (info && (info.status !== 200 || !info.client)
       ? info.message || "Failed to load authorization request"
       : "");
-  const error = actionError || missingParamsError || infoError;
+  // A failed Authorize leaves the form up so it can be corrected and retried.
+  const fatalError = missingParamsError || infoError;
+  const error = actionError || fatalError;
   // Never redirect to a redirect_uri the server hasn't matched to the client (RFC 6749 §4.1.2.1).
   const verifiedRedirectUri =
     !infoFetchError && info?.status === 200 && info.client
@@ -323,6 +330,11 @@ export default function OAuthAuthorizePage() {
   const approve = useCallback(async () => {
     if (!orgId) {
       setActionError("Please select an organization");
+      return;
+    }
+    const problem = rulesProblem(permissions);
+    if (problem) {
+      setActionError(problem);
       return;
     }
     setSubmitting(true);
@@ -393,7 +405,7 @@ export default function OAuthAuthorizePage() {
 
   const claimedName = info?.client?.clientName;
   const redirectTarget = describeRedirectTarget(info?.redirectUri);
-  const showDetails = !!info?.client && !error;
+  const showDetails = !!info?.client && !fatalError;
 
   return (
     <ConsentPageWrapper>
@@ -435,7 +447,7 @@ export default function OAuthAuthorizePage() {
         </Callout>
       ) : null}
 
-      {info && !error ? (
+      {info && !fatalError ? (
         <Frame>
           {info.user ? (
             <>
@@ -513,14 +525,14 @@ export default function OAuthAuthorizePage() {
         </Frame>
       ) : null}
 
-      {info && !error && orgLoaded ? (
+      {info && !fatalError && orgLoaded ? (
         <Frame>
           <DefinitionsProvider>
             <PermissionsField
               holder="pat"
               value={permissions}
               setValue={setPermissions}
-              canLimitRole={orgSupportsRoles()}
+              allowed={allowed}
             />
           </DefinitionsProvider>
         </Frame>
@@ -563,7 +575,10 @@ export default function OAuthAuthorizePage() {
               size="lg"
               onClick={approve}
               disabled={
-                submitting || !orgLoaded || !isComplete(permissions) || !!error
+                submitting ||
+                !orgLoaded ||
+                !isComplete(permissions) ||
+                !!fatalError
               }
               loading={submitting}
               style={{ flex: 1 }}

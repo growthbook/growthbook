@@ -171,6 +171,17 @@ export class ApiKeyModel extends BaseClass {
     doc: ApiKeyInterface,
     previousDoc?: ApiKeyInterface,
   ) {
+    // Only turning confirmations on or changing them is gated, so a key keeps
+    // its confirmations after a downgrade and can always drop them.
+    if (
+      doc.confirmRules &&
+      !isEqual(doc.confirmRules, previousDoc?.confirmRules) &&
+      !this.context.hasPremiumFeature("human-in-the-loop")
+    ) {
+      this.context.throwPlanDoesNotAllowError(
+        "Your plan does not support Human-in-the-Loop confirmations.",
+      );
+    }
     const maxDays = this.maxLifetimeDaysFor(doc);
     if (
       doc.secret &&

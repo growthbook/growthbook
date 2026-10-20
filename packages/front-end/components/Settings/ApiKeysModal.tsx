@@ -11,7 +11,6 @@ import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
-import useOrgLimits from "@/hooks/useOrgLimits";
 import track from "@/services/track";
 import TextField from "@/ui/TextField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -21,12 +20,13 @@ import Link from "@/ui/Link";
 import RadioCards from "@/ui/RadioCards";
 import Text from "@/ui/Text";
 import ApiKeyExpirationField from "./ApiKeyExpirationField";
-import PermissionsField from "./PermissionsField";
+import PermissionsField, { useAllowedPermissions } from "./PermissionsField";
 import {
   forHolder,
   initialPermissions,
   isComplete,
   orgKeyFields,
+  rulesProblem,
   tokenFields,
 } from "./apiKeyPermissions";
 
@@ -53,7 +53,6 @@ const ApiKeysModal: FC<{
 }) => {
   const { apiCall } = useAuth();
   const { settings } = useUser();
-  const { orgSupportsRoles } = useOrgLimits();
   const canCreateApiKey = usePermissionsUtil().canCreateApiKey();
   const replaceBlocked = personalAccessToken
     ? settings?.disablePersonalAccessTokens
@@ -109,20 +108,16 @@ const ApiKeysModal: FC<{
 
   const [actAs, setActAs] = useState<ActAs>(source?.actAs ?? "system");
   const holder = personalAccessToken ? "pat" : actAs;
-  const [permissions, setPermissions] = useState(() =>
-    initialPermissions(source, holder),
-  );
+  const plan = useAllowedPermissions();
   // An already-scoped token keeps its scope after a downgrade, so it isn't silently dropped.
-  const canLimitRole = orgSupportsRoles() || !!source?.scoped;
+  const allowed = source?.scoped ? { ...plan, roles: true } : plan;
+  const [permissions, setPermissions] = useState(() =>
+    initialPermissions(source, holder, allowed),
+  );
 
   const onSubmit = form.handleSubmit(async (value) => {
-    if (
-      permissions.customizing &&
-      permissions.requireConfirmation &&
-      permissions.rules.some((rule) => !rule.actions.length)
-    ) {
-      throw new Error("Choose at least one action for each confirmation rule.");
-    }
+    const problem = rulesProblem(permissions);
+    if (problem) throw new Error(problem);
     const { role, ...orgKeyScope } = {
       ...orgKeyFields(permissions),
       actAs,
@@ -242,7 +237,7 @@ const ApiKeysModal: FC<{
             value={actAs}
             setValue={(next) => {
               setActAs(next as ActAs);
-              setPermissions(forHolder(permissions, next as ActAs));
+              setPermissions(forHolder(permissions, next as ActAs, allowed));
             }}
             options={[
               {
@@ -286,7 +281,7 @@ const ApiKeysModal: FC<{
             holder={holder}
             value={permissions}
             setValue={setPermissions}
-            canLimitRole={canLimitRole}
+            allowed={allowed}
           />
         </Box>
       )}

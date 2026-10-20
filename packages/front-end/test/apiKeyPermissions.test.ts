@@ -1,11 +1,17 @@
 import {
+  canCustomize,
   forHolder,
   initialPermissions,
   orgKeyFields,
   presetOfKey,
+  rulesProblem,
   startCustomizing,
   tokenFields,
 } from "@/components/Settings/apiKeyPermissions";
+
+const ENTERPRISE = { roles: true, readonly: true, confirmations: true };
+const PRO = { roles: true, readonly: true, confirmations: false };
+const FREE = { roles: false, readonly: false, confirmations: false };
 
 const RECOMMENDED = [{ actions: ["recommended"] }];
 const key = (fields = {}) => ({
@@ -51,6 +57,7 @@ describe("presetOfKey", () => {
       "pat",
       "readonly",
     ],
+    ["a token scoped to admin", key({ scoped: true }), "pat", null],
   ] as const)("reads %s as %s", (_, saved, holder, preset) => {
     expect(presetOfKey(saved, holder)).toBe(preset);
   });
@@ -58,7 +65,7 @@ describe("presetOfKey", () => {
 
 describe("saving a preset", () => {
   it("gives Human-in-the-Loop the recommended rules on an admin role", () => {
-    const value = initialPermissions(undefined, "user");
+    const value = initialPermissions(undefined, "user", ENTERPRISE);
     expect(value.preset).toBe("hitl");
     expect(orgKeyFields(value)).toMatchObject({
       role: "admin",
@@ -68,11 +75,13 @@ describe("saving a preset", () => {
   });
 
   it("starts a System key with nothing picked", () => {
-    expect(initialPermissions(undefined, "system").preset).toBeNull();
+    expect(
+      initialPermissions(undefined, "system", ENTERPRISE).preset,
+    ).toBeNull();
   });
 
   it("saves a full-access token unscoped and a read-only one scoped", () => {
-    const base = initialPermissions(undefined, "pat");
+    const base = initialPermissions(undefined, "pat", ENTERPRISE);
     expect(tokenFields({ ...base, preset: "full" })).toEqual({
       confirmRules: null,
     });
@@ -89,26 +98,81 @@ describe("saving a preset", () => {
 
 describe("switching between System and User", () => {
   it("drops Human-in-the-Loop for System and defaults to it for User", () => {
-    const user = initialPermissions(undefined, "user");
-    const system = forHolder(user, "system");
+    const user = initialPermissions(undefined, "user", ENTERPRISE);
+    const system = forHolder(user, "system", ENTERPRISE);
     expect(system.preset).toBeNull();
-    expect(forHolder(system, "user").preset).toBe("hitl");
+    expect(forHolder(system, "user", ENTERPRISE).preset).toBe("hitl");
   });
 
   it("leaves a custom form alone", () => {
-    const custom = startCustomizing(initialPermissions(undefined, "user"));
-    expect(forHolder(custom, "system")).toBe(custom);
+    const custom = startCustomizing(
+      initialPermissions(undefined, "user", ENTERPRISE),
+    );
+    expect(forHolder(custom, "system", ENTERPRISE)).toBe(custom);
   });
 });
 
 describe("startCustomizing", () => {
   it("starts from the preset it replaces and keeps it to go back to", () => {
-    const custom = startCustomizing(initialPermissions(undefined, "pat"));
+    const custom = startCustomizing(
+      initialPermissions(undefined, "pat", ENTERPRISE),
+    );
     expect(custom).toMatchObject({
       preset: "hitl",
       customizing: true,
       scope: { role: "admin" },
       requireConfirmation: true,
     });
+  });
+});
+
+describe("plan limits", () => {
+  it("only offers Full access on an admin-only plan", () => {
+    expect(initialPermissions(undefined, "pat", FREE).preset).toBe("full");
+    expect(initialPermissions(undefined, "system", FREE).preset).toBe("full");
+    expect(canCustomize(FREE)).toBe(false);
+  });
+
+  it("leaves the choice open without Human-in-the-Loop", () => {
+    expect(initialPermissions(undefined, "pat", PRO).preset).toBeNull();
+    expect(canCustomize(PRO)).toBe(true);
+  });
+
+  it("starts Customize from admin when Read only isn't available", () => {
+    const value = startCustomizing(
+      initialPermissions(undefined, "system", {
+        ...PRO,
+        readonly: false,
+      }),
+    );
+    expect(orgKeyFields(value).role).toBe("admin");
+  });
+});
+
+describe("editing a saved token", () => {
+  it("keeps a token scoped to admin scoped", () => {
+    const saved = key({ scoped: true });
+    expect(tokenFields(initialPermissions(saved, "pat", ENTERPRISE))).toEqual(
+      expect.objectContaining({ scopedRole: "admin" }),
+    );
+  });
+
+  it("drops the scope when the owner lifts it", () => {
+    const value = initialPermissions(key({ scoped: true }), "pat", ENTERPRISE);
+    expect(tokenFields({ ...value, restricted: false })).toEqual({
+      confirmRules: null,
+    });
+  });
+});
+
+describe("rulesProblem", () => {
+  it("flags a confirmation rule with no actions", () => {
+    const custom = startCustomizing(
+      initialPermissions(undefined, "pat", ENTERPRISE),
+    );
+    expect(rulesProblem(custom)).toBeNull();
+    expect(rulesProblem({ ...custom, rules: [{ actions: [] }] })).toMatch(
+      /at least one action/,
+    );
   });
 });

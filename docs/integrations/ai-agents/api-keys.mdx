@@ -29,10 +29,10 @@ The header isn't verified, so whoever holds the key can name any member. See [Na
 Choose what a key or token can do with a preset:
 
 - **Read only**: reads work, and every write is blocked.
-- **Human-in-the-Loop**: risky or destructive writes wait for a person to [confirm them](#require-confirmation). Not offered for a key that acts as System, since no one in particular is behind its requests.
+- **Human-in-the-Loop** (Enterprise): risky or destructive writes wait for a person to [confirm them](#require-confirmation). Not offered for a key that acts as System, since no one in particular is behind its requests.
 - **Full access**: everything the token's owner, or the member a key names, can do. A key that acts as System gets full admin access.
 
-Choose **Customize** to pick a base role, limit it by Project or environment, and set confirmation rules yourself. The same choices appear on the consent page when an app such as the [MCP server](/integrations/mcp) signs in with OAuth.
+Choose **Customize** to pick a base role, limit it by Project or environment, and set confirmation rules yourself. On a plan with only the admin role, **Full access** is the only option. The same choices appear on the consent page when an app such as the [MCP server](/integrations/mcp) signs in with OAuth.
 
 ## Require confirmation
 

@@ -7,16 +7,21 @@ import Link from "@/ui/Link";
 import RadioCards from "@/ui/RadioCards";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import { useUser } from "@/services/UserContext";
+import useOrgLimits from "@/hooks/useOrgLimits";
 import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import ConfirmRulesField, {
   SUGGESTED_CONFIRM_RULES,
 } from "./ConfirmRulesField";
 import { ALL, presetOf } from "./confirmRulesUtils";
 import {
+  Allowed,
+  canCustomize,
   Holder,
-  isUnlimited,
   PermissionsValue,
   Preset,
+  presetAllowed,
   presetsFor,
   presetValue,
   startCustomizing,
@@ -59,27 +64,49 @@ const FULL_ACCESS: Record<Holder, string> = {
   system: "Full admin access.",
 };
 
+// The server rejects a role the plan lacks or the org deactivated, and
+// confirmations without Enterprise.
+export function useAllowedPermissions(): Allowed {
+  const { organization, hasCommercialFeature } = useUser();
+  const { orgSupportsRoles } = useOrgLimits();
+  const roles = orgSupportsRoles();
+  return {
+    roles,
+    readonly: roles && !organization.deactivatedRoles?.includes("readonly"),
+    confirmations: hasCommercialFeature("human-in-the-loop"),
+  };
+}
+
 export default function PermissionsField({
   holder,
   value,
   setValue,
-  canLimitRole,
+  allowed,
 }: {
   holder: Holder;
   value: PermissionsValue;
   setValue: (value: PermissionsValue) => void;
-  // A plan with only the admin role has nothing to narrow a key to.
-  canLimitRole: boolean;
+  allowed: Allowed;
 }) {
   const descriptions: Record<Preset, string> = {
     readonly: "Can read, but every write is blocked.",
     hitl: `Risky or destructive actions wait for ${CONFIRMER[holder]} to confirm.`,
     full: FULL_ACCESS[holder],
   };
-  const labels: Record<Preset, string> = {
+  const labels: Record<Preset, string | JSX.Element> = {
     readonly: "Read only",
-    hitl: "Human-in-the-Loop",
+    hitl: (
+      <>
+        Human-in-the-Loop{" "}
+        <PaidFeatureBadge commercialFeature="human-in-the-loop" ml="1" />
+      </>
+    ),
     full: "Full access",
+  };
+  const disabledReason: Partial<Record<Preset, string>> = {
+    readonly: allowed.roles
+      ? "Your organization has deactivated the Read only role."
+      : "Your plan only supports the admin role.",
   };
 
   return (
@@ -88,18 +115,20 @@ export default function PermissionsField({
         <Text as="div" size="md" weight="semibold">
           Permissions
         </Text>
-        <Link
-          weight="medium"
-          onClick={() =>
-            setValue(
-              value.customizing
-                ? { ...value, customizing: false }
-                : startCustomizing(value),
-            )
-          }
-        >
-          {value.customizing ? "Use a preset" : "Customize"}
-        </Link>
+        {(value.customizing || canCustomize(allowed)) && (
+          <Link
+            weight="medium"
+            onClick={() =>
+              setValue(
+                value.customizing
+                  ? { ...value, customizing: false }
+                  : startCustomizing(value),
+              )
+            }
+          >
+            {value.customizing ? "Use a preset" : "Customize"}
+          </Link>
+        )}
       </Flex>
       {!value.customizing ? (
         <RadioCards
@@ -115,11 +144,10 @@ export default function PermissionsField({
             value: preset,
             label: labels[preset],
             description: descriptions[preset],
-            ...(preset === "readonly" &&
-              !canLimitRole && {
-                disabled: true,
-                tooltip: "Your plan only supports the admin role.",
-              }),
+            ...(!presetAllowed(preset, allowed) && {
+              disabled: true,
+              tooltip: disabledReason[preset],
+            }),
           }))}
         />
       ) : (
@@ -127,7 +155,7 @@ export default function PermissionsField({
           holder={holder}
           value={value}
           setValue={setValue}
-          canLimitRole={canLimitRole}
+          allowed={allowed}
         />
       )}
     </Box>
@@ -139,20 +167,21 @@ function CustomPermissions({
   holder,
   value,
   setValue,
-  canLimitRole,
+  allowed,
 }: {
   holder: Holder;
   value: PermissionsValue;
   setValue: (value: PermissionsValue) => void;
-  canLimitRole: boolean;
+  allowed: Allowed;
 }) {
   // A token or User key acts as a person, so its role is optional and only
   // narrows them. A System key's role is everything it can do.
   const actsAsPerson = holder !== "system";
-  const [restricted, setRestricted] = useState(() => !isUnlimited(value.scope));
   // Unchecking and checking again brings back the rules that were set.
   const restrictedScope = useRef(
-    isUnlimited(value.scope) ? presetValue("readonly").scope : value.scope,
+    value.restricted
+      ? value.scope
+      : presetValue(allowed.readonly ? "readonly" : "full").scope,
   );
   // The rules editor stays tucked away unless the rules go beyond a preset.
   const [editingRules, setEditingRules] = useState(
@@ -168,23 +197,24 @@ function CustomPermissions({
 
   return (
     <Flex direction="column" gap="5">
-      {canLimitRole && !actsAsPerson && roleTable}
-      {canLimitRole && actsAsPerson && (
+      {allowed.roles && !actsAsPerson && roleTable}
+      {allowed.roles && actsAsPerson && (
         <Box>
           <Checkbox
             label="Restrict permissions"
-            value={restricted}
-            setValue={(on) => {
-              setRestricted(on);
-              if (on) {
-                setValue({ ...value, scope: restrictedScope.current });
-              } else {
-                restrictedScope.current = value.scope;
-                setValue({ ...value, scope: presetValue("full").scope });
-              }
+            value={value.restricted}
+            setValue={(restricted) => {
+              if (!restricted) restrictedScope.current = value.scope;
+              setValue({
+                ...value,
+                restricted,
+                scope: restricted
+                  ? restrictedScope.current
+                  : presetValue("full").scope,
+              });
             }}
           />
-          {restricted && (
+          {value.restricted && (
             <Flex direction="column" gap="3" mt="3" pl="5">
               <Callout status="info">{OVERLAP[holder]}</Callout>
               {roleTable}
@@ -194,10 +224,13 @@ function CustomPermissions({
       )}
       <Box>
         <Text as="div" size="md" weight="semibold" mb="2">
-          Human-in-the-Loop
+          Human-in-the-Loop{" "}
+          <PaidFeatureBadge commercialFeature="human-in-the-loop" ml="1" />
         </Text>
         <Checkbox
           label={`Require confirmation from ${CONFIRMER[holder]}`}
+          // A key that already has confirmations can still turn them off.
+          disabled={!allowed.confirmations && !value.requireConfirmation}
           value={value.requireConfirmation}
           setValue={(requireConfirmation) =>
             setValue({ ...value, requireConfirmation })

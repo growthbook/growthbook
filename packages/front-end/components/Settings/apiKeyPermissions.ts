@@ -12,11 +12,24 @@ import {
 export type Holder = "system" | "user" | "pat";
 export type Preset = "readonly" | "hitl" | "full";
 
+// What the org's plan and roles let a credential use.
+export type Allowed = {
+  // Any role but admin.
+  roles: boolean;
+  // The Read only role, which an org can also deactivate.
+  readonly: boolean;
+  // Human-in-the-Loop confirmations.
+  confirmations: boolean;
+};
+
 export type PermissionsValue = {
   // Kept while customizing, so going back to the presets restores it.
   preset: Preset | null;
   customizing: boolean;
   scope: MemberRoleWithProjects;
+  // Whether the role narrows the person a token or User key acts as. A
+  // token's `scoped`, which drops super-admin rights even at admin.
+  restricted: boolean;
   requireConfirmation: boolean;
   rules: ConfirmRule[];
 };
@@ -28,17 +41,37 @@ const RECOMMENDED_RULES: ConfirmRule[] = [{ actions: [RECOMMENDED] }];
 export const presetsFor = (holder: Holder): Preset[] =>
   holder === "system" ? ["readonly", "full"] : ["readonly", "hitl", "full"];
 
+export const presetAllowed = (preset: Preset, allowed: Allowed) =>
+  preset === "full" ||
+  (preset === "readonly" ? allowed.readonly : allowed.confirmations);
+
+// Without roles or confirmations there is nothing to customize.
+export const canCustomize = (allowed: Allowed) =>
+  allowed.roles || allowed.confirmations;
+
+// Human-in-the-Loop when it's offered, the only choice when there's one,
+// otherwise nothing so the choice is deliberate.
+function defaultPreset(holder: Holder, allowed: Allowed): Preset | null {
+  const options = presetsFor(holder).filter((p) => presetAllowed(p, allowed));
+  if (options.length === 1) return options[0];
+  return options.includes("hitl") ? "hitl" : null;
+}
+
 // What a preset grants, in the custom form's terms. An admin cap on anything
 // that acts as a user leaves that user's own permissions.
 export function presetValue(
   preset: Preset,
-): Pick<PermissionsValue, "scope" | "requireConfirmation" | "rules"> {
+): Pick<
+  PermissionsValue,
+  "scope" | "restricted" | "requireConfirmation" | "rules"
+> {
   return {
     scope: {
       role: preset === "readonly" ? "readonly" : "admin",
       limitAccessByEnvironment: false,
       environments: [],
     },
+    restricted: preset === "readonly",
     requireConfirmation: preset === "hitl",
     rules: RECOMMENDED_RULES,
   };
@@ -65,6 +98,8 @@ export function presetOfKey(key: SavedKey, holder: Holder): Preset | null {
     return null;
   }
   const role = holder === "pat" && !key.scoped ? "admin" : key.role || "admin";
+  // A scoped token stays scoped until its owner lifts it, even at admin.
+  if (holder === "pat" && key.scoped && role === "admin") return null;
   const preset: Preset | null = !key.confirmRules
     ? role === "readonly"
       ? "readonly"
@@ -81,25 +116,29 @@ export function presetOfKey(key: SavedKey, holder: Holder): Preset | null {
 export function initialPermissions(
   key: SavedKey | undefined,
   holder: Holder,
+  allowed: Allowed,
 ): PermissionsValue {
   if (!key) {
     return {
-      preset: holder === "system" ? null : "hitl",
+      preset: defaultPreset(holder, allowed),
       customizing: false,
-      ...presetValue("readonly"),
+      // Where Customize starts when no preset is picked.
+      ...presetValue(allowed.readonly ? "readonly" : "full"),
     };
   }
   const preset = presetOfKey(key, holder);
+  const scope = {
+    role: holder === "pat" && !key.scoped ? "admin" : key.role || "admin",
+    limitAccessByEnvironment: key.limitAccessByEnvironment ?? false,
+    environments: key.environments ?? [],
+    additionalRoles: key.additionalRoles,
+    projectRoles: key.projectRoles,
+  };
   return {
     preset,
     customizing: !preset,
-    scope: {
-      role: holder === "pat" && !key.scoped ? "admin" : key.role || "admin",
-      limitAccessByEnvironment: key.limitAccessByEnvironment ?? false,
-      environments: key.environments ?? [],
-      additionalRoles: key.additionalRoles,
-      projectRoles: key.projectRoles,
-    },
+    scope,
+    restricted: holder === "pat" ? !!key.scoped : !isUnlimited(scope),
     requireConfirmation: !!key.confirmRules,
     rules: key.confirmRules
       ? mergeConfirmRules(key.confirmRules)
@@ -111,13 +150,11 @@ export function initialPermissions(
 export function forHolder(
   value: PermissionsValue,
   holder: Holder,
+  allowed: Allowed,
 ): PermissionsValue {
   if (value.customizing) return value;
-  if (value.preset && !presetsFor(holder).includes(value.preset)) {
-    return { ...value, preset: null };
-  }
-  if (!value.preset && holder !== "system") return { ...value, preset: "hitl" };
-  return value;
+  if (value.preset && presetsFor(holder).includes(value.preset)) return value;
+  return { ...value, preset: defaultPreset(holder, allowed) };
 }
 
 // The custom form starts from the preset it replaces.
@@ -132,8 +169,16 @@ export function startCustomizing(value: PermissionsValue): PermissionsValue {
 export const isComplete = (value: PermissionsValue) =>
   value.customizing || value.preset !== null;
 
+// Why the custom form can't be saved yet, or null.
+export const rulesProblem = (value: PermissionsValue) =>
+  value.customizing &&
+  value.requireConfirmation &&
+  value.rules.some((rule) => !rule.actions.length)
+    ? "Choose at least one action for each confirmation rule."
+    : null;
+
 function resolved(value: PermissionsValue) {
-  const { scope, requireConfirmation, rules } =
+  const { scope, restricted, requireConfirmation, rules } =
     value.customizing || !value.preset
       ? value
       : { ...value, ...presetValue(value.preset) };
@@ -145,6 +190,7 @@ function resolved(value: PermissionsValue) {
       additionalRoles: scope.additionalRoles,
       projectRoles: scope.projectRoles,
     },
+    restricted,
     confirmRules: requireConfirmation ? mergeConfirmRules(rules) : null,
   };
 }
@@ -156,18 +202,18 @@ export function orgKeyFields(value: PermissionsValue) {
 }
 
 // An admin cap with nothing narrowed leaves a person all of their own access.
-export const isUnlimited = (scope: MemberRoleWithProjects) =>
+const isUnlimited = (scope: MemberRoleWithProjects) =>
   scope.role === "admin" &&
   !scope.limitAccessByEnvironment &&
   !scope.additionalRoles?.length &&
   !scope.projectRoles?.length;
 
-// What a personal token saves. Unlimited, it acts as its user, so it stays
+// What a personal token saves. Unrestricted, it acts as its user, so it stays
 // unscoped rather than losing super-admin rights.
 export function tokenFields(value: PermissionsValue) {
-  const { role, scope, confirmRules } = resolved(value);
+  const { role, scope, restricted, confirmRules } = resolved(value);
   return {
-    ...(!isUnlimited({ role, ...scope }) && { scopedRole: role, ...scope }),
+    ...(restricted && { scopedRole: role, ...scope }),
     confirmRules,
   };
 }
