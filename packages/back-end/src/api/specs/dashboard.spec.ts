@@ -38,6 +38,7 @@ export const createDashboardV2Endpoint = {
 export const refreshDashboardEndpoint = {
   pathFragment: "/:id/refresh",
   verb: "post" as const,
+  confirmation: ["other.write"] as const,
   operationId: "refreshDashboard",
   validator: apiRefreshDashboardValidator,
   zodReturnObject: apiRefreshDashboardReturn,

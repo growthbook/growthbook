@@ -2669,6 +2669,7 @@ export const postSnapshotCancelValidator = {
     .strict(),
   summary: "Cancel a running snapshot",
   description: "Also cancels its queries in the warehouse where supported.",
+  confirmation: ["other.write"] as const,
   operationId: "postSnapshotCancel",
   tags: ["snapshots"],
   method: "post" as const,
@@ -2693,6 +2694,7 @@ export const postSnapshotAnalysisValidator = {
   summary: "Get a snapshot's results with other analysis settings",
   description:
     "Re-analyzes the stored query results without re-running any queries, and saves the analysis for next time.",
+  confirmation: ["other.write"] as const,
   operationId: "postSnapshotAnalysis",
   tags: ["snapshots"],
   method: "post" as const,
