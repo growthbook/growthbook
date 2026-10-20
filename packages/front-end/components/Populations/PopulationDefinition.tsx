@@ -1,11 +1,11 @@
 import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
 import { date, datetime } from "shared/dates";
 import type { ApiPopulation } from "shared/validators";
-import { describePopulationStep } from "shared/populations";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { describePopulationStep } from "@/components/Populations/populationUtils";
 
 export default function PopulationDefinition({
   population,
