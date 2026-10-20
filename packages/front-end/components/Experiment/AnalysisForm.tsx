@@ -951,59 +951,59 @@ const AnalysisForm: FC<{
               </Box>
               {!orgSettings.disablePrecomputedDimensions ? (
                 <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
-                  <SelectField
-                    label={
-                      <PremiumTooltip commercialFeature="post-stratification">
-                        Post-Stratification
-                      </PremiumTooltip>
-                    }
-                    value={
-                      isClusterExperiment
-                        ? "off"
-                        : !hasPostStratificationFeature ||
-                            form.watch("postStratificationEnabled") == null
-                          ? ""
-                          : form.watch("postStratificationEnabled")
-                            ? "on"
-                            : "off"
-                    }
-                    onChange={(v) => {
-                      form.setValue(
-                        "postStratificationEnabled",
-                        v === "" ? null : v === "on",
-                      );
-                    }}
-                    options={[
-                      {
-                        label: `Default (${
-                          hasPostStratificationFeature &&
-                          parentScopedSettings.postStratificationEnabled.value
-                            ? "On"
-                            : "Off"
-                        })`,
-                        value: "",
-                      },
-                      { label: "On", value: "on" },
-                      { label: "Off", value: "off" },
-                    ]}
-                    formatOptionLabel={({ value, label }) => {
-                      if (value === "") {
-                        return <em className="text-muted">{label}</em>;
+                  <Tooltip
+                    shouldDisplay={isClusterExperiment}
+                    body="Post-stratification isn't supported for cluster experiments."
+                  >
+                    <SelectField
+                      label={
+                        <PremiumTooltip commercialFeature="post-stratification">
+                          Post-Stratification
+                        </PremiumTooltip>
                       }
-                      return label;
-                    }}
-                    sort={false}
-                    disabled={
-                      !hasPostStratificationFeature ||
-                      isClusterExperiment ||
-                      (isBandit && experiment.status !== "draft")
-                    }
-                    helpText={
-                      isClusterExperiment
-                        ? "Cluster experiments don't use post-stratification."
-                        : undefined
-                    }
-                  />
+                      value={
+                        isClusterExperiment
+                          ? "off"
+                          : !hasPostStratificationFeature ||
+                              form.watch("postStratificationEnabled") == null
+                            ? ""
+                            : form.watch("postStratificationEnabled")
+                              ? "on"
+                              : "off"
+                      }
+                      onChange={(v) => {
+                        form.setValue(
+                          "postStratificationEnabled",
+                          v === "" ? null : v === "on",
+                        );
+                      }}
+                      options={[
+                        {
+                          label: `Default (${
+                            hasPostStratificationFeature &&
+                            parentScopedSettings.postStratificationEnabled.value
+                              ? "On"
+                              : "Off"
+                          })`,
+                          value: "",
+                        },
+                        { label: "On", value: "on" },
+                        { label: "Off", value: "off" },
+                      ]}
+                      formatOptionLabel={({ value, label }) => {
+                        if (value === "") {
+                          return <em className="text-muted">{label}</em>;
+                        }
+                        return label;
+                      }}
+                      sort={false}
+                      disabled={
+                        !hasPostStratificationFeature ||
+                        isClusterExperiment ||
+                        (isBandit && experiment.status !== "draft")
+                      }
+                    />
+                  </Tooltip>
                 </Box>
               ) : null}
             </>
