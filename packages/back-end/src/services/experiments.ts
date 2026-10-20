@@ -2600,10 +2600,13 @@ export async function deleteExperimentWithLinks(
   }
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
-  await Promise.all([
-    deleteExperimentByIdForOrganization(context, experiment),
-    removeExperimentFromPresentations(experiment.id),
-  ]);
+  await deleteExperimentByIdForOrganization(context, experiment);
+  // The rest is cleanup: once the experiment is gone, a failure here mustn't skip the audit
+  try {
+    await removeExperimentFromPresentations(experiment.id);
+  } catch (e) {
+    logger.warn(e, "Error removing experiment from presentations");
+  }
 
   if (experiment.holdoutId) {
     try {

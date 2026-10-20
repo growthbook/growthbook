@@ -198,7 +198,7 @@ describe("deleteExperimentWithLinks", () => {
     });
   });
 
-  it("removes a holdout experiment link after the deletes and before the audit", async () => {
+  it("deletes, then cleans up presentations and the holdout link, then audits", async () => {
     const calls: string[] = [];
     mockDeleteExperimentByIdForOrganization.mockImplementation(async () => {
       calls.push("delete");
@@ -220,8 +220,7 @@ describe("deleteExperimentWithLinks", () => {
     );
 
     expect(removeExperimentFromHoldout).toHaveBeenCalledWith("hld_1", "exp_1");
-    expect(calls.slice(2)).toEqual(["holdout", "audit"]);
-    expect(calls.slice(0, 2).sort()).toEqual(["delete", "presentations"]);
+    expect(calls).toEqual(["delete", "presentations", "holdout", "audit"]);
   });
 
   it("only logs a failure to remove the holdout link and still audits", async () => {
@@ -241,21 +240,20 @@ describe("deleteExperimentWithLinks", () => {
     expect(auditLog).toHaveBeenCalled();
   });
 
-  it("stops before the holdout and audit when removing from presentations fails", async () => {
-    mockRemoveExperimentFromPresentations.mockRejectedValue(
-      new Error("presentation update failed"),
-    );
+  it("only logs a failure to remove it from presentations and still cleans up and audits", async () => {
+    const presentationError = new Error("presentation update failed");
+    mockRemoveExperimentFromPresentations.mockRejectedValue(presentationError);
     const { context, removeExperimentFromHoldout, auditLog } = makeContext();
 
-    await expect(
-      deleteExperimentWithLinks(
-        context,
-        makeExperiment({ holdoutId: "hld_1" }),
-      ),
-    ).rejects.toThrow("presentation update failed");
-    // The experiment delete runs alongside, so it has already been issued
-    expect(mockDeleteExperimentByIdForOrganization).toHaveBeenCalled();
-    expect(removeExperimentFromHoldout).not.toHaveBeenCalled();
-    expect(auditLog).not.toHaveBeenCalled();
+    await deleteExperimentWithLinks(
+      context,
+      makeExperiment({ holdoutId: "hld_1" }),
+    );
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      presentationError,
+      expect.any(String),
+    );
+    expect(removeExperimentFromHoldout).toHaveBeenCalled();
+    expect(auditLog).toHaveBeenCalled();
   });
 });
