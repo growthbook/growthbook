@@ -45,6 +45,19 @@ export async function getAttributeReferences(
     getAllExperiments(context, {}),
     context.models.savedGroups.getAllWithoutValues(),
   ]);
+  const banditIds = new Set(
+    allFeatures.flatMap((f) =>
+      (f.rules ?? []).flatMap((r) =>
+        r.type === "contextual-bandit-ref" ? [r.contextualBanditId] : [],
+      ),
+    ),
+  );
+  const bandits = new Map(
+    (banditIds.size
+      ? await context.models.contextualBandits.getByIds([...banditIds])
+      : []
+    ).map((cb) => [cb.id, cb]),
+  );
 
   // { attributeKey -> { featureId -> { id, name, project } } }
   const featureRefs = new Map<string, Map<string, AttributeRef>>();
@@ -69,16 +82,27 @@ export async function getAttributeReferences(
       });
     };
     for (const rule of feature.rules ?? []) {
+      // A bandit's targeting and context live on the bandit, not the rule
+      const bandit =
+        rule.type === "contextual-bandit-ref"
+          ? bandits.get(rule.contextualBanditId)
+          : undefined;
+      if (bandit) {
+        addFeature(bandit.hashAttribute);
+        bandit.contextualAttributes.forEach(addFeature);
+      }
       if ("hashAttribute" in rule) addFeature(rule.hashAttribute);
       if ("fallbackAttribute" in rule && rule.fallbackAttribute)
         addFeature(rule.fallbackAttribute);
-      try {
-        const parsed = JSON.parse(rule.condition ?? "{}");
-        for (const nodeKey of extractConditionAttributeKeys(parsed)) {
-          getConditionKeyMatches(nodeKey, keySet).forEach(addFeature);
+      for (const condition of [rule.condition, bandit?.condition]) {
+        try {
+          const parsed = JSON.parse(condition ?? "{}");
+          for (const nodeKey of extractConditionAttributeKeys(parsed)) {
+            getConditionKeyMatches(nodeKey, keySet).forEach(addFeature);
+          }
+        } catch {
+          // ignore unparseable conditions
         }
-      } catch {
-        // ignore unparseable conditions
       }
     }
   }

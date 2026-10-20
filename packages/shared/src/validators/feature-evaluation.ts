@@ -65,6 +65,7 @@ export const postFeatureEvaluateValidator = {
         ),
       environments: z
         .array(z.string())
+        .min(1)
         .optional()
         .describe("Defaults to every environment the flag is in"),
       evalDate: z.iso
