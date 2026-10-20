@@ -1110,6 +1110,7 @@ export const postMetricAnalysisCancelValidator = {
     .strict(),
   responseSchema: metricAnalysisResponse,
   summary: "Cancel a running metric analysis",
+  confirmation: ["other.write"] as const,
   operationId: "postMetricAnalysisCancel",
   tags: ["fact-metrics"],
   method: "post" as const,
