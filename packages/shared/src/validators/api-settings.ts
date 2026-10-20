@@ -235,8 +235,6 @@ const writableSettingsFields = {
     .regex(/^(https?:\/\/|$)/, "Must be empty or an http(s) URL"),
 
   // AI
-  aiEnabled: z.boolean(),
-  aiAskDataEnabled: z.boolean(),
   disabledAgentSkills: z
     .array(z.string())
     .describe("AI Assistant skills turned off for the organization"),
@@ -270,6 +268,9 @@ export const API_WRITABLE_SETTING_KEYS = Object.keys(
 
 // Returned by GET but not writable here.
 const readOnlySettingsFields = {
+  // Turning AI on accepts its terms for the org, so it stays a decision made in the app
+  aiEnabled: z.boolean(),
+  aiAskDataEnabled: z.boolean(),
   restApiBypassesReviews: z.boolean(),
   revertsBypassApproval: z.boolean(),
   disablePersonalAccessTokens: z.boolean(),
@@ -421,12 +422,6 @@ export const putSettingsValidator = {
       >;
     }),
     ...echoOnlySettingsFields,
-    acceptAiTerms: z
-      .boolean()
-      .optional()
-      .describe(
-        "Records acceptance of the AI terms on behalf of the organization. Required on GrowthBook Cloud the first time `aiEnabled` is turned on.",
-      ),
   }),
   querySchema: z.never(),
   paramsSchema: z.never(),
