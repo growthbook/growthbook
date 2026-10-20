@@ -2693,7 +2693,7 @@ export const postSnapshotAnalysisValidator = {
   responseSchema: z.object({ result: apiExperimentResultsValidator }).strict(),
   summary: "Get a snapshot's results with other analysis settings",
   description:
-    "Re-analyzes the stored query results without re-running any queries, and saves the analysis for next time.",
+    "Re-analyzes the stored query results without re-running any queries, and saves the analysis for next time. Returns 409 while the same analysis is still computing.",
   confirmation: ["other.write"] as const,
   operationId: "postSnapshotAnalysis",
   tags: ["snapshots"],
