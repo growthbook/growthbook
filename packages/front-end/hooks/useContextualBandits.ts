@@ -156,10 +156,6 @@ type ContextualBanditResultsLatest = z.infer<
   typeof contextualBanditEndpoints.getContextualBanditResults.responseSchema
 >["latest"];
 
-/**
- * Health inputs from the newest successful run, falling back to the summary
- * persisted on the CB doc. Undefined when there is no traffic to assess.
- */
 export function resolveContextualBanditStatusHealth(
   latest: ContextualBanditResultsLatest,
   persisted: ApiContextualBanditInterface["analysisSummary"],
