@@ -15,6 +15,11 @@ export const webhookSecretApiSpec = {
     updateBody: apiUpdateWebhookSecretBody,
   },
   includeDefaultCrud: true,
+  confirmation: {
+    create: ["settings.webhooks"],
+    update: ["settings.webhooks"],
+    delete: ["settings.webhooks"],
+  },
   navDisplayName: "Webhook Secrets",
   navDescription:
     "Secret values substituted into webhook URLs and headers at send time. Values are write-only.",

@@ -103,6 +103,7 @@ export const postEventWebhookValidator = {
   summary: "Create an event webhook",
   description:
     "The URL and header values can reference webhook secrets as `{{ KEY }}`, which are filled in at send time.",
+  confirmation: ["settings.webhooks"] as const,
   operationId: "postEventWebhook",
   tags: ["event-webhooks"],
   method: "post" as const,
@@ -124,6 +125,7 @@ export const putEventWebhookValidator = {
   paramsSchema: idParams,
   responseSchema: webhookResponse,
   summary: "Update an event webhook",
+  confirmation: ["settings.webhooks"] as const,
   operationId: "putEventWebhook",
   tags: ["event-webhooks"],
   method: "put" as const,
@@ -136,6 +138,7 @@ export const deleteEventWebhookValidator = {
   paramsSchema: idParams,
   responseSchema: z.object({ deletedId: z.string() }).strict(),
   summary: "Delete an event webhook",
+  confirmation: ["settings.webhooks"] as const,
   operationId: "deleteEventWebhook",
   tags: ["event-webhooks"],
   method: "delete" as const,
@@ -164,6 +167,7 @@ export const postEventWebhookTestValidator = {
   summary: "Send a test event to an event webhook",
   description:
     "Delivery is asynchronous; check the webhook's logs for the result.",
+  confirmation: ["other.write"] as const,
   operationId: "postEventWebhookTest",
   tags: ["event-webhooks"],
   method: "post" as const,

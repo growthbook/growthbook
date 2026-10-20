@@ -167,6 +167,7 @@ export const postSdkConnectionWebhookValidator = {
   summary: "Add a webhook to an SDK Connection",
   description:
     "Called whenever the connection's payload changes. More than one webhook per organization requires a paid plan.",
+  confirmation: ["sdkConnection.edit"] as const,
   operationId: "postSdkConnectionWebhook",
   tags: ["sdk-connections"],
   method: "post" as const,
@@ -194,6 +195,7 @@ export const putSdkWebhookValidator = {
   responseSchema: sdkWebhookResponse,
   summary: "Update an SDK webhook",
   description: "The webhook fires once after an update.",
+  confirmation: ["sdkConnection.edit"] as const,
   operationId: "putSdkWebhook",
   tags: ["sdk-connections"],
   method: "put" as const,
@@ -206,6 +208,7 @@ export const deleteSdkWebhookValidator = {
   paramsSchema: idParams,
   responseSchema: z.object({ deletedId: z.string() }).strict(),
   summary: "Delete an SDK webhook",
+  confirmation: ["sdkConnection.edit"] as const,
   operationId: "deleteSdkWebhook",
   tags: ["sdk-connections"],
   method: "delete" as const,
@@ -220,6 +223,7 @@ export const postSdkWebhookTestValidator = {
   summary: "Fire an SDK webhook now",
   description:
     "Returns the webhook with the outcome in `error` / `lastSuccess`.",
+  confirmation: ["other.write"] as const,
   operationId: "postSdkWebhookTest",
   tags: ["sdk-connections"],
   method: "post" as const,
