@@ -1825,6 +1825,7 @@ export const cancelAggregatedFactTableRunValidator = {
     })
     .strict(),
   summary: "Cancel a running aggregated table refresh",
+  confirmation: ["other.write"] as const,
   operationId: "cancelAggregatedFactTableRun",
   tags: ["fact-tables"],
   method: "post" as const,
@@ -1839,6 +1840,7 @@ export const refreshFactTableColumnsValidator = {
   summary: "Re-detect a fact table's columns",
   description:
     "Queues a background re-read of the columns its SQL returns, e.g. after the warehouse schema changed. `columnRefreshPending` is true until it finishes.",
+  confirmation: ["factTable.edit"] as const,
   operationId: "refreshFactTableColumns",
   tags: ["fact-tables"],
   method: "post" as const,
