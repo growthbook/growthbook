@@ -16,7 +16,10 @@ import type { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 
 function makeRequest() {
-  const res = Object.assign(new EventEmitter(), { headersSent: false });
+  const res = Object.assign(new EventEmitter(), {
+    headersSent: false,
+    destroyed: false,
+  });
   const req = { res } as unknown as Request;
   return { req, res };
 }
@@ -68,6 +71,19 @@ describe("queueSDKPayloadRefresh", () => {
   it("refreshes immediately once headers are sent", async () => {
     const { req, res } = makeRequest();
     res.headersSent = true;
+
+    queueSDKPayloadRefresh({
+      context: makeContext(req),
+      payloadKeys: [{ environment: "production", project: "" }],
+    });
+    await flush();
+    expect(mockGetContextForAgendaJob).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes immediately when the client already disconnected", async () => {
+    const { req, res } = makeRequest();
+    res.destroyed = true;
+    res.emit("close");
 
     queueSDKPayloadRefresh({
       context: makeContext(req),

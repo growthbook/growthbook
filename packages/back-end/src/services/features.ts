@@ -956,7 +956,13 @@ export function queueSDKPayloadRefresh(data: QueueSDKPayloadRefreshData) {
   // Merge every refresh queued during one request into one rebuild when it ends.
   const req = data.context.req;
   const res = req?.res;
-  if (req && res && !res.headersSent && !data.skipRefreshForProject) {
+  if (
+    req &&
+    res &&
+    !res.headersSent &&
+    !res.destroyed &&
+    !data.skipRefreshForProject
+  ) {
     const pending = pendingRefreshByRequest.get(req);
     if (pending) {
       pending.context = data.context;
