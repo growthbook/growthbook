@@ -194,9 +194,14 @@ describe("describePopulationStep", () => {
     expect(
       getFilterDescription({ column: "country", operator: "is_null" }),
     ).toBe("country is null");
+  });
+
+  it("includes the SQL of a SQL expression filter", () => {
     expect(
-      getFilterDescription({ operator: "sql_expr", values: ["amount > 0"] }),
-    ).toBe("SQL expr");
+      getStepDescription({
+        rowFilters: [{ operator: "sql_expr", values: ["amount > 0"] }],
+      }),
+    ).toBe("Has Events matching the row filter: SQL Expression amount > 0");
   });
 
   describe("saved filters", () => {
@@ -211,19 +216,19 @@ describe("describePopulationStep", () => {
       ).toBe("Has Events matching the row filter: Purchases only");
     });
 
-    it("uses a generic label when the saved filter was deleted", () => {
+    it("says when the saved filter was deleted", () => {
       expect(
         getStepDescription({ rowFilters: [savedFilter("flt_gone")] }),
-      ).toBe("Has Events matching the row filter: Saved Filter");
+      ).toBe("Has Events matching the row filter: Deleted saved filter");
     });
 
-    it("uses a generic label when the fact table is missing", () => {
+    it("falls back to the saved filter id when the fact table is missing", () => {
       expect(
         getStepDescription(
           { rowFilters: [savedFilter("flt_purchases")] },
           null,
         ),
-      ).toBe("Has ftb_events matching the row filter: Saved Filter");
+      ).toBe("Has ftb_events matching the row filter: flt_purchases");
     });
   });
 
