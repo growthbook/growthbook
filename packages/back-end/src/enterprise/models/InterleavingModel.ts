@@ -506,7 +506,11 @@ export class InterleavingModel extends BaseClass {
     if (
       (statusChanged || envsChanged || servesNow) &&
       envs.length > 0 &&
-      !this.context.permissions.canRunInterleaving(existing, envs)
+      !this.context.permissions.canRunInterleavingUpdate(
+        existing,
+        updated ?? existing,
+        envs,
+      )
     ) {
       return false;
     }
