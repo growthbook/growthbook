@@ -79,7 +79,8 @@ async function getInterleavingSnapshotSettings(
 
 /**
  * Create a snapshot for an interleaving experiment and kick off its metric
- * queries. Returns the new snapshot; the runner completes asynchronously.
+ * queries. Returns the snapshot with its query pointers (or its final state
+ * if every query was cached); otherwise the runner completes asynchronously.
  */
 export async function runInterleavingSnapshot(
   context: Context,
@@ -118,9 +119,7 @@ export async function runInterleavingSnapshot(
     integration,
     false,
   );
-  await runner.startAnalysis({ snapshotSettings: settings });
-
-  return snapshot;
+  return runner.startAnalysis({ snapshotSettings: settings });
 }
 
 /** Cancel a running snapshot's queries and delete it. */

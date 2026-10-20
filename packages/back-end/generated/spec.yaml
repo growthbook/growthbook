@@ -885,6 +885,9 @@ tags:
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/InterleavingExposureQuery" />
+  - name: InterleavingSnapshot_model
+    x-displayName: Interleaving Snapshot
+    description: <SchemaDefinition schemaRef="#/components/schemas/InterleavingSnapshot" />
   - name: Learning_model
     x-displayName: Learning
     description: <SchemaDefinition schemaRef="#/components/schemas/Learning" />
@@ -55124,6 +55127,162 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/interleavings/{id}/stop' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/refresh:
+    post:
+      operationId: refreshInterleaving
+      summary: Refresh interleaving experiment results
+      description: >-
+        Creates a results snapshot and starts its metric queries against the
+        Data Source. The experiment must have been started and have at least one
+        metric. Queries run asynchronously; poll the snapshot until its `status`
+        is `success` or `error`.
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The interleaving experiment id
+          schema:
+            description: The interleaving experiment id
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshot:
+                    $ref: '#/components/schemas/InterleavingSnapshot'
+                required:
+                  - snapshot
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/interleavings/{id}/refresh' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/results:
+    get:
+      operationId: getInterleavingResults
+      summary: Get the latest interleaving experiment results
+      description: >-
+        The most recent results snapshot, whatever its status. `snapshot` is
+        null before the first refresh.
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The interleaving experiment id
+          schema:
+            description: The interleaving experiment id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshot:
+                    description: null until the first refresh
+                    anyOf:
+                      - title: Interleaving Snapshot
+                        $ref: '#/components/schemas/InterleavingSnapshot'
+                      - type: 'null'
+                required:
+                  - snapshot
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/interleavings/{id}/results' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/snapshots:
+    get:
+      operationId: listInterleavingSnapshots
+      summary: List interleaving experiment results snapshots
+      description: Newest first. The first entry is the latest results.
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The interleaving experiment id
+          schema:
+            description: The interleaving experiment id
+            type: string
+        - name: limit
+          in: query
+          description: ''
+          schema:
+            type: integer
+            exclusiveMinimum: 0
+            maximum: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshots:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InterleavingSnapshot'
+                required:
+                  - snapshots
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/interleavings/{id}/snapshots' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/snapshots/{snapshotId}:
+    get:
+      operationId: getInterleavingSnapshot
+      summary: Get an interleaving experiment results snapshot
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The interleaving experiment id
+          schema:
+            description: The interleaving experiment id
+            type: string
+        - $ref: '#/components/parameters/snapshotId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshot:
+                    $ref: '#/components/schemas/InterleavingSnapshot'
+                required:
+                  - snapshot
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/interleavings/{id}/snapshots/{snapshotId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/custom-fields:
     post:
       operationId: createCustomField
@@ -81978,6 +82137,246 @@ components:
         - metrics
         - environmentSettings
       additionalProperties: false
+    InterleavingSnapshot:
+      type: object
+      properties:
+        id:
+          type: string
+        interleavingId:
+          type: string
+        status:
+          type: string
+          enum:
+            - pending
+            - running
+            - success
+            - error
+        error:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        runStarted:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        settings:
+          type: object
+          properties:
+            trackingKey:
+              type: string
+            datasourceId:
+              type: string
+            interleavingExposureQueryId:
+              type: string
+            userIdType:
+              type: string
+            variations:
+              type: array
+              prefixItems:
+                - type: object
+                  properties:
+                    id:
+                      type: string
+                    key:
+                      type: string
+                      pattern: \S
+                    name:
+                      type: string
+                  required:
+                    - id
+                    - key
+                    - name
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    id:
+                      type: string
+                    key:
+                      type: string
+                      pattern: \S
+                    name:
+                      type: string
+                  required:
+                    - id
+                    - key
+                    - name
+                  additionalProperties: false
+            metrics:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  analyses:
+                    minItems: 1
+                    type: array
+                    items:
+                      anyOf:
+                        - type: object
+                          properties:
+                            type:
+                              type: string
+                              const: paired
+                          required:
+                            - type
+                          additionalProperties: false
+                        - type: object
+                          properties:
+                            type:
+                              type: string
+                              const: ownership
+                            attribution:
+                              type: string
+                              enum:
+                                - exposureCount
+                          required:
+                            - type
+                            - attribution
+                          additionalProperties: false
+                required:
+                  - id
+                  - analyses
+                additionalProperties: false
+            startDate:
+              type: string
+              format: date-time
+            endDate:
+              anyOf:
+                - type: string
+                  format: date-time
+                - type: 'null'
+          required:
+            - trackingKey
+            - datasourceId
+            - interleavingExposureQueryId
+            - userIdType
+            - variations
+            - metrics
+            - startDate
+            - endDate
+          additionalProperties: false
+        results:
+          description: Present once status is success
+          type: array
+          items:
+            type: object
+            properties:
+              metricId:
+                type: string
+              analysis:
+                anyOf:
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                        const: paired
+                    required:
+                      - type
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                        const: ownership
+                      attribution:
+                        type: string
+                        enum:
+                          - exposureCount
+                    required:
+                      - type
+                      - attribution
+                    additionalProperties: false
+              users:
+                type: number
+              control:
+                type: object
+                properties:
+                  value:
+                    type: number
+                  cr:
+                    type: number
+                required:
+                  - value
+                  - cr
+                additionalProperties: false
+              treatment:
+                type: object
+                properties:
+                  value:
+                    type: number
+                  cr:
+                    type: number
+                required:
+                  - value
+                  - cr
+                additionalProperties: false
+              test:
+                type: object
+                properties:
+                  expected:
+                    type: number
+                  ci:
+                    type: array
+                    prefixItems:
+                      - anyOf:
+                          - type: number
+                          - type: 'null'
+                      - anyOf:
+                          - type: number
+                          - type: 'null'
+                  uplift:
+                    type: object
+                    properties:
+                      dist:
+                        type: string
+                      mean:
+                        type: number
+                      stddev:
+                        type: number
+                    required:
+                      - dist
+                      - mean
+                      - stddev
+                    additionalProperties: false
+                  pValue:
+                    anyOf:
+                      - type: number
+                      - type: 'null'
+                  errorMessage:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                  pValueErrorMessage:
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                required:
+                  - expected
+                  - ci
+                  - uplift
+                  - pValue
+                  - errorMessage
+                  - pValueErrorMessage
+                additionalProperties: false
+            required:
+              - metricId
+              - analysis
+              - users
+              - control
+              - treatment
+              - test
+            additionalProperties: false
+      required:
+        - id
+        - interleavingId
+        - status
+        - dateCreated
+        - runStarted
+        - settings
+      additionalProperties: false
     CustomField:
       type: object
       properties:
@@ -88912,6 +89311,7 @@ x-tagGroups:
       - InformationSchemaTable_model
       - Interleaving_model
       - InterleavingExposureQuery_model
+      - InterleavingSnapshot_model
       - Learning_model
       - LookbackOverride_model
       - Member_model

@@ -4,10 +4,14 @@ import {
   apiCreateInterleavingBody,
   apiUpdateInterleavingBody,
   ApiInterleavingInterface,
+  getInterleavingResultsEndpoint,
+  getInterleavingSnapshotEndpoint,
   INTERLEAVING_API_UPDATE_FIELDS,
   InterleavingInterface,
   interleavingApiSpec,
   interleavingValidator,
+  listInterleavingSnapshotsEndpoint,
+  refreshInterleavingEndpoint,
   startInterleavingEndpoint,
   stopInterleavingEndpoint,
 } from "shared/validators";
@@ -42,7 +46,11 @@ import {
   startInterleaving,
   stopInterleaving,
 } from "back-end/src/enterprise/services/interleavingChanges";
-import { toApiInterleaving } from "back-end/src/enterprise/services/interleavingApi";
+import {
+  toApiInterleaving,
+  toApiInterleavingSnapshot,
+} from "back-end/src/enterprise/services/interleavingApi";
+import { runInterleavingSnapshot } from "back-end/src/enterprise/services/interleavingAnalysis";
 import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
 
 type ApiVariationInput = NonNullable<
@@ -134,6 +142,69 @@ const BaseClass = MakeModelClass({
               req.context,
             ),
           };
+        },
+      }),
+      defineCustomApiHandler({
+        ...refreshInterleavingEndpoint,
+        // Existence, plan, and query permissions are checked by the service
+        reqHandler: async (req) => ({
+          snapshot: toApiInterleavingSnapshot(
+            await runInterleavingSnapshot(req.context, req.params.id),
+          ),
+        }),
+      }),
+      defineCustomApiHandler({
+        ...getInterleavingResultsEndpoint,
+        reqHandler: async (req) => {
+          const interleaving = await req.context.models.interleavings.getById(
+            req.params.id,
+          );
+          if (!interleaving) {
+            return req.context.throwNotFoundError(
+              `Interleaving experiment ${req.params.id} not found or not accessible`,
+            );
+          }
+          const snapshot =
+            await req.context.models.interleavingSnapshots.getLatestForInterleaving(
+              interleaving.id,
+            );
+          return {
+            snapshot: snapshot ? toApiInterleavingSnapshot(snapshot) : null,
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...listInterleavingSnapshotsEndpoint,
+        reqHandler: async (req) => {
+          const interleaving = await req.context.models.interleavings.getById(
+            req.params.id,
+          );
+          if (!interleaving) {
+            return req.context.throwNotFoundError(
+              `Interleaving experiment ${req.params.id} not found or not accessible`,
+            );
+          }
+          const snapshots =
+            await req.context.models.interleavingSnapshots.listForInterleaving(
+              interleaving.id,
+              req.query.limit,
+            );
+          return { snapshots: snapshots.map(toApiInterleavingSnapshot) };
+        },
+      }),
+      defineCustomApiHandler({
+        ...getInterleavingSnapshotEndpoint,
+        reqHandler: async (req) => {
+          const snapshot =
+            await req.context.models.interleavingSnapshots.getById(
+              req.params.snapshotId,
+            );
+          if (!snapshot || snapshot.interleavingId !== req.params.id) {
+            return req.context.throwNotFoundError(
+              `Snapshot ${req.params.snapshotId} not found on interleaving experiment ${req.params.id}`,
+            );
+          }
+          return { snapshot: toApiInterleavingSnapshot(snapshot) };
         },
       }),
     ],

@@ -1,7 +1,34 @@
 import type {
   ApiInterleavingInterface,
+  ApiInterleavingSnapshotInterface,
   InterleavingInterface,
+  InterleavingSnapshotInterface,
 } from "shared/validators";
+
+export function toApiInterleavingSnapshot(
+  doc: InterleavingSnapshotInterface,
+): ApiInterleavingSnapshotInterface {
+  const { frozenSettings: s } = doc;
+  return {
+    id: doc.id,
+    interleavingId: doc.interleavingId,
+    status: doc.status,
+    error: doc.error,
+    dateCreated: doc.dateCreated.toISOString(),
+    runStarted: doc.runStarted?.toISOString() ?? null,
+    settings: {
+      trackingKey: s.trackingKey,
+      datasourceId: s.datasourceId,
+      interleavingExposureQueryId: s.interleavingExposureQueryId,
+      userIdType: s.userIdType,
+      variations: s.variations,
+      metrics: s.metrics,
+      startDate: s.startDate.toISOString(),
+      endDate: s.endDate?.toISOString() ?? null,
+    },
+    results: doc.results,
+  };
+}
 
 export function toApiInterleaving(
   doc: InterleavingInterface,

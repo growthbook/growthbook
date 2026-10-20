@@ -5,6 +5,7 @@ import {
   interleavingMetricConfigValidator,
   interleavingVariationValidator,
 } from "./interleaving";
+import { namedSchema } from "./openapi-helpers";
 import { queryPointerValidator } from "./queries";
 
 /**
@@ -92,3 +93,85 @@ export const interleavingSnapshotValidator = baseSchema
 export type InterleavingSnapshotInterface = z.infer<
   typeof interleavingSnapshotValidator
 >;
+
+// REST API view of a snapshot (`/interleavings/:id/snapshots`). Lives here
+// rather than in interleaving.ts because it embeds the results schema.
+export const apiInterleavingSnapshotValidator = namedSchema(
+  "InterleavingSnapshot",
+  z
+    .object({
+      id: z.string(),
+      interleavingId: z.string(),
+      status: interleavingSnapshotValidator.shape.status,
+      error: z.string().optional(),
+      dateCreated: z.iso.datetime(),
+      runStarted: z.iso.datetime().nullable(),
+      // Analysis inputs frozen when the snapshot was created
+      settings: interleavingSnapshotSettingsValidator
+        .omit({
+          interleavingId: true,
+          exposureQuery: true,
+          startDate: true,
+          endDate: true,
+        })
+        .extend({
+          startDate: z.iso.datetime(),
+          endDate: z.iso.datetime().nullable(),
+        }),
+      results: z
+        .array(interleavingMetricResultValidator)
+        .optional()
+        .describe("Present once status is success"),
+    })
+    .strict(),
+);
+
+export type ApiInterleavingSnapshotInterface = z.infer<
+  typeof apiInterleavingSnapshotValidator
+>;
+
+const interleavingIdParams = z.strictObject({
+  id: z.string().describe("The interleaving experiment id"),
+});
+
+export const apiInterleavingRefreshValidator = {
+  paramsSchema: interleavingIdParams,
+  bodySchema: z.never(),
+  querySchema: z.never(),
+};
+
+export const apiListInterleavingSnapshotsValidator = {
+  paramsSchema: interleavingIdParams,
+  bodySchema: z.never(),
+  querySchema: z.strictObject({
+    limit: z.coerce.number().int().positive().max(100).optional(),
+  }),
+};
+
+export const apiGetInterleavingResultsValidator = {
+  paramsSchema: interleavingIdParams,
+  bodySchema: z.never(),
+  querySchema: z.never(),
+};
+
+export const apiGetInterleavingSnapshotValidator = {
+  paramsSchema: interleavingIdParams.extend({
+    snapshotId: z.string().describe("The snapshot id"),
+  }),
+  bodySchema: z.never(),
+  querySchema: z.never(),
+};
+
+export const apiInterleavingSnapshotReturn = z.object({
+  snapshot: apiInterleavingSnapshotValidator,
+});
+
+export const apiInterleavingResultsReturn = z.object({
+  snapshot: apiInterleavingSnapshotValidator
+    .nullable()
+    .describe("null until the first refresh"),
+});
+
+export const apiInterleavingSnapshotsReturn = z.object({
+  snapshots: z.array(apiInterleavingSnapshotValidator),
+});

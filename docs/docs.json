@@ -1051,7 +1051,11 @@
                   "api/Interleavings/operation/listInterleavings",
                   "api/Interleavings/operation/createInterleaving",
                   "api/Interleavings/operation/startInterleaving",
-                  "api/Interleavings/operation/stopInterleaving"
+                  "api/Interleavings/operation/stopInterleaving",
+                  "api/Interleavings/operation/refreshInterleaving",
+                  "api/Interleavings/operation/getInterleavingResults",
+                  "api/Interleavings/operation/listInterleavingSnapshots",
+                  "api/Interleavings/operation/getInterleavingSnapshot"
                 ]
               },
               {
@@ -1245,6 +1249,7 @@
               "api/InformationSchemaTable_model",
               "api/Interleaving_model",
               "api/InterleavingExposureQuery_model",
+              "api/InterleavingSnapshot_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",
