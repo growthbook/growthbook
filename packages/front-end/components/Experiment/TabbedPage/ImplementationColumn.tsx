@@ -76,6 +76,7 @@ export function ColumnHeader({
   menu?: ReactNode[];
   menuLabel: string;
 }) {
+  const menuOnly = !kind && menu.length > 0;
   return (
     <div
       className={clsx(
@@ -85,7 +86,13 @@ export function ColumnHeader({
       )}
       style={{ gridRow: 1, gridColumn: layout.column }}
     >
-      <Flex align="center" gap="2" width="100%" minWidth="0">
+      <Flex
+        align="center"
+        gap="2"
+        width="100%"
+        minWidth="0"
+        className={clsx(menuOnly && styles.clearOfMenu)}
+      >
         {icon ? (
           <Flex flexShrink="0" style={{ color: "var(--color-text-low)" }}>
             {icon}
@@ -107,7 +114,11 @@ export function ColumnHeader({
           <Flex
             align="center"
             gap="2"
-            className={clsx(styles.revealOnHover, styles.headerActions)}
+            className={clsx(
+              styles.revealOnHover,
+              styles.headerActions,
+              menuOnly && styles.menuOnly,
+            )}
           >
             {typeof kind === "string" ? (
               <span className={styles.headerType}>

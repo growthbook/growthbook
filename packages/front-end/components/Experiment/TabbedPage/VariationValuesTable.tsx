@@ -100,11 +100,12 @@ import styles from "./VariationValuesTable.module.scss";
 export type FlagView = "draft" | "live";
 
 const TABLE_MIN_WIDTH = 692;
-const VARIATION_MIN_WIDTH = 180;
 const VARIATION_NARROWEST_WIDTH = 130;
 const SPLIT_WIDTH = 124;
 const FLAG_WIDTH = 280;
+const MAX_FLAG_WIDTH = 350;
 const BORDERS = 2;
+const VARIATION_WIDTH = TABLE_MIN_WIDTH - BORDERS - SPLIT_WIDTH - FLAG_WIDTH;
 
 const VALUE_TYPE_LABELS: Record<FeatureValueType, string> = {
   boolean: "Boolean",
@@ -176,14 +177,17 @@ export default function VariationValuesTable({
   const variations = getLatestPhaseVariations(experiment);
   const hasMenu = !!(onEditKeys || onRemoveVariation || onReorder);
   const columnCount = linkedFeatures.length + implementationColumns.length;
+  const flagTrack = `clamp(${FLAG_WIDTH}px, (100cqw - ${
+    BORDERS + VARIATION_WIDTH + SPLIT_WIDTH
+  }px) / ${columnCount}, ${MAX_FLAG_WIDTH}px)`;
   const columns = [
     `minmax(${VARIATION_NARROWEST_WIDTH}px, 1fr)`,
     `${SPLIT_WIDTH}px`,
-    ...Array(columnCount).fill(`${FLAG_WIDTH}px`),
+    ...Array(columnCount).fill(flagTrack),
   ].join(" ");
   const tableWidth = Math.max(
     TABLE_MIN_WIDTH - BORDERS,
-    VARIATION_MIN_WIDTH + SPLIT_WIDTH + columnCount * FLAG_WIDTH,
+    VARIATION_WIDTH + SPLIT_WIDTH + columnCount * MAX_FLAG_WIDTH,
   );
   const firstValueRow = 2;
   const detailsRow = firstValueRow + variations.length;
@@ -201,7 +205,11 @@ export default function VariationValuesTable({
   if (!variations.length) return null;
 
   return (
-    <Box mx="auto" style={{ width: tableWidth + BORDERS, maxWidth: "100%" }}>
+    <Box
+      mx="auto"
+      className={styles.sizeContainer}
+      style={{ width: tableWidth + BORDERS, maxWidth: "100%" }}
+    >
       <Box position="relative">
         <Box
           position="absolute"

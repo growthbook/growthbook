@@ -553,8 +553,8 @@ export default function TrafficAllocationFunnel({
             ) : canAddNamespace ? (
               <Flex direction="column" align="center">
                 <Box className={styles.connectorLine} height="12px" />
-                <Link color="gray" size="sm" onClick={() => editNamespace?.()}>
-                  <Flex align="center" gap="1" py="1">
+                <Link color="gray" onClick={() => editNamespace?.()}>
+                  <Flex align="center" gap="1">
                     <PiPlus />
                     Namespace
                   </Flex>

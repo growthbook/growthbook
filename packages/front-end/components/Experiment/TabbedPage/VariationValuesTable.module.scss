@@ -22,6 +22,10 @@
   }
 }
 
+.sizeContainer {
+  container-type: inline-size;
+}
+
 .grid {
   --cell-inset: var(--space-3);
   display: grid;
@@ -148,6 +152,17 @@
     transparent,
     var(--color-panel-solid) var(--space-3)
   );
+}
+
+$menu-trigger-size: 24px;
+
+.clearOfMenu {
+  padding-right: calc(#{$menu-trigger-size} + var(--space-2));
+}
+
+.headerActions.menuOnly {
+  padding-left: 0;
+  background: none;
 }
 
 .headerType {
