@@ -103,6 +103,15 @@ export default function Table({
   const tableElement = (
     <RadixTable.Root
       {...props}
+      // The list wrapper carries the floor instead, where a drag-resize moves it.
+      style={
+        !isListVariant && minTableWidth
+          ? ({
+              ...props.style,
+              "--table-min-width": `${minTableWidth}px`,
+            } as React.CSSProperties)
+          : props.style
+      }
       variant={radixVariant}
       size={size !== undefined ? radixSize(size) : undefined}
       className={clsx(className, isListVariant && styles.tableList)}
