@@ -235,7 +235,6 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                     valueType={valueType}
                     feature={feature}
                     renderJSONInline={false}
-                    useCodeInput={true}
                     showFullscreenButton={true}
                     codeInputDefaultHeight={FIVE_LINES_HEIGHT}
                     sparse={sparse}

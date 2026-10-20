@@ -149,7 +149,6 @@ export default function FlagValuesModal({
                 valueType={feature.valueType}
                 feature={displayFeature}
                 renderJSONInline
-                useCodeInput
                 showFullscreenButton
                 codeInputDefaultHeight={FIVE_LINES_HEIGHT}
                 sparse={sparse}

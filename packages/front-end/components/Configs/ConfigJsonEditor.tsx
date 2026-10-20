@@ -910,7 +910,6 @@ export default function ConfigJsonEditor({
             value={valueText}
             setValue={setValueText}
             valueType="json"
-            useCodeInput
             showFullscreenButton
             codeInputDefaultHeight={320}
             constantContext={constantContext}

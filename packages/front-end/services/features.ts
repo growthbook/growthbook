@@ -406,9 +406,7 @@ export function getVariationDefaultName(
   return val.value;
 }
 
-export const LARGE_FILE_SIZE = 1024 * 1024; // 1MB - default to text editor
-
-// Runs on every render of the JSON editors, so only broken input pays for a repair.
+// Tries a plain parse first, so only broken input pays for a repair.
 export function formatJSON(value: string): string | undefined {
   try {
     return formatJsonMultilineObjects(JSON.parse(value));

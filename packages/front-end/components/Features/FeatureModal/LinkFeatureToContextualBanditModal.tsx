@@ -533,7 +533,6 @@ export default function LinkFeatureToContextualBanditModal({
                 setValue={(val) => form.setValue(`variations.${i}.value`, val)}
                 valueType={valueType}
                 feature={existing ? existingFeature : undefined}
-                useCodeInput={true}
                 showFullscreenButton={true}
                 sparse={isConfigBacked}
                 allowConfigBacking={isConfigBacked}

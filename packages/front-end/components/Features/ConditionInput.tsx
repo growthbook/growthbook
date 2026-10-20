@@ -6,12 +6,7 @@ import {
   extractConditionAttributeKeys,
 } from "shared/util";
 import { some } from "lodash";
-import {
-  PiBracketsCurly,
-  PiPlusCircleBold,
-  PiXBold,
-  PiTextAa,
-} from "react-icons/pi";
+import { PiPlusCircleBold, PiXBold, PiTextAa } from "react-icons/pi";
 import { FaMagic } from "react-icons/fa";
 import clsx from "clsx";
 import format from "date-fns/format";
@@ -28,7 +23,6 @@ import {
   getDefaultOperator,
   getFormatEquivalentOperator,
   formatJSON,
-  LARGE_FILE_SIZE,
   resolveAttributeFilter,
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -240,10 +234,6 @@ export default function ConditionInput({
   const [conds, setConds] = useState(
     () => jsonToConds(defaultValue, attributes) || [],
   );
-  const defaultCodeEditorToggledOn = value.length <= LARGE_FILE_SIZE;
-  const [codeEditorToggledOn, setCodeEditorToggledOn] = useState(
-    defaultCodeEditorToggledOn,
-  );
 
   const showAddRemoveSelector =
     !!addRemoveMode && !!addRemoveValue && !!onAddRemoveValueChange;
@@ -307,34 +297,16 @@ export default function ConditionInput({
       ),
     );
 
-    const formatted = formatJSON(value);
-
-    const codeEditorToggleButton = locked ? null : (
-      <Link
-        onClick={(e) => {
-          e.preventDefault();
-          setCodeEditorToggledOn(!codeEditorToggledOn);
-        }}
-        style={{ whiteSpace: "nowrap" }}
-      >
-        <PiBracketsCurly />{" "}
-        {codeEditorToggledOn ? "Use text editor" : "Use code editor"}
-      </Link>
-    );
-
+    // Formats only when asked: formatting a large condition on every
+    // keystroke makes typing lag.
     const formatJSONButton = locked ? null : (
       <Link
         onClick={(e) => {
           e.preventDefault();
-          if (formatted && formatted !== value) {
-            setValue(formatted);
-          }
+          const formatted = formatJSON(value);
+          if (formatted && formatted !== value) setValue(formatted);
         }}
-        style={{
-          whiteSpace: "nowrap",
-          opacity: !formatted || formatted === value ? 0.5 : 1,
-          cursor: !formatted || formatted === value ? "default" : "pointer",
-        }}
+        style={{ whiteSpace: "nowrap" }}
       >
         <FaMagic /> Format JSON
       </Link>
@@ -344,10 +316,7 @@ export default function ConditionInput({
       <>
         <Flex justify="between" align="center">
           <div>JSON format using MongoDB query syntax.</div>
-          <Flex gap="3">
-            {codeEditorToggleButton}
-            {formatJSONButton}
-          </Flex>
+          {formatJSONButton}
         </Flex>
         {hasSecureAttributes && (
           <HelperText status="warning" mt="2">
@@ -436,35 +405,18 @@ export default function ConditionInput({
         {renderAddRemoveSelector()}
         {!isRemoveSelection && (
           <Box mb="3">
-            {codeEditorToggledOn ? (
-              <CodeTextArea
-                labelClassName={labelClassName}
-                language="json"
-                value={value}
-                setValue={setValue}
-                helpText={combinedHelpText}
-                resizable={true}
-                defaultHeight={FIVE_LINES_HEIGHT}
-                showCopyButton={!locked}
-                showFullscreenButton={!locked}
-                disabled={locked}
-              />
-            ) : (
-              <Field
-                size="legacy"
-                labelClassName={labelClassName}
-                containerClassName="mb-0"
-                placeholder=""
-                value={value}
-                onChange={(e) => {
-                  setValue(e.target.value);
-                }}
-                textarea
-                minRows={1}
-                helpText={combinedHelpText}
-                disabled={locked}
-              />
-            )}
+            <CodeTextArea
+              labelClassName={labelClassName}
+              language="json"
+              value={value}
+              setValue={setValue}
+              helpText={combinedHelpText}
+              resizable={true}
+              defaultHeight={FIVE_LINES_HEIGHT}
+              showCopyButton={!locked}
+              showFullscreenButton={!locked}
+              disabled={locked}
+            />
           </Box>
         )}
       </Box>

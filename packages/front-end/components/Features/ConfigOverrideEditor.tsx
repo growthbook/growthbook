@@ -163,7 +163,6 @@ function OverrideValueInput({
             }
           }}
           valueType="json"
-          useCodeInput
           showFullscreenButton
           codeInputDefaultHeight={120}
           constantContext={constantContext}
@@ -812,7 +811,6 @@ export default function ConfigOverrideEditor({
             value={patch}
             setValue={setPatch}
             valueType="json"
-            useCodeInput
             showFullscreenButton
             constantContext={constantContext}
             disabled={disabled}

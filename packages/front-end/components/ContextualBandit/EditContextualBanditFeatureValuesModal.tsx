@@ -359,7 +359,6 @@ export default function EditContextualBanditFeatureValuesModal({
                 valueType={feature.valueType}
                 feature={feature}
                 renderJSONInline={true}
-                useCodeInput={true}
                 showFullscreenButton={true}
                 sparse={isConfigBacked}
                 allowConfigBacking={isConfigBacked}

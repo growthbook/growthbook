@@ -1,20 +1,17 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import type { Ace } from "ace-builds";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiMagicWand } from "react-icons/pi";
 import { FeatureValueType } from "shared/types/feature";
-import { formatJSON } from "@/services/features";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { Size } from "@/ui/sizes";
 import CodeTextArea, {
-  EDITOR_ACTION_ICON_SIZE,
-  EditorAction,
   TEN_LINES_HEIGHT,
 } from "@/components/Forms/CodeTextArea";
 import Button from "@/ui/Button";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { SparsePatchIndicator } from "@/components/Features/SparsePatchToggle";
 import { useReportedJsonValue } from "@/components/Features/ValueDiffContext";
+import FormatJsonAction from "@/components/Features/FormatJsonAction";
 
 // Edit/Preview tabs for a sparse JSON rule value. The Edit tab is the JSON code
 // editor; the Preview tab shows the expanded value (default + patch) with the
@@ -158,14 +155,7 @@ export default function SparseTabbedEditor({
             helpText={fullscreen ? undefined : usedConstantTags}
             actions={
               disabled ? null : (
-                <EditorAction
-                  label="Format JSON"
-                  icon={<PiMagicWand size={EDITOR_ACTION_ICON_SIZE} />}
-                  onClick={() => {
-                    const formatted = formatJSON(value);
-                    if (formatted && formatted !== value) setValue(formatted);
-                  }}
-                />
+                <FormatJsonAction value={value} setValue={setValue} />
               )
             }
             placeholder={placeholder}

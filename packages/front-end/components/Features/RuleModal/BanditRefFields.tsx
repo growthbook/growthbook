@@ -217,7 +217,6 @@ export default function BanditRefFields({
               valueType={feature.valueType}
               feature={feature}
               renderJSONInline={false}
-              useCodeInput={true}
               showFullscreenButton={true}
               codeInputDefaultHeight={80}
               sparse={!!form.watch("sparse")}

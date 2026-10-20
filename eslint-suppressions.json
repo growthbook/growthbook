@@ -562,7 +562,7 @@
   },
   "packages/front-end/components/Features/ConditionInput.tsx": {
     "no-restricted-syntax": {
-      "count": 7
+      "count": 6
     }
   },
   "packages/front-end/components/Features/EditFeatureInfoModal.tsx": {

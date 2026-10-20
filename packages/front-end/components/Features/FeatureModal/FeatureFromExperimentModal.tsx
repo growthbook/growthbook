@@ -896,7 +896,6 @@ export default function FeatureFromExperimentModal({
               valueType={valueType}
               feature={existing ? existingFeature : undefined}
               sparse={sparse}
-              useCodeInput={true}
               showFullscreenButton={true}
               allowConfigBacking={isConfigBacked}
               configBackingOptionKeys={configBackingOptionKeys}
