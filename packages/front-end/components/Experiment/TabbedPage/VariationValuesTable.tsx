@@ -787,15 +787,9 @@ function FlagColumn({
     });
   }
   if (!showingLive && duplicateIds.size) {
-    const repeated = new Intl.ListFormat("en", { type: "conjunction" }).format(
-      variations.filter((v) => duplicateIds.has(v.id)).map(variationLabel),
-    );
     notices.push({
       status: "error",
-      text:
-        duplicateIds.size === 2
-          ? `${repeated} serve the same value.`
-          : `${repeated} serve duplicate values.`,
+      text: "Multiple variations serve the same value.",
     });
   }
   if (onFlag && describesShown && info.rulesAbove) {
@@ -969,13 +963,13 @@ function FlagColumn({
     />
   );
   const revisionControl = revisionPicker ? (
-    <Flex align="center" gap="2" minWidth="0">
+    <Flex align="center" gap="1" minWidth="0">
       {revisionDetails(<Flex align="center">{revisionDot}</Flex>)}
       {revisionPicker}
     </Flex>
   ) : (
     revisionDetails(
-      <Flex align="center" gap="2" minWidth="0" style={{ cursor: "default" }}>
+      <Flex align="center" gap="1" minWidth="0" style={{ cursor: "default" }}>
         {revisionDot}
         <span className={styles.baselineText}>
           <Text size="sm" color="text-low" truncate>
