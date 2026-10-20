@@ -25,7 +25,9 @@ export const postFactMetricAnalysis = createApiRequestHandler(
     endDate: fixedEnd,
   } = req.body ?? {};
   if (!!fixedStart !== !!fixedEnd) {
-    throw new BadRequestError("Provide both startDate and endDate, or neither");
+    throw new BadRequestError(
+      "Provide both startDate and endDate, or neither.",
+    );
   }
 
   const factMetric = await context.models.factMetrics.getById(id);
@@ -75,7 +77,7 @@ export const postFactMetricAnalysis = createApiRequestHandler(
     startDate = new Date(fixedStart);
     endDate = new Date(fixedEnd);
     if (startDate >= endDate) {
-      throw new BadRequestError("startDate must be before endDate");
+      throw new BadRequestError("startDate must be before endDate.");
     }
     lookbackDaysValue = Math.ceil(
       (endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000),

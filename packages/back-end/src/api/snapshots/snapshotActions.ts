@@ -38,7 +38,9 @@ async function getSnapshotAndExperiment(context: ApiReqContext, id: string) {
   const experiment =
     snapshot && (await getExperimentById(context, snapshot.experiment));
   if (!snapshot || !experiment) {
-    throw new NotFoundError("Snapshot not found or no permission to access");
+    throw new NotFoundError(
+      "Could not find the snapshot, or you do not have permission to access it.",
+    );
   }
   return { snapshot, experiment };
 }
@@ -74,7 +76,7 @@ export const postSnapshotAnalysis = createApiRequestHandler(
     req.params.id,
   );
   const base = getSnapshotAnalysis(snapshot)?.settings;
-  if (!base) throw new BadRequestError("This snapshot has no results yet");
+  if (!base) throw new BadRequestError("This snapshot has no results yet.");
 
   const { baselineVariationId, ...overrides } = req.body;
   const analysisSettings: ExperimentSnapshotAnalysisSettings = {
@@ -87,7 +89,9 @@ export const postSnapshotAnalysis = createApiRequestHandler(
       snapshot.phase,
     ).findIndex((v) => v.id === baselineVariationId);
     if (analysisSettings.baselineVariationIndex < 0) {
-      throw new BadRequestError(`Unknown variation: ${baselineVariationId}`);
+      throw new BadRequestError(
+        `Could not find variation ${baselineVariationId} in this snapshot's phase.`,
+      );
     }
   }
 
@@ -100,7 +104,7 @@ export const postSnapshotAnalysis = createApiRequestHandler(
       STALE_RUNNING_ANALYSIS_MS;
   if (existing?.status === "running" && !isStale) {
     throw new ConflictError(
-      "This analysis is still computing; retry once it finishes",
+      "This analysis is still computing. Retry once it finishes.",
     );
   }
   if (!existing || existing.status === "error" || isStale) {
