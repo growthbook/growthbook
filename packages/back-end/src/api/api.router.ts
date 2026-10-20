@@ -21,6 +21,8 @@ import { LearningModel } from "back-end/src/models/LearningModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { AutoRunModel } from "back-end/src/models/AutoRunModel";
 import { PopulationModel } from "back-end/src/models/PopulationModel";
+import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
+import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -76,7 +78,6 @@ import { informationSchemaTablesRoutes } from "./information-schema-tables/infor
 import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
 import { reportRoutes } from "./reports/reports.router";
 import { namespacesRoutes } from "./namespaces/namespaces.router";
-import { savedQueriesRoutes } from "./saved-queries/saved-queries.router";
 import { getOpenApiRoutesForApiConfig } from "./apiModelHandlers";
 
 const API_MODELS: ModelClass[] = [
@@ -96,6 +97,8 @@ const API_MODELS: ModelClass[] = [
   HoldoutModel,
   AutoRunModel,
   PopulationModel,
+  SavedQueryDataModel,
+  MetricAnalysisModel,
 ];
 
 const router = Router();
@@ -234,7 +237,6 @@ export const allRoutes = [
   ...rampSchedulesRoutes,
   ...reportRoutes,
   ...namespacesRoutes,
-  ...savedQueriesRoutes,
   ...openaiRoutes,
   ...visualEditorAiRoutes,
 ];

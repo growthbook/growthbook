@@ -5,11 +5,7 @@ import { postFactMetric } from "./postFactMetric";
 import { updateFactMetric } from "./updateFactMetric";
 import { deleteFactMetric } from "./deleteFactMetric";
 import { postFactMetricAnalysis } from "./postFactMetricAnalysis";
-import {
-  getLatestFactMetricAnalysis,
-  getMetricAnalysis,
-  postMetricAnalysisCancel,
-} from "./metricAnalyses";
+import { getLatestFactMetricAnalysis } from "./getLatestFactMetricAnalysis";
 
 export const factMetricsRoutes: OpenApiRoute[] = [
   listFactMetrics,
@@ -19,6 +15,4 @@ export const factMetricsRoutes: OpenApiRoute[] = [
   deleteFactMetric,
   postFactMetricAnalysis,
   getLatestFactMetricAnalysis,
-  getMetricAnalysis,
-  postMetricAnalysisCancel,
 ];

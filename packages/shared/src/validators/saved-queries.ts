@@ -301,11 +301,12 @@ export const apiSavedQueryValidator = namedSchema(
         error: z.string().nullable(),
         duration: z.number().nullable(),
       }),
-      dateCreated: z.string().meta({ format: "date-time" }),
-      dateUpdated: z.string().meta({ format: "date-time" }),
+      dateCreated: z.iso.datetime(),
+      dateUpdated: z.iso.datetime(),
     })
     .strict(),
 );
+export type ApiSavedQuery = z.infer<typeof apiSavedQueryValidator>;
 
 const savedQueryFields = {
   name: z.string().min(1),
@@ -317,128 +318,75 @@ const savedQueryFields = {
 };
 
 const savedQueryIdParams = z.object({ id: z.string() }).strict();
-const savedQueryResponse = z
+
+export const apiSavedQueryReturn = z
   .object({ savedQuery: apiSavedQueryValidator })
   .strict();
-const savedQueryGate =
-  "Requires the saved SQL Explorer queries feature and permission to run SQL Explorer queries on the Data Source.";
+export type ApiSavedQueryReturn = z.infer<typeof apiSavedQueryReturn>;
 
-export const listSavedQueriesValidator = {
+export const apiListSavedQueriesValidator = {
   bodySchema: z.never(),
   querySchema: z.object({ datasourceId: z.string().optional() }).strict(),
   paramsSchema: z.never(),
-  responseSchema: z
-    .object({ savedQueries: z.array(apiSavedQueryValidator) })
-    .strict(),
-  summary: "Get all saved SQL Explorer queries",
-  operationId: "listSavedQueries",
-  tags: ["saved-queries"],
-  method: "get" as const,
-  path: "/saved-queries",
 };
 
-export const getSavedQueryValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: savedQueryIdParams,
-  responseSchema: savedQueryResponse,
-  summary: "Get a single saved query",
-  operationId: "getSavedQuery",
-  tags: ["saved-queries"],
-  method: "get" as const,
-  path: "/saved-queries/:id",
-};
+export const apiCreateSavedQueryBody = z
+  .object({
+    datasourceId: z.string(),
+    ...savedQueryFields,
+    runNow: z
+      .boolean()
+      .optional()
+      .describe(
+        "Run the query before saving it (default true). A query that fails is not saved.",
+      ),
+  })
+  .strict();
+export type ApiCreateSavedQueryBody = z.infer<typeof apiCreateSavedQueryBody>;
 
-export const postSavedQueryValidator = {
-  bodySchema: z
-    .object({
-      datasourceId: z.string(),
-      ...savedQueryFields,
-      runNow: z
-        .boolean()
-        .optional()
-        .describe(
-          "Run the query before saving it (default true). A query that fails is not saved.",
-        ),
-    })
-    .strict(),
+export const apiCreateSavedQueryValidator = {
+  bodySchema: apiCreateSavedQueryBody,
   querySchema: z.never(),
   paramsSchema: z.never(),
-  responseSchema: savedQueryResponse,
-  summary: "Create a saved query",
-  description: `${savedQueryGate} Use its id in a Dashboard's SQL Explorer block.`,
-  confirmation: ["other.write"] as const,
-  operationId: "postSavedQuery",
-  tags: ["saved-queries"],
-  method: "post" as const,
-  path: "/saved-queries",
-  exampleRequest: {
-    body: {
-      datasourceId: "ds_abc123",
-      name: "Signups by day",
-      sql: "SELECT date, COUNT(*) AS signups FROM users GROUP BY date",
-    },
-  },
 };
 
-export const updateSavedQueryValidator = {
-  bodySchema: z
-    .object({
-      ...savedQueryFields,
-      // A GET response can be posted back with only the changes
-      id: readOnlyEcho,
-      datasourceId: readOnlyEcho,
-      linkedDashboardIds: readOnlyEcho,
-      dateLastRan: readOnlyEcho,
-      lastRun: readOnlyEcho,
-      dateCreated: readOnlyEcho,
-      dateUpdated: readOnlyEcho,
-    })
-    .partial()
-    .strict(),
+export const apiUpdateSavedQueryBody = z
+  .object({
+    ...savedQueryFields,
+    // A GET response can be posted back with only the changes
+    id: readOnlyEcho,
+    datasourceId: readOnlyEcho,
+    linkedDashboardIds: readOnlyEcho,
+    dateLastRan: readOnlyEcho,
+    lastRun: readOnlyEcho,
+    dateCreated: readOnlyEcho,
+    dateUpdated: readOnlyEcho,
+  })
+  .partial()
+  .strict();
+export type ApiUpdateSavedQueryBody = z.infer<typeof apiUpdateSavedQueryBody>;
+
+export const apiUpdateSavedQueryValidator = {
+  bodySchema: apiUpdateSavedQueryBody,
   querySchema: z.never(),
   paramsSchema: savedQueryIdParams,
-  responseSchema: savedQueryResponse,
-  summary: "Update a saved query",
-  description: `${savedQueryGate} Changing \`sql\` doesn't re-run it; call the refresh endpoint. Read-only fields from the GET response are accepted and ignored.`,
-  confirmation: ["other.write"] as const,
-  operationId: "updateSavedQuery",
-  tags: ["saved-queries"],
-  method: "post" as const,
-  path: "/saved-queries/:id",
 };
 
-export const deleteSavedQueryValidator = {
+export const apiRefreshSavedQueryValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: savedQueryIdParams,
-  responseSchema: z.object({ deletedId: z.string() }).strict(),
-  summary: "Delete a saved query",
-  confirmation: ["other.write"] as const,
-  operationId: "deleteSavedQuery",
-  tags: ["saved-queries"],
-  method: "delete" as const,
-  path: "/saved-queries/:id",
 };
 
-export const postSavedQueryRefreshValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: savedQueryIdParams,
-  responseSchema: z
-    .object({
-      savedQuery: apiSavedQueryValidator,
-      results: z
-        .array(z.record(z.string(), z.unknown()))
-        .describe("Up to 1000 rows"),
-      error: z.string().nullable(),
-    })
-    .strict(),
-  summary: "Re-run a saved query",
-  description: `${savedQueryGate} A failed run is reported in \`error\` and the previous results are kept.`,
-  confirmation: ["other.write"] as const,
-  operationId: "postSavedQueryRefresh",
-  tags: ["saved-queries"],
-  method: "post" as const,
-  path: "/saved-queries/:id/refresh",
-};
+export const apiRefreshSavedQueryReturn = z
+  .object({
+    savedQuery: apiSavedQueryValidator,
+    results: z
+      .array(z.record(z.string(), z.unknown()))
+      .describe("Up to 1000 rows"),
+    error: z.string().nullable(),
+  })
+  .strict();
+export type ApiRefreshSavedQueryReturn = z.infer<
+  typeof apiRefreshSavedQueryReturn
+>;

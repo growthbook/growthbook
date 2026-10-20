@@ -1069,23 +1069,17 @@ export const postFactMetricAnalysisValidator = {
   exampleRequest: { body: { lookbackDays: 90 } },
 };
 
-const metricAnalysisResponse = z
+export const apiMetricAnalysisReturn = z
   .object({ metricAnalysis: apiMetricAnalysisValidator })
   .strict();
+export type ApiMetricAnalysisReturn = z.infer<typeof apiMetricAnalysisReturn>;
 
-export const getMetricAnalysisValidator = {
+export const apiMetricAnalysisIdValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z
     .object({ id: z.string().describe("The metric analysis id") })
     .strict(),
-  responseSchema: metricAnalysisResponse,
-  summary: "Get a metric analysis and its results",
-  description: "Poll until `status` is no longer running.",
-  operationId: "getMetricAnalysis",
-  tags: ["fact-metrics"],
-  method: "get" as const,
-  path: "/metric-analyses/:id",
 };
 
 export const getLatestFactMetricAnalysisValidator = {
@@ -1100,19 +1094,4 @@ export const getLatestFactMetricAnalysisValidator = {
   tags: ["fact-metrics"],
   method: "get" as const,
   path: "/fact-metrics/:id/analysis",
-};
-
-export const postMetricAnalysisCancelValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z
-    .object({ id: z.string().describe("The metric analysis id") })
-    .strict(),
-  responseSchema: metricAnalysisResponse,
-  summary: "Cancel a running metric analysis",
-  confirmation: ["other.write"] as const,
-  operationId: "postMetricAnalysisCancel",
-  tags: ["fact-metrics"],
-  method: "post" as const,
-  path: "/metric-analyses/:id/cancel",
 };
