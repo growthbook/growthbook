@@ -293,7 +293,7 @@ info:
     it. Do not assume that `ignoreWarnings` clears every 422 response.
 
     - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
-    per minute. Try again later.
+    per minute, or the limit your self-hosted server sets. Try again later.
 
     - **5XX** - Server Error - Something went wrong on GrowthBook's end (these
     are rare)
