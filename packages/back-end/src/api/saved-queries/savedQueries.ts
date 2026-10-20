@@ -1,3 +1,4 @@
+import { isReadOnlySQL } from "shared/sql";
 import { v4 as uuidv4 } from "uuid";
 import {
   DataVizConfig,
@@ -93,11 +94,19 @@ export const getSavedQueryHandler = createApiRequestHandler(
   savedQuery: toApiSavedQuery(await getSavedQuery(req.context, req.params.id)),
 }));
 
+// Checked on save too, so a query saved without running can't fail later
+function assertReadOnlySql(sql: string) {
+  if (!isReadOnlySQL(sql)) {
+    throw new BadRequestError("Only SELECT queries are allowed.");
+  }
+}
+
 export const postSavedQuery = createApiRequestHandler(postSavedQueryValidator)(
   async (req) => {
     const { context } = req;
     assertPlanAllows(context);
     const { datasourceId, name, sql, dataVizConfig, runNow } = req.body;
+    assertReadOnlySql(sql);
     const datasource = await getDataSourceById(context, datasourceId);
     if (!datasource) throw new NotFoundError("Cannot find datasource");
     let results: QueryExecutionResult = { results: [], sql };
@@ -131,6 +140,7 @@ export const updateSavedQuery = createApiRequestHandler(
 )(async (req) => {
   const existing = await getSavedQuery(req.context, req.params.id);
   const { dataVizConfig, ...rest } = req.body;
+  if (rest.sql !== undefined) assertReadOnlySql(rest.sql);
   const updated = await req.context.models.savedQueries.update(existing, {
     ...rest,
     ...(dataVizConfig ? { dataVizConfig: withVizIds(dataVizConfig) } : {}),
