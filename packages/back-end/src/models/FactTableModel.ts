@@ -1198,7 +1198,7 @@ export async function deleteFactTable(
 ) {
   if (
     !bypassManagedByCheck &&
-    factTable.managedBy === "api" &&
+    isExternallyManaged(factTable.managedBy) &&
     context.auditUser?.type !== "api_key"
   ) {
     throw new Error(
