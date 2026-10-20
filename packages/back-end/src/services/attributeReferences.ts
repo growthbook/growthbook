@@ -1,26 +1,19 @@
+import { z } from "zod";
 import { extractConditionAttributeKeys } from "shared/util";
+import { getAttributeReferencesValidator } from "shared/validators";
 import { getAllFeaturesForGraph } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { yieldEventLoop } from "back-end/src/util/yield";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 
-type AttributeRef = { id: string; name: string; project?: string };
-type AttributeRefExperiment = {
-  id: string;
-  name: string;
-  project?: string;
-  projects?: string[];
-};
-type AttributeRefGroup = { id: string; groupName: string; projects?: string[] };
-export type AttributeReferencesMap = Record<
-  string,
-  {
-    features: AttributeRef[];
-    experiments: AttributeRefExperiment[];
-    savedGroups: AttributeRefGroup[];
-  }
+type AttributeReferences = z.infer<
+  typeof getAttributeReferencesValidator.responseSchema
 >;
+type AttributeRef = AttributeReferences["features"][number];
+type AttributeRefExperiment = AttributeReferences["experiments"][number];
+type AttributeRefGroup = AttributeReferences["savedGroups"][number];
+export type AttributeReferencesMap = Record<string, AttributeReferences>;
 
 // A condition on `user.country` also references `user`
 export function getConditionKeyMatches(
@@ -126,6 +119,7 @@ export async function getAttributeReferences(
       savedGroupRefs.get(key)!.set(group.id, {
         id: group.id,
         groupName: group.groupName,
+        type: group.type,
         projects: group.projects,
       });
     };

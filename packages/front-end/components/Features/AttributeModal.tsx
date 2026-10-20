@@ -128,8 +128,11 @@ export default function AttributeModal({
     constrainingChange && attribute ? [attribute] : [],
   );
   const refs = attribute ? references?.[attribute] : undefined;
+  // ID lists store no condition values, so they need no audit
+  const conditionGroups =
+    refs?.savedGroups.filter((g) => g.type === "condition") ?? [];
   const refCount = refs
-    ? refs.features.length + refs.experiments.length + refs.savedGroups.length
+    ? refs.features.length + refs.experiments.length + conditionGroups.length
     : 0;
 
   const permissionRequired = (project: string) => {
@@ -452,7 +455,7 @@ export default function AttributeModal({
               <AttributeReferencesList
                 features={refs.features}
                 experiments={refs.experiments}
-                savedGroups={refs.savedGroups}
+                savedGroups={conditionGroups}
               />
             </Box>
           ) : null}

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { namedSchema } from "./openapi-helpers";
+import { savedGroupTypeValidator } from "./saved-group";
 import {
   ATTRIBUTE_PROPERTY_DESCRIPTION,
   MARKDOWN_DESCRIPTION,
@@ -234,6 +235,9 @@ export const getAttributeReferencesValidator = {
         z.object({
           id: z.string(),
           groupName: z.string(),
+          type: savedGroupTypeValidator.describe(
+            "`condition` groups use the attribute in their condition; `list` groups are keyed on it",
+          ),
           projects: z.array(z.string()).optional(),
         }),
       ),
