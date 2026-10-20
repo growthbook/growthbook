@@ -762,12 +762,7 @@
                   "api/sdk-connections/operation/getSdkConnection",
                   "api/sdk-connections/operation/putSdkConnection",
                   "api/sdk-connections/operation/deleteSdkConnection",
-                  "api/sdk-connections/operation/lookupSdkConnectionByKey",
-                  "api/sdk-connections/operation/listSdkConnectionWebhooks",
-                  "api/sdk-connections/operation/postSdkConnectionWebhook",
-                  "api/sdk-connections/operation/putSdkWebhook",
-                  "api/sdk-connections/operation/deleteSdkWebhook",
-                  "api/sdk-connections/operation/postSdkWebhookTest"
+                  "api/sdk-connections/operation/lookupSdkConnectionByKey"
                 ]
               },
               {
@@ -1240,6 +1235,16 @@
                   "api/WebhookSecrets/operation/getWebhookSecret",
                   "api/WebhookSecrets/operation/deleteWebhookSecret",
                   "api/WebhookSecrets/operation/listWebhookSecrets"
+                ]
+              },
+              {
+                "group": "SDK Webhooks",
+                "pages": [
+                  "api/SdkWebhooks/operation/listSdkConnectionWebhooks",
+                  "api/SdkWebhooks/operation/postSdkConnectionWebhook",
+                  "api/SdkWebhooks/operation/putSdkWebhook",
+                  "api/SdkWebhooks/operation/deleteSdkWebhook",
+                  "api/SdkWebhooks/operation/postSdkWebhookTest"
                 ]
               }
             ]
