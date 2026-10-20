@@ -986,6 +986,10 @@ const apiExperimentShape = z.object({
   autoRefresh: z.boolean(),
   hashAttribute: z.string(),
   fallbackAttribute: z.string().optional(),
+  holdoutId: z
+    .string()
+    .optional()
+    .describe("The holdout this experiment runs inside, if any"),
   hashVersion: z.union([z.literal(1), z.literal(2)]),
   disableStickyBucketing: z.boolean().optional(),
   bucketVersion: z.coerce.number().optional(),
@@ -1385,7 +1389,7 @@ const apiVariationInput = z.object({
 export type ApiVariationInput = z.infer<typeof apiVariationInput>;
 
 // Phase for input payloads
-const apiPhaseInput = z.object({
+export const apiPhaseInput = z.object({
   name: z.string().describe("Short phase label (e.g. `Main`)."),
   dateStarted: z.string().meta({ format: "date-time" }),
   dateEnded: z.string().meta({ format: "date-time" }).optional(),
@@ -1500,6 +1504,7 @@ const postExperimentBody = z
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
+    holdoutId: z.string().optional().describe("Run inside this holdout"),
     attributeScopeAllProjects: z
       .boolean()
       .describe(
@@ -1635,6 +1640,12 @@ const updateExperimentBody = z
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
+    holdoutId: z
+      .string()
+      .optional()
+      .describe(
+        'Run inside this holdout. Only a draft with no linked Feature Flags, URL redirects or visual changesets can join, change or leave one; "" leaves. Can\'t change in the same request as `project`.',
+      ),
     attributeScopeAllProjects: z
       .boolean()
       .describe(

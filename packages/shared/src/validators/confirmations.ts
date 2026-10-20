@@ -24,6 +24,7 @@ export const CONFIRM_ACTIONS = [
   "experiment.traffic",
   "experiment.phases",
   "experiment.visualEditor",
+  "experiment.delete",
   "experiment.other",
   "savedGroup.create",
   "savedGroup.draft",

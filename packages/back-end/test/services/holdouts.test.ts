@@ -8,11 +8,14 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { logger } from "back-end/src/util/logger";
 import type { ReqContext } from "back-end/types/request";
 import {
   getHoldoutLivePayloadChanges,
+  applyExperimentHoldoutChange,
   assertCanUpdateHoldout,
+  assertExperimentHoldoutChange,
   assertValidHoldoutEnvironments,
   assertValidHoldoutSchedule,
   getNextScheduledStatusUpdateForStage,
@@ -27,7 +30,13 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
   updateExperiment: jest.fn(),
   createExperiment: jest.fn(),
   deleteExperimentByIdForOrganization: jest.fn(),
+  getExperimentById: jest.fn(),
   getExperimentsByIds: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/holdout-availability", () => ({
+  ...jest.requireActual("back-end/src/services/holdout-availability"),
+  getHoldoutAvailableForProject: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/features", () => ({
@@ -1131,5 +1140,243 @@ describe("createHoldoutWithExperiment", () => {
       'no longer declares its default identifier type "user_id"',
     );
     expect(createExperiment).not.toHaveBeenCalled();
+  });
+});
+
+describe("assertExperimentHoldoutChange", () => {
+  const context = { org: { id: "org", settings: {} } } as unknown as ReqContext;
+  const draft = (overrides: Partial<ExperimentInterface> = {}) =>
+    ({
+      id: "exp_1",
+      status: "draft",
+      project: "",
+      ...overrides,
+    }) as unknown as ExperimentInterface;
+  const targetHoldouts = () =>
+    jest.mocked(getHoldoutAvailableForProject).mock.calls.map((c) => c[0]);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("is a no-op when the holdout is omitted or unchanged", async () => {
+    await assertExperimentHoldoutChange(
+      context,
+      draft({ holdoutId: "hld_1" }),
+      {},
+    );
+    await assertExperimentHoldoutChange(
+      context,
+      draft({ holdoutId: "hld_1" }),
+      { holdoutId: "hld_1" },
+    );
+    await assertExperimentHoldoutChange(context, draft(), { holdoutId: "" });
+    expect(getHoldoutAvailableForProject).not.toHaveBeenCalled();
+  });
+
+  it("lets a draft without linked changes join, switch and leave", async () => {
+    await assertExperimentHoldoutChange(context, draft(), {
+      holdoutId: "hld_1",
+    });
+    await assertExperimentHoldoutChange(
+      context,
+      draft({ holdoutId: "hld_1" }),
+      { holdoutId: "hld_2" },
+    );
+    await assertExperimentHoldoutChange(
+      context,
+      draft({ holdoutId: "hld_1" }),
+      { holdoutId: "" },
+    );
+    expect(targetHoldouts().map((c) => c.holdoutId)).toEqual([
+      "hld_1",
+      "hld_2",
+    ]);
+  });
+
+  it("checks a join against the experiment's Project and a move against its holdout", async () => {
+    await assertExperimentHoldoutChange(context, draft({ project: "prj_a" }), {
+      holdoutId: "hld_1",
+      project: "prj_a",
+    });
+    await assertExperimentHoldoutChange(
+      context,
+      draft({ holdoutId: "hld_2", project: "prj_a" }),
+      { project: "prj_b" },
+    );
+    expect(targetHoldouts()).toEqual([
+      expect.objectContaining({ holdoutId: "hld_1", project: "prj_a" }),
+      expect.objectContaining({ holdoutId: "hld_2", project: "prj_b" }),
+    ]);
+  });
+
+  it.each([
+    {
+      change: "join",
+      experiment: draft({ project: "prj_a" }),
+      holdoutId: "hld_1",
+    },
+    {
+      change: "switch",
+      experiment: draft({ holdoutId: "hld_2", project: "prj_a" }),
+      holdoutId: "hld_1",
+    },
+    {
+      change: "leave",
+      experiment: draft({ holdoutId: "hld_2", project: "prj_a" }),
+      holdoutId: "",
+    },
+  ])(
+    "refuses a $change and a Project move in one request",
+    async ({ experiment, holdoutId }) => {
+      await expect(
+        assertExperimentHoldoutChange(context, experiment, {
+          holdoutId,
+          project: "prj_b",
+        }),
+      ).rejects.toThrow("separate requests");
+      expect(targetHoldouts()).toEqual([]);
+    },
+  );
+
+  it("refuses a join once the experiment has run", async () => {
+    await expect(
+      assertExperimentHoldoutChange(context, draft({ status: "running" }), {
+        holdoutId: "hld_1",
+      }),
+    ).rejects.toThrow("Only a draft experiment");
+  });
+
+  it("refuses a join for a draft with linked changes", async () => {
+    for (const linked of [
+      { linkedFeatures: ["feat_1"] },
+      { hasURLRedirects: true },
+      { hasVisualChangesets: true },
+    ]) {
+      await expect(
+        assertExperimentHoldoutChange(context, draft(linked), {
+          holdoutId: "hld_1",
+        }),
+      ).rejects.toThrow("Add the holdout to the Feature Flag first");
+    }
+  });
+
+  it("refuses a switch or leave after a run or linked changes", async () => {
+    await expect(
+      assertExperimentHoldoutChange(
+        context,
+        draft({ holdoutId: "hld_1", status: "stopped" }),
+        { holdoutId: "hld_2" },
+      ),
+    ).rejects.toThrow("Cannot change holdout");
+    await expect(
+      assertExperimentHoldoutChange(
+        context,
+        draft({ holdoutId: "hld_1", linkedFeatures: ["feat_1"] }),
+        { holdoutId: "" },
+      ),
+    ).rejects.toThrow("Cannot remove experiment from holdout");
+  });
+});
+
+describe("applyExperimentHoldoutChange", () => {
+  const mockUpdateExperiment = updateExperiment as jest.Mock;
+
+  const experiment = {
+    id: "exp_1",
+    holdoutId: "hld_1",
+    project: "",
+  } as unknown as ExperimentInterface;
+  const previous = {
+    id: "exp_1",
+    dateAdded: new Date("2026-01-01T00:00:00.000Z"),
+  };
+
+  const makeContext = () => {
+    const holdout = {
+      getByIdForLinkage: jest.fn(async () => ({
+        id: "hld_1",
+        linkedExperiments: { exp_1: previous },
+      })),
+      removeExperimentFromHoldout: jest.fn(),
+      addExperimentToHoldout: jest.fn(),
+      restoreExperimentLinkage: jest.fn(),
+    };
+    const context = {
+      org: { id: "org", settings: {} },
+      models: { holdout },
+    } as unknown as ReqContext;
+    return { context, holdout };
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("does nothing when the holdout is omitted or unchanged", async () => {
+    const { context, holdout } = makeContext();
+    await applyExperimentHoldoutChange(context, experiment, undefined);
+    await applyExperimentHoldoutChange(context, experiment, "hld_1");
+    expect(holdout.removeExperimentFromHoldout).not.toHaveBeenCalled();
+    expect(holdout.addExperimentToHoldout).not.toHaveBeenCalled();
+  });
+
+  it("moves the link from the old holdout to the new one", async () => {
+    const { context, holdout } = makeContext();
+    await applyExperimentHoldoutChange(context, experiment, "hld_2");
+    expect(holdout.removeExperimentFromHoldout).toHaveBeenCalledTimes(1);
+    expect(holdout.removeExperimentFromHoldout).toHaveBeenCalledWith(
+      "hld_1",
+      "exp_1",
+    );
+    expect(holdout.addExperimentToHoldout).toHaveBeenCalledWith(
+      "hld_2",
+      "exp_1",
+    );
+    expect(holdout.restoreExperimentLinkage).not.toHaveBeenCalled();
+    expect(mockUpdateExperiment).not.toHaveBeenCalled();
+  });
+
+  it("only unlinks when leaving", async () => {
+    const { context, holdout } = makeContext();
+    await applyExperimentHoldoutChange(context, experiment, "");
+    expect(holdout.removeExperimentFromHoldout).toHaveBeenCalledWith(
+      "hld_1",
+      "exp_1",
+    );
+    expect(holdout.addExperimentToHoldout).not.toHaveBeenCalled();
+  });
+
+  it("rewinds the saved holdoutId and both links when the add fails", async () => {
+    const { context, holdout } = makeContext();
+    holdout.addExperimentToHoldout.mockRejectedValue(new Error("holdout down"));
+    await expect(
+      applyExperimentHoldoutChange(context, experiment, "hld_2"),
+    ).rejects.toThrow("holdout down");
+    expect(mockUpdateExperiment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: { holdoutId: "hld_1" },
+      }),
+    );
+    expect(holdout.removeExperimentFromHoldout).toHaveBeenLastCalledWith(
+      "hld_2",
+      "exp_1",
+    );
+    expect(holdout.restoreExperimentLinkage).toHaveBeenCalledWith(
+      "hld_1",
+      previous,
+    );
+  });
+
+  it("logs for manual reconciliation when the rewind fails", async () => {
+    const { context, holdout } = makeContext();
+    holdout.addExperimentToHoldout.mockRejectedValue(new Error("holdout down"));
+    mockUpdateExperiment.mockRejectedValueOnce(new Error("revert down"));
+    const error = jest.spyOn(logger, "error").mockImplementation();
+    await expect(
+      applyExperimentHoldoutChange(context, experiment, "hld_2"),
+    ).rejects.toThrow("holdout down");
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(error.mock.calls[0][1]).toContain("need reconciling by hand");
   });
 });

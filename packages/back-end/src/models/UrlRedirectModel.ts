@@ -1,4 +1,4 @@
-import { keyBy } from "lodash";
+import { isEqual, keyBy, pick } from "lodash";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -7,8 +7,13 @@ import {
   DestinationURL,
   URLRedirectInterface,
 } from "shared/types/url-redirect";
-import { urlRedirectValidator } from "shared/validators";
+import {
+  apiCreateUrlRedirectBody,
+  apiUpdateUrlRedirectBody,
+  urlRedirectValidator,
+} from "shared/validators";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { urlRedirectApiSpec } from "back-end/src/api/specs/url-redirect.spec";
 import {
   getAllPayloadExperiments,
   getAllURLRedirectExperiments,
@@ -34,6 +39,10 @@ const BaseClass = MakeModelClass({
   },
   globallyUniquePrimaryKeys: false,
   readonlyFields: ["experiment"],
+  apiConfig: {
+    modelKey: "urlRedirects",
+    openApiSpec: urlRedirectApiSpec,
+  },
 });
 
 export class UrlRedirectModel extends BaseClass<WriteOptions> {
@@ -42,8 +51,81 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     return this._find({ experiment }, { bypassReadPermissionChecks: true });
   }
 
+  // Raw: once the experiment is gone, canRead and canWrite throw on its redirects
+  public async deleteByExperiment(experiment: string) {
+    await this._dangerousGetCollection().deleteMany({
+      organization: this.context.org.id,
+      experiment,
+    });
+  }
+
   public countByExperiment(experiment: string): Promise<number> {
     return this._countDocuments({ experiment });
+  }
+
+  protected toApiInterface(doc: URLRedirectInterface) {
+    return {
+      id: doc.id,
+      dateCreated: doc.dateCreated.toISOString(),
+      dateUpdated: doc.dateUpdated.toISOString(),
+      experiment: doc.experiment,
+      urlPattern: doc.urlPattern,
+      destinationURLs: doc.destinationURLs,
+      persistQueryString: doc.persistQueryString,
+    };
+  }
+
+  public override async handleApiList(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
+  ) {
+    const { experimentId } = req.query;
+    const docs = experimentId
+      ? await this._find({ experiment: experimentId })
+      : await this.getAll();
+    return docs.map((doc) => this.toApiInterface(doc));
+  }
+
+  // REST writes check for redirect loops; the app asks for it per request.
+  public override async handleApiCreate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiCreate"]>[0],
+  ) {
+    const body = apiCreateUrlRedirectBody.parse(req.body);
+    const doc = await this.create(
+      { ...body, persistQueryString: body.persistQueryString ?? false },
+      { checkCircularDependencies: true },
+    );
+    return this.toApiInterface(doc);
+  }
+
+  public override async handleApiUpdate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+  ) {
+    // Only the writable fields; read-only GET fields are accepted and ignored
+    const updates = pick(apiUpdateUrlRedirectBody.parse(req.body), [
+      "urlPattern",
+      "destinationURLs",
+      "persistQueryString",
+    ]);
+    const existing = await this.getById(req.params.id);
+    if (!existing) req.context.throwNotFoundError();
+    const destinationsChanged =
+      updates.destinationURLs !== undefined &&
+      !isEqual(updates.destinationURLs, existing.destinationURLs);
+    if (updates.destinationURLs !== undefined && destinationsChanged) {
+      this.assertEveryVariationHasDestination({
+        ...existing,
+        destinationURLs: updates.destinationURLs,
+      });
+    }
+    // Unchanged URLs skip the loop check so redirects saved without it round-trip
+    const urlsChanged =
+      (updates.urlPattern !== undefined &&
+        updates.urlPattern !== existing.urlPattern) ||
+      destinationsChanged;
+    const doc = await this.update(existing, updates, {
+      checkCircularDependencies: urlsChanged,
+    });
+    return this.toApiInterface(doc);
   }
 
   protected canRead(doc: URLRedirectInterface): boolean {
@@ -55,17 +137,23 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
   }
 
   // Create/Update/Delete all do the exact same permission check
-  private canWrite(doc: URLRedirectInterface): boolean {
+  private canWrite(
+    doc: URLRedirectInterface,
+    { willHaveRedirects = false } = {},
+  ): boolean {
     const { experiment } = this.getForeignRefs(doc);
     if (!experiment) throw new Error("Could not find experiment");
     const envs = getAffectedEnvsForExperiment({
-      experiment,
+      experiment: willHaveRedirects
+        ? { ...experiment, hasURLRedirects: true }
+        : experiment,
       orgEnvironments: this.context.org.settings?.environments || [],
     });
     return this.context.permissions.canRunExperiment(experiment, envs);
   }
   protected canCreate(doc: URLRedirectInterface): boolean {
-    return this.canWrite(doc);
+    // The first redirect flips hasURLRedirects, which reaches every environment
+    return this.canWrite(doc, { willHaveRedirects: true });
   }
   protected canUpdate(doc: URLRedirectInterface): boolean {
     return this.canWrite(doc);
@@ -75,6 +163,10 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
   }
 
   protected async beforeCreate(doc: URLRedirectInterface) {
+    this.assertEveryVariationHasDestination(doc);
+  }
+
+  private assertEveryVariationHasDestination(doc: URLRedirectInterface) {
     const { experiment } = this.getForeignRefs(doc);
     if (!experiment) {
       throw new Error("Could not find experiment");
@@ -199,10 +291,18 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     destinations: DestinationURL[],
     urlRedirectId?: string,
   ) {
-    const payloadExperiments = await getAllPayloadExperiments(this.context);
+    // Org-wide: an SDK connection can serve a project the caller can't read.
+    // Only the generic messages below are surfaced, never a hidden record.
+    const payloadExperiments = await getAllPayloadExperiments(
+      this.context,
+      undefined,
+      [],
+      { bypassReadPermissionChecks: true },
+    );
     const urlRedirects = await getAllURLRedirectExperiments(
       this.context,
       payloadExperiments,
+      await this._find({}, { bypassReadPermissionChecks: true }),
     );
     const originUrl = origin;
 

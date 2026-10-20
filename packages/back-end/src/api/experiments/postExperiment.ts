@@ -11,6 +11,7 @@ import {
 import { omit } from "lodash";
 import {
   createExperiment,
+  deleteExperimentByIdForOrganization,
   getExperimentByTrackingKey,
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -28,6 +29,9 @@ import {
 } from "back-end/src/services/attributes";
 import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { logger } from "back-end/src/util/logger";
+import { addNewExperimentToHoldout } from "back-end/src/services/holdouts";
+import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import {
   resolveOwnerToUserId,
@@ -404,6 +408,15 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       phasePrerequisites(newExperiment.phases),
     );
 
+    // Checked before creating so a bad holdout can't leave an orphan behind
+    if (payload.holdoutId) {
+      await getHoldoutAvailableForProject({
+        context: req.context,
+        holdoutId: payload.holdoutId,
+        project: newExperiment.project,
+      });
+    }
+
     // Created running, stopped or with a scheduled start: judged as a change
     // from a draft of itself.
     await requireConfirmation(req.context, {
@@ -429,13 +442,41 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       context: req.context,
     });
 
-    if (ownerId) {
-      // add owner as watcher
-      await req.context.models.watch.upsertWatch({
-        userId: ownerId,
-        item: experiment.id,
-        type: "experiments",
-      });
+    try {
+      if (ownerId) {
+        // add owner as watcher
+        await req.context.models.watch.upsertWatch({
+          userId: ownerId,
+          item: experiment.id,
+          type: "experiments",
+        });
+      }
+      // Last, since only the add emits a linkage event
+      if (payload.holdoutId) {
+        await addNewExperimentToHoldout(
+          req.context,
+          experiment,
+          payload.holdoutId,
+          [],
+        );
+      }
+    } catch (e) {
+      // No transactions: undo the create so a retry doesn't leave a duplicate
+      try {
+        if (payload.holdoutId) {
+          await req.context.models.holdout.removeExperimentFromHoldout(
+            payload.holdoutId,
+            experiment.id,
+          );
+        }
+        await deleteExperimentByIdForOrganization(req.context, experiment);
+      } catch (rewindError) {
+        logger.error(
+          rewindError,
+          `Failed to undo creating experiment "${experiment.id}" after a later step failed`,
+        );
+      }
+      throw e;
     }
 
     const apiExperiment = await resolveOwnerEmail(

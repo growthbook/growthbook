@@ -33,6 +33,7 @@ import {
   Variation,
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { getExperimentReminderResets } from "back-end/src/services/experimentReminderState";
@@ -459,6 +460,7 @@ async function findExperiments(
   query: FilterQuery<ExperimentDocument>,
   limit?: number,
   sortBy?: SortFilter,
+  bypassReadPermissionChecks = false,
 ): Promise<ExperimentInterface[]> {
   let cursor = getCollection(COLLECTION).find(query);
 
@@ -470,6 +472,7 @@ async function findExperiments(
   }
   const experiments = (await cursor.toArray()).map(toInterface);
 
+  if (bypassReadPermissionChecks) return experiments;
   return experiments.filter((exp) =>
     context.permissions.canReadSingleProjectResource(exp.project),
   );
@@ -1610,6 +1613,7 @@ export async function deleteExperimentByIdForOrganization(
     });
 
     await onExperimentDelete(context, experiment);
+    await context.models.urlRedirects.deleteByExperiment(experiment.id);
   } catch (e) {
     logger.error(e);
   }
@@ -2112,6 +2116,8 @@ export async function getAllPayloadExperiments(
   projects?: string[],
   // Experiments a delivered feature references, wanted whatever project they are in.
   alsoIncludeIds: string[] = [],
+  // Org-wide checks (redirect loops) must see projects the caller can't read
+  { bypassReadPermissionChecks = false } = {},
 ): Promise<Map<string, ExperimentInterface>> {
   const scoped =
     !projects || !projects.length
@@ -2126,22 +2132,28 @@ export async function getAllPayloadExperiments(
       ? { $and: [{ $or: [scoped, { id: { $in: alsoIncludeIds } }] }] }
       : scoped;
 
-  const experiments = await findExperiments(context, {
-    organization: context.org.id,
-    ...scopeFilter,
-    archived: { $ne: true },
-    $or: [
-      {
-        linkedFeatures: { $exists: true, $ne: [] },
-      },
-      {
-        hasVisualChangesets: true,
-      },
-      {
-        hasURLRedirects: true,
-      },
-    ],
-  });
+  const experiments = await findExperiments(
+    context,
+    {
+      organization: context.org.id,
+      ...scopeFilter,
+      archived: { $ne: true },
+      $or: [
+        {
+          linkedFeatures: { $exists: true, $ne: [] },
+        },
+        {
+          hasVisualChangesets: true,
+        },
+        {
+          hasURLRedirects: true,
+        },
+      ],
+    },
+    undefined,
+    undefined,
+    bypassReadPermissionChecks,
+  );
 
   return new Map(
     experiments
@@ -2211,8 +2223,9 @@ export const getAllVisualExperiments = async (
 export const getAllURLRedirectExperiments = async (
   context: ReqContext | ApiReqContext,
   experimentMap: Map<string, ExperimentInterface>,
+  redirects?: URLRedirectInterface[],
 ): Promise<Array<URLRedirectExperiment>> => {
-  const redirects = await context.models.urlRedirects.getAll();
+  redirects ??= await context.models.urlRedirects.getAll();
 
   if (!redirects.length) return [];
 
@@ -2377,6 +2390,7 @@ const getExperimentChanges = (
     "trackingKey",
     "project",
     "hashAttribute",
+    "fallbackAttribute",
     "hashVersion",
     "name",
     "archived",

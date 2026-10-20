@@ -167,7 +167,12 @@ import {
 import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { generateId } from "back-end/src/util/uuid";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  deleteExperimentByIdForOrganization,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
+import { removeExperimentFromPresentations } from "back-end/src/services/presentations";
+import { auditDetailsDelete } from "back-end/src/services/audit";
 import {
   findVisualChangesetsByExperiment,
   syncVisualChangesWithVariations,
@@ -2586,6 +2591,42 @@ export async function assertCanRunExperimentInAffectedEnvironments(
   }
 }
 
+export async function deleteExperimentWithLinks(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  if (!context.permissions.canDeleteExperiment(experiment)) {
+    context.permissions.throwPermissionError();
+  }
+  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
+
+  await deleteExperimentByIdForOrganization(context, experiment);
+  // The rest is cleanup: once the experiment is gone, a failure here mustn't skip the audit
+  try {
+    await removeExperimentFromPresentations(experiment.id);
+  } catch (e) {
+    logger.warn(e, "Error removing experiment from presentations");
+  }
+
+  if (experiment.holdoutId) {
+    try {
+      await context.models.holdout.removeExperimentFromHoldout(
+        experiment.holdoutId,
+        experiment.id,
+      );
+    } catch (e) {
+      // Not fatal: the experiment is already gone
+      logger.warn(e, "Error removing experiment from holdout");
+    }
+  }
+
+  await context.auditLog({
+    event: "experiment.delete",
+    entity: { object: "experiment", id: experiment.id },
+    details: auditDetailsDelete(experiment),
+  });
+}
+
 type ReleasedVariationFields = Pick<
   ExperimentInterface,
   "releasedVariationId" | "variations"
@@ -3384,6 +3425,7 @@ export async function toExperimentApiInterface(
     autoRefresh: !!experiment.autoSnapshots && !experiment.disableAutoSnapshots,
     hashAttribute: experiment.hashAttribute || "id",
     fallbackAttribute: experiment.fallbackAttribute,
+    ...(experiment.holdoutId ? { holdoutId: experiment.holdoutId } : {}),
     hashVersion: experiment.hashVersion || 2,
     disableStickyBucketing: experiment.disableStickyBucketing,
     bucketVersion: experiment.bucketVersion,
@@ -4553,7 +4595,7 @@ export const toNamespaceRange = (
  * org namespace is multiRange, the single range is promoted automatically. If
  * `ranges` is provided it is used as-is. Legacy namespaces always use `range`.
  */
-function toPhaseNamespaceValue(
+export function toPhaseNamespaceValue(
   apiNs:
     | {
         namespaceId: string;
@@ -4614,7 +4656,7 @@ function toPhaseNamespaceValue(
  * undefined when no trafficSplit is provided so callers can fall through to
  * their own default (e.g. an even split).
  */
-function phaseWeightsFromTrafficSplit(
+export function phaseWeightsFromTrafficSplit(
   trafficSplit: { variationId: string; weight: number }[] | undefined,
   variationIds: string[],
 ): number[] | undefined {
@@ -4779,6 +4821,7 @@ export function postExperimentApiPayloadToInterface(
     archived: payload.archived ?? false,
     hashAttribute: payload.hashAttribute ?? "",
     fallbackAttribute: payload.fallbackAttribute || "",
+    ...(payload.holdoutId ? { holdoutId: payload.holdoutId } : {}),
     ...(payload.attributeScopeAllProjects !== undefined
       ? { attributeScopeAllProjects: payload.attributeScopeAllProjects }
       : {}),
@@ -5173,6 +5216,12 @@ export function updateExperimentApiPayloadToInterface(
     ...(datasourceId ? { datasource: datasourceId } : {}),
     ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
+    ...(payload.fallbackAttribute !== undefined
+      ? { fallbackAttribute: payload.fallbackAttribute }
+      : {}),
+    ...(payload.holdoutId !== undefined
+      ? { holdoutId: payload.holdoutId }
+      : {}),
     ...(hashVersion ? { hashVersion } : {}),
     ...(payload.attributeScopeAllProjects !== undefined
       ? { attributeScopeAllProjects: payload.attributeScopeAllProjects }

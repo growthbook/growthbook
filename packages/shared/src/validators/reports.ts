@@ -217,6 +217,21 @@ export const getReportValidator = {
   path: "/reports/:id",
 };
 
+export const deleteReportValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.object({ deletedId: z.string() }).strict(),
+  summary: "Delete a report",
+  description:
+    "Deleting another user's report needs permission to delete any report.",
+  confirmation: ["other.write"] as const,
+  operationId: "deleteReport",
+  tags: ["reports"],
+  method: "delete" as const,
+  path: "/reports/:id",
+};
+
 const postReportBody = z
   .object({
     experimentId: z.string().describe("The experiment to create a report for"),

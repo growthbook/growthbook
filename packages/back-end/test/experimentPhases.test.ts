@@ -1,5 +1,10 @@
-import { ExperimentPhase } from "shared/types/experiment";
+import { getScopedSettings } from "shared/settings";
+import { ExperimentInterface, ExperimentPhase } from "shared/types/experiment";
 import { assertValidExperimentPhases } from "back-end/src/services/experiments";
+import {
+  getNewPhaseBucketing,
+  getRestartChanges,
+} from "back-end/src/services/experimentChanges/phases";
 
 const phase = (overrides: Partial<ExperimentPhase> = {}): ExperimentPhase => ({
   dateStarted: new Date("2026-01-01T00:00:00Z"),
@@ -53,5 +58,73 @@ describe("assertValidExperimentPhases", () => {
     expect(() =>
       assertValidExperimentPhases([{ ...stale, name: "Renamed" }], [stale]),
     ).toThrow(/invalid_coverage/);
+  });
+});
+
+describe("getNewPhaseBucketing", () => {
+  const experiment = {
+    bucketVersion: 2,
+    minBucketVersion: 1,
+    disableStickyBucketing: false,
+  };
+
+  it("leaves bucket versions alone without sticky bucketing", () => {
+    expect(getNewPhaseBucketing("new-phase", experiment, false)).toEqual({
+      reseed: true,
+      bucketVersion: 2,
+      minBucketVersion: 1,
+    });
+    expect(
+      getNewPhaseBucketing(
+        "new-phase-block-sticky",
+        { ...experiment, disableStickyBucketing: true },
+        true,
+      ),
+    ).toEqual({ reseed: true, bucketVersion: 2, minBucketVersion: 1 });
+  });
+
+  it("matches the app's release plans with sticky bucketing", () => {
+    expect(getNewPhaseBucketing("new-phase", experiment, true)).toEqual({
+      reseed: true,
+      bucketVersion: 3,
+      minBucketVersion: 1,
+    });
+    expect(
+      getNewPhaseBucketing("new-phase-same-seed", experiment, true),
+    ).toEqual({ reseed: false, bucketVersion: 2, minBucketVersion: 1 });
+    expect(
+      getNewPhaseBucketing("new-phase-block-sticky", experiment, true),
+    ).toEqual({ reseed: true, bucketVersion: 3, minBucketVersion: 3 });
+  });
+});
+
+describe("getRestartChanges", () => {
+  const { settings } = getScopedSettings({ organization: { settings: {} } });
+
+  it("reopens the last phase", () => {
+    const experiment = {
+      type: "standard",
+      phases: [phase({ dateEnded: new Date("2026-02-01T00:00:00Z") })],
+    } as unknown as ExperimentInterface;
+    const changes = getRestartChanges(experiment, settings);
+    expect(changes.phases).toHaveLength(1);
+    expect(changes.phases?.[0].dateEnded).toBeUndefined();
+    expect(changes.bucketVersion).toBeUndefined();
+  });
+
+  it("starts a new phase with fresh buckets for bandits", () => {
+    const experiment = {
+      type: "multi-armed-bandit",
+      bucketVersion: 1,
+      phases: [phase({ dateEnded: new Date("2026-02-01T00:00:00Z") })],
+      variations: [],
+      goalMetrics: [],
+    } as unknown as ExperimentInterface;
+    const changes = getRestartChanges(experiment, settings);
+    expect(changes.phases).toHaveLength(2);
+    expect(changes.phases?.[0].dateEnded).toBeInstanceOf(Date);
+    expect(changes.phases?.[1].seed).not.toBe(experiment.phases[0].seed);
+    expect(changes.bucketVersion).toBe(2);
+    expect(changes.minBucketVersion).toBe(2);
   });
 });

@@ -56,11 +56,16 @@ export const holdoutApiSpec = {
     createBody: apiCreateHoldoutBody,
     updateBody: apiUpdateHoldoutBody,
   },
-  crudActions: ["get", "create", "list", "update"],
+  crudActions: ["get", "create", "list", "update", "delete"],
   crudValidatorOverrides: {
     list: apiListHoldoutsValidator,
   },
-  confirmation: { create: ["experiment.create"], update: ["experiment.other"] },
+  confirmation: {
+    create: ["experiment.create"],
+    update: ["experiment.other"],
+    // Also ungates its Feature Flags in live SDK payloads
+    delete: ["experiment.delete", "experiment.stop", "feature.publish"],
+  },
   customEndpoints: [
     holdoutStartEndpoint,
     holdoutStartAnalysisEndpoint,

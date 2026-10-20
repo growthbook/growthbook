@@ -3,6 +3,7 @@ import { ExposureQuery } from "shared/types/datasource";
 import {
   coverageToHoldoutSize,
   getAllowedHoldoutStageSources,
+  getApplicableEnvIds,
   getEnabledHoldoutEnvironments,
   getHoldoutStage,
   HoldoutStage,
@@ -60,6 +61,7 @@ import {
   assertCanUpdateHoldout,
   assertValidHoldoutSchedule,
   createHoldoutWithExperiment,
+  deleteHoldoutAndExperiment,
   normalizeHoldoutScheduleUpdates,
   setHoldoutStage,
   updateHoldoutWithExperiment,
@@ -70,8 +72,15 @@ import {
   resolveOwnerForCreate,
 } from "back-end/src/services/owner";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
+import { getEnvironments } from "back-end/src/services/organizations";
+import { getEnabledEnvironments } from "back-end/src/util/features";
 import { MakeModelClass } from "./BaseModel";
-import { getExperimentById, getExperimentsByIds } from "./ExperimentModel";
+import {
+  getExistingExperimentIds,
+  getExperimentById,
+  getExperimentsByIds,
+} from "./ExperimentModel";
+import { getFeatureProjectsByIds, getFeaturesByIds } from "./FeatureModel";
 
 const COLLECTION_NAME = "holdouts";
 
@@ -532,6 +541,60 @@ export class HoldoutModel extends BaseClass {
     );
   }
 
+  // Also removes the holdout's experiment and unlinks its features and
+  // experiments. No plan gate, so a lapsed org can still clean up.
+  public override async handleApiDelete(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiDelete"]>[0],
+  ): Promise<string> {
+    const holdout = await this.getById(req.params.id);
+    if (!holdout) req.context.throwNotFoundError();
+    if (!this.context.permissions.canDeleteHoldout(holdout)) {
+      this.context.permissions.throwPermissionError();
+    }
+    // Deleting ungates its Feature Flags wherever it runs, like stop
+    assertCanRunHoldoutEnvironments(this.context, {
+      enabledEnvironments: getEnabledHoldoutEnvironments(
+        holdout.environmentSettings,
+      ),
+      projects: holdout.projects,
+    });
+    // Unreadable links would be skipped and left pointing at a deleted holdout
+    const featureIds = Object.keys(holdout.linkedFeatures ?? {});
+    const experimentIds = Object.keys(holdout.linkedExperiments ?? {});
+    const [features, existingFeatures, experiments, existingExperiments] =
+      await Promise.all([
+        getFeaturesByIds(this.context, featureIds),
+        getFeatureProjectsByIds(this.context, featureIds),
+        getExperimentsByIds(this.context, experimentIds),
+        getExistingExperimentIds(this.context, experimentIds),
+      ]);
+    const readable = new Set([...features, ...experiments].map((r) => r.id));
+    if (
+      [...existingFeatures.keys(), ...existingExperiments].some(
+        (id) => !readable.has(id),
+      )
+    ) {
+      this.context.permissions.throwPermissionError(
+        "This holdout is linked to Feature Flags or experiments in Projects you can't access.",
+      );
+    }
+    // Stripping the holdout changes what each live flag serves, as unlinking it does
+    const orgEnvs = getEnvironments(this.context.org);
+    for (const feature of features) {
+      const envs = getEnabledEnvironments(
+        feature,
+        getApplicableEnvIds(orgEnvs, feature),
+      );
+      if (!this.context.permissions.canPublishFeature(feature, [...envs])) {
+        this.context.permissions.throwPermissionError();
+      }
+    }
+    // Null when the caller can't read it too, so stop before deleting half the pair
+    const experiment = await this.getExperimentOrThrow(holdout);
+    await deleteHoldoutAndExperiment(this.context, holdout, experiment);
+    return holdout.id;
+  }
+
   public override async handleApiUpdate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ): Promise<ApiHoldoutInterface> {
@@ -872,6 +935,26 @@ export class HoldoutModel extends BaseClass {
     experimentId: string,
   ): Promise<HoldoutInterface | null> {
     return this._findOne({ experimentId });
+  }
+
+  // Experiment counterpart of restoreFeatureLinkage.
+  public async restoreExperimentLinkage(
+    holdoutId: string,
+    experiment: { id: string; dateAdded: Date },
+  ) {
+    await this.mutateLinkage(
+      holdoutId,
+      ({ linkedExperiments }) =>
+        linkedExperiments[experiment.id]
+          ? null
+          : {
+              linkedExperiments: {
+                ...linkedExperiments,
+                [experiment.id]: experiment,
+              },
+            },
+      NO_NEW_LINKAGE,
+    );
   }
 
   // Bypasses read scope: the Holdout reference is already committed on the
