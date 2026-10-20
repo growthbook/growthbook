@@ -1,7 +1,12 @@
 import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
-import { apiKeySchema, ConfirmRule } from "shared/validators";
+import { z } from "zod";
+import {
+  apiApiKeyActionReturn,
+  apiKeySchema,
+  ConfirmRule,
+} from "shared/validators";
 import {
   apiKeyToggleRequiresAdmin,
   canSetApiKeyDisabled,
@@ -29,6 +34,19 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  apiKeyApiSpec,
+  disableApiKeyEndpoint,
+  enableApiKeyEndpoint,
+} from "back-end/src/api/specs/api-key.spec";
+import {
+  auditDetailsDelete,
+  auditDetailsUpdate,
+} from "back-end/src/services/audit";
+import { ApiRequestLocals } from "back-end/types/api";
+
+type ApiApiKeyActionReturn = z.infer<typeof apiApiKeyActionReturn>;
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
@@ -63,11 +81,115 @@ const BaseClass = MakeModelClass({
     environments: [],
     lastUsed: null,
   },
+  apiConfig: {
+    modelKey: "apiKeys",
+    openApiSpec: apiKeyApiSpec,
+    customHandlers: [
+      defineCustomApiHandler({
+        ...disableApiKeyEndpoint,
+        reqHandler: (req): Promise<ApiApiKeyActionReturn> =>
+          req.context.models.apiKeys.setOrgSecretKeyDisabled(
+            req,
+            req.params.id,
+            true,
+          ),
+      }),
+      defineCustomApiHandler({
+        ...enableApiKeyEndpoint,
+        reqHandler: (req): Promise<ApiApiKeyActionReturn> =>
+          req.context.models.apiKeys.setOrgSecretKeyDisabled(
+            req,
+            req.params.id,
+            false,
+          ),
+      }),
+    ],
+  },
 });
+
+// SDK keys belong to SDK Connections, PATs and OAuth tokens to their users, and
+// keys from before ids existed can't be addressed, so REST leaves them all out.
+function isOrgSecretKey(key: ApiKeyInterface) {
+  return !!key.secret && !key.userId && !key.oauthClientId && !!key.id;
+}
 
 const toTime = (d: ExpiresAt) => (d ? new Date(d).getTime() : null);
 
 export class ApiKeyModel extends BaseClass {
+  public toApiInterface(key: ApiKeyInterface) {
+    return {
+      id: key.id || "",
+      description: key.description || "",
+      role: key.role || "admin",
+      limitAccessByEnvironment: key.limitAccessByEnvironment,
+      environments: key.environments,
+      additionalRoles: key.additionalRoles,
+      projectRoles: key.projectRoles,
+      disabled: !!key.disabled,
+      lastUsed: key.lastUsed?.toISOString() ?? null,
+      dateCreated: key.dateCreated.toISOString(),
+      dateUpdated: key.dateUpdated.toISOString(),
+    };
+  }
+
+  public async getOrgSecretKey(id: string) {
+    const key = await this.getById(id);
+    if (!key || !isOrgSecretKey(key)) {
+      this.context.throwNotFoundError(`API key not found: ${id}`);
+    }
+    return key;
+  }
+
+  public async setOrgSecretKeyDisabled(
+    req: Pick<ApiRequestLocals, "audit">,
+    id: string,
+    disabled: boolean,
+  ) {
+    const { permissions } = this.context;
+    // Disabling takes Disable & delete; re-enabling restores access, so Edit
+    if (
+      disabled ? !permissions.canDeleteApiKey() : !permissions.canUpdateApiKey()
+    ) {
+      permissions.throwPermissionError();
+    }
+    await this.getOrgSecretKey(id);
+    const { before, after } = await this.setDisabled(id, disabled);
+    await req.audit({
+      event: disabled ? "apiKey.disable" : "apiKey.enable",
+      entity: { object: "apiKey", id, name: after.description },
+      details: auditDetailsUpdate(
+        ApiKeyModel.toAuditDetails(before),
+        ApiKeyModel.toAuditDetails(after),
+      ),
+    });
+    return { apiKey: this.toApiInterface(after) };
+  }
+
+  public override async handleApiList() {
+    if (!this.context.permissions.canViewApiKeys()) {
+      this.context.permissions.throwPermissionError();
+    }
+    const keys = await this.getAll();
+    return keys.filter(isOrgSecretKey).map((key) => this.toApiInterface(key));
+  }
+
+  public override async handleApiDelete(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiDelete"]>[0],
+  ) {
+    if (!this.context.permissions.canDeleteApiKey()) {
+      this.context.permissions.throwPermissionError();
+    }
+    const { id } = req.params as { id: string };
+    await this.getOrgSecretKey(id);
+    const deleted = await this.deleteByIdOrKey(id, undefined);
+    await req.audit({
+      event: "apiKey.delete",
+      entity: { object: "apiKey", id, name: deleted.description },
+      details: auditDetailsDelete(ApiKeyModel.toAuditDetails(deleted)),
+    });
+    return id;
+  }
+
   protected canCreate(apiKey: ApiKeyInterface): boolean {
     if (apiKey.userId) {
       return apiKey.userId === this.context.userId;
