@@ -47,16 +47,18 @@ info:
     - **Personal Access Tokens**: These are sensitive and provide the same level
     of access as the user has to an organization, or less if the token's
     permissions are limited. These can be created by going to `Personal Access
-    Tokens` under your user menu. Admins with the `manageApiKeys` permission can
-    disable a member's token under `Settings -> Manage PATs`, and require new
-    tokens to expire within a maximum lifetime.
+    Tokens` under your user menu. Members with the API Keys **Manage members'
+    tokens** permission can disable a member's token under `Settings -> Manage
+    PATs`, and admins can require new tokens to expire within a maximum
+    lifetime.
 
     - **Secret Keys**: These are sensitive and provide the level of access of
     the role they are given, which can be any built-in or custom role, with
-    optional per-project role overrides and environment limits. Only Admins with
-    the `manageApiKeys` permission can manage Secret Keys on behalf of an
-    organization. These can be created by going to `Settings -> API Keys`, where
-    Admins can also require new Secret Keys to expire within a maximum lifetime.
+    optional per-project role overrides and environment limits. Managing Secret
+    Keys on behalf of an organization takes the [API Keys
+    permissions](/account/user-permissions). These can be created by going to
+    `Settings -> API Keys`, where Admins can also require new Secret Keys to
+    expire within a maximum lifetime.
 
 
     If using HTTP Basic auth, pass the Secret Key as the username and leave the
@@ -291,7 +293,7 @@ info:
     it. Do not assume that `ignoreWarnings` clears every 422 response.
 
     - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
-    per minute. Try again later.
+    per minute, or the limit your self-hosted server sets. Try again later.
 
     - **5XX** - Server Error - Something went wrong on GrowthBook's end (these
     are rare)
@@ -64522,10 +64524,11 @@ paths:
                     type: string
                 steps:
                   description: >-
-                    Steps a unit must complete, in order, to be included. The
-                    steps can read from at most 5 distinct fact tables
+                    Steps a unit must complete, in order, to be included.
+                    Currently limited to 1 step with support for multiple steps
+                    coming soon.
                   minItems: 1
-                  maxItems: 20
+                  maxItems: 1
                   type: array
                   items:
                     type: object
@@ -64729,10 +64732,11 @@ paths:
                     type: string
                 steps:
                   description: >-
-                    Steps a unit must complete, in order, to be included. The
-                    steps can read from at most 5 distinct fact tables
+                    Steps a unit must complete, in order, to be included.
+                    Currently limited to 1 step with support for multiple steps
+                    coming soon.
                   minItems: 1
-                  maxItems: 20
+                  maxItems: 1
                   type: array
                   items:
                     type: object

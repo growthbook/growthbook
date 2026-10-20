@@ -24,8 +24,8 @@ We support both the HTTP Basic and Bearer authentication schemes for convenience
 
 You first need to generate a new API Key in GrowthBook. Different keys have different permissions:
 
-- **Personal Access Tokens**: These are sensitive and provide the same level of access as the user has to an organization, or less if the token's permissions are limited. These can be created by going to `Personal Access Tokens` under your user menu. Admins with the `manageApiKeys` permission can disable a member's token under `Settings -> Manage PATs`, and require new tokens to expire within a maximum lifetime.
-- **Secret Keys**: These are sensitive and provide the level of access of the role they are given, which can be any built-in or custom role, with optional per-project role overrides and environment limits. Only Admins with the `manageApiKeys` permission can manage Secret Keys on behalf of an organization. These can be created by going to `Settings -> API Keys`, where Admins can also require new Secret Keys to expire within a maximum lifetime.
+- **Personal Access Tokens**: These are sensitive and provide the same level of access as the user has to an organization, or less if the token's permissions are limited. These can be created by going to `Personal Access Tokens` under your user menu. Members with the API Keys **Manage members' tokens** permission can disable a member's token under `Settings -> Manage PATs`, and admins can require new tokens to expire within a maximum lifetime.
+- **Secret Keys**: These are sensitive and provide the level of access of the role they are given, which can be any built-in or custom role, with optional per-project role overrides and environment limits. Managing Secret Keys on behalf of an organization takes the [API Keys permissions](/account/user-permissions). These can be created by going to `Settings -> API Keys`, where Admins can also require new Secret Keys to expire within a maximum lifetime.
 
 If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank (when using curl, add `:` at the end of the secret to indicate an empty password)
 
@@ -128,7 +128,7 @@ The API may return the following error status codes:
 - **403** - Forbidden - Provided API key does not have the required access
 - **404** - Not Found - Unknown API route or requested resource
 - **422** - Unprocessable Entity - The request is valid, but a warning, validation rule, approval requirement, or another publishing gate blocked it. Do not assume that `ignoreWarnings` clears every 422 response.
-- **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
+- **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute, or the limit your self-hosted server sets. Try again later.
 - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
 
 The response body will be a JSON object with the following properties:

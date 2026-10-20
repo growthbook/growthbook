@@ -41,7 +41,9 @@ const ApiKeyExpirationField: FC<{
   setValue: (date: Date | null) => void;
   /** The key being edited, whose policy maximum runs from its creation. */
   existing?: { expiresAt?: ExpiresAt; dateCreated: ExpiresAt };
-}> = ({ maxLifetimeDays, value, setValue, existing }) => {
+  /** Why the viewer can't create a replacement for an expired key, or null when they can. */
+  replaceBlocked: string | null;
+}> = ({ maxLifetimeDays, value, setValue, existing, replaceBlocked }) => {
   const required = (maxLifetimeDays ?? null) !== null;
   const latest = existing
     ? latestEditedExpiration(
@@ -127,8 +129,8 @@ const ApiKeyExpirationField: FC<{
       </Heading>
       {expired ? (
         <HelperText status="warning">
-          This key has expired and can&apos;t be extended. Create a new key to
-          replace it.
+          This key has expired and can&apos;t be extended.{" "}
+          {replaceBlocked ?? "Create a new key to replace it."}
         </HelperText>
       ) : (
         <>
