@@ -55,6 +55,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getClusterExperimentMetricEligibility,
+  getClusterSubUnit,
   getClusterMetricAnalysisLevel,
   ClusterMetricAnalysisLevel,
   getAllExpandedMetricIdsFromExperiment,
@@ -511,8 +512,11 @@ export function getDefaultExperimentAnalysisSettings({
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
+    // The stats engine doesn't post-stratify cluster experiments.
     postStratificationEnabled:
-      hasPostStratificationFeature && postStratificationEnabled,
+      hasPostStratificationFeature &&
+      postStratificationEnabled &&
+      !getClusterSubUnit(experiment),
     sequentialTesting:
       hasSequentialTestingFeature &&
       statsEngine === "frequentist" &&
