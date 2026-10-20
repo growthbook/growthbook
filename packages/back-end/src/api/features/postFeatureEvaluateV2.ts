@@ -19,6 +19,8 @@ import { NotFoundError } from "back-end/src/util/errors";
 function toApiEvaluation(r: FeatureTestResult, archived: boolean) {
   // An archived flag isn't served, so it reports like a disabled environment
   const result = archived ? undefined : r.result;
+  const experiment = result?.experiment;
+  // experimentResult.key is the matched variation's key, not the experiment's
   const exp = result?.experimentResult;
   return {
     environment: r.env,
@@ -26,10 +28,10 @@ function toApiEvaluation(r: FeatureTestResult, archived: boolean) {
     value: result?.value ?? null,
     source: result?.source ?? null,
     ruleId: result?.ruleId || null,
-    ...(exp
+    ...(experiment && exp
       ? {
           experiment: {
-            key: exp.key,
+            key: experiment.key,
             variationId: exp.variationId,
             inExperiment: exp.inExperiment,
             hashAttribute: exp.hashAttribute,
