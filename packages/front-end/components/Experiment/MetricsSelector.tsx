@@ -27,6 +27,7 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
@@ -66,17 +67,20 @@ export function getArchivedFactMetricReason(
 }
 
 // The name truncates before the suffix so "(archived)" is never clipped.
+// `tooltip` is for single selects, which don't render option tooltips.
 export function ArchivedLabel({
   archived,
   alignRight,
+  tooltip,
   children,
 }: {
   archived?: boolean;
   alignRight?: boolean;
+  tooltip?: ReactNode;
   children: ReactNode;
 }) {
   if (!archived) return <>{children}</>;
-  return (
+  const label = (
     <Flex
       align="center"
       gap="2"
@@ -98,15 +102,13 @@ export function ArchivedLabel({
       </Box>
     </Flex>
   );
-}
-
-function prependArchivedReason(
-  archivedReason: string | undefined,
-  tooltip: string | undefined,
-): string | undefined {
-  return archivedReason
-    ? [archivedReason, tooltip].filter(Boolean).join("\n\n")
-    : tooltip;
+  return tooltip ? (
+    <UITooltip content={tooltip} side="right">
+      {label}
+    </UITooltip>
+  ) : (
+    label
+  );
 }
 
 type MetricsSelectorTooltipProps = {
@@ -244,23 +246,40 @@ const MetricsSelector: FC<{
 
   // Already-selected metrics stay as options when archived (or when their fact
   // table is), otherwise editing the list would silently drop them.
+  const activeIds = useMemo(
+    () =>
+      new Set([
+        ...metrics.map((m) => m.id),
+        ...factMetrics.map((m) => m.id),
+        ...metricGroups.filter((mg) => !mg.archived).map((mg) => mg.id),
+      ]),
+    [metrics, factMetrics, metricGroups],
+  );
+  // A string key so the options below only rebuild when the archived
+  // selections change, not on every change to `selected`.
+  const archivedSelectionKey = selected
+    .filter((id) => !activeIds.has(id))
+    .join(",");
   const {
     metricsWithArchivedSelections,
     factMetricsWithArchivedSelections,
     archivedReasons,
   } = useMemo(() => {
-    const selectedIds = new Set(selected);
-    const activeIds = new Set([
-      ...metrics.map((m) => m.id),
-      ...factMetrics.map((m) => m.id),
-    ]);
-    const isArchivedSelection = (id: string) =>
-      selectedIds.has(id) && !activeIds.has(id);
+    const archivedSelectedIds = new Set(
+      archivedSelectionKey ? archivedSelectionKey.split(",") : [],
+    );
+    if (!archivedSelectedIds.size) {
+      return {
+        metricsWithArchivedSelections: metrics,
+        factMetricsWithArchivedSelections: factMetrics,
+        archivedReasons: new Map<string, string>(),
+      };
+    }
     const archivedSelectedMetrics = _metricsIncludingArchived.filter((m) =>
-      isArchivedSelection(m.id),
+      archivedSelectedIds.has(m.id),
     );
     const archivedSelectedFactMetrics = _factMetricsIncludingArchived.filter(
-      (m) => isArchivedSelection(m.id),
+      (m) => archivedSelectedIds.has(m.id),
     );
     const archivedReasons = new Map<string, string>();
     archivedSelectedMetrics.forEach((m) =>
@@ -273,7 +292,7 @@ const MetricsSelector: FC<{
       ),
     );
     metricGroups
-      .filter((mg) => mg.archived && selectedIds.has(mg.id))
+      .filter((mg) => archivedSelectedIds.has(mg.id))
       .forEach((mg) =>
         archivedReasons.set(mg.id, "This metric group is archived."),
       );
@@ -286,7 +305,7 @@ const MetricsSelector: FC<{
       archivedReasons,
     };
   }, [
-    selected,
+    archivedSelectionKey,
     metrics,
     factMetrics,
     metricGroups,
@@ -528,12 +547,14 @@ const MetricsSelector: FC<{
       const unManagedMetrics: SingleValue[] = [];
 
       filteredOptions.forEach((option) => {
-        const tooltipText = prependArchivedReason(
-          option.archivedReason,
+        const baseTooltip =
           option.disabled && option.disabledReason
             ? option.disabledReason
-            : option.description,
-        );
+            : option.description;
+        // Options are deep-cloned by SelectField, so tooltips must stay strings.
+        const tooltipText = option.archivedReason
+          ? `${option.archivedReason} ${baseTooltip}`.trim()
+          : baseTooltip;
 
         const singleValue: SingleValue = {
           value: option.id,
@@ -571,12 +592,13 @@ const MetricsSelector: FC<{
     }
 
     return filteredOptions.map((m) => {
-      const tooltipText = prependArchivedReason(
-        m.archivedReason,
+      const baseTooltip =
         m.disabled && m.disabledReason
           ? `${m.description || ""}\n\n${m.disabledReason}`.trim()
-          : m.description,
-      );
+          : m.description;
+      const tooltipText = m.archivedReason
+        ? `${m.archivedReason} ${baseTooltip}`.trim()
+        : baseTooltip;
 
       return {
         value: m.id,
@@ -625,7 +647,7 @@ const MetricsSelector: FC<{
       filteredOptions.map((m) => ({
         value: m.id,
         label: m.name,
-        tooltip: prependArchivedReason(m.archivedReason, m.description),
+        tooltip: m.description,
       })),
     [filteredOptions],
   );
@@ -637,6 +659,7 @@ const MetricsSelector: FC<{
         <ArchivedLabel
           archived={!!filteredOptionsMap.get(value)?.archivedReason}
           alignRight
+          tooltip={filteredOptionsMap.get(value)?.archivedReason}
         >
           <MetricName
             id={value}

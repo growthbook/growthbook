@@ -189,7 +189,6 @@ const MetricSelector: FC<
         return {
           value: m.id,
           label: m.name,
-          tooltip: m.id === selectedId ? archivedReason : undefined,
         };
       })}
       formatOptionLabel={({ value, label }) => {
@@ -198,6 +197,7 @@ const MetricSelector: FC<
           <ArchivedLabel
             archived={!!archivedReason && value === selectedId}
             alignRight
+            tooltip={archivedReason}
           >
             <MetricName id={value} />
           </ArchivedLabel>
