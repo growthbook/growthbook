@@ -703,6 +703,7 @@ export async function getSavedGroupMapForFeatureRevision(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   experimentMap: Map<string, ExperimentInterface>,
+  bandits?: Iterable<ContextualBanditInterface>,
 ): Promise<GroupMap> {
   const experiments = [...(feature.rules ?? []), ...(revision.rules ?? [])]
     .map((rule) =>
@@ -717,6 +718,7 @@ export async function getSavedGroupMapForFeatureRevision(
       features: [feature],
       revisions: [revision],
       experiments,
+      bandits,
     }),
   );
 }
@@ -2075,6 +2077,7 @@ export function evaluateFeature({
   organization,
   constants,
   includeRuleIds,
+  cbMap,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -2097,6 +2100,7 @@ export function evaluateFeature({
   // match what the SDK payload actually serves (same as generateFeaturesPayload).
   constants?: ConstantInterface[];
   includeRuleIds?: boolean;
+  cbMap?: Map<string, ContextualBanditInterface>;
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -2140,6 +2144,7 @@ export function evaluateFeature({
         // generation — no logging needed in this preview-only path.
         constantMap: envConstantMap ?? undefined,
         includeRuleIds,
+        cbMap,
       });
 
       if (definition) {
@@ -2215,20 +2220,27 @@ export async function getFeatureEvalDependencies(
   revision: FeatureRevisionInterface,
 ) {
   const { org } = context;
-  const [experimentMap, safeRolloutMap, constants] = await Promise.all([
+  const [experimentMap, safeRolloutMap, constants, cbMap] = await Promise.all([
     getAllPayloadExperiments(context),
     context.models.safeRollout.getAllPayloadSafeRollouts(),
     getResolvableValues(context),
+    // A draft can reference bandits the live flag doesn't
+    getPayloadContextualBandits(context, [
+      feature,
+      { ...feature, rules: revision.rules },
+    ]),
   ]);
   const groupMap = await getSavedGroupMapForFeatureRevision(
     context,
     feature,
     revision,
     experimentMap,
+    cbMap.values(),
   );
   return {
     groupMap,
     experimentMap,
+    cbMap,
     safeRolloutMap,
     constants,
     environments: filterEnvironmentsByFeature(getEnvironments(org), feature),
@@ -2247,7 +2259,6 @@ export function filterArchetypeEnvironments(
     : environments;
 }
 
-// Flags and experiments that depend on each feature, keyed by feature id.
 export async function getFeatureDependents(
   context: ReqContext | ApiReqContext,
   featureIds: string[],
