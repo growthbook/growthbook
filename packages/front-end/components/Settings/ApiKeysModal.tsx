@@ -15,6 +15,8 @@ import {
 import { Box, Flex } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
 import useOrgLimits from "@/hooks/useOrgLimits";
 import track from "@/services/track";
@@ -72,6 +74,14 @@ const ApiKeysModal: FC<{
   const { apiCall } = useAuth();
   const { organization, settings } = useUser();
   const { orgSupportsRoles } = useOrgLimits();
+  const canCreateApiKey = usePermissionsUtil().canCreateApiKey();
+  const replaceBlocked = personalAccessToken
+    ? settings?.disablePersonalAccessTokens
+      ? "Personal access tokens are disabled for your organization. Contact an admin if you need API access."
+      : null
+    : canCreateApiKey
+      ? null
+      : "Replacing it requires permission to create a new one.";
 
   const maxLifetimeDays = personalAccessToken
     ? settings?.maxPatLifetimeDays
@@ -101,6 +111,8 @@ const ApiKeysModal: FC<{
   // When an existing key is passed in, the modal edits that key in place
   // instead of creating a new one.
   const editMode = !!existingKey;
+  // Changing what an org key can do takes permission to create keys.
+  const authorityLocked = editMode && !personalAccessToken && !canCreateApiKey;
   const source = existingKey ?? copyFrom;
   const canDeleteSource = !!copyFrom && !!onDeleteCopySource;
   const [deleteSource, setDeleteSource] = useState(true);
@@ -184,11 +196,13 @@ const ApiKeysModal: FC<{
         method: "PUT",
         body: JSON.stringify({
           description: value.description,
-          ...(personalAccessToken ? patScope : { role, ...orgKeyFields }),
           ...(expirationChanged && {
             expiresAt: expiresAt?.toISOString() ?? null,
           }),
-          confirmRules,
+          ...(!authorityLocked && {
+            ...(personalAccessToken ? patScope : { role, ...orgKeyFields }),
+            confirmRules,
+          }),
         }),
       });
       track("Edit API Key", {
@@ -260,6 +274,7 @@ const ApiKeysModal: FC<{
         value={expiresAt}
         setValue={setExpiresAt}
         existing={existingKey}
+        replaceBlocked={replaceBlocked}
       />
       {canDeleteSource && (
         <Box mt="3">
@@ -270,49 +285,59 @@ const ApiKeysModal: FC<{
           />
         </Box>
       )}
-      <Box mt="6">
-        <Heading as="h4" size="sm" mb="1">
-          Human-in-the-Loop
-        </Heading>
-        <Text as="p" color="text-mid" mb="3">
-          Risky actions wait for a person to confirm them.
-        </Text>
-        <Checkbox
-          label="Require confirmation"
-          value={requireConfirmation}
-          setValue={setRequireConfirmation}
-        />
-        {requireConfirmation && !customizing && (
-          <Flex align="center" gap="1" pl="5" mt="2">
-            <Text color="text-mid">
-              Requires confirmation for{" "}
-              <Tooltip
-                content={allActions ? PRESET_HELP.all : PRESET_HELP.recommended}
-              >
-                <strong tabIndex={0}>
-                  {allActions ? "all" : "recommended"} actions{" "}
-                  <PiInfo style={{ position: "relative", top: "-1px" }} />
-                </strong>
-              </Tooltip>
-            </Text>
-            <Link ml="2" weight="medium" onClick={() => setCustomizing(true)}>
-              Customize behavior
-            </Link>
-          </Flex>
-        )}
-        {requireConfirmation && customizing && (
-          <Box mt="3">
-            <ConfirmRulesField
-              value={rules}
-              // Removing every rule goes back to the recommended ones.
-              setValue={(next) => {
-                setRules(next.length ? next : SUGGESTED_CONFIRM_RULES);
-                if (!next.length) setCustomizing(false);
-              }}
-            />
-          </Box>
-        )}
-      </Box>
+      {authorityLocked && (
+        <HelperText status="info" mt="6">
+          Changing this key&apos;s permissions, requester settings, or
+          confirmations requires permission to create API keys.
+        </HelperText>
+      )}
+      {!authorityLocked && (
+        <Box mt="6">
+          <Heading as="h4" size="sm" mb="1">
+            Human-in-the-Loop
+          </Heading>
+          <Text as="p" color="text-mid" mb="3">
+            Risky actions wait for a person to confirm them.
+          </Text>
+          <Checkbox
+            label="Require confirmation"
+            value={requireConfirmation}
+            setValue={setRequireConfirmation}
+          />
+          {requireConfirmation && !customizing && (
+            <Flex align="center" gap="1" pl="5" mt="2">
+              <Text color="text-mid">
+                Requires confirmation for{" "}
+                <Tooltip
+                  content={
+                    allActions ? PRESET_HELP.all : PRESET_HELP.recommended
+                  }
+                >
+                  <strong tabIndex={0}>
+                    {allActions ? "all" : "recommended"} actions{" "}
+                    <PiInfo style={{ position: "relative", top: "-1px" }} />
+                  </strong>
+                </Tooltip>
+              </Text>
+              <Link ml="2" weight="medium" onClick={() => setCustomizing(true)}>
+                Customize behavior
+              </Link>
+            </Flex>
+          )}
+          {requireConfirmation && customizing && (
+            <Box mt="3">
+              <ConfirmRulesField
+                value={rules}
+                // Removing every rule goes back to the recommended ones.
+                setValue={(next) => {
+                  setRules(next.length ? next : SUGGESTED_CONFIRM_RULES);
+                  if (!next.length) setCustomizing(false);
+                }}
+              />
+            </Box>
+          )}
+        </Box>
+      )}
       {canScopeToken && (
         <Box mt="6">
           <Heading as="h4" size="sm" mb="1">
@@ -335,7 +360,7 @@ const ApiKeysModal: FC<{
           )}
         </Box>
       )}
-      {!personalAccessToken && (
+      {!personalAccessToken && !authorityLocked && (
         <>
           <RequestedByFields
             header={requesterHeader}
