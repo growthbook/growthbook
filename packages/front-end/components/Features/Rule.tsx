@@ -251,6 +251,7 @@ interface SortableProps {
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   hideInactive?: boolean;
+  showRuleIds?: boolean;
   isDraft: boolean;
   holdout: HoldoutInterface | undefined;
   revisionList: MinimalFeatureRevisionInterface[];
@@ -348,6 +349,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       experimentsMap,
       safeRolloutsMap,
       hideInactive,
+      showRuleIds = false,
       isDraft,
       holdout,
       revisionList,
@@ -982,6 +984,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               )}
 
               {ruleTags}
+
+              {showRuleIds ? (
+                <Text mono size="sm" color="text-low">
+                  {rule.id}
+                </Text>
+              ) : null}
 
               {rampSchedule &&
                 safeRollout &&
