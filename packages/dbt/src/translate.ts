@@ -520,11 +520,30 @@ export function translate(
     kind === "metric"
       ? resolveSimple(input.name, filtersOf(input.filter))
       : resolveMeasure(input);
-  const pick = (
-    metric: DbtInput | null | undefined,
-    measure: DbtInput | null | undefined,
-  ): [DbtInput | null | undefined, InputKind] =>
-    metric ? [metric, "metric"] : [measure, "measure"];
+  type InputRef = [DbtInput, InputKind];
+  const ref = (
+    input: DbtInput | null | undefined,
+    kind: InputKind,
+  ): InputRef | null => (input ? [input, kind] : null);
+
+  // Every input a metric reads, by role. Translation and selection both read this.
+  function inputsOf(metric: DbtMetric) {
+    const tp = metric.type_params ?? {};
+    const c = tp.conversion_type_params;
+    return {
+      measure: ref(tp.measure, "measure"),
+      numerator: ref(tp.numerator, "metric"),
+      denominator: ref(tp.denominator, "metric"),
+      cumulative:
+        ref(tp.cumulative_type_params?.metric, "metric") ??
+        ref(tp.measure, "measure"),
+      base: ref(c?.base_metric, "metric") ?? ref(c?.base_measure, "measure"),
+      conversion:
+        ref(c?.conversion_metric, "metric") ??
+        ref(c?.conversion_measure, "measure"),
+      derived: (tp.metrics ?? []).map((m): InputRef => [m, "metric"]),
+    };
+  }
 
   const withFilters = (def: MeasureDef, filters: string[]): MeasureDef => ({
     ...def,
@@ -767,9 +786,10 @@ export function translate(
     const tp = metric.type_params ?? {};
     const name = metric.label ?? metric.name;
     const filters = filtersOf(metric.filter);
-    const required = (input: DbtInput | null | undefined, what: string) => {
-      if (!input) throw new Unsupported(`${metric.type} metric has no ${what}`);
-      return input;
+    const inputs = inputsOf(metric);
+    const resolve = (r: InputRef | null, what: string) => {
+      if (!r) throw new Unsupported(`${metric.type} metric has no ${what}`);
+      return withFilters(resolveInput(...r), filters);
     };
     const window = (w: DbtWindow): Window => {
       const out = toWindow(w);
@@ -788,14 +808,8 @@ export function translate(
       case "ratio":
         return ratioData(
           name,
-          withFilters(
-            resolveInput(required(tp.numerator, "numerator"), "metric"),
-            filters,
-          ),
-          withFilters(
-            resolveInput(required(tp.denominator, "denominator"), "metric"),
-            filters,
-          ),
+          resolve(inputs.numerator, "numerator"),
+          resolve(inputs.denominator, "denominator"),
         );
       case "cumulative": {
         const ctp = tp.cumulative_type_params;
@@ -804,11 +818,7 @@ export function translate(
             "grain_to_date (period-to-date) has no GrowthBook equivalent",
           );
         }
-        const [input, kind] = pick(ctp?.metric, tp.measure);
-        const def = withFilters(
-          resolveInput(required(input, "input metric"), kind),
-          filters,
-        );
+        const def = resolve(inputs.cumulative, "input metric");
         const out = simpleData({ ...def, label: name });
         const dbtWindow = ctp?.window ?? tp.window;
         if (dbtWindow) {
@@ -834,19 +844,8 @@ export function translate(
             "calculation: conversions is not supported (funnels report a rate)",
           );
         }
-        const [baseInput, baseKind] = pick(c.base_metric, c.base_measure);
-        const [convInput, convKind] = pick(
-          c.conversion_metric,
-          c.conversion_measure,
-        );
-        const base = withFilters(
-          resolveInput(required(baseInput, "base"), baseKind),
-          filters,
-        );
-        const conv = withFilters(
-          resolveInput(required(convInput, "conversion"), convKind),
-          filters,
-        );
+        const base = resolve(inputs.base, "base");
+        const conv = resolve(inputs.conversion, "conversion");
         // Funnels join steps on the experiment's identifier, so the dbt entity
         // must be one; a session- or order-keyed conversion can't be expressed.
         const idType = opts.entities?.[c.entity] ?? c.entity;
@@ -897,37 +896,16 @@ export function translate(
             'derived metrics are not supported (only "a / b" maps to a ratio)',
           );
         }
-        const input = (alias: string) => {
-          const found = (tp.metrics ?? []).find(
-            (i) => (i.alias ?? i.name) === alias,
+        const input = (alias: string) =>
+          resolve(
+            inputs.derived.find(([i]) => (i.alias ?? i.name) === alias) ?? null,
+            `derived input "${alias}"`,
           );
-          if (!found) throw new Unsupported(`unknown derived input "${alias}"`);
-          return withFilters(resolveInput(found, "metric"), filters);
-        };
         return ratioData(name, input(m[1]), input(m[2]));
       }
       default:
         throw new Unsupported(`unknown metric type "${metric.type}"`);
     }
-  }
-
-  function inputs(metric: DbtMetric): [DbtInput, InputKind][] {
-    const tp = metric.type_params ?? {};
-    const c = tp.conversion_type_params;
-    const all: [DbtInput | null | undefined, InputKind][] = [
-      [tp.measure, "measure"],
-      [tp.numerator, "metric"],
-      [tp.denominator, "metric"],
-      ...(tp.metrics ?? []).map((m): [DbtInput, InputKind] => [m, "metric"]),
-      [tp.cumulative_type_params?.metric, "metric"],
-      [c?.base_metric, "metric"],
-      [c?.base_measure, "measure"],
-      [c?.conversion_metric, "metric"],
-      [c?.conversion_measure, "measure"],
-    ];
-    return all.filter(
-      (e): e is [DbtInput, InputKind] => (e[0] ?? null) !== null,
-    );
   }
 
   // Selection runs on this before anything is translated, so unselected
@@ -940,7 +918,10 @@ export function translate(
     seen.add(metric.name);
     const own = metric.type_params?.metric_aggregation_params?.semantic_model;
     const models = [own ? modelsByName.get(own) : undefined];
-    for (const [input, kind] of inputs(metric)) {
+    const { derived, ...single } = inputsOf(metric);
+    for (const [input, kind] of [...Object.values(single), ...derived].filter(
+      (r): r is InputRef => r !== null,
+    )) {
       const m = kind === "metric" ? metricsByName.get(input.name) : undefined;
       if (m) models.push(...modelsOf(m, seen));
       else models.push(measureIndex.get(input.name)?.model);
