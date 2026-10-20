@@ -75,7 +75,7 @@ export function getMetricData(
   const isClusterRatioConversion = analyzeClusterMetricAsRatio(metric, {
     isClusterExperiment: isClusterMetric,
   });
-  const ratioMetric = isRatioMetric(metric) || isClusterRatioConversion;
+  const ratioMetric = isRatioMetric(metric);
   const funnelMetric = isFactFunnelMetric(metric);
   const quantileMetric = funnelMetric ? "" : quantileMetricType(metric);
   const metricQuantileSettings: MetricQuantileSettings = (isFactMetric(
@@ -156,14 +156,6 @@ export function getMetricData(
     lowerCapValueCol: `${alias}_denominator_cap_lower`,
     columnRef: metric.denominator,
   });
-  const clusterRollupNumerator = capCoalesceMetric;
-  const clusterRollupDenominator = isClusterRatioConversion
-    ? null
-    : capCoalesceDenominator;
-  const clusterRollupCovariateNumerator = capCoalesceCovariate;
-  const clusterRollupCovariateDenominator = isClusterRatioConversion
-    ? null
-    : capCoalesceDenominatorCovariate;
   const uncappedMetric = {
     ...metric,
     cappingSettings: {
@@ -208,16 +200,6 @@ export function getMetricData(
     lowerCapValueCol: `${alias}_denominator_cap_lower`,
     columnRef: metric.denominator,
   });
-  // Cluster rollup inputs for the uncapped aggregates (parallel to the capped
-  // rollup inputs above).
-  const clusterRollupNumeratorUncapped = uncappedCoalesceMetric;
-  const clusterRollupDenominatorUncapped = isClusterRatioConversion
-    ? null
-    : uncappedCoalesceDenominator;
-  const clusterRollupCovariateNumeratorUncapped = uncappedCoalesceCovariate;
-  const clusterRollupCovariateDenominatorUncapped = isClusterRatioConversion
-    ? null
-    : uncappedCoalesceDenominatorCovariate;
 
   const orderedMetrics = (activationMetric ? [activationMetric] : []).concat([
     metric,
@@ -296,15 +278,6 @@ export function getMetricData(
     metricIndex,
     ratioMetric,
     isClusterRatioConversion,
-    isClusterMetric,
-    clusterRollupNumerator,
-    clusterRollupDenominator,
-    clusterRollupCovariateNumerator,
-    clusterRollupCovariateDenominator,
-    clusterRollupNumeratorUncapped,
-    clusterRollupDenominatorUncapped,
-    clusterRollupCovariateNumeratorUncapped,
-    clusterRollupCovariateDenominatorUncapped,
     funnelMetric,
     quantileMetric,
     metricQuantileSettings,
