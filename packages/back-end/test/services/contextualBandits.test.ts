@@ -779,6 +779,58 @@ describe("persistContextualBanditEvent", () => {
     expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
   });
 
+  it("does not publish saved exploit weights on resume when a stop/start reset the stage to explore", async () => {
+    // An exploit run saved its event (weightsWereUpdated:true) but its weight
+    // write failed, so banditVersion never moved. A stop/start then reset the CB
+    // to `explore` (same banditVersion). The resume must not republish the saved
+    // exploit weights into the new exploration period.
+    const cb = makeCb({ stage: "explore", banditVersion: 2 });
+    const cbs = makeCbs({ banditVersion: 2 });
+    const result = makeResult();
+
+    const existingEvent = {
+      id: "cbe_existing",
+      organization: "org_1",
+      contextualBandit: cb.id,
+      snapshotId: cbs.id,
+      attributes: result.attributes,
+      responses: result.responses,
+      leaf_map: result.leaf_map,
+      weightsWereUpdated: true,
+      seed: "seed_existing",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    const createCbeMock = jest.fn();
+    const applyWeightEpochUpdateMock = jest.fn().mockResolvedValue(cb);
+
+    const context = {
+      org: { id: "org_1" },
+      logger: { warn: jest.fn(), error: jest.fn() },
+      auditLog: jest.fn().mockResolvedValue(undefined),
+      models: {
+        contextualBandits: {
+          getById: jest.fn().mockResolvedValue(cb),
+          applyWeightEpochUpdate: applyWeightEpochUpdateMock,
+          update: jest.fn().mockResolvedValue(cb),
+        },
+        contextualBanditEvents: {
+          getBySnapshotId: jest.fn().mockResolvedValue(existingEvent),
+          create: createCbeMock,
+        },
+      },
+    } as unknown as ReqContext;
+
+    const cbe = await persistContextualBanditEvent(context, cbs, result);
+
+    expect(cbe).toBe(existingEvent);
+    expect(createCbeMock).not.toHaveBeenCalled();
+    // The exploration guard still applies on resume: the saved exploit weights
+    // are not written to the serving weights.
+    expect(applyWeightEpochUpdateMock).not.toHaveBeenCalled();
+  });
+
   it("leaves the persisted weights alone on a no-weight run", async () => {
     const cb = makeCb();
     const cbs = makeCbs();
