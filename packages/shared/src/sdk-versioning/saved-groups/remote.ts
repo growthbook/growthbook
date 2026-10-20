@@ -203,6 +203,14 @@ export function rewriteRemoteGroupReferences(
           ? convertInGroupOperator(groupId, group, attribute, true, mode)
           : createConditionFromGroupId(groupId, true, mode),
       );
+    } else if (
+      groupId &&
+      mode === "attribute" &&
+      isRemoteGroupId(groupId, groupMap)
+    ) {
+      // A derived ID, such as `grp_vip:parent_id`, which only exists in payloads
+      delete node.$savedGroup;
+      conditions.push(createConditionFromGroupId(groupId, true, mode));
     }
   }
 

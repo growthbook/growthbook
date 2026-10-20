@@ -1,6 +1,9 @@
 import Agenda, { Job } from "agenda";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { validateRemoteSavedGroupUpload } from "back-end/src/services/remoteSavedGroups";
+import {
+  failRemoteSavedGroupUploadValidation,
+  validateRemoteSavedGroupUpload,
+} from "back-end/src/services/remoteSavedGroups";
 import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "validateRemoteSavedGroupUpload";
@@ -19,7 +22,7 @@ let agenda: Agenda;
  * Registers the job that checks a remote Saved Group upload's whole file and
  * sets its status to `valid` or `invalid`. Queued for each upload by
  * `queueValidateRemoteSavedGroupUpload`. Storage errors leave the upload
- * `pending` and retry a few times.
+ * `pending` and retry a few times, then mark it `invalid`.
  */
 export default function (ag: Agenda) {
   agenda = ag;
@@ -46,6 +49,9 @@ export default function (ag: Agenda) {
             uploadId,
             attempt: attempt + 1,
           });
+        } else {
+          const context = await getContextForAgendaJobByOrgId(organization);
+          await failRemoteSavedGroupUploadValidation(context, uploadId);
         }
       }
     },

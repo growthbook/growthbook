@@ -470,6 +470,23 @@ export async function validateRemoteSavedGroupUpload(
   );
 }
 
+/**
+ * Marks a still-pending upload invalid when its file can't be checked, so it
+ * doesn't stay pending for good.
+ */
+export async function failRemoteSavedGroupUploadValidation(
+  context: Context,
+  uploadId: string,
+): Promise<void> {
+  const upload = await context.models.savedGroupUploads.getById(uploadId);
+  if (!upload || upload.status.type !== "pending") return;
+  await context.models.savedGroupUploads.setStatus(upload, {
+    type: "invalid",
+    invalidLineCount: 0,
+    errors: ["GrowthBook couldn't read the file. Upload it again."],
+  });
+}
+
 /** A page of a group's uploads, newest first; only `versions` when given. */
 export async function listRemoteSavedGroupUploads(
   context: Context,

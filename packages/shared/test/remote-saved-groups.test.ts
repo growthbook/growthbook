@@ -164,6 +164,15 @@ describe.each([
     });
   });
 
+  it("rewrites a hand-written $savedGroup reference to a derived group", () => {
+    const condition = { $not: { $savedGroup: { id: "vip:parent_id" } } };
+    strategy.finalizeCondition(condition);
+    expect(condition).toEqual({
+      $not: { __gb_remoteGroupIds: { $in: ["vip:parent_id"] } },
+      __gb_remoteGroupIds: { $exists: true },
+    });
+  });
+
   it("rewrites nested $savedGroups and guards negations", () => {
     const condition = { $not: { $savedGroups: ["vip"] } };
     recursiveWalk(condition, strategy.createSavedGroupsOperatorHandler());
