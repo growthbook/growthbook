@@ -34751,9 +34751,11 @@ paths:
       description: >-
         Each supplied field replaces its stored value (object fields are
         replaced whole); omitted fields are unchanged and `null` resets a field
-        to its default. Read-only fields that `GET /settings` returns are
-        accepted only unchanged, so a `GET` response can be sent back whole.
-        Approval requirements are managed by `PUT /settings/approvals`.
+        to its default. A value equal to what `GET` returns is left as it is, so
+        echoing a default doesn't pin it. Read-only fields that `GET /settings`
+        returns are accepted only unchanged, so a `GET` response can be sent
+        back whole. Approval requirements are managed by `PUT
+        /settings/approvals`.
       tags:
         - settings
       requestBody:
