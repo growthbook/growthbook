@@ -25,6 +25,7 @@ import {
   getRuleAttributeScopeProjectIds,
   getConfigBackingKey,
   getConfigBackingPatch,
+  getDependentExperiments,
   getDependentFeatures,
   getSavedGroupsValuesFromGroupMap,
   getTargetingProjectIds,
@@ -72,7 +73,10 @@ import {
 } from "shared/types/saved-group";
 import { clone } from "lodash";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { ArchetypeAttributeValues } from "shared/types/archetype";
+import {
+  ArchetypeAttributeValues,
+  ArchetypeInterface,
+} from "shared/types/archetype";
 import {
   AutoExperimentWithMetadata,
   ContextualBanditDefinitions,
@@ -156,6 +160,7 @@ import { getResolvableValues } from "back-end/src/services/resolvableValues";
 import {
   getAllFeatures,
   getAllFeaturesWithoutEditorFields,
+  getFeaturesWithPrerequisitesOn,
 } from "back-end/src/models/FeatureModel";
 import {
   getAllExperimentsForStaleGraph,
@@ -176,7 +181,9 @@ import {
   featuresWithPrerequisiteClosure,
   getPrerequisiteIdsInFeatures,
   getReferenceIdsInFeatures,
+  buildFeatureLookups,
 } from "back-end/src/util/features";
+import { yieldEventLoop } from "back-end/src/util/yield";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
@@ -696,6 +703,7 @@ export async function getSavedGroupMapForFeatureRevision(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   experimentMap: Map<string, ExperimentInterface>,
+  bandits?: Iterable<ContextualBanditInterface>,
 ): Promise<GroupMap> {
   const experiments = [...(feature.rules ?? []), ...(revision.rules ?? [])]
     .map((rule) =>
@@ -710,6 +718,7 @@ export async function getSavedGroupMapForFeatureRevision(
       features: [feature],
       revisions: [revision],
       experiments,
+      bandits,
     }),
   );
 }
@@ -2067,6 +2076,8 @@ export function evaluateFeature({
   namespaces,
   organization,
   constants,
+  includeRuleIds,
+  cbMap,
 }: {
   feature: FeatureInterface;
   attributes: ArchetypeAttributeValues;
@@ -2088,6 +2099,8 @@ export function evaluateFeature({
   // When provided, `@const:` references are resolved so preview/test results
   // match what the SDK payload actually serves (same as generateFeaturesPayload).
   constants?: ConstantInterface[];
+  includeRuleIds?: boolean;
+  cbMap?: Map<string, ContextualBanditInterface>;
 }) {
   const results: FeatureTestResult[] = [];
   const savedGroups = getSavedGroupsValuesFromGroupMap(groupMap);
@@ -2130,6 +2143,8 @@ export function evaluateFeature({
         // payload. Cycles are left unresolved (rendered as-is), same as payload
         // generation — no logging needed in this preview-only path.
         constantMap: envConstantMap ?? undefined,
+        includeRuleIds,
+        cbMap,
       });
 
       if (definition) {
@@ -2148,6 +2163,7 @@ export function evaluateFeature({
                       // make rule invalid so it is skipped
                       delete rule.force;
                       delete rule.variations;
+                      delete rule.contextualVariations;
                     }
                     delete rule.parentConditions;
                   }
@@ -2165,6 +2181,10 @@ export function evaluateFeature({
           features: {
             [feature.id]: definition,
           },
+          // Leaf weights, without which a bandit buckets by its aggregate weights
+          contextualBandits: filterUsedContextualBandits(cbMap, {
+            [feature.id]: definition,
+          }),
           savedGroups: savedGroups,
           attributes: attributes ? attributes : {},
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2196,6 +2216,105 @@ export function evaluateFeature({
     };
   }
   return results;
+}
+
+// Everything evaluateFeature reads from the org, loaded once per request.
+export async function getFeatureEvalDependencies(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+) {
+  const { org } = context;
+  const [experimentMap, safeRolloutMap, constants, cbMap] = await Promise.all([
+    getAllPayloadExperiments(context),
+    context.models.safeRollout.getAllPayloadSafeRollouts(),
+    getResolvableValues(context),
+    // A draft can reference bandits the live flag doesn't
+    getPayloadContextualBandits(context, [
+      feature,
+      { ...feature, rules: revision.rules },
+    ]),
+  ]);
+  const groupMap = await getSavedGroupMapForFeatureRevision(
+    context,
+    feature,
+    revision,
+    experimentMap,
+    cbMap.values(),
+  );
+  return {
+    groupMap,
+    experimentMap,
+    cbMap,
+    safeRolloutMap,
+    constants,
+    environments: filterEnvironmentsByFeature(getEnvironments(org), feature),
+    namespaces: namespacesToMap(org.settings?.namespaces),
+    organization: org,
+  };
+}
+
+// An archetype pinned to environments is only evaluated in those.
+export function filterArchetypeEnvironments(
+  environments: Environment[],
+  archetype: Pick<ArchetypeInterface, "environments">,
+) {
+  return archetype.environments?.length
+    ? environments.filter((e) => archetype.environments?.includes(e.id))
+    : environments;
+}
+
+export async function getFeatureDependents(
+  context: ReqContext | ApiReqContext,
+  featureIds: string[],
+) {
+  const dependents: Record<
+    string,
+    { features: string[]; experiments: { id: string; name: string }[] }
+  > = {};
+  if (!featureIds.length) return dependents;
+
+  const allEnvIds = getEnvironments(context.org).map((e) => e.id);
+  // Dependents are one hop: only the features and experiments whose
+  // prerequisites name a requested flag can be one.
+  const [allFeatures, allExperiments] = await Promise.all([
+    getFeaturesWithPrerequisitesOn(context, featureIds, {
+      includeArchived: true,
+    }),
+    getAllExperimentsForStaleGraph(context, {
+      includeArchived: true,
+      prerequisiteIds: featureIds,
+    }),
+  ]);
+  const {
+    featuresMap,
+    reverseDependencyIndex,
+    experiments,
+    experimentDependencyIndex,
+  } = buildFeatureLookups(allFeatures, allExperiments);
+
+  for (let i = 0; i < featureIds.length; i++) {
+    await yieldEventLoop(i);
+    const featureId = featureIds[i];
+    const feature = featuresMap.get(featureId);
+    dependents[featureId] = feature
+      ? {
+          features: getDependentFeatures(
+            feature,
+            allFeatures,
+            allEnvIds,
+            reverseDependencyIndex,
+            featuresMap,
+          ),
+          experiments: getDependentExperiments(
+            feature,
+            experiments,
+            experimentDependencyIndex,
+          ).map((e) => ({ id: e.id, name: e.name })),
+        }
+      : { features: [], experiments: [] };
+  }
+  return dependents;
 }
 
 export async function evaluateAllFeatures({
