@@ -5,13 +5,6 @@ import { postSdkConnection } from "./postSdkConnection";
 import { putSdkConnection } from "./putSdkConnection";
 import { deleteSdkConnection } from "./deleteSdkConnection";
 import { lookupSdkConnectionByKey } from "./lookupSdkConnectionByKey";
-import {
-  deleteSdkWebhook,
-  listSdkConnectionWebhooks,
-  postSdkConnectionWebhook,
-  postSdkWebhookTest,
-  putSdkWebhook,
-} from "./sdkWebhooks";
 
 export const sdkConnectionsRoutes: OpenApiRoute[] = [
   listSdkConnections,
@@ -20,9 +13,4 @@ export const sdkConnectionsRoutes: OpenApiRoute[] = [
   putSdkConnection,
   deleteSdkConnection,
   lookupSdkConnectionByKey,
-  listSdkConnectionWebhooks,
-  postSdkConnectionWebhook,
-  putSdkWebhook,
-  deleteSdkWebhook,
-  postSdkWebhookTest,
 ];
