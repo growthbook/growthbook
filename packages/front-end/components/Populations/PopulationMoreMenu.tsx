@@ -83,7 +83,7 @@ export default function PopulationMoreMenu({
           Duplicate
         </DropdownMenuItem>
       )}
-      {canDuplicate && canDelete && <DropdownMenuSeparator />}
+      {(onAuditLog || canDuplicate) && canDelete && <DropdownMenuSeparator />}
       {canDelete && (
         <DropdownMenuItem
           color="red"
