@@ -42,7 +42,6 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
-  getExperimentById,
   getExperimentsByIds,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
@@ -59,7 +58,6 @@ import {
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";
-import { CasConflictError } from "back-end/src/models/BaseModel";
 import { logger } from "back-end/src/util/logger";
 import {
   getChangesToStartExperiment,
@@ -282,7 +280,6 @@ export async function addNewExperimentToHoldout(
   experiment: Pick<ExperimentInterface, "id" | "project">,
   holdoutId: string,
   linkedFeatureIds: string[],
-  dateAdded?: Date,
 ) {
   const canLinkFromFeature = await canLinkExperimentToHoldoutFromFeatures(
     context,
@@ -295,11 +292,7 @@ export async function addNewExperimentToHoldout(
     project: experiment.project,
     bypassReadPermissionChecks: canLinkFromFeature,
   });
-  await context.models.holdout.addExperimentToHoldout(
-    holdoutId,
-    experiment.id,
-    dateAdded,
-  );
+  await context.models.holdout.addExperimentToHoldout(holdoutId, experiment.id);
 }
 
 /**
@@ -368,15 +361,13 @@ export async function applyExperimentHoldoutChange(
 ) {
   const current = experiment.holdoutId;
   if (holdoutId === undefined || holdoutId === (current || "")) return;
-  // The experiment is already saved, so anything that throws below is rewound
-  let previous: { id: string; dateAdded: Date } | undefined;
-  // Chosen up front so the rewind can tell this switch's entry from a concurrent writer's
-  const added = { id: experiment.id, dateAdded: new Date() };
+  // Read before any write, so a failure can put the old entry back as it was
+  const previous = current
+    ? (await context.models.holdout.getByIdForLinkage(current))
+        ?.linkedExperiments[experiment.id]
+    : undefined;
   try {
     if (current) {
-      // Captured before any write, since a removal can land and still throw afterwards
-      previous = (await context.models.holdout.getByIdForLinkage(current))
-        ?.linkedExperiments[experiment.id];
       await context.models.holdout.removeExperimentFromHoldout(
         current,
         experiment.id,
@@ -387,35 +378,21 @@ export async function applyExperimentHoldoutChange(
       await context.models.holdout.addExperimentToHoldout(
         holdoutId,
         experiment.id,
-        added.dateAdded,
       );
-      // A newer switch saved meanwhile owns the links now; it unlinked `current`
-      // itself, so this entry is the only one it can't see to drop
-      const saved = await getExperimentById(context, experiment.id);
-      if (saved && saved.holdoutId !== holdoutId) {
-        await context.models.holdout.removeExperimentFromHoldout(
-          holdoutId,
-          experiment.id,
-          added,
-        );
-      }
     }
   } catch (e) {
-    // No transactions: each step declines when the live row isn't this switch's work, so it holds whichever write failed or landed
+    // No transactions: the experiment is already saved, so undo it rather than leave a mismatch
     try {
-      // Guarded on this request's saved value, so a newer switch is left alone
       await updateExperiment({
         context,
         experiment: { ...experiment, holdoutId },
         changes: { holdoutId: current || "" },
         bypassWebhooks: true,
-        guard: { holdoutId },
       });
       if (holdoutId) {
         await context.models.holdout.removeExperimentFromHoldout(
           holdoutId,
           experiment.id,
-          added,
         );
       }
       if (previous && current) {
@@ -425,13 +402,10 @@ export async function applyExperimentHoldoutChange(
         );
       }
     } catch (rewindError) {
-      // A conflict means a newer switch owns the experiment, so nothing to undo
-      if (!(rewindError instanceof CasConflictError)) {
-        logger.error(
-          rewindError,
-          `Failed to rewind the holdout change for experiment "${experiment.id}"; the holdout and experiment are now inconsistent and need reconciling by hand`,
-        );
-      }
+      logger.error(
+        rewindError,
+        `Failed to rewind the holdout change for experiment "${experiment.id}"; the holdout and experiment are now inconsistent and need reconciling by hand`,
+      );
     }
     throw e;
   }

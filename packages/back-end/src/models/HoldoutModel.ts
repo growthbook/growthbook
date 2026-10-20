@@ -732,26 +732,14 @@ export class HoldoutModel extends BaseClass {
     return new Map(filteredHoldouts.map((h) => [h.holdout.id, h]));
   }
 
-  // With `expectEntry`, removes only the entry a caller wrote (matched on
-  // `dateAdded`, decided against the row being written as in
-  // removeLinkageFromHoldout), so a rewind never drops a concurrent writer's link.
   public async removeExperimentFromHoldout(
     holdoutId: string,
     experimentId: string,
-    expectEntry?: { dateAdded: Date },
   ) {
     await this.mutateLinkage(
       holdoutId,
       ({ linkedExperiments }) => {
-        const { [experimentId]: live, ...rest } = linkedExperiments;
-        if (
-          expectEntry &&
-          (!live ||
-            new Date(live.dateAdded).getTime() !==
-              expectEntry.dateAdded.getTime())
-        ) {
-          return null;
-        }
+        const { [experimentId]: _, ...rest } = linkedExperiments;
         return { linkedExperiments: rest };
       },
       NO_NEW_LINKAGE,
@@ -804,16 +792,8 @@ export class HoldoutModel extends BaseClass {
     return added;
   }
 
-  // A caller that may need to rewind chooses `dateAdded` up front, so it can
-  // prove ownership of the entry even if this call throws after writing it.
-  public async addExperimentToHoldout(
-    holdoutId: string,
-    experimentId: string,
-    dateAdded?: Date,
-  ) {
-    await this.addExperimentsToHoldout(holdoutId, [experimentId], {
-      dateAdded,
-    });
+  public async addExperimentToHoldout(holdoutId: string, experimentId: string) {
+    await this.addExperimentsToHoldout(holdoutId, [experimentId]);
   }
 
   public async addExperimentsToHoldout(
@@ -824,16 +804,11 @@ export class HoldoutModel extends BaseClass {
       notifyNewLinkage = true,
       // Publish paths pass the owning item's key; see holdoutLinkageOwner.
       eventOwner,
-      dateAdded = new Date(),
-    }: {
-      notifyNewLinkage?: boolean;
-      eventOwner?: string;
-      dateAdded?: Date;
-    } = {},
+    }: { notifyNewLinkage?: boolean; eventOwner?: string } = {},
   ) {
     if (!experimentIds.length) return;
     const added = Object.fromEntries(
-      experimentIds.map((id) => [id, { id, dateAdded }]),
+      experimentIds.map((id) => [id, { id, dateAdded: new Date() }]),
     );
     await this.mutateLinkage(
       holdoutId,

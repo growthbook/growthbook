@@ -442,8 +442,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       context: req.context,
     });
 
-    // Chosen up front so the rewind removes only this request's holdout entry
-    const linked = { dateAdded: new Date() };
     try {
       if (ownerId) {
         // add owner as watcher
@@ -460,7 +458,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
           experiment,
           payload.holdoutId,
           [],
-          linked.dateAdded,
         );
       }
     } catch (e) {
@@ -470,7 +467,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
           await req.context.models.holdout.removeExperimentFromHoldout(
             payload.holdoutId,
             experiment.id,
-            linked,
           );
         }
         await deleteExperimentByIdForOrganization(req.context, experiment);

@@ -4,10 +4,8 @@ import type { HoldoutInterface, ApiUpdateHoldoutBody } from "shared/validators";
 import { holdoutSizeToCoverage } from "shared/util";
 import {
   createExperiment,
-  getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { CasConflictError } from "back-end/src/models/BaseModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
@@ -1254,7 +1252,6 @@ describe("assertExperimentHoldoutChange", () => {
 
 describe("applyExperimentHoldoutChange", () => {
   const mockUpdateExperiment = updateExperiment as jest.Mock;
-  const mockGetExperimentById = getExperimentById as jest.Mock;
 
   const experiment = {
     id: "exp_1",
@@ -1285,10 +1282,6 @@ describe("applyExperimentHoldoutChange", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetExperimentById.mockResolvedValue({
-      ...experiment,
-      holdoutId: "hld_2",
-    });
   });
 
   it("does nothing when the holdout is omitted or unchanged", async () => {
@@ -1310,7 +1303,6 @@ describe("applyExperimentHoldoutChange", () => {
     expect(holdout.addExperimentToHoldout).toHaveBeenCalledWith(
       "hld_2",
       "exp_1",
-      expect.any(Date),
     );
     expect(holdout.restoreExperimentLinkage).not.toHaveBeenCalled();
     expect(mockUpdateExperiment).not.toHaveBeenCalled();
@@ -1324,22 +1316,6 @@ describe("applyExperimentHoldoutChange", () => {
       "exp_1",
     );
     expect(holdout.addExperimentToHoldout).not.toHaveBeenCalled();
-    expect(mockGetExperimentById).not.toHaveBeenCalled();
-  });
-
-  it("drops only its own entry when a newer switch saved meanwhile", async () => {
-    const { context, holdout } = makeContext();
-    mockGetExperimentById.mockResolvedValue({
-      ...experiment,
-      holdoutId: "hld_3",
-    });
-    await applyExperimentHoldoutChange(context, experiment, "hld_2");
-    const dateAdded = holdout.addExperimentToHoldout.mock.calls[0][2];
-    expect(holdout.removeExperimentFromHoldout).toHaveBeenLastCalledWith(
-      "hld_2",
-      "exp_1",
-      { id: "exp_1", dateAdded },
-    );
   });
 
   it("rewinds the saved holdoutId and both links when the add fails", async () => {
@@ -1351,30 +1327,16 @@ describe("applyExperimentHoldoutChange", () => {
     expect(mockUpdateExperiment).toHaveBeenCalledWith(
       expect.objectContaining({
         changes: { holdoutId: "hld_1" },
-        guard: { holdoutId: "hld_2" },
       }),
     );
     expect(holdout.removeExperimentFromHoldout).toHaveBeenLastCalledWith(
       "hld_2",
       "exp_1",
-      expect.objectContaining({ id: "exp_1" }),
     );
     expect(holdout.restoreExperimentLinkage).toHaveBeenCalledWith(
       "hld_1",
       previous,
     );
-  });
-
-  it("leaves a newer switch alone when the rewind loses the race", async () => {
-    const { context, holdout } = makeContext();
-    holdout.addExperimentToHoldout.mockRejectedValue(new Error("holdout down"));
-    mockUpdateExperiment.mockRejectedValueOnce(new CasConflictError());
-    const error = jest.spyOn(logger, "error").mockImplementation();
-    await expect(
-      applyExperimentHoldoutChange(context, experiment, "hld_2"),
-    ).rejects.toThrow("holdout down");
-    expect(holdout.restoreExperimentLinkage).not.toHaveBeenCalled();
-    expect(error).not.toHaveBeenCalled();
   });
 
   it("logs for manual reconciliation when the rewind fails", async () => {
