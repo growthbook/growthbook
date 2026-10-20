@@ -1586,6 +1586,13 @@ export async function getContextualBanditResultsForUi(
     context.models.contextualBanditEvents.getLatestForContextualBandit(cb.id),
   ]);
 
+  const resultsSnapshot =
+    latestSnapshot && snapshotHasHealthResults(latestSnapshot)
+      ? latestSnapshot
+      : await context.models.contextualBanditSnapshots.getLatestCompletedForContextualBandit(
+          cb.id,
+        );
+
   const contextualBanditSnapshot: ContextualBanditSnapshot | null = latestEvent
     ? {
         attributes: latestEvent.attributes,
@@ -1598,19 +1605,28 @@ export async function getContextualBanditResultsForUi(
     : null;
 
   const latestSnapshotSummary = latestSnapshot
-    ? toContextualBanditSnapshotStatusSummary(latestSnapshot)
+    ? {
+        ...toContextualBanditSnapshotStatusSummary(latestSnapshot),
+        multipleExposures: resultsSnapshot?.srm?.multipleExposures ?? 0,
+      }
     : null;
 
   const snapshotVariationIds =
-    latestSnapshot?.frozenSettings?.variations?.map((v) => v.id) ?? null;
+    resultsSnapshot?.frozenSettings?.variations?.map((v) => v.id) ?? null;
 
   return {
     contextualBanditSnapshot,
     latestSnapshotSummary,
     snapshotVariationIds,
-    srm: latestSnapshot?.srm ?? null,
-    traffic: latestSnapshot?.traffic ?? null,
+    srm: resultsSnapshot?.srm ?? null,
+    traffic: resultsSnapshot?.traffic ?? null,
   };
+}
+
+function snapshotHasHealthResults(
+  cbs: ContextualBanditSnapshotInterface,
+): boolean {
+  return cbs.srm !== undefined || cbs.traffic !== undefined;
 }
 
 export async function runContextualBanditSnapshot(

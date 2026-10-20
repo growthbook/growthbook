@@ -1213,6 +1213,9 @@ describe("getContextualBanditResultsForUi", () => {
       models: {
         contextualBanditSnapshots: {
           getLatestForContextualBandit: jest.fn().mockResolvedValue(cbs),
+          getLatestCompletedForContextualBandit: jest
+            .fn()
+            .mockResolvedValue(null),
         },
         contextualBanditEvents: {
           getLatestForContextualBandit: jest.fn().mockResolvedValue(cbe),
@@ -1230,5 +1233,95 @@ describe("getContextualBanditResultsForUi", () => {
     expect(results.latestSnapshotSummary).toEqual(
       toContextualBanditSnapshotStatusSummary(cbs),
     );
+  });
+
+  it("preserves the previous completed run's health payload while the newest snapshot is in-flight", async () => {
+    const cb = makeCb();
+    // Newest snapshot is a fresh refresh in progress: no srm/traffic yet.
+    const runningSnapshot = makeCbs({
+      id: "cbs_running",
+      status: "running",
+    });
+    // Previous completed run that actually detected a multiple-exposure problem.
+    const completedSnapshot = makeCbs({
+      id: "cbs_done",
+      status: "success",
+      srm: {
+        statistic: 10,
+        pValue: 0.001,
+        degreesOfFreedom: 1,
+        multipleExposures: 42,
+      },
+      traffic: {
+        overall: { name: "", srm: 0.001, variationUnits: [100, 100] },
+        dimension: {},
+      },
+    });
+    const getLatestCompleted = jest.fn().mockResolvedValue(completedSnapshot);
+
+    const context = {
+      models: {
+        contextualBanditSnapshots: {
+          getLatestForContextualBandit: jest
+            .fn()
+            .mockResolvedValue(runningSnapshot),
+          getLatestCompletedForContextualBandit: getLatestCompleted,
+        },
+        contextualBanditEvents: {
+          getLatestForContextualBandit: jest.fn().mockResolvedValue(null),
+        },
+      },
+    } as unknown as ReqContext;
+
+    const results = await getContextualBanditResultsForUi(context, cb);
+
+    // Only consult the completed-run fallback because the newest run has no
+    // health fields of its own.
+    expect(getLatestCompleted).toHaveBeenCalledTimes(1);
+    // Status still reflects the in-flight run so the UI keeps polling...
+    expect(results.latestSnapshotSummary?.status).toBe("running");
+    // ...but the health payload (and the multiple-exposure finding) survives.
+    expect(results.latestSnapshotSummary?.multipleExposures).toBe(42);
+    expect(results.srm?.multipleExposures).toBe(42);
+    expect(results.traffic?.overall.variationUnits).toEqual([100, 100]);
+  });
+
+  it("does not consult the completed-run fallback when the newest snapshot already has results", async () => {
+    const cb = makeCb();
+    const completedNewest = makeCbs({
+      id: "cbs_done",
+      status: "success",
+      srm: {
+        statistic: 10,
+        pValue: 0.001,
+        degreesOfFreedom: 1,
+        multipleExposures: 7,
+      },
+      traffic: {
+        overall: { name: "", srm: 0.5, variationUnits: [50, 50] },
+        dimension: {},
+      },
+    });
+    const getLatestCompleted = jest.fn().mockResolvedValue(null);
+
+    const context = {
+      models: {
+        contextualBanditSnapshots: {
+          getLatestForContextualBandit: jest
+            .fn()
+            .mockResolvedValue(completedNewest),
+          getLatestCompletedForContextualBandit: getLatestCompleted,
+        },
+        contextualBanditEvents: {
+          getLatestForContextualBandit: jest.fn().mockResolvedValue(null),
+        },
+      },
+    } as unknown as ReqContext;
+
+    const results = await getContextualBanditResultsForUi(context, cb);
+
+    expect(getLatestCompleted).not.toHaveBeenCalled();
+    expect(results.latestSnapshotSummary?.multipleExposures).toBe(7);
+    expect(results.srm?.multipleExposures).toBe(7);
   });
 });
