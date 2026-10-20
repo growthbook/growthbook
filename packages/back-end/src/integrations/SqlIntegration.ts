@@ -2588,7 +2588,7 @@ export default abstract class SqlIntegration
                   : "";
                 const denominatorCol =
                   !!denomAggFunction &&
-                  isRatioMetric(m.metric) &&
+                  m.ratioMetric &&
                   includesDenominator(m.metric)
                     ? `, ${denomAggFunction(`${m.alias}_denominator`)} AS ${encodeMetricIdForColumnName(m.id)}_denominator_value`
                     : "";
@@ -2694,8 +2694,8 @@ export default abstract class SqlIntegration
         ? exposureQuery.identifierType
         : null;
     // True only for the sub-unit rollup path; cluster-level queries analyze the
-    // cluster as a standard unit (isClusterExperiment stays false there).
-    const isClusterExperiment = clusterIdColumn !== null;
+    // cluster as a standard unit (useClusterRollup stays false there).
+    const useClusterRollup = clusterIdColumn !== null;
 
     // Multi-FT funnels flatten all sources into one table, so column refs
     // must use the bare `m` alias instead of per-source `m{i}`.
@@ -2921,11 +2921,10 @@ export default abstract class SqlIntegration
         .filter(
           (data) =>
             data.numeratorSourceIndex === i ||
-            // A cluster-ratio-conversion metric (mean/proportion/retention in a
-            // cluster experiment) has `ratioMetric === true` but no denominator
-            // cache column — its denominator is COUNT(DISTINCT sub_unit) computed
-            // in __clusterRollup.
-            (isRatioMetric(data.metric) && data.denominatorSourceIndex === i) ||
+            // Only a ratio metric materializes a denominator cache column here.
+            // A cluster-ratio conversion denominator is computed in
+            // __clusterRollup.
+            (data.ratioMetric && data.denominatorSourceIndex === i) ||
             data.funnelStepSourceIndices.includes(i),
         )
         .map((data) => {
@@ -2947,10 +2946,8 @@ export default abstract class SqlIntegration
               .join("\n");
           }
           const isNumeratorSide = data.numeratorSourceIndex === i;
-          // Only user-level (i.e., not cluster-level) ratio metrics have a materialized `_denominator_value`
-          // cache column.
           const isDenominatorSide =
-            isRatioMetric(data.metric) && data.denominatorSourceIndex === i;
+            data.ratioMetric && data.denominatorSourceIndex === i;
           const reAggFunction = data.numeratorAggFns.reAggregationFunction;
           const denomReAggFunction =
             data.denominatorAggFns.reAggregationFunction;
@@ -3127,7 +3124,7 @@ export default abstract class SqlIntegration
             .map((data) => {
               const numeratorHere = data.numeratorSourceIndex === i;
               const denominatorHere =
-                isRatioMetric(data.metric) && data.denominatorSourceIndex === i;
+                data.ratioMetric && data.denominatorSourceIndex === i;
               const funnelStepHere = data.funnelStepSourceIndices.includes(i);
               if (!numeratorHere && !denominatorHere && !funnelStepHere)
                 return "";
@@ -3347,7 +3344,7 @@ export default abstract class SqlIntegration
             metricColumnFilter: (data) => ({
               numerator: data.numeratorSourceIndex === i,
               denominator: !!(
-                isRatioMetric(data.metric) && data.denominatorSourceIndex === i
+                data.ratioMetric && data.denominatorSourceIndex === i
               ),
             }),
             covariatePairs: localCovariatePairs.map((p) => ({
@@ -3474,7 +3471,7 @@ export default abstract class SqlIntegration
         // Cluster experiment (sub-unit metrics): cap each sub-unit's value and
         // sum up to one row per cluster. The statistics CTE then reads the
         // already-capped, already-rolled-up values directly.
-        isClusterExperiment && clusterIdColumn
+        clusterIdColumn
           ? `, __clusterRollup AS (${getClusterRollupCTE({
               dimensionCols: analysisDimensionCols,
               metricData,
@@ -3503,7 +3500,7 @@ export default abstract class SqlIntegration
           eventQuantileData,
           baseIdType,
           joinedMetricTableName: "__joinedData",
-          ...(isClusterExperiment
+          ...(useClusterRollup
             ? {
                 // The rollup already merged every source into one per-cluster
                 // row, so the statistics CTE must not re-join sources or re-cap.
@@ -3527,7 +3524,7 @@ export default abstract class SqlIntegration
             index: s.index,
           })),
           percentileTableIndices,
-          isClusterExperiment,
+          useClusterRollup,
         });
       })()}
       `,

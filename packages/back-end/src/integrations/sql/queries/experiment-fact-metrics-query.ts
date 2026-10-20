@@ -157,7 +157,7 @@ export function getExperimentFactMetricsQuery(
     ),
   );
 
-  const isClusterExperiment = clusterIdColumn !== null;
+  const useClusterRollup = clusterIdColumn !== null;
 
   // TODO(sql): Separate metric start by fact table
   const raMetricSettings = metricData
@@ -279,7 +279,7 @@ export function getExperimentFactMetricsQuery(
     : userMetricAggTablePrefix;
   // Resolution's terminal CTE carries every metric column, so statistics read
   // it whole; without funnels there is no chain.
-  const statisticsSourceTable = isClusterExperiment
+  const statisticsSourceTable = useClusterRollup
     ? clusterRollupTable
     : funnelMetrics.length
       ? unitMetricsTable
@@ -347,11 +347,7 @@ export function getExperimentFactMetricsQuery(
         });
       }
 
-      if (
-        data.ratioMetric &&
-        !data.isClusterRatioConversion &&
-        data.denominatorSourceIndex === sourceIndex
-      ) {
+      if (data.ratioMetric && data.denominatorSourceIndex === sourceIndex) {
         columns.push({
           name: `${data.alias}_denominator`,
           expr: data.aggregatedValueTransformation({
@@ -394,7 +390,6 @@ export function getExperimentFactMetricsQuery(
         }
         if (
           metric.ratioMetric &&
-          !metric.isClusterRatioConversion &&
           metric.denominatorSourceIndex === sourceIndex
         ) {
           columns.push({
@@ -776,9 +771,7 @@ export function getExperimentFactMetricsQuery(
                     : ""
                 }
                 ${
-                  data.ratioMetric &&
-                  !data.isClusterRatioConversion &&
-                  data.denominatorSourceIndex === f.index
+                  data.ratioMetric && data.denominatorSourceIndex === f.index
                     ? `, ${addCaseWhenTimeFilter(dialect, {
                         col: `m.${data.alias}_denominator`,
                         metric: data.metric,
@@ -860,7 +853,6 @@ export function getExperimentFactMetricsQuery(
                           : ""
                       }${
                         metric.ratioMetric &&
-                        !metric.isClusterRatioConversion &&
                         metric.denominatorSourceIndex === f.index
                           ? `, ${dialect.ifElse(
                               `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
@@ -921,7 +913,8 @@ export function getExperimentFactMetricsQuery(
     ${
       // Cluster experiment: roll the per-sub-unit aggregate up to one row per
       // cluster, applying per-sub-unit capping and summing to the cluster.
-      isClusterExperiment && clusterIdColumn
+      // clusterIdColumn is non-null exactly when useClusterRollup is true.
+      clusterIdColumn
         ? `, ${clusterRollupTable} AS (
           ${getClusterRollupCTE({
             dimensionCols,
@@ -957,13 +950,13 @@ export function getExperimentFactMetricsQuery(
       statisticsSourceTableName: statisticsSourceTable,
       // The rollup already merged every source into one per-cluster row, so the
       // statistics CTE must not re-join sources.
-      flattenedSources: flattenUnitMetrics || isClusterExperiment,
+      flattenedSources: flattenUnitMetrics || useClusterRollup,
       funnelsResolvedOnSource: funnelMetrics.length > 0,
       eventQuantileTableName: "__eventQuantileMetric",
       capValueTableName: "__capValue",
       factTablesWithIndices,
       percentileTableIndices,
-      isClusterExperiment,
+      useClusterRollup,
     })}
     `
     }`,
