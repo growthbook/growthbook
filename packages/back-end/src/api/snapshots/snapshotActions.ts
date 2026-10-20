@@ -20,7 +20,11 @@ import {
 } from "back-end/src/services/experiments";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
 import { cancelExperimentSnapshot } from "back-end/src/services/snapshotCancellation";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+} from "back-end/src/util/errors";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -86,6 +90,11 @@ export const postSnapshotAnalysis = createApiRequestHandler(
 
   // Reuse a matching analysis rather than recomputing it, unless it failed
   const existing = getSnapshotAnalysis(snapshot, analysisSettings);
+  if (existing?.status === "running") {
+    throw new ConflictError(
+      "This analysis is still computing; retry once it finishes",
+    );
+  }
   if (!existing || existing.status === "error") {
     const [metricMap, factTableMap, metricGroups] = await Promise.all([
       getMetricMap(context),
