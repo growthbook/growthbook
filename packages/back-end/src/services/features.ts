@@ -2613,6 +2613,10 @@ export function evaluateFeature({
           features: {
             [feature.id]: definition,
           },
+          // Leaf weights, without which a bandit buckets by its aggregate weights
+          contextualBandits: filterUsedContextualBandits(cbMap, {
+            [feature.id]: definition,
+          }),
           savedGroups: savedGroups,
           attributes: attributes ? attributes : {},
           // eslint-disable-next-line @typescript-eslint/no-explicit-any

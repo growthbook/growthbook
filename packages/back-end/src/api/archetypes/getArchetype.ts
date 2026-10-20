@@ -19,14 +19,13 @@ export const getArchetype = createApiRequestHandler(getArchetypeValidator)(
     const { id } = req.params;
     const orgId = req.organization.id;
     const archetype = await getArchetypeById(id, orgId);
-    if (!archetype || !isArchetypeVisibleTo(archetype, req.context.userId)) {
+    if (
+      !archetype ||
+      !isArchetypeVisibleTo(archetype, req.context.userId) ||
+      !req.context.permissions.canReadMultiProjectResource(archetype.projects)
+    ) {
       throw new NotFoundError(`An archetype with id ${id} does not exist`);
     }
-
-    if (
-      !req.context.permissions.canReadMultiProjectResource(archetype.projects)
-    )
-      req.context.permissions.throwPermissionError();
 
     return {
       archetype: await resolveOwnerEmail(
