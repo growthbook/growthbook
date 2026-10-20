@@ -248,11 +248,13 @@ describe("startNewExperimentPhase", () => {
     expect(phases[1].condition).toBe('{"beta":true}');
   });
 
-  it("rejects an invalid condition with a 400", async () => {
-    await expect(
-      start(makeExperiment(), { condition: "not json" }),
-    ).rejects.toBeInstanceOf(BadRequestError);
-    expect(updateExperiment).not.toHaveBeenCalled();
+  it("leaves a carried-over Saved Group condition to the group-aware check", async () => {
+    const condition = '{"$savedGroups":["grp_1"]}';
+    await start(makeExperiment({ phases: [makePhase({ condition })] }), {
+      coverage: 0.5,
+    });
+    expect(lastUpdateChanges().phases?.[1].condition).toBe(condition);
+    expect(validateChangedPhaseReferences).toHaveBeenCalled();
   });
 
   it("rejects an invalid prerequisite condition with a 400", async () => {

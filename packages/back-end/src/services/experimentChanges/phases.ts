@@ -205,10 +205,8 @@ export async function startNewExperimentPhase({
     targeting.targetingCondition === undefined
       ? last.condition
       : targeting.condition || targeting.targetingCondition || "{}";
-  for (const c of [
-    condition,
-    ...(targeting.prerequisites ?? []).map((p) => p.condition),
-  ]) {
+  // The condition itself is checked with its Saved Groups by validateChangedPhaseReferences
+  for (const c of (targeting.prerequisites ?? []).map((p) => p.condition)) {
     if (!c) continue;
     const res = validateCondition(c);
     if (!res.success) {

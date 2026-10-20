@@ -313,6 +313,8 @@ export async function assertExperimentHoldoutChange(
       project: project ?? experiment.project,
     });
   } else if (
+    // Leaving ("") doesn't keep the experiment in its holdout, so the move needn't fit it
+    holdoutId !== "" &&
     project !== undefined &&
     project !== (experiment.project || "") &&
     current

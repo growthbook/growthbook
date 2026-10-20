@@ -1210,6 +1210,15 @@ describe("assertExperimentHoldoutChange", () => {
     ]);
   });
 
+  it("lets a draft leave its holdout while moving Project", async () => {
+    await assertExperimentHoldoutChange(
+      context,
+      draft({ holdoutId: "hld_2", project: "prj_a" }),
+      { holdoutId: "", project: "prj_b" },
+    );
+    expect(targetHoldouts()).toEqual([]);
+  });
+
   it("refuses a join once the experiment has run", async () => {
     await expect(
       assertExperimentHoldoutChange(context, draft({ status: "running" }), {
