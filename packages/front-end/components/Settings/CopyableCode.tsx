@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
 import clsx from "clsx";
 import { PiCheck, PiCopy } from "react-icons/pi";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -93,6 +93,9 @@ export default function CopyableCode({
           </button>
         }
       />
+      <VisuallyHidden role="status">
+        {copied && copySuccess ? "Copied" : ""}
+      </VisuallyHidden>
     </Box>
   );
 }
