@@ -133,15 +133,6 @@ export type FactMetricData = {
   metricIndex: number;
   ratioMetric: boolean;
   isClusterRatioConversion: boolean;
-  isClusterMetric: boolean;
-  clusterRollupNumerator: string;
-  clusterRollupDenominator: string | null;
-  clusterRollupCovariateNumerator: string;
-  clusterRollupCovariateDenominator: string | null;
-  clusterRollupNumeratorUncapped: string;
-  clusterRollupDenominatorUncapped: string | null;
-  clusterRollupCovariateNumeratorUncapped: string;
-  clusterRollupCovariateDenominatorUncapped: string | null;
   funnelMetric: boolean;
   quantileMetric: "" | MetricQuantileSettings["type"];
   metricQuantileSettings: MetricQuantileSettings;
