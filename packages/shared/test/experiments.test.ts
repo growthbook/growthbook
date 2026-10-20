@@ -3114,7 +3114,7 @@ describe("getClusterExperimentMetricEligibility", () => {
   };
   const getFactTable = (id: string) => factTables[id];
 
-  it("rejects non-fact, quantile, unsupported-type, and unsupported-aggregation metrics", () => {
+  it("rejects non-fact, quantile, and unsupported-type metrics", () => {
     expect(
       getClusterExperimentMetricEligibility({
         type: "binomial",
@@ -3126,11 +3126,6 @@ describe("getClusterExperimentMetricEligibility", () => {
     expect(
       getClusterExperimentMetricEligibility(factMetric("funnel")).allowed,
     ).toBe(false);
-    expect(
-      getClusterExperimentMetricEligibility(
-        factMetric("mean", "ft_subunit", "max"),
-      ).allowed,
-    ).toBe(false);
   });
 
   it("allows supported metrics when no fact-table context is provided (back-compat)", () => {
@@ -3140,6 +3135,18 @@ describe("getClusterExperimentMetricEligibility", () => {
     expect(getClusterExperimentMetricEligibility(factMetric("ratio"))).toEqual({
       allowed: true,
     });
+    // "max" and "hll merge" reduce to a per-sub-unit scalar, so they roll up
+    // like "sum"/"count distinct" and are allowed without fact-table context.
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_subunit", "max"),
+      ),
+    ).toEqual({ allowed: true });
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_subunit", "hll merge"),
+      ),
+    ).toEqual({ allowed: true });
   });
 
   it("allows metrics whose fact table exposes the sub-unit identifier", () => {
@@ -3164,7 +3171,7 @@ describe("getClusterExperimentMetricEligibility", () => {
     ).toEqual({ allowed: true });
   });
 
-  it("allows a max aggregation when the fact table exposes the cluster identifier", () => {
+  it("allows max and hll merge aggregations at the sub-unit grain", () => {
     expect(
       getClusterExperimentMetricEligibility(
         factMetric("mean", "ft_subunit", "max"),
@@ -3175,6 +3182,19 @@ describe("getClusterExperimentMetricEligibility", () => {
         },
       ),
     ).toEqual({ allowed: true });
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_subunit", "hll merge"),
+        {
+          clusterIdentifier: "region_id",
+          clusterSubUnitIdentifier: "user_id",
+          getFactTable,
+        },
+      ),
+    ).toEqual({ allowed: true });
+    // A max metric whose fact table reaches neither identifier is still
+    // rejected, now with the generic identifier message (not an aggregation
+    // message, since max is no longer special-cased).
     const result = getClusterExperimentMetricEligibility(
       factMetric("mean", "ft_anon", "max"),
       {
@@ -3185,7 +3205,8 @@ describe("getClusterExperimentMetricEligibility", () => {
     );
     expect(result.allowed).toBe(false);
     if (!result.allowed) {
-      expect(result.reason).toContain("max");
+      expect(result.reason).toContain("user_id");
+      expect(result.reason).toContain("region_id");
     }
   });
 
@@ -3260,19 +3281,36 @@ describe("getClusterMetricAnalysisLevel", () => {
     ).toBe("cluster");
   });
 
-  it("analyzes aggregations that can't sum across sub-units per cluster", () => {
-    const max = (factTableId: string) =>
+  it("routes max and hll merge like summable aggregations", () => {
+    const meanWithAggregation = (factTableId: string, aggregation: string) =>
       ({
         metricType: "mean",
-        numerator: { factTableId, column: "value", aggregation: "max" },
+        numerator: { factTableId, column: "value", aggregation },
         denominator: null,
       }) as unknown as FactMetricInterface;
-    expect(getClusterMetricAnalysisLevel(max("ft_both"), options)).toBe(
-      "cluster",
-    );
-    expect(getClusterMetricAnalysisLevel(max("ft_user_only"), options)).toBe(
-      null,
-    );
+    // max/hll merge reduce to a per-sub-unit scalar, so they roll up at the
+    // sub-unit grain whenever the sub-unit id is reachable, and only fall back
+    // to the cluster grain when it isn't.
+    for (const aggregation of ["max", "hll merge"]) {
+      expect(
+        getClusterMetricAnalysisLevel(
+          meanWithAggregation("ft_both", aggregation),
+          options,
+        ),
+      ).toBe("subunit");
+      expect(
+        getClusterMetricAnalysisLevel(
+          meanWithAggregation("ft_user_only", aggregation),
+          options,
+        ),
+      ).toBe("subunit");
+      expect(
+        getClusterMetricAnalysisLevel(
+          meanWithAggregation("ft_region_only", aggregation),
+          options,
+        ),
+      ).toBe("cluster");
+    }
   });
 
   it("returns null when no single identifier reaches every fact table", () => {

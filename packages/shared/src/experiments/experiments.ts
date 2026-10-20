@@ -1399,10 +1399,13 @@ export function isSubUnitClusterMetric(
 
 export type ClusterMetricAnalysisLevel = "subunit" | "cluster";
 
-// Aggregations whose per-sub-unit values can be summed into a cluster total.
+// Aggregations that collapse to a single scalar per sub-unit, so the rollup can
+// sum them into a cluster total.
 export const CLUSTER_SUBUNIT_ROLLUP_AGGREGATIONS = [
   "sum",
   "count distinct",
+  "max",
+  "hll merge",
 ] as const;
 
 function getNonRollupAggregation(metric: FactMetricInterface): string | null {
@@ -1419,12 +1422,6 @@ function getNonRollupAggregation(metric: FactMetricInterface): string | null {
   return null;
 }
 
-/**
- * A metric is analyzed per sub-unit whenever every fact table it reads can be
- * joined on the sub-unit id and its aggregations sum across sub-units (e.g. a
- * max does not), otherwise per cluster if they can all be joined on the
- * cluster id. Null means it can't be analyzed in the cluster experiment.
- */
 export function getClusterMetricAnalysisLevel(
   metric: FactMetricInterface,
   {
@@ -1519,7 +1516,6 @@ export function getClusterExperimentMetricEligibility(
       reason: `Cluster experiments don't support ${metric.metricType} metrics. Use proportion, retention, mean, or ratio metrics.`,
     };
   }
-  const nonRollupAggregation = getNonRollupAggregation(metric);
   if (options?.clusterSubUnitIdentifier && options.getFactTable) {
     const level = getClusterMetricAnalysisLevel(metric, {
       clusterIdentifier: options.clusterIdentifier,
@@ -1530,19 +1526,11 @@ export function getClusterExperimentMetricEligibility(
     if (!level) {
       return {
         allowed: false,
-        reason: nonRollupAggregation
-          ? `Aggregations using "${nonRollupAggregation}" can't be summed across sub-units, so this metric's fact table must expose the cluster identifier${options.clusterIdentifier ? ` "${options.clusterIdentifier}"` : ""}.`
-          : options.clusterIdentifier
-            ? `This metric's fact table exposes neither the sub-unit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`
-            : `This metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}".`,
+        reason: options.clusterIdentifier
+          ? `This metric's fact table exposes neither the sub-unit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`
+          : `This metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}".`,
       };
     }
-  } else if (nonRollupAggregation) {
-    // Without fact tables we can't tell whether the cluster level is reachable.
-    return {
-      allowed: false,
-      reason: `Aggregations using "${nonRollupAggregation}" are not supported in cluster experiments (only sums, counts, proportions, and ratios of these).`,
-    };
   }
   return { allowed: true };
 }
