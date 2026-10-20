@@ -632,10 +632,9 @@ export default function EventForwarder({
   const forwarderLimit = usageData?.limits.eventForwarderEvents;
   const forwardedThisMonth =
     usageData?.usage.reduce((sum, u) => sum + u.eventForwarderEvents, 0) ?? 0;
-  // "over" is the advertised stop (what the nav and docs say); `blocked` is the
-  // real one and only decides whether Resume is offered.
+  // "over" is the advertised stop (what the nav and docs say); the hidden
+  // `blocked` flag is enforced server-side and needs nothing here.
   const isOverLimit = isMetered && usage?.eventForwarder?.status === "over";
-  const isBlocked = isMetered && !!usage?.eventForwarder?.blocked;
   const eventsForwarderFlag = useFeatureValue(
     "events-forwarder-multi-step",
     "OFF",
@@ -678,8 +677,8 @@ export default function EventForwarder({
           eventForwarderConfig?.status === "schema_update_error" ||
           pollTimedOut ||
           !!primaryConnectorErrorMessage)));
-  // Resume can't lift a usage block; Pause stays so a manual pause can be saved
-  const canToggle = canEdit && (isReady || (isPaused && !isBlocked));
+  // Pause/Resume stay available while usage-blocked; a resume takes effect on the 1st
+  const canToggle = canEdit && (isReady || isPaused);
   const action = isReady ? "pause" : "resume";
   const databricksParams =
     dataSource.params as Partial<DatabricksConnectionParams>;
@@ -930,7 +929,7 @@ export default function EventForwarder({
                 while it is stopped are not delivered. It starts again on the
                 1st, or right away on a Pro or Enterprise plan.
                 {isPaused
-                  ? " Because it is also paused, resume it after that."
+                  ? " It is also paused; resuming now takes effect on the 1st."
                   : ""}
               </Callout>
             ) : null}
