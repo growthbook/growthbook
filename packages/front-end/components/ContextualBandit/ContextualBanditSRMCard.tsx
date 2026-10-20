@@ -67,10 +67,10 @@ export default function ContextualBanditSRMCard({
       description={
         <>
           Shows actual unit split compared to the assigned variation weights for
-          the most recent bandit period, grouped by regression tree leaf.
+          the most recent Bandit period, grouped by regression tree leaf.
           <br />
           p-value below is calculated using all data, not just the most recent
-          bandit period.
+          Bandit period.
         </>
       }
       srmHealth={srmHealth}
@@ -166,8 +166,8 @@ function LatestPeriodBalanceTable({
           <TableRow>
             <TableColumnHeader>Leaf</TableColumnHeader>
             <TableColumnHeader>Variation</TableColumnHeader>
-            <TableColumnHeader justify="end">Actual Units</TableColumnHeader>
-            <TableColumnHeader justify="end">Expected Units</TableColumnHeader>
+            <TableColumnHeader justify="end">Actual units</TableColumnHeader>
+            <TableColumnHeader justify="end">Expected units</TableColumnHeader>
             <TableColumnHeader justify="end">Actual %</TableColumnHeader>
             <TableColumnHeader justify="end">Expected %</TableColumnHeader>
           </TableRow>
