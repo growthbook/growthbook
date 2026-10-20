@@ -136,6 +136,13 @@ export default function ImportFromEppo() {
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, ImportResult>>({});
   const [selection, setSelection] = useState<Record<string, boolean>>({});
+  const changeCreatedSince = (d: Date | undefined) => {
+    setCreatedSince(d ? d.toISOString() : "");
+    // What was fetched belongs to the old cutoff
+    setEppo(null);
+    setResults({});
+    setSelection({});
+  };
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const existing: ExistingIds = useMemo(() => {
@@ -396,7 +403,7 @@ export default function ImportFromEppo() {
         Eppo Importer
       </Heading>
       <Frame>
-        <Grid columns={{ initial: "1", md: "3" }} gap="4">
+        <Grid columns={{ initial: "1", md: "2" }} gap="4">
           <TextField
             label="API key"
             type="password"
@@ -427,14 +434,16 @@ export default function ImportFromEppo() {
             helpText="Required to import Fact Tables, Fact Metrics and experiment results"
           />
           <DatePicker
-            label="Created after"
-            date={createdSince || undefined}
-            setDate={(d) => setCreatedSince(d ? d.toISOString() : "")}
+            label="Created on or after"
+            size="md"
+            containerClassName=""
+            date={createdSince ? new Date(createdSince) : undefined}
+            setDate={changeCreatedSince}
             precision="date"
             timeZone="local"
             disableAfter={new Date()}
             clearButton
-            helpText="Only experiments and Feature Flags created on or after this date. Leave blank for all."
+            helpText="Only experiments and Feature Flags created on or after this day. Flags with no created date are kept. Leave blank for all."
           />
         </Grid>
         <Flex gap="3" mt="4">

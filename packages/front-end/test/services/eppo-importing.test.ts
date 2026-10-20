@@ -8,6 +8,8 @@ import {
   EppoData,
   EppoExperiment,
   fetchEppoData,
+  matchItems,
+  buildImportData,
   EppoFlag,
   EppoMetric,
   getCappingSettings,
@@ -390,6 +392,69 @@ describe("transformFlag", () => {
     );
     expect(rules.map((r) => r.id)).toEqual(["fr_eppo_1", "fr_eppo_2"]);
     expect(rules[0]).toMatchObject({ type: "force", value: "false" });
+  });
+
+  // A date filter can leave out an experiment an earlier run imported; the
+  // flag keeps pointing at it rather than falling back to an inline rule
+  it("keeps links to experiments this fetch left out", () => {
+    const flag = mkFlag([
+      mkAllocation({
+        id: 2,
+        type: "EXPERIMENT",
+        variation_weight: [
+          { variation_id: 1, weight: 1 },
+          { variation_id: 2, weight: 1 },
+        ],
+        experiment: { id: 77, name: "Older test", status: "RUNNING" },
+      }),
+    ]);
+    const eppo = { ...EPPO, flags: [flag], experiments: [] };
+    const existing: ExistingIds = {
+      environments: new Set(["production", "test"]),
+      tags: new Set(),
+      imported: {
+        audiences: new Map(),
+        factSources: new Map(),
+        metrics: new Map(),
+        experiments: new Map([[77, "exp_older"]]),
+        flags: new Map(),
+      },
+      savedGroups: new Map(),
+      features: new Set(),
+      factTables: new Map(),
+      factMetrics: new Map(),
+      experiments: new Map(),
+      experimentRefs: new Map([
+        [
+          "exp_older",
+          {
+            status: "running",
+            variations: [
+              { id: "var_a", key: "off" },
+              { id: "var_b", key: "on" },
+            ],
+            phase: {
+              condition: "",
+              savedGroups: [],
+              coverage: 1,
+              variationWeights: [0.5, 0.5],
+            },
+          },
+        ],
+      ]),
+      factTableColumns: new Map(),
+    };
+    const data = buildImportData(
+      eppo,
+      existing,
+      matchItems(eppo, existing),
+      "",
+      DATASOURCE,
+      () => true,
+    );
+    expect(
+      (data.flags[0].preview as { rules: { type: string }[] }).rules[0],
+    ).toMatchObject({ type: "experiment-ref", experimentId: "exp_older" });
   });
 
   it("links experiment allocations to imported experiments", () => {

@@ -1923,6 +1923,18 @@ function getInitialContext(
   const factTableIds = ids("factSources", eppo.factSources, () => !!datasource);
   const metricIds = ids("metrics", eppo.metrics);
   const experiments = new Map<number, GBExperimentRef>();
+  // Experiments a flag refers to that this fetch didn't include (e.g. a date
+  // filter) keep the reference an earlier run created
+  eppo.flags.forEach((f) =>
+    (f.allocations ?? []).forEach((a) => {
+      const eppoId = a.experiment?.id;
+      if (!eppoId || eppo.experiments.some((e) => e.id === eppoId)) return;
+      const id = existing.imported.experiments.get(eppoId);
+      const ref = id && existing.experimentRefs.get(id);
+      if (!id || !ref) return;
+      experiments.set(eppoId, { id, ...ref });
+    }),
+  );
   eppo.experiments.forEach((e) => {
     const existingId = matches.experiments.get(String(e.id))?.existingId;
     const variations = e.variations
