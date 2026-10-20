@@ -40,9 +40,10 @@ export const postExperimentRestartValidator = {
   summary: "Restart a stopped experiment",
   description:
     "Reopens the last phase. Bandits start a new phase with fresh buckets instead, since a bandit phase can't be resumed.",
-  // A bandit restart also resets weights and bucket versions
+  // A bandit restart also resets weights and bucket versions; `draft` withdraws a rollout
   confirmation: [
     "experiment.start",
+    "experiment.stop",
     "experiment.traffic",
     "experiment.phases",
   ] as const,

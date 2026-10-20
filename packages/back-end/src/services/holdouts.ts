@@ -58,6 +58,7 @@ import {
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";
+import { CasConflictError } from "back-end/src/models/BaseModel";
 import { logger } from "back-end/src/util/logger";
 import {
   getChangesToStartExperiment,
@@ -385,6 +386,14 @@ export async function applyExperimentHoldoutChange(
   } catch (e) {
     // No transactions: each step declines when the live row isn't this switch's work, so it holds whichever write failed or landed
     try {
+      // Guarded on this request's saved value, so a newer switch is left alone
+      await updateExperiment({
+        context,
+        experiment: { ...experiment, holdoutId },
+        changes: { holdoutId: current || "" },
+        bypassWebhooks: true,
+        guard: { holdoutId },
+      });
       if (holdoutId) {
         await context.models.holdout.removeExperimentFromHoldout(
           holdoutId,
@@ -398,18 +407,14 @@ export async function applyExperimentHoldoutChange(
           previous,
         );
       }
-      // Diff against the saved holdoutId, or updateExperiment sees no change and skips the write
-      await updateExperiment({
-        context,
-        experiment: { ...experiment, holdoutId },
-        changes: { holdoutId: current || "" },
-        bypassWebhooks: true,
-      });
     } catch (rewindError) {
-      logger.error(
-        rewindError,
-        `Failed to rewind the holdout change for experiment "${experiment.id}"; the holdout and experiment are now inconsistent and need reconciling by hand`,
-      );
+      // A conflict means a newer switch owns the experiment, so nothing to undo
+      if (!(rewindError instanceof CasConflictError)) {
+        logger.error(
+          rewindError,
+          `Failed to rewind the holdout change for experiment "${experiment.id}"; the holdout and experiment are now inconsistent and need reconciling by hand`,
+        );
+      }
     }
     throw e;
   }
