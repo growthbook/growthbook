@@ -14,15 +14,12 @@ export const webhookSecretApiSpec = {
     createBody: apiCreateWebhookSecretBody,
     updateBody: apiUpdateWebhookSecretBody,
   },
-  includeDefaultCrud: true,
-  confirmation: {
-    create: ["settings.webhooks"],
-    update: ["settings.webhooks"],
-    delete: ["settings.webhooks"],
-  },
+  // Values are set in the app: a held write would store them in its confirmation
+  crudActions: ["get", "list", "delete"],
+  confirmation: { delete: ["settings.webhooks"] },
   navDisplayName: "Webhook Secrets",
   navDescription:
-    "Secret values substituted into webhook URLs and headers at send time. Values are write-only.",
+    "Secrets substituted into webhook URLs and headers at send time. Values are set in the app and never returned.",
   navAfterTag: "event-webhooks",
 } satisfies OpenApiModelSpec;
 export default webhookSecretApiSpec;
