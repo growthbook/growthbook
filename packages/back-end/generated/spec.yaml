@@ -54584,7 +54584,7 @@ paths:
                               properties:
                                 type:
                                   type: string
-                                  const: ownership
+                                  const: preference
                                 attribution:
                                   type: string
                                   enum:
@@ -54901,7 +54901,7 @@ paths:
                               properties:
                                 type:
                                   type: string
-                                  const: ownership
+                                  const: preference
                                 attribution:
                                   type: string
                                   enum:
@@ -82040,7 +82040,7 @@ components:
                       properties:
                         type:
                           type: string
-                          const: ownership
+                          const: preference
                         attribution:
                           type: string
                           enum:
@@ -82227,7 +82227,7 @@ components:
                           properties:
                             type:
                               type: string
-                              const: ownership
+                              const: preference
                             attribution:
                               type: string
                               enum:
@@ -82280,7 +82280,7 @@ components:
                     properties:
                       type:
                         type: string
-                        const: ownership
+                        const: preference
                       attribution:
                         type: string
                         enum:

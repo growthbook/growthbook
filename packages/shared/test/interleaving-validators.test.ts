@@ -175,12 +175,15 @@ describe("interleavingMetricConfigValidator", () => {
   it.each([
     ["paired only", [{ type: "paired" }]],
     [
-      "one ownership only",
-      [{ type: "ownership", attribution: "exposureCount" }],
+      "one preference only",
+      [{ type: "preference", attribution: "exposureCount" }],
     ],
     [
       "every analysis at once",
-      [{ type: "paired" }, { type: "ownership", attribution: "exposureCount" }],
+      [
+        { type: "paired" },
+        { type: "preference", attribution: "exposureCount" },
+      ],
     ],
   ])("accepts %s", (_label, analyses) => {
     expect(parse(analyses)).toBe(true);
@@ -194,19 +197,19 @@ describe("interleavingMetricConfigValidator", () => {
     expect(parse([{ type: "paired" }, { type: "paired" }])).toBe(false);
   });
 
-  it("rejects a duplicate ownership attribution", () => {
+  it("rejects a duplicate preference attribution", () => {
     expect(
       parse([
-        { type: "ownership", attribution: "exposureCount" },
-        { type: "ownership", attribution: "exposureCount" },
+        { type: "preference", attribution: "exposureCount" },
+        { type: "preference", attribution: "exposureCount" },
       ]),
     ).toBe(false);
   });
 
   it.each(["lastClick", "engagementSignal"])(
-    "rejects the unsupported ownership attribution %j",
+    "rejects the unsupported preference attribution %j",
     (attribution) => {
-      expect(parse([{ type: "ownership", attribution }])).toBe(false);
+      expect(parse([{ type: "preference", attribution }])).toBe(false);
     },
   );
 
@@ -214,8 +217,8 @@ describe("interleavingMetricConfigValidator", () => {
     expect(parse([{ type: "sequential" }])).toBe(false);
   });
 
-  it("rejects an ownership analysis with no attribution", () => {
-    expect(parse([{ type: "ownership" }])).toBe(false);
+  it("rejects an preference analysis with no attribution", () => {
+    expect(parse([{ type: "preference" }])).toBe(false);
   });
 });
 

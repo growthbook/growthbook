@@ -1102,7 +1102,7 @@ export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
 // experiment fact metrics.
 export interface InterleavingMetricQueryMetric {
   metric: FactMetricInterface;
-  // "paired" needs ranking_id on the metric's fact table; ownership only
+  // "paired" needs ranking_id on the metric's fact table; preference only
   // needs item_id.
   analyses: InterleavingAnalysis[];
 }
@@ -1119,14 +1119,14 @@ export interface InterleavingMetricQueryParams {
   endDate: Date | null;
   // One query analyzes all metrics whose numerator reads this fact table;
   // output columns are prefixed m{i}_ by array index, with each analysis's
-  // columns under the same prefix. Paired/ownership CTEs are only included
+  // columns under the same prefix. Paired/preference CTEs are only included
   // when at least one metric requests them.
   factTable: FactTableInterface;
   metrics: InterleavingMetricQueryMetric[];
 }
 
 // One row of numeric aggregates; the column set depends on the attribution type
-// (paired sufficient statistics vs ownership preference counts)
+// (paired sufficient statistics vs preference counts)
 export type InterleavingMetricQueryResponseRows = Record<string, number>[];
 export type InterleavingMetricQueryResponse =
   QueryResponse<InterleavingMetricQueryResponseRows>;

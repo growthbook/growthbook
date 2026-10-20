@@ -57,29 +57,28 @@ export async function resolveInterleavingMetrics(
     if (!metric || !isFactMetric(metric)) {
       throw new Error(`${label} must be an existing fact metric: ${metricId}`);
     }
+    const ref = `${label} "${metric.name}"`;
     if (metric.datasource !== datasourceId) {
-      throw new Error(
-        `${label} ${metricId} must belong to datasource ${datasourceId}`,
-      );
+      throw new Error(`${ref} must belong to datasource ${datasourceId}`);
     }
     // Funnel metrics have no numerator
     if (!metric.numerator) {
-      throw new Error(`${label} ${metricId} must read from a fact table`);
+      throw new Error(`${ref} must read from a fact table`);
     }
     const factTable = factTableMap.get(metric.numerator.factTableId);
     if (!factTable) {
-      throw new Error(`Fact table not found for ${label} ${metricId}`);
+      throw new Error(`Fact table not found for ${ref}`);
     }
     if (!factTable.userIdTypes.includes(userIdType)) {
       throw new Error(
-        `${label} ${metricId} requires the '${userIdType}' identifier type on its fact table`,
+        `${ref} requires the '${userIdType}' identifier type on its fact table`,
       );
     }
     const hasColumn = (column: string) =>
       factTable.columns.some((c) => c.column === column && !c.deleted);
     if (!hasColumn(INTERLEAVING_ITEM_ID_COLUMN)) {
       throw new Error(
-        `${label} ${metricId} requires an '${INTERLEAVING_ITEM_ID_COLUMN}' column on its fact table`,
+        `${ref} requires an '${INTERLEAVING_ITEM_ID_COLUMN}' column on its fact table`,
       );
     }
     // Paired analysis joins engagement per impression
@@ -88,13 +87,13 @@ export async function resolveInterleavingMetrics(
       !hasColumn(INTERLEAVING_RANKING_ID_COLUMN)
     ) {
       throw new Error(
-        `${label} ${metricId} needs an '${INTERLEAVING_RANKING_ID_COLUMN}' column on its fact table to be joined per impression`,
+        `${ref} needs an '${INTERLEAVING_RANKING_ID_COLUMN}' column on its fact table to be joined per impression`,
       );
     }
     const { metricType, numerator } = metric;
     if (metricType !== "mean" && metricType !== "proportion") {
       throw new Error(
-        `Interleaving metrics must be mean or proportion metrics: ${metricId} is a ${metricType} metric`,
+        `Interleaving metrics must be mean or proportion metrics: "${metric.name}" is a ${metricType} metric`,
       );
     }
     if (
@@ -102,7 +101,7 @@ export async function resolveInterleavingMetrics(
       UNSUPPORTED_AGGREGATIONS.has(numerator.aggregation ?? "")
     ) {
       throw new Error(
-        `Interleaving metrics must use sum, max, or count aggregations: ${metricId}`,
+        `Interleaving metrics must use sum, max, or count aggregations: "${metric.name}"`,
       );
     }
     return { config, metric, factTable };

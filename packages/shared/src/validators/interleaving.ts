@@ -13,20 +13,20 @@ import { featurePrerequisite, savedGroupTargeting } from "./shared";
 export const interleavingStatus = ["draft", "running", "stopped"] as const;
 export type InterleavingStatus = (typeof interleavingStatus)[number];
 
-// How ownership analysis decides which ranker owns a conversion. Paired
+// How preference analysis decides which ranker gets credit for a conversion. Paired
 // analysis needs no equivalent — it counts engagement per competitive exposure.
 // Only exposure-count attribution for now; engagement-signal attribution
-// (ownership decided by a separate signal metric's events) comes later.
-export const interleavingOwnershipAttribution = ["exposureCount"] as const;
-export type InterleavingOwnershipAttribution =
-  (typeof interleavingOwnershipAttribution)[number];
+// (credit decided by a separate signal metric's events) comes later.
+export const interleavingPreferenceAttribution = ["exposureCount"] as const;
+export type InterleavingPreferenceAttribution =
+  (typeof interleavingPreferenceAttribution)[number];
 
 export const interleavingAnalysisValidator = z.discriminatedUnion("type", [
   z.object({ type: z.literal("paired") }).strict(),
   z
     .object({
-      type: z.literal("ownership"),
-      attribution: z.enum(interleavingOwnershipAttribution),
+      type: z.literal("preference"),
+      attribution: z.enum(interleavingPreferenceAttribution),
     })
     .strict(),
 ]);
@@ -36,7 +36,7 @@ export type InterleavingAnalysis = z.infer<
 
 // Identity of an analysis within a metric; used to reject duplicates.
 export function interleavingAnalysisKey(a: InterleavingAnalysis): string {
-  return a.type === "ownership" ? `ownership:${a.attribution}` : a.type;
+  return a.type === "preference" ? `preference:${a.attribution}` : a.type;
 }
 
 export const interleavingMetricConfigValidator = z

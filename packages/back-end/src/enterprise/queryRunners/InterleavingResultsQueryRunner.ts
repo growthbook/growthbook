@@ -7,7 +7,7 @@ import {
 } from "shared/validators";
 import type { InterleavingMetricQueryResponseRows } from "shared/types/integrations";
 import type { FactTableInterface } from "shared/types/fact-table";
-import { ownershipSignTest, pairedDeltaTest } from "stats-ts";
+import { preferenceSignTest, pairedDeltaTest } from "stats-ts";
 import { QueryMap, QueryRunner } from "back-end/src/queryRunners/QueryRunner";
 import {
   ResolvedInterleavingMetric,
@@ -178,7 +178,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
               });
               break;
             }
-            case "ownership": {
+            case "preference": {
               const prefT = col("users_pref_treatment");
               const prefC = col("users_pref_control");
               const perUser = (v: number) =>
@@ -189,7 +189,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
                 users: usersExposed,
                 control: { value: prefC, cr: perUser(prefC) },
                 treatment: { value: prefT, cr: perUser(prefT) },
-                test: ownershipSignTest({
+                test: preferenceSignTest({
                   users_pref_treatment: prefT,
                   users_pref_control: prefC,
                   users_tied: col("users_tied"),

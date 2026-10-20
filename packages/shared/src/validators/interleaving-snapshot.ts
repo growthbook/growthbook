@@ -40,13 +40,13 @@ export type InterleavingSnapshotSettings = z.infer<
 // One ranker's side of a result. `cr` is the value per treatment-drafted
 // competitive exposure in engaged impressions (paired analysis; both sides
 // share that denominator, which a fair team draft balances in expectation)
-// or per exposed user (ownership analyses).
+// or per exposed user (preference analyses).
 const interleavingResultSideValidator = z
   .object({ value: z.number(), cr: z.number() })
   .strict();
 
 // Treatment vs control, as returned by stats-ts (pairedDeltaTest or
-// ownershipSignTest). `ci` bounds are null when unbounded.
+// preferenceSignTest). `ci` bounds are null when unbounded.
 const interleavingTestResultValidator = z
   .object({
     expected: z.number(),

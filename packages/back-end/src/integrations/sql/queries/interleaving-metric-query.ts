@@ -34,7 +34,7 @@ import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metri
  * Sufficient-statistics query for interleaving experiments: one query per
  * fact table, covering every metric on that table and each analysis
  * requested on it. Output columns are prefixed m{i}_ by the metric's index
- * in `metrics`; paired and ownership column names do not collide.
+ * in `metrics`; paired and preference column names do not collide.
  *
  * The exposure query returns ONE ROW PER IMPRESSION with the item detail in
  * an `items` JSON column (the SDK's nested exposure shape). __exposures
@@ -56,10 +56,10 @@ import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metri
  *   exposures; both x and y are normalized by it, which a fair team draft
  *   balances in expectation. The final SELECT emits cross-user joint moments
  *   for the paired delta-method t-test.
- * - "ownership": __share (per user x item treatment share over all
+ * - "preference": __share (per user x item treatment share over all
  *   competitive exposures, i.e. exposureCount attribution) joined to
  *   engagement per user x item (__events rolled up to that grain when it is
- *   at impression grain) -> __ownerUser (fractional win totals) -> user
+ *   at impression grain) -> __preferenceUser (fractional win totals) -> user
  *   preference counts for the sign test.
  *
  * v1 limitations (documented): metric capping and conversion windows are
@@ -74,7 +74,7 @@ import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metri
 type PlanEntry = {
   i: number;
   paired: boolean;
-  ownership: boolean;
+  preference: boolean;
   // Aggregated metric value per group in __events
   value: string;
   // Re-aggregates per-impression values to user x item (__itemEvents)
@@ -84,7 +84,7 @@ type PlanEntry = {
 type Plan = {
   entries: PlanEntry[];
   paired: PlanEntry[];
-  ownership: PlanEntry[];
+  preference: PlanEntry[];
   // Metric row filters, OR'd into the __events WHERE clause
   filterGroups: string[][];
 };
@@ -123,7 +123,7 @@ function buildPlan(
   const entries = metrics.map(({ analyses, metric }, i): PlanEntry => {
     const has: Record<InterleavingAnalysis["type"], boolean> = {
       paired: false,
-      ownership: false,
+      preference: false,
     };
     for (const analysis of analyses) has[analysis.type] = true;
     const numerator = numeratorOf(metric);
@@ -155,7 +155,7 @@ function buildPlan(
   return {
     entries,
     paired: entries.filter((e) => e.paired),
-    ownership: entries.filter((e) => e.ownership),
+    preference: entries.filter((e) => e.preference),
     filterGroups,
   };
 }
@@ -178,7 +178,7 @@ export function getInterleavingMetricQuery(
 
   const plan = buildPlan(dialect, params.factTable, params.metrics);
   const includePaired = plan.paired.length > 0;
-  const includeOwnership = plan.ownership.length > 0;
+  const includePreference = plan.preference.length > 0;
 
   const compiled = {
     startDate,
@@ -342,7 +342,7 @@ export function getInterleavingMetricQuery(
       GROUP BY im.user_id
     )`;
 
-  // Ownership chain
+  // Preference chain
 
   // Engagement per user x item across ALL events. __events is already at
   // that grain unless paired put it at impression grain, then roll it up.
@@ -353,7 +353,7 @@ export function getInterleavingMetricQuery(
         ${cols([
           "ev.user_id",
           "ev.item_id",
-          ...plan.ownership.map(
+          ...plan.preference.map(
             (e) => `${e.rollup(`ev.value_${e.i}`)} AS value_${e.i}`,
           ),
         ])}
@@ -375,12 +375,12 @@ export function getInterleavingMetricQuery(
     )`;
 
   // Fractional wins per user; a user x item with no engagement owns nothing
-  const ownerUserCTE = `
-    __ownerUser AS (
+  const preferenceUserCTE = `
+    __preferenceUser AS (
       SELECT
         ${cols([
           "s.user_id",
-          ...plan.ownership.flatMap((e) => [
+          ...plan.preference.flatMap((e) => [
             `SUM(COALESCE(ev.value_${e.i} * s.share_t, 0)) AS wins_t_${e.i}`,
             `SUM(COALESCE(ev.value_${e.i} * (1 - s.share_t), 0)) AS wins_c_${e.i}`,
           ]),
@@ -409,10 +409,10 @@ export function getInterleavingMetricQuery(
       `${gate(i, `pu.treatment_${i} * pu.exposures_${i}`)} AS m${i}_treatment_exposures_sum_product`,
       `${gate(i, `pu.control_${i} * pu.exposures_${i}`)} AS m${i}_control_exposures_sum_product`,
     ]),
-    ...plan.ownership.flatMap(({ i }) => [
-      `SUM(${dialect.ifElse(`ou.wins_t_${i} > ou.wins_c_${i}`, "1", "0")}) AS m${i}_users_pref_treatment`,
-      `SUM(${dialect.ifElse(`ou.wins_c_${i} > ou.wins_t_${i}`, "1", "0")}) AS m${i}_users_pref_control`,
-      `SUM(${dialect.ifElse(`ou.wins_t_${i} = ou.wins_c_${i}`, "1", "0")}) AS m${i}_users_tied`,
+    ...plan.preference.flatMap(({ i }) => [
+      `SUM(${dialect.ifElse(`pref.wins_t_${i} > pref.wins_c_${i}`, "1", "0")}) AS m${i}_users_pref_treatment`,
+      `SUM(${dialect.ifElse(`pref.wins_c_${i} > pref.wins_t_${i}`, "1", "0")}) AS m${i}_users_pref_control`,
+      `SUM(${dialect.ifElse(`pref.wins_t_${i} = pref.wins_c_${i}`, "1", "0")}) AS m${i}_users_tied`,
     ]),
   ];
 
@@ -420,7 +420,7 @@ export function getInterleavingMetricQuery(
     exposuresCTE,
     eventsCTE,
     ...(includePaired ? [creditedCTE, impressionCTE, pairedUserCTE] : []),
-    ...(includeOwnership ? [itemEventsCTE, shareCTE, ownerUserCTE] : []),
+    ...(includePreference ? [itemEventsCTE, shareCTE, preferenceUserCTE] : []),
   ].filter(Boolean);
 
   return format(
@@ -430,7 +430,7 @@ export function getInterleavingMetricQuery(
       ${cols(["COUNT(*) AS users_exposed", ...finalCols])}
     FROM (SELECT DISTINCT user_id FROM __exposures) u
     ${includePaired ? "LEFT JOIN __pairedUser pu ON pu.user_id = u.user_id" : ""}
-    ${includeOwnership ? "LEFT JOIN __ownerUser ou ON ou.user_id = u.user_id" : ""}`,
+    ${includePreference ? "LEFT JOIN __preferenceUser pref ON pref.user_id = u.user_id" : ""}`,
     dialect.formatDialect,
   );
 }

@@ -1,5 +1,5 @@
 import {
-  ownershipSignTest,
+  preferenceSignTest,
   pairedDeltaTest,
   PairedSufficientStats,
 } from "../src/interleaving";
@@ -87,9 +87,9 @@ describe("pairedDeltaTest", () => {
   });
 });
 
-describe("ownershipSignTest", () => {
+describe("preferenceSignTest", () => {
   it("matches R binom.test / hand-computed values", () => {
-    const res = ownershipSignTest({
+    const res = preferenceSignTest({
       users_pref_treatment: 30,
       users_pref_control: 18,
       users_tied: 12,
@@ -104,12 +104,12 @@ describe("ownershipSignTest", () => {
   });
 
   it("is symmetric: swapping T and C flips the sign", () => {
-    const a = ownershipSignTest({
+    const a = preferenceSignTest({
       users_pref_treatment: 30,
       users_pref_control: 18,
       users_tied: 12,
     });
-    const b = ownershipSignTest({
+    const b = preferenceSignTest({
       users_pref_treatment: 18,
       users_pref_control: 30,
       users_tied: 12,
@@ -119,7 +119,7 @@ describe("ownershipSignTest", () => {
   });
 
   it("handles a balanced null with p-value 1", () => {
-    const res = ownershipSignTest({
+    const res = preferenceSignTest({
       users_pref_treatment: 25,
       users_pref_control: 25,
       users_tied: 0,
@@ -130,14 +130,14 @@ describe("ownershipSignTest", () => {
 
   it("guards all-ties and tiny samples", () => {
     expect(
-      ownershipSignTest({
+      preferenceSignTest({
         users_pref_treatment: 0,
         users_pref_control: 0,
         users_tied: 100,
       }).errorMessage,
     ).toBe("NOT_ENOUGH_USERS");
     expect(
-      ownershipSignTest({
+      preferenceSignTest({
         users_pref_treatment: 1,
         users_pref_control: 0,
         users_tied: 0,

@@ -13,8 +13,8 @@ import { normQuantile, tCdf, tQuantile } from "./utils";
 //   items, the same on control-drafted items, and the shared
 //   competitive-exposure denominator.
 //
-// ownershipSignTest: Airbnb-style (arXiv:2508.00751). Engagement is
-//   attributed by per-user item-ownership shares (from exposure counts);
+// preferenceSignTest: Airbnb-style (arXiv:2508.00751). Engagement is
+//   attributed by each user's per-item exposure shares;
 //   each user reduces to the sign of (treatment wins -
 //   control wins); the test is a binomial sign test over non-tied users.
 // ---------------------------------------------------------------------------
@@ -34,8 +34,8 @@ export interface PairedSufficientStats {
   control_exposures_sum_product: number;
 }
 
-// Per-user preference counts for the ownership estimator.
-export interface OwnershipCounts {
+// Per-user preference counts for preferenceSignTest.
+export interface PreferenceCounts {
   users_pref_treatment: number;
   users_pref_control: number;
   users_tied: number;
@@ -128,8 +128,8 @@ export function pairedDeltaTest(
 // Sign test over per-user preferences. The estimand is the net preference
 // share tau = (P(prefer T) - P(prefer C)) across all users (ties contribute
 // zero); the test conditions on non-tied users (exact binomial vs p = 1/2).
-export function ownershipSignTest(
-  counts: OwnershipCounts,
+export function preferenceSignTest(
+  counts: PreferenceCounts,
   alpha: number = 0.05,
 ): FrequentistTestResult {
   const nT = counts.users_pref_treatment;

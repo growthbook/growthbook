@@ -67,25 +67,25 @@ const baseParams = {
   factTable: cartTable,
 };
 const PAIRED: InterleavingAnalysis = { type: "paired" };
-const OWNERSHIP: InterleavingAnalysis = {
-  type: "ownership",
+const PREFERENCE: InterleavingAnalysis = {
+  type: "preference",
   attribution: "exposureCount",
 };
 const proportion = metricOn("ft_cart");
 
 describe("getInterleavingMetricQuery", () => {
-  it("emits paired and ownership CTEs only when requested", () => {
+  it("emits paired and preference CTEs only when requested", () => {
     const paired = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
       metrics: [{ metric: proportion, analyses: [PAIRED] }],
     });
-    const ownership = getInterleavingMetricQuery(postgresDialect, {
+    const preference = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [{ metric: proportion, analyses: [OWNERSHIP] }],
+      metrics: [{ metric: proportion, analyses: [PREFERENCE] }],
     });
     const both = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [{ metric: proportion, analyses: [PAIRED, OWNERSHIP] }],
+      metrics: [{ metric: proportion, analyses: [PAIRED, PREFERENCE] }],
     });
 
     expect(paired).toContain("__exposures");
@@ -96,17 +96,17 @@ describe("getInterleavingMetricQuery", () => {
     expect(paired).not.toContain("users_pref_treatment");
     expect(paired).not.toContain("__share");
     expect(paired).toContain("'featured-products-ranker'");
-    expect(ownership).toContain("__share");
-    expect(ownership).toContain("m0_users_pref_treatment");
-    expect(ownership).toMatch(
-      /WHEN ou\.wins_t_0 = ou\.wins_c_0 THEN 1\s+ELSE 0\s+END\s*\)\s*\) AS m0_users_tied/,
+    expect(preference).toContain("__share");
+    expect(preference).toContain("m0_users_pref_treatment");
+    expect(preference).toMatch(
+      /WHEN pref\.wins_t_0 = pref\.wins_c_0 THEN 1\s+ELSE 0\s+END\s*\)\s*\) AS m0_users_tied/,
     );
-    expect(ownership).not.toContain("__credited");
-    // Ownership alone reads __events at item grain directly
-    expect(ownership).not.toContain("__itemEvents");
-    expect(ownership).toContain("ev.value_0 * s.share_t, 0)) AS wins_t_0");
-    expect(ownership).toMatch(/GROUP BY\s+m\.user_id,\s+m\.item_id/);
-    // Mixed: both chains off one events scan, rolled up for ownership; one
+    expect(preference).not.toContain("__credited");
+    // Preference alone reads __events at item grain directly
+    expect(preference).not.toContain("__itemEvents");
+    expect(preference).toContain("ev.value_0 * s.share_t, 0)) AS wins_t_0");
+    expect(preference).toMatch(/GROUP BY\s+m\.user_id,\s+m\.item_id/);
+    // Mixed: both chains off one events scan, rolled up for preference; one
     // value column feeds both analyses under the same m0_ prefix
     expect(both).toContain("m0_treatment_control_sum_product");
     expect(both).toContain("m0_users_pref_treatment");
@@ -116,7 +116,7 @@ describe("getInterleavingMetricQuery", () => {
       /GROUP BY\s+m\.user_id,\s+m\.ranking_id,\s+m\.item_id/,
     );
     expect(both).toContain("LEFT JOIN __pairedUser pu");
-    expect(both).toContain("LEFT JOIN __ownerUser ou");
+    expect(both).toContain("LEFT JOIN __preferenceUser pref");
 
     // Exposures collapse to one row per (user, ranking, item) by grouping,
     // with both team arms explicit so an unknown variation is NULL, not 0
@@ -140,7 +140,7 @@ describe("getInterleavingMetricQuery", () => {
     // Variation keys are escaped through the dialect
     const quoted = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [{ metric: proportion, analyses: [OWNERSHIP] }],
+      metrics: [{ metric: proportion, analyses: [PREFERENCE] }],
       variationKeys: ["o'brien", "control"] as [string, string],
     });
     expect(quoted).toContain("'o''brien'");
@@ -159,7 +159,7 @@ describe("getInterleavingMetricQuery", () => {
         },
         // mean of a column, with a row filter
         {
-          analyses: [OWNERSHIP],
+          analyses: [PREFERENCE],
           metric: metricOn("ft_cart", {
             metricType: "mean",
             column: "value",
@@ -180,13 +180,13 @@ describe("getInterleavingMetricQuery", () => {
     expect(sql).toMatch(
       /WHERE\s+m\.timestamp >= '2020-01-01 00:00:00'\s+GROUP BY/,
     );
-    // Rolled up to user x item for ownership with the re-aggregation function
+    // Rolled up to user x item for preference with the re-aggregation function
     expect(sql).toMatch(/SUM\(COALESCE\(ev\.value_2, 0\)\) AS value_2/);
   });
 });
 
 describe("getInterleavingMetricQuery dialects", () => {
-  const metrics = [{ metric: proportion, analyses: [PAIRED, OWNERSHIP] }];
+  const metrics = [{ metric: proportion, analyses: [PAIRED, PREFERENCE] }];
   const unnestFragment: [string, typeof postgresDialect, string][] = [
     ["postgres", postgresDialect, "jsonb_array_elements((e.items)::jsonb)"],
     ["bigquery", bigQueryDialect, "UNNEST(JSON_QUERY_ARRAY(e.items))"],
