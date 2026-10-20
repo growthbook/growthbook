@@ -116,6 +116,9 @@ export function applyApiDataSourceSettings(
         ) {
           updated.dimensions = q.dimensionColumns;
         }
+        if (q.projects && !isEqual(q.projects, match?.projects ?? [])) {
+          updated.projects = q.projects;
+        }
         return updated;
       }),
     };

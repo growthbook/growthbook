@@ -57,6 +57,7 @@ export const CONFIRM_ACTIONS = [
   "rampSchedule.delete",
   "rampSchedule.other",
   "settings.approvals",
+  "settings.dataSources",
   "settings.other",
   "access.members",
   "access.teams",
