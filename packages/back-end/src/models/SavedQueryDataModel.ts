@@ -184,6 +184,8 @@ export class SavedQueryDataModel extends BaseClass {
 
   public async apiRefresh(id: string): Promise<ApiRefreshSavedQueryReturn> {
     const existing = await this.getForApi(id);
+    // Queries saved in the app only had their first keyword checked
+    assertReadOnlySql(existing.sql);
     const datasource = await getDataSourceById(
       this.context,
       existing.datasourceId,
