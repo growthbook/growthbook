@@ -68,7 +68,7 @@ export const getContextualBanditResults = createApiRequestHandler(
             ? latestSnapshotSummary.runStarted.toISOString()
             : null,
           dateCreated: latestSnapshotSummary.dateCreated.toISOString(),
-          ...(srm?.multipleExposures != null
+          ...((srm?.multipleExposures ?? null) !== null
             ? { multipleExposures: srm.multipleExposures }
             : {}),
           type: latestSnapshotSummary.type ?? "standard",

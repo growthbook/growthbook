@@ -846,9 +846,9 @@ export default abstract class SqlIntegration
         statistic: parseFloat(row.statistic) || 0,
         degrees_of_freedom: parseInt(row.degrees_of_freedom, 10) || 0,
         bandit_version:
-          row.bandit_version != null ? `${row.bandit_version}` : "",
-        leaf_id: row.leaf_id != null ? `${row.leaf_id}` : "",
-        variation: row.variation != null ? `${row.variation}` : "",
+          (row.bandit_version ?? null) !== null ? `${row.bandit_version}` : "",
+        leaf_id: (row.leaf_id ?? null) !== null ? `${row.leaf_id}` : "",
+        variation: (row.variation ?? null) !== null ? `${row.variation}` : "",
         observed: parseFloat(row.observed) || 0,
         expected: parseFloat(row.expected) || 0,
         multiple_exposures: parseInt(row.multiple_exposures, 10) || 0,
