@@ -10,7 +10,6 @@ import { getSnapshotAnalysis } from "shared/util";
 import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
@@ -49,17 +48,8 @@ export const postSnapshotCancel = createApiRequestHandler(
   postSnapshotCancelValidator,
 )(async (req) => {
   const { context } = req;
-  const { snapshot, experiment } = await getSnapshotAndExperiment(
-    context,
-    req.params.id,
-  );
-  const datasource = await getDataSourceById(context, experiment.datasource);
-  if (
-    !datasource ||
-    !context.permissions.canCreateExperimentSnapshot(datasource)
-  ) {
-    context.permissions.throwPermissionError();
-  }
+  // Permission is checked on the snapshot's own Data Source, which may differ from the experiment's now
+  const { snapshot } = await getSnapshotAndExperiment(context, req.params.id);
   const { outcome } = await cancelExperimentSnapshot(
     context as ReqContext,
     snapshot,
@@ -77,6 +67,15 @@ export const postSnapshotAnalysis = createApiRequestHandler(
   );
   const base = getSnapshotAnalysis(snapshot)?.settings;
   if (!base) throw new BadRequestError("This snapshot has no results yet.");
+  if (
+    snapshot.queries.some(
+      (q) => q.status === "queued" || q.status === "running",
+    )
+  ) {
+    throw new ConflictError(
+      "This snapshot's queries are still running. Retry once they finish.",
+    );
+  }
 
   const { baselineVariationId, ...overrides } = req.body;
   const analysisSettings: ExperimentSnapshotAnalysisSettings = {
