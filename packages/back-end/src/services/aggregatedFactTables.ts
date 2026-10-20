@@ -521,7 +521,7 @@ export async function runAggregatedFactTableUpdate(
   return { status: "started", runId: run.id };
 }
 
-/** Cancels the in-progress run for one id type. False when none was running. */
+// False when no run was in progress
 export async function cancelRunningAggregatedFactTableRun(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
