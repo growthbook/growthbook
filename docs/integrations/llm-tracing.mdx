@@ -384,15 +384,15 @@ Instead of reading Langfuse or Phoenix, GrowthBook can store your OpenTelemetry 
    }).start();
    ```
 
-   Use the protobuf exporter (`exporter-trace-otlp-proto`, or `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` in other languages): large traces need it, because JSON requests are capped at 16MB.
+   Use the protobuf exporter (`exporter-trace-otlp-proto`, or `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` in other languages): large traces need it, because JSON requests are capped at 16MB. Protobuf requests are capped at 256MB. If your agent sends a lot of screenshots or other images, lower the batch size so each export stays under that, for example `new BatchSpanProcessor(exporter, { maxExportBatchSize: 16 })`.
+
+   Only AI spans are stored: spans with `gen_ai.*` attributes or the OpenInference, Langfuse, Traceloop, or Vercel AI SDK conventions. Other spans in the same export, such as HTTP or database spans, are dropped.
 
 3. Turn on content capture. Most GenAI instrumentations only record prompts and completions when you opt in, for example with `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true` or the instrumentation's own option. Without it, spans still carry tokens, cost, and latency.
-4. Wrap each request in `withTracingContext`, so every span inside it gets `user.id`, the conversation id, and the experiments `gb` assigned:
+4. Wrap each request in `withTracingContext`, so every span inside it gets `user.id` and the conversation id:
 
    ```ts
-   const gb = gbClient.createScopedInstance({ attributes: { id: userId } });
-
-   await withTracingContext({ userId, conversationId, gb }, async () => {
+   await withTracingContext({ userId, conversationId }, async () => {
      // ... call the model
    });
    ```
@@ -408,6 +408,8 @@ This adds three fact tables. No identifier types or assignment queries are added
 - `AI conversations` — one row per conversation, with its number of turns and the same totals. Metric: **Turns per conversation**.
 
 Cost comes from GrowthBook's model price table. Spans from models it has no price for count as zero cost.
+
+Usage is billed by GB stored. Content is truncated and media is left out before storage, so you only pay for what's kept.
 
 ## Running the experiment
 
