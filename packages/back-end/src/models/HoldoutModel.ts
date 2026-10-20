@@ -543,10 +543,8 @@ export class HoldoutModel extends BaseClass {
     if (!this.context.permissions.canDeleteHoldout(holdout)) {
       this.context.permissions.throwPermissionError();
     }
-    const experiment = await getExperimentById(
-      this.context,
-      holdout.experimentId,
-    );
+    // Null when the caller can't read it too, so stop before deleting half the pair
+    const experiment = await this.getExperimentOrThrow(holdout);
     await deleteHoldoutAndExperiment(this.context, holdout, experiment);
     return holdout.id;
   }

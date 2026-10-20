@@ -275,7 +275,6 @@ export async function canLinkExperimentToHoldoutFromFeatures(
   );
 }
 
-// Adds a just-created experiment to the holdout it was created in.
 export async function addNewExperimentToHoldout(
   context: ReqContext | ApiReqContext,
   experiment: Pick<ExperimentInterface, "id" | "project">,
@@ -399,9 +398,10 @@ export async function applyExperimentHoldoutChange(
           previous,
         );
       }
+      // Diff against the saved holdoutId, or updateExperiment sees no change and skips the write
       await updateExperiment({
         context,
-        experiment,
+        experiment: { ...experiment, holdoutId },
         changes: { holdoutId: current || "" },
         bypassWebhooks: true,
       });
