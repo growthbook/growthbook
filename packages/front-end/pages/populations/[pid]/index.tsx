@@ -234,7 +234,7 @@ export default function PopulationPage() {
             is calculated when the Population refreshes.
           </Text>
         </Frame>
-        <Frame px="5" py="5" mb="0" style={{ flex: "1 1 280px" }}>
+        <Frame px="5" py="5" mb="0" minWidth="0" style={{ flex: "1 1 280px" }}>
           <PopulationDefinition population={population} />
         </Frame>
       </Flex>

@@ -34,7 +34,7 @@ export default function PopulationDefinition({
 
       {step && descriptionParts && (
         <Box mb="4">
-          <Text size="sm">
+          <Text size="sm" overflowWrap="anywhere">
             {descriptionParts.beforeFactTableName}
             {factTable ? (
               <Link href={`/fact-tables/${step.source.factTableId}`}>
