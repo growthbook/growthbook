@@ -156,8 +156,9 @@ export function getIncrementalRefreshMetricSources({
   // Fan-out determines each metric's fact tables; this only chunks their caches.
   const fanOut = planMetricFanOut(overriddenMetrics);
 
-  // Cluster-level metrics can't share a cache as user-level metrics even on the same fact table.
-  // Mirrors the `cluster:${group}` partitioning in experimentQueries.
+  // Cluster-level metrics can't share a cache with user-level metrics even on
+  // the same fact table. Mirrors the `cluster:${group}` partitioning in
+  // experimentQueries.
   const clusterLevelMetricIds = new Set(
     getClusterSubUnit(snapshotSettings)
       ? (snapshotSettings.clusterLevelMetricIds ?? [])
@@ -166,7 +167,6 @@ export function getIncrementalRefreshMetricSources({
 
   // One cache per table (except quantiles which have their own cache).
   // Mirrors experimentQueries grouping rules.
-  //
   const getMetricGroupKey = (
     factTableId: string,
     metric: FactMetricInterface,

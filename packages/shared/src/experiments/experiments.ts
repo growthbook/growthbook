@@ -1365,24 +1365,6 @@ export function isRatioMetric(
   return !!denominatorMetric && !isBinomialMetric(denominatorMetric);
 }
 
-/**
- * For cluster-randomized experiments, mean/proportion/retention fact metrics are
- * analyzed as a ratio to get cluster-robust inference.  Ratio metrics are alrady cluster-correct.
- */
-export function analyzeClusterMetricAsRatio(
-  m: ExperimentMetricDefinition,
-  { isClusterExperiment }: { isClusterExperiment?: boolean },
-): boolean {
-  if (!isClusterExperiment) return false;
-  if (!isFactMetric(m)) return false;
-  return ["mean", "proportion", "retention"].includes(m.metricType);
-}
-
-/**
- * The sub-unit identifier for a cluster experiment (e.g. user_id), or null when
- * this is not a cluster experiment. Both flags must be set: `isClusterExperiment`
- * without a `clusterSubUnitIdentifier` is treated as not a cluster experiment.
- */
 export function getClusterSubUnit(
   settings: Pick<
     ExperimentSnapshotSettings,
@@ -1417,7 +1399,7 @@ export type ClusterMetricAnalysisLevel = "subunit" | "cluster";
 
 // Aggregations that collapse to a single scalar per sub-unit, so the rollup can
 // sum them into a cluster total.
-export const CLUSTER_SUBUNIT_ROLLUP_AGGREGATIONS = [
+const CLUSTER_SUBUNIT_ROLLUP_AGGREGATIONS = [
   "sum",
   "count distinct",
   "max",
@@ -1488,14 +1470,14 @@ export function quantileMetricType(
   return "";
 }
 
-export const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
+const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
   "proportion",
   "retention",
   "mean",
   "ratio",
 ] as const;
 
-export type ClusterMetricEligibility =
+type ClusterMetricEligibility =
   | { allowed: true }
   | { allowed: false; reason: string };
 

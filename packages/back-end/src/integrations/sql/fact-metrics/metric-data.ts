@@ -1,5 +1,4 @@
 import {
-  analyzeClusterMetricAsRatio,
   isSubUnitClusterMetric,
   eligibleForUncappedMetric,
   ExperimentMetricInterface,
@@ -72,9 +71,9 @@ export function getMetricData(
 ): FactMetricData {
   const { metric, index: metricIndex } = metricWithIndex;
   const isClusterMetric = isSubUnitClusterMetric(metric, settings);
-  const isClusterRatioConversion = analyzeClusterMetricAsRatio(metric, {
-    isClusterExperiment: isClusterMetric,
-  });
+  const isClusterRatioConversion =
+    isClusterMetric &&
+    ["mean", "proportion", "retention"].includes(metric.metricType);
   const ratioMetric = isRatioMetric(metric);
   const funnelMetric = isFactFunnelMetric(metric);
   const quantileMetric = funnelMetric ? "" : quantileMetricType(metric);
@@ -84,16 +83,13 @@ export function getMetricData(
     ? metric.quantileSettings
     : undefined) ?? { type: "unit", quantile: 0, ignoreZeros: false };
 
-  const rawRegressionAdjustment = funnelMetric
+  const { regressionAdjusted, regressionAdjustmentHours } = funnelMetric
     ? // TODO(funnel): CUPED for funnel metrics
       { regressionAdjusted: false, regressionAdjustmentHours: 0 }
     : getMetricRegressionAdjustmentData(
         metric,
         settings.regressionAdjustmentEnabled,
       );
-  const regressionAdjusted = rawRegressionAdjustment.regressionAdjusted;
-  const regressionAdjustmentHours =
-    rawRegressionAdjustment.regressionAdjustmentHours;
 
   const overrideConversionWindows =
     settings.attributionModel === "experimentDuration" ||

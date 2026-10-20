@@ -33,7 +33,6 @@ import {
   generateSliceString,
   getAllExpandedMetricIdsFromExperiment,
   isAutoSnapshotScheduled,
-  analyzeClusterMetricAsRatio,
   getClusterMetricAnalysisLevel,
   getClusterExperimentMetricEligibility,
   ExperimentMetricInterface,
@@ -3037,57 +3036,6 @@ describe("isAutoSnapshotScheduled", () => {
     expect(
       isAutoSnapshotScheduled({ autoSnapshots: true, archived: false }),
     ).toBe(true);
-  });
-});
-
-describe("analyzeClusterMetricAsRatio", () => {
-  const factMetric = (metricType: string) =>
-    ({
-      metricType,
-      numerator: { factTableId: "ft", column: "value" },
-      denominator: metricType === "ratio" ? { factTableId: "ft" } : null,
-    }) as unknown as ExperimentMetricInterface;
-
-  it("is false when the experiment is not a cluster experiment", () => {
-    expect(
-      analyzeClusterMetricAsRatio(factMetric("mean"), {
-        isClusterExperiment: false,
-      }),
-    ).toBe(false);
-    expect(analyzeClusterMetricAsRatio(factMetric("mean"), {})).toBe(false);
-  });
-
-  it("converts mean/proportion/retention fact metrics in a cluster experiment", () => {
-    for (const metricType of ["mean", "proportion", "retention"]) {
-      expect(
-        analyzeClusterMetricAsRatio(factMetric(metricType), {
-          isClusterExperiment: true,
-        }),
-      ).toBe(true);
-    }
-  });
-
-  it("does not convert native ratio metrics (already cluster-correct)", () => {
-    expect(
-      analyzeClusterMetricAsRatio(factMetric("ratio"), {
-        isClusterExperiment: true,
-      }),
-    ).toBe(false);
-  });
-
-  it("does not convert quantile or non-fact metrics", () => {
-    expect(
-      analyzeClusterMetricAsRatio(factMetric("quantile"), {
-        isClusterExperiment: true,
-      }),
-    ).toBe(false);
-    // Legacy (non-fact) metric: has `type`, not `metricType`.
-    expect(
-      analyzeClusterMetricAsRatio(
-        { type: "binomial" } as unknown as ExperimentMetricInterface,
-        { isClusterExperiment: true },
-      ),
-    ).toBe(false);
   });
 });
 
