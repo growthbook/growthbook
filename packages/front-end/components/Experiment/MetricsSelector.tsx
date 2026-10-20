@@ -46,12 +46,12 @@ type MetricOption = {
   managedBy?: string;
   disabled?: boolean;
   disabledReason?: string;
-  archivedNote?: string;
+  archivedReason?: string;
 };
 
-export const ARCHIVED_METRIC_NOTE = "This metric is archived.";
+export const ARCHIVED_METRIC_REASON = "This metric is archived.";
 
-export function getArchivedFactMetricNote(
+export function getArchivedFactMetricReason(
   metric: FactMetricInterface,
   getFactTableById: (id: string) => FactTableDefinition | null,
 ): string {
@@ -62,7 +62,7 @@ export function getArchivedFactMetricNote(
         .find((ft) => ft?.archived);
   return archivedFactTable
     ? `The fact table "${archivedFactTable.name}" is archived.`
-    : ARCHIVED_METRIC_NOTE;
+    : ARCHIVED_METRIC_REASON;
 }
 
 // The name truncates before the suffix so "(archived)" is never clipped.
@@ -100,13 +100,13 @@ export function ArchivedLabel({
   );
 }
 
-function withArchivedNote(
-  archivedNote: string | undefined,
-  text: string | undefined,
+function prependArchivedReason(
+  archivedReason: string | undefined,
+  tooltip: string | undefined,
 ): string | undefined {
-  return archivedNote
-    ? [archivedNote, text].filter(Boolean).join("\n\n")
-    : text;
+  return archivedReason
+    ? [archivedReason, tooltip].filter(Boolean).join("\n\n")
+    : tooltip;
 }
 
 type MetricsSelectorTooltipProps = {
@@ -244,51 +244,60 @@ const MetricsSelector: FC<{
 
   // Already-selected metrics stay as options when archived (or when their fact
   // table is), otherwise editing the list would silently drop them.
-  const { metricsWithSelected, factMetricsWithSelected, archivedNotes } =
-    useMemo(() => {
-      const selectedIds = new Set(selected);
-      const activeIds = new Set([
-        ...metrics.map((m) => m.id),
-        ...factMetrics.map((m) => m.id),
-      ]);
-      const isArchivedSelection = (id: string) =>
-        selectedIds.has(id) && !activeIds.has(id);
-      const archivedMetrics = _metricsIncludingArchived.filter((m) =>
-        isArchivedSelection(m.id),
-      );
-      const archivedFactMetrics = _factMetricsIncludingArchived.filter((m) =>
-        isArchivedSelection(m.id),
-      );
-      const archivedNotes = new Map<string, string>();
-      archivedMetrics.forEach((m) =>
-        archivedNotes.set(m.id, ARCHIVED_METRIC_NOTE),
-      );
-      archivedFactMetrics.forEach((m) =>
-        archivedNotes.set(m.id, getArchivedFactMetricNote(m, getFactTableById)),
-      );
-      metricGroups
-        .filter((mg) => mg.archived && selectedIds.has(mg.id))
-        .forEach((mg) =>
-          archivedNotes.set(mg.id, "This metric group is archived."),
-        );
-      return {
-        metricsWithSelected: [...metrics, ...archivedMetrics],
-        factMetricsWithSelected: [...factMetrics, ...archivedFactMetrics],
-        archivedNotes,
-      };
-    }, [
-      selected,
-      metrics,
-      factMetrics,
-      metricGroups,
-      _metricsIncludingArchived,
-      _factMetricsIncludingArchived,
-      getFactTableById,
+  const {
+    metricsWithArchivedSelections,
+    factMetricsWithArchivedSelections,
+    archivedReasons,
+  } = useMemo(() => {
+    const selectedIds = new Set(selected);
+    const activeIds = new Set([
+      ...metrics.map((m) => m.id),
+      ...factMetrics.map((m) => m.id),
     ]);
+    const isArchivedSelection = (id: string) =>
+      selectedIds.has(id) && !activeIds.has(id);
+    const archivedSelectedMetrics = _metricsIncludingArchived.filter((m) =>
+      isArchivedSelection(m.id),
+    );
+    const archivedSelectedFactMetrics = _factMetricsIncludingArchived.filter(
+      (m) => isArchivedSelection(m.id),
+    );
+    const archivedReasons = new Map<string, string>();
+    archivedSelectedMetrics.forEach((m) =>
+      archivedReasons.set(m.id, ARCHIVED_METRIC_REASON),
+    );
+    archivedSelectedFactMetrics.forEach((m) =>
+      archivedReasons.set(
+        m.id,
+        getArchivedFactMetricReason(m, getFactTableById),
+      ),
+    );
+    metricGroups
+      .filter((mg) => mg.archived && selectedIds.has(mg.id))
+      .forEach((mg) =>
+        archivedReasons.set(mg.id, "This metric group is archived."),
+      );
+    return {
+      metricsWithArchivedSelections: [...metrics, ...archivedSelectedMetrics],
+      factMetricsWithArchivedSelections: [
+        ...factMetrics,
+        ...archivedSelectedFactMetrics,
+      ],
+      archivedReasons,
+    };
+  }, [
+    selected,
+    metrics,
+    factMetrics,
+    metricGroups,
+    _metricsIncludingArchived,
+    _factMetricsIncludingArchived,
+    getFactTableById,
+  ]);
 
   const filteredOptions = useMemo(() => {
     const options: MetricOption[] = [
-      ...(noLegacyMetrics ? [] : metricsWithSelected)
+      ...(noLegacyMetrics ? [] : metricsWithArchivedSelections)
         .filter((m) => {
           if (filterConversionWindowMetrics) {
             return m?.windowSettings?.type !== "conversion";
@@ -322,11 +331,11 @@ const MetricsSelector: FC<{
             managedBy: m.managedBy,
             disabled: disabledInfo.disabled,
             disabledReason: disabledInfo.reason,
-            archivedNote: archivedNotes.get(m.id),
+            archivedReason: archivedReasons.get(m.id),
           };
         }),
       ...(includeFacts
-        ? factMetricsWithSelected
+        ? factMetricsWithArchivedSelections
             .filter((m) => {
               if (quantileMetricType(m) && excludeQuantiles) {
                 return false;
@@ -367,13 +376,13 @@ const MetricsSelector: FC<{
                 isGroup: false,
                 disabled: disabledInfo.disabled,
                 disabledReason: disabledInfo.reason,
-                archivedNote: archivedNotes.get(m.id),
+                archivedReason: archivedReasons.get(m.id),
               };
             })
         : []),
       ...(includeGroups
         ? metricGroups
-            .filter((mg) => !mg.archived || archivedNotes.has(mg.id))
+            .filter((mg) => !mg.archived || archivedReasons.has(mg.id))
             .map((mg) => {
               const disabledInfo = getMetricDisabledInfo?.(mg.id, true) || {
                 disabled: false,
@@ -391,7 +400,7 @@ const MetricsSelector: FC<{
                 metrics: mg.metrics,
                 disabled: disabledInfo.disabled,
                 disabledReason: disabledInfo.reason,
-                archivedNote: archivedNotes.get(mg.id),
+                archivedReason: archivedReasons.get(mg.id),
               };
             })
         : []),
@@ -404,9 +413,9 @@ const MetricsSelector: FC<{
       .filter((m) => m.joinable)
       .filter((m) => isProjectListValidForProject(m.projects, project));
   }, [
-    metricsWithSelected,
-    factMetricsWithSelected,
-    archivedNotes,
+    metricsWithArchivedSelections,
+    factMetricsWithArchivedSelections,
+    archivedReasons,
     getFactTableById,
     metricGroups,
     datasource,
@@ -519,8 +528,8 @@ const MetricsSelector: FC<{
       const unManagedMetrics: SingleValue[] = [];
 
       filteredOptions.forEach((option) => {
-        const tooltipText = withArchivedNote(
-          option.archivedNote,
+        const tooltipText = prependArchivedReason(
+          option.archivedReason,
           option.disabled && option.disabledReason
             ? option.disabledReason
             : option.description,
@@ -562,8 +571,8 @@ const MetricsSelector: FC<{
     }
 
     return filteredOptions.map((m) => {
-      const tooltipText = withArchivedNote(
-        m.archivedNote,
+      const tooltipText = prependArchivedReason(
+        m.archivedReason,
         m.disabled && m.disabledReason
           ? `${m.description || ""}\n\n${m.disabledReason}`.trim()
           : m.description,
@@ -587,7 +596,7 @@ const MetricsSelector: FC<{
         : [];
       return (
         <ArchivedLabel
-          archived={!!option?.archivedNote}
+          archived={!!option?.archivedReason}
           alignRight={context !== "value"}
         >
           <MetricName
@@ -616,7 +625,7 @@ const MetricsSelector: FC<{
       filteredOptions.map((m) => ({
         value: m.id,
         label: m.name,
-        tooltip: withArchivedNote(m.archivedNote, m.description),
+        tooltip: prependArchivedReason(m.archivedReason, m.description),
       })),
     [filteredOptions],
   );
@@ -626,7 +635,7 @@ const MetricsSelector: FC<{
       if (!value) return label;
       return (
         <ArchivedLabel
-          archived={!!filteredOptionsMap.get(value)?.archivedNote}
+          archived={!!filteredOptionsMap.get(value)?.archivedReason}
           alignRight
         >
           <MetricName

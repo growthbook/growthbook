@@ -14,9 +14,9 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
 import {
-  ARCHIVED_METRIC_NOTE,
+  ARCHIVED_METRIC_REASON,
   ArchivedLabel,
-  getArchivedFactMetricNote,
+  getArchivedFactMetricReason,
 } from "@/components/Experiment/MetricsSelector";
 
 export type MetricOption = {
@@ -80,16 +80,16 @@ const MetricSelector: FC<
     !!selectedId &&
     !metrics.some((m) => m.id === selectedId) &&
     !factMetrics.some((m) => m.id === selectedId);
-  const archivedMetric = selectionIsArchived
+  const selectedArchivedMetric = selectionIsArchived
     ? _metricsIncludingArchived.find((m) => m.id === selectedId)
     : undefined;
-  const archivedFactMetric = selectionIsArchived
+  const selectedArchivedFactMetric = selectionIsArchived
     ? _factMetricsIncludingArchived.find((m) => m.id === selectedId)
     : undefined;
-  const archivedNote = archivedFactMetric
-    ? getArchivedFactMetricNote(archivedFactMetric, getFactTableById)
-    : archivedMetric
-      ? ARCHIVED_METRIC_NOTE
+  const archivedReason = selectedArchivedFactMetric
+    ? getArchivedFactMetricReason(selectedArchivedFactMetric, getFactTableById)
+    : selectedArchivedMetric
+      ? ARCHIVED_METRIC_REASON
       : undefined;
 
   // get data to help filter metrics to those with joinable userIdTypes to
@@ -105,7 +105,10 @@ const MetricSelector: FC<
     : undefined;
 
   const options: MetricOption[] = [
-    ...[...metrics, ...(archivedMetric ? [archivedMetric] : [])].map((m) => ({
+    ...[
+      ...metrics,
+      ...(selectedArchivedMetric ? [selectedArchivedMetric] : []),
+    ].map((m) => ({
       id: m.id,
       name: m.name,
       datasource: m.datasource || "",
@@ -127,7 +130,7 @@ const MetricSelector: FC<
     ...(includeFacts
       ? [
           ...factMetrics,
-          ...(archivedFactMetric ? [archivedFactMetric] : []),
+          ...(selectedArchivedFactMetric ? [selectedArchivedFactMetric] : []),
         ].map((m) => ({
           id: m.id,
           name: m.name,
@@ -186,14 +189,14 @@ const MetricSelector: FC<
         return {
           value: m.id,
           label: m.name,
-          tooltip: m.id === selectedId ? archivedNote : undefined,
+          tooltip: m.id === selectedId ? archivedReason : undefined,
         };
       })}
       formatOptionLabel={({ value, label }) => {
         if (!value) return label;
         return (
           <ArchivedLabel
-            archived={!!archivedNote && value === selectedId}
+            archived={!!archivedReason && value === selectedId}
             alignRight
           >
             <MetricName id={value} />
