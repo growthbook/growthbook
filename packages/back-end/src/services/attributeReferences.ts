@@ -23,6 +23,24 @@ export type AttributeReferencesMap = Record<
 >;
 
 /**
+ * Requested keys a condition key references: itself and each dotted parent,
+ * so a condition on `user.country` counts for both `user.country` and `user`.
+ */
+export function getConditionKeyMatches(
+  conditionKey: string,
+  keySet: Set<string>,
+): string[] {
+  const matches: string[] = [];
+  let key = conditionKey;
+  while (true) {
+    if (keySet.has(key)) matches.push(key);
+    const dot = key.lastIndexOf(".");
+    if (dot === -1) return matches;
+    key = key.slice(0, dot);
+  }
+}
+
+/**
  * Features, experiments, and saved groups that reference each attribute key.
  * Walks rule/phase/group condition JSON, checks hash and fallback attributes on
  * rules and experiments, and matches ID lists by attributeKey.
@@ -71,7 +89,7 @@ export async function getAttributeReferences(
       try {
         const parsed = JSON.parse(rule.condition ?? "{}");
         for (const nodeKey of extractConditionAttributeKeys(parsed)) {
-          addFeature(nodeKey);
+          getConditionKeyMatches(nodeKey, keySet).forEach(addFeature);
         }
       } catch {
         // ignore unparseable conditions
@@ -99,7 +117,7 @@ export async function getAttributeReferences(
     try {
       const parsed = JSON.parse(phase?.condition ?? "{}");
       for (const nodeKey of extractConditionAttributeKeys(parsed)) {
-        addExp(nodeKey);
+        getConditionKeyMatches(nodeKey, keySet).forEach(addExp);
       }
     } catch {
       // ignore
@@ -125,7 +143,7 @@ export async function getAttributeReferences(
     try {
       const parsed = JSON.parse(group.condition ?? "{}");
       for (const nodeKey of extractConditionAttributeKeys(parsed)) {
-        addGroup(nodeKey);
+        getConditionKeyMatches(nodeKey, keySet).forEach(addGroup);
       }
     } catch {
       // ignore
