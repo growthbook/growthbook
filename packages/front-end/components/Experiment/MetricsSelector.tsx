@@ -6,6 +6,7 @@ import {
 import {
   ExperimentMetricDefinition,
   getClusterMetricAnalysisLevel,
+  getClusterSubUnit,
   getFactMetricFactTableIds,
   isFactMetric,
   isFactMetricJoinable,
@@ -180,15 +181,12 @@ const MetricsSelector: FC<{
   const assignmentIdType = exposureQuery
     ? resolveAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
     : undefined;
-  const userIdType =
-    exposureQuery && isClusterExperiment && clusterSubUnitIdentifier
-      ? clusterSubUnitIdentifier
-      : assignmentIdType;
+  const clusterSubUnit = exposureQuery
+    ? getClusterSubUnit({ isClusterExperiment, clusterSubUnitIdentifier })
+    : null;
+  const userIdType = clusterSubUnit ?? assignmentIdType;
   // Fact metrics that can't reach the sub-unit are analyzed per cluster.
-  const clusterIdType =
-    isClusterExperiment && clusterSubUnitIdentifier
-      ? assignmentIdType
-      : undefined;
+  const clusterIdType = clusterSubUnit ? assignmentIdType : undefined;
 
   const filteredOptions = useMemo(() => {
     const options: MetricOption[] = [
@@ -279,10 +277,10 @@ const MetricsSelector: FC<{
                 disabledReason: disabledInfo.reason,
                 clusterLevel:
                   !!clusterIdType &&
-                  !!clusterSubUnitIdentifier &&
+                  !!clusterSubUnit &&
                   getClusterMetricAnalysisLevel(m, {
                     clusterIdentifier: clusterIdType,
-                    clusterSubUnitIdentifier,
+                    clusterSubUnitIdentifier: clusterSubUnit,
                     getFactTable: getFactTableById,
                     datasourceSettings,
                   }) === "cluster",
@@ -329,7 +327,7 @@ const MetricsSelector: FC<{
     datasourceSettings,
     userIdType,
     clusterIdType,
-    clusterSubUnitIdentifier,
+    clusterSubUnit,
     project,
     noLegacyMetrics,
     noManual,
