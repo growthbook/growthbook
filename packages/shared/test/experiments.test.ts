@@ -3116,37 +3116,25 @@ describe("getClusterExperimentMetricEligibility", () => {
 
   it("rejects non-fact, quantile, and unsupported-type metrics", () => {
     expect(
-      getClusterExperimentMetricEligibility({
-        type: "binomial",
-      } as unknown as ExperimentMetricInterface).allowed,
-    ).toBe(false);
-    expect(
-      getClusterExperimentMetricEligibility(factMetric("quantile")).allowed,
-    ).toBe(false);
-    expect(
-      getClusterExperimentMetricEligibility(factMetric("funnel")).allowed,
-    ).toBe(false);
-  });
-
-  it("allows supported metrics when no fact-table context is provided (back-compat)", () => {
-    expect(getClusterExperimentMetricEligibility(factMetric("mean"))).toEqual({
-      allowed: true,
-    });
-    expect(getClusterExperimentMetricEligibility(factMetric("ratio"))).toEqual({
-      allowed: true,
-    });
-    // "max" and "hll merge" reduce to a per-sub-unit scalar, so they roll up
-    // like "sum"/"count distinct" and are allowed without fact-table context.
-    expect(
       getClusterExperimentMetricEligibility(
-        factMetric("mean", "ft_subunit", "max"),
-      ),
-    ).toEqual({ allowed: true });
+        {
+          type: "binomial",
+        } as unknown as ExperimentMetricInterface,
+        { clusterSubUnitIdentifier: "user_id", getFactTable },
+      ).allowed,
+    ).toBe(false);
     expect(
-      getClusterExperimentMetricEligibility(
-        factMetric("mean", "ft_subunit", "hll merge"),
-      ),
-    ).toEqual({ allowed: true });
+      getClusterExperimentMetricEligibility(factMetric("quantile"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      }).allowed,
+    ).toBe(false);
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("funnel"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      }).allowed,
+    ).toBe(false);
   });
 
   it("allows metrics whose fact table exposes the sub-unit identifier", () => {

@@ -1500,10 +1500,10 @@ export type ClusterMetricEligibility =
 
 export function getClusterExperimentMetricEligibility(
   metric: ExperimentMetricDefinition,
-  options?: {
+  options: {
     clusterIdentifier?: string | null;
     clusterSubUnitIdentifier?: string | null;
-    getFactTable?: (
+    getFactTable: (
       id: string,
     ) => Pick<FactTableInterface, "userIdTypes"> | null | undefined;
     datasourceSettings?: DataSourceSettings;
@@ -1531,7 +1531,7 @@ export function getClusterExperimentMetricEligibility(
       reason: `Cluster experiments don't support ${metric.metricType} metrics. Use proportion, retention, mean, or ratio metrics.`,
     };
   }
-  if (options?.clusterSubUnitIdentifier && options.getFactTable) {
+  if (options.clusterSubUnitIdentifier) {
     const level = getClusterMetricAnalysisLevel(metric, {
       clusterIdentifier: options.clusterIdentifier,
       clusterSubUnitIdentifier: options.clusterSubUnitIdentifier,
@@ -1539,11 +1539,15 @@ export function getClusterExperimentMetricEligibility(
       datasourceSettings: options.datasourceSettings,
     });
     if (!level) {
+      if (options.clusterIdentifier) {
+        return {
+          allowed: false,
+          reason: `This metric's fact table exposes neither the sub-unit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`,
+        };
+      }
       return {
         allowed: false,
-        reason: options.clusterIdentifier
-          ? `This metric's fact table exposes neither the sub-unit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`
-          : `This metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}".`,
+        reason: `This metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}".`,
       };
     }
   }
