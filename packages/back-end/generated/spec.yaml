@@ -18484,6 +18484,7 @@ paths:
                           - queries
                           - runStarted
                           - dateCreated
+                          - multipleExposures
                           - type
                           - triggeredBy
                           - srm
