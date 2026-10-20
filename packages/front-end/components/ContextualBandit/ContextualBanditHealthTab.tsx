@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { ExperimentReportVariation } from "shared/types/report";
-import { datetime } from "shared/dates";
+import { datetimeAt } from "shared/dates";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { IssueTags } from "@/components/HealthTab/IssueTags";
@@ -54,9 +54,11 @@ export default function ContextualBanditHealthTab({
     latest?.healthSnapshotId !== latest?.id;
   const latestFailed = latest?.status === "error";
   const latestRunning = latest?.status === "running";
-  const healthDateLabel = latest?.healthDateCreated
-    ? datetime(latest.healthDateCreated)
-    : null;
+  // "on {date}" clause in the prose form ("Oct 20, 2026 at 3:41 PM"), omitted
+  // when the health run's date is unknown.
+  const healthRunClause = latest?.healthDateCreated
+    ? ` on ${datetimeAt(latest.healthDateCreated)}`
+    : "";
 
   if (loading) {
     return (
@@ -104,11 +106,10 @@ export default function ContextualBanditHealthTab({
       {healthFromEarlierRun ? (
         <Callout status={latestFailed ? "warning" : "info"} mb="3">
           {latestFailed
-            ? "The most recent refresh failed, so the health results below are from an earlier successful refresh"
+            ? `The most recent refresh failed, so the health results below are from a successful refresh${healthRunClause}.`
             : latestRunning
-              ? "A refresh is in progress. The health results below are from the last successful refresh"
-              : "The health results below are from an earlier successful refresh"}
-          {healthDateLabel ? ` from ${healthDateLabel}.` : "."}
+              ? `A refresh is in progress. The health results below are from a successful refresh${healthRunClause}.`
+              : `The health results below are from a successful refresh${healthRunClause}.`}
           {latestFailed && latest?.error ? ` Error: ${latest.error}` : ""}
         </Callout>
       ) : latestFailed ? (
