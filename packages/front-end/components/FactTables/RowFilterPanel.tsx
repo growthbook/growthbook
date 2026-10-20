@@ -34,6 +34,7 @@ export function RowFilterPanel({
   columnSource,
   showSqlFilter = false,
   disabled,
+  listMaxHeight,
 }: {
   /** The committed filters. */
   value: RowFilter[];
@@ -42,6 +43,8 @@ export function RowFilterPanel({
   columnSource: FilterColumnSource;
   showSqlFilter?: boolean;
   disabled?: boolean;
+  /** Caps the filter list's height in px; past it, the list scrolls. */
+  listMaxHeight?: number;
 }) {
   const nextIdRef = useRef(0);
   const assignId = useCallback(() => nextIdRef.current++, []);
@@ -97,7 +100,12 @@ export function RowFilterPanel({
       </Flex>
 
       <Flex direction="column" gap="2" flexGrow="1">
-        <Flex direction="column" gap="2">
+        <Flex
+          direction="column"
+          gap="2"
+          overflowY="auto"
+          style={{ maxHeight: listMaxHeight }}
+        >
           {local.map((filter, i) => (
             <RowFilterCard
               key={filter._localId}
