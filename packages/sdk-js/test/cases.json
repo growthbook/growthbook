@@ -6966,7 +6966,7 @@
       true
     ],
     [
-      "user at a range end - product rounded before the sum",
+      "range end includes the user - 5 equal, coverage 0.1, hash v2",
       { "attributes": { "id": "user-3436" } },
       {
         "key": "exp",
