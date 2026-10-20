@@ -24,6 +24,8 @@ import { PopulationModel } from "back-end/src/models/PopulationModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
+import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
+import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -81,7 +83,6 @@ import { namespacesRoutes } from "./namespaces/namespaces.router";
 import { rolesRoutes } from "./roles/roles.router";
 import { eventWebhooksRoutes } from "./event-webhooks/event-webhooks.router";
 import { auditsRoutes } from "./audits/audits.router";
-import { savedQueriesRoutes } from "./saved-queries/saved-queries.router";
 import { getOpenApiRoutesForApiConfig } from "./apiModelHandlers";
 
 const API_MODELS: ModelClass[] = [
@@ -104,6 +105,8 @@ const API_MODELS: ModelClass[] = [
   ApiKeyModel,
   WebhookSecretDataModel,
   SdkWebhookModel,
+  SavedQueryDataModel,
+  MetricAnalysisModel,
 ];
 
 const router = Router();
@@ -245,7 +248,6 @@ export const allRoutes = [
   ...rolesRoutes,
   ...eventWebhooksRoutes,
   ...auditsRoutes,
-  ...savedQueriesRoutes,
   ...openaiRoutes,
   ...visualEditorAiRoutes,
 ];

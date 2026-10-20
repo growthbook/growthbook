@@ -2,12 +2,24 @@ import {
   MetricAnalysisInterface,
   MetricAnalysisSettings,
 } from "shared/types/metric-analysis";
-import { metricAnalysisInterfaceValidator } from "shared/validators";
+import {
+  ApiMetricAnalysisReturn,
+  metricAnalysisInterfaceValidator,
+} from "shared/validators";
 import {
   getCollection,
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  cancelMetricAnalysisEndpoint,
+  getMetricAnalysisEndpoint,
+  metricAnalysisApiSpec,
+} from "back-end/src/api/specs/metric-analysis.spec";
+import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnalysisQueryRunner";
+import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
+import { NotFoundError } from "back-end/src/util/errors";
 import { MakeModelClass } from "./BaseModel";
 
 const COLLECTION_NAME = "metricanalyses";
@@ -31,6 +43,28 @@ const BaseClass = MakeModelClass({
       },
     },
   ],
+  apiConfig: {
+    modelKey: "metricAnalysis",
+    openApiSpec: metricAnalysisApiSpec,
+    customHandlers: [
+      defineCustomApiHandler({
+        ...getMetricAnalysisEndpoint,
+        reqHandler: async (req): Promise<ApiMetricAnalysisReturn> => {
+          const model = req.context.models.metricAnalysis;
+          return {
+            metricAnalysis: model.toApiInterface(
+              await model.findOrThrow(req.params.id),
+            ),
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...cancelMetricAnalysisEndpoint,
+        reqHandler: (req): Promise<ApiMetricAnalysisReturn> =>
+          req.context.models.metricAnalysis.apiCancel(req.params.id),
+      }),
+    ],
+  },
 });
 
 export const toInterface: ToInterface<MetricAnalysisInterface> = (doc) => {
@@ -39,6 +73,69 @@ export const toInterface: ToInterface<MetricAnalysisInterface> = (doc) => {
 };
 
 export class MetricAnalysisModel extends BaseClass {
+  public toApiInterface(a: MetricAnalysisInterface) {
+    const { result } = a;
+    return {
+      id: a.id,
+      metric: a.metric,
+      status: a.status,
+      error: a.error,
+      settings: {
+        ...a.settings,
+        startDate: a.settings.startDate.toISOString(),
+        endDate: a.settings.endDate.toISOString(),
+      },
+      ...(result
+        ? {
+            result: {
+              ...result,
+              dates: result.dates?.map((d) => ({
+                ...d,
+                date: d.date.toISOString(),
+              })),
+            },
+          }
+        : {}),
+      dateCreated: a.dateCreated.toISOString(),
+      dateUpdated: a.dateUpdated.toISOString(),
+    };
+  }
+
+  public async findOrThrow(id: string) {
+    const analysis = await this.getById(id);
+    if (!analysis) {
+      throw new NotFoundError(`Could not find metric analysis ${id}.`);
+    }
+    return analysis;
+  }
+
+  public async apiCancel(id: string): Promise<ApiMetricAnalysisReturn> {
+    const analysis = await this.findOrThrow(id);
+    const metric = await this.context.models.factMetrics.getById(
+      analysis.metric,
+    );
+    if (!metric?.datasource) {
+      throw new NotFoundError(
+        "Could not find the Data Source for this Fact Metric.",
+      );
+    }
+    const integration = await getIntegrationFromDatasourceId(
+      this.context,
+      metric.datasource,
+    );
+    if (!this.context.permissions.canRunMetricQueries(integration.datasource)) {
+      this.context.permissions.throwPermissionError();
+    }
+    await new MetricAnalysisQueryRunner(
+      this.context,
+      analysis,
+      integration,
+    ).cancelQueries();
+    return {
+      metricAnalysis: this.toApiInterface(await this.findOrThrow(analysis.id)),
+    };
+  }
+
   protected canRead(doc: MetricAnalysisInterface): boolean {
     const { metric } = this.getForeignRefs(doc);
     return this.context.permissions.canReadMultiProjectResource(
