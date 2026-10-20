@@ -2163,6 +2163,7 @@ export function evaluateFeature({
                       // make rule invalid so it is skipped
                       delete rule.force;
                       delete rule.variations;
+                      delete rule.contextualVariations;
                     }
                     delete rule.parentConditions;
                   }
