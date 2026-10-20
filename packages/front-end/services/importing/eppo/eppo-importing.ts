@@ -229,7 +229,18 @@ export type EppoData = {
   factSources: EppoFactSource[];
   metrics: EppoMetric[];
   experiments: EppoExperiment[];
+  // Flags created before this are kept for experiment targeting but not offered
+  flagsCreatedSince?: Date | null;
 };
+
+// The flags the import offers; the rest still inform experiment targeting
+export function importableFlags(eppo: EppoData): EppoFlag[] {
+  const since = eppo.flagsCreatedSince;
+  if (!since) return eppo.flags;
+  return eppo.flags.filter(
+    (f) => !f.created_at || new Date(f.created_at) >= since,
+  );
+}
 
 export type ApiCall = <T>(url: string, options?: RequestInit) => Promise<T>;
 
@@ -313,11 +324,8 @@ export async function fetchEppoData(
     environments,
     tags,
     audiences,
-    flags: createdSince
-      ? flags.filter(
-          (f) => !f.created_at || new Date(f.created_at) >= createdSince,
-        )
-      : flags,
+    flags,
+    flagsCreatedSince: createdSince,
     entities,
     factSources,
     metrics,
@@ -1842,7 +1850,7 @@ export function matchItems(
       existing.experiments.get(experimentTrackingKey(e)),
     ),
     flags: new Map(
-      eppo.flags.map((f) => [
+      importableFlags(eppo).map((f) => [
         f.key,
         findMatch(
           imported.flags,
@@ -2061,7 +2069,7 @@ export function buildImportData(
         () => transformExperiment(e, ctx, ctx.experiments.get(e.id)),
       ),
     ),
-    flags: eppo.flags.map((f) =>
+    flags: importableFlags(eppo).map((f) =>
       buildItem(f.key, f.key, f, match("flags", f.key), () =>
         transformFlag(f, ctx),
       ),

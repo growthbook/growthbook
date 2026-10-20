@@ -8,6 +8,7 @@ import {
   EppoData,
   EppoExperiment,
   fetchEppoData,
+  importableFlags,
   matchItems,
   buildImportData,
   EppoFlag,
@@ -1794,20 +1795,27 @@ describe("fetchEppoData", () => {
       return Promise.resolve(flags as unknown as T);
     };
     const data = await fetchEppoData("key", apiCall, { createdSince: since });
-    return { seen, flagKeys: data.flags.map((f) => f.key) };
+    return {
+      seen,
+      allFlags: data.flags.map((f) => f.key),
+      offered: importableFlags(data).map((f) => f.key),
+    };
   };
 
   it("fetches everything unless a start date is given", async () => {
     const all = await fetchWith(null);
     expect(all.seen).toContain("experiments?limit=250&offset=0");
-    expect(all.flagKeys).toEqual(["old", "new", "undated"]);
+    expect(all.offered).toEqual(["old", "new", "undated"]);
   });
 
-  it("filters experiments server-side and flags by created_at", async () => {
+  // Every flag stays in the data so experiment targeting can still read its
+  // allocations; the cutoff only limits which flags are offered for import
+  it("filters experiments server-side and offers only flags created since", async () => {
     const since = await fetchWith(new Date("2026-04-01T00:00:00Z"));
     expect(since.seen).toContain(
       "experiments?created_since=2026-04-01T00%3A00%3A00.000Z&limit=250&offset=0",
     );
-    expect(since.flagKeys).toEqual(["new", "undated"]);
+    expect(since.allFlags).toEqual(["old", "new", "undated"]);
+    expect(since.offered).toEqual(["new", "undated"]);
   });
 });
