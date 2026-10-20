@@ -95,50 +95,9 @@ const getCounter = (name: string) => {
   };
 };
 
-const attributeKey = (attributes?: Attributes) => {
-  if (!attributes) {
-    return "";
-  }
-  return JSON.stringify(
-    Object.entries(attributes).sort(([a], [b]) => a.localeCompare(b)),
-  );
-};
-
-const gaugeByName = new Map<
-  string,
-  { record: (value: number, attributes?: Attributes) => void }
->();
-
-const getGauge = (name: string) => {
-  const existing = gaugeByName.get(name);
-  if (existing) {
-    return existing;
-  }
-
-  const gauge = otlMetrics.getMeter(name).createObservableGauge(name);
-  // Entries stay until removed via remove(); stale label combos are not dropped on their own.
-  const series = new Map<string, { value: number; attributes?: Attributes }>();
-  gauge.addCallback((observableResult) => {
-    for (const { value, attributes } of series.values()) {
-      observableResult.observe(value, attributes);
-    }
-  });
-
-  const wrapper = {
-    record: (value: number, attributes?: Attributes) => {
-      series.set(attributeKey(attributes), { value, attributes });
-    },
-    remove: (attributes?: Attributes) => {
-      series.delete(attributeKey(attributes));
-    },
-  };
-  gaugeByName.set(name, wrapper);
-  return wrapper;
-};
-
 setMetrics({
   getCounter,
   getHistogram: (name: string) =>
     otlMetrics.getMeter(name).createHistogram(name),
-  getGauge,
+  getGauge: (name: string) => otlMetrics.getMeter(name).createGauge(name),
 });

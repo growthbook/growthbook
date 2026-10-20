@@ -29,7 +29,6 @@ export const metrics: Metrics = {
   }),
   getGauge: (_: string) => ({
     record: () => undefined,
-    remove: () => undefined,
   }),
 };
 
