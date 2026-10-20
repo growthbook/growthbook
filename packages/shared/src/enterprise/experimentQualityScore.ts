@@ -2,7 +2,6 @@
 // the barrel evaluates safe-rollout-snapshot, which imports shared/enterprise
 // back — a module-initialization cycle that leaves validators undefined.
 import {
-  ExperimentHealthSettings,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
 } from "shared/types/experiment";
@@ -24,12 +23,6 @@ import {
   experimentQualityCheckKeys,
   experimentQualitySectionKeys,
 } from "../validators/experiment-quality-score";
-import {
-  DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-  DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
-  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-} from "../constants";
-import { getMultipleExposureHealthData, getSRMHealthData } from "../health";
 import { canJudgeProcess, hasCurrentProcessResults } from "./experimentProcess";
 
 // Process checks are judged from cached change-history results
@@ -69,26 +62,16 @@ export const EXPERIMENT_QUALITY_SECTIONS: Record<
   ExperimentQualitySectionKey,
   ExperimentQualitySectionDefinition
 > = {
-  documentation: { label: "Documentation", defaultWeight: 30 },
-  results: {
-    label: "Results",
-    note: "stopped experiments only",
-    defaultWeight: 20,
-  },
-  health: {
-    label: "Health",
-    note: "when traffic data exists",
-    defaultWeight: 15,
-  },
+  documentation: { label: "Documentation", defaultWeight: 40 },
   process: {
     label: "Process",
     note: "stopped experiments only, from change history",
-    defaultWeight: 15,
+    defaultWeight: 30,
   },
   ai: {
     label: "AI checks",
     note: "judged by AI, cached until inputs change",
-    defaultWeight: 20,
+    defaultWeight: 30,
   },
 };
 
@@ -152,31 +135,10 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     defaultEnabled: true,
   },
   decision: {
-    section: "results",
+    section: "documentation",
     type: "deterministic",
     label: "Decision recorded",
-    defaultWeight: 1,
-    defaultEnabled: true,
-  },
-  learnings: {
-    section: "results",
-    type: "deterministic",
-    label: "Learnings documented",
-    defaultWeight: 1,
-    defaultEnabled: true,
-  },
-  "health-no-issues": {
-    section: "health",
-    type: "deterministic",
-    label: "No major health issues",
-    note: "SRM, multiple exposures, imbalance",
-    defaultWeight: 1,
-    defaultEnabled: true,
-  },
-  "health-powered": {
-    section: "health",
-    type: "deterministic",
-    label: "Well powered",
+    note: "stopped experiments only",
     defaultWeight: 1,
     defaultEnabled: true,
   },
@@ -627,8 +589,6 @@ export type ExperimentForQualityScore = Pick<
   | "results"
   | "releasedVariationId"
   | "analysis"
-  | "analysisSummary"
-  | "dismissedWarnings"
 > & {
   processResults?: Pick<ExperimentProcessResults, "version"> & {
     rules: Array<
@@ -699,12 +659,8 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 function evaluateDeterministicCheck(
   key: DeterministicExperimentQualityCheckKey,
   experiment: ExperimentForQualityScore,
-  healthSettings: ExperimentHealthSettings,
   params: ExperimentQualityCheckParams | undefined,
 ): CheckEvaluation {
-  const stopped = experiment.status === "stopped";
-  const health = experiment.analysisSummary?.health;
-
   switch (key) {
     case "hypothesis":
       return { applicable: true, score: experiment.hypothesis?.trim() ? 1 : 0 };
@@ -747,7 +703,7 @@ function evaluateDeterministicCheck(
     case "owner":
       return { applicable: true, score: experiment.owner?.trim() ? 1 : 0 };
     case "decision": {
-      if (!stopped) return { applicable: false };
+      if (experiment.status !== "stopped") return { applicable: false };
       const hasDecision =
         !!experiment.results &&
         (experiment.results !== "won" || !!experiment.releasedVariationId);
@@ -758,56 +714,6 @@ function evaluateDeterministicCheck(
           experiment.results === "won" && !experiment.releasedVariationId
             ? "Marked as won but no winning variation was released"
             : undefined,
-      };
-    }
-    case "learnings":
-      if (!stopped) return { applicable: false };
-      return { applicable: true, score: experiment.analysis?.trim() ? 1 : 0 };
-    case "health-no-issues": {
-      if (!health || !health.totalUsers) return { applicable: false };
-      const issues: string[] = [];
-      const srmHealth = getSRMHealthData({
-        srm: health.srm,
-        srmThreshold: healthSettings.srmThreshold,
-        totalUsersCount: health.totalUsers,
-        numOfVariations: experiment.variations.length,
-        minUsersPerVariation:
-          experiment.type === "multi-armed-bandit"
-            ? DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION
-            : DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-      });
-      if (srmHealth === "unhealthy") {
-        issues.push("Sample ratio mismatch (SRM) detected");
-      }
-      const multipleExposures = getMultipleExposureHealthData({
-        multipleExposuresCount: health.multipleExposures,
-        totalUsersCount: health.totalUsers,
-        minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-        minPercentThreshold: healthSettings.multipleExposureMinPercent,
-      });
-      if (multipleExposures.status === "unhealthy") {
-        issues.push("High rate of users exposed to multiple variations");
-      }
-      if (health.covariateImbalance?.isImbalanced) {
-        issues.push("Covariate imbalance detected");
-      }
-      return {
-        applicable: true,
-        score: issues.length ? 0 : 1,
-        reason: issues.length ? issues.join("; ") : undefined,
-      };
-    }
-    case "health-powered": {
-      const power = health?.power;
-      if (!power || power.type !== "success") return { applicable: false };
-      const dismissed = experiment.dismissedWarnings?.includes("low-power");
-      const isPowered = !power.isLowPowered || !!dismissed;
-      return {
-        applicable: true,
-        score: isPowered ? 1 : 0,
-        reason: !isPowered
-          ? `Experiment is under-powered (needs ~${power.additionalDaysNeeded} more days)`
-          : undefined,
       };
     }
   }
@@ -890,13 +796,11 @@ export function isAICheckApplicable(
 export function getExperimentQualityScore({
   experiment,
   settings,
-  healthSettings,
   goalMetricNames,
   now = new Date(),
 }: {
   experiment: ExperimentForQualityScore;
   settings: ResolvedExperimentQualityScoreSettings;
-  healthSettings: ExperimentHealthSettings;
   // Names of the experiment's goal metrics, used to detect stale cached AI
   // results (they are part of the AI inputs hash)
   goalMetricNames: string[];
@@ -958,7 +862,6 @@ export function getExperimentQualityScore({
       const res = evaluateDeterministicCheck(
         key as DeterministicExperimentQualityCheckKey,
         experiment,
-        healthSettings,
         check.params,
       );
       applicable = res.applicable;

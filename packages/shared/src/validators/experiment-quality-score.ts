@@ -7,8 +7,6 @@ import { baseSchema } from "./base-model";
 
 export const experimentQualitySectionKeys = [
   "documentation",
-  "results",
-  "health",
   "process",
   "ai",
 ] as const;
@@ -23,9 +21,6 @@ export const deterministicExperimentQualityCheckKeys = [
   "goal-metrics",
   "owner",
   "decision",
-  "learnings",
-  "health-no-issues",
-  "health-powered",
 ] as const;
 export type DeterministicExperimentQualityCheckKey =
   (typeof deterministicExperimentQualityCheckKeys)[number];

@@ -11,9 +11,7 @@ export const SECTION_COLORS: Record<
   { bar: string; text: string }
 > = {
   documentation: scaleColors("indigo"),
-  results: scaleColors("teal"),
-  health: scaleColors("orange"),
-  process: scaleColors("cyan"),
+  process: scaleColors("teal"),
   ai: scaleColors("violet"),
 };
 

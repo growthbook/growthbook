@@ -6,7 +6,6 @@ import {
   getExperimentQualityScore,
   getExperimentsStartedPerMonth,
   getGoalMetricNames,
-  getHealthSettings,
   hasCurrentProcessResults,
   getHealthWindow,
   getIdeasPerMonth,
@@ -39,10 +38,6 @@ async function getAverageQualityScore(
   const recordsByProject = new Map(records.map((r) => [r.project, r]));
   const configsById = new Map(configs.map((c) => [c.id, c]));
   const metricNames = new Map(metrics.map((m) => [m.id, m.name]));
-  const healthSettings = getHealthSettings(
-    context.org.settings,
-    context.hasPremiumFeature("decision-framework"),
-  );
 
   const scores: number[] = [];
   const processPending: string[] = [];
@@ -67,7 +62,6 @@ async function getAverageQualityScore(
     const { score } = getExperimentQualityScore({
       experiment,
       settings: resolved.settings,
-      healthSettings,
       goalMetricNames: getGoalMetricNames(experiment.goalMetrics, (id) =>
         metricNames.get(id),
       ),

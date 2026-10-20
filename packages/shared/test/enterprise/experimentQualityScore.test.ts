@@ -1,7 +1,7 @@
-import { ExperimentHealthSettings } from "shared/types/experiment";
 import {
   ExperimentForQualityScore,
   computeAIQualityInputsHash,
+  getChecksForSection,
   getAICheckHashInputs,
   getExperimentDigestForCustomRules,
   getExperimentQualityScore,
@@ -11,13 +11,6 @@ import {
 } from "../../src/enterprise/experimentQualityScore";
 import { resolveQualityScope } from "../../src/enterprise/experimentationHealth";
 import { EXPERIMENT_PROCESS_RULES_VERSION } from "../../src/enterprise/experimentProcess";
-
-const healthSettings: ExperimentHealthSettings = {
-  decisionFrameworkEnabled: true,
-  srmThreshold: 0.001,
-  multipleExposureMinPercent: 0.01,
-  experimentMinLengthDays: 3,
-};
 
 const NOW = new Date("2026-07-23T12:00:00Z");
 
@@ -69,20 +62,6 @@ function baseExperiment(
     results: "won",
     releasedVariationId: "1",
     analysis: "The larger CTA won; we should apply this to all pages.",
-    analysisSummary: {
-      snapshotId: "snap_1",
-      health: {
-        srm: 0.9,
-        multipleExposures: 0,
-        totalUsers: 10000,
-        power: {
-          type: "success",
-          isLowPowered: false,
-          additionalDaysNeeded: 0,
-        },
-      },
-    },
-    dismissedWarnings: [],
     ...overrides,
   };
 }
@@ -119,7 +98,6 @@ function score(
   return getExperimentQualityScore({
     experiment,
     settings,
-    healthSettings,
     goalMetricNames,
     now: NOW,
   });
@@ -140,13 +118,11 @@ function checkByKey(result: ReturnType<typeof score>, key: string) {
 }
 
 describe("resolveExperimentQualityScoreSettings", () => {
-  it("uses default shares 30/20/15/15/20", () => {
+  it("uses default shares 40/30/30", () => {
     const resolved = resolveExperimentQualityScoreSettings();
-    expect(resolved.sections.documentation.share).toBeCloseTo(0.3, 9);
-    expect(resolved.sections.results.share).toBeCloseTo(0.2, 9);
-    expect(resolved.sections.health.share).toBeCloseTo(0.15, 9);
-    expect(resolved.sections.process.share).toBeCloseTo(0.15, 9);
-    expect(resolved.sections.ai.share).toBeCloseTo(0.2, 9);
+    expect(resolved.sections.documentation.share).toBeCloseTo(0.4, 9);
+    expect(resolved.sections.process.share).toBeCloseTo(0.3, 9);
+    expect(resolved.sections.ai.share).toBeCloseTo(0.3, 9);
   });
 
   it("defaults screenshots and planned-end to disabled", () => {
@@ -161,6 +137,7 @@ describe("resolveExperimentQualityScoreSettings", () => {
         "tags-or-project",
         "goal-metrics",
         "owner",
+        "decision",
       ] as const
     )
       .map((k) => resolved.checks[k].split)
@@ -174,24 +151,20 @@ describe("resolveExperimentQualityScoreSettings", () => {
     });
     expect(resolved.sections.ai.enabled).toBe(false);
     expect(resolved.sections.ai.share).toBe(0);
-    expect(resolved.sections.documentation.share).toBeCloseTo(30 / 80, 9);
-    expect(resolved.sections.results.share).toBeCloseTo(20 / 80, 9);
-    expect(resolved.sections.health.share).toBeCloseTo(15 / 80, 9);
-    expect(resolved.sections.process.share).toBeCloseTo(15 / 80, 9);
+    expect(resolved.sections.documentation.share).toBeCloseTo(40 / 70, 9);
+    expect(resolved.sections.process.share).toBeCloseTo(30 / 70, 9);
   });
 
   it("treats scaled raw weights as identical shares", () => {
     const scaled = resolveExperimentQualityScoreSettings({
       sections: {
-        documentation: { weight: 6 },
-        results: { weight: 4 },
-        health: { weight: 3 },
+        documentation: { weight: 4 },
         process: { weight: 3 },
-        ai: { weight: 4 },
+        ai: { weight: 3 },
       },
     });
-    expect(scaled.sections.documentation.share).toBeCloseTo(0.3, 9);
-    expect(scaled.sections.ai.share).toBeCloseTo(0.2, 9);
+    expect(scaled.sections.documentation.share).toBeCloseTo(0.4, 9);
+    expect(scaled.sections.ai.share).toBeCloseTo(0.3, 9);
   });
 
   it("falls back to equal shares when all enabled weights are zero", () => {
@@ -199,32 +172,29 @@ describe("resolveExperimentQualityScoreSettings", () => {
       aiChecksEnabled: false,
       sections: {
         documentation: { weight: 0 },
-        results: { weight: 0 },
-        health: { weight: 0 },
         process: { weight: 0 },
       },
     });
-    expect(resolved.sections.documentation.share).toBeCloseTo(1 / 4, 9);
+    expect(resolved.sections.documentation.share).toBeCloseTo(1 / 2, 9);
   });
 
   it("treats a section with every check disabled as disabled", () => {
     const resolved = resolveExperimentQualityScoreSettings({
-      checks: {
-        decision: { enabled: false },
-        learnings: { enabled: false },
-      },
+      checks: Object.fromEntries(
+        getChecksForSection("process").map((k) => [k, { enabled: false }]),
+      ),
     });
-    expect(resolved.sections.results.enabled).toBe(false);
-    expect(resolved.sections.results.share).toBe(0);
-    expect(resolved.sections.documentation.share).toBeCloseTo(30 / 80, 9);
+    expect(resolved.sections.process.enabled).toBe(false);
+    expect(resolved.sections.process.share).toBe(0);
+    expect(resolved.sections.documentation.share).toBeCloseTo(40 / 70, 9);
   });
 
   it("resolving without a config (or with a dangling config id) yields catalog defaults", () => {
     // A deleted/missing referenced config resolves as undefined → defaults
     const fromUndefined = resolveExperimentQualityScoreSettings(undefined);
     const fromNull = resolveExperimentQualityScoreSettings(null);
-    expect(fromUndefined.sections.documentation.share).toBeCloseTo(0.3, 9);
-    expect(fromNull.sections.documentation.share).toBeCloseTo(0.3, 9);
+    expect(fromUndefined.sections.documentation.share).toBeCloseTo(0.4, 9);
+    expect(fromNull.sections.documentation.share).toBeCloseTo(0.4, 9);
   });
 
   describe("resolveQualityScope", () => {
@@ -381,7 +351,7 @@ describe("getExperimentQualityScore", () => {
     expect(totalEarned).toBeCloseTo(100, 6);
   });
 
-  it("renormalizes when the results section is N/A (running experiment)", () => {
+  it("renormalizes when the process section is N/A (running experiment)", () => {
     const experiment = baseExperiment({
       status: "running",
       results: undefined,
@@ -391,9 +361,9 @@ describe("getExperimentQualityScore", () => {
     });
     experiment.aiQualityResults = freshAIResults(experiment);
     const result = score(experiment);
-    const results = sectionByKey(result, "results");
-    expect(results.applicable).toBe(false);
-    expect(results.possiblePoints).toBe(0);
+    const process = sectionByKey(result, "process");
+    expect(process.applicable).toBe(false);
+    expect(process.possiblePoints).toBe(0);
     // ai-learnings-quality is also N/A while running; remaining checks all
     // pass, so the renormalized score is still 100
     expect(result.score).toBe(100);
@@ -402,10 +372,10 @@ describe("getExperimentQualityScore", () => {
       0,
     );
     expect(totalPossible).toBeCloseTo(100, 6);
-    // Documentation absorbed more than its configured 35%
+    // Documentation absorbed more than its configured 40%
     expect(
       sectionByKey(result, "documentation").possiblePoints,
-    ).toBeGreaterThan(35);
+    ).toBeGreaterThan(40);
   });
 
   it("computes proportional section points for partial failures", () => {
@@ -413,11 +383,9 @@ describe("getExperimentQualityScore", () => {
     // passes (hypothesis), one fails (description)
     const settings = resolveExperimentQualityScoreSettings({
       aiChecksEnabled: false,
-      sections: {
-        results: { enabled: false },
-        health: { enabled: false },
-      },
+      sections: { process: { enabled: false } },
       checks: {
+        decision: { enabled: false },
         screenshots: { enabled: false },
         "tags-or-project": { enabled: false },
         "goal-metrics": { enabled: false },
@@ -459,8 +427,7 @@ describe("getExperimentQualityScore", () => {
       aiChecksEnabled: false,
       sections: {
         documentation: { enabled: false },
-        results: { enabled: false },
-        health: { enabled: false },
+        process: { enabled: false },
       },
     });
     const result = score(baseExperiment(), settings);
@@ -477,12 +444,12 @@ describe("getExperimentQualityScore", () => {
       releasedVariationId: "",
     });
     const result = score(experiment);
-    // Enabled by default: 5 documentation (screenshots off) + 2 results +
-    // 2 health + 6 process (planned-end off) + 3 ai = 18
-    expect(result.totalEnabledCheckCount).toBe(18);
-    // N/A while running: decision, learnings, ai-learnings-quality and the
-    // 6 process checks
-    expect(result.appliedCheckCount).toBe(9);
+    // Enabled by default: 6 documentation (screenshots off) + 6 process
+    // (planned-end off) + 3 ai = 15
+    expect(result.totalEnabledCheckCount).toBe(15);
+    // N/A while running: decision, ai-learnings-quality and the 6 process
+    // checks
+    expect(result.appliedCheckCount).toBe(7);
   });
 
   describe("new checks", () => {

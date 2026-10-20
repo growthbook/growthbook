@@ -3,12 +3,11 @@ import {
   ExperimentQualityScoreResult,
   getExperimentQualityScore,
   getGoalMetricNames,
-  getHealthSettings,
   resolveExperimentQualitySettings,
 } from "shared/enterprise";
 import { ORG_DEFAULT_SCOPE } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
+import { useAISettings } from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
@@ -26,7 +25,6 @@ export default function useExperimentQualityScore(
   experiment: ExperimentInterfaceStringDates,
 ): ExperimentQualityScoreHookResult | null {
   const { hasCommercialFeature } = useUser();
-  const orgSettings = useOrgSettings();
   const { aiEnabled } = useAISettings();
   const {
     getExperimentMetricById,
@@ -34,7 +32,6 @@ export default function useExperimentQualityScore(
     getHealthSettingsForScope,
   } = useDefinitions();
   const hasFeature = hasCommercialFeature("experiment-quality-score");
-  const hasDecisionFramework = hasCommercialFeature("decision-framework");
 
   return useMemo(() => {
     if (!hasFeature) return null;
@@ -51,7 +48,6 @@ export default function useExperimentQualityScore(
     const result = getExperimentQualityScore({
       experiment,
       settings: resolved.settings,
-      healthSettings: getHealthSettings(orgSettings, hasDecisionFramework),
       goalMetricNames: getGoalMetricNames(
         experiment.goalMetrics,
         (id) => getExperimentMetricById(id)?.name,
@@ -65,10 +61,8 @@ export default function useExperimentQualityScore(
     };
   }, [
     hasFeature,
-    hasDecisionFramework,
     aiEnabled,
     experiment,
-    orgSettings,
     getHealthSettingsForScope,
     getExperimentQualityConfigById,
     getExperimentMetricById,

@@ -64,8 +64,6 @@ const CheckResultCell: FC<{
         return editMetrics ? (
           <Link onClick={() => editMetrics()}>Edit Metrics</Link>
         ) : null;
-      case "health-powered":
-        return <Link href="/power-calculator">Power Calculator</Link>;
       case "ai-hypothesis-quality":
       case "ai-hypothesis-metric-alignment":
         return (
@@ -76,8 +74,6 @@ const CheckResultCell: FC<{
       case "tags-or-project":
       case "owner":
       case "decision":
-      case "learnings":
-      case "health-no-issues":
       case "goal-metrics-locked":
       case "hypothesis-locked":
       case "stable-assignment":
@@ -125,18 +121,9 @@ const CheckResultCell: FC<{
     );
   }
 
-  // Failed deterministic check: under-powered reads as amber per the
-  // design; everything else is a red ✕ with reason + fix link
-  const isAmber = check.key === "health-powered";
   return (
-    <span
-      style={{
-        color: scaleColors(isAmber ? "amber" : "red").text,
-        fontSize: 13,
-      }}
-    >
-      {isAmber ? (check.reason ?? "Underpowered") : "✕"}
-      {!isAmber && check.reason ? ` ${check.reason}` : ""}
+    <span style={{ color: scaleColors("red").text, fontSize: 13 }}>
+      ✕{check.reason ? ` ${check.reason}` : ""}
       {check.evidence?.user ? ` by ${check.evidence.user}` : ""}
       {check.evidence?.date ? ` on ${date(check.evidence.date)}` : ""}
       {fixLink ? <> · {fixLink}</> : null}
@@ -254,7 +241,7 @@ const QualityTab: FC<{
   const statusLabel = experiment.status === "draft" ? "in draft" : "running";
   const resultsJoinNote =
     result.appliedCheckCount < result.totalEnabledCheckCount && running
-      ? " Decision, learnings and process checks join the score when it stops."
+      ? " Decision and process checks join the score when it stops."
       : "";
 
   const displayScore = result.score;
