@@ -962,8 +962,7 @@ function conditionPasses(
 function evalConditionOptions(ctx: EvalContext): EvalConditionOptions {
   return {
     savedGroups: ctx.global.savedGroups || {},
-    // Type mismatches usually mean an attribute is sent with the wrong type.
-    // Checking for them has a cost, so only do it in debug mode.
+    // Checking types has a cost, so only in debug mode
     onTypeMismatch: ctx.global.debug
       ? (mismatch) => ctx.global.log("Type mismatch in condition", mismatch)
       : undefined,

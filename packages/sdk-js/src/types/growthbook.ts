@@ -355,7 +355,6 @@ export type ClientOptions = {
 // Contexts
 export type GlobalContext = {
   log: (msg: string, ctx: any) => void;
-  /** When true, conditions report type mismatches to `log` */
   debug?: boolean;
   features?: FeatureDefinitions;
   experiments?: AutoExperiment[];

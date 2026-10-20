@@ -16,18 +16,11 @@ import { paddedVersionString } from "./util";
 
 const _regexCache: { [key: string]: RegExp } = {};
 
-/** State shared by every step of one condition evaluation. */
 type EvalConditionContext = {
-  /** Must be included for conditions to correctly evaluate group operators */
   savedGroups: SavedGroupsPayload;
   /** Group ids already being resolved, to stop cycles */
   visited: Set<string>;
-  /** Only set in debug mode */
-  typeMismatch?: {
-    onTypeMismatch: TypeMismatchCallback;
-    /** Attribute path being evaluated, such as `user.age` */
-    path: string;
-  };
+  typeMismatch?: { onTypeMismatch: TypeMismatchCallback; path: string };
 };
 
 // The top-level condition evaluation function
@@ -77,8 +70,6 @@ function evalConditionWithContext(
   return true;
 }
 
-// Extend the reported path when descending into an attribute. Allocates
-// nothing outside debug mode.
 function withPath(
   ctx: EvalConditionContext,
   key: string,
@@ -130,7 +121,7 @@ function evalSavedGroup(
   if (entry.type === "condition") {
     // A condition group has no single attribute, so any override is ignored
     if (!entry.condition || typeof entry.condition !== "object") return false;
-    // Each branch gets its own copy, so sibling groups don't block each other
+    // A copy, so sibling groups don't see each other's ids
     return evalConditionWithContext(obj, entry.condition, {
       ...ctx,
       visited: new Set(ctx.visited).add(id),
@@ -174,7 +165,7 @@ function evalConditionValue(
   ctx: EvalConditionContext,
   insensitive: boolean = false,
 ) {
-  // Simple equality comparisons. Values of different types never match.
+  // Simple equality comparisons
   if (
     typeof condition === "string" ||
     typeof condition === "number" ||
@@ -244,7 +235,6 @@ function reportMismatch(
   onTypeMismatch({ path, operator, expected, actual });
 }
 
-// Ordering only applies to two numbers or two strings
 function isOrderable(actual: unknown, expected: unknown): boolean {
   const t = typeof actual;
   return (t === "number" || t === "string") && t === typeof expected;
@@ -289,8 +279,7 @@ function isIn(
   return expected.includes(actual);
 }
 
-// isIn, reporting values whose type appears nowhere in the list. Only checked
-// when nothing matched, so large saved groups aren't scanned twice.
+// Types are only checked after a miss, so large saved groups aren't scanned twice
 function checkIn(
   actual: any,
   expected: Array<any>,
@@ -449,9 +438,7 @@ function evalOperatorCondition(
   }
 }
 
-// Version operators need the attribute and condition to be the same type,
-// both strings or both numbers. $vne is the exact opposite of $veq, so it
-// matches on a type mismatch.
+// $vne is the opposite of $veq, so it matches on a type mismatch
 function evalVersion(
   operator: "$veq" | "$vne" | "$vgt" | "$vgte" | "$vlt" | "$vlte",
   actual: any,
