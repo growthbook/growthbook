@@ -3337,14 +3337,14 @@
       true
     ],
     [
-      "$vlt - absent attribute is below any release",
+      "$vlt - absent attribute is not a version",
       {
         "version": {
           "$vlt": "0.0.1"
         }
       },
       {},
-      true
+      false
     ],
     [
       "$vgt - absent attribute is not above a release",
@@ -3357,14 +3357,14 @@
       false
     ],
     [
-      "$veq - absent attribute equals 0",
+      "$veq - absent attribute is not a version",
       {
         "version": {
           "$veq": "0"
         }
       },
       {},
-      true
+      false
     ],
     [
       "$vne - absent attribute differs from a real version",
@@ -3401,7 +3401,7 @@
       true
     ],
     [
-      "$veq - float attribute splits on the decimal point",
+      "$veq - float attribute is not a version string",
       {
         "version": {
           "$veq": "1.5"
@@ -3410,7 +3410,7 @@
       {
         "version": 1.5
       },
-      true
+      false
     ],
     [
       "$veq - empty string attribute is version 0",
