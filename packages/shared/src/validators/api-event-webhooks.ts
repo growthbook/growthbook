@@ -26,12 +26,14 @@ export const apiEventWebhookValidator = namedSchema(
       method: z.enum(eventWebHookMethods),
       headers: z
         .record(z.string(), z.string())
-        .describe("Only returned by GET. Empty in write responses."),
+        .optional()
+        .describe("Only returned by GET"),
       timeoutSeconds: apiWebhookTimeoutSeconds,
       signingKey: z
         .string()
+        .optional()
         .describe(
-          "Used to verify the signature header on each request. Only returned by GET; empty in write responses.",
+          "Used to verify the signature header on each request. Only returned by GET.",
         ),
       lastRunAt: z.string().meta({ format: "date-time" }).nullable(),
       lastState: eventWebHookInterface.shape.lastState,
