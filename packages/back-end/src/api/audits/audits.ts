@@ -15,6 +15,10 @@ import {
   getNextDateCursor,
   parseDateCursor,
 } from "back-end/src/util/dateCursor";
+import {
+  canReadApiKeyHistory,
+  getApiKeyIdsHiddenFromKeyViewers,
+} from "back-end/src/services/apiKeyHistory";
 import { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
@@ -55,12 +59,13 @@ export const listAudits = createApiRequestHandler(listAuditsValidator)(async (
   const { context } = req;
   assertCanViewAuditLogs(context);
   const { entityType, entityId, before } = req.query;
-  // Key history exposes roles and scope, so it needs the key-admin permission
-  if (entityType === "apiKey" && !context.permissions.canCreateApiKey()) {
+  // Same API key and Project read rules as the app's History tab
+  if (
+    entityType === "apiKey" &&
+    !(await canReadApiKeyHistory(context, entityId))
+  ) {
     context.permissions.throwPermissionError();
   }
-
-  // Same Project read rules as the app's History tab
   if (
     entityType === "project" &&
     entityId &&
@@ -73,7 +78,11 @@ export const listAudits = createApiRequestHandler(listAuditsValidator)(async (
       ? (await context.getAllProjectIds()).filter(
           (p) => !context.permissions.canReadSingleProjectResource(p),
         )
-      : [];
+      : entityType === "apiKey" &&
+          !entityId &&
+          !context.permissions.canManagePersonalAccessTokens()
+        ? await getApiKeyIdsHiddenFromKeyViewers(context)
+        : [];
 
   const { events, nextCursor } = await getAuditHistory(
     context.org.id,
