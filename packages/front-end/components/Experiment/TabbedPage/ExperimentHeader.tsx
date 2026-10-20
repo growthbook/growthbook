@@ -24,10 +24,7 @@ import {
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "shared/types/report";
-import {
-  CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
-  HoldoutInterfaceStringDates,
-} from "shared/validators";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { format } from "date-fns-tz";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
@@ -579,68 +576,73 @@ export default function ExperimentHeader({
           }
         >
           <div>
-            {clusterBlocksBandit && (
-              <Callout status="warning" mb="3">
-                {CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE} Turn off Cluster
-                experiment in the analysis settings to convert it.
-              </Callout>
-            )}
-            <p>
-              Are you sure you want to convert this{" "}
-              {!isBandit ? "Experiment" : "Bandit"} to a{" "}
-              <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
-            </p>
-            {!isBandit && experiment.goalMetrics.length > 0 && (
+            {clusterBlocksBandit ? (
               <Callout status="warning">
-                <Collapsible
-                  trigger={
-                    <Flex justify="between" gap="1">
-                      Some of your experiment settings may be altered.{" "}
-                      <Box>
-                        <FaAngleRight className="chevron" />
-                      </Box>
-                    </Flex>
-                  }
-                  transitionTime={100}
-                >
-                  <ul className="ml-0 pl-3 mt-3">
-                    <li>
-                      A <strong>single decision metric</strong> will be
-                      automatically assigned. You may change this before running
-                      the experiment.
-                    </li>
-                    <li>
-                      Experiment variations will begin with{" "}
-                      <strong>equal weights</strong> (
-                      {(() => {
-                        const variations = getLatestPhaseVariations(experiment);
-                        return variations
-                          .map((_, i) =>
-                            i < 3
-                              ? formatPercent(1 / (variations.length ?? 2))
-                              : i === 3
-                                ? "..."
-                                : null,
-                          )
-                          .filter(Boolean)
-                          .join(", ");
-                      })()}
-                      ).
-                    </li>
-                    <li>
-                      The stats engine will be locked to{" "}
-                      <strong>Bayesian</strong>.
-                    </li>
-                    <li>
-                      Any <strong>Activation Metric</strong>,{" "}
-                      <strong>Segments</strong>,{" "}
-                      <strong>Conversion Window overrides</strong>,{" "}
-                      <strong>Custom SQL Filters</strong>, or{" "}
-                      <strong>Metric Overrides</strong> will be removed.
-                    </li>
-                  </ul>
-                </Collapsible>
+                {
+                  "Cluster experiments can't be run as Bandits. To convert this one, first turn off cluster experiment in the analysis settings."
+                }
               </Callout>
+            ) : (
+              <>
+                <p>
+                  Are you sure you want to convert this{" "}
+                  {!isBandit ? "Experiment" : "Bandit"} to a{" "}
+                  <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
+                </p>
+                {!isBandit && experiment.goalMetrics.length > 0 && (
+                  <Callout status="warning">
+                    <Collapsible
+                      trigger={
+                        <Flex justify="between" gap="1">
+                          Some of your experiment settings may be altered.{" "}
+                          <Box>
+                            <FaAngleRight className="chevron" />
+                          </Box>
+                        </Flex>
+                      }
+                      transitionTime={100}
+                    >
+                      <ul className="ml-0 pl-3 mt-3">
+                        <li>
+                          A <strong>single decision metric</strong> will be
+                          automatically assigned. You may change this before
+                          running the experiment.
+                        </li>
+                        <li>
+                          Experiment variations will begin with{" "}
+                          <strong>equal weights</strong> (
+                          {(() => {
+                            const variations =
+                              getLatestPhaseVariations(experiment);
+                            return variations
+                              .map((_, i) =>
+                                i < 3
+                                  ? formatPercent(1 / (variations.length ?? 2))
+                                  : i === 3
+                                    ? "..."
+                                    : null,
+                              )
+                              .filter(Boolean)
+                              .join(", ");
+                          })()}
+                          ).
+                        </li>
+                        <li>
+                          The stats engine will be locked to{" "}
+                          <strong>Bayesian</strong>.
+                        </li>
+                        <li>
+                          Any <strong>Activation Metric</strong>,{" "}
+                          <strong>Segments</strong>,{" "}
+                          <strong>Conversion Window overrides</strong>,{" "}
+                          <strong>Custom SQL Filters</strong>, or{" "}
+                          <strong>Metric Overrides</strong> will be removed.
+                        </li>
+                      </ul>
+                    </Collapsible>
+                  </Callout>
+                )}
+              </>
             )}
           </div>
         </Modal>
