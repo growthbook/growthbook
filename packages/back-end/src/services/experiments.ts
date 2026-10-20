@@ -1007,8 +1007,8 @@ export function getSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
     exposureQueryIdentifierType,
-    isClusterExperiment: experiment.isClusterExperiment,
-    clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,
+    isClusterExperiment: !!clusterSubUnitIdentifier,
+    clusterSubUnitIdentifier: clusterSubUnitIdentifier ?? undefined,
     ...(clusterLevelMetricIds.length ? { clusterLevelMetricIds } : {}),
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({

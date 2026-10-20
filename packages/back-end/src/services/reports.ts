@@ -14,6 +14,7 @@ import {
   ExperimentMetricInterface,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
+  getClusterSubUnit,
   expandMetricGroups,
   generateSliceString,
   expandDerivedMetricsInMap,
@@ -611,12 +612,9 @@ export function getReportSnapshotSettings({
     report.experimentAnalysisSettings.exposureQueryIdentifierType,
   );
 
-  const isClusterExperiment =
-    !!report.experimentAnalysisSettings.isClusterExperiment &&
-    !!report.experimentAnalysisSettings.clusterSubUnitIdentifier;
-  const clusterSubUnitIdentifier = isClusterExperiment
-    ? report.experimentAnalysisSettings.clusterSubUnitIdentifier
-    : undefined;
+  const clusterSubUnitIdentifier =
+    getClusterSubUnit(report.experimentAnalysisSettings) ?? undefined;
+  const isClusterExperiment = clusterSubUnitIdentifier !== undefined;
 
   // Re-check metric eligibility as the snapshot is built (not just at save
   // time). Cache per metric id so filtering and clusterLevelMetricIds share a
@@ -748,9 +746,8 @@ export function getReportSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: report.experimentAnalysisSettings.exposureQueryId,
     exposureQueryIdentifierType,
-    isClusterExperiment: report.experimentAnalysisSettings.isClusterExperiment,
-    clusterSubUnitIdentifier:
-      report.experimentAnalysisSettings.clusterSubUnitIdentifier,
+    isClusterExperiment: !!clusterSubUnitIdentifier,
+    clusterSubUnitIdentifier: clusterSubUnitIdentifier ?? undefined,
     ...(clusterLevelMetricIds.length ? { clusterLevelMetricIds } : {}),
     metricSettings,
     variations: report.experimentMetadata.variations.map((v, i) => ({
