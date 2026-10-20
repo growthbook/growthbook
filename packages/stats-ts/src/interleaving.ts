@@ -7,7 +7,7 @@ import { normQuantile, tCdf, tQuantile } from "./utils";
 // FrequentistTestResult so results map onto SnapshotMetric uniformly.
 //
 // pairedDeltaTest: Paired delta-method t-test. Requires engagement events
-//   joinable to impressions via interleave_id. Inputs are cross-user joint
+//   joinable to impressions via ranking_id. Inputs are cross-user joint
 //   sufficient statistics of the per-user triple (X, Y, N): X = credited
 //   metric total on treatment-drafted competitive items, Y = same for
 //   control, N = shared competitive-exposure denominator.

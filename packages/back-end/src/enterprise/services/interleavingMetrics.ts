@@ -5,7 +5,7 @@ import type {
 } from "shared/types/fact-table";
 import {
   InterleavingMetricConfig,
-  INTERLEAVING_INTERLEAVE_ID_COLUMN,
+  INTERLEAVING_RANKING_ID_COLUMN,
   INTERLEAVING_ITEM_ID_COLUMN,
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
@@ -85,10 +85,10 @@ export async function resolveInterleavingMetrics(
     // Paired analysis joins engagement per impression
     if (
       config.analyses.some((a) => a.type === "paired") &&
-      !hasColumn(INTERLEAVING_INTERLEAVE_ID_COLUMN)
+      !hasColumn(INTERLEAVING_RANKING_ID_COLUMN)
     ) {
       throw new Error(
-        `${label} ${metricId} needs an '${INTERLEAVING_INTERLEAVE_ID_COLUMN}' column on its fact table to be joined per impression`,
+        `${label} ${metricId} needs an '${INTERLEAVING_RANKING_ID_COLUMN}' column on its fact table to be joined per impression`,
       );
     }
     const { metricType, numerator } = metric;

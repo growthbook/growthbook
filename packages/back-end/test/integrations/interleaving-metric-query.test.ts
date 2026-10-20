@@ -11,14 +11,14 @@ const EXPOSURE_QUERY = `SELECT
   user_id,
   received_at as timestamp,
   properties->>'experimentId' as experiment_id,
-  properties->>'interleaveId' as interleave_id,
+  properties->>'rankingId' as ranking_id,
   properties->'items' as items
 FROM events
 WHERE event_name = 'Interleave Exposure'`;
 
 const cartTable = factTableFactory.build({
   id: "ft_cart",
-  sql: "SELECT user_id, timestamp, item_id, interleave_id, value, event_name FROM events",
+  sql: "SELECT user_id, timestamp, item_id, ranking_id, value, event_name FROM events",
   columns: [
     {
       column: "event_name",
@@ -95,7 +95,7 @@ describe("getInterleavingMetricQuery", () => {
 
     // Duplicate impression rows are dropped before unnesting
     expect(paired).toMatch(
-      /ROW_NUMBER\(\) OVER \(\s*PARTITION BY\s+e\.user_id,\s+e\.interleave_id\s+ORDER BY\s+e\.timestamp\s*\) AS rn/,
+      /ROW_NUMBER\(\) OVER \(\s*PARTITION BY\s+e\.user_id,\s+e\.ranking_id\s+ORDER BY\s+e\.timestamp\s*\) AS rn/,
     );
     expect(paired).toContain("e.rn = 1");
 
@@ -146,12 +146,12 @@ describe("getInterleavingMetricQuery", () => {
     expect(sql).toMatch(/SUM\(COALESCE\(ev\.value_2, 0\)\) AS value_2/);
   });
 
-  it("only selects interleave_id on exposures when paired needs it", () => {
+  it("only selects ranking_id on exposures when paired needs it", () => {
     const ownership = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
       metrics: [{ analysis: OWNERSHIP, metric: proportion }],
     });
-    expect(ownership).not.toContain("e.interleave_id AS interleave_id");
+    expect(ownership).not.toContain("e.ranking_id AS ranking_id");
     expect(ownership).toContain("ea.value_0 * ui.share_t, 0)) AS wins_t_0");
   });
 });

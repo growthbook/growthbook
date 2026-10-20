@@ -7,7 +7,7 @@ import {
 } from "shared/experiments";
 import {
   INTERLEAVING_EXPERIMENT_ID_COLUMN,
-  INTERLEAVING_INTERLEAVE_ID_COLUMN,
+  INTERLEAVING_RANKING_ID_COLUMN,
   INTERLEAVING_ITEM_FIELD_COMPETITIVE,
   INTERLEAVING_ITEM_FIELD_ITEM_ID,
   INTERLEAVING_ITEM_FIELD_VARIATION,
@@ -45,7 +45,7 @@ import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metri
  * aggregation via getAggregationMetadata), aggregated per user x item or
  * per user x impression x item.
  *
- * - "paired": engagement joined per impression x item via interleave_id
+ * - "paired": engagement joined per impression x item via ranking_id
  *   (NULL ids never satisfy the join) -> per-user (x, y, n) restricted to
  *   engaged impressions -> cross-user joint moments for the paired
  *   delta-method t-test. n counts treatment-drafted competitive exposures;
@@ -196,7 +196,7 @@ export function getInterleavingMetricQuery(
         ${cols([
           `e.${userIdType} AS user_id`,
           ...(includePaired
-            ? [`e.${INTERLEAVING_INTERLEAVE_ID_COLUMN} AS interleave_id`]
+            ? [`e.${INTERLEAVING_RANKING_ID_COLUMN} AS ranking_id`]
             : []),
           `${item(INTERLEAVING_ITEM_FIELD_ITEM_ID)} AS item_id`,
           `${teamExpr} AS team`,
@@ -206,7 +206,7 @@ export function getInterleavingMetricQuery(
         SELECT
           e.*,
           ROW_NUMBER() OVER (
-            PARTITION BY e.${userIdType}, e.${INTERLEAVING_INTERLEAVE_ID_COLUMN}
+            PARTITION BY e.${userIdType}, e.${INTERLEAVING_RANKING_ID_COLUMN}
             ORDER BY e.${ts}
           ) AS rn
         FROM (
@@ -240,7 +240,7 @@ export function getInterleavingMetricQuery(
     const timestamp = `m.${getFactTableTimestampColumn(factTable)}`;
     const keys = [
       userId,
-      ...(perImpression ? [`m.${INTERLEAVING_INTERLEAVE_ID_COLUMN}`] : []),
+      ...(perImpression ? [`m.${INTERLEAVING_RANKING_ID_COLUMN}`] : []),
       `m.${INTERLEAVING_ITEM_ID_COLUMN}`,
     ];
     const where = [dateFilter(timestamp), buildMinimalOrCondition(filterGroups)]
@@ -252,7 +252,7 @@ export function getInterleavingMetricQuery(
         ${cols([
           `${userId} AS user_id`,
           ...(perImpression
-            ? [`m.${INTERLEAVING_INTERLEAVE_ID_COLUMN} AS interleave_id`]
+            ? [`m.${INTERLEAVING_RANKING_ID_COLUMN} AS ranking_id`]
             : []),
           `m.${INTERLEAVING_ITEM_ID_COLUMN} AS item_id`,
           ...values.map((e) => `${e.value} AS value_${e.i}`),
@@ -274,10 +274,10 @@ export function getInterleavingMetricQuery(
   };
 
   // Events on the same impression x item as exposure row `e`, at or after
-  // it. NULL interleave_id events never match.
+  // it. NULL ranking_id events never match.
   const impressionJoin = (ev: string) => `ON (
         ${ev}.user_id = e.user_id
-        AND ${ev}.interleave_id = e.interleave_id
+        AND ${ev}.ranking_id = e.ranking_id
         AND ${ev}.item_id = e.item_id
         AND ${ev}.first_event_timestamp >= e.exposure_timestamp
       )`;
@@ -309,7 +309,7 @@ export function getInterleavingMetricQuery(
       SELECT
         ${cols([
           "e.user_id",
-          "e.interleave_id",
+          "e.ranking_id",
           "e.item_id",
           "e.team",
           ...plan.paired.map(
@@ -344,7 +344,7 @@ export function getInterleavingMetricQuery(
             ...plan.paired.map(
               (e) =>
                 `${dialect.ifElse(
-                  `SUM(c.value_${e.i}) OVER (PARTITION BY c.user_id, c.interleave_id) > 0`,
+                  `SUM(c.value_${e.i}) OVER (PARTITION BY c.user_id, c.ranking_id) > 0`,
                   "1",
                   "0",
                 )} AS eng_${e.i}`,

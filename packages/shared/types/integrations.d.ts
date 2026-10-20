@@ -1101,7 +1101,7 @@ export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
 // The metric's numerator (column, aggregation, row filters) is resolved with
 // the same helpers as experiment fact metrics.
 export interface InterleavingMetricQueryMetric {
-  // "paired" needs interleave_id on the metric's fact table; ownership only
+  // "paired" needs ranking_id on the metric's fact table; ownership only
   // needs item_id.
   analysis: InterleavingAnalysis;
   metric: FactMetricInterface;

@@ -18,7 +18,7 @@ import { namedSchema } from "./openapi-helpers";
 
 export const INTERLEAVING_TIMESTAMP_COLUMN = "timestamp";
 export const INTERLEAVING_EXPERIMENT_ID_COLUMN = "experiment_id";
-export const INTERLEAVING_INTERLEAVE_ID_COLUMN = "interleave_id";
+export const INTERLEAVING_RANKING_ID_COLUMN = "ranking_id";
 export const INTERLEAVING_ITEMS_COLUMN = "items";
 
 // Metric fact-table columns used for attribution joins
@@ -31,11 +31,11 @@ export const INTERLEAVING_ITEM_FIELD_VARIATION = "variation";
 export const INTERLEAVING_ITEM_FIELD_COMPETITIVE = "competitive";
 
 // Required output columns (plus the analyzed identifier column). One row per
-// impression; interleave_id is always required (the SDK always emits it).
+// impression; ranking_id is always required (the SDK always emits it).
 export const INTERLEAVING_EXPOSURE_REQUIRED_COLUMNS = [
   INTERLEAVING_TIMESTAMP_COLUMN,
   INTERLEAVING_EXPERIMENT_ID_COLUMN,
-  INTERLEAVING_INTERLEAVE_ID_COLUMN,
+  INTERLEAVING_RANKING_ID_COLUMN,
   INTERLEAVING_ITEMS_COLUMN,
 ] as const;
 
