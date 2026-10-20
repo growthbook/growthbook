@@ -17,13 +17,15 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
 
 function toApiEvaluation(r: FeatureTestResult, archived: boolean) {
-  const exp = r.result?.experimentResult;
+  // An archived flag isn't served, so it reports like a disabled environment
+  const result = archived ? undefined : r.result;
+  const exp = result?.experimentResult;
   return {
     environment: r.env,
     enabled: r.enabled && !archived,
-    value: r.result?.value ?? null,
-    source: r.result?.source ?? null,
-    ruleId: r.result?.ruleId || null,
+    value: result?.value ?? null,
+    source: result?.source ?? null,
+    ruleId: result?.ruleId || null,
     ...(exp
       ? {
           experiment: {
