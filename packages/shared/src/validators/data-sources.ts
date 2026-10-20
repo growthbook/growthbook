@@ -4,6 +4,7 @@ import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 import { apiInformationSchemaTableValidator } from "./information-schema-tables";
 
 import { namedSchema } from "./openapi-helpers";
+import { PROJECTS_DESCRIPTION } from "./api-field-descriptions";
 
 const pipelineSettingsValidator = z
   .object({
@@ -164,11 +165,12 @@ const dataSourceSettingsInput = {
         sql: z.string(),
         includesNameColumns: z.boolean().optional(),
         dimensionColumns: z.array(z.string()).optional(),
+        projects: z.array(z.string()).optional().describe(PROJECTS_DESCRIPTION),
       }),
     )
     .optional()
     .describe(
-      'Replaces the list. An entry with an existing `id` keeps `description`, `identifierTypes`, `includesNameColumns` and `dimensionColumns` if left out; clear the others with `""`, `false` or `[]`. Each query is validated against the warehouse.',
+      'Replaces the list. An entry with an existing `id` keeps `description`, `identifierTypes`, `includesNameColumns`, `dimensionColumns` and `projects` if left out; clear the others with `""`, `false` or `[]`. Each query is validated against the warehouse.',
     ),
   identifierJoinQueries: z
     .array(z.object({ identifierTypes: z.array(z.string()), sql: z.string() }))
@@ -231,6 +233,7 @@ export const postDataSourceValidator = {
   summary: "Create a data source",
   description:
     "Tests the connection before saving. Google Analytics and the managed warehouse are set up in the app, as are the default identifier types and queries for a built-in `eventTracker`: with one other than `custom`, send `assignmentQueries` too.",
+  confirmation: ["settings.dataSources"] as const,
   operationId: "postDataSource",
   tags: ["data-sources"],
   method: "post" as const,
@@ -280,6 +283,7 @@ export const updateDataSourceValidator = {
   summary: "Update a data source",
   description:
     'Fields left out keep their current values. To clear one, send an explicit empty value (`[]`, `""` or `false`).',
+  confirmation: ["settings.dataSources"] as const,
   operationId: "updateDataSource",
   tags: ["data-sources"],
   method: "post" as const,
@@ -294,6 +298,7 @@ export const deleteDataSourceValidator = {
   summary: "Delete a data source",
   description:
     "Refused while it's the organization default, metrics, fact metrics, fact tables, segments or dimensions still use it, or it has an Event Forwarder.",
+  confirmation: ["settings.dataSources"] as const,
   operationId: "deleteDataSource",
   tags: ["data-sources"],
   method: "delete" as const,
@@ -308,6 +313,7 @@ export const postDataSourceInformationSchemaRefreshValidator = {
   summary: "Refresh a data source's information schema",
   description:
     "Queues a background job that re-reads the warehouse's tables and columns, creating the schema if there isn't one yet.",
+  confirmation: ["other.write"] as const,
   operationId: "postDataSourceInformationSchemaRefresh",
   tags: ["data-sources"],
   method: "post" as const,
@@ -324,6 +330,7 @@ export const postInformationSchemaTableRefreshValidator = {
   summary: "Refresh one table's columns",
   description:
     "Re-reads the table's columns from the warehouse and returns the updated table. A failed read returns an error and leaves the stored columns as they were.",
+  confirmation: ["other.write"] as const,
   operationId: "postInformationSchemaTableRefresh",
   tags: ["information-schema-tables"],
   method: "post" as const,
