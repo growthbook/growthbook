@@ -3378,11 +3378,8 @@ export async function createSnapshotAnalysis(
     analysis,
   });
 
-  // Format data correctly
-  const queryMap = await getQueryMap(context, snapshot.queries);
-
-  // Run the analysis
   try {
+    const queryMap = await getQueryMap(context, snapshot.queries);
     const { results } = await analyzeExperimentResults({
       queryData: queryMap,
       snapshotSettings: snapshot.settings,
