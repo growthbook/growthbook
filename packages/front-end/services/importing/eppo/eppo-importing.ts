@@ -1445,7 +1445,11 @@ function artifactAction(
   if (!item.existingId) {
     return { action: "created", detail: "Created from Eppo" };
   }
-  if (category === "environments" || category === "tags") {
+  if (
+    category === "environments" ||
+    category === "tags" ||
+    category === "teams"
+  ) {
     return { action: "existing", detail: "Already in GrowthBook" };
   }
   return { action: "updated", detail: "Updated from Eppo" };
@@ -2276,7 +2280,7 @@ export async function runEppoImport({
 
     const recordExisting = (category: "environments" | "tags" | "teams") =>
       existingUntouched(category).forEach((i) =>
-        recorded.push({ item: i, id: i.key }),
+        recorded.push({ item: i, id: i.existingId ?? i.key }),
       );
 
     recordExisting("environments");
@@ -2300,6 +2304,7 @@ export async function runEppoImport({
     ctx.environmentIds = new Set([...existing.environments, ...createdEnvs]);
 
     recordExisting("tags");
+    const createdTags = new Set<string>();
     await importEach("tags", data.tags, async (item) => {
       if (item.existingId) return;
       await apiCall("/tag", {
@@ -2310,13 +2315,15 @@ export async function runEppoImport({
           color: "blue",
         }),
       });
+      createdTags.add(item.key);
       record(item, item.key);
     });
 
-    // A team becomes a tag on everything it owns
+    // A team becomes a tag on everything it owns. A tag of the same name
+    // created just above is reused rather than written again.
     recordExisting("teams");
     await importEach("teams", data.teams, async (item) => {
-      if (!item.existingId) {
+      if (!item.existingId && !createdTags.has(item.eppo.name)) {
         await apiCall("/tag", {
           method: "POST",
           body: JSON.stringify({
