@@ -25,7 +25,7 @@ const ExpiresCell: FC<{
   }
   // Pairs with the policy row's "N non-compliant" count, so admins can find them.
   return (
-    <Flex align="center" gap="2">
+    <Flex align="center" gap="2" wrap="wrap">
       <ExpiryText expiresAt={expiresAt} />
       <Tooltip
         content={`Your organization requires an expiration date within ${maxLifetimeDays} days.`}
