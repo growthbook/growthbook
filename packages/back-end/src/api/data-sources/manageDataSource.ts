@@ -74,6 +74,13 @@ export function applyApiDataSourceSettings(
     });
   }
   if (input.assignmentQueries) {
+    const ids = input.assignmentQueries.flatMap((q) => (q.id ? [q.id] : []));
+    const repeated = ids.find((id, i) => ids.indexOf(id) !== i);
+    if (repeated) {
+      throw new BadRequestError(
+        `Assignment query id \`${repeated}\` appears more than once`,
+      );
+    }
     const prev = new Map(
       (existing.queries?.exposure ?? []).map((q) => [q.id, q]),
     );
