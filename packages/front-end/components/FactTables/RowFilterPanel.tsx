@@ -96,18 +96,8 @@ export function RowFilterPanel({
         />
       </Flex>
 
-      {/* A zero basis keeps the filters out of the panel's natural height, so
-          that height is just the fixed controls plus the actions row (the min
-          height below). Past that, the filter list alone shrinks and scrolls,
-          and the actions stay right under it. */}
-      <Flex
-        direction="column"
-        gap="2"
-        flexGrow="1"
-        flexBasis={{ initial: "auto", sm: "0" }}
-        style={{ minHeight: "calc(var(--space-3) + var(--space-5) + 1px)" }}
-      >
-        <Flex direction="column" gap="2" minHeight="0" overflowY="auto">
+      <Flex direction="column" gap="2" flexGrow="1">
+        <Flex direction="column" gap="2">
           {local.map((filter, i) => (
             <RowFilterCard
               key={filter._localId}
