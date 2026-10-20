@@ -384,6 +384,8 @@ Instead of reading Langfuse or Phoenix, GrowthBook can store your OpenTelemetry 
    }).start();
    ```
 
+   Use the protobuf exporter (`exporter-trace-otlp-proto`, or `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` in other languages): large traces need it, because JSON requests are capped at 16MB.
+
 3. Turn on content capture. Most GenAI instrumentations only record prompts and completions when you opt in, for example with `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true` or the instrumentation's own option. Without it, spans still carry tokens, cost, and latency.
 4. Wrap each request in `withTracingContext`, so every span inside it gets `user.id`, the conversation id, and the experiments `gb` assigned:
 
