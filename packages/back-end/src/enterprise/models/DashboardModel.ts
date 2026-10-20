@@ -145,7 +145,12 @@ const BaseClass = MakeModelClass({
           await refreshDashboard(req.context, dashboard);
           const refreshed =
             (await dashboards.getById(dashboard.id)) ?? dashboard;
-          return { dashboard: dashboards.toApiInterface(refreshed) };
+          return {
+            dashboard: await resolveOwnerEmail(
+              dashboards.toApiInterface(refreshed),
+              req.context,
+            ),
+          };
         },
       }),
     ],
