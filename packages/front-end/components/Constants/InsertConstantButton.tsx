@@ -293,7 +293,7 @@ export default function InsertConstantButton({
   const glyph = (
     <span
       style={{
-        fontFamily: "monospace",
+        fontFamily: "var(--code-font-family)",
         fontWeight: 500,
         ...(small && { fontSize: "10px", letterSpacing: "-0.05em" }),
       }}

@@ -134,9 +134,6 @@ export interface Props {
   setEmptyStringConfirmed?: (confirmed: boolean) => void;
 }
 
-// One size for both JSON editors so toggling sparse doesn't resize.
-const CODE_FONT_SIZE = "0.75rem";
-
 export default function FeatureValueField({
   valueType,
   label,
@@ -683,7 +680,6 @@ export default function FeatureValueField({
         <Box mb="3">
           {sparseHeader}
           <SparseTabbedEditor
-            fontSize={CODE_FONT_SIZE}
             headerLeft={
               !sparseHeader && label !== undefined ? (
                 <Text as="label" weight="semibold" mb="0">
@@ -786,7 +782,6 @@ export default function FeatureValueField({
           defaultHeight={codeInputDefaultHeight}
           showCopyButton={!copyHidden}
           showFullscreenButton={showFullscreenButton}
-          fontSize={CODE_FONT_SIZE}
           slimGutter
           onEditorLoad={(e) => (jsonEditorRef.current = e)}
           highlightLines={codeEditorDiffLines}
@@ -1499,7 +1494,6 @@ function JSONCodeEditor({
         disabled={disabled}
         resizable
         defaultHeight={FIVE_LINES_HEIGHT}
-        fontSize={CODE_FONT_SIZE}
         slimGutter
         showCopyButton
         matchValueDisplay

@@ -272,7 +272,7 @@ function EditableKey({
         disabled={disabled}
         title={collision ? `"${trimmed}" is already in use` : undefined}
         style={{
-          fontFamily: "monospace",
+          fontFamily: "var(--code-font-family)",
           ...(invalid ? { borderColor: "var(--red-8)" } : {}),
         }}
       />

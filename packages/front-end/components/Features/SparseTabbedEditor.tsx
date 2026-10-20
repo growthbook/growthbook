@@ -26,7 +26,6 @@ export default function SparseTabbedEditor({
   disabled = false,
   defaultHeight,
   condensed = false,
-  fontSize,
   headerLeft,
   headerRight,
   onEditorLoad,
@@ -45,7 +44,6 @@ export default function SparseTabbedEditor({
   // and a shorter default editor height.
   condensed?: boolean;
   // Code font size for both tabs.
-  fontSize?: string;
   // Rendered on the tab row, either side of the tabs.
   headerLeft?: ReactNode;
   headerRight?: ReactNode;
@@ -163,7 +161,6 @@ export default function SparseTabbedEditor({
             resizable={!fullscreen}
             fullHeight={fullscreen}
             defaultHeight={sparseDefaultHeight}
-            fontSize={fontSize}
             slimGutter
             showCopyButton={true}
             showFullscreenButton={!fullscreen}
@@ -188,7 +185,6 @@ export default function SparseTabbedEditor({
               sparse={true}
               defaultValue={defaultValue}
               full={true}
-              fontSize={fontSize}
               fullStyle={
                 fullscreen
                   ? { minHeight: 300, maxWidth: "100%" }

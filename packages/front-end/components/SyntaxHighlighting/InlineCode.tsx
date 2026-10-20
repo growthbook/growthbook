@@ -5,7 +5,12 @@ import { createElement, createElementProps } from "react-syntax-highlighter";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { Language } from "./Code";
 import PrismFallback from "./PrismFallback";
-import { CODE_FONT_WEIGHT, CODE_LINE_HEIGHT, getCodeTheme } from "./codeTheme";
+import {
+  CODE_FONT_SIZE,
+  CODE_FONT_WEIGHT,
+  CODE_LINE_HEIGHT,
+  getCodeTheme,
+} from "./codeTheme";
 
 // Turn substrings of the highlighted code that match `pattern` (a regex with a
 // single capture group) into links. `getHref` receives the captured group; a
@@ -90,10 +95,8 @@ export interface Props {
   language: Language;
   className?: string;
   inTooltip?: boolean;
-  // 1-based line numbers to emphasize (e.g. the overridden keys of a sparse
-  // JSON value). When set, lines are wrapped and these render heavy while the
-  // rest are de-emphasized (lightened), so the highlighted lines stand out
-  // against Prism's already-semibold baseline.
+  // 1-based line numbers to bold (e.g. the overridden keys of a sparse JSON
+  // value).
   boldLines?: number[];
   // 1-based line numbers to tint, marking where values shown side by side
   // differ.
@@ -101,7 +104,7 @@ export interface Props {
   // When set, matching substrings of the rendered code become links (see
   // LinkifyConfig). Used to make `@const:key` references clickable.
   linkify?: LinkifyConfig;
-  // Override the rendered code font size (defaults to 0.85rem).
+  // Override the rendered code font size.
   fontSize?: string;
   // Tighter leading lets a dense surface (a variation card) fit more rows.
   lineHeight?: number;
@@ -119,7 +122,7 @@ export default function InlineCode({
   boldLines,
   highlightLines,
   linkify,
-  fontSize = "0.85rem",
+  fontSize = CODE_FONT_SIZE,
   lineHeight = CODE_LINE_HEIGHT,
   firstLineNumber = 1,
   monochrome = false,
@@ -196,12 +199,8 @@ export default function InlineCode({
                 renderedLine += 1;
                 return {
                   style: {
-                    // The Prism baseline is already semibold (600), so bolding
-                    // alone barely reads. Instead, in this mode we keep the
-                    // patched lines heavy and de-emphasize the rest so the
-                    // overrides pop.
-                    ...(boldLineSet && {
-                      fontWeight: boldLineSet.has(renderedLine) ? 800 : 200,
+                    ...(boldLineSet?.has(renderedLine) && {
+                      fontWeight: 700,
                     }),
                     ...(highlightLineSet?.has(renderedLine) &&
                       HIGHLIGHTED_LINE),

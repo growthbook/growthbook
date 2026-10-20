@@ -90,7 +90,7 @@ export default forwardRef<
     ...(truncate ? {} : { whiteSpace }),
   };
   if (textTransform) style.textTransform = textTransform;
-  if (mono) style.fontFamily = "var(--font-mono, monospace)";
+  if (mono) style.fontFamily = "var(--code-font-family)";
 
   if (color === "text-high") {
     style.color = "var(--color-text-high)";

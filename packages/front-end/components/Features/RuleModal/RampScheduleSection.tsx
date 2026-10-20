@@ -1674,7 +1674,7 @@ export default function RampScheduleSection({
       if ("force" in patch && !hideTemplateSave) {
         rows.push(
           <ReadOnlyEffectRow label="Default value">
-            <span style={{ fontFamily: "monospace" }}>
+            <span style={{ fontFamily: "var(--code-font-family)" }}>
               {patch.force ?? "null"}
             </span>
           </ReadOnlyEffectRow>,

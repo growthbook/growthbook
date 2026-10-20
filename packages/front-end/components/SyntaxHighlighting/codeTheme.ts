@@ -1,12 +1,55 @@
-import {
-  ghcolors,
-  tomorrow,
-} from "react-syntax-highlighter/dist/cjs/styles/prism";
+import { CSSProperties } from "react";
+import { ghcolors } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import { darkDeclaration } from "./darkColors";
 
 export type CodeTheme = typeof ghcolors;
 
-export const CODE_FONT_WEIGHT = 600;
+export const CODE_FONT_WEIGHT = 400;
+export const CODE_FONT_SIZE = "0.8rem";
 export const CODE_LINE_HEIGHT = 1.5;
+const CODE_FONT_FAMILY = "var(--code-font-family)";
+
+// The palette names its own fonts, which fall back to Courier where they're
+// missing; code uses the app's font instead.
+function withAppFont(theme: CodeTheme): CodeTheme {
+  return {
+    ...theme,
+    'code[class*="language-"]': {
+      ...theme['code[class*="language-"]'],
+      fontFamily: CODE_FONT_FAMILY,
+    },
+    'pre[class*="language-"]': {
+      ...theme['pre[class*="language-"]'],
+      fontFamily: CODE_FONT_FAMILY,
+    },
+  };
+}
+
+const COLOR_PROPERTIES = [
+  "color",
+  "background",
+  "backgroundColor",
+  "border",
+] as const;
+
+function toDark(style: CSSProperties): CSSProperties {
+  const dark = { ...style };
+  for (const property of COLOR_PROPERTIES) {
+    const value = dark[property];
+    if (typeof value === "string")
+      dark[property] = darkDeclaration(property, value);
+  }
+  return dark;
+}
+
+const LIGHT_THEME = withAppFont(ghcolors);
+// Dark is light inverted, not a palette of its own.
+const DARK_THEME: CodeTheme = Object.fromEntries(
+  Object.entries(LIGHT_THEME).map(([selector, style]) => [
+    selector,
+    toDark(style),
+  ]),
+);
 
 // The Prism palette code renders in. `inverted` flips it, for code shown on a
 // surface of the opposite appearance (a tooltip).
@@ -14,7 +57,7 @@ export function getCodeTheme(
   appearance: "light" | "dark",
   inverted = false,
 ): CodeTheme {
-  return (appearance === "light") !== inverted ? ghcolors : tomorrow;
+  return (appearance === "light") !== inverted ? LIGHT_THEME : DARK_THEME;
 }
 
 // Ace's token classes for each Prism token type.
@@ -46,8 +89,8 @@ const ACE_JSON_TOKENS: Record<string, string[]> = {
   property: [".ace_variable"],
 };
 
-// CSS that colors an Ace editor under `scope` like rendered code.
-export function getAceColorCss(
+// CSS that sets an Ace editor under `scope` in rendered code's type and colors.
+export function getAceCodeCss(
   scope: string,
   theme: CodeTheme,
   language: string,
@@ -60,16 +103,11 @@ export function getAceColorCss(
     const selector = classes.map((c) => `${scope} ${c}`).join(", ");
     return [`${selector} { color: ${color}; }`];
   });
-  return [base ? `${scope} .ace_content { color: ${base}; }` : "", ...rules]
+  return [
+    `${scope} .ace_editor { font-family: ${CODE_FONT_FAMILY}; font-size-adjust: var(--code-font-x-height); line-height: ${CODE_LINE_HEIGHT}; }`,
+    `${scope} .ace_content { font-weight: ${CODE_FONT_WEIGHT};${base ? ` color: ${base};` : ""} }`,
+    ...rules,
+  ]
     .filter(Boolean)
     .join("\n");
-}
-
-// CSS that sets an Ace editor's type under `scope` like rendered code.
-export function getAceTypeCss(scope: string, theme: CodeTheme): string {
-  const fontFamily = theme['code[class*="language-"]']?.fontFamily;
-  return [
-    `${scope} .ace_editor { ${fontFamily ? `font-family: ${fontFamily}; ` : ""}line-height: ${CODE_LINE_HEIGHT}; }`,
-    `${scope} .ace_content { font-weight: ${CODE_FONT_WEIGHT}; }`,
-  ].join("\n");
 }

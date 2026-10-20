@@ -30,6 +30,7 @@ import Modal from "@/components/Modal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
 import { CopyIcon, FullscreenIcon } from "@/ui/ActionIcons";
+import { CODE_FONT_SIZE } from "@/components/SyntaxHighlighting/codeTheme";
 import CornerActions, { ActionsOverlay } from "./CornerActions";
 import { useValueDiff } from "./ValueDiffContext";
 import { getFieldLineNumbers } from "./jsonFieldLines";
@@ -67,7 +68,7 @@ export default function ValueDisplay({
   defaultValue,
   fullscreenHeader = "Feature Value",
   linkify,
-  fontSize,
+  fontSize = CODE_FONT_SIZE,
   lineHeight,
   monochrome,
 }: {

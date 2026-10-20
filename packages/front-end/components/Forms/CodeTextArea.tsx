@@ -18,10 +18,11 @@ import { CursorData } from "@/components/Segments/SegmentForm";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import {
-  getAceColorCss,
-  getAceTypeCss,
+  CODE_FONT_SIZE,
+  getAceCodeCss,
   getCodeTheme,
 } from "@/components/SyntaxHighlighting/codeTheme";
+import { darkCss } from "@/components/SyntaxHighlighting/darkColors";
 import { CopyIcon, FullscreenIcon } from "@/ui/ActionIcons";
 import Field, { FieldProps } from "./Field";
 import styles from "./CodeTextArea.module.scss";
@@ -40,12 +41,32 @@ interface AceEditorProps extends IAceEditorProps {
 interface AceModule {
   config: { setModuleUrl: (path: string, url: string) => void };
   require: (path: string) => unknown;
+  define: (
+    name: string,
+    deps: string[],
+    factory: (
+      require: (path: string) => unknown,
+      exports: Record<string, unknown>,
+    ) => void,
+  ) => void;
+}
+
+interface AceTheme {
+  cssClass: string;
+  cssText: string;
+}
+
+interface AceDom {
+  importCssString: (cssText: string, id: string, target?: boolean) => void;
 }
 
 interface LangTools {
   setCompleters: (completers: unknown[]) => void;
   addCompleter: (completer: unknown) => void;
 }
+
+const LIGHT_THEME = "textmate";
+const DARK_THEME = "textmate_dark";
 
 const AceEditor = dynamic(
   async () => {
@@ -76,7 +97,6 @@ const AceEditor = dynamic(
       import("ace-builds/src-min-noconflict/mode-golang"),
       import("ace-builds/src-min-noconflict/mode-rust"),
       import("ace-builds/src-min-noconflict/theme-textmate"),
-      import("ace-builds/src-min-noconflict/theme-tomorrow_night"),
     ]);
 
     // Workers: raw-loader gives us source; create blob: URLs for Ace
@@ -104,6 +124,28 @@ const AceEditor = dynamic(
     ).Tokenizer.prototype.$setMaxTokenCount(100_000);
 
     const langTools = aceTyped.require("ace/ext/language_tools") as LangTools;
+
+    // Dark is the light theme inverted, not a theme of its own.
+    const light = aceTyped.require(`ace/theme/${LIGHT_THEME}`) as AceTheme;
+    const darkClass = `${light.cssClass}-dark`;
+    const darkCssText = darkCss(light.cssText).replaceAll(
+      `.${light.cssClass}`,
+      `.${darkClass}`,
+    );
+    aceTyped.define(
+      `ace/theme/${DARK_THEME}`,
+      ["require", "exports", "ace/lib/dom"],
+      (require, exports) => {
+        exports.isDark = true;
+        exports.cssClass = darkClass;
+        exports.cssText = darkCssText;
+        (require("ace/lib/dom") as AceDom).importCssString(
+          darkCssText,
+          darkClass,
+          false,
+        );
+      },
+    );
 
     // Return a wrapper component that handles completions
     const AceEditorWithCompletions = (props: AceEditorProps) => {
@@ -246,9 +288,8 @@ export type Props = CodeTextAreaFieldProps & {
   // Exposes the underlying Ace editor once loaded, so a parent can do cursor-
   // aware edits (e.g. inserting a token at the cursor).
   onEditorLoad?: (editor: Ace.Editor) => void;
-  // A value's editor: typeset and framed like the value's display, with quieter
-  // chrome (no print margin, cursor line only while focused, scrollbars only
-  // on hover).
+  // A value's editor: framed like the value's display, with quieter chrome (no
+  // print margin, cursor line only while focused, scrollbars only on hover).
   matchValueDisplay?: boolean;
   // 1-based lines to highlight, marking fields that differ from sibling values.
   highlightLines?: number[];
@@ -315,9 +356,6 @@ type AceRange = new (
   endColumn: number,
 ) => Ace.Range;
 
-const LIGHT_THEME = "textmate";
-const DARK_THEME = "tomorrow_night";
-
 export default function CodeTextArea({
   language,
   value,
@@ -326,7 +364,7 @@ export default function CodeTextArea({
   minLines = 10,
   maxLines = 50,
   paddingTop = 0,
-  fontSize = "1em",
+  fontSize = CODE_FONT_SIZE,
   slimGutter = false,
   setCursorData,
   fullHeight,
@@ -492,8 +530,7 @@ export default function CodeTextArea({
                 flex: 1;
                 overflow: hidden;
               }
-              ${getAceColorCss(editorScope, codeTheme, language)}
-              ${matchValueDisplay ? getAceTypeCss(editorScope, codeTheme) : ""}
+              ${getAceCodeCss(editorScope, codeTheme, language)}
             `}</style>
             <div
               id={editorUid}
