@@ -2,7 +2,10 @@ import { CommercialFeature } from "shared/enterprise";
 import { OrganizationSettings } from "shared/types/organization";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import { ReqContext } from "back-end/types/request";
-import { validateOrgSettingsUpdate } from "back-end/src/services/orgSettings";
+import {
+  assertCanUpdateOrgSettings,
+  validateOrgSettingsUpdate,
+} from "back-end/src/services/orgSettings";
 
 function makeContext(
   settings: OrganizationSettings,
@@ -120,5 +123,78 @@ describe("validateOrgSettingsUpdate", () => {
         topValuesLookbackValue: 366,
       }),
     ).toThrow("between 1 and 365");
+  });
+});
+
+describe("assertCanUpdateOrgSettings", () => {
+  const allowed = {
+    canManageOrgSettings: false,
+    canManageTeam: false,
+    canManageNorthStarMetric: false,
+    canCreateSDKConnection: false,
+  };
+  function contextWith(grants: Partial<typeof allowed>) {
+    const can = { ...allowed, ...grants };
+    return {
+      permissions: {
+        canManageOrgSettings: () => can.canManageOrgSettings,
+        canManageTeam: () => can.canManageTeam,
+        canManageNorthStarMetric: () => can.canManageNorthStarMetric,
+        canCreateSDKConnection: () => can.canCreateSDKConnection,
+        throwPermissionError: () => {
+          throw new Error("permission denied");
+        },
+      },
+    } as unknown as ReqContext;
+  }
+
+  it("needs org settings permission for ordinary settings", () => {
+    expect(() =>
+      assertCanUpdateOrgSettings(contextWith({}), { statsEngine: "bayesian" }),
+    ).toThrow("permission denied");
+    expect(() =>
+      assertCanUpdateOrgSettings(contextWith({ canManageOrgSettings: true }), {
+        statsEngine: "bayesian",
+      }),
+    ).not.toThrow();
+  });
+
+  it("checks each special-cased setting against its own permission", () => {
+    expect(() =>
+      assertCanUpdateOrgSettings(contextWith({ canManageTeam: true }), {
+        defaultRole: null,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertCanUpdateOrgSettings(
+        contextWith({ canManageNorthStarMetric: true }),
+        { northStar: null },
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertCanUpdateOrgSettings(
+        contextWith({ canCreateSDKConnection: true }),
+        {
+          visualEditorEnabled: true,
+        },
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertCanUpdateOrgSettings(contextWith({ canManageOrgSettings: true }), {
+        defaultRole: null,
+      }),
+    ).toThrow("permission denied");
+  });
+
+  it("refuses settings that have their own endpoints", () => {
+    expect(() =>
+      assertCanUpdateOrgSettings(contextWith({ canManageOrgSettings: true }), {
+        environments: [],
+      }),
+    ).toThrow("with their own endpoints");
+  });
+
+  it("checks nothing for an empty update", () => {
+    expect(() => assertCanUpdateOrgSettings(contextWith({}), {})).not.toThrow();
   });
 });
