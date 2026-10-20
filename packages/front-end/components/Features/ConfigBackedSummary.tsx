@@ -259,15 +259,17 @@ export default function ConfigBackedSummary({
         configKey={configKey}
         name={config?.name ?? configKey}
         badges={
+          // In the order they apply: the Config's environment overrides,
+          // then this value's own.
           <>
-            {!isDefault && resolved ? (
-              <ConfigOverridesBadge fields={resolved.overrideFields} />
-            ) : null}
             <ConfigEnvironmentsBadge
               configKey={configKey}
               project={feature.project || ""}
               environment={environment ?? null}
             />
+            {!isDefault && resolved ? (
+              <ConfigOverridesBadge fields={resolved.overrideFields} />
+            ) : null}
           </>
         }
       />

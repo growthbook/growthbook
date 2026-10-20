@@ -173,6 +173,7 @@ export default function ContextualBanditRefSummary({
                               : null;
                           return configKey !== null ? (
                             <ConfigBackedSummary
+                              label={null}
                               value={ruleVariation.value}
                               configKey={configKey}
                               feature={feature}

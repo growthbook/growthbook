@@ -307,6 +307,16 @@ export default function ExperimentRefSummary({
                             </Text>
                           </Flex>
                         </TableCell>
+                        {!isBandit && (
+                          <TableCell
+                            style={{
+                              color: "var(--color-text-mid)",
+                              textAlign: "right",
+                            }}
+                          >
+                            {percentFormatter.format(weight)}
+                          </TableCell>
+                        )}
                         <TableCell width="100%">
                           {isMissing ? (
                             <HelperText status="warning">
@@ -314,9 +324,9 @@ export default function ExperimentRefSummary({
                             </HelperText>
                           ) : (
                             (() => {
-                              // Config-backed arms render "SERVE ConfigName" like
-                              // force rules — never the raw `@config:` directive.
-                              // Only a config-backed feature resolves configs.
+                              // Config-backed arms render the config's name —
+                              // never the raw `@config:` directive. Only a
+                              // config-backed feature resolves configs.
                               const baseConfigKey =
                                 getFeatureBaseConfigKey(feature);
                               const configKey =
@@ -327,6 +337,7 @@ export default function ExperimentRefSummary({
                               if (configKey !== null) {
                                 return (
                                   <ConfigBackedSummary
+                                    label={null}
                                     value={value}
                                     configKey={configKey}
                                     feature={feature}
@@ -353,16 +364,6 @@ export default function ExperimentRefSummary({
                             })()
                           )}
                         </TableCell>
-                        {!isBandit && (
-                          <TableCell
-                            style={{
-                              color: "var(--color-text-mid)",
-                              textAlign: "right",
-                            }}
-                          >
-                            {percentFormatter.format(weight)}
-                          </TableCell>
-                        )}
                       </TableRow>
                     );
                   })}

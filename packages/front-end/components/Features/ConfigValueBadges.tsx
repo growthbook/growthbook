@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Box } from "@radix-ui/themes";
 import { getConfigAncestorKeys, selectScopedOverride } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
@@ -44,6 +45,23 @@ export function useConfigOverrideEnvironments(
   }, [configs, environments, configKey, project]);
 }
 
+// "a, b, and c", with each item bolded.
+function StrongList({ items }: { items: string[] }) {
+  return (
+    <>
+      {listFormat
+        .formatToParts(items)
+        .map((part, i) =>
+          part.type === "element" ? (
+            <strong key={i}>{part.value}</strong>
+          ) : (
+            part.value
+          ),
+        )}
+    </>
+  );
+}
+
 export function ConfigOverridesBadge({ fields }: { fields: string[] }) {
   if (!fields.length) return null;
   return (
@@ -59,8 +77,8 @@ export function ConfigOverridesBadge({ fields }: { fields: string[] }) {
   );
 }
 
-// Without an environment, flags that the shown value isn't what every
-// environment serves.
+// Counts the Config's environment overrides in every view; the tooltip says
+// whether the values shown have the viewed environment's applied.
 export function ConfigEnvironmentsBadge({
   configKey,
   project,
@@ -74,22 +92,39 @@ export function ConfigEnvironmentsBadge({
     configKey,
     project,
   );
-  if (environment !== null) {
-    if (!overrideEnvironments.includes(environment)) return null;
-    return (
-      <Tooltip
-        content={`The Config has an environment override for ${environment}.`}
-      >
-        <Badge size="xs" color="gray" label="Environment override" />
-      </Tooltip>
-    );
-  }
   if (!overrideEnvironments.length) return null;
   return (
     <Tooltip
-      content={`The Config has environment overrides for ${listFormat.format(overrideEnvironments)}. The values shown don't include them.`}
+      content={
+        <>
+          <div>
+            The Config has environment overrides for{" "}
+            <StrongList items={overrideEnvironments} />.
+          </div>
+          <Box mt="2">
+            {environment === null ? (
+              "The values shown don't include them."
+            ) : overrideEnvironments.includes(environment) ? (
+              <>
+                Showing the Config with <strong>{environment}</strong> overrides
+                applied.
+              </>
+            ) : (
+              <>
+                <strong>{environment}</strong> has none.
+              </>
+            )}
+          </Box>
+        </>
+      }
     >
-      <Badge size="xs" color="gray" label="Varies by environment" />
+      <Badge
+        size="xs"
+        color="gray"
+        label={`${overrideEnvironments.length} environment ${
+          overrideEnvironments.length === 1 ? "override" : "overrides"
+        }`}
+      />
     </Tooltip>
   );
 }
