@@ -55,6 +55,7 @@ import {
   getAllMetricIdsFromExperiment,
   getClusterExperimentMetricEligibility,
   getClusterMetricAnalysisLevel,
+  ClusterMetricAnalysisLevel,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandDerivedMetricsInMap,
@@ -600,6 +601,87 @@ export function isJoinableMetric({
   );
 }
 
+export type SnapshotMetricEligibility = {
+  allowed: boolean;
+  reason?: string;
+  clusterLevel: ClusterMetricAnalysisLevel | null;
+};
+
+/**
+ * Metric eligibility must be re-checked every time a snapshot is built, not
+ * only when the experiment/report is saved: a metric group can be edited, a
+ * metric's type can change to quantile, a fact table can drop a column, or a
+ * report's metrics can change through an endpoint with no cluster check.
+ */
+export function getSnapshotMetricEligibility({
+  metricId,
+  metricMap,
+  factTableMap,
+  datasource,
+  exposureQueryIdentifierType,
+  clusterSubUnitIdentifier,
+}: {
+  metricId: string;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+  datasource?: DataSourceInterface;
+  exposureQueryIdentifierType?: string;
+  clusterSubUnitIdentifier?: string | null;
+}): SnapshotMetricEligibility {
+  if (!clusterSubUnitIdentifier) {
+    return {
+      allowed: isJoinableMetric({
+        metricId,
+        metricMap,
+        factTableMap,
+        identifierType: exposureQueryIdentifierType,
+        datasource,
+      }),
+      clusterLevel: null,
+    };
+  }
+
+  const metric = metricMap.get(metricId);
+  if (!metric) {
+    // Be lenient and let unknown metrics through; the query builder surfaces
+    // missing metrics.
+    return { allowed: true, clusterLevel: null };
+  }
+
+  const getFactTable = (factTableId: string) => factTableMap.get(factTableId);
+
+  const eligibility = getClusterExperimentMetricEligibility(metric, {
+    clusterIdentifier: exposureQueryIdentifierType,
+    clusterSubUnitIdentifier,
+    getFactTable,
+    datasourceSettings: datasource?.settings,
+  });
+  if (!eligibility.allowed) {
+    return { allowed: false, reason: eligibility.reason, clusterLevel: null };
+  }
+
+  // Eligibility already guarantees a fact metric with a resolvable level, but
+  // resolve it explicitly so callers can build clusterLevelMetricIds in the
+  // same pass.
+  const clusterLevel = isFactMetric(metric)
+    ? getClusterMetricAnalysisLevel(metric, {
+        clusterIdentifier: exposureQueryIdentifierType,
+        clusterSubUnitIdentifier,
+        getFactTable,
+        datasourceSettings: datasource?.settings,
+      })
+    : null;
+  if (!clusterLevel) {
+    return {
+      allowed: false,
+      reason: "this metric has no valid cluster analysis level.",
+      clusterLevel: null,
+    };
+  }
+
+  return { allowed: true, clusterLevel };
+}
+
 export function getSnapshotSettings({
   experiment,
   phaseIndex,
@@ -667,26 +749,29 @@ export function getSnapshotSettings({
   const clusterSubUnitIdentifier = experiment.isClusterExperiment
     ? experiment.clusterSubUnitIdentifier
     : undefined;
-  const metricJoinIdentifierType =
-    clusterSubUnitIdentifier ?? exposureQueryIdentifierType;
-  // In a cluster experiment, metrics that can't reach the sub-unit are analyzed
-  // per cluster instead.
-  const isJoinable = (metricId: string) =>
-    isJoinableMetric({
+
+  // Re-check metric eligibility as the snapshot is built (not just at save
+  // time). Cache per metric id so filtering and clusterLevelMetricIds share a
+  // single pass. See getSnapshotMetricEligibility.
+  const metricEligibilityCache = new Map<string, SnapshotMetricEligibility>();
+  const getMetricEligibility = (
+    metricId: string,
+  ): SnapshotMetricEligibility => {
+    const cached = metricEligibilityCache.get(metricId);
+    if (cached) return cached;
+    const eligibility = getSnapshotMetricEligibility({
       metricId,
       metricMap,
       factTableMap,
-      identifierType: metricJoinIdentifierType,
       datasource,
-    }) ||
-    (!!clusterSubUnitIdentifier &&
-      isJoinableMetric({
-        metricId,
-        metricMap,
-        factTableMap,
-        identifierType: exposureQueryIdentifierType,
-        datasource,
-      }));
+      exposureQueryIdentifierType,
+      clusterSubUnitIdentifier,
+    });
+    metricEligibilityCache.set(metricId, eligibility);
+    return eligibility;
+  };
+  const isEligible = (metricId: string) =>
+    getMetricEligibility(metricId).allowed;
 
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
@@ -729,19 +814,19 @@ export function getSnapshotSettings({
       ? eligiblePrecomputedUnitDimensionIds
       : [];
 
-  // expand metric groups and scrub unjoinable metrics
+  // expand metric groups and scrub metrics that can't be analyzed
   let goalMetrics = expandMetricGroups(
     experiment.goalMetrics,
     metricGroups,
-  ).filter(isJoinable);
+  ).filter(isEligible);
   let secondaryMetrics = expandMetricGroups(
     experiment.secondaryMetrics,
     metricGroups,
-  ).filter(isJoinable);
+  ).filter(isEligible);
   let guardrailMetrics = expandMetricGroups(
     experiment.guardrailMetrics,
     metricGroups,
-  ).filter(isJoinable);
+  ).filter(isEligible);
 
   // filter invalid metrics (holdouts)
   if (experiment.type === "holdout") {
@@ -827,24 +912,11 @@ export function getSnapshotSettings({
     )
     .filter(isDefined);
 
-  const clusterLevelMetricIds =
-    clusterSubUnitIdentifier && datasource
-      ? metricSettings
-          .map((m) => m.id)
-          .filter((id) => {
-            const metric = metricMap.get(id);
-            return (
-              !!metric &&
-              isFactMetric(metric) &&
-              getClusterMetricAnalysisLevel(metric, {
-                clusterIdentifier: exposureQueryIdentifierType,
-                clusterSubUnitIdentifier,
-                getFactTable: (factTableId) => factTableMap.get(factTableId),
-                datasourceSettings: datasource.settings,
-              }) === "cluster"
-            );
-          })
-      : [];
+  const clusterLevelMetricIds = clusterSubUnitIdentifier
+    ? metricSettings
+        .map((m) => m.id)
+        .filter((id) => getMetricEligibility(id).clusterLevel === "cluster")
+    : [];
 
   // JIT initialize banditEvents in memory if missing
   if (
