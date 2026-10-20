@@ -18,7 +18,7 @@ Options:
   --entities <map>      dbt entity -> identifier type, e.g. customer=user_id,visitor=anonymous_id
   --select <list>       only sync these metrics/models (name globs or tag:<tag>)
   --exclude <list>      never sync these metrics/models (name globs or tag:<tag>)
-  --dry-run             validate against the API without writing
+  --dry-run             validate against the API without writing (with --prune, lists what would be archived)
   --strict              exit 1 if anything was skipped
   --prune               archive dbt-managed Fact Tables/Metrics on the Data Source that are no longer in dbt (and unarchive ones that return)
   --out <path>          write the payload to a file instead of calling the API
@@ -176,14 +176,17 @@ async function main() {
   };
   await bulk(true);
   console.log("Validation passed");
-  if (args["dry-run"]) return;
+  if (args["dry-run"]) {
+    if (args.prune) await prune(api, apiError, args.datasource, payload, true);
+    return;
+  }
   const res = await bulk(false);
   console.log(
     `Fact tables: ${res.factTablesAdded ?? 0} added, ${res.factTablesUpdated ?? 0} updated. ` +
       `Metrics: ${res.factMetricsAdded ?? 0} added, ${res.factMetricsUpdated ?? 0} updated.`,
   );
 
-  if (args.prune) await prune(api, apiError, args.datasource, payload);
+  if (args.prune) await prune(api, apiError, args.datasource, payload, false);
 }
 
 async function prune(
@@ -191,6 +194,7 @@ async function prune(
   apiError: (what: string, r: ApiResult) => Error,
   datasource: string,
   payload: BulkImportPayload,
+  dryRun: boolean,
 ) {
   const listAll = async (path: string, key: string) => {
     const items: ManagedItem[] = [];
@@ -216,6 +220,10 @@ async function prune(
     return items;
   };
   const setArchived = async (path: string, id: string, archived: boolean) => {
+    if (dryRun) {
+      console.log(`Would ${archived ? "archive" : "unarchive"} ${id}`);
+      return;
+    }
     const r = await api(`${path}/${id}`, {
       method: "POST",
       body: JSON.stringify({ archived }),

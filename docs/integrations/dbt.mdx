@@ -107,7 +107,7 @@ npx @growthbook/dbt sync --datasource ds_abc123 --select tag:growthbook
 npx @growthbook/dbt sync --datasource ds_abc123 --exclude 'stg_*,internal_revenue'
 ```
 
-By default, metrics removed from dbt stay in GrowthBook. Add `--prune` to archive dbt-managed Fact Tables and Fact Metrics on the Data Source that are no longer produced by the sync. Resources created any other way, including through the API, are never touched. They are archived rather than deleted so existing experiment results keep working, and they are unarchived automatically if they reappear in dbt. Because a selected subset is not the full picture, `--prune` cannot be combined with `--select` or `--exclude`; metrics disabled with `meta.growthbook.enabled: false` are still archived.
+By default, metrics removed from dbt stay in GrowthBook. Add `--prune` to archive dbt-managed Fact Tables and Fact Metrics on the Data Source that are no longer produced by the sync. Resources created any other way, including through the API, are never touched. They are archived rather than deleted so existing experiment results keep working, and they are unarchived automatically if they reappear in dbt. Combine `--prune` with `--dry-run` to list what would be archived or unarchived without changing anything. Because a selected subset is not the full picture, `--prune` cannot be combined with `--select` or `--exclude`; metrics disabled with `meta.growthbook.enabled: false` are still archived.
 
 ## Overrides
 
@@ -164,7 +164,7 @@ growthbook-dbt sync --datasource <ds_id> [options]
   --entities <map>      dbt entity -> identifier type, e.g. customer=user_id
   --select <list>       only sync these metrics/models (name globs or tag:<tag>)
   --exclude <list>      never sync these metrics/models
-  --dry-run             validate against the API without writing
+  --dry-run             validate against the API without writing (with --prune, lists what would be archived)
   --strict              exit 1 if anything was skipped
   --prune               archive dbt-managed resources no longer in dbt
   --out <path>          write the payload to a file instead of calling the API
