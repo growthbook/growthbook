@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { entityTypes } from "../constants";
 import { namedSchema } from "./openapi-helpers";
+import { eventUserRequestedBy } from "./event-user";
 
 const cursorQuery = {
   limit: z.coerce
@@ -46,6 +47,13 @@ export const apiAuditValidator = namedSchema(
             .string()
             .optional()
             .describe("Id of the API key that made the change"),
+          requestedBy: eventUserRequestedBy
+            .optional()
+            .describe("The member named with `X-GrowthBook-Requested-By`"),
+          assumedRole: z
+            .boolean()
+            .optional()
+            .describe("Whether the key assumed the named member's role"),
           system: z.boolean().optional(),
         })
         .describe("Who made the change: a member, an API key, or the system"),
