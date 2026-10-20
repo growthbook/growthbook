@@ -39,11 +39,15 @@ const PopulationSearchFilters: FC<
     [datasources, populations],
   );
 
+  // A Population with no Projects is in all of them, so it makes every Project
+  // a useful filter.
   const usedProjects = useMemo(
     () =>
-      projects.filter((proj) =>
-        populations.some((p) => p.projects.includes(proj.id)),
-      ),
+      populations.some((p) => !p.projects.length)
+        ? projects
+        : projects.filter((proj) =>
+            populations.some((p) => p.projects.includes(proj.id)),
+          ),
     [projects, populations],
   );
 

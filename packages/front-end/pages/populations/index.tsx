@@ -84,6 +84,8 @@ export default function PopulationsPage() {
       id: (item) => item.id,
       owner: (item) => [item.owner, item.ownerName],
       datasource: (item) => [item.datasource, item.datasourceName],
+      // An empty list means the Population is in every Project, matching how
+      // ProjectBadges shows it as "All Projects".
       project: (item) => {
         const ids = item.projects.length
           ? item.projects
