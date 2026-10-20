@@ -223,13 +223,13 @@ export default function FinishSettingUp({
     }
   }, [exposureQuerySkipped]);
   const [identifierMode, setIdentifierMode] = useState<IdentifierMode>("view");
-  // Rows the user has left out of this Data Source.
+  // Rows the user has left out of this Data Source. Checkboxes write this
+  // directly. A snapshot taken when editing starts is restored on cancel.
   const [excludedKeys, setExcludedKeys] = useState<string[]>(() =>
     getExcludedKeys(dataSource, hashAttributeNames),
   );
-  // Checkbox state while editing; discarded on cancel.
-  const [editSelection, setEditSelection] = useState<Record<string, boolean>>(
-    {},
+  const [excludedBeforeEdit, setExcludedBeforeEdit] = useState<string[] | null>(
+    null,
   );
   // Attributes created from this page get a "New" badge until saved.
   const [initialAttributes] = useState(() => hashAttributeNames);
@@ -295,9 +295,6 @@ export default function FinishSettingUp({
   ];
   const includedRows = identifierRows.filter((row) => row.included);
   const excludedRows = identifierRows.filter((row) => !row.included);
-  const selectedCount = identifierRows.filter(
-    (row) => editSelection[row.key],
-  ).length;
 
   const dataSourceName =
     dataSourceConnections.find((c) => c.type === dataSource.type)?.display ??
@@ -305,6 +302,7 @@ export default function FinishSettingUp({
 
   const openIdentifiers = () => {
     setExcludedKeys(getExcludedKeys(dataSource, hashAttributeNames));
+    setExcludedBeforeEdit(null);
     setIdentifierMode("view");
     setIdentifierError(null);
     setExpandedStep("identifiers");
@@ -312,18 +310,13 @@ export default function FinishSettingUp({
 
   const startEditing = () => {
     setIdentifierError(null);
-    setEditSelection(
-      Object.fromEntries(identifierRows.map((row) => [row.key, row.included])),
-    );
+    setExcludedBeforeEdit([...excludedKeys]);
     setIdentifierMode("edit");
   };
 
-  const applySelection = () => {
-    setExcludedKeys(
-      identifierRows
-        .filter((row) => !editSelection[row.key])
-        .map((row) => row.key),
-    );
+  const cancelEditing = () => {
+    if (excludedBeforeEdit !== null) setExcludedKeys(excludedBeforeEdit);
+    setExcludedBeforeEdit(null);
     setIdentifierMode("view");
   };
 
@@ -543,13 +536,16 @@ export default function FinishSettingUp({
                     leading={
                       <Checkbox
                         size="sm"
-                        value={!!editSelection[row.key]}
+                        value={row.included}
                         disabled={row.managed}
                         setValue={(checked) =>
-                          setEditSelection((prev) => ({
-                            ...prev,
-                            [row.key]: checked,
-                          }))
+                          setExcludedKeys((keys) =>
+                            checked
+                              ? keys.filter((key) => key !== row.key)
+                              : keys.includes(row.key)
+                                ? keys
+                                : [...keys, row.key],
+                          )
                         }
                       />
                     }
@@ -632,16 +628,20 @@ export default function FinishSettingUp({
               {identifierMode === "edit" ? (
                 <>
                   <Flex gap="3" align="center">
-                    <Button onClick={applySelection}>Save</Button>
                     <Button
-                      variant="ghost"
-                      onClick={() => setIdentifierMode("view")}
+                      onClick={() => {
+                        setExcludedBeforeEdit(null);
+                        setIdentifierMode("view");
+                      }}
                     >
+                      Save
+                    </Button>
+                    <Button variant="ghost" onClick={cancelEditing}>
                       Cancel
                     </Button>
                   </Flex>
                   <Text size="sm" color="text-mid">
-                    {selectedCount} of {identifierRows.length} selected
+                    {includedRows.length} of {identifierRows.length} selected
                   </Text>
                 </>
               ) : (
