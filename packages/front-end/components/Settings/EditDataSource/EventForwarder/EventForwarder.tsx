@@ -632,6 +632,9 @@ export default function EventForwarder({
   const forwarderLimit = usageData?.limits.eventForwarderEvents;
   const forwardedThisMonth =
     usageData?.usage.reduce((sum, u) => sum + u.eventForwarderEvents, 0) ?? 0;
+  // "over" is the advertised stop (what the nav and docs say); `blocked` is the
+  // real one and only decides whether Resume is offered.
+  const isOverLimit = isMetered && usage?.eventForwarder?.status === "over";
   const isBlocked = isMetered && !!usage?.eventForwarder?.blocked;
   const eventsForwarderFlag = useFeatureValue(
     "events-forwarder-multi-step",
@@ -700,12 +703,12 @@ export default function EventForwarder({
               ) : (
                 <Badge
                   label={
-                    isBlocked
+                    isOverLimit
                       ? "Limit reached"
                       : statusLabels[eventForwarderConfig.status]
                   }
                   color={
-                    isBlocked
+                    isOverLimit
                       ? "amber"
                       : statusColors[eventForwarderConfig.status]
                   }
@@ -913,7 +916,7 @@ export default function EventForwarder({
               />
             </Flex>
 
-            {isBlocked ? (
+            {isOverLimit ? (
               <Callout
                 status="warning"
                 action={
@@ -923,9 +926,12 @@ export default function EventForwarder({
                 }
               >
                 Forwarding has stopped for the rest of the month: this
-                organization reached its monthly event limit. It starts again on
-                the 1st, or right away on a Pro or Enterprise plan
-                {isPaused ? " once you resume" : ""}.
+                organization reached its monthly event limit. Events received
+                while it is stopped are not delivered. It starts again on the
+                1st, or right away on a Pro or Enterprise plan.
+                {isPaused
+                  ? " Because it is also paused, resume it after that."
+                  : ""}
               </Callout>
             ) : null}
             {showUpgrade ? (
