@@ -42,7 +42,26 @@ type MetricOption = {
   managedBy?: string;
   disabled?: boolean;
   disabledReason?: string;
+  archived?: boolean;
 };
+
+export function ArchivedLabel({
+  archived,
+  children,
+}: {
+  archived?: boolean;
+  children: ReactNode;
+}) {
+  if (!archived) return <>{children}</>;
+  return (
+    <Flex align="center" gap="1">
+      {children}
+      <Text size="sm" color="text-low">
+        (archived)
+      </Text>
+    </Flex>
+  );
+}
 
 type MetricsSelectorTooltipProps = {
   onlyBinomial?: boolean;
@@ -150,8 +169,10 @@ const MetricsSelector: FC<{
   const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
     metrics,
+    _metricsIncludingArchived,
     metricGroups,
     factMetrics,
+    _factMetricsIncludingArchived,
     getExperimentMetricById,
     getFactTableById,
     getDatasourceById,
@@ -175,9 +196,46 @@ const MetricsSelector: FC<{
     ? resolveAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
     : undefined;
 
+  // Already-selected metrics stay as options when archived (or when their fact
+  // table is), otherwise editing the list would silently drop them.
+  const { metricsWithSelected, factMetricsWithSelected, archivedIds } =
+    useMemo(() => {
+      const selectedIds = new Set(selected);
+      const activeIds = new Set([
+        ...metrics.map((m) => m.id),
+        ...factMetrics.map((m) => m.id),
+      ]);
+      const isArchivedSelection = (id: string) =>
+        selectedIds.has(id) && !activeIds.has(id);
+      const archivedMetrics = _metricsIncludingArchived.filter((m) =>
+        isArchivedSelection(m.id),
+      );
+      const archivedFactMetrics = _factMetricsIncludingArchived.filter((m) =>
+        isArchivedSelection(m.id),
+      );
+      return {
+        metricsWithSelected: [...metrics, ...archivedMetrics],
+        factMetricsWithSelected: [...factMetrics, ...archivedFactMetrics],
+        archivedIds: new Set([
+          ...archivedMetrics.map((m) => m.id),
+          ...archivedFactMetrics.map((m) => m.id),
+          ...metricGroups
+            .filter((mg) => mg.archived && selectedIds.has(mg.id))
+            .map((mg) => mg.id),
+        ]),
+      };
+    }, [
+      selected,
+      metrics,
+      factMetrics,
+      metricGroups,
+      _metricsIncludingArchived,
+      _factMetricsIncludingArchived,
+    ]);
+
   const filteredOptions = useMemo(() => {
     const options: MetricOption[] = [
-      ...(noLegacyMetrics ? [] : metrics)
+      ...(noLegacyMetrics ? [] : metricsWithSelected)
         .filter((m) => {
           if (filterConversionWindowMetrics) {
             return m?.windowSettings?.type !== "conversion";
@@ -211,10 +269,11 @@ const MetricsSelector: FC<{
             managedBy: m.managedBy,
             disabled: disabledInfo.disabled,
             disabledReason: disabledInfo.reason,
+            archived: archivedIds.has(m.id),
           };
         }),
       ...(includeFacts
-        ? factMetrics
+        ? factMetricsWithSelected
             .filter((m) => {
               if (quantileMetricType(m) && excludeQuantiles) {
                 return false;
@@ -255,12 +314,13 @@ const MetricsSelector: FC<{
                 isGroup: false,
                 disabled: disabledInfo.disabled,
                 disabledReason: disabledInfo.reason,
+                archived: archivedIds.has(m.id),
               };
             })
         : []),
       ...(includeGroups
         ? metricGroups
-            .filter((mg) => !mg.archived)
+            .filter((mg) => !mg.archived || archivedIds.has(mg.id))
             .map((mg) => {
               const disabledInfo = getMetricDisabledInfo?.(mg.id, true) || {
                 disabled: false,
@@ -278,6 +338,7 @@ const MetricsSelector: FC<{
                 metrics: mg.metrics,
                 disabled: disabledInfo.disabled,
                 disabledReason: disabledInfo.reason,
+                archived: archivedIds.has(mg.id),
               };
             })
         : []),
@@ -290,8 +351,9 @@ const MetricsSelector: FC<{
       .filter((m) => m.joinable)
       .filter((m) => isProjectListValidForProject(m.projects, project));
   }, [
-    metrics,
-    factMetrics,
+    metricsWithSelected,
+    factMetricsWithSelected,
+    archivedIds,
     getFactTableById,
     metricGroups,
     datasource,
@@ -467,17 +529,19 @@ const MetricsSelector: FC<{
         ? groupMetricsJoinableMap.get(value) || []
         : [];
       return (
-        <MetricName
-          id={value}
-          showDescription={context !== "value"}
-          isGroup={isGroup}
-          metrics={metricsWithJoinableStatus}
-          filterConversionWindowMetrics={filterConversionWindowMetrics}
-          badgeColor={
-            context !== "value" ? "var(--blue-11)" : "var(--violet-11)"
-          }
-          officialBadgePosition="left"
-        />
+        <ArchivedLabel archived={option?.archived}>
+          <MetricName
+            id={value}
+            showDescription={context !== "value"}
+            isGroup={isGroup}
+            metrics={metricsWithJoinableStatus}
+            filterConversionWindowMetrics={filterConversionWindowMetrics}
+            badgeColor={
+              context !== "value" ? "var(--blue-11)" : "var(--violet-11)"
+            }
+            officialBadgePosition="left"
+          />
+        </ArchivedLabel>
       );
     },
     [
@@ -501,16 +565,18 @@ const MetricsSelector: FC<{
     ({ value, label }: SingleValue, { context }: { context: string }) => {
       if (!value) return label;
       return (
-        <MetricName
-          id={value}
-          showDescription={context !== "value"}
-          badgeColor={
-            context !== "value" ? "var(--blue-11)" : "var(--violet-11)"
-          }
-        />
+        <ArchivedLabel archived={filteredOptionsMap.get(value)?.archived}>
+          <MetricName
+            id={value}
+            showDescription={context !== "value"}
+            badgeColor={
+              context !== "value" ? "var(--blue-11)" : "var(--violet-11)"
+            }
+          />
+        </ArchivedLabel>
       );
     },
-    [],
+    [filteredOptionsMap],
   );
 
   const selectorDisabled = disabled || (requireDatasource && !datasource);
