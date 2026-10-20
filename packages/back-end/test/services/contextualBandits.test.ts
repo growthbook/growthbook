@@ -156,6 +156,15 @@ function makeCbs(
   } as ContextualBanditSnapshotInterface;
 }
 
+// Minimal frozenSettings carrying just the variation ids the results view needs.
+function frozenVariations(
+  ids: string[],
+): ContextualBanditSnapshotInterface["frozenSettings"] {
+  return {
+    variations: ids.map((id) => ({ id, weight: 1 / ids.length })),
+  } as ContextualBanditSnapshotInterface["frozenSettings"];
+}
+
 function makeResult(
   overrides: Partial<ContextualBanditResult> = {},
 ): ContextualBanditResult {
@@ -1193,6 +1202,7 @@ describe("getContextualBanditResultsForUi", () => {
     } as ContextualBanditSnapshotInterface;
     const cbe = {
       id: "cbe_1",
+      snapshotId: "cbs_1",
       attributes: ["country"],
       responses: [
         {
@@ -1233,6 +1243,123 @@ describe("getContextualBanditResultsForUi", () => {
     expect(results.latestSnapshotSummary).toEqual(
       toContextualBanditSnapshotStatusSummary(cbs),
     );
+  });
+
+  it("labels decision results with the event's own snapshot variations, not the health fallback", async () => {
+    const cb = makeCb();
+    // Newest run froze [v0, v2] after v1 was removed; its event has already
+    // landed, but the snapshot has no health results yet.
+    const newestSnapshot = makeCbs({
+      id: "cbs_new",
+      status: "running",
+      frozenSettings: frozenVariations(["v0", "v2"]),
+    });
+    // Older completed run (the health fallback) still froze the old
+    // [v0, v1, v2] arm set.
+    const completedSnapshot = makeCbs({
+      id: "cbs_old",
+      status: "success",
+      frozenSettings: frozenVariations(["v0", "v1", "v2"]),
+      srm: {
+        statistic: 1,
+        pValue: 0.5,
+        degreesOfFreedom: 2,
+        multipleExposures: 0,
+      },
+      traffic: {
+        overall: { name: "", srm: 0.5, variationUnits: [10, 20, 30] },
+        dimension: {},
+      },
+    });
+    const cbe = {
+      id: "cbe_new",
+      snapshotId: "cbs_new",
+      attributes: [],
+      responses: [],
+    };
+    const getBySnapshotIdInOrg = jest.fn();
+
+    const context = {
+      models: {
+        contextualBanditSnapshots: {
+          getLatestForContextualBandit: jest
+            .fn()
+            .mockResolvedValue(newestSnapshot),
+          getLatestCompletedForContextualBandit: jest
+            .fn()
+            .mockResolvedValue(completedSnapshot),
+          getBySnapshotIdInOrg,
+        },
+        contextualBanditEvents: {
+          getLatestForContextualBandit: jest.fn().mockResolvedValue(cbe),
+        },
+      },
+    } as unknown as ReqContext;
+
+    const results = await getContextualBanditResultsForUi(context, cb);
+
+    // Decision ids track the event's own frozen run, not the fallback run...
+    expect(results.snapshotVariationIds).toEqual(["v0", "v2"]);
+    // ...the latest snapshot is reused directly (it is the event's snapshot)...
+    expect(getBySnapshotIdInOrg).not.toHaveBeenCalled();
+    // ...while the health payload still comes from the completed fallback run.
+    expect(results.traffic?.overall.variationUnits).toEqual([10, 20, 30]);
+  });
+
+  it("looks up the event's snapshot by id when the newest run is a different, newer snapshot", async () => {
+    const cb = makeCb();
+    // A brand-new refresh is in-flight (no event of its own yet)...
+    const newestSnapshot = makeCbs({
+      id: "cbs_newest",
+      status: "running",
+      frozenSettings: frozenVariations(["v0", "v1"]),
+    });
+    // ...but the latest event still points at the prior completed run, which
+    // froze [v0, v2]. Its variations must drive the decision-result labels.
+    const eventSnapshot = makeCbs({
+      id: "cbs_prev",
+      status: "success",
+      frozenSettings: frozenVariations(["v0", "v2"]),
+      srm: {
+        statistic: 1,
+        pValue: 0.5,
+        degreesOfFreedom: 1,
+        multipleExposures: 0,
+      },
+      traffic: {
+        overall: { name: "", srm: 0.5, variationUnits: [40, 60] },
+        dimension: {},
+      },
+    });
+    const cbe = {
+      id: "cbe_prev",
+      snapshotId: "cbs_prev",
+      attributes: [],
+      responses: [],
+    };
+    const getBySnapshotIdInOrg = jest.fn().mockResolvedValue(eventSnapshot);
+
+    const context = {
+      models: {
+        contextualBanditSnapshots: {
+          getLatestForContextualBandit: jest
+            .fn()
+            .mockResolvedValue(newestSnapshot),
+          getLatestCompletedForContextualBandit: jest
+            .fn()
+            .mockResolvedValue(eventSnapshot),
+          getBySnapshotIdInOrg,
+        },
+        contextualBanditEvents: {
+          getLatestForContextualBandit: jest.fn().mockResolvedValue(cbe),
+        },
+      },
+    } as unknown as ReqContext;
+
+    const results = await getContextualBanditResultsForUi(context, cb);
+
+    expect(getBySnapshotIdInOrg).toHaveBeenCalledWith("cbs_prev");
+    expect(results.snapshotVariationIds).toEqual(["v0", "v2"]);
   });
 
   it("preserves the previous completed run's health payload while the newest snapshot is in-flight", async () => {

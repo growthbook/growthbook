@@ -1593,6 +1593,15 @@ export async function getContextualBanditResultsForUi(
           cb.id,
         );
 
+  // Resolve the decision snapshot independently and keep the fallback health IDs separate.
+  const decisionSnapshot = latestEvent
+    ? latestSnapshot?.id === latestEvent.snapshotId
+      ? latestSnapshot
+      : await context.models.contextualBanditSnapshots.getBySnapshotIdInOrg(
+          latestEvent.snapshotId,
+        )
+    : null;
+
   const contextualBanditSnapshot: ContextualBanditSnapshot | null = latestEvent
     ? {
         attributes: latestEvent.attributes,
@@ -1612,7 +1621,7 @@ export async function getContextualBanditResultsForUi(
     : null;
 
   const snapshotVariationIds =
-    resultsSnapshot?.frozenSettings?.variations?.map((v) => v.id) ?? null;
+    decisionSnapshot?.frozenSettings?.variations?.map((v) => v.id) ?? null;
 
   return {
     contextualBanditSnapshot,
