@@ -541,7 +541,7 @@ export async function cancelRunningAggregatedFactTableRun(
 
   const datasource = await getDataSourceById(context, run.datasourceId);
   if (!datasource) {
-    throw new Error("Could not find datasource for this run");
+    throw new Error("Could not find the Data Source for this run.");
   }
 
   const integration = getSourceIntegrationObject(context, datasource, true);

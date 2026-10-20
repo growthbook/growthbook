@@ -269,10 +269,13 @@ export async function refreshDashboard(
   if (dashboard.experimentId) {
     const experiment = await getExperimentById(context, dashboard.experimentId);
     if (!experiment)
-      throw new Error("Cannot update dashboard without an attached experiment");
+      throw new Error(
+        "Cannot update dashboard without an attached experiment.",
+      );
 
     const datasource = await getDataSourceById(context, experiment.datasource);
-    if (!datasource) throw new Error("Failed to find connected datasource");
+    if (!datasource)
+      throw new Error("Could not find the connected Data Source.");
 
     // Fail fast before createExperimentSnapshotModel persists an orphan snapshot
     // record. The query runner enforces this same permission again downstream.
