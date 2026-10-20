@@ -5189,9 +5189,7 @@ export function postExperimentApiPayloadToInterface(
 
 export type UpdateExperimentApiPayload = z.infer<
   typeof updateExperimentValidator.bodySchema
-> & {
-  assignmentQueryIdentifierType?: string;
-};
+>;
 
 function toActivePhaseVariations(
   canonicalVariations: ExperimentInterface["variations"],
@@ -5409,7 +5407,6 @@ export function updateExperimentApiPayloadToInterface(
     owner,
     datasourceId,
     assignmentQueryId,
-    assignmentQueryIdentifierType,
     isClusterExperiment,
     clusterSubUnitIdentifier,
     hashAttribute,
@@ -5466,9 +5463,6 @@ export function updateExperimentApiPayloadToInterface(
     ...(owner !== undefined ? { owner } : {}),
     ...(datasourceId ? { datasource: datasourceId } : {}),
     ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
-    ...(assignmentQueryIdentifierType !== undefined
-      ? { exposureQueryIdentifierType: assignmentQueryIdentifierType }
-      : {}),
     ...(isClusterExperiment !== undefined ? { isClusterExperiment } : {}),
     ...(clusterSubUnitIdentifier !== undefined
       ? { clusterSubUnitIdentifier }
