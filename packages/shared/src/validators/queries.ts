@@ -171,6 +171,7 @@ export const postQueryCancelValidator = {
   summary: "Cancel a running query",
   description:
     "Also asks the warehouse to stop it where the integration supports that. Needs permission to run queries on the data source.",
+  confirmation: ["other.write"] as const,
   operationId: "postQueryCancel",
   tags: ["queries"],
   method: "post" as const,
