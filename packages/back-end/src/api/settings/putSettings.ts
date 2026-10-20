@@ -90,7 +90,8 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
     const k = key as keyof OrganizationSettings;
     if (value === null) {
       delete settings[k];
-      unset.push(k);
+      // Reads rebuild a reset field from its stored predecessor, so clear both
+      unset.push(k, ...(LEGACY_SETTING_KEYS[k] ?? []));
       Object.assign(changes, { [k]: undefined });
     } else if (value !== undefined) {
       Object.assign(set, { [k]: value });
@@ -189,6 +190,13 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
   const updated = (await findOrganizationById(org.id)) ?? { ...org, settings };
   return { settings: toApiSettings(updated) };
 });
+
+const LEGACY_SETTING_KEYS: Partial<
+  Record<keyof OrganizationSettings, (keyof OrganizationSettings)[]>
+> = {
+  postStratificationEnabled: ["postStratificationDisabled"],
+  visualEditorEnabled: ["implementationTypes"],
+};
 
 // Compares values the way a client saw them in the JSON response.
 function toJson(value: unknown): unknown {
