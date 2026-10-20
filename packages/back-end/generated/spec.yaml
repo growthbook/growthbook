@@ -35226,14 +35226,6 @@ paths:
                     - type: string
                       pattern: ^(https?:\/\/|$)
                     - type: 'null'
-                aiEnabled:
-                  anyOf:
-                    - type: boolean
-                    - type: 'null'
-                aiAskDataEnabled:
-                  anyOf:
-                    - type: boolean
-                    - type: 'null'
                 disabledAgentSkills:
                   anyOf:
                     - description: AI Assistant skills turned off for the organization
@@ -35379,6 +35371,16 @@ paths:
                   anyOf:
                     - type: boolean
                     - type: 'null'
+                aiEnabled:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: boolean
+                aiAskDataEnabled:
+                  description: >-
+                    Read-only. Accepted only when equal to the value `GET
+                    /settings` returns; any other value is rejected.
+                  type: boolean
                 restApiBypassesReviews:
                   description: >-
                     Read-only. Accepted only when equal to the value `GET
@@ -35477,12 +35479,6 @@ paths:
                   type: array
                   items:
                     $ref: '#/components/schemas/TargetingReviewRule'
-                acceptAiTerms:
-                  description: >-
-                    Records acceptance of the AI terms on behalf of the
-                    organization. Required on GrowthBook Cloud the first time
-                    `aiEnabled` is turned on.
-                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -77495,10 +77491,6 @@ components:
         codeRefsPlatformUrl:
           type: string
           pattern: ^(https?:\/\/|$)
-        aiEnabled:
-          type: boolean
-        aiAskDataEnabled:
-          type: boolean
         disabledAgentSkills:
           description: AI Assistant skills turned off for the organization
           type: array
@@ -77610,6 +77602,10 @@ components:
             - environments
           additionalProperties: false
         blockFileUploads:
+          type: boolean
+        aiEnabled:
+          type: boolean
+        aiAskDataEnabled:
           type: boolean
         restApiBypassesReviews:
           type: boolean
