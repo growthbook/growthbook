@@ -4,14 +4,18 @@ import pick from "lodash/pick";
 import pickBy from "lodash/pickBy";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { hasVisualChanges } from "shared/util";
+import { hasVisualChanges, isDefined } from "shared/util";
 import {
   VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "shared/types/visual-changeset";
-import { ApiVisualChangeset } from "shared/validators";
+import {
+  ApiVisualChangeset,
+  ContextualBanditInterface,
+} from "shared/validators";
 import { ReqContext } from "back-end/types/request";
+import type { CbVisualExperiment } from "back-end/src/services/contextualBanditPayload";
 import { visualChangesetsHaveChanges } from "back-end/src/services/experiments";
 import type {
   ChangesetOwner,
@@ -211,6 +215,16 @@ export async function findVisualChangesetsByContextualBandit(
   return changesets.map(toInterface);
 }
 
+export async function deleteVisualChangesetsByContextualBandit(
+  contextualBanditId: string,
+  organization: string,
+): Promise<void> {
+  await VisualChangesetModel.deleteMany({
+    organization,
+    contextualBandit: contextualBanditId,
+  });
+}
+
 export async function findVisualChangesetsByContextualBanditIds(
   contextualBanditIds: string[],
   organization: string,
@@ -225,6 +239,47 @@ export async function findVisualChangesetsByContextualBanditIds(
     query = query.sort({ _id: -1 }).limit(limit);
   }
   return (await query).map(toInterface);
+}
+
+const cbOwnedFilter = (context: ReqContext | ApiReqContext) => ({
+  organization: context.org.id,
+  contextualBandit: { $exists: true, $ne: null },
+});
+
+export async function getContextualBanditsWithVisualChangesets(
+  context: ReqContext | ApiReqContext,
+): Promise<ContextualBanditInterface[]> {
+  const ids: unknown[] = await VisualChangesetModel.distinct(
+    "contextualBandit",
+    cbOwnedFilter(context),
+  );
+  return context.models.contextualBandits.getUnarchivedByIds(
+    ids.filter((id): id is string => typeof id === "string" && id !== ""),
+  );
+}
+
+export async function getAllCbVisualExperiments(
+  context: ReqContext | ApiReqContext,
+): Promise<CbVisualExperiment[]> {
+  const changesets = (
+    await VisualChangesetModel.find(cbOwnedFilter(context))
+  ).map(toInterface);
+
+  if (!changesets.length) return [];
+
+  const cbs = await context.models.contextualBandits.getUnarchivedByIds(
+    Array.from(
+      new Set(changesets.map((c) => c.contextualBandit).filter(isDefined)),
+    ),
+  );
+  const cbById = new Map(cbs.map((cb) => [cb.id, cb]));
+
+  return changesets.flatMap((visualChangeset) => {
+    const contextualBandit =
+      visualChangeset.contextualBandit &&
+      cbById.get(visualChangeset.contextualBandit);
+    return contextualBandit ? [{ contextualBandit, visualChangeset }] : [];
+  });
 }
 
 export async function createVisualChange(
