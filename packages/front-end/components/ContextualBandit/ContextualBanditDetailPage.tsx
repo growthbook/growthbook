@@ -94,6 +94,7 @@ export default function ContextualBanditDetailPage({
   cb,
   mutate,
   canRun = false,
+  canArchive = false,
   editOverview,
   editAnalysisMetrics,
   editVariations,
@@ -110,6 +111,7 @@ export default function ContextualBanditDetailPage({
   cb: ApiContextualBanditInterface;
   mutate: () => void;
   canRun?: boolean;
+  canArchive?: boolean;
   editOverview?: () => void;
   editAnalysisMetrics?: () => void;
   editVariations?: () => void;
@@ -130,6 +132,7 @@ export default function ContextualBanditDetailPage({
     cb.datasource,
   );
   const [confirmStop, setConfirmStop] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [showStart, setShowStart] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
@@ -284,6 +287,13 @@ export default function ContextualBanditDetailPage({
     });
     mutate();
   };
+  const setArchived = async (archived: boolean) => {
+    await restApiCall(contextualBanditEndpoints.updateContextualBandit, {
+      params: { id: cb.id },
+      body: { archived },
+    });
+    mutate();
+  };
 
   const renderMetricList = (ids: string[]): ReactNode =>
     ids.length ? (
@@ -383,6 +393,19 @@ export default function ContextualBanditDetailPage({
                   }}
                 >
                   Duplicate
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            ) : null}
+            {canArchive ? <DropdownMenuSeparator /> : null}
+            {canArchive ? (
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    setConfirmArchive(true);
+                  }}
+                >
+                  {cb.archived ? "Unarchive" : "Archive"}
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             ) : null}
@@ -766,6 +789,27 @@ export default function ContextualBanditDetailPage({
             setConfirmStop(false);
           }}
           onCancel={() => setConfirmStop(false)}
+        />
+      ) : null}
+      {confirmArchive ? (
+        <ConfirmDialog
+          title={
+            cb.archived
+              ? "Unarchive this Contextual Bandit?"
+              : "Archive this Contextual Bandit?"
+          }
+          content={
+            cb.archived
+              ? "It will show up in the main list again and can be edited and started."
+              : "It will move to the Archived tab and can't be edited or started until it is unarchived."
+          }
+          yesText={cb.archived ? "Unarchive" : "Archive"}
+          color={cb.archived ? "violet" : "red"}
+          onConfirm={async () => {
+            await setArchived(!cb.archived);
+            setConfirmArchive(false);
+          }}
+          onCancel={() => setConfirmArchive(false)}
         />
       ) : null}
     </Box>

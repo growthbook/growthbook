@@ -94,6 +94,9 @@ const ContextualBanditPage = (): ReactElement => {
   const canRun =
     !cb.archived &&
     permissionsUtil.canRunContextualBandit({ project: cb.project }, envs);
+  const canArchive =
+    permissionsUtil.canViewContextualBanditModal(cb.project) &&
+    cb.status !== "running";
 
   return (
     <>
@@ -109,6 +112,7 @@ const ContextualBanditPage = (): ReactElement => {
           cb={cb}
           mutate={mutate}
           canRun={canRun}
+          canArchive={canArchive}
           editOverview={canEdit ? () => setOverviewModalOpen(true) : undefined}
           editAnalysisMetrics={
             canEdit ? () => setAnalysisMetricsModalOpen(true) : undefined

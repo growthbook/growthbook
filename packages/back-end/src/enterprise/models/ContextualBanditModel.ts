@@ -113,6 +113,11 @@ const BaseClass = MakeModelClass({
           if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
             req.context.permissions.throwPermissionError();
           }
+          if (cb.archived) {
+            throw new Error(
+              "Unarchive this contextual bandit before starting it",
+            );
+          }
           const linkedFeatures = await getContextualBanditLinkedFeatureInfo(
             req.context,
             cb,
@@ -353,6 +358,13 @@ export class ContextualBanditModel extends BaseClass {
     doc: ContextualBanditInterface,
     previousDoc?: ContextualBanditInterface,
   ): Promise<void> {
+    if (doc.archived && doc.status === "running") {
+      throw new Error(
+        previousDoc?.archived
+          ? "Unarchive this contextual bandit before starting it"
+          : "Stop this contextual bandit before archiving it",
+      );
+    }
     // Only re-validate the decision metric when it (or the datasource) changes
     // so that CBs whose metric was deleted after the fact can still be
     // updated (e.g. unlinked).
