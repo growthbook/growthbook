@@ -152,7 +152,7 @@ const apiInterleavingVariationInput = z.strictObject({
 const apiInterleavingVariationsInput = z
   .tuple([apiInterleavingVariationInput, apiInterleavingVariationInput])
   .describe(
-    "Exactly two rankers. Users who aren't interleaved get the first ranker's list.",
+    "Exactly two rankers. Users who are not exposed to interleaved rankings get the first ranker's list.",
   );
 
 export const apiInterleavingValidator = namedSchema(
