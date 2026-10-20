@@ -1,13 +1,14 @@
 import { useRouter } from "next/router";
-import { FC, useCallback, useState } from "react";
+import { FC, useCallback, useEffect, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   isManagedWarehouseAwaitingProvisioning,
   supportsEventForwarder,
 } from "shared/util";
 import { isSampleDatasource } from "shared/demo-datasource";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiDotsThreeVertical, PiLinkBold } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
@@ -19,7 +20,7 @@ import {
 } from "@/services/dataRegions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
-import { DocLink, DocSection } from "@/components/DocLink";
+import { DocLink } from "@/components/DocLink";
 import { DataSourceInlineEditIdentifierTypes } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
 import { DataSourceInlineEditIdentityJoins } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
 import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
@@ -41,12 +42,9 @@ import FinishSettingUp, {
   useExposureQuerySkipped,
 } from "@/components/DataSourceSetup/FinishSettingUp";
 import Badge from "@/ui/Badge";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/ui/DropdownMenu";
 import Callout from "@/ui/Callout";
+import ConfirmDialog from "@/ui/ConfirmDialog";
+import ProjectBadges from "@/components/ProjectBadges";
 import Frame from "@/ui/Frame";
 import ClickhouseManagedWarehouseIdentifiers from "@/components/Settings/EditDataSource/ClickhouseManagedWarehouseIdentifiers";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
@@ -61,15 +59,140 @@ import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBEdit } from "@/components/Icons";
 import DataSourceDescription from "@/components/Settings/EditDataSource/DataSourceDescription";
 import LinkButton from "@/ui/LinkButton";
-import AddEventTrackerModal, {
-  getAddableEventTrackers,
-} from "@/components/Settings/EditDataSource/AddEventTrackerModal";
+import Button from "@/ui/Button";
+import Explorer from "@/enterprise/components/ProductAnalytics/Explorer";
+import DataList from "@/ui/DataList";
+import TextField from "@/ui/TextField";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import { DataSourceUsage } from "@/pages/datasources/queries/[did]";
+
+const CONNECTION_DETAIL_FIELDS: { key: string; label: string }[] = [
+  { key: "host", label: "Host" },
+  { key: "server", label: "Server" },
+  { key: "url", label: "URL" },
+  { key: "accessUrl", label: "Access URL" },
+  { key: "account", label: "Account" },
+  { key: "port", label: "Port" },
+  { key: "database", label: "Database" },
+  { key: "user", label: "User" },
+  { key: "username", label: "Username" },
+  { key: "defaultSchema", label: "Schema" },
+  { key: "schema", label: "Schema" },
+  { key: "catalog", label: "Catalog" },
+  { key: "projectId", label: "Project" },
+  { key: "defaultProject", label: "Default project" },
+  { key: "defaultDataset", label: "Default dataset" },
+  { key: "warehouse", label: "Warehouse" },
+  { key: "role", label: "Role" },
+  { key: "region", label: "Region" },
+  { key: "workGroup", label: "Workgroup" },
+  { key: "path", label: "HTTP path" },
+  { key: "viewId", label: "View" },
+  { key: "authType", label: "Authentication" },
+  { key: "authMethod", label: "Authentication" },
+];
+
+function getConnectionDetails(
+  datasource: DataSourceInterfaceWithParams,
+): { label: string; value: string }[] {
+  const params = datasource.params;
+  if (!params || typeof params !== "object") return [];
+  const record = params as Record<string, unknown>;
+  return CONNECTION_DETAIL_FIELDS.flatMap(({ key, label }) => {
+    if (!(key in record)) return [];
+    const value = record[key];
+    if (typeof value !== "string" && typeof value !== "number") return [];
+    if (value === "") return [];
+    return [{ label, value: String(value) }];
+  });
+}
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
     return name;
   }
   return JSON.stringify(name);
+}
+
+function ResourceReferenceList({
+  title,
+  items,
+  emptyText,
+}: {
+  title: string;
+  items: { id: string; name: string; href: string }[] | null;
+  emptyText: string;
+}) {
+  return (
+    <Box>
+      <Heading as="h3" size="sm" mb="2">
+        {title}
+      </Heading>
+      {items === null ? (
+        <Text color="text-mid">Loading…</Text>
+      ) : items.length > 0 ? (
+        <Flex direction="column" gap="1">
+          {items.map((item) => (
+            <Link key={item.id} href={item.href}>
+              {item.name}
+            </Link>
+          ))}
+        </Flex>
+      ) : (
+        <Text color="text-mid">{emptyText}</Text>
+      )}
+    </Box>
+  );
+}
+
+function MixpanelTrackingInstructions({
+  dataSource,
+}: {
+  dataSource: DataSourceInterfaceWithParams;
+}) {
+  return (
+    <Box>
+      <Heading size="sm" as="h3" mb="1">
+        Mixpanel Tracking Instructions
+      </Heading>
+      <Text as="p" mb="3">
+        This example is for JavaScript and uses the settings above. Other
+        languages should be similar.
+      </Text>
+      <Code
+        language="javascript"
+        code={`
+// Tracking Callback for GrowthBook SDK
+const growthbook = new GrowthBook({
+  ...,
+  trackingCallback: function(experiment, result) {
+    mixpanel.track(${JSON.stringify(
+      dataSource.settings?.events?.experimentEvent || "$experiment_started",
+    )}, {
+      ${quotePropertyName(
+        dataSource.settings?.events?.experimentIdProperty || "Experiment name",
+      )}: experiment.key,
+      ${quotePropertyName(
+        dataSource.settings?.events?.variationIdProperty || "Variant name",
+      )}:  result.variationId,
+      $source: 'growthbook'
+    })
+  }
+})
+
+// When Mixpanel loads, pass the distinct_id into the SDK
+mixpanel.init('YOUR PROJECT TOKEN', {
+  loaded: function(mixpanel) {
+    growthbook.setAttributes({
+      ...growthbook.getAttributes(),
+      id: mixpanel.get_distinct_id()
+    })
+  }
+})
+        `.trim()}
+      />
+    </Box>
+  );
 }
 
 export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
@@ -80,10 +203,13 @@ const DataSourcePage: FC = () => {
   const newDataSourceOnboarding = useNewDataSourceOnboarding();
   const [editConn, setEditConn] = useState(false);
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [auditModal, setAuditModal] = useState(false);
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
-  const [eventTrackerOpen, setEventTrackerOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [dataSourceName, setDataSourceName] = useState("");
+  const [dataSourceNameError, setDataSourceNameError] = useState<string | null>(
+    null,
+  );
+  const [savingDataSourceName, setSavingDataSourceName] = useState(false);
   const [
     deleteBlockedByEventForwarderModalOpen,
     setDeleteBlockedByEventForwarderModalOpen,
@@ -92,7 +218,6 @@ const DataSourcePage: FC = () => {
 
   const {
     getDatasourceById,
-    getProjectById,
     mutateDefinitions,
     ready,
     error,
@@ -115,8 +240,25 @@ const DataSourcePage: FC = () => {
   const combinedMetrics = useCombinedMetrics({});
   const metrics = combinedMetrics.filter((m) => m.datasource === did);
   const factTables = allFactTables.filter((ft) => ft.datasource === did);
+  const { data: experimentsData, error: experimentsError } = useApi<{
+    experiments: ExperimentInterfaceStringDates[];
+  }>("/experiments?project=&includeArchived=&type=", {
+    shouldRun: () => !!did,
+  });
+  const experiments = experimentsData
+    ? experimentsData.experiments.filter(
+        (experiment) => experiment.datasource === did,
+      )
+    : experimentsError
+      ? []
+      : null;
   const { skipped: exposureQuerySkipped, skip: skipExposureQuery } =
     useExposureQuerySkipped(did);
+
+  useEffect(() => {
+    setDataSourceName(d?.name ?? "");
+    setDataSourceNameError(null);
+  }, [d?.name]);
 
   const { apiCall, orgId } = useAuth();
   const { hasCommercialFeature, settings: orgSettings } = useUser();
@@ -130,10 +272,6 @@ const DataSourcePage: FC = () => {
   const managedWarehouseAwaitingProvisioning = d
     ? isManagedWarehouseAwaitingProvisioning(d)
     : false;
-
-  const queryString = new URLSearchParams(
-    `q=datasource:"${d?.name}"`,
-  ).toString();
 
   const canDelete =
     (d && permissionsUtil.canDeleteDataSource(d) && !hasFileConfig()) || false;
@@ -163,12 +301,6 @@ const DataSourcePage: FC = () => {
     (d && permissionsUtil.canUpdateDataSourceSettings(d) && !hasFileConfig()) ||
     false;
 
-  const canAddEventTracker =
-    !!d &&
-    getAddableEventTrackers(d).length > 0 &&
-    canUpdateDataSourceSettings &&
-    permissionsUtil.canCreateFactTable({ projects: d.projects || [] });
-
   const pipelineEnabled = hasCommercialFeature("pipeline-mode");
   const eventsForwarderFlag = useFeatureValue(
     "events-forwarder-multi-step",
@@ -191,6 +323,36 @@ const DataSourcePage: FC = () => {
     },
     [mutateDefinitions, mutateCurrentDataSource, apiCall],
   );
+
+  const saveDataSourceName = useCallback(async () => {
+    const name = dataSourceName.trim();
+    if (!d || !name || name === d.name || savingDataSourceName) return;
+
+    setSavingDataSourceName(true);
+    setDataSourceNameError(null);
+    try {
+      await apiCall(`/datasource/${d.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ name }),
+      });
+      await Promise.all([mutateDefinitions({}), mutateCurrentDataSource()]);
+    } catch (error) {
+      setDataSourceNameError(
+        error instanceof Error
+          ? error.message
+          : "Failed to save the Data Source name.",
+      );
+    } finally {
+      setSavingDataSourceName(false);
+    }
+  }, [
+    apiCall,
+    d,
+    dataSourceName,
+    mutateCurrentDataSource,
+    mutateDefinitions,
+    savingDataSourceName,
+  ]);
 
   if (error || currentDataSourceError) {
     return (
@@ -215,6 +377,7 @@ const DataSourcePage: FC = () => {
   }
 
   const supportsSQL = d.properties?.queryLanguage === "sql";
+  const connectionDetails = getConnectionDetails(d);
   const supportsEvents = d.properties?.events || false;
   const datasourceSupportsEventForwarder = supportsEventForwarder(d);
   const showFinishSettingUp =
@@ -245,198 +408,27 @@ const DataSourcePage: FC = () => {
           <strong>Error Decrypting Data Source Credentials.</strong>
         </Callout>
       )}
-      <Flex align="center" justify="between">
-        <Flex align="center" gap="3">
-          <Heading as="h1" size="xl" overflowWrap="anywhere" mb="0">
-            {d.name}
-          </Heading>
-          <Badge
-            label={
-              <>
-                <PiLinkBold />
-                Connected
-              </>
-            }
-            color="green"
-            variant="solid"
-            radius="full"
-          />
-        </Flex>
-        <Flex align="center" gap="2" pr="2">
-          <LinkButton href={`/datasources/queries/${did}`} variant="outline">
-            View usage
-          </LinkButton>
-          {(canUpdateConnectionParams ||
-            canUpdateDataSourceSettings ||
-            canDelete) && (
-            <DropdownMenu
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="2"
-                  highContrast
-                  aria-label="Data source actions"
-                >
-                  <PiDotsThreeVertical size={18} />
-                </IconButton>
-              }
-              menuPlacement="end"
-              open={dropdownOpen}
-              onOpenChange={setDropdownOpen}
-            >
-              {canUpdateConnectionParams && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setDropdownOpen(false);
-                    if (newDataSourceOnboarding.enabled) {
-                      router.push(`/datasources/${d.id}/connect`);
-                    } else {
-                      setEditConn(true);
-                    }
-                  }}
-                >
-                  Edit Connection Info
-                </DropdownMenuItem>
-              )}
-              {canAddEventTracker && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setEventTrackerOpen(true);
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Add Event Tracker
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem
-                onClick={() => {
-                  setAuditModal(true);
-                  setDropdownOpen(false);
-                }}
-              >
-                Audit log
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  // DocLink usually navigates externally; close the dropdown first.
-                  setDropdownOpen(false);
-                }}
-              >
-                <DocLink
-                  useRadix={false}
-                  docSection={d.type as DocSection}
-                  fallBackSection="datasources"
-                >
-                  View Documentation
-                </DocLink>
-              </DropdownMenuItem>
-              {d?.properties?.supportsInformationSchema && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setViewSqlExplorer(true);
-                    setDropdownOpen(false);
-                  }}
-                >
-                  View SQL Explorer
-                </DropdownMenuItem>
-              )}
-              {canDelete && (
-                <>
-                  <DropdownMenuSeparator />
-                  {deleteBlockedByEventForwarder ? (
-                    <DropdownMenuItem
-                      color="red"
-                      onClick={() => {
-                        setDeleteBlockedByEventForwarderModalOpen(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem
-                      color="red"
-                      confirmation={{
-                        confirmationTitle: `Delete "${d.name}" Datasource`,
-                        cta: "Delete",
-                        submit: async () => {
-                          await apiCall(`/datasource/${d.id}`, {
-                            method: "DELETE",
-                          });
-                          mutateDefinitions({});
-                          router.push("/datasources");
-                        },
-                        closeDropdown: () => setDropdownOpen(false),
-                      }}
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  )}
-                </>
-              )}
-            </DropdownMenu>
-          )}
-        </Flex>
-      </Flex>
-      {d.type === "mixpanel" && (
-        <Callout status="warning" mt="3">
-          Using Mixpanel as a direct data source is deprecated and no longer
-          supported, because Mixpanel has placed their query language (JQL) in
-          maintenance mode. To keep using Mixpanel data in GrowthBook, export it
-          to a data warehouse (e.g. BigQuery or Snowflake) and connect that
-          warehouse instead.{" "}
-          <DocLink docSection="mixpanel">View migration guide</DocLink>
-        </Callout>
-      )}
-      <Flex align="center" gap="4" my="2">
-        <Text color="text-mid">
-          <Text weight="medium">Type:</Text>{" "}
-          {d.type === "growthbook_clickhouse" ? "managed" : d.type}
-        </Text>
-        {d.type === "growthbook_clickhouse" && (
-          <Text color="text-mid">
-            <Text weight="medium">Region:</Text>{" "}
-            {getDataRegionLabel(d.settings.region ?? DEFAULT_DATA_REGION)}
-          </Text>
-        )}
-        <Box>
-          <Text color="text-mid" weight="medium">
-            Fact Tables:
-          </Text>{" "}
-          <Link href={`/fact-tables?${queryString}`}>
-            {factTables.length > 0 ? factTables.length : "+Add"}
-          </Link>
-        </Box>
-        <Box>
-          <Text color="text-mid" weight="medium">
-            Metrics:{" "}
-          </Text>
-          {metrics.length > 0 ? (
-            <Link href={`/metrics?${queryString}`}>{metrics.length}</Link>
-          ) : (
-            <Text color="text-mid">None</Text>
-          )}
-        </Box>
-        <Text color="text-mid">
-          <Text weight="medium">Last Updated:</Text>{" "}
-          {datetime(d.dateUpdated ?? "")}
-        </Text>
+      <Flex align="center" gap="3" wrap="wrap">
+        <Heading as="h1" size="xl" overflowWrap="anywhere" mb="0">
+          {d.name}
+        </Heading>
+        <Badge
+          label={
+            <>
+              <PiLinkBold />
+              Connected
+            </>
+          }
+          color="green"
+          variant="solid"
+          radius="full"
+        />
         <Flex align="center" gap="1">
-          <Text color="text-mid" weight="medium">
-            Projects:{" "}
-          </Text>
-          {d?.projects?.length ? (
-            <Text color="text-mid">
-              {d.projects.map((p) => getProjectById(p)?.name || p).join(", ")}
-            </Text>
-          ) : (
-            <Text color="text-mid" fontStyle="italic">
-              All Projects
-            </Text>
-          )}
+          <ProjectBadges
+            resourceType="data source"
+            projectIds={d.projects?.length ? d.projects : undefined}
+            skipMargin
+          />
           {canUpdateDataSourceSettings && projects.length > 0 && (
             <Link
               aria-label="Edit Projects"
@@ -450,109 +442,346 @@ const DataSourcePage: FC = () => {
           )}
         </Flex>
       </Flex>
-      <DataSourceDescription
-        value={d.description || ""}
-        canEdit={canUpdateDataSourceSettings}
-        save={async (description) => {
-          await apiCall(`/datasource/${d.id}`, {
-            method: "PUT",
-            body: JSON.stringify({ description }),
-          });
-          await Promise.all([mutateDefinitions({}), mutateCurrentDataSource()]);
-        }}
-      />
-
-      {!d.properties?.hasSettings && (
-        <Box mt="3">
-          <Callout status="info">
-            This data source does not require any additional configuration.
-          </Callout>
-        </Box>
+      {d.type === "mixpanel" && (
+        <Callout status="warning" mt="3">
+          Using Mixpanel as a direct data source is deprecated and no longer
+          supported, because Mixpanel has placed their query language (JQL) in
+          maintenance mode. To keep using Mixpanel data in GrowthBook, export it
+          to a data warehouse (e.g. BigQuery or Snowflake) and connect that
+          warehouse instead.{" "}
+          <DocLink docSection="mixpanel">View migration guide</DocLink>
+        </Callout>
       )}
       <Box mt="4" mb="4">
-        {supportsEvents && (
-          <>
-            <Box my="5">
-              <DataSourceViewEditExperimentProperties
-                dataSource={d}
-                onSave={updateDataSourceSettings}
-                onCancel={() => undefined}
-                canEdit={canUpdateDataSourceSettings}
-              />
-            </Box>
-
-            {d.type === "mixpanel" && (
-              <div>
-                <Heading size="sm" as="h3" mb="1">
-                  Mixpanel Tracking Instructions
-                </Heading>
-                <p>
-                  This example is for Javascript and uses the above settings.
-                  Other languages should be similar.
-                </p>
-                <Code
-                  language="javascript"
-                  code={`
-// Tracking Callback for GrowthBook SDK
-const growthbook = new GrowthBook({
-  ...,
-  trackingCallback: function(experiment, result) {
-    mixpanel.track(${JSON.stringify(
-      d.settings?.events?.experimentEvent || "$experiment_started",
-    )}, {
-      ${quotePropertyName(
-        d.settings?.events?.experimentIdProperty || "Experiment name",
-      )}: experiment.key,
-      ${quotePropertyName(
-        d.settings?.events?.variationIdProperty || "Variant name",
-      )}:  result.variationId,
-      $source: 'growthbook'
-    })
-  }
-})
-
-// When Mixpanel loads, pass the distinct_id into the SDK
-mixpanel.init('YOUR PROJECT TOKEN', {
-  loaded: function(mixpanel) {
-    growthbook.setAttributes({
-      ...growthbook.getAttributes(),
-      id: mixpanel.get_distinct_id()
-    })
-  }
-})
-                  `.trim()}
-                />
-              </div>
-            )}
-          </>
+        {showFinishSettingUp && (
+          <Frame px="0" py="0" style={{ overflow: "hidden" }}>
+            <FinishSettingUp
+              dataSource={d}
+              factTableCount={factTables.length}
+              canEdit={canUpdateDataSourceSettings}
+              onSave={updateDataSourceSettings}
+              exposureQuerySkipped={exposureQuerySkipped}
+              onSkipExposureQuery={skipExposureQuery}
+            />
+          </Frame>
         )}
-        {supportsSQL && (
-          <>
-            {isManagedWarehouse ? (
-              managedWarehouseAwaitingProvisioning ? (
-                <ManagedWarehouseNoEventsCallout />
-              ) : (
-                <>
-                  <Frame>
-                    <Heading as="h3" size="md" mb="2">
-                      Sending Events
-                    </Heading>
-                    <Text>
-                      <DocLink
-                        useRadix={false}
-                        docSection="managedWarehouseTracking"
-                      >
-                        Read our full docs
-                      </DocLink>{" "}
-                      with instructions on how to send events from your app to
-                      GrowthBook.
-                    </Text>
+
+        {supportsSQL &&
+          !isManagedWarehouse &&
+          !newDataSourceOnboarding.enabled &&
+          d.dateUpdated === d.dateCreated &&
+          d.settings?.schemaFormat !== "custom" && (
+            <Callout status="info" mb="4">
+              We have prefilled the identifier types and assignment queries.
+              These may require editing to fit your data structure.
+            </Callout>
+          )}
+
+        {isManagedWarehouse &&
+          (managedWarehouseAwaitingProvisioning ? (
+            <ManagedWarehouseNoEventsCallout />
+          ) : (
+            <Frame>
+              <Heading as="h2" size="md" mb="2">
+                Sending Events
+              </Heading>
+              <Text>
+                <DocLink useRadix={false} docSection="managedWarehouseTracking">
+                  Read our full docs
+                </DocLink>{" "}
+                with instructions on how to send events from your app to
+                GrowthBook.
+              </Text>
+            </Frame>
+          ))}
+
+        <Tabs defaultValue="overview" persistInURL>
+          <TabsList size="lg">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="usage">Usage</TabsTrigger>
+            {supportsSQL && (
+              <>
+                <TabsTrigger value="queries">Queries</TabsTrigger>
+                <TabsTrigger value="explore">Explore</TabsTrigger>
+              </>
+            )}
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview">
+            <Flex direction="column" gap="2" mt="3">
+              {(d.description || canUpdateDataSourceSettings) && (
+                <Frame mb="0">
+                  <Heading as="h2" size="md">
+                    Description
+                  </Heading>
+                  <DataSourceDescription
+                    value={d.description || ""}
+                    canEdit={canUpdateDataSourceSettings}
+                    save={async (description) => {
+                      await apiCall(`/datasource/${d.id}`, {
+                        method: "PUT",
+                        body: JSON.stringify({ description }),
+                      });
+                      await Promise.all([
+                        mutateDefinitions({}),
+                        mutateCurrentDataSource(),
+                      ]);
+                    }}
+                  />
+                </Frame>
+              )}
+              <Frame mb="0">
+                <Heading as="h2" size="md" mb="3">
+                  Connected Resources
+                </Heading>
+                <Flex direction={{ initial: "column", md: "row" }} gap="6">
+                  <Box flexGrow="1" flexBasis="0">
+                    <ResourceReferenceList
+                      title="Fact Tables"
+                      items={factTables.map((factTable) => ({
+                        id: factTable.id,
+                        name: factTable.name,
+                        href: `/fact-tables/${factTable.id}`,
+                      }))}
+                      emptyText="No Fact Tables use this Data Source."
+                    />
+                  </Box>
+                  <Box flexGrow="1" flexBasis="0">
+                    <ResourceReferenceList
+                      title="Metrics"
+                      items={metrics.map((metric) => ({
+                        id: metric.id,
+                        name: metric.name,
+                        href: `/metric/${metric.id}`,
+                      }))}
+                      emptyText="No metrics use this Data Source."
+                    />
+                  </Box>
+                  <Box flexGrow="1" flexBasis="0">
+                    <ResourceReferenceList
+                      title="Experiments"
+                      items={
+                        experiments?.map((experiment) => ({
+                          id: experiment.id,
+                          name: experiment.name,
+                          href: `/experiment/${experiment.id}`,
+                        })) ?? null
+                      }
+                      emptyText="No experiments use this Data Source."
+                    />
+                  </Box>
+                </Flex>
+              </Frame>
+            </Flex>
+          </TabsContent>
+
+          <TabsContent value="usage">
+            <Flex direction="column" gap="2" mt="3">
+              <Frame mb="0">
+                <DataSourceUsage datasource={d} />
+              </Frame>
+            </Flex>
+          </TabsContent>
+
+          {supportsSQL && (
+            <>
+              <TabsContent value="queries">
+                <Flex direction="column" gap="2" mt="3">
+                  <Frame mb="0">
+                    {isManagedWarehouse ? (
+                      managedWarehouseAwaitingProvisioning ? (
+                        <ManagedWarehouseNoEventsCallout />
+                      ) : (
+                        <ClickhouseManagedWarehouseIdentifiers
+                          dataSource={d}
+                          canEdit={canUpdateDataSourceSettings}
+                          mutate={async () => {
+                            await Promise.all([
+                              mutateDefinitions({}),
+                              mutateCurrentDataSource(),
+                            ]);
+                          }}
+                        />
+                      )
+                    ) : (
+                      <DataSourceInlineEditIdentifierTypes
+                        onSave={updateDataSourceSettings}
+                        onCancel={() => undefined}
+                        dataSource={d}
+                        canEdit={canUpdateDataSourceSettings}
+                      />
+                    )}
                   </Frame>
-                  <Frame>
-                    <ClickhouseManagedWarehouseIdentifiers
+                  {!isManagedWarehouse && (
+                    <Frame id={EAQ_ANCHOR_ID} mb="0">
+                      <ExperimentAssignmentQueries
+                        dataSource={d}
+                        onSave={updateDataSourceSettings}
+                        onCancel={() => undefined}
+                        canEdit={!hasFileConfig()}
+                      />
+                    </Frame>
+                  )}
+                  {contextualBanditsEnabled &&
+                    hasCommercialFeature("contextual-bandits") && (
+                      <Frame id={CBAQ_ANCHOR_ID} mb="0">
+                        <ContextualBanditAssignmentQueries
+                          dataSource={d}
+                          canEdit={canUpdateDataSourceSettings}
+                        />
+                      </Frame>
+                    )}
+                  {!isManagedWarehouse && (
+                    <>
+                      <Frame mb="0">
+                        <FeatureEvaluationQueries
+                          dataSource={d}
+                          onSave={updateDataSourceSettings}
+                          canEdit={canUpdateDataSourceSettings}
+                        />
+                      </Frame>
+                      {d.settings?.userIdTypes &&
+                      d.settings.userIdTypes.length > 1 ? (
+                        <Frame mb="0">
+                          <DataSourceInlineEditIdentityJoins
+                            dataSource={d}
+                            onSave={updateDataSourceSettings}
+                            onCancel={() => undefined}
+                            canEdit={canUpdateDataSourceSettings}
+                          />
+                        </Frame>
+                      ) : null}
+                      {d.settings.notebookRunQuery && (
+                        <Frame mb="0">
+                          <DataSourceJupyterNotebookQuery
+                            dataSource={d}
+                            onSave={updateDataSourceSettings}
+                            onCancel={() => undefined}
+                            canEdit={canUpdateDataSourceSettings}
+                          />
+                        </Frame>
+                      )}
+                    </>
+                  )}
+                </Flex>
+              </TabsContent>
+
+              <TabsContent value="explore">
+                <Flex direction="column" gap="2" mt="3">
+                  {d.properties?.supportsInformationSchema && (
+                    <Callout status="info">
+                      Want to explore even further? Use the{" "}
+                      <Link onClick={() => setViewSqlExplorer(true)}>
+                        SQL Explorer
+                      </Link>{" "}
+                      for advanced exploration.
+                    </Callout>
+                  )}
+                  <Explorer
+                    type="data_source"
+                    datasourceId={d.id}
+                    lockDatasource
+                    height="calc(100vh - 280px)"
+                  />
+                </Flex>
+              </TabsContent>
+            </>
+          )}
+
+          <TabsContent value="settings">
+            <Flex direction="column" gap="2" mt="3">
+              <Frame mb="0">
+                <Flex align="center" justify="between" gap="3" mb="3">
+                  <Heading as="h2" size="md" mb="0">
+                    General Settings
+                  </Heading>
+                  {canUpdateConnectionParams &&
+                    (newDataSourceOnboarding.enabled ? (
+                      <LinkButton
+                        href={`/datasources/${d.id}/connect`}
+                        variant="outline"
+                      >
+                        Edit connection
+                      </LinkButton>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        onClick={() => setEditConn(true)}
+                      >
+                        Edit connection
+                      </Button>
+                    ))}
+                </Flex>
+                <Flex direction="column" gap="3" maxWidth="600px">
+                  <Flex align="end" gap="2">
+                    <TextField
+                      label="Name"
+                      value={dataSourceName}
+                      error={dataSourceNameError ?? undefined}
+                      onChange={(event) => {
+                        setDataSourceName(event.target.value);
+                        setDataSourceNameError(null);
+                      }}
+                      disabled={!canUpdateDataSourceSettings}
+                      style={{ flexGrow: 1 }}
+                    />
+                    {canUpdateDataSourceSettings && (
+                      <Button
+                        loading={savingDataSourceName}
+                        disabled={
+                          !dataSourceName.trim() ||
+                          dataSourceName.trim() === d.name
+                        }
+                        onClick={saveDataSourceName}
+                      >
+                        Save
+                      </Button>
+                    )}
+                  </Flex>
+                  <DataList
+                    data={[
+                      {
+                        label: "Type",
+                        value:
+                          d.type === "growthbook_clickhouse"
+                            ? "Managed Warehouse"
+                            : d.type,
+                      },
+                      ...(isManagedWarehouse
+                        ? [
+                            {
+                              label: "Region",
+                              value: getDataRegionLabel(
+                                d.settings.region ?? DEFAULT_DATA_REGION,
+                              ),
+                            },
+                          ]
+                        : []),
+                      ...connectionDetails,
+                      {
+                        label: "Last updated",
+                        value: datetime(d.dateUpdated ?? ""),
+                      },
+                    ]}
+                  />
+                  {supportsSQL && orgSettings?.aiAskDataEnabled && (
+                    <AskDataSettings
+                      dataSource={d}
+                      onSave={updateDataSourceSettings}
+                      canEdit={canUpdateDataSourceSettings}
+                    />
+                  )}
+                </Flex>
+              </Frame>
+
+              {datasourceSupportsEventForwarder &&
+                eventsForwarderFlag !== "OFF" && (
+                  <Frame mb="0">
+                    <EventForwarder
                       dataSource={d}
                       canEdit={canUpdateDataSourceSettings}
-                      mutate={async () => {
+                      onRefresh={async () => {
                         await Promise.all([
                           mutateDefinitions({}),
                           mutateCurrentDataSource(),
@@ -560,144 +789,80 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       }}
                     />
                   </Frame>
-
-                  {contextualBanditsEnabled &&
-                    hasCommercialFeature("contextual-bandits") && (
-                      <Frame id={CBAQ_ANCHOR_ID}>
-                        <ContextualBanditAssignmentQueries
-                          dataSource={d}
-                          canEdit={canUpdateDataSourceSettings}
-                        />
-                      </Frame>
-                    )}
-                </>
-              )
-            ) : (
-              <>
-                {showFinishSettingUp && (
-                  <Frame px="0" py="0" style={{ overflow: "hidden" }}>
-                    <FinishSettingUp
-                      dataSource={d}
-                      factTableCount={factTables.length}
-                      canEdit={canUpdateDataSourceSettings}
-                      onSave={updateDataSourceSettings}
-                      exposureQuerySkipped={exposureQuerySkipped}
-                      onSkipExposureQuery={skipExposureQuery}
-                    />
-                  </Frame>
                 )}
 
-                {datasourceSupportsEventForwarder &&
-                  eventsForwarderFlag !== "OFF" && (
-                    <Frame>
-                      <EventForwarder
-                        dataSource={d}
-                        canEdit={canUpdateDataSourceSettings}
-                        onRefresh={async () => {
-                          await Promise.all([
-                            mutateDefinitions({}),
-                            mutateCurrentDataSource(),
-                          ]);
-                        }}
-                      />
-                    </Frame>
-                  )}
-
-                {!newDataSourceOnboarding.enabled &&
-                  d.dateUpdated === d.dateCreated &&
-                  d?.settings?.schemaFormat !== "custom" && (
-                    <Callout status="info" mt="4" mb="4">
-                      We have prefilled the identifiers and assignment queries
-                      below. These queries may require editing to fit your data
-                      structure.
-                    </Callout>
-                  )}
-
-                <Frame>
-                  <DataSourceInlineEditIdentifierTypes
-                    onSave={updateDataSourceSettings}
-                    onCancel={() => undefined}
-                    dataSource={d}
-                    canEdit={canUpdateDataSourceSettings}
-                  />
-                </Frame>
-
-                <Frame id={EAQ_ANCHOR_ID}>
-                  <ExperimentAssignmentQueries
+              {supportsEvents && (
+                <Frame mb="0">
+                  <DataSourceViewEditExperimentProperties
                     dataSource={d}
                     onSave={updateDataSourceSettings}
                     onCancel={() => undefined}
-                    // Checks edit permission per query internally, against each
-                    // query's projects, so only the config-file lock is passed in.
-                    canEdit={!hasFileConfig()}
-                  />
-                </Frame>
-
-                {contextualBanditsEnabled &&
-                  hasCommercialFeature("contextual-bandits") && (
-                    <Frame id={CBAQ_ANCHOR_ID}>
-                      <ContextualBanditAssignmentQueries
-                        dataSource={d}
-                        canEdit={canUpdateDataSourceSettings}
-                      />
-                    </Frame>
-                  )}
-
-                {d.settings?.userIdTypes &&
-                d.settings.userIdTypes.length > 1 ? (
-                  <Frame>
-                    <DataSourceInlineEditIdentityJoins
-                      dataSource={d}
-                      onSave={updateDataSourceSettings}
-                      onCancel={() => undefined}
-                      canEdit={canUpdateDataSourceSettings}
-                    />
-                  </Frame>
-                ) : null}
-
-                <Frame>
-                  <FeatureEvaluationQueries
-                    dataSource={d}
-                    onSave={updateDataSourceSettings}
                     canEdit={canUpdateDataSourceSettings}
                   />
                 </Frame>
+              )}
 
-                {d.settings.notebookRunQuery && (
-                  <Frame>
-                    <DataSourceJupyterNotebookQuery
-                      dataSource={d}
-                      onSave={updateDataSourceSettings}
-                      onCancel={() => undefined}
-                      canEdit={canUpdateDataSourceSettings}
-                    />
-                  </Frame>
-                )}
-              </>
-            )}
+              {d.type === "mixpanel" && (
+                <Frame mb="0">
+                  <MixpanelTrackingInstructions dataSource={d} />
+                </Frame>
+              )}
 
-            {d.properties?.supportsWritingTables && pipelineEnabled ? (
-              <Frame>
-                <DataSourcePipeline
-                  dataSource={d}
-                  onSave={updateDataSourceSettings}
-                  onCancel={() => undefined}
-                  canEdit={canUpdateDataSourceSettings}
-                />
+              {d.properties?.supportsWritingTables && pipelineEnabled && (
+                <Frame mb="0">
+                  <DataSourcePipeline
+                    dataSource={d}
+                    onSave={updateDataSourceSettings}
+                    onCancel={() => undefined}
+                    canEdit={canUpdateDataSourceSettings}
+                  />
+                </Frame>
+              )}
+
+              {!d.properties?.hasSettings && (
+                <Callout status="info">
+                  This Data Source does not require any additional
+                  configuration.
+                </Callout>
+              )}
+
+              <Frame mb="0">
+                <Heading as="h2" size="md" mb="3">
+                  Change Log
+                </Heading>
+                <HistoryTable type="datasource" id={d.id} />
               </Frame>
-            ) : null}
 
-            {supportsSQL && orgSettings?.aiAskDataEnabled && (
-              <Frame>
-                <AskDataSettings
-                  dataSource={d}
-                  onSave={updateDataSourceSettings}
-                  canEdit={canUpdateDataSourceSettings}
-                />
-              </Frame>
-            )}
-          </>
-        )}
+              {canDelete && (
+                <Frame mb="0">
+                  <Flex align="center" justify="between" gap="3" wrap="wrap">
+                    <Box>
+                      <Heading as="h2" size="md" mb="1">
+                        Delete Data Source
+                      </Heading>
+                      <Text color="text-mid">
+                        Experiments and metrics that use it will stop updating.
+                      </Text>
+                    </Box>
+                    <Button
+                      variant="outline"
+                      color="red"
+                      onClick={() => {
+                        if (deleteBlockedByEventForwarder) {
+                          setDeleteBlockedByEventForwarderModalOpen(true);
+                        } else {
+                          setConfirmDelete(true);
+                        }
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </Flex>
+                </Frame>
+              )}
+            </Flex>
+          </TabsContent>
+        </Tabs>
       </Box>
       {editProjectsOpen && (
         <EditProjectsForm
@@ -751,25 +916,21 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           trackingEventModalSource="datasource-id-page"
         />
       )}
-      {eventTrackerOpen && (
-        <AddEventTrackerModal
-          datasource={d}
-          close={() => {
-            setEventTrackerOpen(false);
-            mutateCurrentDataSource();
+      {confirmDelete && (
+        <ConfirmDialog
+          title={`Delete "${d.name}"`}
+          content="Experiments and metrics that use it will stop updating."
+          yesText="Delete"
+          color="red"
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={async () => {
+            await apiCall(`/datasource/${d.id}`, {
+              method: "DELETE",
+            });
+            mutateDefinitions({});
+            router.push("/datasources");
           }}
         />
-      )}
-      {auditModal && (
-        <ModalStandard
-          trackingEventModalType=""
-          open={true}
-          header="Audit Log"
-          close={() => setAuditModal(false)}
-          size="lg"
-        >
-          <HistoryTable type={"datasource"} id={d.id} />
-        </ModalStandard>
       )}
       {deleteBlockedByEventForwarderModalOpen && (
         <ModalStandard

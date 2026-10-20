@@ -353,15 +353,45 @@ function ExplorerPreviousTimeFrameUrlSync({
   return null;
 }
 
-export default function Explorer({ type }: { type: DatasetType }) {
+export default function Explorer({
+  type,
+  datasourceId,
+  lockDatasource = false,
+  height,
+  sidebarHeaderActions,
+}: {
+  type: DatasetType;
+  datasourceId?: string;
+  lockDatasource?: boolean;
+  height?: string;
+  sidebarHeaderActions?: React.ReactNode;
+}) {
   return (
     <NuqsAdapter>
-      <ExplorerInner type={type} />
+      <ExplorerInner
+        type={type}
+        datasourceId={datasourceId}
+        lockDatasource={lockDatasource}
+        height={height}
+        sidebarHeaderActions={sidebarHeaderActions}
+      />
     </NuqsAdapter>
   );
 }
 
-function ExplorerInner({ type }: { type: DatasetType }) {
+function ExplorerInner({
+  type,
+  datasourceId: lockedDatasourceId,
+  lockDatasource = false,
+  height,
+  sidebarHeaderActions,
+}: {
+  type: DatasetType;
+  datasourceId?: string;
+  lockDatasource?: boolean;
+  height?: string;
+  sidebarHeaderActions?: React.ReactNode;
+}) {
   const router = useRouter();
   const defaultDataSourceId = useDefaultDataSourceId();
   const {
@@ -397,7 +427,8 @@ function ExplorerInner({ type }: { type: DatasetType }) {
   const rawParam = getQueryParam(router.query.config);
   const metricId = getQueryParam(router.query.metricId);
   const factTableId = getQueryParam(router.query.factTableId);
-  const datasourceId = getQueryParam(router.query.datasourceId);
+  const datasourceId =
+    lockedDatasourceId ?? getQueryParam(router.query.datasourceId);
   const funnelMetricId = getQueryParam(router.query.funnelMetricId);
   const seedId =
     type === "metric"
@@ -595,7 +626,11 @@ function ExplorerInner({ type }: { type: DatasetType }) {
               setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
               setUrlComparisonMode={setUrlComparisonMode}
             />
-            <ExplorerContent />
+            <ExplorerContent
+              hideDataSourceSelector={lockDatasource}
+              height={height}
+              sidebarHeaderActions={sidebarHeaderActions}
+            />
           </>
         )}
       </ExplorerProvider>

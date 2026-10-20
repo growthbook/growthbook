@@ -139,11 +139,6 @@ const DataSourceUsagePage = (): React.ReactElement => {
   const { did } = router.query as { did: string };
   const { getDatasourceById, ready, error: datasourceError } = useDefinitions();
   const d = getDatasourceById(did);
-  const managedWarehousePending = d ? isManagedWarehouseUnavailable(d) : false;
-
-  const { data, error, mutate } = useApi<UsageResponse>(
-    `/datasource/${did}/usage`,
-  );
 
   const header = (
     <>
@@ -178,53 +173,81 @@ const DataSourceUsagePage = (): React.ReactElement => {
   if (!permissions.check("readData", d.projects || [])) {
     return errorPage("You do not have access to view this page.");
   }
-  if (error) return errorPage(error.message);
-  if (!data) return <LoadingOverlay />;
-
-  const units = USAGE_UNITS[d.type] ?? DEFAULT_USAGE_UNITS;
-  const { total } = data.usage;
 
   return (
     <div className="container pagecontents">
+      {header}
+      <DataSourceUsage datasource={d} />
+    </div>
+  );
+};
+
+export default DataSourceUsagePage;
+
+export function DataSourceUsage({
+  datasource,
+}: {
+  datasource: DataSourceInterfaceWithParams;
+}): React.ReactElement {
+  const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
+  const { data, error, mutate } = useApi<UsageResponse>(
+    `/datasource/${datasource.id}/usage`,
+  );
+
+  if (error) {
+    return <Callout status="error">{error.message}</Callout>;
+  }
+  if (!data) {
+    return <LoadingOverlay />;
+  }
+
+  const units = USAGE_UNITS[datasource.type] ?? DEFAULT_USAGE_UNITS;
+  const { total } = data.usage;
+
+  const summaryCards = (
+    <Grid
+      columns={{ initial: "1", sm: String(units.length + 1) }}
+      gap="4"
+      mb="4"
+    >
+      {units.map((u) => (
+        <Frame key={u.field} mb="0" py="4" px="5">
+          <Text color="text-mid" weight="medium">
+            {u.label}
+          </Text>
+          <Tooltip content={u.exact(total[u.field])}>
+            <Text as="div" size="xl" weight="semibold">
+              {u.scaleFor([total[u.field]])(total[u.field])}
+            </Text>
+          </Tooltip>
+        </Frame>
+      ))}
+      <Frame mb="0" py="4" px="5">
+        <Text color="text-mid" weight="medium">
+          Queries
+        </Text>
+        <Text as="div" size="xl" weight="semibold">
+          {total.queries.toLocaleString()}
+        </Text>
+      </Frame>
+    </Grid>
+  );
+
+  return (
+    <>
       {managedWarehousePending ? (
         <Box mt="3" mb="3">
           <ManagedWarehouseNoEventsCallout />
         </Box>
       ) : null}
-      {header}
 
       <Heading as="h2" size="md" mb="3">
         Last 30 Days
       </Heading>
-      <Grid
-        columns={{ initial: "1", sm: String(units.length + 1) }}
-        gap="4"
-        mb="4"
-      >
-        {units.map((u) => (
-          <Frame key={u.field} mb="0" py="4" px="5">
-            <Text color="text-mid" weight="medium">
-              {u.label}
-            </Text>
-            <Tooltip content={u.exact(total[u.field])}>
-              <Text as="div" size="xl" weight="semibold">
-                {u.scaleFor([total[u.field]])(total[u.field])}
-              </Text>
-            </Tooltip>
-          </Frame>
-        ))}
-        <Frame mb="0" py="4" px="5">
-          <Text color="text-mid" weight="medium">
-            Queries
-          </Text>
-          <Text as="div" size="xl" weight="semibold">
-            {total.queries.toLocaleString()}
-          </Text>
-        </Frame>
-      </Grid>
+      {summaryCards}
 
       <IncrementalRefreshCallout
-        datasource={d}
+        datasource={datasource}
         usage={data.usage}
         units={units}
       />
@@ -254,16 +277,14 @@ const DataSourceUsagePage = (): React.ReactElement => {
         Recent Queries
       </Heading>
       <RecentQueries
-        datasource={d}
+        datasource={datasource}
         data={data}
         units={units}
         onCancel={mutate}
       />
-    </div>
+    </>
   );
-};
-
-export default DataSourceUsagePage;
+}
 
 function IncrementalRefreshCallout({
   datasource,
