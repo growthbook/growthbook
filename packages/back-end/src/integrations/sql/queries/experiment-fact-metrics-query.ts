@@ -532,8 +532,12 @@ export function getExperimentFactMetricsQuery(
         ? `, __distinctUsers AS (
       SELECT
         ${baseIdType}
-        ${dimensionCols.map((c) => `, MAX(${c.alias}) AS ${c.alias}`).join("")}
-        , variation
+        ${dimensionCols.map((c) => `, MIN(${c.alias}) AS ${c.alias}`).join("")}
+        , ${dialect.ifElse(
+          "COUNT(DISTINCT variation) > 1",
+          "'__multiple__'",
+          "MAX(variation)",
+        )} AS variation
         , MIN(timestamp) AS timestamp
         , MIN(first_exposure_date) AS first_exposure_date
         ${banditDates?.length ? ", MIN(bandit_period) AS bandit_period" : ""}
@@ -547,7 +551,6 @@ export function getExperimentFactMetricsQuery(
       FROM __distinctSubUnits
       GROUP BY
         ${baseIdType}
-        , variation
     )`
         : ""
     }

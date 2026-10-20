@@ -2340,9 +2340,17 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     });
     const normalized = sql.replace(/\s+/g, " ").trim();
 
-    // Units stay keyed on the sub-unit, then collapse to one row per cluster.
+    // Units stay keyed on the sub-unit, then collapse to exactly one row per
+    // cluster (GROUP BY the cluster id only). A cluster whose sub-units span
+    // multiple variations is flagged '__multiple__' so it is not emitted once
+    // per arm (which would double-count its events, since the fact join is on
+    // the cluster id). This mirrors the incremental-refresh path.
     expect(normalized).toMatch(
-      /__distinctUsers AS \( SELECT region_id,\s*variation,\s*MIN\(timestamp\) AS timestamp.* FROM __distinctSubUnits GROUP BY region_id,\s*variation \)/,
+      /__distinctUsers AS \( SELECT region_id[\s\S]*?CASE WHEN COUNT\(DISTINCT variation\) > 1 THEN '__multiple__' ELSE MAX\(variation\) END\s*\) AS variation,\s*MIN\(timestamp\) AS timestamp[\s\S]*? FROM __distinctSubUnits GROUP BY region_id \)/,
+    );
+    // variation must NOT appear in the cluster roll-up GROUP BY.
+    expect(normalized).not.toMatch(
+      /FROM __distinctSubUnits GROUP BY region_id,\s*variation/,
     );
     expect(normalized).toMatch(/__userMetricJoin.*m\.region_id = d\.region_id/);
 

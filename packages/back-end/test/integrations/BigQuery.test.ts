@@ -1039,6 +1039,12 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(sql).toMatch(
       /__experimentUnits AS \([\s\S]*GROUP BY[\s\S]*region_id/,
     );
+    // A cluster whose sub-units span multiple variations is flagged
+    // '__multiple__' (dropped downstream) rather than counted in each arm.
+    // This must match the non-incremental getExperimentFactMetricsQuery path.
+    expect(sql).toMatch(
+      /CASE\s+WHEN COUNT\(DISTINCT e\.variation\) > 1[\s\S]*?THEN '__multiple__'[\s\S]*?ELSE MAX\(e\.variation\)[\s\S]*?END/i,
+    );
     // The metric cache is aggregated on the cluster id.
     expect(sql).toMatch(
       /__metricDataAggregated[\s\S]*GROUP BY[\s\S]*region_id/,
