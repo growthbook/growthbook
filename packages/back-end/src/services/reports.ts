@@ -85,8 +85,7 @@ import {
   getExperimentQueryMetadata,
   getSnapshotQueryMetadata,
   getDefaultExperimentAnalysisSettings,
-  getSnapshotMetricEligibility,
-  SnapshotMetricEligibility,
+  createMetricEligibilityResolver,
 } from "back-end/src/services/experiments";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
@@ -617,27 +616,14 @@ export function getReportSnapshotSettings({
   const isClusterExperiment = clusterSubUnitIdentifier !== undefined;
 
   // Re-check metric eligibility as the snapshot is built (not just at save
-  // time). Cache per metric id so filtering and clusterLevelMetricIds share a
-  // single pass. See getSnapshotMetricEligibility.
-  const metricEligibilityCache = new Map<string, SnapshotMetricEligibility>();
-  const getMetricEligibility = (
-    metricId: string,
-  ): SnapshotMetricEligibility => {
-    const cached = metricEligibilityCache.get(metricId);
-    if (cached) return cached;
-    const eligibility = getSnapshotMetricEligibility({
-      metricId,
-      metricMap,
-      factTableMap,
-      datasource,
-      exposureQueryIdentifierType,
-      clusterSubUnitIdentifier,
-    });
-    metricEligibilityCache.set(metricId, eligibility);
-    return eligibility;
-  };
-  const isEligible = (metricId: string) =>
-    getMetricEligibility(metricId).allowed;
+  // time). Memoized so filtering and clusterLevelMetricIds share a single pass.
+  const { getMetricEligibility, isEligible } = createMetricEligibilityResolver({
+    metricMap,
+    factTableMap,
+    datasource,
+    exposureQueryIdentifierType,
+    clusterSubUnitIdentifier,
+  });
 
   // expand metric groups and scrub metrics that can't be analyzed
   const goalMetrics = expandMetricGroups(

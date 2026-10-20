@@ -683,6 +683,32 @@ export function getSnapshotMetricEligibility({
   return { allowed: true, clusterLevel };
 }
 
+export function createMetricEligibilityResolver(params: {
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+  datasource?: DataSourceInterface;
+  exposureQueryIdentifierType?: string;
+  clusterSubUnitIdentifier?: string | null;
+}): {
+  getMetricEligibility: (metricId: string) => SnapshotMetricEligibility;
+  isEligible: (metricId: string) => boolean;
+} {
+  const cache = new Map<string, SnapshotMetricEligibility>();
+  const getMetricEligibility = (
+    metricId: string,
+  ): SnapshotMetricEligibility => {
+    const cached = cache.get(metricId);
+    if (cached) return cached;
+    const eligibility = getSnapshotMetricEligibility({ metricId, ...params });
+    cache.set(metricId, eligibility);
+    return eligibility;
+  };
+  return {
+    getMetricEligibility,
+    isEligible: (metricId: string) => getMetricEligibility(metricId).allowed,
+  };
+}
+
 export function getSnapshotSettings({
   experiment,
   phaseIndex,
@@ -751,28 +777,13 @@ export function getSnapshotSettings({
     ? experiment.clusterSubUnitIdentifier
     : undefined;
 
-  // Re-check metric eligibility as the snapshot is built (not just at save
-  // time). Cache per metric id so filtering and clusterLevelMetricIds share a
-  // single pass. See getSnapshotMetricEligibility.
-  const metricEligibilityCache = new Map<string, SnapshotMetricEligibility>();
-  const getMetricEligibility = (
-    metricId: string,
-  ): SnapshotMetricEligibility => {
-    const cached = metricEligibilityCache.get(metricId);
-    if (cached) return cached;
-    const eligibility = getSnapshotMetricEligibility({
-      metricId,
-      metricMap,
-      factTableMap,
-      datasource,
-      exposureQueryIdentifierType,
-      clusterSubUnitIdentifier,
-    });
-    metricEligibilityCache.set(metricId, eligibility);
-    return eligibility;
-  };
-  const isEligible = (metricId: string) =>
-    getMetricEligibility(metricId).allowed;
+  const { getMetricEligibility, isEligible } = createMetricEligibilityResolver({
+    metricMap,
+    factTableMap,
+    datasource,
+    exposureQueryIdentifierType,
+    clusterSubUnitIdentifier,
+  });
 
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
@@ -4862,8 +4873,8 @@ export function assertClusterExperimentMetricsSupported({
   metricGroups: MetricGroupInterface[];
   clusterIdentifier?: string | null;
   clusterSubUnitIdentifier?: string | null;
-  factTableMap?: FactTableMap;
-  datasource?: DataSourceInterface | null;
+  factTableMap: FactTableMap;
+  datasource: DataSourceInterface;
 }): void {
   const metricIds = getAllMetricIdsFromExperiment(
     { goalMetrics, secondaryMetrics, guardrailMetrics },
@@ -4877,10 +4888,8 @@ export function assertClusterExperimentMetricsSupported({
     const eligibility = getClusterExperimentMetricEligibility(metric, {
       clusterIdentifier,
       clusterSubUnitIdentifier,
-      getFactTable: factTableMap
-        ? (factTableId) => factTableMap.get(factTableId)
-        : undefined,
-      datasourceSettings: datasource?.settings,
+      getFactTable: (factTableId) => factTableMap.get(factTableId),
+      datasourceSettings: datasource.settings,
     });
     if (!eligibility.allowed) {
       throw new Error(
