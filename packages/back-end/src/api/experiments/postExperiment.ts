@@ -11,6 +11,7 @@ import {
 import { omit } from "lodash";
 import {
   createExperiment,
+  deleteExperimentByIdForOrganization,
   getExperimentByTrackingKey,
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -28,6 +29,7 @@ import {
 } from "back-end/src/services/attributes";
 import { validateScheduleUpdate } from "back-end/src/services/experimentScheduling";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { logger } from "back-end/src/util/logger";
 import { addNewExperimentToHoldout } from "back-end/src/services/holdouts";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
@@ -440,22 +442,45 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       context: req.context,
     });
 
-    if (payload.holdoutId) {
-      await addNewExperimentToHoldout(
-        req.context,
-        experiment,
-        payload.holdoutId,
-        [],
-      );
-    }
-
-    if (ownerId) {
-      // add owner as watcher
-      await req.context.models.watch.upsertWatch({
-        userId: ownerId,
-        item: experiment.id,
-        type: "experiments",
-      });
+    // Chosen up front so the rewind removes only this request's holdout entry
+    const linked = { dateAdded: new Date() };
+    try {
+      if (ownerId) {
+        // add owner as watcher
+        await req.context.models.watch.upsertWatch({
+          userId: ownerId,
+          item: experiment.id,
+          type: "experiments",
+        });
+      }
+      // Last, since only the add emits a linkage event
+      if (payload.holdoutId) {
+        await addNewExperimentToHoldout(
+          req.context,
+          experiment,
+          payload.holdoutId,
+          [],
+          linked.dateAdded,
+        );
+      }
+    } catch (e) {
+      // No transactions: undo the create so a retry doesn't leave a duplicate
+      try {
+        if (payload.holdoutId) {
+          await req.context.models.holdout.removeExperimentFromHoldout(
+            payload.holdoutId,
+            experiment.id,
+            linked,
+          );
+        }
+        await deleteExperimentByIdForOrganization(req.context, experiment);
+      } catch (rewindError) {
+        logger.error(
+          rewindError,
+          `Failed to undo creating experiment "${experiment.id}" after a later step failed`,
+        );
+      }
+      throw e;
     }
 
     const apiExperiment = await resolveOwnerEmail(

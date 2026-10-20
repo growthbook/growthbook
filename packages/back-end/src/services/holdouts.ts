@@ -281,6 +281,7 @@ export async function addNewExperimentToHoldout(
   experiment: Pick<ExperimentInterface, "id" | "project">,
   holdoutId: string,
   linkedFeatureIds: string[],
+  dateAdded?: Date,
 ) {
   const canLinkFromFeature = await canLinkExperimentToHoldoutFromFeatures(
     context,
@@ -293,7 +294,11 @@ export async function addNewExperimentToHoldout(
     project: experiment.project,
     bypassReadPermissionChecks: canLinkFromFeature,
   });
-  await context.models.holdout.addExperimentToHoldout(holdoutId, experiment.id);
+  await context.models.holdout.addExperimentToHoldout(
+    holdoutId,
+    experiment.id,
+    dateAdded,
+  );
 }
 
 /**
