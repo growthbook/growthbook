@@ -21,7 +21,9 @@ import { getLatestRunsForWebHook } from "back-end/src/models/EventWebHookLogMode
 import { ApiReqContext } from "back-end/types/api";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
-function toApiEventWebhook(w: EventWebHookInterface) {
+// Write responses can be saved on a confirmation that other members can open,
+// so only reads carry the signing key and headers
+function toApiEventWebhook(w: EventWebHookInterface, withSecrets = true) {
   return {
     id: w.id,
     name: w.name,
@@ -33,9 +35,9 @@ function toApiEventWebhook(w: EventWebHookInterface) {
     environments: w.environments,
     payloadType: w.payloadType,
     method: w.method,
-    headers: w.headers,
+    headers: withSecrets ? w.headers : {},
     timeoutSeconds: w.timeoutSeconds ?? null,
-    signingKey: w.signingKey,
+    signingKey: withSecrets ? w.signingKey : "",
     lastRunAt: w.lastRunAt?.toISOString() ?? null,
     lastState: w.lastState,
     lastResponseBody: w.lastResponseBody ?? null,
@@ -81,7 +83,7 @@ export const listEventWebhooks = createApiRequestHandler(
   return {
     eventWebhooks: webhooks
       .filter((w) => !isSlackAppManaged(w))
-      .map(toApiEventWebhook),
+      .map((w) => toApiEventWebhook(w)),
   };
 });
 
@@ -118,7 +120,7 @@ export const postEventWebhook = createApiRequestHandler(
     method,
     headers,
   });
-  return { eventWebhook: toApiEventWebhook(created) };
+  return { eventWebhook: toApiEventWebhook(created, false) };
 });
 
 export const putEventWebhook = createApiRequestHandler(
@@ -142,7 +144,7 @@ export const putEventWebhook = createApiRequestHandler(
     },
   );
   const updated = await getWebhook(req.context, id);
-  return { eventWebhook: toApiEventWebhook(updated) };
+  return { eventWebhook: toApiEventWebhook(updated, false) };
 });
 
 export const deleteEventWebhook = createApiRequestHandler(
