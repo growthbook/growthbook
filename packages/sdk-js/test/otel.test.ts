@@ -1,8 +1,6 @@
 /**
  * @jest-environment node
  */
-import { Experiment, GrowthBook, GrowthBookClient } from "../src";
-import { tracingPlugin } from "../src/plugins/tracing";
 import {
   GrowthBookIngestRegion,
   growthbookOtlpExporterConfig,
@@ -18,11 +16,6 @@ class FakeSpan {
     return this;
   }
 }
-
-const exp: Experiment<boolean> = {
-  key: "my-experiment",
-  variations: [false, true],
-};
 
 describe("tracingSpanProcessor", () => {
   const processor = tracingSpanProcessor();
@@ -55,51 +48,6 @@ describe("tracingSpanProcessor", () => {
     }
   });
 
-  it("tags spans with assignments made before they start", () => {
-    const gb = new GrowthBook({
-      plugins: [tracingPlugin()],
-      attributes: { id: "123" },
-    });
-    const res = gb.run(exp);
-
-    const span = withTracingContext({ gb }, start);
-
-    expect(span.attributes[TRACING_ATTRIBUTES.tags]).toEqual([
-      `gb.exp:my-experiment=${res.key}`,
-    ]);
-    gb.destroy();
-  });
-
-  it("retags open spans when an experiment is assigned later", () => {
-    const gb = new GrowthBook({ attributes: { id: "123" } });
-
-    const { root, ended } = withTracingContext({ gb }, () => {
-      const root = start();
-      const ended = start();
-      processor.onEnd(ended);
-      gb.run(exp);
-      return { root, ended };
-    });
-
-    expect(root.attributes[TRACING_ATTRIBUTES.tags]).toHaveLength(1);
-    expect(ended.attributes[TRACING_ATTRIBUTES.tags]).toBeUndefined();
-    gb.destroy();
-  });
-
-  it("works with a user-scoped instance from GrowthBookClient", () => {
-    const client = new GrowthBookClient({ plugins: [tracingPlugin()] });
-    const gb = client.createScopedInstance({ attributes: { id: "123" } });
-
-    const span = withTracingContext({ gb, userId: "123" }, () => {
-      gb.runInlineExperiment(exp);
-      return start();
-    });
-
-    expect(span.attributes[TRACING_ATTRIBUTES.userId]).toBe("123");
-    expect(span.attributes[TRACING_ATTRIBUTES.tags]).toHaveLength(1);
-    client.destroy();
-  });
-
   it("inherits outer context in nested calls", () => {
     const span = withTracingContext(
       { userId: "u1", conversationId: "c1" },
@@ -108,16 +56,6 @@ describe("tracingSpanProcessor", () => {
 
     expect(span.attributes[TRACING_ATTRIBUTES.userId]).toBe("u1");
     expect(span.attributes[TRACING_ATTRIBUTES.conversationId]).toBe("c2");
-  });
-
-  it("stops retagging after the context finishes", async () => {
-    const gb = new GrowthBook({ attributes: { id: "123" } });
-
-    const span = await withTracingContext({ gb }, async () => start());
-    gb.run(exp);
-
-    expect(span.attributes[TRACING_ATTRIBUTES.tags]).toBeUndefined();
-    gb.destroy();
   });
 
   it("returns the callback's value and rethrows its errors", async () => {

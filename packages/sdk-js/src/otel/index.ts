@@ -1,7 +1,4 @@
 import { AsyncLocalStorage } from "async_hooks";
-import type { GrowthBook } from "../GrowthBook";
-import type { UserScopedGrowthBook } from "../GrowthBookClient";
-import { ensureTracingPlugin, getTracingTags } from "../plugins/tracing";
 
 // Structural stand-ins for OpenTelemetry's Span and SpanProcessor, so this
 // works with any @opentelemetry/sdk-trace version without depending on it.
@@ -21,9 +18,6 @@ export type TracingContextOptions = {
   // AI spans to the rest of a user's data.
   userId?: string;
   conversationId?: string;
-  // Experiments this instance assigns are stamped as `gb.tags`, including ones
-  // assigned after a span starts, as long as the span is still open.
-  gb?: GrowthBook | UserScopedGrowthBook;
 };
 
 export const TRACING_ATTRIBUTES = {
@@ -31,29 +25,13 @@ export const TRACING_ATTRIBUTES = {
   // OTel GenAI name; `session.id` is what Phoenix and Langfuse read.
   conversationId: "gen_ai.conversation.id",
   sessionId: "session.id",
-  tags: "gb.tags",
 } as const;
 
-type TracingStore = {
-  userId?: string;
-  conversationId?: string;
-  gb?: GrowthBook | UserScopedGrowthBook;
-  openSpans: Set<TracingSpan>;
-};
-
-const storage = new AsyncLocalStorage<TracingStore>();
-const storeBySpan = new WeakMap<object, TracingStore>();
-
-function setTags(span: TracingSpan, gb: GrowthBook | UserScopedGrowthBook) {
-  const tags = getTracingTags(gb);
-  if (tags.length) {
-    span.setAttribute(TRACING_ATTRIBUTES.tags, tags);
-  }
-}
+const storage = new AsyncLocalStorage<TracingContextOptions>();
 
 // Register once on your tracer provider. Spans started inside
-// `withTracingContext` get the user id, conversation id and experiment tags,
-// including spans created by AI frameworks you don't control.
+// `withTracingContext` get the user id and conversation id, including spans
+// created by AI frameworks you don't control.
 export function tracingSpanProcessor(): TracingSpanProcessor {
   return {
     onStart(span) {
@@ -69,18 +47,8 @@ export function tracingSpanProcessor(): TracingSpanProcessor {
         );
         span.setAttribute(TRACING_ATTRIBUTES.sessionId, store.conversationId);
       }
-      if (store.gb) {
-        setTags(span, store.gb);
-        store.openSpans.add(span);
-        storeBySpan.set(span, store);
-      }
     },
-    onEnd(span) {
-      if (span && typeof span === "object") {
-        storeBySpan.get(span)?.openSpans.delete(span as TracingSpan);
-        storeBySpan.delete(span);
-      }
-    },
+    onEnd: () => {},
     forceFlush: () => Promise.resolve(),
     shutdown: () => Promise.resolve(),
   };
@@ -92,39 +60,13 @@ export function withTracingContext<T>(
   fn: () => T,
 ): T {
   const parent = storage.getStore();
-  const store: TracingStore = {
-    userId: options.userId ?? parent?.userId,
-    conversationId: options.conversationId ?? parent?.conversationId,
-    gb: options.gb ?? parent?.gb,
-    openSpans: new Set(),
-  };
-
-  const gb = store.gb;
-  let unsubscribe: (() => void) | undefined;
-  if (gb) {
-    ensureTracingPlugin(gb);
-    // Spans usually start before the code inside them evaluates a flag, so
-    // retag the ones still open when an assignment happens.
-    unsubscribe = gb._subscribeExperimentViewed(() => {
-      store.openSpans.forEach((span) => setTags(span, gb));
-    });
-  }
-
-  let result: T;
-  try {
-    result = storage.run(store, fn);
-  } catch (e) {
-    unsubscribe?.();
-    throw e;
-  }
-  if (unsubscribe) {
-    if (result && typeof (result as { then?: unknown }).then === "function") {
-      (result as unknown as Promise<unknown>).then(unsubscribe, unsubscribe);
-    } else {
-      unsubscribe();
-    }
-  }
-  return result;
+  return storage.run(
+    {
+      userId: options.userId ?? parent?.userId,
+      conversationId: options.conversationId ?? parent?.conversationId,
+    },
+    fn,
+  );
 }
 
 // Regions match the hosts `growthbookTrackingPlugin` sends events to.
