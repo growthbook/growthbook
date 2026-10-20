@@ -9,6 +9,12 @@
   overflow-wrap: anywhere;
 }
 
+// No-op until a caller sets the var. Applied to the table rather than the
+// slack <col>, whose min-width the CSS Tables spec doesn't honour.
+:global(.rt-TableRootTable) {
+  min-width: var(--table-min-width, 0);
+}
+
 // List table variant: sticky header, row hover (use same solid surface as surface variant)
 .wrapper[data-table-list] {
   max-width: 100%;
@@ -285,12 +291,6 @@
       background-color: var(--gray-a5);
       pointer-events: none;
     }
-  }
-
-  // No-op until a caller sets the var. Applied to the table rather than the
-  // slack <col>, whose min-width the CSS Tables spec doesn't honour.
-  :global(.rt-TableRootTable) {
-    min-width: var(--table-min-width, 0);
   }
 
   // Anchor for the absolutely positioned resize handle.

@@ -20,7 +20,7 @@ export async function loadChangesetWithOwner(
   }
   const owner = await resolveChangesetOwner(context, changeset);
   if (!owner) {
-    return context.throwNotFoundError(ownerNotFoundMessage());
+    return context.throwNotFoundError(ownerNotFoundMessage(changeset));
   }
   return { changeset, owner };
 }

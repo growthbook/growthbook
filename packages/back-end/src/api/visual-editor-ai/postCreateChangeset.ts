@@ -38,6 +38,7 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/visual-editor/create-changeset",
+  confirmation: ["experiment.visualEditor"] as const,
   operationId: "postVisualEditorCreateChangeset",
   // Internal Visual Editor extension endpoint — not part of the
   // public OpenAPI spec.
@@ -56,6 +57,7 @@ export const postCreateChangeset = createApiRequestHandler(validation)(async (
   if (!owner.canCreateChangeset()) {
     context.permissions.throwPermissionError();
   }
+  owner.assertCanCreateChangeset();
 
   // Omit `visualChanges` so createVisualChangeset auto-generates one empty
   // entry per current variation.

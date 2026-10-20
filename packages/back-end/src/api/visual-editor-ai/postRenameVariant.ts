@@ -18,6 +18,7 @@ const validation = {
   responseSchema: z.any(),
   method: "post" as const,
   path: "/visual-editor/rename-variant",
+  confirmation: ["experiment.draft"] as const,
   operationId: "postVisualEditorRenameVariant",
   // Internal Visual Editor extension endpoint — not part of the
   // public OpenAPI spec.

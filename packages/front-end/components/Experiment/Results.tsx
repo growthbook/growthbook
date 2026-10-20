@@ -480,6 +480,7 @@ const Results: FC<{
               sortDirection={sortDirection}
               setSortDirection={setSortDirection}
               analysisBarSettings={analysisBarSettings}
+              customMetricSlices={experiment.customMetricSlices}
             />
           ) : showCompactResults ? (
             <CompactResults
