@@ -5,6 +5,15 @@ import { namedSchema } from "./openapi-helpers";
 import { apiRuleConfigField } from "./features-v2";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
+import {
+  BANDIT_TRACKING_KEY_DESCRIPTION,
+  GENERIC_NAME_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
+  TAGS_DESCRIPTION,
+  VARIATION_DESCRIPTION,
+  VARIATION_KEY_DESCRIPTION,
+  VARIATION_NAME_DESCRIPTION,
+} from "./api-field-descriptions";
 
 export const MAX_CONTEXTUAL_BANDIT_LEAVES = 12;
 
@@ -104,12 +113,14 @@ export const contextualBanditValidator = baseSchema
     decisionMetric: z.string().optional(),
     minUsersPerLeaf: z.number().int().positive(),
     maxLeaves: z.number().int().positive(),
+    priorSampleSize: z.number().int().nonnegative(),
 
     measurementArm: contextualBanditMeasurementArmValidator.optional(),
 
     banditModelVersion: z.number().int().nonnegative(),
 
     linkedFeatures: z.array(z.string()).optional(),
+    hasVisualChangesets: z.boolean().optional(),
 
     pendingFeatureDrafts: z
       .array(
@@ -183,6 +194,7 @@ export const apiContextualBanditValidator = namedSchema(
     decisionMetric: z.string().optional(),
     minUsersPerLeaf: z.number().int().positive(),
     maxLeaves: z.number().int().positive(),
+    priorSampleSize: z.number().int().nonnegative(),
     measurementArm: apiContextualBanditMeasurementArm.optional(),
     banditModelVersion: z.number().int().nonnegative(),
     scheduleValue: z.number().optional(),
@@ -195,6 +207,7 @@ export const apiContextualBanditValidator = namedSchema(
     stageDateStarted: z.iso.datetime().optional(),
     autoSnapshots: z.boolean().optional(),
     nextSnapshotAttempt: z.iso.datetime().optional(),
+    hasVisualChangesets: z.boolean().optional(),
   }),
 );
 
@@ -213,22 +226,22 @@ export const apiListContextualBanditsValidator = {
 };
 
 export const apiCreateContextualBanditBody = z.strictObject({
-  name: z.string(),
-  description: z.string().optional(),
+  name: z.string().describe(GENERIC_NAME_DESCRIPTION),
+  description: z.string().describe(MARKDOWN_DESCRIPTION).optional(),
   project: z.string().optional(),
   owner: ownerInputField.optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
 
-  trackingKey: z.string(),
+  trackingKey: z.string().describe(BANDIT_TRACKING_KEY_DESCRIPTION),
   hashAttribute: z.string().optional(),
 
   decisionMetric: z.string(),
 
   variations: z.array(
     z.object({
-      key: z.string(),
-      name: z.string(),
-      description: z.string().optional(),
+      key: z.string().describe(VARIATION_KEY_DESCRIPTION),
+      name: z.string().describe(VARIATION_NAME_DESCRIPTION),
+      description: z.string().describe(VARIATION_DESCRIPTION).optional(),
     }),
   ),
 
@@ -243,6 +256,7 @@ export const apiCreateContextualBanditBody = z.strictObject({
     .positive()
     .max(MAX_CONTEXTUAL_BANDIT_LEAVES)
     .optional(),
+  priorSampleSize: z.number().int().nonnegative().optional(),
 
   scheduleValue: z.number().optional(),
   scheduleUnit: z.enum(["days", "hours"]).optional(),
@@ -270,7 +284,7 @@ export const apiUpdateContextualBanditBody = z.strictObject({
   owner: ownerInputField.optional(),
   tags: z.array(z.string()).optional(),
 
-  trackingKey: z.string().optional(),
+  trackingKey: z.string().describe(BANDIT_TRACKING_KEY_DESCRIPTION).optional(),
   hashAttribute: z.string().optional(),
 
   datasource: z.string().optional(),
@@ -285,6 +299,7 @@ export const apiUpdateContextualBanditBody = z.strictObject({
     .positive()
     .max(MAX_CONTEXTUAL_BANDIT_LEAVES)
     .optional(),
+  priorSampleSize: z.number().int().nonnegative().optional(),
   scheduleValue: z.number().optional(),
   scheduleUnit: z.enum(["days", "hours"]).optional(),
   burnInValue: z.number().optional(),
@@ -328,6 +343,7 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "decisionMetric",
   "minUsersPerLeaf",
   "maxLeaves",
+  "priorSampleSize",
   "scheduleValue",
   "scheduleUnit",
   "burnInValue",

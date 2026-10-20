@@ -1,0 +1,18 @@
+// Matches the `lg` breakpoint used by ConnectDataSourceLayout's Grid: the
+// instructions sit beside the form from 1280px up and stack below it.
+.aside {
+  background: var(--color-panel-solid);
+  border-top: 1px solid var(--gray-a5);
+  box-sizing: border-box;
+  padding: 24px 24px 48px;
+
+  @media (min-width: 1280px) {
+    border-top: none;
+    border-left: 1px solid var(--gray-a5);
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    // Keep left/right padding visually equal when a scrollbar appears.
+    scrollbar-gutter: stable;
+  }
+}

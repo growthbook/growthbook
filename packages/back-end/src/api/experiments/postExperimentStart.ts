@@ -13,6 +13,11 @@ import {
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
+import {
+  confirmationLink,
+  queuedDraftsHold,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 
 function formatScheduledStartUtc(date: Date): string {
@@ -44,6 +49,20 @@ export const postExperimentStart = createApiRequestHandler(
     throw new Error("Holdouts are not supported via this API");
   }
   assertNotMeasurementArmExperiment(existing, "start via this API");
+
+  // Staging a scheduled start is held too: it starts later with no one present.
+  const queued = await queuedDraftsHold(context, existing.pendingFeatureDrafts);
+  await requireConfirmation(context, {
+    actions: ["experiment.start", ...queued.actions],
+    project: existing.project,
+    summary: `Start ${existing.name}`,
+    links: [
+      confirmationLink("experiment", existing.id, existing.name),
+      ...queued.links,
+    ],
+    // A changed schedule changes when, or whether, this start happens.
+    pin: [existing.status, existing.statusUpdateSchedule ?? null, queued.pin],
+  });
 
   // Bandits manage their own update cadence; they don't use statusUpdateSchedule.
   const isBandit = existing.type === "multi-armed-bandit";

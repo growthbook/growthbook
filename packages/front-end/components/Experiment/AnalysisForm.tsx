@@ -7,7 +7,7 @@ import {
 } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiCaretRightFill } from "react-icons/pi";
-import { datetime, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -26,6 +26,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   getDefaultIdentifierType,
+  getExposureQueriesInScope,
   getExposureQuery,
   getHashAttributeIdentifierTypeMap,
   getSelectableIdentifierTypes,
@@ -81,6 +82,10 @@ const AnalysisForm: FC<{
   editDates?: boolean;
   editMetrics?: boolean;
   source?: string;
+  /**
+   * A holdout's assignment query must cover every Project the holdout spans.
+   */
+  holdoutProjects?: string[];
 }> = ({
   experiment,
   envs,
@@ -88,6 +93,7 @@ const AnalysisForm: FC<{
   mutate,
   phase,
   source,
+  holdoutProjects,
   editVariationIds = true,
   editDates = true,
   editMetrics = false,
@@ -146,9 +152,8 @@ const AnalysisForm: FC<{
   }
 
   const phaseObj = experiment.phases[phase];
-  const initialDatasourceSettings = getDatasourceById(
-    experiment.datasource,
-  )?.settings;
+  const initialDatasource = getDatasourceById(experiment.datasource);
+  const initialDatasourceSettings = initialDatasource?.settings;
   const initialExposureQuery = getExposureQuery(
     initialDatasourceSettings,
     experiment.exposureQueryId,
@@ -165,7 +170,13 @@ const AnalysisForm: FC<{
       )
     : getDefaultIdentifierType({
         identifierTypes: getSelectableIdentifierTypes(
-          initialDatasourceSettings?.queries?.exposure ?? [],
+          initialDatasource
+            ? getExposureQueriesInScope(
+                initialDatasource,
+                experiment.project,
+                holdoutProjects,
+              )
+            : [],
         ),
         hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
           initialDatasourceSettings?.userIdTypes,
@@ -187,12 +198,8 @@ const AnalysisForm: FC<{
         experiment.attributionModel ||
         orgSettings.attributionModel ||
         "firstExposure",
-      dateStarted: getValidDate(phaseObj?.dateStarted ?? "")
-        .toISOString()
-        .substr(0, 16),
-      dateEnded: getValidDate(phaseObj?.dateEnded ?? "")
-        .toISOString()
-        .substr(0, 16),
+      dateStarted: getValidDate(phaseObj?.dateStarted ?? "").toISOString(),
+      dateEnded: getValidDate(phaseObj?.dateEnded ?? "").toISOString(),
       variations: getLatestPhaseVariations(experiment) || [],
       phases: experiment.phases || [],
       sequentialTestingEnabled:
@@ -345,6 +352,8 @@ const AnalysisForm: FC<{
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
+    project: experiment.project,
+    holdoutProjects,
     hashAttribute: experiment.hashAttribute,
     exposureQueryId,
     identifierType: exposureQueryIdentifierType,
@@ -658,7 +667,13 @@ const AnalysisForm: FC<{
                     "exposureQueryIdentifierType",
                     getDefaultIdentifierType({
                       identifierTypes: getSelectableIdentifierTypes(
-                        ds?.settings?.queries?.exposure ?? [],
+                        ds
+                          ? getExposureQueriesInScope(
+                              ds,
+                              experiment.project,
+                              holdoutProjects,
+                            )
+                          : [],
                       ),
                       hashAttributeIdentifierTypeMap:
                         getHashAttributeIdentifierTypeMap(
@@ -793,11 +808,12 @@ const AnalysisForm: FC<{
             <div className="row">
               <div className="col">
                 <DatePicker
-                  label="Start Time (UTC)"
+                  label="Start time"
+                  timeZone="utc"
                   helpText="Only include users who entered the experiment on or after this date"
                   date={form.watch("dateStarted")}
                   setDate={(v) => {
-                    form.setValue("dateStarted", v ? datetime(v) : "");
+                    form.setValue("dateStarted", v ? v.toISOString() : "");
                   }}
                   scheduleEndDate={form.watch("dateEnded")}
                   disableAfter={form.watch("dateEnded") || undefined}
@@ -806,11 +822,12 @@ const AnalysisForm: FC<{
               {experiment.status === "stopped" && (
                 <div className="col">
                   <DatePicker
-                    label="End Time (UTC)"
+                    label="End time"
+                    timeZone="utc"
                     helpText="Only include users who entered the experiment on or before this date"
                     date={form.watch("dateEnded")}
                     setDate={(v) => {
-                      form.setValue("dateEnded", v ? datetime(v) : "");
+                      form.setValue("dateEnded", v ? v.toISOString() : "");
                     }}
                     scheduleStartDate={form.watch("dateStarted")}
                     disableBefore={form.watch("dateStarted") || undefined}

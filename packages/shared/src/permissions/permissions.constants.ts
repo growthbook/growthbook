@@ -30,6 +30,7 @@ export const POLICIES = [
   "FactMetricsFullAccess",
   "DimensionsFullAccess",
   "SegmentsFullAccess",
+  "PopulationsFullAccess",
   "IdeasFullAccess",
   "PresentationsFullAccess",
   "ExperimentsPublish",
@@ -55,6 +56,11 @@ export const POLICIES = [
   "ProjectAdminAccess",
   "TagsFullAccess",
   "APIKeysFullAccess",
+  "APIKeysView",
+  "APIKeysCreate",
+  "APIKeysEdit",
+  "APIKeysDelete",
+  "APIKeysMemberTokens",
   "IntegrationsFullAccess",
   "EventWebhooksFullAccess",
   "BillingFullAccess",
@@ -227,6 +233,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ],
   DimensionsFullAccess: ["readData", "createDimensions", "runQueries"],
   SegmentsFullAccess: ["readData", "createSegments", "runQueries"],
+  PopulationsFullAccess: ["readData", "managePopulations", "runQueries"],
   IdeasFullAccess: ["readData", "createIdeas"],
   PresentationsFullAccess: ["readData", "createPresentations"],
   ExperimentsPublish: ["readData", "runExperiments"],
@@ -311,7 +318,19 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ],
   ProjectAdminAccess: ["readData", "manageProjects"],
   TagsFullAccess: ["readData", "manageTags"],
-  APIKeysFullAccess: ["readData", "manageApiKeys"],
+  APIKeysFullAccess: [
+    "readData",
+    "viewApiKeys",
+    "createApiKeys",
+    "editApiKeys",
+    "deleteApiKeys",
+    "managePersonalAccessTokens",
+  ],
+  APIKeysView: ["readData", "viewApiKeys"],
+  APIKeysCreate: ["readData", "viewApiKeys", "createApiKeys"],
+  APIKeysEdit: ["readData", "viewApiKeys", "editApiKeys"],
+  APIKeysDelete: ["readData", "viewApiKeys", "deleteApiKeys"],
+  APIKeysMemberTokens: ["readData", "managePersonalAccessTokens"],
   IntegrationsFullAccess: ["readData", "manageIntegrations"],
   EventWebhooksFullAccess: ["readData", "manageEventWebhooks", "viewAuditLog"],
   BillingFullAccess: ["readData", "manageBilling"],
@@ -394,6 +413,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "FactMetricsFullAccess",
       "DimensionsFullAccess",
       "SegmentsFullAccess",
+      "PopulationsFullAccess",
       "ManageOfficialResources",
     ],
   },
@@ -430,6 +450,11 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "ProjectAdminAccess",
       "TagsFullAccess",
       "APIKeysFullAccess",
+      "APIKeysView",
+      "APIKeysCreate",
+      "APIKeysEdit",
+      "APIKeysDelete",
+      "APIKeysMemberTokens",
       "IntegrationsFullAccess",
       "EventWebhooksFullAccess",
       "BillingFullAccess",
@@ -579,6 +604,10 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Segments Full Access",
     description: "Create, edit, and delete segments",
   },
+  PopulationsFullAccess: {
+    displayName: "Populations Full Access",
+    description: "Create, edit, and delete populations",
+  },
   IdeasFullAccess: {
     displayName: "Ideas Full Access",
     description: "Create, edit, and delete ideas",
@@ -692,8 +721,33 @@ export const POLICY_METADATA_MAP: Record<
   APIKeysFullAccess: {
     displayName: "API Keys Full Access",
     description:
-      "Create, edit, and delete API secret keys. Not required to create Personal Access Tokens.",
+      "View, create, edit, disable, and delete API secret keys, and manage members' Personal Access Tokens. Not required to create your own Personal Access Tokens.",
     warning: "Can be used to create an API Key with full admin permissions.",
+  },
+  APIKeysView: {
+    displayName: "View",
+    description:
+      "View API secret keys and their audit logs. Revealing a key's value requires Create.",
+  },
+  APIKeysCreate: {
+    displayName: "Create",
+    description:
+      "Create API secret keys, reveal their values, and change what a key can do: its role, scope, requester settings, or confirmations",
+  },
+  APIKeysEdit: {
+    displayName: "Edit",
+    description:
+      "Change an API secret key's description and expiration, and re-enable disabled keys. Changing what a key can do requires Create.",
+  },
+  APIKeysDelete: {
+    displayName: "Disable & delete",
+    description:
+      "Disable and delete API secret keys, and apply the expiration policy to existing keys",
+  },
+  APIKeysMemberTokens: {
+    displayName: "Manage members' tokens",
+    description:
+      "View, disable, or re-enable any member's Personal Access Tokens, see their audit logs, and apply the expiration policy to existing tokens. Token values stay visible only to their owners.",
   },
   IntegrationsFullAccess: {
     displayName: "Integrations Full Access",
@@ -784,6 +838,13 @@ export const POLICY_PARTS: Partial<Record<Policy, Policy[]>> = {
     "SavedGroupsRevert",
     "SavedGroupsDelete",
   ],
+  APIKeysFullAccess: [
+    "APIKeysView",
+    "APIKeysCreate",
+    "APIKeysEdit",
+    "APIKeysDelete",
+    "APIKeysMemberTokens",
+  ],
 };
 
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
@@ -855,6 +916,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "FactMetricsFullAccess",
       "DimensionsFullAccess",
       "SegmentsFullAccess",
+      "PopulationsFullAccess",
       "IdeasFullAccess",
       "PresentationsFullAccess",
       "TagsFullAccess",
@@ -884,6 +946,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "FactMetricsFullAccess",
       "DimensionsFullAccess",
       "SegmentsFullAccess",
+      "PopulationsFullAccess",
       "IdeasFullAccess",
       "PresentationsFullAccess",
       "ExperimentsPublish",
@@ -919,6 +982,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "FactMetricsFullAccess",
       "DimensionsFullAccess",
       "SegmentsFullAccess",
+      "PopulationsFullAccess",
       "IdeasFullAccess",
       "PresentationsFullAccess",
       "ExperimentsPublish",
@@ -1001,6 +1065,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "deleteProjects",
   "createAnalyses",
   "createSegments",
+  "managePopulations",
   "createIdeas",
   "createMetrics",
   "manageFactTables",
@@ -1040,7 +1105,11 @@ export const GLOBAL_PERMISSIONS = [
   "superDeleteReport",
   "manageTeam",
   "manageTags",
-  "manageApiKeys",
+  "viewApiKeys",
+  "createApiKeys",
+  "editApiKeys",
+  "deleteApiKeys",
+  "managePersonalAccessTokens",
   "manageIntegrations",
   "manageEventWebhooks",
   "manageBilling",

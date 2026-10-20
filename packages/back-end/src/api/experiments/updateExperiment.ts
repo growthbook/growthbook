@@ -50,6 +50,13 @@ import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fie
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 import {
+  experimentChangeActions,
+  pinnedFields,
+  confirmationLink,
+  queuedDraftsHold,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
+import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
 } from "./validations";
@@ -141,6 +148,12 @@ export const updateExperiment = createApiRequestHandler(
         },
         onOmitted: "requireUnambiguous",
         field: "assignmentQuery",
+        // Only a newly chosen query is checked. Moving an experiment to another
+        // project keeps its query, which then shows as out of scope.
+        scope: {
+          project: payload.project ?? experiment.project ?? "",
+          datasourceProjects: datasource.projects,
+        },
       },
     );
     if (!resolved.ok) throw new Error(resolved.error);
@@ -454,6 +467,34 @@ export const updateExperiment = createApiRequestHandler(
     experiment.status === "draft" && changes.status === "running";
 
   await validateExperimentChange({ context: req.context, experiment, changes });
+
+  const liveActions = experimentChangeActions(experiment, changes);
+  const queued = await queuedDraftsHold(
+    req.context,
+    changes.status === "running" && experiment.status !== "running"
+      ? experiment.pendingFeatureDrafts
+      : undefined,
+  );
+  await requireConfirmation(req.context, {
+    actions: [
+      ...(liveActions.length ? liveActions : ["experiment.draft" as const]),
+      // Starting a draft here skips the launch checklist, as if asked to.
+      ...(isStartingFromDraft ? (["override.skipChecklist"] as const) : []),
+      ...queued.actions,
+    ],
+    project: experiment.project,
+    summary: `Change ${experiment.name}`,
+    links: [
+      confirmationLink("experiment", experiment.id, experiment.name),
+      ...queued.links,
+    ],
+    pin: [
+      experiment.status,
+      experiment.phases,
+      pinnedFields(experiment, changes),
+      queued.pin,
+    ],
+  });
 
   let experimentForUpdate = experiment;
   let changesForUpdate = changes;

@@ -334,6 +334,7 @@ export const postReportValidator = {
     })
     .strict(),
   summary: "Create a new report",
+  confirmation: ["other.write"] as const,
   operationId: "postReport",
   tags: ["reports"],
   method: "post" as const,
@@ -350,6 +351,7 @@ export const postReportRefreshValidator = {
     })
     .strict(),
   summary: "Refresh a report by re-running its analysis",
+  confirmation: [],
   operationId: "postReportRefresh",
   tags: ["reports"],
   method: "post" as const,
@@ -384,6 +386,7 @@ export const putReportMetadataValidator = {
   paramsSchema: idParams,
   responseSchema: z.object({ report: apiReportValidator }).strict(),
   summary: "Update report metadata (title, description, visibility)",
+  confirmation: ["other.write"] as const,
   operationId: "putReportMetadata",
   tags: ["reports"],
   method: "put" as const,
@@ -499,6 +502,7 @@ export const putReportSettingsValidator = {
   summary: "Update report analysis settings",
   description:
     "Updates the analysis settings for an existing report. Changes are staged and do not take effect until you call `POST /reports/:id/refresh`.",
+  confirmation: ["other.write"] as const,
   operationId: "putReportSettings",
   tags: ["reports"],
   method: "put" as const,

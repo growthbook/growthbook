@@ -51,7 +51,7 @@ import {
 import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 import { trackEventForContext } from "back-end/src/services/growthbook";
 import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
-import { isArmingApiKeyId } from "back-end/src/services/organizations";
+import { isArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 
 export type StartChecklistItemStatus = {
   key: string;
@@ -172,7 +172,7 @@ export type StopExperimentInput = {
   enableTemporaryRollout?: boolean;
   reason?: string;
   analysis?: string;
-  dateEnded?: string;
+  dateEnded?: string | Date;
 };
 
 export type ModifyTemporaryRolloutInput = {

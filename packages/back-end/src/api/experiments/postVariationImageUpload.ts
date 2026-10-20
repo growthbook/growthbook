@@ -49,6 +49,7 @@ const postVariationImageUploadValidator = {
   }),
   method: "post" as const,
   path: "/experiments/:id/variation/:variationId/screenshot/upload",
+  confirmation: ["experiment.draft"] as const,
   operationId: "postVariationImageUpload",
   summary: "Upload a variation screenshot",
   tags: ["experiments"],
@@ -143,9 +144,9 @@ export const postVariationImageUpload = createApiRequestHandler(
     }),
   });
 
-  if (context.userId) {
+  if (context.actingUserId) {
     await context.models.watch.upsertWatch({
-      userId: context.userId,
+      userId: context.actingUserId,
       item: experiment.id,
       type: "experiments",
     });

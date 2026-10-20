@@ -253,6 +253,18 @@ export type AIChatMessage =
   | AIChatToolMessage;
 
 /** Extracts the concatenated text content from any message with text parts. */
+/** The rest of the first candidate `typed` is a prefix of, case-insensitive. */
+export function completePrefix(
+  typed: string,
+  candidates: readonly string[],
+): string | undefined {
+  const lower = typed.toLowerCase();
+  const hit = candidates.find(
+    (c) => c.length > typed.length && c.toLowerCase().startsWith(lower),
+  );
+  return hit?.slice(typed.length);
+}
+
 export function getMessageText(
   msg: AIChatUserMessage | AIChatAssistantMessage,
 ): string {

@@ -15,7 +15,7 @@ import {
   MIN_MEASUREMENT_ARM_PERCENT,
 } from "shared/validators";
 import { useRouter } from "next/router";
-import { datetime, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import { validateAndFixCondition } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -56,10 +56,8 @@ import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ContextualBanditAnalysisFields from "@/components/ContextualBandit/ContextualBanditAnalysisFields";
 import ContextualBanditAssignmentAttributeSelect from "@/components/ContextualBandit/ContextualBanditAssignmentAttributeSelect";
 import DatePicker from "@/components/DatePicker";
-import {
-  getDefaultVariations,
-  getNewExperimentDatasourceDefaults,
-} from "@/components/Experiment/NewExperimentForm";
+import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
+import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
 
 type ContextualBanditFormValues = Partial<ExperimentInterfaceStringDates> &
   Partial<
@@ -180,12 +178,8 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       prerequisites: initialValue?.prerequisites,
       variationWeights:
         initialValue?.variationWeights ?? toEqualWeights(initialExpVariations),
-      dateStarted: getValidDate(initialValue?.dateStarted ?? "")
-        .toISOString()
-        .substring(0, 16),
-      dateEnded: getValidDate(initialValue?.dateEnded ?? "")
-        .toISOString()
-        .substring(0, 16),
+      dateStarted: getValidDate(initialValue?.dateStarted ?? "").toISOString(),
+      dateEnded: getValidDate(initialValue?.dateEnded ?? "").toISOString(),
       status: "draft",
       banditScheduleValue: scopedSettings.banditScheduleValue.value,
       banditScheduleUnit: scopedSettings.banditScheduleUnit.value,
@@ -283,13 +277,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     if (data.status !== "stopped") {
       data.dateEnded = "";
     }
-    if (data.dateStarted && !data.dateStarted.match(/Z$/)) {
-      data.dateStarted += ":00Z";
-    }
-    if (data.dateEnded && !data.dateEnded.match(/Z$/)) {
-      data.dateEnded += ":00Z";
-    }
-
     validateSavedGroupTargeting(data.savedGroups);
 
     validateAndFixCondition(data.condition, (condition) => {
@@ -663,10 +650,11 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                 />
                 {status !== "draft" && (
                   <DatePicker
-                    label="Start Time (UTC)"
+                    label="Start time"
+                    timeZone="utc"
                     date={form.watch("dateStarted")}
                     setDate={(v) => {
-                      form.setValue("dateStarted", v ? datetime(v) : "");
+                      form.setValue("dateStarted", v ? v.toISOString() : "");
                     }}
                     scheduleEndDate={form.watch("dateEnded")}
                     disableAfter={form.watch("dateEnded") || undefined}
@@ -674,10 +662,11 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                 )}
                 {status === "stopped" && (
                   <DatePicker
-                    label="End Time (UTC)"
+                    label="End time"
+                    timeZone="utc"
                     date={form.watch("dateEnded")}
                     setDate={(v) => {
-                      form.setValue("dateEnded", v ? datetime(v) : "");
+                      form.setValue("dateEnded", v ? v.toISOString() : "");
                     }}
                     scheduleStartDate={form.watch("dateStarted")}
                     disableBefore={form.watch("dateStarted") || undefined}

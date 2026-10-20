@@ -1170,6 +1170,37 @@ describe("SDK payload generation (scenario-specific)", () => {
       ).toBeUndefined();
     });
 
+    it("malformed deterministic prereq condition: gated feature and rule drop out, rest of payload builds", async () => {
+      const parent = makeParentDeterministic();
+      const childTop = makeChildTopLevel("parent-det");
+      childTop.prerequisites = [
+        { id: "parent-det", condition: '{"$not": null}' },
+      ];
+      const childRule = makeChildRuleLevel("parent-det");
+      childRule.rules[0].prerequisites = [
+        { id: "parent-det", condition: '{"$and": [null]}' },
+      ];
+      const data = minimalRawData({
+        features: [parent, childTop, childRule],
+        experimentMap: new Map(),
+      });
+
+      const result = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: ["prerequisites", "bucketingV2"],
+          environment: "production",
+          projects: [],
+        },
+        data,
+      });
+
+      expect(result.features["parent-det"]).toBeDefined();
+      expect(result.features["child-top"]).toBeUndefined();
+      expect(result.features["child-rule"]).toBeDefined();
+      expect(result.features["child-rule"]?.rules).toBeUndefined();
+    });
+
     it("non-deterministic prereqs + prerequisites capability: parentConditions preserved for SDK evaluation", async () => {
       const parent = makeParentConditional();
       const childTop = makeChildTopLevel("parent-cond");
