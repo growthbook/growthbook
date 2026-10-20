@@ -24,6 +24,10 @@ export const deleteReport = createApiRequestHandler(deleteReportValidator)(
       context,
       report.experimentId || "",
     );
+    // Unreadable resolves to null; don't fall back to org scope
+    if (report.experimentId && !experiment) {
+      throw new NotFoundError("Could not find report");
+    }
     if (!context.permissions.canDeleteReport(experiment || {})) {
       context.permissions.throwPermissionError();
     }

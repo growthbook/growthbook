@@ -40,7 +40,12 @@ export const postExperimentRestartValidator = {
   summary: "Restart a stopped experiment",
   description:
     "Reopens the last phase. Bandits start a new phase with fresh buckets instead, since a bandit phase can't be resumed.",
-  confirmation: ["experiment.start"] as const,
+  // A bandit restart also resets weights and bucket versions
+  confirmation: [
+    "experiment.start",
+    "experiment.traffic",
+    "experiment.phases",
+  ] as const,
   operationId: "postExperimentRestart",
   tags: ["experiments"],
   method: "post" as const,
@@ -122,7 +127,12 @@ export const deleteExperimentPhaseValidator = {
   summary: "Delete an experiment phase",
   description:
     "Also cleans up snapshots and incremental-refresh data for the phase, which replacing `phases` on update does not. The only phase can't be deleted.",
-  confirmation: ["experiment.phases"] as const,
+  // Deleting the latest phase can restore an earlier one's traffic and targeting
+  confirmation: [
+    "experiment.phases",
+    "experiment.traffic",
+    "experiment.targeting",
+  ] as const,
   operationId: "deleteExperimentPhase",
   tags: ["experiments"],
   method: "delete" as const,

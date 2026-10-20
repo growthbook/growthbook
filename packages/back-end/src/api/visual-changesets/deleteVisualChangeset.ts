@@ -1,3 +1,4 @@
+import { changesetOwnerRef } from "shared/util";
 import { deleteVisualChangesetValidator } from "shared/validators";
 import {
   deleteVisualChangesetById,
@@ -6,6 +7,7 @@ import {
 import {
   ContextualBanditChangesetOwner,
   ExperimentChangesetOwner,
+  ownerNotFoundMessage,
   resolveChangesetOwner,
 } from "back-end/src/services/changesetOwner";
 import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
@@ -25,6 +27,10 @@ export const deleteVisualChangeset = createApiRequestHandler(
 
   // Same gates as the app: running the owner where the change is served
   const owner = await resolveChangesetOwner(context, visualChangeset);
+  // An owner the caller can't read resolves to null; don't fall back to org scope
+  if (!owner && changesetOwnerRef(visualChangeset)) {
+    throw new NotFoundError(ownerNotFoundMessage(visualChangeset));
+  }
   if (owner instanceof ContextualBanditChangesetOwner) {
     const envs = getEnvironments(context.org).map((e) => e.id);
     if (
