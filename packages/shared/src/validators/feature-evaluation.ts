@@ -87,6 +87,7 @@ export const postFeatureEvaluateValidator = {
   summary: "Evaluate a feature flag for a set of attributes",
   description:
     "Runs the SDK against the flag without publishing anything, so a draft can be checked before it goes live.",
+  confirmation: [],
   operationId: "postFeatureEvaluate",
   tags: ["features-v2"],
   method: "post" as const,
