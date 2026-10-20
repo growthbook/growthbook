@@ -2375,7 +2375,7 @@ describe("custom dimensions (cutoff & combo) - bigquery", () => {
   });
 });
 
-// Cluster experiment (Option A): randomize on the cluster (region_id) but run the
+// Cluster experiment: randomize on the cluster (region_id) but run the
 // metric pipeline at the nested sub-unit grain (user_id) so GrowthBook's per-unit
 // percentile capping is applied per sub-unit, then roll up to one row per
 // cluster for cluster-robust ratio inference (n = #clusters).
@@ -2515,8 +2515,6 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     expect(normalized).toContain("AS m0_denominator_sum");
     expect(normalized).toContain("m0_main_denominator_sum_product");
 
-    // The old cluster-grain approach (Step 3) is gone.
-    expect(normalized).not.toContain("cluster_size");
     // The percentile cap threshold is carried through the rollup and surfaced
     // by the statistics CTE (so the applied cap is still reported downstream),
     // even though the clamp itself happened per sub-unit before the rollup.

@@ -539,7 +539,7 @@ describe("covariate insert SQL builders", () => {
     // The sub-unit-grained units cache is collapsed to one row per cluster
     // before the join so cluster-level covariate rows don't fan out.
     expect(sql).toMatch(
-      /FROM\s+proj\.ds\.units[\s\S]*GROUP BY\s+region_id[\s\S]*\)\s*d/,
+      /SELECT\s+DISTINCT\s+region_id\s+FROM\s+proj\.ds\.units[\s\S]*\)\s*d/,
     );
     expect(sql).toMatch(/d\.region_id = m\.region_id/);
   });
@@ -577,7 +577,7 @@ describe("covariate insert SQL builders", () => {
     // Aggregated table is keyed on the cluster id; units collapse to one row
     // per cluster before the join.
     expect(sql).toMatch(
-      /FROM\s+proj\.ds\.units[\s\S]*GROUP BY\s+region_id[\s\S]*\)\s*d/,
+      /SELECT\s+DISTINCT\s+region_id\s+FROM\s+proj\.ds\.units[\s\S]*\)\s*d/,
     );
     expect(sql).toMatch(/d\.region_id = p\.region_id/);
   });

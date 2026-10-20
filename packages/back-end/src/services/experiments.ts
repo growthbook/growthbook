@@ -55,6 +55,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getClusterExperimentMetricEligibility,
+  getClusterSubUnit,
   getClusterMetricAnalysisLevel,
   ClusterMetricAnalysisLevel,
   getAllExpandedMetricIdsFromExperiment,
@@ -512,8 +513,11 @@ export function getDefaultExperimentAnalysisSettings({
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
+    // The stats engine doesn't post-stratify cluster experiments.
     postStratificationEnabled:
-      hasPostStratificationFeature && postStratificationEnabled,
+      hasPostStratificationFeature &&
+      postStratificationEnabled &&
+      !getClusterSubUnit(experiment),
     sequentialTesting:
       hasSequentialTestingFeature &&
       statsEngine === "frequentist" &&
@@ -5198,9 +5202,7 @@ export function postExperimentApiPayloadToInterface(
 
 export type UpdateExperimentApiPayload = z.infer<
   typeof updateExperimentValidator.bodySchema
-> & {
-  assignmentQueryIdentifierType?: string;
-};
+>;
 
 function toActivePhaseVariations(
   canonicalVariations: ExperimentInterface["variations"],
@@ -5418,7 +5420,6 @@ export function updateExperimentApiPayloadToInterface(
     owner,
     datasourceId,
     assignmentQueryId,
-    assignmentQueryIdentifierType,
     isClusterExperiment,
     clusterSubUnitIdentifier,
     hashAttribute,
@@ -5475,9 +5476,6 @@ export function updateExperimentApiPayloadToInterface(
     ...(owner !== undefined ? { owner } : {}),
     ...(datasourceId ? { datasource: datasourceId } : {}),
     ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
-    ...(assignmentQueryIdentifierType !== undefined
-      ? { exposureQueryIdentifierType: assignmentQueryIdentifierType }
-      : {}),
     ...(isClusterExperiment !== undefined ? { isClusterExperiment } : {}),
     ...(clusterSubUnitIdentifier !== undefined
       ? { clusterSubUnitIdentifier }

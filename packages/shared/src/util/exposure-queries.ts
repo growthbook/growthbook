@@ -516,9 +516,7 @@ export function resolveExposureQueryForAnalysis(
   };
 }
 
-export type ClusterIdentifierValidation =
-  | { ok: true }
-  | { ok: false; error: string };
+type ClusterIdentifierValidation = { ok: true } | { ok: false; error: string };
 
 export function validateClusterExperimentIdentifiers(
   query: SelectableExposureQuery | undefined,

@@ -141,17 +141,17 @@ export function getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
               .join("\n")}
           FROM ${params.aggregatedTableFullName} p
           INNER JOIN (
-            SELECT ${baseIdType}
+            SELECT ${
+              // Units cache is sub-unit-grained; DISTINCT collapses to one row
+              // per cluster so the join doesn't fan out cluster-level covariate
+              // rows.
+              isClusterLevelGroup ? "DISTINCT " : ""
+            }${baseIdType}
             FROM ${params.unitsSourceTableFullName}
             ${
               params.lastCovariateSuccessfulMaxTimestamp
                 ? `WHERE ${afterWatermark(dialect, "max_timestamp", params.lastCovariateSuccessfulMaxTimestamp, params.lastCovariateSuccessfulMaxTimestampRaw)}`
                 : ""
-            }
-            ${
-              // Units cache is sub-unit-grained; collapse to one row per cluster
-              // so the join doesn't fan out cluster-level covariate rows.
-              isClusterLevelGroup ? `GROUP BY ${baseIdType}` : ""
             }
           ) d
             ON (d.${baseIdType} = p.${baseIdType})

@@ -329,13 +329,16 @@ export function getMetricSettingsForStatsEngine(
     (isClusterMetric ||
       !isRatioMetric(metric, denominator) ||
       optimizedFactMetric);
-  const mainMetricType = isClusterMetric
-    ? "count"
-    : quantileMetric
-      ? "quantile"
-      : isBinomialMetric(metric)
-        ? "binomial"
-        : "count";
+  let mainMetricType: "count" | "quantile" | "binomial";
+  if (isClusterMetric) {
+    mainMetricType = "count";
+  } else if (quantileMetric) {
+    mainMetricType = "quantile";
+  } else if (isBinomialMetric(metric)) {
+    mainMetricType = "binomial";
+  } else {
+    mainMetricType = "count";
+  }
   // Fact ratio metrics (and every cluster metric) carry the denominator on the
   // metric row itself.
   if (isClusterMetric || (isFactMetric(metric) && ratioMetric)) {
