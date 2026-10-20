@@ -15,7 +15,7 @@ export const CATEGORY_TITLES: Record<Category, string> = {
   config: "Configs",
   rampSchedule: "Ramp Schedules",
   settings: "Settings",
-  access: "Members & Teams",
+  access: "Access",
   customHook: "Custom Hooks",
   environment: "Environments",
   project: "Projects",
