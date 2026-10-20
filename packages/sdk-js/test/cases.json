@@ -3566,7 +3566,9 @@
     ["bucket-range-rounding", "user-68525", 2, 0.818],
     ["bucket-range-rounding", "user-866", 2, 0.172],
     ["bucket-range-rounding", "user-74", 1, 0.287],
-    ["bucket-range-rounding", "user-549", 1, 0.344]
+    ["bucket-range-rounding", "user-549", 1, 0.344],
+    ["rollout-boundary", "user-16298", 2, 0.5],
+    ["rollout-boundary", "user-1778", 1, 0.2]
   ],
   "getBucketRange": [
     [
@@ -6006,6 +6008,62 @@
           "hashValue": "1",
           "stickyBucketUsed": false
         }
+      }
+    ],
+    [
+      "rollout includes the user at exactly coverage - coverage 0.5, hash v2",
+      {
+        "attributes": { "id": "user-16298" },
+        "features": {
+          "rollout": {
+            "defaultValue": "off",
+            "rules": [
+              {
+                "force": "on",
+                "coverage": 0.5,
+                "hashVersion": 2,
+                "seed": "rollout-boundary",
+                "hashAttribute": "id"
+              }
+            ]
+          }
+        }
+      },
+      "rollout",
+      {
+        "value": "on",
+        "on": true,
+        "off": false,
+        "source": "force",
+        "ruleId": ""
+      }
+    ],
+    [
+      "rollout includes the user at exactly coverage - coverage 0.2, hash v1",
+      {
+        "attributes": { "id": "user-1778" },
+        "features": {
+          "rollout": {
+            "defaultValue": "off",
+            "rules": [
+              {
+                "force": "on",
+                "coverage": 0.2,
+                "hashVersion": 1,
+                "seed": "rollout-boundary",
+                "hashAttribute": "id"
+              }
+            ]
+          }
+        }
+      },
+      "rollout",
+      {
+        "value": "on",
+        "on": true,
+        "off": false,
+        "source": "force",
+        "ruleId": ""
       }
     ]
   ],
