@@ -2905,6 +2905,16 @@ export default abstract class SqlIntegration
     const analysisDimensionCols = comboDimensionCol
       ? [{ value: comboDimensionCol.alias, alias: comboDimensionCol.alias }]
       : allDimensionCols;
+
+    const unitDimensionJoinsSQL = unitDimensions
+      .map(
+        (
+          d,
+        ) => `LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
+          ${this.getSqlDialect().castToString(`__dim_unit_${d.dimension.id}.${baseIdType}`)} = e.${baseIdType}
+        )`,
+      )
+      .join("\n");
     const unitsCteName = comboDimensionCol
       ? "__experimentUnitsFinal"
       : "__experimentUnits";
@@ -3009,8 +3019,10 @@ export default abstract class SqlIntegration
             "MAX(e.variation)",
           )} AS variation
           , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
+          ${unitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
           ${nonUnitDimensionCols.map((d) => `, MIN(${d.value}) AS ${d.alias}`).join("")}
         FROM ${params.unitsSourceTableFullName} e
+        ${unitDimensionJoinsSQL}
         ${unitsWhere}
         GROUP BY
           e.${baseIdType}`
@@ -3023,15 +3035,7 @@ export default abstract class SqlIntegration
             ${unitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
             ${nonUnitDimensionCols.map((d) => `, MIN(${d.value}) AS ${d.alias}`).join("")}
           FROM ${params.unitsSourceTableFullName} e
-          ${unitDimensions
-            .map(
-              (
-                d,
-              ) => `LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
-            ${this.getSqlDialect().castToString(`__dim_unit_${d.dimension.id}.${baseIdType}`)} = e.${baseIdType}
-          )`,
-            )
-            .join("\n")}
+          ${unitDimensionJoinsSQL}
           ${unitsWhere}
           GROUP BY
             e.${baseIdType}
