@@ -1644,7 +1644,7 @@ const updateExperimentBody = z
       .string()
       .optional()
       .describe(
-        'Run inside this holdout. Only a draft with no linked Feature Flags, URL redirects or visual changesets can join, change or leave one; "" leaves.',
+        'Run inside this holdout. Only a draft with no linked Feature Flags, URL redirects or visual changesets can join, change or leave one; "" leaves. Can\'t change in the same request as `project`.',
       ),
     attributeScopeAllProjects: z
       .boolean()

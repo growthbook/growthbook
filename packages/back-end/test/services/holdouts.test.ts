@@ -1194,10 +1194,10 @@ describe("assertExperimentHoldoutChange", () => {
     ]);
   });
 
-  it("checks the holdout against the project the update sets", async () => {
+  it("checks a join against the experiment's Project and a move against its holdout", async () => {
     await assertExperimentHoldoutChange(context, draft({ project: "prj_a" }), {
       holdoutId: "hld_1",
-      project: "prj_b",
+      project: "prj_a",
     });
     await assertExperimentHoldoutChange(
       context,
@@ -1205,19 +1205,39 @@ describe("assertExperimentHoldoutChange", () => {
       { project: "prj_b" },
     );
     expect(targetHoldouts()).toEqual([
-      expect.objectContaining({ holdoutId: "hld_1", project: "prj_b" }),
+      expect.objectContaining({ holdoutId: "hld_1", project: "prj_a" }),
       expect.objectContaining({ holdoutId: "hld_2", project: "prj_b" }),
     ]);
   });
 
-  it("lets a draft leave its holdout while moving Project", async () => {
-    await assertExperimentHoldoutChange(
-      context,
-      draft({ holdoutId: "hld_2", project: "prj_a" }),
-      { holdoutId: "", project: "prj_b" },
-    );
-    expect(targetHoldouts()).toEqual([]);
-  });
+  it.each([
+    {
+      change: "join",
+      experiment: draft({ project: "prj_a" }),
+      holdoutId: "hld_1",
+    },
+    {
+      change: "switch",
+      experiment: draft({ holdoutId: "hld_2", project: "prj_a" }),
+      holdoutId: "hld_1",
+    },
+    {
+      change: "leave",
+      experiment: draft({ holdoutId: "hld_2", project: "prj_a" }),
+      holdoutId: "",
+    },
+  ])(
+    "refuses a $change and a Project move in one request",
+    async ({ experiment, holdoutId }) => {
+      await expect(
+        assertExperimentHoldoutChange(context, experiment, {
+          holdoutId,
+          project: "prj_b",
+        }),
+      ).rejects.toThrow("separate requests");
+      expect(targetHoldouts()).toEqual([]);
+    },
+  );
 
   it("refuses a join once the experiment has run", async () => {
     await expect(

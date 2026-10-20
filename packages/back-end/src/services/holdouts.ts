@@ -306,19 +306,21 @@ export async function assertExperimentHoldoutChange(
   { holdoutId, project }: { holdoutId?: string; project?: string },
 ) {
   const current = experiment.holdoutId;
-  if (holdoutId && holdoutId !== current) {
+  const changesHoldout =
+    holdoutId !== undefined && holdoutId !== (current || "");
+  const movesProject =
+    project !== undefined && project !== (experiment.project || "");
+  // A failed holdout change is rewound but a Project move isn't, so they'd come apart
+  if (changesHoldout && movesProject) {
+    throw new Error("Change the holdout and the Project in separate requests.");
+  }
+  if (holdoutId && changesHoldout) {
     await getHoldoutAvailableForProject({
       context,
       holdoutId,
-      project: project ?? experiment.project,
+      project: experiment.project,
     });
-  } else if (
-    // Leaving ("") doesn't keep the experiment in its holdout, so the move needn't fit it
-    holdoutId !== "" &&
-    project !== undefined &&
-    project !== (experiment.project || "") &&
-    current
-  ) {
+  } else if (movesProject && current) {
     await getHoldoutAvailableForProject({
       context,
       holdoutId: current,
