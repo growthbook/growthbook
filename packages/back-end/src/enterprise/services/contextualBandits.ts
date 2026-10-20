@@ -1546,6 +1546,12 @@ export type ContextualBanditResultsForUi = {
    * This can be an older completed run than the decision event while the newest
    * run is in-flight/failed.*/
   healthVariations: { id: string; weight: number }[] | null;
+  /** ID of the snapshot the health payload (srm/traffic/healthVariations) came
+   * from. May be an earlier completed run than `latestSnapshotSummary.id` when
+   * the newest run is in-flight or failed. Null when no health run exists. */
+  healthSnapshotId: string | null;
+  /** When the health source run was created, to show how stale the cards are. */
+  healthDateCreated: Date | null;
   /** SRM of the latest snapshot run; null when the run has no SRM result. */
   srm: ContextualBanditSrmResult | null;
   /** Health traffic of the latest snapshot run; null when unavailable. */
@@ -1599,8 +1605,11 @@ export async function getContextualBanditResultsForUi(
           cb.id,
         );
 
-  // Resolve the decision snapshot independently and keep the fallback health IDs separate.
-  const decisionSnapshot = latestEvent
+  // Resolve the decision snapshot independently and keep the fallback health IDs
+  // separate.
+  const needsDecisionSnapshotFallback =
+    latestEvent !== null && latestEvent.frozenVariationIds === undefined;
+  const decisionSnapshot = needsDecisionSnapshotFallback
     ? latestSnapshot?.id === latestEvent.snapshotId
       ? latestSnapshot
       : await context.models.contextualBanditSnapshots.getBySnapshotIdInOrg(
@@ -1627,7 +1636,9 @@ export async function getContextualBanditResultsForUi(
     : null;
 
   const snapshotVariationIds =
-    decisionSnapshot?.frozenSettings?.variations?.map((v) => v.id) ?? null;
+    latestEvent?.frozenVariationIds ??
+    decisionSnapshot?.frozenSettings?.variations?.map((v) => v.id) ??
+    null;
 
   const healthVariations =
     resultsSnapshot?.frozenSettings?.variations?.map((v) => ({
@@ -1640,6 +1651,8 @@ export async function getContextualBanditResultsForUi(
     latestSnapshotSummary,
     snapshotVariationIds,
     healthVariations,
+    healthSnapshotId: resultsSnapshot?.id ?? null,
+    healthDateCreated: resultsSnapshot?.dateCreated ?? null,
     srm: resultsSnapshot?.srm ?? null,
     traffic: resultsSnapshot?.traffic ?? null,
   };
@@ -1965,6 +1978,7 @@ export async function persistContextualBanditEvent(
     (await context.models.contextualBanditEvents.create({
       contextualBandit: cb.id,
       snapshotId: cbs.id,
+      frozenVariationIds: engineVariations.map((v) => v.id),
       attributes: result.attributes,
       responses: result.responses,
       leaf_map: result.leaf_map,

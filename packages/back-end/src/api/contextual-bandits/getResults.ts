@@ -20,6 +20,8 @@ export const getContextualBanditResults = createApiRequestHandler(
     latestSnapshotSummary,
     snapshotVariationIds,
     healthVariations,
+    healthSnapshotId,
+    healthDateCreated,
     srm,
     traffic,
   } = await getContextualBanditResultsForUi(req.context, contextualBandit);
@@ -78,6 +80,10 @@ export const getContextualBanditResults = createApiRequestHandler(
             ? latestSnapshotSummary.runStarted.toISOString()
             : null,
           dateCreated: latestSnapshotSummary.dateCreated.toISOString(),
+          healthSnapshotId: healthSnapshotId ?? null,
+          healthDateCreated: healthDateCreated
+            ? healthDateCreated.toISOString()
+            : null,
           multipleExposures: latestSnapshotSummary.multipleExposures,
           type: latestSnapshotSummary.type ?? "standard",
           triggeredBy: latestSnapshotSummary.triggeredBy ?? "manual",

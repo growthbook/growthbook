@@ -249,6 +249,8 @@ export const getContextualBanditResults = {
           queries: z.array(queryPointerValidator),
           runStarted: z.string().nullable(),
           dateCreated: z.string(),
+          healthSnapshotId: z.string().nullable(),
+          healthDateCreated: z.string().nullable(),
           multipleExposures: z.number(),
           type: z.string(),
           triggeredBy: z.string(),

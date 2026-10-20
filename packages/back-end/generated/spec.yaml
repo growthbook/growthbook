@@ -18376,6 +18376,14 @@ paths:
                               - type: 'null'
                           dateCreated:
                             type: string
+                          healthSnapshotId:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          healthDateCreated:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
                           multipleExposures:
                             type: number
                           type:
@@ -18499,6 +18507,8 @@ paths:
                           - queries
                           - runStarted
                           - dateCreated
+                          - healthSnapshotId
+                          - healthDateCreated
                           - multipleExposures
                           - type
                           - triggeredBy

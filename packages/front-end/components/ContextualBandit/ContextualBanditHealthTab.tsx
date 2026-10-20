@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { ExperimentReportVariation } from "shared/types/report";
+import { datetime } from "shared/dates";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import { IssueTags } from "@/components/HealthTab/IssueTags";
@@ -48,6 +49,15 @@ export default function ContextualBanditHealthTab({
 
   const totalUsers = overallUsers.reduce((sum, n) => sum + n, 0);
 
+  const healthFromEarlierRun =
+    (latest?.healthSnapshotId ?? null) !== null &&
+    latest?.healthSnapshotId !== latest?.id;
+  const latestFailed = latest?.status === "error";
+  const latestRunning = latest?.status === "running";
+  const healthDateLabel = latest?.healthDateCreated
+    ? datetime(latest.healthDateCreated)
+    : null;
+
   if (loading) {
     return (
       <Callout status="info" mt="3" icon={<LoadingSpinner />}>
@@ -91,6 +101,24 @@ export default function ContextualBanditHealthTab({
 
   return (
     <Flex direction="column">
+      {healthFromEarlierRun ? (
+        <Callout status={latestFailed ? "warning" : "info"} mb="3">
+          {latestFailed
+            ? "The most recent refresh failed, so the health results below are from an earlier successful refresh"
+            : latestRunning
+              ? "A refresh is in progress. The health results below are from the last successful refresh"
+              : "The health results below are from an earlier successful refresh"}
+          {healthDateLabel ? ` from ${healthDateLabel}.` : "."}
+          {latestFailed && latest?.error ? ` Error: ${latest.error}` : ""}
+        </Callout>
+      ) : latestFailed ? (
+        <Callout status="warning" mb="3">
+          The most recent refresh failed, so these health results may be out of
+          date.
+          {latest?.error ? ` Error: ${latest.error}` : ""}
+        </Callout>
+      ) : null}
+
       <IssueTags issues={healthIssues} />
 
       <TrafficCard

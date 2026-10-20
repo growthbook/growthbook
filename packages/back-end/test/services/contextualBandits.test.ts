@@ -505,6 +505,9 @@ describe("persistContextualBanditEvent", () => {
         responses: result.responses,
         leaf_map: result.leaf_map,
         weightsWereUpdated: true,
+        // The run's frozen variation ids are stored on the event so the
+        // decision-results view can label responses even if the snapshot is gone.
+        frozenVariationIds: ["v0", "v1"],
         // New seed is generated when weights are updated
         seed: expect.any(String),
       }),
@@ -1313,6 +1316,62 @@ describe("getContextualBanditResultsForUi", () => {
     ]);
   });
 
+  it("labels decision results from the event's own frozen ids, surviving deletion of its snapshot", async () => {
+    const cb = makeCb();
+    // A run saved its event (with frozen [v0, v2]) but a later write failed, so
+    // the snapshot stayed running and was then canceled/deleted. The event is
+    // all that remains of that run.
+    const completedSnapshot = makeCbs({
+      id: "cbs_done",
+      status: "success",
+      frozenSettings: frozenVariations(["v0", "v1"]),
+      srm: {
+        statistic: 1,
+        pValue: 0.5,
+        degreesOfFreedom: 1,
+        multipleExposures: 0,
+      },
+      traffic: {
+        overall: { name: "", srm: 0.5, variationUnits: [10, 20] },
+        dimension: {},
+      },
+    });
+    const cbe = {
+      id: "cbe_orphan",
+      snapshotId: "cbs_deleted",
+      frozenVariationIds: ["v0", "v2"],
+      attributes: [],
+      responses: [],
+    };
+    // The event's snapshot no longer exists.
+    const getBySnapshotIdInOrg = jest.fn().mockResolvedValue(null);
+
+    const context = {
+      models: {
+        contextualBanditSnapshots: {
+          getLatestForContextualBandit: jest
+            .fn()
+            .mockResolvedValue(completedSnapshot),
+          getLatestCompletedForContextualBandit: jest
+            .fn()
+            .mockResolvedValue(completedSnapshot),
+          getBySnapshotIdInOrg,
+        },
+        contextualBanditEvents: {
+          getLatestForContextualBandit: jest.fn().mockResolvedValue(cbe),
+        },
+      },
+    } as unknown as ReqContext;
+
+    const results = await getContextualBanditResultsForUi(context, cb);
+
+    // Decision ids come straight off the event, so the results are not blanked
+    // even though the producing snapshot is gone...
+    expect(results.snapshotVariationIds).toEqual(["v0", "v2"]);
+    // ...and no snapshot lookup is needed because the event carries the ids.
+    expect(getBySnapshotIdInOrg).not.toHaveBeenCalled();
+  });
+
   it("looks up the event's snapshot by id when the newest run is a different, newer snapshot", async () => {
     const cb = makeCb();
     // A brand-new refresh is in-flight (no event of its own yet)...
@@ -1421,6 +1480,11 @@ describe("getContextualBanditResultsForUi", () => {
     expect(results.traffic?.overall.variationUnits).toEqual([100, 100]);
     // ...and the health cards are labeled with the fallback run's variations.
     expect(results.healthVariations?.map((v) => v.id)).toEqual(["v0", "v1"]);
+    // The health source is reported separately from the newest run so the UI
+    // can flag that these cards came from an earlier run.
+    expect(results.healthSnapshotId).toBe("cbs_done");
+    expect(results.healthDateCreated).toBe(completedSnapshot.dateCreated);
+    expect(results.latestSnapshotSummary?.id).toBe("cbs_running");
   });
 
   it("does not clear the multiple-exposure finding when the newest snapshot failed", async () => {
