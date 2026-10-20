@@ -638,9 +638,6 @@ export class ContextualBanditModel extends BaseClass {
     return refreshed;
   }
 
-  /**
-   * Persists the latest health summary on the CB doc.
-   */
   public async patchAnalysisSummary(
     cbId: string,
     analysisSummary: ContextualBanditAnalysisSummary,
