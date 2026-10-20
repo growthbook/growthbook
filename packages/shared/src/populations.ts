@@ -7,7 +7,8 @@ import {
   parseAggregateFilter,
 } from "./aggregate-filters";
 
-export const MAX_POPULATION_STEPS = 20;
+// Multi-step populations aren't supported yet.
+export const MAX_POPULATION_STEPS = 1;
 /** Distinct fact tables a population's steps may read from. */
 export const MAX_POPULATION_FACT_TABLES = 5;
 

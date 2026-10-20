@@ -36,10 +36,10 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
   const tokensDisabled = !!settings?.disablePersonalAccessTokens;
   const permissionsUtils = usePermissionsUtil();
   // Each settings page has its own gate, so link only where the member can go.
-  const canManageApiKeys =
-    permissionsUtils.canCreateApiKey() || permissionsUtils.canDeleteApiKey();
+  const canManageApiKeys = permissionsUtils.canViewApiKeys();
   const canManageTokens =
-    canManageApiKeys || permissionsUtils.canManageOrgSettings();
+    permissionsUtils.canManagePersonalAccessTokens() ||
+    permissionsUtils.canManageOrgSettings();
 
   return (
     <div>

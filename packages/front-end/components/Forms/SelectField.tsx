@@ -35,7 +35,7 @@ export const RadixThemeMenuPortal = (
 export type SingleValue = {
   label: string;
   value: string;
-  tooltip?: string;
+  tooltip?: ReactNode;
   isDisabled?: boolean;
 };
 export type GroupedValue = { label: string; options: SingleValue[] };

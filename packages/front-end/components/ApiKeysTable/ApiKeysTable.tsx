@@ -1,14 +1,16 @@
-import React, { FC, useState } from "react";
-import { Flex } from "@radix-ui/themes";
-import { PiIdentificationCard } from "react-icons/pi";
+import React, { FC, ReactNode, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiIdentificationCard, PiInfo } from "react-icons/pi";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
-  apiKeyToggleRequiresAdmin,
+  canSetApiKeyDisabled,
   requesterHeaderPolicy,
 } from "shared/permissions";
 import { ago, datetime } from "shared/dates";
 import { getExpirationStatus } from "shared/api-key-expiration";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
+import CopyableCode from "@/components/Settings/CopyableCode";
+import HumanInTheLoopIcon from "@/components/Confirmations/HumanInTheLoopIcon";
 import ApiKeyRowMenu from "@/components/ApiKeysTable/ApiKeyRowMenu";
 import ExpiresCell from "@/components/ApiKeysTable/ExpiresCell";
 import {
@@ -63,7 +65,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   onCopy,
 }) => {
   const { organization, userId, users, settings } = useUser();
-  const canManageTokens = usePermissionsUtil().canDeleteApiKey();
+  const permissionsUtil = usePermissionsUtil();
   const { getProjectById } = useDefinitions();
   const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
     null,
@@ -73,8 +75,13 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
     !!key.disabled &&
     !!key.disabledBy &&
     key.disabledBy !== userId;
+  const canToggle = (key: ApiKeyInterface) =>
+    canSetApiKeyDisabled(permissionsUtil, key, userId || "", !key.disabled);
+  // A PAT the owner can't toggle keeps a locked toggle that explains why; org keys hide it.
   const isAdminLocked = (key: ApiKeyInterface) =>
-    !canManageTokens && apiKeyToggleRequiresAdmin(key, userId || "");
+    !!key.userId && !canToggle(key);
+  const hasActions =
+    canDeleteKeys || !!(onEdit || onToggleDisabled || onCopy || onShowAuditLog);
   const disabledByTitle = (key: ApiKeyInterface) => {
     const disabler = key.disabledBy ? users.get(key.disabledBy) : undefined;
     return `Disabled by ${disabler?.name || disabler?.email || "a former member"}`;
@@ -108,36 +115,50 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   return (
     <>
       {expiredCount > 0 && (
-        <Switch
-          mb="2"
-          size="sm"
-          label={`Show expired keys (${expiredCount})`}
-          value={showExpired}
-          onChange={setShowExpired}
-        />
+        <Flex justify="end" mb="2">
+          <Switch
+            size="sm"
+            label={`Show expired keys (${expiredCount})`}
+            value={showExpired}
+            onChange={setShowExpired}
+          />
+        </Flex>
       )}
-      <Table variant="surface" layout="fixed" mb="3">
+      <Table variant="surface" layout="fixed" minTableWidth={950} mb="3">
         <TableHeader>
-          <TableRow>
+          <TableRow style={{ whiteSpace: "nowrap" }}>
             <TableColumnHeader>Description</TableColumnHeader>
-            <TableColumnHeader width="240px">Key</TableColumnHeader>
+            <TableColumnHeader width="170px">Key</TableColumnHeader>
+            <TableColumnHeader width="110px">
+              Internal ID{" "}
+              <Tooltip content="Identifies this key in logs and server settings. REST requests authenticate with the secret key, not this ID.">
+                <Box
+                  as="span"
+                  display="inline-block"
+                  tabIndex={0}
+                  aria-label="More information about Internal ID"
+                >
+                  <PiInfo />
+                </Box>
+              </Tooltip>
+            </TableColumnHeader>
             <TableColumnHeader>Role</TableColumnHeader>
             <TableColumnHeader>Project Roles</TableColumnHeader>
-            <TableColumnHeader width="150px">Last Used</TableColumnHeader>
+            <TableColumnHeader width="120px">Last Used</TableColumnHeader>
             <SortableTableColumnHeader
               field="expiresAtSort"
-              style={{ width: 170 }}
+              style={{ width: 150 }}
             >
               Expires
             </SortableTableColumnHeader>
-            {canDeleteKeys && <TableColumnHeader width="40px" />}
+            {hasActions && <TableColumnHeader width="40px" />}
           </TableRow>
         </TableHeader>
         <TableBody>
           {!visibleKeys.length && (
             <TableRow>
               <TableCell
-                colSpan={canDeleteKeys ? 7 : 6}
+                colSpan={hasActions ? 8 : 7}
                 style={{ textAlign: "center" }}
               >
                 <Text color="text-low">All of these keys have expired.</Text>
@@ -173,33 +194,45 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     </span>
                   </Tooltip>
                 )}
-                {requesterHeaderPolicy(key) === "required" && (
-                  <Tooltip content="Every request must name a member with X-GrowthBook-Requested-By">
-                    <Flex
-                      align="start"
-                      gap="1"
-                      mt="1"
-                      width="fit-content"
-                      style={{ color: "var(--brown-10)" }}
-                    >
-                      {/* One text line tall, so the icon sits on the first row. */}
-                      <Flex flexShrink="0" align="center" height="16px">
-                        <PiIdentificationCard size={18} />
-                      </Flex>
-                      <Text size="sm">Requester required</Text>
-                    </Flex>
-                  </Tooltip>
+                {!key.userId && requesterHeaderPolicy(key) !== "optional" && (
+                  <KeyTrait
+                    icon={<PiIdentificationCard size={18} />}
+                    color="var(--brown-10)"
+                    tooltip={
+                      requesterHeaderPolicy(key) === "required"
+                        ? "Every request must name a member with X-GrowthBook-Requested-By"
+                        : "Requests that send X-GrowthBook-Requested-By are rejected"
+                    }
+                  >
+                    Requested-by {requesterHeaderPolicy(key)}
+                  </KeyTrait>
+                )}
+                {key.confirmRules && (
+                  <KeyTrait
+                    icon={<HumanInTheLoopIcon size={18} />}
+                    color="var(--violet-11)"
+                    tooltip="Risky actions made with this key wait for a person to confirm them."
+                  >
+                    Human-in-the-loop
+                  </KeyTrait>
                 )}
               </TableCell>
               <TableCell style={dimStyle(key)}>
                 {canCreateKeys ? (
                   <ClickToReveal
-                    valueWhenHidden="secret_abcdefghijklmnop123"
+                    valueWhenHidden="secret_abcdefghijkl"
                     getValue={onReveal(key.id)}
                   />
                 ) : (
-                  <em>hidden</em>
+                  <Tooltip content="Revealing a key's value requires permission to create API keys.">
+                    <span>
+                      <Text color="text-low">Hidden</Text>
+                    </span>
+                  </Tooltip>
                 )}
+              </TableCell>
+              <TableCell style={dimStyle(key)}>
+                {key.id ? <CopyableCode value={key.id} muted /> : "-"}
               </TableCell>
               <TableCell style={dimStyle(key)}>
                 {key.role ? (
@@ -219,7 +252,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   )}
                 />
               </TableCell>
-              <TableCell style={{ whiteSpace: "nowrap", ...dimStyle(key) }}>
+              <TableCell style={dimStyle(key)}>
                 {key.lastUsed ? (
                   <Tooltip
                     content={
@@ -250,7 +283,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   }
                 />
               </TableCell>
-              {canDeleteKeys && (
+              {hasActions && (
                 <TableCell>
                   <ApiKeyRowMenu
                     apiKey={key}
@@ -258,7 +291,9 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     onDelete={onDelete}
                     onEdit={onEdit}
                     onToggleClick={
-                      onToggleDisabled ? setPendingToggle : undefined
+                      onToggleDisabled && (canToggle(key) || isAdminLocked(key))
+                        ? setPendingToggle
+                        : undefined
                     }
                     toggleLockedReason={
                       isAdminLocked(key) ? ADMIN_LOCKED_REASON : undefined
@@ -295,3 +330,27 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
     </>
   );
 };
+
+function KeyTrait({
+  icon,
+  color,
+  tooltip,
+  children,
+}: {
+  icon: ReactNode;
+  color: string;
+  tooltip: string;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip content={tooltip}>
+      <Flex align="start" gap="1" mt="1" width="fit-content" style={{ color }}>
+        {/* One text line tall, so the icon sits on the first row. */}
+        <Flex flexShrink="0" align="center" height="16px">
+          {icon}
+        </Flex>
+        <Text size="sm">{children}</Text>
+      </Flex>
+    </Tooltip>
+  );
+}
