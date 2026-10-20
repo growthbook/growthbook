@@ -28,6 +28,10 @@ import {
   usePrototypeNotices,
   UsageNoticeState,
 } from "@/components/Notices/prototypeNotices";
+import {
+  setPrototypeMockConversation,
+  usePrototypeMockConversation,
+} from "@/components/Agent/prototypeMockConversation";
 import styles from "./PrototypeControls.module.scss";
 
 // PROTOTYPE ONLY (set in review): a panel of prototype settings, in the
@@ -107,6 +111,7 @@ function resetAllSettings() {
   }
   resetGrowthBotPrototype();
   resetPrototypeNotices();
+  setPrototypeMockConversation(false);
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
@@ -228,6 +233,7 @@ function Toggle({
 // "Can upgrade" for the limit's two versions, and Reset (back to Default).
 function GrowthBotControls() {
   const { state, canUpgrade } = useGrowthBotPrototype();
+  const mockConversation = usePrototypeMockConversation();
   return (
     <fieldset className={styles.group}>
       <legend className={styles.groupTitle}>GrowthBot</legend>
@@ -250,6 +256,12 @@ function GrowthBotControls() {
         checked={canUpgrade}
         disabled={state !== "limit"}
         onChange={setGrowthBotCanUpgrade}
+      />
+      <Toggle
+        label="Mock conversation"
+        info="Opens GrowthBot onto a canned conversation (a chart, a table and a change to confirm), drawn by its real message components, to review them without the AI features. Nothing is sent to the AI service or the API."
+        checked={mockConversation}
+        onChange={setPrototypeMockConversation}
       />
       <button
         type="button"

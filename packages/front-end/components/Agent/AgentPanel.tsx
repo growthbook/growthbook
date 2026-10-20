@@ -65,8 +65,12 @@ import ChatComposer, {
 import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
-import { usePrototypeDockedGrowthBot } from "@/components/Layout/PrototypeControls";
+import {
+  usePrototypeDockedGrowthBot,
+  usePrototypeExistingPageColors,
+} from "@/components/Layout/PrototypeControls";
 import Tooltip from "@/ui/Tooltip";
+import { usePrototypeMockConversation } from "./prototypeMockConversation";
 import AgentChatHistory from "./AgentChatHistory";
 import {
   AGENT_PANEL_PORTAL_Z_INDEX,
@@ -513,7 +517,18 @@ export default function AgentPanel({
   // Not modal, so a complementary region, not a dialog. Where the side
   // nav is off-canvas (1180px and under), it floats as before.
   const dockSetting = usePrototypeDockedGrowthBot();
+  // PROTOTYPE ("Mock conversation", set in review;
+  // prototypeMockConversation.ts): its links (Open in Explorer, links in
+  // replies) only log, so nothing leaves the drawer.
+  const mockChat = usePrototypeMockConversation();
+  // PROTOTYPE ("Interim colors", set in review): docked, the panel is white
+  // with it on, as the side nav is then, and the side nav's grey with it
+  // off, the redesign (fix, set in review: the mock conversation made it
+  // white either way). Where it's white, its cards take a grey frame
+  // (below).
+  const interimColors = usePrototypeExistingPageColors();
   const docked = dockSetting && !sidebarCollapsed;
+  const panelWhite = docked && interimColors;
   // Full height (set in review; tried starting below the header, then as a
   // setting): the rail runs from the window's top, square, without its top
   // outline, over the header's right end. Its top row sits in the header's
@@ -755,6 +770,21 @@ export default function AgentPanel({
     <Box
       role={docked ? "complementary" : "dialog"}
       aria-label="GrowthBook AI assistant"
+      onClickCapture={
+        mockChat
+          ? (e) => {
+              const link = (e.target as HTMLElement).closest("a[href]");
+              if (!link) return;
+              e.preventDefault();
+              e.stopPropagation();
+
+              console.log(
+                "[GrowthBot mock] link not followed:",
+                link.getAttribute("href"),
+              );
+            }
+          : undefined
+      }
       // Hidden from screen readers while it slides out (set in review).
       aria-hidden={open ? undefined : true}
       style={{
@@ -777,12 +807,42 @@ export default function AgentPanel({
           : expanded
             ? `calc((100vw - ${sidebarCollapsed ? "0px" : "var(--app-rail-width, 240px)"}) * 0.9)`
             : "min(400px, 100vw)",
-        // The page's background, or, on the redesigned pages, the side nav's
-        // grey (--agent-panel-background, set by those pages; set in review).
-        background: "var(--agent-panel-background, var(--color-background))",
+        // Docked, the side nav's colour (above; --agent-dock-background,
+        // AgentPanel.module.scss): white with "Interim colors" on, its grey
+        // (navy in dark mode) with it off, on every page (fix, set in
+        // review: outside the redesigned pages it was the page's
+        // background). Floating, as before: the page's background, or what
+        // a redesigned page sets (--agent-panel-background).
+        background: docked
+          ? panelWhite
+            ? "var(--color-panel-solid)"
+            : "var(--agent-dock-background)"
+          : "var(--agent-panel-background, var(--color-background))",
+        // On a white panel (set in review): its cards (charts, tables, the
+        // change to confirm) on a light grey frame, --slate-2, with a softer
+        // outline, and what's inside them (the chart, the table, the
+        // request's path) on white, keeping their own outlines (set in
+        // review; tried without), so they stand apart from the white panel. On a grey panel these aren't set, so
+        // the cards are white, as before.
+        ...(panelWhite
+          ? ({
+              "--ai-artifact-bg": "var(--slate-2)",
+              "--ai-artifact-border": "var(--slate-a4)",
+              "--ai-artifact-inner-bg": "var(--color-panel-solid)",
+              // The request's path strip, white, with the chart's outline
+              // (ExplorerChart's --gray-a3; set in review).
+              "--ai-artifact-strip-outline": "inset 0 0 0 1px var(--gray-a3)",
+            } as React.CSSProperties)
+          : {}),
         // Docked in focus mode, no line on the left (set in review): it
         // meets the side nav, whose own border is that edge.
-        borderLeft: docked && expanded ? "none" : "1px solid var(--gray-a3)",
+        // Docked, the side nav's outline colour (AppRail.module.scss's
+        // --rail-border; set in review, was --gray-a3, lighter):
+        // --agent-dock-border (AgentPanel.module.scss).
+        borderLeft:
+          docked && expanded
+            ? "none"
+            : `1px solid ${docked ? "var(--agent-dock-border)" : "var(--gray-a3)"}`,
         // Docked (set in review): a panel set into the page, its top edge
         // defined, as the header has no line under it: the outline along
         // the top too, and a 12px top-left corner, its contents clipped to
@@ -791,7 +851,9 @@ export default function AgentPanel({
           ? {
               // Full height, no top line and square: it meets the window's
               // top, as the side nav does.
-              borderTop: fullHeight ? "none" : "1px solid var(--gray-a3)",
+              borderTop: fullHeight
+                ? "none"
+                : "1px solid var(--agent-dock-border)",
               // Square in focus mode (set in review), where it fills the
               // page area beside the side nav.
               borderTopLeftRadius: expanded || fullHeight ? 0 : 12,

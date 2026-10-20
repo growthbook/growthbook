@@ -58,7 +58,12 @@ export default function ConfirmActionCard({
           style={{
             padding: "6px 8px",
             borderRadius: "var(--radius-2)",
-            background: "var(--gray-a3)",
+            // PROTOTYPE (set in review): white on a grey card, with the
+            // chart's light outline drawn inside it, so it keeps its size
+            // (the GrowthBot drawer on a white panel, AgentPanel.tsx); as
+            // before otherwise.
+            background: "var(--ai-artifact-inner-bg, var(--gray-a3))",
+            boxShadow: "var(--ai-artifact-strip-outline, none)",
           }}
         >
           <MethodPill method={prompt.method} />

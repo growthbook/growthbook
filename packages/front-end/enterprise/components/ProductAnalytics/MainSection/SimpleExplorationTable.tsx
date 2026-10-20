@@ -48,11 +48,15 @@ export default function SimpleExplorationTable({
 
   return (
     <Box
+      // PROTOTYPE (set in review): its fill and outline can be set by its
+      // container, as ExplorerChart's (the GrowthBot drawer on a white
+      // panel, AgentPanel.tsx); as before otherwise.
       style={{
         maxHeight,
         overflow: "auto",
         borderRadius: "var(--radius-2)",
-        border: "1px solid var(--gray-a4)",
+        border: "var(--ai-artifact-inner-border, 1px solid var(--gray-a4))",
+        background: "var(--ai-artifact-inner-bg, transparent)",
       }}
     >
       <Flex align="center" gap="2" px="3" py="2">

@@ -1,5 +1,12 @@
 import type { AIChatMessage } from "shared/ai-chat";
-import { getApiHost } from "@/services/env";
+import { getApiHost, isPrototypeAI } from "@/services/env";
+import { isPrototypeMockConversation } from "./prototypeMockConversation";
+import {
+  MOCK_CONVERSATION_ID,
+  MOCK_CONVERSATION_TITLE,
+  MOCK_PENDING_ACTION,
+  mockConversationMessages,
+} from "./prototypeMockChat";
 
 // PROTOTYPE ONLY. With NEXT_PUBLIC_PROTOTYPE_AI=true (pages/api/init.ts),
 // the AI Assistant drawer runs without an AI backend: this answers its
@@ -16,13 +23,36 @@ import { getApiHost } from "@/services/env";
 // - Cancel and feedback succeed; skills are an empty list; anything else
 //   under /agent/ returns {}.
 //
-// Installed once, from AgentPanelProvider, only while the flag is on.
+// Installed once, from AgentPanelProvider, while the flag is on, or the
+// prototype panel's "Mock conversation" (prototypeMockConversation.ts) is.
+// With that on, it also serves the canned conversation (prototypeMockChat
+// .ts) as MOCK_CONVERSATION_ID, with its change to confirm as the
+// pendingAction; Confirm and Cancel only log. With both off again, it
+// passes requests through, so the drawer behaves as before.
 
 type Conversation = {
   id: string;
   createdAt: number;
   messages: AIChatMessage[];
+  title?: string;
 };
+
+// The canned conversation, added the first time it's asked for.
+function mockConversation(): Conversation {
+  let conversation = conversations.get(MOCK_CONVERSATION_ID);
+  if (!conversation) {
+    conversation = {
+      id: MOCK_CONVERSATION_ID,
+      createdAt: Date.now(),
+      messages: mockConversationMessages(),
+      title: MOCK_CONVERSATION_TITLE,
+    };
+    conversations.set(MOCK_CONVERSATION_ID, conversation);
+  }
+  return conversation;
+}
+
+const isActive = () => isPrototypeAI() || isPrototypeMockConversation();
 
 const conversations = new Map<string, Conversation>();
 let installed = false;
@@ -108,9 +138,25 @@ function wait(ms: number, signal?: AbortSignal | null): Promise<void> {
 }
 
 function streamReply(
-  body: { message?: unknown; conversationId?: unknown },
+  body: {
+    message?: unknown;
+    conversationId?: unknown;
+    confirmDecision?: unknown;
+  },
   signal?: AbortSignal | null,
 ): Response {
+  // The mock's Confirm or Cancel: only logged; nothing changes.
+  if (typeof body.confirmDecision === "string") {
+    console.log(
+      `[GrowthBot mock] ${body.confirmDecision} (nothing was sent):`,
+      MOCK_PENDING_ACTION.method,
+      MOCK_PENDING_ACTION.path,
+    );
+    return new Response(sse("done", {}), {
+      status: 200,
+      headers: { "Content-Type": "text/event-stream" },
+    });
+  }
   const message = typeof body.message === "string" ? body.message : "";
   const cid =
     typeof body.conversationId === "string" && body.conversationId
@@ -170,23 +216,29 @@ function streamReply(
 }
 
 function summaries() {
-  return [...conversations.values()]
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .map((c) => {
-      const first = c.messages.find((m) => m.role === "user");
-      const preview =
-        first && typeof first.content === "string"
-          ? first.content.slice(0, 120)
-          : "";
-      return {
-        conversationId: c.id,
-        title: preview.slice(0, 60) || "New chat",
-        createdAt: c.createdAt,
-        messageCount: c.messages.length,
-        isStreaming: false,
-        preview,
-      };
-    });
+  return (
+    [...conversations.values()]
+      // The mock only listed while it's on.
+      .filter(
+        (c) => c.id !== MOCK_CONVERSATION_ID || isPrototypeMockConversation(),
+      )
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((c) => {
+        const first = c.messages.find((m) => m.role === "user");
+        const preview =
+          first && typeof first.content === "string"
+            ? first.content.slice(0, 120)
+            : "";
+        return {
+          conversationId: c.id,
+          title: c.title ?? (preview.slice(0, 60) || "New chat"),
+          createdAt: c.createdAt,
+          messageCount: c.messages.length,
+          isStreaming: false,
+          preview,
+        };
+      })
+  );
 }
 
 async function readJson(init?: RequestInit): Promise<Record<string, unknown>> {
@@ -214,6 +266,8 @@ function agentPath(input: RequestInfo | URL): string | null {
 
 async function handle(path: string, init?: RequestInit): Promise<Response> {
   const method = (init?.method ?? "GET").toUpperCase();
+  const mock = isPrototypeMockConversation();
+  if (mock) mockConversation();
 
   if (path === "/agent/chat") {
     if (method === "POST")
@@ -224,11 +278,13 @@ async function handle(path: string, init?: RequestInit): Promise<Response> {
   const conversationMatch = path.match(/^\/agent\/chat\/([^/]+)$/);
   if (conversationMatch) {
     const conversation = conversations.get(conversationMatch[1]);
+    const isMock = mock && conversationMatch[1] === MOCK_CONVERSATION_ID;
     return jsonResponse({
       messages: conversation?.messages ?? [],
       isStreaming: false,
       lastStreamedAt: Date.now(),
-      pendingAction: null,
+      pendingAction: isMock ? MOCK_PENDING_ACTION : null,
+      feedback: [],
     });
   }
 
@@ -246,7 +302,7 @@ export function installPrototypeAIStub(): void {
   installed = true;
   const realFetch = window.fetch.bind(window);
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-    const path = agentPath(input);
+    const path = isActive() ? agentPath(input) : null;
     return path ? handle(path, init) : realFetch(input, init);
   };
 }

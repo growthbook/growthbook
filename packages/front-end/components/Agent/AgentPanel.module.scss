@@ -94,3 +94,18 @@
 ) {
   --agent-panel-background: var(--color-panel-solid);
 }
+
+// The docked rail's outline and background (AgentPanel.tsx; set in
+// review): the side nav's (AppRail.module.scss's --rail-border and
+// --rail-bg), --slate-4 and --slate-2, or --slate-a4 and its navy in dark
+// mode. With "Interim colors" on, the background is white instead
+// (AgentPanel.tsx).
+:global(:root) {
+  --agent-dock-border: var(--slate-4);
+  --agent-dock-background: var(--slate-2);
+}
+
+:global(.dark-theme) {
+  --agent-dock-border: var(--slate-a4);
+  --agent-dock-background: #10172e;
+}

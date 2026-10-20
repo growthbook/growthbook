@@ -934,8 +934,13 @@ export default function ExplorerChart({
     <Flex
       direction="column"
       position="relative"
+      // PROTOTYPE (set in review): its fill and outline can be set by its
+      // container (--ai-artifact-inner-bg, --ai-artifact-inner-border; the
+      // GrowthBot drawer on a white panel, AgentPanel.tsx); as before
+      // otherwise.
       style={{
-        border: "1px solid var(--gray-a3)",
+        border: "var(--ai-artifact-inner-border, 1px solid var(--gray-a3))",
+        background: "var(--ai-artifact-inner-bg, transparent)",
         borderRadius: "var(--radius-4)",
         flex: 1,
         minHeight: 0,

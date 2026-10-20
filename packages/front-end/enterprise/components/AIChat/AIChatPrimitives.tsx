@@ -25,10 +25,18 @@ export function AssistantBubble({
         width: "min(920px, 100%)",
         maxWidth: "100%",
         minWidth: 0,
+        // PROTOTYPE (set in review): an artifact's fill and outline can be
+        // set by its container (--ai-artifact-bg, --ai-artifact-border; the
+        // GrowthBot drawer on a white panel, AgentPanel.tsx); as before
+        // otherwise.
         background:
-          variant === "artifact" ? "var(--color-panel-solid)" : undefined,
+          variant === "artifact"
+            ? "var(--ai-artifact-bg, var(--color-panel-solid))"
+            : undefined,
         border:
-          variant === "artifact" ? "1px solid var(--slate-a5)" : undefined,
+          variant === "artifact"
+            ? "1px solid var(--ai-artifact-border, var(--slate-a5))"
+            : undefined,
       }}
       className={aiChatStyles.bubble}
     >

@@ -10,6 +10,11 @@ import { useAISettings } from "@/hooks/useOrgSettings";
 import track from "@/services/track";
 import { isPrototypeAI } from "@/services/env";
 import { installPrototypeAIStub } from "./prototypeAIStub";
+import { MOCK_CONVERSATION_ID } from "./prototypeMockChat";
+import {
+  syncMockConversationId,
+  usePrototypeMockConversation,
+} from "./prototypeMockConversation";
 
 interface AgentPanelContextValue {
   /** Whether the agent UI should be available to the current user/org. */
@@ -42,18 +47,30 @@ export function AgentPanelProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, organization, userId } = useUser();
   const { aiEnabled } = useAISettings();
   // PROTOTYPE ONLY: with NEXT_PUBLIC_PROTOTYPE_AI=true the drawer is always
   // available, and its requests get canned replies (prototypeAIStub.ts).
   // Off, as before: the plan's ai-suggestions and the org's AI setting.
   const prototypeAI = isPrototypeAI();
+  // PROTOTYPE ONLY ("Mock conversation", set in review;
+  // prototypeMockConversation.ts): the drawer available too, the same stub
+  // answering it, and opening onto the canned conversation.
+  const mockChat = usePrototypeMockConversation();
   const available =
-    prototypeAI || (hasCommercialFeature("ai-suggestions") && aiEnabled);
+    prototypeAI ||
+    mockChat ||
+    (hasCommercialFeature("ai-suggestions") && aiEnabled);
   // Installed while rendering (once; repeat calls do nothing), so it's in
   // place before the drawer's first requests: effects run child-first, so
   // one here would come after the drawer's.
-  if (prototypeAI) installPrototypeAIStub();
+  if (prototypeAI || mockChat) installPrototypeAIStub();
+  syncMockConversationId(
+    organization.id,
+    userId,
+    mockChat,
+    MOCK_CONVERSATION_ID,
+  );
 
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
