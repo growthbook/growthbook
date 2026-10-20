@@ -5,7 +5,7 @@ import {
 import { TeamInterface } from "shared/types/team";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
-  assumesRequesterRole,
+  actsAsUser,
   getRolePermissions,
   intersectUserPermissions,
 } from "shared/permissions";
@@ -109,7 +109,7 @@ export function getKeyPermissionsForRequest({
   teams: TeamInterface[];
   restrictedProjects: string[];
 }): UserPermissions | undefined {
-  if (apiKey.userId || !requesterId || !assumesRequesterRole(apiKey)) {
+  if (apiKey.userId || !requesterId || !actsAsUser(apiKey)) {
     return undefined;
   }
   return intersectUserPermissions(

@@ -68,8 +68,8 @@ describe("getContextForApiKeyIdInOrg", () => {
     ).toBe(false);
   });
 
-  it("fires a key armed for a member with only what both of them hold", async () => {
-    await keys().insertOne(key({}));
+  it("fires a User key armed for a member with only what both of them hold", async () => {
+    await keys().insertOne(key({ actAs: "user" }));
     await seedUser();
     const readerOrg = {
       ...memberOrg,

@@ -202,8 +202,7 @@ describe("changesApiKeyAuthority", () => {
         environments: [],
         additionalRoles: [],
         projectRoles: [],
-        requesterHeader: "optional",
-        requesterPermissions: "assume",
+        actAs: "system",
         confirmRules: null,
       }),
     ).toBe(false);
@@ -225,8 +224,8 @@ describe("changesApiKeyAuthority", () => {
       after: { ...stored, limitAccessByEnvironment: true },
     },
     {
-      name: "acting with the key's own role",
-      after: { ...stored, requesterPermissions: "key" as const },
+      name: "acting as the member it names",
+      after: { ...stored, actAs: "user" as const },
     },
     {
       name: "turning confirmations on",

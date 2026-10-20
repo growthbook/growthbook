@@ -1,13 +1,22 @@
 import { useRouter } from "next/router";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiArrowCounterClockwise, PiKey, PiUserCircle } from "react-icons/pi";
+import { PiArrowCounterClockwise, PiLock, PiUserCircle } from "react-icons/pi";
 import { LOOPBACK_HOSTS } from "shared/validators";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import { DefinitionsProvider } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
+import useOrgLimits from "@/hooks/useOrgLimits";
 import { allowSelfOrgCreation } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import UserAvatar from "@/components/Avatar/UserAvatar";
+import PermissionsField from "@/components/Settings/PermissionsField";
+import {
+  initialPermissions,
+  isComplete,
+  tokenFields,
+} from "@/components/Settings/apiKeyPermissions";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
@@ -54,7 +63,7 @@ function describeRedirectTarget(
 // Shared narrow-page wrapper so the consent and success screens can't drift.
 function ConsentPageWrapper({ children }: { children: ReactNode }) {
   return (
-    <Box maxWidth="520px" mx="auto" my="9" px="4">
+    <Box maxWidth="520px" mx="auto" my="5" px="4">
       {children}
     </Box>
   );
@@ -166,7 +175,15 @@ function NoOrganization({ onCreated }: { onCreated: () => void }) {
 
 export default function OAuthAuthorizePage() {
   const router = useRouter();
-  const { apiCall, isAuthenticated, loading: authLoading } = useAuth();
+  const {
+    apiCall,
+    isAuthenticated,
+    loading: authLoading,
+    orgId: activeOrgId,
+    setOrgId: setActiveOrgId,
+  } = useAuth();
+  const { organization } = useUser();
+  const { orgSupportsRoles } = useOrgLimits();
 
   const query = useMemo(() => {
     const q = router.query;
@@ -186,7 +203,9 @@ export default function OAuthAuthorizePage() {
     };
   }, [router.query]);
 
-  const [orgId, setOrgId] = useState("");
+  const [permissions, setPermissions] = useState(() =>
+    initialPermissions(undefined, "pat"),
+  );
   const [actionError, setActionError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -252,17 +271,26 @@ export default function OAuthAuthorizePage() {
     },
   );
 
-  // Pre-select the organization the caller asked for (the setup wizard passes the one the
-  // user was looking at), otherwise the only one there is
+  // The organization the caller asked for (the setup wizard passes the one the
+  // user was looking at), otherwise the only one there is. The choice lives in
+  // the URL because choosing switches the app to that organization, so its
+  // roles, Projects and plan load for the permissions, and that remounts this page.
+  const wantedOrg =
+    typeof router.query.org === "string" ? router.query.org : "";
+  const userOrgs = info?.organizations ?? [];
+  const orgId = userOrgs.some((o) => o.id === wantedOrg)
+    ? wantedOrg
+    : userOrgs.length === 1
+      ? userOrgs[0].id
+      : "";
+  const chooseOrg = (id: string) =>
+    router.replace({ query: { ...router.query, org: id } }, undefined, {
+      shallow: true,
+    });
   useEffect(() => {
-    if (!info?.organizations?.length) return;
-    const wanted = router.query.org ? String(router.query.org) : "";
-    if (wanted && info.organizations.some((o) => o.id === wanted)) {
-      setOrgId(wanted);
-    } else if (info.organizations.length === 1) {
-      setOrgId(info.organizations[0].id);
-    }
-  }, [info, router.query.org]);
+    if (orgId && orgId !== activeOrgId) setActiveOrgId?.(orgId);
+  }, [orgId, activeOrgId, setActiveOrgId]);
+  const orgLoaded = !!orgId && organization?.id === orgId;
 
   const missingParamsError =
     router.isReady && !hasRequiredParams
@@ -315,6 +343,7 @@ export default function OAuthAuthorizePage() {
           scope: query.scope || undefined,
           resource: query.resource || undefined,
           organization: orgId,
+          permissions: tokenFields(permissions),
         }),
       });
       if (res.status !== 200 || !res.redirectTo) {
@@ -331,7 +360,7 @@ export default function OAuthAuthorizePage() {
       setActionError(e instanceof Error ? e.message : String(e));
       setSubmitting(false);
     }
-  }, [apiCall, orgId, query]);
+  }, [apiCall, orgId, permissions, query]);
 
   // Unauthenticated users are redirected to login by AuthProvider; keep the
   // overlay up during that transient state instead of flashing the page.
@@ -371,7 +400,7 @@ export default function OAuthAuthorizePage() {
       {showDetails ? (
         // `as="div"` rather than `as="p"`: global Bootstrap styling puts a
         // margin on <p> that fights the explicit spacing here.
-        <Flex direction="column" align="center" mb="5">
+        <Flex direction="column" align="center" mb="4">
           <Heading as="h1" size="xl" align="center" mb="1">
             {claimedName}
           </Heading>
@@ -465,7 +494,7 @@ export default function OAuthAuthorizePage() {
             <Select
               label="Organization"
               value={orgId || undefined}
-              setValue={setOrgId}
+              setValue={chooseOrg}
               placeholder="Select an organization"
             >
               {info.organizations.map((o) => (
@@ -484,6 +513,19 @@ export default function OAuthAuthorizePage() {
         </Frame>
       ) : null}
 
+      {info && !error && orgLoaded ? (
+        <Frame>
+          <DefinitionsProvider>
+            <PermissionsField
+              holder="pat"
+              value={permissions}
+              setValue={setPermissions}
+              canLimitRole={orgSupportsRoles()}
+            />
+          </DefinitionsProvider>
+        </Frame>
+      ) : null}
+
       {verifiedRedirectUri ? (
         <>
           <Frame>
@@ -492,19 +534,16 @@ export default function OAuthAuthorizePage() {
             </Text>
             <Flex direction="column" gap="3">
               <AccessItem icon={<PiUserCircle size={16} />}>
-                Acting as you in the selected organization, with the same
-                permissions you have in GrowthBook.
+                Acting as you through the GrowthBook API
               </AccessItem>
-              <AccessItem icon={<PiKey size={16} />}>
-                Access through the GrowthBook API on your behalf. Your password
-                is never shared.
+              <AccessItem icon={<PiLock size={16} />}>
+                Your password is never shared
               </AccessItem>
               <AccessItem icon={<PiArrowCounterClockwise size={16} />}>
-                Access continues until you revoke it from{" "}
+                Works until you revoke it from{" "}
                 <Link href="/account/personal-access-tokens">
                   Personal Access Tokens
                 </Link>
-                .
               </AccessItem>
             </Flex>
           </Frame>
@@ -523,7 +562,9 @@ export default function OAuthAuthorizePage() {
             <Button
               size="lg"
               onClick={approve}
-              disabled={submitting || !orgId || !!error}
+              disabled={
+                submitting || !orgLoaded || !isComplete(permissions) || !!error
+              }
               loading={submitting}
               style={{ flex: 1 }}
             >

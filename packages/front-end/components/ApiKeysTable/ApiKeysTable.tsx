@@ -2,10 +2,7 @@ import React, { FC, ReactNode, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiIdentificationCard, PiInfo } from "react-icons/pi";
 import { ApiKeyInterface } from "shared/types/apikey";
-import {
-  canSetApiKeyDisabled,
-  requesterHeaderPolicy,
-} from "shared/permissions";
+import { canSetApiKeyDisabled, actsAsUser } from "shared/permissions";
 import { ago, datetime } from "shared/dates";
 import { getExpirationStatus } from "shared/api-key-expiration";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
@@ -194,17 +191,13 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     </span>
                   </Tooltip>
                 )}
-                {!key.userId && requesterHeaderPolicy(key) !== "optional" && (
+                {!key.userId && actsAsUser(key) && (
                   <KeyTrait
                     icon={<PiIdentificationCard size={18} />}
                     color="var(--brown-10)"
-                    tooltip={
-                      requesterHeaderPolicy(key) === "required"
-                        ? "Every request must name a member with X-GrowthBook-Requested-By"
-                        : "Requests that send X-GrowthBook-Requested-By are rejected"
-                    }
+                    tooltip="Every request must name a member with X-GrowthBook-Requested-By, and acts as that member"
                   >
-                    Requested-by {requesterHeaderPolicy(key)}
+                    Acts as User
                   </KeyTrait>
                 )}
                 {key.confirmRules && (

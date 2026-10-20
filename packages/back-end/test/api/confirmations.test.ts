@@ -76,7 +76,7 @@ const recommended = keyDoc("key_recommended", {
 });
 const assumer = keyDoc("key_assume", {
   role: "admin",
-  requesterPermissions: "assume",
+  actAs: "user",
   confirmRules: [{ actions: ["feature.*"] }],
 });
 
@@ -96,7 +96,7 @@ function asKey(
           name: key.description || "",
           ...(requestedBy && {
             requestedBy,
-            assumedRole: key.requesterPermissions === "assume",
+            assumedRole: key.actAs === "user",
           }),
         },
     ...(key.userId

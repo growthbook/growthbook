@@ -16,8 +16,7 @@ import {
   roleSupportsEnvLimit,
   changedProjectRoleProjects,
   sameRoleValue,
-  assumesRequesterRole,
-  requesterHeaderPolicy,
+  actsAsUser,
 } from "shared/permissions";
 import {
   DUPLICATE_PROJECT_ROLES_MESSAGE,
@@ -1955,10 +1954,7 @@ export async function getContextForApiKeyIdInOrg(
     return null;
   }
   // Armed while assuming a member, it replays only while the key still would.
-  if (
-    requesterId &&
-    (!assumesRequesterRole(key) || requesterHeaderPolicy(key) === "rejected")
-  ) {
+  if (requesterId && !actsAsUser(key)) {
     return null;
   }
   const user = key.userId ? await getUserById(key.userId) : null;

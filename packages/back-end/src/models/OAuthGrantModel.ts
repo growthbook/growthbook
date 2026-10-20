@@ -1,4 +1,8 @@
-import { OAuthGrantInterface, oauthGrantValidator } from "shared/validators";
+import {
+  OAuthGrantInterface,
+  oauthGrantValidator,
+  OAuthTokenPermissions,
+} from "shared/validators";
 import { OAUTH_REFRESH_TOKEN_TTL_SECONDS } from "back-end/src/util/secrets";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
@@ -82,6 +86,7 @@ export class OAuthGrantModel extends BaseClass {
     userId: string;
     scope?: string;
     resource?: string;
+    permissions?: OAuthTokenPermissions | null;
     revoked: boolean;
     expiresAt: Date;
   }): Promise<{ grant: OAuthGrantInterface; created: boolean }> {
@@ -97,18 +102,20 @@ export class OAuthGrantModel extends BaseClass {
     }
   }
 
-  /** Consent: create, or clear `revoked` and refresh scope on re-consent. */
+  /** Consent: create, or clear `revoked` and refresh scope and permissions on re-consent. */
   public async startGrant(params: {
     clientId: string;
     userId: string;
     scope?: string;
     resource?: string;
+    permissions: OAuthTokenPermissions | null;
   }): Promise<OAuthGrantInterface> {
     const { grant, created } = await this.getOrCreateGrant({
       clientId: params.clientId,
       userId: params.userId,
       scope: params.scope,
       resource: params.resource,
+      permissions: params.permissions,
       revoked: false,
       expiresAt: grantExpiry(),
     });
@@ -117,6 +124,7 @@ export class OAuthGrantModel extends BaseClass {
       revoked: false,
       scope: params.scope,
       resource: params.resource,
+      permissions: params.permissions,
       expiresAt: grantExpiry(),
     });
   }

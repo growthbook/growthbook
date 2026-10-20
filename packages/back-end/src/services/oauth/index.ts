@@ -1,6 +1,10 @@
 import crypto from "crypto";
 import { Request } from "express";
-import { isSafeOAuthRedirectUri, OAuthDcrRequest } from "shared/validators";
+import {
+  isSafeOAuthRedirectUri,
+  OAuthDcrRequest,
+  OAuthTokenPermissions,
+} from "shared/validators";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   APP_ORIGIN,
@@ -253,6 +257,7 @@ export async function mintAuthorizationCode(params: {
   scope?: string;
   resource?: string;
   state?: string;
+  permissions: OAuthTokenPermissions | null;
 }): Promise<{ redirectTo: string }> {
   if (params.codeChallengeMethod !== "S256") {
     throw new OAuthError(
@@ -288,6 +293,7 @@ export async function mintAuthorizationCode(params: {
     codeChallengeMethod: "S256",
     scope: params.scope,
     resource: params.resource,
+    permissions: params.permissions,
     used: false,
     expiresAt: new Date(now.getTime() + AUTH_CODE_TTL_MS),
   });
@@ -345,6 +351,7 @@ export async function exchangeAuthorizationCode(params: {
     userId: authCode.userId,
     scope: authCode.scope,
     resource: authCode.resource,
+    permissions: authCode.permissions ?? null,
   });
 
   return issueTokenPair(context, {
@@ -352,6 +359,7 @@ export async function exchangeAuthorizationCode(params: {
     userId: authCode.userId,
     scope: authCode.scope,
     resource: authCode.resource,
+    permissions: authCode.permissions ?? null,
   });
 }
 
@@ -426,6 +434,7 @@ export async function exchangeRefreshToken(params: {
     userId: existing.userId,
     scope: existing.scope,
     resource: existing.resource,
+    permissions: grant.permissions ?? null,
   });
 }
 
@@ -474,6 +483,7 @@ interface IssueParams {
   userId: string;
   scope?: string;
   resource?: string;
+  permissions: OAuthTokenPermissions | null;
 }
 
 export interface TokenResponse {
@@ -500,18 +510,24 @@ async function issueTokenPair(
 
   // The context is always user-attributed (issuance requires a member
   // context), so this passes the PAT canCreate rule
-  // (`doc.userId === context.userId`) and gets full validation + audit log.
+  // (`doc.userId === context.userId`) and gets full validation + audit log,
+  // which is also where the permissions from consent are checked.
+  const { permissions } = params;
   await context.models.apiKeys.create({
     key: hashToken(accessToken),
     secret: true,
     userId: params.userId,
-    role: "user",
+    role: permissions?.scopedRole || "user",
+    scoped: !!permissions?.scopedRole,
     description: `OAuth access token (${params.clientId})`,
     environment: "",
     project: "",
     encryptSDK: false,
-    limitAccessByEnvironment: false,
-    environments: [],
+    limitAccessByEnvironment: permissions?.limitAccessByEnvironment ?? false,
+    environments: permissions?.environments ?? [],
+    additionalRoles: permissions?.additionalRoles,
+    projectRoles: permissions?.projectRoles,
+    confirmRules: permissions?.confirmRules ?? null,
     expiresAt: accessExpires,
     oauthClientId: params.clientId,
     scopes: params.scope ? params.scope.split(/\s+/).filter(Boolean) : [],

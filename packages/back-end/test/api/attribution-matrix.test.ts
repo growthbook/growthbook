@@ -1,3 +1,4 @@
+import omit from "lodash/omit";
 import mongoose from "mongoose";
 import request from "supertest";
 import type { Request } from "express";
@@ -21,9 +22,9 @@ import {
 import { setupApp } from "./api.setup";
 
 /**
- * The person behind a request is a personal token's owner, or the member whose
- * role an org key assumes with X-GrowthBook-Requested-By; a key that names no
- * one, or uses its own role, is credited as itself. Checked across callers,
+ * The person behind a request is a personal token's owner, or the member a User
+ * key names with X-GrowthBook-Requested-By; a key that names no one, or a
+ * System key, is credited as itself. Checked across callers,
  * revisioned entities, their lifecycles and schedules, and through the real
  * auth middleware.
  */
@@ -40,6 +41,8 @@ const KEY = {
   role: "admin",
   limitAccessByEnvironment: false,
   environments: [],
+  // A User key, so naming a member acts as them.
+  actAs: "user" as const,
   dateCreated: new Date(),
   dateUpdated: new Date(),
 };
@@ -147,7 +150,7 @@ function contextFor(
 ) {
   const key: ApiKeyWithRole =
     actor === "a key naming the member as itself"
-      ? { ...baseKey, requesterPermissions: "key" }
+      ? { ...baseKey, actAs: "system" }
       : baseKey;
   const requester = actor.startsWith("a key naming the member") ? person : null;
   const base = {
@@ -742,10 +745,7 @@ describe("attribution across callers", () => {
       );
     });
 
-    it.each([
-      ["stops assuming members", { requesterPermissions: "key" }],
-      ["rejects the header", { requesterHeader: "rejected" }],
-    ])(
+    it.each([["stops acting as members", { actAs: "system" }]])(
       "drops a constant publish a key armed for them once the key %s",
       async (_, change) => {
         const { id, version } = await draftConstant();
@@ -1040,7 +1040,7 @@ describe("attribution across callers", () => {
     const OWN_ROLE_KEY = {
       ...READONLY_KEY,
       id: "key_own_role",
-      requesterPermissions: "key" as const,
+      actAs: "system" as const,
     };
     const NAMED = [
       ["an admin key naming the draft's author", dana, KEY, 200],
@@ -1121,23 +1121,25 @@ describe("attribution across callers", () => {
     const auth = () => jest.requireMock(MIDDLEWARE).default as jest.Mock;
     const realAuth = jest.requireActual(MIDDLEWARE).default;
     const KEYS = {
-      optional: KEY,
-      required: {
+      system: {
         ...KEY,
-        id: "key_required",
-        key: "secret_required",
-        requesterHeader: "required",
+        id: "key_system",
+        key: "secret_system",
+        actAs: "system",
       },
+      user: KEY,
+      // Saved with settings that have since been retired.
       rejected: {
-        ...KEY,
+        ...omit(KEY, "actAs"),
         id: "key_rejected",
         key: "secret_rejected",
         requesterHeader: "rejected",
       },
-      ownRole: {
-        ...KEY,
-        id: "key_own_role",
-        key: "secret_own_role",
+      requiredOwnRole: {
+        ...omit(KEY, "actAs"),
+        id: "key_required_own_role",
+        key: "secret_required_own_role",
+        requesterHeader: "required",
         requesterPermissions: "key",
       },
       token: { ...KEY, id: "key_pat", key: "secret_pat", userId: dana.id },
@@ -1154,9 +1156,11 @@ describe("attribution across callers", () => {
         ),
       });
       await collection("apikeys").insertMany(
-        [KEYS.required, KEYS.rejected, KEYS.ownRole, KEYS.token].map((k) => ({
-          ...k,
-        })),
+        [KEYS.system, KEYS.rejected, KEYS.requiredOwnRole, KEYS.token].map(
+          (k) => ({
+            ...k,
+          }),
+        ),
       );
     });
     afterEach(() => {
@@ -1177,22 +1181,50 @@ describe("attribution across callers", () => {
     };
 
     it.each([
-      ["an optional key naming no one", 200, "optional", null],
+      ["a System key naming no one", 200, "system", null],
       [
         "a key naming someone outside the org",
         400,
-        "optional",
+        "system",
         "nobody@example.com",
       ],
-      ["a required key naming no one", 400, "required", null],
-      ["a required key naming a member by id", 200, "required", dana.id],
-      ["a rejected key naming a member", 400, "rejected", dana.email],
-      ["a rejected key naming no one", 200, "rejected", null],
+      ["a User key naming no one", 400, "user", null],
+      ["a User key naming a member by id", 200, "user", dana.id],
+      [
+        "a key saved as rejecting the header naming a member",
+        200,
+        "rejected",
+        dana.email,
+      ],
+      [
+        "a key saved as rejecting the header naming no one",
+        200,
+        "rejected",
+        null,
+      ],
+      [
+        "a key saved as required with its own role naming a member who can't create projects",
+        403,
+        "requiredOwnRole",
+        bob.email,
+      ],
+      [
+        "a key saved as required with its own role naming no one",
+        400,
+        "requiredOwnRole",
+        null,
+      ],
       ["a personal token naming a member", 400, "token", bob.email],
       [
-        "a key naming a member who can't create projects",
+        "a System key naming a member who can't create projects",
+        200,
+        "system",
+        bob.email,
+      ],
+      [
+        "a User key naming a member who can't create projects",
         403,
-        "optional",
+        "user",
         bob.email,
       ],
     ] as const)("answers %s with %i", async (_, status, key, header) => {
@@ -1201,11 +1233,9 @@ describe("attribution across callers", () => {
       if (status === 400) expect(res.body.message).toMatch(/Requested-By/);
     });
 
-    it("records the named member, who owns what the key creates only when assumed", async () => {
-      expect((await createProject("optional", dana.email, "Web")).status).toBe(
-        200,
-      );
-      expect((await createProject("ownRole", bob.email, "App")).status).toBe(
+    it("records the named member, who owns what the key creates only for a User key", async () => {
+      expect((await createProject("user", dana.email, "Web")).status).toBe(200);
+      expect((await createProject("system", bob.email, "App")).status).toBe(
         200,
       );
       const audits = await collection("audits")
