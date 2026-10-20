@@ -33,7 +33,10 @@ import {
   sendInviteEmail,
   sendPendingMemberApprovalEmail,
 } from "back-end/src/services/email";
-import { auditDetailsUpdate } from "back-end/src/services/audit";
+import {
+  auditDetailsCreate,
+  auditDetailsUpdate,
+} from "back-end/src/services/audit";
 import { ApiReqContext, ApiRequestLocals } from "back-end/types/api";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
@@ -295,6 +298,17 @@ export const postPendingMemberApprove = createApiRequestHandler(
     environments: pending.environments,
     projectRoles: pending.projectRoles,
     additionalRoles: pending.additionalRoles,
+  });
+  await req.audit({
+    event: "user.create",
+    entity: { object: "user", id: pending.id },
+    details: auditDetailsCreate({
+      role: pending.role,
+      limitAccessByEnvironment: pending.limitAccessByEnvironment,
+      environments: pending.environments,
+      projectRoles: pending.projectRoles,
+      additionalRoles: pending.additionalRoles,
+    }),
   });
 
   try {
