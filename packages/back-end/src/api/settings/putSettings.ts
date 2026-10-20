@@ -2,8 +2,6 @@ import cronParser from "cron-parser";
 import { isEqual, omit, omitBy, pick } from "lodash";
 import { getDefaultRole } from "shared/permissions";
 import {
-  AGREEMENT_TYPE_AI,
-  AI_AGREEMENT_VERSION,
   API_ECHO_ONLY_SETTING_KEYS,
   putSettingsValidator,
 } from "shared/validators";
@@ -23,7 +21,6 @@ import {
   validateOrgSettingsUpdate,
 } from "back-end/src/services/orgSettings";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { IS_CLOUD } from "back-end/src/util/secrets";
 import { toApiDefaultRole, toApiSettings } from "./getSettings";
 
 export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
@@ -31,7 +28,7 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
 ) => {
   const { context } = req;
   const org = context.org;
-  const { acceptAiTerms, ...sent } = req.body;
+  const sent = req.body;
 
   // Read-only keys are accepted only as GET returns them, so GET can be echoed.
   const apiSettings: Record<string, unknown> = toApiSettings(org);
@@ -123,18 +120,6 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
     }
   });
 
-  // Cloud orgs accept the AI terms once, the first time AI is turned on.
-  const needsAiAgreement =
-    IS_CLOUD &&
-    !!changes.aiEnabled &&
-    !org.settings?.aiEnabled &&
-    !(await context.models.agreements.getAgreementForOrg(AGREEMENT_TYPE_AI));
-  if (needsAiAgreement && !acceptAiTerms) {
-    throw new Error(
-      "Enabling AI requires accepting the AI terms (https://docs.growthbook.io/integrations/ai). Set `acceptAiTerms: true` to accept them on behalf of the organization.",
-    );
-  }
-
   if (
     changes.defaultDataSource &&
     !(await getDataSourceById(context, changes.defaultDataSource))
@@ -161,18 +146,6 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
     )
   ) {
     throw new Error(`Unknown environment: ${changes.preferredEnvironment}`);
-  }
-
-  if (needsAiAgreement) {
-    await context.models.agreements.create({
-      agreement: AGREEMENT_TYPE_AI,
-      version: AI_AGREEMENT_VERSION,
-      // An org key acting as itself is recorded by its key id.
-      userId: context.actingPerson?.id ?? context.actorId,
-      userName: context.actingPerson?.name ?? "",
-      userEmail: context.actingPerson?.email ?? "",
-      dateSigned: new Date(),
-    });
   }
 
   await updateOrganizationSettings(org.id, set, unset);
