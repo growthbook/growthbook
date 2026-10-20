@@ -8,9 +8,10 @@ import { normQuantile, tCdf, tQuantile } from "./utils";
 //
 // pairedDeltaTest: Paired delta-method t-test. Requires engagement events
 //   joinable to impressions via ranking_id. Inputs are cross-user joint
-//   sufficient statistics of the per-user triple (X, Y, N): X = credited
-//   metric total on treatment-drafted competitive items, Y = same for
-//   control, N = shared competitive-exposure denominator.
+//   sufficient statistics of the per-user triple (treatment, control,
+//   exposures): credited metric total on treatment-drafted competitive
+//   items, the same on control-drafted items, and the shared
+//   competitive-exposure denominator.
 //
 // ownershipSignTest: Airbnb-style (arXiv:2508.00751). Engagement is
 //   attributed by per-user item-ownership shares (from exposure counts);
@@ -22,15 +23,15 @@ import { normQuantile, tCdf, tQuantile } from "./utils";
 // One object per (metric, dimension); field names match the SQL output.
 export interface PairedSufficientStats {
   users: number;
-  sum_x: number;
-  sum_xx: number;
-  sum_y: number;
-  sum_yy: number;
-  sum_n: number;
-  sum_nn: number;
-  sum_xy: number;
-  sum_xn: number;
-  sum_yn: number;
+  treatment_sum: number;
+  treatment_sum_squares: number;
+  control_sum: number;
+  control_sum_squares: number;
+  exposures_sum: number;
+  exposures_sum_squares: number;
+  treatment_control_sum_product: number;
+  treatment_exposures_sum_product: number;
+  control_exposures_sum_product: number;
 }
 
 // Per-user preference counts for the ownership estimator.
@@ -52,45 +53,64 @@ function errorResult(errorMessage: string): FrequentistTestResult {
 }
 
 // Paired t-test via the delta method on the absolute difference in
-// exposure-weighted credited rates: delta = (mean(X) - mean(Y)) / mean(N).
-// The -2*Cov(X, Y) term is the paired-design variance reduction.
+// exposure-weighted credited rates:
+// delta = (mean(treatment) - mean(control)) / mean(exposures).
+// The -2*Cov(treatment, control) term is the paired-design variance reduction.
 export function pairedDeltaTest(
   stats: PairedSufficientStats,
   alpha: number = 0.05,
 ): FrequentistTestResult {
-  const n = stats.users;
-  if (n < 2) {
+  const users = stats.users;
+  if (users < 2) {
     return errorResult("NOT_ENOUGH_USERS");
   }
 
-  const mx = stats.sum_x / n;
-  const my = stats.sum_y / n;
-  const mn = stats.sum_n / n;
-  if (mn <= 0) {
+  const meanT = stats.treatment_sum / users;
+  const meanC = stats.control_sum / users;
+  const meanN = stats.exposures_sum / users;
+  if (meanN <= 0) {
     return errorResult("NO_COMPETITIVE_EXPOSURES");
   }
 
-  // Sample (co)variances with n-1 denominator
-  const covdiv = n - 1;
-  const varX = (stats.sum_xx - (stats.sum_x * stats.sum_x) / n) / covdiv;
-  const varY = (stats.sum_yy - (stats.sum_y * stats.sum_y) / n) / covdiv;
-  const varN = (stats.sum_nn - (stats.sum_n * stats.sum_n) / n) / covdiv;
-  const covXY = (stats.sum_xy - (stats.sum_x * stats.sum_y) / n) / covdiv;
-  const covXN = (stats.sum_xn - (stats.sum_x * stats.sum_n) / n) / covdiv;
-  const covYN = (stats.sum_yn - (stats.sum_y * stats.sum_n) / n) / covdiv;
+  // Sample (co)variances with users-1 denominator
+  const covdiv = users - 1;
+  const varT =
+    (stats.treatment_sum_squares -
+      (stats.treatment_sum * stats.treatment_sum) / users) /
+    covdiv;
+  const varC =
+    (stats.control_sum_squares -
+      (stats.control_sum * stats.control_sum) / users) /
+    covdiv;
+  const varN =
+    (stats.exposures_sum_squares -
+      (stats.exposures_sum * stats.exposures_sum) / users) /
+    covdiv;
+  const covTC =
+    (stats.treatment_control_sum_product -
+      (stats.treatment_sum * stats.control_sum) / users) /
+    covdiv;
+  const covTN =
+    (stats.treatment_exposures_sum_product -
+      (stats.treatment_sum * stats.exposures_sum) / users) /
+    covdiv;
+  const covCN =
+    (stats.control_exposures_sum_product -
+      (stats.control_sum * stats.exposures_sum) / users) /
+    covdiv;
 
-  const est = (mx - my) / mn;
+  const est = (meanT - meanC) / meanN;
   const perUnitVariance =
-    (varX + varY - 2 * covXY) / mn ** 2 -
-    (2 * (mx - my) * (covXN - covYN)) / mn ** 3 +
-    ((mx - my) ** 2 * varN) / mn ** 4;
-  const variance = Math.max(perUnitVariance, 0) / n;
+    (varT + varC - 2 * covTC) / meanN ** 2 -
+    (2 * (meanT - meanC) * (covTN - covCN)) / meanN ** 3 +
+    ((meanT - meanC) ** 2 * varN) / meanN ** 4;
+  const variance = Math.max(perUnitVariance, 0) / users;
   if (variance <= 0) {
     return errorResult("ZERO_VARIANCE");
   }
 
   const se = Math.sqrt(variance);
-  const dof = n - 1;
+  const dof = users - 1;
   const tStat = est / se;
   const pValue = 2 * tCdf(-Math.abs(tStat), dof);
   const halfWidth = tQuantile(1 - alpha / 2, dof) * se;

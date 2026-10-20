@@ -144,24 +144,36 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
             case "paired": {
               const stats = {
                 users: col("users"),
-                sum_x: col("sum_x"),
-                sum_xx: col("sum_xx"),
-                sum_y: col("sum_y"),
-                sum_yy: col("sum_yy"),
-                sum_n: col("sum_n"),
-                sum_nn: col("sum_nn"),
-                sum_xy: col("sum_xy"),
-                sum_xn: col("sum_xn"),
-                sum_yn: col("sum_yn"),
+                treatment_sum: col("treatment_sum"),
+                treatment_sum_squares: col("treatment_sum_squares"),
+                control_sum: col("control_sum"),
+                control_sum_squares: col("control_sum_squares"),
+                exposures_sum: col("exposures_sum"),
+                exposures_sum_squares: col("exposures_sum_squares"),
+                treatment_control_sum_product: col(
+                  "treatment_control_sum_product",
+                ),
+                treatment_exposures_sum_product: col(
+                  "treatment_exposures_sum_product",
+                ),
+                control_exposures_sum_product: col(
+                  "control_exposures_sum_product",
+                ),
               };
               const perExposure = (v: number) =>
-                stats.sum_n > 0 ? v / stats.sum_n : 0;
+                stats.exposures_sum > 0 ? v / stats.exposures_sum : 0;
               results.push({
                 metricId,
                 analysis,
                 users: stats.users,
-                control: { value: stats.sum_y, cr: perExposure(stats.sum_y) },
-                treatment: { value: stats.sum_x, cr: perExposure(stats.sum_x) },
+                control: {
+                  value: stats.control_sum,
+                  cr: perExposure(stats.control_sum),
+                },
+                treatment: {
+                  value: stats.treatment_sum,
+                  cr: perExposure(stats.treatment_sum),
+                },
                 test: pairedDeltaTest(stats),
               });
               break;

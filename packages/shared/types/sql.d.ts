@@ -93,10 +93,13 @@ export interface SqlDialect {
   // JSON-array support required for interleaving exposures; absence
   // means the warehouse does not support interleaving analysis yet.
   jsonArray?: {
-    // Join clause that unnests `jsonColumn` (one row per element), exposing
-    // each element as `itemAlias` in the warehouse's native JSON type.
+    // Clause appended after a FROM-item that unnests its `jsonColumn` (one
+    // row per element). Accepts JSON text or the warehouse's native JSON
+    // type. `itemAlias` is only meaningful to `fieldText`; it may be a
+    // column, a table alias, or a lateral alias depending on the engine.
     unnest: (jsonColumn: string, itemAlias: string) => string;
-    // Text value of `field` on an element exposed by `unnest`.
+    // Text value of `field` on an element exposed by `unnest`; booleans must
+    // render as 'true'/'false'. Usable in SELECT, WHERE, and GROUP BY.
     fieldText: (itemAlias: string, field: string) => string;
   };
   evalBoolean: (col: string, value: boolean) => string;

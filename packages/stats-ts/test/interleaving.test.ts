@@ -7,15 +7,15 @@ import {
 // Fixture computed independently in R
 const R_FIXTURE: PairedSufficientStats = {
   users: 40,
-  sum_x: 96,
-  sum_xx: 316,
-  sum_y: 61,
-  sum_yy: 159,
-  sum_n: 234,
-  sum_nn: 1564,
-  sum_xy: 155,
-  sum_xn: 545,
-  sum_yn: 349,
+  treatment_sum: 96,
+  treatment_sum_squares: 316,
+  control_sum: 61,
+  control_sum_squares: 159,
+  exposures_sum: 234,
+  exposures_sum_squares: 1564,
+  treatment_control_sum_product: 155,
+  treatment_exposures_sum_product: 545,
+  control_exposures_sum_product: 349,
 };
 
 describe("pairedDeltaTest", () => {
@@ -33,15 +33,15 @@ describe("pairedDeltaTest", () => {
     // Same x/y as the fixture with unit denominators; R: t.test(x, y, paired=TRUE)
     const res = pairedDeltaTest({
       users: 40,
-      sum_x: 96,
-      sum_xx: 316,
-      sum_y: 61,
-      sum_yy: 159,
-      sum_n: 40,
-      sum_nn: 40,
-      sum_xy: 155,
-      sum_xn: 96,
-      sum_yn: 61,
+      treatment_sum: 96,
+      treatment_sum_squares: 316,
+      control_sum: 61,
+      control_sum_squares: 159,
+      exposures_sum: 40,
+      exposures_sum_squares: 40,
+      treatment_control_sum_product: 155,
+      treatment_exposures_sum_product: 96,
+      control_exposures_sum_product: 61,
     });
     expect(res.expected).toBeCloseTo(0.875, 9);
     expect(res.uplift.stddev).toBeCloseTo(0.2934924539, 9);
@@ -52,10 +52,11 @@ describe("pairedDeltaTest", () => {
 
   it("positive X/Y covariance shrinks the SE vs zero covariance", () => {
     const base = { ...R_FIXTURE };
-    // remove the pairing benefit: set sum_xy to the independence value n*mx*my
+    // remove the pairing benefit: set treatment_control_sum_product to the independence value users*mean(t)*mean(c)
     const independent = {
       ...base,
-      sum_xy: (base.sum_x * base.sum_y) / base.users,
+      treatment_control_sum_product:
+        (base.treatment_sum * base.control_sum) / base.users,
     };
     const paired = pairedDeltaTest(base);
     const unpaired = pairedDeltaTest(independent);
@@ -66,20 +67,20 @@ describe("pairedDeltaTest", () => {
     expect(pairedDeltaTest({ ...R_FIXTURE, users: 1 }).errorMessage).toBe(
       "NOT_ENOUGH_USERS",
     );
-    expect(pairedDeltaTest({ ...R_FIXTURE, sum_n: 0 }).errorMessage).toBe(
-      "NO_COMPETITIVE_EXPOSURES",
-    );
+    expect(
+      pairedDeltaTest({ ...R_FIXTURE, exposures_sum: 0 }).errorMessage,
+    ).toBe("NO_COMPETITIVE_EXPOSURES");
     const zeroVar = pairedDeltaTest({
       users: 10,
-      sum_x: 10,
-      sum_xx: 10,
-      sum_y: 10,
-      sum_yy: 10,
-      sum_n: 10,
-      sum_nn: 10,
-      sum_xy: 10,
-      sum_xn: 10,
-      sum_yn: 10,
+      treatment_sum: 10,
+      treatment_sum_squares: 10,
+      control_sum: 10,
+      control_sum_squares: 10,
+      exposures_sum: 10,
+      exposures_sum_squares: 10,
+      treatment_control_sum_product: 10,
+      treatment_exposures_sum_product: 10,
+      control_exposures_sum_product: 10,
     });
     expect(zeroVar.errorMessage).toBe("ZERO_VARIANCE");
     expect(zeroVar.pValue).toBeNull();

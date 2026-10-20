@@ -278,7 +278,14 @@ export function getInterleavingMetricQuery(
   // Paired chain
 
   // Every competitive exposure with the engagement on the same impression x
-  // item at or after it (NULL ranking_id events never match)
+  // item at or after it (NULL ranking_id events never match). The timestamp
+  // test lives in the value, not the ON, so the join stays an equi-join
+  // (ClickHouse requires that; the join key yields at most one ev row).
+  const afterExposure = dialect.ifElse(
+    "ev.first_event_timestamp >= e.exposure_timestamp",
+    "1",
+    "0",
+  );
   const creditedCTE = `
     __credited AS (
       SELECT
@@ -287,7 +294,8 @@ export function getInterleavingMetricQuery(
           "e.ranking_id",
           "e.team",
           ...plan.paired.map(
-            (e) => `COALESCE(ev.value_${e.i}, 0) AS value_${e.i}`,
+            (e) =>
+              `COALESCE(ev.value_${e.i} * ${afterExposure}, 0) AS value_${e.i}`,
           ),
         ])}
       FROM __exposures e
@@ -295,7 +303,6 @@ export function getInterleavingMetricQuery(
         ev.user_id = e.user_id
         AND ev.ranking_id = e.ranking_id
         AND ev.item_id = e.item_id
-        AND ev.first_event_timestamp >= e.exposure_timestamp
       )
     )`;
 
@@ -308,9 +315,9 @@ export function getInterleavingMetricQuery(
           "c.user_id",
           "c.ranking_id",
           ...plan.paired.flatMap((e) => [
-            `SUM(c.team * c.value_${e.i}) AS x_${e.i}`,
-            `SUM((1 - c.team) * c.value_${e.i}) AS y_${e.i}`,
-            `SUM(c.team) AS n_${e.i}`,
+            `SUM(c.team * c.value_${e.i}) AS treatment_${e.i}`,
+            `SUM((1 - c.team) * c.value_${e.i}) AS control_${e.i}`,
+            `SUM(c.team) AS exposures_${e.i}`,
           ]),
         ])}
       FROM __credited c
@@ -319,16 +326,16 @@ export function getInterleavingMetricQuery(
 
   // Per user, over engaged impressions only (any engagement on the metric)
   const engaged = (i: number, expr: string) =>
-    `SUM(${dialect.ifElse(`im.x_${i} + im.y_${i} > 0`, expr, "0")})`;
+    `SUM(${dialect.ifElse(`im.treatment_${i} + im.control_${i} > 0`, expr, "0")})`;
   const pairedUserCTE = `
     __pairedUser AS (
       SELECT
         ${cols([
           "im.user_id",
           ...plan.paired.flatMap((e) => [
-            `${engaged(e.i, `im.x_${e.i}`)} AS x_${e.i}`,
-            `${engaged(e.i, `im.y_${e.i}`)} AS y_${e.i}`,
-            `${engaged(e.i, `im.n_${e.i}`)} AS n_${e.i}`,
+            `${engaged(e.i, `im.treatment_${e.i}`)} AS treatment_${e.i}`,
+            `${engaged(e.i, `im.control_${e.i}`)} AS control_${e.i}`,
+            `${engaged(e.i, `im.exposures_${e.i}`)} AS exposures_${e.i}`,
           ]),
         ])}
       FROM __impression im
@@ -388,19 +395,19 @@ export function getInterleavingMetricQuery(
   // Final
 
   const gate = (i: number, expr: string) =>
-    `SUM(${dialect.ifElse(`pu.n_${i} > 0`, expr, "0")})`;
+    `SUM(${dialect.ifElse(`pu.exposures_${i} > 0`, expr, "0")})`;
   const finalCols = [
     ...plan.paired.flatMap(({ i }) => [
       `${gate(i, "1")} AS m${i}_users`,
-      `${gate(i, `pu.x_${i}`)} AS m${i}_sum_x`,
-      `${gate(i, `pu.x_${i} * pu.x_${i}`)} AS m${i}_sum_xx`,
-      `${gate(i, `pu.y_${i}`)} AS m${i}_sum_y`,
-      `${gate(i, `pu.y_${i} * pu.y_${i}`)} AS m${i}_sum_yy`,
-      `${gate(i, `pu.n_${i}`)} AS m${i}_sum_n`,
-      `${gate(i, `pu.n_${i} * pu.n_${i}`)} AS m${i}_sum_nn`,
-      `${gate(i, `pu.x_${i} * pu.y_${i}`)} AS m${i}_sum_xy`,
-      `${gate(i, `pu.x_${i} * pu.n_${i}`)} AS m${i}_sum_xn`,
-      `${gate(i, `pu.y_${i} * pu.n_${i}`)} AS m${i}_sum_yn`,
+      `${gate(i, `pu.treatment_${i}`)} AS m${i}_treatment_sum`,
+      `${gate(i, `pu.treatment_${i} * pu.treatment_${i}`)} AS m${i}_treatment_sum_squares`,
+      `${gate(i, `pu.control_${i}`)} AS m${i}_control_sum`,
+      `${gate(i, `pu.control_${i} * pu.control_${i}`)} AS m${i}_control_sum_squares`,
+      `${gate(i, `pu.exposures_${i}`)} AS m${i}_exposures_sum`,
+      `${gate(i, `pu.exposures_${i} * pu.exposures_${i}`)} AS m${i}_exposures_sum_squares`,
+      `${gate(i, `pu.treatment_${i} * pu.control_${i}`)} AS m${i}_treatment_control_sum_product`,
+      `${gate(i, `pu.treatment_${i} * pu.exposures_${i}`)} AS m${i}_treatment_exposures_sum_product`,
+      `${gate(i, `pu.control_${i} * pu.exposures_${i}`)} AS m${i}_control_exposures_sum_product`,
     ]),
     ...plan.ownership.flatMap(({ i }) => [
       `SUM(${dialect.ifElse(`ou.wins_t_${i} > ou.wins_c_${i}`, "1", "0")}) AS m${i}_users_pref_treatment`,

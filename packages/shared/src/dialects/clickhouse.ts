@@ -115,6 +115,13 @@ if(
 )
       `;
   },
+  // toString so a native JSON column is unnested via its text form like a
+  // String column; JSON_VALUE returns scalars (incl. bools) unquoted
+  jsonArray: {
+    unnest: (jsonColumn, itemAlias) =>
+      `ARRAY JOIN JSONExtractArrayRaw(toString(${jsonColumn})) AS ${itemAlias}`,
+    fieldText: (itemAlias, field) => `JSON_VALUE(${itemAlias}, '$.${field}')`,
+  },
   evalBoolean: (col: string, value: boolean) =>
     `${col} = ${value ? "true" : "false"}`,
   percentileCapSelectClause: (values, metricTable, where = "") =>

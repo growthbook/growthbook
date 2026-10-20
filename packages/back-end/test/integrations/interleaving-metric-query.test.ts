@@ -1,4 +1,15 @@
-import { postgresDialect } from "shared/dialects";
+import {
+  athenaDialect,
+  bigQueryDialect,
+  clickHouseDialect,
+  databricksDialect,
+  mssqlDialect,
+  mysqlDialect,
+  postgresDialect,
+  prestoDialect,
+  redshiftDialect,
+  snowflakeDialect,
+} from "shared/dialects";
 import type { InterleavingAnalysis } from "shared/validators";
 import type { FactMetricInterface } from "shared/types/fact-table";
 import { getInterleavingMetricQuery } from "back-end/src/integrations/sql/queries/interleaving-metric-query";
@@ -81,7 +92,7 @@ describe("getInterleavingMetricQuery", () => {
     expect(paired).toContain("jsonb_array_elements");
     expect(paired).toContain("__credited");
     expect(paired).toContain("__pairedUser");
-    expect(paired).toContain("m0_sum_xy");
+    expect(paired).toContain("m0_treatment_control_sum_product");
     expect(paired).not.toContain("users_pref_treatment");
     expect(paired).not.toContain("__share");
     expect(paired).toContain("'featured-products-ranker'");
@@ -97,7 +108,7 @@ describe("getInterleavingMetricQuery", () => {
     expect(ownership).toMatch(/GROUP BY\s+m\.user_id,\s+m\.item_id/);
     // Mixed: both chains off one events scan, rolled up for ownership; one
     // value column feeds both analyses under the same m0_ prefix
-    expect(both).toContain("m0_sum_xy");
+    expect(both).toContain("m0_treatment_control_sum_product");
     expect(both).toContain("m0_users_pref_treatment");
     expect(both).not.toContain("value_1");
     expect(both).toContain("__itemEvents");
@@ -119,9 +130,11 @@ describe("getInterleavingMetricQuery", () => {
 
     // Paired gates on engaged impressions with plain aggregates, no window
     expect(paired).toMatch(
-      /SUM\(c\.team \* c\.value_0\) AS x_0,\s+SUM\(\(1 - c\.team\) \* c\.value_0\) AS y_0,\s+SUM\(c\.team\) AS n_0/,
+      /SUM\(c\.team \* c\.value_0\) AS treatment_0,\s+SUM\(\(1 - c\.team\) \* c\.value_0\) AS control_0,\s+SUM\(c\.team\) AS exposures_0/,
     );
-    expect(paired).toMatch(/WHEN im\.x_0 \+ im\.y_0 > 0 THEN im\.n_0/);
+    expect(paired).toMatch(
+      /WHEN im\.treatment_0 \+ im\.control_0 > 0 THEN im\.exposures_0/,
+    );
     expect(paired).not.toContain("OVER (");
 
     // Variation keys are escaped through the dialect
@@ -169,5 +182,64 @@ describe("getInterleavingMetricQuery", () => {
     );
     // Rolled up to user x item for ownership with the re-aggregation function
     expect(sql).toMatch(/SUM\(COALESCE\(ev\.value_2, 0\)\) AS value_2/);
+  });
+});
+
+describe("getInterleavingMetricQuery dialects", () => {
+  const metrics = [{ metric: proportion, analyses: [PAIRED, OWNERSHIP] }];
+  const unnestFragment: [string, typeof postgresDialect, string][] = [
+    ["postgres", postgresDialect, "jsonb_array_elements((e.items)::jsonb)"],
+    ["bigquery", bigQueryDialect, "UNNEST(JSON_QUERY_ARRAY(e.items))"],
+    [
+      "snowflake",
+      snowflakeDialect,
+      "FLATTEN(INPUT => PARSE_JSON(e.items::string))",
+    ],
+    [
+      "databricks",
+      databricksDialect,
+      "explode(from_json(CAST(e.items AS STRING), 'array<string>'))",
+    ],
+    [
+      "clickhouse",
+      clickHouseDialect,
+      "ARRAY JOIN JSONExtractArrayRaw(toString(e.items))",
+    ],
+    [
+      "mysql",
+      mysqlDialect,
+      "JSON_TABLE(e.items, '$[*]' COLUMNS (item JSON PATH '$'))",
+    ],
+    ["mssql", mssqlDialect, "CROSS APPLY OPENJSON(e.items)"],
+    [
+      "athena",
+      athenaDialect,
+      "UNNEST(CAST(json_parse(CAST(e.items AS VARCHAR)) AS ARRAY(JSON)))",
+    ],
+    [
+      "presto",
+      prestoDialect,
+      "UNNEST(CAST(json_parse(CAST(e.items AS VARCHAR)) AS ARRAY(JSON)))",
+    ],
+  ];
+
+  it.each(unnestFragment)("builds for %s", (_name, dialect, fragment) => {
+    const sql = getInterleavingMetricQuery(dialect, { ...baseParams, metrics });
+    const squashed = sql.replace(/\s+/g, " ");
+    // The formatter inserts spaces around parens, so compare without them
+    expect(sql.replace(/\s+/g, "")).toContain(fragment.replace(/\s+/g, ""));
+    // The competitive filter and item grouping go through fieldText
+    expect(squashed).toContain("= 'true'");
+    expect(squashed).toContain("AS item_id");
+    expect(squashed).toContain("m0_treatment_sum");
+    expect(squashed).toContain("m0_users_tied");
+    // Equi-join only; the timestamp test is in the credited value
+    expect(squashed).not.toMatch(/ON \([^)]*>=/);
+  });
+
+  it("rejects dialects without JSON array support", () => {
+    expect(() =>
+      getInterleavingMetricQuery(redshiftDialect, { ...baseParams, metrics }),
+    ).toThrow("not supported");
   });
 });
