@@ -1,3 +1,5 @@
+import type { SavedGroupsPayload } from "./growthbook";
+
 type OrCondition = {
   $or: ConditionInterface[];
 };
@@ -61,6 +63,25 @@ export type VarType =
   | "object"
   | "null"
   | "undefined";
+/** A condition operator that failed or passed because of a type mismatch. */
+export type ConditionTypeMismatch = {
+  /** Attribute path, such as `user.age`. Empty for a bare value. */
+  path: string;
+  /** The operator, or `$eq` for implicit equality. */
+  operator: string;
+  /** The condition value. */
+  expected: unknown;
+  /** The attribute value. `null` when the attribute is missing. */
+  actual: unknown;
+};
+export type TypeMismatchCallback = (mismatch: ConditionTypeMismatch) => void;
+/** Optional context for `evalCondition`. */
+export type EvalConditionOptions = {
+  /** Must be included for conditions to correctly evaluate group operators */
+  savedGroups?: SavedGroupsPayload;
+  /** Called for every type mismatch seen, for debug logging */
+  onTypeMismatch?: TypeMismatchCallback;
+};
 export type OperatorConditionValue = {
   $in?: (string | number)[];
   $ini?: (string | number)[];

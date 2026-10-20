@@ -6,92 +6,135 @@ import {
   SavedGroupReference,
   TestedObj,
   ConditionValue,
+  EvalConditionOptions,
   Operator,
   OperatorConditionValue,
+  TypeMismatchCallback,
   VarType,
 } from "./types/mongrule";
 import { paddedVersionString } from "./util";
 
 const _regexCache: { [key: string]: RegExp } = {};
 
+/** State shared by every step of one condition evaluation. */
+type EvalConditionContext = {
+  /** Must be included for conditions to correctly evaluate group operators */
+  savedGroups: SavedGroupsPayload;
+  /** Group ids already being resolved, to stop cycles */
+  visited: Set<string>;
+  /** Only set in debug mode */
+  typeMismatch?: {
+    onTypeMismatch: TypeMismatchCallback;
+    /** Attribute path being evaluated, such as `user.age` */
+    path: string;
+  };
+};
+
 // The top-level condition evaluation function
 export function evalCondition(
   obj: TestedObj,
   condition: ConditionInterface,
-  // Must be included for `condition` to correctly evaluate group Operators
-  savedGroups?: SavedGroupsPayload,
-  // Group ids already being resolved, to stop cycles
-  visited?: Set<string>,
+  options: EvalConditionOptions = {},
 ): boolean {
-  savedGroups = savedGroups || {};
-  visited = visited || new Set();
+  const { savedGroups, onTypeMismatch } = options;
+  return evalConditionWithContext(obj, condition, {
+    savedGroups: savedGroups || {},
+    visited: new Set(),
+    typeMismatch: onTypeMismatch ? { onTypeMismatch, path: "" } : undefined,
+  });
+}
+
+function evalConditionWithContext(
+  obj: TestedObj,
+  condition: ConditionInterface,
+  ctx: EvalConditionContext,
+): boolean {
   // Condition is an object, keys are either specific operators or object paths
   // values are either arguments for operators or conditions for paths
   for (const [k, v] of Object.entries(condition)) {
     switch (k) {
       case "$or":
-        if (!evalOr(obj, v as ConditionInterface[], savedGroups, visited))
-          return false;
+        if (!evalOr(obj, v as ConditionInterface[], ctx)) return false;
         break;
       case "$nor":
-        if (evalOr(obj, v as ConditionInterface[], savedGroups, visited))
-          return false;
+        if (evalOr(obj, v as ConditionInterface[], ctx)) return false;
         break;
       case "$and":
-        if (!evalAnd(obj, v as ConditionInterface[], savedGroups, visited))
-          return false;
+        if (!evalAnd(obj, v as ConditionInterface[], ctx)) return false;
         break;
       case "$not":
-        if (evalCondition(obj, v as ConditionInterface, savedGroups, visited))
+        if (evalConditionWithContext(obj, v as ConditionInterface, ctx))
           return false;
         break;
       case "$savedGroup":
-        if (!evalSavedGroup(obj, v, savedGroups, visited)) return false;
+        if (!evalSavedGroup(obj, v, ctx)) return false;
         break;
       default:
-        if (
-          !evalConditionValue(v, getPath(obj, k), savedGroups, false, visited)
-        )
+        if (!evalConditionValue(v, getPath(obj, k), withPath(ctx, k)))
           return false;
     }
   }
   return true;
 }
 
+// Extend the reported path when descending into an attribute. Allocates
+// nothing outside debug mode.
+function withPath(
+  ctx: EvalConditionContext,
+  key: string,
+): EvalConditionContext {
+  if (!ctx.typeMismatch) return ctx;
+  const { path } = ctx.typeMismatch;
+  return {
+    ...ctx,
+    typeMismatch: {
+      ...ctx.typeMismatch,
+      path: path ? `${path}.${key}` : key,
+    },
+  };
+}
+
 /** Resolves a `$savedGroup` reference. Anything unrecognized matches nobody. */
 function evalSavedGroup(
   obj: TestedObj,
   reference: unknown,
-  savedGroups: SavedGroupsPayload,
-  visited: Set<string>,
+  ctx: EvalConditionContext,
 ): boolean {
   if (!reference || typeof reference !== "object" || Array.isArray(reference))
     return false;
 
   const { id, attributeKey } = reference as SavedGroupReference;
-  if (typeof id !== "string" || visited.has(id)) return false;
+  if (typeof id !== "string" || ctx.visited.has(id)) return false;
   // Falling back to the entry's attribute would check a different population
   if (attributeKey !== undefined && typeof attributeKey !== "string")
     return false;
 
-  const entry = savedGroups[id];
+  const entry = ctx.savedGroups[id];
   // Absent, or a v1 bare array
   if (!entry || Array.isArray(entry) || typeof entry !== "object") return false;
-
-  const next = new Set(visited).add(id);
 
   if (entry.type === "list") {
     // The override wins over the entry's own attribute
     const key = attributeKey ?? entry.attributeKey;
     if (typeof key !== "string") return false;
     if (!Array.isArray(entry.values)) return false;
-    return isIn(getPath(obj, key), entry.values);
+    return checkIn(
+      getPath(obj, key),
+      entry.values,
+      false,
+      "$savedGroup",
+      withPath(ctx, key),
+    );
   }
 
   if (entry.type === "condition") {
     // A condition group has no single attribute, so any override is ignored
     if (!entry.condition || typeof entry.condition !== "object") return false;
-    return evalCondition(obj, entry.condition, savedGroups, next);
+    // Each branch gets its own copy, so sibling groups don't block each other
+    return evalConditionWithContext(obj, entry.condition, {
+      ...ctx,
+      visited: new Set(ctx.visited).add(id),
+    });
   }
 
   // A group type added after this SDK was built
@@ -128,22 +171,23 @@ function getRegex(regex: string, insensitive = false): RegExp {
 function evalConditionValue(
   condition: ConditionValue,
   value: any,
-  savedGroups: SavedGroupsPayload,
+  ctx: EvalConditionContext,
   insensitive: boolean = false,
-  visited: Set<string> = new Set(),
 ) {
-  // Simple equality comparisons
-  if (typeof condition === "string") {
-    if (insensitive) {
-      return String(value).toLowerCase() === condition.toLowerCase();
+  // Simple equality comparisons. Values of different types never match.
+  if (
+    typeof condition === "string" ||
+    typeof condition === "number" ||
+    typeof condition === "boolean"
+  ) {
+    if (typeof value !== typeof condition) {
+      reportMismatch(ctx, "$eq", condition, value);
+      return false;
     }
-    return value + "" === condition;
-  }
-  if (typeof condition === "number") {
-    return value * 1 === condition;
-  }
-  if (typeof condition === "boolean") {
-    return value !== null && !!value === condition;
+    if (insensitive && typeof condition === "string") {
+      return value.toLowerCase() === condition.toLowerCase();
+    }
+    return value === condition;
   }
 
   if (condition === null) {
@@ -161,8 +205,7 @@ function evalConditionValue(
         op as Operator,
         value,
         condition[op as keyof OperatorConditionValue],
-        savedGroups,
-        visited,
+        ctx,
       )
     ) {
       return false;
@@ -190,17 +233,29 @@ function getType(v: any): VarType | "unknown" {
   return "unknown";
 }
 
-// At least one element of actual must match the expected condition/value
-function elemMatch(
-  actual: any,
-  expected: any,
-  savedGroups: SavedGroupsPayload,
-  visited: Set<string>,
+function reportMismatch(
+  ctx: EvalConditionContext,
+  operator: string,
+  expected: unknown,
+  actual: unknown,
 ) {
+  if (!ctx.typeMismatch) return;
+  const { onTypeMismatch, path } = ctx.typeMismatch;
+  onTypeMismatch({ path, operator, expected, actual });
+}
+
+// Ordering only applies to two numbers or two strings
+function isOrderable(actual: unknown, expected: unknown): boolean {
+  const t = typeof actual;
+  return (t === "number" || t === "string") && t === typeof expected;
+}
+
+// At least one element of actual must match the expected condition/value
+function elemMatch(actual: any, expected: any, ctx: EvalConditionContext) {
   if (!Array.isArray(actual)) return false;
   const check = isOperatorObject(expected)
-    ? (v: any) => evalConditionValue(expected, v, savedGroups, false, visited)
-    : (v: any) => evalCondition(v, expected, savedGroups, visited);
+    ? (v: any) => evalConditionValue(expected, v, ctx)
+    : (v: any) => evalConditionWithContext(v, expected, ctx);
   for (let i = 0; i < actual.length; i++) {
     // Only skip nullish elements; falsy values like 0, "" and false are valid
     // array members and must still be tested against the condition.
@@ -234,6 +289,29 @@ function isIn(
   return expected.includes(actual);
 }
 
+// isIn, reporting values whose type appears nowhere in the list. Only checked
+// when nothing matched, so large saved groups aren't scanned twice.
+function checkIn(
+  actual: any,
+  expected: Array<any>,
+  insensitive: boolean,
+  operator: string,
+  ctx: EvalConditionContext,
+): boolean {
+  const matched = isIn(actual, expected, insensitive);
+  if (!matched && ctx.typeMismatch) {
+    const types = new Set(expected.map(getType));
+    const values = Array.isArray(actual) ? actual : [actual];
+    for (const v of values) {
+      if (!types.has(getType(v))) {
+        reportMismatch(ctx, operator, expected, actual);
+        break;
+      }
+    }
+  }
+  return matched;
+}
+
 /**
  * Gets the array of values from a saved group. This can either be the legacy bare array
  * format, or it can pull the array from the v2 "type: list" format.
@@ -259,23 +337,14 @@ function getSavedGroupArrayValues(
 function isInAll(
   actual: any,
   expected: ConditionValue[],
-  savedGroups: SavedGroupsPayload,
+  ctx: EvalConditionContext,
   insensitive: boolean = false,
-  visited: Set<string> = new Set(),
 ): boolean {
   if (!Array.isArray(actual)) return false;
   for (let i = 0; i < expected.length; i++) {
     let passed = false;
     for (let j = 0; j < actual.length; j++) {
-      if (
-        evalConditionValue(
-          expected[i],
-          actual[j],
-          savedGroups,
-          insensitive,
-          visited,
-        )
-      ) {
+      if (evalConditionValue(expected[i], actual[j], ctx, insensitive)) {
         passed = true;
         break;
       }
@@ -290,86 +359,85 @@ function evalOperatorCondition(
   operator: Operator,
   actual: any,
   expected: any,
-  savedGroups: SavedGroupsPayload,
-  visited: Set<string> = new Set(),
+  ctx: EvalConditionContext,
 ): boolean {
   switch (operator) {
     case "$veq":
-      return paddedVersionString(actual) === paddedVersionString(expected);
     case "$vne":
-      return paddedVersionString(actual) !== paddedVersionString(expected);
     case "$vgt":
-      return paddedVersionString(actual) > paddedVersionString(expected);
     case "$vgte":
-      return paddedVersionString(actual) >= paddedVersionString(expected);
     case "$vlt":
-      return paddedVersionString(actual) < paddedVersionString(expected);
     case "$vlte":
-      return paddedVersionString(actual) <= paddedVersionString(expected);
+      return evalVersion(operator, actual, expected, ctx);
     case "$eq":
-      return actual === expected;
-    case "$ne":
-      return actual !== expected;
+    case "$ne": {
+      if (getType(actual) !== getType(expected)) {
+        reportMismatch(ctx, operator, expected, actual);
+      }
+      const equal = actual === expected;
+      return operator === "$eq" ? equal : !equal;
+    }
     case "$lt":
-      return actual < expected;
     case "$lte":
-      return actual <= expected;
     case "$gt":
-      return actual > expected;
     case "$gte":
+      if (!isOrderable(actual, expected)) {
+        reportMismatch(ctx, operator, expected, actual);
+        return false;
+      }
+      if (operator === "$lt") return actual < expected;
+      if (operator === "$lte") return actual <= expected;
+      if (operator === "$gt") return actual > expected;
       return actual >= expected;
     case "$exists":
       // Using `!=` and `==` instead of strict checks so it also matches for undefined
       return expected ? actual != null : actual == null;
     case "$in":
       if (!Array.isArray(expected)) return false;
-      return isIn(actual, expected);
+      return checkIn(actual, expected, false, operator, ctx);
     case "$ini":
       if (!Array.isArray(expected)) return false;
-      return isIn(actual, expected, true);
+      return checkIn(actual, expected, true, operator, ctx);
     case "$inGroup": {
-      const values = getSavedGroupArrayValues(savedGroups[expected]);
-      return values === null ? false : isIn(actual, values);
+      const values = getSavedGroupArrayValues(ctx.savedGroups[expected]);
+      return values === null
+        ? false
+        : checkIn(actual, values, false, operator, ctx);
     }
     case "$notInGroup": {
       // No values means matching nobody. An empty list would pass everyone.
-      const values = getSavedGroupArrayValues(savedGroups[expected]);
-      return values === null ? false : !isIn(actual, values);
+      const values = getSavedGroupArrayValues(ctx.savedGroups[expected]);
+      return values === null
+        ? false
+        : !checkIn(actual, values, false, operator, ctx);
     }
     case "$nin":
       if (!Array.isArray(expected)) return false;
-      return !isIn(actual, expected);
+      return !checkIn(actual, expected, false, operator, ctx);
     case "$nini":
       if (!Array.isArray(expected)) return false;
-      return !isIn(actual, expected, true);
+      return !checkIn(actual, expected, true, operator, ctx);
     case "$not":
-      return !evalConditionValue(expected, actual, savedGroups, false, visited);
+      return !evalConditionValue(expected, actual, ctx);
     case "$size":
       if (!Array.isArray(actual)) return false;
-      return evalConditionValue(
-        expected,
-        actual.length,
-        savedGroups,
-        false,
-        visited,
-      );
+      return evalConditionValue(expected, actual.length, ctx);
     case "$elemMatch":
-      return elemMatch(actual, expected, savedGroups, visited);
+      return elemMatch(actual, expected, ctx);
     case "$all":
       if (!Array.isArray(expected)) return false;
-      return isInAll(actual, expected, savedGroups, false, visited);
+      return isInAll(actual, expected, ctx);
     case "$alli":
       if (!Array.isArray(expected)) return false;
-      return isInAll(actual, expected, savedGroups, true, visited);
+      return isInAll(actual, expected, ctx, true);
     case "$regex":
-      try {
-        return getRegex(expected).test(actual);
-      } catch (e) {
+    case "$regexi":
+      if (typeof actual !== "string") {
+        reportMismatch(ctx, operator, expected, actual);
         return false;
       }
-    case "$regexi":
       try {
-        return getRegex(expected, true).test(actual);
+        return getRegex(expected, operator === "$regexi").test(actual);
       } catch (e) {
         return false;
       }
@@ -381,16 +449,46 @@ function evalOperatorCondition(
   }
 }
 
+// Version operators need the attribute and condition to be the same type,
+// both strings or both numbers. $vne is the exact opposite of $veq, so it
+// matches on a type mismatch.
+function evalVersion(
+  operator: "$veq" | "$vne" | "$vgt" | "$vgte" | "$vlt" | "$vlte",
+  actual: any,
+  expected: any,
+  ctx: EvalConditionContext,
+): boolean {
+  if (!isOrderable(actual, expected)) {
+    reportMismatch(ctx, operator, expected, actual);
+    return operator === "$vne";
+  }
+  const a = paddedVersionString(actual);
+  const e = paddedVersionString(expected);
+  switch (operator) {
+    case "$veq":
+      return a === e;
+    case "$vne":
+      return a !== e;
+    case "$vgt":
+      return a > e;
+    case "$vgte":
+      return a >= e;
+    case "$vlt":
+      return a < e;
+    case "$vlte":
+      return a <= e;
+  }
+}
+
 // Recursive $or rule
 function evalOr(
   obj: TestedObj,
   conditions: ConditionInterface[],
-  savedGroups: SavedGroupsPayload,
-  visited: Set<string>,
+  ctx: EvalConditionContext,
 ): boolean {
   if (!conditions.length) return true;
   for (let i = 0; i < conditions.length; i++) {
-    if (evalCondition(obj, conditions[i], savedGroups, visited)) {
+    if (evalConditionWithContext(obj, conditions[i], ctx)) {
       return true;
     }
   }
@@ -401,11 +499,10 @@ function evalOr(
 function evalAnd(
   obj: TestedObj,
   conditions: ConditionInterface[],
-  savedGroups: SavedGroupsPayload,
-  visited: Set<string>,
+  ctx: EvalConditionContext,
 ): boolean {
   for (let i = 0; i < conditions.length; i++) {
-    if (!evalCondition(obj, conditions[i], savedGroups, visited)) {
+    if (!evalConditionWithContext(obj, conditions[i], ctx)) {
       return false;
     }
   }

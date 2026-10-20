@@ -842,4 +842,35 @@ describe("features", () => {
 
     growthbook.destroy();
   });
+
+  it("logs condition type mismatches only in debug mode", () => {
+    const features = {
+      feature: {
+        defaultValue: false,
+        rules: [{ condition: { id: 5 }, force: true }],
+      },
+    };
+    const run = (debug: boolean) => {
+      const log = jest.fn();
+      const growthbook = new GrowthBook({
+        attributes: { id: "5" },
+        features,
+        debug,
+        log,
+      });
+      expect(growthbook.isOn("feature")).toEqual(false);
+      growthbook.destroy();
+      return log.mock.calls.filter(
+        ([msg]) => msg === "Type mismatch in condition",
+      );
+    };
+
+    expect(run(true)).toEqual([
+      [
+        "Type mismatch in condition",
+        { path: "id", operator: "$eq", expected: 5, actual: "5" },
+      ],
+    ]);
+    expect(run(false)).toEqual([]);
+  });
 });
