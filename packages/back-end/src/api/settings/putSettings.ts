@@ -49,14 +49,19 @@ export const putSettings = createApiRequestHandler(putSettingsValidator)(async (
     requested.defaultRole = getDefaultRole({});
   }
 
-  // Values echoed back unchanged from GET are dropped, so they skip every check.
+  // Values echoed back unchanged from GET are dropped, so they skip every check
+  // and an echoed default isn't pinned as a stored value.
   const current: Record<string, unknown> = {
     ...org.settings,
     defaultRole: toApiDefaultRole(org),
   };
-  const body: Partial<typeof requested> = omitBy(requested, (v, k) =>
-    isEqual(toJson(v), toJson(current[k])),
+  const body: Partial<typeof requested> = omitBy(
+    requested,
+    (v, k) =>
+      isEqual(toJson(v), toJson(current[k])) ||
+      (v !== null && isEqual(toJson(v), toJson(apiSettings[k]))),
   );
+  if (!Object.keys(body).length) return { settings: toApiSettings(org) };
 
   // config.yml overlays these on every read, so a write would not take effect.
   const fileManaged = Object.keys(body).filter(
