@@ -73,7 +73,10 @@ import {
   partitionMetricsByConversionWindow,
 } from "back-end/src/services/experimentQueries/partitionMetricsByConversionWindow";
 import { resolveCovariateInsertPath } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
-import { resolveClusterMetricGrain } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
+import {
+  resolveClusterMetricGrain,
+  getClusterMetricCacheLevel,
+} from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark";
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -404,6 +407,7 @@ const startExperimentIncrementalRefreshQueries = async (
         metricSettings: snapshotSettings.metricSettings.find(
           (ms) => ms.id === m.id,
         ),
+        clusterMetricLevel: getClusterMetricCacheLevel(snapshotSettings, m.id),
       }),
     );
   });
@@ -1028,6 +1032,10 @@ const startExperimentIncrementalRefreshQueries = async (
                     factTableMap: params.factTableMap,
                     metricSettings: insertParams.settings.metricSettings.find(
                       (ms) => ms.id === m.id,
+                    ),
+                    clusterMetricLevel: getClusterMetricCacheLevel(
+                      insertParams.settings,
+                      m.id,
                     ),
                   }),
                 })),
