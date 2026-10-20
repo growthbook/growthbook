@@ -42,7 +42,7 @@ async function assertCanEditChecklist(context: ApiReqContext, projectId = "") {
     return;
   }
   if (!(await context.models.projects.getById(projectId))) {
-    throw new NotFoundError(`Could not find project: ${projectId}`);
+    throw new NotFoundError(`Could not find Project: ${projectId}`);
   }
   if (!context.permissions.canUpdateProject(projectId)) {
     context.permissions.throwPermissionError();
@@ -120,7 +120,7 @@ export const deleteLaunchChecklist = createApiRequestHandler(
     projectId,
   );
   if (!checklist) {
-    throw new NotFoundError(`No checklist for project: ${projectId}`);
+    throw new NotFoundError(`No checklist for Project: ${projectId}`);
   }
   await deleteExperimentLaunchChecklist(context, checklist.id);
   return { deletedId: checklist.id };

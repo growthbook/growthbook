@@ -3,6 +3,7 @@ import { ExposureQuery } from "shared/types/datasource";
 import {
   coverageToHoldoutSize,
   getAllowedHoldoutStageSources,
+  getApplicableEnvIds,
   getEnabledHoldoutEnvironments,
   getHoldoutStage,
   HoldoutStage,
@@ -71,6 +72,8 @@ import {
   resolveOwnerForCreate,
 } from "back-end/src/services/owner";
 import { getExposureQueriesForDatasource } from "back-end/src/services/assignmentQuerySelection";
+import { getEnvironments } from "back-end/src/services/organizations";
+import { getEnabledEnvironments } from "back-end/src/util/features";
 import { MakeModelClass } from "./BaseModel";
 import {
   getExistingExperimentIds,
@@ -574,6 +577,17 @@ export class HoldoutModel extends BaseClass {
       this.context.permissions.throwPermissionError(
         "This holdout is linked to Feature Flags or experiments in Projects you can't access.",
       );
+    }
+    // Stripping the holdout changes what each live flag serves, as unlinking it does
+    const orgEnvs = getEnvironments(this.context.org);
+    for (const feature of features) {
+      const envs = getEnabledEnvironments(
+        feature,
+        getApplicableEnvIds(orgEnvs, feature),
+      );
+      if (!this.context.permissions.canPublishFeature(feature, [...envs])) {
+        this.context.permissions.throwPermissionError();
+      }
     }
     // Null when the caller can't read it too, so stop before deleting half the pair
     const experiment = await this.getExperimentOrThrow(holdout);
