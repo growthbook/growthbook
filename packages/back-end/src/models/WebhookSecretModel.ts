@@ -50,6 +50,27 @@ export class WebhookSecretDataModel extends BaseClass {
     return this.context.permissions.canDeleteEventWebhook();
   }
 
+  // Readable app-wide for webhook setup, but over REST only with webhook access
+  private assertCanViewViaApi() {
+    if (!this.context.permissions.canViewEventWebhook()) {
+      this.context.permissions.throwPermissionError();
+    }
+  }
+
+  public override async handleApiGet(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiGet"]>[0],
+  ) {
+    this.assertCanViewViaApi();
+    return super.handleApiGet(req);
+  }
+
+  public override async handleApiList(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
+  ) {
+    this.assertCanViewViaApi();
+    return super.handleApiList(req);
+  }
+
   protected toApiInterface(doc: WebhookSecretInterface) {
     return {
       id: doc.id,
