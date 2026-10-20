@@ -18,9 +18,10 @@ import {
   metricAnalysisApiSpec,
 } from "back-end/src/api/specs/metric-analysis.spec";
 import { MetricAnalysisQueryRunner } from "back-end/src/queryRunners/MetricAnalysisQueryRunner";
+import { QUERY_CANCELLED_BY_USER_ERROR } from "back-end/src/queryRunners/QueryRunner";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { NotFoundError } from "back-end/src/util/errors";
-import { MakeModelClass } from "./BaseModel";
+import { CasConflictError, MakeModelClass } from "./BaseModel";
 
 const COLLECTION_NAME = "metricanalyses";
 const BaseClass = MakeModelClass({
@@ -126,11 +127,25 @@ export class MetricAnalysisModel extends BaseClass {
     if (!this.context.permissions.canRunMetricQueries(integration.datasource)) {
       this.context.permissions.throwPermissionError();
     }
-    await new MetricAnalysisQueryRunner(
-      this.context,
-      analysis,
-      integration,
-    ).cancelQueries();
+    const pending = analysis.queries.some(
+      (q) => q.status === "running" || q.status === "queued",
+    );
+    if (analysis.status === "running" && !pending) {
+      // Nothing to cancel, so a worker that died mid-run would leave it running for good
+      await this.updateIfUnchanged(analysis, {
+        status: "error",
+        error: QUERY_CANCELLED_BY_USER_ERROR,
+      }).catch((e) => {
+        // A worker that finished meanwhile keeps its result
+        if (!(e instanceof CasConflictError)) throw e;
+      });
+    } else {
+      await new MetricAnalysisQueryRunner(
+        this.context,
+        analysis,
+        integration,
+      ).cancelQueries();
+    }
     return {
       metricAnalysis: this.toApiInterface(await this.findOrThrow(analysis.id)),
     };
