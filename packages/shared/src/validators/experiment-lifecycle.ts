@@ -68,7 +68,7 @@ export const postExperimentPhaseValidator = {
         .enum(["new-phase", "new-phase-same-seed", "new-phase-block-sticky"])
         .optional()
         .describe(
-          "`new-phase` (default) re-randomizes everyone. `new-phase-same-seed` keeps assignments. `new-phase-block-sticky` re-randomizes and also drops users sticky-bucketed in earlier phases. Bucket versions only change when sticky bucketing is on.",
+          "`new-phase` (default) re-randomizes everyone. `new-phase-same-seed` keeps assignments (not allowed for bandits). `new-phase-block-sticky` re-randomizes and also drops users sticky-bucketed in earlier phases. Bucket versions only change when sticky bucketing is on.",
         ),
       reason: z
         .string()
@@ -90,7 +90,11 @@ export const postExperimentPhaseValidator = {
   summary: "Start a new phase of a running experiment",
   description:
     "Ends the current phase and starts another, e.g. to change targeting or traffic and re-randomize.",
-  confirmation: ["experiment.phases"] as const,
+  confirmation: [
+    "experiment.phases",
+    "experiment.traffic",
+    "experiment.targeting",
+  ] as const,
   operationId: "postExperimentPhase",
   tags: ["experiments"],
   method: "post" as const,

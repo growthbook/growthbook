@@ -165,7 +165,6 @@ export function getNewPhaseBucketing(
   }
 }
 
-/** Ends the running phase and starts another, carrying over any targeting not overridden. */
 export async function startNewExperimentPhase({
   context,
   experimentId,
@@ -188,6 +187,15 @@ export async function startNewExperimentPhase({
       "Can only start a new phase on a running experiment",
       experiment.status,
       ["running"],
+    );
+  }
+  // The app never offers this plan for bandits
+  if (
+    experiment.type === "multi-armed-bandit" &&
+    releasePlan === "new-phase-same-seed"
+  ) {
+    throw new BadRequestError(
+      "releasePlan `new-phase-same-seed` isn't available for bandits",
     );
   }
   const last = experiment.phases[experiment.phases.length - 1];

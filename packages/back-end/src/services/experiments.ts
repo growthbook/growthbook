@@ -2591,7 +2591,6 @@ export async function assertCanRunExperimentInAffectedEnvironments(
   }
 }
 
-// Deletes an experiment and removes it from presentations and its holdout.
 export async function deleteExperimentWithLinks(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
