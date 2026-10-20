@@ -62,6 +62,7 @@ import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import ContextualBanditRefSummary, {
   isContextualBanditRefRuleSkipped,
 } from "@/components/ContextualBandit/ContextualBanditRefSummary";
@@ -924,79 +925,81 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             gap="8"
             style={{ maxWidth: "100%" }}
           >
-            <Flex
-              align="center"
-              gap="2"
-              style={{ flex: "0 1 auto", flexWrap: "wrap" }}
-            >
-              <Heading as="h4" size="md" weight="medium" mb="0">
-                {linkedExperiment ? (
-                  <>
-                    {linkedExperiment.type === "multi-armed-bandit"
-                      ? "Bandit"
-                      : "Experiment"}
-                    :{" "}
-                    <Link
-                      href={`/${
-                        linkedExperiment.type === "multi-armed-bandit"
-                          ? "bandit"
-                          : "experiment"
-                      }/${linkedExperiment.id}`}
-                      style={{ marginRight: "var(--space-2)" }}
-                    >
-                      {linkedExperiment.name}
-                    </Link>
-                    {linkedExperiment && (
+            <Box style={{ flex: "0 1 auto", minWidth: 0 }}>
+              <Flex align="center" gap="2" wrap="wrap">
+                <Heading as="h4" size="md" weight="medium" mb="0">
+                  {linkedExperiment ? (
+                    <>
+                      {linkedExperiment.type === "multi-armed-bandit"
+                        ? "Bandit"
+                        : "Experiment"}
+                      :{" "}
+                      <Link
+                        href={`/${
+                          linkedExperiment.type === "multi-armed-bandit"
+                            ? "bandit"
+                            : "experiment"
+                        }/${linkedExperiment.id}`}
+                        style={{ marginRight: "var(--space-2)" }}
+                      >
+                        {linkedExperiment.name}
+                      </Link>
+                      {linkedExperiment && (
+                        <span style={{ verticalAlign: "1px" }}>
+                          <ExperimentStatusIndicator
+                            experimentData={linkedExperiment}
+                          />
+                        </span>
+                      )}
+                    </>
+                  ) : rule.type === "contextual-bandit-ref" &&
+                    linkedContextualBandit ? (
+                    <>
+                      Contextual Bandit:{" "}
+                      <Link
+                        href={`/contextual-bandit/${linkedContextualBandit.id}`}
+                        style={{ marginRight: "var(--space-2)" }}
+                      >
+                        {linkedContextualBandit.name}
+                      </Link>
                       <span style={{ verticalAlign: "1px" }}>
                         <ExperimentStatusIndicator
-                          experimentData={linkedExperiment}
+                          experimentData={contextualBanditStatusIndicatorData(
+                            linkedContextualBandit,
+                          )}
                         />
                       </span>
-                    )}
-                  </>
-                ) : rule.type === "contextual-bandit-ref" &&
-                  linkedContextualBandit ? (
-                  <>
-                    Contextual Bandit:{" "}
-                    <Link
-                      href={`/contextual-bandit/${linkedContextualBandit.id}`}
-                      style={{ marginRight: "var(--space-2)" }}
-                    >
-                      {linkedContextualBandit.name}
-                    </Link>
-                    <span style={{ verticalAlign: "1px" }}>
-                      <ExperimentStatusIndicator
-                        experimentData={contextualBanditStatusIndicatorData(
-                          linkedContextualBandit,
-                        )}
-                      />
-                    </span>
-                  </>
-                ) : rule.type === "safe-rollout" ? (
-                  <span>Safe Rollout</span>
-                ) : (
-                  <span>{title}</span>
+                    </>
+                  ) : rule.type === "safe-rollout" ? (
+                    <span>Safe Rollout</span>
+                  ) : (
+                    <span>{title}</span>
+                  )}
+                </Heading>
+
+                {rule.type === "safe-rollout" && (
+                  <SafeRolloutStatusBadge rule={rule} />
                 )}
-              </Heading>
 
-              {rule.type === "safe-rollout" && (
-                <SafeRolloutStatusBadge rule={rule} />
-              )}
+                {ruleTags}
 
-              {ruleTags}
-
+                {rampSchedule &&
+                  safeRollout &&
+                  isOnMonitoredStep(rampSchedule) && (
+                    <RampMonitoringBadges rampSchedule={rampSchedule} />
+                  )}
+              </Flex>
               {showRuleIds ? (
-                <Text mono size="sm" color="text-low">
-                  {rule.id}
-                </Text>
+                <Flex align="center" gap="1" mt="1">
+                  <Text size="sm" color="text-low">
+                    Rule ID:
+                  </Text>
+                  <Text size="sm">
+                    <CopyableCode value={rule.id} muted />
+                  </Text>
+                </Flex>
               ) : null}
-
-              {rampSchedule &&
-                safeRollout &&
-                isOnMonitoredStep(rampSchedule) && (
-                  <RampMonitoringBadges rampSchedule={rampSchedule} />
-                )}
-            </Flex>
+            </Box>
 
             <Flex align="center" gap="3" flexShrink="0">
               {rampSchedule &&
