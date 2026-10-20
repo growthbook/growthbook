@@ -32,7 +32,45 @@ describe("translate (legacy spec)", () => {
     expect(payload.defaultManagedBy).toBe("dbt");
   });
 
-  it("groups metrics into the fewest fact tables", () => {
+  it("keeps a metric's fact table when another metric adds a join", () => {
+    const filter = (dims: string[]) => ({
+      where_filters: dims.map((d) => ({
+        where_sql_template: `{{ Dimension('${d}') }} = 'x'`,
+      })),
+    });
+    const manifest = {
+      ...legacy,
+      semantic_models: {
+        ...legacy.semantic_models,
+        locations: {
+          name: "locations",
+          node_relation: { relation_name: "locations" },
+          defaults: { agg_time_dimension: "opened_at" },
+          entities: [{ name: "location", type: "primary" }],
+          dimensions: [
+            { name: "opened_at", type: "time" },
+            { name: "city", type: "categorical" },
+          ],
+        },
+      },
+      metrics: {
+        ...legacy.metrics,
+        wider: {
+          name: "wider",
+          type: "simple",
+          type_params: { measure: { name: "order_count" } },
+          filter: filter(["customer__region", "location__city"]),
+        },
+      },
+    };
+    const factTableOf = (p: typeof payload, id: string) =>
+      byId(p.factMetrics, id).numerator?.factTableId;
+    const after = run(manifest).payload;
+    expect(factTableOf(after, "orders_from_west")).toBe("orders__customer");
+    expect(factTableOf(after, "wider")).toBe("orders__customer__location");
+  });
+
+  it("gives each (model, join set) its own fact table", () => {
     expect(payload.factTables.map((t) => t.id)).toEqual([
       "orders",
       "orders__customer",

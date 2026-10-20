@@ -978,37 +978,14 @@ export function translate(
     }
   }
 
-  // Group usages by (model, time dimension); within a group, keep only the
-  // maximal join sets and put each usage on the smallest table that covers it.
-  const groups = new Map<string, Usage[]>();
-  for (const d of drafts) {
-    for (const r of d.refs) {
-      const key = `${r.usage.model.name}\n${r.usage.timeDim}`;
-      groups.set(key, [...(groups.get(key) ?? []), r.usage]);
-    }
-  }
+  // One table per (model, time dim, exact join set): a metric's table depends only on itself.
   const tables = new Map<string, TableDraft>();
-  for (const group of groups.values()) {
-    const { model, timeDim } = group[0];
-    const sets = [
-      ...new Set(
-        group.map((u) => [...u.joins.keys()].sort().join(",")).filter((s) => s),
-      ),
-    ].map((s) => s.split(","));
-    const maximal = sets.filter(
-      (s) =>
-        !sets.some((o) => o.length > s.length && s.every((e) => o.includes(e))),
-    );
-    for (const u of group) {
-      const own = [...u.joins.keys()];
-      const chosen = own.length
-        ? maximal
-            .filter((m) => own.every((e) => m.includes(e)))
-            .sort((a, b) => a.length - b.length)[0]
-        : [];
+  for (const d of drafts) {
+    for (const { usage: u } of d.refs) {
+      const { model, timeDim } = u;
       const parts = [model.name];
       if (timeDim !== model.defaults?.agg_time_dimension) parts.push(timeDim);
-      u.factTableId = [...parts, ...chosen].join("__");
+      u.factTableId = [...parts, ...[...u.joins.keys()].sort()].join("__");
       let t = tables.get(u.factTableId);
       if (!t) {
         t = {
