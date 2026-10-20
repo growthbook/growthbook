@@ -277,6 +277,7 @@ export function VariationBox({
             <Flex align="center" gap="1" flexShrink="0" mr="-1">
               {canEdit && onEditMetadata ? (
                 <QuickEditButton
+                  size="2"
                   label="Edit variation"
                   onClick={() => onEditMetadata(i)}
                 />

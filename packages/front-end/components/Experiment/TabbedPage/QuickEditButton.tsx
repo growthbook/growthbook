@@ -14,25 +14,27 @@ export default function QuickEditButton({
   label,
   onClick,
   blockedReason,
+  size = "1",
 }: {
   label: string;
   onClick: () => void;
   blockedReason?: string | null;
+  size?: "1" | "2";
 }) {
   return (
     <span className={styles.edit}>
       <Tooltip content={blockedReason ?? label}>
         <IconButton
-          size="1"
+          size={size}
           variant="ghost"
           color="violet"
-          radius="medium"
+          radius={size === "2" ? "full" : "medium"}
           disabled={!!blockedReason}
           aria-label={label}
           style={{ margin: 0 }}
           onClick={onClick}
         >
-          <PiPencilSimple size={14} />
+          <PiPencilSimple size={size === "2" ? 16 : 14} />
         </IconButton>
       </Tooltip>
     </span>

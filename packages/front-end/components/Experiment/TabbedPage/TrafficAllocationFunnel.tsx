@@ -158,13 +158,13 @@ function FunnelCard({
               <IconButton
                 variant="ghost"
                 color="gray"
-                radius="medium"
+                radius="full"
                 disabled={!!editBlockedReason}
                 onClick={() => onEdit()}
-                size="1"
+                size="2"
                 aria-label={`Edit ${title}`}
               >
-                <PiPencilSimple size="14" />
+                <PiPencilSimple size="16" />
               </IconButton>
             </Tooltip>
           ) : null}

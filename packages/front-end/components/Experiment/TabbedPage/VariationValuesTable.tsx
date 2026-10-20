@@ -263,12 +263,12 @@ export default function VariationValuesTable({
                         variant="ghost"
                         color="gray"
                         radius="full"
-                        size="1"
+                        size="2"
                         highContrast
                         className={styles.revealOnHover}
                         aria-label="Variation actions"
                       >
-                        <BsThreeDotsVertical size={14} />
+                        <BsThreeDotsVertical size={16} />
                       </IconButton>
                     }
                     menuPlacement="start"
@@ -726,35 +726,35 @@ function FlagColumn({
       experiment.status === "running"
         ? {
             status: "warning",
-            text: "This Feature Flag is archived, so it isn't serving this experiment. Unarchive it to serve it again.",
+            text: "Flag is archived and is not serving.",
           }
         : launches
           ? {
               status: "warning",
-              text: "This Feature Flag is archived, so it won't serve this experiment when it starts. Unarchive it first.",
+              text: "Flag is archived and won't serve on experiment start.",
             }
           : { status: "info", text: "This Feature Flag is archived." },
     );
   }
-  const orphanText = "This Feature Flag has no rule for this experiment.";
+  const orphanText = "Flag has no experiment rule.";
   if (shownDraft?.hasMergeConflict) {
     notices.push({
       status: "error",
       text: draftLaunches
-        ? "This draft conflicts with live, so the experiment can't start until that's resolved."
-        : "This draft conflicts with live and can't publish until that's resolved.",
+        ? "Draft conflicts with live. Resolve before starting."
+        : "Draft conflicts with live. Resolve before publishing.",
       action: draftLink("Fix conflicts"),
     });
   } else if (shownDraft?.rebaseRequired) {
     notices.push({
       status: "warning",
-      text: "Live has moved on since this draft. Update it from live before it can publish.",
+      text: "Draft is behind live. Update it to publish.",
       action: draftLink("Review draft"),
     });
   } else if (draftLaunches && shownDraft?.hasUnrelatedDraftChanges) {
     notices.push({
       status: "error",
-      text: "This draft also changes things outside this experiment, so the experiment can't start. Remove those edits, or publish the draft from the Feature Flag.",
+      text: "Draft has changes unrelated to this experiment, which blocks start. Manually publish or remove unrelated changes.",
       action: draftLink("Review draft"),
     });
   } else if (shownDraft && !lockedBySchedule && !cannotPublishLaunch) {
@@ -777,8 +777,8 @@ function FlagColumn({
       status: "error",
       text:
         experiment.nextScheduledStatusUpdate?.type === "start"
-          ? "Whoever scheduled this start can no longer publish this Feature Flag draft. Unschedule or reschedule the start, then approve it again from an account that can."
-          : "You don't have permission to publish this Feature Flag draft, so it can't be published when the experiment starts.",
+          ? "Whoever scheduled the experiment's start can no longer publish this draft. Reschedule as an authorized user."
+          : "You don't have permission to publish this draft, so it won't publish at experiment start.",
       action: draftLink("Review draft"),
     });
   }
@@ -882,7 +882,7 @@ function FlagColumn({
       ? [
           {
             status: "warning" as const,
-            text: `Revision ${pendingRemoval.version} takes this experiment's rule out of the Feature Flag. Once it's published, the Feature Flag leaves this experiment.`,
+            text: `Revision ${pendingRemoval.version} removes this experiment's rule.`,
             action: draftLink(
               "Review draft",
               reviewHref(pendingRemoval.version),
@@ -1029,12 +1029,14 @@ function FlagColumn({
     <StagedNote onUndo={clearLinkAction}>{linkActionNote}</StagedNote>
   );
   const orphanNote = (
-    <Flex direction="column" gap="2">
-      <HelperText status="warning" size="sm">
-        {orphanText}
-      </HelperText>
+    <Flex align="center" gap="3">
+      <Box flexGrow="1" minWidth="0">
+        <HelperText status="warning" size="sm">
+          {orphanText}
+        </HelperText>
+      </Box>
       {canEditFlagLinks && !showingLive ? (
-        <Flex justify="end" gap="3">
+        <Flex gap="2" flexShrink="0">
           <Button
             variant="outline"
             size="sm"

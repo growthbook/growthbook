@@ -137,11 +137,11 @@ export function ColumnHeader({
                     variant="ghost"
                     color="gray"
                     radius="full"
-                    size="1"
+                    size="2"
                     highContrast
                     aria-label={menuLabel}
                   >
-                    <BsThreeDotsVertical size={14} />
+                    <BsThreeDotsVertical size={16} />
                   </IconButton>
                 }
                 menuPlacement="end"
@@ -220,15 +220,17 @@ export function StagedNote({
   onUndo: () => void;
 }) {
   return (
-    <Flex direction="column" gap="2">
-      <HelperText status="info" size="sm">
-        {children}
-      </HelperText>
-      <Flex justify="end">
+    <Flex align="center" gap="3">
+      <Box flexGrow="1" minWidth="0">
+        <HelperText status="info" size="sm">
+          {children}
+        </HelperText>
+      </Box>
+      <Box flexShrink="0">
         <Button variant="outline" size="sm" onClick={onUndo}>
           Undo
         </Button>
-      </Flex>
+      </Box>
     </Flex>
   );
 }

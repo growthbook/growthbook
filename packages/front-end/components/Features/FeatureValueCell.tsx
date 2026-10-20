@@ -91,8 +91,8 @@ export default function FeatureValueCell({
                 className={clsx(styles.openEditor, cornerStyles.actions)}
                 variant="ghost"
                 color="violet"
-                radius="medium"
-                size="1"
+                radius="full"
+                size="2"
                 onClick={onOpenEditor}
                 aria-label={`Edit ${label} value`}
               >
