@@ -1166,6 +1166,120 @@
       false
     ],
     [
+      "$gt/$lt numeric strings - \"10\" < \"9\"",
+      { "n": { "$lt": "9" } },
+      { "n": "10" },
+      true
+    ],
+    [
+      "$gt/$lt numeric strings - \"10\" not > \"9\"",
+      { "n": { "$gt": "9" } },
+      { "n": "10" },
+      false
+    ],
+    [
+      "$gt/$lt numeric strings - \"10\" not > \"2\"",
+      { "n": { "$gt": "2" } },
+      { "n": "10" },
+      false
+    ],
+    [
+      "$gt/$lt numeric strings - \"1.10\" < \"1.5\"",
+      { "n": { "$lt": "1.5" } },
+      { "n": "1.10" },
+      true
+    ],
+    [
+      "$gt/$lt numeric strings - \"10\" >= \"10\"",
+      { "n": { "$gte": "10" } },
+      { "n": "10" },
+      true
+    ],
+    [
+      "$gt/$lt numeric strings - \"10.0\" not <= \"10\"",
+      { "n": { "$lte": "10" } },
+      { "n": "10.0" },
+      false
+    ],
+    [
+      "$gt/$lt ISO dates - later date > earlier date",
+      { "d": { "$gt": "2026-09-01" } },
+      { "d": "2026-10-20" },
+      true
+    ],
+    [
+      "$gt/$lt ISO dates - later date not < earlier date",
+      { "d": { "$lt": "2026-09-01" } },
+      { "d": "2026-10-20" },
+      false
+    ],
+    [
+      "$gt/$lt ISO dates - same date >= and <=",
+      { "d": { "$gte": "2026-10-20", "$lte": "2026-10-20" } },
+      { "d": "2026-10-20" },
+      true
+    ],
+    [
+      "$gt/$lt ISO dates - date range pass",
+      { "d": { "$gt": "2026-01-01", "$lt": "2027-01-01" } },
+      { "d": "2026-10-20" },
+      true
+    ],
+    [
+      "$gt/$lt ISO dates - date range fail",
+      { "d": { "$gt": "2026-01-01", "$lt": "2027-01-01" } },
+      { "d": "2027-01-01" },
+      false
+    ],
+    [
+      "$gt/$lt ISO dates - datetime < later datetime",
+      { "d": { "$lt": "2026-10-20T13:00:00Z" } },
+      { "d": "2026-10-20T12:00:00Z" },
+      true
+    ],
+    [
+      "$gt/$lt ISO dates - datetime > its date",
+      { "d": { "$gt": "2026-10-20" } },
+      { "d": "2026-10-20T00:00:00Z" },
+      true
+    ],
+    [
+      "$gt/$lt booleans - true not > false",
+      { "b": { "$gt": false } },
+      { "b": true },
+      false
+    ],
+    [
+      "$gt/$lt booleans - false not < true",
+      { "b": { "$lt": true } },
+      { "b": false },
+      false
+    ],
+    [
+      "$gt/$lt booleans - true not > true",
+      { "b": { "$gt": true } },
+      { "b": true },
+      false
+    ],
+    [
+      "$gt/$lt booleans - false not < false",
+      { "b": { "$lt": false } },
+      { "b": false },
+      false
+    ],
+    [
+      "$gt/$lt booleans - $not $gt",
+      { "b": { "$not": { "$gt": false } } },
+      { "b": true },
+      true
+    ],
+    [
+      "$gt/$lt booleans - $not $lt",
+      { "b": { "$not": { "$lt": true } } },
+      { "b": false },
+      true
+    ],
+    [
       "nested value is null",
       {
         "address.state": "CA"
