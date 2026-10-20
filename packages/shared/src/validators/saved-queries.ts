@@ -2,6 +2,7 @@ import { z } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { factTableColumnTypeValidator } from "./fact-table";
 import { namedSchema } from "./openapi-helpers";
+import { readOnlyEcho } from "./shared";
 
 const dateAggregationEnum = z.enum([
   "none",
@@ -381,12 +382,25 @@ export const postSavedQueryValidator = {
 };
 
 export const updateSavedQueryValidator = {
-  bodySchema: z.object(savedQueryFields).partial().strict(),
+  bodySchema: z
+    .object({
+      ...savedQueryFields,
+      // A GET response can be posted back with only the changes
+      id: readOnlyEcho,
+      datasourceId: readOnlyEcho,
+      linkedDashboardIds: readOnlyEcho,
+      dateLastRan: readOnlyEcho,
+      lastRun: readOnlyEcho,
+      dateCreated: readOnlyEcho,
+      dateUpdated: readOnlyEcho,
+    })
+    .partial()
+    .strict(),
   querySchema: z.never(),
   paramsSchema: savedQueryIdParams,
   responseSchema: savedQueryResponse,
   summary: "Update a saved query",
-  description: `${savedQueryGate} Changing \`sql\` doesn't re-run it; call the refresh endpoint.`,
+  description: `${savedQueryGate} Changing \`sql\` doesn't re-run it; call the refresh endpoint. Read-only fields from the GET response are accepted and ignored.`,
   confirmation: ["other.write"] as const,
   operationId: "updateSavedQuery",
   tags: ["saved-queries"],
