@@ -51,8 +51,6 @@ export type ExperimentQualityCheckParams = z.infer<
 const experimentQualityCheckSettingsValidator = z
   .object({
     enabled: z.boolean().optional(),
-    // Raw within-section split weight; normalized to a share on resolve
-    weight: z.number().min(0).optional(),
     params: experimentQualityCheckParamsValidator.optional(),
     // Per-AI-check guidance for the AI judge
     aiContext: z.string().max(2000).optional(),
@@ -70,15 +68,13 @@ const experimentQualitySectionSettingsValidator = z
 export const MAX_CUSTOM_QUALITY_CHECKS = 5;
 
 // User-defined AI rule, scored 0-1 by the AI judge against a trimmed JSON
-// projection of the experiment. Joins the AI section's split like any
-// other check.
+// projection of the experiment. Counts the same as any other AI check.
 export const customQualityCheckValidator = z
   .object({
     id: z.string().min(1).max(64),
     name: z.string().min(1).max(100),
     rule: z.string().min(1).max(1000),
     enabled: z.boolean().optional(),
-    weight: z.number().min(0).optional(),
   })
   .strict();
 export type CustomQualityCheck = z.infer<typeof customQualityCheckValidator>;

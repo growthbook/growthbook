@@ -1,6 +1,5 @@
 import {
   EXPERIMENT_QUALITY_CHECKS,
-  customQualityCheckKey,
   getChecksForSection,
   reflowShares,
   resolveExperimentQualityScoreSettings,
@@ -15,10 +14,9 @@ import {
   experimentQualitySectionKeys,
 } from "shared/validators";
 
-// Editable form state for one quality configuration. Weights are integer
-// percentages: enabled sections total 100, and within each section the
-// enabled members of its pool (its checks, plus custom AI rules in the AI
-// section) total 100.
+// Editable form state for one quality configuration. Section weights are
+// integer percentages that total 100 across enabled sections; checks split
+// their section equally.
 export interface QualityConfigDraft {
   // The stored on/off intent per section (the AI section's is
   // `aiChecksEnabled` in the stored config)
@@ -28,7 +26,6 @@ export interface QualityConfigDraft {
     ExperimentQualityCheckKey,
     {
       enabled: boolean;
-      weight: number;
       params?: ExperimentQualityCheckParams;
       aiContext?: string;
     }
@@ -38,66 +35,11 @@ export interface QualityConfigDraft {
     name: string;
     rule: string;
     enabled: boolean;
-    weight: number;
   }>;
 }
 
 type DraftCheck = QualityConfigDraft["checks"][ExperimentQualityCheckKey];
 type CustomCheck = QualityConfigDraft["customAiChecks"][number];
-
-// --- Pools: the members sharing a section's 100% split ----------------------
-
-type PoolMember = { key: string; enabled: boolean; weight: number };
-
-function getPool(
-  draft: QualityConfigDraft,
-  section: ExperimentQualitySectionKey,
-): PoolMember[] {
-  return [
-    ...getChecksForSection(section).map((key) => ({
-      key,
-      enabled: draft.checks[key].enabled,
-      weight: draft.checks[key].weight,
-    })),
-    ...(section === "ai"
-      ? draft.customAiChecks.map((c) => ({
-          key: customQualityCheckKey(c.id),
-          enabled: c.enabled,
-          weight: c.weight,
-        }))
-      : []),
-  ];
-}
-
-function withWeights(
-  draft: QualityConfigDraft,
-  weights: Record<string, number>,
-): QualityConfigDraft {
-  const checks = { ...draft.checks };
-  for (const key of experimentQualityCheckKeys) {
-    if (key in weights) checks[key] = { ...checks[key], weight: weights[key] };
-  }
-  return {
-    ...draft,
-    checks,
-    customAiChecks: draft.customAiChecks.map((c) => {
-      const key = customQualityCheckKey(c.id);
-      return key in weights ? { ...c, weight: weights[key] } : c;
-    }),
-  };
-}
-
-function normalizePool(
-  draft: QualityConfigDraft,
-  section: ExperimentQualitySectionKey,
-): QualityConfigDraft {
-  const enabled = getPool(draft, section).filter((m) => m.enabled);
-  const weights = roundToTotal(enabled.map((m) => m.weight || 1));
-  return withWeights(
-    draft,
-    Object.fromEntries(enabled.map((m, i) => [m.key, weights[i]])),
-  );
-}
 
 function normalizeSections(draft: QualityConfigDraft): QualityConfigDraft {
   const enabled = getEnabledSectionKeys(draft);
@@ -118,7 +60,7 @@ export function configToDraft(
   stored?: ExperimentQualityConfigBody | null,
 ): QualityConfigDraft {
   const resolved = resolveExperimentQualityScoreSettings(stored);
-  let draft: QualityConfigDraft = {
+  const draft: QualityConfigDraft = {
     sectionEnabled: Object.fromEntries(
       experimentQualitySectionKeys.map((k) => [
         k,
@@ -140,7 +82,6 @@ export function configToDraft(
           enabled:
             stored?.checks?.[k]?.enabled ??
             EXPERIMENT_QUALITY_CHECKS[k].defaultEnabled,
-          weight: resolved.checks[k].rawWeight,
           params: resolved.checks[k].params,
           aiContext: resolved.checks[k].aiContext,
         },
@@ -151,22 +92,8 @@ export function configToDraft(
       name: c.name,
       rule: c.rule,
       enabled: stored?.customAiChecks?.[i]?.enabled ?? true,
-      weight: c.rawWeight,
     })),
   };
-
-  for (const section of experimentQualitySectionKeys) {
-    draft = normalizePool(draft, section);
-    // Disabled members get an equal share to start from if re-enabled
-    const pool = getPool(draft, section);
-    const equalShare = Math.round(100 / pool.length);
-    draft = withWeights(
-      draft,
-      Object.fromEntries(
-        pool.filter((m) => !m.enabled).map((m) => [m.key, equalShare]),
-      ),
-    );
-  }
   return normalizeSections(draft);
 }
 
@@ -185,7 +112,6 @@ export function draftToConfig(
     const c = draft.checks[key];
     checks[key] = {
       enabled: c.enabled,
-      weight: c.weight,
       ...(c.params ? { params: c.params } : {}),
       ...(c.aiContext?.trim() ? { aiContext: c.aiContext } : {}),
     };
@@ -218,7 +144,12 @@ export function countEnabledChecks(
   draft: QualityConfigDraft,
   section: ExperimentQualitySectionKey,
 ): number {
-  return getPool(draft, section).filter((m) => m.enabled).length;
+  return (
+    getChecksForSection(section).filter((k) => draft.checks[k].enabled).length +
+    (section === "ai"
+      ? draft.customAiChecks.filter((c) => c.enabled).length
+      : 0)
+  );
 }
 
 // A config is saveable only if at least one check would count
@@ -249,36 +180,6 @@ export function reflowSectionWeights(
   return { ...draft, sections };
 }
 
-// Drag a check's or custom rule's split (by result key); the other enabled
-// members of its section re-flow to total 100
-export function reflowMemberWeights(
-  draft: QualityConfigDraft,
-  section: ExperimentQualitySectionKey,
-  key: string,
-  newPct: number,
-): QualityConfigDraft {
-  const enabled = getPool(draft, section).filter((m) => m.enabled);
-  const index = enabled.findIndex((m) => m.key === key);
-  if (index < 0) return draft;
-  const weights = reflowShares(
-    enabled.map((m) => m.weight),
-    index,
-    newPct,
-  );
-  return withWeights(
-    draft,
-    Object.fromEntries(enabled.map((m, i) => [m.key, weights[i]])),
-  );
-}
-
-// Any membership change re-splits the section and re-flows the sections
-function rebalance(
-  draft: QualityConfigDraft,
-  section: ExperimentQualitySectionKey,
-): QualityConfigDraft {
-  return normalizeSections(normalizePool(draft, section));
-}
-
 export function updateCheck(
   draft: QualityConfigDraft,
   key: ExperimentQualityCheckKey,
@@ -288,9 +189,8 @@ export function updateCheck(
     ...draft,
     checks: { ...draft.checks, [key]: { ...draft.checks[key], ...updates } },
   };
-  return "enabled" in updates
-    ? rebalance(next, EXPERIMENT_QUALITY_CHECKS[key].section)
-    : next;
+  // A section's last enabled check switches it off, so shares re-flow
+  return "enabled" in updates ? normalizeSections(next) : next;
 }
 
 export function updateCustomCheck(
@@ -304,34 +204,28 @@ export function updateCustomCheck(
       c.id === id ? { ...c, ...updates } : c,
     ),
   };
-  return "enabled" in updates ? rebalance(next, "ai") : next;
+  return "enabled" in updates ? normalizeSections(next) : next;
 }
 
 export function addCustomCheck(draft: QualityConfigDraft): QualityConfigDraft {
   const id = `rule_${Math.random().toString(36).slice(2, 10)}`;
-  return rebalance(
-    {
-      ...draft,
-      customAiChecks: [
-        ...draft.customAiChecks,
-        { id, name: "", rule: "", enabled: true, weight: 1 },
-      ],
-    },
-    "ai",
-  );
+  return normalizeSections({
+    ...draft,
+    customAiChecks: [
+      ...draft.customAiChecks,
+      { id, name: "", rule: "", enabled: true },
+    ],
+  });
 }
 
 export function removeCustomCheck(
   draft: QualityConfigDraft,
   id: string,
 ): QualityConfigDraft {
-  return rebalance(
-    {
-      ...draft,
-      customAiChecks: draft.customAiChecks.filter((c) => c.id !== id),
-    },
-    "ai",
-  );
+  return normalizeSections({
+    ...draft,
+    customAiChecks: draft.customAiChecks.filter((c) => c.id !== id),
+  });
 }
 
 export function setSectionEnabled(

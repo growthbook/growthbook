@@ -81,7 +81,6 @@ export interface ExperimentQualityCheckDefinition {
   label: string;
   // When the check applies, shown next to its label
   note?: string;
-  defaultWeight: number;
   defaultEnabled: boolean;
   defaultParams?: ExperimentQualityCheckParams;
 }
@@ -94,14 +93,12 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "documentation",
     type: "deterministic",
     label: "Has a hypothesis",
-    defaultWeight: 1,
     defaultEnabled: true,
   },
   description: {
     section: "documentation",
     type: "deterministic",
     label: "Has a description",
-    defaultWeight: 1,
     defaultEnabled: true,
   },
   screenshots: {
@@ -109,21 +106,18 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     type: "deterministic",
     label: "Has screenshots",
     note: "all except Holdouts",
-    defaultWeight: 1,
     defaultEnabled: false,
   },
   "tags-or-project": {
     section: "documentation",
     type: "deterministic",
     label: "Organized with tags or a Project",
-    defaultWeight: 1,
     defaultEnabled: true,
   },
   "goal-metrics": {
     section: "documentation",
     type: "deterministic",
     label: "Has goal metrics",
-    defaultWeight: 1,
     defaultEnabled: true,
     defaultParams: { maxGoalMetrics: 3 },
   },
@@ -131,7 +125,6 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "documentation",
     type: "deterministic",
     label: "Has an owner",
-    defaultWeight: 1,
     defaultEnabled: true,
   },
   decision: {
@@ -139,44 +132,36 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     type: "deterministic",
     label: "Decision recorded",
     note: "stopped experiments only",
-    defaultWeight: 1,
     defaultEnabled: true,
   },
-  // Weights reflect severity: 3 for changes that can invalidate the
-  // results, 2 for ones that weaken them
   "goal-metrics-locked": {
     section: "process",
     type: "process",
     label: "Goal metrics set before the start and unchanged",
-    defaultWeight: 3,
     defaultEnabled: true,
   },
   "hypothesis-locked": {
     section: "process",
     type: "process",
     label: "Hypothesis written before the start and unchanged",
-    defaultWeight: 2,
     defaultEnabled: true,
   },
   "stable-assignment": {
     section: "process",
     type: "process",
     label: "Traffic split and targeting unchanged within a phase",
-    defaultWeight: 3,
     defaultEnabled: true,
   },
   "stable-analysis": {
     section: "process",
     type: "process",
     label: "Analysis settings unchanged while running",
-    defaultWeight: 2,
     defaultEnabled: true,
   },
   "no-early-stop": {
     section: "process",
     type: "process",
     label: "Not stopped early",
-    defaultWeight: 3,
     defaultEnabled: true,
     defaultParams: { minRuntimeDays: 14 },
   },
@@ -184,7 +169,6 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "process",
     type: "process",
     label: "New phases re-randomized users",
-    defaultWeight: 2,
     defaultEnabled: true,
   },
   "planned-end": {
@@ -192,7 +176,6 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     type: "process",
     label: "End date scheduled before the start",
     note: "any end action, including notify only",
-    defaultWeight: 1,
     defaultEnabled: false,
   },
   "ai-hypothesis-quality": {
@@ -200,14 +183,12 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     type: "ai",
     label: "Hypothesis quality",
     note: "hypothesis present",
-    defaultWeight: 1,
     defaultEnabled: true,
   },
   "ai-hypothesis-metric-alignment": {
     section: "ai",
     type: "ai",
     label: "Metrics align with hypothesis",
-    defaultWeight: 1,
     defaultEnabled: true,
   },
 };
@@ -242,8 +223,7 @@ export interface ResolvedExperimentQualityCheck {
   label: string;
   // Own flag AND section effectively enabled
   enabled: boolean;
-  rawWeight: number;
-  // Normalized 0-1 within the section across enabled checks; 0 when disabled
+  // An equal share of the section across enabled checks; 0 when disabled
   split: number;
   params?: ExperimentQualityCheckParams;
   aiContext?: string;
@@ -256,9 +236,7 @@ export interface ResolvedCustomQualityCheck {
   rule: string;
   // Own flag AND the AI section is enabled
   enabled: boolean;
-  rawWeight: number;
-  // Normalized 0-1 within the AI section (shared pool with built-in AI
-  // checks); 0 when disabled
+  // An equal share of the AI section alongside built-in AI checks
   split: number;
 }
 
@@ -311,14 +289,12 @@ export function resolveExperimentQualityScoreSettings(
 ): ResolvedExperimentQualityScoreSettings {
   const aiChecksEnabled = cfg?.aiChecksEnabled ?? true;
 
-  // Pass 1: raw check flags/weights
+  // Pass 1: check flags
   const checkEnabled = {} as Record<ExperimentQualityCheckKey, boolean>;
-  const checkWeight = {} as Record<ExperimentQualityCheckKey, number>;
   for (const key of experimentQualityCheckKeys) {
-    const def = EXPERIMENT_QUALITY_CHECKS[key];
-    const stored = cfg?.checks?.[key];
-    checkEnabled[key] = stored?.enabled ?? def.defaultEnabled;
-    checkWeight[key] = sanitizeWeight(stored?.weight, def.defaultWeight);
+    checkEnabled[key] =
+      cfg?.checks?.[key]?.enabled ??
+      EXPERIMENT_QUALITY_CHECKS[key].defaultEnabled;
   }
   const storedCustomChecks = (cfg?.customAiChecks ?? []).slice(
     0,
@@ -362,9 +338,8 @@ export function resolveExperimentQualityScoreSettings(
         : 1 / enabledSections.length;
   }
 
-  // Pass 4: fold section enablement into checks and normalize splits.
-  // Custom AI rules share the AI section's split pool with the built-in
-  // AI checks.
+  // Pass 4: fold section enablement into checks; enabled checks (and custom
+  // AI rules) split their section equally
   const customAiChecks: ResolvedCustomQualityCheck[] = storedCustomChecks.map(
     (c) => ({
       id: c.id,
@@ -372,7 +347,6 @@ export function resolveExperimentQualityScoreSettings(
       name: c.name,
       rule: c.rule,
       enabled: (c.enabled ?? true) && sections.ai.enabled,
-      rawWeight: sanitizeWeight(c.weight, 1),
       split: 0,
     }),
   );
@@ -384,12 +358,8 @@ export function resolveExperimentQualityScoreSettings(
     );
     const enabledCustom =
       sectionKey === "ai" ? customAiChecks.filter((c) => c.enabled) : [];
-    const splitSum =
-      enabledChecks.reduce((sum, c) => sum + checkWeight[c], 0) +
-      enabledCustom.reduce((sum, c) => sum + c.rawWeight, 0);
     const enabledCount = enabledChecks.length + enabledCustom.length;
-    const splitFor = (enabled: boolean, weight: number) =>
-      !enabled ? 0 : splitSum > EPS ? weight / splitSum : 1 / enabledCount;
+    const splitFor = (enabled: boolean) => (enabled ? 1 / enabledCount : 0);
     for (const key of sectionChecks) {
       const def = EXPERIMENT_QUALITY_CHECKS[key];
       const isEnabled = checkEnabled[key] && sections[sectionKey].enabled;
@@ -399,8 +369,7 @@ export function resolveExperimentQualityScoreSettings(
         type: def.type,
         label: def.label,
         enabled: isEnabled,
-        rawWeight: checkWeight[key],
-        split: splitFor(isEnabled, checkWeight[key]),
+        split: splitFor(isEnabled),
         params: sanitizeParams(key, cfg?.checks?.[key]?.params),
         aiContext:
           def.type === "ai" ? cfg?.checks?.[key]?.aiContext : undefined,
@@ -408,7 +377,7 @@ export function resolveExperimentQualityScoreSettings(
     }
     if (sectionKey === "ai") {
       for (const custom of customAiChecks) {
-        custom.split = splitFor(custom.enabled, custom.rawWeight);
+        custom.split = splitFor(custom.enabled);
       }
     }
   }

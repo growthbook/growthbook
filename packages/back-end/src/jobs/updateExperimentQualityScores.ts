@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { EXPERIMENT_PROCESS_RULES_VERSION } from "shared/enterprise";
 import {
   getAISettingsForOrg,
   getContextForAgendaJobByOrgId,
@@ -6,9 +7,11 @@ import {
 import { logger } from "back-end/src/util/logger";
 import {
   getExperimentById,
+  getExperimentIdsNeedingProcessResults,
   getExperimentsByIds,
   getStoppedExperimentIdsByOrganization,
 } from "back-end/src/models/ExperimentModel";
+import { queueExperimentProcessScoreBackfill } from "back-end/src/jobs/updateExperimentProcessScores";
 import {
   computeAndStoreAIQualityChecks,
   getStaleAIQualityExperimentIds,
@@ -75,13 +78,20 @@ export async function queueExperimentQualityScoreUpdate({
   await job.save();
 }
 
-// Checks every stopped experiment's cached AI verdicts in one pass and
-// queues only the ones that are missing or out of date. Only AI verdicts
-// are cached (deterministic checks are computed on read), so orgs without
-// AI are skipped.
+// Queues the cached parts of quality scoring that are missing or out of
+// date: process results, then AI verdicts (skipped for orgs without AI)
 async function queueStaleExperimentQualityUpdates(organization: string) {
   const context = await getContextForAgendaJobByOrgId(organization);
   if (!context.hasPremiumFeature("experiment-quality-score")) return;
+
+  const processIds = await getExperimentIdsNeedingProcessResults(
+    organization,
+    EXPERIMENT_PROCESS_RULES_VERSION,
+  );
+  if (processIds.length) {
+    await queueExperimentProcessScoreBackfill(organization, processIds);
+  }
+
   if (!(await getAISettingsForOrg(context)).aiEnabled) return;
 
   const experiments = await getExperimentsByIds(

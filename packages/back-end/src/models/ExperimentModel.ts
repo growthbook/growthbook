@@ -1253,6 +1253,24 @@ export async function getStoppedExperimentIdsByOrganization(
   return experiments.map((exp) => exp.id);
 }
 
+// Stopped standard experiments whose process results are missing or out of
+// date. IDs only, for the process backfill job.
+export async function getExperimentIdsNeedingProcessResults(
+  organization: string,
+  version: number,
+): Promise<string[]> {
+  const experiments = await getCollection(COLLECTION)
+    .find({
+      ...stoppedExperimentsFilter(organization),
+      type: { $nin: ["multi-armed-bandit", "holdout"] },
+      "processResults.version": { $ne: version },
+    })
+    .project({ id: true })
+    .toArray();
+
+  return experiments.map((exp) => exp.id);
+}
+
 export function countStoppedExperimentsByOrganization(
   organization: string,
 ): Promise<number> {

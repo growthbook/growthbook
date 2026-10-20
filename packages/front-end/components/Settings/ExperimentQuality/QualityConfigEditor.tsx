@@ -5,7 +5,6 @@ import { PiCaretRightBold, PiTrash } from "react-icons/pi";
 import {
   EXPERIMENT_QUALITY_CHECKS,
   EXPERIMENT_QUALITY_SECTIONS,
-  customQualityCheckKey,
   getChecksForSection,
 } from "shared/enterprise";
 import {
@@ -27,7 +26,6 @@ import {
   addCustomCheck,
   countEnabledChecks,
   getEnabledSectionKeys,
-  reflowMemberWeights,
   reflowSectionWeights,
   removeCustomCheck,
   setSectionEnabled,
@@ -39,36 +37,25 @@ import styles from "./ExperimentQuality.module.scss";
 const AI_CONTEXT_PLACEHOLDER =
   "Add guidance for the AI judge, e.g. what a good one looks like at your org";
 
-// The row shared by built-in checks and custom AI rules: checkbox, label
-// area, split bar and "≈N% overall", with an optional text field below
-function WeightedRow({
+// The row shared by built-in checks and custom AI rules: checkbox and
+// label area, with an optional text field below
+function CheckRow({
   id,
   enabled,
   disabled,
-  weight,
-  sectionShare,
-  color,
-  ariaLabel,
   label,
   below,
   onToggle,
-  onSplitChange,
 }: {
   id: string;
   enabled: boolean;
   // The whole section is switched off
   disabled: boolean;
-  weight: number;
-  sectionShare: number;
-  color: string;
-  ariaLabel: string;
   label: ReactNode;
   below?: ReactNode;
   onToggle: (v: boolean) => void;
-  onSplitChange: (v: number) => void;
 }) {
   const isOn = enabled && !disabled;
-  const overall = Math.round((sectionShare * weight) / 100);
   return (
     <Box py="2" style={{ opacity: isOn ? 1 : 0.5 }}>
       <div className={styles.checkRow}>
@@ -82,26 +69,6 @@ function WeightedRow({
         <Flex align="center" gap="2" wrap="wrap">
           {label}
         </Flex>
-        {isOn ? (
-          <ShareBar
-            value={weight}
-            onChange={onSplitChange}
-            color={color}
-            variant="check"
-            ariaLabel={`${ariaLabel}, ${overall}% of score`}
-          />
-        ) : (
-          <span className={styles.emptyTrack} />
-        )}
-        <Box style={{ textAlign: "right", lineHeight: 1.25 }}>
-          <span className={clsx(styles.splitValue, !isOn && styles.off)}>
-            {isOn ? `${weight}%` : "—"}
-          </span>
-          <br />
-          <span className={styles.splitNote}>
-            {isOn ? `≈${overall}% overall` : "excluded"}
-          </span>
-        </Box>
       </div>
       {isOn && below && (
         <Box mt="1" mb="1" ml="6" pl="1">
@@ -362,7 +329,6 @@ export default function QualityConfigEditor({
                       setDraft(reflowSectionWeights(draft, sectionKey, v))
                     }
                     color={color.bar}
-                    variant="section"
                     ariaLabel={`${section.label}, ${share}% of score`}
                   />
                 )}
@@ -382,15 +348,11 @@ export default function QualityConfigEditor({
                 {getChecksForSection(sectionKey).map((checkKey) => {
                   const check = draft.checks[checkKey];
                   return (
-                    <WeightedRow
+                    <CheckRow
                       key={checkKey}
                       id={`quality-check-${checkKey}`}
                       enabled={check.enabled}
                       disabled={!included}
-                      weight={check.weight}
-                      sectionShare={share}
-                      color={color.bar}
-                      ariaLabel={EXPERIMENT_QUALITY_CHECKS[checkKey].label}
                       label={
                         <CheckLabel
                           checkKey={checkKey}
@@ -422,25 +384,16 @@ export default function QualityConfigEditor({
                       onToggle={(enabled) =>
                         setDraft(updateCheck(draft, checkKey, { enabled }))
                       }
-                      onSplitChange={(v) =>
-                        setDraft(
-                          reflowMemberWeights(draft, sectionKey, checkKey, v),
-                        )
-                      }
                     />
                   );
                 })}
                 {isAI &&
                   draft.customAiChecks.map((custom) => (
-                    <WeightedRow
+                    <CheckRow
                       key={custom.id}
                       id={`quality-custom-check-${custom.id}`}
                       enabled={custom.enabled}
                       disabled={!included}
-                      weight={custom.weight}
-                      sectionShare={share}
-                      color={color.bar}
-                      ariaLabel={custom.name || "Custom check"}
                       label={
                         <>
                           <input
@@ -498,16 +451,6 @@ export default function QualityConfigEditor({
                           updateCustomCheck(draft, custom.id, { enabled }),
                         )
                       }
-                      onSplitChange={(v) =>
-                        setDraft(
-                          reflowMemberWeights(
-                            draft,
-                            "ai",
-                            customQualityCheckKey(custom.id),
-                            v,
-                          ),
-                        )
-                      }
                     />
                   ))}
                 {isAI && (
@@ -518,8 +461,8 @@ export default function QualityConfigEditor({
                           + Add custom check
                         </Link>{" "}
                         <Text size="sm" color="text-low">
-                          Name it, describe what to evaluate — it joins this
-                          section&apos;s split.
+                          Name it and describe what to evaluate — it counts the
+                          same as the other checks here.
                         </Text>
                       </>
                     ) : (

@@ -31,10 +31,7 @@ const BaseClass = MakeModelClass({
   ],
 });
 
-type ScopeUpdates = Pick<
-  ExperimentationHealthSettingsInterface,
-  "quality" | "targets" | "gradeWeights"
->;
+type ScopeUpdates = Pick<ExperimentationHealthSettingsInterface, "quality">;
 
 // One record per scope: the organization default (project "") and each
 // Project that customizes anything. Fields left unset on a Project record

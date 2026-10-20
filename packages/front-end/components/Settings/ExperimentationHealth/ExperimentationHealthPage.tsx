@@ -3,22 +3,11 @@ import { Box, Flex } from "@radix-ui/themes";
 import isEqual from "lodash/isEqual";
 import isUndefined from "lodash/isUndefined";
 import omitBy from "lodash/omitBy";
-import {
-  ExperimentationHealthSummary,
-  computeHealthGrade,
-  countHealthOverrides,
-  getHealthTargetError,
-  resolveGradeWeights,
-  resolveHealthTargets,
-  resolveQualityScope,
-} from "shared/enterprise";
+import { countHealthOverrides, resolveQualityScope } from "shared/enterprise";
 import {
   ExperimentQualityConfigInterface,
-  ExperimentationHealthMetricKey,
   ExperimentationHealthSettingsInterface,
-  ExperimentationHealthTarget,
   ORG_DEFAULT_SCOPE,
-  experimentationHealthMetricKeys,
 } from "shared/validators";
 import { AIPromptInterface, AI_PROMPT_DEFAULTS } from "shared/ai";
 import Button from "@/ui/Button";
@@ -27,7 +16,6 @@ import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import TempMessage from "@/components/TempMessage";
 import useApi from "@/hooks/useApi";
@@ -42,8 +30,6 @@ import {
   isDegenerateDraft,
 } from "@/components/Settings/ExperimentQuality/qualityConfigDraft";
 import QualityScoreTab from "./QualityScoreTab";
-import TargetsTab from "./TargetsTab";
-import GradeTab from "./GradeTab";
 import ConfigNameModal from "./ConfigNameModal";
 import { OverrideDot } from "./OverrideMarker";
 
@@ -51,26 +37,12 @@ import { OverrideDot } from "./OverrideMarker";
 const ORG_SCOPE_OPTION = "__organization__";
 
 // What one scope's record customizes
-type ScopeDraft = Pick<
-  ExperimentationHealthSettingsInterface,
-  "quality" | "targets" | "gradeWeights"
->;
-
-// "a", "a and b", "a, b and c"
-function joinList(items: string[]): string {
-  return items.length < 2
-    ? (items[0] ?? "")
-    : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
-}
+type ScopeDraft = Pick<ExperimentationHealthSettingsInterface, "quality">;
 
 function toScopeDraft(
   record: ExperimentationHealthSettingsInterface | null,
 ): ScopeDraft {
-  return {
-    quality: record?.quality ?? {},
-    targets: record?.targets ?? {},
-    gradeWeights: record?.gradeWeights,
-  };
+  return { quality: record?.quality ?? {} };
 }
 
 export default function ExperimentationHealthPage() {
@@ -103,10 +75,6 @@ export default function ExperimentationHealthPage() {
   const { data: statusData } = useApi<{ stoppedExperiments: number }>(
     "/experiment-quality-score/status",
   );
-  const { data: summary, mutate: mutateSummary } =
-    useApi<ExperimentationHealthSummary>(
-      `/experimentation-health/summary?project=${encodeURIComponent(scope)}`,
-    );
   // The org's definition of a good hypothesis seeds the Hypothesis quality
   // check's context
   const { data: promptsData } = useApi<{ prompts: AIPromptInterface[] }>(
@@ -137,8 +105,6 @@ export default function ExperimentationHealthPage() {
   const orgForResolve = isOrgScope ? scopeDraft : orgRecord;
   const projectForResolve = isOrgScope ? null : scopeDraft;
   const effective = resolveQualityScope(orgForResolve, projectForResolve);
-  const targets = resolveHealthTargets(orgForResolve, projectForResolve);
-  const weights = resolveGradeWeights(orgForResolve, projectForResolve);
 
   // --- Config draft: the checks and weights of the configuration in use ---
   // A missing or deleted configuration falls back to the built-in default
@@ -176,53 +142,13 @@ export default function ExperimentationHealthPage() {
   const invalidCustomChecks = configDraft.customAiChecks.some(
     (c) => !c.rule.trim(),
   );
-  const hasTargetErrors = experimentationHealthMetricKeys.some(
-    (k) => !!getHealthTargetError(k, targets[k].target),
-  );
-
-  const savedGrade =
-    summary &&
-    computeHealthGrade({
-      ...summary,
-      orgRecord,
-      projectRecord: isOrgScope ? null : scopeRecord,
-    });
-  const draftGrade =
-    summary &&
-    computeHealthGrade({
-      ...summary,
-      orgRecord: orgForResolve,
-      projectRecord: projectForResolve,
-    });
 
   const customizedProjectIds = new Set(
     experimentationHealthSettings
       .filter((r) => r.project !== ORG_DEFAULT_SCOPE && countHealthOverrides(r))
       .map((r) => r.project),
   );
-  // What the Project customizes, by tab
-  const customized = {
-    targets: isOrgScope ? 0 : Object.keys(scopeDraft.targets ?? {}).length,
-    grade: !isOrgScope && !!scopeDraft.gradeWeights,
-    quality:
-      !isOrgScope &&
-      Object.values(scopeDraft.quality ?? {}).some((v) => v !== undefined),
-  };
-  const customizedParts = [
-    ...(customized.targets
-      ? [
-          `${customized.targets} ${customized.targets === 1 ? "target" : "targets"}`,
-        ]
-      : []),
-    ...(customized.grade ? ["the grade weights"] : []),
-    ...(customized.quality ? ["quality scoring"] : []),
-  ];
-  const tabLabel = (label: string, isCustomized: boolean) => (
-    <Flex align="center" gap="2">
-      {label}
-      {isCustomized && <OverrideDot />}
-    </Flex>
-  );
+  const projectCustomized = !isOrgScope && countHealthOverrides(scopeDraft) > 0;
 
   async function saveScope(draft: ScopeDraft) {
     await apiCall("/experimentation-health/settings", {
@@ -243,12 +169,10 @@ export default function ExperimentationHealthPage() {
     return res.config.id;
   }
 
-  async function afterSave({ scoringChanged }: { scoringChanged: boolean }) {
+  async function afterSave() {
     setScopeEdits(null);
     setConfigEdits(null);
     await mutateDefinitions();
-    // Targets and weights don't change the values; quality settings do
-    if (scoringChanged) await mutateSummary();
     setSaveMsg(true);
   }
 
@@ -266,10 +190,7 @@ export default function ExperimentationHealthPage() {
       });
     }
     if (scopeDirty) await saveScope(scopeDraft);
-    await afterSave({
-      scoringChanged:
-        configDirty || !isEqual(scopeDraft.quality, savedScope.quality),
-    });
+    await afterSave();
   }
 
   function cancel() {
@@ -297,7 +218,7 @@ export default function ExperimentationHealthPage() {
               `/experimentation-health/settings?project=${encodeURIComponent(scope)}`,
               { method: "DELETE" },
             );
-            await afterSave({ scoringChanged: true });
+            await afterSave();
           }}
         >
           <Text as="p">
@@ -319,7 +240,7 @@ export default function ExperimentationHealthPage() {
               ...scopeDraft,
               quality: { ...scopeDraft.quality, configId },
             });
-            await afterSave({ scoringChanged: true });
+            await afterSave();
           }}
         />
       )}
@@ -328,8 +249,7 @@ export default function ExperimentationHealthPage() {
         Experimentation Health
       </Heading>
       <Text size="md" color="text-mid">
-        Set the targets your program is graded against, and define what a
-        quality experiment looks like.
+        Define what a quality experiment looks like.
       </Text>
 
       {/* Scope bar */}
@@ -388,10 +308,10 @@ export default function ExperimentationHealthPage() {
           )
         ) : (
           <Flex align="center" gap="2">
-            {customizedParts.length > 0 && <OverrideDot />}
+            {projectCustomized && <OverrideDot />}
             <Text size="sm" color="text-mid">
-              {customizedParts.length > 0
-                ? `${joinList(customizedParts)} customized · everything else follows the organization default`
+              {projectCustomized
+                ? "Quality scoring customized for this Project"
                 : "Follows the organization default"}
             </Text>
           </Flex>
@@ -405,77 +325,31 @@ export default function ExperimentationHealthPage() {
         )}
       </Flex>
 
-      <Tabs defaultValue="targets" persistInURL mt="4">
-        <TabsList>
-          <TabsTrigger value="targets">
-            {tabLabel("Targets", customized.targets > 0)}
-          </TabsTrigger>
-          <TabsTrigger value="grade">
-            {tabLabel("Grade", customized.grade)}
-          </TabsTrigger>
-          <TabsTrigger value="quality">
-            {tabLabel("Quality Score", customized.quality)}
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="targets">
-          <TargetsTab
-            isOrgScope={isOrgScope}
-            targets={targets}
-            setTarget={(
-              key: ExperimentationHealthMetricKey,
-              target: ExperimentationHealthTarget | undefined,
-            ) => {
-              const next = { ...scopeDraft.targets };
-              if (target) next[key] = target;
-              else delete next[key];
-              updateScope({ targets: next });
-            }}
-            values={summary?.values}
-            ideasInUse={!!summary?.ideasInUse}
-            processPending={summary?.processPending ?? 0}
-            loading={!summary}
-          />
-        </TabsContent>
-        <TabsContent value="grade">
-          <GradeTab
-            isOrgScope={isOrgScope}
-            weights={weights.weights}
-            orgWeights={weights.orgWeights}
-            overridden={weights.overridden}
-            setWeights={(gradeWeights) => updateScope({ gradeWeights })}
-            savedGrade={savedGrade ?? null}
-            draftGrade={draftGrade ?? null}
-            loading={!summary}
-          />
-        </TabsContent>
-        <TabsContent value="quality">
-          <QualityScoreTab
-            scope={scope}
-            orgQuality={
-              (isOrgScope ? scopeDraft.quality : orgRecord?.quality) ?? {}
-            }
-            qualityDraft={scopeDraft.quality ?? {}}
-            setQualityDraft={(quality) =>
-              // Drop reset fields so an undone change doesn't read as an edit
-              updateScope({ quality: omitBy(quality, isUndefined) })
-            }
-            effective={effective}
-            effectiveConfig={effectiveConfig}
-            configDraft={configDraft}
-            setConfigDraft={(draft) =>
-              setConfigEdits({ key: configKey, draft })
-            }
-            configDirty={configDirty}
-            anyDirty={anyDirty}
-            canEditConfig={canEditConfig}
-            canRecalculate={canManageOrg}
-            aiAvailable={aiEnabled}
-            hypothesisDefinition={hypothesisDefinition}
-            stoppedExperiments={statusData?.stoppedExperiments}
-            createConfig={createConfig}
-          />
-        </TabsContent>
-      </Tabs>
+      <Box mt="4">
+        <QualityScoreTab
+          scope={scope}
+          orgQuality={
+            (isOrgScope ? scopeDraft.quality : orgRecord?.quality) ?? {}
+          }
+          qualityDraft={scopeDraft.quality ?? {}}
+          setQualityDraft={(quality) =>
+            // Drop reset fields so an undone change doesn't read as an edit
+            updateScope({ quality: omitBy(quality, isUndefined) })
+          }
+          effective={effective}
+          effectiveConfig={effectiveConfig}
+          configDraft={configDraft}
+          setConfigDraft={(draft) => setConfigEdits({ key: configKey, draft })}
+          configDirty={configDirty}
+          anyDirty={anyDirty}
+          canEditConfig={canEditConfig}
+          canRecalculate={canManageOrg}
+          aiAvailable={aiEnabled}
+          hypothesisDefinition={hypothesisDefinition}
+          stoppedExperiments={statusData?.stoppedExperiments}
+          createConfig={createConfig}
+        />
+      </Box>
 
       {/* Single save for the whole page */}
       <Box
@@ -495,11 +369,6 @@ export default function ExperimentationHealthPage() {
               Custom checks need a rule describing what to evaluate
             </HelperText>
           )}
-          {hasTargetErrors && (
-            <HelperText status="error">
-              Fix the invalid targets to save
-            </HelperText>
-          )}
           {saveMsg && (
             <TempMessage
               className="mb-0"
@@ -513,9 +382,7 @@ export default function ExperimentationHealthPage() {
             Cancel
           </Button>
           <Button
-            disabled={
-              !anyDirty || degenerate || invalidCustomChecks || hasTargetErrors
-            }
+            disabled={!anyDirty || degenerate || invalidCustomChecks}
             setError={(e) => setSaveError(e ?? "")}
             onClick={save}
           >

@@ -19,63 +19,10 @@ export type ExperimentationHealthQualitySettings = z.infer<
   typeof experimentationHealthQualitySettingsValidator
 >;
 
-export const experimentationHealthMetricKeys = [
-  "experimentsStartedPerMonth",
-  "averageQualityScore",
-  "winRate",
-  "ideasPerMonth",
-] as const;
-export type ExperimentationHealthMetricKey =
-  (typeof experimentationHealthMetricKeys)[number];
-
-// Areas that count toward the grade
-export const experimentationHealthGradedAreas = [
-  "velocity",
-  "quality",
-] as const;
-export type ExperimentationHealthGradedArea =
-  (typeof experimentationHealthGradedAreas)[number];
-
-// A healthy range. Both bounds null = no target: hidden from the dashboard
-// and left out of the grade. Checked further by getHealthTargetError.
-export const experimentationHealthTargetValidator = z
-  .object({
-    min: z.number().min(0).nullable(),
-    max: z.number().min(0).nullable(),
-  })
-  .strict();
-export type ExperimentationHealthTarget = z.infer<
-  typeof experimentationHealthTargetValidator
->;
-
-export const experimentationHealthTargetsValidator = z.partialRecord(
-  z.enum(experimentationHealthMetricKeys),
-  experimentationHealthTargetValidator,
-);
-export type ExperimentationHealthTargets = z.infer<
-  typeof experimentationHealthTargetsValidator
->;
-
-// Integer shares totalling 100, stored and inherited as one group
-export const experimentationHealthGradeWeightsValidator = z
-  .object({
-    velocity: z.number().int().min(0).max(100),
-    quality: z.number().int().min(0).max(100),
-  })
-  .strict()
-  .refine((w) => w.velocity + w.quality === 100, {
-    message: "Grade weights must total 100",
-  });
-export type ExperimentationHealthGradeWeights = z.infer<
-  typeof experimentationHealthGradeWeightsValidator
->;
-
 export const experimentationHealthSettingsValidator = baseSchema
   .extend({
     project: z.string(),
     quality: experimentationHealthQualitySettingsValidator.optional(),
-    targets: experimentationHealthTargetsValidator.optional(),
-    gradeWeights: experimentationHealthGradeWeightsValidator.optional(),
   })
   .strict();
 export type ExperimentationHealthSettingsInterface = z.infer<
