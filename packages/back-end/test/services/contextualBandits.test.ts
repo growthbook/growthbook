@@ -726,6 +726,59 @@ describe("persistContextualBanditEvent", () => {
     expect(refreshLinkedFeaturePayloadsMock).toHaveBeenCalled();
   });
 
+  it("does not apply weights on resume when the original run discarded them, even after the stage advances to exploit", async () => {
+    // The original attempt ran in `explore` and recorded weightsWereUpdated:false
+    // (weights discarded, never applied, so banditVersion never bumped). Its
+    // snapshot write failed, and a later refresh advanced the CB to `exploit`.
+    // The resume must honor the event's recorded decision and leave serving
+    // weights untouched — not silently re-apply them off today's stage.
+    const cb = makeCb({ stage: "exploit", banditVersion: 2 });
+    const cbs = makeCbs({ banditVersion: 2 });
+    const result = makeResult();
+
+    const existingEvent = {
+      id: "cbe_existing",
+      organization: "org_1",
+      contextualBandit: cb.id,
+      snapshotId: cbs.id,
+      attributes: result.attributes,
+      responses: result.responses,
+      leaf_map: result.leaf_map,
+      weightsWereUpdated: false,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    const createCbeMock = jest.fn();
+    const applyWeightEpochUpdateMock = jest.fn().mockResolvedValue(cb);
+
+    const context = {
+      org: { id: "org_1" },
+      logger: { warn: jest.fn(), error: jest.fn() },
+      auditLog: jest.fn().mockResolvedValue(undefined),
+      models: {
+        contextualBandits: {
+          getById: jest.fn().mockResolvedValue(cb),
+          applyWeightEpochUpdate: applyWeightEpochUpdateMock,
+          update: jest.fn().mockResolvedValue(cb),
+        },
+        contextualBanditEvents: {
+          getBySnapshotId: jest.fn().mockResolvedValue(existingEvent),
+          create: createCbeMock,
+        },
+      },
+    } as unknown as ReqContext;
+
+    const cbe = await persistContextualBanditEvent(context, cbs, result);
+
+    expect(cbe).toBe(existingEvent);
+    expect(createCbeMock).not.toHaveBeenCalled();
+    // The original decision to discard is preserved: no weight write, no seed,
+    // no payload refresh.
+    expect(applyWeightEpochUpdateMock).not.toHaveBeenCalled();
+    expect(refreshLinkedFeaturePayloadsMock).not.toHaveBeenCalled();
+  });
+
   it("leaves the persisted weights alone on a no-weight run", async () => {
     const cb = makeCb();
     const cbs = makeCbs();

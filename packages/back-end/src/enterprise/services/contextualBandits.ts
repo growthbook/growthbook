@@ -1886,7 +1886,13 @@ export async function persistContextualBanditEvent(
     );
   }
 
-  const discardWeights = inExploreStage || staleWeightEpoch;
+  // A resume must honor the decision the original attempt already recorded on
+  // the event, not re-derive it from today's stage/epoch. The stage may have
+  // advanced (e.g. explore -> exploit) since the first attempt, so re-deriving
+  // could apply weights the original run intentionally discarded.
+  const discardWeights = existingEvent
+    ? !existingEvent.weightsWereUpdated || staleWeightEpoch
+    : inExploreStage || staleWeightEpoch;
   // Engine weights are positional over the run's frozen variation list, not
   // today's cb.variations (which may have gained pending arms/tombstones).
   const engineVariations =
