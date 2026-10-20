@@ -290,7 +290,7 @@ export const postPendingMemberApprove = createApiRequestHandler(
     return req.context.throwNotFoundError("Cannot find pending member");
   }
 
-  await addMemberToOrg({
+  const added = await addMemberToOrg({
     organization: org,
     userId: pending.id,
     role: pending.role,
@@ -299,17 +299,20 @@ export const postPendingMemberApprove = createApiRequestHandler(
     projectRoles: pending.projectRoles,
     additionalRoles: pending.additionalRoles,
   });
-  await req.audit({
-    event: "user.create",
-    entity: { object: "user", id: pending.id },
-    details: auditDetailsCreate({
-      role: pending.role,
-      limitAccessByEnvironment: pending.limitAccessByEnvironment,
-      environments: pending.environments,
-      projectRoles: pending.projectRoles,
-      additionalRoles: pending.additionalRoles,
-    }),
-  });
+  // Only the request that added them records it, so a race isn't audited twice
+  if (added) {
+    await req.audit({
+      event: "user.create",
+      entity: { object: "user", id: pending.id },
+      details: auditDetailsCreate({
+        role: pending.role,
+        limitAccessByEnvironment: pending.limitAccessByEnvironment,
+        environments: pending.environments,
+        projectRoles: pending.projectRoles,
+        additionalRoles: pending.additionalRoles,
+      }),
+    });
+  }
 
   try {
     await sendPendingMemberApprovalEmail(
