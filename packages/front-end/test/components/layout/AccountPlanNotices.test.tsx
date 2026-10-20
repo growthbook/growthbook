@@ -56,6 +56,56 @@ describe("AccountPlanNotices", () => {
     expect(screen.getByText(/Upgrade license/i)).toBeInTheDocument();
   });
 
+  it("renders an error notification when AI traces usage is over", () => {
+    vi.mocked(useUser).mockReturnValue({
+      // @ts-expect-error "partial test mock"
+      usage: {
+        cdn: { lastUpdated: new Date(), status: "under" },
+        aiTraces: { lastUpdated: new Date(), status: "over" },
+      },
+      license: null,
+      seatsInUse: 0,
+    });
+    // @ts-expect-error "partial test mock"
+    vi.mocked(usePermissionsUtil).mockReturnValue({
+      canManageBilling: () => true,
+      canViewUsage: () => true,
+    });
+
+    render(<AccountPlanNotices />);
+
+    expect(
+      screen.getByText(/AI traces usage limit exceeded/i),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the managed warehouse notice over the AI traces one", () => {
+    vi.mocked(useUser).mockReturnValue({
+      // @ts-expect-error "partial test mock"
+      usage: {
+        cdn: { lastUpdated: new Date(), status: "under" },
+        managedClickhouse: { lastUpdated: new Date(), status: "over" },
+        aiTraces: { lastUpdated: new Date(), status: "over" },
+      },
+      license: null,
+      seatsInUse: 0,
+    });
+    // @ts-expect-error "partial test mock"
+    vi.mocked(usePermissionsUtil).mockReturnValue({
+      canManageBilling: () => true,
+      canViewUsage: () => true,
+    });
+
+    render(<AccountPlanNotices />);
+
+    expect(
+      screen.getByText(/Managed Warehouse event limit exceeded/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/AI traces usage limit exceeded/i),
+    ).not.toBeInTheDocument();
+  });
+
   describe("enterprise license seat quota", () => {
     it("does not render an error when seats is within limit", () => {
       // @ts-expect-error "partial test mock"

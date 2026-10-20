@@ -605,12 +605,17 @@ export type OrganizationUsage = {
     requests: UsageLimit;
     bandwidth: UsageLimit;
     managedClickhouseEvents?: UsageLimit;
+    aiTracesBytes?: UsageLimit;
   };
   cdn: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
   };
   managedClickhouse?: {
+    lastUpdated: Date;
+    status: "under" | "approaching" | "over";
+  };
+  aiTraces?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
   };

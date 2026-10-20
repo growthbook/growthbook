@@ -157,7 +157,55 @@ export default function AccountPlanNotices() {
     );
   }
 
-  const usageMessage = cdnUsageMessage || managedWarehouseUsageMessage;
+  let aiTracesUsageMessage: JSX.Element | null = null;
+  if (usage?.aiTraces?.status === "approaching") {
+    aiTracesUsageMessage = (
+      <>
+        {upgradeModal && (
+          <div>
+            <UpgradeModal
+              close={() => setUpgradeModal(false)}
+              source={"ai-traces-usage-approaching-topnav-notification"}
+              commercialFeature="unlimited-managed-warehouse-usage"
+            />
+          </div>
+        )}
+        <Tooltip body={managedWarehouseUsageTooltipBody}>
+          <Box className={styles["warning-notification"]}>
+            Approaching AI traces usage limit.{" "}
+            <a href="#" onClick={() => setUpgradeModal(true)}>
+              Upgrade license.
+            </a>{" "}
+          </Box>
+        </Tooltip>
+      </>
+    );
+  } else if (usage?.aiTraces?.status === "over") {
+    aiTracesUsageMessage = (
+      <>
+        {upgradeModal && (
+          <div>
+            <UpgradeModal
+              close={() => setUpgradeModal(false)}
+              source={"ai-traces-usage-exceeded-topnav-notification"}
+              commercialFeature="unlimited-managed-warehouse-usage"
+            />
+          </div>
+        )}
+        <Tooltip body={managedWarehouseUsageTooltipBody}>
+          <Box className={styles["error-notification"]}>
+            AI traces usage limit exceeded.{" "}
+            <a href="#" onClick={() => setUpgradeModal(true)}>
+              Upgrade license.
+            </a>{" "}
+          </Box>
+        </Tooltip>
+      </>
+    );
+  }
+
+  const usageMessage =
+    cdnUsageMessage || managedWarehouseUsageMessage || aiTracesUsageMessage;
   if (license?.message && (license.message.showAllUsers || canManageBilling)) {
     return (
       <>
