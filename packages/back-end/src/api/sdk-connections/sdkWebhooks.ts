@@ -89,22 +89,25 @@ export const listSdkConnectionWebhooks = createApiRequestHandler(
     await req.context.models.sdkWebhooks.findAllSdkWebhooksByConnection(
       conn.id,
     );
-  // A webhook can span connections, so its secrets need edit rights on all of them
+  // Secrets go to whoever could update the webhook: edit rights on every
+  // connection it still has, as getWebhookForUpdate requires
   const conns = await findSDKConnectionsByIds(req.context, [
     ...new Set(webhooks.flatMap((w) => w.sdks)),
   ]);
+  const existing = new Set(conns.map((c) => c.id));
   const editable = new Set(
     conns
       .filter((c) => req.context.permissions.canUpdateSDKWebhook(c))
       .map((c) => c.id),
   );
   return {
-    sdkWebhooks: webhooks.map((w) =>
-      toApiSdkWebhook(
+    sdkWebhooks: webhooks.map((w) => {
+      const live = w.sdks.filter((id) => existing.has(id));
+      return toApiSdkWebhook(
         w,
-        w.sdks.every((id) => editable.has(id)),
-      ),
-    ),
+        live.length > 0 && live.every((id) => editable.has(id)),
+      );
+    }),
   };
 });
 
@@ -132,6 +135,9 @@ export const postSdkConnectionWebhook = createApiRequestHandler(
     ...context.models.sdkWebhooks.getDefaultCreateProps(conn.id),
     ...req.body,
     headers: req.body.headers ?? "",
+    // Stored explicitly: a missing format reads back as legacy no-payload
+    httpMethod: req.body.httpMethod ?? "POST",
+    payloadFormat: req.body.payloadFormat ?? "standard",
   });
   return { sdkWebhook: toApiSdkWebhook(webhook, true) };
 });
