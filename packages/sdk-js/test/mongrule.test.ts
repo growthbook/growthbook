@@ -288,6 +288,46 @@ describe("Mongrule", () => {
       ]);
     });
 
+    it("reports array operators on non-array attributes", () => {
+      expect(
+        collect({ tags: "beta" }, { tags: { $elemMatch: { $eq: "beta" } } })
+          .mismatches,
+      ).toEqual([
+        {
+          path: "tags",
+          operator: "$elemMatch",
+          expected: { $eq: "beta" },
+          actual: "beta",
+        },
+      ]);
+      expect(
+        collect({ tags: "abc" }, { tags: { $size: 3 } }).mismatches,
+      ).toEqual([
+        { path: "tags", operator: "$size", expected: 3, actual: "abc" },
+      ]);
+      expect(
+        collect({ tags: "a" }, { tags: { $alli: ["a"] } }).mismatches,
+      ).toEqual([
+        { path: "tags", operator: "$alli", expected: ["a"], actual: "a" },
+      ]);
+    });
+
+    it("reports whole array and object comparisons across types", () => {
+      expect(collect({ tags: "a" }, { tags: ["a"] }).mismatches).toEqual([
+        { path: "tags", operator: "$eq", expected: ["a"], actual: "a" },
+      ]);
+      expect(collect({ meta: ["a"] }, { meta: { a: 1 } }).mismatches).toEqual([
+        { path: "meta", operator: "$eq", expected: { a: 1 }, actual: ["a"] },
+      ]);
+    });
+
+    it("reports nothing for empty lists", () => {
+      expect(collect({ id: "1" }, { id: { $in: [] } }).mismatches).toEqual([]);
+      expect(
+        collect({ id: "1" }, { id: { $inGroup: "unknown" } }).mismatches,
+      ).toEqual([]);
+    });
+
     it("reports nothing when types match", () => {
       expect(
         collect({ x: 5, s: "a" }, { x: { $gt: 1 }, s: { $in: ["b"] } })

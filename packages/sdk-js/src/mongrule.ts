@@ -186,6 +186,10 @@ function evalConditionValue(
   }
 
   if (Array.isArray(condition) || !isOperatorObject(condition)) {
+    if (getType(value) !== getType(condition)) {
+      reportMismatch(ctx, "$eq", condition, value);
+      return false;
+    }
     return JSON.stringify(value) === JSON.stringify(condition);
   }
 
@@ -242,7 +246,10 @@ function isOrderable(actual: unknown, expected: unknown): boolean {
 
 // At least one element of actual must match the expected condition/value
 function elemMatch(actual: any, expected: any, ctx: EvalConditionContext) {
-  if (!Array.isArray(actual)) return false;
+  if (!Array.isArray(actual)) {
+    reportMismatch(ctx, "$elemMatch", expected, actual);
+    return false;
+  }
   const check = isOperatorObject(expected)
     ? (v: any) => evalConditionValue(expected, v, ctx)
     : (v: any) => evalConditionWithContext(v, expected, ctx);
@@ -281,14 +288,15 @@ function isIn(
 
 // Types are only checked after a miss, so large saved groups aren't scanned twice
 function checkIn(
-  actual: any,
-  expected: Array<any>,
+  actual: unknown,
+  expected: unknown[],
   insensitive: boolean,
   operator: string,
   ctx: EvalConditionContext,
 ): boolean {
   const matched = isIn(actual, expected, insensitive);
-  if (!matched && ctx.typeMismatch) {
+  // An empty list has no types to compare against
+  if (!matched && ctx.typeMismatch && expected.length > 0) {
     const types = new Set(expected.map(getType));
     const values = Array.isArray(actual) ? actual : [actual];
     for (const v of values) {
@@ -324,12 +332,11 @@ function getSavedGroupArrayValues(
 }
 
 function isInAll(
-  actual: any,
+  actual: unknown[],
   expected: ConditionValue[],
   ctx: EvalConditionContext,
   insensitive: boolean = false,
 ): boolean {
-  if (!Array.isArray(actual)) return false;
   for (let i = 0; i < expected.length; i++) {
     let passed = false;
     for (let j = 0; j < actual.length; j++) {
@@ -360,7 +367,7 @@ function evalOperatorCondition(
       return evalVersion(operator, actual, expected, ctx);
     case "$eq":
     case "$ne": {
-      if (getType(actual) !== getType(expected)) {
+      if (ctx.typeMismatch && getType(actual) !== getType(expected)) {
         reportMismatch(ctx, operator, expected, actual);
       }
       const equal = actual === expected;
@@ -409,16 +416,21 @@ function evalOperatorCondition(
     case "$not":
       return !evalConditionValue(expected, actual, ctx);
     case "$size":
-      if (!Array.isArray(actual)) return false;
+      if (!Array.isArray(actual)) {
+        reportMismatch(ctx, operator, expected, actual);
+        return false;
+      }
       return evalConditionValue(expected, actual.length, ctx);
     case "$elemMatch":
       return elemMatch(actual, expected, ctx);
     case "$all":
-      if (!Array.isArray(expected)) return false;
-      return isInAll(actual, expected, ctx);
     case "$alli":
       if (!Array.isArray(expected)) return false;
-      return isInAll(actual, expected, ctx, true);
+      if (!Array.isArray(actual)) {
+        reportMismatch(ctx, operator, expected, actual);
+        return false;
+      }
+      return isInAll(actual, expected, ctx, operator === "$alli");
     case "$regex":
     case "$regexi":
       if (typeof actual !== "string") {
@@ -441,8 +453,8 @@ function evalOperatorCondition(
 // $vne is the opposite of $veq, so it matches on a type mismatch
 function evalVersion(
   operator: "$veq" | "$vne" | "$vgt" | "$vgte" | "$vlt" | "$vlte",
-  actual: any,
-  expected: any,
+  actual: unknown,
+  expected: unknown,
   ctx: EvalConditionContext,
 ): boolean {
   if (!isOrderable(actual, expected)) {
