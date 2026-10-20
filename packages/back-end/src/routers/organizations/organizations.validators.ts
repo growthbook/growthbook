@@ -82,3 +82,18 @@ export const putApiKeyValidator = z.strictObject({
 export const putApiKeyDisabledValidator = z.strictObject({
   disabled: z.boolean(),
 });
+
+// These three validators' fields go into database filters, where an object
+// would act as a query operator.
+export const deleteApiKeyValidator = z.strictObject({
+  id: z.string().optional(),
+  key: z.string().optional(),
+});
+
+export const postApiKeyRevealValidator = z.strictObject({
+  id: z.string().optional(),
+});
+
+export const postInviteAcceptValidator = z.strictObject({
+  key: z.string(),
+});
