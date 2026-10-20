@@ -52,6 +52,7 @@ import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { assertReadOnlySql } from "back-end/src/util/savedQueries";
 
 /**
  * Determines if nextUpdate should be recalculated based on changes to auto-updates or schedule
@@ -737,6 +738,16 @@ export async function updateDashboardSavedQueries(
   await Promise.all(
     savedQueries.map(async (savedQuery) => {
       const savedQueryDataSource = datasourceMap.get(savedQuery.datasourceId);
+      try {
+        // Queries saved in the app only had their first keyword checked
+        assertReadOnlySql(savedQuery.sql);
+      } catch {
+        logger.warn(
+          { savedQueryId: savedQuery.id },
+          "Skipped a saved query that could write to the warehouse",
+        );
+        return;
+      }
       if (savedQueryDataSource) {
         await executeAndSaveQuery(context, savedQuery, savedQueryDataSource);
       }

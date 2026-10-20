@@ -734,15 +734,8 @@ export const cancelAggregatedFactTableRun = async (
     context.permissions.throwPermissionError();
   }
 
+  // Not limited to enabled id types: turning one off leaves its running refresh going
   const { idType } = req.params;
-  if (
-    !(factTable.aggregatedFactTableSettings?.idTypes ?? []).includes(idType)
-  ) {
-    throw new Error(
-      `id type '${idType}' is not enabled for shared daily aggregated tables on this fact table.`,
-    );
-  }
-
   await cancelRunningAggregatedFactTableRun(context, factTable, idType);
 
   res.status(200).json({ status: 200 });
