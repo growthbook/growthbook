@@ -29,6 +29,9 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
+// A running analysis older than this is assumed lost (e.g. its worker crashed)
+const STALE_RUNNING_ANALYSIS_MS = 10 * 60 * 1000;
+
 // Snapshots have no read check of their own; reading the experiment is it.
 async function getSnapshotAndExperiment(context: ApiReqContext, id: string) {
   const snapshot = await findSnapshotById(context, id);
@@ -89,13 +92,18 @@ export const postSnapshotAnalysis = createApiRequestHandler(
   }
 
   // Reuse a matching analysis rather than recomputing it, unless it failed
+  // or has been running so long that it's stuck
   const existing = getSnapshotAnalysis(snapshot, analysisSettings);
-  if (existing?.status === "running") {
+  const isStale =
+    existing?.status === "running" &&
+    Date.now() - new Date(existing.dateCreated).getTime() >
+      STALE_RUNNING_ANALYSIS_MS;
+  if (existing?.status === "running" && !isStale) {
     throw new ConflictError(
       "This analysis is still computing; retry once it finishes",
     );
   }
-  if (!existing || existing.status === "error") {
+  if (!existing || existing.status === "error" || isStale) {
     const [metricMap, factTableMap, metricGroups] = await Promise.all([
       getMetricMap(context),
       getFactTableMap(context),
