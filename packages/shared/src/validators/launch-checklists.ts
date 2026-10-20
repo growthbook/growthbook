@@ -6,7 +6,9 @@ import { builtInChecklistItemKeyValidator } from "./experiment-launch-checklist"
 const hiddenBuiltInItems = z
   .array(builtInChecklistItemKeyValidator)
   .optional()
-  .describe("Built-in checklist items hidden for this scope");
+  .describe(
+    "Built-in checklist items hidden for this scope. Omitting it on PUT shows them all.",
+  );
 
 const checklistTask = z
   .object({

@@ -84,13 +84,15 @@ export const putLaunchChecklist = createApiRequestHandler(
     context.org.id,
     projectId,
   );
+  // A full replace: omitting hidden items shows them all, as on create
+  const hiddenBuiltInItems = req.body.hiddenBuiltInItems ?? [];
   if (existing) {
     await updateExperimentLaunchChecklist(
       context.org.id,
       userId,
       existing.id,
       req.body.tasks,
-      req.body.hiddenBuiltInItems,
+      hiddenBuiltInItems,
     );
   } else {
     await createExperimentLaunchChecklist(
@@ -98,7 +100,7 @@ export const putLaunchChecklist = createApiRequestHandler(
       userId,
       req.body.tasks,
       projectId,
-      req.body.hiddenBuiltInItems ?? [],
+      hiddenBuiltInItems,
     );
   }
 
