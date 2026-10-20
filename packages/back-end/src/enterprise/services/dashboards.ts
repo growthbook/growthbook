@@ -294,7 +294,6 @@ export async function refreshDashboard(
 
     const mainSnapshot = plannedExperimentMainSnapshot.snapshot;
     let mainSnapshotUsed = false;
-    // Copy the blocks of the dashboard to overwrite their snapshot IDs
     const newBlocks = dashboard.blocks.map((block) => {
       if (!blockHasFieldOfType(block, "snapshotId", isString))
         return { ...block };
@@ -322,7 +321,6 @@ export async function refreshDashboard(
       })
       .filter(isDefined);
 
-    // Create a map from dimension -> list of block IDs that use that dimension
     const dimensionsByBlocks = Object.fromEntries(
       Object.entries(
         groupBy(dimensionBlockPairs, ([dimensionId]) => dimensionId),

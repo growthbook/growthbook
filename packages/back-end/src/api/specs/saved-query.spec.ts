@@ -53,7 +53,7 @@ export const refreshSavedQueryEndpoint = {
   validator: apiRefreshSavedQueryValidator,
   zodReturnObject: apiRefreshSavedQueryReturn,
   summary: "Re-run a saved query",
-  description: `${savedQueryGate} A failed run is reported in \`error\` and the previous results are kept.`,
+  description: `${savedQueryGate} A failed run is reported in \`error\` and the previous results are kept. A query that could write to the warehouse is refused with a 400.`,
 };
 
 export const savedQueryApiSpec = {
