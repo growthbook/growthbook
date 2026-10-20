@@ -28,7 +28,7 @@ import PopulationSearchFilters from "@/components/Search/PopulationSearchFilters
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import { usePopulations } from "@/hooks/usePopulations";
+import { usePopulations, useRefreshPopulations } from "@/hooks/usePopulations";
 import PopulationMoreMenu from "@/components/Populations/PopulationMoreMenu";
 import Custom404 from "@/pages/404";
 
@@ -45,6 +45,7 @@ export default function PopulationsPage() {
   const { populations, loading, error, mutate } = usePopulations(project, {
     enabled: populationsEnabled,
   });
+  const refreshPopulations = useRefreshPopulations();
   const populationsWithLabels = useAddComputedFields(
     populations,
     (p) => ({
@@ -267,8 +268,8 @@ export default function PopulationsPage() {
                     >
                       <PopulationMoreMenu
                         population={p}
-                        onDuplicated={() => mutate()}
-                        onDeleted={() => mutate()}
+                        onDuplicated={() => refreshPopulations()}
+                        onDeleted={() => refreshPopulations()}
                       />
                     </TableCell>
                   </TableRow>
