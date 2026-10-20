@@ -282,6 +282,8 @@ export async function mintAuthorizationCode(params: {
       "User is not a member of this organization",
     );
   }
+  // Checked here, so the grant's tokens skip it when they're minted.
+  context.models.apiKeys.assertPlanAllowsOAuthPermissions(params.permissions);
   const code = randomUrlSafe(32);
   const now = new Date();
   await context.models.oauthAuthCodes.create({

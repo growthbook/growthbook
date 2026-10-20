@@ -1,7 +1,11 @@
 import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
-import { apiKeySchema, ConfirmRule } from "shared/validators";
+import {
+  apiKeySchema,
+  ConfirmRule,
+  OAuthTokenPermissions,
+} from "shared/validators";
 import {
   apiKeyToggleRequiresAdmin,
   canSetApiKeyDisabled,
@@ -171,17 +175,10 @@ export class ApiKeyModel extends BaseClass {
     doc: ApiKeyInterface,
     previousDoc?: ApiKeyInterface,
   ) {
-    // Only turning confirmations on or changing them is gated, so a key keeps
-    // its confirmations after a downgrade and can always drop them.
-    if (
-      doc.confirmRules &&
-      !isEqual(doc.confirmRules, previousDoc?.confirmRules) &&
-      !this.context.hasPremiumFeature("human-in-the-loop")
-    ) {
-      this.context.throwPlanDoesNotAllowError(
-        "Your plan does not support Human-in-the-Loop confirmations.",
-      );
-    }
+    // An OAuth token carries its grant's permissions, which consent checked
+    // against the plan, so a refresh after a downgrade keeps working.
+    const planGated = !doc.oauthClientId;
+    if (planGated) this.assertPlanAllowsConfirmations(doc, previousDoc);
     const maxDays = this.maxLifetimeDaysFor(doc);
     if (
       doc.secret &&
@@ -259,15 +256,49 @@ export class ApiKeyModel extends BaseClass {
     ) {
       return;
     }
-    this.assertPlanAllowsScope(doc, previousDoc);
+    if (planGated) this.assertPlanAllowsScope(doc, previousDoc);
     await this.validateScope(doc, previousDoc);
+  }
+
+  // The plan gates for permissions chosen on the OAuth consent page.
+  public assertPlanAllowsOAuthPermissions(
+    permissions: OAuthTokenPermissions | null,
+  ) {
+    if (!permissions) return;
+    this.assertPlanAllowsConfirmations(permissions);
+    if (permissions.scopedRole) {
+      this.assertPlanAllowsScope({
+        ...permissions,
+        role: permissions.scopedRole,
+      });
+    }
+  }
+
+  // Only turning confirmations on is gated, so a key keeps and can still edit
+  // its confirmations after a downgrade, and can always drop them.
+  private assertPlanAllowsConfirmations(
+    doc: Pick<ApiKeyInterface, "confirmRules">,
+    previousDoc?: Pick<ApiKeyInterface, "confirmRules">,
+  ) {
+    if (
+      doc.confirmRules &&
+      !previousDoc?.confirmRules &&
+      !this.context.hasPremiumFeature("human-in-the-loop")
+    ) {
+      this.context.throwPlanDoesNotAllowError(
+        "Your plan does not support Human-in-the-Loop confirmations.",
+      );
+    }
   }
 
   // Commercial gates, for org keys and scoped PATs alike. Only a role change is
   // gated so existing keys keep working.
   private assertPlanAllowsScope(
-    doc: ApiKeyInterface,
-    previousDoc?: ApiKeyInterface,
+    doc: Pick<
+      ApiKeyInterface,
+      "role" | "limitAccessByEnvironment" | "additionalRoles" | "projectRoles"
+    >,
+    previousDoc?: Pick<ApiKeyInterface, "role">,
   ) {
     if (
       doc.role &&
