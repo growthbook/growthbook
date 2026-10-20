@@ -626,7 +626,6 @@
                 "group": "Data Sources",
                 "pages": [
                   "api/data-sources/operation/listDataSources",
-                  "api/data-sources/operation/postDataSource",
                   "api/data-sources/operation/getDataSource",
                   "api/data-sources/operation/updateDataSource",
                   "api/data-sources/operation/deleteDataSource",
