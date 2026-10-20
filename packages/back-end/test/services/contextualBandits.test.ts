@@ -1267,8 +1267,8 @@ describe("getContextualBanditResultsForUi", () => {
         statistic: 1,
         pValue: 0.5,
         degreesOfFreedom: 2,
-        multipleExposures: 0,
       },
+      multipleExposures: 0,
       traffic: {
         overall: { name: "", srm: 0.5, variationUnits: [10, 20, 30] },
         dimension: {},
@@ -1329,8 +1329,8 @@ describe("getContextualBanditResultsForUi", () => {
         statistic: 1,
         pValue: 0.5,
         degreesOfFreedom: 1,
-        multipleExposures: 0,
       },
+      multipleExposures: 0,
       traffic: {
         overall: { name: "", srm: 0.5, variationUnits: [10, 20] },
         dimension: {},
@@ -1390,8 +1390,8 @@ describe("getContextualBanditResultsForUi", () => {
         statistic: 1,
         pValue: 0.5,
         degreesOfFreedom: 1,
-        multipleExposures: 0,
       },
+      multipleExposures: 0,
       traffic: {
         overall: { name: "", srm: 0.5, variationUnits: [40, 60] },
         dimension: {},
@@ -1444,8 +1444,8 @@ describe("getContextualBanditResultsForUi", () => {
         statistic: 10,
         pValue: 0.001,
         degreesOfFreedom: 1,
-        multipleExposures: 42,
       },
+      multipleExposures: 42,
       traffic: {
         overall: { name: "", srm: 0.001, variationUnits: [100, 100] },
         dimension: {},
@@ -1476,7 +1476,6 @@ describe("getContextualBanditResultsForUi", () => {
     expect(results.latestSnapshotSummary?.status).toBe("running");
     // ...but the health payload (and the multiple-exposure finding) survives.
     expect(results.latestSnapshotSummary?.multipleExposures).toBe(42);
-    expect(results.srm?.multipleExposures).toBe(42);
     expect(results.traffic?.overall.variationUnits).toEqual([100, 100]);
     // ...and the health cards are labeled with the fallback run's variations.
     expect(results.healthVariations?.map((v) => v.id)).toEqual(["v0", "v1"]);
@@ -1505,8 +1504,8 @@ describe("getContextualBanditResultsForUi", () => {
         statistic: 10,
         pValue: 0.001,
         degreesOfFreedom: 1,
-        multipleExposures: 42,
       },
+      multipleExposures: 42,
       traffic: {
         overall: { name: "", srm: 0.001, variationUnits: [100, 100] },
         dimension: {},
@@ -1534,7 +1533,6 @@ describe("getContextualBanditResultsForUi", () => {
     expect(results.latestSnapshotSummary?.status).toBe("error");
     // ...but the multiple-exposure finding is preserved, not cleared to 0.
     expect(results.latestSnapshotSummary?.multipleExposures).toBe(42);
-    expect(results.srm?.multipleExposures).toBe(42);
     expect(results.traffic?.overall.variationUnits).toEqual([100, 100]);
     expect(results.healthVariations?.map((v) => v.id)).toEqual(["v0", "v1"]);
   });
@@ -1548,8 +1546,8 @@ describe("getContextualBanditResultsForUi", () => {
         statistic: 10,
         pValue: 0.001,
         degreesOfFreedom: 1,
-        multipleExposures: 7,
       },
+      multipleExposures: 7,
       traffic: {
         overall: { name: "", srm: 0.5, variationUnits: [50, 50] },
         dimension: {},
@@ -1575,6 +1573,5 @@ describe("getContextualBanditResultsForUi", () => {
 
     expect(getLatestCompleted).not.toHaveBeenCalled();
     expect(results.latestSnapshotSummary?.multipleExposures).toBe(7);
-    expect(results.srm?.multipleExposures).toBe(7);
   });
 });

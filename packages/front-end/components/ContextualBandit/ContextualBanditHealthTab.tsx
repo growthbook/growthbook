@@ -93,6 +93,15 @@ export default function ContextualBanditHealthTab({
     );
   }
 
+  if (traffic.error && traffic.error !== "NO_ROWS_IN_UNIT_QUERY") {
+    return (
+      <Callout status="error" mt="3">
+        There was an error running the traffic query for the Health tab:{" "}
+        {traffic.error}.
+      </Callout>
+    );
+  }
+
   if (totalUsers === 0) {
     return (
       <Callout status="info" mt="3">
@@ -141,10 +150,11 @@ export default function ContextualBanditHealthTab({
       </div>
 
       <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
-        {srmResult === null ? (
+        {srmResult === null && multipleExposures === 0 ? (
           <Callout status="info">
             Multiple exposures data will appear after a successful results
-            refresh.
+            refresh. Make sure your assignment query selects the bandit_version,
+            leaf_id, and variation_weights columns.
           </Callout>
         ) : (
           <MultipleExposuresCard

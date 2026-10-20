@@ -27,7 +27,17 @@ const MIN_VALID_CELLS_PER_GROUP = 2;
  * (leaf_id, bandit_version) group is only kept when at least
  * MIN_VALID_CELLS_PER_GROUP (2) of its cells survive that filter.
  *
- *  */
+ * The query returns the chi-square statistic
+ * SUM((observed - expected)^2 / expected) over the usable cells of the kept
+ * groups, and the degrees of freedom computed directly in SQL as
+ * (sum of usable cells across kept groups) - (number of kept groups). The caller
+ * derives the p-value from the statistic and these degrees of freedom.
+ *
+ * Within each (leaf_id, bandit_version) cell a user contributes a single
+ * observation: their first (earliest-timestamp) exposure in that cell. Users who
+ * saw more than one variation within a cell are excluded from the test and
+ * counted on the summary row as `multiple_exposures`.
+ */
 export function getContextualBanditSrmQuery(
   dialect: SqlDialect,
   params: ContextualBanditSrmQueryParams,
@@ -159,7 +169,7 @@ export function getContextualBanditSrmQuery(
       )
       , __cbUnits AS (
         -- Keep each user's first exposure within the cell, but separate out
-        -- multiple-exposure users. 
+        -- multiple-exposure users.
         SELECT
           uid
           , leaf_id
@@ -241,7 +251,6 @@ export function getContextualBanditSrmQuery(
         FROM (
           SELECT
             bandit_version
-            -- zero pad the strings to ensure correct ordering 
             , ROW_NUMBER() OVER (ORDER BY MAX(latest_ts) DESC) AS __vrn
           FROM __cbCellAgg
           GROUP BY bandit_version

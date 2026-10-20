@@ -18,6 +18,7 @@ import {
   getSafeRolloutResultStatus,
 } from "../src/enterprise/decision-criteria/decisionCriteria";
 import { PRESET_DECISION_CRITERIA } from "../src/enterprise/decision-criteria/constants";
+import { getStatusIndicatorData } from "../src/enterprise/decision-criteria/statusIndicatorData";
 import { MetricGroupInterface } from "../types/metric-groups";
 import { SafeRolloutInterface } from "../types/safe-rollout";
 
@@ -2278,5 +2279,75 @@ describe("getExperimentResultStatus schedule-driven states", () => {
       status: "data-incomplete",
       erroredMetrics: ["metric-1"],
     });
+  });
+});
+
+describe("getStatusIndicatorData for contextual Bandits", () => {
+  const healthSettings: ExperimentHealthSettings = {
+    decisionFrameworkEnabled: false,
+    experimentMinLengthDays: 3,
+    srmThreshold: 0.001,
+    multipleExposureMinPercent: 0.01,
+  };
+
+  function cbStatus(
+    health?: NonNullable<ExperimentDataForStatus["analysisSummary"]>["health"],
+  ) {
+    const experimentData = {
+      type: "contextual-bandit",
+      status: "running",
+      archived: false,
+      variations: [{ id: "v0" }, { id: "v1" }],
+      phases: [],
+      dismissedWarnings: [],
+      goalMetrics: [],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      datasource: "ds_1",
+      nextScheduledStatusUpdate: null,
+      analysisSummary: health ? { snapshotId: "cbs_1", health } : undefined,
+    } as unknown as ExperimentDataForStatus;
+    return getStatusIndicatorData({
+      experimentData,
+      skipArchived: false,
+      healthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA[0],
+      metricGroups: [],
+    });
+  }
+
+  it("shows plain Running when there is no health summary yet", () => {
+    expect(cbStatus()).toEqual({
+      color: "indigo",
+      status: "Running",
+      sortOrder: 7,
+    });
+  });
+
+  it("shows plain Running when the health checks pass", () => {
+    expect(
+      cbStatus({ srm: 0.5, totalUsers: 10000, multipleExposures: 0 }),
+    ).toEqual({ color: "indigo", status: "Running", sortOrder: 7 });
+  });
+
+  it("flags multiple exposures even when there is no SRM p-value", () => {
+    const status = cbStatus({
+      srm: null,
+      totalUsers: 10000,
+      multipleExposures: 500,
+    });
+    expect(status.detailedStatus).toBe("Unhealthy");
+    expect(status.needsAttention).toBe(true);
+    expect(status.tooltip).toBe("Multiple exposures");
+  });
+
+  it("flags an SRM failure", () => {
+    const status = cbStatus({
+      srm: 0.0001,
+      totalUsers: 10000,
+      multipleExposures: 0,
+    });
+    expect(status.detailedStatus).toBe("Unhealthy");
+    expect(status.tooltip).toBe("SRM");
   });
 });

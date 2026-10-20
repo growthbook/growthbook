@@ -49,21 +49,6 @@ export function queryHasContextualBanditSrmColumns(
   );
 }
 
-/** True when the assignment query selects `bandit_version`, enabling per-period multiple-exposure scoping. */
-export function queryHasContextualBanditVersionColumn(
-  query: string | undefined,
-  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
-): boolean {
-  if (!query) {
-    return false;
-  }
-  return sqlReferencesColumnAllowingQualified(
-    query,
-    CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN,
-    identifierQuote,
-  );
-}
-
 export function isSafeSqlIdentifier(name: string): boolean {
   return SAFE_SQL_IDENTIFIER.test(name);
 }

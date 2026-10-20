@@ -552,7 +552,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       expect(result.srm?.pValue).toBeGreaterThan(0);
       // The multiple-exposure count on the summary row is surfaced for the
       // Multiple Exposures health check.
-      expect(result.srm?.multipleExposures).toBe(7);
+      expect(result.multipleExposures).toBe(7);
       expect(result.srm?.latestPeriod?.banditVersion).toBe("v3");
       // All leaves for the period, each with per-variation arrays. Unobserved
       // cells default to 0 (CA variation 1 was not emitted).
@@ -560,6 +560,53 @@ describe("ContextualBanditResultsQueryRunner", () => {
         { leafId: "US", observed: [55, 45], expected: [50, 50] },
         { leafId: "CA", observed: [10, 0], expected: [12, 0] },
       ]);
+    });
+
+    it("keeps the multiple-exposure count when there is too little data for a p-value", async () => {
+      const cb = makeCb();
+      const context = makeContext(cb);
+      const runner = newRunner(context);
+
+      primeRunner(runner);
+
+      const rows: ExperimentMetricQueryResponseRows = [
+        { variation: "0", users: 100, count: 100, main_sum: 5 },
+        { variation: "1", users: 100, count: 100, main_sum: 6 },
+      ];
+      const srmRows = [
+        {
+          row_type: "summary",
+          statistic: 0,
+          degrees_of_freedom: 0,
+          bandit_version: "",
+          leaf_id: "",
+          variation: "",
+          observed: 0,
+          expected: 0,
+          multiple_exposures: 12,
+        },
+      ];
+
+      const queryMap: QueryMap = new Map<string, QueryInterface>([
+        [
+          CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
+          { result: rows } as unknown as QueryInterface,
+        ],
+        [
+          CONTEXTUAL_BANDIT_SRM_QUERY_NAME,
+          { result: srmRows } as unknown as QueryInterface,
+        ],
+      ]);
+
+      runContextualStatsEngineMock.mockResolvedValueOnce({
+        attributes: [],
+        responses: [],
+      });
+
+      const result = await runner.runAnalysis(queryMap);
+
+      expect(result.srm).toBeUndefined();
+      expect(result.multipleExposures).toBe(12);
     });
 
     it("rejects when snapshotSettings have not been initialised", async () => {

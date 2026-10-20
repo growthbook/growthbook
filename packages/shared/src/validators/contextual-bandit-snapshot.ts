@@ -61,14 +61,16 @@ export const contextualBanditTrafficValidator = z.object({
 // Compile-time guard: keep this validator's inferred type in lockstep with the
 // experiment health UI's `ExperimentSnapshotTraffic`.
 type AssertExtends<T extends U, U> = T;
-type _ContextualBanditTrafficMatchesExperiment = AssertExtends<
-  z.infer<typeof contextualBanditTrafficValidator>,
-  ExperimentSnapshotTraffic
->;
-type _ExperimentTrafficMatchesContextualBandit = AssertExtends<
-  ExperimentSnapshotTraffic,
-  z.infer<typeof contextualBanditTrafficValidator>
->;
+export type ContextualBanditTrafficTypeCheck = [
+  AssertExtends<
+    z.infer<typeof contextualBanditTrafficValidator>,
+    ExperimentSnapshotTraffic
+  >,
+  AssertExtends<
+    ExperimentSnapshotTraffic,
+    z.infer<typeof contextualBanditTrafficValidator>
+  >,
+];
 
 /**
  * Observed vs. expected units per leaf & variation for a single bandit period.
@@ -106,9 +108,10 @@ export const contextualBanditSnapshotValidator = baseSchema
         pValue: z.number(),
         degreesOfFreedom: z.number().int().nonnegative(),
         latestPeriod: contextualBanditSrmLatestPeriodValidator.optional(),
-        multipleExposures: z.number().int().nonnegative().optional(),
       })
       .optional(),
+    // Set whenever the SRM query ran, even when too little data for a p-value.
+    multipleExposures: z.number().int().nonnegative().optional(),
     traffic: contextualBanditTrafficValidator.optional(),
   })
   .strict();

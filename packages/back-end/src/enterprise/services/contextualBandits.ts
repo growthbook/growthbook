@@ -1580,7 +1580,7 @@ export function toContextualBanditSnapshotStatusSummary(
     queries: cbs.queries,
     runStarted: cbs.runStarted,
     dateCreated: cbs.dateCreated,
-    multipleExposures: cbs.srm?.multipleExposures ?? 0,
+    multipleExposures: cbs.multipleExposures ?? 0,
     type: "standard",
     triggeredBy: cbs.triggeredBy,
   };
@@ -1631,7 +1631,7 @@ export async function getContextualBanditResultsForUi(
   const latestSnapshotSummary = latestSnapshot
     ? {
         ...toContextualBanditSnapshotStatusSummary(latestSnapshot),
-        multipleExposures: resultsSnapshot?.srm?.multipleExposures ?? 0,
+        multipleExposures: resultsSnapshot?.multipleExposures ?? 0,
       }
     : null;
 
@@ -1661,7 +1661,11 @@ export async function getContextualBanditResultsForUi(
 function snapshotHasHealthResults(
   cbs: ContextualBanditSnapshotInterface,
 ): boolean {
-  return cbs.srm !== undefined || cbs.traffic !== undefined;
+  return (
+    cbs.srm !== undefined ||
+    cbs.multipleExposures !== undefined ||
+    cbs.traffic !== undefined
+  );
 }
 
 export async function runContextualBanditSnapshot(

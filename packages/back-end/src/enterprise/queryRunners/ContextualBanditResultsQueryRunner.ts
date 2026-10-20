@@ -56,12 +56,12 @@ export type ContextualBanditSrmResult = {
   pValue: number;
   degreesOfFreedom: number;
   latestPeriod?: ContextualBanditSrmLatestPeriod;
-  multipleExposures?: number;
 };
 
 /** The successful output of one CB run. Returned from `runAnalysis`. */
 export type ContextualBanditQueryRunResult = ContextualBanditResult & {
   srm?: ContextualBanditSrmResult;
+  multipleExposures?: number;
   traffic?: ExperimentSnapshotTraffic;
 };
 
@@ -268,6 +268,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       []) as ExperimentMetricQueryResponseRows;
 
     const srm = this.extractSrmResult(queryMap);
+    const multipleExposures = this.extractMultipleExposures(queryMap);
 
     const cb = await this.loadCbDoc();
 
@@ -354,7 +355,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       phaseLengthDays: windowLengthDays,
     });
 
-    return { ...analysis, srm, traffic };
+    return { ...analysis, srm, multipleExposures, traffic };
   }
 
   private extractTraffic(
@@ -375,18 +376,36 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     });
   }
 
-  private extractSrmResult(
+  private getSrmRows(
     queryMap: QueryMap,
-  ): ContextualBanditSrmResult | undefined {
+  ): ContextualBanditSrmQueryResponseRows | undefined {
     const srmDoc = queryMap.get(CONTEXTUAL_BANDIT_SRM_QUERY_NAME);
     if (!srmDoc) {
       return undefined;
     }
-    const srmRows = (srmDoc.result ??
+    return (srmDoc.result ??
       srmDoc.rawResult ??
       []) as ContextualBanditSrmQueryResponseRows;
-    const summary = srmRows.find((r) => r.row_type === "summary");
+  }
+
+  // Kept separate from the SRM result so the count survives runs with too
+  // little data for a p-value.
+  private extractMultipleExposures(queryMap: QueryMap): number | undefined {
+    const summary = this.getSrmRows(queryMap)?.find(
+      (r) => r.row_type === "summary",
+    );
     if (!summary) {
+      return undefined;
+    }
+    return Math.max(0, Number(summary.multiple_exposures) || 0);
+  }
+
+  private extractSrmResult(
+    queryMap: QueryMap,
+  ): ContextualBanditSrmResult | undefined {
+    const srmRows = this.getSrmRows(queryMap);
+    const summary = srmRows?.find((r) => r.row_type === "summary");
+    if (!srmRows || !summary) {
       return undefined;
     }
     const degreesOfFreedom = summary.degrees_of_freedom;
@@ -397,7 +416,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       statistic: summary.statistic,
       pValue: chi2pvalue(summary.statistic, degreesOfFreedom),
       degreesOfFreedom,
-      multipleExposures: Math.max(0, Number(summary.multiple_exposures) || 0),
       ...this.extractSrmLatestPeriod(srmRows),
     };
   }
@@ -524,6 +542,9 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         if (result.srm) {
           updates.srm = result.srm;
         }
+        if (result.multipleExposures !== undefined) {
+          updates.multipleExposures = result.multipleExposures;
+        }
         if (result.traffic) {
           updates.traffic = result.traffic;
         }
@@ -542,7 +563,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         health: {
           srm: result.srm?.pValue ?? null,
           totalUsers: summaryTotalUsers,
-          multipleExposures: result.srm?.multipleExposures ?? 0,
+          multipleExposures: result.multipleExposures ?? 0,
         },
       };
     }

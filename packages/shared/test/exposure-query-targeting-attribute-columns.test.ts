@@ -7,7 +7,6 @@ import {
   getMalformedTargetingAttributeColumnsForExposureQueries,
   isSafeSqlIdentifier,
   queryHasContextualBanditSrmColumns,
-  queryHasContextualBanditVersionColumn,
 } from "../src/validators/exposure-query-targeting-attribute-columns";
 
 const schema: SDKAttributeSchema = [
@@ -116,72 +115,6 @@ describe("exposure query targeting attribute columns", () => {
         },
       ]),
     ).toThrow(/is not a valid column name/);
-  });
-
-  describe("queryHasContextualBanditVersionColumn", () => {
-    it("detects a real bandit_version output column", () => {
-      expect(
-        queryHasContextualBanditVersionColumn(
-          "SELECT user_id, variation_id, bandit_version FROM exposures",
-        ),
-      ).toBe(true);
-    });
-
-    it("ignores bandit_version inside a line comment", () => {
-      expect(
-        queryHasContextualBanditVersionColumn(
-          "SELECT user_id, variation_id -- bandit_version not selected\nFROM exposures",
-        ),
-      ).toBe(false);
-    });
-
-    it("ignores bandit_version inside a block comment", () => {
-      expect(
-        queryHasContextualBanditVersionColumn(
-          "SELECT user_id /* bandit_version TODO */ FROM exposures",
-        ),
-      ).toBe(false);
-    });
-
-    it("ignores bandit_version inside a string literal", () => {
-      expect(
-        queryHasContextualBanditVersionColumn(
-          "SELECT user_id, 'bandit_version' AS note FROM exposures",
-        ),
-      ).toBe(false);
-    });
-
-    it("detects bandit_version as a double-quoted (ANSI/PostgreSQL) column alias", () => {
-      expect(
-        queryHasContextualBanditVersionColumn(
-          'SELECT user_id, source.version AS "bandit_version" FROM exposures',
-        ),
-      ).toBe(true);
-    });
-
-    it("detects bandit_version as a backtick-quoted alias when the dialect quotes with backticks", () => {
-      expect(
-        queryHasContextualBanditVersionColumn(
-          "SELECT user_id, source.version AS `bandit_version` FROM exposures",
-          "`",
-        ),
-      ).toBe(true);
-    });
-
-    it("treats double quotes as a string literal for backtick-quoting dialects (MySQL)", () => {
-      // Under MySQL semantics `"bandit_version"` is a string literal, not an
-      // identifier, so it must not count as a real column reference.
-      expect(
-        queryHasContextualBanditVersionColumn(
-          'SELECT user_id, "bandit_version" AS note FROM exposures',
-          "`",
-        ),
-      ).toBe(false);
-    });
-
-    it("returns false for undefined queries", () => {
-      expect(queryHasContextualBanditVersionColumn(undefined)).toBe(false);
-    });
   });
 
   describe("queryHasContextualBanditSrmColumns", () => {
