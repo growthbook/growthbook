@@ -15,6 +15,11 @@ export const decisionCriteriaApiSpec = {
     updateBody: apiUpdateDecisionCriteriaBody,
   },
   includeDefaultCrud: true,
+  confirmation: {
+    create: ["settings.other"],
+    update: ["settings.other"],
+    delete: ["settings.other"],
+  },
   navDisplayName: "Decision Criteria",
   navDescription:
     "Rules that turn an experiment's results into a ship, rollback, or review recommendation.",
