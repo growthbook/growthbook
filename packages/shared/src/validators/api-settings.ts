@@ -438,6 +438,7 @@ export const putSettingsValidator = {
   summary: "Update organization settings",
   description:
     "Each supplied field replaces its stored value (object fields are replaced whole); omitted fields are unchanged and `null` resets a field to its default. Read-only fields that `GET /settings` returns are accepted only unchanged, so a `GET` response can be sent back whole. Approval requirements are managed by `PUT /settings/approvals`.",
+  confirmation: ["settings.other"] as const,
   operationId: "putSettings",
   tags: ["settings"],
   method: "put" as const,
