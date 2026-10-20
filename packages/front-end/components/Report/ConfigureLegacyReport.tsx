@@ -359,6 +359,8 @@ export default function ConfigureLegacyReport({
         datasource={report.args.datasource}
         exposureQueryId={exposureQueryId}
         exposureQueryIdentifierType={assignmentQuerySelection.identifierType}
+        isClusterExperiment={experiment?.isClusterExperiment}
+        clusterSubUnitIdentifier={experiment?.clusterSubUnitIdentifier}
         project={project?.id}
         goalMetrics={form.watch("goalMetrics")}
         secondaryMetrics={form.watch("secondaryMetrics")}

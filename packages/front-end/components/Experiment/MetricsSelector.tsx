@@ -521,7 +521,10 @@ const MetricsSelector: FC<{
       filteredOptions.map((m) => ({
         value: m.id,
         label: m.name,
-        tooltip: m.description,
+        tooltip:
+          m.disabled && m.disabledReason
+            ? `${m.description || ""}\n\n${m.disabledReason}`.trim()
+            : m.description,
       })),
     [filteredOptions],
   );

@@ -146,7 +146,9 @@ export default function ExperimentMetricsSelector({
           if (!eligibility.allowed) {
             return {
               disabled: true,
-              reason: `Not supported in cluster experiments: ${eligibility.reason}`,
+              reason: isGroup
+                ? `"${metric.name}" can't be used in cluster experiments. ${eligibility.reason}`
+                : eligibility.reason,
             };
           }
         }

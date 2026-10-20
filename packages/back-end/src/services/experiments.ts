@@ -4811,7 +4811,7 @@ export function assertClusterExperimentMetricsSupported({
     });
     if (!eligibility.allowed) {
       throw new Error(
-        `Metric "${metric.name || id}" cannot be used in a cluster experiment: ${eligibility.reason}`,
+        `Metric "${metric.name || id}" cannot be used in a cluster experiment. ${eligibility.reason}`,
       );
     }
   }

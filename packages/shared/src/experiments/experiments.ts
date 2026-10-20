@@ -1500,13 +1500,13 @@ export function getClusterExperimentMetricEligibility(
   if (!isFactMetric(metric)) {
     return {
       allowed: false,
-      reason: "cluster experiments support only fact metrics.",
+      reason: "Cluster experiments support only Fact Metrics.",
     };
   }
   if (quantileMetricType(metric)) {
     return {
       allowed: false,
-      reason: "quantile metrics are not supported in cluster experiments.",
+      reason: "Quantile metrics are not supported in cluster experiments.",
     };
   }
   if (
@@ -1516,7 +1516,7 @@ export function getClusterExperimentMetricEligibility(
   ) {
     return {
       allowed: false,
-      reason: `${metric.metricType} metrics are not supported in cluster experiments. Use proportion, retention, mean, or ratio metrics.`,
+      reason: `Cluster experiments don't support ${metric.metricType} metrics. Use proportion, retention, mean, or ratio metrics.`,
     };
   }
   const nonRollupAggregation = getNonRollupAggregation(metric);
@@ -1531,17 +1531,17 @@ export function getClusterExperimentMetricEligibility(
       return {
         allowed: false,
         reason: nonRollupAggregation
-          ? `"${nonRollupAggregation}" aggregations can't be summed across sub-units, so this metric's fact table must expose the cluster identifier${options.clusterIdentifier ? ` "${options.clusterIdentifier}"` : ""}.`
+          ? `Aggregations using "${nonRollupAggregation}" can't be summed across sub-units, so this metric's fact table must expose the cluster identifier${options.clusterIdentifier ? ` "${options.clusterIdentifier}"` : ""}.`
           : options.clusterIdentifier
-            ? `this metric's fact table exposes neither the sub-unit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`
-            : `this metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}".`,
+            ? `This metric's fact table exposes neither the sub-unit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`
+            : `This metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}".`,
       };
     }
   } else if (nonRollupAggregation) {
     // Without fact tables we can't tell whether the cluster level is reachable.
     return {
       allowed: false,
-      reason: `"${nonRollupAggregation}" aggregations are not supported in cluster experiments (only sums, counts, proportions, and ratios of these).`,
+      reason: `Aggregations using "${nonRollupAggregation}" are not supported in cluster experiments (only sums, counts, proportions, and ratios of these).`,
     };
   }
   return { allowed: true };
