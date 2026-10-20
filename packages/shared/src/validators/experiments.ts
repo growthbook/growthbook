@@ -393,7 +393,6 @@ export type ExperimentAnalysisSummary = z.infer<
 export const aiExperimentQualityCheckKeys = [
   "ai-hypothesis-quality",
   "ai-hypothesis-metric-alignment",
-  "ai-learnings-quality",
 ] as const;
 export type AIExperimentQualityCheckKey =
   (typeof aiExperimentQualityCheckKeys)[number];

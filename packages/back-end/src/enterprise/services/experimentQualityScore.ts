@@ -32,7 +32,6 @@ const aiQualityVerdict = z.object({
 const aiQualityVerdictSchema = z.object({
   hypothesisQuality: aiQualityVerdict.optional(),
   hypothesisMetricAlignment: aiQualityVerdict.optional(),
-  learningsQuality: aiQualityVerdict.optional(),
   // One entry per user-defined custom rule, matched back by id
   customVerdicts: z
     .array(
@@ -47,11 +46,10 @@ const aiQualityVerdictSchema = z.object({
 
 const verdictKeyByCheckKey: Record<
   AIExperimentQualityCheckKey,
-  "hypothesisQuality" | "hypothesisMetricAlignment" | "learningsQuality"
+  "hypothesisQuality" | "hypothesisMetricAlignment"
 > = {
   "ai-hypothesis-quality": "hypothesisQuality",
   "ai-hypothesis-metric-alignment": "hypothesisMetricAlignment",
-  "ai-learnings-quality": "learningsQuality",
 };
 
 const dimensionInstructionByCheckKey: Record<
@@ -61,8 +59,6 @@ const dimensionInstructionByCheckKey: Record<
   "ai-hypothesis-quality": "hypothesisQuality: score the hypothesis quality",
   "ai-hypothesis-metric-alignment":
     "hypothesisMetricAlignment: score how well the goal metrics measure what the hypothesis predicts",
-  "ai-learnings-quality":
-    "learningsQuality: score the quality of the documented results summary / learnings",
 };
 
 // The org-wide inputs for AI quality scoring, loaded once for any number
@@ -214,9 +210,6 @@ export async function computeAndStoreAIQualityChecks({
     `Experiment name: ${experiment.name}`,
     experiment.hypothesis ? `Hypothesis: ${experiment.hypothesis}` : "",
     goalMetricNames.length ? `Goal metrics: ${goalMetricNames.join(", ")}` : "",
-    applicableChecks.includes("ai-learnings-quality") && experiment.analysis
-      ? `Results summary / learnings: ${experiment.analysis}`
-      : "",
     applicableChecks.length
       ? `Score ONLY these dimensions:\n${applicableChecks
           .map((key) => {
@@ -241,7 +234,7 @@ export async function computeAndStoreAIQualityChecks({
             );
           })
           .join("\n")}`
-      : "Do not score the built-in dimensions (hypothesisQuality, hypothesisMetricAlignment, learningsQuality) — omit them from your response.",
+      : "Do not score the built-in dimensions (hypothesisQuality, hypothesisMetricAlignment) — omit them from your response.",
     ...customRulesPrompt,
   ]
     .filter(Boolean)

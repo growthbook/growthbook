@@ -81,7 +81,6 @@ const CheckResultCell: FC<{
       case "no-early-stop":
       case "clean-restarts":
       case "planned-end":
-      case "ai-learnings-quality":
         return null;
     }
   })();
@@ -207,8 +206,7 @@ const SectionCard: FC<{
           style={{ borderTop: "1px solid var(--border-color-100)" }}
         >
           <Text size="sm" color="text-low">
-            Verdicts update automatically when the hypothesis, Metrics, or
-            learnings change.
+            Verdicts update automatically when the experiment changes.
           </Text>
         </Box>
       )}

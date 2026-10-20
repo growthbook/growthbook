@@ -74,7 +74,6 @@ function freshAIResults(
   return {
     inputsHash: computeAIQualityInputsHash({
       hypothesis: experiment.hypothesis,
-      analysis: experiment.analysis,
       goalMetricNames,
       aiCheckContexts: getAICheckHashInputs(settings),
     }),
@@ -85,7 +84,6 @@ function freshAIResults(
         score: 1,
         reason: "Aligned",
       },
-      { key: "ai-learnings-quality" as const, score: 1, reason: "Actionable" },
     ],
   };
 }
@@ -269,17 +267,9 @@ describe("resolveExperimentQualityScoreSettings", () => {
 describe("computeAIQualityInputsHash", () => {
   const base = {
     hypothesis: "h",
-    analysis: "a",
     goalMetricNames: ["Signups"],
     aiCheckContexts: [] as Array<
-      [
-        (
-          | "ai-hypothesis-quality"
-          | "ai-hypothesis-metric-alignment"
-          | "ai-learnings-quality"
-        ),
-        string,
-      ]
+      ["ai-hypothesis-quality" | "ai-hypothesis-metric-alignment", string]
     >,
   };
 
@@ -317,7 +307,6 @@ describe("computeAIQualityInputsHash", () => {
   it("getAICheckHashInputs reflects enabled AI checks and their contexts", () => {
     const settings = resolveExperimentQualityScoreSettings({
       checks: {
-        "ai-learnings-quality": { enabled: false },
         "ai-hypothesis-quality": {
           enabled: true,
           aiContext: "prefer falsifiable",
@@ -364,8 +353,8 @@ describe("getExperimentQualityScore", () => {
     const process = sectionByKey(result, "process");
     expect(process.applicable).toBe(false);
     expect(process.possiblePoints).toBe(0);
-    // ai-learnings-quality is also N/A while running; remaining checks all
-    // pass, so the renormalized score is still 100
+    // Decision is also N/A while running; the remaining checks all pass,
+    // so the renormalized score is still 100
     expect(result.score).toBe(100);
     const totalPossible = result.sections.reduce(
       (sum, s) => sum + s.possiblePoints,
@@ -445,10 +434,9 @@ describe("getExperimentQualityScore", () => {
     });
     const result = score(experiment);
     // Enabled by default: 6 documentation (screenshots off) + 6 process
-    // (planned-end off) + 3 ai = 15
-    expect(result.totalEnabledCheckCount).toBe(15);
-    // N/A while running: decision, ai-learnings-quality and the 6 process
-    // checks
+    // (planned-end off) + 2 ai = 14
+    expect(result.totalEnabledCheckCount).toBe(14);
+    // N/A while running: decision and the 6 process checks
     expect(result.appliedCheckCount).toBe(7);
   });
 
@@ -629,12 +617,12 @@ describe("custom AI rules", () => {
   });
 
   it("joins the AI section's split alongside built-in AI checks", () => {
-    // 3 built-in AI checks + 1 custom, equal weights → 25% each
+    // 2 built-in AI checks + 1 custom, equal weights → a third each
     expect(customSettings.customAiChecks).toHaveLength(1);
     expect(customSettings.customAiChecks[0].key).toBe("custom:rule1");
-    expect(customSettings.customAiChecks[0].split).toBeCloseTo(0.25, 9);
+    expect(customSettings.customAiChecks[0].split).toBeCloseTo(1 / 3, 9);
     expect(customSettings.checks["ai-hypothesis-quality"].split).toBeCloseTo(
-      0.25,
+      1 / 3,
       9,
     );
   });
@@ -644,7 +632,6 @@ describe("custom AI rules", () => {
       checks: {
         "ai-hypothesis-quality": { enabled: false },
         "ai-hypothesis-metric-alignment": { enabled: false },
-        "ai-learnings-quality": { enabled: false },
       },
       customAiChecks: [
         { id: "rule1", name: "Metric budget", rule: "Fewer than 20 metrics" },
@@ -678,7 +665,6 @@ describe("custom AI rules", () => {
     withVerdict.aiQualityResults = {
       inputsHash: computeAIQualityInputsHash({
         hypothesis: withVerdict.hypothesis,
-        analysis: withVerdict.analysis,
         goalMetricNames: ["Signups"],
         aiCheckContexts: getAICheckHashInputs(customSettings),
         experimentDigest: getExperimentDigestForCustomRules(withVerdict, [
@@ -701,7 +687,6 @@ describe("custom AI rules", () => {
     const experiment = baseExperiment();
     const base = {
       hypothesis: experiment.hypothesis,
-      analysis: experiment.analysis,
       goalMetricNames: ["Signups"],
       aiCheckContexts: getAICheckHashInputs(customSettings),
       experimentDigest: getExperimentDigestForCustomRules(experiment, [

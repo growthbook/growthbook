@@ -41,7 +41,7 @@ export function customQualityCheckKey(id: string): CustomQualityCheckKey {
 
 // Bump when the quality prompt or verdict schema changes so cached AI
 // results are recomputed with the new prompt.
-export const EXPERIMENT_QUALITY_PROMPT_VERSION = 6;
+export const EXPERIMENT_QUALITY_PROMPT_VERSION = 7;
 
 const EPS = 1e-9;
 
@@ -207,14 +207,6 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "ai",
     type: "ai",
     label: "Metrics align with hypothesis",
-    defaultWeight: 1,
-    defaultEnabled: true,
-  },
-  "ai-learnings-quality": {
-    section: "ai",
-    type: "ai",
-    label: "Learnings quality",
-    note: "stopped, learnings present",
     defaultWeight: 1,
     defaultEnabled: true,
   },
@@ -515,13 +507,11 @@ export function getExperimentDigestForCustomRules(
 
 export function computeAIQualityInputsHash({
   hypothesis,
-  analysis,
   goalMetricNames,
   aiCheckContexts,
   experimentDigest = "",
 }: {
   hypothesis?: string;
-  analysis?: string;
   goalMetricNames: string[];
   aiCheckContexts: Array<[string, string]>;
   experimentDigest?: string;
@@ -530,7 +520,6 @@ export function computeAIQualityInputsHash({
     JSON.stringify([
       EXPERIMENT_QUALITY_PROMPT_VERSION,
       hypothesis ?? "",
-      analysis ?? "",
       [...goalMetricNames].sort(),
       aiCheckContexts,
       experimentDigest,
@@ -559,7 +548,6 @@ export function getAIQualityInputsHash(
   const hasCustomRules = settings.customAiChecks.some((c) => c.enabled);
   return computeAIQualityInputsHash({
     hypothesis: experiment.hypothesis,
-    analysis: experiment.analysis,
     goalMetricNames,
     aiCheckContexts: getAICheckHashInputs(settings),
     // Custom rules read the whole experiment, so any change to it must
@@ -788,8 +776,6 @@ export function isAICheckApplicable(
       return hasHypothesis;
     case "ai-hypothesis-metric-alignment":
       return hasHypothesis && experiment.goalMetrics.length > 0;
-    case "ai-learnings-quality":
-      return experiment.status === "stopped" && !!experiment.analysis?.trim();
   }
 }
 

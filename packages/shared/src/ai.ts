@@ -808,7 +808,6 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
     "\nScore each requested dimension from 0 to 1 and give a one-sentence reason for each score:" +
     "\n- Hypothesis quality: is the hypothesis clear, specific, and falsifiable? Does it state the expected change in user or product behavior?" +
     "\n- Hypothesis-metric alignment: do the goal metrics directly measure what the hypothesis predicts will change?" +
-    "\n- Learnings quality: does the results summary state what happened, why, and what the team should do next?" +
     "\nBe strict but fair: a score of 1 means exemplary, 0.5 means adequate but vague, 0 means missing or unrelated." +
     "\nOnly score the dimensions you are asked to score.",
 };
