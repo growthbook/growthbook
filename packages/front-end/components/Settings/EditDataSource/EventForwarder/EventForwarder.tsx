@@ -33,6 +33,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { isCloud } from "@/services/env";
 import { UsageMeter } from "@/components/Settings/Usage/CloudUsage";
 import PremiumCallout from "@/ui/PremiumCallout";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import SelectField from "@/components/Forms/SelectField";
 import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwarderForm";
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
@@ -612,6 +613,7 @@ export default function EventForwarder({
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [pauseResumeLoading, setPauseResumeLoading] = useState(false);
   const { apiCall } = useAuth();
   const { effectiveAccountPlan, subscription, hasCommercialFeature, usage } =
@@ -912,11 +914,26 @@ export default function EventForwarder({
             </Flex>
 
             {isBlocked ? (
-              <Callout status="warning">
-                Forwarding is paused until the 1st of next month because this
-                organization reached its monthly event limit. Upgrade to Pro or
-                Enterprise to resume now.
+              <Callout
+                status="warning"
+                action={
+                  <Button color="inherit" onClick={() => setShowUpgrade(true)}>
+                    Upgrade
+                  </Button>
+                }
+              >
+                Forwarding has stopped for the rest of the month: this
+                organization reached its monthly event limit. It starts again on
+                the 1st, or right away on a Pro or Enterprise plan
+                {isPaused ? " once you resume" : ""}.
               </Callout>
+            ) : null}
+            {showUpgrade ? (
+              <UpgradeModal
+                close={() => setShowUpgrade(false)}
+                source="event-forwarder-card-usage-blocked"
+                commercialFeature="unlimited-event-forwarder-usage"
+              />
             ) : null}
 
             {typeof forwarderLimit === "number" ? (
