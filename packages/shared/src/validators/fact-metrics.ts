@@ -411,7 +411,7 @@ export const apiMetricAnalysisValidator = namedSchema(
           'The status of the analysis (e.g., "running", "completed", "error")',
         ),
       settings: z.record(z.string(), z.any()).optional(),
-      metric: z.string().optional().describe("The fact metric id"),
+      metric: z.string().optional().describe("The Fact Metric id"),
       error: z.string().optional(),
       result: z
         .object({
@@ -1099,7 +1099,7 @@ export const getLatestFactMetricAnalysisValidator = {
   responseSchema: z
     .object({ metricAnalysis: apiMetricAnalysisValidator.nullable() })
     .strict(),
-  summary: "Get the latest analysis of a fact metric",
+  summary: "Get the latest analysis of a Fact Metric",
   operationId: "getLatestFactMetricAnalysis",
   tags: ["fact-metrics"],
   method: "get" as const,
