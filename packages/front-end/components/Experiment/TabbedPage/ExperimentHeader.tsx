@@ -24,7 +24,10 @@ import {
   ExperimentSnapshotReportInterface,
   ReportInterface,
 } from "shared/types/report";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
+  HoldoutInterfaceStringDates,
+} from "shared/validators";
 import { format } from "date-fns-tz";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
@@ -272,6 +275,7 @@ export default function ExperimentHeader({
   const disableHealthTab = isUsingHealthUnsupportedDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const clusterBlocksBandit = !isBandit && !!experiment.isClusterExperiment;
   const isHoldout = experiment.type === "holdout";
   const holdoutStage = holdout
     ? getHoldoutStage(holdout, experiment)
@@ -544,6 +548,7 @@ export default function ExperimentHeader({
           header={`Convert to ${isBandit ? "Experiment" : "Bandit"}`}
           submit={async () => {
             if (!isBandit && !hasMultiArmedBanditFeature) return;
+            if (clusterBlocksBandit) return;
             try {
               await apiCall(`/experiment/${experiment.id}`, {
                 method: "POST",
@@ -569,9 +574,17 @@ export default function ExperimentHeader({
               </PremiumTooltip>
             )
           }
-          ctaEnabled={isBandit || hasMultiArmedBanditFeature}
+          ctaEnabled={
+            (isBandit || hasMultiArmedBanditFeature) && !clusterBlocksBandit
+          }
         >
           <div>
+            {clusterBlocksBandit && (
+              <Callout status="warning" mb="3">
+                {CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE} Turn off Cluster
+                experiment in the analysis settings to convert it.
+              </Callout>
+            )}
             <p>
               Are you sure you want to convert this{" "}
               {!isBandit ? "Experiment" : "Bandit"} to a{" "}

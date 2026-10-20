@@ -958,12 +958,14 @@ const AnalysisForm: FC<{
                       </PremiumTooltip>
                     }
                     value={
-                      !hasPostStratificationFeature ||
-                      form.watch("postStratificationEnabled") == null
-                        ? ""
-                        : form.watch("postStratificationEnabled")
-                          ? "on"
-                          : "off"
+                      isClusterExperiment
+                        ? "off"
+                        : !hasPostStratificationFeature ||
+                            form.watch("postStratificationEnabled") == null
+                          ? ""
+                          : form.watch("postStratificationEnabled")
+                            ? "on"
+                            : "off"
                     }
                     onChange={(v) => {
                       form.setValue(
@@ -993,7 +995,13 @@ const AnalysisForm: FC<{
                     sort={false}
                     disabled={
                       !hasPostStratificationFeature ||
+                      isClusterExperiment ||
                       (isBandit && experiment.status !== "draft")
+                    }
+                    helpText={
+                      isClusterExperiment
+                        ? "Cluster experiments don't use post-stratification."
+                        : undefined
                     }
                   />
                 </Box>
