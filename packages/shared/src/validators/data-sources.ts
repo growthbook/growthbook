@@ -196,73 +196,11 @@ const dataSourceSettingsInput = {
     ),
 };
 
-const paramsField = z
-  .record(z.string(), z.unknown())
-  .describe(
-    "Connection settings for the data source type, the same fields as its connection form. Write-only: never returned.",
-  );
-
-export const postDataSourceValidator = {
-  bodySchema: z
-    .object({
-      name: z.string().min(1),
-      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-      type: z.enum([
-        "redshift",
-        "athena",
-        "snowflake",
-        "postgres",
-        "mysql",
-        "mssql",
-        "bigquery",
-        "clickhouse",
-        "presto",
-        "databricks",
-        "mixpanel",
-        "vertica",
-        "adobe_experience_platform_query_service",
-      ]),
-      params: paramsField,
-      projectIds: z.array(z.string()).optional(),
-      ...dataSourceSettingsInput,
-    })
-    .strict(),
-  querySchema: z.never(),
-  paramsSchema: z.never(),
-  responseSchema: z.object({ dataSource: apiDataSourceValidator }).strict(),
-  summary: "Create a data source",
-  description:
-    "Tests the connection before saving. Google Analytics and the managed warehouse are set up in the app, as are the default identifier types and queries for a built-in `eventTracker`: with one other than `custom`, send `assignmentQueries` too.",
-  confirmation: ["settings.dataSources"] as const,
-  operationId: "postDataSource",
-  tags: ["data-sources"],
-  method: "post" as const,
-  path: "/data-sources",
-  exampleRequest: {
-    body: {
-      name: "Warehouse",
-      type: "postgres" as const,
-      params: {
-        host: "db.example.com",
-        port: 5432,
-        database: "analytics",
-        user: "growthbook",
-        password: "********",
-      },
-    },
-  },
-};
-
 export const updateDataSourceValidator = {
   bodySchema: z
     .object({
       name: z.string().min(1).optional(),
       description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-      params: paramsField
-        .optional()
-        .describe(
-          "Merged into the stored connection settings and re-tested. Needs permission to edit the connection.",
-        ),
       projectIds: z.array(z.string()).optional(),
       ...dataSourceSettingsInput,
     })
@@ -282,7 +220,7 @@ export const updateDataSourceValidator = {
     .strict(),
   summary: "Update a data source",
   description:
-    'Fields left out keep their current values. To clear one, send an explicit empty value (`[]`, `""` or `false`).',
+    'Fields left out keep their current values. To clear one, send an explicit empty value (`[]`, `""` or `false`). Connection settings are changed in the app.',
   confirmation: ["settings.dataSources"] as const,
   operationId: "updateDataSource",
   tags: ["data-sources"],
@@ -312,7 +250,7 @@ export const postDataSourceInformationSchemaRefreshValidator = {
   responseSchema: z.object({ queued: z.literal(true) }).strict(),
   summary: "Refresh a data source's information schema",
   description:
-    "Queues a background job that re-reads the warehouse's tables and columns, creating the schema if there isn't one yet.",
+    "Queues a background job that re-reads the warehouse's tables, creating the schema if there isn't one yet. A table already read before is only re-read when its column count changed; refresh it on its own to pick up renamed or retyped columns.",
   confirmation: ["other.write"] as const,
   operationId: "postDataSourceInformationSchemaRefresh",
   tags: ["data-sources"],
