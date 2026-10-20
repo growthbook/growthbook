@@ -13953,6 +13953,54 @@
             "values": ["u_1", "u_2"]
           }
         }
+      ],
+      [
+        "type mismatch - $savedGroup number attribute vs string list",
+        { "$savedGroup": { "id": "grp_strs" } },
+        { "id": 1 },
+        false,
+        {
+          "grp_strs": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["1", "2"]
+          }
+        }
+      ],
+      [
+        "type mismatch - $savedGroup string attribute vs number list",
+        { "$savedGroup": { "id": "grp_nums" } },
+        { "id": "1" },
+        false,
+        {
+          "grp_nums": { "type": "list", "attributeKey": "id", "values": [1, 2] }
+        }
+      ],
+      [
+        "type mismatch - $inGroup number attribute vs typed string list",
+        { "id": { "$inGroup": "grp_strs" } },
+        { "id": 1 },
+        false,
+        {
+          "grp_strs": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["1", "2"]
+          }
+        }
+      ],
+      [
+        "type mismatch - $notInGroup number attribute vs typed string list",
+        { "id": { "$notInGroup": "grp_strs" } },
+        { "id": 1 },
+        true,
+        {
+          "grp_strs": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["1", "2"]
+          }
+        }
       ]
     ],
     "feature": [
