@@ -6,6 +6,7 @@ import { baseDialect } from "./base";
 export const postgresDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "postgresql",
+  unquotedIdentifierFold: "lower",
   ...createLikeMatchFns({
     escapeStringLiteral: baseDialect.escapeStringLiteral,
     emitEscapeClause: false,

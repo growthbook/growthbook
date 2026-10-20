@@ -99,7 +99,7 @@ export default forwardRef<
       variant="soft"
     >
       {renderedIcon ? (
-        <RadixCallout.Icon style={{ height: lineHeight }}>
+        <RadixCallout.Icon style={{ height: lineHeight, flexShrink: 0 }}>
           {renderedIcon}
         </RadixCallout.Icon>
       ) : null}

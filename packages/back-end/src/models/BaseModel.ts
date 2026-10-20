@@ -1132,12 +1132,12 @@ export abstract class BaseModel<
         props.owner = await resolveOwnerToUserId(props.owner, this.context);
       }
       if (!props.owner) {
-        props.owner = this.context.userId || "";
+        props.owner = this.context.actingUserId;
       }
     }
 
     if ("createdBy" in props && !props.createdBy) {
-      props.createdBy = this.context.userName || "";
+      props.createdBy = this.context.actingUserName;
     }
 
     const generatedIds: Record<string, string> = {};

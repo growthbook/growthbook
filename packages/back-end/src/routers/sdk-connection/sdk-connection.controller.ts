@@ -194,6 +194,10 @@ export const checkSDKConnectionProxyStatus = async (
     throw new Error("Could not find SDK Connection");
   }
 
+  if (!context.permissions.canUpdateSDKConnection(connection, {})) {
+    context.permissions.throwPermissionError();
+  }
+
   const result = await testProxyConnection(context, connection, true);
 
   res.status(200).json({

@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
+  Permissions,
   archiveFootprintForControl,
+  canApplyExpirationPolicy,
+  canSetApiKeyDisabled,
   featurePublishFootprint,
   revertFootprint,
   serveFootprint,
@@ -344,5 +347,61 @@ describe("the cancel footprint is the entity's own scope, unwidened", () => {
 
   it("a Constant answers unbound when no environment override changes", () => {
     expect(constantPublishEnvironments()).toEqual(NO_ENVIRONMENT_BINDING);
+  });
+});
+
+describe("metric creation has no environment footprint", () => {
+  it("allows Fact Metric creation across environments when its project atom is granted", () => {
+    const permissions = new Permissions({
+      global: {
+        permissions: { manageFactMetrics: true, createMetrics: false },
+        limitAccessByEnvironment: true,
+        environments: ["dev"],
+      },
+      projects: {},
+    });
+    expect(permissions.canCreateFactMetric({ projects: ["prj_web"] })).toBe(
+      true,
+    );
+    expect(permissions.canCreateMetric({ projects: ["prj_web"] })).toBe(false);
+  });
+});
+
+describe("API key controls have no environment footprint", () => {
+  it("keeps each grant for an environment-limited role", () => {
+    const envLimited = (granted: string) =>
+      new Permissions({
+        global: {
+          permissions: { [granted]: true },
+          limitAccessByEnvironment: true,
+          environments: ["dev"],
+        },
+        projects: {},
+      });
+    const deleteOnly = envLimited("deleteApiKeys");
+    const editOnly = envLimited("editApiKeys");
+    const tokensOnly = envLimited("managePersonalAccessTokens");
+
+    expect(
+      canSetApiKeyDisabled(deleteOnly, { disabled: false }, "u_1", true),
+    ).toBe(true);
+    expect(canApplyExpirationPolicy(deleteOnly, "secret")).toBe(true);
+    expect(
+      canSetApiKeyDisabled(
+        editOnly,
+        { disabled: true, disabledBy: "u_x" },
+        "u_1",
+        false,
+      ),
+    ).toBe(true);
+    expect(
+      canSetApiKeyDisabled(
+        tokensOnly,
+        { userId: "u_owner", disabled: false },
+        "u_1",
+        true,
+      ),
+    ).toBe(true);
+    expect(canApplyExpirationPolicy(tokensOnly, "pat")).toBe(true);
   });
 });

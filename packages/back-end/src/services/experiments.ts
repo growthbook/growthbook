@@ -168,6 +168,7 @@ import {
   PRESET_DECISION_CRITERIA,
   getPresetDecisionCriteriaForOrg,
 } from "shared/enterprise";
+import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { generateId } from "back-end/src/util/uuid";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -254,6 +255,7 @@ import {
   ExperimentUpdateLogPlan,
   ExperimentUpdateExecutionLogger,
 } from "back-end/src/services/experimentUpdateExecutionLogger";
+import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -1325,7 +1327,7 @@ export async function syncVisualChangesetsAndUrlRedirectsForExperiment({
       visualChangesets.map((vc) =>
         syncVisualChangesWithVariations({
           visualChangeset: vc,
-          experiment: updated,
+          owner: new ExperimentChangesetOwner(context, updated),
           context,
         }),
       ),
@@ -2524,39 +2526,12 @@ export function assertValidExperimentPhases(
   });
 }
 
-// Only some experiment fields reach SDK payloads. A change that touches any of
-// them needs run-experiments permission in the environments the experiment
-// affects (on both the current project and, if it moves, the new one); other
-// edits need only the update permission the caller has already been checked
-// for. Shared by the dashboard POST /experiment/:id and the REST
-// POST /api/v1/experiments/:id so the two agree on which fields count.
-const PAYLOAD_AFFECTING_EXPERIMENT_FIELDS: (keyof ExperimentInterface)[] = [
-  "phases",
-  "variations",
-  "project",
-  "name",
-  "trackingKey",
-  "archived",
-  "status",
-  "releasedVariationId",
-  "excludeFromPayload",
-  "type",
-  "banditStage",
-  "banditStageDateStarted",
-  "banditScheduleValue",
-  "banditScheduleUnit",
-  "banditBurnInValue",
-  "banditBurnInUnit",
-  // Bucketing fields. The REST route accepts these and they end up in the SDK
-  // payload, so changing bucketVersion re-buckets every user. The dashboard
-  // edits them on POST /experiment/:id/targeting, which always checks this.
-  "hashAttribute",
-  "fallbackAttribute",
-  "hashVersion",
-  "disableStickyBucketing",
-  "bucketVersion",
-  "minBucketVersion",
-];
+// A change that touches a payload field needs run-experiments permission in the
+// environments the experiment affects (on both the current project and, if it
+// moves, the new one); other edits need only the update permission the caller
+// has already been checked for. Shared by the dashboard POST /experiment/:id
+// and the REST POST /api/v1/experiments/:id so the two agree on which fields
+// count.
 export async function assertCanRunExperimentChanges(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,

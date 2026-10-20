@@ -4,6 +4,8 @@ import {
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
   MAX_DESCRIPTION_LENGTH,
 } from "shared/constants";
+import { REQUIRES_PERSON_NOTE } from "./event-user";
+import { FEATURE_LANDING_ACTIONS } from "./confirmations";
 import {
   apiAssignmentQueryInputFields,
   apiAssignmentQueryResponseFields,
@@ -17,6 +19,7 @@ import {
   ignoreWarningsBodyField,
   booleanQueryField,
   csvQueryField,
+  HUMAN_OVERRIDE_NOTE,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import {
@@ -27,6 +30,16 @@ import {
 } from "./owner-field";
 
 import { componentSchema, namedSchema } from "./openapi-helpers";
+import {
+  EXPERIMENT_HYPOTHESIS_DESCRIPTION,
+  EXPERIMENT_NAME_DESCRIPTION,
+  EXPERIMENT_TRACKING_KEY_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
+  TAGS_DESCRIPTION,
+  VARIATION_DESCRIPTION,
+  VARIATION_KEY_DESCRIPTION,
+  VARIATION_NAME_DESCRIPTION,
+} from "./api-field-descriptions";
 
 export const customMetricSlice = z.object({
   slices: z.array(
@@ -1378,9 +1391,13 @@ const apiVariationInput = z.object({
       "Alias for `id`. Mirrors the GET response. `id` takes precedence.",
     )
     .optional(),
-  key: z.string(),
-  name: z.string(),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  key: z.string().describe(VARIATION_KEY_DESCRIPTION),
+  name: z.string().describe(VARIATION_NAME_DESCRIPTION),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(VARIATION_DESCRIPTION)
+    .optional(),
   screenshots: z
     .array(
       z.object({
@@ -1396,7 +1413,7 @@ export type ApiVariationInput = z.infer<typeof apiVariationInput>;
 
 // Phase for input payloads
 const apiPhaseInput = z.object({
-  name: z.string(),
+  name: z.string().describe("Short phase label (e.g. `Main`)."),
   dateStarted: z.string().meta({ format: "date-time" }),
   dateEnded: z.string().meta({ format: "date-time" }).optional(),
   reasonForStopping: z.string().optional(),
@@ -1472,14 +1489,14 @@ const postExperimentBody = z
         "The nested sub-unit identifier type analyzed within each cluster (e.g. user_id). Required when isClusterExperiment is true; must be declared by the assignment query and differ from its cluster identifier type.",
       )
       .optional(),
-    trackingKey: z.string(),
+    trackingKey: z.string().describe(EXPERIMENT_TRACKING_KEY_DESCRIPTION),
     bypassDuplicateKeyCheck: z
       .boolean()
       .describe(
-        "If true, allow creating an experiment even if another experiment with the same tracking key already exists. This is ignored if the organization requires unique tracking keys as a rule.",
+        `If true, allow creating an experiment even if another experiment with the same tracking key already exists. This is ignored if the organization requires unique tracking keys as a rule. ${HUMAN_OVERRIDE_NOTE}`,
       )
       .optional(),
-    name: z.string().describe("Name of the experiment"),
+    name: z.string().describe(EXPERIMENT_NAME_DESCRIPTION),
     type: z.enum(["standard", "multi-armed-bandit"]).optional(),
     project: z
       .string()
@@ -1491,13 +1508,16 @@ const postExperimentBody = z
         "ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. Template fields are applied by default and overridden by explicitly provided payload fields.",
       )
       .optional(),
-    hypothesis: z.string().describe("Hypothesis of the experiment").optional(),
+    hypothesis: z
+      .string()
+      .describe(EXPERIMENT_HYPOTHESIS_DESCRIPTION)
+      .optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the experiment")
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
-    tags: z.array(z.string()).optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     metrics: z.array(z.string()).optional(),
     secondaryMetrics: z.array(z.string()).optional(),
     guardrailMetrics: z.array(z.string()).optional(),
@@ -1633,26 +1653,32 @@ const updateExperimentBody = z
         "The nested sub-unit identifier type analyzed within each cluster (e.g. user_id). Required when isClusterExperiment is true; must be declared by the assignment query and differ from its cluster identifier type.",
       )
       .optional(),
-    trackingKey: z.string().optional(),
+    trackingKey: z
+      .string()
+      .describe(EXPERIMENT_TRACKING_KEY_DESCRIPTION)
+      .optional(),
     bypassDuplicateKeyCheck: z
       .boolean()
       .describe(
-        "If true, allow updating the tracking key even if another experiment with the same tracking key already exist. This is ignored if the organization requires unique tracking keys as a rule.",
+        `If true, allow updating the tracking key even if another experiment with the same tracking key already exist. This is ignored if the organization requires unique tracking keys as a rule. ${HUMAN_OVERRIDE_NOTE}`,
       )
       .optional(),
-    name: z.string().describe("Name of the experiment").optional(),
+    name: z.string().describe(EXPERIMENT_NAME_DESCRIPTION).optional(),
     type: z.enum(["standard", "multi-armed-bandit"]).optional(),
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")
       .optional(),
-    hypothesis: z.string().describe("Hypothesis of the experiment").optional(),
+    hypothesis: z
+      .string()
+      .describe(EXPERIMENT_HYPOTHESIS_DESCRIPTION)
+      .optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the experiment")
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
-    tags: z.array(z.string()).optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     metrics: z.array(z.string()).optional(),
     secondaryMetrics: z.array(z.string()).optional(),
     guardrailMetrics: z.array(z.string()).optional(),
@@ -1862,7 +1888,7 @@ const postExperimentStartBody = z
     skipChecklist: z
       .boolean()
       .describe(
-        "If true, skips validating the experiment satisfies all pre-launch checklist items",
+        `If true, skips validating the experiment satisfies all pre-launch checklist items. ${HUMAN_OVERRIDE_NOTE}`,
       )
       .optional(),
     ignoreWarnings: ignoreWarningsBodyField,
@@ -2064,6 +2090,16 @@ export const postExperimentValidator = {
     })
     .strict(),
   summary: "Create a single experiment",
+  description:
+    "Creates a new experiment.\n\n" +
+    "### Naming for human review\n\n" +
+    "Keep `name` short; put reasoning in `hypothesis` and context in `description`. `trackingKey` is sent with exposure events, so keep it short and stable.",
+  confirmation: [
+    "experiment.create",
+    "experiment.start",
+    "experiment.stop",
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postExperiment",
   tags: ["experiments"],
   method: "post" as const,
@@ -2171,6 +2207,18 @@ export const updateExperimentValidator = {
     })
     .strict(),
   summary: "Update a single experiment",
+  confirmation: [
+    "experiment.draft",
+    "experiment.start",
+    "experiment.stop",
+    "experiment.targeting",
+    "experiment.traffic",
+    "experiment.phases",
+    "experiment.other",
+    "override.skipChecklist",
+    ...FEATURE_LANDING_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "updateExperiment",
   tags: ["experiments"],
   method: "post" as const,
@@ -2196,6 +2244,12 @@ export const postExperimentStartValidator = {
   summary: "Start/Stage an experiment",
   description:
     "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment.",
+  confirmation: [
+    "experiment.start",
+    "override.skipChecklist",
+    ...FEATURE_LANDING_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postExperimentStart",
   tags: ["experiments"],
   method: "post" as const,
@@ -2222,7 +2276,8 @@ export const postExperimentCommentValidator = {
   paramsSchema: idParams,
   responseSchema: z.strictObject({ status: z.number() }),
   summary: "Post a comment on an experiment",
-  description: "Adds a new comment to an experiment's discussion thread.",
+  description: `Adds a new comment to an experiment's discussion thread, credited to the person behind the request. ${REQUIRES_PERSON_NOTE}`,
+  confirmation: ["other.write"] as const,
   operationId: "postExperimentComment",
   tags: ["experiments"],
   method: "post" as const,
@@ -2239,6 +2294,7 @@ export const postExperimentStartChecklistManualCompleteValidator = {
   paramsSchema: idParams,
   responseSchema: experimentStartChecklistResponseValidator,
   summary: "Mark manual pre-launch checklist items complete",
+  confirmation: ["experiment.draft"] as const,
   operationId: "postExperimentStartChecklistManualComplete",
   tags: ["experiments"],
   method: "post" as const,
@@ -2261,6 +2317,7 @@ export const postExperimentStopValidator = {
     })
     .strict(),
   summary: "Stop an experiment",
+  confirmation: ["experiment.stop"] as const,
   operationId: "postExperimentStop",
   tags: ["experiments"],
   method: "post" as const,
@@ -2289,6 +2346,7 @@ export const postExperimentModifyTemporaryRolloutValidator = {
     })
     .strict(),
   summary: "Modify temporary rollout status for a stopped experiment",
+  confirmation: ["experiment.stop"] as const,
   operationId: "postExperimentModifyTemporaryRollout",
   tags: ["experiments"],
   method: "post" as const,
@@ -2351,6 +2409,12 @@ export const putExperimentScheduleValidator = {
   summary: "Set an experiment's schedule and shipping automation",
   description:
     "Full-replace of the experiment's scheduled start/end and end-of-experiment shipping automation. The body is the complete desired state: any omitted field is cleared (omit `startAt` to remove a scheduled start; send an empty body to clear the whole schedule). Provide either `stopAt` or `stopAfter`, not both; a relative `stopAfter` resolves to a concrete stop when the experiment starts. Setting a scheduled end (`stopAt` or `stopAfter`) requires a `scheduledStopPlan` (any mode, including `notify`). The scheduled end must be in the future: a `stopAt` (or a `stopAfter` that resolves) in the past is rejected — including one whose end date has already passed and been acted on, so changing the plan after a soft end requires committing to a new end date. Auto-ship shipping requires the Decision Framework.",
+  confirmation: [
+    "experiment.start",
+    "experiment.stop",
+    "experiment.other",
+  ] as const,
+  confirmationInHandler: true,
   operationId: "putExperimentSchedule",
   tags: ["experiments"],
   method: "put" as const,
@@ -2409,6 +2473,7 @@ export const postExperimentSnapshotValidator = {
     })
     .strict(),
   summary: "Create Experiment Snapshot",
+  confirmation: [],
   operationId: "postExperimentSnapshot",
   tags: ["experiments", "snapshots"],
   method: "post" as const,
@@ -2451,6 +2516,7 @@ export const postVariationImageUploadValidator = {
     })
     .strict(),
   summary: "Upload a variation screenshot",
+  confirmation: ["experiment.draft"] as const,
   operationId: "postVariationImageUpload",
   tags: ["experiments"],
   method: "post" as const,
@@ -2475,6 +2541,7 @@ export const deleteVariationScreenshotValidator = {
   paramsSchema: idAndVariationParams,
   responseSchema: z.record(z.string(), z.any()),
   summary: "Delete a variation screenshot",
+  confirmation: ["experiment.draft"] as const,
   operationId: "deleteVariationScreenshot",
   tags: ["experiments"],
   method: "delete" as const,

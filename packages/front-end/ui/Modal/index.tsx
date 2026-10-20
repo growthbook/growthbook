@@ -1,15 +1,7 @@
-import {
-  Box,
-  Flex,
-  Inset,
-  Dialog,
-  ScrollArea,
-  Separator,
-} from "@radix-ui/themes";
+import { Box, Flex, Dialog, ScrollArea, Separator } from "@radix-ui/themes";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import {
   createContext,
-  CSSProperties,
   ReactNode,
   useCallback,
   useContext,
@@ -223,24 +215,19 @@ function Root({
         onPointerDownOutside={(e) => {
           if (!dismissible || loading) e.preventDefault();
         }}
-        style={
-          {
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            paddingTop: size === "fill" ? "0" : "32px",
-            paddingLeft: size === "fill" ? "0" : "40px",
-            paddingRight: "0",
-            paddingBottom: size === "fill" ? "0" : "20px",
-            ...(size === "fill"
-              ? {
-                  width: "calc(100vw - 32px)",
-                  height: "calc(100vh - 32px)",
-                }
-              : {}),
-            "--inset-padding-left": "40px",
-          } as CSSProperties
-        }
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          // Header, body and footer each carry their own padding.
+          padding: 0,
+          ...(size === "fill"
+            ? {
+                width: "calc(100vw - 32px)",
+                height: "calc(100vh - 32px)",
+              }
+            : {}),
+        }}
       >
         <ModalContext.Provider value={ctx}>{children}</ModalContext.Provider>
       </Dialog.Content>
@@ -258,7 +245,7 @@ function Root({
 
 function Header({ children }: { children: ReactNode }) {
   return (
-    <Flex flexShrink="0" justify="between" align="center" gap="3" pr="7">
+    <Flex flexShrink="0" justify="between" align="center" gap="3" pt="6" px="7">
       {children}
     </Flex>
   );
@@ -274,7 +261,7 @@ function Title({ children }: { children: ReactNode }) {
 
 function Description({ children }: { children: ReactNode }) {
   return (
-    <Box flexShrink="0" pr="7" mt="1">
+    <Box flexShrink="0" px="7" mt="1">
       <Dialog.Description size="3" style={{ color: "var(--color-text-mid)" }}>
         {children}
       </Dialog.Description>
@@ -295,13 +282,14 @@ function Body({ children }: { children: ReactNode }) {
     <ScrollArea
       type="auto"
       mt="5"
-      mb="3"
-      ml="-1"
       ref={bodyRef}
       scrollbars="vertical"
       className={styles.bodyScrollArea}
     >
-      <Box pr="7" pl="1" pb="1" className={styles.body}>
+      <Box
+        className={styles.body}
+        style={{ padding: "0 var(--space-7) var(--space-5)" }}
+      >
         {error && <ErrorDisplay error={error} details={errorDetails} mb="5" />}
         {children}
       </Box>
@@ -323,11 +311,18 @@ function Footer({
   justify?: "start" | "center" | "end" | "between";
 }) {
   return (
-    <Box flexShrink="0" ml="-3">
-      <Inset side="x">
-        <Separator size="4" mt="5" style={{ marginBottom: "20px" }} />
-      </Inset>
-      <Flex gap="3" justify={justify} pr="7">
+    <Box flexShrink="0">
+      <Separator size="4" />
+      <Flex
+        gap="3"
+        justify={justify}
+        // The left inset is short by a ghost button's padding, so a ghost
+        // action on the left lines up with the content.
+        style={{
+          padding:
+            "20px var(--space-7) 20px calc(var(--space-7) - var(--space-3))",
+        }}
+      >
         {children}
       </Flex>
     </Box>
