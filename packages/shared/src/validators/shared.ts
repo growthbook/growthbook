@@ -224,6 +224,11 @@ export const schemaValidationQueryFields = {
     .meta({ deprecated: true }),
 };
 
+// Appended to every field that overrides a safety check, so automated callers
+// stop and ask a person instead of working around the block.
+export const HUMAN_OVERRIDE_NOTE =
+  "Only set this when a person has explicitly asked you to. If a check blocks you, stop and ask a person instead of working around it.";
+
 // Publish-override body flags, shared by every publish-class endpoint so the
 // names, semantics, and docs stay identical across entities. Body-canonical
 // (the querystring forms above are deprecated aliases); read off the raw body
@@ -233,19 +238,19 @@ export const ignoreWarningsBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Set to true to acknowledge the warnings listed in a blocked response and continue. This covers experiment guards, locked dependents, and references affected by an archive. When the organization treats schema failures as warnings, it also covers schema and invariant warnings. It never bypasses a rejected Custom Hook. On revision publish endpoints, it can also force-publish an out-of-date draft when the caller has Bypass draft approvals access.",
+    `Set to true to acknowledge the warnings listed in a blocked response and continue. This covers experiment guards, locked dependents, and references affected by an archive. When the organization treats schema failures as warnings, it also covers schema and invariant warnings. It never bypasses a rejected Custom Hook. On revision publish endpoints, it can also force-publish an out-of-date draft when the caller has Bypass draft approvals access. ${HUMAN_OVERRIDE_NOTE}`,
   );
 export const skipSchemaValidationBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Set to true to publish despite schema validation errors, failed invariants, or schema changes that invalidate dependent resources. This does not bypass a rejected Custom Hook; use `skipHooks` for that. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. Otherwise, this field is ignored.",
+    `Set to true to publish despite schema validation errors, failed invariants, or schema changes that invalidate dependent resources. This does not bypass a rejected Custom Hook; use \`skipHooks\` for that. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. Otherwise, this field is ignored. ${HUMAN_OVERRIDE_NOTE}`,
   );
 export const skipHooksBodyField = z
   .boolean()
   .optional()
   .describe(
-    "Set to true to publish despite a Custom Hook rejection. This does not bypass schema validation; use `skipSchemaValidation` for that. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. Otherwise, this field is ignored.",
+    `Set to true to publish despite a Custom Hook rejection. This does not bypass schema validation; use \`skipSchemaValidation\` for that. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. Otherwise, this field is ignored. ${HUMAN_OVERRIDE_NOTE}`,
   );
 export const publishOverrideBodyFields = {
   ignoreWarnings: ignoreWarningsBodyField,

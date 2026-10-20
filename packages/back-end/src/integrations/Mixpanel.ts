@@ -29,7 +29,7 @@ import {
   InsertMetricSourceDataQueryParams,
   IncrementalRefreshStatisticsQueryParams,
   DimensionSlicesQueryParams,
-  PastExperimentParams,
+  PastExperimentQueryParams,
   MetricAnalysisParams,
   ExperimentFactMetricsQueryResponse,
   UserExperimentExposuresQueryResponse,
@@ -767,7 +767,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
     return { rows: [overall, ...result] };
   }
-  getPastExperimentQuery(_: PastExperimentParams): string {
+  getPastExperimentQuery(_: PastExperimentQueryParams): string {
     throw new Error("Method not implemented.");
   }
   async runPastExperimentQuery(

@@ -1,7 +1,7 @@
 import Handlebars from "handlebars";
 import escapeRegExp from "lodash/escapeRegExp";
 import trimEnd from "lodash/trimEnd";
-import { parseEnvInt, stringToBoolean } from "shared/util";
+import { parseEnvInt, parseEnvIntMap, stringToBoolean } from "shared/util";
 import {
   GB_SDK_ID_DEV,
   GB_SDK_ID_PROD,
@@ -340,6 +340,22 @@ export const API_ALLOW_SKIP_PAGINATION = stringToBoolean(
   process.env.API_ALLOW_SKIP_PAGINATION,
 );
 
+export const API_RATE_LIMIT_MAX = parseEnvInt(
+  process.env.API_RATE_LIMIT_MAX,
+  60,
+  { min: 1, name: "API_RATE_LIMIT_MAX" },
+);
+export const API_RATE_LIMIT_MAX_BY_KEY = parseEnvIntMap(
+  process.env.API_RATE_LIMIT_MAX_BY_KEY,
+  { min: 1, name: "API_RATE_LIMIT_MAX_BY_KEY" },
+);
+export const API_RATE_LIMIT_SEPARATE_WRITES = stringToBoolean(
+  process.env.API_RATE_LIMIT_SEPARATE_WRITES,
+);
+export const API_RATE_LIMIT_SEPARATE_REQUESTERS = stringToBoolean(
+  process.env.API_RATE_LIMIT_SEPARATE_REQUESTERS,
+);
+
 // Opt-in: the bulk experiment results export reads and hydrates every analysis
 // on every snapshot it returns, so it stays off unless a deployment enables it.
 export const EXPERIMENT_BULK_RESULTS_ENABLED = stringToBoolean(
@@ -452,6 +468,9 @@ try {
 }
 export const WEBHOOKS = webhooks;
 export const WEBHOOK_PROXY = process.env.WEBHOOK_PROXY || "";
+
+export const EPPO_API_BASE_URL =
+  process.env.EPPO_API_BASE_URL || "https://eppo.cloud/api/v1/";
 
 /**
  * Allows custom configuration of the trust proxy settings as

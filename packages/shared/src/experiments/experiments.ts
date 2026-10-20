@@ -35,6 +35,7 @@ import {
 } from "shared/types/organization";
 import {
   AttributionModel,
+  CustomMetricSlice,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   LookbackOverride,
@@ -2580,7 +2581,7 @@ export function createCustomSliceDataForMetric({
 }: {
   metricId: string;
   metricName: string;
-  customMetricSlices?: { slices: { column: string; levels: string[] }[] }[];
+  customMetricSlices?: CustomMetricSlice[];
   factTable?: FactTableDefinition | null;
 }): SliceDataForMetric[] {
   // Sanity checks

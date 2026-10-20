@@ -6,11 +6,26 @@ import {
   namedSchemaRegistry,
   apiErrorRegistry,
   ApiErrorCode,
+  CONFIRM_OVERRIDE_FLAGS,
 } from "shared/validators";
+import { armableActions, routeConfirmation } from "shared/util";
 import type { ApiEndpointSpec } from "shared/api-spec";
 import * as endpointModules from "shared/api-endpoints";
 import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
 import { getBuild } from "back-end/src/util/build";
+
+// Top-level body fields, across the arms of a union body.
+function bodyFieldNames(schema: unknown): string[] {
+  if (!schema || typeof schema !== "object") return [];
+  const s = schema as Record<string, unknown>;
+  const arms = [s.anyOf, s.oneOf, s.allOf].flatMap((a) =>
+    Array.isArray(a) ? a : [],
+  );
+  return [
+    ...Object.keys((s.properties as object | undefined) ?? {}),
+    ...arms.flatMap(bodyFieldNames),
+  ];
+}
 
 // The docs site's API introduction, minus its frontmatter, so the spec and the
 // docs can't drift apart.
@@ -447,11 +462,36 @@ type RequestBody = {
 
 type Response = {
   description: string;
+  headers?: Record<
+    string,
+    { description: string; schema: z.core.JSONSchema.BaseSchema }
+  >;
   content: {
     "application/json": {
       schema: z.core.JSONSchema.BaseSchema;
     };
   };
+};
+
+// Any write that can be held answers this way, so it's one shared response.
+const HELD_RESPONSE: Response = {
+  description:
+    "Held until a person confirms it in GrowthBook. Poll the Location until the confirmation completes.",
+  headers: {
+    Location: {
+      description: "The confirmation to poll",
+      schema: { type: "string" },
+    },
+    "Retry-After": {
+      description: "Seconds to wait before polling",
+      schema: { type: "integer" },
+    },
+  },
+  content: {
+    "application/json": {
+      schema: { $ref: "#/components/schemas/ConfirmationHeld" },
+    },
+  },
 };
 
 function defaultResponseDescription(method: string): string {
@@ -476,7 +516,7 @@ type Path = {
   tags?: string[];
   parameters?: (Parameter | Ref)[];
   requestBody?: RequestBody;
-  responses: Record<string, Response>;
+  responses: Record<string, Response | Ref>;
   "x-codeSamples"?: CodeSample[];
 };
 
@@ -541,6 +581,7 @@ async function run() {
     paths: Record<string, Record<string, Path>>;
     components: {
       parameters: Record<string, Parameter>;
+      responses: Record<string, Response>;
       schemas: Record<string, z.core.JSONSchema.BaseSchema>;
       securitySchemes: Record<
         string,
@@ -583,6 +624,7 @@ async function run() {
     paths: {},
     components: {
       parameters: {},
+      responses: { ConfirmationHeld: HELD_RESPONSE },
       schemas: {},
       securitySchemes: {
         bearerAuth: {
@@ -659,6 +701,7 @@ curl https://api.growthbook.io/api/v1/features \
       version,
       deprecated,
       possibleErrors,
+      confirmation,
     } = route;
 
     if (!path || !method || !operationId) {
@@ -842,7 +885,7 @@ curl https://api.growthbook.io/api/v1/features \
       delete responseSchema.description;
     }
 
-    const responses: Record<string, Response> = {
+    const responses: Record<string, Response | Ref> = {
       "200": {
         description: responseDescription || defaultResponseDescription(method),
         content: {
@@ -903,6 +946,23 @@ curl https://api.growthbook.io/api/v1/features \
       },
     ];
 
+    // Held for its own actions, a skip flag it accepts, or a publish it can arm.
+    const accepted = [
+      // Shared parameters are refs keyed by their name.
+      ...parameters.map((p) =>
+        "name" in p ? p.name : (p.$ref.split("/").pop() ?? ""),
+      ),
+      ...bodyFieldNames(requestBody?.content["application/json"].schema),
+    ];
+    if (
+      routeConfirmation(method, tags, confirmation).length > 0 ||
+      Object.keys(CONFIRM_OVERRIDE_FLAGS).some((flag) =>
+        accepted.includes(flag),
+      ) ||
+      armableActions(tags, accepted).length > 0
+    ) {
+      responses["202"] = { $ref: "#/components/responses/ConfirmationHeld" };
+    }
     openapiSpec.paths[fullPath] = openapiSpec.paths[fullPath] || {};
     openapiSpec.paths[fullPath][method] = {
       operationId,

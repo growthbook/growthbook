@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { namedSchema } from "./openapi-helpers";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import { PLAIN_DESCRIPTION } from "./api-field-descriptions";
 
 export const apiNamespaceValidator = namedSchema(
   "Namespace",
@@ -107,7 +108,7 @@ const postNamespaceBody = z
       .describe(
         "Human-readable display name. Must be unique within the organization.",
       ),
-    description: z.string().optional(),
+    description: z.string().describe(PLAIN_DESCRIPTION).optional(),
     status: z.enum(["active", "inactive"]).optional(),
     format: z
       .enum(["legacy", "multiRange"])
@@ -130,6 +131,7 @@ export const postNamespaceValidator = {
   paramsSchema: z.never(),
   responseSchema: z.object({ namespace: apiNamespaceValidator }).strict(),
   summary: "Create a namespace",
+  confirmation: ["experiment.create"] as const,
   operationId: "postNamespace",
   tags: ["namespaces"],
   method: "post" as const,
@@ -167,6 +169,7 @@ export const putNamespaceValidator = {
   paramsSchema: nameParams,
   responseSchema: z.object({ namespace: apiNamespaceValidator }).strict(),
   summary: "Update a namespace",
+  confirmation: ["experiment.traffic"] as const,
   operationId: "putNamespace",
   tags: ["namespaces"],
   method: "put" as const,
@@ -192,6 +195,7 @@ export const deleteNamespaceValidator = {
   summary: "Delete a namespace",
   description:
     "Permanently removes a namespace from the organization. Returns a 409 error if any active experiments currently reference this namespace — disable or remove those references first.",
+  confirmation: ["experiment.traffic"] as const,
   operationId: "deleteNamespace",
   tags: ["namespaces"],
   method: "delete" as const,
@@ -216,6 +220,7 @@ export const postNamespaceRotateSeedValidator = {
   summary: "Rotate namespace seed",
   description:
     "⚠️ Dangerous: sets a new seed for a multiRange namespace. Every user's bucket position within the namespace is re-computed immediately, which re-randomizes traffic eligibility for **all** experiments currently using this namespace. Only do this if you intentionally want to reshuffle all allocations across experiments. This could be useful when re-using a namespace for a new set of experiments.",
+  confirmation: ["experiment.traffic"] as const,
   operationId: "postNamespaceRotateSeed",
   tags: ["namespaces"],
   method: "post" as const,

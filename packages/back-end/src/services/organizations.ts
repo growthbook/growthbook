@@ -48,6 +48,7 @@ import {
   SELF_HOSTED_DEFAULT_AI_MODELS,
   CLOUD_MANAGED_IMAGE_MODEL,
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
+  AUTOCOMPLETE_AI_MODEL,
   DEFAULT_EMBEDDING_MODEL,
   EmbeddingModel,
   STTModel,
@@ -354,6 +355,8 @@ export async function getAISettingsForOrg(
   // sensible default so callers don't need their own resolution logic.
   visualEditorAIModel: AIModel;
   visualEditorImageModel: string;
+  // Resolved AI Assistant autocomplete model.
+  autocompleteAIModel: AIModel;
   // Free-text brand guidelines appended to the AI system prompt.
   visualEditorAIContext: string;
 }> {
@@ -416,6 +419,16 @@ export async function getAISettingsForOrg(
       ? CLOUD_MANAGED_IMAGE_MODEL
       : GEMINI_IMAGE_MODEL);
 
+  // Cheapest tier unless the org picked one; it runs on every pause in
+  // typing. Cloud's managed Anthropic key covers it, self-hosted needs a key.
+  const autocompleteAIModel: AIModel =
+    getAllowedAIModel(
+      "text",
+      context.org.settings?.aiAutocompleteModel,
+      keySource,
+    ) ||
+    (keySource.anthropic !== "none" ? AUTOCOMPLETE_AI_MODEL : defaultAIModel);
+
   const sttModel: STTModel | null = !aiEnabled
     ? null
     : getAllowedAIModel("stt", context.org.settings?.sttModel, keySource) ||
@@ -441,6 +454,7 @@ export async function getAISettingsForOrg(
     sttModel,
     visualEditorAIModel,
     visualEditorImageModel,
+    autocompleteAIModel,
     visualEditorAIContext: (
       context.org.settings?.visualEditorAIContext || ""
     ).trim(),
@@ -1924,15 +1938,20 @@ export async function getContextForAgendaJobByOrgId(
 }
 
 // An API key as a principal, built the way the request middleware builds it.
-// Null when the key is gone or disabled. Unscoped PATs are stamped as their
-// user and never arrive here; a scoped one runs as its user under its cap.
+// Null when the key is gone, disabled or expired. A PAT runs as its user, under
+// its cap when scoped.
 export async function getContextForApiKeyIdInOrg(
   org: OrganizationInterface,
   armingId: string,
 ): Promise<ApiReqContext | null> {
   const { apiKeyId, requesterId } = decodeArmingApiKeyId(armingId);
   const key = await getOrgApiKey(org, apiKeyId);
-  if (!key || key.disabled || !key.role || isExpired(key.expiresAt)) {
+  if (
+    !key ||
+    key.disabled ||
+    (!key.role && !key.userId) ||
+    isExpired(key.expiresAt)
+  ) {
     return null;
   }
   // Armed while assuming a member, it replays only while the key still would.

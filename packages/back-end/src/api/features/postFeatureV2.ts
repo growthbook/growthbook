@@ -1,9 +1,13 @@
 import {
+  FEATURE_KEY_PATTERN,
+  FEATURE_KEY_PATTERN_ERROR,
+} from "shared/constants";
+import {
   validateFeatureValue,
   getRuleAttributeScopeProjectIds,
   normalizeTargetingProjects,
 } from "shared/util";
-import { FEATURE_KEY_REGEX, postFeatureV2Validator } from "shared/validators";
+import { postFeatureV2Validator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -24,6 +28,7 @@ import {
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/services/organizations";
+import { holdFeatureCreate } from "back-end/src/services/confirmations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
@@ -71,10 +76,8 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       throw new Error(`Feature id '${req.body.id}' already exists.`);
     }
 
-    if (!req.body.id.match(FEATURE_KEY_REGEX)) {
-      throw new Error(
-        "Feature keys can only include letters, numbers, and the characters _-.:|",
-      );
+    if (!new RegExp(FEATURE_KEY_PATTERN).test(req.body.id)) {
+      throw new Error(FEATURE_KEY_PATTERN_ERROR);
     }
 
     const orgEnvs = getEnvironments(req.context.org);
@@ -231,6 +234,11 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     });
     // After the gate so an unreadable id cannot be probed for existence.
     await assertValidProjectIds(req.body.targetingProjects, req.context);
+    await holdFeatureCreate(
+      req.context,
+      feature,
+      getApiCreateEnabledEnvironments(orgEnvs, req.body.environments),
+    );
 
     // AFTER every authorization: tags are a persistent org-level side effect, and
     // writing them first meant a request that then 403'd had already mutated tag
