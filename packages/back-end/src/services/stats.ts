@@ -380,8 +380,7 @@ export function getMetricSettingsForStatsEngine(
       metric.id,
       settings,
     ),
-    compute_uncapped_metric:
-      !isClusterMetric && eligibleForUncappedMetric(metric),
+    compute_uncapped_metric: eligibleForUncappedMetric(metric),
   };
 }
 
