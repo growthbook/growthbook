@@ -80,6 +80,7 @@ export const verbOf = (action: string) => {
   if (verb === "other") return "other actions";
   if (verb === "restBypassesReviews") return "REST bypasses reviews";
   if (verb === "visualEditor") return "AI Visual Editor";
+  if (verb === "apiKeys") return "API keys";
   return verb.replace(/([A-Z])/g, " $1").toLowerCase();
 };
 
