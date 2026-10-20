@@ -1280,6 +1280,42 @@
       true
     ],
     [
+      "$gte/$lte booleans - true not >= false",
+      { "b": { "$gte": false } },
+      { "b": true },
+      false
+    ],
+    [
+      "$gte/$lte booleans - false not <= true",
+      { "b": { "$lte": true } },
+      { "b": false },
+      false
+    ],
+    [
+      "$gte/$lte booleans - true not >= true",
+      { "b": { "$gte": true } },
+      { "b": true },
+      false
+    ],
+    [
+      "$gte/$lte booleans - false not <= false",
+      { "b": { "$lte": false } },
+      { "b": false },
+      false
+    ],
+    [
+      "$gte/$lte booleans - $not $gte",
+      { "b": { "$not": { "$gte": true } } },
+      { "b": true },
+      true
+    ],
+    [
+      "$gte/$lte booleans - $not $lte",
+      { "b": { "$not": { "$lte": false } } },
+      { "b": false },
+      true
+    ],
+    [
       "nested value is null",
       {
         "address.state": "CA"
