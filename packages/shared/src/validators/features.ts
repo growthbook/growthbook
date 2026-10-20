@@ -46,8 +46,6 @@ import {
 } from "./api-field-descriptions";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
-export const FEATURE_KEY_REGEX = /^[a-zA-Z0-9_.:|-]+$/;
-
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
   type: z.enum(["integer", "float", "string", "boolean"]),

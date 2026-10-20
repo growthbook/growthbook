@@ -1,11 +1,7 @@
 import { z } from "zod";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import { MAX_DESCRIPTION_LENGTH, FEATURE_KEY_PATTERN } from "shared/constants";
 import { baseSchema } from "./base-model";
-import {
-  featureEnvironment,
-  FEATURE_KEY_REGEX,
-  JSONSchemaDef,
-} from "./features";
+import { featureEnvironment, JSONSchemaDef } from "./features";
 import { ownerField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
 
@@ -89,8 +85,8 @@ export const interleavingValidator = baseSchema
     key: z
       .string()
       .regex(
-        FEATURE_KEY_REGEX,
-        "Interleaving keys can only include letters, numbers, and the characters _-.:|",
+        new RegExp(FEATURE_KEY_PATTERN),
+        "Interleaving keys can only include letters, numbers, and the characters _, -, ., :, and |.",
       ),
     // Experiment id in exposures (`experiment_id`), used only for analysis.
     // Like experiment tracking keys it may repeat (e.g. re-running a test);
