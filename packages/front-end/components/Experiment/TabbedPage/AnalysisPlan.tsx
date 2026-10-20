@@ -227,6 +227,7 @@ export default function AnalysisPlan({
   useEffect(() => resync(touchedRef.current), [resync]);
 
   useRegisterExperimentEdit("analysis-plan", dirty, {
+    label: "Analysis plan",
     changes: () =>
       experimentFieldChanges(experiment, {
         ...advanced,

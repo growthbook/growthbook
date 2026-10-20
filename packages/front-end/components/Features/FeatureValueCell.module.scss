@@ -33,6 +33,18 @@
   align-items: center;
 }
 
+// A strut in the row's font puts the value on the same baseline as the
+// variation's name.
+.text :global(code)::before {
+  // Interpolated so Sass keeps the escape: emitting the raw character makes
+  // it prefix a byte-order mark, which breaks the module's first rule.
+  content: #{'"\\200b"'};
+  display: inline-block;
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+}
+
 // Drawn beside the value's box, so rows keep their size when values become
 // editable. Its top and bottom are the box's, lining up with the row's inputs.
 .frame {
@@ -47,7 +59,6 @@
     z-index: -1;
     border: 1px solid var(--gray-a3);
     border-radius: var(--radius-2);
-    background: var(--color-surface);
   }
 }
 

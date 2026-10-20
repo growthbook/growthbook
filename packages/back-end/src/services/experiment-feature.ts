@@ -438,11 +438,16 @@ export function validateExperimentFeatureVariations({
 }) {
   const existingVariations = experiment.variations;
 
-  if (variations.length !== variationWeights.length) {
-    throw new Error("variations and variationWeights must be the same length.");
-  }
-  if (!isVariationWeightsSumValid(variationWeights)) {
-    throw new Error("variationWeights must add up to 1.");
+  // A bandit sets its own weights, so they don't gate its values.
+  if (experiment.type !== "multi-armed-bandit") {
+    if (variations.length !== variationWeights.length) {
+      throw new Error(
+        "variations and variationWeights must be the same length.",
+      );
+    }
+    if (!isVariationWeightsSumValid(variationWeights)) {
+      throw new Error("variationWeights must add up to 1.");
+    }
   }
   if (variations.length < existingVariations.length) {
     throw new Error("Existing experiment variations cannot be removed.");

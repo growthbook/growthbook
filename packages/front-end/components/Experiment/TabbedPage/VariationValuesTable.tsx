@@ -87,6 +87,8 @@ import {
 } from "./ExperimentEdits";
 import {
   canStartSeparateDraft,
+  draftInReview,
+  draftReviewHref,
   FlagDraftPicks,
   resolveDraftPick,
 } from "./draftPicks";
@@ -115,12 +117,16 @@ const CaretTrigger = forwardRef<
 >(function CaretTrigger({ children, ...props }, ref) {
   return (
     <span ref={ref} {...props} className={styles.caretTriggerRoot}>
-      <Link underline="none" className={styles.caretTrigger}>
+      <Link
+        underline="none"
+        className={styles.caretTrigger}
+        style={{ color: "var(--color-text-high)" }}
+      >
         <Flex align="center" gap="1" minWidth="0">
           <Text size="sm" truncate>
             {children}
           </Text>
-          <PiCaretDownFill size={10} style={{ flexShrink: 0 }} />
+          <PiCaretDownFill style={{ flexShrink: 0 }} />
         </Flex>
       </Link>
     </span>
@@ -615,6 +621,23 @@ function FlagColumn({
           ([id, value]) => value !== storedValue(id),
         )));
 
+  // Per variation, JSON parsed so a review diffs it field by field.
+  const reviewValues = (valueOf: (variationId: string) => string | undefined) =>
+    Object.fromEntries(
+      variations.map((v) => {
+        const value = valueOf(v.id);
+        let shown: unknown = value;
+        if (valueType === "json" && value !== undefined) {
+          try {
+            shown = JSON.parse(value);
+          } catch {
+            shown = value;
+          }
+        }
+        return [variationLabel(v), shown];
+      }),
+    );
+
   const checkedValues = ({ dryRun }: { dryRun: boolean }) => {
     const { checked, repaired } = repairVariationValues(
       { valueType, jsonSchema: feature.jsonSchema },
@@ -635,6 +658,20 @@ function FlagColumn({
     `flag:${feature.id}${group ? `:${group.ruleIds.join(",")}` : ""}`,
     dirty && !linkAction,
     {
+      label: `${feature.id} values${
+        group ? ` (${group.environments.join(", ") || "no environments"})` : ""
+      }`,
+      review: () => ({
+        before: {
+          values: reviewValues(storedValue),
+          ...(sparse !== storedSparse && { sparse: storedSparse }),
+        },
+        after: {
+          values: reviewValues(valueFor),
+          ...(sparse !== storedSparse && { sparse }),
+          ...(stagedScope && { environments: stagedScope }),
+        },
+      }),
       changes: (options) => ({
         flagValues: [
           {
@@ -665,6 +702,11 @@ function FlagColumn({
     `link:${feature.id}`,
     !!linkAction && (!group || group.first),
     {
+      label: removing
+        ? `Remove ${feature.id}`
+        : linkAction === "keep"
+          ? `Keep ${feature.id}`
+          : `Link ${feature.id}`,
       changes: (options) =>
         removing
           ? { unlinkFeatures: [feature.id] }
@@ -732,10 +774,8 @@ function FlagColumn({
     !!shownDraft?.pendingApproval && !draftApprovalSatisfied(shownDraft);
   const cannotPublishLaunch =
     !!shownDraft && draftLaunches && !!info.cannotPublish;
-  const reviewHref = (version: number) =>
-    `/features/${feature.id}?v=${version}#review`;
   const draftHref = shownDraft
-    ? reviewHref(shownDraft.version)
+    ? draftReviewHref(feature.id, shownDraft.version)
     : `/features/${feature.id}`;
   const draftLink = (
     label: string,
@@ -918,7 +958,7 @@ function FlagColumn({
             text: `Revision ${pendingRemoval.version} removes this experiment's rule.`,
             action: draftLink(
               "Review draft",
-              reviewHref(pendingRemoval.version),
+              draftReviewHref(feature.id, pendingRemoval.version),
             ),
           },
         ]
@@ -940,12 +980,7 @@ function FlagColumn({
   const revisionNotes = showsDraft
     ? draftNotes
     : ["Saving starts a new draft of this Feature Flag."];
-  const inReview =
-    !!shownDraft &&
-    (needsApproval ||
-      ["pending-review", "approved", "changes-requested"].includes(
-        shownDraft.status,
-      ));
+  const inReview = !!shownDraft && draftInReview(shownDraft);
   const revisionDot = <StatusDot color={draftStatusDotColor(revisionStatus)} />;
   const revisionPicker =
     canChooseTarget && !showingLive ? (
@@ -994,11 +1029,6 @@ function FlagColumn({
               {note}
             </Text>
           ))}
-          {inReview ? (
-            <Text size="sm">
-              {draftLink("Review & Publish", draftHref, "hover")}
-            </Text>
-          ) : null}
         </Flex>
       }
     />
@@ -1020,7 +1050,6 @@ function FlagColumn({
       </Flex>,
     )
   );
-
   const reviewItem =
     shownDraft && !inReview ? (
       <DropdownMenuItem

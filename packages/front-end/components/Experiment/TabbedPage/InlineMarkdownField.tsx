@@ -75,6 +75,7 @@ export default function InlineMarkdownField({
 
   const dirty = editable && value.trim() !== savedValue.trim();
   useRegisterExperimentEdit(`inline:${field}`, dirty, {
+    label: field.charAt(0).toUpperCase() + field.slice(1),
     changes: () =>
       experimentFieldChanges(experiment, { [field]: value.trim() }),
     onSaved: () => {

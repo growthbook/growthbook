@@ -245,6 +245,7 @@ export default function TrafficAllocationFunnel({
       onlyTrafficChanged(staged, targetingDefaults)
       ? {
           ...clearStaged,
+          label: "Traffic",
           changes: () =>
             experimentFieldChanges(experiment, {
               coverage: staged.coverage,
@@ -253,6 +254,8 @@ export default function TrafficAllocationFunnel({
         }
       : {
           ...clearStaged,
+          label: "Targeting",
+          review: () => ({ before: targetingDefaults, after: staged }),
           save: async () => {
             await apiCall(`/experiment/${experiment.id}/targeting`, {
               method: "POST",
@@ -435,6 +438,7 @@ export default function TrafficAllocationFunnel({
     <>
       <Frame
         px="4"
+        noBackground
         style={{ backgroundColor: "var(--gray-a2)", border: "none" }}
       >
         {choosingHoldout ? (
@@ -574,6 +578,7 @@ export default function TrafficAllocationFunnel({
                     ? () => setEditingTraffic(true)
                     : editTargeting
               }
+              disabled={!safeToEdit}
             >
               {!isHoldout ? (
                 <FunnelRow label="Rollout percentage">
@@ -642,7 +647,7 @@ export default function TrafficAllocationFunnel({
                     ? (weights) => stagePatch({ variationWeights: weights })
                     : null
                 }
-                splitNote={isBandit ? "Managed by the bandit" : null}
+                splitNote={isBandit ? "Managed by bandit" : null}
                 onEditKeys={
                   canEditExperiment && !variationsLocked
                     ? editVariationKeys

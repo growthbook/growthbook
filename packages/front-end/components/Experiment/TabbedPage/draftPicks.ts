@@ -1,4 +1,8 @@
-import { LinkedFeatureInfo } from "shared/types/experiment";
+import {
+  LinkedFeatureInfo,
+  LinkedFeaturePendingDraft,
+} from "shared/types/experiment";
+import { draftApprovalSatisfied } from "@/components/Reviews/reviewAndPublishState";
 
 /** Which of a flag's drafts its row shows and saves to. */
 export type DraftPick = {
@@ -63,3 +67,15 @@ export function withPickedDraft(
   const pendingDraft = target === "draft" ? draft : undefined;
   return pendingDraft === info.pendingDraft ? info : { ...info, pendingDraft };
 }
+
+/** Whether the draft still needs approval, or its review is underway. */
+export function draftInReview(draft: LinkedFeaturePendingDraft): boolean {
+  return (
+    (draft.pendingApproval && !draftApprovalSatisfied(draft)) ||
+    ["pending-review", "approved", "changes-requested"].includes(draft.status)
+  );
+}
+
+/** Where a flag's draft is reviewed and published. */
+export const draftReviewHref = (featureId: string, version: number) =>
+  `/features/${featureId}?v=${version}#review`;

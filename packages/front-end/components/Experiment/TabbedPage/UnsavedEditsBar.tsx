@@ -3,6 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import { useExperimentEdits } from "./ExperimentEdits";
+import StagedChanges from "./StagedChanges";
 import styles from "./UnsavedEditsBar.module.scss";
 
 /**
@@ -53,7 +54,9 @@ export default function UnsavedEditsBar() {
         width="100%"
         style={{ maxWidth: "var(--page-content-max-width)" }}
       >
-        <Flex align="center" justify="end" gap="3">
+        <Flex align="center" gap="3">
+          <StagedChanges />
+          <Box flexGrow="1" />
           {edits.error ? (
             <HelperText status="error" size="sm">
               {edits.error}

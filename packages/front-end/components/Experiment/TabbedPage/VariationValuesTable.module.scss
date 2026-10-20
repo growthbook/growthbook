@@ -17,6 +17,11 @@
 .caretTrigger {
   border-bottom: 1px solid transparent;
 
+  // A long revision name is cut off at the caret, without an ellipsis.
+  :global(.rt-truncate) {
+    text-overflow: clip;
+  }
+
   &:hover {
     border-bottom-color: currentColor;
   }
@@ -132,7 +137,9 @@
   line-height: var(--line-height-2);
 
   &::before {
-    content: "\200b";
+    // Interpolated so Sass keeps the escape: emitting the raw character makes
+    // it prefix a byte-order mark, which breaks the module's first rule.
+    content: #{'"\\200b"'};
     margin-inline-end: calc(-1 * var(--space-3));
   }
 }

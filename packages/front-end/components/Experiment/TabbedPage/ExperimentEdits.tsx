@@ -22,6 +22,13 @@ import ConfirmDialog from "@/ui/ConfirmDialog";
 import { mergeChanges } from "./mergeChanges";
 
 type PendingEdit = {
+  /** Names the edit in the save bar's list of staged changes. */
+  label: string;
+  /**
+   * What the edit changes, saved against staged. Edits in the changeset can
+   * leave it out: their experiment fields carry the values they replace.
+   */
+  review?: () => StagedReview;
   /** Puts the field back to what is stored. */
   discard: () => void;
   /** Runs once the edit has been written. */
@@ -42,16 +49,35 @@ type PendingEdit = {
     }
 );
 
+export type StagedReview = { before: unknown; after: unknown };
+
+// Before and after from an edit's share of the changeset: each experiment
+// field against the value it was loaded with, and anything else as added.
+function reviewFromChanges(body: ExperimentChangesBody): StagedReview {
+  const { experiment, ...rest } = body;
+  return {
+    before: experiment?.base ?? {},
+    after: { ...experiment?.changes, ...rest },
+  };
+}
+
 interface ExperimentEditsValue {
   scope: string;
   /** Anything on the page edited but not yet written. */
   dirty: boolean;
   saving: boolean;
   error: string | null;
-  saveAll: () => Promise<void>;
+  /** Resolves with why the save failed, or null once it's written. */
+  saveAll: () => Promise<string | null>;
   discardAll: () => void;
+  /** The staged edits, in the order they were made. */
+  staged: { id: string; label: string }[];
+  discard: (id: string) => void;
+  review: (id: string) => StagedReview | null;
   register: (id: string, edit: PendingEdit | null) => void;
   checkChanges: CheckChanges;
+  /** Runs the save's checks on everything staged, writing nothing. */
+  checkAll: () => Promise<void>;
   allowUnload: () => void;
 }
 
@@ -184,18 +210,22 @@ export function ExperimentEditsProvider({
     if (left === scope || !left.startsWith(`${experimentId}:`)) return;
     clearStagedEdits(left);
   }, [scope, experimentId]);
-  const [dirtyIds, setDirtyIds] = useState<string[]>([]);
+  const [staged, setStaged] = useState<{ id: string; label: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const register = useCallback((id: string, edit: PendingEdit | null) => {
     if (edit) edits.current.set(id, edit);
     else edits.current.delete(id);
-    setDirtyIds((prev) => {
-      const has = prev.includes(id);
-      if (edit && !has) return [...prev, id];
-      if (!edit && has) return prev.filter((x) => x !== id);
-      return prev;
+    setStaged((prev) => {
+      const i = prev.findIndex((entry) => entry.id === id);
+      if (!edit)
+        return i === -1 ? prev : prev.filter((entry) => entry.id !== id);
+      if (i === -1) return [...prev, { id, label: edit.label }];
+      if (prev[i].label === edit.label) return prev;
+      return prev.map((entry, j) =>
+        j === i ? { id, label: edit.label } : entry,
+      );
     });
   }, []);
 
@@ -230,8 +260,11 @@ export function ExperimentEditsProvider({
         wrote = true;
         edit.onSaved?.();
       }
+      return null;
     } catch (e) {
-      setError(e.message || "Could not save your changes");
+      const message = e.message || "Could not save your changes";
+      setError(message);
+      return message;
     } finally {
       setSaving(false);
       if (wrote) mutate();
@@ -243,11 +276,29 @@ export function ExperimentEditsProvider({
     setError(null);
   }, []);
 
-  const checkChanges: CheckChanges = useCallback(
-    async (id, part) => {
+  const discard = useCallback((id: string) => {
+    edits.current.get(id)?.discard();
+  }, []);
+
+  const review = useCallback((id: string): StagedReview | null => {
+    const edit = edits.current.get(id);
+    if (!edit) return null;
+    if (edit.review) return edit.review();
+    if (!edit.changes) return null;
+    // One that can't build its share yet is the save's to report.
+    try {
+      return reviewFromChanges(edit.changes({ dryRun: true }));
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // `except`'s share is left out, for a caller standing in its own.
+  const dryRun = useCallback(
+    async (except: string | null, extra: ExperimentChangesBody[]) => {
       const parts: ExperimentChangesBody[] = [];
       for (const [editId, edit] of edits.current) {
-        if (editId === id || !edit.changes) continue;
+        if (editId === except || !edit.changes) continue;
         // One that can't build its share yet is the save's to report.
         try {
           parts.push(edit.changes({ dryRun: true }));
@@ -258,43 +309,52 @@ export function ExperimentEditsProvider({
       await apiCall(`/experiment/${experimentId}/changes`, {
         method: "POST",
         body: JSON.stringify({
-          ...mergeChanges([...parts, part]),
+          ...mergeChanges([...parts, ...extra]),
           dryRun: true,
         }),
       });
     },
     [apiCall, experimentId],
   );
+  const checkChanges: CheckChanges = useCallback(
+    (id, part) => dryRun(id, [part]),
+    [dryRun],
+  );
+  const checkAll = useCallback(() => dryRun(null, []), [dryRun]);
 
   // Discards before leaving: a route change started with edits still staged
   // doesn't complete until they're saved or discarded.
-  const navigationGuard = useUnsavedChangesGuard(
-    dirtyIds.length > 0,
-    discardAll,
-  );
+  const navigationGuard = useUnsavedChangesGuard(staged.length > 0, discardAll);
 
   const { allowUnload } = navigationGuard;
   const value = useMemo(
     () => ({
       scope,
-      dirty: dirtyIds.length > 0,
+      dirty: staged.length > 0,
       saving,
       error,
       saveAll,
       discardAll,
+      staged,
+      discard,
+      review,
       register,
       checkChanges,
+      checkAll,
       allowUnload,
     }),
     [
       scope,
-      dirtyIds,
+      staged,
       saving,
       error,
       saveAll,
       discardAll,
+      discard,
+      review,
       register,
       checkChanges,
+      checkAll,
       allowUnload,
     ],
   );
@@ -339,27 +399,35 @@ export function useRegisterExperimentEdit(
   latest.current = edit;
 
   const inChangeset = !!edit.changes;
+  const label = edit.label;
   useEffect(() => {
     if (!ctx) return;
     const discard = () => latest.current.discard();
     const onSaved = () => latest.current.onSaved?.();
+    const review = latest.current.review
+      ? () => latest.current.review?.() ?? { before: null, after: null }
+      : undefined;
     ctx.register(
       id,
       !dirty
         ? null
         : inChangeset
           ? {
+              label,
+              review,
               changes: (options) => latest.current.changes?.(options) ?? {},
               discard,
               onSaved,
             }
           : {
+              label,
+              review,
               save: () => latest.current.save?.() ?? Promise.resolve(),
               discard,
               onSaved,
             },
     );
-  }, [ctx, id, dirty, inChangeset]);
+  }, [ctx, id, dirty, inChangeset, label]);
 
   useEffect(() => {
     return () => ctx?.register(id, null);

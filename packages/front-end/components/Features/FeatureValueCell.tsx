@@ -46,7 +46,9 @@ export default function FeatureValueCell({
   label: string;
 }) {
   const isJson = feature.valueType === "json";
-  const showsCode = value !== undefined && feature.valueType !== "boolean";
+  const showsCode = value !== undefined && isJson;
+  const showsText =
+    value !== undefined && !isJson && feature.valueType !== "boolean";
 
   return (
     <Box flexGrow="1" minWidth="0" position="relative" className={styles.root}>
@@ -69,6 +71,7 @@ export default function FeatureValueCell({
           className={clsx(
             styles.value,
             showsCode ? styles.code : styles.centered,
+            showsText && styles.text,
             (editable || error) && styles.frame,
             cornerStyles.hoverActions,
             error && styles.error,
@@ -82,8 +85,7 @@ export default function FeatureValueCell({
               value={value}
               feature={feature}
               sparse={sparse}
-              fontSize="0.7rem"
-              lineHeight={1.3}
+              lineHeight={isJson ? 1.3 : undefined}
               monochrome={!isJson}
               actionsOverlay={isJson ? JSON_ACTIONS : ONE_LINE_ACTIONS}
             />

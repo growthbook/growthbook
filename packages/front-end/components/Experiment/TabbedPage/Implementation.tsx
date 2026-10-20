@@ -186,6 +186,7 @@ export default function Implementation({
     [environmentScopes, setEnvironmentScopes],
   );
   useRegisterExperimentEdit("variations", !!variationsDraft, {
+    label: "Variations",
     changes: () =>
       experimentFieldChanges(experiment, {
         variations: variationsDraft ?? experiment.variations,
@@ -230,7 +231,12 @@ export default function Implementation({
           visualChangesets,
           shownVariationIds,
         )),
-    { changes: () => linkedBody, onSaved: clearLinked, discard: clearLinked },
+    {
+      label: "URL redirects and visual changes",
+      changes: () => linkedBody,
+      onSaved: clearLinked,
+      discard: clearLinked,
+    },
   );
   const onStageVisualTargeting = useCallback(
     (stored: VisualChangesetInterface, targeting: VisualTargeting) =>

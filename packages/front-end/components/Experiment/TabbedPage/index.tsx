@@ -69,6 +69,7 @@ import {
 } from "./ExperimentEdits";
 import UnsavedEditsBar from "./UnsavedEditsBar";
 import SetupTabOverview from "./SetupTabOverview";
+import DraftReviewCallouts from "./DraftReviewCallouts";
 import Implementation, { IMPLEMENTATION_ID } from "./Implementation";
 import { TargetingDraft } from "./TrafficAllocationFunnel";
 import ResultsTab from "./ResultsTab";
@@ -189,6 +190,7 @@ function TabbedPageContents({
     HoldoutDraft["value"]
   >("holdout", null);
   useRegisterExperimentEdit("holdout", stagedHoldout !== null, {
+    label: "Holdout",
     changes: () =>
       stagedHoldout !== null
         ? experimentFieldChanges(experiment, { holdoutId: stagedHoldout })
@@ -719,6 +721,10 @@ function TabbedPageContents({
                   : "d-none d-print-block",
               )}
             >
+              <DraftReviewCallouts
+                experiment={experiment}
+                linkedFeatures={linkedFeatures}
+              />
               <SetupTabOverview
                 experiment={experiment}
                 holdout={holdout}

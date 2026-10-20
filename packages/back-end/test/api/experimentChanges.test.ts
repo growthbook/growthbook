@@ -255,6 +255,39 @@ describe("applyExperimentChanges", () => {
     expect(draft?.environmentsEnabled).toEqual({ staging: true });
   });
 
+  it.each([
+    ["a bandit's values save", "multi-armed-bandit", null],
+    [
+      "a standard experiment's are refused",
+      "standard",
+      "variations and variationWeights must be the same length.",
+    ],
+  ])(
+    "%s though its phase has no weights",
+    async (description, type, refusal) => {
+      await seed({ withDraft: true });
+      await collection("experiments").updateOne(
+        { id: EXP },
+        { $set: { type, "phases.0.variationWeights": [] } },
+      );
+      const save = run({
+        flagValues: [
+          {
+            featureId: FLAG,
+            variations: arms("a", "new"),
+            revision: { version: 2, dateUpdated: LOADED },
+          },
+        ],
+      });
+      if (refusal) {
+        await expect(save).rejects.toThrow(refusal);
+      } else {
+        await save;
+        expect(await revisionRules(2)).toEqual(arms("a", "new"));
+      }
+    },
+  );
+
   it("starts a new draft when the values were loaded from live", async () => {
     await seed({ withDraft: false });
     const result = await run({
