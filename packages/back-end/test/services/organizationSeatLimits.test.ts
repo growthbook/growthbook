@@ -280,7 +280,7 @@ describe("organization seat limits", () => {
       plan: "enterprise",
     });
 
-    await expect(addMember(organization, "user_0")).resolves.toBeUndefined();
+    await expect(addMember(organization, "user_0")).resolves.toBe(false);
 
     expect(mockedGetLicense).not.toHaveBeenCalled();
     expect(mockedUpdateOrganization).not.toHaveBeenCalled();
