@@ -1,19 +1,18 @@
 import { Queries, QueryStatus } from "shared/types/query";
 import { UpdateProps } from "shared/types/base-model";
 import {
-  InterleavingAnalysis,
   InterleavingMetricResult,
   InterleavingSnapshotInterface,
   InterleavingSnapshotSettings,
 } from "shared/validators";
-import type {
-  InterleavingMetricQueryMetric,
-  InterleavingMetricQueryResponseRows,
-} from "shared/types/integrations";
+import type { InterleavingMetricQueryResponseRows } from "shared/types/integrations";
 import type { FactTableInterface } from "shared/types/fact-table";
 import { ownershipSignTest, pairedDeltaTest } from "stats-ts";
 import { QueryMap, QueryRunner } from "back-end/src/queryRunners/QueryRunner";
-import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
+import {
+  ResolvedInterleavingMetric,
+  resolveInterleavingMetrics,
+} from "back-end/src/enterprise/services/interleavingMetrics";
 
 export type InterleavingResultsQueryParams = {
   snapshotSettings: InterleavingSnapshotSettings;
@@ -23,14 +22,11 @@ export type InterleavingQueryRunResult = {
   results: InterleavingMetricResult[];
 };
 
-// One (metric, analysis) pair; index i in a group maps to the m{i}_ columns
-type AnalysisEntry = { metricId: string; analysis: InterleavingAnalysis };
-
-// One query per fact table, keyed by the fact table id (also the query name)
+// One query per fact table, keyed by the fact table id (also the query name);
+// metric index i in a group maps to the m{i}_ columns
 type FactTableGroup = {
   factTable: FactTableInterface;
-  entries: AnalysisEntry[];
-  queryMetrics: InterleavingMetricQueryMetric[];
+  metrics: ResolvedInterleavingMetric[];
 };
 
 export class InterleavingResultsQueryRunner extends QueryRunner<
@@ -51,17 +47,11 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
   ): Promise<Map<string, FactTableGroup>> {
     const metrics = await resolveInterleavingMetrics(this.context, settings);
     const groups = new Map<string, FactTableGroup>();
-    for (const { config, metric, factTable } of metrics) {
-      const group = groups.get(factTable.id) ?? {
-        factTable,
-        entries: [],
-        queryMetrics: [],
-      };
+    for (const resolved of metrics) {
+      const { factTable } = resolved;
+      const group = groups.get(factTable.id) ?? { factTable, metrics: [] };
       groups.set(factTable.id, group);
-      for (const analysis of config.analyses) {
-        group.entries.push({ metricId: config.id, analysis });
-        group.queryMetrics.push({ analysis, metric });
-      }
+      group.metrics.push(resolved);
     }
     return groups;
   }
@@ -92,7 +82,10 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
         startDate: settings.startDate,
         endDate: settings.endDate,
         factTable: group.factTable,
-        metrics: group.queryMetrics,
+        metrics: group.metrics.map(({ config, metric }) => ({
+          metric,
+          analyses: config.analyses,
+        })),
       });
 
       queries.push(
@@ -120,7 +113,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
     const results: InterleavingMetricResult[] = [];
     const groups = await this.groupByFactTable(this.model.frozenSettings);
 
-    for (const [factTableId, { entries }] of groups) {
+    for (const [factTableId, { metrics }] of groups) {
       // A single-row aggregate; QueryMap is untyped at this boundary
       const rows = queryMap.get(factTableId)?.result as
         | InterleavingMetricQueryResponseRows
@@ -132,64 +125,70 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
         );
       }
 
-      entries.forEach(({ metricId, analysis }, i) => {
-        const col = (name: string) => {
-          const value = row[`m${i}_${name}`];
-          if (value === undefined) {
-            throw new Error(
-              `Interleaving query for fact table ${factTableId} is missing column m${i}_${name}`,
-            );
-          }
-          return value;
-        };
-        switch (analysis.type) {
-          case "paired": {
-            const stats = {
-              users: col("users"),
-              sum_x: col("sum_x"),
-              sum_xx: col("sum_xx"),
-              sum_y: col("sum_y"),
-              sum_yy: col("sum_yy"),
-              sum_n: col("sum_n"),
-              sum_nn: col("sum_nn"),
-              sum_xy: col("sum_xy"),
-              sum_xn: col("sum_xn"),
-              sum_yn: col("sum_yn"),
-            };
-            const perExposure = (v: number) =>
-              stats.sum_n > 0 ? v / stats.sum_n : 0;
-            results.push({
-              metricId,
-              analysis,
-              users: stats.users,
-              control: { value: stats.sum_y, cr: perExposure(stats.sum_y) },
-              treatment: { value: stats.sum_x, cr: perExposure(stats.sum_x) },
-              test: pairedDeltaTest(stats),
-            });
-            return;
-          }
-          case "ownership": {
-            const prefT = col("users_pref_treatment");
-            const prefC = col("users_pref_control");
-            const users = row.users_exposed;
-            const perUser = (v: number) => (users > 0 ? v / users : 0);
-            results.push({
-              metricId,
-              analysis,
-              users,
-              control: { value: prefC, cr: perUser(prefC) },
-              treatment: { value: prefT, cr: perUser(prefT) },
-              test: ownershipSignTest({
-                users_pref_treatment: prefT,
-                users_pref_control: prefC,
-                users_tied: Math.max(0, users - prefT - prefC),
-              }),
-            });
-            return;
-          }
-          default: {
-            const unknown: never = analysis;
-            throw new Error(`Unknown analysis: ${JSON.stringify(unknown)}`);
+      const read = (name: string) => {
+        const value = row[name];
+        if (value === undefined) {
+          throw new Error(
+            `Interleaving query for fact table ${factTableId} is missing column ${name}`,
+          );
+        }
+        return value;
+      };
+      const usersExposed = read("users_exposed");
+
+      metrics.forEach(({ config }, i) => {
+        const metricId = config.id;
+        const col = (name: string) => read(`m${i}_${name}`);
+        for (const analysis of config.analyses) {
+          switch (analysis.type) {
+            case "paired": {
+              const stats = {
+                users: col("users"),
+                sum_x: col("sum_x"),
+                sum_xx: col("sum_xx"),
+                sum_y: col("sum_y"),
+                sum_yy: col("sum_yy"),
+                sum_n: col("sum_n"),
+                sum_nn: col("sum_nn"),
+                sum_xy: col("sum_xy"),
+                sum_xn: col("sum_xn"),
+                sum_yn: col("sum_yn"),
+              };
+              const perExposure = (v: number) =>
+                stats.sum_n > 0 ? v / stats.sum_n : 0;
+              results.push({
+                metricId,
+                analysis,
+                users: stats.users,
+                control: { value: stats.sum_y, cr: perExposure(stats.sum_y) },
+                treatment: { value: stats.sum_x, cr: perExposure(stats.sum_x) },
+                test: pairedDeltaTest(stats),
+              });
+              break;
+            }
+            case "ownership": {
+              const prefT = col("users_pref_treatment");
+              const prefC = col("users_pref_control");
+              const perUser = (v: number) =>
+                usersExposed > 0 ? v / usersExposed : 0;
+              results.push({
+                metricId,
+                analysis,
+                users: usersExposed,
+                control: { value: prefC, cr: perUser(prefC) },
+                treatment: { value: prefT, cr: perUser(prefT) },
+                test: ownershipSignTest({
+                  users_pref_treatment: prefT,
+                  users_pref_control: prefC,
+                  users_tied: col("users_tied"),
+                }),
+              });
+              break;
+            }
+            default: {
+              const unknown: never = analysis;
+              throw new Error(`Unknown analysis: ${JSON.stringify(unknown)}`);
+            }
           }
         }
       });

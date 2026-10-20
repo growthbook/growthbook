@@ -1,7 +1,8 @@
-import { isEqual } from "lodash";
+import { escapeRegExp, isEqual } from "lodash";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import {
   ApiInterleavingExposureQueryInterface,
+  INTERLEAVING_EXPOSURE_REQUIRED_COLUMNS,
   InterleavingExposureQueryInterface,
   interleavingExposureQueryApiSpec,
   interleavingExposureQueryValidator,
@@ -89,6 +90,19 @@ export class InterleavingExposureQueryModel extends BaseClass {
     if (!getDataSourceSqlDialect(datasource.type)?.jsonArray) {
       throw new Error(
         "Interleaving is not supported for this Data Source type yet.",
+      );
+    }
+    // Cheap text check that the required output columns are at least named;
+    // the real shape is verified when the query runs
+    const missing = [
+      ...INTERLEAVING_EXPOSURE_REQUIRED_COLUMNS,
+      ...doc.userIdTypes,
+    ].filter(
+      (col) => !new RegExp(`\\b${escapeRegExp(col)}\\b`, "i").test(doc.query),
+    );
+    if (missing.length > 0) {
+      throw new Error(
+        `Query must output the columns: ${missing.join(", ")}. Alias your columns to these names.`,
       );
     }
     // Only a changed list is checked, so a query whose Data Source later

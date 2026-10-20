@@ -299,6 +299,16 @@ function getFunnelPassthroughColumns({
 
 const MAX_LOG_ERROR_LENGTH = 100;
 
+// Parse a single numeric column from a raw query row, omitting absent ones
+function parseFloatField(
+  row: Record<string, unknown>,
+  field: string,
+): Record<string, number> {
+  return row[field] !== undefined
+    ? { [field]: parseFloat(row[field] as string) || 0 }
+    : {};
+}
+
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface, PipelineIntegration
 {
@@ -712,16 +722,6 @@ export default abstract class SqlIntegration
       queryMetadata,
     );
 
-    // Helper function to parse a single float field
-    const parseFloatField = (
-      row: Record<string, unknown>,
-      field: string,
-    ): Record<string, number> => {
-      return row[field] !== undefined
-        ? { [field]: parseFloat(row[field] as string) || 0 }
-        : {};
-    };
-
     // Helper function to parse non-float fields (cap values)
     const parseNonFloatField = (
       row: Record<string, unknown>,
@@ -844,13 +844,12 @@ export default abstract class SqlIntegration
       queryMetadata,
     );
     return {
-      rows: rows.map((row) => {
-        const out: Record<string, number> = {};
-        Object.entries(row).forEach(([key, value]) => {
-          out[key] = parseFloat(value as string) || 0;
-        });
-        return out;
-      }),
+      rows: rows.map((row) =>
+        Object.keys(row).reduce<Record<string, number>>(
+          (out, field) => Object.assign(out, parseFloatField(row, field)),
+          {},
+        ),
+      ),
       statistics,
     };
   }

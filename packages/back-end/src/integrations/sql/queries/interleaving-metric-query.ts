@@ -32,29 +32,35 @@ import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metri
 
 /**
  * Sufficient-statistics query for interleaving experiments: one query per
- * fact table, covering every (metric, analysis) pair on that table. Output
- * columns are prefixed m{i}_ by the pair's index in `metrics`.
+ * fact table, covering every metric on that table and each analysis
+ * requested on it. Output columns are prefixed m{i}_ by the metric's index
+ * in `metrics`; paired and ownership column names do not collide.
  *
  * The exposure query returns ONE ROW PER IMPRESSION with the item detail in
- * an `items` JSON column (the SDK's nested exposure shape); the __exposures
- * CTE keeps the first row per impression (SDK retries can double-log) and
- * unnests it per warehouse dialect.
+ * an `items` JSON column (the SDK's nested exposure shape). __exposures
+ * unnests it per warehouse dialect and groups to one row per
+ * (user, ranking, competitive item), which also collapses SDK retries.
  *
  * Metric values use the experiment fact-metric resolution (numerator column
  * and row filters via getFactMetricColumn/getColumnRefWhereClause, per-unit
- * aggregation via getAggregationMetadata), aggregated per user x item or
- * per user x impression x item.
+ * aggregation via getAggregationMetadata). __events is the single scan of
+ * the fact table, at user x ranking x item grain when a paired analysis
+ * needs the per-impression join, else user x item.
  *
- * - "paired": engagement joined per impression x item via ranking_id
- *   (NULL ids never satisfy the join) -> per-user (x, y, n) restricted to
- *   engaged impressions -> cross-user joint moments for the paired
- *   delta-method t-test. n counts treatment-drafted competitive exposures;
- *   both x and y are normalized by it, which a fair team draft balances in
- *   expectation.
- * - "ownership": per user x item treatment share over all competitive
- *   exposures (exposureCount) -> fractional win totals over ALL engagement
- *   events -> user preference counts for the sign test.
- * Each CTE branch is only emitted when at least one analysis requests it.
+ * Shared __exposures and __events feed two independent chains, each emitted
+ * only when an analysis requests it, and joined per user at the end:
+ * - "paired": __credited (exposures joined to engagement per impression x
+ *   item via ranking_id; NULL ids never match) -> __impression (x, y, n per
+ *   impression) -> __pairedUser (sums over engaged impressions only, where
+ *   engaged means x + y > 0). n counts treatment-drafted competitive
+ *   exposures; both x and y are normalized by it, which a fair team draft
+ *   balances in expectation. The final SELECT emits cross-user joint moments
+ *   for the paired delta-method t-test.
+ * - "ownership": __share (per user x item treatment share over all
+ *   competitive exposures, i.e. exposureCount attribution) joined to
+ *   engagement per user x item (__events rolled up to that grain when it is
+ *   at impression grain) -> __ownerUser (fractional win totals) -> user
+ *   preference counts for the sign test.
  *
  * v1 limitations (documented): metric capping and conversion windows are
  * not applied; the snapshot date range bounds both exposures and engagement.
@@ -64,13 +70,14 @@ import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metri
  * — acceptable since engagement follows exposure within an impression.
  */
 
-// One (metric, analysis) pair with the SQL fragments its CTEs need
+// One metric with the SQL fragments its CTEs need
 type PlanEntry = {
   i: number;
-  analysis: InterleavingAnalysis;
+  paired: boolean;
+  ownership: boolean;
   // Aggregated metric value per group in __events
   value: string;
-  // Re-aggregates per-impression values to user x item (__eventsAll)
+  // Re-aggregates per-impression values to user x item (__itemEvents)
   rollup: (column: string) => string;
 };
 
@@ -113,7 +120,12 @@ function buildPlan(
 ): Plan {
   const filterGroups: string[][] = [];
 
-  const entries = metrics.map(({ analysis, metric }, i): PlanEntry => {
+  const entries = metrics.map(({ analyses, metric }, i): PlanEntry => {
+    const has: Record<InterleavingAnalysis["type"], boolean> = {
+      paired: false,
+      ownership: false,
+    };
+    for (const analysis of analyses) has[analysis.type] = true;
     const numerator = numeratorOf(metric);
     const filters = rowFilters(dialect, numerator, factTable);
     filterGroups.push(filters);
@@ -130,7 +142,7 @@ function buildPlan(
     });
     return {
       i,
-      analysis,
+      ...has,
       value: agg.fullAggregationFunction(
         filters.length
           ? `CASE WHEN (${filters.join(" AND ")}) THEN ${rowValue} ELSE NULL END`
@@ -142,8 +154,8 @@ function buildPlan(
 
   return {
     entries,
-    paired: entries.filter((e) => e.analysis.type === "paired"),
-    ownership: entries.filter((e) => e.analysis.type === "ownership"),
+    paired: entries.filter((e) => e.paired),
+    ownership: entries.filter((e) => e.ownership),
     filterGroups,
   };
 }
@@ -182,81 +194,72 @@ export function getInterleavingMetricQuery(
   const item = (field: string) => jsonArray.fieldText("item", field);
   const cols = (parts: string[]) => parts.join(",\n        ");
 
-  // 1 for treatment picks, 0 for control picks; other variation values dropped
-  const teamExpr = dialect.ifElse(
-    `${item(INTERLEAVING_ITEM_FIELD_VARIATION)} = ${lit(treatmentKey)}`,
-    "1",
-    "0",
-  );
+  // 1 for treatment picks, 0 for control picks. Both arms are explicit so a
+  // misconfigured key yields NULL (dropped by the aggregates) rather than
+  // silently counting as control; the WHERE below makes NULL unreachable.
+  const variation = item(INTERLEAVING_ITEM_FIELD_VARIATION);
+  const teamExpr = `CASE
+          WHEN ${variation} = ${lit(treatmentKey)} THEN 1
+          WHEN ${variation} = ${lit(controlKey)} THEN 0
+        END`;
 
-  // First row per impression, then one row per competitive item
+  // One row per (user, ranking, competitive item). Grouping collapses
+  // double-logged impressions (SDK retries) and repeated items in a list.
+  const itemId = item(INTERLEAVING_ITEM_FIELD_ITEM_ID);
   const exposuresCTE = `
     __exposures AS (
       SELECT
         ${cols([
           `e.${userIdType} AS user_id`,
-          ...(includePaired
-            ? [`e.${INTERLEAVING_RANKING_ID_COLUMN} AS ranking_id`]
-            : []),
-          `${item(INTERLEAVING_ITEM_FIELD_ITEM_ID)} AS item_id`,
-          `${teamExpr} AS team`,
-          `e.${ts} AS exposure_timestamp`,
+          `e.${INTERLEAVING_RANKING_ID_COLUMN} AS ranking_id`,
+          `${itemId} AS item_id`,
+          `MAX(${teamExpr}) AS team`,
+          `MIN(e.${ts}) AS exposure_timestamp`,
         ])}
       FROM (
-        SELECT
-          e.*,
-          ROW_NUMBER() OVER (
-            PARTITION BY e.${userIdType}, e.${INTERLEAVING_RANKING_ID_COLUMN}
-            ORDER BY e.${ts}
-          ) AS rn
-        FROM (
-          ${compileSqlTemplate(params.exposureQuery, compiled)}
-        ) e
+        ${compileSqlTemplate(params.exposureQuery, compiled)}
       ) e
       ${jsonArray.unnest(`e.${INTERLEAVING_ITEMS_COLUMN}`, "item")}
-      WHERE e.rn = 1
-        AND e.${INTERLEAVING_EXPERIMENT_ID_COLUMN} = ${lit(trackingKey)}
+      WHERE e.${INTERLEAVING_EXPERIMENT_ID_COLUMN} = ${lit(trackingKey)}
         AND ${item(INTERLEAVING_ITEM_FIELD_COMPETITIVE)} = 'true'
-        AND ${item(INTERLEAVING_ITEM_FIELD_VARIATION)} IN (${lit(controlKey)}, ${lit(treatmentKey)})
+        AND ${variation} IN (${lit(controlKey)}, ${lit(treatmentKey)})
         AND ${dateFilter(`e.${ts}`)}
+      GROUP BY e.${userIdType}, e.${INTERLEAVING_RANKING_ID_COLUMN}, ${itemId}
     )`;
 
-  // Events from a fact table at user x item grain, or user x impression x
-  // item when they'll be joined to exposures per impression. Rows matching
-  // none of the metrics' row filters are dropped.
-  const eventsCTE = (
-    alias: string,
-    factTable: FactTableInterface,
-    perImpression: boolean,
-    values: PlanEntry[],
-    filterGroups: string[][],
-  ) => {
-    const userId = getFactTableIdColumnExpression(
-      factTable,
-      userIdType,
-      dialect,
-      "m",
-    );
-    const timestamp = `m.${getFactTableTimestampColumn(factTable)}`;
-    const keys = [
-      userId,
-      ...(perImpression ? [`m.${INTERLEAVING_RANKING_ID_COLUMN}`] : []),
-      `m.${INTERLEAVING_ITEM_ID_COLUMN}`,
-    ];
-    const where = [dateFilter(timestamp), buildMinimalOrCondition(filterGroups)]
-      .filter(Boolean)
-      .join("\n        AND ");
-    return `
-    ${alias} AS (
+  // The single fact-table scan. Rows matching none of the metrics' row
+  // filters are dropped. Grain is user x ranking x item when paired needs
+  // the per-impression join, else user x item.
+  const { factTable } = params;
+  const eventUserId = getFactTableIdColumnExpression(
+    factTable,
+    userIdType,
+    dialect,
+    "m",
+  );
+  const eventTs = `m.${getFactTableTimestampColumn(factTable)}`;
+  const eventKeys = [
+    eventUserId,
+    ...(includePaired ? [`m.${INTERLEAVING_RANKING_ID_COLUMN}`] : []),
+    `m.${INTERLEAVING_ITEM_ID_COLUMN}`,
+  ];
+  const eventsWhere = [
+    dateFilter(eventTs),
+    buildMinimalOrCondition(plan.filterGroups),
+  ]
+    .filter(Boolean)
+    .join("\n        AND ");
+  const eventsCTE = `
+    __events AS (
       SELECT
         ${cols([
-          `${userId} AS user_id`,
-          ...(perImpression
+          `${eventUserId} AS user_id`,
+          ...(includePaired
             ? [`m.${INTERLEAVING_RANKING_ID_COLUMN} AS ranking_id`]
             : []),
           `m.${INTERLEAVING_ITEM_ID_COLUMN} AS item_id`,
-          ...values.map((e) => `${e.value} AS value_${e.i}`),
-          `MIN(${timestamp}) AS first_event_timestamp`,
+          ...plan.entries.map((e) => `${e.value} AS value_${e.i}`),
+          `MIN(${eventTs}) AS first_event_timestamp`,
         ])}
       FROM (
         ${compileSqlTemplate(
@@ -268,26 +271,77 @@ export function getInterleavingMetricQuery(
           dialect,
         )}
       ) m
-      WHERE ${where}
-      GROUP BY ${keys.join(", ")}
+      WHERE ${eventsWhere}
+      GROUP BY ${eventKeys.join(", ")}
     )`;
-  };
 
-  // Events on the same impression x item as exposure row `e`, at or after
-  // it. NULL ranking_id events never match.
-  const impressionJoin = (ev: string) => `ON (
-        ${ev}.user_id = e.user_id
-        AND ${ev}.ranking_id = e.ranking_id
-        AND ${ev}.item_id = e.item_id
-        AND ${ev}.first_event_timestamp >= e.exposure_timestamp
-      )`;
+  // Paired chain
 
-  // Ownership input: engagement per user x item across ALL events. When
-  // __events is at impression grain (paired present) roll it up.
-  const rollupEvents = includePaired && includeOwnership;
-  const eventsAllCTE = rollupEvents
+  // Every competitive exposure with the engagement on the same impression x
+  // item at or after it (NULL ranking_id events never match)
+  const creditedCTE = `
+    __credited AS (
+      SELECT
+        ${cols([
+          "e.user_id",
+          "e.ranking_id",
+          "e.team",
+          ...plan.paired.map(
+            (e) => `COALESCE(ev.value_${e.i}, 0) AS value_${e.i}`,
+          ),
+        ])}
+      FROM __exposures e
+      LEFT JOIN __events ev ON (
+        ev.user_id = e.user_id
+        AND ev.ranking_id = e.ranking_id
+        AND ev.item_id = e.item_id
+        AND ev.first_event_timestamp >= e.exposure_timestamp
+      )
+    )`;
+
+  // Per impression: treatment engagement, control engagement, and the number
+  // of treatment-drafted competitive exposures
+  const impressionCTE = `
+    __impression AS (
+      SELECT
+        ${cols([
+          "c.user_id",
+          "c.ranking_id",
+          ...plan.paired.flatMap((e) => [
+            `SUM(c.team * c.value_${e.i}) AS x_${e.i}`,
+            `SUM((1 - c.team) * c.value_${e.i}) AS y_${e.i}`,
+            `SUM(c.team) AS n_${e.i}`,
+          ]),
+        ])}
+      FROM __credited c
+      GROUP BY c.user_id, c.ranking_id
+    )`;
+
+  // Per user, over engaged impressions only (any engagement on the metric)
+  const engaged = (i: number, expr: string) =>
+    `SUM(${dialect.ifElse(`im.x_${i} + im.y_${i} > 0`, expr, "0")})`;
+  const pairedUserCTE = `
+    __pairedUser AS (
+      SELECT
+        ${cols([
+          "im.user_id",
+          ...plan.paired.flatMap((e) => [
+            `${engaged(e.i, `im.x_${e.i}`)} AS x_${e.i}`,
+            `${engaged(e.i, `im.y_${e.i}`)} AS y_${e.i}`,
+            `${engaged(e.i, `im.n_${e.i}`)} AS n_${e.i}`,
+          ]),
+        ])}
+      FROM __impression im
+      GROUP BY im.user_id
+    )`;
+
+  // Ownership chain
+
+  // Engagement per user x item across ALL events. __events is already at
+  // that grain unless paired put it at impression grain, then roll it up.
+  const itemEventsCTE = includePaired
     ? `
-    __eventsAll AS (
+    __itemEvents AS (
       SELECT
         ${cols([
           "ev.user_id",
@@ -300,62 +354,11 @@ export function getInterleavingMetricQuery(
       GROUP BY ev.user_id, ev.item_id
     )`
     : "";
-  const eventsAllName = rollupEvents ? "__eventsAll" : "__events";
+  const itemEvents = includePaired ? "__itemEvents" : "__events";
 
-  // Paired input: every competitive exposure with its credited metric values
-  const creditedCTE = includePaired
-    ? `
-    __credited AS (
-      SELECT
-        ${cols([
-          "e.user_id",
-          "e.ranking_id",
-          "e.item_id",
-          "e.team",
-          ...plan.paired.map(
-            (e) => `COALESCE(ev.value_${e.i}, 0) AS value_${e.i}`,
-          ),
-        ])}
-      FROM __exposures e
-      LEFT JOIN __events ev ${impressionJoin("ev")}
-    )`
-    : "";
-
-  // user x item grain: paired engaged-gated sums (per metric) and the
-  // exposure-count share, all from one pass over the exposure rows
-  const userItemCTE = includePaired
-    ? `
-    __userItem AS (
-      SELECT
-        ${cols([
-          "t.user_id",
-          "t.item_id",
-          ...plan.paired.flatMap((e) => [
-            `SUM(t.team * t.value_${e.i} * t.eng_${e.i}) AS x_${e.i}`,
-            `SUM((1 - t.team) * t.value_${e.i} * t.eng_${e.i}) AS y_${e.i}`,
-            `SUM(t.team * t.eng_${e.i}) AS n_${e.i}`,
-          ]),
-          "AVG(t.team * 1.0) AS share_t",
-        ])}
-      FROM (
-        SELECT
-          ${cols([
-            "c.*",
-            ...plan.paired.map(
-              (e) =>
-                `${dialect.ifElse(
-                  `SUM(c.value_${e.i}) OVER (PARTITION BY c.user_id, c.ranking_id) > 0`,
-                  "1",
-                  "0",
-                )} AS eng_${e.i}`,
-            ),
-          ])}
-        FROM __credited c
-      ) t
-      GROUP BY t.user_id, t.item_id
-    )`
-    : `
-    __userItem AS (
+  // Treatment share of each user's competitive exposures to an item
+  const shareCTE = `
+    __share AS (
       SELECT
         e.user_id,
         e.item_id,
@@ -364,76 +367,53 @@ export function getInterleavingMetricQuery(
       GROUP BY e.user_id, e.item_id
     )`;
 
-  // A user x item with no engagement owns nothing: both 0
-  const userCTE = `
-    __user AS (
+  // Fractional wins per user; a user x item with no engagement owns nothing
+  const ownerUserCTE = `
+    __ownerUser AS (
       SELECT
         ${cols([
-          "ui.user_id",
-          ...plan.paired.flatMap((e) => [
-            `SUM(ui.x_${e.i}) AS x_${e.i}`,
-            `SUM(ui.y_${e.i}) AS y_${e.i}`,
-            `SUM(ui.n_${e.i}) AS n_${e.i}`,
-          ]),
+          "s.user_id",
           ...plan.ownership.flatMap((e) => [
-            `SUM(COALESCE(ea.value_${e.i} * ui.share_t, 0)) AS wins_t_${e.i}`,
-            `SUM(COALESCE(ea.value_${e.i} * (1 - ui.share_t), 0)) AS wins_c_${e.i}`,
+            `SUM(COALESCE(ev.value_${e.i} * s.share_t, 0)) AS wins_t_${e.i}`,
+            `SUM(COALESCE(ev.value_${e.i} * (1 - s.share_t), 0)) AS wins_c_${e.i}`,
           ]),
         ])}
-      FROM __userItem ui
-      ${
-        includeOwnership
-          ? `LEFT JOIN ${eventsAllName} ea ON (
-        ea.user_id = ui.user_id AND ea.item_id = ui.item_id
-      )`
-          : ""
-      }
-      GROUP BY ui.user_id
+      FROM __share s
+      LEFT JOIN ${itemEvents} ev ON (
+        ev.user_id = s.user_id AND ev.item_id = s.item_id
+      )
+      GROUP BY s.user_id
     )`;
 
+  // Final
+
   const gate = (i: number, expr: string) =>
-    `SUM(${dialect.ifElse(`u.n_${i} > 0`, expr, "0")})`;
-  const finalCols = plan.entries.flatMap((e) => {
-    const { i, analysis } = e;
-    switch (analysis.type) {
-      case "paired":
-        return [
-          `${gate(i, "1")} AS m${i}_users`,
-          `${gate(i, `u.x_${i}`)} AS m${i}_sum_x`,
-          `${gate(i, `u.x_${i} * u.x_${i}`)} AS m${i}_sum_xx`,
-          `${gate(i, `u.y_${i}`)} AS m${i}_sum_y`,
-          `${gate(i, `u.y_${i} * u.y_${i}`)} AS m${i}_sum_yy`,
-          `${gate(i, `u.n_${i}`)} AS m${i}_sum_n`,
-          `${gate(i, `u.n_${i} * u.n_${i}`)} AS m${i}_sum_nn`,
-          `${gate(i, `u.x_${i} * u.y_${i}`)} AS m${i}_sum_xy`,
-          `${gate(i, `u.x_${i} * u.n_${i}`)} AS m${i}_sum_xn`,
-          `${gate(i, `u.y_${i} * u.n_${i}`)} AS m${i}_sum_yn`,
-        ];
-      case "ownership":
-        return [
-          `SUM(${dialect.ifElse(`u.wins_t_${i} > u.wins_c_${i}`, "1", "0")}) AS m${i}_users_pref_treatment`,
-          `SUM(${dialect.ifElse(`u.wins_c_${i} > u.wins_t_${i}`, "1", "0")}) AS m${i}_users_pref_control`,
-        ];
-      default: {
-        const unknown: never = analysis;
-        throw new Error(`Unknown analysis: ${JSON.stringify(unknown)}`);
-      }
-    }
-  });
+    `SUM(${dialect.ifElse(`pu.n_${i} > 0`, expr, "0")})`;
+  const finalCols = [
+    ...plan.paired.flatMap(({ i }) => [
+      `${gate(i, "1")} AS m${i}_users`,
+      `${gate(i, `pu.x_${i}`)} AS m${i}_sum_x`,
+      `${gate(i, `pu.x_${i} * pu.x_${i}`)} AS m${i}_sum_xx`,
+      `${gate(i, `pu.y_${i}`)} AS m${i}_sum_y`,
+      `${gate(i, `pu.y_${i} * pu.y_${i}`)} AS m${i}_sum_yy`,
+      `${gate(i, `pu.n_${i}`)} AS m${i}_sum_n`,
+      `${gate(i, `pu.n_${i} * pu.n_${i}`)} AS m${i}_sum_nn`,
+      `${gate(i, `pu.x_${i} * pu.y_${i}`)} AS m${i}_sum_xy`,
+      `${gate(i, `pu.x_${i} * pu.n_${i}`)} AS m${i}_sum_xn`,
+      `${gate(i, `pu.y_${i} * pu.n_${i}`)} AS m${i}_sum_yn`,
+    ]),
+    ...plan.ownership.flatMap(({ i }) => [
+      `SUM(${dialect.ifElse(`ou.wins_t_${i} > ou.wins_c_${i}`, "1", "0")}) AS m${i}_users_pref_treatment`,
+      `SUM(${dialect.ifElse(`ou.wins_c_${i} > ou.wins_t_${i}`, "1", "0")}) AS m${i}_users_pref_control`,
+      `SUM(${dialect.ifElse(`ou.wins_t_${i} = ou.wins_c_${i}`, "1", "0")}) AS m${i}_users_tied`,
+    ]),
+  ];
 
   const ctes = [
     exposuresCTE,
-    eventsCTE(
-      "__events",
-      params.factTable,
-      includePaired,
-      plan.entries,
-      plan.filterGroups,
-    ),
-    eventsAllCTE,
-    creditedCTE,
-    userItemCTE,
-    userCTE,
+    eventsCTE,
+    ...(includePaired ? [creditedCTE, impressionCTE, pairedUserCTE] : []),
+    ...(includeOwnership ? [itemEventsCTE, shareCTE, ownerUserCTE] : []),
   ].filter(Boolean);
 
   return format(
@@ -441,7 +421,9 @@ export function getInterleavingMetricQuery(
     WITH ${ctes.join(",")}
     SELECT
       ${cols(["COUNT(*) AS users_exposed", ...finalCols])}
-    FROM __user u`,
+    FROM (SELECT DISTINCT user_id FROM __exposures) u
+    ${includePaired ? "LEFT JOIN __pairedUser pu ON pu.user_id = u.user_id" : ""}
+    ${includeOwnership ? "LEFT JOIN __ownerUser ou ON ou.user_id = u.user_id" : ""}`,
     dialect.formatDialect,
   );
 }

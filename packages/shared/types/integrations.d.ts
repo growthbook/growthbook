@@ -1097,14 +1097,14 @@ export interface FeatureUsageAggregateRow {
 }
 export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
 
-// One (metric, analysis) pair; a metric with two analyses appears twice.
-// The metric's numerator (column, aggregation, row filters) is resolved with
-// the same helpers as experiment fact metrics.
+// One metric and every analysis requested on it. The metric's numerator
+// (column, aggregation, row filters) is resolved with the same helpers as
+// experiment fact metrics.
 export interface InterleavingMetricQueryMetric {
+  metric: FactMetricInterface;
   // "paired" needs ranking_id on the metric's fact table; ownership only
   // needs item_id.
-  analysis: InterleavingAnalysis;
-  metric: FactMetricInterface;
+  analyses: InterleavingAnalysis[];
 }
 
 export interface InterleavingMetricQueryParams {
@@ -1118,8 +1118,9 @@ export interface InterleavingMetricQueryParams {
   startDate: Date;
   endDate: Date | null;
   // One query analyzes all metrics whose numerator reads this fact table;
-  // output columns are prefixed m{i}_ by array index. Paired/ownership CTEs
-  // are only included when at least one metric requests them.
+  // output columns are prefixed m{i}_ by array index, with each analysis's
+  // columns under the same prefix. Paired/ownership CTEs are only included
+  // when at least one metric requests them.
   factTable: FactTableInterface;
   metrics: InterleavingMetricQueryMetric[];
 }

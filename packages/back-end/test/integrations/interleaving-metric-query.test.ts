@@ -66,43 +66,68 @@ describe("getInterleavingMetricQuery", () => {
   it("emits paired and ownership CTEs only when requested", () => {
     const paired = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [{ analysis: PAIRED, metric: proportion }],
+      metrics: [{ metric: proportion, analyses: [PAIRED] }],
     });
     const ownership = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [{ analysis: OWNERSHIP, metric: proportion }],
+      metrics: [{ metric: proportion, analyses: [OWNERSHIP] }],
     });
     const both = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [
-        { analysis: PAIRED, metric: proportion },
-        { analysis: OWNERSHIP, metric: proportion },
-      ],
+      metrics: [{ metric: proportion, analyses: [PAIRED, OWNERSHIP] }],
     });
 
     expect(paired).toContain("__exposures");
     expect(paired).toContain("jsonb_array_elements");
     expect(paired).toContain("__credited");
+    expect(paired).toContain("__pairedUser");
     expect(paired).toContain("m0_sum_xy");
     expect(paired).not.toContain("users_pref_treatment");
+    expect(paired).not.toContain("__share");
     expect(paired).toContain("'featured-products-ranker'");
+    expect(ownership).toContain("__share");
     expect(ownership).toContain("m0_users_pref_treatment");
-    expect(ownership).not.toContain("__credited");
-    // Mixed: both logics in one query, single events scan rolled up
-    expect(both).toContain("m0_sum_xy");
-    expect(both).toContain("m1_users_pref_treatment");
-    expect(both).toContain("__eventsAll");
-
-    // Duplicate impression rows are dropped before unnesting
-    expect(paired).toMatch(
-      /ROW_NUMBER\(\) OVER \(\s*PARTITION BY\s+e\.user_id,\s+e\.ranking_id\s+ORDER BY\s+e\.timestamp\s*\) AS rn/,
+    expect(ownership).toMatch(
+      /WHEN ou\.wins_t_0 = ou\.wins_c_0 THEN 1\s+ELSE 0\s+END\s*\)\s*\) AS m0_users_tied/,
     );
-    expect(paired).toContain("e.rn = 1");
+    expect(ownership).not.toContain("__credited");
+    // Ownership alone reads __events at item grain directly
+    expect(ownership).not.toContain("__itemEvents");
+    expect(ownership).toContain("ev.value_0 * s.share_t, 0)) AS wins_t_0");
+    expect(ownership).toMatch(/GROUP BY\s+m\.user_id,\s+m\.item_id/);
+    // Mixed: both chains off one events scan, rolled up for ownership; one
+    // value column feeds both analyses under the same m0_ prefix
+    expect(both).toContain("m0_sum_xy");
+    expect(both).toContain("m0_users_pref_treatment");
+    expect(both).not.toContain("value_1");
+    expect(both).toContain("__itemEvents");
+    expect(both).toMatch(
+      /GROUP BY\s+m\.user_id,\s+m\.ranking_id,\s+m\.item_id/,
+    );
+    expect(both).toContain("LEFT JOIN __pairedUser pu");
+    expect(both).toContain("LEFT JOIN __ownerUser ou");
+
+    // Exposures collapse to one row per (user, ranking, item) by grouping,
+    // with both team arms explicit so an unknown variation is NULL, not 0
+    expect(paired).toMatch(
+      /GROUP BY\s+e\.user_id,\s+e\.ranking_id,\s+item ->> 'itemId'/,
+    );
+    expect(paired).toMatch(
+      /MAX\(\s*CASE\s+WHEN item ->> 'variation' = 'price-low' THEN 1\s+WHEN item ->> 'variation' = 'buyers-picks' THEN 0\s+END\s*\) AS team/,
+    );
+    expect(paired).not.toContain("ROW_NUMBER");
+
+    // Paired gates on engaged impressions with plain aggregates, no window
+    expect(paired).toMatch(
+      /SUM\(c\.team \* c\.value_0\) AS x_0,\s+SUM\(\(1 - c\.team\) \* c\.value_0\) AS y_0,\s+SUM\(c\.team\) AS n_0/,
+    );
+    expect(paired).toMatch(/WHEN im\.x_0 \+ im\.y_0 > 0 THEN im\.n_0/);
+    expect(paired).not.toContain("OVER (");
 
     // Variation keys are escaped through the dialect
     const quoted = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [{ analysis: OWNERSHIP, metric: proportion }],
+      metrics: [{ metric: proportion, analyses: [OWNERSHIP] }],
       variationKeys: ["o'brien", "control"] as [string, string],
     });
     expect(quoted).toContain("'o''brien'");
@@ -113,15 +138,15 @@ describe("getInterleavingMetricQuery", () => {
       ...baseParams,
       metrics: [
         // proportion: existence per group
-        { analysis: PAIRED, metric: proportion },
+        { metric: proportion, analyses: [PAIRED] },
         // mean of a row count: COUNT, not existence
         {
-          analysis: PAIRED,
           metric: metricOn("ft_cart", { metricType: "mean" }),
+          analyses: [PAIRED],
         },
         // mean of a column, with a row filter
         {
-          analysis: OWNERSHIP,
+          analyses: [OWNERSHIP],
           metric: metricOn("ft_cart", {
             metricType: "mean",
             column: "value",
@@ -144,14 +169,5 @@ describe("getInterleavingMetricQuery", () => {
     );
     // Rolled up to user x item for ownership with the re-aggregation function
     expect(sql).toMatch(/SUM\(COALESCE\(ev\.value_2, 0\)\) AS value_2/);
-  });
-
-  it("only selects ranking_id on exposures when paired needs it", () => {
-    const ownership = getInterleavingMetricQuery(postgresDialect, {
-      ...baseParams,
-      metrics: [{ analysis: OWNERSHIP, metric: proportion }],
-    });
-    expect(ownership).not.toContain("e.ranking_id AS ranking_id");
-    expect(ownership).toContain("ea.value_0 * ui.share_t, 0)) AS wins_t_0");
   });
 });
