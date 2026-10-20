@@ -325,10 +325,10 @@ export async function refreshDashboard(
     // Create a map from dimension -> list of block IDs that use that dimension
     const dimensionsByBlocks = Object.fromEntries(
       Object.entries(
-        groupBy(dimensionBlockPairs, ([dimensionId, _blockId]) => dimensionId),
+        groupBy(dimensionBlockPairs, ([dimensionId]) => dimensionId),
       ).map(([dimensionId, dimBlockPairs]) => [
         dimensionId,
-        dimBlockPairs.map(([_dim, blockId]) => blockId),
+        dimBlockPairs.map(([, blockId]) => blockId),
       ]),
     );
 
