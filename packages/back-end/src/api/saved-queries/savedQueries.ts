@@ -139,10 +139,12 @@ export const updateSavedQuery = createApiRequestHandler(
   updateSavedQueryValidator,
 )(async (req) => {
   const existing = await getSavedQuery(req.context, req.params.id);
-  const { dataVizConfig, ...rest } = req.body;
-  if (rest.sql !== undefined) assertReadOnlySql(rest.sql);
+  const { name, sql, dataVizConfig } = req.body;
+  // Only a change is checked, so an echoed legacy query still saves
+  if (sql !== undefined && sql !== existing.sql) assertReadOnlySql(sql);
   const updated = await req.context.models.savedQueries.update(existing, {
-    ...rest,
+    ...(name !== undefined ? { name } : {}),
+    ...(sql !== undefined ? { sql } : {}),
     ...(dataVizConfig ? { dataVizConfig: withVizIds(dataVizConfig) } : {}),
   });
   return { savedQuery: toApiSavedQuery(updated) };
