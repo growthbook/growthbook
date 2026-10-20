@@ -1,6 +1,14 @@
 import { z } from "zod";
 import { createBaseSchemaWithPrimaryKey } from "./base-model";
 import { projectMemberRole, roleRule } from "./organization";
+import { confirmRulesValidator } from "./confirmations";
+
+export const requesterHeaderValidator = z.enum([
+  "optional",
+  "required",
+  "rejected",
+]);
+export const requesterPermissionsValidator = z.enum(["assume", "key"]);
 
 export const apiKeySchema = createBaseSchemaWithPrimaryKey({
   key: z.string(),
@@ -57,6 +65,16 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "Org API keys and scoped PATs. Project-specific role overrides, same shape as member projectRoles",
     ),
+  requesterHeader: requesterHeaderValidator
+    .optional()
+    .describe(
+      "Org API keys only. Whether requests may (`optional`, default), must (`required`) or must not (`rejected`) send `X-GrowthBook-Requested-By`",
+    ),
+  requesterPermissions: requesterPermissionsValidator
+    .optional()
+    .describe(
+      "Org API keys only. `assume` (default) acts as the named member, within the key's role; `key` acts as the key and only records the member",
+    ),
   disabled: z
     .boolean()
     .optional()
@@ -102,6 +120,12 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .optional()
     .describe(
       "OAuth scopes granted at issuance. Stored for audit; Phase 1 tokens act as the full user (PAT-equivalent).",
+    ),
+  confirmRules: confirmRulesValidator
+    .nullable()
+    .optional()
+    .describe(
+      "Actions this key can't complete until a person confirms them. Null or absent means off.",
     ),
 });
 

@@ -4,6 +4,7 @@ export {
   buildRevisionStatusFilter,
 } from "back-end/src/api/revisionValidations";
 export { ACTIVE_DRAFT_STATUSES as ACTIVE_STATUSES } from "shared/validators";
+import { MAX_SAVED_GROUP_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   ID_LIST_DATATYPES,
   validateCondition,
@@ -112,7 +113,7 @@ export async function discardIfJustCreated(
   try {
     await context.models.revisions.close(
       revision.id,
-      context.userId,
+      context.actorId,
       {
         authorizedByFlow:
           "this flow created the draft moments ago and is unwinding its own failure",
@@ -242,8 +243,13 @@ export async function validateConditionForGroup(
 }
 
 export function assertValidDescription(description: string | undefined): void {
-  if (typeof description === "string" && description.length > 100) {
-    throw new BadRequestError("Description must be at most 100 characters");
+  if (
+    typeof description === "string" &&
+    description.length > MAX_SAVED_GROUP_DESCRIPTION_LENGTH
+  ) {
+    throw new BadRequestError(
+      `Description must be at most ${MAX_SAVED_GROUP_DESCRIPTION_LENGTH} characters`,
+    );
   }
 }
 

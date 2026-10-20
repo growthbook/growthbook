@@ -28,7 +28,9 @@ const SecretApiKeys: FC<{
 
   const permissionsUtils = usePermissionsUtil();
   const canCreateKeys = permissionsUtils.canCreateApiKey();
+  const canEditKeys = permissionsUtils.canUpdateApiKey();
   const canDeleteKeys = permissionsUtils.canDeleteApiKey();
+  const canViewAuditLog = permissionsUtils.canViewApiKeys();
 
   const organizationSecretKeys = useMemo(
     () => keys.filter((k) => k.secret && !k.userId),
@@ -90,7 +92,7 @@ const SecretApiKeys: FC<{
         />
       )}
 
-      {editingKey && canCreateKeys && (
+      {editingKey && canEditKeys && (
         <ApiKeysModal
           close={() => setEditingKey(null)}
           onCreate={() => {
@@ -117,7 +119,7 @@ const SecretApiKeys: FC<{
       <div>
         <Flex align="center" justify="between">
           <h1>Secret API Keys</h1>
-          {canCreateKeys && (
+          {canViewAuditLog && (
             <Link onClick={() => setAuditLog({})}>Audit logs</Link>
           )}
         </Flex>
@@ -133,11 +135,13 @@ const SecretApiKeys: FC<{
             canCreateKeys={canCreateKeys}
             canDeleteKeys={canDeleteKeys}
             onReveal={onReveal}
-            onToggleDisabled={canDeleteKeys ? onToggleDisabled : undefined}
-            onEdit={canCreateKeys ? (key) => setEditingKey(key) : undefined}
+            onToggleDisabled={
+              canDeleteKeys || canEditKeys ? onToggleDisabled : undefined
+            }
+            onEdit={canEditKeys ? (key) => setEditingKey(key) : undefined}
             onCopy={canCreateKeys ? setCopyFrom : undefined}
             onShowAuditLog={
-              canCreateKeys
+              canViewAuditLog
                 ? (key) =>
                     setAuditLog({ keyId: key.id, keyName: key.description })
                 : undefined

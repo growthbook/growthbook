@@ -19,7 +19,7 @@ jest.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
 
 // Field validation needs a real datasource + metrics; return a canned valid shape instead
 jest.mock("back-end/src/validators/safe-rollout", () => ({
-  validateCreateSafeRolloutFields: jest.fn(async () => ({
+  validateSafeRolloutFields: jest.fn(async () => ({
     datasourceId: "ds_1",
     exposureQueryId: "q_1",
     guardrailMetricIds: ["met_1"],

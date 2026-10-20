@@ -65,7 +65,9 @@ import {
 import { OrganizationInterface, Environment } from "shared/types/organization";
 import {
   FeatureInterface,
+  FeatureMetaInfo,
   FeatureRule,
+  LegacyFeatureInterface,
   SavedGroupTargeting,
 } from "shared/types/feature";
 import {
@@ -522,6 +524,18 @@ export function getSDKPayloadKeys(
   return keys;
 }
 
+// A bandit's visual changesets reach the SDK through no feature rule: they are
+// served in the bandit's project and the no-project payload of every environment.
+export function getContextualBanditVisualPayloadKeys(
+  cb: Pick<ContextualBanditInterface, "project">,
+  environments: string[],
+): SDKPayloadKey[] {
+  return getSDKPayloadKeys(
+    new Set(environments),
+    new Set(["", cb.project || ""]),
+  );
+}
+
 export function getSDKPayloadKeysByDiff(
   originalFeature: FeatureInterface,
   updatedFeature: FeatureInterface,
@@ -719,20 +733,74 @@ export function getPrerequisiteIdsInFeatures(
   return [...ids];
 }
 
+export type PrerequisiteDependent = {
+  projects: string[];
+  prerequisiteIds: string[];
+};
+
+// Visual and redirect experiments gate on their latest phase but are reached
+// through no feature rule, so their parents have to be seeded on their own.
+export function getVisualExperimentPrerequisiteDependents(
+  experiments: Iterable<
+    Pick<
+      ExperimentInterface,
+      "project" | "phases" | "hasVisualChangesets" | "hasURLRedirects"
+    >
+  >,
+): PrerequisiteDependent[] {
+  const out: PrerequisiteDependent[] = [];
+  for (const experiment of experiments) {
+    if (!experiment.hasVisualChangesets && !experiment.hasURLRedirects) {
+      continue;
+    }
+    const phase = experiment.phases?.slice(-1)[0];
+    const prerequisiteIds = [
+      ...new Set(
+        (phase?.prerequisites ?? []).map((p) => p?.id).filter(Boolean),
+      ),
+    ];
+    if (experiment.project && prerequisiteIds.length) {
+      out.push({ projects: [experiment.project], prerequisiteIds });
+    }
+  }
+  return out;
+}
+
+export function getVisualExperimentPrerequisiteIds(
+  experiments: Iterable<
+    Pick<
+      ExperimentInterface,
+      "project" | "phases" | "hasVisualChangesets" | "hasURLRedirects"
+    >
+  >,
+): string[] {
+  return [
+    ...new Set(
+      getVisualExperimentPrerequisiteDependents(experiments).flatMap(
+        (d) => d.prerequisiteIds,
+      ),
+    ),
+  ];
+}
+
 // A gate whose parent is absent from the payload can never pass, so a delivered
 // feature's prerequisites travel with it even when they target other projects.
 export function featuresWithPrerequisiteClosure(
   features: FeatureInterface[],
   featuresMap: Map<string, FeatureInterface>,
   experimentMap?: Map<string, ExperimentInterface>,
+  seedIds: string[] = [],
 ): { features: FeatureInterface[]; carried: Set<string> } {
   const carried = new Set<string>();
   const present = new Set(features.map((f) => f.id));
 
-  let frontier = features;
-  while (frontier.length) {
+  let wanted = [
+    ...seedIds,
+    ...getPrerequisiteIdsInFeatures(features, experimentMap),
+  ];
+  while (wanted.length) {
     const next: FeatureInterface[] = [];
-    for (const id of getPrerequisiteIdsInFeatures(frontier, experimentMap)) {
+    for (const id of wanted) {
       if (present.has(id)) continue;
       const parent = featuresMap.get(id);
       if (!parent) continue;
@@ -740,7 +808,7 @@ export function featuresWithPrerequisiteClosure(
       carried.add(id);
       next.push(parent);
     }
-    frontier = next;
+    wanted = getPrerequisiteIdsInFeatures(next, experimentMap);
   }
 
   return {
@@ -759,6 +827,7 @@ export function buildPrerequisiteProjectReach(
   features: FeatureInterface[],
   allProjectIds: string[] = [],
   experimentMap?: Map<string, ExperimentInterface>,
+  otherDependents: PrerequisiteDependent[] = [],
 ): Map<string, Set<string>> {
   const featuresMap = new Map(features.map((f) => [f.id, f]));
   const reach = new Map<string, Set<string>>();
@@ -772,17 +841,8 @@ export function buildPrerequisiteProjectReach(
     reach.set(from, set);
   };
 
-  for (const dependent of features) {
-    // An all-projects dependent carries its prerequisites everywhere. The ""
-    // key doesn't cover that — it only reaches connections with no project
-    // filter unless treatEmptyProjectAsGlobal.
-    const dependentProjects =
-      getTargetingProjectIds(dependent) ?? allProjectIds;
-
-    for (const parentId of getPrerequisiteIdsInFeatures(
-      [dependent],
-      experimentMap,
-    )) {
+  const linkParents = (dependentProjects: string[], parentIds: string[]) => {
+    for (const parentId of parentIds) {
       const parent = featuresMap.get(parentId);
       if (!parent) continue;
       const parentProjects = getTargetingProjectIds(parent);
@@ -791,6 +851,19 @@ export function buildPrerequisiteProjectReach(
         dependentProjects.forEach((to) => link(from, to)),
       );
     }
+  };
+
+  for (const dependent of features) {
+    // An all-projects dependent carries its prerequisites everywhere. The ""
+    // key doesn't cover that — it only reaches connections with no project
+    // filter unless treatEmptyProjectAsGlobal.
+    linkParents(
+      getTargetingProjectIds(dependent) ?? allProjectIds,
+      getPrerequisiteIdsInFeatures([dependent], experimentMap),
+    );
+  }
+  for (const { projects, prerequisiteIds } of otherDependents) {
+    linkParents(projects, prerequisiteIds);
   }
 
   // A grandparent reaches wherever its parent reaches.
@@ -940,7 +1013,7 @@ export function applyNamespaceToPayload(
 
 // Prerequisites become parentConditions, saved groups resolved the way the
 // rule's own condition is; one that no longer parses is dropped.
-function prerequisiteParentConditions(
+export function prerequisiteParentConditions(
   prerequisites: { id: string; condition: string }[],
   savedGroupStrategy: SavedGroupPayloadStrategy,
 ): ParentConditionInterface[] {
@@ -1894,4 +1967,47 @@ export function expandRuleEnvsForInheritance(
   }
   if (expanded.length === envs.length) return rule;
   return { ...rule, environments: expanded } as FeatureRule;
+}
+
+// The feature list's summary of a stored flag, from the fields
+// getFeatureMetaInfoById loads. Lean documents leave out the empty lists that
+// Mongoose hydration would add, so those default here.
+export function toFeatureMetaInfo(
+  f: LegacyFeatureInterface,
+  includeDefaultValue: boolean,
+): FeatureMetaInfo {
+  const rules = f.rules as
+    | { prerequisites?: unknown[]; savedGroups?: unknown[] }[]
+    | undefined;
+  const envSettings = f.environmentSettings as
+    | Record<string, { prerequisites?: unknown[] }>
+    | undefined;
+  return {
+    id: f.id,
+    project: f.project,
+    targetingProjects: f.targetingProjects ?? [],
+    targetingAllProjects: f.targetingAllProjects,
+    archived: f.archived,
+    description: f.description,
+    dateCreated: f.dateCreated,
+    dateUpdated: f.dateUpdated,
+    tags: f.tags ?? [],
+    owner: f.owner,
+    valueType: f.valueType,
+    version: f.version,
+    linkedExperiments: f.linkedExperiments ?? [],
+    neverStale: f.neverStale,
+    hasPrerequisites:
+      (f.prerequisites?.length ?? 0) > 0 ||
+      (rules ?? []).some((r) => (r.prerequisites?.length ?? 0) > 0) ||
+      Object.values(envSettings ?? {}).some(
+        (e) => (e.prerequisites?.length ?? 0) > 0,
+      ),
+    hasSavedGroups: (rules ?? []).some((r) => (r.savedGroups?.length ?? 0) > 0),
+    // The list shows "Config · <name>" from the flag's first-class
+    // `baseConfig` (authoritative), not by parsing the default value.
+    configBackingKey: f.baseConfig ?? null,
+    revision: f.revision as FeatureMetaInfo["revision"],
+    ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
+  };
 }

@@ -18,7 +18,10 @@ import Text from "@/ui/Text";
 import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
-import { isIdentifierUndeclared } from "@/services/datasources";
+import {
+  getExposureQueriesInScope,
+  isIdentifierUndeclared,
+} from "@/services/datasources";
 import { AssignmentQueryDriftIcon } from "@/components/Experiment/AssignmentQueryFields";
 
 export interface Props {
@@ -28,6 +31,7 @@ export interface Props {
   canEdit: boolean;
   ssrPolyfills?: SSRPolyfills;
   isPublic?: boolean;
+  holdoutProjects?: string[];
 }
 
 export default function AnalysisSettings({
@@ -37,6 +41,7 @@ export default function AnalysisSettings({
   canEdit,
   ssrPolyfills,
   isPublic,
+  holdoutProjects,
 }: Props) {
   const {
     getDatasourceById,
@@ -65,6 +70,9 @@ export default function AnalysisSettings({
     assignmentQuery,
     experiment.exposureQueryIdentifierType,
   );
+  const scopedQueries = datasource
+    ? getExposureQueriesInScope(datasource, experiment.project, holdoutProjects)
+    : [];
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
     useMemo(() => {
@@ -157,6 +165,7 @@ export default function AnalysisSettings({
           editMetrics={true}
           source={"analysis-settings"}
           envs={envs}
+          holdoutProjects={holdoutProjects}
         />
       ) : null}
 
@@ -196,11 +205,15 @@ export default function AnalysisSettings({
                 </Text>{" "}
                 <AssignmentQueryDriftIcon
                   selection={{
+                    outOfScope:
+                      !!assignmentQuery &&
+                      !scopedQueries.some((q) => q.id === assignmentQuery.id),
                     identifierUndeclared: isIdentifierUndeclared(
                       assignmentQuery,
                       identifierType,
                     ),
                     identifierType,
+                    holdoutProjects,
                   }}
                 />
               </div>

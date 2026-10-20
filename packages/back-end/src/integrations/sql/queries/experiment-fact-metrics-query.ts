@@ -16,6 +16,7 @@ import { getBanditCaseWhen } from "back-end/src/integrations/sql/clauses/bandit-
 import { getBanditDates } from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
 import { getBanditStatisticsFactMetricCTE } from "back-end/src/integrations/sql/ctes/bandit-statistics-fact-metric-cte";
 import { getClusterRollupCTE } from "back-end/src/integrations/sql/ctes/cluster-rollup-cte";
+import { resolveClusterMetricGrain } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
@@ -104,37 +105,29 @@ export function getExperimentFactMetricsQuery(
     : "";
   const queryName = `${dimensionLabel}${factTableLabel}`;
 
-  const clusterSubUnit =
-    params.unitsSettings.isClusterExperiment &&
-    params.unitsSettings.clusterSubUnitIdentifier
-      ? params.unitsSettings.clusterSubUnitIdentifier
-      : null;
-  const clusterLevelMetricIds = new Set(settings.clusterLevelMetricIds ?? []);
-  const clusterLevelMetricCount = clusterSubUnit
-    ? metricsWithIndices.filter((m) => clusterLevelMetricIds.has(m.metric.id))
-        .length
-    : 0;
-  if (
-    clusterLevelMetricCount > 0 &&
-    clusterLevelMetricCount < metricsWithIndices.length
-  ) {
-    throw new Error(
-      "ImplementationError: cluster-level and sub-unit metrics cannot share a query",
-    );
-  }
   // Cluster-level metrics join on the cluster id, with one unit row per
-  // cluster, so they skip the sub-unit rollup entirely.
-  const isClusterLevelQuery = clusterLevelMetricCount > 0;
+  // cluster, so they skip the sub-unit rollup entirely. resolveClusterMetricGrain
+  // also enforces that a single query is entirely one grain.
+  const {
+    clusterSubUnit,
+    isClusterLevelGroup: isClusterLevelQuery,
+    baseIdType: userIdType,
+  } = resolveClusterMetricGrain({
+    settings: {
+      isClusterExperiment: params.unitsSettings.isClusterExperiment,
+      clusterSubUnitIdentifier: params.unitsSettings.clusterSubUnitIdentifier,
+      clusterLevelMetricIds: settings.clusterLevelMetricIds,
+    },
+    metrics: metricsWithIndices.map((m) => m.metric),
+    exposureIdentifierType: params.unitsSettings.exposureQuery.identifierType,
+  });
+  if (!userIdType) {
+    throw new Error("Unable to determine user id type from exposureQuery");
+  }
   const clusterIdColumn =
     clusterSubUnit && !isClusterLevelQuery
       ? params.unitsSettings.exposureQuery.identifierType
       : null;
-  const userIdType = isClusterLevelQuery
-    ? params.unitsSettings.exposureQuery.identifierType
-    : (clusterSubUnit ?? params.unitsSettings.exposureQuery.identifierType);
-  if (!userIdType) {
-    throw new Error("Unable to determine user id type from exposureQuery");
-  }
 
   const banditDates = getBanditDates(settings.banditSettings);
   const hasFunnelMetrics = metricsWithIndices.some((m) =>
@@ -164,7 +157,7 @@ export function getExperimentFactMetricsQuery(
     ),
   );
 
-  const isClusterExperiment = clusterIdColumn !== null;
+  const useClusterRollup = clusterIdColumn !== null;
 
   // TODO(sql): Separate metric start by fact table
   const raMetricSettings = metricData
@@ -286,7 +279,7 @@ export function getExperimentFactMetricsQuery(
     : userMetricAggTablePrefix;
   // Resolution's terminal CTE carries every metric column, so statistics read
   // it whole; without funnels there is no chain.
-  const statisticsSourceTable = isClusterExperiment
+  const statisticsSourceTable = useClusterRollup
     ? clusterRollupTable
     : funnelMetrics.length
       ? unitMetricsTable
@@ -354,11 +347,7 @@ export function getExperimentFactMetricsQuery(
         });
       }
 
-      if (
-        data.ratioMetric &&
-        !data.isClusterRatioConversion &&
-        data.denominatorSourceIndex === sourceIndex
-      ) {
+      if (data.ratioMetric && data.denominatorSourceIndex === sourceIndex) {
         columns.push({
           name: `${data.alias}_denominator`,
           expr: data.aggregatedValueTransformation({
@@ -401,7 +390,6 @@ export function getExperimentFactMetricsQuery(
         }
         if (
           metric.ratioMetric &&
-          !metric.isClusterRatioConversion &&
           metric.denominatorSourceIndex === sourceIndex
         ) {
           columns.push({
@@ -532,8 +520,12 @@ export function getExperimentFactMetricsQuery(
         ? `, __distinctUsers AS (
       SELECT
         ${baseIdType}
-        ${dimensionCols.map((c) => `, MAX(${c.alias}) AS ${c.alias}`).join("")}
-        , variation
+        ${dimensionCols.map((c) => `, MIN(${c.alias}) AS ${c.alias}`).join("")}
+        , ${dialect.ifElse(
+          "COUNT(DISTINCT variation) > 1",
+          "'__multiple__'",
+          "MAX(variation)",
+        )} AS variation
         , MIN(timestamp) AS timestamp
         , MIN(first_exposure_date) AS first_exposure_date
         ${banditDates?.length ? ", MIN(bandit_period) AS bandit_period" : ""}
@@ -547,7 +539,6 @@ export function getExperimentFactMetricsQuery(
       FROM __distinctSubUnits
       GROUP BY
         ${baseIdType}
-        , variation
     )`
         : ""
     }
@@ -780,9 +771,7 @@ export function getExperimentFactMetricsQuery(
                     : ""
                 }
                 ${
-                  data.ratioMetric &&
-                  !data.isClusterRatioConversion &&
-                  data.denominatorSourceIndex === f.index
+                  data.ratioMetric && data.denominatorSourceIndex === f.index
                     ? `, ${addCaseWhenTimeFilter(dialect, {
                         col: `m.${data.alias}_denominator`,
                         metric: data.metric,
@@ -864,7 +853,6 @@ export function getExperimentFactMetricsQuery(
                           : ""
                       }${
                         metric.ratioMetric &&
-                        !metric.isClusterRatioConversion &&
                         metric.denominatorSourceIndex === f.index
                           ? `, ${dialect.ifElse(
                               `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
@@ -925,7 +913,8 @@ export function getExperimentFactMetricsQuery(
     ${
       // Cluster experiment: roll the per-sub-unit aggregate up to one row per
       // cluster, applying per-sub-unit capping and summing to the cluster.
-      isClusterExperiment && clusterIdColumn
+      // clusterIdColumn is non-null exactly when useClusterRollup is true.
+      clusterIdColumn
         ? `, ${clusterRollupTable} AS (
           ${getClusterRollupCTE({
             dimensionCols,
@@ -961,13 +950,13 @@ export function getExperimentFactMetricsQuery(
       statisticsSourceTableName: statisticsSourceTable,
       // The rollup already merged every source into one per-cluster row, so the
       // statistics CTE must not re-join sources.
-      flattenedSources: flattenUnitMetrics || isClusterExperiment,
+      flattenedSources: flattenUnitMetrics || useClusterRollup,
       funnelsResolvedOnSource: funnelMetrics.length > 0,
       eventQuantileTableName: "__eventQuantileMetric",
       capValueTableName: "__capValue",
       factTablesWithIndices,
       percentileTableIndices,
-      isClusterExperiment,
+      useClusterRollup,
     })}
     `
     }`,

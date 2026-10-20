@@ -316,6 +316,7 @@ export interface ExperimentMetricAnalysisParams {
   variations: ExperimentReportVariation[];
   phaseLengthHours: number;
   coverage: number;
+  isClusterExperiment?: boolean;
 
   analyses: ExperimentSnapshotAnalysisSettings[];
   banditSettings?: SnapshotBanditSettings;

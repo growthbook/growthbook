@@ -1,4 +1,13 @@
 import {
+  EventUser as EventUserType,
+  eventUserIdentity,
+  eventUserLabel,
+  eventUserPersonId,
+  revisionActor,
+  RampScheduleInterface,
+  ACTIVE_DRAFT_STATUSES,
+} from "shared/validators";
+import {
   NO_ENVIRONMENT_BINDING,
   canCommentOnRevisionEntity,
   holdsFeatureMoveDestination,
@@ -8,10 +17,6 @@ import {
 } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
-import {
-  RampScheduleInterface,
-  ACTIVE_DRAFT_STATUSES,
-} from "shared/validators";
 import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
@@ -45,10 +50,6 @@ import {
   findPublishLockingScheduledRevision,
   isInReviewCycle,
 } from "shared/enterprise";
-import {
-  EventUserLoggedIn,
-  EventUserApiKey,
-} from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import {
@@ -271,6 +272,18 @@ export default function ReviewAndPublish({
       : `/feature/${feature.id}/0/log`,
     { shouldRun: () => !!revision },
   );
+  // Who's behind an identity on this draft, from its stored actors.
+  const actorFor = (id: string) =>
+    revisionActor(
+      {
+        createdBy: revision?.createdBy ?? undefined,
+        publishedBy: revision?.publishedBy ?? undefined,
+        reviews: revision?.reviews,
+        activityLog: logData?.log,
+      },
+      id,
+    );
+  const nameFor = (id: string) => users.get(id)?.name;
   const { reviewers, approvedAt } = useMemo<{
     reviewers: {
       id: string;
@@ -280,10 +293,7 @@ export default function ReviewAndPublish({
       // possible when the org doesn't reset reviews on change — otherwise
       // the verdict would have been cleared server-side).
       stale: boolean;
-      // Display fallbacks from the baked review's event user, for reviewers
-      // not present in the members map (e.g. API keys).
-      name?: string;
-      email?: string;
+      user?: EventUserType;
     }[];
     // Timestamp of the most recent *surviving* approval (retractions and
     // recalls invalidate earlier verdicts). Used to quantify how stale an
@@ -322,8 +332,7 @@ export default function ReviewAndPublish({
         timestamp: string;
         // The model already demoted this verdict to a "-stale" variant.
         forceStale?: boolean;
-        name?: string;
-        email?: string;
+        user?: EventUserType;
       }[],
     ) => {
       const approvedTimestamps = entries
@@ -358,12 +367,7 @@ export default function ReviewAndPublish({
             r.status === "approved-stale" ||
             r.status === "changes-requested-stale",
           timestamp: new Date(r.timestamp).toISOString(),
-          name:
-            r.user && "name" in r.user && r.user.name ? r.user.name : undefined,
-          email:
-            r.user && "email" in r.user && r.user.email
-              ? r.user.email
-              : undefined,
+          user: r.user,
         })),
       );
     }
@@ -375,7 +379,11 @@ export default function ReviewAndPublish({
     // their approval would still appear listed with the stale verdict.
     const byUser = new Map<
       string,
-      { status: "approved" | "changes-requested"; timestamp: string }
+      {
+        status: "approved" | "changes-requested";
+        timestamp: string;
+        user?: EventUserType;
+      }
     >();
     for (const entry of sorted) {
       if (entry.action === "Review Requested") {
@@ -388,30 +396,25 @@ export default function ReviewAndPublish({
         byUser.clear();
         continue;
       }
-      const uid = entry.user && "id" in entry.user ? entry.user.id : undefined;
+      const uid = eventUserIdentity(entry.user ?? null);
       if (!uid) continue;
       const timestamp = entry.timestamp as unknown as string;
+      const user = entry.user ?? undefined;
       if (entry.action === "Approved") {
-        byUser.set(uid, { status: "approved", timestamp });
+        byUser.set(uid, { status: "approved", timestamp, user });
       } else if (entry.action === "Requested Changes") {
-        byUser.set(uid, { status: "changes-requested", timestamp });
+        byUser.set(uid, { status: "changes-requested", timestamp, user });
       } else if (entry.action === "Undo Review") {
         byUser.delete(uid);
       }
     }
-    return finish(
-      Array.from(byUser, ([id, v]) => ({
-        id,
-        status: v.status,
-        timestamp: v.timestamp,
-      })),
-    );
+    return finish(Array.from(byUser, ([id, v]) => ({ id, ...v })));
   }, [logData, revision]);
 
-  // User ID of whoever most recently submitted a "Review Requested" entry.
-  // Drives the header attribution and (together with author/contributor
-  // status) gates "Return to draft".
-  const reviewRequesterId = useMemo<string | undefined>(() => {
+  // Whoever most recently submitted a "Review Requested" entry. Drives the
+  // header attribution and (together with author/contributor status) gates
+  // "Return to draft".
+  const reviewRequest = useMemo(() => {
     const log = logData?.log;
     if (!log) return undefined;
     const sorted = [...log].sort((a, b) =>
@@ -421,11 +424,12 @@ export default function ReviewAndPublish({
     );
     for (const entry of sorted) {
       if (entry.action !== "Review Requested") continue;
-      const uid = entry.user && "id" in entry.user ? entry.user.id : undefined;
-      if (uid) return uid;
+      const uid = eventUserIdentity(entry.user ?? null);
+      if (uid && entry.user) return { id: uid, user: entry.user };
     }
     return undefined;
   }, [logData]);
+  const reviewRequesterId = reviewRequest?.id;
   // --- Read-only review (selected version is not an active draft) ----------
   const [revertOpen, setRevertOpen] = useState(false);
   const [confirmReopen, setConfirmReopen] = useState(false);
@@ -874,10 +878,6 @@ export default function ReviewAndPublish({
   );
   const featureLockedBySchedule = !!lockingScheduledSibling;
 
-  const createdBy = revision?.createdBy as
-    | EventUserLoggedIn
-    | EventUserApiKey
-    | undefined;
   const requireReviewSettings = settings?.requireReviews;
   const reviewSetting = Array.isArray(requireReviewSettings)
     ? getReviewSetting(requireReviewSettings, feature)
@@ -885,12 +885,13 @@ export default function ReviewAndPublish({
   const isBlockedContributor =
     reviewSetting?.blockSelfApproval &&
     (revision?.contributors ?? []).some((id) => id === user?.id);
+  const draftAuthorId = eventUserPersonId(revision?.createdBy ?? null);
   // The whole review cycle accepts verdicts, "approved" included (matching the
   // server): an approval that doesn't satisfy coverage or a required team must
   // not lock out the one that would.
   const canReview =
     isInReviewCycle(revision?.status) &&
-    createdBy?.id !== user?.id &&
+    draftAuthorId !== user?.id &&
     permissionsUtil.canReviewFeatureDrafts(
       feature,
       reviewFootprint,
@@ -910,11 +911,9 @@ export default function ReviewAndPublish({
     NO_ENVIRONMENT_BINDING,
   );
   const authoredDraft =
-    (!!userId &&
-      !!revision?.createdBy &&
-      "id" in revision.createdBy &&
-      revision.createdBy.id === userId) ||
-    (!!userId && (revision?.contributors ?? []).includes(userId));
+    !!userId &&
+    (draftAuthorId === userId ||
+      (revision?.contributors ?? []).includes(userId));
   // The same predicates the server enforces, so the client can't offer an
   // action the server then refuses.
   const revertedFrom = pastRevisions.get(revision?.revertedFromVersion);
@@ -1461,15 +1460,10 @@ export default function ReviewAndPublish({
   const systemCreator =
     revision.createdBy?.type === "system" ? revision.createdBy : null;
   const authorId =
-    !apiKeyCreator &&
-    !systemCreator &&
-    revision.createdBy &&
-    "id" in revision.createdBy &&
-    revision.createdBy.id
-      ? revision.createdBy.id
-      : undefined;
+    !apiKeyCreator && !systemCreator ? (draftAuthorId ?? undefined) : undefined;
+  const keyCreatorId = apiKeyCreator ? eventUserIdentity(apiKeyCreator) : null;
   const contribIds = (revision.contributors ?? []).filter(
-    (id) => id !== apiKeyCreator?.id && id !== systemCreator?.id,
+    (id) => id !== keyCreatorId && id !== systemCreator?.id,
   );
   const contributorIds =
     authorId && !contribIds.includes(authorId)
@@ -1618,17 +1612,9 @@ export default function ReviewAndPublish({
                 Contributors
               </Text>
               <Flex direction="column" gap="2">
-                {contributorIds.map((id) => {
-                  const u = users.get(id);
-                  return (
-                    <PersonRow
-                      key={id}
-                      id={id}
-                      name={u?.name || ""}
-                      email={u?.email || ""}
-                    />
-                  );
-                })}
+                {contributorIds.map((id) => (
+                  <PersonRow key={id} user={actorFor(id)} />
+                ))}
               </Flex>
             </Box>
           )}
@@ -1639,20 +1625,16 @@ export default function ReviewAndPublish({
                 Reviewers
               </Text>
               <Flex direction="column" gap="2">
-                {reviewers.map(({ id, status, timestamp, stale, ...r }) => {
-                  const u = users.get(id);
-                  const name = u?.name || r.name || "";
-                  const email = u?.email || r.email || "";
+                {reviewers.map(({ id, status, timestamp, stale, user }) => {
+                  const reviewer = user ?? actorFor(id);
                   return (
                     <PersonRow
                       key={id}
-                      id={id}
-                      name={name}
-                      email={email}
+                      user={reviewer}
                       trailing={
                         <ReviewerVerdictIcon
                           status={status}
-                          name={name || email}
+                          name={eventUserLabel(reviewer, { nameFor })}
                           timestamp={timestamp}
                           stale={stale}
                           uncoveredReason={
@@ -1901,11 +1883,6 @@ export default function ReviewAndPublish({
     status: revision.status,
     mergeSuccess: mergeResult.success,
     hasChanges: hasChanges || isStranded,
-    hasReviewPermission: permissionsUtil.canReviewFeatureDrafts(
-      feature,
-      reviewFootprint,
-      approverProjects,
-    ),
     // Recall is derived from this in the state machine, and revert/delete
     // authority may recall a review request on a draft they authored — so pass
     // the widened predicate rather than the bare draft atom.
@@ -2511,9 +2488,15 @@ export default function ReviewAndPublish({
   // the review log — the same source that feeds the "Return to draft" gate).
   // The revision author is only a fallback while the log loads, since the
   // requester is often a different person than the author.
-  const requesterId = reviewRequesterId || authorId;
-  const requester = requesterId ? users.get(requesterId) : undefined;
-  const requesterName = requester?.name || requester?.email || "";
+  const requesterId = reviewRequesterId || draftAuthorId || undefined;
+  const requesterName = requesterId
+    ? eventUserLabel(
+        reviewRequest && reviewRequest.id === requesterId
+          ? reviewRequest.user
+          : actorFor(requesterId),
+        { nameFor },
+      )
+    : "";
   const headerTitle =
     revision.title?.trim() ||
     revision.comment?.trim() ||
@@ -2696,17 +2679,9 @@ export default function ReviewAndPublish({
               Contributors
             </Text>
             <Flex direction="column" gap="2">
-              {contributorIds.map((id) => {
-                const u = users.get(id);
-                return (
-                  <PersonRow
-                    key={id}
-                    id={id}
-                    name={u?.name || ""}
-                    email={u?.email || ""}
-                  />
-                );
-              })}
+              {contributorIds.map((id) => (
+                <PersonRow key={id} user={actorFor(id)} />
+              ))}
             </Flex>
           </Box>
         )}
@@ -2724,20 +2699,16 @@ export default function ReviewAndPublish({
                   </Text>
                 )}
               <Flex direction="column" gap="2">
-                {reviewers.map(({ id, status, timestamp, stale, ...r }) => {
-                  const u = users.get(id);
-                  const name = u?.name || r.name || "";
-                  const email = u?.email || r.email || "";
+                {reviewers.map(({ id, status, timestamp, stale, user }) => {
+                  const reviewer = user ?? actorFor(id);
                   return (
                     <PersonRow
                       key={id}
-                      id={id}
-                      name={name}
-                      email={email}
+                      user={reviewer}
                       trailing={
                         <ReviewerVerdictIcon
                           status={status}
-                          name={name || email}
+                          name={eventUserLabel(reviewer, { nameFor })}
                           timestamp={timestamp}
                           stale={stale}
                           uncoveredReason={
@@ -3007,6 +2978,7 @@ export default function ReviewAndPublish({
                               onScheduleDateChange(d ? d.toISOString() : "")
                             }
                             precision="datetime"
+                            timeZone="local"
                             disableBefore={new Date().toISOString()}
                           />
                           <Flex align="center" gap="1" mt="2">

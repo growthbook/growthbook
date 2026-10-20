@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  confirmRulesValidator,
+  requesterHeaderValidator,
+  requesterPermissionsValidator,
+} from "shared/validators";
 
 const roleRuleValidator = z
   .object({
@@ -47,8 +52,12 @@ export const postApiKeyValidator = z.strictObject({
   environments: z.array(z.string()).optional(),
   projectRoles: z.array(projectMemberRoleValidator).optional(),
   additionalRoles: z.array(roleRuleValidator).optional(),
+  requesterHeader: requesterHeaderValidator.optional(),
+  requesterPermissions: requesterPermissionsValidator.optional(),
   // ISO string; null or absent means no expiration, subject to the org policy.
   expiresAt: z.string().nullable().optional(),
+  // Null or omitted means no confirmations.
+  confirmRules: confirmRulesValidator.nullable().optional(),
 });
 
 export const putApiKeyValidator = z.strictObject({
@@ -61,10 +70,30 @@ export const putApiKeyValidator = z.strictObject({
   environments: z.array(z.string()).optional(),
   projectRoles: z.array(projectMemberRoleValidator).optional(),
   additionalRoles: z.array(roleRuleValidator).optional(),
+  // Org keys only; omitted keeps the saved value.
+  requesterHeader: requesterHeaderValidator.optional(),
+  requesterPermissions: requesterPermissionsValidator.optional(),
   // Omitted leaves the expiry unchanged; null removes it where the policy allows.
   expiresAt: z.string().nullable().optional(),
+  // Null turns confirmations off for this key; omitted leaves them unchanged.
+  confirmRules: confirmRulesValidator.nullable().optional(),
 });
 
 export const putApiKeyDisabledValidator = z.strictObject({
   disabled: z.boolean(),
+});
+
+// These three validators' fields go into database filters, where an object
+// would act as a query operator.
+export const deleteApiKeyValidator = z.strictObject({
+  id: z.string().optional(),
+  key: z.string().optional(),
+});
+
+export const postApiKeyRevealValidator = z.strictObject({
+  id: z.string().optional(),
+});
+
+export const postInviteAcceptValidator = z.strictObject({
+  key: z.string(),
 });

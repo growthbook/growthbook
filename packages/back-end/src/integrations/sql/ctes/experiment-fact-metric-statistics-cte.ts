@@ -18,6 +18,73 @@ import {
   funnelStepValueColumn,
 } from "back-end/src/integrations/sql/fact-metrics/funnel-columns";
 
+type StatisticColumnRefs = {
+  capMain: string;
+  capDenominator: string;
+  capCovariate: string;
+  capDenominatorCovariate: string;
+  uncappedMain: string;
+  uncappedDenominator: string;
+  uncappedCovariate: string;
+  uncappedDenominatorCovariate: string;
+  numeratorCapRef: (col: string) => string;
+  denominatorCapRef: (col: string) => string;
+};
+
+function getStatisticColumnRefs(
+  dialect: SqlDialect,
+  data: FactMetricData,
+  useClusterRollup: boolean,
+): StatisticColumnRefs {
+  // TODO test numerator suffix capping
+  const numeratorSuffix = `${
+    data.numeratorSourceIndex === 0 ? "" : data.numeratorSourceIndex
+  }`;
+  const denominatorCapSuffix = `${
+    data.denominatorSourceIndex === 0 ? "" : data.denominatorSourceIndex
+  }`;
+  // The rollup already capped each sub-unit and summed it into one per-cluster
+  // row read as `m`, so cluster statistics never join a per-source cap table.
+  const numeratorCapRef = (col: string): string =>
+    useClusterRollup
+      ? `m.${data.alias}_${col}`
+      : `cap${numeratorSuffix}.${data.alias}_${col}`;
+  const denominatorCapRef = (col: string): string =>
+    useClusterRollup
+      ? `m.${data.alias}_${col}`
+      : `cap${denominatorCapSuffix}.${data.alias}_${col}`;
+  if (!useClusterRollup) {
+    return {
+      capMain: data.capCoalesceMetric,
+      capDenominator: data.capCoalesceDenominator,
+      capCovariate: data.capCoalesceCovariate,
+      capDenominatorCovariate: data.capCoalesceDenominatorCovariate,
+      uncappedMain: data.uncappedCoalesceMetric,
+      uncappedDenominator: data.uncappedCoalesceDenominator,
+      uncappedCovariate: data.uncappedCoalesceCovariate,
+      uncappedDenominatorCovariate: data.uncappedCoalesceDenominatorCovariate,
+      numeratorCapRef,
+      denominatorCapRef,
+    };
+  }
+  const clusterRollupRef = (col: string): string =>
+    dialect.castToFloat(`COALESCE(m.${data.alias}_${col}, 0)`);
+  return {
+    capMain: clusterRollupRef("value"),
+    capDenominator: clusterRollupRef("denominator"),
+    capCovariate: clusterRollupRef("covariate_value"),
+    capDenominatorCovariate: clusterRollupRef("covariate_denominator"),
+    uncappedMain: clusterRollupRef("value_uncapped"),
+    uncappedDenominator: clusterRollupRef("denominator_uncapped"),
+    uncappedCovariate: clusterRollupRef("covariate_value_uncapped"),
+    uncappedDenominatorCovariate: clusterRollupRef(
+      "covariate_denominator_uncapped",
+    ),
+    numeratorCapRef,
+    denominatorCapRef,
+  };
+}
+
 export function getExperimentFactMetricStatisticsCTE(
   dialect: SqlDialect,
   {
@@ -33,7 +100,7 @@ export function getExperimentFactMetricStatisticsCTE(
     capValueTableName,
     factTablesWithIndices,
     percentileTableIndices,
-    isClusterExperiment = false,
+    useClusterRollup = false,
   }: {
     dimensionCols: DimensionColumnData[];
     metricData: FactMetricData[];
@@ -54,7 +121,12 @@ export function getExperimentFactMetricStatisticsCTE(
     capValueTableName: string;
     factTablesWithIndices: { factTable: FactTableInterface; index: number }[];
     percentileTableIndices: Set<number>;
-    isClusterExperiment?: boolean;
+    /**
+     * Read statistics from the cluster rollup (one row per cluster, already
+     * capped) instead of per-source per-sub-unit aggregates. False for
+     * cluster-level queries, which analyze the cluster as a standard unit.
+     */
+    useClusterRollup?: boolean;
   },
 ): string {
   const useArrayQuantileGrid = dialect.hasArrayQuantileGrid();
@@ -86,53 +158,24 @@ export function getExperimentFactMetricStatisticsCTE(
           `;
             }
 
-            //TODO test numerator suffix capping
-            const numeratorSuffix = `${data.numeratorSourceIndex === 0 ? "" : data.numeratorSourceIndex}`;
-            const denominatorCapSuffix = `${
-              data.denominatorSourceIndex === 0
-                ? ""
-                : data.denominatorSourceIndex
-            }`;
             const numeratorUpperPct = isUpperPercentileCappedMetric(
               data.metric,
             );
             const numeratorLowerPct = isLowerPercentileCappedMetric(
               data.metric,
             );
-            const numeratorCapRef = (col: string): string =>
-              isClusterExperiment
-                ? `m.${data.alias}_${col}`
-                : `cap${numeratorSuffix}.${data.alias}_${col}`;
-            const denominatorCapRef = (col: string): string =>
-              isClusterExperiment
-                ? `m.${data.alias}_${col}`
-                : `cap${denominatorCapSuffix}.${data.alias}_${col}`;
-            const clusterRollupRef = (col: string): string =>
-              dialect.castToFloat(`COALESCE(m.${data.alias}_${col}, 0)`);
-            const capMain = isClusterExperiment
-              ? clusterRollupRef("value")
-              : data.capCoalesceMetric;
-            const capDenominator = isClusterExperiment
-              ? clusterRollupRef("denominator")
-              : data.capCoalesceDenominator;
-            const capCovariate = isClusterExperiment
-              ? clusterRollupRef("covariate_value")
-              : data.capCoalesceCovariate;
-            const capDenominatorCovariate = isClusterExperiment
-              ? clusterRollupRef("covariate_denominator")
-              : data.capCoalesceDenominatorCovariate;
-            const uncappedMain = isClusterExperiment
-              ? clusterRollupRef("value_uncapped")
-              : data.uncappedCoalesceMetric;
-            const uncappedDenominator = isClusterExperiment
-              ? clusterRollupRef("denominator_uncapped")
-              : data.uncappedCoalesceDenominator;
-            const uncappedCovariate = isClusterExperiment
-              ? clusterRollupRef("covariate_value_uncapped")
-              : data.uncappedCoalesceCovariate;
-            const uncappedDenominatorCovariate = isClusterExperiment
-              ? clusterRollupRef("covariate_denominator_uncapped")
-              : data.uncappedCoalesceDenominatorCovariate;
+            const {
+              capMain,
+              capDenominator,
+              capCovariate,
+              capDenominatorCovariate,
+              uncappedMain,
+              uncappedDenominator,
+              uncappedCovariate,
+              uncappedDenominatorCovariate,
+              numeratorCapRef,
+              denominatorCapRef,
+            } = getStatisticColumnRefs(dialect, data, useClusterRollup);
             const numeratorPercentileCapCols = [
               numeratorUpperPct
                 ? `
@@ -143,19 +186,21 @@ export function getExperimentFactMetricStatisticsCTE(
                     , MAX(COALESCE(${numeratorCapRef("value_cap_lower")}, 0)) as ${data.alias}_main_cap_value_lower`
                 : "",
             ].join("");
-            const ratioDenominatorPercentileCapCols =
-              data.ratioMetric && !data.isClusterRatioConversion
-                ? [
-                    numeratorUpperPct
-                      ? `
+            // Only a real denominator column should be percentile-capped. A
+            // cluster-ratio conversion (`ratioMetric === false`) has no
+            // denominator column.
+            const ratioDenominatorPercentileCapCols = data.ratioMetric
+              ? [
+                  numeratorUpperPct
+                    ? `
                     , MAX(COALESCE(${denominatorCapRef("denominator_cap")}, 0)) as ${data.alias}_denominator_cap_value`
-                      : "",
-                    numeratorLowerPct
-                      ? `
+                    : "",
+                  numeratorLowerPct
+                    ? `
                     , MAX(COALESCE(${denominatorCapRef("denominator_cap_lower")}, 0)) as ${data.alias}_denominator_cap_value_lower`
-                      : "",
-                  ].join("")
-                : "";
+                    : "",
+                ].join("")
+              : "";
             return `
            , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id
             ${
@@ -205,7 +250,7 @@ export function getExperimentFactMetricStatisticsCTE(
                 : ""
             }
             ${
-              data.ratioMetric
+              data.ratioMetric || data.isClusterRatioConversion
                 ? `
                 ${
                   data.computeUncappedMetric
@@ -301,7 +346,7 @@ export function getExperimentFactMetricStatisticsCTE(
         )`
         }
         ${
-          percentileTableIndices.has(index) && !isClusterExperiment
+          percentileTableIndices.has(index) && !useClusterRollup
             ? `
           CROSS JOIN ${capValueTableName}${suffix} cap${suffix}
         `

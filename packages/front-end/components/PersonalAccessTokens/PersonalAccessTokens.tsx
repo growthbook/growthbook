@@ -1,5 +1,4 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
-import { FaKey } from "react-icons/fa";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import Link from "@/ui/Link";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
@@ -7,6 +6,7 @@ import ApiKeysModal from "@/components/Settings/ApiKeysModal";
 import { useAuth } from "@/services/auth";
 import { groupApiKeysByType } from "@/services/secret-api-keys.utils";
 import useApi from "@/hooks/useApi";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -36,10 +36,10 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
   const tokensDisabled = !!settings?.disablePersonalAccessTokens;
   const permissionsUtils = usePermissionsUtil();
   // Each settings page has its own gate, so link only where the member can go.
-  const canManageApiKeys =
-    permissionsUtils.canCreateApiKey() || permissionsUtils.canDeleteApiKey();
+  const canManageApiKeys = permissionsUtils.canViewApiKeys();
   const canManageTokens =
-    canManageApiKeys || permissionsUtils.canManageOrgSettings();
+    permissionsUtils.canManagePersonalAccessTokens() ||
+    permissionsUtils.canManageOrgSettings();
 
   return (
     <div>
@@ -94,15 +94,9 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
             admin if you need API access.
           </Callout>
         ) : (
-          <button
-            className="btn btn-primary"
-            onClick={(e) => {
-              e.preventDefault();
-              setOpen(true);
-            }}
-          >
-            <FaKey /> Create New Personal Access Token
-          </button>
+          <Button onClick={() => setOpen(true)}>
+            New personal access token
+          </Button>
         )}
       </div>
 

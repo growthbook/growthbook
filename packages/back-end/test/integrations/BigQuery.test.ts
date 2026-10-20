@@ -1039,10 +1039,85 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(sql).toMatch(
       /__experimentUnits AS \([\s\S]*GROUP BY[\s\S]*region_id/,
     );
+    // A cluster whose sub-units span multiple variations is flagged
+    // '__multiple__' (dropped downstream) rather than counted in each arm.
+    // This must match the non-incremental getExperimentFactMetricsQuery path.
+    expect(sql).toMatch(
+      /CASE\s+WHEN COUNT\(DISTINCT e\.variation\) > 1[\s\S]*?THEN '__multiple__'[\s\S]*?ELSE MAX\(e\.variation\)[\s\S]*?END/i,
+    );
     // The metric cache is aggregated on the cluster id.
     expect(sql).toMatch(
       /__metricDataAggregated[\s\S]*GROUP BY[\s\S]*region_id/,
     );
+  });
+
+  it("getIncrementalRefreshStatisticsQuery projects unit dimensions at the cluster grain for cluster-level metrics", () => {
+    const clusterFactTable = factTableFactory.build({
+      id: "ft_cluster",
+      name: "Cluster events",
+      sql: "SELECT * FROM region_events",
+      userIdTypes: ["region_id"],
+    });
+    const clusterMetric = factMetricFactory.build({
+      id: "fact_cluster",
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft_cluster",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const userDimension: DimensionInterface = {
+      id: "dim_u1",
+      organization: "org1",
+      owner: "",
+      datasource: "ds_1",
+      userIdType: "region_id",
+      name: "Region tier",
+      sql: "SELECT region_id, tier AS value FROM regions",
+      dateCreated: null,
+      dateUpdated: null,
+    };
+    const sql = integration.getIncrementalRefreshStatisticsQuery({
+      settings: {
+        ...settings,
+        exposureQueryIdentifierType: "region_id",
+        isClusterExperiment: true,
+        clusterSubUnitIdentifier: "user_id",
+        clusterLevelMetricIds: ["fact_cluster"],
+      },
+      exposureQuery: { query: "*", identifierType: "region_id" },
+      activationMetric: null,
+      dimensionsForPrecomputation: [],
+      dimensionsForAnalysis: [{ type: "user", dimension: userDimension }],
+      factTableMap: new Map([["ft_cluster", clusterFactTable]]),
+      metricSources: [
+        {
+          factTableId: "ft_cluster",
+          tableFullName: "proj.ds.metric_source_cluster",
+        },
+      ],
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [clusterMetric],
+      lastMaxTimestamp: null,
+    });
+
+    // The cluster-level __experimentUnits CTE spans from its definition to the
+    // first metric-data CTE that reads from it.
+    const unitsSection = sql.substring(
+      sql.indexOf("__experimentUnits AS"),
+      sql.indexOf("__metricDataAggregated"),
+    );
+    // The per-unit dimension CTE is joined onto the exposure rows here (rather
+    // than dropped), so the analysis dimension column resolves.
+    expect(unitsSection).toContain(
+      "LEFT JOIN __dim_unit_dim_u1 __dim_unit_dim_u1",
+    );
+    // It is aggregated to one value per cluster and projected under its alias,
+    // which the downstream analysis groups on.
+    expect(unitsSection).toContain("__dim_unit_dim_u1.value");
+    expect(unitsSection).toContain("AS dim_unit_dim_u1");
+    expect(unitsSection).toMatch(/GROUP BY[\s\S]*region_id/);
   });
 
   it("keys the sub-unit cluster metric cache on the sub-unit id and joins units directly", () => {

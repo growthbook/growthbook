@@ -752,6 +752,20 @@ export default function AnalysisSettingsSummary({
         getExperimentOutdatedReasonLabel("exposureQueryIdentifierType"),
       );
     }
+    // A missing flag means off, and a sub-unit only counts in cluster mode.
+    const expSubUnit = exp.isClusterExperiment
+      ? (exp.clusterSubUnitIdentifier ?? null)
+      : null;
+    const snapshotSubUnit = snapshotSettings.isClusterExperiment
+      ? (snapshotSettings.clusterSubUnitIdentifier ?? null)
+      : null;
+    if (!!exp.isClusterExperiment !== !!snapshotSettings.isClusterExperiment) {
+      reasons.push(getExperimentOutdatedReasonLabel("isClusterExperiment"));
+    } else if (expSubUnit !== snapshotSubUnit) {
+      reasons.push(
+        getExperimentOutdatedReasonLabel("clusterSubUnitIdentifier"),
+      );
+    }
     if (
       isDifferent(
         exp.attributionModel || "firstExposure",

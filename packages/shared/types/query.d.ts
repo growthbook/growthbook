@@ -26,6 +26,25 @@ export type QueryStatistics = z.infer<typeof queryStatisticsValidator>;
 
 export type QueryLogInterface = z.infer<typeof queryLogValidator>;
 
+// Summed querylogs rows; stats a warehouse doesn't report sum to 0
+export type QueryLogUsage = {
+  queries: number;
+  durationMs: number;
+  executionDurationMs: number;
+  bytesProcessed: number;
+  bytesBilled: number;
+  totalSlotMs: number;
+};
+// id is null for rows without the grouped field, e.g. scheduled runs have no user
+export type QueryLogUsageGroup = QueryLogUsage & { id: string | null };
+export type DataSourceUsage = {
+  total: QueryLogUsage;
+  factTables: QueryLogUsageGroup[];
+  experiments: QueryLogUsageGroup[];
+  users: QueryLogUsageGroup[];
+  queryTypes: QueryLogUsageGroup[];
+};
+
 export type TestQueryType = z.infer<typeof testQueryTypeValidator>;
 
 export type QueryType =
@@ -124,6 +143,8 @@ export type QueryType =
   // Session replay metadata queries
   | "sessionReplayList"
   | "sessionReplayDetail"
+  // Experiment exposure log
+  | "experimentExposures"
   // AI agent SQL queries (Ask Your Data)
   | "askDataAgentQuery"
 
@@ -180,6 +201,8 @@ export interface QueryInterface {
   dependencies?: string[]; // must succeed before running query
   runAtEnd?: boolean; // only run when all other queries in model finish
   cachedQueryUsed?: string;
+  cacheKey?: string;
+  resolvedWindow?: { startDate: Date; endDate: Date };
   statistics?: QueryStatistics;
   externalId?: string;
   // Integration-specific side-data for managing the external job (e.g.

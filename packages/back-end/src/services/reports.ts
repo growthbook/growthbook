@@ -14,8 +14,7 @@ import {
   ExperimentMetricInterface,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
-  getClusterMetricAnalysisLevel,
-  ClusterMetricAnalysisLevel,
+  getClusterSubUnit,
   expandMetricGroups,
   generateSliceString,
   expandDerivedMetricsInMap,
@@ -86,7 +85,7 @@ import {
   getExperimentQueryMetadata,
   getSnapshotQueryMetadata,
   getDefaultExperimentAnalysisSettings,
-  isJoinableMetric,
+  createMetricEligibilityResolver,
 } from "back-end/src/services/experiments";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
@@ -178,8 +177,8 @@ export function getSnapshotSettingsFromReportArgs(
     experimentId: args.trackingKey,
     exposureQueryId: args.exposureQueryId,
     exposureQueryIdentifierType: args.exposureQueryIdentifierType,
-    isClusterExperiment: experiment?.isClusterExperiment,
-    clusterSubUnitIdentifier: experiment?.clusterSubUnitIdentifier,
+    isClusterExperiment: false,
+    clusterSubUnitIdentifier: undefined,
     segment: args.segment || "",
     queryFilter: args.queryFilter || "",
     skipPartialData: !!args.skipPartialData,
@@ -612,83 +611,33 @@ export function getReportSnapshotSettings({
     report.experimentAnalysisSettings.exposureQueryIdentifierType,
   );
 
-  const isClusterExperiment =
-    !!report.experimentAnalysisSettings.isClusterExperiment &&
-    !!report.experimentAnalysisSettings.clusterSubUnitIdentifier;
   const clusterSubUnitIdentifier =
-    report.experimentAnalysisSettings.clusterSubUnitIdentifier;
+    getClusterSubUnit(report.experimentAnalysisSettings) ?? undefined;
+  const isClusterExperiment = clusterSubUnitIdentifier !== undefined;
 
-  const clusterAnalysisLevelCache = new Map<
-    string,
-    ClusterMetricAnalysisLevel | null
-  >();
-  const getClusterAnalysisLevel = (
-    metricId: string,
-  ): ClusterMetricAnalysisLevel | null => {
-    if (!isClusterExperiment || !clusterSubUnitIdentifier) return null;
-    const cached = clusterAnalysisLevelCache.get(metricId);
-    if (cached !== undefined) return cached;
-    const metric = metricMap.get(metricId);
-    const level =
-      metric && isFactMetric(metric)
-        ? getClusterMetricAnalysisLevel(metric, {
-            clusterIdentifier: exposureQueryIdentifierType,
-            clusterSubUnitIdentifier,
-            getFactTable: (factTableId) => factTableMap.get(factTableId),
-            datasourceSettings: datasource?.settings,
-          })
-        : null;
-    clusterAnalysisLevelCache.set(metricId, level);
-    return level;
-  };
-  const getMetricJoinIdentifierType = (
-    metricId: string,
-  ): string | undefined => {
-    if (!isClusterExperiment || !clusterSubUnitIdentifier) {
-      return exposureQueryIdentifierType;
-    }
-    return getClusterAnalysisLevel(metricId) === "cluster"
-      ? exposureQueryIdentifierType
-      : clusterSubUnitIdentifier;
-  };
+  // Re-check metric eligibility as the snapshot is built (not just at save
+  // time). Memoized so filtering and clusterLevelMetricIds share a single pass.
+  const { getMetricEligibility, isEligible } = createMetricEligibilityResolver({
+    metricMap,
+    factTableMap,
+    datasource,
+    exposureQueryIdentifierType,
+    clusterSubUnitIdentifier,
+  });
 
-  // expand metric groups and scrub unjoinable metrics
+  // expand metric groups and scrub metrics that can't be analyzed
   const goalMetrics = expandMetricGroups(
     report.experimentAnalysisSettings.goalMetrics,
     metricGroups,
-  ).filter((m) =>
-    isJoinableMetric({
-      metricId: m,
-      metricMap,
-      factTableMap,
-      identifierType: getMetricJoinIdentifierType(m),
-      datasource,
-    }),
-  );
+  ).filter(isEligible);
   const secondaryMetrics = expandMetricGroups(
     report.experimentAnalysisSettings.secondaryMetrics,
     metricGroups,
-  ).filter((m) =>
-    isJoinableMetric({
-      metricId: m,
-      metricMap,
-      factTableMap,
-      identifierType: getMetricJoinIdentifierType(m),
-      datasource,
-    }),
-  );
+  ).filter(isEligible);
   const guardrailMetrics = expandMetricGroups(
     report.experimentAnalysisSettings.guardrailMetrics,
     metricGroups,
-  ).filter((m) =>
-    isJoinableMetric({
-      metricId: m,
-      metricMap,
-      factTableMap,
-      identifierType: getMetricJoinIdentifierType(m),
-      datasource,
-    }),
-  );
+  ).filter(isEligible);
 
   const endDate = report.experimentAnalysisSettings.dateEnded || new Date();
   const lookbackOverride = getEffectiveLookbackOverride(
@@ -751,7 +700,7 @@ export function getReportSnapshotSettings({
   const clusterLevelMetricIds = isClusterExperiment
     ? metricSettings
         .map((m) => m.id)
-        .filter((id) => getClusterAnalysisLevel(id) === "cluster")
+        .filter((id) => getMetricEligibility(id).clusterLevel === "cluster")
     : [];
 
   const phase = report.experimentMetadata.phases?.[phaseIndex];
@@ -783,9 +732,8 @@ export function getReportSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: report.experimentAnalysisSettings.exposureQueryId,
     exposureQueryIdentifierType,
-    isClusterExperiment: report.experimentAnalysisSettings.isClusterExperiment,
-    clusterSubUnitIdentifier:
-      report.experimentAnalysisSettings.clusterSubUnitIdentifier,
+    isClusterExperiment: !!clusterSubUnitIdentifier,
+    clusterSubUnitIdentifier: clusterSubUnitIdentifier ?? undefined,
     ...(clusterLevelMetricIds.length ? { clusterLevelMetricIds } : {}),
     metricSettings,
     variations: report.experimentMetadata.variations.map((v, i) => ({
