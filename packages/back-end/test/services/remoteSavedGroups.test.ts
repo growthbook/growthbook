@@ -21,6 +21,7 @@ import {
   createRemoteSavedGroupUpload,
   deleteRemoteSavedGroupUpload,
   deleteRemoteSavedGroupUploads,
+  failRemoteSavedGroupUploadValidation,
   getRemoteSavedGroupUpload,
   getRemoteSavedGroupUploadDetails,
   getRemoteSavedGroupUploadDownloadUrl,
@@ -655,6 +656,40 @@ describe("validateRemoteSavedGroupUpload", () => {
     upload.status = { type: "valid", idCount: 1 };
     await validateRemoteSavedGroupUpload(context, upload.id);
     expect(readFileStream).not.toHaveBeenCalled();
+  });
+});
+
+describe("failRemoteSavedGroupUploadValidation", () => {
+  async function pendingUpload() {
+    const { context, uploads } = makeContext();
+    files.set(stagingKey("a"), Buffer.from("u1\n"));
+    await createRemoteSavedGroupUpload(context, "grp_1", stagingKey("a"));
+    return { context, upload: uploads[0] };
+  }
+
+  it("marks a pending upload invalid", async () => {
+    const { context, upload } = await pendingUpload();
+    await failRemoteSavedGroupUploadValidation(context, upload.id);
+    expect(upload.status).toEqual({
+      type: "invalid",
+      invalidLineCount: 0,
+      errors: ["GrowthBook couldn't read the file. Upload it again."],
+    });
+  });
+
+  it("leaves a finished upload alone", async () => {
+    const { context, upload } = await pendingUpload();
+    upload.status = { type: "valid", idCount: 1 };
+    await failRemoteSavedGroupUploadValidation(context, upload.id);
+    expect(upload.status).toEqual({ type: "valid", idCount: 1 });
+  });
+
+  it("does nothing for a missing upload", async () => {
+    const { context, uploads } = makeContext();
+    await expect(
+      failRemoteSavedGroupUploadValidation(context, "missing"),
+    ).resolves.toBeUndefined();
+    expect(uploads).toHaveLength(0);
   });
 });
 
