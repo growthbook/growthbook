@@ -262,7 +262,6 @@ export async function updateNonExperimentDashboard(
   });
 }
 
-/** Re-runs every query behind a dashboard's blocks and points them at the new results. */
 export async function refreshDashboard(
   context: ReqContext | ApiReqContext,
   dashboard: DashboardInterface,

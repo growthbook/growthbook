@@ -1,5 +1,3 @@
-import { v4 as uuidv4 } from "uuid";
-import { isReadOnlySQL } from "shared/sql";
 import { UpdateProps } from "shared/types/base-model";
 import {
   ApiCreateSavedQueryBody,
@@ -7,7 +5,6 @@ import {
   ApiSavedQuery,
   ApiSavedQueryReturn,
   ApiUpdateSavedQueryBody,
-  DataVizConfig,
   QueryExecutionResult,
   SavedQuery,
   savedQueryValidator,
@@ -24,6 +21,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
 import { runFreeFormQuery } from "back-end/src/services/datasource";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { assertReadOnlySql, withVizIds } from "back-end/src/util/savedQueries";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -72,18 +70,6 @@ const BaseClass = MakeModelClass({
     ],
   },
 });
-
-// Charts are addressed by id from dashboard blocks, so every one needs one.
-function withVizIds(configs: DataVizConfig[]): DataVizConfig[] {
-  return configs.map((c) => ({ ...c, id: c.id || `data-viz_${uuidv4()}` }));
-}
-
-// Checked on save too, so a query saved without running can't fail later
-function assertReadOnlySql(sql: string) {
-  if (!isReadOnlySQL(sql)) {
-    throw new BadRequestError("Only SELECT queries are allowed.");
-  }
-}
 
 export class SavedQueryDataModel extends BaseClass {
   public toApiInterface(q: SavedQuery): ApiSavedQuery {
