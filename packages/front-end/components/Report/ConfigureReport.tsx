@@ -474,8 +474,12 @@ export default function ConfigureReport({
               exposureQueryIdentifierType={
                 assignmentQuerySelection.identifierType
               }
-              isClusterExperiment={experiment?.isClusterExperiment}
-              clusterSubUnitIdentifier={experiment?.clusterSubUnitIdentifier}
+              isClusterExperiment={form.watch(
+                "experimentAnalysisSettings.isClusterExperiment",
+              )}
+              clusterSubUnitIdentifier={form.watch(
+                "experimentAnalysisSettings.clusterSubUnitIdentifier",
+              )}
               project={experiment?.project}
               forceSingleGoalMetric={experiment?.type === "multi-armed-bandit"}
               noQuantileGoalMetrics={experiment?.type === "multi-armed-bandit"}

@@ -83,6 +83,7 @@ export default function ExperimentMetricsSelector({
   const {
     getExperimentMetricById,
     getDatasourceById,
+    getFactTableById,
     metricGroups,
     factTables,
   } = useDefinitions();
@@ -139,8 +140,7 @@ export default function ExperimentMetricsSelector({
                 )
               : undefined,
             clusterSubUnitIdentifier,
-            getFactTable: (factTableId) =>
-              factTables.find((ft) => ft.id === factTableId),
+            getFactTable: getFactTableById,
             datasourceSettings: datasourceObj?.settings,
           });
           if (!eligibility.allowed) {
@@ -233,7 +233,7 @@ export default function ExperimentMetricsSelector({
       experimentType,
       isClusterExperiment,
       clusterSubUnitIdentifier,
-      factTables,
+      getFactTableById,
       getExperimentMetricById,
       getDatasourceById,
       metricGroups,
