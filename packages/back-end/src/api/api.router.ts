@@ -24,6 +24,8 @@ import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { SdkWebhookModel } from "back-end/src/models/WebhookModel";
 import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
+import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
+import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
@@ -103,6 +105,8 @@ const API_MODELS: ModelClass[] = [
   WebhookSecretDataModel,
   SdkWebhookModel,
   UrlRedirectModel,
+  SavedQueryDataModel,
+  MetricAnalysisModel,
 ];
 
 const router = Router();

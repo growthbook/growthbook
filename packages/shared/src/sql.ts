@@ -223,8 +223,9 @@ export function isReadOnlySQL(sql: string) {
 
 const MAX_AGENT_SQL_LENGTH = 100_000;
 
+// MySQL's TRUNCATE(x, d) and INSERT(str, ...) functions are reads; neither statement puts "(" next
 const DML_DDL_DENY_LIST =
-  /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|MERGE|GRANT|REVOKE|CALL|EXEC|EXECUTE)\b/i;
+  /\b(?:(?:INSERT|TRUNCATE)\b(?!\s*\()|(?:UPDATE|DELETE|DROP|ALTER|CREATE|MERGE|GRANT|REVOKE|CALL|EXEC|EXECUTE)\b)/i;
 
 const DIALECT_ESCAPE_HATCHES =
   /\b(INTO\s+OUTFILE|INTO\s+DUMPFILE|COPY\s+.{1,200}\s+TO|pg_read_file|pg_read_binary_file|LOAD_FILE|EXECUTE\s+IMMEDIATE)\b|(?<!\w)(file|url|s3)\s*\(/i;

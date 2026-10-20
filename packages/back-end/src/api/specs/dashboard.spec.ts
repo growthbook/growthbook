@@ -5,6 +5,8 @@ import {
   apiDashboardInterface,
   apiGetDashboardsForExperimentReturn,
   apiGetDashboardsForExperimentValidator,
+  apiRefreshDashboardReturn,
+  apiRefreshDashboardValidator,
   apiUpdateDashboardBody,
 } from "shared/enterprise";
 import { OpenApiModelSpec } from "shared/api-model";
@@ -33,6 +35,18 @@ export const createDashboardV2Endpoint = {
   version: "v2" as const,
 };
 
+export const refreshDashboardEndpoint = {
+  pathFragment: "/:id/refresh",
+  verb: "post" as const,
+  confirmation: ["other.write"] as const,
+  operationId: "refreshDashboard",
+  validator: apiRefreshDashboardValidator,
+  zodReturnObject: apiRefreshDashboardReturn,
+  summary: "Refresh a dashboard's results",
+  description:
+    "Re-runs the experiment snapshots, metric analyses, saved queries and explorations behind its blocks. Queries run in the background; blocks point at the new results right away.",
+};
+
 export const dashboardApiSpec = {
   modelSingular: "dashboard",
   modelPlural: "dashboards",
@@ -51,6 +65,7 @@ export const dashboardApiSpec = {
   customEndpoints: [
     getDashboardsForExperimentEndpoint,
     createDashboardV2Endpoint,
+    refreshDashboardEndpoint,
   ],
   crudDescriptions: {
     create:

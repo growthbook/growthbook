@@ -1,5 +1,5 @@
-import { isEqual, omit, uniqWith } from "lodash";
-import { isString } from "shared/util";
+import { groupBy, isEqual, omit, uniqWith } from "lodash";
+import { isDefined, isString } from "shared/util";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -33,10 +33,17 @@ import { ReqContext } from "back-end/types/request";
 
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { ApiReqContext } from "back-end/types/api";
-import { getDataSourcesByIds } from "back-end/src/models/DataSourceModel";
+import {
+  getDataSourceById,
+  getDataSourcesByIds,
+} from "back-end/src/models/DataSourceModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
 import {
   getDefaultExperimentAnalysisSettings,
+  createExperimentSnapshot,
+  createExperimentSnapshotFromPlan,
+  planExperimentSnapshot,
   createSnapshot,
   getAdditionalExperimentAnalysisSettings,
   determineNextDate,
@@ -45,6 +52,7 @@ import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { assertReadOnlySql } from "back-end/src/util/savedQueries";
 
 /**
  * Determines if nextUpdate should be recalculated based on changes to auto-updates or schedule
@@ -253,6 +261,107 @@ export async function updateNonExperimentDashboard(
       determineNextDate(dashboard.updateSchedule || null) ?? undefined,
     lastUpdated: new Date(),
   });
+}
+
+export async function refreshDashboard(
+  context: ReqContext | ApiReqContext,
+  dashboard: DashboardInterface,
+) {
+  if (dashboard.experimentId) {
+    const experiment = await getExperimentById(context, dashboard.experimentId);
+    if (!experiment)
+      throw new Error(
+        "Cannot update dashboard without an attached experiment.",
+      );
+
+    const datasource = await getDataSourceById(context, experiment.datasource);
+    if (!datasource)
+      throw new Error("Could not find the connected Data Source.");
+
+    // Fail fast before createExperimentSnapshotModel persists an orphan snapshot
+    // record. The query runner enforces this same permission again downstream.
+    if (!context.permissions.canCreateExperimentSnapshot(datasource)) {
+      context.permissions.throwPermissionError();
+    }
+
+    const plannedExperimentMainSnapshot = await planExperimentSnapshot({
+      context,
+      experiment,
+      dimension: undefined,
+      datasource,
+      phase: experiment.phases.length - 1,
+      useCache: false,
+      triggeredBy: "manual-dashboard",
+      type: "standard",
+    });
+
+    const mainSnapshot = plannedExperimentMainSnapshot.snapshot;
+    let mainSnapshotUsed = false;
+    const newBlocks = dashboard.blocks.map((block) => {
+      if (!blockHasFieldOfType(block, "snapshotId", isString))
+        return { ...block };
+      if (!snapshotSatisfiesBlock(mainSnapshot, block)) return { ...block };
+      mainSnapshotUsed = true;
+      return { ...block, snapshotId: mainSnapshot.id };
+    });
+    if (mainSnapshotUsed) {
+      await createExperimentSnapshotFromPlan({
+        plan: plannedExperimentMainSnapshot,
+        context,
+        experiment,
+      });
+    }
+
+    const dimensionBlockPairs = dashboard.blocks
+      .map<[string, string] | undefined>((block) => {
+        if (
+          blockHasFieldOfType(block, "dimensionId", isString) &&
+          !snapshotSatisfiesBlock(mainSnapshot, block)
+        ) {
+          return [block.dimensionId, block.id];
+        }
+        return undefined;
+      })
+      .filter(isDefined);
+
+    const dimensionsByBlocks = Object.fromEntries(
+      Object.entries(
+        groupBy(dimensionBlockPairs, ([dimensionId]) => dimensionId),
+      ).map(([dimensionId, dimBlockPairs]) => [
+        dimensionId,
+        dimBlockPairs.map(([, blockId]) => blockId),
+      ]),
+    );
+
+    for (const [dimensionId, blockIds] of Object.entries(dimensionsByBlocks)) {
+      const { snapshot } = await createExperimentSnapshot({
+        context,
+        experiment,
+        dimension: dimensionId,
+        datasource,
+        phase: experiment.phases.length - 1,
+        useCache: false,
+        triggeredBy: "manual-dashboard",
+        type: "exploratory",
+      });
+      newBlocks.forEach((block) => {
+        if (blockIds.includes(block.id)) {
+          block.snapshotId = snapshot.id;
+        }
+      });
+    }
+
+    await updateDashboardMetricAnalyses(context, newBlocks);
+    await updateDashboardSavedQueries(context, newBlocks);
+    await updateDashboardExplorations(context, newBlocks, dashboard);
+
+    // Bypassing permissions here to allow anyone to refresh the results of a dashboard
+    await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
+      blocks: newBlocks,
+    });
+  } else {
+    await updateNonExperimentDashboard(context, dashboard);
+  }
 }
 
 // Returns a boolean indicating whether the blocks have been modified and will need to be saved to db
@@ -629,6 +738,16 @@ export async function updateDashboardSavedQueries(
   await Promise.all(
     savedQueries.map(async (savedQuery) => {
       const savedQueryDataSource = datasourceMap.get(savedQuery.datasourceId);
+      try {
+        // Queries saved in the app only had their first keyword checked
+        assertReadOnlySql(savedQuery.sql);
+      } catch {
+        logger.warn(
+          { savedQueryId: savedQuery.id },
+          "Skipped a saved query that could write to the warehouse",
+        );
+        return;
+      }
       if (savedQueryDataSource) {
         await executeAndSaveQuery(context, savedQuery, savedQueryDataSource);
       }
