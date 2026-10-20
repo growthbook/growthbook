@@ -38,7 +38,7 @@ function toApiEventWebhook(w: EventWebHookInterface) {
     signingKey: w.signingKey,
     lastRunAt: w.lastRunAt?.toISOString() ?? null,
     lastState: w.lastState,
-    lastResponseBody: w.lastResponseBody,
+    lastResponseBody: w.lastResponseBody ?? null,
     dateCreated: w.dateCreated.toISOString(),
     dateUpdated: w.dateUpdated.toISOString(),
   };
@@ -58,9 +58,16 @@ function toApiLog(log: EventWebHookLegacyLogInterface) {
   };
 }
 
+// The Slack app manages its channels' webhooks, so REST leaves them out
+function isSlackAppManaged(w: EventWebHookInterface) {
+  return !!w.slack?.teamId;
+}
+
 async function getWebhook(context: ApiReqContext, id: string) {
   const webhook = await getEventWebHookById(id, context.org.id);
-  if (!webhook) context.throwNotFoundError(`Event webhook not found: ${id}`);
+  if (!webhook || isSlackAppManaged(webhook)) {
+    context.throwNotFoundError(`Event webhook not found: ${id}`);
+  }
   return webhook;
 }
 
@@ -71,7 +78,11 @@ export const listEventWebhooks = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
   const webhooks = await getAllEventWebHooks(req.context.org.id);
-  return { eventWebhooks: webhooks.map(toApiEventWebhook) };
+  return {
+    eventWebhooks: webhooks
+      .filter((w) => !isSlackAppManaged(w))
+      .map(toApiEventWebhook),
+  };
 });
 
 export const getEventWebhook = createApiRequestHandler(
@@ -140,6 +151,7 @@ export const deleteEventWebhook = createApiRequestHandler(
   if (!req.context.permissions.canDeleteEventWebhook()) {
     req.context.permissions.throwPermissionError();
   }
+  await getWebhook(req.context, req.params.id);
   const deleted = await deleteEventWebHookById({
     eventWebHookId: req.params.id,
     organizationId: req.context.org.id,

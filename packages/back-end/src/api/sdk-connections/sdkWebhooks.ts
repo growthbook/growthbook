@@ -89,9 +89,22 @@ export const listSdkConnectionWebhooks = createApiRequestHandler(
     await req.context.models.sdkWebhooks.findAllSdkWebhooksByConnection(
       conn.id,
     );
-  const canSeeSecrets = req.context.permissions.canUpdateSDKWebhook(conn);
+  // A webhook can span connections, so its secrets need edit rights on all of them
+  const conns = await findSDKConnectionsByIds(req.context, [
+    ...new Set(webhooks.flatMap((w) => w.sdks)),
+  ]);
+  const editable = new Set(
+    conns
+      .filter((c) => req.context.permissions.canUpdateSDKWebhook(c))
+      .map((c) => c.id),
+  );
   return {
-    sdkWebhooks: webhooks.map((w) => toApiSdkWebhook(w, canSeeSecrets)),
+    sdkWebhooks: webhooks.map((w) =>
+      toApiSdkWebhook(
+        w,
+        w.sdks.every((id) => editable.has(id)),
+      ),
+    ),
   };
 });
 
