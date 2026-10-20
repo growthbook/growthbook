@@ -691,7 +691,7 @@ export default function FinishSettingUp({
               ? doneActions(() => setExpandedStep("queries"))
               : stepCta(
                   "queries",
-                  "Write query",
+                  "Set up queries",
                   () => setExpandedStep("queries"),
                   true,
                 )
