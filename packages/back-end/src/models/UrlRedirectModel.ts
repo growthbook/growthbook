@@ -129,17 +129,23 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
   }
 
   // Create/Update/Delete all do the exact same permission check
-  private canWrite(doc: URLRedirectInterface): boolean {
+  private canWrite(
+    doc: URLRedirectInterface,
+    { willHaveRedirects = false } = {},
+  ): boolean {
     const { experiment } = this.getForeignRefs(doc);
     if (!experiment) throw new Error("Could not find experiment");
     const envs = getAffectedEnvsForExperiment({
-      experiment,
+      experiment: willHaveRedirects
+        ? { ...experiment, hasURLRedirects: true }
+        : experiment,
       orgEnvironments: this.context.org.settings?.environments || [],
     });
     return this.context.permissions.canRunExperiment(experiment, envs);
   }
   protected canCreate(doc: URLRedirectInterface): boolean {
-    return this.canWrite(doc);
+    // The first redirect flips hasURLRedirects, which reaches every environment
+    return this.canWrite(doc, { willHaveRedirects: true });
   }
   protected canUpdate(doc: URLRedirectInterface): boolean {
     return this.canWrite(doc);
@@ -277,10 +283,18 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     destinations: DestinationURL[],
     urlRedirectId?: string,
   ) {
-    const payloadExperiments = await getAllPayloadExperiments(this.context);
+    // Org-wide: an SDK connection can serve a project the caller can't read.
+    // Only the generic messages below are surfaced, never a hidden record.
+    const payloadExperiments = await getAllPayloadExperiments(
+      this.context,
+      undefined,
+      [],
+      { bypassReadPermissionChecks: true },
+    );
     const urlRedirects = await getAllURLRedirectExperiments(
       this.context,
       payloadExperiments,
+      await this._find({}, { bypassReadPermissionChecks: true }),
     );
     const originUrl = origin;
 

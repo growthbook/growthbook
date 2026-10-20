@@ -42,6 +42,7 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
+  getExperimentById,
   getExperimentsByIds,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
@@ -332,21 +333,27 @@ export async function assertExperimentHoldoutChange(
 
   if (holdoutId === undefined || holdoutId === (current || "")) return;
 
-  if (!current && experiment.status !== "draft") {
-    throw new Error("Only a draft experiment can be added to a holdout");
-  }
-  if (current) {
-    const hasLinkedChanges =
-      experiment.hasURLRedirects ||
-      experiment.hasVisualChangesets ||
-      !!experiment.linkedFeatures?.length;
-    if (experiment.status !== "draft" || hasLinkedChanges) {
+  const hasLinkedChanges =
+    experiment.hasURLRedirects ||
+    experiment.hasVisualChangesets ||
+    !!experiment.linkedFeatures?.length;
+  if (!current) {
+    if (experiment.status !== "draft") {
+      throw new Error("Only a draft experiment can be added to a holdout");
+    }
+    // SDKs gate on the feature's holdout, so a linked feature outside this one
+    // would serve the experiment ungated; it joins through the feature instead
+    if (hasLinkedChanges) {
       throw new Error(
-        holdoutId
-          ? "Cannot change holdout after experiment has been run or linked changes have been added"
-          : "Cannot remove experiment from holdout after experiment has been run or linked changes have been added",
+        "Cannot add an experiment with linked Feature Flags, URL redirects, or visual changesets to a holdout. Add the holdout to the Feature Flag first.",
       );
     }
+  } else if (experiment.status !== "draft" || hasLinkedChanges) {
+    throw new Error(
+      holdoutId
+        ? "Cannot change holdout after experiment has been run or linked changes have been added"
+        : "Cannot remove experiment from holdout after experiment has been run or linked changes have been added",
+    );
   }
 }
 
@@ -382,6 +389,16 @@ export async function applyExperimentHoldoutChange(
         experiment.id,
         added.dateAdded,
       );
+      // A newer switch saved meanwhile owns the links now; it unlinked `current`
+      // itself, so this entry is the only one it can't see to drop
+      const saved = await getExperimentById(context, experiment.id);
+      if (saved && saved.holdoutId !== holdoutId) {
+        await context.models.holdout.removeExperimentFromHoldout(
+          holdoutId,
+          experiment.id,
+          added,
+        );
+      }
     }
   } catch (e) {
     // No transactions: each step declines when the live row isn't this switch's work, so it holds whichever write failed or landed
