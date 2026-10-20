@@ -120,6 +120,7 @@ export const putLaunchChecklistValidator = {
     .strict(),
   summary: "Create or replace a pre-launch checklist",
   description: premiumNote,
+  confirmation: ["settings.other"] as const,
   operationId: "putLaunchChecklist",
   tags: ["experiments"],
   method: "put" as const,
@@ -134,6 +135,7 @@ export const deleteLaunchChecklistValidator = {
   summary: "Delete a Project's pre-launch checklist",
   description:
     "Its experiments fall back to the organization checklist. The organization checklist itself can't be deleted, only emptied.",
+  confirmation: ["settings.other"] as const,
   operationId: "deleteLaunchChecklist",
   tags: ["experiments"],
   method: "delete" as const,

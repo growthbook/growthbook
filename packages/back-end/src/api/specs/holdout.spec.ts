@@ -60,7 +60,11 @@ export const holdoutApiSpec = {
   crudValidatorOverrides: {
     list: apiListHoldoutsValidator,
   },
-  confirmation: { create: ["experiment.create"], update: ["experiment.other"] },
+  confirmation: {
+    create: ["experiment.create"],
+    update: ["experiment.other"],
+    delete: ["experiment.delete"],
+  },
   customEndpoints: [
     holdoutStartEndpoint,
     holdoutStartAnalysisEndpoint,

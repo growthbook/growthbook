@@ -184,6 +184,7 @@ export const deleteVisualChangesetValidator = {
   paramsSchema: idParams,
   responseSchema: z.object({ deletedId: z.string() }).strict(),
   summary: "Delete a visual changeset",
+  confirmation: ["experiment.visualEditor"] as const,
   operationId: "deleteVisualChangeset",
   tags: ["visual-changesets"],
   method: "delete" as const,

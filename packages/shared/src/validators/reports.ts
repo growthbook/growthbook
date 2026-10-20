@@ -225,6 +225,7 @@ export const deleteReportValidator = {
   summary: "Delete a report",
   description:
     "Deleting another user's report needs permission to delete any report.",
+  confirmation: ["other.write"] as const,
   operationId: "deleteReport",
   tags: ["reports"],
   method: "delete" as const,

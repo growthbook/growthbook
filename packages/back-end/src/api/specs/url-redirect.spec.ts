@@ -19,6 +19,11 @@ export const urlRedirectApiSpec = {
     >,
   },
   includeDefaultCrud: true,
+  confirmation: {
+    create: ["experiment.other"],
+    update: ["experiment.other"],
+    delete: ["experiment.other"],
+  },
   crudValidatorOverrides: {
     list: apiListUrlRedirectsValidator,
   },

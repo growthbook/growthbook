@@ -18,6 +18,7 @@ export const deleteExperimentValidator = {
   summary: "Delete an experiment",
   description:
     "Also deletes its visual changesets and removes it from presentations and its holdout. Experiment rules on linked Feature Flags are not removed.",
+  confirmation: ["experiment.delete"] as const,
   operationId: "deleteExperiment",
   tags: ["experiments"],
   method: "delete" as const,
@@ -39,6 +40,7 @@ export const postExperimentRestartValidator = {
   summary: "Restart a stopped experiment",
   description:
     "Reopens the last phase. Bandits start a new phase with fresh buckets instead, since a bandit phase can't be resumed.",
+  confirmation: ["experiment.start"] as const,
   operationId: "postExperimentRestart",
   tags: ["experiments"],
   method: "post" as const,
@@ -88,6 +90,7 @@ export const postExperimentPhaseValidator = {
   summary: "Start a new phase of a running experiment",
   description:
     "Ends the current phase and starts another, e.g. to change targeting or traffic and re-randomize.",
+  confirmation: ["experiment.phases"] as const,
   operationId: "postExperimentPhase",
   tags: ["experiments"],
   method: "post" as const,
@@ -115,6 +118,7 @@ export const deleteExperimentPhaseValidator = {
   summary: "Delete an experiment phase",
   description:
     "Also cleans up snapshots and incremental-refresh data for the phase, which replacing `phases` on update does not. The only phase can't be deleted.",
+  confirmation: ["experiment.phases"] as const,
   operationId: "deleteExperimentPhase",
   tags: ["experiments"],
   method: "delete" as const,
