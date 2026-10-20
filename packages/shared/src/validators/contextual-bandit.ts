@@ -34,7 +34,7 @@ export const contextualBanditAnalysisSummaryValidator = z.object({
     .object({
       srm: z.number().nullable(),
       totalUsers: z.number(),
-      /** Distinct users removed for seeing multiple variations in one bandit period. */
+      /** Distinct users who saw more than one variation within one leaf and bandit period. */
       multipleExposures: z.number().optional(),
     })
     .optional(),
