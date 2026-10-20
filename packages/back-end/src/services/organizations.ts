@@ -92,6 +92,7 @@ import {
   findOrganizationById,
   findOrganizationByInviteKey,
   findOrganizationsByDomain,
+  removeOrganizationInvite,
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
 import {
@@ -645,14 +646,11 @@ export async function revokeInvite(
   organization: OrganizationInterface,
   key: string,
 ) {
-  const invites = organization.invites.filter((invite) => invite.key !== key);
-
-  await updateOrganization(organization.id, {
-    invites,
-  });
-
-  const updatedOrganization = cloneDeep(organization);
-  updatedOrganization.invites = invites;
+  const updatedOrganization = await removeOrganizationInvite(
+    organization.id,
+    key,
+  );
+  if (!updatedOrganization) return null;
   await licenseInit(
     updatedOrganization,
     getUserCodesForOrg,
@@ -837,10 +835,10 @@ export async function addMemberToOrg({
   externalId?: string;
   managedByIdp?: boolean;
   teams?: string[];
-} & MemberRoleWithProjects) {
+} & MemberRoleWithProjects): Promise<boolean> {
   // If member is already in the org, skip
   if (organization.members.find((m) => m.id === userId)) {
-    return;
+    return false;
   }
 
   // Ensure roles are valid
@@ -879,8 +877,9 @@ export async function addMemberToOrg({
     if (!latestOrganization) {
       throw new Error("Unable to locate organization");
     }
+    // A concurrent request added them first
     if (latestOrganization.members.some((existing) => existing.id === userId)) {
-      return;
+      return false;
     }
     if (seatLimit) {
       throw seatLimit.error();
@@ -894,6 +893,7 @@ export async function addMemberToOrg({
     getLicenseMetaData,
     true,
   );
+  return true;
 }
 
 export async function addMembersToTeam({
@@ -1134,6 +1134,13 @@ export async function acceptInvite(key: string, userId: string, email: string) {
   return updatedOrganization;
 }
 
+export function normalizeInviteEmail(email: string) {
+  return email
+    .toLowerCase()
+    .replace(/^[\s;,]+/, "")
+    .replace(/[\s;,]+$/, "");
+}
+
 export async function inviteUser({
   organization,
   email,
@@ -1150,10 +1157,7 @@ export async function inviteUser({
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
-  email = email
-    .toLowerCase()
-    .replace(/^[\s;,]+/, "")
-    .replace(/[\s;,]+$/, "");
+  email = normalizeInviteEmail(email);
 
   if (!z.string().email().safeParse(email).success) {
     throw new Error(`Invalid email address: ${email}`);
@@ -1168,6 +1172,7 @@ export async function inviteUser({
     return {
       emailSent: true,
       inviteUrl: getInviteUrl(existingInvite.key),
+      created: false,
     };
   }
 
@@ -1222,6 +1227,7 @@ export async function inviteUser({
       return {
         emailSent: true,
         inviteUrl: getInviteUrl(latestInvite.key),
+        created: false,
       };
     }
     if (seatLimit) {
@@ -1251,6 +1257,7 @@ export async function inviteUser({
   return {
     emailSent,
     inviteUrl: getInviteUrl(key),
+    created: true,
   };
 }
 

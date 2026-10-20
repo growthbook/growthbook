@@ -106,6 +106,7 @@ import {
   findOrganizationsByMemberId,
   hasOrganization,
   updateOrganization,
+  updateOrganizationInvite,
   addCustomRole,
   editCustomRole,
   removeCustomRole,
@@ -802,20 +803,22 @@ export async function putInviteRole(
     });
   }
 
-  org.invites.forEach((m) => {
-    if (m.key === key) {
-      m.role = role;
-      m.limitAccessByEnvironment = !!limitAccessByEnvironment;
-      m.environments = environments || [];
-      m.projectRoles = projectRoles || [];
-      m.additionalRoles = additionalRoles || [];
-    }
-  });
+  const updatedInvite: Invite = {
+    ...existingInvite,
+    role,
+    limitAccessByEnvironment: !!limitAccessByEnvironment,
+    environments: environments || [],
+    projectRoles: projectRoles || [],
+    additionalRoles: additionalRoles || [],
+  };
 
   try {
-    await updateOrganization(org.id, {
-      invites: org.invites,
-    });
+    if (!(await updateOrganizationInvite(org.id, updatedInvite))) {
+      return res.status(404).json({
+        status: 404,
+        message: "Cannot find member",
+      });
+    }
     await req.audit({
       event: "organization.update",
       entity: {
@@ -824,7 +827,11 @@ export async function putInviteRole(
       },
       details: auditDetailsUpdate(
         { invites: originalInvites },
-        { invites: org.invites },
+        {
+          invites: originalInvites.map((i) =>
+            i.key === key ? updatedInvite : i,
+          ),
+        },
       ),
     });
     return res.status(200).json({
