@@ -63,6 +63,11 @@ html.app-rail-collapsed {
     --app-rail-width: 240px;
   }
 }
+// While the side nav's drawer is open, the page behind it doesn't scroll.
+html.app-drawer-open,
+html.app-drawer-open body {
+  overflow: hidden;
+}
 
 .main {
   padding-left: var(--app-rail-width);

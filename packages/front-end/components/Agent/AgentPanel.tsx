@@ -68,6 +68,7 @@ import ChatComposer, {
 import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
+import { useSidebarOpen } from "@/components/Layout/SidebarOpenProvider";
 import AgentChatHistory from "./AgentChatHistory";
 import {
   AGENT_PANEL_PORTAL_Z_INDEX,
@@ -85,6 +86,7 @@ import AskUserCard, { type AskUserOption } from "./AskUserCard";
 import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
 import { resolveAgentInternalHref } from "./agentLinkUtils";
+import styles from "./AgentPanel.module.scss";
 
 // Scoped per org and user below: conversation ids are unique across the whole
 // collection but only readable by their owner, so a stale id from another org
@@ -217,6 +219,7 @@ export default function AgentPanel({
   onToggleExpanded,
 }: AgentPanelProps) {
   const composerRef = useRef<ChatComposerHandle>(null);
+  const { setOpen: setNavDrawerOpen } = useSidebarOpen();
   const { userId, organization } = useUser();
   // Preserves each tool-detail disclosure's open/closed state across the
   // active-turn → persisted-message remount so it doesn't snap shut mid-turn.
@@ -659,7 +662,9 @@ export default function AgentPanel({
         // animates between the two states.
         left: "auto",
         width: expanded
-          ? `calc((100vw - ${sidebarCollapsed ? 0 : 240}px) * 0.9)`
+          ? `calc((100vw - ${
+              sidebarCollapsed ? "0px" : "var(--app-rail-width, 240px)"
+            }) * 0.9)`
           : "min(400px, 100vw)",
         background: "var(--color-background)",
         borderLeft: "1px solid var(--gray-a3)",
@@ -670,6 +675,13 @@ export default function AgentPanel({
         transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
+      {/* The panel sits above the app's own layer, out of the drawer veil's reach,
+        so it draws its own. */}
+      <div
+        className={styles.navDrawerVeil}
+        aria-hidden="true"
+        onClick={() => setNavDrawerOpen(false)}
+      />
       {/* Header */}
       <Flex
         align="center"

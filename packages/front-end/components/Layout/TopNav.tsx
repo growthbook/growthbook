@@ -1,6 +1,6 @@
 import { FC } from "react";
-import { FaBars } from "react-icons/fa";
-import { PiSparkle } from "react-icons/pi";
+import { PiList, PiSparkle } from "react-icons/pi";
+import { IconButton } from "@radix-ui/themes";
 import Head from "next/head";
 import Breadcrumbs from "@/ui/Breadcrumbs";
 import NoticeStack from "@/components/Notices/NoticeStack";
@@ -15,10 +15,18 @@ import ProfileMenu from "./ProfileMenu";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
+  // Whether the side nav's drawer (below 1180px) is open.
+  menuOpen?: boolean;
   pageTitle: string;
   showNotices?: boolean;
   showLogo?: boolean;
-}> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
+}> = ({
+  toggleLeftMenu,
+  menuOpen,
+  pageTitle,
+  showNotices,
+  showLogo = true,
+}) => {
   const { breadcrumb } = usePageHead();
   const notices = [
     ...useAccountPlanNotices(),
@@ -60,19 +68,19 @@ const TopNav: FC<{
       >
         <div className={styles.navbar}>
           {toggleLeftMenu ? (
-            <a
-              href="#main-menu"
+            <IconButton
+              variant="ghost"
+              color="gray"
+              size="2"
               id="main-menu-toggle"
               className={styles.mobilemenu}
               aria-label="Open main menu"
-              onClick={(e) => {
-                e.preventDefault();
-                toggleLeftMenu();
-              }}
+              aria-controls="main-menu"
+              aria-expanded={!!menuOpen}
+              onClick={toggleLeftMenu}
             >
-              <span className="sr-only">Open main menu</span>
-              <FaBars />
-            </a>
+              <PiList size={18} />
+            </IconButton>
           ) : showLogo ? (
             <div>
               <img

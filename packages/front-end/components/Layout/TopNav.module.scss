@@ -25,10 +25,10 @@ $sidebarwidth: var(--app-rail-width, 240px);
   @media (max-width: 1180px) {
     left: 0;
     .pagetitle {
-      padding-left: 10px;
+      padding-left: var(--space-2);
     }
-    .mobilemenu {
-      display: block;
+    .mobilemenu.mobilemenu {
+      display: inline-flex;
     }
   }
 }
@@ -74,10 +74,11 @@ $sidebarwidth: var(--app-rail-width, 240px);
   );
   mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
 }
-.mobilemenu {
+.mobilemenu.mobilemenu {
   display: none;
-  font-size: 24px;
-  line-height: 24px;
+  flex-shrink: 0;
+  margin: 0;
+  color: color-mix(in srgb, var(--slate-12) 75%, var(--slate-11));
 }
 
 .navbar {

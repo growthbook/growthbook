@@ -22,7 +22,9 @@ import {
   PiGearSix,
   PiMagnifyingGlass,
   PiSidebarSimple,
+  PiX,
 } from "react-icons/pi";
+import { IconButton } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import { useUser } from "@/services/UserContext";
@@ -44,18 +46,11 @@ import {
 } from "./SidebarLink";
 import { navlinks } from "./sidebarNav";
 import { useSidebarOpen } from "./SidebarOpenProvider";
+import { RailMenuInPlace } from "./railMenu";
 import styles from "./AppRail.module.scss";
 
-// The app's side nav. Two states, saved per user in this browser: expanded
-// (240px, labels; sections are accordions) and collapsed (48px, icons;
-// sections open a popover of their pages). The toggle at the bottom switches
-// between them. Below 1180px it's an off-canvas drawer, always
-// expanded, opened from the header's menu button.
-//
-// Sections and their pages come from sidebarNav.ts, so permission and
-// feature-flag filters, beta badges and ⌘K search stay in sync with it.
-// Home isn't a section (the logo links home), and Settings is a single link
-// to the Settings page.
+// Sections and pages come from sidebarNav.ts, so permission and flag
+// filters, beta badges and ⌘K search stay in sync with it.
 
 const SearchIcon = withOpticalWeight(PiMagnifyingGlass);
 const SettingsIcon = withOpticalWeight(PiGearSix);
@@ -136,6 +131,17 @@ function useRailCollapsed(): [boolean, () => void] {
     });
   };
   return [collapsed, toggle];
+}
+
+// A closed section's pages are already hidden and out of the tab order.
+const FOCUSABLE =
+  "a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex='-1'])";
+function drawerFocusables(nav: HTMLElement): HTMLElement[] {
+  return Array.from(nav.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    (el) =>
+      el.getClientRects().length > 0 &&
+      getComputedStyle(el).visibility !== "hidden",
+  );
 }
 
 function Keycap({ children }: { children: ReactNode }) {
@@ -497,6 +503,116 @@ export default function AppRail() {
     return () => mq.removeEventListener("change", update);
   }, []);
   const collapsed = collapsedPref && !isNarrow;
+
+  // Widening past 1180px closes the drawer.
+  const navRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const drawer = isNarrow && drawerOpen;
+  // Drawn by the menu itself (railMenu.tsx) into menuHost.
+  const [drawerMenu, setDrawerMenu] = useState<"profile" | "help" | null>(null);
+  const [menuByKeyboard, setMenuByKeyboard] = useState(false);
+  const [menuHost, setMenuHost] = useState<HTMLDivElement | null>(null);
+  const drawerMenuRef = useRef(drawerMenu);
+  drawerMenuRef.current = drawerMenu;
+  useEffect(() => {
+    if (!drawer) setDrawerMenu(null);
+  }, [drawer]);
+  const backToNav = (fromKeyboard: boolean) => {
+    const from = drawerMenuRef.current;
+    setDrawerMenu(null);
+    if (!from) return;
+    requestAnimationFrame(() => {
+      navRef.current
+        ?.querySelector<HTMLElement>(`[data-rail-menu-trigger="${from}"]`)
+        ?.focus({
+          preventScroll: true,
+          focusVisible: fromKeyboard,
+        } as FocusOptions);
+    });
+  };
+  const backToNavRef = useRef(backToNav);
+  backToNavRef.current = backToNav;
+  const menuInPlace = (
+    name: "profile" | "help",
+  ): RailMenuInPlace | undefined =>
+    isNarrow
+      ? {
+          open: drawerMenu === name,
+          onOpen: (fromKeyboard) => {
+            setMenuByKeyboard(fromKeyboard);
+            setDrawerMenu(name);
+          },
+          onBack: backToNav,
+          onDone: () => {
+            setDrawerMenu(null);
+            setDrawerOpen(false);
+          },
+          host: menuHost,
+          fromKeyboard: menuByKeyboard,
+        }
+      : undefined;
+  // Only on widening: isNarrow starts false until the window is measured.
+  const wasNarrow = useRef(false);
+  useEffect(() => {
+    if (wasNarrow.current && !isNarrow) setDrawerOpen(false);
+    wasNarrow.current = isNarrow;
+  }, [isNarrow, setDrawerOpen]);
+  useEffect(() => {
+    if (!drawer) return;
+    const nav = navRef.current;
+    document.documentElement.classList.add("app-drawer-open");
+    // Its focus ring only when opened from the keyboard.
+    const fromKeyboard = !!document
+      .getElementById("main-menu-toggle")
+      ?.matches(":focus-visible");
+    closeRef.current?.focus({
+      preventScroll: true,
+      focusVisible: fromKeyboard,
+    } as FocusOptions);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!nav) return;
+      if (e.key === "Escape") {
+        if (e.defaultPrevented) return;
+        e.preventDefault();
+        if (drawerMenuRef.current) {
+          backToNavRef.current(true);
+          return;
+        }
+        setDrawerOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      // A menu opened from the drawer keeps its own focus.
+      const active = document.activeElement;
+      if (active && !nav.contains(active) && active !== document.body) {
+        if (active.closest("[data-radix-popper-content-wrapper]")) return;
+      }
+      const items = drawerFocusables(nav);
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const inside = !!active && nav.contains(active);
+      if (e.shiftKey && (!inside || active === first)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (!inside || active === last)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.documentElement.classList.remove("app-drawer-open");
+      const active = document.activeElement;
+      if (!active || active === document.body || nav?.contains(active)) {
+        document
+          .getElementById("main-menu-toggle")
+          ?.focus({ preventScroll: true });
+      }
+    };
+  }, [drawer, setDrawerOpen]);
+
   useIsomorphicLayoutEffect(() => {
     document.documentElement.classList.toggle(COLLAPSED_CLASS, collapsedPref);
   }, [collapsedPref]);
@@ -645,12 +761,18 @@ export default function AppRail() {
           commercialFeature={null}
         />
       )}
+      <div
+        className={clsx(styles.drawerOverlay, drawer && styles.overlayOpen)}
+        aria-hidden="true"
+        onClick={() => setDrawerOpen(false)}
+      />
       <nav
+        ref={navRef}
         id="main-menu"
         aria-label="Main"
         className={clsx(styles.rail, {
           [styles.collapsed]: contentCollapsed,
-          [styles.drawerOpen]: drawerOpen,
+          [styles.drawerOpen]: drawer,
         })}
         onClick={(e) => {
           if ((e.target as HTMLElement).closest("a[href]")) {
@@ -676,134 +798,165 @@ export default function AppRail() {
             sweepClassName={styles.sweep}
           />
         </Link>
+        {isNarrow ? (
+          <IconButton
+            ref={closeRef}
+            variant="ghost"
+            color="gray"
+            size="2"
+            className={styles.drawerClose}
+            aria-label="Close main menu"
+            onClick={() => setDrawerOpen(false)}
+          >
+            <PiX size={ICON_SIZE} />
+          </IconButton>
+        ) : null}
 
-        <RailItem
-          collapsed={contentCollapsed}
-          Icon={SearchIcon}
-          label="Search"
-          tooltip={`Search (${isMac() ? "⌘K" : "Ctrl+K"})`}
-          tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
-          onClick={() => {
-            setDrawerOpen(false);
-            document.dispatchEvent(new Event("open-command-palette"));
-          }}
-          trailing={<Keycap>{isMac() ? "⌘K" : "Ctrl K"}</Keycap>}
-        />
-        <div
-          className={clsx(styles.divider, styles.searchDivider)}
-          role="separator"
-        />
-
-        {/* Only the sections scroll: the logo, Search and the bottom group
-          stay in view however tall they get. */}
-        <div
-          ref={sectionsRef}
-          className={clsx(styles.sections, moreBelow && styles.fadeBottom)}
-          onScroll={checkMoreBelow}
-        >
-          {sections.map((section) =>
-            contentCollapsed ? (
-              <CollapsedSection
-                key={section.link.name}
-                section={section}
-                active={activeSection === section.link.name}
-                route={route}
-                openMenu={openRailMenu}
-                setOpenMenu={setOpenRailMenu}
-                tapOpens={noHover}
-              />
-            ) : (
-              <ExpandedSection
-                key={section.link.name}
-                section={section}
-                active={activeSection === section.link.name}
-                open={
-                  !sectionsFolded && openSections.includes(section.link.name)
-                }
-                onToggle={(navigate) => {
-                  const opening =
-                    sectionsFolded || !openSections.includes(section.link.name);
-                  // The row opens only its section; the chevron leaves the
-                  // others open.
-                  setOpenSections((open) =>
-                    !opening
-                      ? open.filter((name) => name !== section.link.name)
-                      : navigate || sectionsFolded
-                        ? [section.link.name]
-                        : [...open, section.link.name],
-                  );
-                  if (opening) setSectionsFolded(false);
-                  // Opening a section goes to its first page, unless the
-                  // current page is already in it.
-                  const first = section.pages[0];
-                  if (
-                    navigate &&
-                    opening &&
-                    first &&
-                    activeSection !== section.link.name
-                  ) {
-                    void router.push(first.href);
-                  }
-                }}
-                route={route}
-              />
-            ),
-          )}
-        </div>
-
-        <div className={styles.spacer} />
-
-        {showUpgrade ? (
+        {/* Kept mounted while a menu is open in its place: the menus are drawn by
+          their rows here. */}
+        <div className={drawerMenu ? styles.navHidden : styles.navBody}>
           <RailItem
             collapsed={contentCollapsed}
-            Icon={PiArrowCircleUp}
-            label="Upgrade"
-            onClick={() => setUpgradeModal(true)}
-            className={styles.upgrade}
+            Icon={SearchIcon}
+            label="Search"
+            tooltip={`Search (${isMac() ? "⌘K" : "Ctrl+K"})`}
+            tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
+            onClick={() => {
+              setDrawerOpen(false);
+              document.dispatchEvent(new Event("open-command-palette"));
+            }}
+            // Not in the drawer, where a keyboard is less likely at hand.
+            trailing={
+              isNarrow ? null : <Keycap>{isMac() ? "⌘K" : "Ctrl K"}</Keycap>
+            }
           />
-        ) : null}
-        <RailItem
-          collapsed={contentCollapsed}
-          Icon={SettingsIcon}
-          label="Settings"
-          href="/settings"
-          active={settingsActive}
-          tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
-        />
-        <ProfileMenu
-          railCollapsed={contentCollapsed}
-          railClassName={contentCollapsed ? styles.iconItem : styles.row}
-          railOpenClassName={styles.menuOpen}
-          railLabelClassName={styles.rowLabel}
-          railIconSize={ICON_SIZE}
-          railIconClassName={contentCollapsed ? undefined : styles.rowIcon}
-        />
-        <HelpMenu
-          collapsed={contentCollapsed}
-          iconSize={ICON_SIZE}
-          triggerClassName={contentCollapsed ? styles.iconItem : styles.row}
-          openClassName={styles.menuOpen}
-          iconClassName={contentCollapsed ? undefined : styles.rowIcon}
-          labelClassName={styles.rowLabel}
-        />
-        {!isNarrow ? (
-          <>
-            <div
-              className={clsx(styles.divider, styles.bottomDivider)}
-              role="separator"
-            />
+          <div
+            className={clsx(styles.divider, styles.searchDivider)}
+            role="separator"
+          />
+
+          {/* Only the sections scroll: the logo, Search and the bottom group
+            stay in view however tall they get. */}
+          <div
+            ref={sectionsRef}
+            className={clsx(styles.sections, moreBelow && styles.fadeBottom)}
+            onScroll={checkMoreBelow}
+          >
+            {sections.map((section) =>
+              contentCollapsed ? (
+                <CollapsedSection
+                  key={section.link.name}
+                  section={section}
+                  active={activeSection === section.link.name}
+                  route={route}
+                  openMenu={openRailMenu}
+                  setOpenMenu={setOpenRailMenu}
+                  tapOpens={noHover}
+                />
+              ) : (
+                <ExpandedSection
+                  key={section.link.name}
+                  section={section}
+                  active={activeSection === section.link.name}
+                  open={
+                    !sectionsFolded && openSections.includes(section.link.name)
+                  }
+                  onToggle={(navigate) => {
+                    const opening =
+                      sectionsFolded ||
+                      !openSections.includes(section.link.name);
+                    // The row opens only its section; the chevron leaves the
+                    // others open.
+                    setOpenSections((open) =>
+                      !opening
+                        ? open.filter((name) => name !== section.link.name)
+                        : navigate || sectionsFolded
+                          ? [section.link.name]
+                          : [...open, section.link.name],
+                    );
+                    if (opening) setSectionsFolded(false);
+                    // Opening a section goes to its first page, unless the
+                    // current page is already in it.
+                    const first = section.pages[0];
+                    if (
+                      navigate &&
+                      opening &&
+                      first &&
+                      activeSection !== section.link.name
+                    ) {
+                      void router.push(first.href);
+                    }
+                  }}
+                  route={route}
+                />
+              ),
+            )}
+          </div>
+
+          <div className={styles.spacer} />
+
+          {showUpgrade ? (
             <RailItem
               collapsed={contentCollapsed}
-              Icon={PiSidebarSimple}
-              label="Collapse"
-              tooltip="Expand sidebar"
-              tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
-              onClick={toggleAnimated}
-              // Flipped while collapsed, so it points the way the rail goes.
-              className={contentCollapsed ? styles.toggleFlipped : undefined}
+              Icon={PiArrowCircleUp}
+              label="Upgrade"
+              onClick={() => {
+                // The drawer's Tab trap would pull focus out of the window.
+                setDrawerOpen(false);
+                setUpgradeModal(true);
+              }}
+              className={styles.upgrade}
             />
-          </>
-        ) : null}
+          ) : null}
+          <RailItem
+            collapsed={contentCollapsed}
+            Icon={SettingsIcon}
+            label="Settings"
+            href="/settings"
+            active={settingsActive}
+            tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
+          />
+          <ProfileMenu
+            inPlace={menuInPlace("profile")}
+            railCollapsed={contentCollapsed}
+            railClassName={contentCollapsed ? styles.iconItem : styles.row}
+            railOpenClassName={styles.menuOpen}
+            railLabelClassName={styles.rowLabel}
+            railIconSize={ICON_SIZE}
+            railIconClassName={contentCollapsed ? undefined : styles.rowIcon}
+          />
+          <HelpMenu
+            inPlace={menuInPlace("help")}
+            collapsed={contentCollapsed}
+            iconSize={ICON_SIZE}
+            triggerClassName={contentCollapsed ? styles.iconItem : styles.row}
+            openClassName={styles.menuOpen}
+            iconClassName={contentCollapsed ? undefined : styles.rowIcon}
+            labelClassName={styles.rowLabel}
+          />
+          {!isNarrow ? (
+            <>
+              <div
+                className={clsx(styles.divider, styles.bottomDivider)}
+                role="separator"
+              />
+              <RailItem
+                collapsed={contentCollapsed}
+                Icon={PiSidebarSimple}
+                label="Collapse"
+                tooltip="Expand sidebar"
+                tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
+                onClick={toggleAnimated}
+                className={contentCollapsed ? styles.toggleFlipped : undefined}
+              />
+            </>
+          ) : null}
+        </div>
+        <div
+          ref={setMenuHost}
+          className={styles.drawerMenuHost}
+          hidden={!drawerMenu}
+        />
       </nav>
     </>
   );

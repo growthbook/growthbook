@@ -31,10 +31,10 @@
   color: var(--rail-text);
   transition: width 200ms ease;
 
-  // Below 1180px, an off-canvas drawer, opened from the header's menu
-  // button. Closed, it's hidden as well as off screen, so Tab can't reach
-  // it.
+  // Over the header (1010) and its veil, below modals. Hidden as well as off
+  // screen when closed, so Tab can't reach it.
   @media (max-width: 1180px) {
+    z-index: 1030;
     width: 240px;
     left: -240px;
     visibility: hidden;
@@ -57,6 +57,68 @@
       transition: none;
     }
   }
+}
+
+.drawerOverlay {
+  display: none;
+
+  @media (max-width: 1180px) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1025;
+    background: var(--color-overlay);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 300ms ease,
+      visibility 0s linear 300ms;
+
+    &.overlayOpen {
+      opacity: 1;
+      visibility: visible;
+      transition:
+        opacity 300ms ease,
+        visibility 0s linear 0s;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    &.overlayOpen {
+      transition: none;
+    }
+  }
+}
+
+.drawerClose.drawerClose {
+  position: absolute;
+  top: 9px;
+  right: 8px;
+  margin: 0;
+  color: var(--rail-icon);
+
+  &:hover {
+    background: var(--rail-hover);
+    color: var(--rail-text-strong);
+  }
+}
+
+// No box of its own; hidden while a menu is open in its place.
+.navBody {
+  display: contents;
+}
+
+.navHidden {
+  display: none;
+}
+
+.drawerMenuHost:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 // Dark mode: translucent white lines, which take the panel's navy beneath.
