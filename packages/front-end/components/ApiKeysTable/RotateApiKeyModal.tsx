@@ -7,7 +7,6 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
-import CopyableCode from "@/components/Settings/CopyableCode";
 
 export type RotatedApiKey = {
   key: string;
@@ -84,7 +83,7 @@ export function RotatedApiKeyModal({
     >
       <Flex direction="column" gap="3">
         <Text as="p">Update your clients to use the new secret:</Text>
-        <CopyableCode value={rotated.key} />
+        <code>{rotated.key}</code>
         <Text as="p" color="text-low">
           {rotated.previousKeyExpiresAt
             ? `The previous secret keeps working until ${datetime(rotated.previousKeyExpiresAt)}.`
