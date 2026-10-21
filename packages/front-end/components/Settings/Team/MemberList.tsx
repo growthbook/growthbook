@@ -22,6 +22,7 @@ import RoleRuleLabel, {
   CollapsedRuleRows,
   projectRuleGroup,
   RuleRow,
+  shadowedRulesCell,
 } from "@/components/Settings/Team/RoleRuleLabel";
 import Callout from "@/ui/Callout";
 import { usingSSO } from "@/services/env";
@@ -82,15 +83,15 @@ function rulesWithSources(roles: EffectiveRoleSource[]) {
 function effectiveRuleRows(
   roles: EffectiveRoleSource[],
   organization: Parameters<typeof RoleRuleLabel>[0]["organization"],
-  { allProjects = false }: { allProjects?: boolean } = {},
+  shadowed: RuleRow[] = [],
 ): RuleRow[] {
-  return rulesWithSources(roles).map((e) => ({
+  return rulesWithSources(roles).map((e, i) => ({
     key: e.key,
     node: (
       <RoleRuleLabel
         {...e}
         organization={organization}
-        allProjects={allProjects}
+        shadowed={i === 0 ? shadowed : undefined}
         sources={
           e.sources.some((src) => src !== "Direct")
             ? e.sources.join(", ")
@@ -99,6 +100,33 @@ function effectiveRuleRows(
       />
     ),
   }));
+}
+
+// Project rules list under their project's name, after the All Projects ones.
+function groupedRuleRows(
+  roles: EffectiveRoleSource[],
+  organization: Parameters<typeof RoleRuleLabel>[0]["organization"],
+  getProjectById: (id: string) => { id: string; name: string } | null,
+): RuleRow[] {
+  const projectIds = [...new Set(roles.flatMap((r) => r.project ?? []))];
+  return [
+    ...effectiveRuleRows(
+      roles.filter((r) => !r.project),
+      organization,
+    ),
+    ...projectIds.flatMap((id) => {
+      const project = getProjectById(id);
+      return project
+        ? projectRuleGroup(
+            project,
+            effectiveRuleRows(
+              roles.filter((r) => r.project === id),
+              organization,
+            ),
+          )
+        : [];
+    }),
+  ];
 }
 
 const MemberList: FC<{
@@ -423,15 +451,20 @@ const MemberList: FC<{
           </TableHeader>
           <TableBody>
             {items.map((member) => {
-              const effectiveRoles = getEffectiveRolesForProject(
-                member,
-                project || null,
-                teams,
-              );
               const globalAdmin = holdsGlobalAdmin(
                 member,
                 teams.filter((t) => member.teams?.includes(t.id)),
               );
+              const { applied, shadowed } = getEffectiveRolesForProject(
+                member,
+                project || null,
+                teams,
+              );
+              // Shadowed project rules get their own chip in the Project
+              // Roles column, when there is one.
+              const shadowedHere = project
+                ? shadowed
+                : shadowed.filter((r) => !r.project);
               return (
                 <TableRow key={member.id}>
                   <TableCell>{member.name}</TableCell>
@@ -474,31 +507,51 @@ const MemberList: FC<{
                       />
                     ) : (
                       <CollapsedRuleRows
-                        rows={effectiveRuleRows(effectiveRoles, organization, {
-                          allProjects: globalAdmin,
-                        })}
+                        rows={effectiveRuleRows(
+                          applied,
+                          organization,
+                          groupedRuleRows(
+                            shadowedHere,
+                            organization,
+                            getProjectById,
+                          ),
+                        )}
                       />
                     )}
                   </TableCell>
                   {!project && (
                     <TableCell>
                       <CollapsedRuleRows
-                        rows={scopedProjectIds(member).flatMap((projectId) => {
-                          const project = getProjectById(projectId);
-                          if (!project) return [];
-                          return projectRuleGroup(
-                            project,
-                            effectiveRuleRows(
-                              getEffectiveRolesForProject(
-                                member,
-                                projectId,
-                                teams,
-                                { exemptGlobalAdmin: false },
-                              ),
-                              organization,
-                            ),
-                          );
-                        })}
+                        rows={
+                          globalAdmin
+                            ? shadowedRulesCell(
+                                groupedRuleRows(
+                                  shadowed.filter((r) => r.project),
+                                  organization,
+                                  getProjectById,
+                                ),
+                              )
+                            : scopedProjectIds(member).flatMap((projectId) => {
+                                const project = getProjectById(projectId);
+                                if (!project) return [];
+                                const here = getEffectiveRolesForProject(
+                                  member,
+                                  projectId,
+                                  teams,
+                                );
+                                return projectRuleGroup(
+                                  project,
+                                  effectiveRuleRows(
+                                    here.applied,
+                                    organization,
+                                    effectiveRuleRows(
+                                      here.shadowed,
+                                      organization,
+                                    ),
+                                  ),
+                                );
+                              })
+                        }
                       />
                     </TableCell>
                   )}

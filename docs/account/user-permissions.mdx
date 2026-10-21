@@ -132,7 +132,7 @@ If you need to apply these rules to many users at once, you can create a Team wi
 - For a project where the user (or any team they are on) has an **explicit** project-level role, their access to that project is the union of those explicit project-level roles. Global roles are **not** used for that project.
 - For a project where no explicit project-level role applies, the user's global role (merged with their teams' global roles) is used instead.
 
-So to hide a specific project from a user, make sure no explicit project-level role grants them access to it: set their own project-level role for that project to `No Access`, and do the same for any team they are on that would otherwise grant access to it.
+So to hide a specific project from a user, make sure no explicit project-level role grants them access to it: set their own project-level role for that project to `No Access`, and do the same for any team they are on that would otherwise grant access to it. This doesn't work for a global `Admin`, since their project-level roles have no effect.
 
 To hide a project from everyone except the people working on it, you don't need to assign `No Access` roles user by user — restrict access on the project itself (see below).
 
@@ -195,7 +195,7 @@ A team whose global role is `No Access` and which has no additional global roles
 Changing a team's global role, or managing a team that carries one, still requires `Team Management Full Access`. A caller relying on project permissions alone cannot change their own team membership or their own project roles.
 
 <Note>
-A project role, whether assigned directly or through a team, replaces the member's global role for that project. Adding a global `Admin` to a project-scoped team with a `Read Only` role on a project makes them read-only there. See [How permissions are evaluated](#how-permissions-are-evaluated).
+A project role, whether assigned directly or through a team, replaces the member's global role for that project. Adding an `Engineer` to a project-scoped team with a `Read Only` role on a project makes them read-only there. A global `Admin` is the exception: project roles have no effect on them. See [How permissions are evaluated](#how-permissions-are-evaluated).
 </Note>
 
 ### Custom roles

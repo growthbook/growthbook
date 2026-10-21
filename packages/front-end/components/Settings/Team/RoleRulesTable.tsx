@@ -20,7 +20,6 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import EnvironmentCell from "./EnvironmentCell";
 import useRoleOptions from "./useRoleOptions";
-import { OverridesProjectRolesBadge } from "./RoleRuleLabel";
 import {
   ALL_PROJECTS,
   RoleRule,
@@ -171,7 +170,19 @@ export default function RoleRulesTable({
           <Flex align="center" gap="1" justify="end" wrap="wrap">
             {!forApiKey &&
               rule.project === ALL_PROJECTS &&
-              rule.role === "admin" && <OverridesProjectRolesBadge />}
+              rule.role === "admin" && (
+                <Tooltip content="Admin already grants everything, so other global and Project roles have no effect.">
+                  <Badge
+                    color="gray"
+                    variant="soft"
+                    label={
+                      <Flex align="center" gap="1">
+                        <PiInfo /> Overrides all other roles
+                      </Flex>
+                    }
+                  />
+                </Tooltip>
+              )}
             {inert.has(rule.key) && (
               <Tooltip content={inertReason(rule, inert.get(rule.key))}>
                 <Badge

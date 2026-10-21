@@ -5,17 +5,19 @@ import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { CollapsedRuleRows, projectRuleRows, ruleRows } from "./RoleRuleLabel";
+import { CollapsedRuleRows, memberRuleRows } from "./RoleRuleLabel";
 
 export function RoleRulesSummary({ value }: { value: MemberRoleWithProjects }) {
   const { organization } = useUser();
   const { getProjectById } = useDefinitions();
 
-  const rows = [
-    ...ruleRows(value, organization, { allProjects: true }),
-    ...projectRuleRows(value.projectRoles ?? [], getProjectById, organization),
-  ];
-  return <CollapsedRuleRows rows={rows} />;
+  const { roles, projectRoles } = memberRuleRows(
+    value,
+    getProjectById,
+    organization,
+    { projectColumn: false },
+  );
+  return <CollapsedRuleRows rows={[...roles, ...projectRoles]} />;
 }
 
 /** Collapsed form of the rules table: what it resolves to, plus a way in. */

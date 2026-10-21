@@ -468,7 +468,22 @@ export type EffectiveRoleSource = {
   sourceName: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
+  // Set on a project rule; absent on an All Projects rule.
+  project?: string;
 };
+
+// Admin grants everything, so every other rule beside it has no effect.
+export function shadowedByAdmin<T extends { role: string }>(
+  rules: T[],
+): { applied: T[]; shadowed: T[] } {
+  if (!rules.some((r) => r.role === "admin")) {
+    return { applied: rules, shadowed: [] };
+  }
+  return {
+    applied: rules.filter((r) => r.role === "admin"),
+    shadowed: rules.filter((r) => r.role !== "admin"),
+  };
+}
 
 // Whether these All Projects rules, with the member's teams, make an admin of
 // every project. Admin can't be limited by environment; a project-scoped admin
@@ -487,8 +502,10 @@ export function holdsGlobalAdmin(
 // permission merge (mergeUserAndTeamPermissions): an explicit project-scoped
 // role — from the member or any team — takes precedence over global roles for
 // that project, and only when no explicit project role applies do global roles
-// contribute. The result is the set of contributing roles (a union, which may
-// be more than one role). Pass `project = null` to resolve global roles.
+// contribute. `applied` is the set of contributing roles (a union, which may
+// be more than one role); rules Admin makes moot are `shadowed`. A global
+// admin's project roles have no effect, so for them every project rule in scope
+// is shadowed. Pass `project = null` to resolve global roles.
 export function getEffectiveRolesForProject(
   member: Pick<MemberRoleInfo, "role"> & {
     limitAccessByEnvironment?: boolean;
@@ -507,9 +524,7 @@ export function getEffectiveRolesForProject(
     projectRoles?: ProjectMemberRole[];
     additionalRoles?: EnvLimitedRule[];
   }[],
-  // Off to list a global admin's project rules as configured, though they can't narrow Admin.
-  { exemptGlobalAdmin = true }: { exemptGlobalAdmin?: boolean } = {},
-): EffectiveRoleSource[] {
+): { applied: EffectiveRoleSource[]; shadowed: EffectiveRoleSource[] } {
   const teamsById = new Map(teams.map((t) => [t.id, t]));
 
   const principals: {
@@ -548,7 +563,10 @@ export function getEffectiveRolesForProject(
 
   const toSources = (
     p: (typeof principals)[number],
-    base: EnvLimitedRule & { additionalRoles?: EnvLimitedRule[] },
+    base: EnvLimitedRule & {
+      additionalRoles?: EnvLimitedRule[];
+      project?: string;
+    },
   ): EffectiveRoleSource[] =>
     [base, ...(base.additionalRoles || [])].map((rule) => ({
       role: rule.role,
@@ -556,34 +574,26 @@ export function getEffectiveRolesForProject(
       sourceName: p.sourceName,
       limitAccessByEnvironment: !!rule.limitAccessByEnvironment,
       environments: rule.environments || [],
+      ...(base.project ? { project: base.project } : {}),
     }));
 
-  // A global admin's project roles have no effect, so their All Projects roles
-  // are what apply in every project.
-  if (
-    exemptGlobalAdmin &&
-    holdsGlobalAdmin(
-      member,
-      (member.teams || []).flatMap((id) => teamsById.get(id) ?? []),
-    )
-  ) {
-    return principals.flatMap((p) => toSources(p, p));
+  // Additional rules grant alongside their base role, and a project override
+  // replaces the global one wholesale — its own additional rules included.
+  const globals = principals.flatMap((p) => toSources(p, p));
+  const projectRules = principals.flatMap((p) =>
+    (p.projectRoles || [])
+      .filter((r) => project === null || r.project === project)
+      .flatMap((r) => toSources(p, r)),
+  );
+
+  if (globals.some((r) => r.role === "admin")) {
+    return shadowedByAdmin([...globals, ...projectRules]);
   }
-
-  const explicit: EffectiveRoleSource[] = [];
-  const globals: EffectiveRoleSource[] = [];
-  principals.forEach((p) => {
-    const projectRole = project
-      ? p.projectRoles?.find((r) => r.project === project)
-      : undefined;
-    // Additional rules grant alongside their base role, and a project override
-    // replaces the global one wholesale — its own additional rules included.
-    (projectRole ? explicit : globals).push(...toSources(p, projectRole ?? p));
-  });
-
   // An explicit project role takes precedence over global roles, so only fall
   // back to global roles when no explicit project role applies.
-  return explicit.length ? explicit : globals;
+  return shadowedByAdmin(
+    project && projectRules.length ? projectRules : globals,
+  );
 }
 
 // True if any of the role's policies carries an environment-scoped atom.

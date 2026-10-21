@@ -14,7 +14,12 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRoleModal";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
-import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
+import {
+  CollapsedRuleRows,
+  RoleRuleLines,
+  ruleRows,
+  shadowedRulesCell,
+} from "@/components/Settings/Team/RoleRuleLabel";
 import ProjectRuleFields from "@/components/Settings/Team/ProjectRuleFields";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
@@ -318,6 +323,8 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
         <TableBody>
           {rows.map((team) => {
             const rule = team.projectRoles?.find((r) => r.project === project);
+            // A global admin team's project rule has no effect.
+            const adminEverywhere = holdsGlobalAdmin(team, []);
             const otherProjects = rulesWithoutProject(team, project).map(
               (r) => getProjectById(r.project)?.name ?? r.project,
             );
@@ -363,16 +370,17 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                   )}
                 </TableCell>
                 <TableCell>
-                  <RoleRuleLines
-                    scope={team}
-                    organization={organization}
-                    allProjects
-                  />
+                  <RoleRuleLines scope={team} organization={organization} />
                 </TableCell>
                 <TableCell>
-                  {rule && (
-                    <RoleRuleLines scope={rule} organization={organization} />
-                  )}
+                  {rule &&
+                    (adminEverywhere ? (
+                      <CollapsedRuleRows
+                        rows={shadowedRulesCell(ruleRows(rule, organization))}
+                      />
+                    ) : (
+                      <RoleRuleLines scope={rule} organization={organization} />
+                    ))}
                 </TableCell>
                 <TableCell>{team.members?.length ?? 0}</TableCell>
                 <TableCell justify="end">

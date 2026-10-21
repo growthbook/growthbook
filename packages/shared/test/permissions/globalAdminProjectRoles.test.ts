@@ -112,12 +112,50 @@ describe("a global admin's project roles", () => {
 });
 
 describe("getEffectiveRolesForProject", () => {
-  it("shows a global admin as Admin in a project where they also have a role", () => {
-    const roles = (exemptGlobalAdmin: boolean) =>
-      getEffectiveRolesForProject(admin, "prj_a", [], {
-        exemptGlobalAdmin,
-      }).map((r) => r.role);
-    expect(roles(true)).toEqual(["admin"]);
-    expect(roles(false)).toEqual(["readonly"]);
+  const split = (...args: Parameters<typeof getEffectiveRolesForProject>) => {
+    const { applied, shadowed } = getEffectiveRolesForProject(...args);
+    return {
+      applied: applied.map((r) => r.role),
+      shadowed: shadowed.map((r) => `${r.project ?? "all"}:${r.role}`),
+    };
+  };
+
+  it("applies only Admin for a global admin and shadows every other rule", () => {
+    const member = {
+      ...admin,
+      additionalRoles: [
+        { role: "engineer", limitAccessByEnvironment: false, environments: [] },
+      ],
+    };
+    const expected = {
+      applied: ["admin"],
+      shadowed: ["all:engineer", "prj_a:readonly"],
+    };
+    expect(split(member, "prj_a", [])).toEqual(expected);
+    expect(split(member, null, [])).toEqual(expected);
+  });
+
+  it("shadows a project's other rules beside a project-scoped Admin", () => {
+    const member = {
+      role: "readonly",
+      projectRoles: [{ ...readonlyIn("prj_a"), role: "admin" }],
+      teams: ["team_1"],
+    };
+    const teams = [
+      {
+        id: "team_1",
+        name: "Engineers",
+        role: "readonly",
+        projectRoles: [{ ...readonlyIn("prj_a"), role: "engineer" }],
+      },
+    ];
+    expect(split(member, "prj_a", teams)).toEqual({
+      applied: ["admin"],
+      shadowed: ["prj_a:engineer"],
+    });
+    expect(split(member, null, teams)).toEqual({
+      applied: ["readonly", "readonly"],
+      shadowed: [],
+    });
   });
 });
