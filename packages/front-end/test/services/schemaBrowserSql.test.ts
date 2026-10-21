@@ -128,6 +128,16 @@ describe("columnInsertDisabledReason", () => {
     expect(performance.now() - start).toBeLessThan(500);
   });
 
+  it.each(['"x"', "`x`", "[x]"])(
+    "does not backtrack catastrophically on many %s segments",
+    (segment) => {
+      const sql = "select a from " + Array(30).fill(segment).join(".") + ",";
+      const start = performance.now();
+      expect(columnInsertDisabledReason(sql, TABLE_A, "user_id")).toBeNull();
+      expect(performance.now() - start).toBeLessThan(500);
+    },
+  );
+
   it("disables CTEs, UNIONs, and multiple SELECT statements", () => {
     expect(
       columnInsertDisabledReason(
