@@ -470,6 +470,18 @@ export type EffectiveRoleSource = {
   environments: string[];
 };
 
+// Whether these All Projects rules, with the member's teams, make an admin of
+// every project. Admin can't be limited by environment; a project-scoped admin
+// role doesn't count.
+export function holdsGlobalAdmin(
+  roleInfo: { role: string; additionalRoles?: { role: string }[] },
+  memberTeams: { role: string; additionalRoles?: { role: string }[] }[],
+): boolean {
+  const isAdmin = (r: typeof roleInfo) =>
+    r.role === "admin" || !!r.additionalRoles?.some((a) => a.role === "admin");
+  return isAdmin(roleInfo) || memberTeams.some(isAdmin);
+}
+
 // Resolve the roles that actually apply to a member, combining their own role
 // with any teams they're on, using the same precedence as the back-end
 // permission merge (mergeUserAndTeamPermissions): an explicit project-scoped
@@ -495,6 +507,8 @@ export function getEffectiveRolesForProject(
     projectRoles?: ProjectMemberRole[];
     additionalRoles?: EnvLimitedRule[];
   }[],
+  // Off to list a global admin's project rules as configured, though they can't narrow Admin.
+  { exemptGlobalAdmin = true }: { exemptGlobalAdmin?: boolean } = {},
 ): EffectiveRoleSource[] {
   const teamsById = new Map(teams.map((t) => [t.id, t]));
 
@@ -532,27 +546,39 @@ export function getEffectiveRolesForProject(
     }
   });
 
+  const toSources = (
+    p: (typeof principals)[number],
+    base: EnvLimitedRule & { additionalRoles?: EnvLimitedRule[] },
+  ): EffectiveRoleSource[] =>
+    [base, ...(base.additionalRoles || [])].map((rule) => ({
+      role: rule.role,
+      sourceType: p.sourceType,
+      sourceName: p.sourceName,
+      limitAccessByEnvironment: !!rule.limitAccessByEnvironment,
+      environments: rule.environments || [],
+    }));
+
+  // A global admin's project roles can't narrow admin, so their All Projects
+  // roles are what apply in every project.
+  if (
+    exemptGlobalAdmin &&
+    holdsGlobalAdmin(
+      member,
+      (member.teams || []).flatMap((id) => teamsById.get(id) ?? []),
+    )
+  ) {
+    return principals.flatMap((p) => toSources(p, p));
+  }
+
   const explicit: EffectiveRoleSource[] = [];
   const globals: EffectiveRoleSource[] = [];
   principals.forEach((p) => {
     const projectRole = project
       ? p.projectRoles?.find((r) => r.project === project)
       : undefined;
-    const { sourceType, sourceName } = p;
     // Additional rules grant alongside their base role, and a project override
     // replaces the global one wholesale — its own additional rules included.
-    const applicable = projectRole ?? p;
-    const rules = [applicable, ...(applicable.additionalRoles || [])];
-    const target = projectRole ? explicit : globals;
-    rules.forEach((rule) =>
-      target.push({
-        role: rule.role,
-        sourceType,
-        sourceName,
-        limitAccessByEnvironment: !!rule.limitAccessByEnvironment,
-        environments: rule.environments || [],
-      }),
-    );
+    (projectRole ? explicit : globals).push(...toSources(p, projectRole ?? p));
   });
 
   // An explicit project role takes precedence over global roles, so only fall

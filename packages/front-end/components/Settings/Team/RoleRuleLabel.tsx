@@ -16,12 +16,15 @@ export default function RoleRuleLabel({
   environments,
   organization,
   sources,
+  allProjects = false,
 }: {
   role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
   organization: Partial<OrganizationInterface>;
   sources?: ReactNode;
+  // A member's or team's All Projects rule, where Admin outranks project roles.
+  allProjects?: boolean;
 }) {
   // A restriction on a role that grants nothing env-scoped has no effect, so
   // showing one would imply a limit that isn't there.
@@ -45,7 +48,23 @@ export default function RoleRuleLabel({
           {environments.length ? environments.join(", ") : "No environments"}
         </Text>
       )}
+      {allProjects && role === "admin" && <OverridesProjectRolesBadge />}
     </>
+  );
+}
+
+export function OverridesProjectRolesBadge() {
+  return (
+    <Tooltip content="Admin applies in every project. Project roles can add to it but never narrow it.">
+      <span>
+        <Badge
+          ml="2"
+          color="gray"
+          variant="soft"
+          label="Overrides project roles"
+        />
+      </span>
+    </Tooltip>
   );
 }
 
@@ -68,15 +87,21 @@ export function scopeRules(scope: Rule & { additionalRoles?: Rule[] }) {
 export function RoleRuleLines({
   scope,
   organization,
+  allProjects = false,
 }: {
   scope: Rule & { additionalRoles?: Rule[] };
   organization: Partial<OrganizationInterface>;
+  allProjects?: boolean;
 }) {
   return (
     <>
       {scopeRules(scope).map((rule, i) => (
         <div key={i}>
-          <RoleRuleLabel {...rule} organization={organization} />
+          <RoleRuleLabel
+            {...rule}
+            organization={organization}
+            allProjects={allProjects}
+          />
         </div>
       ))}
     </>
@@ -88,10 +113,17 @@ export type RuleRow = { key: string; node: ReactNode; heading?: boolean };
 export function ruleRows(
   scope: Rule & { additionalRoles?: Rule[] },
   organization: Partial<OrganizationInterface>,
+  { allProjects = false }: { allProjects?: boolean } = {},
 ): RuleRow[] {
   return scopeRules(scope).map((rule, i) => ({
     key: `${i}`,
-    node: <RoleRuleLabel {...rule} organization={organization} />,
+    node: (
+      <RoleRuleLabel
+        {...rule}
+        organization={organization}
+        allProjects={allProjects}
+      />
+    ),
   }));
 }
 

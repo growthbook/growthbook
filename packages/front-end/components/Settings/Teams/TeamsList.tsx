@@ -114,7 +114,9 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
                   </TableCell>
                   <TableCell>{date(t.dateUpdated)}</TableCell>
                   <TableCell>
-                    <CollapsedRuleRows rows={ruleRows(t, organization)} />
+                    <CollapsedRuleRows
+                      rows={ruleRows(t, organization, { allProjects: true })}
+                    />
                   </TableCell>
                   <TableCell>
                     <CollapsedRuleRows

@@ -362,7 +362,11 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                   )}
                 </TableCell>
                 <TableCell>
-                  <RoleRuleLines scope={team} organization={organization} />
+                  <RoleRuleLines
+                    scope={team}
+                    organization={organization}
+                    allProjects
+                  />
                 </TableCell>
                 <TableCell>
                   {rule && (

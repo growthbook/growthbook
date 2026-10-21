@@ -218,7 +218,11 @@ const TeamPage: FC = () => {
                     </Text>
                   </Box>
                   <Box>
-                    <RoleRuleLines scope={team} organization={organization} />
+                    <RoleRuleLines
+                      scope={team}
+                      organization={organization}
+                      allProjects
+                    />
                   </Box>
                 </Flex>
                 {team.projectRoles?.map((rule) => (

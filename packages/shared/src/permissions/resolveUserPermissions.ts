@@ -29,6 +29,7 @@ import { Permissions } from "./permissionsClass";
 import type { RevisionModel } from "./revisionPermissions";
 import {
   allowedEnvironments,
+  holdsGlobalAdmin,
   roleSupportsEnvLimit,
   roleToPermissionMap,
 } from "./permissions.utils";
@@ -286,12 +287,15 @@ function applyProjectAccessRestrictions(
   }
 }
 
-// Used for both org API keys and member records.
+// Used for both org API keys and member records. Pass `member` for a member:
+// a global admin could rewrite their own project roles, so those roles only add
+// to admin there. An API key can't, so its project roles stay binding.
 export function getRolePermissions(
   roleInfo: MemberRoleWithProjects,
   org: OrganizationInterface,
   allTeams: RoleSourceTeam[],
   restrictedProjects?: string[],
+  { member = false }: { member?: boolean } = {},
 ): UserPermissions {
   const permissions: UserPermissions = {
     global: getUserPermission(roleInfo, org),
@@ -327,6 +331,24 @@ export function getRolePermissions(
         }
         mergeUserAndTeamPermissions(permissions, teamPermissions, org);
       }
+    }
+  }
+
+  if (
+    member &&
+    holdsGlobalAdmin(
+      roleInfo,
+      allTeams.filter((t) => roleInfo.teams?.includes(t.id)),
+    )
+  ) {
+    for (const [project, projectPermissions] of Object.entries(
+      permissions.projects,
+    )) {
+      permissions.projects[project] = mergeUserPermissionObj(
+        cloneDeep(permissions.global),
+        projectPermissions,
+        org,
+      );
     }
   }
 
@@ -567,9 +589,18 @@ export function assessGoverningApprovalCoverage({
     const roles =
       assumingKeyRole === undefined ? [roleInfo] : [roleInfo, assumingKeyRole];
     const held = roles.filter((r): r is MemberRoleWithProjects => r !== null);
+    // The approver may be a member or an org key; an assuming key is a key.
+    const isMember = org.members.some((m) => m.id === id);
     const permissions =
       held.length === roles.length
-        ? held.map((r) => new Permissions(getRolePermissions(r, org, teams)))
+        ? held.map(
+            (r, i) =>
+              new Permissions(
+                getRolePermissions(r, org, teams, undefined, {
+                  member: i === 0 && isMember,
+                }),
+              ),
+          )
         : [];
     const canReview = (scope: string[]) =>
       permissions.length > 0 &&

@@ -115,7 +115,11 @@ const PendingMemberList: FC<{
                   {member.dateCreated && date(member.dateCreated)}
                 </TableCell>
                 <TableCell>
-                  <CollapsedRuleRows rows={ruleRows(roleInfo, organization)} />
+                  <CollapsedRuleRows
+                    rows={ruleRows(roleInfo, organization, {
+                      allProjects: true,
+                    })}
+                  />
                 </TableCell>
                 {!project && (
                   <TableCell>

@@ -172,7 +172,11 @@ const InviteList: FC<{
                   {date(dateCreated)}
                 </TableCell>
                 <TableCell>
-                  <CollapsedRuleRows rows={ruleRows(roleInfo, organization)} />
+                  <CollapsedRuleRows
+                    rows={ruleRows(roleInfo, organization, {
+                      allProjects: true,
+                    })}
+                  />
                 </TableCell>
                 {!project && (
                   <TableCell>

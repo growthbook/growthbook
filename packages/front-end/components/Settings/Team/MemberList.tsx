@@ -12,6 +12,7 @@ import {
   EffectiveRoleSource,
   getEffectiveRolesForProject,
   getRolePermissions,
+  holdsGlobalAdmin,
   Permissions,
 } from "shared/permissions";
 import { useAuth } from "@/services/auth";
@@ -81,6 +82,7 @@ function rulesWithSources(roles: EffectiveRoleSource[]) {
 function effectiveRuleRows(
   roles: EffectiveRoleSource[],
   organization: Parameters<typeof RoleRuleLabel>[0]["organization"],
+  { allProjects = false }: { allProjects?: boolean } = {},
 ): RuleRow[] {
   return rulesWithSources(roles).map((e) => ({
     key: e.key,
@@ -88,6 +90,7 @@ function effectiveRuleRows(
       <RoleRuleLabel
         {...e}
         organization={organization}
+        allProjects={allProjects}
         sources={
           e.sources.some((src) => src !== "Direct")
             ? e.sources.join(", ")
@@ -207,9 +210,13 @@ const MemberList: FC<{
   const deniedByRestrictedAccess = (member: ExpandedMember): boolean => {
     if (!project || !restrictAccess) return false;
     const resolved = new Permissions(
-      getRolePermissions(member, organization as OrganizationInterface, teams, [
-        project,
-      ]),
+      getRolePermissions(
+        member,
+        organization as OrganizationInterface,
+        teams,
+        [project],
+        { member: true },
+      ),
     );
     return !resolved.canReadSingleProjectResource(project);
   };
@@ -246,6 +253,10 @@ const MemberList: FC<{
       {projectRoleModal && projectRoleModalUser && (
         <ChangeProjectRoleModal
           memberName={projectRoleModalUser.name || projectRoleModalUser.email}
+          adminEverywhere={holdsGlobalAdmin(
+            projectRoleModalUser,
+            teams.filter((t) => projectRoleModalUser.teams?.includes(t.id)),
+          )}
           projectRole={
             projectRoleModalUser.projectRoles?.find(
               (r) => r.project === project,
@@ -417,6 +428,10 @@ const MemberList: FC<{
                 project || null,
                 teams,
               );
+              const globalAdmin = holdsGlobalAdmin(
+                member,
+                teams.filter((t) => member.teams?.includes(t.id)),
+              );
               return (
                 <TableRow key={member.id}>
                   <TableCell>{member.name}</TableCell>
@@ -459,7 +474,9 @@ const MemberList: FC<{
                       />
                     ) : (
                       <CollapsedRuleRows
-                        rows={effectiveRuleRows(effectiveRoles, organization)}
+                        rows={effectiveRuleRows(effectiveRoles, organization, {
+                          allProjects: globalAdmin,
+                        })}
                       />
                     )}
                   </TableCell>
@@ -476,6 +493,7 @@ const MemberList: FC<{
                                 member,
                                 projectId,
                                 teams,
+                                { exemptGlobalAdmin: false },
                               ),
                               organization,
                             ),

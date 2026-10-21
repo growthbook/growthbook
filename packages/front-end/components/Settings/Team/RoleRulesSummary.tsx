@@ -12,7 +12,7 @@ export function RoleRulesSummary({ value }: { value: MemberRoleWithProjects }) {
   const { getProjectById } = useDefinitions();
 
   const rows = [
-    ...ruleRows(value, organization),
+    ...ruleRows(value, organization, { allProjects: true }),
     ...projectRuleRows(value.projectRoles ?? [], getProjectById, organization),
   ];
   return <CollapsedRuleRows rows={rows} />;
