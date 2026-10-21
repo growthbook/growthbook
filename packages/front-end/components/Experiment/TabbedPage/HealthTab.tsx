@@ -380,6 +380,11 @@ function HealthSnapshotCards({
   const clusterSubUnitMapping = snapshot.health?.clusterSubUnitMapping;
   const oneMixedCluster = clusterAssignment?.mixedClusters === 1;
   const oneMultiClusterUnit = clusterSubUnitMapping?.multiClusterUnits === 1;
+  // "1 of 25 region_id values": the noun follows the total, the verb the count.
+  const clusterNoun =
+    clusterAssignment?.totalClusters === 1 ? "value" : "values";
+  const subUnitNoun =
+    clusterSubUnitMapping?.totalUnits === 1 ? "value" : "values";
 
   const phaseObj = experiment.phases?.[phase];
 
@@ -475,11 +480,12 @@ function HealthSnapshotCards({
                 a single variation.
               </b>
             }
-            belowThresholdMessage={(threshold) => (
+            belowThresholdMessage={(threshold, share) => (
               <>
-                {numberFormatter.format(clusterAssignment.mixedClusters)}{" "}
+                {numberFormatter.format(clusterAssignment.mixedClusters)} of{" "}
+                {numberFormatter.format(clusterAssignment.totalClusters)}{" "}
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
-                {oneMixedCluster ? "value" : "values"} had{" "}
+                {clusterNoun} ({share}) had{" "}
                 <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> values in
                 more than one variation and {oneMixedCluster ? "was" : "were"}{" "}
                 removed from results, but that is below your threshold of{" "}
@@ -489,9 +495,10 @@ function HealthSnapshotCards({
             warningMessage={(share) => (
               <>
                 <strong>Cluster Assignment Warning</strong>.{" "}
-                {numberFormatter.format(clusterAssignment.mixedClusters)}{" "}
+                {numberFormatter.format(clusterAssignment.mixedClusters)} of{" "}
+                {numberFormatter.format(clusterAssignment.totalClusters)}{" "}
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
-                {oneMixedCluster ? "value" : "values"} ({share}) had{" "}
+                {clusterNoun} ({share}) had{" "}
                 <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> values in
                 more than one variation and {oneMixedCluster ? "was" : "were"}{" "}
                 automatically removed from results. Check that the{" "}
@@ -525,14 +532,15 @@ function HealthSnapshotCards({
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode>.
               </b>
             }
-            belowThresholdMessage={(threshold) => (
+            belowThresholdMessage={(threshold, share) => (
               <>
                 {numberFormatter.format(
                   clusterSubUnitMapping.multiClusterUnits,
                 )}{" "}
+                of {numberFormatter.format(clusterSubUnitMapping.totalUnits)}{" "}
                 <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>{" "}
-                {oneMultiClusterUnit ? "value" : "values"} appeared in more than
-                one <IdentifierCode>{clusterIds.cluster}</IdentifierCode> and{" "}
+                {subUnitNoun} ({share}) appeared in more than one{" "}
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> and{" "}
                 {oneMultiClusterUnit ? "was" : "were"} removed from results, but
                 that is below your threshold of {threshold}.
               </>
@@ -543,9 +551,9 @@ function HealthSnapshotCards({
                 {numberFormatter.format(
                   clusterSubUnitMapping.multiClusterUnits,
                 )}{" "}
+                of {numberFormatter.format(clusterSubUnitMapping.totalUnits)}{" "}
                 <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>{" "}
-                {oneMultiClusterUnit ? "value" : "values"} ({share}) appeared in
-                more than one{" "}
+                {subUnitNoun} ({share}) appeared in more than one{" "}
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode> and{" "}
                 {oneMultiClusterUnit ? "was" : "were"} automatically removed
                 from results. Check that{" "}

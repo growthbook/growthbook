@@ -47,7 +47,7 @@ interface Props {
   // Rendered when nothing was removed.
   healthyMessage: ReactNode;
   // Rendered when some were removed but the share is under the threshold.
-  belowThresholdMessage: (threshold: string) => ReactNode;
+  belowThresholdMessage: (threshold: string, share: string) => ReactNode;
   warningMessage: (share: string) => ReactNode;
   onNotify?: (issue: IssueValue) => void;
 }
@@ -108,6 +108,7 @@ export default function ClusterIssueCard({
             ? healthyMessage
             : belowThresholdMessage(
                 percentFormatter.format(minPercentThreshold),
+                percentFormatter.format(health.rawDecimal),
               )}
         </Callout>
       )}
