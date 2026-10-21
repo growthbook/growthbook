@@ -715,7 +715,7 @@ describe("confirmations", () => {
         .findOne({ id: held.body.confirmation.id }),
     ).toMatchObject({
       notices: [
-        { severity: "error", messages: [refused.body.message], via: null },
+        { severity: "warning", messages: [refused.body.message], via: null },
       ],
       lastAttemptAt: expect.any(Date),
     });
@@ -748,7 +748,7 @@ describe("confirmations", () => {
         .findOne({ id: held.body.confirmation.id }),
     ).toMatchObject({
       notices: [
-        { severity: "error", messages: [refused.body.message], via: null },
+        { severity: "warning", messages: [refused.body.message], via: null },
       ],
     });
   });

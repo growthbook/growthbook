@@ -190,6 +190,14 @@ export class ConflictError extends Error {
   }
 }
 
+// The org's soft cap on drafts per feature; `overrideDraftLimit` gets past it.
+export class DraftLimitError extends ConflictError {
+  constructor(message: string) {
+    super(message);
+    this.name = "DraftLimitError";
+  }
+}
+
 export class MergeConflictError extends ApiError<"conflict"> {
   constructor(message: string, conflicts: unknown[]) {
     super("conflict", message, { conflicts });

@@ -33,6 +33,7 @@ import {
   BulkPublishCommitError,
   ConfirmationRequiredError,
   CustomHookError,
+  DraftLimitError,
   MergeConflictError,
   SoftWarningError,
   UnscopedRuleError,
@@ -304,7 +305,7 @@ function refusalNotices(e: Error): ConfirmationNotice[] {
       { severity: "warning", messages: [e.message, ...e.warnings], via: null },
     ];
   }
-  if (e instanceof UnscopedRuleError) {
+  if (e instanceof UnscopedRuleError || e instanceof DraftLimitError) {
     return [{ severity: "warning", messages: [e.message], via: null }];
   }
   if (e instanceof CustomHookError) {

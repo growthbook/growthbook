@@ -7,7 +7,7 @@ import { stringToBoolean } from "shared/util";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
-import { ConflictError, NotFoundError } from "back-end/src/util/errors";
+import { DraftLimitError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { holdAtRoute } from "back-end/src/services/confirmations";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -53,7 +53,7 @@ export async function createFeatureDraft(
       status: [...ACTIVE_DRAFT_STATUSES],
     });
     if (activeDrafts >= maxDrafts) {
-      throw new ConflictError(
+      throw new DraftLimitError(
         `This feature already has ${activeDrafts} active draft${
           activeDrafts === 1 ? "" : "s"
         } and your organization caps drafts at ${maxDrafts} per feature. Retry with ?overrideDraftLimit=true to create the draft anyway, or publish/discard an existing draft first.`,
