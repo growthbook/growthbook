@@ -20,6 +20,7 @@ import {ExperimentTab} from "@/components/Experiment/TabbedPage";
 import PublicExperimentOverview from "@/components/Experiment/Public/PublicExperimentOverview";
 import PublicExperimentResults from "@/components/Experiment/Public/PublicExperimentResults";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
+import { STICKY_TABS_TOP_PX } from "@/components/Layout/headerHeight";
 
 export async function getServerSideProps(context) {
   const { e } = context.params;
@@ -66,8 +67,6 @@ interface PublicExperimentPageProps {
   linkedFeatures: LinkedFeatureInfo[] | null;
   ssrData: ExperimentReportSSRData | null;
 }
-
-const TABS_HEADER_HEIGHT_PX = 55;
 
 export default function PublicExperimentPage(props: PublicExperimentPageProps) {
   const { userId, organization: userOrganization, superAdmin} = useUser();
@@ -128,7 +127,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
       },
       {
         root: null,
-        rootMargin: `-${TABS_HEADER_HEIGHT_PX}px 0px 0px 0px`,
+        rootMargin: `-${STICKY_TABS_TOP_PX}px 0px 0px 0px`,
         threshold: 0,
       },
     );

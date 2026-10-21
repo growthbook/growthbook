@@ -10,8 +10,14 @@
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
 
+// The app header's height (TopNav, TopNavLite). Keep in sync with
+// HEADER_HEIGHT_PX in components/Layout/headerHeight.ts.
+:root {
+  --header-height: 44px;
+}
+
 main {
-  padding-top: 56px;
+  padding-top: var(--header-height);
 }
 
 body {
@@ -533,9 +539,9 @@ pre {
   }
   .experiment-tabs {
     background-color: var(--color-background);
-    // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
+    // NB: Keep top property in sync with STICKY_TABS_TOP_PX (headerHeight.ts)
     // also, make sure shared reports & shared experiments look good
-    top: 55px;
+    top: calc(var(--header-height) - 1px);
     height: 40px;
     transition: 150ms all;
     .header-tabs {
@@ -616,8 +622,8 @@ pre {
 }
 .feature-tabs {
   background-color: var(--color-background);
-  // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in FeaturesHeader.tsx
-  top: 55px;
+  // NB: Keep top property in sync with STICKY_TABS_TOP_PX (headerHeight.ts)
+  top: calc(var(--header-height) - 1px);
   height: 40px;
   transition: 150ms all;
 
@@ -876,12 +882,13 @@ pre {
 main.main {
   &.report {
     .experiment-results th.axis-col {
-      top: 55px;
+      top: calc(var(--header-height) - 1px);
     }
   }
   &.public.experiment {
     .experiment-results th.axis-col {
-      top: 95px;
+      // Under the 40px sticky tabs.
+      top: calc(var(--header-height) + 39px);
     }
   }
   .select-dropdown-underline {
@@ -3164,7 +3171,7 @@ html {
 @media (max-width: 1180px) {
   .main {
     padding-left: 0;
-    padding-top: 60px;
+    padding-top: var(--header-height);
   }
   .sidebar.open {
     left: 0;
