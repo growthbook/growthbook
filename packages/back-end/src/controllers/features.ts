@@ -315,6 +315,7 @@ import {
 import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
+import { parseIdsQuery } from "back-end/src/util/validation";
 import {
   canDisarmFeatureAutoPublishOnApproval,
   canEnableFeatureAutoPublishOnApproval,
@@ -7727,7 +7728,7 @@ export async function getFeatureMetaInfo(
   const features = await getFeatureMetaInfoById(context, {
     includeDefaultValue: defaultValue === "1",
     project: project || undefined,
-    ids: ids ? ids.split(",").filter(Boolean) : undefined,
+    ids: parseIdsQuery(ids),
   });
 
   res.status(200).json({ status: 200, features });
@@ -7744,9 +7745,7 @@ export async function getFeatureDraftStates(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids);
   const features = await getActiveDraftStates(context.org.id, featureIds);
   res.status(200).json({ status: 200, features });
 }
@@ -7760,9 +7759,7 @@ export async function getFeaturesHealth(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids);
 
   const [
     { features: allFeatures, experiments: allExperiments },
@@ -7907,9 +7904,7 @@ export async function getFeaturesStatus(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids);
 
   const raw = await getFeatureEnvStatus(context, featureIds);
 
@@ -7941,9 +7936,7 @@ export async function getFeaturesDependents(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : [];
+  const featureIds = parseIdsQuery(req.query.ids) ?? [];
 
   if (!featureIds.length) {
     return res.status(200).json({ status: 200, dependents: {} });
@@ -8243,9 +8236,7 @@ export async function getFeatureRampStates(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids);
 
   const NON_TERMINAL_STATUSES = [
     "pending",
