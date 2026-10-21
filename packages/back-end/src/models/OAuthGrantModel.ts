@@ -34,6 +34,8 @@ const BaseClass = MakeModelClass({
   defaultValues: {
     revoked: false,
   },
+  // Every hourly refresh extends a grant's expiry; that alone isn't audited.
+  skipAuditLogFields: ["expiresAt"],
   additionalIndexes: [
     // Unique so concurrent authorizations can't fork a grant into two targets.
     { fields: { organization: 1, clientId: 1, userId: 1 }, unique: true },
