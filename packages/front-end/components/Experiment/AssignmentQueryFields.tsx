@@ -1,4 +1,5 @@
 import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
+import { CLUSTER_MODE_LOCKED_MESSAGE } from "shared/validators";
 import { Box } from "@radix-ui/themes";
 import {
   DataSourceInterfaceWithParams,
@@ -441,6 +442,7 @@ export function ClusterExperimentFields({
   setIsClusterExperiment,
   setSubUnitIdentifier,
   disabled,
+  locked,
 }: {
   exposureQuery: ExposureQuery | undefined;
   identifierType: string | undefined;
@@ -449,6 +451,8 @@ export function ClusterExperimentFields({
   setIsClusterExperiment: (value: boolean) => void;
   setSubUnitIdentifier: (value: string) => void;
   disabled?: boolean;
+  // Cluster mode can't be switched after launch; the sub-unit still can.
+  locked?: boolean;
 }) {
   const { hasCommercialFeature } = useUser();
   const subUnitOptions = exposureQuery
@@ -484,8 +488,10 @@ export function ClusterExperimentFields({
         }}
         disabled={
           disabled ||
+          locked ||
           (!isClusterExperiment && !hasCommercialFeature("cluster-experiments"))
         }
+        disabledMessage={locked ? CLUSTER_MODE_LOCKED_MESSAGE : undefined}
       />
       {isClusterExperiment && (
         <Box ml="5" mt="3">

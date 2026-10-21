@@ -241,6 +241,28 @@ export function isUnsupportedClusterBanditCombination({
   return !!isClusterExperiment && type === "multi-armed-bandit";
 }
 
+export const CLUSTER_MODE_LOCKED_MESSAGE =
+  "Cluster randomization can only be turned on or off while the experiment is a draft.";
+
+// The SDK randomizes on the cluster (or not) from launch, so switching cluster
+// mode afterwards would analyze traffic that wasn't randomized that way.
+export function isClusterModeChangeLocked({
+  status,
+  nextStatus,
+  isClusterExperiment,
+  nextIsClusterExperiment,
+}: {
+  status: string;
+  nextStatus?: string;
+  isClusterExperiment?: boolean | null;
+  nextIsClusterExperiment?: boolean | null;
+}): boolean {
+  if (nextIsClusterExperiment === undefined || nextIsClusterExperiment === null)
+    return false;
+  if (!!nextIsClusterExperiment === !!isClusterExperiment) return false;
+  return status !== "draft" && nextStatus !== "draft";
+}
+
 export const banditStageType = ["explore", "exploit", "paused"] as const;
 export type BanditStageType = (typeof banditStageType)[number];
 

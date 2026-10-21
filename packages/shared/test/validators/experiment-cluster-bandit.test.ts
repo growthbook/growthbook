@@ -1,5 +1,6 @@
 import {
   CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
+  isClusterModeChangeLocked,
   isUnsupportedClusterBanditCombination,
   postExperimentValidator,
   updateExperimentValidator,
@@ -24,6 +25,56 @@ describe("isUnsupportedClusterBanditCombination", () => {
     { type: "standard", isClusterExperiment: false },
   ])("is false for %p", (args) => {
     expect(isUnsupportedClusterBanditCombination(args)).toBe(false);
+  });
+});
+
+describe("isClusterModeChangeLocked", () => {
+  it("locks turning cluster mode on or off once the experiment left draft", () => {
+    expect(
+      isClusterModeChangeLocked({
+        status: "running",
+        isClusterExperiment: false,
+        nextIsClusterExperiment: true,
+      }),
+    ).toBe(true);
+    expect(
+      isClusterModeChangeLocked({
+        status: "stopped",
+        isClusterExperiment: true,
+        nextIsClusterExperiment: false,
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    {
+      status: "draft",
+      isClusterExperiment: false,
+      nextIsClusterExperiment: true,
+    },
+    {
+      status: "running",
+      nextStatus: "draft",
+      isClusterExperiment: true,
+      nextIsClusterExperiment: false,
+    },
+    {
+      status: "running",
+      isClusterExperiment: true,
+      nextIsClusterExperiment: true,
+    },
+    {
+      status: "running",
+      isClusterExperiment: undefined,
+      nextIsClusterExperiment: false,
+    },
+    {
+      status: "running",
+      isClusterExperiment: true,
+      nextIsClusterExperiment: undefined,
+    },
+  ])("allows %p", (args) => {
+    expect(isClusterModeChangeLocked(args)).toBe(false);
   });
 });
 

@@ -23,6 +23,8 @@ import {
 } from "shared/experiments";
 import {
   CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
+  CLUSTER_MODE_LOCKED_MESSAGE,
+  isClusterModeChangeLocked,
   isUnsupportedClusterBanditCombination,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
@@ -2101,6 +2103,16 @@ export async function postExperiment(
     changes.exposureQueryIdentifierType = resolvedSelection.identifierType;
   }
 
+  if (
+    isClusterModeChangeLocked({
+      status: experiment.status,
+      nextStatus: changes.status,
+      isClusterExperiment: experiment.isClusterExperiment,
+      nextIsClusterExperiment: changes.isClusterExperiment,
+    })
+  ) {
+    throw new Error(CLUSTER_MODE_LOCKED_MESSAGE);
+  }
   if (changes.isClusterExperiment) {
     assertCanEnableClusterExperiment(context);
   }
