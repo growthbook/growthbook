@@ -39,6 +39,8 @@ export type ApiRequestLocals = PermissionFunctions & {
   audit: (data: AuditInterfaceInput) => Promise<void>;
   context: ApiReqContext;
   isJwtAuth?: boolean;
+  // Authenticated with a rotated key's previous secret, during its grace period.
+  usedPreviousSecret?: boolean;
 };
 
 type ApiErrorResponseBase = {

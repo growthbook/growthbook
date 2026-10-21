@@ -963,7 +963,8 @@
                   "api/api-keys/operation/listApiKeys",
                   "api/api-keys/operation/deleteApiKey",
                   "api/api-keys/operation/postApiKeyDisable",
-                  "api/api-keys/operation/postApiKeyEnable"
+                  "api/api-keys/operation/postApiKeyEnable",
+                  "api/api-keys/operation/postApiKeyRotate"
                 ]
               },
               {

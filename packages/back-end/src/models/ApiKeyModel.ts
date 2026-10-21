@@ -1,14 +1,17 @@
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import pick from "lodash/pick";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { z } from "zod";
 import {
   apiApiKeyActionReturn,
   apiKeySchema,
+  apiRotateApiKeyReturn,
   ConfirmRule,
 } from "shared/validators";
 import {
   apiKeyToggleRequiresAdmin,
+  canManageApiKeySecret,
   canSetApiKeyDisabled,
   changesApiKeyAuthority,
   getRoleById,
@@ -21,6 +24,8 @@ import {
   isExpired,
   latestEditedExpiration,
   maxExpirationDate,
+  previousKeyExpiration,
+  rotatedExpiration,
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
 import { date } from "shared/dates";
@@ -39,14 +44,17 @@ import {
   apiKeyApiSpec,
   disableApiKeyEndpoint,
   enableApiKeyEndpoint,
+  rotateApiKeyEndpoint,
 } from "back-end/src/api/specs/api-key.spec";
 import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import { ApiRequestLocals } from "back-end/types/api";
+import { keyRulesWouldHold } from "back-end/src/services/confirmations";
 
 type ApiApiKeyActionReturn = z.infer<typeof apiApiKeyActionReturn>;
+type ApiRotateApiKeyReturn = z.infer<typeof apiRotateApiKeyReturn>;
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
@@ -73,6 +81,11 @@ const BaseClass = MakeModelClass({
       expireAfterSeconds: 0,
       partialFilterExpression: { oauthClientId: { $exists: true } },
       name: "oauthAccessTokenTtl",
+    },
+    {
+      fields: { previousKey: 1 },
+      partialFilterExpression: { previousKey: { $exists: true } },
+      name: "previousKey",
     },
   ],
   skipDateUpdatedFields: ["lastUsed"],
@@ -101,6 +114,15 @@ const BaseClass = MakeModelClass({
             req,
             req.params.id,
             false,
+          ),
+      }),
+      defineCustomApiHandler({
+        ...rotateApiKeyEndpoint,
+        reqHandler: (req): Promise<ApiRotateApiKeyReturn> =>
+          req.context.models.apiKeys.rotateOrgSecretKey(
+            req,
+            req.params.id,
+            req.body.gracePeriodHours ?? 24,
           ),
       }),
     ],
@@ -163,6 +185,56 @@ export class ApiKeyModel extends BaseClass {
       ),
     });
     return { apiKey: this.toApiInterface(after) };
+  }
+
+  public async rotateOrgSecretKey(
+    req: Pick<ApiRequestLocals, "audit" | "usedPreviousSecret">,
+    id: string,
+    gracePeriodHours: number,
+  ): Promise<ApiRotateApiKeyReturn> {
+    // A held rotation would store the new secret on the confirmation, where org members can read it.
+    if (keyRulesWouldHold(this.context, rotateApiKeyEndpoint.confirmation)) {
+      this.context.permissions.throwPermissionError(
+        "This key needs a person to confirm API key changes, and a new secret can't wait in a confirmation. Rotate the key in the app instead.",
+      );
+    }
+    // REST only addresses org keys, so check their rule before the lookup.
+    if (
+      !canManageApiKeySecret(this.context.permissions, {}, this.context.userId)
+    ) {
+      this.context.permissions.throwPermissionError();
+    }
+    // A client still on the old secret may not have saved the new one; rotating would end the old one.
+    if (req.usedPreviousSecret) {
+      this.context.throwBadRequestError(
+        "This request used a secret that a rotation already replaced. Switch to the current secret before rotating again.",
+      );
+    }
+    // The response holds the only copy of the new secret, so losing it must not lock the key out.
+    if (id === this.context.apiKey && !gracePeriodHours) {
+      this.context.throwBadRequestError(
+        "A key rotating itself needs a grace period, so a lost response doesn't lock it out. Set gracePeriodHours above 0.",
+      );
+    }
+    await this.getOrgSecretKey(id);
+    const { before, after } = await this.rotateSecret(id, gracePeriodHours);
+    await req.audit({
+      event: "apiKey.rotate",
+      entity: { object: "apiKey", id, name: after.description },
+      details: auditDetailsUpdate(
+        ApiKeyModel.toAuditDetails(before),
+        ApiKeyModel.toAuditDetails(after),
+      ),
+    });
+    return {
+      apiKey: this.toApiInterface(after),
+      key: after.key,
+      expiresAt: after.expiresAt?.toISOString() ?? null,
+      // An immediate rotation keeps the old secret, already expired.
+      previousKeyExpiresAt: isExpired(after.previousKeyExpiresAt)
+        ? null
+        : (after.previousKeyExpiresAt?.toISOString() ?? null),
+    };
   }
 
   public override async handleApiList() {
@@ -262,13 +334,18 @@ export class ApiKeyModel extends BaseClass {
 
   protected sanitize(doc: ApiKeyInterface): ApiKeyInterface {
     if (!doc.secret) return doc;
-    return { ...doc, key: "", encryptionKey: undefined };
+    return {
+      ...doc,
+      key: "",
+      previousKey: undefined,
+      encryptionKey: undefined,
+    };
   }
 
   // Projects an API key doc down to a safe, non-sensitive subset for audit
   // details. This lives next to `sanitize` so the redaction allow-list stays in
-  // one place. The raw `key` token and `encryptionKey` must NEVER be included so
-  // the secret value can never leak into the audit log.
+  // one place. The raw `key` and `previousKey` tokens and `encryptionKey` must
+  // NEVER be included so a secret value can never leak into the audit log.
   public static toAuditDetails(doc: ApiKeyInterface) {
     return {
       id: doc.id,
@@ -287,6 +364,8 @@ export class ApiKeyModel extends BaseClass {
       disabledBy: doc.disabledBy,
       expiresAt: doc.expiresAt,
       confirmRules: doc.confirmRules,
+      keyIssuedAt: doc.keyIssuedAt,
+      previousKeyExpiresAt: doc.previousKeyExpiresAt,
     };
   }
 
@@ -309,7 +388,7 @@ export class ApiKeyModel extends BaseClass {
       const latest = previousDoc
         ? latestEditedExpiration(
             previousDoc.expiresAt,
-            previousDoc.dateCreated,
+            previousDoc.keyIssuedAt ?? previousDoc.dateCreated,
             maxDays,
           )
         : maxExpirationDate(maxDays);
@@ -777,10 +856,19 @@ export class ApiKeyModel extends BaseClass {
     key: string,
     organization: string,
   ): Promise<void> {
-    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
+    const collection = getCollection<ApiKeyInterface>(COLLECTION_NAME);
+    const now = new Date();
+    const { matchedCount } = await collection.updateOne(
       { key, organization },
-      { $set: { lastUsed: new Date() } },
+      { $set: { lastUsed: now } },
     );
+    // Otherwise it may be a rotated key's previous secret.
+    if (!matchedCount) {
+      await collection.updateOne(
+        { previousKey: key, organization },
+        { $set: { lastUsed: now, previousKeyLastUsed: now } },
+      );
+    }
   }
 
   // OAuth token endpoint has no ReqContext. These static helpers keep apikey
@@ -904,13 +992,107 @@ export class ApiKeyModel extends BaseClass {
     );
   }
 
+  // Reveals only the current secret, never a rotated-out one.
   public async getUnredactedSecretKey(
     id: string,
   ): Promise<SecretApiKey | null> {
-    return (await this._findOne(
-      { id },
-      { bypassSanitization: true },
-    )) as SecretApiKey;
+    const doc = await this._findOne({ id }, { bypassSanitization: true });
+    return doc ? (omit(doc, "previousKey") as SecretApiKey) : null;
+  }
+
+  // Issues a new secret under the same id, role and settings. With a grace
+  // period, the replaced secret keeps working until it ends.
+  public async rotateSecret(
+    id: string,
+    gracePeriodHours: number,
+  ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
+    const doc = await this.getRotatableKey(id);
+    if (isExpired(doc.expiresAt)) {
+      this.context.throwBadRequestError(
+        "An expired key can't be rotated. Create a new key instead.",
+      );
+    }
+
+    const now = new Date();
+    const updates = {
+      key: generateSigningKey(
+        this.prefixForApiKey({
+          environment: "",
+          secret: true,
+          userId: doc.userId,
+          role: doc.role,
+        }),
+      ),
+      keyIssuedAt: now,
+      expiresAt: rotatedExpiration(
+        doc.expiresAt,
+        doc.keyIssuedAt ?? doc.dateCreated,
+        this.maxLifetimeDaysFor(doc),
+        now,
+      ),
+      // Kept even with no grace period, so auth can say the secret was rotated.
+      previousKey: doc.key,
+      previousKeyExpiresAt:
+        previousKeyExpiration(doc.expiresAt, gracePeriodHours, now) ?? now,
+      previousKeyLastUsed: null,
+      dateUpdated: now,
+    };
+
+    // `key` is the primary key, so this can't go through `_updateOne`. Matching
+    // the old secret makes concurrent rotations fail instead of both winning.
+    const { matchedCount } = await getCollection<ApiKeyInterface>(
+      COLLECTION_NAME,
+    ).updateOne(
+      { id, organization: this.context.org.id, key: doc.key },
+      { $set: updates },
+    );
+    if (!matchedCount) {
+      this.context.throwBadRequestError(
+        "This key was changed while it was being rotated. Try again.",
+      );
+    }
+
+    return { before: doc, after: { ...doc, ...updates } };
+  }
+
+  // Ends a rotation's grace period early, e.g. when the old secret leaked.
+  public async revokePreviousKey(
+    id: string,
+  ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
+    const doc = await this.getRotatableKey(id);
+    if (!doc.previousKey || isExpired(doc.previousKeyExpiresAt)) {
+      this.context.throwBadRequestError(
+        "This key has no previous secret to revoke.",
+      );
+    }
+    const now = new Date();
+    // Expired rather than removed, so auth can still say the secret was rotated.
+    const updates = { previousKeyExpiresAt: now, dateUpdated: now };
+    // Matching the checked secret keeps a stale revoke off a newer rotation's.
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
+      { id, organization: this.context.org.id, previousKey: doc.previousKey },
+      { $set: updates },
+    );
+    return { before: doc, after: { ...doc, ...updates } };
+  }
+
+  private async getRotatableKey(id: string): Promise<ApiKeyInterface> {
+    const doc = await this._findOne({ id }, { bypassSanitization: true });
+    if (!doc || !doc.secret || doc.oauthClientId) {
+      this.context.throwNotFoundError(`API key not found: ${id}`);
+    }
+    if (
+      !canManageApiKeySecret(this.context.permissions, doc, this.context.userId)
+    ) {
+      // Like delete, another member's PAT reads as missing.
+      if (doc.userId) {
+        this.context.throwNotFoundError(`API key not found: ${id}`);
+      }
+      this.context.permissions.throwPermissionError(
+        "Rotating an API key requires permission to create API keys.",
+      );
+    }
+    return doc;
   }
 
   // The member's own PATs worth a warning: lapsing soon, or lapsed but still in use.

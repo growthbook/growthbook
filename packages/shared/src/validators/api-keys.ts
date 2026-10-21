@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_ROTATION_GRACE_HOURS } from "../api-key-expiration";
 import { namedSchema } from "./openapi-helpers";
 import { apiAdditionalRoles } from "./members";
 import { apiBaseSchema } from "./base-model";
@@ -56,4 +57,37 @@ export const apiApiKeyActionValidator = {
 
 export const apiApiKeyActionReturn = z
   .object({ apiKey: apiApiKeyValidator })
+  .strict();
+
+export const apiRotateApiKeyValidator = {
+  bodySchema: z.strictObject({
+    gracePeriodHours: z
+      .number()
+      .int()
+      .min(0)
+      .max(MAX_ROTATION_GRACE_HOURS)
+      .optional()
+      .describe(
+        "How long the replaced secret keeps working, in hours. 0 rejects it immediately, which a key can't do to itself. Defaults to 24.",
+      ),
+  }),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+};
+
+const apiDateTime = z.string().meta({ format: "date-time" });
+
+export const apiRotateApiKeyReturn = z
+  .object({
+    apiKey: apiApiKeyValidator,
+    key: z.string().describe("The new secret"),
+    expiresAt: apiDateTime
+      .nullable()
+      .describe("When the key expires. Rotation restarts its lifetime."),
+    previousKeyExpiresAt: apiDateTime
+      .nullable()
+      .describe(
+        "When the replaced secret stops working. Null when it already has.",
+      ),
+  })
   .strict();
