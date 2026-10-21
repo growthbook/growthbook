@@ -505,33 +505,6 @@ export class ContextualBanditModel extends BaseClass {
     };
   }
 
-  // Held by what the update changes, which takes the bandit as it is now.
-  public override async handleApiUpdate(
-    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
-  ) {
-    const { id } = req.params as { id: string };
-    const existing = await this.getById(id);
-    if (existing) {
-      const body = (req.body ?? {}) as Record<string, unknown>;
-      const changes = await this.processApiUpdateBody(body);
-      await requireConfirmation(req.context, {
-        actions: contextualBanditChangeActions(existing, changes),
-        project: existing.project,
-        summary:
-          plainWriteSummary(
-            "put",
-            "/contextual-bandits/:id",
-            "Contextual Bandit",
-            existing.name,
-            body,
-          ) ?? `Update ${existing.name}`,
-        links: [],
-        pin: [existing.status, pinnedFields(existing, changes)],
-      });
-    }
-    return super.handleApiUpdate(req);
-  }
-
   protected async processApiUpdateBody(rawBody: unknown) {
     const body = apiUpdateContextualBanditBody.parse(rawBody);
     const out: Partial<ContextualBanditInterface> = {};
@@ -575,6 +548,7 @@ export class ContextualBanditModel extends BaseClass {
     return resolveOwnerEmail(this.toApiInterface(created), this.context);
   }
 
+  // Held by what the update changes, which takes the bandit as it is now.
   public override async handleApiUpdate(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
   ): Promise<ApiContextualBanditInterface> {
@@ -585,7 +559,8 @@ export class ContextualBanditModel extends BaseClass {
         `Contextual Bandit ${id} not found or not accessible`,
       );
     }
-    const toUpdate = (await this.processApiUpdateBody(req.body)) as Record<
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const toUpdate = (await this.processApiUpdateBody(body)) as Record<
       string,
       unknown
     >;
@@ -604,10 +579,22 @@ export class ContextualBanditModel extends BaseClass {
       assertMeasurementArmChangeAllowed(existing, { measurementArm });
       toUpdate.measurementArm = measurementArm;
     }
-    let updated = await this.update(
-      existing,
-      toUpdate as Parameters<typeof this.update>[1],
-    );
+    const changes = toUpdate as Parameters<typeof this.update>[1];
+    await requireConfirmation(req.context, {
+      actions: contextualBanditChangeActions(existing, changes),
+      project: existing.project,
+      summary:
+        plainWriteSummary(
+          "put",
+          "/contextual-bandits/:id",
+          "Contextual Bandit",
+          existing.name,
+          body,
+        ) ?? `Update ${existing.name}`,
+      links: [],
+      pin: [existing.status, pinnedFields(existing, changes)],
+    });
+    let updated = await this.update(existing, changes);
     const patch = await reconcileMeasurementArmExperiment(
       this.context,
       updated,

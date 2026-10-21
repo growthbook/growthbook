@@ -42,6 +42,7 @@ import {
   QueryStatus,
 } from "shared/types/query";
 import { BanditResult } from "shared/types/experiment";
+import { ContextualBanditQueryInterface } from "shared/validators";
 import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
@@ -137,21 +138,52 @@ export const startExperimentResultQueries = async (
 
   const settings = integration.datasource.settings;
 
-  const exposureQuery = (settings?.queries?.exposure || []).find(
-    (q) => q.id === snapshotSettings.exposureQueryId,
-  );
+  // A contextual bandit measurement arm reads exposures through the bandit's
+  // own query rather than a datasource assignment query.
+  let contextualBanditQuery: ContextualBanditQueryInterface | null = null;
+  if (snapshotSettings.contextualBanditId) {
+    const cb = await context.models.contextualBandits.getById(
+      snapshotSettings.contextualBanditId,
+    );
+    if (!cb) {
+      throw new UnrecoverableSnapshotError(
+        `Contextual bandit not found: ${snapshotSettings.contextualBanditId}`,
+      );
+    }
+    contextualBanditQuery = cb.contextualBanditQueryId
+      ? await context.models.contextualBanditQueries.getById(
+          cb.contextualBanditQueryId,
+        )
+      : null;
+    if (!contextualBanditQuery) {
+      throw new UnrecoverableSnapshotError(
+        `Contextual bandit query not found: ${cb.contextualBanditQueryId}`,
+      );
+    }
+  }
+
+  const exposureQuery = contextualBanditQuery
+    ? undefined
+    : (settings?.queries?.exposure || []).find(
+        (q) => q.id === snapshotSettings.exposureQueryId,
+      );
 
   // Resolve the exposure query the same way the SQL builders used to internally:
   // an empty exposureQueryId falls back to the auto-generated anonymous_id/user_id
   // exposure query, and an unknown id throws a clear error rather than generating
   // an invalid query with an empty user id type.
-  const resolvedExposureQuery = resolveExposureQueryForAnalysis(
-    getExposureQuery(
-      integration.datasource,
-      snapshotSettings.exposureQueryId || "",
-    ),
-    snapshotSettings.exposureQueryIdentifierType,
-  );
+  const resolvedExposureQuery = contextualBanditQuery
+    ? {
+        query: contextualBanditQuery.query,
+        identifierType: contextualBanditQuery.userIdType,
+      }
+    : resolveExposureQueryForAnalysis(
+        getExposureQuery(
+          integration.datasource,
+          snapshotSettings.exposureQueryId || "",
+        ),
+        snapshotSettings.exposureQueryIdentifierType,
+      );
 
   const snapshotDimensions: Dimension[] = (
     await Promise.all(

@@ -24,9 +24,11 @@ import {
   getMetricWindowHours,
 } from "shared/experiments";
 import { kebabCase } from "lodash";
-import { Separator } from "@radix-ui/themes";
+import { Flex, Separator } from "@radix-ui/themes";
+import { PiInfo } from "react-icons/pi";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useWatching } from "@/services/WatchProvider";
 import { useRestApiCall } from "@/services/restApi";
 import track from "@/services/track";
@@ -589,15 +591,19 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                 />
 
                 <Separator size="4" my="5" />
-                <Checkbox
-                  label="Hold back a measurement arm"
-                  description="A small share of eligible users gets the linked feature's default value instead of the bandit, so you can measure the bandit's overall lift on the Results tab. Can only be changed while the bandit is a draft."
-                  value={!!form.watch("measurementArmEnabled")}
-                  setValue={(v) => form.setValue("measurementArmEnabled", v)}
-                />
+                <Flex align="center">
+                  <Checkbox
+                    label="Include a Measurement Arm"
+                    value={!!form.watch("measurementArmEnabled")}
+                    setValue={(v) => form.setValue("measurementArmEnabled", v)}
+                  />
+                  <Tooltip body="Holds back a share of eligible users from the bandit. They get the default experience (linked features' default values, no visual changes), and the Results tab compares them against bandit users to measure the bandit's overall lift. Locked once the bandit starts.">
+                    <PiInfo color="var(--color-text-low)" className="ml-1" />
+                  </Tooltip>
+                </Flex>
                 {form.watch("measurementArmEnabled") ? (
                   <Field
-                    label="Measurement arm traffic"
+                    label="Measurement Arm Traffic"
                     type="number"
                     step="1"
                     min={MIN_MEASUREMENT_ARM_PERCENT * 100}

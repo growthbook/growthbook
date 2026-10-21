@@ -422,6 +422,7 @@ const experimentSchema = new mongoose.Schema({
   },
   dismissedWarnings: [String],
   holdoutId: String,
+  contextualBanditId: String,
   defaultDashboardId: String,
   customMetricSlices: [
     {

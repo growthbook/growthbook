@@ -27,15 +27,27 @@ import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
 import EditNamespaceModal from "@/components/Experiment/EditNamespaceModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
+import type { BreadcrumbItem } from "@/ui/Breadcrumbs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 
-const ExperimentPage = (): ReactElement => {
+export type ExperimentPageProps = {
+  // When rendered inside another page (the contextual bandit measurement-arm
+  // sub-page), the experiment id and breadcrumb come from the host page
+  // instead of the route.
+  experimentId?: string;
+  breadcrumb?: BreadcrumbItem[];
+};
+
+const ExperimentPage = ({
+  experimentId,
+  breadcrumb,
+}: ExperimentPageProps = {}): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
-  const { eid } = router.query;
+  const eid = experimentId ?? router.query.eid;
 
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
@@ -91,7 +103,19 @@ const ExperimentPage = (): ReactElement => {
       url += holdoutId;
       router.replace(url);
     }
-  }, [data, experimentToHoldoutsMap, router]);
+    if (
+      !experimentId &&
+      data?.experiment?.type === "contextualBanditMeasurementArm" &&
+      data.experiment.contextualBanditId
+    ) {
+      router.replace(
+        window.location.href.replace(
+          /(.*)\/experiment\/[^#?]*/,
+          `$1/contextual-bandit/${data.experiment.contextualBanditId}/measurement-arm`,
+        ),
+      );
+    }
+  }, [data, experimentId, experimentToHoldoutsMap, router]);
 
   if (error) {
     return <div>There was a problem loading the experiment</div>;
@@ -300,13 +324,15 @@ const ExperimentPage = (): ReactElement => {
       )}
 
       <PageHead
-        breadcrumb={[
-          {
-            display: "Experiments",
-            href: `/experiments`,
-          },
-          { display: experiment.name },
-        ]}
+        breadcrumb={
+          breadcrumb ?? [
+            {
+              display: "Experiments",
+              href: `/experiments`,
+            },
+            { display: experiment.name },
+          ]
+        }
       />
 
       <SnapshotProvider experiment={experiment}>

@@ -3,7 +3,7 @@ import isEqual from "lodash/isEqual";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
   CONTEXTUAL_BANDIT_MEASUREMENT_ARM_TYPE,
-  MEASUREMENT_ARM_CB_GOVERNED_FIELDS,
+  MEASUREMENT_ARM_EDITABLE_FIELDS,
   getContextualBanditMeasurementArmTrackingKey,
   isContextualBanditMeasurementArm,
   measurementArmWeights,
@@ -27,7 +27,6 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   getLatestSnapshotStatus,
   getLatestSuccessfulSnapshot,
@@ -88,33 +87,13 @@ export function assertMeasurementArmChangeAllowed(
   }
 }
 
-async function resolveDefaultExposureQueryId(
-  context: Context,
-  cb: ContextualBanditInterface,
-): Promise<string> {
-  const [datasource, cbQuery] = await Promise.all([
-    getDataSourceById(context, cb.datasource),
-    cb.contextualBanditQueryId
-      ? context.models.contextualBanditQueries.getById(
-          cb.contextualBanditQueryId,
-        )
-      : Promise.resolve(null),
-  ]);
-  const exposureQueries = datasource?.settings?.queries?.exposure ?? [];
-  const userIdType = cbQuery?.userIdType;
-  if (!userIdType) return "";
-  const builtIn = exposureQueries.find((q) => q.id === userIdType);
-  if (builtIn) return "";
-  const match = exposureQueries.find((q) => q.userIdType === userIdType);
-  return match?.id ?? "";
-}
-
 function buildVariations(): Variation[] {
   return [
     {
       id: generateVariationId(),
       name: "Measurement arm",
-      description: "Linked feature default value",
+      description:
+        "Default experience: linked feature default values, no visual changes",
       key: "0",
       screenshots: [],
     },
@@ -178,6 +157,7 @@ function cbGovernedChanges(
       arm.trackingKey ??
       getContextualBanditMeasurementArmTrackingKey(cb.trackingKey),
     datasource: cb.datasource,
+    exposureQueryId: "",
     goalMetrics: cb.decisionMetric ? [cb.decisionMetric] : [],
     variations,
     phases: [buildPhase(cb, arm, variations, experiment?.phases?.[0])],
@@ -198,7 +178,6 @@ export async function createMeasurementArmExperiment(
 ): Promise<ExperimentInterface> {
   const { org, userId } = context;
   const governed = cbGovernedChanges(cb, arm);
-  const exposureQueryId = await resolveDefaultExposureQueryId(context, cb);
 
   const data: Partial<ExperimentInterface> = {
     ...governed,
@@ -207,7 +186,6 @@ export async function createMeasurementArmExperiment(
     autoSnapshots: true,
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    exposureQueryId,
     userIdType: "anonymous",
     hypothesis: "",
     secondaryMetrics: [],
@@ -315,25 +293,30 @@ export async function reconcileMeasurementArmExperiment(
   return null;
 }
 
-const GOVERNED = new Set<string>(MEASUREMENT_ARM_CB_GOVERNED_FIELDS);
+const EDITABLE = new Set<string>(MEASUREMENT_ARM_EDITABLE_FIELDS);
 
-/** Throws when a caller tries to change a CB-governed field on a measurement-arm experiment. */
+/** Only secondary and guardrail metrics may change on a measurement-arm experiment. */
 export function assertMeasurementArmExperimentEditable(
   experiment: ExperimentInterface,
   changes: Record<string, unknown>,
 ): void {
   if (!isContextualBanditMeasurementArm(experiment)) return;
-  const blocked = Object.keys(changes).filter(
-    (key) =>
-      GOVERNED.has(key) &&
-      // JSON round-trip so Date fields compare equal to their ISO strings
-      // (UI payloads carry string dates).
-      JSON.stringify(changes[key]) !==
-        JSON.stringify(experiment[key as keyof ExperimentInterface]),
-  );
+  const normalize = (v: unknown) =>
+    v === undefined || v === "" || (Array.isArray(v) && v.length === 0)
+      ? null
+      : JSON.stringify(v);
+  const blocked = Object.keys(changes).filter((key) => {
+    if (EDITABLE.has(key)) return false;
+    const value = changes[key];
+    if (value === undefined) return false;
+    return (
+      normalize(value) !==
+      normalize(experiment[key as keyof ExperimentInterface])
+    );
+  });
   if (blocked.length) {
     throw new BadRequestError(
-      `This experiment measures a contextual bandit; [${blocked.join(", ")}] can only be changed from the bandit`,
+      `Only secondary and guardrail metrics can be changed on a measurement arm; [${blocked.join(", ")}] follow the contextual bandit`,
     );
   }
 }

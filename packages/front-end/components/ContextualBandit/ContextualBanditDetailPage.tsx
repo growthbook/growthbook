@@ -598,14 +598,12 @@ export default function ContextualBanditDetailPage({
                 <DetailSectionColumn label="Measurement Arm">
                   {cb.measurementArm?.enabled ? (
                     <>
-                      {Math.round(cb.measurementArm.percent * 100)}% held back
+                      {Math.round(cb.measurementArm.percent * 100)}%
                       {cb.measurementArm.experimentId ? (
                         <>
                           {" · "}
                           <Link
-                            href={`/experiment/${cb.measurementArm.experimentId}`}
-                            target="_blank"
-                            rel="noreferrer"
+                            href={`/contextual-bandit/${cb.id}/measurement-arm`}
                           >
                             View results
                           </Link>

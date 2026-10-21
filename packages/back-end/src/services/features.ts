@@ -182,6 +182,7 @@ import {
   featuresWithPrerequisiteClosure,
   getPrerequisiteIdsInFeatures,
   getReferenceIdsInFeatures,
+  prerequisiteParentConditions,
 } from "back-end/src/util/features";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
@@ -485,6 +486,13 @@ export function generateContextualBanditMeasurementArmsPayload({
     if (condition) {
       savedGroupStrategy.finalizeCondition(condition);
       rule.condition = condition;
+    }
+    if (cb.prerequisites?.length) {
+      rule.parentConditions = prerequisiteParentConditions(
+        cb.prerequisites,
+        savedGroupStrategy,
+      );
+      savedGroupStrategy.finalizeCondition(rule.parentConditions);
     }
 
     defs[id] = {

@@ -153,6 +153,7 @@ const EditMetricsForm: FC<{
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
+  const isMeasurementArm = experiment.type === "contextualBanditMeasurementArm";
 
   const datasource = getDatasourceById(experiment.datasource);
   const isExperimentIncludedInIncrementalRefresh =
@@ -199,7 +200,14 @@ const EditMetricsForm: FC<{
         fixMetricOverridesBeforeSaving(value.metricOverrides || []);
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
-          body: JSON.stringify(payload),
+          body: JSON.stringify(
+            isMeasurementArm
+              ? {
+                  secondaryMetrics: payload.secondaryMetrics,
+                  guardrailMetrics: payload.guardrailMetrics,
+                }
+              : payload,
+          ),
         });
         mutate();
       })}
@@ -214,8 +222,7 @@ const EditMetricsForm: FC<{
         secondaryMetrics={form.watch("secondaryMetrics")}
         guardrailMetrics={form.watch("guardrailMetrics")}
         setGoalMetrics={
-          !(isBandit && experiment.status === "running") &&
-          experiment.type !== "contextualBanditMeasurementArm"
+          !(isBandit && experiment.status === "running") && !isMeasurementArm
             ? (goalMetrics) => form.setValue("goalMetrics", goalMetrics)
             : undefined
         }
@@ -246,7 +253,9 @@ const EditMetricsForm: FC<{
         </PremiumCallout>
       ) : null}
 
-      {!isHoldout && !(isBandit && experiment.status === "running") ? (
+      {!isHoldout &&
+      !isMeasurementArm &&
+      !(isBandit && experiment.status === "running") ? (
         <>
           <div className="form-group">
             <label className="font-weight-bold mb-1">Activation Metric</label>

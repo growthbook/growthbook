@@ -30,6 +30,12 @@ export function measurementArmWeights(percent: number): [number, number] {
   return [p, Math.round((1 - p) * 10000) / 10000];
 }
 
+/** The only experiment fields editable on a measurement-arm experiment. */
+export const MEASUREMENT_ARM_EDITABLE_FIELDS = [
+  "secondaryMetrics",
+  "guardrailMetrics",
+] as const;
+
 /** Experiment fields the contextual bandit owns on its measurement-arm experiment. */
 export const MEASUREMENT_ARM_CB_GOVERNED_FIELDS = [
   "name",
@@ -51,6 +57,7 @@ export const MEASUREMENT_ARM_CB_GOVERNED_FIELDS = [
   "excludeFromPayload",
   "type",
   "contextualBanditId",
+  "exposureQueryId",
   "hasVisualChangesets",
   "hasURLRedirects",
 ] as const;

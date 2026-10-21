@@ -116,6 +116,7 @@ export default function Implementation({
   );
 
   const isHoldout = experiment.type === "holdout";
+  const isMeasurementArm = experiment.type === "contextualBanditMeasurementArm";
 
   const safeToEdit =
     experiment.status !== "running" ||
@@ -187,6 +188,7 @@ export default function Implementation({
           />
         )}
         {!isHoldout &&
+        !isMeasurementArm &&
         (!showTrafficFunnel || hasLinkedChanges || canAddLinkedChanges) ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
@@ -299,7 +301,8 @@ export default function Implementation({
         {(experiment.status !== "draft" ||
           !!experiment.nextScheduledStatusUpdate) &&
         !hasLinkedChanges &&
-        !isHoldout ? (
+        !isHoldout &&
+        !isMeasurementArm ? (
           <Callout status="info" mb="4">
             This experiment has no linked GrowthBook implementation (linked
             feature flag, AI Visual Editor changes, or URL redirect).{" "}
@@ -312,7 +315,11 @@ export default function Implementation({
           experiment={experiment}
           mutate={mutate}
           envs={envs}
-          canEdit={!!editTargeting && !pendingScheduledStart}
+          canEdit={
+            isMeasurementArm
+              ? canEditExperiment
+              : !!editTargeting && !pendingScheduledStart
+          }
           holdoutProjects={holdout?.projects}
         />
         <DecisionMakingSettings

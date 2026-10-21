@@ -603,14 +603,16 @@ export default function TabbedPage({
               : "d-none d-print-block",
           )}
         >
-          <SetupTabOverview
-            experiment={experiment}
-            holdout={holdout}
-            holdoutExperiments={holdoutExperiments}
-            mutate={mutate}
-            disableEditing={viewingOldPhase}
-            editSchedule={editSchedule}
-          />
+          {experiment.type !== "contextualBanditMeasurementArm" ? (
+            <SetupTabOverview
+              experiment={experiment}
+              holdout={holdout}
+              holdoutExperiments={holdoutExperiments}
+              mutate={mutate}
+              disableEditing={viewingOldPhase}
+              editSchedule={editSchedule}
+            />
+          ) : null}
           <Implementation
             experiment={experiment}
             holdout={holdout}

@@ -9,10 +9,13 @@ import {
 } from "shared/validators";
 import { validateAndFixCondition } from "shared/util";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
+import { Flex } from "@radix-ui/themes";
+import { PiInfo } from "react-icons/pi";
 import { useRestApiCall } from "@/services/restApi";
 import { useEnvironments } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Checkbox from "@/ui/Checkbox";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
@@ -133,15 +136,19 @@ export default function ContextualBanditTrafficTargetingModal({
 
         {cb.status === "draft" ? (
           <>
-            <Checkbox
-              label="Hold back a measurement arm"
-              description="A small share of eligible users gets the linked feature's default value instead of the bandit, so you can measure the bandit's overall lift."
-              value={form.watch("measurementArmEnabled")}
-              setValue={(v) => form.setValue("measurementArmEnabled", v)}
-            />
+            <Flex align="center">
+              <Checkbox
+                label="Include a Measurement Arm"
+                value={form.watch("measurementArmEnabled")}
+                setValue={(v) => form.setValue("measurementArmEnabled", v)}
+              />
+              <Tooltip body="Holds back a share of eligible users from the bandit. They get the default experience (linked features' default values, no visual changes), and the Results tab compares them against bandit users to measure the bandit's overall lift. Locked once the bandit starts.">
+                <PiInfo color="var(--color-text-low)" className="ml-1" />
+              </Tooltip>
+            </Flex>
             {form.watch("measurementArmEnabled") ? (
               <Field
-                label="Measurement arm traffic"
+                label="Measurement Arm Traffic"
                 type="number"
                 step="1"
                 min={MIN_MEASUREMENT_ARM_PERCENT * 100}
@@ -163,7 +170,7 @@ export default function ContextualBanditTrafficTargetingModal({
             <label>Measurement arm</label>
             <div className="text-muted">
               {cb.measurementArm?.enabled
-                ? `${Math.round(cb.measurementArm.percent * 100)}% of eligible users are held back at the linked feature's default value. This is locked once the bandit has started.`
+                ? `${Math.round(cb.measurementArm.percent * 100)}% of eligible users are held back on the default experience. This is locked once the bandit has started.`
                 : "Off. A measurement arm can only be added while the bandit is a draft."}
             </div>
           </div>

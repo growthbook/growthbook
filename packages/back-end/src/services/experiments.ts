@@ -916,6 +916,10 @@ export function getSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
     exposureQueryIdentifierType,
+    contextualBanditId:
+      experiment.type === "contextualBanditMeasurementArm"
+        ? experiment.contextualBanditId
+        : undefined,
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
       id: v.key || i + "",

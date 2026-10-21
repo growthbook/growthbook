@@ -18,6 +18,8 @@ import Text from "@/ui/Text";
 import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
+import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
+import { useContextualBandit } from "@/hooks/useContextualBandits";
 import {
   getExposureQueriesInScope,
   isIdentifierUndeclared,
@@ -55,6 +57,17 @@ export default function AnalysisSettings({
   const permissionsUtil = usePermissionsUtil();
 
   const [analysisModal, setAnalysisModal] = useState(false);
+
+  const isMeasurementArm = experiment.type === "contextualBanditMeasurementArm";
+  const { contextualBandit } = useContextualBandit(
+    isMeasurementArm ? experiment.contextualBanditId : undefined,
+  );
+  const { contextualBanditQueriesMap } = useContextualBanditQueries(
+    isMeasurementArm ? experiment.datasource : undefined,
+  );
+  const contextualBanditQuery = contextualBandit?.contextualBanditQueryId
+    ? contextualBanditQueriesMap.get(contextualBandit.contextualBanditQueryId)
+    : undefined;
 
   const canEditAnalysisSettings =
     canEdit && permissionsUtil.canUpdateExperiment(experiment, {});
@@ -195,36 +208,55 @@ export default function AnalysisSettings({
               </div>
             </div>
 
-            <div className="col-4 mb-4">
-              <Text color="text-high" weight="semibold">
-                Experiment Assignment Table
-              </Text>
-              <div>
-                <Text color="text-mid">
-                  {assignmentQuery ? assignmentQuery.name : "--"}
-                </Text>{" "}
-                <AssignmentQueryDriftIcon
-                  selection={{
-                    outOfScope:
-                      !!assignmentQuery &&
-                      !scopedQueries.some((q) => q.id === assignmentQuery.id),
-                    identifierUndeclared: isIdentifierUndeclared(
-                      assignmentQuery,
-                      identifierType,
-                    ),
-                    identifierType,
-                    holdoutProjects,
-                  }}
-                />
+            {isMeasurementArm ? (
+              <div className="col-4 mb-4">
+                <Text color="text-high" weight="semibold">
+                  Contextual Bandit Query
+                </Text>
+                <div>
+                  <Text color="text-mid">
+                    {contextualBanditQuery?.name ??
+                      contextualBandit?.contextualBanditQueryId ??
+                      "--"}
+                  </Text>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="col-4 mb-4">
+                <Text color="text-high" weight="semibold">
+                  Experiment Assignment Table
+                </Text>
+                <div>
+                  <Text color="text-mid">
+                    {assignmentQuery ? assignmentQuery.name : "--"}
+                  </Text>{" "}
+                  <AssignmentQueryDriftIcon
+                    selection={{
+                      outOfScope:
+                        !!assignmentQuery &&
+                        !scopedQueries.some((q) => q.id === assignmentQuery.id),
+                      identifierUndeclared: isIdentifierUndeclared(
+                        assignmentQuery,
+                        identifierType,
+                      ),
+                      identifierType,
+                      holdoutProjects,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="col-4 mb-4">
               <Text color="text-high" weight="semibold">
                 Identifier Type
               </Text>
               <div>
-                <Text color="text-mid">{identifierType || "--"}</Text>
+                <Text color="text-mid">
+                  {(isMeasurementArm
+                    ? contextualBanditQuery?.userIdType
+                    : identifierType) || "--"}
+                </Text>
               </div>
             </div>
 

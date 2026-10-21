@@ -17,16 +17,17 @@ export default function MeasurementArmBanner({
 
   return (
     <Callout status="info" mb="3">
-      This experiment measures the overall lift of the contextual bandit{" "}
+      Measurement arm for{" "}
       {cbId ? (
         <Link href={`/contextual-bandit/${cbId}`}>
           <strong>{cbName ?? cbId}</strong>
         </Link>
       ) : (
-        "it wraps"
+        "this contextual bandit"
       )}
-      . Its variations, traffic, targeting, status and goal metric are managed
-      from the bandit; only the analysis settings can be changed here.
+      : compares users held back on the default experience against users in the
+      bandit. Variations, traffic, targeting, status and the goal metric follow
+      the bandit; only analysis settings can be changed here.
     </Callout>
   );
 }

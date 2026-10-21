@@ -28,10 +28,9 @@ export default function ContextualBanditMeasurementArmSummary({
   if (!cb.measurementArm?.enabled) return null;
 
   const percentLabel = formatPercent(cb.measurementArm.percent);
-  const experimentHref = measurementArm
-    ? `/experiment/${measurementArm.experimentId}`
-    : cb.measurementArm.experimentId
-      ? `/experiment/${cb.measurementArm.experimentId}`
+  const experimentHref =
+    measurementArm || cb.measurementArm.experimentId
+      ? `/contextual-bandit/${cb.id}/measurement-arm`
       : null;
 
   const result = measurementArm?.decisionMetricResult ?? null;
@@ -49,8 +48,8 @@ export default function ContextualBanditMeasurementArmSummary({
   if (cb.status === "draft") {
     body = (
       <Text color="text-mid">
-        {percentLabel} of eligible users will be held back at the linked
-        feature&apos;s default value once the bandit starts.
+        {percentLabel} of eligible users will be held back on the default
+        experience once the bandit starts.
       </Text>
     );
   } else if (!result) {
@@ -113,9 +112,7 @@ export default function ContextualBanditMeasurementArmSummary({
           {body}
         </Box>
         {experimentHref ? (
-          <Link href={experimentHref} target="_blank" rel="noreferrer">
-            See full results →
-          </Link>
+          <Link href={experimentHref}>See full results →</Link>
         ) : null}
       </Flex>
     </Frame>
