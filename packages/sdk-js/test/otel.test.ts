@@ -41,9 +41,8 @@ describe("tracingSpanProcessor", () => {
 
     for (const span of spans) {
       expect(span.attributes).toEqual({
-        [TRACING_ATTRIBUTES.userId]: "u1",
-        [TRACING_ATTRIBUTES.conversationId]: "c1",
-        [TRACING_ATTRIBUTES.sessionId]: "c1",
+        "user.id": "u1",
+        "session.id": "c1",
       });
     }
   });

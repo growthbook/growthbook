@@ -386,10 +386,10 @@ Instead of reading Langfuse or Phoenix, GrowthBook can store your OpenTelemetry 
 
    Use the protobuf exporter (`exporter-trace-otlp-proto`, or `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` in other languages): large traces need it, because JSON requests are capped at 16MB. Protobuf requests are capped at 256MB. If your agent sends a lot of screenshots or other images, lower the batch size so each export stays under that, for example `new BatchSpanProcessor(exporter, { maxExportBatchSize: 16 })`.
 
-   Only AI spans are stored: spans with `gen_ai.*` attributes or the OpenInference, Langfuse, Traceloop, or Vercel AI SDK conventions. Other spans in the same export, such as HTTP or database spans, are dropped.
+   Only AI spans are stored: spans with `gen_ai.*` attributes or the OpenInference, Langfuse, Traceloop, or Vercel AI SDK conventions. Other spans in the same export, such as HTTP or database spans, are dropped. Resource attributes and conversation ids (`gen_ai.conversation.id`) alone don't make a span an AI span.
 
 3. Turn on content capture. Most GenAI instrumentations only record prompts and completions when you opt in, for example with `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true` or the instrumentation's own option. Without it, spans still carry tokens, cost, and latency.
-4. Wrap each request in `withTracingContext`, so every span inside it gets `user.id` and the conversation id:
+4. Wrap each request in `withTracingContext`, so every span inside it gets `user.id` and the conversation id as `session.id`:
 
    ```ts
    await withTracingContext({ userId, conversationId }, async () => {

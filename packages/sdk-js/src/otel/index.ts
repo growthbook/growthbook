@@ -22,9 +22,10 @@ export type TracingContextOptions = {
 
 export const TRACING_ATTRIBUTES = {
   userId: "user.id",
-  // OTel GenAI name; `session.id` is what Phoenix and Langfuse read.
-  conversationId: "gen_ai.conversation.id",
-  sessionId: "session.id",
+  // Not `gen_ai.conversation.id`: every span in the context gets it, including
+  // HTTP and DB spans, and a `gen_ai.*` key makes those look like AI spans.
+  // `session.id` is also what Phoenix and Langfuse read.
+  conversationId: "session.id",
 } as const;
 
 const storage = new AsyncLocalStorage<TracingContextOptions>();
@@ -45,7 +46,6 @@ export function tracingSpanProcessor(): TracingSpanProcessor {
           TRACING_ATTRIBUTES.conversationId,
           store.conversationId,
         );
-        span.setAttribute(TRACING_ATTRIBUTES.sessionId, store.conversationId);
       }
     },
     onEnd: () => {},
