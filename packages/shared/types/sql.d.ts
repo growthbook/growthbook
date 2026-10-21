@@ -236,5 +236,18 @@ export interface SqlDialect {
    * semantics (1-based vs 0-based, native array vs JSON).
    */
   arrayElement: (arrayCol: string, index: number) => string;
+  /**
+   * `LAG` / `LEAD` of `column` by `offset` rows over `windowSpec` (the
+   * `PARTITION BY ... ORDER BY ...` body, without parentheses). A row past
+   * the partition boundary must yield NULL. ClickHouse overrides it: it only
+   * accepts the uppercase standard names from 25.10, and returns the type's
+   * default rather than NULL for non-nullable columns.
+   */
+  lagLead: (
+    fn: "LAG" | "LEAD",
+    column: string,
+    offset: number,
+    windowSpec: string,
+  ) => string;
   approxTopValuesCTEBody?: (params: ApproxTopValuesParams) => string;
 }

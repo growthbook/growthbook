@@ -144,7 +144,7 @@ const JOURNEY_PARTITION = "journey_unit, journey_day";
 // break ties differently in each window and scramble the path, so tie-break on
 // `step` to make dedup, LEAD/LAG and first-anchor selection deterministic.
 const JOURNEY_ORDER = "ts, step";
-const JOURNEY_WINDOW = `(PARTITION BY ${JOURNEY_PARTITION} ORDER BY ${JOURNEY_ORDER})`;
+const JOURNEY_WINDOW = `PARTITION BY ${JOURNEY_PARTITION} ORDER BY ${JOURNEY_ORDER}`;
 const JOURNEY_CARRY = `${JOURNEY_PARTITION}, ts, step, dim_1`;
 
 /** Shares every rule with the API layer via `validateJourneyDataset`, and adds
@@ -452,18 +452,19 @@ export function buildJourneySql(
       SELECT ${JOURNEY_CARRY}
       FROM (
         SELECT ${JOURNEY_CARRY},
-          LAG(step) OVER ${JOURNEY_WINDOW} AS prev_step
+          ${dialect.lagLead("LAG", "step", 1, JOURNEY_WINDOW)} AS prev_step
         FROM __journey_events
       ) d
       WHERE prev_step IS NULL OR prev_step <> step
     `,
   });
 
-  // ClickHouse returns '' past the window boundary for non-nullable strings.
+  // A row past the window boundary is NULL; an empty step never counts as a
+  // neighbour either.
   const nbCols = Array.from(
     { length: neighbourhoodCount },
     (_, i) =>
-      `NULLIF(${leadOrLag}(step, ${i + 1}) OVER ${JOURNEY_WINDOW}, '') AS nb_${i + 1}`,
+      `NULLIF(${dialect.lagLead(leadOrLag, "step", i + 1, JOURNEY_WINDOW)}, '') AS nb_${i + 1}`,
   );
   ctes.push({
     name: "__journey_neighbourhood",
