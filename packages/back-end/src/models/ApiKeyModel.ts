@@ -845,11 +845,10 @@ export class ApiKeyModel extends BaseClass {
         this.maxLifetimeDaysFor(doc),
         now,
       ),
-      previousKeyExpiresAt: previousKeyExpiration(
-        doc.expiresAt,
-        gracePeriodHours,
-        now,
-      ),
+      // Kept even with no grace period, so auth can say the secret was rotated.
+      previousKey: doc.key,
+      previousKeyExpiresAt:
+        previousKeyExpiration(doc.expiresAt, gracePeriodHours, now) ?? now,
       previousKeyLastUsed: null,
       dateUpdated: now,
     };
@@ -860,9 +859,7 @@ export class ApiKeyModel extends BaseClass {
       COLLECTION_NAME,
     ).updateOne(
       { id, organization: this.context.org.id, key: doc.key },
-      gracePeriodHours
-        ? { $set: { ...updates, previousKey: doc.key } }
-        : { $set: updates, $unset: { previousKey: "" } },
+      { $set: updates },
     );
     if (!matchedCount) {
       this.context.throwBadRequestError(
@@ -870,14 +867,7 @@ export class ApiKeyModel extends BaseClass {
       );
     }
 
-    return {
-      before: doc,
-      after: {
-        ...doc,
-        ...updates,
-        previousKey: gracePeriodHours ? doc.key : undefined,
-      },
-    };
+    return { before: doc, after: { ...doc, ...updates } };
   }
 
   // Ends a rotation's grace period early, e.g. when the old secret leaked.
@@ -890,16 +880,15 @@ export class ApiKeyModel extends BaseClass {
         "This key has no previous secret to revoke.",
       );
     }
-    const updates = { previousKeyExpiresAt: null, dateUpdated: new Date() };
+    const now = new Date();
+    // Expired rather than removed, so auth can still say the secret was rotated.
+    const updates = { previousKeyExpiresAt: now, dateUpdated: now };
     // Matching the checked secret keeps a stale revoke off a newer rotation's.
     await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
       { id, organization: this.context.org.id, previousKey: doc.previousKey },
-      { $set: updates, $unset: { previousKey: "" } },
+      { $set: updates },
     );
-    return {
-      before: doc,
-      after: { ...doc, ...updates, previousKey: undefined },
-    };
+    return { before: doc, after: { ...doc, ...updates } };
   }
 
   private async getRotatableKey(id: string): Promise<ApiKeyInterface> {
