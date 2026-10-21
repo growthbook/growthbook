@@ -17,6 +17,7 @@ import { formatNumber } from "@/services/metrics";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "@/components/Experiment/ExperimentDateGraph";
+import { getUnitDisplayName } from "@/services/experiments";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import VariationLabel from "@/ui/VariationLabel";
@@ -147,10 +148,10 @@ export default function TrafficCard({
                   aria-label="Unit"
                 >
                   <SegmentedControl.Item value="subunit">
-                    <code>{cluster.subUnitIdentifier}</code>
+                    {getUnitDisplayName(cluster.subUnitIdentifier)}
                   </SegmentedControl.Item>
                   <SegmentedControl.Item value="cluster">
-                    <code>{cluster.identifier}</code>
+                    {getUnitDisplayName(cluster.identifier)}
                   </SegmentedControl.Item>
                 </SegmentedControl.Root>
               </div>
