@@ -138,7 +138,14 @@ export default function LinkFeatureToContextualBanditModal({
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const selectedProject = cb.project ?? project;
-  const environments = useEnvironments();
+  const allEnvironments = useEnvironments();
+  const applicableEnvIds = getApplicableEnvIds(
+    allEnvironments,
+    selectedProject,
+  );
+  const environments = allEnvironments.filter((env) =>
+    applicableEnvIds.includes(env.id),
+  );
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
 
@@ -179,10 +186,7 @@ export default function LinkFeatureToContextualBanditModal({
   >({});
   const [showValueErrors, setShowValueErrors] = useState(false);
 
-  const applicableEnvIds = getApplicableEnvIds(environments, selectedProject);
-  const scopedRuleDefaultEnv = useScopedRuleDefaultEnvironment(
-    environments.filter((env) => applicableEnvIds.includes(env.id)),
-  );
+  const scopedRuleDefaultEnv = useScopedRuleDefaultEnvironment(environments);
   const [ruleAllEnvironments, setRuleAllEnvironments] =
     useState<boolean>(!scopedRuleDefaultEnv);
   const [ruleSelectedEnvironments, setRuleSelectedEnvironments] = useState<
