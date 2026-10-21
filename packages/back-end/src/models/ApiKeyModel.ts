@@ -230,7 +230,10 @@ export class ApiKeyModel extends BaseClass {
       apiKey: this.toApiInterface(after),
       key: after.key,
       expiresAt: after.expiresAt?.toISOString() ?? null,
-      previousKeyExpiresAt: after.previousKeyExpiresAt?.toISOString() ?? null,
+      // An immediate rotation keeps the old secret, already expired.
+      previousKeyExpiresAt: isExpired(after.previousKeyExpiresAt)
+        ? null
+        : (after.previousKeyExpiresAt?.toISOString() ?? null),
     };
   }
 
