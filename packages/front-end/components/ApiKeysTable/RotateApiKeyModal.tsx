@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { ApiKeyInterface } from "shared/types/apikey";
-import { ROTATION_GRACE_PRESET_HOURS } from "shared/api-key-expiration";
+import {
+  MaxLifetimeDays,
+  previousKeyExpiration,
+  ROTATION_GRACE_PRESET_HOURS,
+  rotatedExpiration,
+} from "shared/api-key-expiration";
 import { datetimeWithZone } from "shared/dates";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RadioGroup from "@/ui/RadioGroup";
@@ -23,14 +28,25 @@ const GRACE_LABELS: Record<number, string> = {
 
 export function RotateApiKeyModal({
   apiKey,
+  maxLifetimeDays,
   onRotate,
   close,
 }: {
   apiKey: ApiKeyInterface;
+  maxLifetimeDays: MaxLifetimeDays;
   onRotate: (gracePeriodHours: number) => Promise<void>;
   close: () => void;
 }) {
   const [gracePeriodHours, setGracePeriodHours] = useState("24");
+  const previousEnd = previousKeyExpiration(
+    apiKey.expiresAt,
+    parseInt(gracePeriodHours),
+  );
+  const newExpiry = rotatedExpiration(
+    apiKey.expiresAt,
+    apiKey.keyIssuedAt ?? apiKey.dateCreated,
+    maxLifetimeDays,
+  );
 
   return (
     <ModalStandard
@@ -57,6 +73,13 @@ export function RotateApiKeyModal({
           label: GRACE_LABELS[hours],
         }))}
       />
+      <Text as="p" mt="3" color="text-low">
+        {previousEnd &&
+          `The current secret keeps working until ${datetimeWithZone(previousEnd)}. `}
+        {newExpiry
+          ? `The key will expire ${datetimeWithZone(newExpiry)}.`
+          : "The key won't expire."}
+      </Text>
       {gracePeriodHours === "0" && (
         <Callout status="warning" mt="3">
           Requests using the current secret will be rejected as soon as you
