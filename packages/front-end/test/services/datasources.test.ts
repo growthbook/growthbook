@@ -15,6 +15,7 @@ import {
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
   getImportIdentifierTypes,
+  getGA4ExposureTemplate,
   getInitialExposureQuery,
   getInitialSettings,
   getNewExperimentDatasourceDefaults,
@@ -885,5 +886,20 @@ describe("getInitialExposureQuery", () => {
     expect(sql).toContain(
       "COALESCE(experiment_id_param.value.string_value, CAST(experiment_id_param.value.int_value AS STRING)) AS experiment_id",
     );
+  });
+});
+
+describe("getGA4ExposureTemplate", () => {
+  it("uses the Data Source's identifiers and the picked table", () => {
+    const template = getGA4ExposureTemplate(["device_id"]);
+    expect(template.columns.map((c) => c.column)).toContain("device_id");
+    const sql = template.getSql(
+      { path: "`proj.analytics_1.events_*`" } as Parameters<
+        typeof template.getSql
+      >[0],
+      "",
+    );
+    expect(sql).toContain("user_pseudo_id as device_id");
+    expect(sql).toContain("FROM\n  `proj.analytics_1.events_*`,");
   });
 });

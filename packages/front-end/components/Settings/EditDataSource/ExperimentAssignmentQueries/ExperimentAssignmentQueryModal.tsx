@@ -29,7 +29,8 @@ import {
   isTimestampCandidate,
 } from "@/services/factTables";
 import {
-  GA4_EXPOSURE_TEMPLATE,
+  getGA4ExposureTemplate,
+  getStarterIdentifierTypes,
   getInitialExposureQuery,
   validateSQL,
 } from "@/services/datasources";
@@ -49,7 +50,6 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import Table, { TableBody } from "@/ui/Table";
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
-const TEMPLATES = [GA4_EXPOSURE_TEMPLATE];
 
 function getExposureQueryColumnMappingError(
   columns: DetectedColumn[],
@@ -181,9 +181,13 @@ export const ExperimentAssignmentQueryModal = ({
     [dataSource],
   );
   const canRunQueries = permissionsUtil.canRunTestQueries(dataSource);
-  const placeholderIdentifierTypes = defaultIdentifierTypes?.length
-    ? defaultIdentifierTypes
-    : identifierTypes.slice(0, 1);
+  const starterIdentifierTypes = getStarterIdentifierTypes(
+    dataSource,
+    defaultIdentifierTypes,
+  );
+  const [templates] = useState(() => [
+    getGA4ExposureTemplate(starterIdentifierTypes),
+  ]);
 
   // A mapping survives as long as its column does
   const remapColumns = (cols: DetectedColumn[]) => {
@@ -214,7 +218,7 @@ export const ExperimentAssignmentQueryModal = ({
     datasource: dataSource,
     // A saved query keeps only its SQL, so edits stay in SQL mode
     tableModeAvailable: !exposureQuery,
-    templates: TEMPLATES,
+    templates,
     sql,
     setSql,
     initialColumns: savedColumns,
@@ -473,7 +477,7 @@ export const ExperimentAssignmentQueryModal = ({
             source={source}
             validateRef={validateSql}
             queryType="exposureQueryTest"
-            placeholder={`SELECT\n${placeholderIdentifierTypes
+            placeholder={`SELECT\n${starterIdentifierTypes
               .map((id) => `  ${id},\n`)
               .join(
                 "",

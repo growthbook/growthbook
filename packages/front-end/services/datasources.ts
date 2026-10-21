@@ -49,23 +49,26 @@ function getExposureIdentifierSql(
   };
 }
 
-const GA4Schema: SchemaInterface = {
-  experimentDimensions: [
-    "country",
-    "source",
-    "medium",
-    "device",
-    "browser",
-    "os",
-  ],
-  // GA4 stores a param by how its value looks, so a key sent as "123" lands in
-  // int_value and "control" in string_value.
-  getExperimentSQL: (tablePrefix, userIdTypes) => {
-    const ids = getExposureIdentifierSql(userIdTypes, (id) =>
-      id === "user_id" ? "user_id" : "user_pseudo_id",
-    );
+const GA4_EXPERIMENT_DIMENSIONS = [
+  "country",
+  "source",
+  "medium",
+  "device",
+  "browser",
+  "os",
+];
 
-    return `SELECT
+// GA4 stores a param by how its value looks, so a key sent as "123" lands in
+// int_value and "control" in string_value.
+function getGA4ExposureSql(
+  eventsTable: string,
+  userIdTypes: string[],
+  rowFilterWhere = "",
+) {
+  const ids = getExposureIdentifierSql(userIdTypes, (id) =>
+    id === "user_id" ? "user_id" : "user_pseudo_id",
+  );
+  return `SELECT
   ${ids.select},
   TIMESTAMP_MICROS(event_timestamp) as timestamp,
   COALESCE(experiment_id_param.value.string_value, CAST(experiment_id_param.value.int_value AS STRING)) AS experiment_id,
@@ -77,18 +80,21 @@ const GA4Schema: SchemaInterface = {
   device.web_info.browser as browser,
   device.operating_system as os
 FROM
-  ${tablePrefix}\`events_*\`,
+  ${eventsTable},
   UNNEST(event_params) AS experiment_id_param,
   UNNEST(event_params) AS variation_id_param
 WHERE
-  ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
-   (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
+  ${shardFilter(true)}
   AND event_name = 'experiment_viewed'
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
-  AND ${ids.notNull}
-  `;
-  },
+  AND ${ids.notNull}${rowFilterWhere ? `\n  AND ${rowFilterWhere}` : ""}`;
+}
+
+const GA4Schema: SchemaInterface = {
+  experimentDimensions: GA4_EXPERIMENT_DIMENSIONS,
+  getExperimentSQL: (tablePrefix, userIdTypes) =>
+    getGA4ExposureSql(`${tablePrefix}\`events_*\``, userIdTypes),
   getIdentitySQL: () => {
     return [];
   },
@@ -142,50 +148,23 @@ WHERE
   },
 };
 
-const GA4_EXPOSURE_IDS = getExposureIdentifierSql(
-  ["user_id", "anonymous_id"],
-  (id) => (id === "user_id" ? "user_id" : "user_pseudo_id"),
-);
-
 // GA4Schema's assignment query for a picked events table
-export const GA4_EXPOSURE_TEMPLATE: SourceTableTemplate = {
+export const getGA4ExposureTemplate = (
+  userIdTypes: string[],
+): SourceTableTemplate => ({
   matches: isGA4EventsTable,
   name: "GA4 Experiment Exposures",
   columns: [
-    { column: "user_id", datatype: "string" },
-    { column: "anonymous_id", datatype: "string" },
-    { column: "timestamp", datatype: "date" },
-    { column: "experiment_id", datatype: "string" },
-    { column: "variation_id", datatype: "string" },
-    ...GA4Schema.experimentDimensions.map((column) => ({
-      column,
-      datatype: "string" as const,
-    })),
-  ],
-  getSql: (table, rowFilterWhere) => `SELECT
-  ${GA4_EXPOSURE_IDS.select},
-  TIMESTAMP_MICROS(event_timestamp) as timestamp,
-  COALESCE(experiment_id_param.value.string_value, CAST(experiment_id_param.value.int_value AS STRING)) AS experiment_id,
-  COALESCE(variation_id_param.value.string_value, CAST(variation_id_param.value.int_value AS STRING)) AS variation_id,
-  geo.country as country,
-  traffic_source.source as source,
-  traffic_source.medium as medium,
-  device.category as device,
-  device.web_info.browser as browser,
-  device.operating_system as os
-FROM
-  ${table.path},
-  UNNEST(event_params) AS experiment_id_param,
-  UNNEST(event_params) AS variation_id_param
-WHERE
-  ${shardFilter(true)}
-  AND event_name = 'experiment_viewed'
-  AND experiment_id_param.key = 'experiment_id'
-  AND variation_id_param.key = 'variation_id'
-  AND ${GA4_EXPOSURE_IDS.notNull}${
-    rowFilterWhere ? `\n  AND ${rowFilterWhere}` : ""
-  }`,
-};
+    ...userIdTypes,
+    "experiment_id",
+    "variation_id",
+    ...GA4_EXPERIMENT_DIMENSIONS,
+  ]
+    .map((column) => ({ column, datatype: "string" as const }))
+    .concat({ column: "timestamp", datatype: "date" as const }),
+  getSql: (table, rowFilterWhere) =>
+    getGA4ExposureSql(table.path, userIdTypes, rowFilterWhere),
+});
 
 const SnowplowSchema: SchemaInterface = {
   experimentDimensions: [
@@ -1426,24 +1405,27 @@ export function getInitialFactTableQuery(
   };
 }
 
-// Starter SQL for a new assignment query, from the Data Source's schema.
-// Defaults to every declared identifier, like getInitialFactTableQuery.
+// The requested identifiers, else every declared one, like
+// getInitialFactTableQuery
+export function getStarterIdentifierTypes(
+  datasource: DataSourceInterfaceWithParams,
+  identifierTypes?: string[],
+): string[] {
+  const declared = (datasource.settings?.userIdTypes ?? []).map(
+    (ut) => ut.userIdType,
+  );
+  if (identifierTypes?.length) return identifierTypes;
+  return declared.length ? declared : ["user_id"];
+}
+
+// Starter SQL for a new assignment query, from the Data Source's schema
 export function getInitialExposureQuery(
   datasource: DataSourceInterfaceWithParams,
   identifierTypes?: string[],
 ): string {
-  const schema = getSchemaObject(datasource.settings?.schemaFormat);
-  const declared = (datasource.settings?.userIdTypes ?? []).map(
-    (ut) => ut.userIdType,
-  );
-  const userIdTypes = identifierTypes?.length
-    ? identifierTypes
-    : declared.length
-      ? declared
-      : ["user_id"];
-  return schema.getExperimentSQL(
+  return getSchemaObject(datasource.settings?.schemaFormat).getExperimentSQL(
     getTablePrefix(datasource.params),
-    userIdTypes,
+    getStarterIdentifierTypes(datasource, identifierTypes),
     datasource.settings?.schemaOptions,
   );
 }
