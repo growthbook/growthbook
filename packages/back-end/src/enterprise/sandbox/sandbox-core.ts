@@ -49,9 +49,28 @@ const MAX_WARNING_CHARS = parseEnvInt(
 export interface SandboxEvalResult {
   ok: boolean;
   error?: string;
+  // The hook threw on purpose; otherwise a failed run is a hook bug or sandbox fault.
+  rejected?: boolean;
+  stack?: string;
   returnVal?: unknown;
   log?: string;
   warnings: string[];
+}
+
+const HOOK_FILENAME = "hook.js";
+const REJECTION_KEY = "__gbHookRejection";
+
+// Keep only frames in the hook body; host frames would leak server paths.
+function hookFrames(stack: unknown): string | undefined {
+  if (typeof stack !== "string") return undefined;
+  return stack
+    .split("\n")
+    .filter(
+      (line, i) =>
+        i === 0 ||
+        (line.includes(HOOK_FILENAME) && !line.includes("__user_func")),
+    )
+    .join("\n");
 }
 
 export interface SandboxEvalOptions {
@@ -167,6 +186,26 @@ export async function sandboxEval(
     // Minimal console/fetch/addWarning shims — good enough for copy/pasted code.
     const shimCode = `
       (function() {
+        // Engine-raised errors bypass these globals, so wrapping them marks the hook's own \`new TypeError(...)\` as deliberate.
+        const NativeTypeError = TypeError;
+        const engineErrorTypes = [TypeError, ReferenceError, SyntaxError, RangeError, EvalError, URIError, AggregateError];
+        const authored = new WeakSet();
+        const record = (e) => (authored.add(e), e);
+        for (const T of engineErrorTypes) {
+          globalThis[T.name] = new Proxy(T, {
+            construct: (target, args, newTarget) => record(Reflect.construct(target, args, newTarget)),
+            apply: (target, thisArg, args) => record(Reflect.apply(target, thisArg, args)),
+          });
+        }
+        Object.defineProperty(globalThis, "__rejectionMessage", {
+          value: (e) => {
+            if (typeof e === "string") return e;
+            if (!(e instanceof Error)) return "";
+            const crashed = engineErrorTypes.some((T) => e instanceof T) && !authored.has(e);
+            return crashed ? "" : e.message;
+          },
+        });
+
         const stringifyLogArgs = (args) => args.map(arg => {
           if (typeof arg === "string") return arg;
           try {
@@ -187,7 +226,7 @@ export async function sandboxEval(
             result: { copy: true, promise: true },
           });
           if (_error) {
-            throw new Error(_error);
+            throw new NativeTypeError(_error);
           }
           return {
             ...rest,
@@ -212,14 +251,25 @@ export async function sandboxEval(
     `;
     await isolate.compileScript(shimCode).then((s) => s.run(isolateCtx));
 
-    // Wrap user body into a function and make individual arg keys available as variables
-    const wrapped = `
-      globalThis.__user_func = async function({${Object.keys(functionArgs).join(", ")}}) {
-        ${functionBody}
-      };
-      "__ready__";
-    `;
-    await isolate.compileScript(wrapped).then((s) => s.run(isolateCtx));
+    // Wrap user body into a function and make individual arg keys available as variables.
+    // A thrown Error/string is a deliberate rejection; engine errors and (uncatchable) timeouts are failures.
+    const wrapped = `const hook = async function hook({${Object.keys(functionArgs).join(", ")}}) {
+${functionBody}
+};
+globalThis.__user_func = async function(args) {
+  try {
+    return await hook(args);
+  } catch (e) {
+    const message = __rejectionMessage(e);
+    if (message) return { ${REJECTION_KEY}: message };
+    throw e;
+  }
+};
+"__ready__";`;
+    // lineOffset keeps stack line numbers aligned with the hook editor.
+    await isolate
+      .compileScript(wrapped, { filename: HOOK_FILENAME, lineOffset: -1 })
+      .then((s) => s.run(isolateCtx));
 
     const funcRef = (await jail.get("__user_func", {
       reference: true,
@@ -249,12 +299,25 @@ export async function sandboxEval(
     });
 
     const returnVal = await Promise.race([resultPromise, wallTimeout]);
+    const rejection = (returnVal as Record<string, unknown> | null)?.[
+      REJECTION_KEY
+    ];
+    if (typeof rejection === "string") {
+      return {
+        ok: false,
+        rejected: true,
+        error: rejection,
+        log: logs.join("\n"),
+        warnings,
+      };
+    }
     return { ok: true, returnVal, log: logs.join("\n"), warnings };
   } catch (err) {
     const message = err.message || err || "";
     return {
       ok: false,
-      error: message ? `Custom hook: ${message}` : "Custom hook error",
+      error: message ? String(message) : "Custom hook error",
+      stack: hookFrames(err?.stack),
       log: logs.join("\n"),
       warnings,
     };

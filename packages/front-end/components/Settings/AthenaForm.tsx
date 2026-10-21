@@ -41,7 +41,7 @@ const AthenaForm: FC<{
       )}
       {(cloud || (authType !== "assumeRole" && authType !== "auto")) && (
         <>
-          <div className="form-group col-md-12">
+          <div className="form-group col-md-6">
             <label>AWS Access Key</label>
             <input
               type="text"
@@ -55,7 +55,7 @@ const AthenaForm: FC<{
               }
             />
           </div>
-          <div className="form-group col-md-12">
+          <div className="form-group col-md-6">
             <label>Access Secret</label>
             <input
               type="text"
@@ -120,7 +120,7 @@ const AthenaForm: FC<{
           </div>
         </>
       )}
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>AWS Region</label>
         <input
           type="text"
@@ -131,7 +131,7 @@ const AthenaForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>Workgroup (optional)</label>
         <input
           type="text"
@@ -142,7 +142,7 @@ const AthenaForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>Default Catalog (optional)</label>
         <input
           type="text"
@@ -152,7 +152,7 @@ const AthenaForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group col-md-6">
         <label>Default Database (optional)</label>
         <input
           type="text"

@@ -3,6 +3,7 @@ import { EventInterface } from "shared/types/events/event";
 import { datetime } from "shared/dates";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { ApiKeyInterface } from "shared/types/apikey";
+import EventUser from "@/components/Avatar/EventUser";
 import Link from "@/ui/Link";
 import { getEventText } from "@/components/Events/EventsPage/utils";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -18,7 +19,7 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
   const permissionsUtils = usePermissionsUtil();
 
   const { data } = useApi<{ keys: ApiKeyInterface[] }>("/keys", {
-    shouldRun: () => permissionsUtils.canCreateApiKey(),
+    shouldRun: () => permissionsUtils.canViewApiKeys(),
   });
 
   const apiKeyDescriptions = useMemo(() => {
@@ -45,29 +46,19 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
           <span className="py-1 d-block nowrap">{event.event}</span>
         </td>
         <td>
-          <span className="py-1 d-block nowrap">
-            {user?.type === "dashboard" ? (
-              <span title={user.email}>{user.name}</span>
-            ) : user?.type === "api_key" ? (
-              user.email ? (
-                <span title={user.email}>
-                  {user.name || user.email}{" "}
-                  <span className="badge badge-secondary">API</span>
-                </span>
-              ) : (
-                <span title={user.apiKey}>
-                  API Key
-                  {user.name
-                    ? `: ${user.name}`
-                    : apiKeyDescriptions?.[user.apiKey]
-                      ? `: ${apiKeyDescriptions[user.apiKey]}`
-                      : ""}
-                </span>
-              )
-            ) : user?.type === "system" ? (
-              <span title="An automatic process or background job not associated with a user">
-                System
-              </span>
+          <span className="py-1 d-block">
+            {user ? (
+              <EventUser
+                user={
+                  // Older events didn't store an org key's name.
+                  user.type === "api_key" && !user.id && !user.name
+                    ? { ...user, name: apiKeyDescriptions?.[user.apiKey] }
+                    : user
+                }
+                display="name-email"
+                expanded
+                wrap
+              />
             ) : (
               ""
             )}

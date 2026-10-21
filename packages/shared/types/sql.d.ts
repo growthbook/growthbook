@@ -118,6 +118,8 @@ export interface SqlDialect {
   toTimestamp: (date: Date) => string;
   castToFloat: (column: string) => string;
   castToString: (column: string) => string;
+  castToFilterString?: (column: string) => string;
+  lowerString: (column: string) => string;
   castToDate: (column: string) => string;
   /**
    * Cast `column` to the dialect's TIMESTAMP type. Used by funnel SQL when

@@ -1,7 +1,10 @@
 import type { OrganizationInterface } from "shared/types/organization";
-import { putFeatureRevisionArchiveValidator } from "shared/validators";
 import {
-  canWriteArchiveIntoDraft,
+  eventUserIdentity,
+  putFeatureRevisionArchiveValidator,
+} from "shared/validators";
+import {
+  canRequestArchiveIntoDraft,
   canStageArchiveDraft,
 } from "back-end/src/revisions/landAuthority";
 import type { ApiReqContext } from "back-end/types/api";
@@ -53,18 +56,13 @@ export async function archiveRevision(
   // delete — can no longer publish their own work.
   if (
     !created &&
-    !canWriteArchiveIntoDraft({
-      permissions: context.permissions,
+    !canRequestArchiveIntoDraft(context, {
       model: "feature",
       entity: feature,
       revision: {
-        authorId:
-          revision.createdBy && "id" in revision.createdBy
-            ? revision.createdBy.id
-            : undefined,
+        authorId: eventUserIdentity(revision.createdBy) ?? undefined,
         contributors: revision.contributors,
       },
-      userId: context.userId,
     })
   ) {
     context.permissions.throwPermissionError();

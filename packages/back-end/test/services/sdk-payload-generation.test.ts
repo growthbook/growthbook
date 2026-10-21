@@ -36,6 +36,11 @@ import {
 } from "back-end/src/services/features";
 import { getFeatureDefinition } from "back-end/src/util/features";
 
+jest.mock("back-end/src/models/VisualChangesetModel", () => ({
+  getAllCbVisualExperiments: jest.fn().mockResolvedValue([]),
+  getContextualBanditsWithVisualChangesets: jest.fn().mockResolvedValue([]),
+}));
+
 function minimalContext(
   orgOverrides?: Partial<OrganizationInterface>,
 ): ApiReqContext {
@@ -1170,6 +1175,37 @@ describe("SDK payload generation (scenario-specific)", () => {
         (result.features["child-rule"]?.rules?.[0] as Record<string, unknown>)
           ?.parentConditions,
       ).toBeUndefined();
+    });
+
+    it("malformed deterministic prereq condition: gated feature and rule drop out, rest of payload builds", async () => {
+      const parent = makeParentDeterministic();
+      const childTop = makeChildTopLevel("parent-det");
+      childTop.prerequisites = [
+        { id: "parent-det", condition: '{"$not": null}' },
+      ];
+      const childRule = makeChildRuleLevel("parent-det");
+      childRule.rules[0].prerequisites = [
+        { id: "parent-det", condition: '{"$and": [null]}' },
+      ];
+      const data = minimalRawData({
+        features: [parent, childTop, childRule],
+        experimentMap: new Map(),
+      });
+
+      const result = await buildSDKPayloadForConnection({
+        context: minimalContext(),
+        connection: {
+          capabilities: ["prerequisites", "bucketingV2"],
+          environment: "production",
+          projects: [],
+        },
+        data,
+      });
+
+      expect(result.features["parent-det"]).toBeDefined();
+      expect(result.features["child-top"]).toBeUndefined();
+      expect(result.features["child-rule"]).toBeDefined();
+      expect(result.features["child-rule"]?.rules).toBeUndefined();
     });
 
     it("non-deterministic prereqs + prerequisites capability: parentConditions preserved for SDK evaluation", async () => {

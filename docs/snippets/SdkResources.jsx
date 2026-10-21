@@ -1533,7 +1533,7 @@ export const SdkResources = ({ sdk }) => {
           caseInsensitiveRegex: "≥ v1.6.3",
         },
         {
-          trackingPlugin: "≥ v1.4.0",
+          trackingPlugin: "≥ v1.7.0",
         },
         {
           savedGroupReferences: "≥ v1.1.0",
@@ -1705,7 +1705,7 @@ export const SdkResources = ({ sdk }) => {
           contextualBandits: "≥ v0.5.0",
         },
         {
-          trackingPlugin: "≥ v0.2.8",
+          trackingPlugin: "≥ v0.5.0",
         },
         {
           caseInsensitiveMembership: "≥ v0.2.7",
@@ -1802,7 +1802,7 @@ export const SdkResources = ({ sdk }) => {
     },
     java: {
       name: "Java SDK",
-      version: "0.11.0",
+      version: "0.11.1",
       github: "https://github.com/growthbook/growthbook-sdk-java",
       examples: [
         {
@@ -1834,6 +1834,12 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferences: "≥ v0.11.1",
+        },
+        {
+          trackingPlugin: "≥ v0.11.1",
         },
         {
           caseInsensitiveMembership: "≥ v0.10.9",
@@ -1988,6 +1994,9 @@ export const SdkResources = ({ sdk }) => {
           experimentation: "All versions",
         },
         {
+          trackingPlugin: "≥ v7.8.0",
+        },
+        {
           caseInsensitiveMembership: "≥ v7.1.1",
         },
         {
@@ -2042,6 +2051,9 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           contextualBandits: "≥ v1.2.3",
+        },
+        {
+          trackingPlugin: "≥ v1.1.15",
         },
         {
           namespacesV2: "≥ v1.1.4",
@@ -2452,9 +2464,6 @@ export const SdkResources = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
-        },
-        {
-          trackingPlugin: "≥ v4.4.0",
         },
         {
           caseInsensitiveRegex: "≥ v4.3.0",

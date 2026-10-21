@@ -184,6 +184,7 @@ export default function ExperimentDimensionBlock({
         differenceType={differenceType}
         setDifferenceType={isEditing ? setDifferenceType : undefined}
         renderMetricName={(metric) => metric.name}
+        customMetricSlices={experiment.customMetricSlices}
         showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
           // Pass in empty array to indicate pre-computed standalone (not exp) dimensions are fine
           isDimensionPrecomputed(d, []),

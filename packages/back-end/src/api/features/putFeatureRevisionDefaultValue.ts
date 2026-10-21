@@ -16,6 +16,7 @@ import {
   discardIfJustCreated,
   isDraftStatus,
   resolveOrCreateRevision,
+  withStagedSchema,
 } from "./validations";
 import { assertConfigSchemaCompat } from "./v2Shared";
 
@@ -55,7 +56,7 @@ export async function setRevisionDefaultValue(
     const defaultValue = validateFeatureValue(
       context.canSkipSchemaValidationFor("feature")
         ? { ...feature, jsonSchema: undefined }
-        : feature,
+        : withStagedSchema(feature, revision),
       body.defaultValue,
       "Default value",
     );

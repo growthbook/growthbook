@@ -27,6 +27,7 @@ export interface VisualChangesetInterface {
   organization: string;
   urlPatterns: VisualChangesetURLPattern[];
   editorUrl: string;
-  experiment: string;
+  experiment?: string;
+  contextualBandit?: string;
   visualChanges: VisualChange[];
 }
