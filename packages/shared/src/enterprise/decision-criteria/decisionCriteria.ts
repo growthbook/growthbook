@@ -610,7 +610,7 @@ export function getExperimentResultStatus({
     const srmHealthData = getSRMHealthData({
       srm: healthSummary.srm,
       srmThreshold: healthSettings.srmThreshold,
-      totalUsersCount: healthSummary.totalUsers,
+      totalUsersCount: healthSummary.srmTotalUnits ?? healthSummary.totalUsers,
       numOfVariations: getLatestPhaseVariations(experimentData).length,
       minUsersPerVariation:
         experimentData.type === "multi-armed-bandit"

@@ -118,6 +118,22 @@ function getStandardOverallResultForHealthFallback(
     : undefined;
 }
 
+// Cluster experiments randomize on the cluster, so SRM is tested on cluster
+// counts rather than the sub-unit counts in `traffic`.
+export function getExperimentSRMTraffic(
+  snapshot: Pick<ExperimentSnapshotInterface, "settings" | "health">,
+) {
+  const clusterTraffic = snapshot.health?.clusterTraffic;
+  if (
+    snapshot.settings?.isClusterExperiment &&
+    clusterTraffic &&
+    !clusterTraffic.error
+  ) {
+    return clusterTraffic;
+  }
+  return snapshot.health?.traffic;
+}
+
 /**
  * SRM lookup for standard or holdout experiments. Requires the full
  * snapshot because the fallback path reads `analyses[0].results[0].srm`
@@ -128,7 +144,7 @@ function getStandardOverallResultForHealthFallback(
 export function getExperimentSRMValue(
   snapshot: ExperimentSnapshotInterface,
 ): number | undefined {
-  const healthQuerySRM = snapshot.health?.traffic?.overall?.srm;
+  const healthQuerySRM = getExperimentSRMTraffic(snapshot)?.overall?.srm;
   if (healthQuerySRM !== undefined) {
     return healthQuerySRM;
   }
@@ -150,6 +166,17 @@ export function getExperimentVariationUnitsFromHealth(
   return getStandardOverallResultForHealthFallback(snapshot)?.variations?.map(
     (v) => v.users,
   );
+}
+
+// Per-variation unit counts the SRM p-value was computed on.
+export function getExperimentSRMVariationUnits(
+  snapshot: ExperimentSnapshotInterface,
+): number[] | undefined {
+  const units = getExperimentSRMTraffic(snapshot)?.overall?.variationUnits;
+  if (units?.length) {
+    return units;
+  }
+  return getExperimentVariationUnitsFromHealth(snapshot);
 }
 
 // Units exposed across all variations, per the snapshot's health data;

@@ -380,6 +380,7 @@ const experimentSchema = new mongoose.Schema({
       srm: Number,
       multipleExposures: Number,
       totalUsers: Number,
+      srmTotalUnits: Number,
       covariateImbalance: {
         _id: false,
         isImbalanced: Boolean,

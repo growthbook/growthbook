@@ -1,6 +1,7 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   getExperimentSRMValue,
+  getExperimentSRMVariationUnits,
   getExperimentVariationUnitsFromHealth,
 } from "../src/health/health";
 
@@ -98,5 +99,31 @@ describe("getExperimentSRMValue", () => {
         snapshot({ type: "holdout", analyses: standardAnalyses }),
       ),
     ).toBeUndefined();
+  });
+});
+
+describe("cluster experiment SRM", () => {
+  const clusterSnapshot = (clusterTrafficError?: string) =>
+    snapshot({
+      settings: { isClusterExperiment: true },
+      health: {
+        traffic: { overall: { srm: 0.0001, variationUnits: [6200, 3800] } },
+        clusterTraffic: {
+          overall: { srm: 0.6, variationUnits: [13, 12] },
+          ...(clusterTrafficError ? { error: clusterTrafficError } : {}),
+        },
+      },
+    } as unknown as Partial<ExperimentSnapshotInterface>);
+
+  it("tests SRM on cluster counts", () => {
+    expect(getExperimentSRMValue(clusterSnapshot())).toBe(0.6);
+    expect(getExperimentSRMVariationUnits(clusterSnapshot())).toEqual([13, 12]);
+  });
+
+  it("falls back to sub-unit traffic when the cluster query errored", () => {
+    expect(getExperimentSRMValue(clusterSnapshot("boom"))).toBe(0.0001);
+    expect(getExperimentSRMVariationUnits(clusterSnapshot("boom"))).toEqual([
+      6200, 3800,
+    ]);
   });
 });

@@ -47,6 +47,7 @@ import {
 import {
   getBanditSRMValue,
   getExperimentSRMValue,
+  getExperimentSRMVariationUnits,
   getExperimentVariationUnitsFromHealth,
 } from "shared/health";
 import {
@@ -6207,6 +6208,12 @@ export async function getExperimentAnalysisSummary({
       0,
     ) ?? null;
 
+  const srmTotalUnits =
+    getExperimentSRMVariationUnits(experimentSnapshot)?.reduce(
+      (acc, a) => acc + a,
+      0,
+    ) ?? null;
+
   const srm =
     experiment.type === "multi-armed-bandit"
       ? getBanditSRMValue(experimentSnapshot)
@@ -6217,6 +6224,7 @@ export async function getExperimentAnalysisSummary({
       srm,
       multipleExposures: experimentSnapshot.multipleExposures,
       totalUsers,
+      srmTotalUnits,
     };
 
     if (snapshotHealthPower?.type === "error") {

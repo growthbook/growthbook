@@ -331,6 +331,9 @@ export const experimentAnalysisSummaryHealth = z.object({
   srm: z.number(),
   multipleExposures: z.number(),
   totalUsers: z.number().nullable(),
+  // Units the SRM p-value was computed on: clusters for cluster experiments,
+  // otherwise the same as totalUsers.
+  srmTotalUnits: z.number().nullable().optional(),
   power: z
     .discriminatedUnion("type", [
       z.object({
