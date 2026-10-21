@@ -192,9 +192,11 @@ export class ApiKeyModel extends BaseClass {
     previousDoc?: ApiKeyInterface,
   ) {
     // An OAuth token carries its grant's permissions, which consent checked
-    // against the plan, so a refresh after a downgrade keeps working.
-    const planGated = !doc.oauthClientId;
-    if (planGated) this.assertPlanAllowsConfirmations(doc, previousDoc);
+    // (validateOAuthPermissions). Like a stored key's, they aren't re-checked,
+    // so a refresh still works after a downgrade or once a role or environment
+    // they name is gone.
+    const consented = !!doc.oauthClientId;
+    if (!consented) this.assertPlanAllowsConfirmations(doc, previousDoc);
     const maxDays = this.maxLifetimeDaysFor(doc);
     if (
       doc.secret &&
@@ -247,16 +249,7 @@ export class ApiKeyModel extends BaseClass {
         );
       }
       if (!doc.scoped) {
-        // Unscoped PATs inherit permissions from their user — scoping fields must not be set
-        if (
-          doc.limitAccessByEnvironment ||
-          doc.projectRoles?.length ||
-          doc.additionalRoles?.length
-        ) {
-          this.context.throwBadRequestError(
-            "Restricting a personal access token requires a scoped role.",
-          );
-        }
+        this.assertUnscopedTokenUnrestricted(doc);
         return;
       }
       if (!doc.role) {
@@ -267,27 +260,52 @@ export class ApiKeyModel extends BaseClass {
     }
     // Only a write that changes the scope is checked, so a key stays disableable after its plan, roles or environments lapse.
     if (
-      previousDoc &&
-      isEqual(pick(doc, SCOPE_FIELDS), pick(previousDoc, SCOPE_FIELDS))
+      consented ||
+      (previousDoc &&
+        isEqual(pick(doc, SCOPE_FIELDS), pick(previousDoc, SCOPE_FIELDS)))
     ) {
       return;
     }
-    if (planGated) this.assertPlanAllowsScope(doc, previousDoc);
+    this.assertPlanAllowsScope(doc, previousDoc);
     await this.validateScope(doc, previousDoc);
   }
 
-  // The plan gates for permissions chosen on the OAuth consent page.
-  public assertPlanAllowsOAuthPermissions(
+  // Everything a new token's permissions are checked against, run once on the
+  // OAuth consent page so a bad choice fails there and its tokens skip it.
+  public async validateOAuthPermissions(
     permissions: OAuthTokenPermissions | null,
   ) {
     if (!permissions) return;
     this.assertPlanAllowsConfirmations(permissions);
-    if (permissions.scopedRole) {
-      this.assertPlanAllowsScope({
-        ...permissions,
-        role: permissions.scopedRole,
-        limitAccessByEnvironment: permissions.limitAccessByEnvironment ?? false,
-      });
+    const { scopedRole, ...scope } = permissions;
+    if (!scopedRole) {
+      this.assertUnscopedTokenUnrestricted(scope);
+      return;
+    }
+    const doc = {
+      ...scope,
+      role: scopedRole,
+      limitAccessByEnvironment: scope.limitAccessByEnvironment ?? false,
+      environments: scope.environments ?? [],
+    };
+    this.assertPlanAllowsScope(doc);
+    await this.validateScope(doc);
+  }
+
+  // An unscoped token acts as its user, so it can't carry restrictions.
+  private assertUnscopedTokenUnrestricted(doc: {
+    limitAccessByEnvironment?: boolean;
+    projectRoles?: unknown[];
+    additionalRoles?: unknown[];
+  }) {
+    if (
+      doc.limitAccessByEnvironment ||
+      doc.projectRoles?.length ||
+      doc.additionalRoles?.length
+    ) {
+      this.context.throwBadRequestError(
+        "Restricting a personal access token requires a scoped role.",
+      );
     }
   }
 
@@ -348,8 +366,11 @@ export class ApiKeyModel extends BaseClass {
 
   // Role, environments and project rules, for org keys and scoped PATs alike
   private async validateScope(
-    doc: ApiKeyInterface,
-    previousDoc?: ApiKeyInterface,
+    doc: Pick<
+      ApiKeyInterface,
+      "role" | "environments" | "additionalRoles" | "projectRoles"
+    >,
+    previousDoc?: Pick<ApiKeyInterface, "projectRoles">,
   ) {
     this.validateRole(doc.role);
     this.validateEnvironments(doc.environments);
@@ -795,6 +816,20 @@ export class ApiKeyModel extends BaseClass {
       { key: keyHash },
       { $set: { disabled: true } },
     );
+  }
+
+  // The live access token of an OAuth sign-in. A refresh replaces it hourly.
+  public async getCurrentOAuthAccessToken(clientId: string, userId: string) {
+    const [token] = await this._find(
+      {
+        oauthClientId: clientId,
+        userId,
+        disabled: { $ne: true },
+        expiresAt: { $gt: new Date() },
+      },
+      { sort: { expiresAt: -1 }, limit: 1, bypassReadPermissionChecks: true },
+    );
+    return token ?? null;
   }
 
   public static async dangerousDisableOAuthGrant(

@@ -425,6 +425,32 @@ describe("confirmations", () => {
     expect(await featureVersion()).toBe(1);
   });
 
+  it("replays an OAuth sign-in's request as the grant's current token", async () => {
+    await seed("production");
+    const accessToken = (id: string) =>
+      keyDoc(id, {
+        userId: "u_torres",
+        oauthClientId: "client_mcp",
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        confirmRules: pat.confirmRules,
+      });
+    const sent = accessToken("key_oauth_sent");
+    await mongoose.connection.collection("apikeys").insertOne({ ...sent });
+    setReqContext(asKey(sent));
+    const id = (await publish()).body.confirmation.id;
+
+    // The token that sent it lapses, and a refresh has minted the next one.
+    await mongoose.connection.collection("apikeys").deleteOne({ id: sent.id });
+    await mongoose.connection
+      .collection("apikeys")
+      .insertOne({ ...accessToken("key_oauth_refreshed") });
+
+    expect(
+      await decideConfirmation(asUser("u_torres"), id, "confirm"),
+    ).toMatchObject({ status: "completed", response: { status: 200 } });
+    expect(await featureVersion()).toBe(2);
+  });
+
   it("reports a run a restart cut off as failed, so the agent can ask again", async () => {
     await seed("production");
     setReqContext(asKey(pat));

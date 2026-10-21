@@ -283,7 +283,7 @@ export async function mintAuthorizationCode(params: {
     );
   }
   // Checked here, so the grant's tokens skip it when they're minted.
-  context.models.apiKeys.assertPlanAllowsOAuthPermissions(params.permissions);
+  await context.models.apiKeys.validateOAuthPermissions(params.permissions);
   const code = randomUrlSafe(32);
   const now = new Date();
   await context.models.oauthAuthCodes.create({
