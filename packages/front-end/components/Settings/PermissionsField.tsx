@@ -78,6 +78,13 @@ export function useAllowedPermissions(): Allowed {
   };
 }
 
+// What each preset does, for whoever holds the credential.
+export const presetDescriptions = (holder: Holder): Record<Preset, string> => ({
+  readonly: "Can read, but every write is blocked.",
+  hitl: `Risky or destructive actions wait for ${CONFIRMER[holder]} to confirm.`,
+  full: FULL_ACCESS[holder],
+});
+
 export default function PermissionsField({
   holder,
   value,
@@ -89,11 +96,7 @@ export default function PermissionsField({
   setValue: (value: PermissionsValue) => void;
   allowed: Allowed;
 }) {
-  const descriptions: Record<Preset, string> = {
-    readonly: "Can read, but every write is blocked.",
-    hitl: `Risky or destructive actions wait for ${CONFIRMER[holder]} to confirm.`,
-    full: FULL_ACCESS[holder],
-  };
+  const descriptions = presetDescriptions(holder);
   const labels: Record<Preset, string | JSX.Element> = {
     ...PRESET_LABELS,
     hitl: (
