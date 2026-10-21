@@ -972,6 +972,32 @@ export async function getExperimentPublic(
   });
 }
 
+const SNAPSHOT_TYPES: SnapshotType[] = ["standard", "exploratory", "report"];
+
+// Query-string values are untrusted: Express's extended parser turns
+// `?type[$ne]=standard` into an object, which would otherwise end up inside
+// the Mongo filter. Only accept plain strings (an absent or empty value means
+// "not provided").
+function parseOptionalQueryString(
+  name: string,
+  value: unknown,
+): string | undefined {
+  if (value === undefined || value === "") return undefined;
+  if (typeof value !== "string") {
+    throw new BadRequestError(`Invalid ${name}`);
+  }
+  return value;
+}
+
+function parseSnapshotTypeQuery(value: unknown): SnapshotType | undefined {
+  const type = parseOptionalQueryString("type", value);
+  if (type === undefined) return undefined;
+  if (!SNAPSHOT_TYPES.includes(type as SnapshotType)) {
+    throw new BadRequestError("Invalid type");
+  }
+  return type as SnapshotType;
+}
+
 async function _getSuccessfulSnapshot({
   context,
   experiment,
@@ -1019,7 +1045,7 @@ export async function getSnapshotWithDimension(
 ) {
   const context = getContextFromReq(req);
   const { id, phase, dimension } = req.params;
-  const type = req.query?.type || undefined;
+  const type = parseSnapshotTypeQuery(req.query?.type);
 
   const snapshot = await _getSuccessfulSnapshot({
     context,
@@ -1054,7 +1080,7 @@ export async function getSnapshot(
 ) {
   const context = getContextFromReq(req);
   const { id, phase } = req.params;
-  const type = req.query?.type || undefined;
+  const type = parseSnapshotTypeQuery(req.query?.type);
 
   const snapshot = await _getSuccessfulSnapshot({
     context,
@@ -1083,8 +1109,8 @@ export async function getSnapshotSummary(
 ) {
   const context = getContextFromReq(req);
   const { id, phase } = req.params;
-  const dimension = req.query?.dimension || undefined;
-  const type = req.query?.type || undefined;
+  const dimension = parseOptionalQueryString("dimension", req.query?.dimension);
+  const type = parseSnapshotTypeQuery(req.query?.type);
 
   const experimentObj = await getExperimentById(context, id);
   if (!experimentObj) {
