@@ -63,6 +63,11 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
           .fn()
           .mockResolvedValue(new Map()) as jest.Mock,
       },
+      interleavings: {
+        getAllPayloadInterleavings: jest
+          .fn()
+          .mockResolvedValue([]) as jest.Mock,
+      },
       rampSchedules: {
         getPayloadRampMonitoredRuleMap: jest
           .fn()

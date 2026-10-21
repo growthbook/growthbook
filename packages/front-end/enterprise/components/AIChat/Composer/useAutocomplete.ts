@@ -5,9 +5,10 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefaultDataSourceId } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 
-const DEBOUNCE_MS = 300;
-// "I want" says little; three words is about where a continuation stops being a guess.
-const MIN_WORDS = 3;
+// Shorter than a natural typing pause fires a request only to cancel it.
+const DEBOUNCE_MS = 500;
+// One word says little; from two the page context usually makes a sensible phrase.
+const MIN_WORDS = 2;
 const RETRY_AFTER_ERROR_MS = 60_000;
 // The route's limit; past it is an input case, not a failure to stop on.
 const MAX_CHARS = 2000;
@@ -94,6 +95,8 @@ export function useAutocomplete({
   /**
    * A whole reply to offer in an empty draft, taken from the assistant's last
    * message (see `suggestedReplyFromOptions`); `key` is that message's id.
+   * An empty `text` with a key means the assistant spoke but offered no
+   * options, so the model is asked for a reply instead.
    */
   suggestedReply?: { key: string; text: string };
 }): { ghost: string; accept: () => void; dismiss: () => void } {
@@ -135,31 +138,34 @@ export function useAutocomplete({
       }
     };
     if (!text.trim()) {
-      // Nothing typed: offer the assistant's likeliest option, no model call.
+      // Nothing typed: the assistant's likeliest option is free. Otherwise,
+      // once it has spoken, ask the model what the user would say next.
       if (suggestedReply?.text) {
         suggest({
           base: "",
           completion: suggestedReply.text,
           source: "assistant-options",
         });
+        return;
       }
-      return;
-    }
-    // A fresh chat: finish one of the starter prompts for free before asking the model.
-    const typed = text.trimStart();
-    const quick =
-      typed.length >= 2 && quickSuggestions
-        ? completePrefix(typed, quickSuggestions)
-        : undefined;
-    if (quick) {
-      suggest({ base: text, completion: quick, source: "starter-prompts" });
-      return;
-    }
-    if (
-      text.length > MAX_CHARS ||
-      text.trim().split(/\s+/).length < MIN_WORDS
-    ) {
-      return;
+      if (!suggestedReply || !conversationId) return;
+    } else {
+      // A fresh chat: finish one of the starter prompts for free before asking the model.
+      const typed = text.trimStart();
+      const quick =
+        typed.length >= 2 && quickSuggestions
+          ? completePrefix(typed, quickSuggestions)
+          : undefined;
+      if (quick) {
+        suggest({ base: text, completion: quick, source: "starter-prompts" });
+        return;
+      }
+      if (
+        text.length > MAX_CHARS ||
+        text.trim().split(/\s+/).length < MIN_WORDS
+      ) {
+        return;
+      }
     }
     const ctrl = new AbortController();
     // After a failure, wait out the back-off and then retry the unchanged draft.

@@ -1,4 +1,5 @@
 import "./init/aliases";
+import "./init/distrustRoots";
 import "./init/dotenv";
 import "./instrumentation";
 import app from "./app";
