@@ -33,7 +33,7 @@ const LearningPage = (): React.ReactElement => {
 
   const { apiCall } = useAuth();
   const { getOwnerDisplay } = useUser();
-  const { getProjectById } = useDefinitions();
+  const { getProjectById, getTagById } = useDefinitions();
   const orgSettings = useOrgSettings();
   const { aiEnabled } = useAISettings();
   const learningStatuses =
@@ -222,7 +222,7 @@ const LearningPage = (): React.ReactElement => {
               {learning.tags.map((t) => (
                 <Badge
                   key={t}
-                  label={t}
+                  label={getTagById(t)?.label ?? t}
                   color="violet"
                   variant="soft"
                   size="sm"

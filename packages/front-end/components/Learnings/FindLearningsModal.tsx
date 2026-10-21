@@ -13,6 +13,7 @@ import Modal from "@/ui/Modal";
 import Checkbox from "@/ui/Checkbox";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentChips from "./ExperimentChips";
 
 type SuggestionState = {
@@ -35,6 +36,7 @@ const FindLearningsModal: FC<{
   onSaved?: () => void;
 }> = ({ experiments, saveProjects, close, onSaved }) => {
   const { apiCall } = useAuth();
+  const { getTagById } = useDefinitions();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<SuggestionState[]>([]);
@@ -310,7 +312,7 @@ const FindLearningsModal: FC<{
                             {s.suggestion.tags.map((t) => (
                               <Badge
                                 key={t}
-                                label={t}
+                                label={getTagById(t)?.label ?? t}
                                 color="violet"
                                 variant="soft"
                                 size="sm"
