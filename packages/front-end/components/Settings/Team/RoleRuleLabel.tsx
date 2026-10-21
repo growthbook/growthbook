@@ -49,26 +49,27 @@ export default function RoleRuleLabel({
           {environments.length ? environments.join(", ") : "No environments"}
         </Text>
       )}
-      {allProjects && role === "admin" && <OverridesProjectRolesBadge />}
+      {allProjects && role === "admin" && (
+        <Box as="span" ml="2">
+          <OverridesProjectRolesBadge />
+        </Box>
+      )}
     </>
   );
 }
 
 export function OverridesProjectRolesBadge() {
   return (
-    <Tooltip content="Admin applies in every project. Project roles can add to it but never narrow it.">
-      <span>
-        <Badge
-          ml="2"
-          color="gray"
-          variant="soft"
-          label={
-            <Flex align="center" gap="1">
-              <PiInfo /> Overrides project roles
-            </Flex>
-          }
-        />
-      </span>
+    <Tooltip content="Admin applies in every Project. Project roles can add to it but never narrow it.">
+      <Badge
+        color="gray"
+        variant="soft"
+        label={
+          <Flex align="center" gap="1">
+            <PiInfo /> Overrides Projects
+          </Flex>
+        }
+      />
     </Tooltip>
   );
 }
