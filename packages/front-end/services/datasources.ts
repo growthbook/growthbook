@@ -142,12 +142,17 @@ WHERE
   },
 };
 
-// GA4Schema's assignment query for a picked events table. user_id is left out
-// because logged-out events have none.
+const GA4_EXPOSURE_IDS = getExposureIdentifierSql(
+  ["user_id", "anonymous_id"],
+  (id) => (id === "user_id" ? "user_id" : "user_pseudo_id"),
+);
+
+// GA4Schema's assignment query for a picked events table
 export const GA4_EXPOSURE_TEMPLATE: SourceTableTemplate = {
   matches: isGA4EventsTable,
   name: "GA4 Experiment Exposures",
   columns: [
+    { column: "user_id", datatype: "string" },
     { column: "anonymous_id", datatype: "string" },
     { column: "timestamp", datatype: "date" },
     { column: "experiment_id", datatype: "string" },
@@ -158,7 +163,7 @@ export const GA4_EXPOSURE_TEMPLATE: SourceTableTemplate = {
     })),
   ],
   getSql: (table, rowFilterWhere) => `SELECT
-  user_pseudo_id as anonymous_id,
+  ${GA4_EXPOSURE_IDS.select},
   TIMESTAMP_MICROS(event_timestamp) as timestamp,
   COALESCE(experiment_id_param.value.string_value, CAST(experiment_id_param.value.int_value AS STRING)) AS experiment_id,
   COALESCE(variation_id_param.value.string_value, CAST(variation_id_param.value.int_value AS STRING)) AS variation_id,
@@ -177,7 +182,7 @@ WHERE
   AND event_name = 'experiment_viewed'
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
-  AND user_pseudo_id IS NOT NULL${
+  AND ${GA4_EXPOSURE_IDS.notNull}${
     rowFilterWhere ? `\n  AND ${rowFilterWhere}` : ""
   }`,
 };
