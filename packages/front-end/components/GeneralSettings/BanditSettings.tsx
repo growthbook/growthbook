@@ -214,7 +214,6 @@ export default function BanditSettings({
                     Weight results across update periods
                     <span
                       onClick={(e) => {
-                        // Keep clicks on the info icon from toggling the checkbox.
                         e.preventDefault();
                         e.stopPropagation();
                       }}
@@ -223,6 +222,15 @@ export default function BanditSettings({
                       <Tooltip body="Each update period is weighted proportionally to traffic received. This reduces bias, but adds variance.">
                         <PiInfo color="var(--color-text-low)" />
                       </Tooltip>
+                    </span>
+                    <span
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      style={{ display: "inline-flex" }}
+                    >
+                      <PremiumTooltip commercialFeature="contextual-bandits" />
                     </span>
                   </Flex>
                 }
