@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { ROTATION_GRACE_PRESET_HOURS } from "shared/api-key-expiration";
-import { datetime } from "shared/dates";
+import { datetimeWithZone } from "shared/dates";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
@@ -87,10 +87,10 @@ export function RotatedApiKeyModal({
         <code>{rotated.key}</code>
         <Text as="p" color="text-low">
           {rotated.previousKeyExpiresAt
-            ? `The previous secret keeps working until ${datetime(rotated.previousKeyExpiresAt)}.`
+            ? `The previous secret keeps working until ${datetimeWithZone(rotated.previousKeyExpiresAt)}.`
             : "The previous secret no longer works."}
           {rotated.expiresAt &&
-            ` The key now expires ${datetime(rotated.expiresAt)}.`}
+            ` The key now expires ${datetimeWithZone(rotated.expiresAt)}.`}
         </Text>
       </Flex>
     </ModalStandard>
