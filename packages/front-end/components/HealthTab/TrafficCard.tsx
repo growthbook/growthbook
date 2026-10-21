@@ -147,11 +147,11 @@ export default function TrafficCard({
                   onValueChange={(v) => setShowClusters(v === "cluster")}
                   aria-label="Unit"
                 >
-                  <SegmentedControl.Item value="subunit">
-                    {getUnitDisplayName(cluster.subUnitIdentifier)}
-                  </SegmentedControl.Item>
                   <SegmentedControl.Item value="cluster">
                     {getUnitDisplayName(cluster.identifier)}
+                  </SegmentedControl.Item>
+                  <SegmentedControl.Item value="subunit">
+                    {getUnitDisplayName(cluster.subUnitIdentifier)}
                   </SegmentedControl.Item>
                 </SegmentedControl.Root>
               </div>
