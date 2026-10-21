@@ -1,5 +1,6 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
+  getClusterCountHealthData,
   getClusterIssueHealthData,
   getExperimentSRMValue,
   getExperimentSRMVariationUnits,
@@ -163,6 +164,36 @@ describe("getClusterIssueHealthData", () => {
         affectedCount: 0,
         totalCount: 0,
         minPercentThreshold: 0.01,
+      }).status,
+    ).toBe("not-enough-traffic");
+  });
+});
+
+describe("getClusterCountHealthData", () => {
+  it("warns when any variation has fewer clusters than the minimum", () => {
+    expect(
+      getClusterCountHealthData({
+        clustersPerVariation: [25, 19],
+        minClustersPerVariation: 20,
+      }),
+    ).toEqual({
+      status: "unhealthy",
+      smallestVariationIndex: 1,
+      smallestCount: 19,
+    });
+    expect(
+      getClusterCountHealthData({
+        clustersPerVariation: [20, 20],
+        minClustersPerVariation: 20,
+      }).status,
+    ).toBe("healthy");
+  });
+
+  it("has no verdict before any clusters are exposed", () => {
+    expect(
+      getClusterCountHealthData({
+        clustersPerVariation: [0, 0],
+        minClustersPerVariation: 20,
       }).status,
     ).toBe("not-enough-traffic");
   });

@@ -16,6 +16,7 @@ import SRMCard from "@/components/HealthTab/SRMCard";
 import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import ClusterIssueCard from "@/components/HealthTab/ClusterIssueCard";
+import ClusterReliabilityCard from "@/components/HealthTab/ClusterReliabilityCard";
 import { IdentifierCode } from "@/components/Experiment/AssignmentQueryFields";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -562,6 +563,17 @@ function HealthSnapshotCards({
                 <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>.
               </>
             )}
+          />
+        </div>
+      ) : null}
+      {clusterIds && clusterTraffic ? (
+        <div id="clusterReliability" style={{ scrollMarginTop: "100px" }}>
+          <ClusterReliabilityCard
+            clusterTraffic={clusterTraffic}
+            variations={variations}
+            clusterIdentifier={clusterIds.cluster}
+            subUnitIdentifier={clusterIds.subUnit}
+            onNotify={handleHealthNotification}
           />
         </div>
       ) : null}

@@ -87,6 +87,36 @@ export function getClusterIssueHealthData({
 }
 
 /**
+ * Health status for whether a cluster experiment has enough clusters in every
+ * variation for its results to be reliable. Reports the smallest variation.
+ */
+export function getClusterCountHealthData({
+  clustersPerVariation,
+  minClustersPerVariation,
+}: {
+  clustersPerVariation: number[];
+  minClustersPerVariation: number;
+}): {
+  status: "not-enough-traffic" | "healthy" | "unhealthy";
+  smallestVariationIndex: number;
+  smallestCount: number;
+} {
+  if (!clustersPerVariation.some((n) => n > 0)) {
+    return {
+      status: "not-enough-traffic",
+      smallestVariationIndex: -1,
+      smallestCount: 0,
+    };
+  }
+  const smallestCount = Math.min(...clustersPerVariation);
+  return {
+    status: smallestCount < minClustersPerVariation ? "unhealthy" : "healthy",
+    smallestVariationIndex: clustersPerVariation.indexOf(smallestCount),
+    smallestCount,
+  };
+}
+
+/**
  * Returns the health status for Sample Ratio Mismatch (SRM) in an experiment
  *
  * @param srm - The SRM p-value calculated for the experiment
