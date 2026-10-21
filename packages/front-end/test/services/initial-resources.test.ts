@@ -446,6 +446,11 @@ describe("GrowthBook AI traces on the Managed Warehouse", () => {
     expect(spans.filters.find((f) => f.name === "Model calls")?.value).toBe(
       "operation IN ('chat', 'text_completion', 'generate_content', 'embeddings')",
     );
+    for (const ft of factTables.slice(1)) {
+      expect(ft.factTable.sql).toContain(
+        "FROM trace_spans WHERE SpanCategory = 'ai' AND",
+      );
+    }
     expect(spans.metrics.map((m) => m.name)).toEqual([
       "LLM calls per user",
       "LLM cost per user",

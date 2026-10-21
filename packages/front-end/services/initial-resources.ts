@@ -1108,10 +1108,10 @@ function getGrowthBookTracesResources(
   const idType =
     settings.idAttributeIdentifier === "user_id" ? "user_id" : "device_id";
   const dateClause = `Timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`;
-  // The rollup views aggregate all spans; a filter on their grouping key is
+  // The rollup views aggregate all AI spans; a filter on their grouping key is
   // pushed down into the scan, while the outer date filter alone is not.
   const spansInRange = (key: string) =>
-    `${key} IN (SELECT ${key} FROM trace_spans WHERE ${dateClause})`;
+    `${key} IN (SELECT ${key} FROM trace_spans WHERE SpanCategory = 'ai' AND ${dateClause})`;
   const modelCalls = AI_MODEL_CALL_OPERATIONS.map((o) => `'${o}'`).join(", ");
 
   return {
