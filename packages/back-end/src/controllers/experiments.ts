@@ -163,6 +163,10 @@ import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { assumeUtc } from "back-end/src/util/dates";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import {
+  parseOptionalQueryString,
+  parseSnapshotTypeQuery,
+} from "back-end/src/util/snapshotQueryParams";
 import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
   getFeature,
@@ -970,32 +974,6 @@ export async function getExperimentPublic(
     linkedFeatures,
     ssrData,
   });
-}
-
-const SNAPSHOT_TYPES: SnapshotType[] = ["standard", "exploratory", "report"];
-
-// Query-string values are untrusted: Express's extended parser turns
-// `?type[$ne]=standard` into an object, which would otherwise end up inside
-// the Mongo filter. Only accept plain strings (an absent or empty value means
-// "not provided").
-function parseOptionalQueryString(
-  name: string,
-  value: unknown,
-): string | undefined {
-  if (value === undefined || value === "") return undefined;
-  if (typeof value !== "string") {
-    throw new BadRequestError(`Invalid ${name}`);
-  }
-  return value;
-}
-
-function parseSnapshotTypeQuery(value: unknown): SnapshotType | undefined {
-  const type = parseOptionalQueryString("type", value);
-  if (type === undefined) return undefined;
-  if (!SNAPSHOT_TYPES.includes(type as SnapshotType)) {
-    throw new BadRequestError("Invalid type");
-  }
-  return type as SnapshotType;
 }
 
 async function _getSuccessfulSnapshot({
