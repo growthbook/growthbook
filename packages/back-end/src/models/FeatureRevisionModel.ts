@@ -41,9 +41,10 @@ import {
   RevisionMetadata,
   RevisionRampAction,
   RevisionReview,
-  reviewerKeyForEventUser,
+  eventUserIdentity,
 } from "shared/validators";
 import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import { editDisarmsFeatureDraft } from "back-end/src/services/confirmations";
 import {
   featureForSavedGroupValidation,
   Feature as SavedGroupScopeFeature,
@@ -164,6 +165,7 @@ const featureRevisionSchema = new mongoose.Schema({
   },
   // Users who have made edits to this draft beyond the original author.
   contributors: [{}],
+  editorKeys: [String],
   // Active reviewer verdicts for the current review cycle. Maintained by the
   // review lifecycle mutations; cleared when a new review cycle starts.
   reviews: [
@@ -454,6 +456,45 @@ export function revisionToInterfaceWithFeature(
   return toInterface(doc, context, feature);
 }
 
+// Matches who created a revision: a member directly or through an org key that
+// assumed their role, or for `author` an org key acting as itself; and for
+// `involvedUserId` anyone who contributed.
+function revisionPersonFilter({
+  author,
+  involvedUserId,
+}: {
+  author?: string;
+  involvedUserId?: string;
+}): Record<string, unknown> {
+  const createdBy = (id: string) => [
+    { "createdBy.id": id },
+    { "createdBy.requestedBy.id": id, "createdBy.assumedRole": true },
+  ];
+  const clauses: Record<string, unknown>[] = [];
+  if (author) {
+    clauses.push({
+      $or: [
+        ...createdBy(author),
+        {
+          "createdBy.apiKey": author,
+          "createdBy.id": { $in: [null, ""] },
+          "createdBy.assumedRole": { $ne: true },
+        },
+      ],
+    });
+  }
+  if (involvedUserId) {
+    clauses.push({
+      $or: [
+        ...createdBy(involvedUserId),
+        { contributors: involvedUserId },
+        { "contributors.id": involvedUserId },
+      ],
+    });
+  }
+  return clauses.length ? { $and: clauses } : {};
+}
+
 export async function countDocuments(
   organization: string,
   {
@@ -476,14 +517,7 @@ export async function countDocuments(
   if (status) {
     filter.status = Array.isArray(status) ? { $in: status } : status;
   }
-  if (author) filter["createdBy.id"] = author;
-  if (involvedUserId) {
-    filter.$or = [
-      { "createdBy.id": involvedUserId },
-      { contributors: involvedUserId },
-      { "contributors.id": involvedUserId },
-    ];
-  }
+  Object.assign(filter, revisionPersonFilter({ author, involvedUserId }));
   return FeatureRevisionModel.countDocuments(filter);
 }
 
@@ -771,14 +805,7 @@ export async function getFeatureRevisionsByStatus({
   if (status) {
     filter.status = Array.isArray(status) ? { $in: status } : status;
   }
-  if (author) filter["createdBy.id"] = author;
-  if (involvedUserId) {
-    filter.$or = [
-      { "createdBy.id": involvedUserId },
-      { contributors: involvedUserId },
-      { "contributors.id": involvedUserId },
-    ];
-  }
+  Object.assign(filter, revisionPersonFilter({ author, involvedUserId }));
   let query = FeatureRevisionModel.find(filter)
     .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
     .sort({ version: sort === "desc" ? -1 : 1 });
@@ -817,16 +844,7 @@ export async function getLatestActiveDraftForFeature(
         : status
       : { $in: ACTIVE_DRAFT_STATUSES },
   };
-  if (involvedUserId) {
-    filter.$or = [
-      { "createdBy.id": involvedUserId },
-      { contributors: involvedUserId },
-      { "contributors.id": involvedUserId },
-    ];
-  }
-  if (author) {
-    filter["createdBy.id"] = author;
-  }
+  Object.assign(filter, revisionPersonFilter({ author, involvedUserId }));
   const doc = await FeatureRevisionModel.findOne(filter, { log: 0 }).sort({
     dateUpdated: -1,
   });
@@ -1606,12 +1624,20 @@ export async function updateRevision(
     revision: proposedRevision,
     original: revision,
   });
+  const disarm = editDisarmsFeatureDraft(context, proposedRevision);
 
-  // Track contributors as user ID strings via atomic $addToSet.
-  const contributorId =
-    log.user != null && "id" in log.user && log.user.id ? log.user.id : null;
-  const contributorUpdate =
-    contributorId != null ? { $addToSet: { contributors: contributorId } } : {};
+  // Track contributors by identity, and the key behind an edit in either mode,
+  // via atomic $addToSet.
+  const contributorId = eventUserIdentity(log.user);
+  const editorKey = log.user?.type === "api_key" ? log.user.apiKey : "";
+  const addToSet = {
+    ...(contributorId != null ? { contributors: contributorId } : {}),
+    ...(editorKey ? { editorKeys: editorKey } : {}),
+  };
+  const unset = {
+    ...(clearRevertedFrom ? { revertedFrom: 1 } : {}),
+    ...(disarm ? { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 } : {}),
+  };
 
   // `status` rides the FILTER: the `status` being written was COMPUTED from the
   // caller's copy (an edit can demote an approval), so a status that moved
@@ -1641,12 +1667,13 @@ export async function updateRevision(
         // policy hooks and the REST API don't count approvals made against
         // older content, while the UI can still attribute them.
         ...(clearReviews ? { reviews: staleReviews } : {}),
+        ...(disarm ? { autoPublishOnApproval: false } : {}),
       },
       // The reset starts a new review cycle, so it takes a new cycle number —
       // atomically, like every other cycle start.
       ...(clearReviews ? { $inc: { reviewCycle: 1 } } : {}),
-      ...(clearRevertedFrom ? { $unset: { revertedFrom: 1 } } : {}),
-      ...contributorUpdate,
+      ...(Object.keys(unset).length ? { $unset: unset } : {}),
+      ...(Object.keys(addToSet).length ? { $addToSet: addToSet } : {}),
     },
     { new: true },
   );
@@ -1669,6 +1696,11 @@ export async function updateRevision(
     });
 
   const updatedRevision = toInterface(doc, context, feature);
+  if (disarm) {
+    logScheduledPublishChange(context, revision, {
+      action: "cancel scheduled publish",
+    });
+  }
 
   // Linkage sync whenever draft rules change.
   if ("rules" in changes) {
@@ -2729,7 +2761,7 @@ export async function submitReviewAndComments(
       : reviewSubmittedType === "Requested Changes"
         ? ("changes-requested" as const)
         : null;
-  const reviewerKey = reviewerKeyForEventUser(user);
+  const reviewerKey = eventUserIdentity(user);
   const newReview: RevisionReview | null =
     verdict !== null && reviewerKey !== null
       ? { userId: reviewerKey, user, status: verdict, timestamp: new Date() }
@@ -2752,7 +2784,7 @@ export async function submitReviewAndComments(
     };
     const outcome = await casUpdate(
       cycleFilter,
-      ["reviews", "status", "reviewCycle", "contributors"],
+      ["reviews", "status", "reviewCycle", "contributors", "editorKeys"],
       async (current) => {
         // Re-asked on every retry: the re-read row may have crossed a recall
         // AND a resubmit since the first attempt.
@@ -2766,12 +2798,16 @@ export async function submitReviewAndComments(
         }
 
         // Against the row this write is conditioned on, not the caller's stale
-        // copy (see the `blockSelfApproval` param).
-        if (
-          verdict === "approved" &&
-          blockSelfApproval &&
-          (current.contributors ?? []).includes(newReview.userId)
-        ) {
+        // copy (see the `blockSelfApproval` param). A key acting as itself never
+        // rules on a draft it edited in either mode.
+        const contributed = (current.contributors ?? []).includes(
+          newReview.userId,
+        );
+        const key = context.keyActingAsItself;
+        if (key && (contributed || (current.editorKeys ?? []).includes(key))) {
+          throw new Error("Cannot submit a review on a draft you created");
+        }
+        if (contributed && verdict === "approved" && blockSelfApproval) {
           throw new Error("You cannot approve a draft you contributed to.");
         }
 
@@ -2927,7 +2963,7 @@ export async function recallReview(
   }
 
   context.models.featureRevisionLogs
-    .create({
+    .dangerousCreateBypassPermission({
       featureId: revision.featureId,
       version: revision.version,
       action: "Recall Review",
@@ -2968,7 +3004,7 @@ export function activeReviewsFromLog(
       byReviewer.clear();
       continue;
     }
-    const key = reviewerKeyForEventUser(entry.user);
+    const key = eventUserIdentity(entry.user);
     if (key === null) continue;
     if (entry.action === "Approved" || entry.action === "Requested Changes") {
       byReviewer.set(key, {
@@ -3039,7 +3075,7 @@ export async function undoReview(
     );
   }
 
-  const retractingKey = reviewerKeyForEventUser(user);
+  const retractingKey = eventUserIdentity(user);
   // Keyless callers (e.g. system events) never hold a baked verdict to undo.
   if (retractingKey === null) {
     throw new Error("You have no active review verdict to undo");
@@ -3109,7 +3145,7 @@ export async function undoReview(
   const status = resolved;
 
   context.models.featureRevisionLogs
-    .create({
+    .dangerousCreateBypassPermission({
       featureId: revision.featureId,
       version: revision.version,
       action: "Undo Review",
@@ -3174,7 +3210,7 @@ export async function reopenRevision(
 
   // Fire and forget — callers don't depend on the log entry being there
   context.models.featureRevisionLogs
-    .create({
+    .dangerousCreateBypassPermission({
       featureId: revision.featureId,
       version: revision.version,
       action: "reopen",
@@ -3247,7 +3283,7 @@ export async function discardRevision(
 
   // Fire and forget - no route that discards the revision expects the log to be there immediately
   context.models.featureRevisionLogs
-    .create({
+    .dangerousCreateBypassPermission({
       featureId: revision.featureId,
       version: revision.version,
       action: "discard",

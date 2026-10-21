@@ -123,7 +123,7 @@ export default forwardRef<
           className={action ? styles.bodyWithAction : undefined}
         >
           {renderedIcon ? (
-            <RadixCallout.Icon style={{ height: lineHeight }}>
+            <RadixCallout.Icon style={{ height: lineHeight, flexShrink: 0 }}>
               {renderedIcon}
             </RadixCallout.Icon>
           ) : null}

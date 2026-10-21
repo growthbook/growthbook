@@ -42,6 +42,7 @@ import {
   type LinkedChange,
 } from "@/components/Experiment/LinkedChanges/constants";
 import { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
+import { getErrorDetails } from "@/services/apiCallError";
 
 export type PendingDraftFailure =
   ApiErrorDetails<"pending_draft_publish_failed">["failedFeatureDrafts"][number];
@@ -194,10 +195,14 @@ function SecondaryActionButton({
     <Button
       variant="ghost"
       type="button"
-      setError={setError}
       onClick={async () => {
-        await action();
-        close();
+        setError(null);
+        try {
+          await action();
+          close();
+        } catch (e) {
+          setError(e.message, getErrorDetails(e));
+        }
       }}
     >
       {label}

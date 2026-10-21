@@ -365,6 +365,8 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       assignmentQueryCopySource,
     ),
     datasource,
+    project: undefined,
+    holdoutProjects: selectedProjects,
     hashAttribute: form.watch("hashAttribute"),
     exposureQueryId,
     identifierType: exposureQueryIdentifierType,

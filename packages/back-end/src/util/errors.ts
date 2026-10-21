@@ -28,6 +28,16 @@ export class ChecklistIncompleteError extends ApiError<"checklist_incomplete"> {
   }
 }
 
+export class CustomHookError extends ApiError<"custom_hook_error"> {
+  constructor(
+    message: string,
+    hooks: ApiErrorDetails<"custom_hook_error">["hooks"],
+  ) {
+    super("custom_hook_error", message, { hooks });
+    this.name = "CustomHookError";
+  }
+}
+
 // Message is supplied by the caller (typically via formatPendingDraftFailureMessage
 // in services/experiment-feature) to keep this module free of back-end imports
 // — errors.ts is loaded by licenseUtil and other low-level modules.
@@ -103,6 +113,18 @@ export class LicenseServerError extends Error {
 }
 
 export class VercelInstallationNotFound extends Error {}
+
+// Thrown before a held request's first write; runApiHandler turns it into a 202.
+export class ConfirmationRequiredError extends Error {
+  status = 202;
+  constructor(
+    readonly body: Record<string, unknown>,
+    readonly headers: Record<string, string>,
+  ) {
+    super(String(body.message));
+    this.name = "ConfirmationRequiredError";
+  }
+}
 
 export class BadRequestError extends Error {
   status = 400;

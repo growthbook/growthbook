@@ -162,6 +162,7 @@ export function useDefaultDataSourceId(): string | undefined {
 }
 
 interface ExplorerProviderProps {
+  queryEnabled?: boolean;
   children: ReactNode;
   initialConfig: ExplorerDraftConfig;
   initialSubmittedConfig?: ExplorerDraftConfig;
@@ -181,6 +182,7 @@ interface ExplorerProviderProps {
 }
 
 export function ExplorerProvider({
+  queryEnabled = true,
   children,
   initialConfig,
   initialSubmittedConfig,
@@ -444,13 +446,19 @@ export function ExplorerProvider({
 
   const isSubmittable = useMemo(() => {
     return (
+      queryEnabled &&
       isSubmittableConfig(cleanedDraftExploreState, getFactTableById) &&
       // Block submission while alwaysInlineFilter columns are seeded but empty.
       // cleanConfigForSubmission would otherwise strip the placeholder filter
       // and let the query run unfiltered, contradicting the "always filter" intent.
       !hasUnsatisfiedInlineFilters(draftExploreState, getFactTableById)
     );
-  }, [cleanedDraftExploreState, draftExploreState, getFactTableById]);
+  }, [
+    cleanedDraftExploreState,
+    draftExploreState,
+    getFactTableById,
+    queryEnabled,
+  ]);
 
   const doSubmit = useCallback(
     async (options?: { cache?: CacheOption; config?: ExplorerDraftConfig }) => {
@@ -463,7 +471,7 @@ export function ExplorerProvider({
         ? (sourceConfig.comparisonMode ??
           resolveLegacyExplorerComparisonMode(sourceConfig.dateRange))
         : null;
-      if (!isSubmittableConfig(configToSubmit)) return;
+      if (!queryEnabled || !isSubmittableConfig(configToSubmit)) return;
 
       if (managedWarehouseUnavailable) {
         return;
@@ -527,6 +535,16 @@ export function ExplorerProvider({
 
       // Ignore out-of-order responses from older in-flight requests.
       if (requestId !== submitRequestIdRef.current) return;
+
+      // A failed automatic preview refresh must keep the last successful graph.
+      if (
+        trackingSource === "metric-preview" &&
+        cache === "required" &&
+        (fetchError || fetchResult?.status === "error")
+      ) {
+        setIsStale(true);
+        return;
+      }
 
       // Cache miss when cache=required
       if (cache === "required" && fetchResult === null && !fetchError) {
@@ -774,6 +792,7 @@ export function ExplorerProvider({
       finalize(fetchResult, query, fetchError);
     },
     [
+      queryEnabled,
       draftExploreState,
       submittedPreviousTimeFrame,
       submittedComparisonMode,
@@ -851,7 +870,12 @@ export function ExplorerProvider({
       !forceFunnelAutoSubmit;
 
     if (needsFetch) {
-      if (deferUntilManualRefresh) {
+      if (trackingSource === "metric-preview") {
+        // Each submit cancels the in-flight poll, so a draft edit would drop
+        // a running "Run query" result. Wait for it; this effect reruns when
+        // polling ends and checks the cache for the latest draft.
+        if (!polling) doSubmit({ cache: "required" });
+      } else if (deferUntilManualRefresh) {
         setIsStale(true);
       } else if (
         baselineConfig &&
@@ -882,6 +906,8 @@ export function ExplorerProvider({
     }
   }, [
     needsFetch,
+    trackingSource,
+    polling,
     needsUpdate,
     doSubmit,
     baselineConfig,

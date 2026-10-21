@@ -423,6 +423,16 @@ function startOfUtcMonthsAgo(months: number): Date {
   return d;
 }
 
+export function isRollingDateRange(
+  dateRange: ExplorationConfig["dateRange"],
+): boolean {
+  return (
+    dateRange.predefined !== "yesterday" &&
+    dateRange.predefined !== "lastCalendarYear" &&
+    dateRange.predefined !== "customDateRange"
+  );
+}
+
 export function calculateProductAnalyticsDateRange(
   dateRange: ExplorationConfig["dateRange"],
 ): DateRange {

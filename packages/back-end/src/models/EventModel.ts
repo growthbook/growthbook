@@ -371,18 +371,10 @@ const applyFiltersToQuery = (
 };
 
 /**
- * Get all events for an organization
- * @param organizationId
- * @param limit  Providing 0 as a limit will return all events
- * @returns
+ * Stream all events for an organization, newest first, as plain objects
  */
-export const getLatestEventsForOrganization = async (
-  organizationId: string,
-  limit: number = 50,
-): Promise<EventInterface[]> => {
-  const docs = await EventModel.find({ organizationId })
+export const getEventsCursorForOrganization = (organizationId: string) =>
+  EventModel.find({ organizationId }, { _id: 0, __v: 0 })
     .sort([["dateCreated", -1]])
-    .limit(limit);
-
-  return docs.map(toInterface) as EventInterface[];
-};
+    .lean<EventInterface>()
+    .cursor();
