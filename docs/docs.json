@@ -967,6 +967,26 @@
                 ]
               },
               {
+                "group": "Event Webhooks",
+                "pages": [
+                  "api/event-webhooks/operation/listEventWebhooks",
+                  "api/event-webhooks/operation/postEventWebhook",
+                  "api/event-webhooks/operation/getEventWebhook",
+                  "api/event-webhooks/operation/putEventWebhook",
+                  "api/event-webhooks/operation/deleteEventWebhook",
+                  "api/event-webhooks/operation/listEventWebhookLogs",
+                  "api/event-webhooks/operation/postEventWebhookTest"
+                ]
+              },
+              {
+                "group": "Audit Logs",
+                "pages": [
+                  "api/audits/operation/listAudits",
+                  "api/audits/operation/listEvents",
+                  "api/audits/operation/getEvent"
+                ]
+              },
+              {
                 "group": "Code References",
                 "pages": [
                   "api/code-references/operation/listCodeRefs",
@@ -1195,6 +1215,24 @@
                   "api/Populations/operation/updatePopulation",
                   "api/Populations/operation/deletePopulation"
                 ]
+              },
+              {
+                "group": "Webhook Secrets",
+                "pages": [
+                  "api/WebhookSecrets/operation/getWebhookSecret",
+                  "api/WebhookSecrets/operation/deleteWebhookSecret",
+                  "api/WebhookSecrets/operation/listWebhookSecrets"
+                ]
+              },
+              {
+                "group": "SDK Webhooks",
+                "pages": [
+                  "api/SdkWebhooks/operation/listSdkConnectionWebhooks",
+                  "api/SdkWebhooks/operation/postSdkConnectionWebhook",
+                  "api/SdkWebhooks/operation/putSdkWebhook",
+                  "api/SdkWebhooks/operation/deleteSdkWebhook",
+                  "api/SdkWebhooks/operation/postSdkWebhookTest"
+                ]
               }
             ]
           },
@@ -1206,6 +1244,7 @@
               "api/ApiKey_model",
               "api/Archetype_model",
               "api/Attribute_model",
+              "api/Audit_model",
               "api/AutoRun_model",
               "api/CodeRef_model",
               "api/Config_model",
@@ -1237,7 +1276,10 @@
               "api/DecisionCriteria_model",
               "api/Dimension_model",
               "api/Environment_model",
+              "api/Event_model",
               "api/EventUser_model",
+              "api/EventWebhook_model",
+              "api/EventWebhookLog_model",
               "api/Experiment_model",
               "api/Experiment Rule_model",
               "api/ExperimentAnalysisSettings_model",
@@ -1310,6 +1352,7 @@
               "api/ScheduleRule_model",
               "api/ScheduledStopPlan_model",
               "api/SdkConnection_model",
+              "api/SdkWebhook_model",
               "api/Segment_model",
               "api/Settings_model",
               "api/Targeting Rule_model",
@@ -1317,7 +1360,8 @@
               "api/Team_model",
               "api/VisualChange_model",
               "api/VisualChangeset_model",
-              "api/VisualEditorCbExperimentStub_model"
+              "api/VisualEditorCbExperimentStub_model",
+              "api/WebhookSecret_model"
             ]
           }
         ]
