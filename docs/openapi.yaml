@@ -82291,6 +82291,8 @@ components:
                     additionalProperties: false
               users:
                 type: number
+              denominator:
+                type: number
               control:
                 type: object
                 properties:

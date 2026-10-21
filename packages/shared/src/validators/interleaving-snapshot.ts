@@ -67,6 +67,9 @@ export const interleavingMetricResultValidator = z
     analysis: interleavingAnalysisValidator,
     // Users the analysis is over: engaged users (paired) or exposed users
     users: z.number(),
+    // What each side's `cr` divides `value` by: competitive treatment-drafted
+    // exposures in engaged impressions (paired) or exposed users (preference)
+    denominator: z.number().optional(),
     control: interleavingResultSideValidator,
     treatment: interleavingResultSideValidator,
     test: interleavingTestResultValidator,

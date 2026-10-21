@@ -166,6 +166,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
                 metricId,
                 analysis,
                 users: stats.users,
+                denominator: stats.exposures_sum,
                 control: {
                   value: stats.control_sum,
                   cr: perExposure(stats.control_sum),
@@ -187,6 +188,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
                 metricId,
                 analysis,
                 users: usersExposed,
+                denominator: usersExposed,
                 control: { value: prefC, cr: perUser(prefC) },
                 treatment: { value: prefT, cr: perUser(prefT) },
                 test: preferenceSignTest({
