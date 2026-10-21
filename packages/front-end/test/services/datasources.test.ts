@@ -864,4 +864,17 @@ describe("getInitialExposureQuery", () => {
     expect(sql).toContain("domain_userid as anonymous_id");
     expect(sql).toContain("(domain_userid is not null OR user_id is not null)");
   });
+
+  it("reads GA4 experiment and variation ids from either value column", () => {
+    const sql = getInitialExposureQuery({
+      ...datasource,
+      settings: { ...datasource.settings, schemaFormat: "ga4" },
+    });
+    expect(sql).toContain(
+      "COALESCE(variation_id_param.value.string_value, CAST(variation_id_param.value.int_value AS STRING)) AS variation_id",
+    );
+    expect(sql).toContain(
+      "COALESCE(experiment_id_param.value.string_value, CAST(experiment_id_param.value.int_value AS STRING)) AS experiment_id",
+    );
+  });
 });

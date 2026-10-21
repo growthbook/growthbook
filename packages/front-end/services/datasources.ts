@@ -58,6 +58,8 @@ const GA4Schema: SchemaInterface = {
     "browser",
     "os",
   ],
+  // GA4 stores a param by how its value looks, so a key sent as "123" lands in
+  // int_value and "control" in string_value.
   getExperimentSQL: (tablePrefix, userIdTypes) => {
     const ids = getExposureIdentifierSql(userIdTypes, (id) =>
       id === "user_id" ? "user_id" : "user_pseudo_id",
@@ -66,8 +68,8 @@ const GA4Schema: SchemaInterface = {
     return `SELECT
   ${ids.select},
   TIMESTAMP_MICROS(event_timestamp) as timestamp,
-  experiment_id_param.value.string_value AS experiment_id,
-  variation_id_param.value.int_value AS variation_id,
+  COALESCE(experiment_id_param.value.string_value, CAST(experiment_id_param.value.int_value AS STRING)) AS experiment_id,
+  COALESCE(variation_id_param.value.string_value, CAST(variation_id_param.value.int_value AS STRING)) AS variation_id,
   geo.country as country,
   traffic_source.source as source,
   traffic_source.medium as medium,
@@ -141,9 +143,7 @@ WHERE
 };
 
 // GA4Schema's assignment query for a picked events table. user_id is left out
-// because logged-out events have none. GA4 stores a param by how its value
-// looks, so a key sent as "123" lands in int_value and "control" in
-// string_value.
+// because logged-out events have none.
 export const GA4_EXPOSURE_TEMPLATE: SourceTableTemplate = {
   matches: isGA4EventsTable,
   name: "GA4 Experiment Exposures",
