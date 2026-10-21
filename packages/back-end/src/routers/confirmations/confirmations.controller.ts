@@ -72,6 +72,7 @@ export const getConfirmation = async (
           .filter((action) => action.startsWith("override.")),
       ]),
     ],
+    sentOverrides: overridesIn(c),
     requester: {
       personal: !!c.userId && !c.assumedRole,
       person: person ? person.name || person.email : null,

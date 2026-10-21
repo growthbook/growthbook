@@ -25,12 +25,12 @@ import {
 } from "shared/util";
 import {
   CONFIRM_OVERRIDE_FLAGS,
+  BYPASS_OVERRIDE_ACTIONS,
   FEATURE_LANDING_ACTIONS,
 } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type {
   BypassedGate,
-  BypassVia,
   PublishGate,
   SkippedGate,
 } from "back-end/src/revisions/publishGates";
@@ -43,15 +43,6 @@ import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/exper
 
 const TTL_MS = 60 * 60 * 1000;
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
-
-const OVERRIDE_ACTIONS: Record<BypassVia, ConfirmAction | null> = {
-  ignoreWarnings: "override.ignoreWarnings",
-  skipSchemaValidation: "override.skipSchemaValidation",
-  skipHooks: "override.skipHooks",
-  bypassApprovalPermission: "override.bypassApproval",
-  restApiBypassesReviews: "override.restBypassesReviews",
-  revertsBypassApproval: null,
-};
 
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -241,7 +232,7 @@ export async function requireConfirmation(
     ...new Set([
       ...opts.actions,
       ...(opts.bypassing ?? []).flatMap(
-        ({ via }) => OVERRIDE_ACTIONS[via] ?? [],
+        ({ via }) => BYPASS_OVERRIDE_ACTIONS[via] ?? [],
       ),
       ...(context.org.settings?.restApiBypassesReviews &&
       opts.actions.some((action) => REVIEWED_WRITES.has(action))
