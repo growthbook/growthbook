@@ -60,7 +60,7 @@ export default function RoleRuleLabel({
 
 export function OverridesProjectRolesBadge() {
   return (
-    <Tooltip content="Admin applies in every Project. Project roles can add to it but never narrow it.">
+    <Tooltip content="Admin applies in every Project, so Project roles have no effect.">
       <Badge
         color="gray"
         variant="soft"

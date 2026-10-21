@@ -378,7 +378,7 @@ export async function createArchetype(req: AuthRequest, res: Response) {
 4. Permissions merge using OR logic (union)
 5. Environment limits apply only to environment-scoped permissions
 6. A member who is a global Admin (own role, additional role, or a team's
-   global role) isn't narrowed by project roles; they can only add. API keys
+   global role) isn't affected by project roles; they have no effect. API keys
    and scoped tokens keep project roles binding, so member callers pass
    `{ member: true }` to `getRolePermissions`.
 

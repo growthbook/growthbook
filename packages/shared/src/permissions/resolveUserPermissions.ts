@@ -288,8 +288,8 @@ function applyProjectAccessRestrictions(
 }
 
 // Used for both org API keys and member records. Pass `member` for a member:
-// a global admin could rewrite their own project roles, so those roles only add
-// to admin there. An API key can't, so its project roles stay binding.
+// a global admin could rewrite their own project roles, so those roles have no
+// effect. An API key can't, so its project roles stay binding.
 export function getRolePermissions(
   roleInfo: MemberRoleWithProjects,
   org: OrganizationInterface,
@@ -334,6 +334,7 @@ export function getRolePermissions(
     }
   }
 
+  // A global admin already has everything, so their project roles have no effect.
   if (
     member &&
     holdsGlobalAdmin(
@@ -341,15 +342,7 @@ export function getRolePermissions(
       allTeams.filter((t) => roleInfo.teams?.includes(t.id)),
     )
   ) {
-    for (const [project, projectPermissions] of Object.entries(
-      permissions.projects,
-    )) {
-      permissions.projects[project] = mergeUserPermissionObj(
-        cloneDeep(permissions.global),
-        projectPermissions,
-        org,
-      );
-    }
+    permissions.projects = {};
   }
 
   applyProjectAccessRestrictions(permissions, restrictedProjects);

@@ -50,7 +50,7 @@ GrowthBook first determines whether the action is scoped to a specific project.
 
 Because the global role is ignored whenever a project-specific role applies, a project-specific role can _reduce_ access below the global role. For example, a user whose global role is `Engineer` but who has a `Read Only` role on a project is read-only on that project.
 
-The exception is a global `Admin`. A member whose global role is `Admin` (directly, as an additional role, or through a team's global role) keeps `Admin` in every project, since they could change their own project roles anyway. Their project-specific roles, and their teams', can only add access there. This applies to members only: an API key's project-specific roles still limit it even when its global role is `Admin`, and so does the scope of a scoped Personal Access Token.
+The exception is a global `Admin`. A member whose global role is `Admin` (directly, as an additional role, or through a team's global role) keeps `Admin` in every project, since they could change their own project roles anyway. Their project-specific roles, and their teams', have no effect there. This applies to members only: an API key's project-specific roles still limit it even when its global role is `Admin`, and so does the scope of a scoped Personal Access Token.
 
 **Actions on another project** are evaluated against the user's role in _that_ project. Adding a project to a Feature Flag's [Targeting Projects](/features/environments#delivering-a-feature-to-multiple-projects) checks the `Target` permission in the project being added (choosing All Projects checks it unscoped), while editing and publishing the flag itself remain governed by its primary project.
 

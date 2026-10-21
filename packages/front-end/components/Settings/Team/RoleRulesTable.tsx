@@ -252,7 +252,7 @@ export default function RoleRulesTable({
           {!isAllProjects && (
             <Text size="sm" color="text-low">
               {adminEverywhere
-                ? "Replaces the All Projects rules inside it. Does not override global Admin role."
+                ? "Has no effect for a global Admin."
                 : "Replaces the All Projects rules inside it"}
             </Text>
           )}

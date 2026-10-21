@@ -558,8 +558,8 @@ export function getEffectiveRolesForProject(
       environments: rule.environments || [],
     }));
 
-  // A global admin's project roles can't narrow admin, so their All Projects
-  // roles are what apply in every project.
+  // A global admin's project roles have no effect, so their All Projects roles
+  // are what apply in every project.
   if (
     exemptGlobalAdmin &&
     holdsGlobalAdmin(
