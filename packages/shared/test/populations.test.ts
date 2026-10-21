@@ -8,6 +8,7 @@ import {
   getPopulationRuleViolations,
   MAX_POPULATION_FACT_TABLES,
   MAX_POPULATION_STEPS,
+  parseAggregateFilterForEditor,
   type PopulationRuleFactTable,
 } from "shared/populations";
 import type { ColumnInterface } from "shared/types/fact-table";
@@ -89,6 +90,49 @@ describe("getPopulationFactTableIds", () => {
         step("ftb_orders"),
       ]),
     ).toEqual(["ftb_orders", "ftb_events"]);
+  });
+});
+
+describe("parseAggregateFilterForEditor", () => {
+  it("splits a single comparison into operator and value", () => {
+    expect(parseAggregateFilterForEditor(">=10")).toEqual({
+      operator: ">=",
+      value: "10",
+    });
+    expect(parseAggregateFilterForEditor(" < 2.5 ")).toEqual({
+      operator: "<",
+      value: "2.5",
+    });
+  });
+
+  it("keeps the operator while the value is empty or partial", () => {
+    expect(parseAggregateFilterForEditor(">")).toEqual({
+      operator: ">",
+      value: "",
+    });
+    expect(parseAggregateFilterForEditor("=1.")).toEqual({
+      operator: "=",
+      value: "1.",
+    });
+  });
+
+  it("starts an empty filter at at least", () => {
+    expect(parseAggregateFilterForEditor("")).toEqual({
+      operator: ">=",
+      value: "",
+    });
+  });
+
+  it("normalizes <> to !=", () => {
+    expect(parseAggregateFilterForEditor("<>3")).toEqual({
+      operator: "!=",
+      value: "3",
+    });
+  });
+
+  it("returns null for filters that need raw text", () => {
+    expect(parseAggregateFilterForEditor(">=3,<10")).toBeNull();
+    expect(parseAggregateFilterForEditor("lots")).toBeNull();
   });
 });
 

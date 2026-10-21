@@ -1343,10 +1343,12 @@ const buildSlackMessageForApiKeyExpirationEvent = (
 ): SlackMessage => {
   const kind = "secret API key";
   const name = apiKey.description || apiKey.id;
+  // An expired key can't be rotated, only replaced.
+  const keysUrl = `${APP_ORIGIN}/settings/keys`;
   const text =
     event === "apiKey.expired"
       ? `The ${kind} ${name} expired on ${apiKey.expiresAt}.`
-      : `The ${kind} ${name} expires on ${apiKey.expiresAt}.`;
+      : `The ${kind} ${name} expires on ${apiKey.expiresAt}. Rotate it at ${keysUrl}.`;
   return {
     text,
     blocks: [
@@ -1357,7 +1359,7 @@ const buildSlackMessageForApiKeyExpirationEvent = (
           text:
             event === "apiKey.expired"
               ? `The ${kind} *${name}* expired on ${apiKey.expiresAt}.`
-              : `The ${kind} *${name}* expires on ${apiKey.expiresAt}.`,
+              : `The ${kind} *${name}* expires on ${apiKey.expiresAt}.\n• <${keysUrl}|Rotate API key>`,
         },
       },
     ],
