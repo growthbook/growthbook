@@ -1,7 +1,6 @@
 import type { PopulationStep } from "shared/validators";
-import type { FactTableDefinition, RowFilter } from "shared/types/fact-table";
-import { formatFilterPreview } from "@/enterprise/components/ProductAnalytics/util";
-import { operatorLabelMap } from "@/components/FactTables/rowFilterUtils";
+import type { FactTableDefinition } from "shared/types/fact-table";
+import { getRowFilterDescription } from "@/components/FactTables/rowFilterUtils";
 
 function pluralize(n: number, unit: string): string {
   return `${n} ${n === 1 ? unit.replace(/s$/, "") : unit}`;
@@ -20,28 +19,6 @@ function getColumnDisplayName(
   return (
     factTable?.columns.find((c) => c.column === columnKey)?.name || columnKey
   );
-}
-
-// formatFilterPreview is a compact chip label that hides SQL and doesn't say
-// when a saved filter is gone, which the definition sentence needs to show.
-function describeRowFilter(
-  rowFilter: RowFilter,
-  factTable: FactTableDefinition | null,
-): string {
-  if (rowFilter.operator === "sql_expr") {
-    return `${operatorLabelMap.sql_expr} ${rowFilter.values?.[0] ?? ""}`.trim();
-  }
-  if (rowFilter.operator === "saved_filter") {
-    const filterId = rowFilter.values?.[0] ?? "";
-    // Without the fact table there's no way to tell a deleted filter from one
-    // that still exists, so show the id like the fact table name does.
-    if (!factTable) return filterId;
-    return (
-      factTable.filters.find((f) => f.id === filterId)?.name ??
-      "Deleted saved filter"
-    );
-  }
-  return formatFilterPreview(rowFilter, factTable);
 }
 
 // A one-line summary such as "Has Events matching the row filter: country=US
@@ -65,7 +42,7 @@ export function describePopulationStep({
     const rowFiltersPrefix =
       rowFilters?.length === 1 ? "row filter: " : "row filters: ";
     const rowFiltersDescription = `${rowFiltersPrefix}${rowFilters
-      .map((rf) => describeRowFilter(rf, factTable))
+      .map((rf) => getRowFilterDescription(rf, factTable))
       .join(", ")}`;
     filtersDescriptions.push(rowFiltersDescription);
   }

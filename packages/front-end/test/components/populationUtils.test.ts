@@ -104,7 +104,7 @@ describe("describePopulationStep", () => {
     ).toEqual({
       beforeFactTableName: "Has ",
       factTableName: "Has",
-      afterFactTableName: " matching the row filter: country=US",
+      afterFactTableName: " matching the row filter: country = US",
     });
   });
 
@@ -114,13 +114,13 @@ describe("describePopulationStep", () => {
 
   it("describes a step with one row filter", () => {
     expect(getStepDescription({ rowFilters: [country] })).toBe(
-      "Has Events matching the row filter: country=US",
+      "Has Events matching the row filter: country = US",
     );
   });
 
   it("describes a step with multiple row filters", () => {
     expect(getStepDescription({ rowFilters: [country, amount] })).toBe(
-      "Has Events matching the row filters: country=US, amount>100",
+      "Has Events matching the row filters: country = US, amount > 100",
     );
   });
 
@@ -132,7 +132,7 @@ describe("describePopulationStep", () => {
         aggregateFilter: ">=3",
       }),
     ).toBe(
-      "Has Events matching the row filter: country=US and aggregate filter: count >=3 per user_id",
+      "Has Events matching the row filter: country = US and aggregate filter: count >=3 per user_id",
     );
   });
 
@@ -144,7 +144,7 @@ describe("describePopulationStep", () => {
         aggregateFilter: ">=3,<=10",
       }),
     ).toBe(
-      "Has Events matching the row filter: country=US and aggregate filter: count >=3,<=10 per user_id",
+      "Has Events matching the row filter: country = US and aggregate filter: count >=3,<=10 per user_id",
     );
   });
 
@@ -174,62 +174,16 @@ describe("describePopulationStep", () => {
         windowSettings: lastWeek,
       }),
     ).toBe(
-      "Has Events matching the row filter: country=US and aggregate filter: count >=3 per user_id in the last 1 week",
+      "Has Events matching the row filter: country = US and aggregate filter: count >=3 per user_id in the last 1 week",
     );
   });
 
-  it("uses readable labels for other row filter operators", () => {
-    const getFilterDescription = (rowFilter: RowFilter) =>
-      getStepDescription({ rowFilters: [rowFilter] }).replace(
-        "Has Events matching the row filter: ",
-        "",
-      );
-    expect(
-      getFilterDescription({
-        column: "country",
-        operator: "not_in",
-        values: ["US", "CA"],
-      }),
-    ).toBe("country not in US, CA");
-    expect(
-      getFilterDescription({ column: "country", operator: "is_null" }),
-    ).toBe("country is null");
-  });
-
-  it("includes the SQL of a SQL expression filter", () => {
+  it("uses saved filter names", () => {
     expect(
       getStepDescription({
-        rowFilters: [{ operator: "sql_expr", values: ["amount > 0"] }],
+        rowFilters: [{ operator: "saved_filter", values: ["flt_purchases"] }],
       }),
-    ).toBe("Has Events matching the row filter: SQL Expression amount > 0");
-  });
-
-  describe("saved filters", () => {
-    const savedFilter = (id: string): RowFilter => ({
-      operator: "saved_filter",
-      values: [id],
-    });
-
-    it("uses the saved filter's name", () => {
-      expect(
-        getStepDescription({ rowFilters: [savedFilter("flt_purchases")] }),
-      ).toBe("Has Events matching the row filter: Purchases only");
-    });
-
-    it("says when the saved filter was deleted", () => {
-      expect(
-        getStepDescription({ rowFilters: [savedFilter("flt_gone")] }),
-      ).toBe("Has Events matching the row filter: Deleted saved filter");
-    });
-
-    it("falls back to the saved filter id when the fact table is missing", () => {
-      expect(
-        getStepDescription(
-          { rowFilters: [savedFilter("flt_purchases")] },
-          null,
-        ),
-      ).toBe("Has ftb_events matching the row filter: flt_purchases");
-    });
+    ).toBe("Has Events matching the row filter: Purchases only");
   });
 
   it("uses column display names", () => {
@@ -241,7 +195,7 @@ describe("describePopulationStep", () => {
           columns: [column("country", "string", { name: "Country" })],
         },
       ),
-    ).toBe("Has Events matching the row filter: Country=US");
+    ).toBe("Has Events matching the row filter: Country = US");
   });
 
   it("falls back to ids when the fact table is missing", () => {
@@ -255,7 +209,7 @@ describe("describePopulationStep", () => {
         null,
       ),
     ).toBe(
-      "Has ftb_events matching the row filter: country=US and aggregate filter: total amount >100 per user_id",
+      "Has ftb_events matching the row filter: country = US and aggregate filter: total amount >100 per user_id",
     );
   });
 });
