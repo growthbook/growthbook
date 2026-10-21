@@ -102,7 +102,7 @@ const ApiKeysModal: FC<{
     existingKey
       ? latestEditedExpiration(
           existingKey.expiresAt,
-          existingKey.dateCreated,
+          existingKey.keyIssuedAt ?? existingKey.dateCreated,
           maxLifetimeDays,
         )
       : undefined,
@@ -355,7 +355,11 @@ const ApiKeysModal: FC<{
           />
           {scoped && (
             <Box mt="3">
-              <RoleRulesTable value={roleState} setValue={setRoleState} />
+              <RoleRulesTable
+                value={roleState}
+                setValue={setRoleState}
+                forApiKey
+              />
             </Box>
           )}
         </Box>
@@ -379,7 +383,11 @@ const ApiKeysModal: FC<{
                 " (subject to the requester's own permissions)"}
               .
             </Text>
-            <RoleRulesTable value={roleState} setValue={setRoleState} />
+            <RoleRulesTable
+              value={roleState}
+              setValue={setRoleState}
+              forApiKey
+            />
           </Box>
         </>
       )}
