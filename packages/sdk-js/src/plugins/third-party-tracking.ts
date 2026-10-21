@@ -5,7 +5,7 @@ import type {
   UserScopedGrowthBook,
 } from "../GrowthBookClient";
 
-export type Trackers = "gtag" | "gtm" | "segment";
+export type Trackers = "gtag" | "gtm" | "segment" | "rudderstack";
 
 export function thirdPartyTrackingPlugin({
   additionalCallback,
@@ -66,6 +66,24 @@ export function thirdPartyTrackingPlugin({
           window.setTimeout(resolve, 300),
         );
         promises.push(segmentPromise);
+      }
+
+      // Rudderstack - rudderanalytics.js
+      if (
+        trackers.includes("rudderstack") &&
+        window.rudderanalytics &&
+        window.rudderanalytics.track
+      ) {
+        let rudderResolve;
+        const ruddersPromise = new Promise((resolve) => {
+          rudderResolve = resolve;
+        });
+        promises.push(ruddersPromise);
+        window.rudderanalytics.track(
+          "Experiment Viewed",
+          eventParams,
+          rudderResolve
+        );
       }
 
       await Promise.all(promises);
