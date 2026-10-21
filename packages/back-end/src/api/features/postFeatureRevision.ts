@@ -1,6 +1,7 @@
 import {
   postFeatureRevisionValidator,
   ACTIVE_DRAFT_STATUSES,
+  type ConfirmAction,
 } from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import type { ApiRequestLocals } from "back-end/types/api";
@@ -8,6 +9,7 @@ import { toApiRevision } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { ConflictError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { holdAtRoute } from "back-end/src/services/confirmations";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   countDocuments,
@@ -21,6 +23,13 @@ export async function createFeatureDraft(
     params: { id: string };
     body: { comment?: string; title?: string };
     query?: { overrideDraftLimit?: string | boolean };
+  },
+  route: {
+    confirmation: readonly ConfirmAction[];
+    tags: readonly string[];
+    method: string;
+    path: string;
+    summary: string;
   },
 ) {
   const feature = await getFeature(req.context, req.params.id);
@@ -51,6 +60,17 @@ export async function createFeatureDraft(
       );
     }
   }
+
+  const { confirmation, tags, method, path, summary } = route;
+  await holdAtRoute(
+    req.context,
+    confirmation,
+    tags,
+    method,
+    path,
+    req,
+    summary,
+  );
 
   const environments = getEnvironmentIdsFromOrg(req.context.org);
 
@@ -93,6 +113,9 @@ export async function createFeatureDraft(
 export const postFeatureRevision = createApiRequestHandler(
   postFeatureRevisionValidator,
 )(async (req) => {
-  const { feature, revision } = await createFeatureDraft(req);
+  const { feature, revision } = await createFeatureDraft(
+    req,
+    postFeatureRevisionValidator,
+  );
   return { revision: toApiRevision(revision, req.context, feature) };
 });

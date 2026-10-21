@@ -721,6 +721,38 @@ describe("confirmations", () => {
     });
   });
 
+  it("refuses a draft past the cap before a key that holds drafts asks anyone", async () => {
+    await seed("production");
+    setReqContext(
+      asKey(
+        { ...pat, confirmRules: [{ actions: ["feature.*", "override.*"] }] },
+        { maxConcurrentDrafts: 1 },
+      ),
+    );
+    const createDraft = (query: string) =>
+      auth(
+        request(app).post(`/api/v2/features/${FLAG}/revisions${query}`),
+      ).send({});
+
+    const refused = await createDraft("");
+    expect(refused.status).toBe(409);
+    const held = await createDraft("?overrideDraftLimit=true");
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "feature.draft", environments: [] },
+      { action: "override.draftLimit", environments: [] },
+    ]);
+    expect(
+      await mongoose.connection
+        .collection("confirmations")
+        .findOne({ id: held.body.confirmation.id }),
+    ).toMatchObject({
+      notices: [
+        { severity: "error", messages: [refused.body.message], via: null },
+      ],
+    });
+  });
+
   it("holds a rule for all environments and projects once the org requires scoped rules", async () => {
     await seed("production");
     const scoped = { requireScopedFeatureRules: true };
