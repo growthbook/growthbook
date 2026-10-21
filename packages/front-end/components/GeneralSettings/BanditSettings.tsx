@@ -211,7 +211,7 @@ export default function BanditSettings({
                 weight="medium"
                 label={
                   <Flex as="span" align="center" gap="1">
-                    Weight results by update period
+                    Weight results across update periods
                     <span
                       onClick={(e) => {
                         // Keep clicks on the info icon from toggling the checkbox.
@@ -226,7 +226,7 @@ export default function BanditSettings({
                     </span>
                   </Flex>
                 }
-                description="Reduce bias in Contextual Bandit decision-metric estimates due to changing traffic over time."
+                description="Reduce bias in Contextual Bandit decision metric estimates due to changing traffic over time."
                 value={form.watch("banditPeriodWeighting") ?? true}
                 setValue={(value) =>
                   form.setValue("banditPeriodWeighting", value, {
