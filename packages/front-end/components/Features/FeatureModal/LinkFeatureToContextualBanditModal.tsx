@@ -27,6 +27,7 @@ import track from "@/services/track";
 import {
   getDefaultValue,
   useEnvironments,
+  useScopedRuleDefaultEnvironment,
   getDefaultVariationValue,
   validateFeatureRule,
 } from "@/services/features";
@@ -177,10 +178,12 @@ export default function LinkFeatureToContextualBanditModal({
   >({});
   const [showValueErrors, setShowValueErrors] = useState(false);
 
-  const [ruleAllEnvironments, setRuleAllEnvironments] = useState<boolean>(true);
+  const scopedRuleDefaultEnv = useScopedRuleDefaultEnvironment(environments);
+  const [ruleAllEnvironments, setRuleAllEnvironments] =
+    useState<boolean>(!scopedRuleDefaultEnv);
   const [ruleSelectedEnvironments, setRuleSelectedEnvironments] = useState<
     string[]
-  >([]);
+  >(scopedRuleDefaultEnv ? [scopedRuleDefaultEnv] : []);
 
   const { apiCall } = useAuth();
   const {
