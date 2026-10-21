@@ -34,6 +34,7 @@ import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
 import { BOTTOM_TOOLTIP_DELAY_MS } from "./railTooltips";
 import GrowthBookLogo from "./GrowthBookLogo";
+import ProfileMenu from "./ProfileMenu";
 import { OPTICAL_STROKE, withOpticalWeight } from "./opticalWeight";
 import {
   buildSidebarLinkFilterProps,
@@ -793,6 +794,14 @@ export default function AppRail() {
           href="/settings"
           active={settingsActive}
           tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
+        />
+        <ProfileMenu
+          railCollapsed={contentCollapsed}
+          railClassName={contentCollapsed ? styles.iconItem : styles.row}
+          railOpenClassName={styles.menuOpen}
+          railLabelClassName={styles.rowLabel}
+          railIconSize={ICON_SIZE}
+          railIconClassName={contentCollapsed ? undefined : styles.rowIcon}
         />
         {!isNarrow ? (
           <>

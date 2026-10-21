@@ -1,0 +1,25 @@
+// railMenu.tsx: the side nav's menus, the design system's dropdown menus
+// with its look; only the items' content is laid out here.
+
+// An item's content: its icon, its label (truncated), then anything after
+// it.
+.itemContent {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+}
+
+.itemIcon {
+  flex-shrink: 0;
+}
+
+.itemLabel {
+  flex-grow: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
