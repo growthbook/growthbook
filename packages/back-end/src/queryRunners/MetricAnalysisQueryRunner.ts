@@ -11,6 +11,7 @@ import {
   ratioVarianceFromSums,
   returnZeroIfNotFinite,
   getExposureQueryIdentifierTypes,
+  pickExposureQueryColumnMapping,
 } from "shared/util";
 import { DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
 import {
@@ -81,10 +82,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
         ? {
             query: populationExposureQuery.query,
             identifierType: params.settings.userIdType,
-            userIdColumns: populationExposureQuery.userIdColumns,
-            timestampColumn: populationExposureQuery.timestampColumn,
-            experimentIdColumn: populationExposureQuery.experimentIdColumn,
-            variationIdColumn: populationExposureQuery.variationIdColumn,
+            ...pickExposureQueryColumnMapping(populationExposureQuery),
           }
         : undefined,
     };

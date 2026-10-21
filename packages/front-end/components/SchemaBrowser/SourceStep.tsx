@@ -25,7 +25,6 @@ import {
   isManagedWarehouseUnavailable,
   parseIntWithDefault,
 } from "shared/util";
-import type { TestQueryType } from "shared/types/query";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
@@ -292,13 +291,11 @@ type TestQueryResults = {
 export default function SourceStep({
   source,
   validateRef,
-  queryType,
   placeholder,
   datasourceHeader,
 }: {
   source: SourceTable;
   validateRef: MutableRefObject<(() => Promise<void>) | null>;
-  queryType: TestQueryType;
   placeholder: string;
   // Shown above the table picker or the SQL editor, e.g. a Data Source picker
   datasourceHeader?: ReactNode;
@@ -307,6 +304,7 @@ export default function SourceStep({
   const { getDatasourceById } = useDefinitions();
   const {
     datasourceId,
+    queryType,
     querySql: sql,
     setSql,
     detected,

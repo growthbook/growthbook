@@ -13,6 +13,7 @@ import {
 import { mapDatabaseTypeToEnum } from "shared/enterprise";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import { buildRowFilterWhereClause } from "shared/experiments";
+import type { TestQueryType } from "shared/types/query";
 import {
   columnTypesToColumnSource,
   FilterColumnSource,
@@ -42,6 +43,7 @@ export function useSourceTable({
   datasource,
   tableModeAvailable,
   templates,
+  queryType,
   sql,
   setSql,
   initialColumns = null,
@@ -53,6 +55,7 @@ export function useSourceTable({
   datasource: DataSourceInterfaceWithParams | null | undefined;
   tableModeAvailable: boolean;
   templates: SourceTableTemplate[];
+  queryType: TestQueryType;
   // SQL mode's query; switching to SQL mode seeds it with the generated SQL
   sql: string;
   setSql: (sql: string) => void;
@@ -62,7 +65,7 @@ export function useSourceTable({
     columns: DetectedColumn[],
     fromTable?: boolean,
   ) => string | null;
-  // Columns kept out of the generated SELECT. Removing none selects every one.
+  // Removing no columns generates SELECT *; mapped columns are never removed
   columnSelection?: { mapped: string[]; removed: string[] };
   onSelectTable: (tableName: string) => void;
   // Called when the detected columns change, not when only their types do
@@ -156,6 +159,7 @@ export function useSourceTable({
         datasourceId,
         limit: 0,
         detectColumns: true,
+        queryType,
       }),
     })
       .then((res) => ({
@@ -173,7 +177,7 @@ export function useSourceTable({
     return () => {
       cancelled = true;
     };
-  }, [unlistedPath, datasourceId, apiCall, unlistedAttempt]);
+  }, [unlistedPath, datasourceId, apiCall, unlistedAttempt, queryType]);
 
   const tableColumns = unlistedPath
     ? (unlistedColumns?.columns ?? null)
@@ -369,6 +373,7 @@ export function useSourceTable({
 
   return {
     datasourceId,
+    queryType,
     querySql,
     setSql,
     detected,

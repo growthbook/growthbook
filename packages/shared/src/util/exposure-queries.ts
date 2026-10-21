@@ -1,6 +1,11 @@
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
-import { DataSourceSettings, ExposureQuery } from "shared/types/datasource";
+import pick from "lodash/pick";
+import {
+  DataSourceSettings,
+  ExposureQuery,
+  ExposureQueryColumnMapping,
+} from "shared/types/datasource";
 import { ResolvedExposureQuery } from "shared/types/integrations";
 import type {
   ApiAssignmentQueryRef,
@@ -27,13 +32,17 @@ export function getExposureQueryIdentifierTypes(
     : [query.userIdType].filter(Boolean);
 }
 
-type ExposureQueryColumnMapping = Pick<
-  ExposureQuery,
-  | "userIdColumns"
-  | "timestampColumn"
-  | "experimentIdColumn"
-  | "variationIdColumn"
->;
+export const EXPOSURE_QUERY_COLUMN_MAPPING_FIELDS = [
+  "userIdColumns",
+  "timestampColumn",
+  "experimentIdColumn",
+  "variationIdColumn",
+] as const;
+
+export const pickExposureQueryColumnMapping = (
+  query: ExposureQueryColumnMapping,
+): ExposureQueryColumnMapping =>
+  pick(query, EXPOSURE_QUERY_COLUMN_MAPPING_FIELDS);
 
 // An unset mapping falls back to the canonical name, so SQL that aliases its
 // columns to those names needs no mapping.
@@ -540,26 +549,16 @@ export function assertExposureQueryDeclaresIdentifierType(
 export function resolveExposureQueryForAnalysis(
   query: Pick<
     ExposureQuery,
-    | "id"
-    | "name"
-    | "query"
-    | "userIdType"
-    | "userIdTypes"
-    | "userIdColumns"
-    | "timestampColumn"
-    | "experimentIdColumn"
-    | "variationIdColumn"
-  >,
+    "id" | "name" | "query" | "userIdType" | "userIdTypes"
+  > &
+    ExposureQueryColumnMapping,
   storedIdentifierType: string | undefined,
 ): ResolvedExposureQuery {
   assertExposureQueryDeclaresIdentifierType(query, storedIdentifierType);
   return {
     query: query.query,
     identifierType: resolveAnalysisIdentifierType(query, storedIdentifierType),
-    userIdColumns: query.userIdColumns,
-    timestampColumn: query.timestampColumn,
-    experimentIdColumn: query.experimentIdColumn,
-    variationIdColumn: query.variationIdColumn,
+    ...pickExposureQueryColumnMapping(query),
   };
 }
 

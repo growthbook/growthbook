@@ -11,7 +11,10 @@ import {
 } from "shared/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import { QueryStatistics } from "shared/types/query";
-import type { ExposureQuery } from "shared/types/datasource";
+import type {
+  ExposureQuery,
+  ExposureQueryColumnMapping,
+} from "shared/types/datasource";
 import {
   FactTableMap,
   ColumnInterface,
@@ -590,12 +593,7 @@ type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
 export type ResolvedExposureQuery = {
   query: string;
   identifierType: string;
-  // Column-role mappings, as on ExposureQuery
-  userIdColumns?: Record<string, string>;
-  timestampColumn?: string;
-  experimentIdColumn?: string;
-  variationIdColumn?: string;
-};
+} & ExposureQueryColumnMapping;
 
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   metric: MetricInterface;

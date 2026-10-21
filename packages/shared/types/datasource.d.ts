@@ -213,6 +213,14 @@ export interface ExposureQuery {
   columns?: DetectedColumn[];
 }
 
+export type ExposureQueryColumnMapping = Pick<
+  ExposureQuery,
+  | "userIdColumns"
+  | "timestampColumn"
+  | "experimentIdColumn"
+  | "variationIdColumn"
+>;
+
 export interface FeatureUsageQuery {
   id: string;
   query: string;

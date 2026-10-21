@@ -53,9 +53,13 @@ export const isIdentifierCandidate = (c: DetectedColumn) =>
 export const isDimensionCandidate = (c: DetectedColumn) =>
   ["string", ""].includes(c.datatype);
 
+// The columns an object needs, beyond a timestamp and an identifier. A Fact
+// Table needs nothing more; an assignment query also needs its experiment and
+// variation ids.
 export function getColumnMappingError(
   columns: DetectedColumn[],
   fromTable = false,
+  { minColumns = 2, roles = "timestamp and identifier" } = {},
 ): string | null {
   if (!columns.some(isTimestampCandidate)) {
     return fromTable
@@ -68,14 +72,35 @@ export function getColumnMappingError(
       : "Your query must return a string or number column to use as an identifier.";
   }
   // A single column can satisfy both checks when its type is unknown, but the
-  // timestamp and the identifier have to be different columns.
-  if (columns.length < 2) {
+  // roles have to be different columns.
+  if (columns.length < minColumns) {
     return fromTable
-      ? "Selected table must have separate timestamp and identifier columns."
-      : "Your query must return separate timestamp and identifier columns.";
+      ? `Selected table must have separate ${roles} columns.`
+      : `Your query must return separate ${roles} columns.`;
   }
   return null;
 }
+
+// A mapping survives as long as its column does; otherwise it's matched again
+export const rematchColumn = (
+  previous: string,
+  columns: DetectedColumn[],
+  match: () => string,
+) => (columns.some((c) => c.column === previous) ? previous : match());
+
+export const rematchUserIdColumns = (
+  previous: Record<string, string>,
+  identifierTypes: string[],
+  columns: DetectedColumn[],
+): Record<string, string> =>
+  Object.fromEntries(
+    identifierTypes.flatMap((idType) => {
+      const column = rematchColumn(previous[idType] ?? "", columns, () =>
+        findColumnByName(columns, idType),
+      );
+      return column ? [[idType, column]] : [];
+    }),
+  );
 
 const normalizeColumnName = (name: string) =>
   name.replace(/[^a-z]/gi, "").toLowerCase();

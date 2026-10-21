@@ -34,12 +34,13 @@ import Page from "@/components/Modal/Page";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
-  findColumnByName,
   GA4_EVENTS_TEMPLATE,
   getColumnMappingError,
   getDefaultTimestampColumn,
   getNewFactTableProjects,
   getRemappedUserIdColumns,
+  rematchColumn,
+  rematchUserIdColumns,
   isIdentifierCandidate,
   isTimestampCandidate,
 } from "@/services/factTables";
@@ -357,28 +358,13 @@ export default function NewFactTableModal({
   // Better types for the same columns leave the configuration alone, so this
   // only runs when the columns themselves change
   const remapColumns = (columns: DetectedColumn[]) => {
-    const exists = (column: string) => columns.some((c) => c.column === column);
-
-    const idTypes = (datasource?.settings?.userIdTypes || []).map(
-      (t) => t.userIdType,
-    );
-
-    // A mapping the user picked survives as long as its column does; only
-    // the ones that no longer resolve are detected again.
     setTimestampColumn((prev) =>
-      exists(prev) ? prev : getDefaultTimestampColumn(columns),
+      rematchColumn(prev, columns, () => getDefaultTimestampColumn(columns)),
     );
     setUserIdColumns((prev) =>
-      Object.fromEntries(
-        idTypes.flatMap((idType) => {
-          const current = prev[idType];
-          if (current && exists(current)) return [[idType, current]];
-          const match = findColumnByName(columns, idType);
-          return match ? [[idType, match]] : [];
-        }),
-      ),
+      rematchUserIdColumns(prev, identifierTypes, columns),
     );
-    if (exists(inlineFilterColumn)) return;
+    if (columns.some((c) => c.column === inlineFilterColumn)) return;
     // Case-insensitive: Snowflake's information schema reports EVENT_NAME
     const eventTypeColumn =
       INLINE_FILTER_CANDIDATES.map((candidate) =>
@@ -396,6 +382,7 @@ export default function NewFactTableModal({
     datasource,
     tableModeAvailable: growthbook.isOn("fact-table-table-mode"),
     templates: [GA4_EVENTS_TEMPLATE],
+    queryType: "factTableTest",
     sql,
     setSql,
     getColumnMappingError,
@@ -621,7 +608,6 @@ export default function NewFactTableModal({
             key={mode}
             source={source}
             validateRef={validateSql}
-            queryType="factTableTest"
             placeholder={"SELECT\n  user_id,\n  timestamp\nFROM\n  events"}
             datasourceHeader={
               <Select

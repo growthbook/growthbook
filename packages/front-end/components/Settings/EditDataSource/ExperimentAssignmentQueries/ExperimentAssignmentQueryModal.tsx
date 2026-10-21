@@ -4,6 +4,7 @@ import { PiArrowClockwise, PiArrowLeft } from "react-icons/pi";
 import uniqId from "uniqid";
 import omit from "lodash/omit";
 import {
+  EXPOSURE_QUERY_COLUMN_MAPPING_FIELDS,
   getExposureQueryExperimentIdColumn,
   getExposureQueryIdentifierColumn,
   getExposureQueryIdentifierTypes,
@@ -22,8 +23,11 @@ import ColumnMappingRow, {
 } from "@/components/SchemaBrowser/ColumnMappingRow";
 import {
   findColumnByName,
+  getColumnMappingError,
   getDefaultTimestampColumn,
   getRemappedUserIdColumns,
+  rematchColumn,
+  rematchUserIdColumns,
   isDimensionCandidate,
   isIdentifierCandidate,
   isTimestampCandidate,
@@ -51,27 +55,14 @@ import Table, { TableBody } from "@/ui/Table";
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
-function getExposureQueryColumnMappingError(
+const getExposureQueryColumnMappingError = (
   columns: DetectedColumn[],
-  fromTable = false,
-): string | null {
-  if (!columns.some(isTimestampCandidate)) {
-    return fromTable
-      ? "Selected table does not have a date column to use as the timestamp."
-      : "Your query must return a date column to use as the timestamp.";
-  }
-  if (!columns.some(isIdentifierCandidate)) {
-    return fromTable
-      ? "Selected table does not have a column to use as an identifier."
-      : "Your query must return a column to use as an identifier.";
-  }
-  if (columns.length < 4) {
-    return fromTable
-      ? "Selected table must have separate columns for experiment id, variation id, timestamp, and at least one identifier."
-      : "Your query must return separate columns for experiment id, variation id, timestamp, and at least one identifier.";
-  }
-  return null;
-}
+  fromTable?: boolean,
+) =>
+  getColumnMappingError(columns, fromTable, {
+    minColumns: 4,
+    roles: "experiment id, variation id, timestamp and identifier",
+  });
 
 const ROLE_LABELS: Record<string, string> = {
   experiment_id: "Experiment ID",
@@ -191,26 +182,17 @@ export const ExperimentAssignmentQueryModal = ({
 
   // A mapping survives as long as its column does
   const remapColumns = (cols: DetectedColumn[]) => {
-    const exists = (column: string) => cols.some((c) => c.column === column);
-
     setExperimentIdColumn((prev) =>
-      exists(prev) ? prev : findColumnByName(cols, "experiment_id"),
+      rematchColumn(prev, cols, () => findColumnByName(cols, "experiment_id")),
     );
     setVariationIdColumn((prev) =>
-      exists(prev) ? prev : findColumnByName(cols, "variation_id"),
+      rematchColumn(prev, cols, () => findColumnByName(cols, "variation_id")),
     );
     setTimestampColumn((prev) =>
-      exists(prev) ? prev : getDefaultTimestampColumn(cols),
+      rematchColumn(prev, cols, () => getDefaultTimestampColumn(cols)),
     );
     setUserIdColumns((prev) =>
-      Object.fromEntries(
-        identifierTypes.flatMap((idType) => {
-          const current = prev[idType];
-          if (current && exists(current)) return [[idType, current]];
-          const match = findColumnByName(cols, idType);
-          return match ? [[idType, match]] : [];
-        }),
-      ),
+      rematchUserIdColumns(prev, identifierTypes, cols),
     );
   };
 
@@ -219,6 +201,7 @@ export const ExperimentAssignmentQueryModal = ({
     // A saved query keeps only its SQL, so edits stay in SQL mode
     tableModeAvailable: !exposureQuery,
     templates,
+    queryType: "exposureQueryTest",
     sql,
     setSql,
     initialColumns: savedColumns,
@@ -306,6 +289,7 @@ export const ExperimentAssignmentQueryModal = ({
             datasourceId: dataSource.id,
             limit: 0,
             detectColumns: true,
+            queryType: "exposureQueryTest",
           }),
         },
       );
@@ -386,12 +370,7 @@ export const ExperimentAssignmentQueryModal = ({
 
     const saved: ExposureQuery = {
       // Keep fields this modal doesn't edit, but not stale mappings.
-      ...omit(exposureQuery ?? {}, [
-        "userIdColumns",
-        "timestampColumn",
-        "experimentIdColumn",
-        "variationIdColumn",
-      ]),
+      ...omit(exposureQuery ?? {}, EXPOSURE_QUERY_COLUMN_MAPPING_FIELDS),
       id: exposureQuery?.id ?? uniqId("exq_"),
       name,
       description,
@@ -476,7 +455,6 @@ export const ExperimentAssignmentQueryModal = ({
             key={mode}
             source={source}
             validateRef={validateSql}
-            queryType="exposureQueryTest"
             placeholder={`SELECT\n${starterIdentifierTypes
               .map((id) => `  ${id},\n`)
               .join(
