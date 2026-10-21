@@ -7,7 +7,6 @@ import {
   GBSettings,
 } from "@/components/Icons";
 import type { SidebarLinkFilterProps, SidebarLinkProps } from "./SidebarLink";
-import styles from "./Layout.module.scss";
 
 export const navlinks: SidebarLinkProps[] = [
   {
@@ -15,7 +14,6 @@ export const navlinks: SidebarLinkProps[] = [
     href: "/",
     Icon: BsHouse,
     path: /^$/,
-    className: styles.first,
   },
   {
     name: "Features",
@@ -47,7 +45,7 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Experimentation",
     href: "/experiments",
-    path: /^(experiments|experiment\/|bandit|contextual-bandit|namespaces|power-calculator)/,
+    path: /^(experiments|experiment\/|bandit|contextual-bandit|holdout|namespaces|power-calculator)/,
     Icon: GBExperiment,
     navigateOnExpand: true,
     subLinks: [
@@ -72,7 +70,8 @@ export const navlinks: SidebarLinkProps[] = [
       {
         name: "Holdouts",
         href: "/holdouts",
-        path: /^holdouts/,
+        // The list and a holdout's page (holdout/[hid]).
+        path: /^holdouts?($|\/)/,
       },
       {
         name: "Templates",

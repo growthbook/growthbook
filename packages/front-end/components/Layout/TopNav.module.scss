@@ -1,6 +1,7 @@
 @use "../../styles/colors.scss";
 
-$sidebarwidth: 240px;
+// Beside the side nav (AppRail.tsx), following its width.
+$sidebarwidth: var(--app-rail-width, 240px);
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -13,8 +14,12 @@ $sidebarwidth: 240px;
   background-color: var(--color-surface-solid);
   box-shadow: 0px 0px 1px 0px var(--border-color-200);
   padding: 0 16px;
+  transition: left 200ms ease;
   @media (max-width: 520px) {
     padding: 0 8px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
   @media (max-width: 1180px) {
     left: 0;

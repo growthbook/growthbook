@@ -1,5 +1,3 @@
-@use "../../styles/variables";
-
 // Spans from the right edge of the sidebar to the right edge of the viewport.
 // The inner wrapper mirrors .pagecontents (max-width 1340px, margin: 0 auto,
 // 15px horizontal padding) so the drawer's contents track .pagecontents
@@ -8,7 +6,7 @@
 .drawer {
   position: fixed;
   bottom: 0;
-  left: variables.$sidebarwidth;
+  left: var(--app-rail-width, 240px);
   right: 0;
   z-index: 1000;
 }

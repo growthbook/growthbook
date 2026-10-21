@@ -51,8 +51,33 @@ body {
   z-index: 990;
 }
 
+// 240px expanded, 48px collapsed; below 1180px the side nav is a drawer.
+:root {
+  --app-rail-width: 240px;
+}
+html.app-rail-collapsed {
+  --app-rail-width: 48px;
+}
+@media (max-width: 1180px) {
+  html.app-rail-collapsed {
+    --app-rail-width: 240px;
+  }
+}
+// Crossing 1180px by resizing (AppRail.tsx): no transition runs, and one under
+// way ends, so the layout switches at once.
+html.app-breakpoint-switch,
+html.app-breakpoint-switch *,
+html.app-breakpoint-switch *::before,
+html.app-breakpoint-switch *::after {
+  transition: none !important;
+}
+
 .main {
-  padding-left: 240px;
+  padding-left: var(--app-rail-width);
+  transition: padding-left 200ms ease;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
   &.product-analytics-explore-landing {
     display: flex;
     flex-direction: column;
@@ -3916,12 +3941,12 @@ input:disabled {
 
 // For absolute or fixed containers that should position themselves after the sidebar
 .sidebarLeft {
-  left: variables.$sidebarwidth;
+  left: var(--app-rail-width, 240px);
 }
 // Conditionally add these classes based on the SidebarOpenProvider
 @media (max-width: 1180px) {
   .sidebarLeftOpen {
-    left: variables.$sidebarwidth !important;
+    left: var(--app-rail-width, 240px) !important;
   }
   .sidebarLeftClosed {
     left: 0 !important;
