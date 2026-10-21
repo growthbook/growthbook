@@ -755,6 +755,7 @@ export default function FinishSettingUp({
                 <Button
                   variant="ghost"
                   icon={<PiPlus />}
+                  disabled={!hasIdentifiers}
                   onClick={() =>
                     setQueryModal({
                       index: null,

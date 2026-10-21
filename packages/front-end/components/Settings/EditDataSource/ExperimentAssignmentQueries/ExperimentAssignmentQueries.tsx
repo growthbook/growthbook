@@ -43,6 +43,8 @@ export const ExperimentAssignmentQueries: FC<
 
   const permissionsUtil = usePermissionsUtil();
   const canAdd = canEdit && permissionsUtil.canAddExposureQuery(dataSource);
+  // A query maps its columns to the Data Source's identifier types
+  const hasIdentifiers = !!dataSource.settings?.userIdTypes?.length;
   const canEditQuery = (query: ExposureQuery) =>
     canEdit && permissionsUtil.canUpdateExposureQuery(query, dataSource);
 
@@ -137,9 +139,20 @@ export const ExperimentAssignmentQueries: FC<
         </Box>
 
         <Box>
-          <Button onClick={handleAdd} disabled={!canAdd} icon={<PiPlus />}>
-            Add
-          </Button>
+          <UITooltip
+            content="Add an identifier type first"
+            enabled={canAdd && !hasIdentifiers}
+          >
+            <span style={{ display: "inline-flex" }}>
+              <Button
+                onClick={handleAdd}
+                disabled={!canAdd || !hasIdentifiers}
+                icon={<PiPlus />}
+              >
+                Add
+              </Button>
+            </span>
+          </UITooltip>
         </Box>
       </Flex>
       <p>
