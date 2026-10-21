@@ -188,7 +188,7 @@ export class ApiKeyModel extends BaseClass {
   }
 
   public async rotateOrgSecretKey(
-    req: Pick<ApiRequestLocals, "audit">,
+    req: Pick<ApiRequestLocals, "audit" | "usedPreviousSecret">,
     id: string,
     gracePeriodHours: number,
   ): Promise<ApiRotateApiKeyReturn> {
@@ -203,6 +203,18 @@ export class ApiKeyModel extends BaseClass {
       !canManageApiKeySecret(this.context.permissions, {}, this.context.userId)
     ) {
       this.context.permissions.throwPermissionError();
+    }
+    // A client still on the old secret may not have saved the new one; rotating would end the old one.
+    if (req.usedPreviousSecret) {
+      this.context.throwBadRequestError(
+        "This request used a secret that a rotation already replaced. Switch to the current secret before rotating again.",
+      );
+    }
+    // The response holds the only copy of the new secret, so losing it must not lock the key out.
+    if (id === this.context.apiKey && !gracePeriodHours) {
+      this.context.throwBadRequestError(
+        "A key rotating itself needs a grace period, so a lost response doesn't lock it out. Set gracePeriodHours above 0.",
+      );
     }
     await this.getOrgSecretKey(id);
     const { before, after } = await this.rotateSecret(id, gracePeriodHours);

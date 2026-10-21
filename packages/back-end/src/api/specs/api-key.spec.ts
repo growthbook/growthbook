@@ -42,7 +42,7 @@ export const rotateApiKeyEndpoint = {
   zodReturnObject: apiRotateApiKeyReturn,
   summary: "Rotate an API key's secret",
   description:
-    "Issues a new secret under the same id, role and settings. The replaced secret keeps working for `gracePeriodHours`, and a later rotation ends that early. Keys that need a person to confirm `access.apiKeys` changes can't rotate keys; rotate those in the app.",
+    "Issues a new secret under the same id, role and settings. The replaced secret keeps working for `gracePeriodHours`, and a later rotation ends that early. Save the new secret, then confirm it works before the grace period ends. Requests made with a replaced secret can't rotate, and keys that need a person to confirm `access.apiKeys` changes can't rotate keys; rotate those in the app.",
 };
 
 // Organization secret keys only: PATs, SDK keys and OAuth tokens are left out.

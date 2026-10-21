@@ -92,6 +92,20 @@ Choose **Rotate key** from a key's menu to give it a new secret. Its id, role, p
 
 Rotating a Secret Key takes permission to create API keys, and only its owner can rotate a Personal Access Token. Each rotation is recorded in the audit log.
 
+#### Rotate from automation
+
+A secrets manager or scheduled job can rotate a Secret Key with [`POST /api/v1/api-keys/{id}/rotate`](/api/api-keys/operation/postApiKeyRotate). The response holds the new secret, the key's new expiration, and when the replaced secret stops working (`gracePeriodHours`, 24 by default).
+
+1. Rotate, and save the new secret from the response.
+2. Send a request with the new secret to check that it works.
+3. Switch every client over before the grace period ends.
+
+If saving the new secret fails, don't rotate again: that stops the old secret right away, while clients still use it. Reveal the current secret under **Settings → API Keys** instead, before the grace period ends. To keep a retry from making this worse, GrowthBook refuses:
+
+- A rotation made with a secret that a rotation already replaced.
+- A key rotating itself with a `gracePeriodHours` of `0`, since the response holds the only copy of the new secret.
+- Any rotation by a key whose confirmation rules cover API key changes, since the new secret can't wait in a confirmation. Rotate those keys in the app.
+
 ### Organization policies
 
 Admins can require keys to expire within a maximum lifetime: under **Settings → API Keys** for Secret Keys, and under **Settings → Manage PATs** for Personal Access Tokens. Turn on **Require secret API keys to expire** (or **Require personal access tokens to expire**) and set the **Maximum lifetime (days)**.

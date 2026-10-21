@@ -68,7 +68,7 @@ export const apiRotateApiKeyValidator = {
       .max(MAX_ROTATION_GRACE_HOURS)
       .optional()
       .describe(
-        "How long the replaced secret keeps working, in hours. 0 rejects it immediately. Defaults to 24.",
+        "How long the replaced secret keeps working, in hours. 0 rejects it immediately, which a key can't do to itself. Defaults to 24.",
       ),
   }),
   querySchema: z.never(),

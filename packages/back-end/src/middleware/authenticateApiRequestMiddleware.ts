@@ -251,6 +251,8 @@ function authenticateWithApiKey(
         );
       }
       req.apiKey = id || "";
+      req.usedPreviousSecret =
+        !!apiKeyDoc.previousKey && apiKeyDoc.previousKey === secretKey;
 
       // If it's a personal access token API key, store the user ID in req
       if (userId) {
