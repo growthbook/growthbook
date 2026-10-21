@@ -7,7 +7,7 @@ import {
   MemberRoleWithProjects,
   ProjectMemberRole,
 } from "shared/types/organization";
-import { isProjectScopedTeam } from "shared/permissions";
+import { holdsGlobalAdmin, isProjectScopedTeam } from "shared/permissions";
 import { Team, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -243,6 +243,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
       {roleTeam && (
         <ChangeProjectRoleModal
           memberName={roleTeam.name}
+          adminEverywhere={holdsGlobalAdmin(roleTeam, [])}
           projectRole={
             roleTeam.projectRoles?.find((rule) => rule.project === project) ||
             newRule(project)
