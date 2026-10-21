@@ -6250,6 +6250,22 @@ export async function getExperimentAnalysisSummary({
         isImbalanced: snapshotCovariateImbalance.isImbalanced,
       };
     }
+
+    const clusterAssignment = experimentSnapshot.health?.clusterAssignment;
+    if (clusterAssignment && !clusterAssignment.error) {
+      analysisSummary.health.clusterAssignment = {
+        totalClusters: clusterAssignment.totalClusters,
+        mixedClusters: clusterAssignment.mixedClusters,
+      };
+    }
+    const clusterSubUnitMapping =
+      experimentSnapshot.health?.clusterSubUnitMapping;
+    if (clusterSubUnitMapping && !clusterSubUnitMapping.error) {
+      analysisSummary.health.clusterSubUnitMapping = {
+        totalUnits: clusterSubUnitMapping.totalUnits,
+        multiClusterUnits: clusterSubUnitMapping.multiClusterUnits,
+      };
+    }
   }
 
   const relativeAnalysis = experimentSnapshot.analyses.find(

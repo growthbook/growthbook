@@ -352,6 +352,19 @@ export const experimentAnalysisSummaryHealth = z.object({
       isImbalanced: z.boolean(),
     })
     .optional(),
+  // Cluster experiments only
+  clusterAssignment: z
+    .object({
+      totalClusters: z.number(),
+      mixedClusters: z.number(),
+    })
+    .optional(),
+  clusterSubUnitMapping: z
+    .object({
+      totalUnits: z.number(),
+      multiClusterUnits: z.number(),
+    })
+    .optional(),
 });
 export type ExperimentAnalysisSummaryHealth = z.infer<
   typeof experimentAnalysisSummaryHealth

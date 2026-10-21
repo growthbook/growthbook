@@ -385,6 +385,16 @@ const experimentSchema = new mongoose.Schema({
         _id: false,
         isImbalanced: Boolean,
       },
+      clusterAssignment: {
+        _id: false,
+        totalClusters: Number,
+        mixedClusters: Number,
+      },
+      clusterSubUnitMapping: {
+        _id: false,
+        totalUnits: Number,
+        multiClusterUnits: Number,
+      },
       power: {
         _id: false,
         type: { type: String, enum: ["error", "success"] },

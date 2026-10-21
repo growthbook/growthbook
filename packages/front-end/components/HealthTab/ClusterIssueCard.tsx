@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useMemo } from "react";
+import { Separator } from "@radix-ui/themes";
 import { getClusterIssueHealthData } from "shared/health";
 import { DEFAULT_CLUSTER_ISSUE_THRESHOLD } from "shared/constants";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -28,7 +29,7 @@ function CardFrame({
       <h2 className="d-inline">{title}</h2>{" "}
       {status !== "healthy" && <StatusBadge status={status} />}
       <p className="mt-1">{description}</p>
-      <hr></hr>
+      <Separator size="4" my="3" />
       <div className="row justify-content-start">
         <div className="ml-2 mr-2 mt-1 w-100">{children}</div>
       </div>
