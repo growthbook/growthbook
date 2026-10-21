@@ -79,6 +79,8 @@ export const verbOf = (action: string) => {
   const verb = action.split(".")[1];
   if (verb === "other") return "other actions";
   if (verb === "restBypassesReviews") return "REST bypasses reviews";
+  if (verb === "unscopedRules")
+    return "allow rules for all environments and projects";
   if (verb === "visualEditor") return "AI Visual Editor";
   return verb.replace(/([A-Z])/g, " $1").toLowerCase();
 };

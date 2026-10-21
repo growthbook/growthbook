@@ -5,6 +5,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiTimer } from "react-icons/pi";
 import type {
   ApiConfirmation,
+  ConfirmAction,
   ConfirmationLink,
   ConfirmationNotice,
 } from "shared/validators";
@@ -21,6 +22,7 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { RequestLine } from "@/components/Agent/ConfirmActionCard";
 import RequestDetails from "@/components/Confirmations/RequestDetails";
+import { verbOf } from "@/components/Settings/confirmRulesUtils";
 
 type ConfirmationResponse = {
   confirmation: ApiConfirmation;
@@ -33,6 +35,7 @@ type ConfirmationResponse = {
     query: Record<string, unknown>;
     body: unknown;
   };
+  overrides: ConfirmAction[];
   requester: {
     personal: boolean;
     person: string | null;
@@ -226,6 +229,7 @@ export default function ConfirmationPage() {
     notices,
     lastAttemptAt,
     request,
+    overrides,
     requester,
     canDecide,
   } = data;
@@ -332,6 +336,21 @@ export default function ConfirmationPage() {
           <RequestLine method={request.method} path={request.path} />
           {details ? <RequestDetails json={details} /> : null}
         </Box>
+        {overrides.length ? (
+          <Box mt="5">
+            <SectionHeader>Overrides</SectionHeader>
+            <Flex direction="column" gap="1">
+              {overrides.map((action) => {
+                const label = verbOf(action);
+                return (
+                  <Text key={action} as="div">
+                    {label.charAt(0).toUpperCase() + label.slice(1)}
+                  </Text>
+                );
+              })}
+            </Flex>
+          </Box>
+        ) : null}
         {checks.length ? (
           <Box mt="5">
             <SectionHeader>Checks this skips</SectionHeader>

@@ -340,15 +340,21 @@ export async function requireConfirmation(
 const asks = (v: unknown) =>
   v === true || (typeof v === "string" && stringToBoolean(v));
 
-// Skip flags the request sends hold wherever it is checked, needed or not.
-// Reads the replayed request on a confirmed run, so both see the same flags.
-function requestedOverrides(context: ReqContext): ConfirmAction[] {
-  const source = context.dispatchedRequest ?? context.req;
-  const query = asRecord(source?.query);
-  const body = asRecord(source?.body);
+// The skip flags a request sends.
+export function overridesIn(
+  request: { query?: unknown; body?: unknown } | undefined,
+): ConfirmAction[] {
+  const query = asRecord(request?.query);
+  const body = asRecord(request?.body);
   return Object.entries(CONFIRM_OVERRIDE_FLAGS).flatMap(([flag, action]) =>
     asks(query[flag]) || asks(body[flag]) ? [action] : [],
   );
+}
+
+// Skip flags the request sends hold wherever it is checked, needed or not.
+// Reads the replayed request on a confirmed run, so both see the same flags.
+function requestedOverrides(context: ReqContext): ConfirmAction[] {
+  return overridesIn(context.dispatchedRequest ?? context.req);
 }
 
 // Routes by API tag: what they act on, its page, and how to find its name
