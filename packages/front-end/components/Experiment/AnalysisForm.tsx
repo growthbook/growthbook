@@ -424,6 +424,11 @@ const AnalysisForm: FC<{
       experiment.id,
       experiment.type,
     );
+  const activationMetricDisabledReason = isClusterExperiment
+    ? "Activation metrics aren't supported for cluster experiments."
+    : isExperimentIncludedInIncrementalRefresh
+      ? "Activation Metrics are not yet supported with Incremental Refresh. Contact support if needed."
+      : null;
 
   const datasourceField = form.watch("datasource");
   const hasPipelineModeFeature = hasCommercialFeature("pipeline-mode");
@@ -1148,13 +1153,13 @@ const AnalysisForm: FC<{
               <>
                 <Tooltip
                   shouldDisplay={
-                    isExperimentIncludedInIncrementalRefresh &&
+                    !!activationMetricDisabledReason &&
                     form.watch("activationMetric") === ""
                   }
-                  body="Activation Metrics are not yet supported with Incremental Refresh. Contact support if needed."
+                  body={activationMetricDisabledReason}
                 >
                   <MetricSelector
-                    disabled={isExperimentIncludedInIncrementalRefresh}
+                    disabled={!!activationMetricDisabledReason}
                     datasource={form.watch("datasource")}
                     exposureQueryId={exposureQueryId}
                     exposureQueryIdentifierType={exposureQueryIdentifierType}
@@ -1163,7 +1168,7 @@ const AnalysisForm: FC<{
                     label={
                       <>
                         Activation Metric
-                        {!isExperimentIncludedInIncrementalRefresh ? (
+                        {!activationMetricDisabledReason ? (
                           <>
                             {" "}
                             <MetricsSelectorTooltip
@@ -1185,11 +1190,13 @@ const AnalysisForm: FC<{
                     helpText="Users must convert on this metric before being included"
                   />
                 </Tooltip>
-                {isExperimentIncludedInIncrementalRefresh &&
+                {activationMetricDisabledReason &&
                   form.watch("activationMetric") !== "" && (
                     <Callout status="warning" mb="2">
-                      Activation metrics are not yet supported with Incremental
-                      Refresh. Please{" "}
+                      {isClusterExperiment
+                        ? "Activation metrics aren't supported for cluster experiments."
+                        : "Activation metrics are not yet supported with Incremental Refresh."}{" "}
+                      Please{" "}
                       <Link
                         style={{ display: "inline" }}
                         onClick={() => form.setValue("activationMetric", "")}
