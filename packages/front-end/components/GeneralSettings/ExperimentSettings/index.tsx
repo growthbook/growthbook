@@ -501,6 +501,38 @@ export default function ExperimentSettings({
                     multiple variations.
                   </HelperText>
                 </Box>
+                {hasCommercialFeature("cluster-experiments") ? (
+                  <Box>
+                    <Text className="font-weight-semibold" size="2">
+                      <label>Cluster experiment warning threshold</label>
+                    </Text>
+                    <Flex>
+                      <Field
+                        size="sm"
+                        type="number"
+                        step="1"
+                        min="0"
+                        max="100"
+                        containerClassName="mt-1 mb-1"
+                        append="%"
+                        style={{
+                          width: "62px",
+                        }}
+                        disabled={hasFileConfig()}
+                        {...form.register("clusterIssueMinPercent", {
+                          valueAsNumber: true,
+                          min: 0,
+                          max: 100,
+                        })}
+                      />
+                    </Flex>
+                    <HelperText status="info" size="sm">
+                      Warn when at least this percent of clusters saw more than
+                      one variation, or of units appeared in more than one
+                      cluster.
+                    </HelperText>
+                  </Box>
+                ) : null}
               </Box>
             </Box>
 

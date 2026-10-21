@@ -61,6 +61,32 @@ export function getMultipleExposureHealthData({
 }
 
 /**
+ * Health status for a cluster experiment check that removes some clusters or
+ * sub-units from results (mixed assignment, sub-units in several clusters).
+ */
+export function getClusterIssueHealthData({
+  affectedCount,
+  totalCount,
+  minPercentThreshold,
+}: {
+  affectedCount: number;
+  totalCount: number;
+  minPercentThreshold: number;
+}): MultipleExposureHealthData {
+  if (totalCount <= 0) {
+    return { status: "not-enough-traffic", rawDecimal: 0 };
+  }
+  const rawDecimal = affectedCount / totalCount;
+  return {
+    status:
+      affectedCount > 0 && rawDecimal >= minPercentThreshold
+        ? "unhealthy"
+        : "healthy",
+    rawDecimal,
+  };
+}
+
+/**
  * Returns the health status for Sample Ratio Mismatch (SRM) in an experiment
  *
  * @param srm - The SRM p-value calculated for the experiment

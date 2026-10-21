@@ -1,5 +1,6 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
+  getClusterIssueHealthData,
   getExperimentSRMValue,
   getExperimentSRMVariationUnits,
   getExperimentVariationUnitsFromHealth,
@@ -125,5 +126,44 @@ describe("cluster experiment SRM", () => {
     expect(getExperimentSRMVariationUnits(clusterSnapshot("boom"))).toEqual([
       6200, 3800,
     ]);
+  });
+});
+
+describe("getClusterIssueHealthData", () => {
+  it("warns once the affected share reaches the threshold", () => {
+    expect(
+      getClusterIssueHealthData({
+        affectedCount: 1,
+        totalCount: 100,
+        minPercentThreshold: 0.01,
+      }),
+    ).toEqual({ status: "unhealthy", rawDecimal: 0.01 });
+    expect(
+      getClusterIssueHealthData({
+        affectedCount: 1,
+        totalCount: 101,
+        minPercentThreshold: 0.01,
+      }).status,
+    ).toBe("healthy");
+  });
+
+  it("stays healthy with nothing removed, even at a 0% threshold", () => {
+    expect(
+      getClusterIssueHealthData({
+        affectedCount: 0,
+        totalCount: 25,
+        minPercentThreshold: 0,
+      }).status,
+    ).toBe("healthy");
+  });
+
+  it("has no verdict without any clusters or units", () => {
+    expect(
+      getClusterIssueHealthData({
+        affectedCount: 0,
+        totalCount: 0,
+        minPercentThreshold: 0.01,
+      }).status,
+    ).toBe("not-enough-traffic");
   });
 });

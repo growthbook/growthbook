@@ -17,6 +17,7 @@ import {
   DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_LEARNING_STATUSES,
+  DEFAULT_CLUSTER_ISSUE_THRESHOLD,
   FEATURE_KEY_PATTERN,
 } from "shared/constants";
 import {
@@ -139,6 +140,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       runHealthTrafficQuery: false,
       srmThreshold: DEFAULT_SRM_THRESHOLD,
       multipleExposureMinPercent: 0.01,
+      clusterIssueMinPercent: DEFAULT_CLUSTER_ISSUE_THRESHOLD,
       confidenceLevel: 0.95,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
       pValueCorrection: null,
@@ -270,6 +272,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     runHealthTrafficQuery: form.watch("runHealthTrafficQuery"),
     srmThreshold: form.watch("srmThreshold"),
     multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
+    clusterIssueMinPercent: form.watch("clusterIssueMinPercent"),
     statsEngine: form.watch("statsEngine"),
     confidenceLevel: form.watch("confidenceLevel"),
     pValueThreshold: form.watch("pValueThreshold"),
@@ -388,6 +391,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
           newVal.multipleExposureMinPercent =
             (newVal.multipleExposureMinPercent ?? 0.01) * 100;
         }
+        if (
+          k === "clusterIssueMinPercent" &&
+          (newVal?.clusterIssueMinPercent ?? DEFAULT_CLUSTER_ISSUE_THRESHOLD) <=
+            1
+        ) {
+          newVal.clusterIssueMinPercent =
+            (newVal.clusterIssueMinPercent ?? DEFAULT_CLUSTER_ISSUE_THRESHOLD) *
+            100;
+        }
 
         if (k === "useStickyBucketing") {
           newVal.useStickyBucketing = hasStickyBucketFeature
@@ -466,6 +478,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
       multipleExposureMinPercent:
         (value.multipleExposureMinPercent ?? 0.01) / 100,
+      clusterIssueMinPercent:
+        (value.clusterIssueMinPercent ??
+          DEFAULT_CLUSTER_ISSUE_THRESHOLD * 100) / 100,
       preferredEnvironment: value.preferredEnvironment || null,
       // A cleared number input yields NaN — normalize to 0 (cap disabled)
       maxConcurrentDrafts: value.maxConcurrentDrafts || 0,
