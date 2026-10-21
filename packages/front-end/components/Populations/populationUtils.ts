@@ -6,11 +6,9 @@ function pluralize(n: number, unit: string): string {
   return `${n} ${n === 1 ? unit.replace(/s$/, "") : unit}`;
 }
 
-export type PopulationStepDescriptionParts = {
-  beforeFactTableName: string;
-  factTableName: string;
-  afterFactTableName: string;
-};
+export type PopulationStepDescriptionSegment =
+  | string
+  | { label: string; href: string };
 
 function getColumnDisplayName(
   columnKey: string,
@@ -21,9 +19,8 @@ function getColumnDisplayName(
   );
 }
 
-// A one-line summary such as "Has Events matching the row filter: country=US
-// in the last 1 week", split around the fact table name so callers can link it
-// without searching the text
+// A one-line summary such as "Has Events matching the row filter: country = US
+// in the last 1 week", as text and link segments so callers can render both text and links.
 // TODO: Describe conversion windows once Populations support multiple steps.
 export function describePopulationStep({
   step,
@@ -33,7 +30,7 @@ export function describePopulationStep({
   step: PopulationStep;
   identifierTypes: string[];
   factTable: FactTableDefinition | null;
-}): PopulationStepDescriptionParts {
+}): PopulationStepDescriptionSegment[] {
   const { rowFilters, aggregateFilter, aggregateFilterColumn } = step;
 
   const filtersDescriptions: string[] = [];
@@ -55,18 +52,24 @@ export function describePopulationStep({
     filtersDescriptions.push(`aggregate filter: ${aggregateFilterDescription}`);
   }
 
-  let after = filtersDescriptions.length
+  let conditionsDescriptions = filtersDescriptions.length
     ? ` matching the ${filtersDescriptions.join(" and ")}`
     : "";
 
   const { type, windowValue, windowUnit } = step.windowSettings;
   if (type === "lookback") {
-    after += ` in the last ${pluralize(windowValue, windowUnit)}`;
+    conditionsDescriptions += ` in the last ${pluralize(windowValue, windowUnit)}`;
   }
 
-  return {
-    beforeFactTableName: "Has ",
-    factTableName: factTable?.name || step.source.factTableId,
-    afterFactTableName: after,
-  };
+  const { factTableId } = step.source;
+  const factTableSegment: PopulationStepDescriptionSegment = factTable
+    ? {
+        label: factTable.name || factTableId,
+        href: `/fact-tables/${factTableId}`,
+      }
+    : factTableId;
+
+  return ["Has ", factTableSegment, conditionsDescriptions].filter(
+    (segment) => segment !== "",
+  );
 }

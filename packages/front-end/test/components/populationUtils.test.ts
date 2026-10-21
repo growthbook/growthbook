@@ -85,27 +85,47 @@ describe("describePopulationStep", () => {
     overrides: Partial<PopulationStep>,
     factTable: FactTableDefinition | null = eventsTable,
   ) => {
-    const { beforeFactTableName, factTableName, afterFactTableName } =
-      describePopulationStep({
-        step: { ...step("ftb_events"), ...overrides },
-        identifierTypes: ["user_id"],
-        factTable,
-      });
-    return `${beforeFactTableName}${factTableName}${afterFactTableName}`;
+    return describePopulationStep({
+      step: { ...step("ftb_events"), ...overrides },
+      identifierTypes: ["user_id"],
+      factTable,
+    })
+      .map((segment) => (typeof segment === "string" ? segment : segment.label))
+      .join("");
   };
 
-  it("splits the sentence around the fact table name", () => {
+  it("links the fact table name", () => {
     expect(
       describePopulationStep({
         step: { ...step("ftb_has"), rowFilters: [country] },
         identifierTypes: ["user_id"],
         factTable: { ...eventsTable, name: "Has" },
       }),
-    ).toEqual({
-      beforeFactTableName: "Has ",
-      factTableName: "Has",
-      afterFactTableName: " matching the row filter: country = US",
-    });
+    ).toEqual([
+      "Has ",
+      { label: "Has", href: "/fact-tables/ftb_has" },
+      " matching the row filter: country = US",
+    ]);
+  });
+
+  it("omits the trailing segment when there are no filters or windows", () => {
+    expect(
+      describePopulationStep({
+        step: step("ftb_events"),
+        identifierTypes: ["user_id"],
+        factTable: eventsTable,
+      }),
+    ).toEqual(["Has ", { label: "Events", href: "/fact-tables/ftb_events" }]);
+  });
+
+  it("shows the fact table id as plain text when the fact table is missing", () => {
+    expect(
+      describePopulationStep({
+        step: step("ftb_events"),
+        identifierTypes: ["user_id"],
+        factTable: null,
+      }),
+    ).toEqual(["Has ", "ftb_events"]);
   });
 
   it("describes a step with no filters or windows", () => {

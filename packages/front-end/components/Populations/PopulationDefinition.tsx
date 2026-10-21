@@ -16,7 +16,7 @@ export default function PopulationDefinition({
   // TODO: Support multiple steps. Only the first step is shown for now.
   const step = population.steps[0];
   const factTable = step ? getFactTableById(step.source.factTableId) : null;
-  const descriptionParts = step
+  const descriptionSegments = step
     ? describePopulationStep({
         step,
         identifierTypes: population.userIdTypes,
@@ -32,18 +32,18 @@ export default function PopulationDefinition({
         </Heading>
       </Flex>
 
-      {step && descriptionParts && (
+      {descriptionSegments && (
         <Box mb="4">
           <Text size="sm" overflowWrap="anywhere">
-            {descriptionParts.beforeFactTableName}
-            {factTable ? (
-              <Link href={`/fact-tables/${step.source.factTableId}`}>
-                {descriptionParts.factTableName}
-              </Link>
-            ) : (
-              descriptionParts.factTableName
+            {descriptionSegments.map((segment, i) =>
+              typeof segment === "string" ? (
+                segment
+              ) : (
+                <Link key={i} href={segment.href}>
+                  {segment.label}
+                </Link>
+              ),
             )}
-            {descriptionParts.afterFactTableName}
           </Text>
         </Box>
       )}
