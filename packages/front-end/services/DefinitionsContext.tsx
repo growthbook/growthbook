@@ -249,7 +249,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     }
     return data.factMetrics.filter((m) => {
       const numeratorFactTable = data.factTables.find(
-        (f) => f.id === m.denominator?.factTableId,
+        (f) => f.id === m.numerator?.factTableId,
       );
       const denominatorFactTable = m.denominator?.factTableId
         ? data.factTables.find((f) => f.id === m.denominator?.factTableId)
