@@ -127,10 +127,37 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "Actions this key can't complete until a person confirms them. Null or absent means off.",
     ),
+  keyIssuedAt: z
+    .date()
+    .optional()
+    .describe(
+      "When the current secret was issued. Absent means `dateCreated`; set on rotation, and the expiration policy's maximum lifetime runs from it.",
+    ),
+  previousKey: z
+    .string()
+    .optional()
+    .describe(
+      "The secret a rotation replaced, still accepted until `previousKeyExpiresAt`.",
+    ),
+  previousKeyExpiresAt: z
+    .date()
+    .nullable()
+    .optional()
+    .describe("When `previousKey` stops being accepted."),
+  previousKeyLastUsed: z
+    .date()
+    .nullable()
+    .optional()
+    .describe(
+      "Most recent authentication with `previousKey`. `null` means it hasn't been used since the rotation.",
+    ),
 });
 
 export const secretApiKey = apiKeySchema
   .omit({ id: true, secret: true, environment: true, project: true })
   .safeExtend({ id: z.string(), secret: z.literal(true) });
 
-export const secretApiKeyRedacted = secretApiKey.omit({ key: true });
+export const secretApiKeyRedacted = secretApiKey.omit({
+  key: true,
+  previousKey: true,
+});
