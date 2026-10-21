@@ -858,7 +858,7 @@ WHERE
 
 // Adds fact tables only: the Managed Warehouse already has the identifier
 // types and assignment queries its AI traces are joined on.
-const GrowthBookAiTracesSchema: SchemaInterface = {
+const GrowthBookTracesSchema: SchemaInterface = {
   experimentDimensions: [],
   userIdTypes: [],
   getExperimentSQL: () => "",
@@ -877,8 +877,8 @@ function getSchemaObject(type?: SchemaFormat) {
   if (type === "phoenix") {
     return PhoenixSchema;
   }
-  if (type === "growthbook_ai_traces") {
-    return GrowthBookAiTracesSchema;
+  if (type === "growthbook_traces") {
+    return GrowthBookTracesSchema;
   }
   if (type === "snowplow") {
     return SnowplowSchema;

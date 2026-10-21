@@ -163,10 +163,10 @@ const DataSourcePage: FC = () => {
     (d && permissionsUtil.canUpdateDataSourceSettings(d) && !hasFileConfig()) ||
     false;
 
-  const aiTraceIngestEnabled = useFeatureIsOn("ai-trace-ingest");
+  const traceIngestEnabled = useFeatureIsOn("trace-ingest");
   const canAddEventTracker =
     !!d &&
-    getAddableEventTrackers(d, aiTraceIngestEnabled).length > 0 &&
+    getAddableEventTrackers(d, traceIngestEnabled).length > 0 &&
     canUpdateDataSourceSettings &&
     permissionsUtil.canCreateFactTable({ projects: d.projects || [] });
 

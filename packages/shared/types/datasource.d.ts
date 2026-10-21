@@ -65,7 +65,7 @@ export type SchemaFormat =
   | "clevertap"
   | "langfuse"
   | "phoenix"
-  | "growthbook_ai_traces"
+  | "growthbook_traces"
   | "eventForwarder"
   | "custom";
 

@@ -45,7 +45,7 @@ describe("useAccountPlanNotices", () => {
       // @ts-expect-error "partial test mock"
       usage: {
         cdn: { lastUpdated: new Date(), status: "under" },
-        aiTraces: { lastUpdated: new Date(), status: "over" },
+        traces: { lastUpdated: new Date(), status: "over" },
       },
       license: null,
       seatsInUse: 0,

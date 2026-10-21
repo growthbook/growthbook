@@ -79,13 +79,13 @@ export default function useAccountPlanNotices(): AppNotice[] {
     });
   }
 
-  const aiTraces = usage?.aiTraces?.status;
-  if (aiTraces === "approaching" || aiTraces === "over") {
+  const traces = usage?.traces?.status;
+  if (traces === "approaching" || traces === "over") {
     notices.push({
-      id: "ai-traces-usage",
-      severity: aiTraces === "over" ? "error" : "warning",
+      id: "traces-usage",
+      severity: traces === "over" ? "error" : "warning",
       title:
-        aiTraces === "over"
+        traces === "over"
           ? "AI traces usage limit exceeded"
           : "Approaching AI traces usage limit",
       details: usageDetails(
@@ -94,9 +94,9 @@ export default function useAccountPlanNotices(): AppNotice[] {
       ),
       upgrade: {
         source:
-          aiTraces === "over"
-            ? "ai-traces-usage-exceeded-topnav-notification"
-            : "ai-traces-usage-approaching-topnav-notification",
+          traces === "over"
+            ? "traces-usage-exceeded-topnav-notification"
+            : "traces-usage-approaching-topnav-notification",
         commercialFeature: "unlimited-managed-warehouse-usage",
       },
     });

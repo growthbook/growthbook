@@ -369,7 +369,7 @@ export const eventSchemas: eventSchema[] = [
 // new Data Source wizard.
 export const addOnlyEventSchemas: eventSchema[] = [
   {
-    value: "growthbook_ai_traces",
+    value: "growthbook_traces",
     label: "GrowthBook AI traces",
     types: ["growthbook_clickhouse"],
     logo: "/logo/Logo-mark.png",

@@ -186,7 +186,7 @@ export const MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID = "ch_events";
 
 // Known ids for the "GrowthBook AI traces" tracker's fact tables, so identifier
 // syncs can find them regardless of renames.
-export const MANAGED_WAREHOUSE_AI_TRACES_FACT_TABLE_IDS = {
+export const MANAGED_WAREHOUSE_TRACES_FACT_TABLE_IDS = {
   spans: "ch_ai_spans",
   turns: "ch_ai_turns",
   conversations: "ch_ai_conversations",

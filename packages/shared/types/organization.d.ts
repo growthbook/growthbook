@@ -611,7 +611,7 @@ export type OrganizationUsage = {
     requests: UsageLimit;
     bandwidth: UsageLimit;
     managedClickhouseEvents?: UsageLimit;
-    aiTracesBytes?: UsageLimit;
+    tracesBytes?: UsageLimit;
   };
   cdn: {
     lastUpdated: Date;
@@ -621,7 +621,7 @@ export type OrganizationUsage = {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
   };
-  aiTraces?: {
+  traces?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
   };

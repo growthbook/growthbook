@@ -127,7 +127,7 @@ const ApiKeysModal: FC<{
 
   // A trace ingest key has a fixed, single-purpose role: it's chosen as a key
   // type when creating, and its role can't be edited afterwards.
-  const traceIngestFlag = useFeatureIsOn("ai-trace-ingest");
+  const traceIngestFlag = useFeatureIsOn("trace-ingest");
   const sourceIsTraceIngest = source?.role === TRACE_INGEST_ROLE_ID;
   const [traceIngest, setTraceIngest] = useState(sourceIsTraceIngest);
 

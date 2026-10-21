@@ -424,16 +424,16 @@ describe("GrowthBook AI traces on the Managed Warehouse", () => {
     } as unknown as DataSourceInterfaceWithParams;
   }
 
-  function aiTraces(ds: DataSourceInterfaceWithParams) {
+  function tracesTracker(ds: DataSourceInterfaceWithParams) {
     return {
       ...ds,
-      settings: { ...ds.settings, schemaFormat: "growthbook_ai_traces" },
+      settings: { ...ds.settings, schemaFormat: "growthbook_traces" },
     } as DataSourceInterfaceWithParams;
   }
 
   it("generates consistent fact tables, filters, and metrics", () => {
     const factTables = assertResourcesAreConsistent(
-      aiTraces(managedWarehouse()),
+      tracesTracker(managedWarehouse()),
     );
     expect(factTables.map((f) => f.factTable.name)).toEqual([
       "AI spans",
@@ -464,7 +464,7 @@ describe("GrowthBook AI traces on the Managed Warehouse", () => {
     "maps UserId to $idType when the id attribute is $setting",
     ({ setting, idType }) => {
       const { factTables } = getInitialDatasourceResources({
-        datasource: aiTraces(managedWarehouse(setting)),
+        datasource: tracesTracker(managedWarehouse(setting)),
       });
       for (const { factTable } of factTables) {
         expect(factTable.userIdTypes).toEqual([idType]);
@@ -476,7 +476,7 @@ describe("GrowthBook AI traces on the Managed Warehouse", () => {
   it("gives each fact table a fixed id and skips ones already taken", () => {
     const ds = managedWarehouse();
     const { factTables } = getInitialDatasourceResources({
-      datasource: aiTraces(ds),
+      datasource: tracesTracker(ds),
     });
     expect(factTables.map((f) => f.factTable.id)).toEqual([
       "ch_ai_spans",
@@ -486,7 +486,7 @@ describe("GrowthBook AI traces on the Managed Warehouse", () => {
 
     const resources = getDatasourceTemplateResources({
       datasource: ds,
-      template: "growthbook_ai_traces",
+      template: "growthbook_traces",
       schemaOptions: {},
       existingFactTables: [
         {
@@ -509,7 +509,7 @@ describe("GrowthBook AI traces on the Managed Warehouse", () => {
       flag: boolean,
     ): boolean =>
       getAddableEventTrackers(ds, flag).some(
-        (t) => t.value === "growthbook_ai_traces",
+        (t) => t.value === "growthbook_traces",
       );
     const legacy = managedWarehouse();
     const json = {
@@ -520,7 +520,7 @@ describe("GrowthBook AI traces on the Managed Warehouse", () => {
     expect(addable(json, true)).toBe(true);
     expect(addable(json, false)).toBe(false);
     expect(addable(legacy, true)).toBe(false);
-    expect(addable(aiTraces(json), true)).toBe(false);
+    expect(addable(tracesTracker(json), true)).toBe(false);
   });
 
   it("still builds the Events fact table for the Managed Warehouse itself", () => {
@@ -535,7 +535,7 @@ describe("GrowthBook AI traces on the Managed Warehouse", () => {
     expect(
       getDatasourceTemplateSettings({
         datasource: ds,
-        template: "growthbook_ai_traces",
+        template: "growthbook_traces",
         schemaOptions: {},
       }),
     ).toBe(ds.settings);

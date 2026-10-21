@@ -6,7 +6,7 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import {
-  MANAGED_WAREHOUSE_AI_TRACES_FACT_TABLE_IDS,
+  MANAGED_WAREHOUSE_TRACES_FACT_TABLE_IDS,
   MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
 } from "shared/constants";
 import {
@@ -1099,7 +1099,7 @@ const AI_MODEL_CALL_OPERATIONS = [
   "embeddings",
 ];
 
-function getGrowthBookAiTracesResources(
+function getGrowthBookTracesResources(
   settings: GrowthbookClickhouseSettings,
 ): InitialDatasourceResources {
   // Spans carry the app's user.id, the same value the SDK hashes on, so they
@@ -1111,14 +1111,14 @@ function getGrowthBookAiTracesResources(
   // The rollup views aggregate all spans; a filter on their grouping key is
   // pushed down into the scan, while the outer date filter alone is not.
   const spansInRange = (key: string) =>
-    `${key} IN (SELECT ${key} FROM ai_spans WHERE ${dateClause})`;
+    `${key} IN (SELECT ${key} FROM trace_spans WHERE ${dateClause})`;
   const modelCalls = AI_MODEL_CALL_OPERATIONS.map((o) => `'${o}'`).join(", ");
 
   return {
     factTables: [
       {
         factTable: {
-          id: MANAGED_WAREHOUSE_AI_TRACES_FACT_TABLE_IDS.spans,
+          id: MANAGED_WAREHOUSE_TRACES_FACT_TABLE_IDS.spans,
           name: "AI spans",
           description:
             "One row per AI span (model calls, tool calls, and agent runs) with latency, token, and cost details",
@@ -1212,7 +1212,7 @@ WHERE ${dateClause}`,
       },
       {
         factTable: {
-          id: MANAGED_WAREHOUSE_AI_TRACES_FACT_TABLE_IDS.turns,
+          id: MANAGED_WAREHOUSE_TRACES_FACT_TABLE_IDS.turns,
           name: "AI turns",
           description:
             "One row per trace (a request to your AI feature) with its model calls, tool calls, tokens, and cost",
@@ -1261,7 +1261,7 @@ WHERE ${dateClause}
       },
       {
         factTable: {
-          id: MANAGED_WAREHOUSE_AI_TRACES_FACT_TABLE_IDS.conversations,
+          id: MANAGED_WAREHOUSE_TRACES_FACT_TABLE_IDS.conversations,
           name: "AI conversations",
           description:
             "One row per conversation with its turns, model calls, tool calls, tokens, and cost",
@@ -1316,8 +1316,8 @@ export function getInitialDatasourceResources({
   attributeSchema?: SDKAttributeSchema;
 }): InitialDatasourceResources {
   if (datasource.type === "growthbook_clickhouse") {
-    return datasource.settings?.schemaFormat === "growthbook_ai_traces"
-      ? getGrowthBookAiTracesResources(datasource.settings)
+    return datasource.settings?.schemaFormat === "growthbook_traces"
+      ? getGrowthBookTracesResources(datasource.settings)
       : getBuiltInWarehouseResources(attributeSchema);
   }
 
@@ -1334,7 +1334,7 @@ export function getInitialDatasourceResources({
       return getLangfuseResources(datasource);
     case "phoenix":
       return getPhoenixResources(datasource);
-    case "growthbook_ai_traces":
+    case "growthbook_traces":
     case undefined:
     case "custom":
     case "mixpanel":

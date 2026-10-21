@@ -1,5 +1,5 @@
 import {
-  MANAGED_WAREHOUSE_AI_TRACES_FACT_TABLE_IDS,
+  MANAGED_WAREHOUSE_TRACES_FACT_TABLE_IDS,
   MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
 } from "shared/constants";
 import {
@@ -304,13 +304,13 @@ export async function syncManagedWarehouseIdentifiers(
     { skipExposureQueryValidation: true },
   );
 
-  for (const id of Object.values(MANAGED_WAREHOUSE_AI_TRACES_FACT_TABLE_IDS)) {
+  for (const id of Object.values(MANAGED_WAREHOUSE_TRACES_FACT_TABLE_IDS)) {
     const aiFt = await dangerouslyGetFactTableByIdBypassPermission(
       context.org.id,
       id,
     );
     if (!aiFt || aiFt.datasource !== datasource.id) continue;
-    const changes = getAiTracesIdentifierChanges(aiFt, idAttributeIdentifier);
+    const changes = getTracesIdentifierChanges(aiFt, idAttributeIdentifier);
     if (changes) {
       await dangerouslySyncManagedWarehouseFactTable(context, aiFt, changes);
     }
@@ -428,7 +428,7 @@ export async function syncManagedWarehouseIdentifiers(
 // The AI traces fact tables are user-editable, so only swap the `UserId AS <id>`
 // alias and its column/identifier type, leaving any other edits in place. Returns
 // null when the SQL no longer has the other identifier's alias.
-function getAiTracesIdentifierChanges(
+function getTracesIdentifierChanges(
   ft: FactTableInterface,
   idType: ManagedWarehouseIdAttributeIdentifier,
 ): Pick<FactTableInterface, "sql" | "columns" | "userIdTypes"> | null {

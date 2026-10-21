@@ -26,11 +26,11 @@ import Text from "@/ui/Text";
 
 export function getAddableEventTrackers(
   datasource: DataSourceInterfaceWithParams,
-  aiTraceIngestEnabled: boolean,
+  traceIngestEnabled: boolean,
 ) {
   // Older warehouses skip identifier syncing, which the AI fact tables rely on.
-  const aiTracesAddable =
-    aiTraceIngestEnabled &&
+  const tracesAddable =
+    traceIngestEnabled &&
     datasource.type === "growthbook_clickhouse" &&
     !!datasource.settings.useJsonColumns;
   return [...eventSchemas, ...addOnlyEventSchemas].filter(
@@ -38,7 +38,7 @@ export function getAddableEventTrackers(
       !!s.types?.includes(datasource.type) &&
       hasEventTrackerSql(s.value) &&
       s.value !== datasource.settings?.schemaFormat &&
-      (s.value !== "growthbook_ai_traces" || aiTracesAddable),
+      (s.value !== "growthbook_traces" || tracesAddable),
   );
 }
 
@@ -63,7 +63,7 @@ export default function AddEventTrackerModal({
 
   const trackers = getAddableEventTrackers(
     datasource,
-    useFeatureIsOn("ai-trace-ingest"),
+    useFeatureIsOn("trace-ingest"),
   );
   const [tracker, setTracker] = useState(trackers[0]);
   const template = tracker.value;
