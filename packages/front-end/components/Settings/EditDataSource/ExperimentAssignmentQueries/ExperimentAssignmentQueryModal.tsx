@@ -509,7 +509,7 @@ export const ExperimentAssignmentQueryModal = ({
             key={mode}
             source={source}
             validateRef={validateSql}
-            partitionDescription="Detected from the table's partitioning. Each analysis only reads data since the experiment started."
+            partitionDescription="Detected from the table's partitioning, so each analysis skips older data"
             tableHint={
               eventTypeColumn ? (
                 <Callout status="info" size="sm">

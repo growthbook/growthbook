@@ -36,6 +36,9 @@ import useApi from "@/hooks/useApi";
 
 export const SAMPLE_ROW_LIMIT = 20;
 
+// Warehouses that skip partitions a WHERE rules out, so a filter saves cost
+const PARTITION_PRUNING_TYPES = ["bigquery", "athena", "databricks", "presto"];
+
 export type SourceMode = "table" | "sql";
 
 export type SourceTable = ReturnType<typeof useSourceTable>;
@@ -414,6 +417,9 @@ export function useSourceTable({
     rowFilterError,
     testRowFilters,
     partition: {
+      available:
+        PARTITION_PRUNING_TYPES.includes(datasourceType ?? "") ||
+        !!tableColumns?.some((c) => c.isPartition),
       column: partitionColumn,
       format: partitionFormat,
       isDefault: partitionChoice === null,

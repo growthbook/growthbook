@@ -591,7 +591,7 @@ export default function NewFactTableModal({
             key={mode}
             source={source}
             validateRef={validateSql}
-            partitionDescription="Detected from the table's partitioning. Each query only reads data from its start date on."
+            partitionDescription="Detected from the table's partitioning, so each query skips older data"
             placeholder={"SELECT\n  user_id,\n  timestamp\nFROM\n  events"}
             datasourceHeader={
               <Select
