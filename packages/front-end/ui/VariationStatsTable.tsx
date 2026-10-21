@@ -84,13 +84,13 @@ export default function VariationStatsTable({
       <TableHeader>
         <TableRow style={{ color: "var(--color-text-mid)", fontSize: "12px" }}>
           <TableColumnHeader pl="0">Variation</TableColumnHeader>
-          {subUnitsLabel ? (
-            <TableColumnHeader justify="end">{subUnitsLabel}</TableColumnHeader>
-          ) : null}
           <TableColumnHeader justify="end">
             {quantileMetric && quantileIgnoreZeros ? "Non-zero " : ""}
             {quantileMetric === "event" ? "Events" : (unitsLabel ?? "Units")}
           </TableColumnHeader>
+          {subUnitsLabel ? (
+            <TableColumnHeader justify="end">{subUnitsLabel}</TableColumnHeader>
+          ) : null}
           {!quantileMetric ? (
             <TableColumnHeader justify="end">
               Numerator
@@ -198,11 +198,11 @@ export default function VariationStatsTable({
                 </Flex>
               </TableCell>
 
+              <TableCell justify="end">{sampleSizeDisplay}</TableCell>
+
               {subUnitsLabel ? (
                 <TableCell justify="end">{subUnitsDisplay}</TableCell>
               ) : null}
-
-              <TableCell justify="end">{sampleSizeDisplay}</TableCell>
 
               {!quantileMetric ? (
                 <TableCell justify="end">{numeratorDisplay}</TableCell>

@@ -180,12 +180,12 @@ const getTooltipContents = (
         <TableHeader style={{ fontSize: "12px" }}>
           <TableRow style={{ color: "var(--color-text-mid)" }}>
             <TableColumnHeader pl="0">Variation</TableColumnHeader>
+            <TableColumnHeader justify="center">{unitsLabel}</TableColumnHeader>
             {subUnitsLabel ? (
               <TableColumnHeader justify="center">
                 {subUnitsLabel}
               </TableColumnHeader>
             ) : null}
-            <TableColumnHeader justify="center">{unitsLabel}</TableColumnHeader>
             <TableColumnHeader justify="center">Value</TableColumnHeader>
             <TableColumnHeader justify="center">Change</TableColumnHeader>
             {hasStats && (
@@ -246,6 +246,12 @@ const getTooltipContents = (
                 </TableRowHeaderCell>
                 {yaxis === "effect" && (
                   <>
+                    <TableCell
+                      justify="center"
+                      style={{ fontWeight: "normal" }}
+                    >
+                      {variation.users}
+                    </TableCell>
                     {subUnitsLabel ? (
                       <TableCell
                         justify="center"
@@ -255,12 +261,6 @@ const getTooltipContents = (
                         {variation.subUnits || "—"}
                       </TableCell>
                     ) : null}
-                    <TableCell
-                      justify="center"
-                      style={{ fontWeight: "normal" }}
-                    >
-                      {variation.users}
-                    </TableCell>
                     <TableCell
                       justify="center"
                       style={{ fontWeight: "normal" }}
