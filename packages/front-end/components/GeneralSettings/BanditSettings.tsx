@@ -233,7 +233,7 @@ export default function BanditSettings({
                     shouldDirty: true,
                   })
                 }
-                disabled={!hasBandits && !hasContextualBandits}
+                disabled={!hasContextualBandits}
               />
             </Box>
           )}
