@@ -405,7 +405,6 @@ export interface OrganizationSettings {
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;
   blockFileUploads?: boolean;
-  defaultFeatureRulesInAllEnvs?: boolean;
   savedGroupSizeLimit?: number;
   // Opt-in validation of Saved Group scope at consuming Feature Flags.
   enforceSavedGroupProjectScope?: boolean;
