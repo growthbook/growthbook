@@ -220,7 +220,7 @@ export default function BanditSettings({
                       }}
                       style={{ display: "inline-flex" }}
                     >
-                      <Tooltip body="Each update period is weighted proportionally to traffic received. This removes bias, but adds variance (increases exploration).">
+                      <Tooltip body="Each update period is weighted proportionally to traffic received. This reduces bias, but adds variance.">
                         <PiInfo color="var(--color-text-low)" />
                       </Tooltip>
                     </span>
