@@ -570,8 +570,10 @@ function HealthSnapshotCards({
         <div id="clusterReliability" style={{ scrollMarginTop: "100px" }}>
           <ClusterReliabilityCard
             clusterTraffic={clusterTraffic}
+            clusterUnits={snapshot.health?.clusterUnits}
             variations={variations}
             clusterIdentifier={clusterIds.cluster}
+            subUnitIdentifier={clusterIds.subUnit}
             onNotify={handleHealthNotification}
           />
         </div>
