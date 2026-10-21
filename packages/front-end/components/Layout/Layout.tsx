@@ -10,7 +10,6 @@ import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { WhiteButton } from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import { navlinks } from "./sidebarNav";
 import TopNav from "./TopNav";
@@ -194,7 +193,6 @@ const Layout = (): React.ReactElement => {
                     </span>
                   </button>
                 </li>
-                <ProjectSelector />
                 {navlinks.map((v) => (
                   <SidebarLink key={v.href} {...v} />
                 ))}

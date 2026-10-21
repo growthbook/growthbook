@@ -1,104 +1,41 @@
-import clsx from "clsx";
-import { FaCaretDown } from "react-icons/fa";
-import { FC, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { PiFolder, PiMagnifyingGlassBold } from "react-icons/pi";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
-import Field from "@/components/Forms/Field";
 import { useSearch } from "@/services/search";
 import usePermissions from "@/hooks/usePermissions";
-import Dropdown from "@/components/Dropdown/Dropdown";
-import DropdownLink from "@/components/Dropdown/DropdownLink";
-import LetterAvatar from "./LetterAvatar";
+import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import Text from "@/ui/Text";
+import { TextField } from "@/ui/TextField";
+import styles from "./HeaderBreadcrumb.module.scss";
 
-const demoBadge = {
-  badgeText: "Demo",
-  badgeColor: "#EB8045",
-  badgeTitle: "This is a demo project with sample data",
-};
+const DEMO_BADGE_TITLE = "This is a demo project with sample data";
+// main's Demo badge color.
+const DEMO_BADGE_COLOR = "#EB8045";
 
-type ProjectDropdownBadgeProps = {
-  badgeText: string;
-  badgeColor: string;
-  badgeTitle: string;
-};
-
-const ProjectDropdownBadge: FC<ProjectDropdownBadgeProps> = ({
-  badgeText,
-  badgeColor,
-  badgeTitle,
-}) => {
+function DemoBadge() {
   return (
-    <div
-      className="badge badge-pill position-absolute text-white"
-      title={badgeTitle}
-      style={{
-        backgroundColor: badgeColor,
-        bottom: -6,
-        left: -6,
-        fontSize: "0.7em",
-      }}
-    >
-      {badgeText}
-    </div>
-  );
-};
-
-function ProjectName({
-  display,
-  avatarName,
-  className,
-  bold = false,
-  caret = false,
-  size = "small",
-  badge,
-}: {
-  display: string;
-  avatarName: string;
-  className?: string;
-  bold?: boolean;
-  caret?: boolean;
-  size?: "small" | "large";
-  badge: ProjectDropdownBadgeProps | null;
-}) {
-  return (
-    <div
-      className={clsx(className, "d-flex align-items-center")}
-      style={{ padding: "5px 10px" }}
-    >
-      <div className="position-relative">
-        <LetterAvatar name={avatarName} defaultInitials="ALL" size={size} />
-        {badge ? <ProjectDropdownBadge {...badge} /> : null}
-      </div>
-      <div
-        style={{
-          flex: 1,
-          lineHeight: 1.2,
-          whiteSpace: "normal",
-          wordBreak: "break-word",
-        }}
-      >
-        {bold ? (
-          <strong style={{ fontWeight: 600 }}>{display}</strong>
-        ) : (
-          display
-        )}
-      </div>
-      {caret && <FaCaretDown />}
-    </div>
+    <Badge
+      label="Demo"
+      title={DEMO_BADGE_TITLE}
+      variant="solid"
+      radius="full"
+      size="xs"
+      style={{ backgroundColor: DEMO_BADGE_COLOR, flexShrink: 0 }}
+    />
   );
 }
 
 export default function ProjectSelector() {
   const { projects, project, getProjectById, setProject } = useDefinitions();
   const { orgId } = useAuth();
-  const current = getProjectById(project);
   const permissions = usePermissions();
-
-  const currentProjectIsDemoProject = isDemoDatasourceProject({
-    projectId: current?.id || "",
-    organizationId: orgId || "",
-  });
+  const current = getProjectById(project);
+  const [open, setOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const { items, searchInputProps } = useSearch({
     items: projects.slice().sort((a, b) => (a.name > b.name ? 1 : -1)),
@@ -107,117 +44,122 @@ export default function ProjectSelector() {
     searchFields: ["name^3", "description"],
   });
 
+  const heldToOneProject =
+    projects.length === 1 && !permissions.check("readData", "");
   useEffect(() => {
-    if (projects?.length === 1 && !permissions.check("readData", "")) {
-      setProject(projects[0].id);
-    }
-  }, [projects, permissions, setProject]);
+    if (heldToOneProject) setProject(projects[0].id);
+  }, [heldToOneProject, projects, setProject]);
 
-  if (!projects.length) return null;
+  // Typing goes straight to the search field as the menu opens.
+  useEffect(() => {
+    if (!open) return;
+    const t = window.setTimeout(() => searchRef.current?.focus(), 0);
+    return () => window.clearTimeout(t);
+  }, [open]);
 
-  // If globalRole doesn't give readAccess & user can only access 1 project, don't show dropdown
-  if (projects.length === 1 && !permissions.check("readData", "")) {
+  // No projects to pick from: the button's label alone, as plain text.
+  if (!projects.length) {
     return (
-      <li
-        style={{
-          marginTop: 0,
-          marginBottom: "20px",
-          textTransform: "none",
-          maxWidth: 240,
-        }}
-      >
-        <ProjectName
-          caret={false}
-          avatarName={projects[0].name}
-          display={projects[0].name}
-          badge={
-            isDemoDatasourceProject({
-              projectId: projects[0].id,
-              organizationId: orgId || "",
-            })
-              ? demoBadge
-              : null
-          }
-        />
-      </li>
+      <span className={styles.projectPlain}>
+        <PiFolder size={14} aria-hidden="true" />
+        <span className={styles.projectName}>All Projects</span>
+      </span>
     );
   }
 
-  return (
-    <li
-      style={{
-        marginTop: 0,
-        marginBottom: "20px",
-        textTransform: "none",
-        maxWidth: 240,
-      }}
+  const isDemo = (id: string) =>
+    isDemoDatasourceProject({ projectId: id, organizationId: orgId || "" });
+
+  if (heldToOneProject) {
+    return (
+      <span className={styles.projectStatic}>
+        <PiFolder size={14} className={styles.projectIcon} />
+        <span className={styles.projectName}>{projects[0].name}</span>
+        {isDemo(projects[0].id) ? <DemoBadge /> : null}
+      </span>
+    );
+  }
+
+  const name = current?.name || "All Projects";
+  // Keeps focus in the search field: the menu would move it to the item
+  // under the pointer unless pointermove's default is prevented.
+  const keepSearchFocus = (e: React.PointerEvent) => {
+    if (document.activeElement === searchRef.current) e.preventDefault();
+  };
+  const option = (id: string, label: string) => (
+    <DropdownMenuItem
+      key={id || "all"}
+      className={styles.projectItem}
+      onClick={() => setProject(id)}
     >
-      <Dropdown
-        uuid="project-selector"
-        caret={false}
-        right={false}
-        width={220}
-        className={"p-0 pb-2"}
-        toggle={
-          <ProjectName
-            caret
-            avatarName={current?.name || ""}
-            display={current?.name || "All Projects"}
-            bold={true}
-            badge={currentProjectIsDemoProject ? demoBadge : null}
-            size="large"
-          />
-        }
-      >
-        <div className="mt-2 mx-2">
-          <Field
-            size="legacy"
-            placeholder="Search..."
-            type="search"
-            {...searchInputProps}
-          />
-        </div>
-        <DropdownLink
-          onClick={() => {
-            setProject("");
-          }}
-          className="p-0 px-1"
+      <span className={styles.projectOption}>
+        <Text weight={id === project ? "semibold" : "regular"} truncate>
+          {label}
+        </Text>
+        {id && isDemo(id) ? <DemoBadge /> : null}
+      </span>
+    </DropdownMenuItem>
+  );
+
+  return (
+    <DropdownMenu
+      open={open}
+      onOpenChange={setOpen}
+      menuPlacement="start"
+      menuWidth={220}
+      variant="soft"
+      trigger={
+        <Button
+          variant="ghost"
+          color="gray"
+          size="sm"
+          // So the click reaches the menu's trigger.
+          preventDefault={false}
+          className={`${styles.headerButton} ${styles.projectButton}`}
+          icon={<PiFolder size={14} />}
+          aria-label={`Project: ${name}`}
         >
-          <ProjectName
-            badge={null}
-            className="text-dark"
-            avatarName={""}
-            display={"All Projects"}
-            bold={!project}
-          />
-        </DropdownLink>
-        {items.map((p) => {
-          return (
-            <DropdownLink
-              className="p-0 px-1"
-              key={p.id}
-              onClick={() => {
-                setProject(p.id);
-              }}
-            >
-              <ProjectName
-                className="text-dark"
-                avatarName={p.name}
-                display={p.name}
-                bold={p.id === project}
-                badge={
-                  isDemoDatasourceProject({
-                    projectId: p.id,
-                    organizationId: orgId || "",
-                  })
-                    ? demoBadge
-                    : null
-                }
-              />
-            </DropdownLink>
-          );
-        })}
-      </Dropdown>
-    </li>
+          <span className={styles.projectName}>{name}</span>
+          {current && isDemo(current.id) ? (
+            <span className={styles.demoBadgeSelected}>
+              <DemoBadge />
+            </span>
+          ) : null}
+        </Button>
+      }
+    >
+      <div className={styles.projectSearch}>
+        <TextField
+          ref={searchRef}
+          placeholder="Search"
+          type="search"
+          aria-label="Search projects"
+          prepend={<PiMagnifyingGlassBold size={14} />}
+          // Keys the menu would take for its own navigation stay with the
+          // field (typing, Space, Home and End); Down moves into the
+          // projects, and Esc still closes the menu.
+          onKeyDown={(e) => {
+            if (e.key.length === 1 || e.key === "Home" || e.key === "End") {
+              e.stopPropagation();
+            } else if (e.key === "ArrowDown") {
+              e.preventDefault();
+              e.currentTarget
+                .closest("[role=menu]")
+                ?.querySelector<HTMLElement>("[role=menuitem]")
+                ?.focus();
+            }
+          }}
+          {...searchInputProps}
+        />
+      </div>
+      <div
+        className={styles.projectList}
+        onPointerMoveCapture={keepSearchFocus}
+        onPointerOutCapture={keepSearchFocus}
+      >
+        {option("", "All Projects")}
+        {items.map((p) => option(p.id, p.name))}
+      </div>
+    </DropdownMenu>
   );
 }

@@ -55,6 +55,10 @@ $sidebarwidth: 240px;
 .pagetitle {
   flex: 1;
   min-width: 0;
+  // Reaches 8px into the header's padding, so a first crumb shifted onto the
+  // content edge (HeaderBreadcrumb.module.scss) keeps its whole hover fill.
+  margin-left: calc(-1 * var(--space-2));
+  padding-left: var(--space-2);
   overflow: hidden;
   display: inline-block;
   white-space: nowrap;

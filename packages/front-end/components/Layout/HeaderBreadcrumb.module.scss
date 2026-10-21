@@ -1,0 +1,147 @@
+// 48px short of the title box (TopNav.module.scss's .pagetitle), so a
+// truncated crumb's ellipsis stays clear of the box's 32px fade.
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding-right: var(--space-8);
+}
+
+.separator {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--slate-10);
+}
+
+// Beside a button crumb, a chevron sits 4px closer: the button's own
+// padding already spaces it.
+.afterButton {
+  margin-left: -4px;
+}
+
+.beforeButton {
+  margin-right: -4px;
+}
+
+// A block, not a flex box, so the ellipsis applies; its 24px line centers
+// the text.
+.currentCrumb {
+  display: block;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 280px;
+  height: 24px;
+  padding: 0 var(--space-2);
+  color: var(--gray-12);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  line-height: 24px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sectionText {
+  flex-shrink: 0;
+  color: var(--gray-12);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.headerButton {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 280px;
+
+  :global(.rt-Text) {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-width: 0;
+  }
+}
+
+.projectStatic {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 280px;
+  padding: 0 var(--space-2);
+  // Where the project button's icon sits.
+  margin-left: calc(-1 * var(--space-2));
+  color: var(--slate-12);
+  font-size: var(--font-size-1);
+}
+
+// The selector button's label without the button (Button sm, ghost, gray):
+// its box, icon, gap, type and color, so it sits where the button would.
+// The project's folder icon sits on the page's left content edge: the whole
+// button, padding and all, shifts left by its padding, so its hover fill stays
+// even (the title box leaves it room, TopNav.module.scss). Over the app's zero
+// margin for ghost buttons (global-radix-overrides.scss).
+.breadcrumb .projectButton.projectButton {
+  margin-left: calc(-1 * var(--space-2)) !important;
+}
+
+.projectPlain {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 280px;
+  height: 24px;
+  padding: 0 var(--space-2);
+  // Where the project button's icon sits.
+  margin-left: calc(-1 * var(--space-2));
+  color: var(--gray-a11);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-1);
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.projectIcon {
+  flex-shrink: 0;
+  color: var(--slate-11);
+}
+
+.projectName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.demoBadgeSelected {
+  display: inline-flex;
+  margin-left: var(--space-1);
+}
+
+// Contained, so a long name truncates instead of scrolling the menu
+// sideways (its scroll area grows to its widest content).
+.projectSearch {
+  padding: var(--space-1) var(--space-1) var(--space-2);
+  contain: inline-size;
+}
+
+.projectList {
+  contain: inline-size;
+}
+
+// Also while the search field keeps focus (ProjectSelector.tsx).
+.projectItem:hover {
+  background-color: var(--accent-a4);
+}
+
+.projectOption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
