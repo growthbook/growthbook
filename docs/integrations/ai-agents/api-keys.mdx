@@ -78,7 +78,7 @@ Before a key stops working:
 - GrowthBook shows a notice when a key expires within 7 days, or has expired while something still uses it. You see your own Personal Access Tokens, and members who can create or edit Secret Keys see the organization's.
 - Secret Keys trigger the `apiKey.expiring` [webhook event](/app/webhooks/event-webhooks/events) a week before they expire, and `apiKey.expired` when they do.
 
-A request made with an expired key fails with a `401` that says where to create a replacement. One made with a previous secret after its grace period fails with a `401` that says the key was rotated and where to reveal the new secret.
+A request made with an expired key fails with a `401` that says where to create a replacement. One made with a previous secret after its grace period ends, or after it's revoked, fails with a `401` that says the key was rotated and where to reveal the new secret.
 
 ### Rotate a key
 

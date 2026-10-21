@@ -15,6 +15,7 @@ import {
   canManageApiKeySecret,
   getRoles,
 } from "shared/permissions";
+import { isExpired } from "shared/api-key-expiration";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import {
@@ -2204,7 +2205,10 @@ export async function postApiKeyRotate(
     status: 200,
     key: after.key,
     expiresAt: after.expiresAt ?? null,
-    previousKeyExpiresAt: after.previousKeyExpiresAt ?? null,
+    // An immediate rotation keeps the old secret, already expired.
+    previousKeyExpiresAt: isExpired(after.previousKeyExpiresAt)
+      ? null
+      : (after.previousKeyExpiresAt ?? null),
   });
 }
 
