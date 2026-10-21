@@ -1,6 +1,9 @@
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
-  getClusterCountHealthData,
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotTraffic,
+} from "shared/types/experiment-snapshot";
+import {
+  getClusterReliabilityHealthData,
   getClusterIssueHealthData,
   getExperimentSRMValue,
   getExperimentSRMVariationUnits,
@@ -169,32 +172,50 @@ describe("getClusterIssueHealthData", () => {
   });
 });
 
-describe("getClusterCountHealthData", () => {
-  it("warns when any variation has fewer clusters than the minimum", () => {
-    expect(
-      getClusterCountHealthData({
-        clustersPerVariation: [25, 19],
-        minClustersPerVariation: 20,
-      }),
-    ).toEqual({
-      status: "unhealthy",
-      smallestVariationIndex: 1,
-      smallestCount: 19,
+describe("getClusterReliabilityHealthData", () => {
+  const traffic = (variationUnits: number[]) =>
+    ({ overall: { variationUnits } }) as unknown as ExperimentSnapshotTraffic;
+  const units = (pcts: number[]) => ({
+    clusters: pcts.map((pct, i) => ({
+      id: `c${i}`,
+      variation: 0,
+      units: 1,
+      pct,
+    })),
+  });
+  const check = (variationUnits: number[], pcts: number[]) =>
+    getClusterReliabilityHealthData({
+      clusterTraffic: traffic(variationUnits),
+      clusterUnits: units(pcts),
+      minClustersPerVariation: 20,
+      maxClusterShare: 0.2,
     });
-    expect(
-      getClusterCountHealthData({
-        clustersPerVariation: [20, 20],
-        minClustersPerVariation: 20,
-      }).status,
-    ).toBe("healthy");
+
+  it("flags the variation with the fewest clusters below the minimum", () => {
+    expect(check([25, 19], [0.05]).tooFewClusters).toEqual({
+      variationIndex: 1,
+      count: 19,
+    });
+    expect(check([20, 20], [0.05]).status).toBe("healthy");
+  });
+
+  it("flags a cluster holding at least the maximum share", () => {
+    const result = check([20, 20], [0.1, 0.2]);
+    expect(result.status).toBe("unhealthy");
+    expect(result.oversizedCluster).toEqual({ id: "c1", pct: 0.2 });
+  });
+
+  it("skips the size check when a large share is unavoidable", () => {
+    const result = check([3, 2], [0.4]);
+    expect(result.sizeChecked).toBe(false);
+    expect(result.oversizedCluster).toBeNull();
+    expect(check([3, 3], [0.4]).oversizedCluster).toEqual({
+      id: "c0",
+      pct: 0.4,
+    });
   });
 
   it("has no verdict before any clusters are exposed", () => {
-    expect(
-      getClusterCountHealthData({
-        clustersPerVariation: [0, 0],
-        minClustersPerVariation: 20,
-      }).status,
-    ).toBe("not-enough-traffic");
+    expect(check([0, 0], []).status).toBe("not-enough-traffic");
   });
 });

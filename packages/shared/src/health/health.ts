@@ -1,4 +1,8 @@
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotClusterUnits,
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotTraffic,
+} from "shared/types/experiment-snapshot";
 import { SafeRolloutSnapshotInterface } from "../validators/safe-rollout-snapshot";
 
 type MultipleExposureHealthStatus =
@@ -87,32 +91,63 @@ export function getClusterIssueHealthData({
 }
 
 /**
- * Health status for whether a cluster experiment has enough clusters in every
- * variation for its results to be reliable. Reports the smallest variation.
+ * Reliability of a cluster experiment's results: every variation needs enough
+ * clusters, and no single cluster should hold too large a share of units.
  */
-export function getClusterCountHealthData({
-  clustersPerVariation,
+export function getClusterReliabilityHealthData({
+  clusterTraffic,
+  clusterUnits,
   minClustersPerVariation,
+  maxClusterShare,
 }: {
-  clustersPerVariation: number[];
+  clusterTraffic?: ExperimentSnapshotTraffic;
+  clusterUnits?: ExperimentSnapshotClusterUnits;
   minClustersPerVariation: number;
+  maxClusterShare: number;
 }): {
   status: "not-enough-traffic" | "healthy" | "unhealthy";
-  smallestVariationIndex: number;
-  smallestCount: number;
+  countChecked: boolean;
+  sizeChecked: boolean;
+  tooFewClusters: { variationIndex: number; count: number } | null;
+  oversizedCluster: { id: string; pct: number } | null;
 } {
-  if (!clustersPerVariation.some((n) => n > 0)) {
-    return {
-      status: "not-enough-traffic",
-      smallestVariationIndex: -1,
-      smallestCount: 0,
-    };
-  }
-  const smallestCount = Math.min(...clustersPerVariation);
+  const clustersPerVariation = clusterTraffic?.error
+    ? []
+    : (clusterTraffic?.overall?.variationUnits ?? []);
+  const totalClusters = clustersPerVariation.reduce((sum, n) => sum + n, 0);
+  const countChecked = totalClusters > 0;
+  const smallestCount = countChecked ? Math.min(...clustersPerVariation) : 0;
+  const tooFewClusters =
+    countChecked && smallestCount < minClustersPerVariation
+      ? {
+          variationIndex: clustersPerVariation.indexOf(smallestCount),
+          count: smallestCount,
+        }
+      : null;
+
+  const clusters = clusterUnits?.error ? [] : (clusterUnits?.clusters ?? []);
+  const largest = clusters.length
+    ? clusters.reduce((a, b) => (b.pct > a.pct ? b : a))
+    : null;
+  // With 1 / share clusters or fewer, one always reaches the share.
+  const sizeChecked =
+    !!largest && totalClusters > Math.floor(1 / maxClusterShare);
+  const oversizedCluster =
+    sizeChecked && largest && largest.pct >= maxClusterShare
+      ? { id: largest.id, pct: largest.pct }
+      : null;
+
   return {
-    status: smallestCount < minClustersPerVariation ? "unhealthy" : "healthy",
-    smallestVariationIndex: clustersPerVariation.indexOf(smallestCount),
-    smallestCount,
+    status:
+      tooFewClusters || oversizedCluster
+        ? "unhealthy"
+        : countChecked || sizeChecked
+          ? "healthy"
+          : "not-enough-traffic",
+    countChecked,
+    sizeChecked,
+    tooFewClusters,
+    oversizedCluster,
   };
 }
 
