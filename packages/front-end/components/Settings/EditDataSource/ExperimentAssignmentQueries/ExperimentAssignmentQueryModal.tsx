@@ -437,9 +437,9 @@ export const ExperimentAssignmentQueryModal = ({
         {mode === "sql" ? (
           <Box px="2" py="1">
             <Text>
-              Assignment queries must return experiment_id, variation_id, a
-              timestamp, and at least one identifier column (
-              {identifierTypes.join(", ")}).
+              Return a column for the experiment id, variation id, timestamp,
+              and at least one identifier ({identifierTypes.join(", ")}).
+              You&apos;ll map them to these roles on the next step.
             </Text>
           </Box>
         ) : null}

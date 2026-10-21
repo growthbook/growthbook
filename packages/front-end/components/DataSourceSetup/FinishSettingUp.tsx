@@ -709,7 +709,7 @@ export default function FinishSettingUp({
               {exposureQueries.length === 0 && (
                 <Box px="4" py="3">
                   <Text as="p" color="text-mid" mb="0">
-                    No exposure queries yet. Write a query to start running
+                    No exposure queries yet. Add a query to start running
                     experiments.
                   </Text>
                 </Box>
@@ -764,7 +764,7 @@ export default function FinishSettingUp({
                     })
                   }
                 >
-                  {exposureQueries.length ? "Add query" : "Write query"}
+                  Add query
                 </Button>
               </Box>
             )}
