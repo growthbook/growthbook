@@ -12,6 +12,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Every job only checks out code and reads caches, so the token needs nothing more.
+permissions:
+  contents: read
+
 jobs:
   format:
     runs-on: depot-ubuntu-24.04
