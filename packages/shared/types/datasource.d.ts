@@ -93,7 +93,7 @@ type GetExperimentSqlOptions = {
 export interface SchemaInterface {
   getExperimentSQL(
     tablePrefix: string,
-    userId: string,
+    userIdTypes: string[],
     options?: GetExperimentSqlOptions,
   ): string;
   getIdentitySQL(

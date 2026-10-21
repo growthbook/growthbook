@@ -31,7 +31,11 @@ import {
   isIdentifierCandidate,
   isTimestampCandidate,
 } from "@/services/factTables";
-import { GA4_EXPOSURE_TEMPLATE, validateSQL } from "@/services/datasources";
+import {
+  GA4_EXPOSURE_TEMPLATE,
+  getInitialExposureQuery,
+  validateSQL,
+} from "@/services/datasources";
 import { useAuth } from "@/services/auth";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
@@ -119,7 +123,7 @@ export const ExperimentAssignmentQueryModal = ({
   dataSource: DataSourceInterfaceWithParams;
   // Edits this query when set; otherwise creates a new one.
   exposureQuery?: ExposureQuery;
-  // Identifiers a new query is meant to cover, shown in the SQL placeholder
+  // Identifiers a new query is meant to cover
   defaultIdentifierTypes?: string[];
   onSave: (exposureQuery: ExposureQuery) => Promise<void> | void;
   onCancel: () => void;
@@ -135,7 +139,11 @@ export const ExperimentAssignmentQueryModal = ({
 
   // Editing starts on the mapping, since most edits don't touch the SQL.
   const [step, setStep] = useState(exposureQuery ? 1 : 0);
-  const [sql, setSql] = useState(exposureQuery?.query ?? "");
+  const [sql, setSql] = useState(
+    () =>
+      exposureQuery?.query ??
+      getInitialExposureQuery(dataSource, defaultIdentifierTypes),
+  );
   const [detected, setDetected] = useState<DetectedColumn[] | null>(() =>
     exposureQuery ? getSavedColumns(exposureQuery) : null,
   );

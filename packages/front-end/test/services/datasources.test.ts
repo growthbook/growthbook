@@ -15,6 +15,7 @@ import {
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
   getImportIdentifierTypes,
+  getInitialExposureQuery,
   getInitialSettings,
   getNewExperimentDatasourceDefaults,
   getSelectableIdentifierTypes,
@@ -833,5 +834,34 @@ describe("getNewExperimentDatasourceDefaults", () => {
       exposureQueryId: "exq_same",
       exposureQueryIdentifierType: "anon_id",
     });
+  });
+});
+
+describe("getInitialExposureQuery", () => {
+  const datasource = {
+    type: "postgres",
+    params: { defaultSchema: "analytics" },
+    settings: {
+      userIdTypes: [{ userIdType: "anonymous_id" }, { userIdType: "user_id" }],
+    },
+  } as unknown as DataSourceInterfaceWithParams;
+
+  it("covers the requested identifiers, else every declared one", () => {
+    const requested = getInitialExposureQuery(datasource, ["user_id"]);
+    expect(requested).toContain("user_id as user_id");
+    expect(requested).not.toContain("anonymous_id");
+
+    const all = getInitialExposureQuery(datasource);
+    expect(all).toContain("anonymous_id as anonymous_id");
+    expect(all).toContain("user_id as user_id");
+  });
+
+  it("keeps rows with any of a tracker's identifiers", () => {
+    const sql = getInitialExposureQuery({
+      ...datasource,
+      settings: { ...datasource.settings, schemaFormat: "snowplow" },
+    });
+    expect(sql).toContain("domain_userid as anonymous_id");
+    expect(sql).toContain("(domain_userid is not null OR user_id is not null)");
   });
 });
