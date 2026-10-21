@@ -50,6 +50,7 @@ import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
+import HeaderBreadcrumb from "./HeaderBreadcrumb";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -408,7 +409,11 @@ const TopNav: FC<{
 
     return (
       <div className={styles.pagetitle}>
-        <Breadcrumbs items={breadcrumbItems} />
+        {toggleLeftMenu ? (
+          <HeaderBreadcrumb />
+        ) : (
+          <Breadcrumbs items={breadcrumbItems} />
+        )}
       </div>
     );
   };
