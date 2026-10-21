@@ -226,7 +226,7 @@ export default function BanditSettings({
                     </span>
                   </Flex>
                 }
-                description="Unbias Contextual Bandit decision-metric estimates due to changing traffic over time."
+                description="Reduce bias in Contextual Bandit decision-metric estimates due to changing traffic over time."
                 value={form.watch("banditPeriodWeighting") ?? true}
                 setValue={(value) =>
                   form.setValue("banditPeriodWeighting", value, {
