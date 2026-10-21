@@ -35,6 +35,7 @@ import Badge from "@/ui/Badge";
 import { BOTTOM_TOOLTIP_DELAY_MS } from "./railTooltips";
 import GrowthBookLogo from "./GrowthBookLogo";
 import ProfileMenu from "./ProfileMenu";
+import HelpMenu from "./HelpMenu";
 import { OPTICAL_STROKE, withOpticalWeight } from "./opticalWeight";
 import {
   buildSidebarLinkFilterProps,
@@ -776,6 +777,14 @@ export default function AppRail() {
           railLabelClassName={styles.rowLabel}
           railIconSize={ICON_SIZE}
           railIconClassName={contentCollapsed ? undefined : styles.rowIcon}
+        />
+        <HelpMenu
+          collapsed={contentCollapsed}
+          iconSize={ICON_SIZE}
+          triggerClassName={contentCollapsed ? styles.iconItem : styles.row}
+          openClassName={styles.menuOpen}
+          iconClassName={contentCollapsed ? undefined : styles.rowIcon}
+          labelClassName={styles.rowLabel}
         />
         {!isNarrow ? (
           <>
