@@ -158,6 +158,23 @@ describe("getContextualBanditSrmQuery", () => {
     expect(c).not.toContain("e.timestamp<=");
   });
 
+  it("applies the units queryFilter so it matches the traffic query's population", () => {
+    const sql = getContextualBanditSrmQuery(
+      postgresDialect,
+      makeParams(
+        { var_control: "0", var_treatment: "1" },
+        { queryFilter: "e.country = 'US'" },
+      ),
+    );
+    expect(compact(sql)).toContain("AND(e.country='US')");
+
+    const withoutFilter = getContextualBanditSrmQuery(
+      postgresDialect,
+      makeParams({ var_control: "0", var_treatment: "1" }),
+    );
+    expect(compact(withoutFilter)).not.toContain("e.country");
+  });
+
   it("throws when there are no variations", () => {
     expect(() =>
       getContextualBanditSrmQuery(

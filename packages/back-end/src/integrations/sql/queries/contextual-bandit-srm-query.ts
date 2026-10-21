@@ -135,6 +135,7 @@ export function getContextualBanditSrmQuery(
               ? `AND ${timestampColumn} <= ${dialect.toTimestamp(endDate)}`
               : ""
           }
+          ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
       )
       , __cbRankedExposures AS (
         SELECT

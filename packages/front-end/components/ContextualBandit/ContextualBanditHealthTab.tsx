@@ -19,45 +19,34 @@ export default function ContextualBanditHealthTab({
 }: {
   cb: ApiContextualBanditInterface;
 }) {
-  const { latest, loading, error } = useContextualBanditResults(cb.id);
+  const { results, latest, loading, error } = useContextualBanditResults(cb.id);
   const healthIssues = useContextualBanditHealthIssues(cb);
 
-  const frozenVariations = useMemo(() => latest?.variations ?? [], [latest]);
+  const health = results?.health ?? null;
 
   const variations: ExperimentReportVariation[] = useMemo(
     () =>
-      frozenVariations.map((v, i) => ({
+      (health?.variations ?? []).map((v, i) => ({
         id: v.variationId,
         index: i,
         name: v.variationName ?? v.variationId,
         weight: v.weight,
       })),
-    [frozenVariations],
+    [health],
   );
 
-  const traffic = latest?.traffic ?? null;
-  const srmResult = latest?.srm ?? null;
-  const srm = srmResult?.pValue ?? null;
-  const multipleExposures = latest?.multipleExposures ?? 0;
+  const traffic = health?.traffic ?? null;
   const overallUsers = useMemo(
-    () =>
-      frozenVariations.map(
-        (_, i) => traffic?.overall?.variationUnits?.[i] ?? 0,
-      ),
-    [frozenVariations, traffic],
+    () => variations.map((_, i) => traffic?.overall?.variationUnits?.[i] ?? 0),
+    [variations, traffic],
   );
-
   const totalUsers = overallUsers.reduce((sum, n) => sum + n, 0);
 
-  const healthFromEarlierRun =
-    (latest?.healthSnapshotId ?? null) !== null &&
-    latest?.healthSnapshotId !== latest?.id;
-  const latestFailed = latest?.status === "error";
-  const latestRunning = latest?.status === "running";
-  // "on {date}" clause in the prose form ("Oct 20, 2026 at 3:41 PM"), omitted
-  // when the health run's date is unknown.
-  const healthRunClause = latest?.healthDateCreated
-    ? ` on ${datetimeAt(latest.healthDateCreated)}`
+  // The results tab and this tab show the same run. A newer snapshot may be
+  // in flight or have failed; `latest` tells us which.
+  const newerRun = latest && latest.id !== results?.snapshotId ? latest : null;
+  const resultsDateClause = results
+    ? ` on ${datetimeAt(results.dateCreated)}`
     : "";
 
   if (loading) {
@@ -76,7 +65,7 @@ export default function ContextualBanditHealthTab({
     );
   }
 
-  if (!latest) {
+  if (!results) {
     return (
       <Callout status="info" mt="3">
         No updates yet. Traffic and health results will appear after a
@@ -112,20 +101,16 @@ export default function ContextualBanditHealthTab({
 
   return (
     <Flex direction="column">
-      {healthFromEarlierRun ? (
-        <Callout status={latestFailed ? "warning" : "info"} mb="3">
-          {latestFailed
-            ? `The most recent refresh failed, so the health results below are from a successful refresh${healthRunClause}.`
-            : latestRunning
-              ? `A refresh is in progress. The health results below are from a successful refresh${healthRunClause}.`
-              : `The health results below are from a successful refresh${healthRunClause}.`}
-          {latestFailed && latest?.error ? ` Error: ${latest.error}` : ""}
-        </Callout>
-      ) : latestFailed ? (
+      {newerRun?.status === "error" ? (
         <Callout status="warning" mb="3">
-          The most recent refresh failed, so these health results may be out of
-          date.
-          {latest?.error ? ` Error: ${latest.error}` : ""}
+          The most recent refresh failed, so the health results below are from
+          the last successful refresh{resultsDateClause}.
+          {newerRun.error ? ` Error: ${newerRun.error}` : ""}
+        </Callout>
+      ) : newerRun?.status === "running" ? (
+        <Callout status="info" mb="3">
+          A refresh is in progress. The health results below are from the last
+          successful refresh{resultsDateClause}.
         </Callout>
       ) : null}
 
@@ -139,31 +124,32 @@ export default function ContextualBanditHealthTab({
         overTimeTitle="Traffic Over Time"
       />
 
-      <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
-        <ContextualBanditSRMCard
-          srm={srm}
-          variations={variations}
-          users={overallUsers}
-          totalUsers={totalUsers}
-          latestPeriod={latest?.srm?.latestPeriod ?? null}
-        />
-      </div>
+      {health?.multipleExposures === null ? (
+        <Callout status="info" mt="4">
+          Balance and multiple exposure checks need the bandit_version, leaf_id,
+          and variation_weights columns in your assignment query.
+        </Callout>
+      ) : (
+        <>
+          <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
+            <ContextualBanditSRMCard
+              srm={health?.srm?.pValue ?? null}
+              variations={variations}
+              users={overallUsers}
+              totalUsers={totalUsers}
+              latestPeriod={health?.srm?.latestPeriod ?? null}
+            />
+          </div>
 
-      <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
-        {srmResult === null && multipleExposures === 0 ? (
-          <Callout status="info">
-            Multiple exposures data will appear after a successful results
-            refresh. Make sure your assignment query selects the bandit_version,
-            leaf_id, and variation_weights columns.
-          </Callout>
-        ) : (
-          <MultipleExposuresCard
-            totalUsers={totalUsers}
-            multipleExposures={multipleExposures}
-            isBandit
-          />
-        )}
-      </div>
+          <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
+            <MultipleExposuresCard
+              totalUsers={totalUsers}
+              multipleExposures={health?.multipleExposures ?? 0}
+              isBandit
+            />
+          </div>
+        </>
+      )}
     </Flex>
   );
 }

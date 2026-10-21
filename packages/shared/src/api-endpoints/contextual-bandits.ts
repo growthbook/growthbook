@@ -239,6 +239,33 @@ export const getContextualBanditResults = {
               ),
             }),
           ),
+          snapshotId: z.string(),
+          dateCreated: z.string(),
+          // Health computed by the same run that produced these results. Null
+          // only for runs that predate health checks. A failed traffic query
+          // is reported via `health.traffic.error`, not by nulling `health`.
+          health: z
+            .object({
+              variations: z.array(
+                z.object({
+                  variationId: z.string(),
+                  variationName: z.string().optional(),
+                  weight: z.number(),
+                }),
+              ),
+              traffic: contextualBanditTrafficValidator.nullable(),
+              srm: z
+                .object({
+                  statistic: z.number(),
+                  pValue: z.number(),
+                  degreesOfFreedom: z.number().int().nonnegative(),
+                  latestPeriod:
+                    contextualBanditSrmLatestPeriodValidator.optional(),
+                })
+                .nullable(),
+              multipleExposures: z.number().nullable(),
+            })
+            .nullable(),
         })
         .nullable(),
       latest: z
@@ -249,34 +276,16 @@ export const getContextualBanditResults = {
           queries: z.array(queryPointerValidator),
           runStarted: z.string().nullable(),
           dateCreated: z.string(),
-          healthSnapshotId: z.string().nullable(),
-          healthDateCreated: z.string().nullable(),
           multipleExposures: z.number(),
           type: z.string(),
           triggeredBy: z.string(),
-          variations: z.array(
-            z.object({
-              variationId: z.string(),
-              variationName: z.string().optional(),
-              weight: z.number(),
-            }),
-          ),
-          srm: z
-            .object({
-              statistic: z.number(),
-              pValue: z.number(),
-              degreesOfFreedom: z.number().int().nonnegative(),
-              latestPeriod: contextualBanditSrmLatestPeriodValidator.optional(),
-            })
-            .nullable(),
-          traffic: contextualBanditTrafficValidator.nullable(),
         })
         .nullable(),
     })
     .strict(),
   summary: "Get latest Contextual Bandit results",
   description:
-    "Returns the latest contextual-bandit stats engine output (per-context responses tagged with their leaf, the per-leaf targeting conditions, and per-leaf aggregated stats), the overall (marginal) variation weights across all contexts, the SRM of the most recent run, and the status of the most recent snapshot run for the contextual bandit. Same payload the GrowthBook UI uses to render the contextual bandit results table.",
+    "Returns the latest contextual-bandit stats engine output (per-context responses tagged with their leaf, the per-leaf targeting conditions, and per-leaf aggregated stats), the overall (marginal) variation weights across all contexts, the health checks (traffic, SRM, multiple exposures) computed by that same run, and the status of the most recent snapshot run for the contextual bandit. Same payload the GrowthBook UI uses to render the contextual bandit results and health tabs.",
   operationId: "getContextualBanditResults",
   tags: ["ContextualBandits"],
   method: "get" as const,

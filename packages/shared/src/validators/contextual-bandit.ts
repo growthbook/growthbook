@@ -36,6 +36,8 @@ export const contextualBanditAnalysisSummaryValidator = z.object({
       totalUsers: z.number(),
       /** Distinct users who saw more than one variation within one leaf and bandit period. */
       multipleExposures: z.number().optional(),
+      /** Variations frozen by the run, so health thresholds use the same count the run did. */
+      variationIds: z.array(z.string()).optional(),
     })
     .optional(),
 });

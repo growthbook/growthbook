@@ -5,7 +5,6 @@ import {
   isValidElement,
   ReactNode,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -57,47 +56,37 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
 ) {
   let rootProps: React.ComponentProps<typeof RadixTabs.Root> = {};
 
-  // Collect the set of real tab values so URL-hash syncing can ignore any hash
-  // that isn't an actual tab (e.g. an in-page anchor like "#balanceCheck").
-  const tabValues: string[] = [];
-  Children.forEach(children, (child) => {
-    if (isValidElement(child) && child.props.value) {
-      tabValues.push(child.props.value);
-    } else if (
-      isValidElement(child) &&
-      child.props &&
-      typeof child.props === "object" &&
-      "children" in child.props &&
-      Array.isArray(child.props.children)
-    ) {
-      // If the child is a TabsTrigger, check its children for a value
-      child.props.children.forEach((c: ReactNode) => {
-        if (
-          isValidElement(c) &&
-          c.props.value &&
-          typeof c.props.value === "string"
-        ) {
-          tabValues.push(c.props.value);
-        }
-      });
-    }
-  });
-
-  // Key the memo on the tab values' content (not children identity) so the
-  // validIds array keeps a stable reference across renders.
-  const tabValuesKey = tabValues.join("\u0000");
-  const validIds = useMemo(() => {
-    if (!(defaultValue && persistInURL) || !tabValuesKey) return undefined;
-    const values = tabValuesKey.split("\u0000");
-    return [defaultValue, ...values.filter((v) => v !== defaultValue)];
-  }, [defaultValue, persistInURL, tabValuesKey]);
-
-  const [urlHash, setUrlHash] = useURLHash(validIds);
+  const [urlHash, setUrlHash] = useURLHash();
 
   if (defaultValue && persistInURL) {
+    const possibleValues = new Set<string>();
+    Children.forEach(children, (child) => {
+      if (isValidElement(child) && child.props.value) {
+        possibleValues.add(child.props.value);
+      } else if (
+        isValidElement(child) &&
+        child.props &&
+        typeof child.props === "object" &&
+        "children" in child.props &&
+        Array.isArray(child.props.children)
+      ) {
+        // If the child is a TabsTrigger, check its children for a value
+        child.props.children.forEach((c: ReactNode) => {
+          if (
+            isValidElement(c) &&
+            c.props.value &&
+            typeof c.props.value === "string"
+          ) {
+            possibleValues.add(c.props.value);
+          }
+        });
+      }
+      return null;
+    });
+
     rootProps = {
       value:
-        urlHash && (!validIds || validIds.includes(urlHash))
+        urlHash && (possibleValues.has(urlHash) || !possibleValues.size)
           ? urlHash
           : defaultValue,
       onValueChange: (value) => {

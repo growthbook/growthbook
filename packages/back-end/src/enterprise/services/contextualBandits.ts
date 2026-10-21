@@ -1536,26 +1536,23 @@ export async function reconcileLinkedFeatureVariations(
   return { failures };
 }
 
+export type ContextualBanditResultsHealth = {
+  variations: { id: string; weight: number }[];
+  srm: ContextualBanditSrmResult | null;
+  traffic: ExperimentSnapshotTraffic | null;
+  /** Null when the SRM query did not run (assignment query lacks the bandit columns). */
+  multipleExposures: number | null;
+};
+
 export type ContextualBanditResultsForUi = {
   contextualBanditSnapshot: ContextualBanditSnapshot | null;
   latestSnapshotSummary: SnapshotStatusSummary | null;
-  /** Variations frozen by the snapshot that produced `contextualBanditSnapshot`
-   * (the decision event). Labels the decision-results view. */
+  /** Variations frozen by the run that produced `contextualBanditSnapshot`. */
   snapshotVariationIds: string[] | null;
-  /** Variations frozen by the run whose health payload (srm/traffic) is shown.
-   * This can be an older completed run than the decision event while the newest
-   * run is in-flight/failed.*/
-  healthVariations: { id: string; weight: number }[] | null;
-  /** ID of the snapshot the health payload (srm/traffic/healthVariations) came
-   * from. May be an earlier completed run than `latestSnapshotSummary.id` when
-   * the newest run is in-flight or failed. Null when no health run exists. */
-  healthSnapshotId: string | null;
-  /** When the health source run was created, to show how stale the cards are. */
-  healthDateCreated: Date | null;
-  /** SRM of the latest snapshot run; null when the run has no SRM result. */
-  srm: ContextualBanditSrmResult | null;
-  /** Health traffic of the latest snapshot run; null when unavailable. */
-  traffic: ExperimentSnapshotTraffic | null;
+  /** The run that produced `contextualBanditSnapshot`. */
+  resultsRun: { snapshotId: string; dateCreated: Date } | null;
+  /** Health computed by that same run. Null for runs that predate health checks. */
+  health: ContextualBanditResultsHealth | null;
 };
 
 function mapCbsStatusToSnapshotStatus(
@@ -1598,18 +1595,9 @@ export async function getContextualBanditResultsForUi(
     context.models.contextualBanditEvents.getLatestForContextualBandit(cb.id),
   ]);
 
-  const resultsSnapshot =
-    latestSnapshot && snapshotHasHealthResults(latestSnapshot)
-      ? latestSnapshot
-      : await context.models.contextualBanditSnapshots.getLatestCompletedForContextualBandit(
-          cb.id,
-        );
-
-  // Resolve the decision snapshot independently and keep the fallback health IDs
-  // separate.
-  const needsDecisionSnapshotFallback =
-    latestEvent !== null && latestEvent.frozenVariationIds === undefined;
-  const decisionSnapshot = needsDecisionSnapshotFallback
+  // Results and health both come from the run that produced the latest event;
+  // the runner writes them to that snapshot in the same update.
+  const eventSnapshot = latestEvent
     ? latestSnapshot?.id === latestEvent.snapshotId
       ? latestSnapshot
       : await context.models.contextualBanditSnapshots.getBySnapshotIdInOrg(
@@ -1629,32 +1617,41 @@ export async function getContextualBanditResultsForUi(
     : null;
 
   const latestSnapshotSummary = latestSnapshot
-    ? {
-        ...toContextualBanditSnapshotStatusSummary(latestSnapshot),
-        multipleExposures: resultsSnapshot?.multipleExposures ?? 0,
-      }
+    ? toContextualBanditSnapshotStatusSummary(latestSnapshot)
     : null;
 
+  // The event carries its own frozen ids (newer events) so results survive
+  // deletion of the producing snapshot; older events fall back to the snapshot.
   const snapshotVariationIds =
     latestEvent?.frozenVariationIds ??
-    decisionSnapshot?.frozenSettings?.variations?.map((v) => v.id) ??
+    eventSnapshot?.frozenSettings?.variations?.map((v) => v.id) ??
     null;
 
-  const healthVariations =
-    resultsSnapshot?.frozenSettings?.variations?.map((v) => ({
-      id: v.id,
-      weight: v.weight,
-    })) ?? null;
+  const health: ContextualBanditResultsHealth | null =
+    eventSnapshot && snapshotHasHealthResults(eventSnapshot)
+      ? {
+          variations:
+            eventSnapshot.frozenSettings?.variations?.map((v) => ({
+              id: v.id,
+              weight: v.weight,
+            })) ?? [],
+          srm: eventSnapshot.srm ?? null,
+          traffic: eventSnapshot.traffic ?? null,
+          multipleExposures: eventSnapshot.multipleExposures ?? null,
+        }
+      : null;
 
   return {
     contextualBanditSnapshot,
     latestSnapshotSummary,
     snapshotVariationIds,
-    healthVariations,
-    healthSnapshotId: resultsSnapshot?.id ?? null,
-    healthDateCreated: resultsSnapshot?.dateCreated ?? null,
-    srm: resultsSnapshot?.srm ?? null,
-    traffic: resultsSnapshot?.traffic ?? null,
+    resultsRun: latestEvent
+      ? {
+          snapshotId: latestEvent.snapshotId,
+          dateCreated: latestEvent.dateCreated,
+        }
+      : null,
+    health,
   };
 }
 

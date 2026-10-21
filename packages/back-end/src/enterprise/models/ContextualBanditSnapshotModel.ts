@@ -47,16 +47,6 @@ export class ContextualBanditSnapshotModel extends BaseClass {
     return results[0] ?? null;
   }
 
-  public async getLatestCompletedForContextualBandit(
-    contextualBandit: string,
-  ): Promise<ContextualBanditSnapshotInterface | null> {
-    const results = await this._find(
-      { contextualBandit, status: { $in: ["success", "partial"] } },
-      { sort: { dateCreated: -1 }, limit: 1 },
-    );
-    return results[0] ?? null;
-  }
-
   public async listForContextualBandit(
     contextualBandit: string,
     limit?: number,

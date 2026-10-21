@@ -552,20 +552,36 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
 
       // Similar to experiment `analysisSummary` pattern, persist a lightweight health
       // summary on the CB doc so list views can render the shared status without loading
-      // the full snapshot.
-      const summaryTotalUsers =
-        result.traffic?.overall?.variationUnits?.reduce(
-          (sum, n) => sum + n,
-          0,
-        ) ?? 0;
-      pendingAnalysisSummary = {
-        snapshotId: this.model.id,
-        health: {
-          srm: result.srm?.pValue ?? null,
-          totalUsers: summaryTotalUsers,
-          multipleExposures: result.multipleExposures ?? 0,
-        },
-      };
+      // the full snapshot. Skipped when the traffic query failed so a flaky run
+      // keeps the previous run's summary instead of overwriting it with zeros.
+      const traffic = result.traffic;
+      const variationIds = this.snapshotSettings?.variations.map((v) => v.id);
+      if (traffic && !traffic.error) {
+        pendingAnalysisSummary = {
+          snapshotId: this.model.id,
+          health: {
+            srm: result.srm?.pValue ?? null,
+            totalUsers: traffic.overall.variationUnits.reduce(
+              (sum, n) => sum + n,
+              0,
+            ),
+            multipleExposures: result.multipleExposures ?? 0,
+            variationIds,
+          },
+        };
+      } else if (traffic?.error === "NO_ROWS_IN_UNIT_QUERY") {
+        // No units means no balance or multiple-exposure signal, regardless of
+        // what the separately-filtered SRM query returned.
+        pendingAnalysisSummary = {
+          snapshotId: this.model.id,
+          health: {
+            srm: null,
+            totalUsers: 0,
+            multipleExposures: 0,
+            variationIds,
+          },
+        };
+      }
     }
 
     // Persist the snapshot (including `contextualBanditEventId`) before writing the

@@ -87,8 +87,7 @@ export default function MultipleExposuresCard({
           ) : (
             <Callout status="warning">
               <strong>Multiple Exposures Warning</strong>.{" "}
-              {numberFormatter.format(multipleExposures)}{" "}
-              {isBandit ? "units" : "users"} (
+              {numberFormatter.format(multipleExposures)} units (
               {percentFormatter.format(health.rawDecimal)}) saw multiple
               variations
               {isBandit

@@ -1,5 +1,6 @@
 import { ApiContextualBanditInterface } from "shared/validators";
 import { contextualBanditEndpoints } from "shared/api-endpoints";
+import { getActiveVariations } from "shared/experiments";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import {
@@ -145,42 +146,59 @@ export function useContextualBanditLinkedFeatures(cbId: string | undefined) {
   };
 }
 
-/** Health inputs (srm / totalUsers / multipleExposures) driving the CB status badge and Health tab. */
+/** Health inputs driving the CB status badge and Health tab. */
 export type ContextualBanditStatusHealth = {
   srm: number | null;
   totalUsers: number;
   multipleExposures: number;
+  /** Variations frozen by the run that produced these numbers. */
+  variationIds: string[];
 };
 
-type ContextualBanditResultsLatest = z.infer<
-  typeof contextualBanditEndpoints.getContextualBanditResults.responseSchema
->["latest"];
+export type ContextualBanditResultsHealthView = NonNullable<
+  z.infer<
+    typeof contextualBanditEndpoints.getContextualBanditResults.responseSchema
+  >["results"]
+>["health"];
 
+/**
+ * `health` is the payload from the loaded results; `persisted` is the summary
+ * on the CB doc, used only until results have loaded.
+ */
 export function resolveContextualBanditStatusHealth(
-  latest: ContextualBanditResultsLatest,
+  health: ContextualBanditResultsHealthView | undefined,
   persisted: ApiContextualBanditInterface["analysisSummary"],
+  cbVariations: ApiContextualBanditInterface["variations"],
 ): ContextualBanditStatusHealth | undefined {
-  if (latest?.status === "success") {
+  if (health !== undefined) {
     const totalUsers =
-      latest.traffic?.overall?.variationUnits?.reduce((sum, n) => sum + n, 0) ??
-      0;
+      health?.traffic?.overall?.variationUnits?.reduce(
+        (sum, n) => sum + n,
+        0,
+      ) ?? 0;
     // With no traffic there is nothing to assess. Return undefined so callers
     // treat this as "no health data" rather than an assessed, healthy result.
-    if (totalUsers === 0) {
+    if (!health || totalUsers === 0) {
       return undefined;
     }
     return {
-      srm: latest.srm?.pValue ?? null,
+      srm: health.srm?.pValue ?? null,
       totalUsers,
-      multipleExposures: latest.multipleExposures ?? 0,
+      multipleExposures: health.multipleExposures ?? 0,
+      variationIds: health.variations.map((v) => v.variationId),
     };
   }
-  const health = persisted?.health;
-  if (health && health.totalUsers > 0) {
+  const summary = persisted?.health;
+  if (summary && summary.totalUsers > 0) {
     return {
-      srm: health.srm ?? null,
-      totalUsers: health.totalUsers,
-      multipleExposures: health.multipleExposures ?? 0,
+      srm: summary.srm ?? null,
+      totalUsers: summary.totalUsers,
+      multipleExposures: summary.multipleExposures ?? 0,
+      // Summaries written before variationIds was recorded fall back to the
+      // arms currently active, the same set a fresh run would freeze.
+      variationIds:
+        summary.variationIds ??
+        getActiveVariations(cbVariations).map((v) => v.id),
     };
   }
   return undefined;
@@ -192,10 +210,15 @@ export function resolveContextualBanditStatusHealth(
 export function useContextualBanditStatusHealth(
   cb: ApiContextualBanditInterface,
 ): ContextualBanditStatusHealth | undefined {
-  const { latest } = useContextualBanditResults(cb.id);
+  const { results, loading } = useContextualBanditResults(cb.id);
   return useMemo(
-    () => resolveContextualBanditStatusHealth(latest, cb.analysisSummary),
-    [cb.analysisSummary, latest],
+    () =>
+      resolveContextualBanditStatusHealth(
+        loading ? undefined : (results?.health ?? null),
+        cb.analysisSummary,
+        cb.variations,
+      ),
+    [cb.analysisSummary, cb.variations, results, loading],
   );
 }
 
@@ -207,7 +230,6 @@ export function useContextualBanditHealthIssues(
 ): IssueValue[] {
   const orgSettings = useOrgSettings();
   const health = useContextualBanditStatusHealth(cb);
-  const numOfVariations = cb.variations.length;
 
   return useMemo<IssueValue[]>(() => {
     if (!health) return [];
@@ -216,7 +238,7 @@ export function useContextualBanditHealthIssues(
       srm: health.srm,
       totalUsers: health.totalUsers,
       multipleExposures: health.multipleExposures,
-      numOfVariations,
+      numOfVariations: health.variationIds.length,
       healthSettings,
     });
     if (resultStatus?.status !== "unhealthy") return [];
@@ -231,5 +253,5 @@ export function useContextualBanditHealthIssues(
       });
     }
     return issues;
-  }, [health, orgSettings, numOfVariations]);
+  }, [health, orgSettings]);
 }

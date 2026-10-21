@@ -10,6 +10,7 @@ import {
   CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
   CONTEXTUAL_BANDIT_SRM_QUERY_NAME,
   CONTEXTUAL_BANDIT_TRAFFIC_QUERY_NAME,
+  ContextualBanditQueryRunResult,
   ContextualBanditResultsQueryRunner,
 } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 import {
@@ -696,7 +697,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
         makeCbsModel({ contextualBanditEventId: "cbe_existing" }),
       );
 
-      const result: ContextualBanditResult = {
+      const result: ContextualBanditQueryRunResult = {
         attributes: ["country"],
         responses: [
           {
@@ -705,6 +706,10 @@ describe("ContextualBanditResultsQueryRunner", () => {
             updateMessage: "ok",
           },
         ],
+        traffic: {
+          overall: { name: "All", srm: 1, variationUnits: [40, 60] },
+          dimension: {},
+        },
       };
 
       const updated = await runner.updateModel({
@@ -731,7 +736,128 @@ describe("ContextualBanditResultsQueryRunner", () => {
         cb.id,
         expect.objectContaining({
           snapshotId: "cbs_1",
-          health: expect.objectContaining({ totalUsers: expect.any(Number) }),
+          health: expect.objectContaining({ totalUsers: 100 }),
+        }),
+      );
+    });
+
+    it("does not overwrite the health summary when the traffic query failed", async () => {
+      const cb = makeCb();
+      const context = makeContext(cb);
+      const runner = newRunner(context);
+      persistContextualBanditEventMock.mockResolvedValue({
+        id: "cbe_43",
+        contextualBandit: cb.id,
+        snapshotId: "cbs_1",
+        attributes: ["country"],
+        responses: [],
+        weightsWereUpdated: true,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      });
+
+      const result: ContextualBanditQueryRunResult = {
+        attributes: ["country"],
+        responses: [
+          {
+            context: { country: "US" },
+            updatedWeights: [0.4, 0.6],
+            updateMessage: "ok",
+          },
+        ],
+        traffic: {
+          overall: { name: "All", srm: 1, variationUnits: [0, 0] },
+          dimension: {},
+          error: "Traffic query timed out",
+        },
+      };
+
+      await runner.updateModel({
+        status: "partially-succeeded",
+        queries: [
+          {
+            name: "contextual-bandit-rows",
+            query: "q_rows",
+            status: "succeeded",
+          },
+          {
+            name: "contextual-bandit-traffic",
+            query: "q_traffic",
+            status: "failed",
+          },
+        ],
+        runStarted: new Date(),
+        result,
+      });
+
+      // Decision results still publish and the failed traffic is stored on the
+      // snapshot for the Health tab to explain...
+      expect(persistContextualBanditEventMock).toHaveBeenCalledTimes(1);
+      expect(
+        context.models.contextualBanditSnapshots.updateById,
+      ).toHaveBeenCalledWith(
+        "cbs_1",
+        expect.objectContaining({
+          status: "success",
+          traffic: expect.objectContaining({
+            error: "Traffic query timed out",
+          }),
+        }),
+      );
+      // ...but the list-page summary keeps the previous run's numbers rather
+      // than being zeroed out by one flaky query.
+      expect(
+        context.models.contextualBandits.patchAnalysisSummary,
+      ).not.toHaveBeenCalled();
+    });
+
+    it("zeroes the health summary on NO_ROWS_IN_UNIT_QUERY even if the SRM query returned data", async () => {
+      const cb = makeCb();
+      const context = makeContext(cb);
+      const runner = newRunner(context);
+      persistContextualBanditEventMock.mockResolvedValue({
+        id: "cbe_44",
+        contextualBandit: cb.id,
+        snapshotId: "cbs_1",
+        attributes: ["country"],
+        responses: [],
+        weightsWereUpdated: true,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      });
+
+      const result: ContextualBanditQueryRunResult = {
+        attributes: ["country"],
+        responses: [],
+        // The SRM query is filtered differently from the traffic query, so it
+        // can disagree with it; the summary must not report a balance problem
+        // or exposures for zero users.
+        srm: { statistic: 12, pValue: 0.001, degreesOfFreedom: 1 },
+        multipleExposures: 7,
+        traffic: {
+          overall: { name: "All", srm: 1, variationUnits: [0, 0] },
+          dimension: {},
+          error: "NO_ROWS_IN_UNIT_QUERY",
+        },
+      };
+
+      await runner.updateModel({
+        status: "succeeded",
+        queries: [],
+        runStarted: new Date(),
+        result,
+      });
+
+      expect(
+        context.models.contextualBandits.patchAnalysisSummary,
+      ).toHaveBeenCalledWith(
+        cb.id,
+        expect.objectContaining({
+          health: expect.objectContaining({
+            srm: null,
+            totalUsers: 0,
+            multipleExposures: 0,
+          }),
         }),
       );
     });

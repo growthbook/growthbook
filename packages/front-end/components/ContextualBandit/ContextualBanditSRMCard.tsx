@@ -54,9 +54,9 @@ export default function ContextualBanditSRMCard({
   if (srm === null) {
     return (
       <Callout status="info">
-        SRM data will appear after a successful results refresh. Make sure your
-        assignment query selects the bandit_version, leaf_id, and
-        variation_weights columns.
+        Not enough data yet for a balance check. It needs at least two
+        variations with 5 or more expected units in the same leaf and Bandit
+        period.
       </Callout>
     );
   }

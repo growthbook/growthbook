@@ -1,5 +1,6 @@
 import { ApiContextualBanditInterface } from "shared/validators";
 import { ExperimentDataForStatusStringDates } from "shared/types/experiment";
+import { getActiveVariations } from "shared/experiments";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -15,11 +16,17 @@ export function contextualBanditStatusIndicatorData(
     srm: number | null;
     totalUsers: number;
     multipleExposures?: number;
+    variationIds?: string[];
   },
 ): ExperimentDataForStatusStringDates {
+  // Health thresholds scale with the variation count, so use the arms the
+  // health run actually froze rather than the live doc (which may hold pending
+  // or removed arms).
+  const variationIds =
+    health?.variationIds ?? getActiveVariations(cb.variations).map((v) => v.id);
   return {
     type: "contextual-bandit",
-    variations: cb.variations,
+    variations: variationIds.map((id) => ({ id })),
     status: cb.status,
     archived: cb.archived,
     results: undefined,
