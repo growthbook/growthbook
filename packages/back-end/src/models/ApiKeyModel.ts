@@ -818,20 +818,6 @@ export class ApiKeyModel extends BaseClass {
     );
   }
 
-  // The live access token of an OAuth sign-in. A refresh replaces it hourly.
-  public async getCurrentOAuthAccessToken(clientId: string, userId: string) {
-    const [token] = await this._find(
-      {
-        oauthClientId: clientId,
-        userId,
-        disabled: { $ne: true },
-        expiresAt: { $gt: new Date() },
-      },
-      { sort: { expiresAt: -1 }, limit: 1, bypassReadPermissionChecks: true },
-    );
-    return token ?? null;
-  }
-
   public static async dangerousDisableOAuthGrant(
     clientId: string,
     userId: string,

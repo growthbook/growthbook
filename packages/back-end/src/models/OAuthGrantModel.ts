@@ -88,6 +88,7 @@ export class OAuthGrantModel extends BaseClass {
     resource?: string;
     permissions?: OAuthTokenPermissions | null;
     revoked: boolean;
+    revokedAt?: Date;
     expiresAt: Date;
   }): Promise<{ grant: OAuthGrantInterface; created: boolean }> {
     const existing = await this.getGrant(props.clientId, props.userId);
@@ -157,13 +158,19 @@ export class OAuthGrantModel extends BaseClass {
    * post-write re-check still sees `revoked`.
    */
   public async markRevoked(clientId: string, userId: string): Promise<void> {
+    const revokedAt = new Date();
     const { grant, created } = await this.getOrCreateGrant({
       clientId,
       userId,
       revoked: true,
+      revokedAt,
       expiresAt: grantExpiry(),
     });
     if (created || grant.revoked) return;
-    await this.update(grant, { revoked: true, expiresAt: grantExpiry() });
+    await this.update(grant, {
+      revoked: true,
+      revokedAt,
+      expiresAt: grantExpiry(),
+    });
   }
 }

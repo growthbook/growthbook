@@ -513,7 +513,19 @@ export class ReqContextClass {
   // Who a deferred action runs as: a scoped PAT as the key (so its cap travels
   // with the work), a user as themselves, an org key as itself with its requester.
   public get armer(): { userId?: string; apiKey?: string } {
-    if (this.scopedApiKey) return { apiKey: this.apiKey };
+    if (this.scopedApiKey) {
+      const clientId = this.apiKeyData?.oauthClientId;
+      return {
+        apiKey:
+          this.apiKey && clientId && this.userId
+            ? encodeArmingApiKeyId(this.apiKey, undefined, {
+                clientId,
+                userId: this.userId,
+                armedAt: Date.now(),
+              })
+            : this.apiKey,
+      };
+    }
     if (this.userId) return { userId: this.userId };
     if (!this.apiKey) return {};
     return {

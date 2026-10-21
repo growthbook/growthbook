@@ -259,6 +259,7 @@ describe("arming API key ids", () => {
     expect(decodeArmingApiKeyId("key_abc")).toEqual({
       apiKeyId: "key_abc",
       requesterId: null,
+      oauth: null,
     });
   });
 
@@ -268,7 +269,19 @@ describe("arming API key ids", () => {
     expect(decodeArmingApiKeyId(id)).toEqual({
       apiKeyId: "key_abc",
       requesterId: "u_123",
+      oauth: null,
     });
+  });
+
+  it("round-trips an OAuth sign-in, whatever its client id holds", () => {
+    const oauth = {
+      clientId: "https://agent.example/c:1@x",
+      userId: "u_123",
+      armedAt: 1767225600000,
+    };
+    expect(
+      decodeArmingApiKeyId(encodeArmingApiKeyId("key_abc", undefined, oauth)),
+    ).toEqual({ apiKeyId: "key_abc", requesterId: null, oauth });
   });
 });
 

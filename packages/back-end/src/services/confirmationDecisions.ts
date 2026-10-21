@@ -79,20 +79,20 @@ export async function decideConfirmation(
     });
     if (decision === "reject") return toApiConfirmation(claimed);
 
-    // An OAuth sign-in's token has likely been refreshed by now, so the
-    // request replays as the grant's current one.
-    const current =
-      c.oauthClientId && c.userId
-        ? await context.models.apiKeys.getCurrentOAuthAccessToken(
-            c.oauthClientId,
-            c.userId,
-          )
-        : null;
+    // An OAuth sign-in's token may have lapsed, so its request replays on
+    // the grant.
     const requester = await getContextForApiKeyIdInOrg(
       context.org,
       encodeArmingApiKeyId(
-        current?.id ?? c.apiKeyId,
+        c.apiKeyId,
         c.assumedRole ? c.requestedBy?.id : undefined,
+        c.oauthClientId && c.userId
+          ? {
+              clientId: c.oauthClientId,
+              userId: c.userId,
+              armedAt: c.dateCreated.getTime(),
+            }
+          : undefined,
       ),
     );
     if (!requester) {

@@ -107,6 +107,9 @@ export const oauthGrantValidator = createBaseSchemaWithPrimaryKey({
   resource: z.string().optional(),
   permissions: oauthTokenPermissionsValidator.nullable().optional(),
   revoked: z.boolean(),
+  // Last revoked, kept through a later consent so work a revoked sign-in
+  // scheduled never runs.
+  revokedAt: z.date().nullable().optional(),
   expiresAt: z.date(),
 });
 
