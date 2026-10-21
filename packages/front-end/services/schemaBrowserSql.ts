@@ -1,5 +1,8 @@
+// Unquoted identifier segments must not match "." (the path separator),
+// otherwise the "."-separated groups overlap and the regex backtracks
+// exponentially on input like `select a from !.!.!.!.,`
 const SIMPLE_SELECT_FROM =
-  /^SELECT\s+([\s\S]+?)\s+FROM\s+((?:`[^`]+`|"[^"]+"|\[[^\]]+\]|[^\s,;]+)(?:\.(?:`[^`]+`|"[^"]+"|\[[^\]]+\]|[^\s,;]+))*)\s*$/i;
+  /^SELECT\s+([\s\S]+?)\s+FROM\s+((?:`[^`]+`|"[^"]+"|\[[^\]]+\]|[^\s,;.]+)(?:\.(?:`[^`]+`|"[^"]+"|\[[^\]]+\]|[^\s,;.]+))*)\s*$/i;
 
 function normalizeRelationPath(path: string): string {
   return path
