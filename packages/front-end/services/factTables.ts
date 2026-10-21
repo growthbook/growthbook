@@ -59,7 +59,10 @@ export const isDimensionCandidate = (c: DetectedColumn) =>
 export function getColumnMappingError(
   columns: DetectedColumn[],
   fromTable = false,
-  { minColumns = 2, roles = "timestamp and identifier" } = {},
+  {
+    minColumns = 2,
+    separateColumns = "separate timestamp and identifier columns",
+  } = {},
 ): string | null {
   if (!columns.some(isTimestampCandidate)) {
     return fromTable
@@ -75,8 +78,8 @@ export function getColumnMappingError(
   // roles have to be different columns.
   if (columns.length < minColumns) {
     return fromTable
-      ? `Selected table must have separate ${roles} columns.`
-      : `Your query must return separate ${roles} columns.`;
+      ? `Selected table must have ${separateColumns}.`
+      : `Your query must return ${separateColumns}.`;
   }
   return null;
 }

@@ -62,7 +62,8 @@ const getExposureQueryColumnMappingError = (
 ) =>
   getColumnMappingError(columns, fromTable, {
     minColumns: 4,
-    roles: "experiment id, variation id, timestamp and identifier",
+    separateColumns:
+      "separate columns for an experiment ID, a variation ID, a timestamp, and at least one identifier",
   });
 
 const ROLE_LABELS: Record<string, string> = {
@@ -345,8 +346,8 @@ export const ExperimentAssignmentQueryModal = ({
     const experimentId = validColumn(columns, experimentIdColumn);
     const variationId = validColumn(columns, variationIdColumn);
     const timestamp = validColumn(timestampOptions, timestampColumn);
-    if (!experimentId) throw new Error("Select an experiment id column");
-    if (!variationId) throw new Error("Select a variation id column");
+    if (!experimentId) throw new Error("Select an experiment ID column");
+    if (!variationId) throw new Error("Select a variation ID column");
     if (!timestamp) throw new Error("Select a timestamp column");
 
     if (!mappedUserIdTypes.length) {
@@ -451,7 +452,7 @@ export const ExperimentAssignmentQueryModal = ({
         {mode === "sql" ? (
           <Box px="2" py="1">
             <Text>
-              Return a column for the experiment id, variation id, timestamp,
+              Return a column for the experiment ID, variation ID, timestamp,
               and at least one identifier ({identifierTypes.join(", ")}).
               You&apos;ll map them to these roles on the next step.
             </Text>
