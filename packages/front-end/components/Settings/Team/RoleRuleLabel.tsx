@@ -5,6 +5,7 @@ import {
   getRoleDisplayName,
 } from "shared/permissions";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiInfo } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import { Popover } from "@/ui/Popover";
@@ -61,7 +62,11 @@ export function OverridesProjectRolesBadge() {
           ml="2"
           color="gray"
           variant="soft"
-          label="Overrides project roles"
+          label={
+            <Flex align="center" gap="1">
+              <PiInfo /> Overrides project roles
+            </Flex>
+          }
         />
       </span>
     </Tooltip>
