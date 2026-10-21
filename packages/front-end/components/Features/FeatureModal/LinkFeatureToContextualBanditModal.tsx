@@ -378,7 +378,7 @@ export default function LinkFeatureToContextualBanditModal({
             rule,
             autoPublish: false,
             forceNewDraft: true,
-            ...(allowUnscopedRules ? { allowUnscopedRules } : {}),
+            allowUnscopedRules,
           }),
         });
 

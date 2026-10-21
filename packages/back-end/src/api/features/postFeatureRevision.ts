@@ -1,14 +1,11 @@
-import {
-  postFeatureRevisionValidator,
-  type ConfirmAction,
-} from "shared/validators";
+import { postFeatureRevisionValidator } from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
 import { DraftLimitError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { holdAtRoute } from "back-end/src/services/confirmations";
+import { holdRoute, type HeldRoute } from "back-end/src/services/confirmations";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   createRevision,
@@ -23,13 +20,7 @@ export async function createFeatureDraft(
     body: { comment?: string; title?: string };
     query?: { overrideDraftLimit?: string | boolean };
   },
-  route: {
-    confirmation: readonly ConfirmAction[];
-    tags: readonly string[];
-    method: string;
-    path: string;
-    summary: string;
-  },
+  route: HeldRoute,
 ) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
@@ -61,16 +52,7 @@ export async function createFeatureDraft(
     }
   }
 
-  const { confirmation, tags, method, path, summary } = route;
-  await holdAtRoute(
-    req.context,
-    confirmation,
-    tags,
-    method,
-    path,
-    req,
-    summary,
-  );
+  await holdRoute(req.context, route, req);
 
   const environments = getEnvironmentIdsFromOrg(req.context.org);
 

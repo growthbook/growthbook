@@ -24,7 +24,7 @@ import {
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { holdAtRoute } from "back-end/src/services/confirmations";
+import { holdRoute } from "back-end/src/services/confirmations";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -131,17 +131,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     ],
     [],
   );
-  const { confirmation, tags, method, path, summary } =
-    postFeatureRevisionRuleAddV2Validator;
-  await holdAtRoute(
-    req.context,
-    confirmation,
-    tags,
-    method,
-    path,
-    req,
-    summary,
-  );
+  await holdRoute(req.context, postFeatureRevisionRuleAddV2Validator, req);
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,

@@ -1978,7 +1978,7 @@ export default function RuleModal({
                 ...(rampScheduleInline
                   ? { rampSchedule: rampScheduleInline }
                   : {}),
-                ...(allowUnscopedRules ? { allowUnscopedRules } : {}),
+                allowUnscopedRules,
               } as PutFeatureRuleBody),
             },
             (responseData) => {
@@ -2102,7 +2102,7 @@ export default function RuleModal({
               // Land the clone directly above its source rule.
               insertBeforeRuleId:
                 mode === "duplicate" && rampToNewValue ? ruleId : undefined,
-              ...(allowUnscopedRules ? { allowUnscopedRules } : {}),
+              allowUnscopedRules,
             } as PostFeatureRuleBody),
           },
         );

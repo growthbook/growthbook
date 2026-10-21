@@ -63,7 +63,6 @@ export const getConfirmation = async (
     notices: c.notices,
     lastAttemptAt: c.lastAttemptAt,
     request: { method: c.method, path: c.path, query: c.query, body: c.body },
-    // Every check the request skips, whether it sent the flag or holds for it.
     overrides: [
       ...new Set([
         ...overridesIn(c),

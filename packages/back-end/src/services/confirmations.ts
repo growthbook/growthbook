@@ -331,7 +331,6 @@ export async function requireConfirmation(
 const asks = (v: unknown) =>
   v === true || (typeof v === "string" && stringToBoolean(v));
 
-// The skip flags a request sends.
 export function overridesIn(
   request: { query?: unknown; body?: unknown } | undefined,
 ): ConfirmAction[] {
@@ -703,6 +702,30 @@ export async function holdAtRoute(
     pin: null,
   });
 }
+
+export type HeldRoute = {
+  confirmation: readonly ConfirmAction[];
+  tags: readonly string[];
+  method: string;
+  path: string;
+  summary: string;
+};
+
+// The route-level hold, for a handler that checks the request first.
+export const holdRoute = (
+  context: ReqContext,
+  route: HeldRoute,
+  req: { params?: unknown; body?: unknown; query?: unknown },
+) =>
+  holdAtRoute(
+    context,
+    route.confirmation,
+    route.tags,
+    route.method,
+    route.path,
+    req,
+    route.summary,
+  );
 
 // A direct flag update in words: "Archive my-flag", or
 // "Update my-flag: turn on in staging, change the default value".

@@ -622,7 +622,7 @@ export default function FeatureFromExperimentModal({
             autoPublish,
             draftVersion,
             forceNewDraft,
-            ...(allowUnscopedRules ? { allowUnscopedRules } : {}),
+            allowUnscopedRules,
           }),
         });
 

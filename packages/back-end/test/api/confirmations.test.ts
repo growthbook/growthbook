@@ -692,36 +692,7 @@ describe("confirmations", () => {
     });
   });
 
-  it("shows what refused the agent's last try when the retry skips it", async () => {
-    await seed("production");
-    setReqContext(
-      asKey(
-        { ...pat, confirmRules: [{ actions: ["override.*"] }] },
-        { maxConcurrentDrafts: 1 },
-      ),
-    );
-    const createDraft = (query: string) =>
-      auth(
-        request(app).post(`/api/v2/features/${FLAG}/revisions${query}`),
-      ).send({});
-
-    const refused = await createDraft("");
-    expect(refused.status).toBe(409);
-    const held = await createDraft("?overrideDraftLimit=true");
-    expect(held.status).toBe(202);
-    expect(
-      await mongoose.connection
-        .collection("confirmations")
-        .findOne({ id: held.body.confirmation.id }),
-    ).toMatchObject({
-      notices: [
-        { severity: "warning", messages: [refused.body.message], via: null },
-      ],
-      lastAttemptAt: expect.any(Date),
-    });
-  });
-
-  it("refuses a draft past the cap before a key that holds drafts asks anyone", async () => {
+  it("refuses a draft past the cap first, then shows why when the retry skips it", async () => {
     await seed("production");
     setReqContext(
       asKey(
@@ -750,6 +721,7 @@ describe("confirmations", () => {
       notices: [
         { severity: "warning", messages: [refused.body.message], via: null },
       ],
+      lastAttemptAt: expect.any(Date),
     });
   });
 
