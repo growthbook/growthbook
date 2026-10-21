@@ -51,6 +51,7 @@ import { isRowFilterComplete } from "@/components/FactTables/rowFilterUtils";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import useSqlAutocomplete from "@/components/SchemaBrowser/useSqlAutocomplete";
+import PartitionFilterField from "@/components/SchemaBrowser/PartitionFilterField";
 import {
   SAMPLE_ROW_LIMIT,
   SourceTable,
@@ -294,6 +295,7 @@ export default function SourceStep({
   placeholder,
   datasourceHeader,
   tableHint,
+  partitionDescription,
 }: {
   source: SourceTable;
   validateRef: MutableRefObject<(() => Promise<void>) | null>;
@@ -302,6 +304,8 @@ export default function SourceStep({
   datasourceHeader?: ReactNode;
   // Shown under the picked table's filters
   tableHint?: ReactNode;
+  // Explains what the detected partition filter limits
+  partitionDescription: string;
 }) {
   const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
@@ -612,6 +616,12 @@ export default function SourceStep({
           ) : null}
           {tableHint}
         </Flex>
+        {selectedTable && columnSource && !source.template ? (
+          <PartitionFilterField
+            partition={source.partition}
+            detectedDescription={partitionDescription}
+          />
+        ) : null}
         {sampleRowsOpen && selectedTable ? (
           <RowFilterSampleRowsModal
             title={[selectedTable.schemaName, selectedTable.tableName]

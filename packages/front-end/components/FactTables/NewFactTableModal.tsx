@@ -23,7 +23,6 @@ import {
   getInitialFactTableQuery,
 } from "@/services/datasources";
 import SourceStep from "@/components/SchemaBrowser/SourceStep";
-import PartitionFilterField from "@/components/SchemaBrowser/PartitionFilterField";
 import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";
 import ColumnMappingRow, {
   ColumnKindBadge,
@@ -396,7 +395,6 @@ export default function NewFactTableModal({
     sqlColumns,
     otherColumns,
     additionalColumns,
-    partition,
   } = source;
   const factTableSql = source.querySql;
 
@@ -593,6 +591,7 @@ export default function NewFactTableModal({
             key={mode}
             source={source}
             validateRef={validateSql}
+            partitionDescription="Detected from the table's partitioning. Each query only reads data from its start date on."
             placeholder={"SELECT\n  user_id,\n  timestamp\nFROM\n  events"}
             datasourceHeader={
               <Select
@@ -631,14 +630,6 @@ export default function NewFactTableModal({
                     append={<Link onClick={() => setStep(0)}>Change</Link>}
                   />
                 </Box>
-                {isGA4 ? null : (
-                  <Box pb="2">
-                    <PartitionFilterField
-                      partition={partition}
-                      detectedDescription="Detected from the table's partitioning. Each query only reads data from its start date on."
-                    />
-                  </Box>
-                )}
                 {nameField}
 
                 <Box pt="2">

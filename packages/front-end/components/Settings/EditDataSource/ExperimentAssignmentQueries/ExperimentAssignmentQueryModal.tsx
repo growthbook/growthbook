@@ -19,7 +19,6 @@ import {
 } from "shared/types/datasource";
 import { DetectedColumn } from "shared/types/fact-table";
 import SourceStep from "@/components/SchemaBrowser/SourceStep";
-import PartitionFilterField from "@/components/SchemaBrowser/PartitionFilterField";
 import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";
 import ColumnMappingRow, {
   validColumn,
@@ -245,7 +244,7 @@ export const ExperimentAssignmentQueryModal = ({
     },
     onColumnsChanged: remapColumns,
   });
-  const { mode, selectedTable, partition, detected, querySql } = source;
+  const { mode, selectedTable, detected, querySql } = source;
   // A general events table is scanned in full unless filtered to exposures
   const eventTypeColumn =
     source.pickerColumns && !source.template && !source.rowFilters.length
@@ -510,6 +509,7 @@ export const ExperimentAssignmentQueryModal = ({
             key={mode}
             source={source}
             validateRef={validateSql}
+            partitionDescription="Detected from the table's partitioning. Each analysis only reads data since the experiment started."
             tableHint={
               eventTypeColumn ? (
                 <Callout status="info" size="sm">
@@ -557,12 +557,6 @@ export const ExperimentAssignmentQueryModal = ({
                 }
               />
             )}
-            {mode === "table" && !source.template ? (
-              <PartitionFilterField
-                partition={partition}
-                detectedDescription="Detected from the table's partitioning. Each analysis only reads data since the experiment started."
-              />
-            ) : null}
             <TextField
               label="Display name"
               value={name}
