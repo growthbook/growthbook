@@ -135,6 +135,28 @@ describe("getExplorerQueryPhase", () => {
     });
   });
 
+  it("surfaces a kept-previous journey failure while the draft matches the failed config", () => {
+    const failedJourney = {
+      ...settled,
+      needsFetch: true,
+      needsUpdate: true,
+      errorKind: "timeout" as const,
+      error: getQueryTimeoutErrorMessage(false),
+    };
+    expect(
+      getExplorerQueryPhase({
+        ...failedJourney,
+        failedConfigMatchesDraft: true,
+      }),
+    ).toMatchObject({ type: "error", kind: "timeout" });
+    expect(
+      getExplorerQueryPhase({
+        ...failedJourney,
+        failedConfigMatchesDraft: false,
+      }),
+    ).toEqual({ type: "stale" });
+  });
+
   it("surfaces a warehouse failure without matching error copy", () => {
     expect(
       getExplorerQueryPhase({

@@ -227,7 +227,12 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
             style={{
               position: "absolute",
               zIndex: 1000,
-              top: draftExploreState.type === "journey" && showChart ? 100 : 15,
+              top:
+                draftExploreState.type === "journey" && showChart
+                  ? 100
+                  : floatingCallout.status === "error"
+                    ? 63
+                    : 15,
               right: 15,
               width: "auto",
               backgroundColor: "var(--color-panel-solid)",

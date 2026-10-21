@@ -220,6 +220,8 @@ export function ExplorerProvider({
     exploration: ProductAnalyticsExploration | null;
     error: string | null;
     errorKind: ExplorerQueryErrorKind | null;
+    /** Config the error belongs to, when it differs from submittedState. */
+    failedState: ExplorerDraftConfig | null;
     query: QueryInterface | null;
   }>(() => {
     // The full-fact-table resolver doesn't exist yet at mount (it's derived
@@ -245,6 +247,7 @@ export function ExplorerProvider({
       exploration: initialExploration,
       error: null,
       errorKind: null,
+      failedState: null,
       query: null,
     };
   });
@@ -391,6 +394,7 @@ export function ExplorerProvider({
   const data = explorerState.exploration;
   const error = explorerState.error;
   const errorKind = explorerState.errorKind;
+  const failedState = explorerState.failedState;
   const submittedExploreState = explorerState.submittedState;
   const query = explorerState.query;
 
@@ -470,6 +474,29 @@ export function ExplorerProvider({
     queryEnabled,
   ]);
 
+  // Journeys keep the previous rows on failure, so submittedState is not the
+  // failed config; compare the draft against the failed config instead.
+  const failedConfigMatchesDraft = useMemo(() => {
+    if (!failedState) return null;
+    const failedPrevious = failedState.previousTimeFrame ?? null;
+    const diff = compareConfig(failedState, cleanedDraftExploreState, {
+      lastPreviousTimeFrame: failedPrevious,
+      newPreviousTimeFrame: draftExploreState.previousTimeFrame ?? null,
+      lastComparisonMode: failedPrevious
+        ? (failedState.comparisonMode ??
+          resolveLegacyExplorerComparisonMode(failedState.dateRange))
+        : null,
+      newComparisonMode: compareEnabled ? comparisonMode : null,
+    });
+    return !diff.needsFetch && !diff.needsUpdate;
+  }, [
+    failedState,
+    cleanedDraftExploreState,
+    draftExploreState.previousTimeFrame,
+    compareEnabled,
+    comparisonMode,
+  ]);
+
   const queryPhase = useMemo(
     () =>
       getExplorerQueryPhase({
@@ -480,6 +507,7 @@ export function ExplorerProvider({
         errorKind,
         error,
         submittedExploreState,
+        failedConfigMatchesDraft,
       }),
     [
       loading,
@@ -490,6 +518,7 @@ export function ExplorerProvider({
       errorKind,
       error,
       submittedExploreState,
+      failedConfigMatchesDraft,
     ],
   );
 
@@ -544,6 +573,17 @@ export function ExplorerProvider({
         pollTimerRef.current = null;
       }
       setPolling(false);
+
+      // A required-cache miss keeps the last error (see below); every other
+      // submit runs a new query, so the old error must not show while loading.
+      if (cache !== "required") {
+        setExplorerState((prev) => ({
+          ...prev,
+          error: null,
+          errorKind: null,
+          failedState: null,
+        }));
+      }
 
       const startTime = Date.now();
       const {
@@ -639,6 +679,7 @@ export function ExplorerProvider({
               resultError: nextError,
               timeout,
             }),
+            failedState: keepPrevious ? submittedConfig : null,
           };
         });
         setComparisonExploration(resultComparison);
@@ -712,6 +753,7 @@ export function ExplorerProvider({
           query: primaryIsRunning ? null : query,
           error: null,
           errorKind: null,
+          failedState: null,
         }));
         setComparisonExploration(comparisonIsRunning ? null : comparisonResult);
         setComparisonQuery(
@@ -1205,6 +1247,7 @@ export function ExplorerProvider({
         exploration: null,
         error: null,
         errorKind: null,
+        failedState: null,
         query: null,
       };
     });
@@ -1298,6 +1341,7 @@ export function ExplorerProvider({
           exploration: null,
           error: null,
           errorKind: null,
+          failedState: null,
           query: null,
         };
       });

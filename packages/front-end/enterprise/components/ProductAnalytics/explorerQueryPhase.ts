@@ -55,6 +55,7 @@ export function getExplorerQueryPhase({
   errorKind,
   error,
   submittedExploreState,
+  failedConfigMatchesDraft = null,
 }: {
   loading: boolean;
   isStale: boolean;
@@ -63,6 +64,8 @@ export function getExplorerQueryPhase({
   errorKind: ExplorerQueryErrorKind | null;
   error: string | null;
   submittedExploreState: ExplorerDraftConfig | null;
+  /** Set when the error belongs to a config other than submittedExploreState. */
+  failedConfigMatchesDraft?: boolean | null;
 }): ExplorerQueryPhase {
   if (loading) return { type: "loading" };
   if (!hasSubmittablePayload(submittedExploreState)) {
@@ -70,7 +73,8 @@ export function getExplorerQueryPhase({
   }
 
   // Cache-miss auto-submits keep errorKind and set needsFetch, so they count as stale.
-  const lastAttemptApplies = !needsFetch && !needsUpdate;
+  const lastAttemptApplies =
+    failedConfigMatchesDraft ?? (!needsFetch && !needsUpdate);
   if (lastAttemptApplies && errorKind !== null) {
     return {
       type: "error",
