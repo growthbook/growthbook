@@ -585,6 +585,9 @@ tags:
   - name: ContextualBanditQueries
     x-displayName: Contextual Bandit Queries
     description: ''
+  - name: Interleavings
+    x-displayName: Interleaving Experiments
+    description: ''
   - name: CustomFields
     x-displayName: Custom Fields
     description: ''
@@ -873,6 +876,9 @@ tags:
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/InformationSchemaTable"
       />
+  - name: Interleaving_model
+    x-displayName: Interleaving
+    description: <SchemaDefinition schemaRef="#/components/schemas/Interleaving" />
   - name: Learning_model
     x-displayName: Learning
     description: <SchemaDefinition schemaRef="#/components/schemas/Learning" />
@@ -18449,9 +18455,10 @@ paths:
         Returns the latest contextual-bandit stats engine output (per-context
         responses tagged with their leaf, the per-leaf targeting conditions, and
         per-leaf aggregated stats), the overall (marginal) variation weights
-        across all contexts, the SRM of the most recent run, and the status of
-        the most recent snapshot run for the contextual bandit. Same payload the
-        GrowthBook UI uses to render the contextual bandit results table.
+        across all contexts, the health checks (traffic, SRM, multiple
+        exposures) computed by that same run, and the status of the most recent
+        snapshot run for the contextual bandit. Same payload the GrowthBook UI
+        uses to render the contextual bandit results and health tabs.
       tags:
         - ContextualBandits
       parameters:
@@ -18733,11 +18740,143 @@ paths:
                                 - variations
                                 - contexts
                               additionalProperties: false
+                          snapshotId:
+                            type: string
+                          dateCreated:
+                            type: string
+                          health:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  variations:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        variationId:
+                                          type: string
+                                        variationName:
+                                          type: string
+                                        weight:
+                                          type: number
+                                      required:
+                                        - variationId
+                                        - weight
+                                      additionalProperties: false
+                                  traffic:
+                                    anyOf:
+                                      - type: object
+                                        properties:
+                                          overall:
+                                            type: object
+                                            properties:
+                                              name:
+                                                type: string
+                                              srm:
+                                                type: number
+                                              variationUnits:
+                                                type: array
+                                                items:
+                                                  type: number
+                                            required:
+                                              - name
+                                              - srm
+                                              - variationUnits
+                                            additionalProperties: false
+                                          dimension:
+                                            type: object
+                                            propertyNames:
+                                              type: string
+                                            additionalProperties:
+                                              type: array
+                                              items:
+                                                type: object
+                                                properties:
+                                                  name:
+                                                    type: string
+                                                  srm:
+                                                    type: number
+                                                  variationUnits:
+                                                    type: array
+                                                    items:
+                                                      type: number
+                                                required:
+                                                  - name
+                                                  - srm
+                                                  - variationUnits
+                                                additionalProperties: false
+                                          error:
+                                            type: string
+                                        required:
+                                          - overall
+                                          - dimension
+                                        additionalProperties: false
+                                      - type: 'null'
+                                  srm:
+                                    anyOf:
+                                      - type: object
+                                        properties:
+                                          statistic:
+                                            type: number
+                                          pValue:
+                                            type: number
+                                          degreesOfFreedom:
+                                            type: integer
+                                            minimum: 0
+                                          latestPeriod:
+                                            type: object
+                                            properties:
+                                              banditVersion:
+                                                type: string
+                                              leaves:
+                                                type: array
+                                                items:
+                                                  type: object
+                                                  properties:
+                                                    leafId:
+                                                      type: string
+                                                    observed:
+                                                      type: array
+                                                      items:
+                                                        type: number
+                                                    expected:
+                                                      type: array
+                                                      items:
+                                                        type: number
+                                                  required:
+                                                    - leafId
+                                                    - observed
+                                                    - expected
+                                                  additionalProperties: false
+                                            required:
+                                              - banditVersion
+                                              - leaves
+                                            additionalProperties: false
+                                        required:
+                                          - statistic
+                                          - pValue
+                                          - degreesOfFreedom
+                                        additionalProperties: false
+                                      - type: 'null'
+                                  multipleExposures:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                required:
+                                  - variations
+                                  - traffic
+                                  - srm
+                                  - multipleExposures
+                                additionalProperties: false
+                              - type: 'null'
                         required:
                           - attributes
                           - sseTrajectory
                           - overall
                           - leaves
+                          - snapshotId
+                          - dateCreated
+                          - health
                         additionalProperties: false
                       - type: 'null'
                   latest:
@@ -18788,23 +18927,6 @@ paths:
                             type: string
                           triggeredBy:
                             type: string
-                          srm:
-                            anyOf:
-                              - type: object
-                                properties:
-                                  statistic:
-                                    type: number
-                                  pValue:
-                                    type: number
-                                  degreesOfFreedom:
-                                    type: integer
-                                    minimum: 0
-                                required:
-                                  - statistic
-                                  - pValue
-                                  - degreesOfFreedom
-                                additionalProperties: false
-                              - type: 'null'
                         required:
                           - id
                           - status
@@ -18815,7 +18937,6 @@ paths:
                           - multipleExposures
                           - type
                           - triggeredBy
-                          - srm
                         additionalProperties: false
                       - type: 'null'
                 required:
@@ -23141,6 +23262,10 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/SavedGroupReferenceResource'
+                  interleavings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SavedGroupReferenceResource'
                   savedGroups:
                     type: array
                     items:
@@ -23149,6 +23274,7 @@ paths:
                   - features
                   - experiments
                   - contextualBandits
+                  - interleavings
                   - savedGroups
                 additionalProperties: false
       x-codeSamples:
@@ -54080,6 +54206,786 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}:
+    get:
+      operationId: getInterleaving
+      summary: Get a single interleaving
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleaving:
+                    $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleaving
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/interleavings/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: updateInterleaving
+      summary: Update a single interleaving
+      description: >-
+        Archive an interleaving experiment by setting `archived`. Use the start
+        and stop endpoints to change its status.
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  maxLength: 10000
+                project:
+                  type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                archived:
+                  description: Stop a running interleaving experiment before archiving it.
+                  type: boolean
+                trackingKey:
+                  type: string
+                hashAttribute:
+                  type: string
+                seed:
+                  type: string
+                variations:
+                  description: >-
+                    Replaces both rankers. Each keeps its id by position, so the
+                    first entry updates the first ranker.
+                  type: array
+                  prefixItems:
+                    - type: object
+                      properties:
+                        key:
+                          type: string
+                          pattern: \S
+                        name:
+                          type: string
+                        description:
+                          type: string
+                          maxLength: 10000
+                        config:
+                          description: >-
+                            The ranker's config, as a JSON string. Passed to
+                            `getList` in the SDK.
+                          type: string
+                      required:
+                        - key
+                        - name
+                        - config
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        key:
+                          type: string
+                          pattern: \S
+                        name:
+                          type: string
+                        description:
+                          type: string
+                          maxLength: 10000
+                        config:
+                          description: >-
+                            The ranker's config, as a JSON string. Passed to
+                            `getList` in the SDK.
+                          type: string
+                      required:
+                        - key
+                        - name
+                        - config
+                      additionalProperties: false
+                jsonSchema:
+                  anyOf:
+                    - description: >-
+                        Validation schema to stage on the draft. The server sets
+                        `date`, so don't send it.
+                      type: object
+                      properties:
+                        schemaType:
+                          type: string
+                          enum:
+                            - schema
+                            - simple
+                        schema:
+                          type: string
+                        simple:
+                          type: object
+                          properties:
+                            type:
+                              type: string
+                              enum:
+                                - object
+                                - object[]
+                                - primitive
+                                - primitive[]
+                            fields:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  key:
+                                    type: string
+                                    maxLength: 64
+                                  type:
+                                    type: string
+                                    enum:
+                                      - integer
+                                      - float
+                                      - string
+                                      - boolean
+                                  required:
+                                    type: boolean
+                                  default:
+                                    type: string
+                                    maxLength: 256
+                                  description:
+                                    type: string
+                                    maxLength: 10000
+                                  enum:
+                                    maxItems: 256
+                                    type: array
+                                    items:
+                                      type: string
+                                      maxLength: 256
+                                  min:
+                                    type: number
+                                  max:
+                                    type: number
+                                  nullable:
+                                    type: boolean
+                                  jsonSchema:
+                                    type: string
+                                required:
+                                  - key
+                                  - type
+                                  - required
+                                  - default
+                                  - description
+                                  - enum
+                                additionalProperties: false
+                            additionalProperties:
+                              type: boolean
+                            invariants:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  name:
+                                    type: string
+                                    maxLength: 128
+                                  rule:
+                                    type: string
+                                  message:
+                                    type: string
+                                    maxLength: 10000
+                                required:
+                                  - name
+                                  - rule
+                                  - message
+                                additionalProperties: false
+                          required:
+                            - type
+                            - fields
+                          additionalProperties: false
+                        enabled:
+                          type: boolean
+                      required:
+                        - schemaType
+                        - schema
+                        - simple
+                        - enabled
+                      additionalProperties: false
+                    - type: 'null'
+                datasource:
+                  type: string
+                interleavingQueryId:
+                  type: string
+                userIdType:
+                  type: string
+                metrics:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      analyses:
+                        minItems: 1
+                        type: array
+                        items:
+                          anyOf:
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: paired
+                              required:
+                                - type
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: ownership
+                                attribution:
+                                  type: string
+                                  enum:
+                                    - exposureCount
+                                    - engagementSignal
+                              required:
+                                - type
+                                - attribution
+                              additionalProperties: false
+                    required:
+                      - id
+                      - analyses
+                    additionalProperties: false
+                coverage:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                condition:
+                  type: string
+                savedGroups:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                prerequisites:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      condition:
+                        type: string
+                    required:
+                      - id
+                      - condition
+                    additionalProperties: false
+                environmentSettings:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                    required:
+                      - enabled
+                    additionalProperties: false
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleaving:
+                    $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleaving
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/interleavings/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings:
+    post:
+      operationId: createInterleaving
+      summary: Create a single interleaving
+      tags:
+        - Interleavings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  maxLength: 10000
+                project:
+                  type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                key:
+                  description: >-
+                    The key your code passes to `interleave()` as `ranker`.
+                    Can't be changed later. Several experiments may share a key
+                    so you can iterate without changing code, but only one of
+                    them can be running in a given environment, and each needs
+                    its own `trackingKey`.
+                  type: string
+                  pattern: ^[a-zA-Z0-9_.:\|\-]+$
+                trackingKey:
+                  description: >-
+                    The `experiment_id` recorded in exposures. Defaults to
+                    `key`.
+                  type: string
+                hashAttribute:
+                  type: string
+                variations:
+                  description: >-
+                    Exactly two rankers. Users who are not exposed to
+                    interleaved rankings get the first ranker's list.
+                  type: array
+                  prefixItems:
+                    - type: object
+                      properties:
+                        key:
+                          type: string
+                          pattern: \S
+                        name:
+                          type: string
+                        description:
+                          type: string
+                          maxLength: 10000
+                        config:
+                          description: >-
+                            The ranker's config, as a JSON string. Passed to
+                            `getList` in the SDK.
+                          type: string
+                      required:
+                        - key
+                        - name
+                        - config
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        key:
+                          type: string
+                          pattern: \S
+                        name:
+                          type: string
+                        description:
+                          type: string
+                          maxLength: 10000
+                        config:
+                          description: >-
+                            The ranker's config, as a JSON string. Passed to
+                            `getList` in the SDK.
+                          type: string
+                      required:
+                        - key
+                        - name
+                        - config
+                      additionalProperties: false
+                jsonSchema:
+                  description: >-
+                    Validation schema to stage on the draft. The server sets
+                    `date`, so don't send it.
+                  type: object
+                  properties:
+                    schemaType:
+                      type: string
+                      enum:
+                        - schema
+                        - simple
+                    schema:
+                      type: string
+                    simple:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - object
+                            - object[]
+                            - primitive
+                            - primitive[]
+                        fields:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              key:
+                                type: string
+                                maxLength: 64
+                              type:
+                                type: string
+                                enum:
+                                  - integer
+                                  - float
+                                  - string
+                                  - boolean
+                              required:
+                                type: boolean
+                              default:
+                                type: string
+                                maxLength: 256
+                              description:
+                                type: string
+                                maxLength: 10000
+                              enum:
+                                maxItems: 256
+                                type: array
+                                items:
+                                  type: string
+                                  maxLength: 256
+                              min:
+                                type: number
+                              max:
+                                type: number
+                              nullable:
+                                type: boolean
+                              jsonSchema:
+                                type: string
+                            required:
+                              - key
+                              - type
+                              - required
+                              - default
+                              - description
+                              - enum
+                            additionalProperties: false
+                        additionalProperties:
+                          type: boolean
+                        invariants:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                                maxLength: 128
+                              rule:
+                                type: string
+                              message:
+                                type: string
+                                maxLength: 10000
+                            required:
+                              - name
+                              - rule
+                              - message
+                            additionalProperties: false
+                      required:
+                        - type
+                        - fields
+                      additionalProperties: false
+                    enabled:
+                      type: boolean
+                  required:
+                    - schemaType
+                    - schema
+                    - simple
+                    - enabled
+                  additionalProperties: false
+                datasource:
+                  type: string
+                interleavingQueryId:
+                  type: string
+                userIdType:
+                  type: string
+                metrics:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      analyses:
+                        minItems: 1
+                        type: array
+                        items:
+                          anyOf:
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: paired
+                              required:
+                                - type
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: ownership
+                                attribution:
+                                  type: string
+                                  enum:
+                                    - exposureCount
+                                    - engagementSignal
+                              required:
+                                - type
+                                - attribution
+                              additionalProperties: false
+                    required:
+                      - id
+                      - analyses
+                    additionalProperties: false
+                coverage:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                condition:
+                  type: string
+                savedGroups:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                prerequisites:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      condition:
+                        type: string
+                    required:
+                      - id
+                      - condition
+                    additionalProperties: false
+                environmentSettings:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                    required:
+                      - enabled
+                    additionalProperties: false
+              required:
+                - name
+                - key
+                - variations
+                - datasource
+                - interleavingQueryId
+                - userIdType
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleaving:
+                    $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleaving
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/interleavings' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listInterleavings
+      summary: Get all interleavings
+      tags:
+        - Interleavings
+      parameters:
+        - name: projectId
+          in: query
+          description: ''
+          schema:
+            type: string
+        - name: datasourceId
+          in: query
+          description: ''
+          schema:
+            type: string
+        - name: trackingKey
+          in: query
+          description: ''
+          schema:
+            type: string
+        - name: key
+          in: query
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleavings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleavings
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/interleavings' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/start:
+    post:
+      operationId: startInterleaving
+      summary: Start an interleaving experiment
+      description: >-
+        Starts serving the interleaving to SDKs in its enabled environments. A
+        stopped interleaving can be started again; its start date is kept.
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The interleaving experiment id
+          schema:
+            description: The interleaving experiment id
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleaving:
+                    $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleaving
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/interleavings/{id}/start' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/stop:
+    post:
+      operationId: stopInterleaving
+      summary: Stop an interleaving experiment
+      description: >-
+        Removes the interleaving from SDK payloads, so `interleave()` falls back
+        to `fallbackConfig`.
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The interleaving experiment id
+          schema:
+            description: The interleaving experiment id
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleaving:
+                    $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleaving
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/interleavings/{id}/stop' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/custom-fields:
     post:
       operationId: createCustomField
@@ -80509,6 +81415,33 @@ components:
         stageDateStarted:
           type: string
           format: date-time
+        analysisSummary:
+          type: object
+          properties:
+            snapshotId:
+              type: string
+            health:
+              type: object
+              properties:
+                srm:
+                  anyOf:
+                    - type: number
+                    - type: 'null'
+                totalUsers:
+                  type: number
+                multipleExposures:
+                  type: number
+                variationIds:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - srm
+                - totalUsers
+              additionalProperties: false
+          required:
+            - snapshotId
+          additionalProperties: false
         autoSnapshots:
           type: boolean
         nextSnapshotAttempt:
@@ -80583,6 +81516,300 @@ components:
         - userIdType
         - query
         - targetingAttributeColumns
+      additionalProperties: false
+    Interleaving:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        name:
+          type: string
+        description:
+          type: string
+        project:
+          type: string
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        archived:
+          type: boolean
+        status:
+          type: string
+          enum:
+            - draft
+            - running
+            - stopped
+        dateStarted:
+          type: string
+          format: date-time
+        dateStopped:
+          type: string
+          format: date-time
+        key:
+          description: The key your code passes to `interleave()` as `ranker`
+          type: string
+        trackingKey:
+          description: The `experiment_id` recorded in exposures
+          type: string
+        hashAttribute:
+          type: string
+        seed:
+          type: string
+        variations:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              key:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+              config:
+                description: The ranker's config, as a JSON string
+                type: string
+            required:
+              - id
+              - key
+              - name
+              - config
+            additionalProperties: false
+        jsonSchema:
+          anyOf:
+            - description: Validation schema for the rankers' configs
+              type: object
+              properties:
+                schemaType:
+                  type: string
+                  enum:
+                    - schema
+                    - simple
+                schema:
+                  type: string
+                simple:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - object
+                        - object[]
+                        - primitive
+                        - primitive[]
+                    fields:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                            maxLength: 64
+                          type:
+                            type: string
+                            enum:
+                              - integer
+                              - float
+                              - string
+                              - boolean
+                          required:
+                            type: boolean
+                          default:
+                            type: string
+                            maxLength: 256
+                          description:
+                            type: string
+                            maxLength: 10000
+                          enum:
+                            maxItems: 256
+                            type: array
+                            items:
+                              type: string
+                              maxLength: 256
+                          min:
+                            type: number
+                          max:
+                            type: number
+                          nullable:
+                            type: boolean
+                          jsonSchema:
+                            type: string
+                        required:
+                          - key
+                          - type
+                          - required
+                          - default
+                          - description
+                          - enum
+                        additionalProperties: false
+                    additionalProperties:
+                      type: boolean
+                    invariants:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                            maxLength: 128
+                          rule:
+                            type: string
+                          message:
+                            type: string
+                            maxLength: 10000
+                        required:
+                          - name
+                          - rule
+                          - message
+                        additionalProperties: false
+                  required:
+                    - type
+                    - fields
+                  additionalProperties: false
+                enabled:
+                  type: boolean
+                date:
+                  type: string
+                  format: date-time
+              required:
+                - schemaType
+                - schema
+                - simple
+                - enabled
+                - date
+              additionalProperties: false
+            - type: 'null'
+        datasource:
+          type: string
+        interleavingQueryId:
+          type: string
+        userIdType:
+          type: string
+        metrics:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              analyses:
+                minItems: 1
+                type: array
+                items:
+                  anyOf:
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: paired
+                      required:
+                        - type
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: ownership
+                        attribution:
+                          type: string
+                          enum:
+                            - exposureCount
+                            - engagementSignal
+                      required:
+                        - type
+                        - attribution
+                      additionalProperties: false
+            required:
+              - id
+              - analyses
+            additionalProperties: false
+        coverage:
+          type: number
+          minimum: 0
+          maximum: 1
+        condition:
+          type: string
+        savedGroups:
+          type: array
+          items:
+            type: object
+            properties:
+              match:
+                type: string
+                enum:
+                  - all
+                  - none
+                  - any
+              ids:
+                type: array
+                items:
+                  type: string
+            required:
+              - match
+              - ids
+            additionalProperties: false
+        prerequisites:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              condition:
+                type: string
+            required:
+              - id
+              - condition
+            additionalProperties: false
+        environmentSettings:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+            required:
+              - enabled
+            additionalProperties: false
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - owner
+        - tags
+        - archived
+        - status
+        - key
+        - trackingKey
+        - hashAttribute
+        - seed
+        - variations
+        - jsonSchema
+        - datasource
+        - interleavingQueryId
+        - userIdType
+        - metrics
+        - environmentSettings
       additionalProperties: false
     CustomField:
       type: object
@@ -84632,6 +85859,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SavedGroupReferenceResource'
+        interleavings:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedGroupReferenceResource'
         savedGroups:
           type: array
           items:
@@ -84652,6 +85883,7 @@ components:
         - features
         - experiments
         - contextualBandits
+        - interleavings
         - savedGroups
       additionalProperties: false
       $defs:
@@ -87430,6 +88662,7 @@ x-tagGroups:
       - ContextualBandits
       - Dashboards
       - ContextualBanditQueries
+      - Interleavings
       - CustomFields
       - MetricGroups
       - Teams
@@ -87514,6 +88747,7 @@ x-tagGroups:
       - Holdout_model
       - InformationSchema_model
       - InformationSchemaTable_model
+      - Interleaving_model
       - Learning_model
       - LookbackOverride_model
       - Member_model

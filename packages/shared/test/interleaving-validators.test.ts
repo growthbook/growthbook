@@ -119,7 +119,7 @@ describe("getInterleavingFeatureDefId", () => {
   });
 
   it("cannot collide with a real feature key", () => {
-    // `$` is outside FEATURE_KEY_PATTERN, so no customer feature can claim it.
+    // `$` is outside FEATURE_KEY_REGEX, so no customer feature can claim it.
     expect(
       interleavingValidator.safeParse({ ...baseDoc, key: "$interleave:x" })
         .success,

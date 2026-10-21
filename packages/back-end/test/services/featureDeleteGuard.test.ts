@@ -18,11 +18,15 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 describe("assertFeatureDeletable", () => {
   const org = { id: "org", settings: { environments: [{ id: "production" }] } };
   const getAllBandits = jest.fn();
+  const getAllInterleavings = jest.fn();
   const context = {
     org,
     scanContextOverride: {
       org,
-      models: { contextualBandits: { getAll: getAllBandits } },
+      models: {
+        contextualBandits: { getAll: getAllBandits },
+        interleavings: { getAll: getAllInterleavings },
+      },
     },
   } as unknown as ReqContext;
   const PARENT = "parent_flag";
@@ -47,16 +51,25 @@ describe("assertFeatureDeletable", () => {
     prerequisites,
   });
 
+  const interleaving = (id: string, prerequisites: (typeof gate)[] = []) => ({
+    id,
+    archived: false,
+    status: "running",
+    prerequisites,
+  });
+
   const stub = (
     features: FeatureInterface[],
     experiments: ReturnType<typeof experiment>[],
     bandits: ReturnType<typeof bandit>[] = [],
+    interleavings: ReturnType<typeof interleaving>[] = [],
   ) => {
     jest.mocked(getAllFeaturesWithoutEditorFields).mockResolvedValue(features);
     jest
       .mocked(getAllExperimentsForStaleGraph)
       .mockResolvedValue(experiments as never);
     getAllBandits.mockResolvedValue(bandits);
+    getAllInterleavings.mockResolvedValue(interleavings);
   };
 
   it("is blocked by a live feature prerequisite", async () => {
@@ -80,14 +93,22 @@ describe("assertFeatureDeletable", () => {
     );
   });
 
+  it("is blocked by an interleaving prerequisite", async () => {
+    stub([], [], [], [interleaving("il", [gate])]);
+    await expect(assertFeatureDeletable(context, PARENT)).rejects.toThrow(
+      /1 Interleaving Experiment\(s\)\. Remove/,
+    );
+  });
+
   it("names every kind that depends on it", async () => {
     stub(
       [feature("child", [gate])],
       [experiment("exp", [gate])],
       [bandit("cb", [gate])],
+      [interleaving("il", [gate])],
     );
     await expect(assertFeatureDeletable(context, PARENT)).rejects.toThrow(
-      /1 live Feature Flag\(s\) and 1 Experiment\(s\) and 1 Contextual Bandit\(s\)/,
+      /1 live Feature Flag\(s\) and 1 Experiment\(s\) and 1 Contextual Bandit\(s\) and 1 Interleaving Experiment\(s\)/,
     );
   });
 
@@ -107,7 +128,19 @@ describe("assertFeatureDeletable", () => {
   });
 
   it("proceeds once nothing depends on it", async () => {
-    stub([feature("unrelated")], [experiment("exp")], [bandit("cb")]);
+    stub(
+      [feature("unrelated")],
+      [experiment("exp")],
+      [bandit("cb")],
+      [interleaving("il")],
+    );
+    await expect(
+      assertFeatureDeletable(context, PARENT),
+    ).resolves.toBeUndefined();
+  });
+
+  it("proceeds past a stopped interleaving, which re-checks on restart", async () => {
+    stub([], [], [], [{ ...interleaving("il", [gate]), status: "stopped" }]);
     await expect(
       assertFeatureDeletable(context, PARENT),
     ).resolves.toBeUndefined();
