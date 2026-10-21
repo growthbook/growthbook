@@ -10,7 +10,11 @@ import {
   parseIntWithDefaultCapped,
   pruneApprovalRuleReferences,
 } from "shared/util";
-import { canApplyExpirationPolicy, getRoles } from "shared/permissions";
+import {
+  canApplyExpirationPolicy,
+  canManageApiKeySecret,
+  getRoles,
+} from "shared/permissions";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import {
@@ -2243,20 +2247,11 @@ export async function postApiKeyReveal(
     });
   }
 
-  if (!key.userId) {
-    // Only admins can reveal non-user keys
-    if (!context.permissions.canCreateApiKey()) {
-      context.permissions.throwPermissionError();
-    }
-  } else {
-    // This is a user key
-    // The key must be owned by the user requesting to reveal it
-    const isMatchingUserKey = req.userId === key.userId;
-    if (!isMatchingUserKey) {
-      return res.status(403).json({
-        status: 403,
-      });
-    }
+  if (!canManageApiKeySecret(context.permissions, key, context.userId)) {
+    if (!key.userId) context.permissions.throwPermissionError();
+    return res.status(403).json({
+      status: 403,
+    });
   }
 
   res.status(200).json({

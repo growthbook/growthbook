@@ -3,6 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import { PiIdentificationCard } from "react-icons/pi";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
+  canManageApiKeySecret,
   canSetApiKeyDisabled,
   requesterHeaderPolicy,
 } from "shared/permissions";
@@ -45,7 +46,6 @@ const ADMIN_LOCKED_REASON =
 type ApiKeysTableProps = {
   onDelete: (keyId: string | undefined) => () => Promise<void>;
   keys: ApiKeyInterface[];
-  canCreateKeys: boolean;
   canDeleteKeys: boolean;
   onReveal: (keyId: string | undefined) => () => Promise<string>;
   onToggleDisabled?: (
@@ -71,7 +71,6 @@ const hasActivePreviousKey = (key: ApiKeyInterface) =>
 export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   keys = [],
   onDelete,
-  canCreateKeys,
   canDeleteKeys,
   onReveal,
   onToggleDisabled,
@@ -96,6 +95,8 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
     key.disabledBy !== userId;
   const canToggle = (key: ApiKeyInterface) =>
     canSetApiKeyDisabled(permissionsUtil, key, userId || "", !key.disabled);
+  const canManageSecret = (key: ApiKeyInterface) =>
+    canManageApiKeySecret(permissionsUtil, key, userId || "");
   // A PAT the owner can't toggle keeps a locked toggle that explains why; org keys hide it.
   const isAdminLocked = (key: ApiKeyInterface) =>
     !!key.userId && !canToggle(key);
@@ -225,7 +226,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                 )}
               </TableCell>
               <TableCell style={dimStyle(key)}>
-                {canCreateKeys ? (
+                {canManageSecret(key) ? (
                   <ClickToReveal
                     valueWhenHidden="secret_abcdefghijklmnop123"
                     getValue={onReveal(key.id)}
@@ -323,10 +324,14 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     onShowAuditLog={onShowAuditLog}
                     onCopy={onCopy}
                     onRotate={
-                      onRotate && canRotate(key) ? setRotating : undefined
+                      onRotate && canRotate(key) && canManageSecret(key)
+                        ? setRotating
+                        : undefined
                     }
                     onRevokePrevious={
-                      onRevokePrevious && hasActivePreviousKey(key)
+                      onRevokePrevious &&
+                      hasActivePreviousKey(key) &&
+                      canManageSecret(key)
                         ? () => onRevokePrevious(key.id as string)
                         : undefined
                     }

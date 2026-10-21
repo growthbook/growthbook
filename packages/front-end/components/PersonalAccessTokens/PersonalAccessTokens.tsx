@@ -84,7 +84,6 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
           <ApiKeysTable
             onDelete={onDelete}
             keys={accessTokens}
-            canCreateKeys
             canDeleteKeys
             onReveal={onReveal}
             onToggleDisabled={onToggleDisabled}
