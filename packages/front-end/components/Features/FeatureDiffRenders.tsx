@@ -1679,6 +1679,9 @@ export function getFeatureMetadataBadges(
       badges.push({ label: "Edit tags", action: "edit tags" });
     }
   }
+  if ((pre?.name || "") !== (post.name || "") && post.name !== undefined) {
+    badges.push({ label: "Edit name", action: "edit name" });
+  }
   if (
     (pre?.description || "") !== (post.description || "") &&
     post.description !== undefined
@@ -2070,6 +2073,10 @@ export function renderRevisionMetadata(
       );
     }
   };
+
+  if (draft.name !== undefined) {
+    stringField("name", "Name", current?.name, draft.name);
+  }
 
   if (draft.description !== undefined) {
     stringField(

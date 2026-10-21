@@ -93,6 +93,7 @@ export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 3;
 
 // Max length for entity description fields (features, experiments, metrics, etc.)
 export const MAX_DESCRIPTION_LENGTH = 10000;
+export const MAX_FEATURE_NAME_LENGTH = 200;
 export const MAX_SAVED_GROUP_DESCRIPTION_LENGTH = 100;
 export const FEATURE_KEY_PATTERN = "^[a-zA-Z0-9_.:\\|\\-]+$";
 export const FEATURE_KEY_PATTERN_ERROR =
@@ -150,6 +151,7 @@ export const FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS = 180;
 export const SAFE_ROLLOUT_TRACKING_KEY_PREFIX = "srk_";
 
 export const DEFAULT_REQUIRE_PROJECT_FOR_FEATURES = false;
+export const DEFAULT_OBFUSCATE_FEATURE_KEYS = false;
 export const DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS = false;
 
 export const DEFAULT_REVISION_CONFIGURATION: ApprovalFlowConfigurations = {

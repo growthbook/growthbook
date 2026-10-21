@@ -14,6 +14,10 @@ import {
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
+import {
+  cleanFeatureName,
+  resolveNewFeatureKey,
+} from "back-end/src/services/featureKeys";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
 import {
   addIdsToFlatRules,
@@ -84,12 +88,14 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     req.context.permissions.throwPermissionError();
   }
 
-  const existing = await getFeature(req.context, req.body.id);
+  const id = await resolveNewFeatureKey(req.context, req.body);
+  const name = cleanFeatureName(req.context, req.body.name);
+  const existing = await getFeature(req.context, id);
   if (existing) {
-    throw new Error(`Feature id '${req.body.id}' already exists.`);
+    throw new Error(`Feature id '${id}' already exists.`);
   }
 
-  if (!new RegExp(FEATURE_KEY_PATTERN).test(req.body.id)) {
+  if (!new RegExp(FEATURE_KEY_PATTERN).test(id)) {
     throw new Error(FEATURE_KEY_PATTERN_ERROR);
   }
 
@@ -126,6 +132,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     valueType: req.body.valueType,
     baseConfig: req.body.baseConfig ?? undefined,
     owner: await resolveOwnerForCreate(req.body.owner, req.context),
+    ...(name ? { name } : {}),
     description: req.body.description || "",
     project: req.body.project || "",
     ...normalizeTargetingProjects({
@@ -136,7 +143,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: req.context.org.id,
-    id: req.body.id,
+    id,
     archived: !!req.body.archived,
     version: 1,
     environmentSettings: {},

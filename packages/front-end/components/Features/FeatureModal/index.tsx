@@ -1,3 +1,5 @@
+import { MAX_FEATURE_NAME_LENGTH } from "shared/constants";
+import { generateTrackingKey } from "shared/experiments";
 import {
   canEnableEnvironmentOnCreate,
   targetingRefusal,
@@ -49,10 +51,12 @@ import TargetingProjectsField from "@/components/TargetingProjectsField";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import FeatureKeyField from "./FeatureKeyField";
-import EnvironmentSelect from "./EnvironmentSelect";
-import TagsField from "./TagsField";
+import { TextField } from "@/ui/TextField";
+import Text from "@/ui/Text";
 import ValueTypeField from "./ValueTypeField";
+import TagsField from "./TagsField";
+import EnvironmentSelect from "./EnvironmentSelect";
+import FeatureKeyField from "./FeatureKeyField";
 
 export type Props = {
   close?: () => void;
@@ -109,6 +113,7 @@ const genFormDefaultValues = ({
   FeatureInterface,
   | "valueType"
   | "defaultValue"
+  | "name"
   | "description"
   | "tags"
   | "project"
@@ -133,6 +138,9 @@ const genFormDefaultValues = ({
     ? {
         valueType: featureToDuplicate.valueType,
         defaultValue: featureToDuplicate.defaultValue,
+        name: featureToDuplicate.name
+          ? `${featureToDuplicate.name.slice(0, MAX_FEATURE_NAME_LENGTH - 7)} (copy)`
+          : "",
         description: featureToDuplicate.description,
         id: genDuplicatedKey(featureToDuplicate),
         project: featureToDuplicate.project ?? project,
@@ -154,6 +162,7 @@ const genFormDefaultValues = ({
     : {
         valueType: "" as FeatureValueType,
         defaultValue: getDefaultValue("boolean"),
+        name: "",
         description: "",
         id: "",
         project,
@@ -186,7 +195,11 @@ export default function FeatureModal({
   const environments = useEnvironments();
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
-  const { requireProjectForFeatures } = useOrgSettings();
+  const {
+    requireProjectForFeatures,
+    obfuscateFeatureKeys,
+    featureRegexValidator,
+  } = useOrgSettings();
 
   const defaultValues = genFormDefaultValues({
     environments,
@@ -202,6 +215,8 @@ export default function FeatureModal({
   const [showConfigDefaultValue, setShowConfigDefaultValue] = useState(false);
 
   const form = useForm({ defaultValues });
+  // The key follows the name until someone edits it (a duplicate starts edited).
+  const [keyEdited, setKeyEdited] = useState(!!featureToDuplicate);
 
   const projectOptions = useProjectOptions(
     (project) =>
@@ -400,6 +415,8 @@ export default function FeatureModal({
 
         const body = {
           ...feature,
+          // The back end generates the key when the org obfuscates keys.
+          ...(obfuscateFeatureKeys ? { id: undefined } : {}),
           duplicateOf: featureToDuplicate?.id,
           baseConfig: configKey,
           defaultValue: storedDefault,
@@ -432,7 +449,48 @@ export default function FeatureModal({
           </Callout>
         )}
 
-        <FeatureKeyField keyField={form.register("id")} />
+        <TextField
+          label="Name"
+          mb="3"
+          maxLength={MAX_FEATURE_NAME_LENGTH}
+          placeholder="Express checkout button"
+          helpText="The name people see in GrowthBook. It's never sent to SDKs."
+          required={obfuscateFeatureKeys}
+          {...form.register("name", {
+            onChange: async (e) => {
+              if (keyEdited || obfuscateFeatureKeys) return;
+              const name = e.target.value;
+              if (!name) {
+                form.setValue("id", "");
+                return;
+              }
+              // Same as experiment tracking keys: a taken key gets a numeric suffix.
+              const existingIds = new Set(allFeatures.map((f) => f.id));
+              const key = await generateTrackingKey({ name }, async (k) =>
+                existingIds.has(k) ? k : null,
+              );
+              // Leave the key empty (showing the org's example) rather than
+              // suggest one that has no readable part or fails the org's format.
+              const usable =
+                /[a-z0-9]/.test(key.replace(/-\d+$/, "")) &&
+                (!featureRegexValidator ||
+                  new RegExp(featureRegexValidator).test(key));
+              form.setValue("id", usable ? key : "");
+            },
+          })}
+        />
+
+        {obfuscateFeatureKeys ? (
+          <Text as="p" size="sm" color="text-mid" mb="3">
+            A random key is generated when you create this Feature Flag.
+          </Text>
+        ) : (
+          <FeatureKeyField
+            keyField={form.register("id", {
+              onChange: () => setKeyEdited(true),
+            })}
+          />
+        )}
 
         {projectOptions.length > 0 && (
           <SelectField

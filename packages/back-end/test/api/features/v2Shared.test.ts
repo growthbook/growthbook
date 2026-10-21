@@ -827,3 +827,14 @@ describe("assertValidRuleExperimentIds", () => {
     ).rejects.toThrow(/exp_missing/);
   });
 });
+
+describe("extractRevisionMetadata name", () => {
+  it("moves name into revision metadata", () => {
+    const { metadata, remaining } = extractRevisionMetadata({
+      name: "Express checkout",
+      defaultValue: "true",
+    });
+    expect(metadata).toEqual({ name: "Express checkout" });
+    expect(remaining).toEqual({ defaultValue: "true" });
+  });
+});

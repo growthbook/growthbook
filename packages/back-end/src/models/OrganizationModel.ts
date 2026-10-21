@@ -23,6 +23,7 @@ import {
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
 import { ReqContext } from "back-end/types/request";
+import { BadRequestError } from "back-end/src/util/errors";
 
 const baseMemberFields = {
   _id: false,
@@ -351,6 +352,27 @@ export async function updateOrganization(
   update: Partial<OrganizationInterface>,
   unset?: Partial<Record<DeletableKeys, 1>>,
 ) {
+  // Opaque Feature Flag keys are a one-way safety setting: once on, no
+  // settings write can turn them off, including one that replaces the whole
+  // settings object without the flag.
+  if (update.settings && update.settings.obfuscateFeatureKeys !== true) {
+    const current = await OrganizationModel.findOne(
+      { id },
+      { "settings.obfuscateFeatureKeys": 1 },
+    ).lean<Pick<OrganizationInterface, "settings">>();
+    if (current?.settings?.obfuscateFeatureKeys) {
+      if (update.settings.obfuscateFeatureKeys === false) {
+        throw new BadRequestError(
+          "Opaque Feature Flag keys can't be turned off once they're on.",
+        );
+      }
+      update = {
+        ...update,
+        settings: { ...update.settings, obfuscateFeatureKeys: true },
+      };
+    }
+  }
+
   await OrganizationModel.updateOne(
     {
       id,

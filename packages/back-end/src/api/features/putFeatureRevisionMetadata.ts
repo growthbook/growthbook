@@ -20,6 +20,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { stagingTargetingBase } from "back-end/src/revisions/featureDraftAuthority";
+import { cleanFeatureName } from "back-end/src/services/featureKeys";
 import {
   discardIfJustCreated,
   isDraftStatus,
@@ -31,6 +32,7 @@ import { assertConfigSchemaCompat, assertValidProjectIds } from "./v2Shared";
 export type RevisionMetadataBody = {
   comment?: string;
   title?: string;
+  name?: string;
   description?: string;
   owner?: unknown;
   project?: string;
@@ -57,6 +59,9 @@ export async function setRevisionMetadata(
   }
 
   const { comment, title, ...metadataFields } = body;
+  if (metadataFields.name !== undefined) {
+    metadataFields.name = cleanFeatureName(context, metadataFields.name);
+  }
 
   if (
     metadataFields.project !== undefined &&

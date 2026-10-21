@@ -367,6 +367,8 @@ export interface OrganizationSettings {
   // Only affects new rules on eligible JSON features; off by default.
   sparseJSONRulesByDefault?: boolean;
   requireProjectForFeatures?: boolean;
+  // New Feature Flags get a generated opaque key that people can't choose.
+  obfuscateFeatureKeys?: boolean;
   requireProjectForSdkConnections?: boolean;
   // When true, saving a feature rule or experiment rejects hashAttribute,
   // fallbackAttribute, or condition keys that don't appear (unarchived) in

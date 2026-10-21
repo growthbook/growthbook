@@ -397,3 +397,22 @@ describe("draftRevertedFromVersion", () => {
     expect(draftRevertedFromVersion({})).toBeUndefined();
   });
 });
+
+describe("isPureFeatureRevert with names", () => {
+  it("keeps the live name when the target predates names", () => {
+    const named = { ...feature, name: "Express" } as FeatureInterface;
+    const preNameTarget = {
+      ...target,
+      metadata: { ...liveMetadata, tags: ["old"] },
+    } as unknown as FeatureRevisionInterface;
+    expect(
+      isPureFeatureRevert({
+        feature: named,
+        draft: draft({
+          metadata: { ...liveMetadata, tags: ["old"], name: "Express" },
+        }),
+        target: preNameTarget,
+      }),
+    ).toBe(true);
+  });
+});

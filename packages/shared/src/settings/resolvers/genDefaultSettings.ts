@@ -1,6 +1,7 @@
 import { MemberRoleInfo, MetricDefaults } from "shared/types/organization";
 import {
   DEFAULT_CONFIDENCE_LEVEL,
+  DEFAULT_OBFUSCATE_FEATURE_KEYS,
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_METRIC_CAPPING,
@@ -102,6 +103,7 @@ export default function genDefaultSettings(): Settings {
     targetingReviewMode: [],
     featureKeyExample: DEFAULT_FEATURE_KEY_EXAMPLE,
     featureRegexValidator: DEFAULT_FEATURE_REGEX_VALIDATOR,
+    obfuscateFeatureKeys: DEFAULT_OBFUSCATE_FEATURE_KEYS,
     banditScheduleValue: DEFAULT_BANDIT_SCHEDULE_VALUE,
     banditScheduleUnit: DEFAULT_BANDIT_SCHEDULE_UNIT,
     banditBurnInValue: DEFAULT_BANDIT_BURN_IN_VALUE,

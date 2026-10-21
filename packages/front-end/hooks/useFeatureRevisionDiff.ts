@@ -248,6 +248,8 @@ export function useFeatureRevisionDiff({
         const metaBadges: DiffBadge[] = [];
         const pre = current.metadata;
         const post = draft.metadata;
+        if ((pre?.name || "") !== (post.name || "") && post.name !== undefined)
+          metaBadges.push({ label: "Edit name", action: "edit name" });
         if (
           !isEqual(pre?.description, post.description) &&
           post.description !== undefined

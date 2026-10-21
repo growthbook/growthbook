@@ -485,7 +485,7 @@ export default function FeaturesHeader({
           <Flex align="start" justify="between" gap="2">
             <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
               <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
-                {feature.id}
+                {feature.name || feature.id}
               </Heading>
               <FeatureStatusBadge
                 // Live doc: the chip states actual status, not the draft's.

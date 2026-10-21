@@ -63,6 +63,7 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
+import Text from "@/ui/Text";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const STALE_FILTER_TOKENS = new Set<string>(
@@ -409,7 +410,12 @@ export default function FeaturesPage() {
                             : undefined,
                         }}
                       >
-                        {feature.id}
+                        {feature.name || feature.id}
+                        {feature.name ? (
+                          <Text as="div" color="text-low">
+                            <code>{feature.id}</code>
+                          </Text>
+                        ) : null}
                       </Link>
                     </TableCell>
                     {showProjectColumn && (

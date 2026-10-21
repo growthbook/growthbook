@@ -509,6 +509,9 @@ async function ensureDemoFeature(
   experiment: ExperimentInterface,
 ): Promise<void> {
   if (await getFeature(context, getDemoDataSourceFeatureId())) return;
+  // The sample Feature Flag needs its fixed key, which an org with opaque
+  // keys can't have, so the sample project goes without it.
+  if (context.org.settings?.obfuscateFeatureKeys) return;
 
   const { org } = context;
   const featureToCreate: FeatureInterface = {

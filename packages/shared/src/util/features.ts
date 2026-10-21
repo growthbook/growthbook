@@ -207,6 +207,7 @@ export function mergeRevision(
   if (revision.metadata) {
     const m = revision.metadata;
     if (m.description !== undefined) newFeature.description = m.description;
+    if (m.name !== undefined) newFeature.name = m.name;
     if (m.owner !== undefined) newFeature.owner = m.owner;
     if (m.project !== undefined) newFeature.project = m.project;
     if (m.targetingAllProjects !== undefined)
@@ -1401,6 +1402,7 @@ export function featureMetadataEnvelope(
   feature: FeatureInterface,
 ): CompleteMetadata {
   return {
+    name: feature.name ?? "",
     description: feature.description ?? "",
     owner: feature.owner ?? "",
     project: feature.project ?? "",
@@ -1438,8 +1440,12 @@ const revisionFieldFillers: Partial<{
   // Seed the whole envelope for old revisions that predate these fields, so a
   // legacy revision doesn't false-diff against the live baseline. Recorded keys
   // win; only the absent ones inherit.
+  // `name` is the exception: a revision without it predates names, so it had
+  // none. Inheriting the live name would make a later rename look like the
+  // base and let a draft's "" silently wipe it.
   metadata: (feature, current) => ({
     ...featureMetadataEnvelope(feature),
+    name: "",
     ...(current ?? {}),
   }),
   // Backfill envelope fields for legacy revisions that predate them. Without
@@ -1842,7 +1848,7 @@ export function normalizeMetadataValue(
   if (k === "tags" || k === "targetingProjects")
     return (v as string[] | null | undefined) ?? [];
   if (k === "targetingAllProjects") return !!v;
-  if (k === "description" || k === "owner" || k === "project")
+  if (k === "name" || k === "description" || k === "owner" || k === "project")
     return (v as string | null | undefined) ?? "";
   // Normalize unset/undefined to null so a non-config snapshot doesn't diff
   // against an explicit null.
@@ -5177,4 +5183,33 @@ export function getReviewAuthorityFootprint({
   }
 
   return { scope: "environments", environments: [...environments] };
+}
+
+// Case-insensitive substring match on the key and name, the fields people
+// recognize a Feature Flag by. Mirrors the Mongo clause in featureListQuery.
+export function featureMatchesSearch(
+  feature: { id: string; name?: string },
+  search: string,
+): boolean {
+  const needle = search.trim().toLowerCase();
+  if (!needle) return true;
+  return (
+    feature.id.toLowerCase().includes(needle) ||
+    (feature.name ?? "").toLowerCase().includes(needle)
+  );
+}
+
+// Random key for orgs that keep keys opaque (`obfuscateFeatureKeys`), so SDK
+// payloads and client code don't reveal what a Feature Flag is for.
+export function isOpaqueFeatureKey(key: string): boolean {
+  return /^f_[a-z0-9]{10}$/.test(key);
+}
+
+export function generateOpaqueFeatureKey(): string {
+  const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  return (
+    "f_" + Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("")
+  );
 }

@@ -1040,6 +1040,7 @@ paths:
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/clientKey'
+        - $ref: '#/components/parameters/search'
         - $ref: '#/components/parameters/skipPagination'
       responses:
         '200':
@@ -1082,14 +1083,24 @@ paths:
                 id:
                   pattern: ^[a-zA-Z0-9_.:\|\-]+$
                   description: >-
-                    Unique, permanent key, shown as the Feature Flag's name in
-                    the UI and used in code. Keep it short. If
-                    `featureRegexValidator` in `GET /api/v1/settings` is set,
+                    Unique, permanent key used in code and SDK payloads; the UI
+                    shows it when the Feature Flag has no `name`. Keep it short.
+                    If `featureRegexValidator` in `GET /api/v1/settings` is set,
                     follow it (`featureKeyExample` shows the format); otherwise
                     use kebab-case (e.g. `checkout-express-pay`). Put context in
-                    `description`.
+                    `description`. Required, unless `obfuscateFeatureKeys` in
+                    `GET /api/v1/settings` is on: then GrowthBook generates an
+                    opaque key, so omit `id` and send a `name`.
                   type: string
                   minLength: 1
+                name:
+                  description: >-
+                    Human-readable name shown in the GrowthBook UI and search
+                    instead of the key. It is never sent to SDKs, so the key can
+                    stay short or opaque (e.g. `f_8k2j9`) without exposing what
+                    the Feature Flag is for. Omit it to show the key.
+                  type: string
+                  maxLength: 200
                 archived:
                   type: boolean
                 description:
@@ -2605,7 +2616,6 @@ paths:
                     of working around it.
                   type: boolean
               required:
-                - id
                 - valueType
                 - defaultValue
               additionalProperties: false
@@ -2685,6 +2695,14 @@ paths:
             schema:
               type: object
               properties:
+                name:
+                  description: >-
+                    Human-readable name shown in the GrowthBook UI and search
+                    instead of the key. It is never sent to SDKs, so the key can
+                    stay short or opaque (e.g. `f_8k2j9`) without exposing what
+                    the Feature Flag is for. Omit it to show the key.
+                  type: string
+                  maxLength: 200
                 description:
                   description: >-
                     Markdown. What the Feature Flag gates and why, rollout plan,
@@ -4876,6 +4894,14 @@ paths:
                   type: string
                 title:
                   type: string
+                name:
+                  description: >-
+                    Human-readable name shown in the GrowthBook UI and search
+                    instead of the key. It is never sent to SDKs, so the key can
+                    stay short or opaque (e.g. `f_8k2j9`) without exposing what
+                    the Feature Flag is for. Omit it to show the key.
+                  type: string
+                  maxLength: 200
                 description:
                   type: string
                 owner:
@@ -8578,6 +8604,7 @@ paths:
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/clientKey'
         - $ref: '#/components/parameters/archived'
+        - $ref: '#/components/parameters/search'
         - $ref: '#/components/parameters/skipPagination'
       responses:
         '200':
@@ -8680,14 +8707,24 @@ paths:
                 id:
                   pattern: ^[a-zA-Z0-9_.:\|\-]+$
                   description: >-
-                    Unique, permanent key, shown as the Feature Flag's name in
-                    the UI and used in code. Keep it short. If
-                    `featureRegexValidator` in `GET /api/v1/settings` is set,
+                    Unique, permanent key used in code and SDK payloads; the UI
+                    shows it when the Feature Flag has no `name`. Keep it short.
+                    If `featureRegexValidator` in `GET /api/v1/settings` is set,
                     follow it (`featureKeyExample` shows the format); otherwise
                     use kebab-case (e.g. `checkout-express-pay`). Put context in
-                    `description`.
+                    `description`. Required, unless `obfuscateFeatureKeys` in
+                    `GET /api/v1/settings` is on: then GrowthBook generates an
+                    opaque key, so omit `id` and send a `name`.
                   type: string
                   minLength: 1
+                name:
+                  description: >-
+                    Human-readable name shown in the GrowthBook UI and search
+                    instead of the key. It is never sent to SDKs, so the key can
+                    stay short or opaque (e.g. `f_8k2j9`) without exposing what
+                    the Feature Flag is for. Omit it to show the key.
+                  type: string
+                  maxLength: 200
                 archived:
                   type: boolean
                 description:
@@ -9524,7 +9561,6 @@ paths:
                     of working around it.
                   type: boolean
               required:
-                - id
                 - valueType
                 - defaultValue
               additionalProperties: false
@@ -9605,6 +9641,14 @@ paths:
             schema:
               type: object
               properties:
+                name:
+                  description: >-
+                    Human-readable name shown in the GrowthBook UI and search
+                    instead of the key. It is never sent to SDKs, so the key can
+                    stay short or opaque (e.g. `f_8k2j9`) without exposing what
+                    the Feature Flag is for. Omit it to show the key.
+                  type: string
+                  maxLength: 200
                 description:
                   description: >-
                     Markdown. What the Feature Flag gates and why, rollout plan,
@@ -11336,6 +11380,14 @@ paths:
                 title:
                   description: Short draft title (e.g. `Enable for beta testers`).
                   type: string
+                name:
+                  description: >-
+                    Human-readable name shown in the GrowthBook UI and search
+                    instead of the key. It is never sent to SDKs, so the key can
+                    stay short or opaque (e.g. `f_8k2j9`) without exposing what
+                    the Feature Flag is for. Omit it to show the key.
+                  type: string
+                  maxLength: 200
                 description:
                   description: >-
                     Markdown. What the Feature Flag gates and why, rollout plan,
@@ -30353,7 +30405,16 @@ paths:
       tags:
         - organizations
       parameters:
-        - $ref: '#/components/parameters/search'
+        - name: search
+          in: query
+          description: >-
+            Search string to search organization names, owner emails, and
+            external ids by
+          schema:
+            description: >-
+              Search string to search organization names, owner emails, and
+              external ids by
+            type: string
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
       responses:
@@ -64939,6 +65000,18 @@ components:
       schema:
         description: Filter by a SDK connection's client key
         type: string
+    search:
+      name: search
+      in: query
+      description: >-
+        Case-insensitive text to match against each Feature Flag's key (`id`)
+        and `name`.
+      schema:
+        description: >-
+          Case-insensitive text to match against each Feature Flag's key (`id`)
+          and `name`.
+        type: string
+        maxLength: 200
     skipPagination:
       name: skipPagination
       in: query
@@ -65552,17 +65625,6 @@ components:
           (`typescript`/`protobuf`/`python`/`go`/`rust`); ignored if the source
           has no projection.
         type: string
-    search:
-      name: search
-      in: query
-      description: >-
-        Search string to search organization names, owner emails, and external
-        ids by
-      schema:
-        description: >-
-          Search string to search organization names, owner emails, and external
-          ids by
-        type: string
     factTableId:
       name: factTableId
       in: path
@@ -65754,6 +65816,14 @@ components:
         dateUpdated:
           format: date-time
           type: string
+        name:
+          description: >-
+            Human-readable name shown in the GrowthBook UI and search instead of
+            the key. It is never sent to SDKs, so the key can stay short or
+            opaque (e.g. `f_8k2j9`) without exposing what the Feature Flag is
+            for. Omit it to show the key.
+          type: string
+          maxLength: 200
         archived:
           type: boolean
         description:
@@ -66860,6 +66930,14 @@ components:
             metadata gating is enabled)
           type: object
           properties:
+            name:
+              description: >-
+                Human-readable name shown in the GrowthBook UI and search
+                instead of the key. It is never sent to SDKs, so the key can
+                stay short or opaque (e.g. `f_8k2j9`) without exposing what the
+                Feature Flag is for. Omit it to show the key.
+              type: string
+              maxLength: 200
             description:
               type: string
               maxLength: 10000
@@ -67930,6 +68008,14 @@ components:
         dateUpdated:
           format: date-time
           type: string
+        name:
+          description: >-
+            Human-readable name shown in the GrowthBook UI and search instead of
+            the key. It is never sent to SDKs, so the key can stay short or
+            opaque (e.g. `f_8k2j9`) without exposing what the Feature Flag is
+            for. Omit it to show the key.
+          type: string
+          maxLength: 200
         archived:
           type: boolean
         description:
@@ -68468,6 +68554,14 @@ components:
             metadata gating is enabled)
           type: object
           properties:
+            name:
+              description: >-
+                Human-readable name shown in the GrowthBook UI and search
+                instead of the key. It is never sent to SDKs, so the key can
+                stay short or opaque (e.g. `f_8k2j9`) without exposing what the
+                Feature Flag is for. Omit it to show the key.
+              type: string
+              maxLength: 200
             description:
               type: string
               maxLength: 10000
@@ -75851,6 +75945,11 @@ components:
           type: string
         featureRegexValidator:
           type: string
+        obfuscateFeatureKeys:
+          description: >-
+            When true, GrowthBook generates an opaque key for each new Feature
+            Flag and rejects a provided `id`. Send a `name` instead.
+          type: boolean
         sparseJSONRulesByDefault:
           type: boolean
         banditScheduleValue:

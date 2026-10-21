@@ -20,6 +20,8 @@ import {
   revisionStatusFilterSchema,
   featureRule,
   FEATURE_V1_DEPRECATED,
+  featureNameField,
+  FEATURE_NAME_DESCRIPTION,
 } from "./features";
 import { ownerInputField } from "./owner-field";
 import {
@@ -738,6 +740,7 @@ export const putFeatureRevisionMetadataValidator = {
     .object({
       comment: z.string().optional(),
       title: z.string().optional(),
+      name: featureNameField.describe(FEATURE_NAME_DESCRIPTION).optional(),
       description: z.string().optional(),
       owner: ownerInputField.optional(),
       project: z.string().optional(),

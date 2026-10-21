@@ -1,3 +1,4 @@
+import { MAX_FEATURE_NAME_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import {
   ExperimentRefRule,
@@ -59,6 +60,7 @@ import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/ui/HelperText";
+import { TextField } from "@/ui/TextField";
 import FeatureKeyField from "./FeatureKeyField";
 import TagsField from "./TagsField";
 import ValueTypeField from "./ValueTypeField";
@@ -128,6 +130,7 @@ const genFormDefaultValues = ({
     existing: "",
     valueType: type,
     version: 1,
+    name: experiment.name || "",
     description: experiment.description || "",
     id: "",
     owner: "",
@@ -163,6 +166,7 @@ export default function FeatureFromExperimentModal({
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
   const settings = useOrgSettings();
+  const obfuscateFeatureKeys = !!settings.obfuscateFeatureKeys;
   const { holdoutsMap } = useHoldouts();
 
   const defaultValues = genFormDefaultValues({
@@ -567,7 +571,11 @@ export default function FeatureFromExperimentModal({
             `/feature`,
             {
               method: "POST",
-              body: JSON.stringify(featureToCreate),
+              body: JSON.stringify(
+                obfuscateFeatureKeys
+                  ? { ...featureToCreate, id: undefined }
+                  : featureToCreate,
+              ),
             },
           );
           if (!created?.feature?.id) {
@@ -670,7 +678,17 @@ export default function FeatureFromExperimentModal({
 
       {!existing && (
         <>
-          <FeatureKeyField keyField={form.register("id")} />
+          {obfuscateFeatureKeys ? (
+            <TextField
+              label="Name"
+              required
+              maxLength={MAX_FEATURE_NAME_LENGTH}
+              helpText="A random key is generated when you create this Feature Flag."
+              {...form.register("name")}
+            />
+          ) : (
+            <FeatureKeyField keyField={form.register("id")} />
+          )}
 
           {showTags ? (
             <TagsField

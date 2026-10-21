@@ -22,7 +22,12 @@ import {
 } from "./feature-revisions";
 import { rampStartState } from "./ramp-schedule";
 import { apiFeatureRevisionV2Validator } from "./features-v2";
-import { apiJSONSchemaDefInput, revisionStatusFilterSchema } from "./features";
+import {
+  apiJSONSchemaDefInput,
+  revisionStatusFilterSchema,
+  featureNameField,
+  FEATURE_NAME_DESCRIPTION,
+} from "./features";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 import {
@@ -1019,6 +1024,7 @@ export const putFeatureRevisionMetadataV2Validator = {
     .object({
       comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
       title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
+      name: featureNameField.describe(FEATURE_NAME_DESCRIPTION).optional(),
       description: z.string().describe(FEATURE_DESCRIPTION).optional(),
       owner: ownerInputField.optional(),
       project: z.string().optional(),

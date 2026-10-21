@@ -347,7 +347,7 @@ export default function PrerequisiteInput({
         .filter((id) => id && id !== projectId)
         .map((id) => projectMap.get(id) || id);
       return {
-        label: f.id,
+        label: f.name ? `${f.name} (${f.id})` : f.id,
         value: f.id,
         meta: {
           conditional,

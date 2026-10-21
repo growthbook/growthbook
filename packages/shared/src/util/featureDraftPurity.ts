@@ -205,9 +205,15 @@ export function isPureFeatureRevert({
 
   if (!environmentsEnabledOnlyRestore({ feature, draft, target })) return false;
 
+  // A target that predates `name` had none; the revert keeps the live name.
+  const live = featureMetadataEnvelope(feature);
+  const restored =
+    target.metadata && !("name" in target.metadata)
+      ? { ...target.metadata, name: live.name }
+      : target.metadata;
   if (
-    !metadataMatches(draft.metadata, target.metadata) &&
-    !metadataMatches(draft.metadata, featureMetadataEnvelope(feature))
+    !metadataMatches(draft.metadata, restored) &&
+    !metadataMatches(draft.metadata, live)
   ) {
     return false;
   }

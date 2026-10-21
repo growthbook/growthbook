@@ -13,6 +13,7 @@ import {
   DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
+  DEFAULT_OBFUSCATE_FEATURE_KEYS,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
   DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
@@ -210,6 +211,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       requireProjectForFeatures:
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+      obfuscateFeatureKeys:
+        settings.obfuscateFeatureKeys ?? DEFAULT_OBFUSCATE_FEATURE_KEYS,
       requireProjectForSdkConnections:
         settings.requireProjectForSdkConnections ??
         DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,

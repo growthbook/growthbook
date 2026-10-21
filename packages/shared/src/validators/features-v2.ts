@@ -33,6 +33,9 @@ import {
   apiFeatureHoldout,
   revisionStatusFilterSchema,
   apiRevisionRampAction,
+  featureNameField,
+  featureSearchQueryField,
+  FEATURE_NAME_DESCRIPTION,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
@@ -396,6 +399,7 @@ export const apiFeatureV2Validator = namedSchema(
       id: z.string(),
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
+      name: featureNameField.describe(FEATURE_NAME_DESCRIPTION).optional(),
       archived: z.boolean(),
       description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerInputField,
@@ -702,7 +706,9 @@ export const postFeatureBodyV2 = z
       .string()
       .min(1)
       .meta({ pattern: FEATURE_KEY_PATTERN })
-      .describe(FEATURE_KEY_DESCRIPTION),
+      .describe(FEATURE_KEY_DESCRIPTION)
+      .optional(),
+    name: featureNameField.describe(FEATURE_NAME_DESCRIPTION).optional(),
     archived: z.boolean().optional(),
     description: z
       .string()
@@ -770,6 +776,7 @@ export const postFeatureBodyV2 = z
 // ---- V2 UpdateFeaturePayload ----
 export const updateFeatureBodyV2 = z
   .object({
+    name: featureNameField.describe(FEATURE_NAME_DESCRIPTION).optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
@@ -859,6 +866,7 @@ export const listFeaturesV2Validator = {
       archived: booleanQueryField.describe(
         "Whether to include archived features. Defaults to `false` (non-archived only). Pass `true` to include archived features alongside non-archived ones.",
       ),
+      search: featureSearchQueryField,
       ...skipPaginationQueryField,
     })
     .strict(),

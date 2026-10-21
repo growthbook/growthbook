@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   statsEngines,
   MAX_DESCRIPTION_LENGTH,
+  MAX_FEATURE_NAME_LENGTH,
   FEATURE_KEY_PATTERN,
 } from "shared/constants";
 import { eventUser } from "./event-user";
@@ -482,7 +483,21 @@ export type MinimalFeatureRevisionInterface = z.infer<
   typeof minimalFeatureRevisionInterface
 >;
 
+export const FEATURE_NAME_DESCRIPTION =
+  "Human-readable name shown in the GrowthBook UI and search instead of the key. It is never sent to SDKs, so the key can stay short or opaque (e.g. `f_8k2j9`) without exposing what the Feature Flag is for. Omit it to show the key.";
+
+export const featureNameField = z.string().max(MAX_FEATURE_NAME_LENGTH);
+
+export const featureSearchQueryField = z
+  .string()
+  .max(200)
+  .describe(
+    "Case-insensitive text to match against each Feature Flag's key (`id`) and `name`.",
+  )
+  .optional();
+
 const revisionMetadataSchema = z.object({
+  name: featureNameField.optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   owner: ownerField.optional(),
   project: z.string().optional(),
@@ -785,6 +800,7 @@ export type RevisionChanges = z.infer<typeof revisionChangesSchema>;
 export const featureInterface = z
   .object({
     id: z.string(),
+    name: featureNameField.optional(),
     archived: z.boolean().optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     organization: z.string(),
@@ -1238,6 +1254,7 @@ export type ApiRevisionPrerequisiteV2 = z.infer<
 // Revision metadata sub-object
 export const apiRevisionMetadata = z
   .object({
+    name: featureNameField.describe(FEATURE_NAME_DESCRIPTION).optional(),
     description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     owner: ownerField.optional(),
     project: z.string().optional(),
@@ -1330,6 +1347,7 @@ export const apiFeatureValidator = namedSchema(
       id: z.string(),
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
+      name: featureNameField.describe(FEATURE_NAME_DESCRIPTION).optional(),
       archived: z.boolean(),
       description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerField,
@@ -1660,7 +1678,9 @@ const postFeatureBody = z
       .string()
       .min(1)
       .meta({ pattern: FEATURE_KEY_PATTERN })
-      .describe(FEATURE_KEY_DESCRIPTION),
+      .describe(FEATURE_KEY_DESCRIPTION)
+      .optional(),
+    name: featureNameField.describe(FEATURE_NAME_DESCRIPTION).optional(),
     archived: z.boolean().optional(),
     description: z
       .string()
@@ -1727,6 +1747,7 @@ const postFeatureBody = z
 // ---- UpdateFeaturePayload ----
 const updateFeatureBody = z
   .object({
+    name: featureNameField.describe(FEATURE_NAME_DESCRIPTION).optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
@@ -1821,6 +1842,7 @@ export const listFeaturesValidator = {
         .string()
         .describe("Filter by a SDK connection's client key")
         .optional(),
+      search: featureSearchQueryField,
       ...skipPaginationQueryField,
     })
     .strict(),

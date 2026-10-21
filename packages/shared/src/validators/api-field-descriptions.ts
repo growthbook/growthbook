@@ -10,7 +10,7 @@ export const TAGS_DESCRIPTION =
   "Tags for filtering and grouping. Use these instead of encoding groups in names.";
 
 export const FEATURE_KEY_DESCRIPTION =
-  "Unique, permanent key, shown as the Feature Flag's name in the UI and used in code. Keep it short. If `featureRegexValidator` in `GET /api/v1/settings` is set, follow it (`featureKeyExample` shows the format); otherwise use kebab-case (e.g. `checkout-express-pay`). Put context in `description`.";
+  "Unique, permanent key used in code and SDK payloads; the UI shows it when the Feature Flag has no `name`. Keep it short. If `featureRegexValidator` in `GET /api/v1/settings` is set, follow it (`featureKeyExample` shows the format); otherwise use kebab-case (e.g. `checkout-express-pay`). Put context in `description`. Required, unless `obfuscateFeatureKeys` in `GET /api/v1/settings` is on: then GrowthBook generates an opaque key, so omit `id` and send a `name`.";
 
 export const FEATURE_DESCRIPTION =
   "Markdown. What the Feature Flag gates and why, rollout plan, and links. Put context here, not in the key.";

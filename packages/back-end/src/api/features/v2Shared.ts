@@ -372,6 +372,7 @@ export function mapV2ApiRuleToFeatureRule(
 // Fields tracked on a revision's metadata rather than directly on the feature.
 const METADATA_FIELDS = [
   "owner",
+  "name",
   "description",
   "project",
   "targetingAllProjects",

@@ -1984,6 +1984,7 @@ export function toFeatureMetaInfo(
     | undefined;
   return {
     id: f.id,
+    name: f.name,
     project: f.project,
     targetingProjects: f.targetingProjects ?? [],
     targetingAllProjects: f.targetingAllProjects,
