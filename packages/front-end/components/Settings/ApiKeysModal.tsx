@@ -110,7 +110,12 @@ const ApiKeysModal: FC<{
   const holder = personalAccessToken ? "pat" : actAs;
   const plan = useAllowedPermissions();
   // An already-scoped token keeps its scope after a downgrade, so it isn't silently dropped.
-  const allowed = source?.scoped ? { ...plan, roles: true } : plan;
+  // Likewise a key keeps editing the confirmations it has, as the server allows.
+  const allowed = {
+    ...plan,
+    roles: plan.roles || !!source?.scoped,
+    confirmations: plan.confirmations || !!existingKey?.confirmRules,
+  };
   const [permissions, setPermissions] = useState(() =>
     initialPermissions(source, holder, allowed),
   );

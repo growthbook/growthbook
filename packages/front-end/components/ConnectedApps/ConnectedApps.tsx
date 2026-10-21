@@ -54,7 +54,7 @@ export const ConnectedApps: FC<ConnectedAppsProps> = ({ apps, onRevoke }) => {
         your behalf in this organization. Revoking access signs the app out and
         invalidates its tokens immediately.
       </Text>
-      <Table variant="surface" scrollX mb="3">
+      <Table variant="surface" mb="3">
         <TableHeader>
           <TableRow>
             <TableColumnHeader>Application</TableColumnHeader>
@@ -103,6 +103,7 @@ export const ConnectedApps: FC<ConnectedAppsProps> = ({ apps, onRevoke }) => {
           title={`Revoke access for ${pendingRevoke.clientName}?`}
           content="This app will be signed out and its access and refresh tokens will stop working immediately. It can request access again by going through authorization."
           yesText="Revoke"
+          color="red"
           onConfirm={async () => {
             const target = pendingRevoke;
             await onRevoke(target.clientId);

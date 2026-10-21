@@ -180,7 +180,11 @@ export function forHolder(
   holder: Holder,
   allowed: Allowed,
 ): PermissionsValue {
-  if (value.customizing) return value;
+  // A System key's role table doesn't track `restricted`, so a User key reads
+  // it off the role it would save.
+  if (value.customizing) {
+    return { ...value, restricted: !isUnlimited(value.scope) };
+  }
   if (value.preset && presetsFor(holder).includes(value.preset)) return value;
   return { ...value, preset: defaultPreset(holder, allowed) };
 }

@@ -109,7 +109,25 @@ describe("switching between System and User", () => {
     const custom = startCustomizing(
       initialPermissions(undefined, "user", ENTERPRISE),
     );
-    expect(forHolder(custom, "system", ENTERPRISE)).toBe(custom);
+    expect(forHolder(custom, "system", ENTERPRISE)).toEqual(custom);
+  });
+
+  it("shows a role picked as System as a restriction once it acts as User", () => {
+    const custom = startCustomizing(
+      forHolder(
+        initialPermissions(undefined, "system", ENTERPRISE),
+        "system",
+        ENTERPRISE,
+      ),
+    );
+    const engineer = {
+      ...custom,
+      scope: { ...custom.scope, role: "engineer" },
+    };
+    expect(forHolder(engineer, "user", ENTERPRISE)).toMatchObject({
+      restricted: true,
+      scope: { role: "engineer" },
+    });
   });
 });
 
