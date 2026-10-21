@@ -184,20 +184,6 @@ export default function FeatureSettings() {
 
           <Box mb="6" width="100%">
             <Checkbox
-              id="toggle-defaultFeatureRulesInAllEnvs"
-              label="Create rules in all environments by default"
-              description="If enabled, new Feature Flag rules will be created in all environments by default."
-              value={!!form.watch("defaultFeatureRulesInAllEnvs")}
-              setValue={(value) =>
-                form.setValue("defaultFeatureRulesInAllEnvs", value, {
-                  shouldDirty: true,
-                })
-              }
-            />
-          </Box>
-
-          <Box mb="6" width="100%">
-            <Checkbox
               id="toggle-sparseJSONRulesByDefault"
               label="Default JSON rules to sparse patch mode"
               description="New rules on object-valued JSON flags open in sparse mode, where you edit only the keys that differ from the default."

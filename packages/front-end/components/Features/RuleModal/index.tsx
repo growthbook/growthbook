@@ -782,10 +782,7 @@ export default function RuleModal({
       setValue: (value) => form.setValue("customFields", value),
     });
 
-  // On edit/duplicate, seed scope from the existing rule. Legacy rules with
-  // `environments === undefined` are treated as permissive (= all envs). On
-  // create, seed from org default ("all envs") or fall back to the current
-  // env tab.
+  // Edit/duplicate seed scope from the rule (legacy `environments` unset = all).
   const existingRuleAllEnvs = rule?.allEnvironments === true;
   const existingRuleEnvList = Array.isArray(rule?.environments)
     ? (rule?.environments ?? [])
