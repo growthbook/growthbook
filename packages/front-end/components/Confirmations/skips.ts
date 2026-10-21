@@ -11,12 +11,20 @@ export const POLICY_VIAS = new Set<ConfirmationNotice["via"]>([
   "revertsBypassApproval",
 ]);
 
-// A check the request skips: the override that skips it, if any, and what the
-// check said, if it has run.
+// A check the request skips: the override that skips it, if any, what the
+// check said, if it has run, and the policy that skips it when no flag asked.
 export type Skip = {
   action: ConfirmAction | null;
   notices: ConfirmationNotice[];
+  policy: ConfirmationNotice["via"];
 };
+
+// An override the request didn't send is held by the policy that grants it.
+const policyFor = (action: ConfirmAction) =>
+  (Object.keys(BYPASS_OVERRIDE_ACTIONS) as ConfirmationNotice["via"][]).find(
+    (via) =>
+      !!via && POLICY_VIAS.has(via) && BYPASS_OVERRIDE_ACTIONS[via] === action,
+  ) ?? null;
 
 // Every notice lands in exactly one skip. Text from a refused attempt belongs to
 // the flag the retry sent, when it sent just one.
@@ -27,10 +35,17 @@ export function skipsOf(
 ): Skip[] {
   const ownerOf = (notice: ConfirmationNotice) =>
     notice.via ? BYPASS_OVERRIDE_ACTIONS[notice.via] : null;
-  const skips: Skip[] = overrides.map((action) => ({
-    action,
-    notices: notices.filter((notice) => ownerOf(notice) === action),
-  }));
+  const skips: Skip[] = overrides.map((action) => {
+    const owned = notices.filter((notice) => ownerOf(notice) === action);
+    return {
+      action,
+      notices: owned,
+      policy:
+        owned.length || sentOverrides.includes(action)
+          ? null
+          : policyFor(action),
+    };
+  });
   const loose = notices.filter((notice) => {
     const owner = ownerOf(notice);
     return !owner || !overrides.includes(owner);
@@ -48,12 +63,13 @@ export function skipsOf(
     ...skips,
     ...loose
       .filter((notice) => !refusals.includes(notice))
-      .map((notice) => ({ action: null, notices: [notice] })),
+      .map((notice) => ({ action: null, notices: [notice], policy: null })),
   ];
 }
 
 export const isPolicySkip = (skip: Skip) =>
   skip.action === "override.restBypassesReviews" ||
+  skip.policy !== null ||
   skip.notices.some((notice) => POLICY_VIAS.has(notice.via));
 
 export const skipSeverity = (skip: Skip): ConfirmationNotice["severity"] =>

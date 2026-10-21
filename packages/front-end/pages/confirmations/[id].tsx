@@ -128,7 +128,9 @@ function SkipCallout({
   const messages = skip.notices.flatMap((notice) => notice.messages);
   const reasons = [
     ...new Set(
-      skip.notices.map((notice) => bypassReason(notice.via, requester)),
+      [...skip.notices.map((notice) => notice.via), skip.policy].map((via) =>
+        bypassReason(via, requester),
+      ),
     ),
   ].filter(Boolean);
   const lines = (items: string[]) =>

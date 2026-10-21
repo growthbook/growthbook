@@ -46,7 +46,7 @@ describe("skipsOf", () => {
       [refusal],
     );
     expect(skips).toEqual([
-      { action: "override.unscopedRules", notices: [refusal] },
+      { action: "override.unscopedRules", notices: [refusal], policy: null },
     ]);
   });
 
@@ -65,7 +65,7 @@ describe("skipsOf", () => {
 
   it("keeps a notice whose override isn't held, as before", () => {
     expect(skipsOf([], [], [warning])).toEqual([
-      { action: null, notices: [warning] },
+      { action: null, notices: [warning], policy: null },
     ]);
   });
 });
@@ -84,12 +84,30 @@ describe("isPolicySkip and skipSeverity", () => {
     expect(skips.map(isPolicySkip)).toEqual([true, true, false, true]);
   });
 
+  it("files an override the request didn't send under the policy that grants it", () => {
+    const [held] = skipsOf(["override.bypassApproval"], [], []);
+    expect(held.policy).toBe("bypassApprovalPermission");
+    expect(isPolicySkip(held)).toBe(true);
+    const [sent] = skipsOf(
+      ["override.bypassApproval"],
+      ["override.bypassApproval"],
+      [],
+    );
+    expect(isPolicySkip(sent)).toBe(false);
+    const [checklist] = skipsOf(["override.skipChecklist"], [], []);
+    expect(isPolicySkip(checklist)).toBe(false);
+  });
+
   it("shows an error when any message is one", () => {
-    expect(skipSeverity({ action: null, notices: [warning, hook] })).toBe(
-      "error",
-    );
-    expect(skipSeverity({ action: "override.draftLimit", notices: [] })).toBe(
-      "warning",
-    );
+    expect(
+      skipSeverity({ action: null, notices: [warning, hook], policy: null }),
+    ).toBe("error");
+    expect(
+      skipSeverity({
+        action: "override.draftLimit",
+        notices: [],
+        policy: null,
+      }),
+    ).toBe("warning");
   });
 });
