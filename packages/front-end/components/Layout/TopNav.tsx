@@ -7,7 +7,6 @@ import NoticeStack from "@/components/Notices/NoticeStack";
 import useAccountPlanNotices from "@/components/Notices/useAccountPlanNotices";
 import useKeyExpiryNotices from "@/components/Notices/useKeyExpiryNotices";
 import { usePayloadSizeNotices } from "@/components/Features/SDKConnections/PayloadSizeNotices";
-import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
 import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
@@ -85,14 +84,9 @@ const TopNav: FC<{
           ) : null}
           {renderTitleOrBreadCrumb()}
           {showNotices && (
-            <>
-              <div className="nav-link">
-                <NoticeStack notices={notices} />
-              </div>
-              <div className="nav-link">
-                <AccountPlanBadge />
-              </div>
-            </>
+            <div className="nav-link">
+              <NoticeStack notices={notices} />
+            </div>
           )}
           {agentAvailable && (
             <button
