@@ -24,6 +24,7 @@ export function getBanditStatisticsFactMetricCTE(
     percentileTableIndices: Set<number>;
   },
 ): string {
+  const renormalizedWeight = `bpw.weight / NULLIF(vwt.variation_weight_total, 0)`;
   return `
     -- One row per variation/dimension with aggregations
     , __banditPeriodStatistics AS (
@@ -210,6 +211,25 @@ export function getBanditStatisticsFactMetricCTE(
       `
         : ""
     }
+    , __variationPeriodWeightTotals AS (
+      -- Per-variation sum of the shared period weights, restricted to the
+      -- periods the variation actually has rows in.
+      SELECT
+        bps.variation AS variation
+        ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
+        , SUM(bpw.weight) AS variation_weight_total
+      FROM
+        __banditPeriodStatistics bps
+      LEFT JOIN __banditPeriodWeights bpw ON (
+        bps.bandit_period = bpw.bandit_period
+        ${dimensionCols
+          .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
+          .join("\n")}
+      )
+      GROUP BY
+        bps.variation
+        ${dimensionCols.map((d) => `, bps.${d.alias}`).join("")}
+    )
     SELECT
       bps.variation
       ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
@@ -219,30 +239,30 @@ export function getBanditStatisticsFactMetricCTE(
           const alias = data.alias + "_";
           return `
       , ${dialect.castToString(`'${data.id}'`)} as ${alias}id
-      , SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bps.users) AS ${alias}main_sum
+      , SUM((${renormalizedWeight}) * bps.${alias}main_sum / bps.users) * SUM(bps.users) AS ${alias}main_sum
       , SUM(bps.users) * (SUM(
         ${dialect.ifElse(
           "bps.users <= 1",
           "0",
-          `POWER(bpw.weight, 2) * ((
+          `POWER((${renormalizedWeight}), 2) * ((
           bps.${alias}main_sum_squares - POWER(bps.${alias}main_sum, 2) / bps.users
         ) / (bps.users - 1)) / bps.users
       `,
-        )}) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.${alias}main_sum / bps.users), 2)) as ${alias}main_sum_squares
+        )}) * (SUM(bps.users) - 1) + POWER(SUM((${renormalizedWeight}) * bps.${alias}main_sum / bps.users), 2)) as ${alias}main_sum_squares
       ${
         data.ratioMetric
           ? `
-        , SUM(bpw.weight * bps.${alias}denominator_sum / bps.users) * SUM(bps.users) AS ${alias}denominator_sum
+        , SUM((${renormalizedWeight}) * bps.${alias}denominator_sum / bps.users) * SUM(bps.users) AS ${alias}denominator_sum
         , SUM(bps.users) * (SUM(
         ${dialect.ifElse(
           "bps.users <= 1",
           "0",
-          `POWER(bpw.weight, 2) * ((
+          `POWER((${renormalizedWeight}), 2) * ((
             (bps.${alias}denominator_sum_squares - POWER(bps.${alias}denominator_sum, 2) / bps.users) / (bps.users - 1))
           ) / bps.users
         `,
         )}) * (SUM(bps.users) - 1) + POWER(
-          SUM(bpw.weight * bps.${alias}denominator_sum / bps.users), 2)
+          SUM((${renormalizedWeight}) * bps.${alias}denominator_sum / bps.users), 2)
         ) AS ${alias}denominator_sum_squares
         , SUM(bps.users) * (
             (SUM(bps.users) - 1) * SUM(
@@ -250,13 +270,13 @@ export function getBanditStatisticsFactMetricCTE(
                 "bps.users <= 1",
                 "0",
                 `
-              POWER(bpw.weight, 2) / (bps.users * (bps.users - 1)) * (
+              POWER((${renormalizedWeight}), 2) / (bps.users * (bps.users - 1)) * (
                 bps.${alias}main_denominator_sum_product - bps.${alias}main_sum * bps.${alias}denominator_sum / bps.users
               )
             `,
               )}) +
             (
-              SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bpw.weight * bps.${alias}denominator_sum / bps.users)
+              SUM((${renormalizedWeight}) * bps.${alias}main_sum / bps.users) * SUM((${renormalizedWeight}) * bps.${alias}denominator_sum / bps.users)
             )
           ) AS ${alias}main_denominator_sum_product`
           : ""
@@ -264,29 +284,29 @@ export function getBanditStatisticsFactMetricCTE(
       ${
         data.regressionAdjusted
           ? `
-        , SUM(bpw.weight * bps.${alias}covariate_sum / bps.users) * SUM(bps.users) AS ${alias}covariate_sum
+        , SUM((${renormalizedWeight}) * bps.${alias}covariate_sum / bps.users) * SUM(bps.users) AS ${alias}covariate_sum
         , SUM(bps.users) * (SUM(
         ${dialect.ifElse(
           "bps.users <= 1",
           "0",
-          `POWER(bpw.weight, 2) * ((
+          `POWER((${renormalizedWeight}), 2) * ((
             (bps.${alias}covariate_sum_squares - POWER(bps.${alias}covariate_sum, 2) / bps.users) / (bps.users - 1))
           ) / bps.users
         `,
-        )}) * (SUM(bps.users) - 1) + POWER(SUM(bpw.weight * bps.${alias}covariate_sum / bps.users), 2)) AS ${alias}covariate_sum_squares
+        )}) * (SUM(bps.users) - 1) + POWER(SUM((${renormalizedWeight}) * bps.${alias}covariate_sum / bps.users), 2)) AS ${alias}covariate_sum_squares
         , SUM(bps.users) * (
             (SUM(bps.users) - 1) * SUM(
               ${dialect.ifElse(
                 "bps.users <= 1",
                 "0",
                 `
-              POWER(bpw.weight, 2) / (bps.users * (bps.users - 1)) * (
+              POWER((${renormalizedWeight}), 2) / (bps.users * (bps.users - 1)) * (
                 bps.${alias}main_covariate_sum_product - bps.${alias}main_sum * bps.${alias}covariate_sum / bps.users
               )
             `,
               )}) +
             (
-              SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bpw.weight * bps.${alias}covariate_sum / bps.users)
+              SUM((${renormalizedWeight}) * bps.${alias}main_sum / bps.users) * SUM((${renormalizedWeight}) * bps.${alias}covariate_sum / bps.users)
             )
           ) AS ${alias}main_covariate_sum_product
         , MAX(t.${alias}theta) AS ${alias}theta
@@ -305,6 +325,18 @@ export function getBanditStatisticsFactMetricCTE(
           dimensionCols.length
             ? dimensionCols
                 .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
+                .join("\n")
+            : ""
+        }
+      )
+    LEFT JOIN
+      __variationPeriodWeightTotals vwt
+      ON (
+        bps.variation = vwt.variation
+        ${
+          dimensionCols.length
+            ? dimensionCols
+                .map((d) => `AND bps.${d.alias} = vwt.${d.alias}`)
                 .join("\n")
             : ""
         }
