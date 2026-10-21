@@ -1,4 +1,4 @@
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { CSSProperties, useRef, useState } from "react";
 import clsx from "clsx";
 import { PiRobotBold } from "react-icons/pi";
 import Button from "@/ui/Button";
@@ -18,24 +18,25 @@ import styles from "./GrowthBotButton.module.scss";
 // The header's GrowthBot (AI Assistant) button (moved out of TopNav.tsx,
 // unchanged in its default state).
 //
-// PROTOTYPE ONLY (set in review): with NEXT_PUBLIC_PROTOTYPE=true, two more
-// states to demo (prototypeGrowthBotState.ts), each explained on hover and
-// keyboard focus by its notice, in a popover styled as the side nav menus
-// (set in review; was a plain tooltip). Hovering or focusing it only
-// shows it; it stays while the pointer moves onto it, so its button can be
-// clicked. Clicking pins it open and moves focus into it, for keyboards:
-// - Disabled (off for the org, or not set up): the label and robot in a
-//   quieter grey (--slate-11, still 4.5:1+), so it reads as unavailable but
-//   stays focusable. Its notice says so, with Turn On in Settings for
-//   admins, or who to ask.
-// - Limit reached: the usual button, with a small amber dot on the robot.
-//   Its notice offers Upgrade Plan, or, without "Can upgrade", to ask an
+// PROTOTYPE ONLY (set in review): with NEXT_PUBLIC_PROTOTYPE=true, more
+// states to demo, as the prototype's plan and hosting allow
+// (prototypeGrowthBotState.ts; set in review), each explained by its notice,
+// in a popover styled as the side nav menus (set in review; was a plain
+// tooltip). It opens on a click, Enter or Space only (set in review; hover
+// and keyboard focus showed it too), moving focus into it; a click outside
+// or Esc closes it, focus back on the button, as does another click on the
+// button:
+// - Unavailable (not in the plan, AI turned off, or no API key): the label
+//   and robot in a quieter grey (--slate-11, still 4.5:1+), so it reads as
+//   unavailable but stays focusable. Its notice says why, with the fix for
+//   people who can manage billing and settings (Upgrade Plan, Turn On in
+//   Settings, Set Up API Key), or to contact their admin.
+// - Limit reached (Pro on Cloud): the usual button, with a small amber dot
+//   on the robot. Its notice offers Contact Sales, or to contact their
 //   admin. Clicking opens the drawer, with the same notice as its empty
 //   state and no new conversations (past ones stay readable, the notice
 //   in place of the message box; AgentPanel.tsx); without the drawer (AI
-//   not available), clicking pins the notice instead.
-// The pause before hover shows the popover (set in review).
-const HOVER_DELAY_MS = 400;
+//   not available), clicking opens the notice instead.
 
 export default function GrowthBotButton() {
   const {
@@ -43,7 +44,7 @@ export default function GrowthBotButton() {
     open: agentOpen,
     togglePanel: toggleAgentPanel,
   } = useAgentPanel();
-  const { state, canUpgrade } = useGrowthBotPrototype();
+  const { state, canManage } = useGrowthBotPrototype();
   // PROTOTYPE: with "Interim colors" on, the button's look before the
   // redesign (set in review): Button's own grey outline, without the
   // Check Hypothesis styling below.
@@ -54,22 +55,11 @@ export default function GrowthBotButton() {
   // so to screen readers too.
   const dockedOpen = usePrototypeDockedGrowthBot() && agentOpen;
   const [noticeOpen, setNoticeOpen] = useState(false);
-  // Opened by a click (focus moves in, and it stays until dismissed), not
-  // just shown by hover or focus.
-  const [pinned, setPinned] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const noticeRef = useRef<HTMLDivElement>(null);
-  // The pending hover open, or close.
-  const hoverTimer = useRef<number | null>(null);
-  // Set while focus goes back to the button after a pinned close, so that
-  // focus doesn't show the popover again.
-  const returningFocus = useRef(false);
-  useEffect(
-    () => () => {
-      if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
-    },
-    [],
-  );
+  // Whether the notice was showing as a press on the button began, before
+  // the popover closes itself for a press outside it.
+  const openAtPress = useRef<boolean | null>(null);
 
   // @/ui/Button styled as the experiment page's Check Hypothesis
   // (HypothesisField.tsx; set in review): outline, grey, small; a
@@ -121,49 +111,16 @@ export default function GrowthBotButton() {
     );
   }
 
-  const disabled = state === "disabled";
+  // Everything but the limit: GrowthBot can't be used at all.
+  const disabled = state !== "limit";
   const opensDrawer = !disabled && agentAvailable;
 
-  const cancelTimer = () => {
-    if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
-    hoverTimer.current = null;
-  };
-  // Shown at once on keyboard focus, unless the drawer's open over it.
-  const peek = () => {
-    cancelTimer();
-    if (!agentOpen) setNoticeOpen(true);
-  };
-  // On hover, after a pause (set in review; was instant), so passing over
-  // the button doesn't flash it; already shown, it just stays.
-  const hoverIn = () => {
-    cancelTimer();
-    if (noticeOpen || agentOpen) return;
-    hoverTimer.current = window.setTimeout(() => {
-      hoverTimer.current = null;
-      setNoticeOpen(true);
-    }, HOVER_DELAY_MS);
-  };
-  // A short pause on leaving, to bridge the gap to the popover (and a
-  // pending hover open is dropped).
-  const leave = () => {
-    if (pinned) return;
-    cancelTimer();
-    hoverTimer.current = window.setTimeout(() => setNoticeOpen(false), 150);
-  };
-  const close = () => {
-    cancelTimer();
-    setNoticeOpen(false);
-    setPinned(false);
-  };
-  // Closed after a click pinned it (Escape, or a click outside): focus back
-  // on the button, which it was moved from.
-  const closePinned = () => {
+  const close = () => setNoticeOpen(false);
+  // Closed by Esc or a click outside: focus back on the button, which it
+  // was moved from.
+  const closeToButton = () => {
     close();
-    returningFocus.current = true;
-    window.setTimeout(() => {
-      buttonRef.current?.focus();
-      returningFocus.current = false;
-    }, 0);
+    window.setTimeout(() => buttonRef.current?.focus(), 0);
   };
 
   const button = (
@@ -187,13 +144,16 @@ export default function GrowthBotButton() {
           toggleAgentPanel();
           return;
         }
-        if (pinned) {
+        // Already showing: a click closes it (set in review; it closed on
+        // the press, as a click outside it, then opened again on the
+        // click). Read as the press began.
+        const wasOpen = openAtPress.current ?? noticeOpen;
+        openAtPress.current = null;
+        if (wasOpen) {
           close();
           return;
         }
-        // Pinned: open, with focus on its first control (or the notice).
-        cancelTimer();
-        setPinned(true);
+        // Open, with focus on its first control (or the notice).
         setNoticeOpen(true);
         window.setTimeout(() => {
           const target =
@@ -203,7 +163,13 @@ export default function GrowthBotButton() {
         }, 0);
       }}
       aria-label={
-        disabled ? "GrowthBot, turned off" : "GrowthBot, usage limit reached"
+        state === "not-in-plan"
+          ? "GrowthBot, not included in your plan"
+          : state === "off"
+            ? "GrowthBot, turned off"
+            : state === "no-key"
+              ? "GrowthBot, not set up"
+              : "GrowthBot, usage limit reached"
       }
       aria-pressed={opensDrawer ? agentOpen : undefined}
       aria-expanded={opensDrawer ? undefined : noticeOpen}
@@ -221,8 +187,7 @@ export default function GrowthBotButton() {
       open={noticeOpen}
       onOpenChange={(open) => {
         if (open) setNoticeOpen(true);
-        else if (pinned) closePinned();
-        else close();
+        else closeToButton();
       }}
       side="bottom"
       align="end"
@@ -235,41 +200,22 @@ export default function GrowthBotButton() {
         listTableStyles.menuOutline,
       )}
       contentStyle={{ padding: 0 }}
-      // Focus stays put when it's only shown; a click moves it (above).
+      // Focus is moved by the click (above) and on closing.
       onOpenAutoFocus={(e) => e.preventDefault()}
       onCloseAutoFocus={(e) => e.preventDefault()}
       trigger={
         <span
           className={styles.anchor}
-          onMouseEnter={hoverIn}
-          onMouseLeave={leave}
-          onFocus={(e) => {
-            // Keyboard focus only, not the focus a click gives.
-            // A tick later: opened during the focus event itself, the
-            // popover would take that same event as focus outside it and
-            // close.
-            if (e.target.matches(":focus-visible") && !returningFocus.current)
-              window.setTimeout(peek, 0);
-          }}
-          onBlur={(e) => {
-            if (!noticeRef.current?.contains(e.relatedTarget as Node)) leave();
+          onPointerDownCapture={() => {
+            openAtPress.current = noticeOpen;
           }}
         >
           {button}
         </span>
       }
       content={
-        <div
-          ref={noticeRef}
-          tabIndex={-1}
-          className={styles.noticeBody}
-          onMouseEnter={cancelTimer}
-          onMouseLeave={leave}
-        >
-          <GrowthBotStateNotice
-            state={disabled ? "disabled" : "limit"}
-            canUpgrade={canUpgrade}
-          />
+        <div ref={noticeRef} tabIndex={-1} className={styles.noticeBody}>
+          <GrowthBotStateNotice state={state} canManage={canManage} />
         </div>
       }
     />

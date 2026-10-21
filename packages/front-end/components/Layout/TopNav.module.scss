@@ -36,10 +36,10 @@ $sidebarwidth: var(--app-rail-width, 240px);
   @media (max-width: 1180px) {
     left: 0;
     .pagetitle {
-      padding-left: 10px;
+      padding-left: 8px;
     }
-    .mobilemenu {
-      display: block;
+    .mobilemenu.mobilemenu {
+      display: inline-flex;
     }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -107,10 +107,14 @@ $sidebarwidth: var(--app-rail-width, 240px);
   align-items: center;
   white-space: nowrap;
 }
-.mobilemenu {
+// The drawer's menu button (TopNav.tsx): only below 1180px. Its glyph in
+// the side nav's icon grey (AppRail.module.scss's --rail-icon), as the
+// drawer's close button; no margin of Radix's ghost button's own.
+.mobilemenu.mobilemenu {
   display: none;
-  font-size: 24px;
-  line-height: 24px;
+  flex-shrink: 0;
+  margin: 0;
+  color: color-mix(in srgb, var(--slate-12) 75%, var(--slate-11));
 }
 
 .navbar {

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import clsx from "clsx";
 import { IconType } from "react-icons";
@@ -16,12 +17,7 @@ import {
   PiSunDim,
   PiUserCircle,
 } from "react-icons/pi";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownSubMenu,
-} from "@/ui/DropdownMenu";
+import { DropdownMenu } from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
@@ -34,14 +30,22 @@ import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import { Select, SelectItem } from "@/ui/Select";
-import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
 import listTableStyles from "@/components/Experiment/ExperimentsListTable.module.scss";
 import EditProfileModal from "./EditProfileModal";
-import { usePrototypeMultipleOrgs } from "./PrototypeControls";
+import {
+  usePrototypeMultipleOrgs,
+  usePrototypePendingReviews,
+} from "./PrototypeControls";
 import { withOpticalWeight } from "./opticalWeight";
 import { BOTTOM_TOOLTIP_DELAY_MS } from "./railTooltips";
 import railTooltipStyles from "./AppRail.module.scss";
 import styles from "./ProfileMenu.module.scss";
+import {
+  DropdownEntries,
+  InPlaceMenu,
+  RailMenuEntry,
+  RailMenuInPlace,
+} from "./railMenu";
 
 // The side nav's user circle, thickened (opticalWeight.tsx; set in review).
 const ProfileIcon = withOpticalWeight(PiUserCircle);
@@ -113,7 +117,9 @@ function MenuItemContent({
 // the identity row (opens Edit Profile), a read-only org line, then the
 // existing items regrouped, each with an icon. Switch organization for
 // users in more than one org. The avatar carries a red dot while there are
-// pending reviews (the Pending Reviews count).
+// pending reviews (the Pending Reviews count). In the narrow drawer
+// (inPlace; set in review), the same items open in place of the nav instead
+// of a popover (railMenu.tsx).
 export default function ProfileMenu({
   railCollapsed,
   railClassName,
@@ -121,6 +127,7 @@ export default function ProfileMenu({
   railLabelClassName,
   railIconSize = 20,
   railIconClassName,
+  inPlace,
 }: {
   // Opt-in: shown as a side nav item (set in review; was the header's
   // avatar). Collapsed, the avatar alone; expanded, the avatar and the name.
@@ -133,6 +140,8 @@ export default function ProfileMenu({
   // at the rail's icon size, with the rail's icon class when expanded.
   railIconSize?: number;
   railIconClassName?: string;
+  // Opt-in: in the narrow drawer, its menu drawn in place (AppRail.tsx).
+  inPlace?: RailMenuInPlace;
 } = {}) {
   const inRail = railCollapsed !== undefined;
   const router = useRouter();
@@ -143,12 +152,18 @@ export default function ProfileMenu({
 
   const [open, setOpen] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
-  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const hasApprovalFlows = hasCommercialFeature("require-approvals");
   // Lightweight count endpoint, filtered server-side to open revisions.
   const { count: openRevisionCount } = useOpenRevisionCount();
-  const pendingReviewCount = hasApprovalFlows ? openRevisionCount : 0;
+  // PROTOTYPE (set in review): the prototype panel's "Pending reviews" can
+  // override the count (null: the real one), for the avatar's red dot and
+  // Pending Reviews, which then shows with or without approval flows.
+  const pendingReviewsOverride = usePrototypePendingReviews();
+  const showPendingReviews =
+    hasApprovalFlows || pendingReviewsOverride !== null;
+  const pendingReviewCount =
+    pendingReviewsOverride ?? (hasApprovalFlows ? openRevisionCount : 0);
 
   const canAddOrganization =
     !isCloud() &&
@@ -185,6 +200,8 @@ export default function ProfileMenu({
     }
     setPrototypeOrgId(null);
     setOpen(false);
+    // In the drawer, switching closes it, as choosing an item does.
+    inPlace?.onDone();
     if (!setOrgId) return;
     setOrgId(id);
     try {
@@ -222,17 +239,279 @@ export default function ProfileMenu({
     .filter(Boolean)
     .join(", ");
 
-  return (
+  const item = (
+    key: string,
+    content: React.ReactNode,
+    onSelect: () => void,
+  ): RailMenuEntry => ({ type: "item", key, content, onSelect });
+  const themeKeys = Object.keys(THEME_LABELS) as (keyof typeof THEME_LABELS)[];
+  const entries: RailMenuEntry[] = [
+    {
+      // The identity row: one target, opening Edit Profile.
+      type: "item",
+      key: "identity",
+      className: styles.identity,
+      onSelect: () => {
+        setOpen(false);
+        setEditProfileOpen(true);
+      },
+      content: (
+        <span className={styles.identityContent}>
+          <span className="sr-only">Edit profile: </span>
+          {/* At lg (40px; the design has 36px), in the light purple
+            (violet, soft; set in review; was grey). */}
+          <UserAvatar
+            name={name || ""}
+            email={email || ""}
+            size="lg"
+            color="violet"
+            variant="soft"
+          />
+          <span className={styles.identityText}>
+            {name ? <span className={styles.identityName}>{name}</span> : null}
+            <span className={styles.identityEmail}>{email}</span>
+            {/* The org, under the email inside the identity row, so the
+              row's hover covers it too (set in review; was a separate,
+              read-only line below the row). Only for one organization:
+              with several, the selector below shows it instead (set in
+              review). */}
+            {orgName && !showOrgSelector ? (
+              <span className={styles.orgLine}>
+                {/* Phosphor's building, bold (set in review; was
+                  buildings; tried filled, and regular). */}
+                <PiBuildingBold size={13} aria-hidden="true" />
+                <span className={styles.orgName}>{orgName}</span>
+              </span>
+            ) : null}
+          </span>
+        </span>
+      ),
+    },
+    // The organization selector, for users in more than one org: below the
+    // identity row and separate from it, a small single select of the org
+    // names (set in review; was a Switch organization submenu). Add
+    // organization below it, where allowed.
+    ...(showOrgSelector
+      ? [
+          {
+            type: "node" as const,
+            key: "org-selector",
+            node: (
+              <div
+                className={styles.orgSelector}
+                role="group"
+                aria-label="Organization"
+              >
+                {/* Medium (set in review; was small). The closed field shows the
+                  building icon, bold, before the org's name (set in review). */}
+                <Select
+                  size="md"
+                  value={shownOrgId}
+                  setValue={chooseOrg}
+                  triggerClassName={styles.orgSelectorTrigger}
+                  // Its list with the side nav menus' shadow and 1px outline (the
+                  // list column menu's), their hover, and Phosphor's check (set in
+                  // review; .orgSelectorMenu).
+                  contentClassName={clsx(
+                    styles.orgSelectorMenu,
+                    listTableStyles.menuShadow,
+                    listTableStyles.menuOutline,
+                  )}
+                  valueLabel={
+                    <span className={styles.orgSelectorValue}>
+                      <PiBuildingBold
+                        size={14}
+                        className={styles.orgSelectorIcon}
+                        aria-hidden="true"
+                      />
+                      <span className={styles.orgName}>{orgName}</span>
+                    </span>
+                  }
+                >
+                  {selectorOrgs.map((o) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.name}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </div>
+            ),
+          },
+        ]
+      : []),
+    ...(showOrgSelector && canAddOrganization
+      ? [
+          item(
+            "add-org",
+            <MenuItemContent Icon={PiPlus} label="Add organization" />,
+            () => go("/settings/organizations"),
+          ),
+        ]
+      : []),
+    { type: "separator", key: "sep-1" },
+    ...(showPendingReviews
+      ? [
+          item(
+            "reviews",
+            <MenuItemContent
+              Icon={PiHourglassHigh}
+              label="Pending Reviews"
+              trailing={
+                pendingReviewCount > 0 ? (
+                  <span className={styles.countBadge}>
+                    {pendingReviewCount}
+                  </span>
+                ) : null
+              }
+            />,
+            () => go("/approval-requests"),
+          ),
+        ]
+      : []),
+    item(
+      "activity",
+      <MenuItemContent Icon={ActivityIcon} label="Activity Feed" />,
+      () => go("/activity"),
+    ),
+    item(
+      "reports",
+      <MenuItemContent Icon={PiFileText} label="My Reports" />,
+      () => go("/reports"),
+    ),
+    { type: "separator", key: "sep-2" },
+    item(
+      "tokens",
+      <MenuItemContent Icon={TokenIcon} label="Personal Access Tokens" />,
+      () => go("/account/personal-access-tokens"),
+    ),
+    item(
+      "slack",
+      <MenuItemContent Icon={PiSlackLogo} label="My Slack links" />,
+      () => go("/account/slack"),
+    ),
+    {
+      type: "submenu",
+      key: "theme",
+      label: "Theme",
+      contentClassName: menuClassName,
+      trigger: (
+        <MenuItemContent
+          Icon={ThemeIcon}
+          label="Theme"
+          trailing={
+            <span className={styles.themeValue}>
+              {THEME_LABELS[themeKey] ?? "System"}
+            </span>
+          }
+        />
+      ),
+      entries: themeKeys.map((key) =>
+        item(
+          `theme-${key}`,
+          <MenuItemContent
+            Icon={THEME_ICONS[key]}
+            label={key === "system" ? "System Default" : THEME_LABELS[key]}
+          />,
+          () => {
+            setOpen(false);
+            setTheme(key);
+          },
+        ),
+      ),
+    },
+    { type: "separator", key: "sep-3" },
+    item(
+      "sign-out",
+      <MenuItemContent Icon={SignOutIcon} label="Sign Out" />,
+      () => logout(),
+    ),
+  ];
+
+  const triggerButton = (
+    onOpenInPlace?: (fromKeyboard: boolean) => void,
+  ): React.ReactNode => (
+    <button
+      type="button"
+      className={
+        inRail
+          ? clsx(
+              railClassName,
+              styles.railItem,
+              (open || inPlace?.open) && railOpenClassName,
+            )
+          : clsx(styles.avatarButton, open && styles.avatarOpen)
+      }
+      aria-label={accountLabel}
+      data-rail-menu-trigger="profile"
+      {...(onOpenInPlace
+        ? {
+            "aria-expanded": !!inPlace?.open,
+            onClick: (e: React.MouseEvent) => onOpenInPlace(e.detail === 0),
+          }
+        : {})}
+    >
+      {/* The product's avatar (@/ui/Avatar, via UserAvatar), violet and
+        soft, its light purple (set in review; tried grey; was
+        hand-built at 28px), at sm (24px; tried md, 32px). */}
+      <span className={styles.avatarWrap}>
+        {inRail ? (
+          // Phosphor's user circle, as the rail's other icons (set in
+          // review; was the avatar).
+          <ProfileIcon
+            size={railIconSize}
+            className={railIconClassName}
+            aria-hidden="true"
+          />
+        ) : (
+          <UserAvatar
+            name={name || ""}
+            email={email || ""}
+            size="sm"
+            color="violet"
+            variant="soft"
+          />
+        )}
+        {pendingReviewCount > 0 ? (
+          <span className={styles.reviewDot} aria-hidden="true" />
+        ) : null}
+      </span>
+      {inRail && !railCollapsed ? (
+        <span className={railLabelClassName}>{name || email || "Account"}</span>
+      ) : null}
+    </button>
+  );
+
+  const modals = (
     <>
       {editProfileOpen ? (
-        <EditProfileModal
-          close={() => setEditProfileOpen(false)}
-          openChangePassword={() => setChangePasswordOpen(true)}
-        />
+        <EditProfileModal close={() => setEditProfileOpen(false)} />
       ) : null}
-      {changePasswordOpen ? (
-        <ChangePasswordModal close={() => setChangePasswordOpen(false)} />
-      ) : null}
+    </>
+  );
+
+  if (inPlace) {
+    return (
+      <>
+        {modals}
+        {triggerButton(inPlace.onOpen)}
+        {inPlace.open && inPlace.host
+          ? createPortal(
+              <InPlaceMenu
+                label="Profile"
+                entries={entries}
+                itemClassName={styles.item}
+                inPlace={inPlace}
+              />,
+              inPlace.host,
+            )
+          : null}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {modals}
       <DropdownMenu
         open={open}
         onOpenChange={setOpen}
@@ -250,231 +529,9 @@ export default function ProfileMenu({
         triggerTooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
         triggerTooltipClassName={railTooltipStyles.railTooltip}
         contentClassName={menuClassName}
-        trigger={
-          <button
-            type="button"
-            className={
-              inRail
-                ? clsx(
-                    railClassName,
-                    styles.railItem,
-                    open && railOpenClassName,
-                  )
-                : clsx(styles.avatarButton, open && styles.avatarOpen)
-            }
-            aria-label={accountLabel}
-          >
-            {/* The product's avatar (@/ui/Avatar, via UserAvatar), violet and
-              soft, its light purple (set in review; tried grey; was
-              hand-built at 28px), at sm (24px; tried md, 32px). */}
-            <span className={styles.avatarWrap}>
-              {inRail ? (
-                // Phosphor's user circle, as the rail's other icons (set in
-                // review; was the avatar).
-                <ProfileIcon
-                  size={railIconSize}
-                  className={railIconClassName}
-                  aria-hidden="true"
-                />
-              ) : (
-                <UserAvatar
-                  name={name || ""}
-                  email={email || ""}
-                  size="sm"
-                  color="violet"
-                  variant="soft"
-                />
-              )}
-              {pendingReviewCount > 0 ? (
-                <span className={styles.reviewDot} aria-hidden="true" />
-              ) : null}
-            </span>
-            {inRail && !railCollapsed ? (
-              <span className={railLabelClassName}>
-                {name || email || "Account"}
-              </span>
-            ) : null}
-          </button>
-        }
+        trigger={triggerButton()}
       >
-        {/* The identity row: one target, opening Edit Profile. */}
-        <DropdownMenuItem
-          className={styles.identity}
-          onClick={() => {
-            setOpen(false);
-            setEditProfileOpen(true);
-          }}
-        >
-          <span className={styles.identityContent}>
-            <span className="sr-only">Edit profile: </span>
-            {/* At lg (40px; the design has 36px), in the light purple
-              (violet, soft; set in review; was grey). */}
-            <UserAvatar
-              name={name || ""}
-              email={email || ""}
-              size="lg"
-              color="violet"
-              variant="soft"
-            />
-            <span className={styles.identityText}>
-              {name ? (
-                <span className={styles.identityName}>{name}</span>
-              ) : null}
-              <span className={styles.identityEmail}>{email}</span>
-              {/* The org, under the email inside the identity row, so the
-                row's hover covers it too (set in review; was a separate,
-                read-only line below the row). Only for one organization:
-                with several, the selector below shows it instead (set in
-                review). */}
-              {orgName && !showOrgSelector ? (
-                <span className={styles.orgLine}>
-                  {/* Phosphor's building, bold (set in review; was
-                    buildings; tried filled, and regular). */}
-                  <PiBuildingBold size={13} aria-hidden="true" />
-                  <span className={styles.orgName}>{orgName}</span>
-                </span>
-              ) : null}
-            </span>
-          </span>
-        </DropdownMenuItem>
-        {/* The organization selector, for users in more than one org:
-          below the identity row and separate from it, a small single
-          select of the org names (set in review; was a Switch
-          organization submenu). Add organization below it, where
-          allowed. */}
-        {showOrgSelector ? (
-          // Named for screen readers by the group (@/ui/Select takes no
-          // aria-label).
-          <div
-            className={styles.orgSelector}
-            role="group"
-            aria-label="Organization"
-          >
-            {/* Medium (set in review; was small). The closed field shows the
-              building icon, bold, before the org's name (set in review). */}
-            <Select
-              size="md"
-              value={shownOrgId}
-              setValue={chooseOrg}
-              triggerClassName={styles.orgSelectorTrigger}
-              // Its list with the side nav menus' shadow and 1px outline (the
-              // list column menu's), their hover, and Phosphor's check (set in
-              // review; .orgSelectorMenu).
-              contentClassName={clsx(
-                styles.orgSelectorMenu,
-                listTableStyles.menuShadow,
-                listTableStyles.menuOutline,
-              )}
-              valueLabel={
-                <span className={styles.orgSelectorValue}>
-                  <PiBuildingBold
-                    size={14}
-                    className={styles.orgSelectorIcon}
-                    aria-hidden="true"
-                  />
-                  <span className={styles.orgName}>{orgName}</span>
-                </span>
-              }
-            >
-              {selectorOrgs.map((o) => (
-                <SelectItem key={o.id} value={o.id}>
-                  {o.name}
-                </SelectItem>
-              ))}
-            </Select>
-          </div>
-        ) : null}
-        {showOrgSelector && canAddOrganization ? (
-          <DropdownMenuItem
-            className={styles.item}
-            onClick={() => go("/settings/organizations")}
-          >
-            <MenuItemContent Icon={PiPlus} label="Add organization" />
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuSeparator />
-        {hasApprovalFlows ? (
-          <DropdownMenuItem
-            className={styles.item}
-            onClick={() => go("/approval-requests")}
-          >
-            <MenuItemContent
-              Icon={PiHourglassHigh}
-              label="Pending Reviews"
-              trailing={
-                pendingReviewCount > 0 ? (
-                  <span className={styles.countBadge}>
-                    {pendingReviewCount}
-                  </span>
-                ) : null
-              }
-            />
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem
-          className={styles.item}
-          onClick={() => go("/activity")}
-        >
-          <MenuItemContent Icon={ActivityIcon} label="Activity Feed" />
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className={styles.item}
-          onClick={() => go("/reports")}
-        >
-          <MenuItemContent Icon={PiFileText} label="My Reports" />
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className={styles.item}
-          onClick={() => go("/account/personal-access-tokens")}
-        >
-          <MenuItemContent Icon={TokenIcon} label="Personal Access Tokens" />
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className={styles.item}
-          onClick={() => go("/account/slack")}
-        >
-          <MenuItemContent Icon={PiSlackLogo} label="My Slack links" />
-        </DropdownMenuItem>
-        <DropdownSubMenu
-          triggerClassName={styles.item}
-          contentClassName={menuClassName}
-          trigger={
-            <MenuItemContent
-              Icon={ThemeIcon}
-              label="Theme"
-              trailing={
-                <span className={styles.themeValue}>
-                  {THEME_LABELS[themeKey] ?? "System"}
-                </span>
-              }
-            />
-          }
-        >
-          {(Object.keys(THEME_LABELS) as (keyof typeof THEME_LABELS)[]).map(
-            (key) => (
-              <DropdownMenuItem
-                key={key}
-                className={styles.item}
-                onClick={() => {
-                  setOpen(false);
-                  setTheme(key);
-                }}
-              >
-                <MenuItemContent
-                  Icon={THEME_ICONS[key]}
-                  label={
-                    key === "system" ? "System Default" : THEME_LABELS[key]
-                  }
-                />
-              </DropdownMenuItem>
-            ),
-          )}
-        </DropdownSubMenu>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className={styles.item} onClick={() => logout()}>
-          <MenuItemContent Icon={SignOutIcon} label="Sign Out" />
-        </DropdownMenuItem>
+        <DropdownEntries entries={entries} itemClassName={styles.item} />
       </DropdownMenu>
     </>
   );

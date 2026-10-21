@@ -11,9 +11,13 @@ import { PiCaretDownBold, PiCaretUpBold, PiInfoBold } from "react-icons/pi";
 import Tooltip from "@/ui/Tooltip";
 import { isPrototype } from "@/services/env";
 import {
-  GROWTHBOT_STATES,
+  GROWTHBOT_HOSTINGS,
+  GROWTHBOT_PLANS,
+  growthBotStatesFor,
   resetGrowthBotPrototype,
-  setGrowthBotCanUpgrade,
+  setGrowthBotCanManage,
+  setGrowthBotHosting,
+  setGrowthBotPlan,
   setGrowthBotState,
   useGrowthBotPrototype,
 } from "@/components/Agent/prototypeGrowthBotState";
@@ -46,6 +50,7 @@ const DOCKED_GROWTHBOT_KEY = "gb-prototype-docked-growthbot";
 const SHOW_LIVE_CHAT_KEY = "gb-prototype-show-live-chat";
 const LIVE_CHAT_IN_HELP_KEY = "gb-prototype-live-chat-in-help";
 const CURRENT_NOTICES_KEY = "gb-prototype-current-header-notices";
+const PENDING_REVIEWS_KEY = "gb-prototype-pending-reviews";
 const COLLAPSED_KEY = "gb-prototype-panel-collapsed";
 // v2: right and bottom (was left and top).
 const POSITION_KEY = "gb-prototype-panel-position-v2";
@@ -101,6 +106,7 @@ const SETTING_KEYS = [
   SHOW_LIVE_CHAT_KEY,
   LIVE_CHAT_IN_HELP_KEY,
   CURRENT_NOTICES_KEY,
+  PENDING_REVIEWS_KEY,
 ];
 
 function resetAllSettings() {
@@ -171,6 +177,50 @@ export function usePrototypeLiveChatInHelp(): boolean {
   return show && inHelp;
 }
 
+// PROTOTYPE ONLY (set in review): "Pending reviews", overriding the
+// pending-review count the profile menu shows (its avatar's red dot and
+// Pending Reviews; ProfileMenu.tsx), to see the dot without real reviews:
+// Real (no override; the default), 0 or 3.
+type PendingReviewsOverride = "real" | "0" | "3";
+const PENDING_REVIEWS_OPTIONS: {
+  value: PendingReviewsOverride;
+  label: string;
+}[] = [
+  { value: "real", label: "Real" },
+  { value: "0", label: "0" },
+  { value: "3", label: "3" },
+];
+
+function readPendingReviews(): PendingReviewsOverride {
+  if (!isPrototype()) return "real";
+  try {
+    const value = localStorage.getItem(PENDING_REVIEWS_KEY);
+    return value === "0" || value === "3" ? value : "real";
+  } catch (e) {
+    return "real";
+  }
+}
+
+function writePendingReviews(value: PendingReviewsOverride) {
+  try {
+    if (value === "real") localStorage.removeItem(PENDING_REVIEWS_KEY);
+    else localStorage.setItem(PENDING_REVIEWS_KEY, value);
+  } catch (e) {
+    // Storage blocked: the setting lasts until the page reloads.
+  }
+  window.dispatchEvent(new Event(CHANGE_EVENT));
+}
+
+function usePendingReviewsSetting(): PendingReviewsOverride {
+  return useSyncExternalStore(subscribe, readPendingReviews, () => "real");
+}
+
+// The overriding count, or null for the real one.
+export function usePrototypePendingReviews(): number | null {
+  const value = usePendingReviewsSetting();
+  return value === "real" ? null : Number(value);
+}
+
 // "Current product treatment" (set in review): the header's notices as the
 // product shows them today, main's NoticeStack (the top notice as a pill,
 // the rest behind "+N", before GrowthBot), in place of the redesign's
@@ -228,34 +278,89 @@ function Toggle({
   );
 }
 
-// GrowthBot's demo states (prototypeGrowthBotState.ts; set in review), only
-// with NEXT_PUBLIC_PROTOTYPE=true: Default, Disabled or Limit reached,
-// "Can upgrade" for the limit's two versions, and Reset (back to Default).
-function GrowthBotControls() {
-  const { state, canUpgrade } = useGrowthBotPrototype();
-  const mockConversation = usePrototypeMockConversation();
+// One row of choices, as the GrowthBot section's segmented controls.
+function Segmented<T extends string>({
+  name,
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  name: string;
+  // Its name, above it.
+  label: string;
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  // Labelled above, as the header notices' rows (NoticeChoice).
   return (
-    <fieldset className={styles.group}>
-      <legend className={styles.groupTitle}>GrowthBot</legend>
-      <div className={styles.segmented}>
-        {GROWTHBOT_STATES.map((option) => (
+    <div className={styles.noticeRow}>
+      <span className={styles.noticeLabel} id={`${name}-label`}>
+        {label}
+      </span>
+      <div
+        className={styles.segmented}
+        role="radiogroup"
+        aria-labelledby={`${name}-label`}
+      >
+        {options.map((option) => (
           <label key={option.value} className={styles.segment}>
             <input
               type="radio"
-              name="gb-prototype-growthbot-state"
+              name={name}
               className={styles.segmentInput}
-              checked={state === option.value}
-              onChange={() => setGrowthBotState(option.value)}
+              checked={value === option.value}
+              onChange={() => onChange(option.value)}
             />
             <span className={styles.segmentLabel}>{option.label}</span>
           </label>
         ))}
       </div>
+    </div>
+  );
+}
+
+// GrowthBot's demo states (prototypeGrowthBotState.ts; set in review), only
+// with NEXT_PUBLIC_PROTOTYPE=true: the Plan and Hosting (set in review),
+// which only change what GrowthBot shows; the states that plan and hosting
+// can really have; "Can manage billing & settings" for each state's two
+// versions (set in review; was "Can upgrade", for the limit only); and
+// Reset (back to Pro on Cloud, Default).
+function GrowthBotControls() {
+  const { plan, hosting, state, canManage } = useGrowthBotPrototype();
+  const mockConversation = usePrototypeMockConversation();
+  const states = growthBotStatesFor(plan, hosting);
+  return (
+    <fieldset className={styles.group}>
+      <legend className={styles.groupTitle}>GrowthBot</legend>
+      <Segmented
+        name="gb-prototype-growthbot-plan"
+        label="Plan"
+        options={GROWTHBOT_PLANS}
+        value={plan}
+        onChange={setGrowthBotPlan}
+      />
+      <Segmented
+        name="gb-prototype-growthbot-hosting"
+        label="Hosting"
+        options={GROWTHBOT_HOSTINGS}
+        value={hosting}
+        onChange={setGrowthBotHosting}
+      />
+      <Segmented
+        name="gb-prototype-growthbot-state"
+        label="State"
+        options={states}
+        value={state}
+        onChange={setGrowthBotState}
+      />
       <Toggle
-        label="Can upgrade"
-        checked={canUpgrade}
-        disabled={state !== "limit"}
-        onChange={setGrowthBotCanUpgrade}
+        label="Can manage billing & settings"
+        info="On, the viewer is offered the fix: Upgrade Plan, Contact Sales, Turn On in Settings or Set Up API Key. Off, they're told to contact their admin."
+        checked={canManage}
+        disabled={state === "default"}
+        onChange={setGrowthBotCanManage}
       />
       <Toggle
         label="Mock conversation"
@@ -451,6 +556,7 @@ export default function PrototypeControls() {
   const existingColors = usePrototypeExistingPageColors();
   const interimSettings = usePrototypeInterimSettings();
   const dockedGrowthBot = usePrototypeDockedGrowthBot();
+  const pendingReviews = usePendingReviewsSetting();
   const showLiveChat = usePrototypeShowLiveChat();
   const liveChatInHelpSetting = useSetting(LIVE_CHAT_IN_HELP_KEY);
 
@@ -628,6 +734,18 @@ export default function PrototypeControls() {
             onChange={(v) => writeSetting(DOCKED_GROWTHBOT_KEY, v)}
           />
         </div>
+        {/* PROTOTYPE (set in review): the profile menu's pending-review
+          count, for its avatar's red dot. */}
+        <fieldset className={styles.group}>
+          <legend className={styles.groupTitle}>Profile</legend>
+          <Segmented
+            name="gb-prototype-pending-reviews"
+            label="Pending reviews"
+            options={PENDING_REVIEWS_OPTIONS}
+            value={pendingReviews}
+            onChange={writePendingReviews}
+          />
+        </fieldset>
         {/* Live chat's two settings together, as GrowthBot's (set in
           review). */}
         <fieldset className={styles.group}>

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
+import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { IconType } from "react-icons";
 import {
@@ -8,7 +9,7 @@ import {
   PiQuestion,
   PiSlackLogo,
 } from "react-icons/pi";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import { DropdownMenu } from "@/ui/DropdownMenu";
 import { inferDocUrl } from "@/components/DocLink";
 import listTableStyles from "@/components/Experiment/ExperimentsListTable.module.scss";
 import { withOpticalWeight } from "./opticalWeight";
@@ -18,6 +19,12 @@ import styles from "./ProfileMenu.module.scss";
 import helpStyles from "./HelpMenu.module.scss";
 import { usePrototypeLiveChatInHelp } from "./PrototypeControls";
 import { openMockLiveChat, useMockLiveChat } from "./liveChatMockState";
+import {
+  DropdownEntries,
+  InPlaceMenu,
+  RailMenuEntry,
+  RailMenuInPlace,
+} from "./railMenu";
 
 // The question mark, thickened (opticalWeight.tsx; set in review).
 const HelpIcon = withOpticalWeight(PiQuestion);
@@ -25,22 +32,21 @@ const HelpIcon = withOpticalWeight(PiQuestion);
 // The in-app help's Slack link (components/Auth/InAppHelp.tsx).
 const SLACK_URL = "https://slack.growthbook.io/?ref=app-top-nav";
 
-function HelpItem({
-  Icon,
-  label,
-  href,
-}: {
-  Icon: IconType;
-  label: string;
-  href: string;
-}) {
-  return (
-    <DropdownMenuItem
-      className={styles.item}
-      onClick={() => {
-        window.open(href, "_blank", "noopener,noreferrer");
-      }}
-    >
+// A link out: opens in a new tab, marked by the arrow-out icon (and said
+// to screen readers).
+function helpLinkEntry(
+  key: string,
+  Icon: IconType,
+  label: string,
+  href: string,
+): RailMenuEntry {
+  return {
+    type: "item",
+    key,
+    onSelect: () => {
+      window.open(href, "_blank", "noopener,noreferrer");
+    },
+    content: (
       <span className={styles.itemContent}>
         <Icon size={18} className={styles.itemIcon} aria-hidden="true" />
         <span className={styles.itemLabel}>
@@ -54,15 +60,17 @@ function HelpItem({
           aria-hidden="true"
         />
       </span>
-    </DropdownMenuItem>
-  );
+    ),
+  };
 }
 
 // Help in the side nav (set in review; was a link straight to the docs):
 // a menu, as the side nav's section menus (the profile menu's styles), with
 // View Docs, (prototype) Chat with Support and Join Slack Community. Docs
 // and Slack open in a new tab, marked by the arrow-out icon (and said to
-// screen readers). It opens to the right of the rail.
+// screen readers). It opens to the right of the rail. In the narrow drawer
+// (inPlace; set in review), the same items open in place of the nav
+// instead (railMenu.tsx).
 export default function HelpMenu({
   collapsed,
   iconSize,
@@ -70,6 +78,7 @@ export default function HelpMenu({
   openClassName,
   iconClassName,
   labelClassName,
+  inPlace,
 }: {
   collapsed: boolean;
   iconSize: number;
@@ -78,6 +87,8 @@ export default function HelpMenu({
   openClassName: string;
   iconClassName?: string;
   labelClassName: string;
+  // Opt-in: in the narrow drawer, its menu drawn in place (AppRail.tsx).
+  inPlace?: RailMenuInPlace;
 }) {
   const [open, setOpen] = useState(false);
   // PROTOTYPE (set in review): with "Live chat in Help menu" on, a Chat
@@ -91,6 +102,97 @@ export default function HelpMenu({
   // same 8px red dot on the icon, expanded or collapsed, and at the end of
   // the menu item. Screen readers hear there's something new, not how many.
   const unreadLabel = "new message";
+  const entries: RailMenuEntry[] = [
+    {
+      // A header, as the section menus' (set in review).
+      type: "node",
+      key: "header",
+      node: (
+        <div className={styles.eyebrow} aria-hidden="true">
+          Help
+        </div>
+      ),
+    },
+    helpLinkEntry("docs", PiBookOpen, "View Docs", inferDocUrl()),
+    ...(liveChat
+      ? [
+          {
+            type: "item" as const,
+            key: "chat",
+            onSelect: openMockLiveChat,
+            content: (
+              <span className={styles.itemContent}>
+                <PiChatTeardropDots
+                  size={18}
+                  className={styles.itemIcon}
+                  aria-hidden="true"
+                />
+                <span className={styles.itemLabel}>
+                  Chat with Support
+                  {unreadShown ? (
+                    <span className="sr-only">, {unreadLabel}</span>
+                  ) : null}
+                </span>
+                {unreadShown ? (
+                  <span className={helpStyles.itemDot} aria-hidden="true" />
+                ) : null}
+              </span>
+            ),
+          },
+        ]
+      : []),
+    helpLinkEntry("slack", PiSlackLogo, "Join Slack Community", SLACK_URL),
+  ];
+
+  const trigger = (onClick?: (fromKeyboard: boolean) => void): ReactNode => (
+    <button
+      type="button"
+      className={clsx(
+        triggerClassName,
+        (open || inPlace?.open) && openClassName,
+      )}
+      aria-label={unreadShown ? `Help, ${unreadLabel}` : "Help"}
+      data-rail-menu-trigger="help"
+      {...(onClick
+        ? {
+            "aria-expanded": !!inPlace?.open,
+            onClick: (e: React.MouseEvent) => onClick(e.detail === 0),
+          }
+        : {})}
+    >
+      <span className={helpStyles.iconWrap}>
+        <HelpIcon
+          size={iconSize}
+          className={iconClassName}
+          aria-hidden="true"
+        />
+        {unreadShown ? (
+          <span className={helpStyles.dot} aria-hidden="true" />
+        ) : null}
+      </span>
+      {collapsed ? null : <span className={labelClassName}>Help</span>}
+    </button>
+  );
+
+  if (inPlace) {
+    return (
+      <>
+        {trigger(inPlace.onOpen)}
+        {inPlace.open && inPlace.host
+          ? createPortal(
+              <InPlaceMenu
+                label="Help"
+                entries={entries}
+                itemClassName={styles.item}
+                inPlace={inPlace}
+              />,
+              inPlace.host,
+            )
+          : null}
+      </>
+    );
+  }
+
   return (
     <DropdownMenu
       open={open}
@@ -111,56 +213,9 @@ export default function HelpMenu({
         listTableStyles.menuShadow,
         listTableStyles.menuOutline,
       )}
-      trigger={
-        <button
-          type="button"
-          className={clsx(triggerClassName, open && openClassName)}
-          aria-label={unreadShown ? `Help, ${unreadLabel}` : "Help"}
-        >
-          <span className={helpStyles.iconWrap}>
-            <HelpIcon
-              size={iconSize}
-              className={iconClassName}
-              aria-hidden="true"
-            />
-            {unreadShown ? (
-              <span className={helpStyles.dot} aria-hidden="true" />
-            ) : null}
-          </span>
-          {collapsed ? null : <span className={labelClassName}>Help</span>}
-        </button>
-      }
+      trigger={trigger()}
     >
-      {/* A header, as the section menus' (set in review). */}
-      <div className={styles.eyebrow} aria-hidden="true">
-        Help
-      </div>
-      <HelpItem Icon={PiBookOpen} label="View Docs" href={inferDocUrl()} />
-      {liveChat ? (
-        <DropdownMenuItem className={styles.item} onClick={openMockLiveChat}>
-          <span className={styles.itemContent}>
-            <PiChatTeardropDots
-              size={18}
-              className={styles.itemIcon}
-              aria-hidden="true"
-            />
-            <span className={styles.itemLabel}>
-              Chat with Support
-              {unreadShown ? (
-                <span className="sr-only">, {unreadLabel}</span>
-              ) : null}
-            </span>
-            {unreadShown ? (
-              <span className={helpStyles.itemDot} aria-hidden="true" />
-            ) : null}
-          </span>
-        </DropdownMenuItem>
-      ) : null}
-      <HelpItem
-        Icon={PiSlackLogo}
-        label="Join Slack Community"
-        href={SLACK_URL}
-      />
+      <DropdownEntries entries={entries} itemClassName={styles.item} />
     </DropdownMenu>
   );
 }

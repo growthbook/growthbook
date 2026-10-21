@@ -188,8 +188,9 @@
   }
 }
 
-// GrowthBot's demo states (set in review): below a dashed rule, a
-// three-way segmented choice (native radios), Can upgrade, and Reset.
+// GrowthBot's demo states (set in review): below a dashed rule, segmented
+// choices (native radios) for the plan, the hosting and the state, Can
+// manage billing & settings, and Reset.
 .group {
   display: flex;
   flex-direction: column;

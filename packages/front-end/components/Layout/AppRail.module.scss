@@ -48,20 +48,107 @@
   color: var(--rail-text);
   transition: width 200ms ease;
 
-  // Below 1180px, the off-canvas drawer, as before: expanded, opened from
-  // the header's menu button.
+  // Below 1180px, the off-canvas drawer: expanded, opened from the header's
+  // menu button. An overlay (set in review; it opened under the header,
+  // its top cut off): full height from the window's top, over the header
+  // and the error banner (1010, 1015) and its veil (.drawerOverlay), below
+  // the prototype panel (1040) and modals. A shadow on its right edge.
+  // Closed, hidden as well as off screen, so Tab can't reach it.
   @media (max-width: 1180px) {
+    z-index: 1030;
     width: 240px;
     left: -240px;
-    transition: left 300ms ease;
+    visibility: hidden;
+    transition:
+      left 300ms ease,
+      box-shadow 300ms ease,
+      visibility 0s linear 300ms;
     &.drawerOpen {
       left: 0;
-      box-shadow: 0 12px 24px rgba(12, 18, 37, 0.12);
+      visibility: visible;
+      box-shadow: 8px 0 24px -4px rgba(12, 18, 37, 0.24);
+      transition:
+        left 300ms ease,
+        box-shadow 300ms ease,
+        visibility 0s linear 0s;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    transition: none;
+    &,
+    &.drawerOpen {
+      transition: none;
+    }
+  }
+}
+
+// The drawer's veil over the page (below 1180px; set in review): Radix's
+// dialog overlay colour (darker in dark mode), fading in and out with the
+// drawer's slide. Not there above 1180px.
+.drawerOverlay {
+  display: none;
+
+  @media (max-width: 1180px) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1025;
+    background: var(--color-overlay);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 300ms ease,
+      visibility 0s linear 300ms;
+
+    &.overlayOpen {
+      opacity: 1;
+      visibility: visible;
+      transition:
+        opacity 300ms ease,
+        visibility 0s linear 0s;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    &.overlayOpen {
+      transition: none;
+    }
+  }
+}
+
+// The nav's items, laid out by the rail as before (the wrapper adds no box
+// of its own), and hidden while a menu is open in their place in the
+// drawer (set in review).
+.navBody {
+  display: contents;
+}
+
+.navHidden {
+  display: none;
+}
+
+// A menu open in place of the nav, in the drawer (railMenu.tsx): under the
+// logo row, full width, 8px below it as the nav's Search row.
+.drawerMenuHost:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+// The drawer's close button: top right, 8px in, centred on the logo's
+// wordmark (set in review; was 3px higher, on the header's menu button):
+// both 24px down. Its glyph in the rail's icon grey.
+.drawerClose.drawerClose {
+  position: absolute;
+  top: 9px;
+  right: 8px;
+  margin: 0;
+  color: var(--rail-icon);
+
+  &:hover {
+    background: var(--rail-hover);
+    color: var(--rail-text-strong);
   }
 }
 

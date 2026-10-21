@@ -1,0 +1,73 @@
+// railMenu.tsx: the side nav's menus drawn in place in the narrow drawer
+// (below 1180px; set in review). Their items keep the popover's look
+// (ProfileMenu.module.scss's .item and .identity: 32px rows, the 18px icon
+// 7px in); here they're plain buttons, full width, with the side nav rows'
+// hover and focus ring, in the drawer's greys.
+
+.inPlace {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+// Each entry a full-width button with the item's look.
+.entry.entry {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 250ms ease-out,
+    color 250ms ease-out;
+
+  &:hover {
+    background: var(--rail-hover, var(--slate-a3));
+    color: var(--rail-text-strong, var(--slate-12));
+    transition-duration: 150ms;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// Back: as the items, its arrow where their icons are; 4px more below it,
+// before the menu.
+.back.back {
+  margin-bottom: 4px;
+}
+
+.backContent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.backIcon {
+  flex-shrink: 0;
+  color: var(--rail-icon, var(--slate-11));
+}
+
+// A submenu's row (Theme): the side nav sections' caret, 12px bold, in
+// their chevron grey.
+.caret {
+  flex-shrink: 0;
+  margin-left: 8px;
+  color: var(--rail-chevron, var(--slate-10));
+}
+
+// As the popover's separators: 6px above and below, inset 4px.
+.separator {
+  flex-shrink: 0;
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--rail-divider, var(--slate-4));
+}

@@ -70,6 +70,7 @@ import {
   usePrototypeExistingPageColors,
 } from "@/components/Layout/PrototypeControls";
 import Tooltip from "@/ui/Tooltip";
+import { useSidebarOpen } from "@/components/Layout/SidebarOpenProvider";
 import { usePrototypeMockConversation } from "./prototypeMockConversation";
 import AgentChatHistory from "./AgentChatHistory";
 import {
@@ -238,6 +239,7 @@ export default function AgentPanel({
   onToggleExpanded,
 }: AgentPanelProps) {
   const composerRef = useRef<ChatComposerHandle>(null);
+  const { setOpen: setNavDrawerOpen } = useSidebarOpen();
   const { userId, organization } = useUser();
   // Preserves each tool-detail disclosure's open/closed state across the
   // active-turn → persisted-message remount so it doesn't snap shut mid-turn.
@@ -478,7 +480,7 @@ export default function AgentPanel({
   // (prototypeGrowthBotState.ts). Nothing new can be sent or started; the
   // limit notice shows as the empty state, or, in a past chat (still
   // readable), in place of the message box.
-  const { state: growthBotState, canUpgrade: growthBotCanUpgrade } =
+  const { state: growthBotState, canManage: growthBotCanManage } =
     useGrowthBotPrototype();
   const limitReached = growthBotState === "limit";
 
@@ -890,6 +892,16 @@ export default function AgentPanel({
             }ms`,
       }}
     >
+      {/* The side nav drawer's veil (below 1180px; AppRail.tsx; set in
+        review), drawn over this panel too: it sits above the app's own
+        layer, so the drawer's veil can't reach it. Shown while the drawer
+        is open (html.app-drawer-open); a click closes the drawer, as on the
+        page. */}
+      <div
+        className={styles.navDrawerVeil}
+        aria-hidden="true"
+        onClick={() => setNavDrawerOpen(false)}
+      />
       {/* Header */}
       {/* Docked (set in review): no sparkle or "AI Assistant" title (it
         stays for screen readers). On the left, one control for
@@ -1065,8 +1077,13 @@ export default function AgentPanel({
         style={{
           flex: 1,
           overflowY: "auto",
-          // Docked, 20px on top (set in review; tried 16px).
-          padding: docked ? "20px 24px" : "20px",
+          // Docked, 6px between the header and the scrolling conversation
+          // (set in review; it ran right up to the header; tried 8px), so
+          // scrolled messages stop short of it, as above the message box;
+          // and 14px inside, so at rest the first message is still 20px
+          // below the header (set in review; tried 16px), where it was.
+          marginTop: docked ? 6 : undefined,
+          padding: docked ? "14px 24px 20px" : "20px",
         }}
       >
         {/* At the limit (prototype) with no conversation open: the limit
@@ -1082,7 +1099,7 @@ export default function AgentPanel({
             <Box style={{ width: "min(320px, 100%)" }}>
               <GrowthBotStateNotice
                 state="limit"
-                canUpgrade={growthBotCanUpgrade}
+                canManage={growthBotCanManage}
                 centered
               />
             </Box>
@@ -1322,10 +1339,7 @@ export default function AgentPanel({
                 }
           }
         >
-          <GrowthBotStateNotice
-            state="limit"
-            canUpgrade={growthBotCanUpgrade}
-          />
+          <GrowthBotStateNotice state="limit" canManage={growthBotCanManage} />
         </Box>
       ) : (
         <ChatComposer

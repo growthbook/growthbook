@@ -13,7 +13,6 @@ import DropdownLink from "@/components/Dropdown/DropdownLink";
 import Button from "@/ui/Button";
 import { Popover } from "@/ui/Popover";
 import { TextField } from "@/ui/TextField";
-import Tooltip from "@/ui/Tooltip";
 import modalStandardStyles from "@/ui/Modal/Patterns/ModalStandard.module.scss";
 import listTableStyles from "@/components/Experiment/ExperimentsListTable.module.scss";
 import LetterAvatar from "./LetterAvatar";
@@ -140,13 +139,10 @@ function useProjectSelector() {
 
 // The header's project selector (app header redesign): a ghost button (a
 // folder icon, the project's name, a chevron) opening the same searchable
-// list, All Projects first, as the sidebar's. Disabled on pages that aren't
-// project-scoped (e.g. Settings).
-export function HeaderProjectSelector({
-  disabled = false,
-}: {
-  disabled?: boolean;
-}) {
+// list, All Projects first, as the sidebar's. Usable on every page that
+// shows it, as main's (set in review; was disabled, with a tooltip, on pages
+// that aren't project-scoped, e.g. Settings).
+export function HeaderProjectSelector() {
   const {
     projects,
     project,
@@ -168,12 +164,18 @@ export function HeaderProjectSelector({
   const isDemo = (id: string) =>
     isDemoDatasourceProject({ projectId: id, organizationId: orgId || "" });
 
-  // Held to one project: its name, no list.
+  // Held to one project: its name, no list; with the Demo badge when it's
+  // the demo project, as main's (set in review).
   if (projects.length === 1 && !permissions.check("readData", "")) {
     return (
       <span className={headerStyles.projectStatic}>
         <PiFolder size={14} className={headerStyles.projectIcon} />
         <span className={headerStyles.projectName}>{projects[0].name}</span>
+        {isDemo(projects[0].id) ? (
+          <span className={headerStyles.demoBadge} title={demoBadge.badgeTitle}>
+            {demoBadge.badgeText}
+          </span>
+        ) : null}
       </span>
     );
   }
@@ -207,8 +209,7 @@ export function HeaderProjectSelector({
           className={interimColors ? undefined : headerStyles.projectIcon}
         />
       }
-      aria-label={`Project: ${name}${disabled ? " (not used on this page)" : ""}`}
-      disabled={disabled}
+      aria-label={`Project: ${name}`}
     >
       <span className={headerStyles.projectName}>{name}</span>
       {current && isDemo(current.id) ? (
@@ -218,14 +219,6 @@ export function HeaderProjectSelector({
       ) : null}
     </Button>
   );
-
-  if (disabled) {
-    return (
-      <Tooltip content="Projects don't apply to this page">
-        <span className={headerStyles.disabledWrap}>{button}</span>
-      </Tooltip>
-    );
-  }
 
   const choose = (id: string) => {
     setProject(id);

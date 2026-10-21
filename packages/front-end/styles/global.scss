@@ -31,6 +31,32 @@ html.app-rail-collapsed {
     --app-rail-width: 240px;
   }
 }
+// The side nav's drawer open (below 1180px; AppRail.tsx): the page behind
+// it doesn't scroll (set in review).
+html.app-drawer-open,
+html.app-drawer-open body {
+  overflow: hidden;
+}
+
+// Page transitions (_app.tsx; fix, set in review): the new page's content
+// fades in on a layer of its own, which the browser drew above the drawer
+// and its veil, as it comes only from the new page (it puts those after
+// the layers both pages have). Below 1180px, the drawer (#main-menu) and
+// its veil take layers of their own from the new page too, so the three
+// stack as on the page, the drawer on top; they don't animate, so the
+// drawer and veil hold still (the old page's copy fades out beneath them).
+@media (max-width: 1180px) {
+  html.page-transition [data-drawer-veil] {
+    view-transition-name: app-drawer-veil;
+  }
+  html.page-transition #main-menu {
+    view-transition-name: app-drawer;
+  }
+}
+::view-transition-new(app-drawer),
+::view-transition-new(app-drawer-veil) {
+  animation: none;
+}
 
 body {
   -webkit-font-smoothing: antialiased;

@@ -1,5 +1,6 @@
 import { FC, useEffect, useState } from "react";
-import { FaBars } from "react-icons/fa";
+import { PiList } from "react-icons/pi";
+import { IconButton } from "@radix-ui/themes";
 import Head from "next/head";
 import Breadcrumbs from "@/ui/Breadcrumbs";
 import NoticeBanner from "@/components/Notices/NoticeBanner";
@@ -37,10 +38,19 @@ import { usePrototypeCurrentHeaderNotices } from "./PrototypeControls";
 // the breadcrumb.
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
+  // Whether the side nav's drawer (below 1180px) is open, for its menu
+  // button's state.
+  menuOpen?: boolean;
   pageTitle: string;
   showNotices?: boolean;
   showLogo?: boolean;
-}> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
+}> = ({
+  toggleLeftMenu,
+  menuOpen,
+  pageTitle,
+  showNotices,
+  showLogo = true,
+}) => {
   // No line under the bar at the top of the page; a soft shadow once the
   // page scrolls under it, so the two stay apart.
   const [scrolled, setScrolled] = useState(false);
@@ -104,19 +114,22 @@ const TopNav: FC<{
       >
         <div className={styles.navbar}>
           {toggleLeftMenu ? (
-            <a
-              href="#main-menu"
+            // Below 1180px, opens the side nav's drawer: a plain icon button
+            // in the side nav's icon grey and size (set in review; was a
+            // heavy purple bars icon).
+            <IconButton
+              variant="ghost"
+              color="gray"
+              size="2"
               id="main-menu-toggle"
               className={styles.mobilemenu}
               aria-label="Open main menu"
-              onClick={(e) => {
-                e.preventDefault();
-                toggleLeftMenu();
-              }}
+              aria-controls="main-menu"
+              aria-expanded={!!menuOpen}
+              onClick={toggleLeftMenu}
             >
-              <span className="sr-only">Open main menu</span>
-              <FaBars />
-            </a>
+              <PiList size={18} />
+            </IconButton>
           ) : showLogo ? (
             <div>
               <img

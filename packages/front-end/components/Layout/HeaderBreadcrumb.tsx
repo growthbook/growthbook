@@ -1,6 +1,5 @@
 import { Fragment, ReactNode } from "react";
 import clsx from "clsx";
-import { useRouter } from "next/router";
 import { PiCaretRightBold } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -19,10 +18,6 @@ import styles from "./HeaderBreadcrumb.module.scss";
 // with "Org name /" first for users in more than one org. Built from what
 // pages already pass to <PageHead breadcrumb> (the first crumb is the
 // section, the last the object), so no page changes.
-
-// Pages that aren't project-scoped: the project selector shows, disabled.
-const NON_PROJECT_ROUTES =
-  /^(settings|account|admin|integrations|events|importing|projects|project\/)/;
 
 // A chevron between crumbs, as the redesign's breadcrumb before the new
 // header (set in review; the design has a "/"), Phosphor's bold caret (set
@@ -51,8 +46,6 @@ function Separator({
 }
 
 export default function HeaderBreadcrumb() {
-  const router = useRouter();
-  const route = router.route.substring(1);
   const { breadcrumb } = usePageHead();
   const { orgId } = useAuth();
   const { projects } = useDefinitions();
@@ -89,12 +82,7 @@ export default function HeaderBreadcrumb() {
   // No projects in the org: no selector (as the sidebar's).
   if (projects.length) {
     buttonParts.add(parts.length);
-    parts.push(
-      <HeaderProjectSelector
-        key="project"
-        disabled={NON_PROJECT_ROUTES.test(route)}
-      />,
-    );
+    parts.push(<HeaderProjectSelector key="project" />);
   }
   // The section and the current page as the project selector's button
   // (set in review; were a link and plain text): @/ui/Button, ghost and
