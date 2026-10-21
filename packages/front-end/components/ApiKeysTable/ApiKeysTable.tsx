@@ -151,7 +151,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
       <Table variant="surface" layout="fixed" minTableWidth={950} mb="3">
         <TableHeader>
           <TableRow style={{ whiteSpace: "nowrap" }}>
-            <TableColumnHeader>Description</TableColumnHeader>
+            <TableColumnHeader>Name</TableColumnHeader>
             <TableColumnHeader width="170px">Key</TableColumnHeader>
             <TableColumnHeader width="110px">
               Internal ID{" "}
