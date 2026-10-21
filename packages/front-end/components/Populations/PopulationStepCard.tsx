@@ -3,10 +3,7 @@ import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { PiPlus, PiX } from "react-icons/pi";
 import type { PopulationStep } from "shared/validators";
 import type { FactTableInterface } from "shared/types/fact-table";
-import {
-  POPULATION_AGGREGATE_OPERATORS,
-  parseAggregateFilterForEditor,
-} from "shared/populations";
+import { parseAggregateFilterForEditor } from "shared/populations";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
@@ -21,6 +18,7 @@ import {
 import useFullFactTable from "@/hooks/useFullFactTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { capitalizeFirstLetter } from "@/services/utils";
+import { POPULATION_AGGREGATE_OPERATORS } from "./populationDraft";
 
 type WindowSettings = PopulationStep["windowSettings"];
 

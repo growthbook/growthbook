@@ -220,9 +220,9 @@ export default function PopulationPage() {
       {/* The members card's large flex-grow keeps the Definition card at its
           base width until it wraps below. */}
       <Flex wrap="wrap" gap="4" align="start">
-        <Box
-          className="appbox"
-          p="5"
+        <Frame
+          px="5"
+          py="5"
           mb="0"
           minWidth="0"
           style={{ flex: "999 1 600px" }}
@@ -234,10 +234,10 @@ export default function PopulationPage() {
             Member counts and the membership chart are coming soon. Membership
             is calculated when the Population refreshes.
           </Text>
-        </Box>
-        <Box className="appbox" p="5" mb="0" style={{ flex: "1 1 280px" }}>
+        </Frame>
+        <Frame px="5" py="5" mb="0" minWidth="0" style={{ flex: "1 1 280px" }}>
           <PopulationDefinition population={population} editHref={editHref} />
-        </Box>
+        </Frame>
       </Flex>
     </Box>
   );

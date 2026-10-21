@@ -6,6 +6,17 @@ import {
 } from "shared/populations";
 import { isRowFilterComplete } from "@/components/FactTables/rowFilterUtils";
 
+// parseAggregateFilterForEditor normalizes "<>" to "!=", so the list only needs
+// one of the two.
+export const POPULATION_AGGREGATE_OPERATORS = [
+  { operator: ">=", label: "at least" },
+  { operator: ">", label: "more than" },
+  { operator: "=", label: "exactly" },
+  { operator: "<=", label: "at most" },
+  { operator: "<", label: "less than" },
+  { operator: "!=", label: "not equal to" },
+] as const;
+
 // The editor only supports single-step Populations for now, so a draft holds
 // one step and saves it as `steps: [step]`.
 export type PopulationDraft = {

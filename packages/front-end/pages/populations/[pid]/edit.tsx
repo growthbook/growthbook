@@ -30,19 +30,6 @@ export default function EditPopulationPage() {
   if (loading || !population) {
     return <LoadingOverlay />;
   }
-  // The editor only supports a single step, so saving a multi-step Population
-  // created through the API would drop the rest.
-  if (population.steps.length > 1) {
-    return (
-      <Box className="pagecontents" style={{ margin: "0 auto" }}>
-        <Callout status="info">
-          This Population has {population.steps.length} steps. Multi-step
-          Populations can only be edited through the API for now.
-        </Callout>
-      </Box>
-    );
-  }
-
   // Like the edit modals, the editor seeds its form once per Population and
   // saving is last-write-wins, so a refetch doesn't discard unsaved edits.
   return <PopulationEditor key={population.id} population={population} />;

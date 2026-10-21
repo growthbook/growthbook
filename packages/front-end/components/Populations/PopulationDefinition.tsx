@@ -1,11 +1,11 @@
-import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
 import { date, datetime } from "shared/dates";
 import type { ApiPopulation } from "shared/validators";
-import { describePopulationStep } from "shared/populations";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { describePopulationStep } from "@/components/Populations/populationUtils";
 
 export default function PopulationDefinition({
   population,
@@ -15,7 +15,16 @@ export default function PopulationDefinition({
   editHref: string | null;
 }) {
   const { getFactTableById } = useDefinitions();
-  const unit = population.userIdTypes.join(", ");
+  // TODO: Support multiple steps. Only the first step is shown for now.
+  const step = population.steps[0];
+  const factTable = step ? getFactTableById(step.source.factTableId) : null;
+  const descriptionParts = step
+    ? describePopulationStep({
+        step,
+        identifierTypes: population.userIdTypes,
+        factTable,
+      })
+    : null;
 
   return (
     <Box>
@@ -26,47 +35,24 @@ export default function PopulationDefinition({
         {editHref && <Link href={editHref}>Edit</Link>}
       </Flex>
 
-      <Box asChild mb="4" pl="4">
-        <ol style={{ margin: 0 }}>
-          {population.steps.map((step, i) => {
-            const factTableId = step.source.factTableId;
-            const factTable = getFactTableById(factTableId);
-            const factTableName = factTable?.name || factTableId;
-            const { before, after } = describePopulationStep({
-              steps: population.steps,
-              index: i,
-              factTableName,
-              aggregateColumnName: factTable?.columns.find(
-                (c) => c.column === step.aggregateFilterColumn,
-              )?.name,
-              unit,
-            });
-            return (
-              <li key={i}>
-                <Text size="sm">
-                  {before}
-                  {factTable ? (
-                    <Link href={`/fact-tables/${factTableId}`}>
-                      {factTableName}
-                    </Link>
-                  ) : (
-                    factTableName
-                  )}
-                  {after}
-                </Text>
-              </li>
-            );
-          })}
-        </ol>
-      </Box>
+      {step && descriptionParts && (
+        <Box mb="4">
+          <Text size="sm" overflowWrap="anywhere">
+            {descriptionParts.beforeFactTableName}
+            {factTable ? (
+              <Link href={`/fact-tables/${step.source.factTableId}`}>
+                {descriptionParts.factTableName}
+              </Link>
+            ) : (
+              descriptionParts.factTableName
+            )}
+            {descriptionParts.afterFactTableName}
+          </Text>
+        </Box>
+      )}
 
-      <Grid
-        columns="auto 1fr"
-        gapX="4"
-        gapY="2"
-        pt="3"
-        style={{ borderTop: "1px solid var(--gray-a5)" }}
-      >
+      <Separator size="4" mb="3" />
+      <Grid columns="auto 1fr" gapX="4" gapY="2">
         <Text size="sm" color="text-mid">
           Created
         </Text>

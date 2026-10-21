@@ -1,5 +1,8 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { getConnectionSDKCapabilities } from "../src/sdk-versioning";
+import {
+  getConnectionSDKCapabilities,
+  getConnectionsSDKCapabilities,
+} from "../src/sdk-versioning";
 
 const baseConnection: SDKConnectionInterface = {
   id: "sdk-123",
@@ -61,5 +64,49 @@ describe("getConnectionSDKCapabilities", () => {
     };
     const capabilities = getConnectionSDKCapabilities(connection); // should be empty due to Python 0.0.0 having nothing
     expect(capabilities).toStrictEqual(["bucketingV2", "encryption"]);
+  });
+});
+
+describe("contextualBanditsAuto", () => {
+  it.each(["javascript", "nodejs", "react"] as const)(
+    "is reported for %s 1.8.1 and not 1.8.0",
+    (language) => {
+      expect(
+        getConnectionSDKCapabilities({
+          ...baseConnection,
+          languages: [language],
+          sdkVersion: "1.8.1",
+        }),
+      ).toContain("contextualBanditsAuto");
+      expect(
+        getConnectionSDKCapabilities({
+          ...baseConnection,
+          languages: [language],
+          sdkVersion: "1.8.0",
+        }),
+      ).not.toContain("contextualBanditsAuto");
+    },
+  );
+
+  it("counts only connections that reach the project", () => {
+    const current = {
+      ...baseConnection,
+      sdkVersion: "1.8.1",
+      projects: ["prj_a"],
+    };
+    const outdated = { ...baseConnection, sdkVersion: "1.8.0", projects: [] };
+
+    expect(
+      getConnectionsSDKCapabilities({
+        connections: [current, outdated],
+        project: "prj_a",
+      }),
+    ).toContain("contextualBanditsAuto");
+    expect(
+      getConnectionsSDKCapabilities({
+        connections: [current, outdated],
+        project: "prj_b",
+      }),
+    ).not.toContain("contextualBanditsAuto");
   });
 });

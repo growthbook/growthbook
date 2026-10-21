@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { populationEndpoints } from "shared/api-endpoints";
 import { ApiPopulation } from "shared/validators";
 import { IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiDotsThreeVertical } from "react-icons/pi";
 import { radixSize } from "@/ui/sizes";
 import {
   DropdownMenu,
@@ -47,7 +47,7 @@ export default function PopulationMoreMenu({
           highContrast
           aria-label="Population actions"
         >
-          <BsThreeDotsVertical size={16} />
+          <PiDotsThreeVertical size={18} />
         </IconButton>
       }
       menuPlacement="end"
@@ -72,9 +72,6 @@ export default function PopulationMoreMenu({
           Audit log
         </DropdownMenuItem>
       )}
-      {(canEdit || onAuditLog) && (canDuplicate || canDelete) && (
-        <DropdownMenuSeparator />
-      )}
       {canDuplicate && (
         <DropdownMenuItem
           onClick={async () => {
@@ -97,6 +94,9 @@ export default function PopulationMoreMenu({
         >
           Duplicate
         </DropdownMenuItem>
+      )}
+      {(canEdit || onAuditLog || canDuplicate) && canDelete && (
+        <DropdownMenuSeparator />
       )}
       {canDelete && (
         <DropdownMenuItem

@@ -4,14 +4,10 @@ import {
   populationValidator,
 } from "shared/validators";
 import {
-  describePopulationStep,
   getPopulationFactTableIds,
   getPopulationRuleViolations,
-  getPopulationStepAnchorIndex,
-  getPopulationStepsLabel,
   MAX_POPULATION_FACT_TABLES,
   MAX_POPULATION_STEPS,
-  parseSingleAggregateFilter,
   parseAggregateFilterForEditor,
   type PopulationRuleFactTable,
 } from "shared/populations";
@@ -97,205 +93,6 @@ describe("getPopulationFactTableIds", () => {
   });
 });
 
-describe("getPopulationStepsLabel", () => {
-  const names: Record<string, string> = {
-    ftb_events: "Events",
-    ftb_orders: "Orders",
-  };
-  const getName = (id: string) => names[id];
-
-  it("joins step fact table names in order", () => {
-    expect(
-      getPopulationStepsLabel(
-        [step("ftb_events"), step("ftb_orders"), step("ftb_events")],
-        getName,
-      ),
-    ).toBe("Events → Orders → Events");
-  });
-
-  it("falls back to the fact table id when the name is unknown", () => {
-    expect(
-      getPopulationStepsLabel([step("ftb_events"), step("ftb_gone")], getName),
-    ).toBe("Events → ftb_gone");
-  });
-
-  it("prefixes negated steps with no", () => {
-    expect(
-      getPopulationStepsLabel(
-        [step("ftb_events"), { ...step("ftb_orders"), negation: true }],
-        getName,
-      ),
-    ).toBe("Events → no Orders");
-  });
-});
-
-describe("getPopulationStepAnchorIndex", () => {
-  it("has no anchor for the first step", () => {
-    expect(getPopulationStepAnchorIndex([{}], 0)).toBeNull();
-  });
-
-  it("anchors to the previous step", () => {
-    expect(getPopulationStepAnchorIndex([{}, {}, {}], 2)).toBe(1);
-  });
-
-  it("skips negated steps", () => {
-    expect(
-      getPopulationStepAnchorIndex(
-        [{}, { negation: true }, { negation: true }, {}],
-        3,
-      ),
-    ).toBe(0);
-  });
-});
-
-describe("describePopulationStep", () => {
-  const describe1 = (
-    steps: PopulationStep[],
-    index: number,
-    factTableName: string,
-    aggregateColumnName?: string,
-  ) => {
-    const { before, after } = describePopulationStep({
-      steps,
-      index,
-      factTableName,
-      aggregateColumnName,
-      unit: "user_id",
-    });
-    return `${before}${factTableName}${after}`;
-  };
-
-  it("splits the sentence around the fact table name", () => {
-    expect(
-      describePopulationStep({
-        steps: [step("ftb_events"), { ...step("ftb_has"), negation: true }],
-        index: 1,
-        factTableName: "Has",
-        unit: "user_id",
-      }),
-    ).toEqual({
-      before: "Doesn't have a ",
-      factTableName: "Has",
-      after: " row",
-    });
-  });
-
-  it("describes a plain step", () => {
-    expect(describe1([step("ftb_events")], 0, "Sessions")).toBe(
-      "Has a Sessions row",
-    );
-  });
-
-  it("uses an before a vowel and describes negated steps", () => {
-    expect(
-      describe1(
-        [step("ftb_events"), { ...step("ftb_orders"), negation: true }],
-        1,
-        "Orders",
-      ),
-    ).toBe("Doesn't have an Orders row");
-  });
-
-  it("counts row filters", () => {
-    const filter = {
-      column: "country",
-      operator: "=" as const,
-      values: ["US"],
-    };
-    expect(
-      describe1([{ ...step("ftb_events"), rowFilters: [filter] }], 0, "Events"),
-    ).toBe("Has an Events row matching 1 filter");
-    expect(
-      describe1(
-        [{ ...step("ftb_events"), rowFilters: [filter, filter] }],
-        0,
-        "Events",
-      ),
-    ).toBe("Has an Events row matching 2 filters");
-  });
-
-  it("describes count and column aggregate filters", () => {
-    expect(
-      describe1(
-        [
-          {
-            ...step("ftb_events"),
-            aggregateFilterColumn: "$$count",
-            aggregateFilter: ">=3",
-          },
-        ],
-        0,
-        "Events",
-      ),
-    ).toBe("Has an Events row with at least 3 rows per user_id");
-    expect(
-      describe1(
-        [
-          {
-            ...step("ftb_orders"),
-            aggregateFilterColumn: "amount",
-            aggregateFilter: ">500",
-          },
-        ],
-        0,
-        "Orders",
-        "Amount",
-      ),
-    ).toBe("Has an Orders row with total Amount more than 500 per user_id");
-  });
-
-  it("shows ranges as the raw filter", () => {
-    expect(
-      describe1(
-        [
-          {
-            ...step("ftb_events"),
-            aggregateFilterColumn: "$$count",
-            aggregateFilter: ">=3,<10",
-          },
-        ],
-        0,
-        "Events",
-      ),
-    ).toBe("Has an Events row with rows >=3,<10 per user_id");
-  });
-
-  it("describes lookback and conversion windows", () => {
-    const lookback: PopulationStep = {
-      ...step("ftb_events", "lookback"),
-      windowSettings: {
-        ...step("ftb_events").windowSettings,
-        type: "lookback",
-        windowValue: 1,
-        windowUnit: "weeks",
-      },
-    };
-    expect(describe1([lookback], 0, "Events")).toBe(
-      "Has an Events row in the last 1 week",
-    );
-
-    const conversion: PopulationStep = {
-      ...step("ftb_orders"),
-      windowSettings: {
-        ...step("ftb_orders").windowSettings,
-        type: "conversion",
-        windowValue: 7,
-      },
-    };
-    expect(
-      describe1(
-        [
-          step("ftb_events"),
-          { ...step("ftb_events"), negation: true },
-          conversion,
-        ],
-        2,
-        "Orders",
-      ),
-    ).toBe("Has an Orders row within 7 days after step 1");
-  });
-});
-
 describe("parseAggregateFilterForEditor", () => {
   it("splits a single comparison into operator and value", () => {
     expect(parseAggregateFilterForEditor(">=10")).toEqual({
@@ -339,28 +136,6 @@ describe("parseAggregateFilterForEditor", () => {
   });
 });
 
-describe("parseSingleAggregateFilter", () => {
-  it("parses a single comparison", () => {
-    expect(parseSingleAggregateFilter(" >= 3 ")).toEqual({
-      operator: ">=",
-      value: "3",
-    });
-  });
-
-  it("normalizes <> to !=", () => {
-    expect(parseSingleAggregateFilter("<>2.5")).toEqual({
-      operator: "!=",
-      value: "2.5",
-    });
-  });
-
-  it("returns null for ranges, empty, and invalid filters", () => {
-    expect(parseSingleAggregateFilter(">=3,<10")).toBeNull();
-    expect(parseSingleAggregateFilter("")).toBeNull();
-    expect(parseSingleAggregateFilter(">=3,lots")).toBeNull();
-  });
-});
-
 describe("getPopulationRuleViolations", () => {
   it("accepts a valid multi-step population", () => {
     expect(
@@ -385,23 +160,6 @@ describe("getPopulationRuleViolations", () => {
         factTables: [events],
       }),
     ).toEqual(["The first step cannot use a conversion window."]);
-  });
-
-  it("rejects a negated first step but allows later ones", () => {
-    const run = (steps: PopulationStep[]) =>
-      getPopulationRuleViolations({
-        datasource: "ds_main",
-        userIdTypes: ["user_id"],
-        steps,
-        factTables: [events, orders],
-      });
-
-    expect(run([{ ...step("ftb_events"), negation: true }])).toEqual([
-      `The first step cannot be a "doesn't have" step.`,
-    ]);
-    expect(
-      run([step("ftb_events"), { ...step("ftb_orders"), negation: true }]),
-    ).toEqual([]);
   });
 
   it("reports a fact table that was not found", () => {
