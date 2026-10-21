@@ -61,6 +61,7 @@ import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
 import { PopulationModel } from "back-end/src/models/PopulationModel";
+import { PopulationAnalysisModel } from "back-end/src/models/PopulationAnalysisModel";
 import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
 import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
@@ -135,6 +136,7 @@ export type ModelName =
   | "metricAnalysis"
   | "populationData"
   | "populations"
+  | "populationAnalyses"
   | "savedQueries"
   | "metricGroups"
   | "segments"
@@ -200,6 +202,7 @@ export const modelClasses = {
   metricAnalysis: MetricAnalysisModel,
   populationData: PopulationDataModel,
   populations: PopulationModel,
+  populationAnalyses: PopulationAnalysisModel,
   savedQueries: SavedQueryDataModel,
   metricGroups: MetricGroupModel,
   segments: SegmentModel,
@@ -388,6 +391,7 @@ export class ReqContextClass {
       metricAnalysis: new MetricAnalysisModel(this),
       populationData: new PopulationDataModel(this),
       populations: new PopulationModel(this),
+      populationAnalyses: new PopulationAnalysisModel(this),
       savedQueries: new SavedQueryDataModel(this),
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),

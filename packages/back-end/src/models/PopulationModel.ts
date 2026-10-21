@@ -5,8 +5,10 @@ import {
   apiUpdatePopulationBody,
   PopulationInterface,
   PopulationStep,
+  getPopulationAnalysisEndpoint,
   populationApiSpec,
   populationValidator,
+  refreshPopulationEndpoint,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
@@ -21,6 +23,11 @@ import {
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
 import { applyPagination } from "back-end/src/util/handler";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  getLatestPopulationAnalysis,
+  refreshPopulationAnalysis,
+} from "back-end/src/services/populationAnalysis";
 import { MakeModelClass } from "./BaseModel";
 
 function withStepDefaults(
@@ -54,6 +61,23 @@ const BaseClass = MakeModelClass({
   apiConfig: {
     modelKey: "populations",
     openApiSpec: populationApiSpec,
+    customHandlers: [
+      defineCustomApiHandler({
+        ...refreshPopulationEndpoint,
+        reqHandler: async (req) => ({
+          analysis: await refreshPopulationAnalysis(req.context, req.params.id),
+        }),
+      }),
+      defineCustomApiHandler({
+        ...getPopulationAnalysisEndpoint,
+        reqHandler: async (req) => ({
+          analysis: await getLatestPopulationAnalysis(
+            req.context,
+            req.params.id,
+          ),
+        }),
+      }),
+    ],
   },
 });
 

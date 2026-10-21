@@ -19,6 +19,7 @@ import HistoryTable from "@/components/HistoryTable";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PopulationDefinition from "@/components/Populations/PopulationDefinition";
+import PopulationMembers from "@/components/Populations/PopulationMembers";
 import PopulationMoreMenu from "@/components/Populations/PopulationMoreMenu";
 import { usePopulation, useRefreshPopulations } from "@/hooks/usePopulations";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -226,13 +227,7 @@ export default function PopulationPage() {
           minWidth="0"
           style={{ flex: "999 1 600px" }}
         >
-          <Heading as="h2" size="md" mb="2">
-            Members
-          </Heading>
-          <Text size="sm" color="text-mid">
-            Member counts and the membership chart are coming soon. Membership
-            is calculated when the Population refreshes.
-          </Text>
+          <PopulationMembers population={population} />
         </Frame>
         <Frame px="5" py="5" mb="0" minWidth="0" style={{ flex: "1 1 280px" }}>
           <PopulationDefinition population={population} />

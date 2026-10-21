@@ -911,6 +911,9 @@ tags:
   - name: Population_model
     x-displayName: Population
     description: <SchemaDefinition schemaRef="#/components/schemas/Population" />
+  - name: PopulationAnalysis_model
+    x-displayName: Population Analysis
+    description: <SchemaDefinition schemaRef="#/components/schemas/PopulationAnalysis" />
   - name: Project_model
     x-displayName: Project
     description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
@@ -64113,6 +64116,81 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/populations/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/populations/{id}/refresh:
+    post:
+      operationId: refreshPopulation
+      summary: Refresh a Population's membership
+      description: >-
+        Runs the queries that calculate the Population's members over the last
+        year. Waits a few seconds for them to finish; if they're still running,
+        returns the analysis with status `running`. Poll `getPopulationAnalysis`
+        for the result.
+      tags:
+        - Populations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Population id
+          schema:
+            description: The Population id
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analysis:
+                    $ref: '#/components/schemas/PopulationAnalysis'
+                required:
+                  - analysis
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/populations/{id}/refresh' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/populations/{id}/analysis:
+    get:
+      operationId: getPopulationAnalysis
+      summary: Get a Population's latest membership analysis
+      tags:
+        - Populations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Population id
+          schema:
+            description: The Population id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analysis:
+                    description: Null until the Population has been refreshed
+                    anyOf:
+                      - title: Population Analysis
+                        $ref: '#/components/schemas/PopulationAnalysis'
+                      - type: 'null'
+                required:
+                  - analysis
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/populations/{id}/analysis' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
     limit:
@@ -83939,6 +84017,232 @@ components:
         - userIdTypes
         - steps
       additionalProperties: false
+    PopulationAnalysis:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        population:
+          type: string
+        datasource:
+          type: string
+        userIdType:
+          type: string
+        steps:
+          description: The Population's steps when this analysis ran
+          type: array
+          items:
+            type: object
+            properties:
+              source:
+                anyOf:
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                        const: factTable
+                      factTableId:
+                        type: string
+                    required:
+                      - type
+                      - factTableId
+                    additionalProperties: false
+              rowFilters:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    operator:
+                      type: string
+                      enum:
+                        - '='
+                        - '!='
+                        - <
+                        - <=
+                        - '>'
+                        - '>='
+                        - between
+                        - not_between
+                        - in
+                        - not_in
+                        - contains
+                        - not_contains
+                        - matches_pattern
+                        - not_matches_pattern
+                        - starts_with
+                        - ends_with
+                        - is_null
+                        - not_null
+                        - is_true
+                        - is_false
+                        - sql_expr
+                        - saved_filter
+                    column:
+                      type: string
+                    values:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - operator
+                  additionalProperties: false
+              aggregateFilter:
+                description: >-
+                  Conditions on each unit's total within the window, such as
+                  ">=3" or ">=3,<10". Requires aggregateFilterColumn
+                type: string
+              aggregateFilterColumn:
+                description: >-
+                  Numeric column to total, or "$$count" to count rows. Requires
+                  aggregateFilter
+                type: string
+              windowSettings:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum:
+                      - conversion
+                      - lookback
+                      - ''
+                  delayValue:
+                    type: number
+                  delayUnit:
+                    type: string
+                    enum:
+                      - weeks
+                      - days
+                      - hours
+                      - minutes
+                  windowValue:
+                    type: number
+                  windowUnit:
+                    type: string
+                    enum:
+                      - weeks
+                      - days
+                      - hours
+                      - minutes
+                required:
+                  - type
+                  - delayValue
+                  - delayUnit
+                  - windowValue
+                  - windowUnit
+                additionalProperties: false
+            required:
+              - source
+              - rowFilters
+              - windowSettings
+            additionalProperties: false
+        asOf:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+            - running
+            - success
+            - error
+        error:
+          anyOf:
+            - type: string
+            - type: 'null'
+        queries:
+          description: Ids of the queries that ran
+          type: array
+          items:
+            type: string
+        result:
+          anyOf:
+            - type: object
+              properties:
+                asOf:
+                  description: Membership is calculated as of this time
+                  type: string
+                  format: date-time
+                summary:
+                  type: object
+                  properties:
+                    members:
+                      description: Units in the Population at this date
+                      type: number
+                    joined:
+                      description: >-
+                        Units in the Population now that weren't at the earlier
+                        date
+                      type: number
+                    left:
+                      description: >-
+                        Units at the earlier date that aren't in the Population
+                        now
+                      type: number
+                    comparedTo:
+                      description: The earlier date that joined and left are measured from
+                      type: string
+                      format: date-time
+                  required:
+                    - members
+                    - joined
+                    - left
+                    - comparedTo
+                  additionalProperties: false
+                series:
+                  description: >-
+                    Weekly membership, oldest first. Joined and left compare
+                    each week with the week before
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                        format: date-time
+                      members:
+                        description: Units in the Population at this date
+                        type: number
+                      joined:
+                        description: >-
+                          Units in the Population now that weren't at the
+                          earlier date
+                        type: number
+                      left:
+                        description: >-
+                          Units at the earlier date that aren't in the
+                          Population now
+                        type: number
+                    required:
+                      - date
+                      - members
+                      - joined
+                      - left
+                    additionalProperties: false
+              required:
+                - asOf
+                - summary
+                - series
+              additionalProperties: false
+            - type: 'null'
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - population
+        - datasource
+        - userIdType
+        - steps
+        - asOf
+        - status
+        - error
+        - queries
+        - result
+      additionalProperties: false
     ConfirmationHeld:
       type: object
       properties:
@@ -87526,6 +87830,7 @@ x-tagGroups:
       - Organization_model
       - PaginationFields_model
       - Population_model
+      - PopulationAnalysis_model
       - Project_model
       - Query_model
       - RampSchedule_model

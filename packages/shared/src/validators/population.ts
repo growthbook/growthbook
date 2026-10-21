@@ -3,6 +3,7 @@ import { MAX_POPULATION_STEPS } from "shared/populations";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import { namedSchema } from "./openapi-helpers";
 import { rowFilterValidator, windowSettingsValidator } from "./fact-table";
+import { queryPointerValidator } from "./queries";
 import {
   ownerEmailField,
   ownerField,
@@ -51,6 +52,69 @@ export const populationValidator = baseSchema
 
 export type PopulationInterface = z.infer<typeof populationValidator>;
 export type PopulationStep = z.infer<typeof populationStepValidator>;
+
+/* ------------------------------------------------------------ membership */
+
+const populationMembershipCountsShape = {
+  members: z.number().describe("Units in the Population at this date"),
+  joined: z
+    .number()
+    .describe("Units in the Population now that weren't at the earlier date"),
+  left: z
+    .number()
+    .describe("Units at the earlier date that aren't in the Population now"),
+};
+
+export const populationMembershipResultValidator = z.strictObject({
+  asOf: z.iso.datetime().describe("Membership is calculated as of this time"),
+  summary: z.strictObject({
+    ...populationMembershipCountsShape,
+    comparedTo: z.iso
+      .datetime()
+      .describe("The earlier date that joined and left are measured from"),
+  }),
+  series: z
+    .array(
+      z.strictObject({
+        date: z.iso.datetime(),
+        ...populationMembershipCountsShape,
+      }),
+    )
+    .describe(
+      "Weekly membership, oldest first. Joined and left compare each week with the week before",
+    ),
+});
+
+export type PopulationMembershipResult = z.infer<
+  typeof populationMembershipResultValidator
+>;
+
+export const populationAnalysisStatusValidator = z.enum([
+  "running",
+  "success",
+  "error",
+]);
+
+export const populationAnalysisValidator = baseSchema
+  .extend({
+    population: z.string(),
+    datasource: z.string(),
+    userIdType: z.string(),
+    // The definition the analysis ran against, so a later edit can be shown as
+    // not yet applied.
+    steps: z.array(populationStepValidator),
+    asOf: z.date(),
+    status: populationAnalysisStatusValidator,
+    error: z.string().nullable(),
+    runStarted: z.date().nullable(),
+    queries: z.array(queryPointerValidator),
+    result: populationMembershipResultValidator.nullable(),
+  })
+  .strict();
+
+export type PopulationAnalysisInterface = z.infer<
+  typeof populationAnalysisValidator
+>;
 
 /* ------------------------------------------------------------------ the API */
 
@@ -109,3 +173,52 @@ export const apiUpdatePopulationBody = apiCreatePopulationBody
   .partial()
   .extend({ owner: ownerInputField.optional() })
   .describe("Update a Population");
+
+export const apiPopulationAnalysisValidator = namedSchema(
+  "PopulationAnalysis",
+  apiBaseSchema
+    .extend({
+      population: z.string(),
+      datasource: z.string(),
+      userIdType: z.string(),
+      steps: z
+        .array(populationStepValidator)
+        .describe("The Population's steps when this analysis ran"),
+      asOf: z.iso.datetime(),
+      status: populationAnalysisStatusValidator,
+      error: z.string().nullable(),
+      queries: z.array(z.string()).describe("Ids of the queries that ran"),
+      result: populationMembershipResultValidator.nullable(),
+    })
+    .strict(),
+);
+
+export type ApiPopulationAnalysis = z.infer<
+  typeof apiPopulationAnalysisValidator
+>;
+
+const populationIdParam = z.strictObject({
+  id: z.string().describe("The Population id"),
+});
+
+export const apiRefreshPopulationValidator = {
+  paramsSchema: populationIdParam,
+  bodySchema: z.never(),
+  querySchema: z.never(),
+};
+
+export const apiGetPopulationAnalysisValidator = {
+  paramsSchema: populationIdParam,
+  bodySchema: z.never(),
+  querySchema: z.never(),
+};
+
+export const apiPopulationAnalysisReturn = z.strictObject({
+  analysis: apiPopulationAnalysisValidator,
+});
+
+export const apiLatestPopulationAnalysisReturn = z.strictObject({
+  analysis: apiPopulationAnalysisValidator
+    .nullable()
+    .describe("Null until the Population has been refreshed"),
+});

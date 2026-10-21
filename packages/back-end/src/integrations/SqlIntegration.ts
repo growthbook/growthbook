@@ -14,9 +14,12 @@ import {
   DEFAULT_METRIC_HISTOGRAM_BINS,
 } from "shared/constants";
 import {
+  buildPopulationMembershipSql,
   generateProductAnalyticsSQL,
   calculateProductAnalyticsDateRange,
+  getPopulationMembershipDateRange,
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
+  PopulationMembershipSqlParams,
 } from "shared/enterprise";
 import {
   ensureLimit,
@@ -3487,6 +3490,50 @@ export default abstract class SqlIntegration
   }
 
   async runProductAnalyticsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata: RunQueryMetadata,
+  ) {
+    return this.runQuery(query, setExternalId, queryMetadata);
+  }
+
+  getPopulationMembershipQuery(
+    params: Omit<PopulationMembershipSqlParams, "dialect">,
+  ): string {
+    const dialect = this.getSqlDialect();
+    const { startDate, endDate } = getPopulationMembershipDateRange(
+      params.steps,
+      params.points,
+    );
+    // Without a lookback window every earlier row can qualify a unit, so
+    // templated fact tables shouldn't be cut off at a start date.
+    const templateDates = { startDate: startDate ?? new Date(0), endDate };
+
+    const factTableMap: FactTableMap = new Map(
+      Array.from(params.factTableMap.entries()).map(([id, ft]) => [
+        id,
+        {
+          ...ft,
+          sql: compileSqlTemplate(
+            ft.sql,
+            {
+              ...templateDates,
+              templateVariables: getFactTableTemplateVariables(ft),
+            },
+            dialect,
+          ),
+        },
+      ]),
+    );
+
+    return compileSqlTemplate(
+      buildPopulationMembershipSql({ ...params, factTableMap, dialect }),
+      templateDates,
+      dialect,
+    );
+  }
+
+  async runPopulationMembershipQuery(
     query: string,
     setExternalId: ExternalIdCallback,
     queryMetadata: RunQueryMetadata,

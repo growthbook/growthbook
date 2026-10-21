@@ -85,6 +85,29 @@ export function usePopulations(
   };
 }
 
+const POPULATION_ANALYSIS_POLL_MS = 3000;
+
+// Polls while the latest analysis is still running.
+export function usePopulationAnalysis(id: string | undefined) {
+  const { data, error, mutate } = useRestApi(
+    populationEndpoints.getPopulationAnalysis,
+    id ? { params: { id } } : null,
+    {
+      refreshInterval: (latest) =>
+        latest?.analysis?.status === "running"
+          ? POPULATION_ANALYSIS_POLL_MS
+          : 0,
+    },
+  );
+
+  return {
+    loading: !!id && !error && !data,
+    analysis: data?.analysis ?? null,
+    error,
+    mutate,
+  };
+}
+
 export function usePopulation(id: string | undefined) {
   const { data, error, mutate } = useRestApi(
     populationEndpoints.getPopulation,

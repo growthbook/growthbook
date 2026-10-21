@@ -1,5 +1,9 @@
-import { crudEndpoint } from "../api-model";
-import { populationApiSpec } from "../validators/population.spec";
+import { crudEndpoint, customEndpoint } from "../api-model";
+import {
+  getPopulationAnalysisEndpoint,
+  populationApiSpec,
+  refreshPopulationEndpoint,
+} from "../validators/population.spec";
 
 /**
  * Every REST route under `/api/v1/populations`, mounted by PopulationModel.
@@ -11,3 +15,11 @@ export const getPopulation = crudEndpoint(populationApiSpec, "get");
 export const createPopulation = crudEndpoint(populationApiSpec, "create");
 export const updatePopulation = crudEndpoint(populationApiSpec, "update");
 export const deletePopulation = crudEndpoint(populationApiSpec, "delete");
+export const refreshPopulation = customEndpoint(
+  populationApiSpec,
+  refreshPopulationEndpoint,
+);
+export const getPopulationAnalysis = customEndpoint(
+  populationApiSpec,
+  getPopulationAnalysisEndpoint,
+);

@@ -46,6 +46,7 @@ const QUERY_TYPE_LABELS: Record<QueryType, string> = {
   metricAnalysis: "Metric analysis",
   impactEstimate: "Impact estimate",
   productAnalyticsExploration: "Product analytics",
+  populationMembership: "Population membership",
   freeFormQuery: "SQL Explorer",
   exposureQueryValidation: "Experiment Assignment Query validation",
   featureUsageQueryValidation: "Feature usage query validation",
