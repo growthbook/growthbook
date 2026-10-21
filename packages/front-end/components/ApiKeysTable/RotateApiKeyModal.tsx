@@ -39,12 +39,13 @@ export function RotateApiKeyModal({
       open
       header={`Rotate "${apiKey.description || apiKey.id}"`}
       cta="Rotate"
+      ctaColor={gracePeriodHours === "0" ? "red" : "violet"}
       close={close}
       submit={() => onRotate(parseInt(gracePeriodHours))}
     >
       <Text as="p" mb="3">
-        The key gets a new secret. Its ID, role, permissions and settings stay
-        the same.
+        The key gets a new secret, and any expiration restarts. Its ID, role and
+        permissions stay the same.
       </Text>
       <Text as="p" weight="medium" mb="2">
         Stop accepting the current secret
