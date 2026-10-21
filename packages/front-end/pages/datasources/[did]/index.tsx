@@ -97,7 +97,9 @@ function getConnectionDetails(
 ): { label: string; value: string }[] {
   const params = datasource.params;
   if (!params || typeof params !== "object") return [];
-  const record = params as Record<string, unknown>;
+  const record: Record<string, unknown> = Object.fromEntries(
+    Object.entries(params),
+  );
   return CONNECTION_DETAIL_FIELDS.flatMap(({ key, label }) => {
     if (!(key in record)) return [];
     const value = record[key];

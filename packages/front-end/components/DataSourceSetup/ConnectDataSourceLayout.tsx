@@ -22,10 +22,8 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { DEFAULT_DATA_REGION } from "@/services/dataRegions";
-import { getInitialSettings } from "@/services/datasources";
 import { dataSourceConnections } from "@/services/eventSchema";
 import track from "@/services/track";
-import { ensureAndReturn } from "@/types/utils";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
@@ -360,25 +358,18 @@ export default function ConnectDataSourceLayout({
           setup,
         });
       } else {
-        const initialSettings = getInitialSettings(
-          schemaFormat,
-          ensureAndReturn(datasource.params),
-        );
-        // This page only creates custom warehouses. Start without identifier
-        // types or exposure queries so Finish Setting Up collects them.
+        // Create always starts from empty settings. The connect form never
+        // collects them, so there is nothing to merge with a seeded template.
+        // Identifier types and exposure queries stay empty until Finish
+        // Setting Up writes them.
         const res = await apiCall<{ id: string }>("/datasources", {
           method: "POST",
           body: JSON.stringify({
             ...datasource,
             settings: {
-              ...initialSettings,
-              ...(datasource.settings || {}),
+              schemaFormat,
               userIdTypes: [],
-              queries: {
-                ...initialSettings.queries,
-                ...(datasource.settings?.queries || {}),
-                exposure: [],
-              },
+              queries: { exposure: [] },
             },
           }),
         });
