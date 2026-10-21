@@ -7,8 +7,13 @@ import {
   requesterHeaderPolicy,
 } from "shared/permissions";
 import { ago, datetime } from "shared/dates";
-import { getExpirationStatus } from "shared/api-key-expiration";
+import { getExpirationStatus, isExpired } from "shared/api-key-expiration";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
+import {
+  RotateApiKeyModal,
+  RotatedApiKey,
+  RotatedApiKeyModal,
+} from "@/components/ApiKeysTable/RotateApiKeyModal";
 import HumanInTheLoopIcon from "@/components/Confirmations/HumanInTheLoopIcon";
 import ApiKeyRowMenu from "@/components/ApiKeysTable/ApiKeyRowMenu";
 import ExpiresCell from "@/components/ApiKeysTable/ExpiresCell";
@@ -50,7 +55,18 @@ type ApiKeysTableProps = {
   onEdit?: (key: ApiKeyInterface) => void;
   onShowAuditLog?: (key: ApiKeyInterface) => void;
   onCopy?: (key: ApiKeyInterface) => void;
+  onRotate?: (
+    keyId: string,
+    gracePeriodHours: number,
+  ) => Promise<RotatedApiKey>;
+  onRevokePrevious?: (keyId: string) => Promise<void>;
 };
+
+const canRotate = (key: ApiKeyInterface) =>
+  !!key.id && !!key.secret && !isExpired(key.expiresAt);
+
+const hasActivePreviousKey = (key: ApiKeyInterface) =>
+  !!key.previousKeyExpiresAt && !isExpired(key.previousKeyExpiresAt);
 
 export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   keys = [],
@@ -62,6 +78,8 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   onEdit,
   onShowAuditLog,
   onCopy,
+  onRotate,
+  onRevokePrevious,
 }) => {
   const { organization, userId, users, settings } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -69,6 +87,8 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
     null,
   );
+  const [rotating, setRotating] = useState<ApiKeyInterface | null>(null);
+  const [rotated, setRotated] = useState<RotatedApiKey | null>(null);
   const isDisabledByAdmin = (key: ApiKeyInterface) =>
     !!key.userId &&
     !!key.disabled &&
@@ -80,7 +100,8 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   const isAdminLocked = (key: ApiKeyInterface) =>
     !!key.userId && !canToggle(key);
   const hasActions =
-    canDeleteKeys || !!(onEdit || onToggleDisabled || onCopy || onShowAuditLog);
+    canDeleteKeys ||
+    !!(onEdit || onToggleDisabled || onCopy || onShowAuditLog || onRotate);
   const disabledByTitle = (key: ApiKeyInterface) => {
     const disabler = key.disabledBy ? users.get(key.disabledBy) : undefined;
     return `Disabled by ${disabler?.name || disabler?.email || "a former member"}`;
@@ -216,6 +237,24 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     </span>
                   </Tooltip>
                 )}
+                {hasActivePreviousKey(key) && (
+                  <Tooltip
+                    content={`The secret this key had before its last rotation works until ${datetime(key.previousKeyExpiresAt as Date)}. ${
+                      key.previousKeyLastUsed
+                        ? `Last used ${datetime(key.previousKeyLastUsed)}.`
+                        : "Not used since the rotation."
+                    }`}
+                  >
+                    <span>
+                      <Badge
+                        mt="1"
+                        color="amber"
+                        variant="soft"
+                        label="Previous secret active"
+                      />
+                    </span>
+                  </Tooltip>
+                )}
               </TableCell>
               <TableCell style={dimStyle(key)}>
                 {key.role ? (
@@ -283,6 +322,14 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     }
                     onShowAuditLog={onShowAuditLog}
                     onCopy={onCopy}
+                    onRotate={
+                      onRotate && canRotate(key) ? setRotating : undefined
+                    }
+                    onRevokePrevious={
+                      onRevokePrevious && hasActivePreviousKey(key)
+                        ? () => onRevokePrevious(key.id as string)
+                        : undefined
+                    }
                   />
                 </TableCell>
               )}
@@ -309,6 +356,18 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           }}
           onCancel={() => setPendingToggle(null)}
         />
+      )}
+      {rotating && onRotate && (
+        <RotateApiKeyModal
+          apiKey={rotating}
+          onRotate={async (gracePeriodHours) =>
+            setRotated(await onRotate(rotating.id as string, gracePeriodHours))
+          }
+          close={() => setRotating(null)}
+        />
+      )}
+      {rotated && (
+        <RotatedApiKeyModal rotated={rotated} close={() => setRotated(null)} />
       )}
     </>
   );

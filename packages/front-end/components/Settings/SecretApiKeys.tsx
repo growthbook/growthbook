@@ -3,6 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { useAuth } from "@/services/auth";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
+import { RotatedApiKey } from "@/components/ApiKeysTable/RotateApiKeyModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
@@ -82,6 +83,26 @@ const SecretApiKeys: FC<{
     [apiCall, mutate],
   );
 
+  const onRotate = useCallback(
+    async (keyId: string, gracePeriodHours: number) => {
+      const res = await apiCall<RotatedApiKey>(`/keys/${keyId}/rotate`, {
+        method: "POST",
+        body: JSON.stringify({ gracePeriodHours }),
+      });
+      mutate();
+      return res;
+    },
+    [apiCall, mutate],
+  );
+
+  const onRevokePrevious = useCallback(
+    async (keyId: string) => {
+      await apiCall(`/keys/${keyId}/previous-key`, { method: "DELETE" });
+      mutate();
+    },
+    [apiCall, mutate],
+  );
+
   return (
     <div className="mb-4">
       {open && canCreateKeys && (
@@ -140,6 +161,8 @@ const SecretApiKeys: FC<{
             }
             onEdit={canEditKeys ? (key) => setEditingKey(key) : undefined}
             onCopy={canCreateKeys ? setCopyFrom : undefined}
+            onRotate={canCreateKeys ? onRotate : undefined}
+            onRevokePrevious={canCreateKeys ? onRevokePrevious : undefined}
             onShowAuditLog={
               canViewAuditLog
                 ? (key) =>

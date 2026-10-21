@@ -6,6 +6,7 @@ import {
   isExpired,
   latestEditedExpiration,
   maxExpirationDate,
+  rotatedExpiration,
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
 
@@ -170,5 +171,36 @@ describe("latestEditedExpiration", () => {
     expect(getExpirationProblem(addDays(NOW, 21), 30, NOW, latest)).toBe(
       "too-late",
     );
+  });
+});
+
+describe("rotatedExpiration", () => {
+  const issued = addDays(NOW, -80);
+
+  it("keeps a key without an expiry unexpiring when there's no policy", () => {
+    expect(rotatedExpiration(null, issued, null, NOW)).toBeNull();
+  });
+
+  it("restarts the key's lifetime from the rotation", () => {
+    expect(rotatedExpiration(addDays(NOW, 10), issued, null, NOW)).toEqual(
+      addDays(NOW, 90),
+    );
+  });
+
+  it("caps the restarted lifetime at the policy maximum", () => {
+    expect(rotatedExpiration(addDays(NOW, 10), issued, 30, NOW)).toEqual(
+      addDays(NOW, 30),
+    );
+  });
+
+  it("keeps a lifetime already under the maximum", () => {
+    const recent = addDays(NOW, -5);
+    expect(rotatedExpiration(addDays(NOW, 2), recent, 30, NOW)).toEqual(
+      addDays(NOW, 7),
+    );
+  });
+
+  it("gives a key with no expiry the policy maximum", () => {
+    expect(rotatedExpiration(null, issued, 30, NOW)).toEqual(addDays(NOW, 30));
   });
 });

@@ -2171,6 +2171,64 @@ export async function putApiKeyDisabled(
   res.status(200).json({ status: 200 });
 }
 
+export async function postApiKeyRotate(
+  req: AuthRequest<{ gracePeriodHours: number }, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const { before, after } = await context.models.apiKeys.rotateSecret(
+    id,
+    req.body.gracePeriodHours,
+  );
+
+  await req.audit({
+    event: "apiKey.rotate",
+    entity: {
+      object: "apiKey",
+      id,
+      name: after.description,
+    },
+    details: auditDetailsUpdate(
+      ApiKeyModel.toAuditDetails(before),
+      ApiKeyModel.toAuditDetails(after),
+    ),
+  });
+
+  res.status(200).json({
+    status: 200,
+    key: after.key,
+    expiresAt: after.expiresAt ?? null,
+    previousKeyExpiresAt: after.previousKeyExpiresAt ?? null,
+  });
+}
+
+export async function deleteApiKeyPreviousKey(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const { before, after } = await context.models.apiKeys.revokePreviousKey(id);
+
+  await req.audit({
+    event: "apiKey.update",
+    entity: {
+      object: "apiKey",
+      id,
+      name: after.description,
+    },
+    details: auditDetailsUpdate(
+      ApiKeyModel.toAuditDetails(before),
+      ApiKeyModel.toAuditDetails(after),
+    ),
+  });
+
+  res.status(200).json({ status: 200 });
+}
+
 export async function postApiKeyReveal(
   req: AuthRequest<{ id: string }>,
   res: Response,
