@@ -19,6 +19,7 @@ import {
   ignoreWarningsBodyField,
   booleanQueryField,
   csvQueryField,
+  HUMAN_OVERRIDE_NOTE,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import {
@@ -29,6 +30,16 @@ import {
 } from "./owner-field";
 
 import { componentSchema, namedSchema } from "./openapi-helpers";
+import {
+  EXPERIMENT_HYPOTHESIS_DESCRIPTION,
+  EXPERIMENT_NAME_DESCRIPTION,
+  EXPERIMENT_TRACKING_KEY_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
+  TAGS_DESCRIPTION,
+  VARIATION_DESCRIPTION,
+  VARIATION_KEY_DESCRIPTION,
+  VARIATION_NAME_DESCRIPTION,
+} from "./api-field-descriptions";
 
 export const customMetricSlice = z.object({
   slices: z.array(
@@ -1353,9 +1364,13 @@ const apiVariationInput = z.object({
       "Alias for `id`. Mirrors the GET response. `id` takes precedence.",
     )
     .optional(),
-  key: z.string(),
-  name: z.string(),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  key: z.string().describe(VARIATION_KEY_DESCRIPTION),
+  name: z.string().describe(VARIATION_NAME_DESCRIPTION),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(VARIATION_DESCRIPTION)
+    .optional(),
   screenshots: z
     .array(
       z.object({
@@ -1371,7 +1386,7 @@ export type ApiVariationInput = z.infer<typeof apiVariationInput>;
 
 // Phase for input payloads
 const apiPhaseInput = z.object({
-  name: z.string(),
+  name: z.string().describe("Short phase label (e.g. `Main`)."),
   dateStarted: z.string().meta({ format: "date-time" }),
   dateEnded: z.string().meta({ format: "date-time" }).optional(),
   reasonForStopping: z.string().optional(),
@@ -1435,14 +1450,14 @@ const postExperimentBody = z
       "assignmentQuery",
       "Can only be set if a templateId is not provided.",
     ),
-    trackingKey: z.string(),
+    trackingKey: z.string().describe(EXPERIMENT_TRACKING_KEY_DESCRIPTION),
     bypassDuplicateKeyCheck: z
       .boolean()
       .describe(
-        "If true, allow creating an experiment even if another experiment with the same tracking key already exists. This is ignored if the organization requires unique tracking keys as a rule.",
+        `If true, allow creating an experiment even if another experiment with the same tracking key already exists. This is ignored if the organization requires unique tracking keys as a rule. ${HUMAN_OVERRIDE_NOTE}`,
       )
       .optional(),
-    name: z.string().describe("Name of the experiment"),
+    name: z.string().describe(EXPERIMENT_NAME_DESCRIPTION),
     type: z.enum(["standard", "multi-armed-bandit"]).optional(),
     project: z
       .string()
@@ -1454,13 +1469,16 @@ const postExperimentBody = z
         "ID of the [ExperimentTemplate](#tag/ExperimentTemplate_model) this experiment was created from. Template fields are applied by default and overridden by explicitly provided payload fields.",
       )
       .optional(),
-    hypothesis: z.string().describe("Hypothesis of the experiment").optional(),
+    hypothesis: z
+      .string()
+      .describe(EXPERIMENT_HYPOTHESIS_DESCRIPTION)
+      .optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the experiment")
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
-    tags: z.array(z.string()).optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     metrics: z.array(z.string()).optional(),
     secondaryMetrics: z.array(z.string()).optional(),
     guardrailMetrics: z.array(z.string()).optional(),
@@ -1570,26 +1588,32 @@ const updateExperimentBody = z
       )
       .optional(),
     ...apiAssignmentQueryInputFields("assignmentQuery"),
-    trackingKey: z.string().optional(),
+    trackingKey: z
+      .string()
+      .describe(EXPERIMENT_TRACKING_KEY_DESCRIPTION)
+      .optional(),
     bypassDuplicateKeyCheck: z
       .boolean()
       .describe(
-        "If true, allow updating the tracking key even if another experiment with the same tracking key already exist. This is ignored if the organization requires unique tracking keys as a rule.",
+        `If true, allow updating the tracking key even if another experiment with the same tracking key already exist. This is ignored if the organization requires unique tracking keys as a rule. ${HUMAN_OVERRIDE_NOTE}`,
       )
       .optional(),
-    name: z.string().describe("Name of the experiment").optional(),
+    name: z.string().describe(EXPERIMENT_NAME_DESCRIPTION).optional(),
     type: z.enum(["standard", "multi-armed-bandit"]).optional(),
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")
       .optional(),
-    hypothesis: z.string().describe("Hypothesis of the experiment").optional(),
+    hypothesis: z
+      .string()
+      .describe(EXPERIMENT_HYPOTHESIS_DESCRIPTION)
+      .optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the experiment")
+      .describe(MARKDOWN_DESCRIPTION)
       .optional(),
-    tags: z.array(z.string()).optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     metrics: z.array(z.string()).optional(),
     secondaryMetrics: z.array(z.string()).optional(),
     guardrailMetrics: z.array(z.string()).optional(),
@@ -1785,7 +1809,7 @@ const postExperimentStartBody = z
     skipChecklist: z
       .boolean()
       .describe(
-        "If true, skips validating the experiment satisfies all pre-launch checklist items",
+        `If true, skips validating the experiment satisfies all pre-launch checklist items. ${HUMAN_OVERRIDE_NOTE}`,
       )
       .optional(),
     ignoreWarnings: ignoreWarningsBodyField,
@@ -1987,6 +2011,10 @@ export const postExperimentValidator = {
     })
     .strict(),
   summary: "Create a single experiment",
+  description:
+    "Creates a new experiment.\n\n" +
+    "### Naming for human review\n\n" +
+    "Keep `name` short; put reasoning in `hypothesis` and context in `description`. `trackingKey` is sent with exposure events, so keep it short and stable.",
   confirmation: [
     "experiment.create",
     "experiment.start",

@@ -10,7 +10,12 @@ GrowthBook uses a three-tier permission system with Global, Project-scoped, and 
 
 Apply organization-wide, not restricted to projects or environments:
 
-- `manageTeam`, `manageBilling`, `manageApiKeys`
+- `manageTeam`, `manageBilling`
+- org API keys: `viewApiKeys`, `createApiKeys` (includes revealing key
+  values, and changing a key's authority — see `changesApiKeyAuthority`),
+  `editApiKeys` (description, expiry, re-enable), `deleteApiKeys` (also disables);
+  other members' PATs: `managePersonalAccessTokens` — see
+  `canSetApiKeyDisabled` in `apiKeyAuthority.ts`
 - `organizationSettings`, `viewAuditLog`
 - `createPresentations`, `createDimensions`, `manageNamespaces`
 - `manageCustomRoles`, `manageCustomFields`, `manageDecisionCriteria`
@@ -372,6 +377,10 @@ export async function createArchetype(req: AuthRequest, res: Response) {
 3. User can be on teams with their own roles
 4. Permissions merge using OR logic (union)
 5. Environment limits apply only to environment-scoped permissions
+6. A member who is a global Admin (own role, additional role, or a team's
+   global role) isn't affected by project roles; they have no effect. API keys
+   and scoped tokens keep project roles binding, so member callers pass
+   `{ member: true }` to `getRolePermissions`.
 
 ## Best Practices
 
