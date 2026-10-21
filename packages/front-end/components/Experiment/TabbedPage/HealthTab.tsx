@@ -378,6 +378,8 @@ function HealthSnapshotCards({
       : null;
   const clusterAssignment = snapshot.health?.clusterAssignment;
   const clusterSubUnitMapping = snapshot.health?.clusterSubUnitMapping;
+  const oneMixedCluster = clusterAssignment?.mixedClusters === 1;
+  const oneMultiClusterUnit = clusterSubUnitMapping?.multiClusterUnits === 1;
 
   const phaseObj = experiment.phases?.[phase];
 
@@ -475,17 +477,20 @@ function HealthSnapshotCards({
             belowThresholdMessage={(threshold) => (
               <>
                 {numberFormatter.format(clusterAssignment.mixedClusters)}{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> values saw
-                more than one variation and were removed from results, but that
-                is below your threshold of {threshold}.
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
+                {oneMixedCluster ? "value" : "values"} saw more than one
+                variation and {oneMixedCluster ? "was" : "were"} removed from
+                results, but that is below your threshold of {threshold}.
               </>
             )}
             warningMessage={(share) => (
               <>
                 <strong>Cluster Assignment Warning</strong>. Units in{" "}
                 {numberFormatter.format(clusterAssignment.mixedClusters)}{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> values (
-                {share}) saw more than one variation, and those clusters were
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
+                {oneMixedCluster ? "value" : "values"} ({share}) saw more than
+                one variation, and{" "}
+                {oneMixedCluster ? "that cluster was" : "those clusters were"}{" "}
                 automatically removed from results. Check that the{" "}
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode> in your
                 assignment query matches the attribute the SDK hashes on.
@@ -522,11 +527,11 @@ function HealthSnapshotCards({
                 {numberFormatter.format(
                   clusterSubUnitMapping.multiClusterUnits,
                 )}{" "}
-                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> values
-                appeared in more than one{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> and were
-                removed from results, but that is below your threshold of{" "}
-                {threshold}.
+                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>{" "}
+                {oneMultiClusterUnit ? "value" : "values"} appeared in more than
+                one <IdentifierCode>{clusterIds.cluster}</IdentifierCode> and{" "}
+                {oneMultiClusterUnit ? "was" : "were"} removed from results, but
+                that is below your threshold of {threshold}.
               </>
             )}
             warningMessage={(share) => (
@@ -535,10 +540,12 @@ function HealthSnapshotCards({
                 {numberFormatter.format(
                   clusterSubUnitMapping.multiClusterUnits,
                 )}{" "}
-                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> values (
-                {share}) appeared in more than one{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> and were
-                automatically removed from results. Check that{" "}
+                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>{" "}
+                {oneMultiClusterUnit ? "value" : "values"} ({share}) appeared in
+                more than one{" "}
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> and{" "}
+                {oneMultiClusterUnit ? "was" : "were"} automatically removed
+                from results. Check that{" "}
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode> is a
                 stable grouping for each{" "}
                 <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>.
