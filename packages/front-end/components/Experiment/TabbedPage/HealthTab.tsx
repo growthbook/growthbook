@@ -432,7 +432,7 @@ function HealthSnapshotCards({
           />
         )}
       </div>
-      {!isBandit && (
+      {!isBandit && snapshot.settings.regressionAdjustmentEnabled && (
         <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
           <CovariateImbalanceCard
             experiment={experiment}
