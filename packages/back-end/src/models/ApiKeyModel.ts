@@ -51,6 +51,7 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import { ApiRequestLocals } from "back-end/types/api";
+import { keyRulesWouldHold } from "back-end/src/services/confirmations";
 
 type ApiApiKeyActionReturn = z.infer<typeof apiApiKeyActionReturn>;
 type ApiRotateApiKeyReturn = z.infer<typeof apiRotateApiKeyReturn>;
@@ -191,6 +192,12 @@ export class ApiKeyModel extends BaseClass {
     id: string,
     gracePeriodHours: number,
   ): Promise<ApiRotateApiKeyReturn> {
+    // A held rotation would store the new secret on the confirmation, where org members can read it.
+    if (keyRulesWouldHold(this.context, rotateApiKeyEndpoint.confirmation)) {
+      this.context.permissions.throwPermissionError(
+        "This key needs a person to confirm API key changes, and a new secret can't wait in a confirmation. Rotate the key in the app instead.",
+      );
+    }
     // REST only addresses org keys, so check their rule before the lookup.
     if (
       !canManageApiKeySecret(this.context.permissions, {}, this.context.userId)

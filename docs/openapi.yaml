@@ -66549,7 +66549,8 @@ paths:
       description: >-
         Issues a new secret under the same id, role and settings. The replaced
         secret keeps working for `gracePeriodHours`, and a later rotation ends
-        that early.
+        that early. Keys that need a person to confirm `access.apiKeys` changes
+        can't rotate keys; rotate those in the app.
       tags:
         - api-keys
       parameters:

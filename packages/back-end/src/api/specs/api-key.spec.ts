@@ -35,12 +35,14 @@ export const rotateApiKeyEndpoint = {
   pathFragment: "/:id/rotate",
   verb: "post" as const,
   confirmation: ["access.apiKeys"] as const,
+  // Refused instead of held: see `rotateOrgSecretKey`.
+  confirmationInHandler: true,
   operationId: "postApiKeyRotate",
   validator: apiRotateApiKeyValidator,
   zodReturnObject: apiRotateApiKeyReturn,
   summary: "Rotate an API key's secret",
   description:
-    "Issues a new secret under the same id, role and settings. The replaced secret keeps working for `gracePeriodHours`, and a later rotation ends that early.",
+    "Issues a new secret under the same id, role and settings. The replaced secret keeps working for `gracePeriodHours`, and a later rotation ends that early. Keys that need a person to confirm `access.apiKeys` changes can't rotate keys; rotate those in the app.",
 };
 
 // Organization secret keys only: PATs, SDK keys and OAuth tokens are left out.

@@ -66,6 +66,15 @@ function rulesFor(context: ReqContext): ConfirmRule[] {
   return key.confirmRules ?? [];
 }
 
+// For writes that refuse rather than hold, like one whose result can't wait in a confirmation.
+export function keyRulesWouldHold(
+  context: ReqContext,
+  actions: readonly ConfirmAction[],
+): boolean {
+  const held = actions.map((action) => ({ action, environments: [] }));
+  return matchConfirmRules(rulesFor(context), held).length > 0;
+}
+
 export const REVISION_MODEL = {
   feature: "feature",
   "saved-group": "savedGroup",
