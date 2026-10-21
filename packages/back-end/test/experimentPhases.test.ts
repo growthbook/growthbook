@@ -26,13 +26,37 @@ describe("assertValidExperimentPhases", () => {
     ).not.toThrow();
   });
 
-  it.each([1.7, -0.1])("rejects coverage %p", (coverage) => {
+  it.each([1.7, -0.1, Number.NaN])("rejects coverage %p", (coverage) => {
     expect(() => assertValidExperimentPhases([phase({ coverage })])).toThrow(
       /invalid_coverage: phase 0/,
     );
   });
 
-  it.each([[[2, -1]], [[1.5, 0]], [[50, 50]], [[0.2, 0.2]], [[]]])(
+  it.each([
+    ["coverage", /invalid_coverage/],
+    ["variationWeights", /invalid_variation_weights/],
+  ] as const)("rejects new phases missing %s", (field, error) => {
+    const incomplete = phase();
+    Reflect.deleteProperty(incomplete, field);
+    expect(() => assertValidExperimentPhases([incomplete])).toThrow(error);
+    expect(() =>
+      assertValidExperimentPhases([phase(), incomplete], [phase()]),
+    ).toThrow(error);
+  });
+
+  it.each([
+    ["coverage", /invalid_coverage/],
+    ["variationWeights", /invalid_variation_weights/],
+  ] as const)("rejects removing stored %s", (field, error) => {
+    const stored = phase();
+    const incomplete = { ...stored };
+    Reflect.deleteProperty(incomplete, field);
+    expect(() => assertValidExperimentPhases([incomplete], [stored])).toThrow(
+      error,
+    );
+  });
+
+  it.each([[[2, -1]], [[1.5, 0]], [[50, 50]], [[0.2, 0.2]], [[0, 0]], [[]]])(
     "rejects variation weights %p",
     (variationWeights) => {
       expect(() =>
@@ -48,10 +72,71 @@ describe("assertValidExperimentPhases", () => {
     ).not.toThrow();
   });
 
-  it("checks a stored phase that the write modifies", () => {
-    const stale = phase({ coverage: 1.5 });
+  it("allows renaming a phase without changing legacy allocations", () => {
+    const stale = phase({ coverage: 1.5, variationWeights: [50, 50] });
     expect(() =>
       assertValidExperimentPhases([{ ...stale, name: "Renamed" }], [stale]),
-    ).toThrow(/invalid_coverage/);
+    ).not.toThrow();
+  });
+
+  it("preserves unchanged legacy NaN coverage on metadata edits", () => {
+    const stale = phase({ coverage: Number.NaN });
+    expect(() =>
+      assertValidExperimentPhases([{ ...stale, name: "Renamed" }], [stale]),
+    ).not.toThrow();
+  });
+
+  it("allows closing a phase with legacy zero weights", () => {
+    const stale = phase({ variationWeights: [0, 0] });
+    expect(() =>
+      assertValidExperimentPhases(
+        [{ ...stale, dateEnded: new Date("2026-01-02T00:00:00Z") }],
+        [stale],
+      ),
+    ).not.toThrow();
+  });
+
+  it("allows fixing coverage while preserving legacy weights", () => {
+    const stale = phase({ coverage: 1.5, variationWeights: [0, 0] });
+    expect(() =>
+      assertValidExperimentPhases([{ ...stale, coverage: 0 }], [stale]),
+    ).not.toThrow();
+  });
+
+  it("allows fixing weights while preserving legacy coverage", () => {
+    const stale = phase({ coverage: 1.5, variationWeights: [0, 0] });
+    expect(() =>
+      assertValidExperimentPhases(
+        [{ ...stale, variationWeights: [0.5, 0.5] }],
+        [stale],
+      ),
+    ).not.toThrow();
+  });
+
+  it.each([1.5, Number.NaN])(
+    "rejects changes to coverage %p despite legacy weights",
+    (coverage) => {
+      const stale = phase({ variationWeights: [0, 0] });
+      expect(() =>
+        assertValidExperimentPhases([{ ...stale, coverage }], [stale]),
+      ).toThrow(/invalid_coverage: phase 0/);
+    },
+  );
+
+  it("rejects changes to invalid weights despite legacy coverage", () => {
+    const stale = phase({ coverage: 1.5, variationWeights: [50, 50] });
+    expect(() =>
+      assertValidExperimentPhases(
+        [{ ...stale, variationWeights: [0, 0] }],
+        [stale],
+      ),
+    ).toThrow(/invalid_variation_weights: phase 0/);
+  });
+
+  it("validates legacy allocations copied into a new phase", () => {
+    const stale = phase({ variationWeights: [0, 0] });
+    expect(() =>
+      assertValidExperimentPhases([stale, { ...stale, name: "New" }], [stale]),
+    ).toThrow(/invalid_variation_weights: phase 1/);
   });
 });
