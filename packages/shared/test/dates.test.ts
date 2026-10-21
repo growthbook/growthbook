@@ -33,7 +33,7 @@ describe("getValidDate", () => {
 describe("datetimeWithZone", () => {
   it("appends the viewer's zone to the local date and time", () => {
     const local = new Date(2026, 9, 21, 12, 0);
-    expect(datetimeWithZone(local)).toMatch(/^Oct 21, 2026, 12:00 PM \S+$/);
+    expect(datetimeWithZone(local)).toMatch(/^Oct 21, 2026 at 12:00 PM \S+$/);
   });
 
   it("is empty for a missing date", () => {

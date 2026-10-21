@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
@@ -10,8 +10,8 @@ import {
 import { datetimeWithZone } from "shared/dates";
 import CopyableCode from "@/components/Settings/CopyableCode";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import RadioGroup from "@/ui/RadioGroup";
-import Callout from "@/ui/Callout";
+import SelectField from "@/components/Forms/SelectField";
+import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 
 export type RotatedApiKey = {
@@ -53,40 +53,45 @@ export function RotateApiKeyModal({
     <ModalStandard
       trackingEventModalType="rotate-api-key"
       open
-      header={`Rotate "${apiKey.description || apiKey.id}"`}
+      header={`Rotate ${apiKey.userId ? "Personal Access Token" : "API Key"}`}
       cta="Rotate"
       ctaColor={gracePeriodHours === "0" ? "red" : "violet"}
       close={close}
       submit={() => onRotate(parseInt(gracePeriodHours))}
     >
-      <Text as="p" mb="3">
-        The key gets a new secret, and any expiration restarts. Its ID, role and
-        permissions stay the same.
+      <Text as="p" mb="4">
+        &quot;{apiKey.description || apiKey.id}&quot; gets a new secret. Its ID
+        and permissions stay the same.
       </Text>
-      <Text as="p" weight="medium" mb="2">
-        Stop accepting the current secret
-      </Text>
-      <RadioGroup
-        value={gracePeriodHours}
-        setValue={setGracePeriodHours}
-        options={ROTATION_GRACE_PRESET_HOURS.map((hours) => ({
-          value: String(hours),
-          label: GRACE_LABELS[hours],
-        }))}
-      />
-      <Text as="p" mt="3" color="text-low">
-        {previousEnd &&
-          `The current secret keeps working until ${datetimeWithZone(previousEnd)}. `}
-        {newExpiry
-          ? `The key will expire ${datetimeWithZone(newExpiry)}.`
-          : "The key won't expire."}
-      </Text>
-      {gracePeriodHours === "0" && (
-        <Callout status="warning" mt="3">
-          Requests using the current secret will be rejected as soon as you
-          rotate.
-        </Callout>
-      )}
+      <Flex direction="column" gap="4">
+        <Flex direction="column">
+          <SelectField
+            label="Current secret stops"
+            legacyLabelFormatting={false}
+            size="small"
+            sort={false}
+            isSearchable={false}
+            value={gracePeriodHours}
+            onChange={setGracePeriodHours}
+            options={ROTATION_GRACE_PRESET_HOURS.map((hours) => ({
+              value: String(hours),
+              label: GRACE_LABELS[hours],
+            }))}
+          />
+          {previousEnd ? (
+            <Text size="sm" color="text-mid" mt="1">
+              {datetimeWithZone(previousEnd)}
+            </Text>
+          ) : (
+            <HelperText status="warning" size="sm" mt="1">
+              Rejected as soon as you rotate
+            </HelperText>
+          )}
+        </Flex>
+        <Detail label="Key expires">
+          {newExpiry ? datetimeWithZone(newExpiry) : "Never"}
+        </Detail>
+      </Flex>
     </ModalStandard>
   );
 }
@@ -106,17 +111,31 @@ export function RotatedApiKeyModal({
       close={close}
       closeCta="Done"
     >
-      <Flex direction="column" gap="3">
-        <Text as="p">Update your clients to use the new secret:</Text>
-        <CopyableCode value={rotated.key} />
-        <Text as="p" color="text-low">
+      <Text as="p" mb="2">
+        Update your clients to use the new secret.
+      </Text>
+      <CopyableCode value={rotated.key} />
+      <Flex direction="column" gap="4" mt="4">
+        <Detail label="Previous secret stops">
           {rotated.previousKeyExpiresAt
-            ? `The previous secret keeps working until ${datetimeWithZone(rotated.previousKeyExpiresAt)}.`
-            : "The previous secret no longer works."}
-          {rotated.expiresAt &&
-            ` The key now expires ${datetimeWithZone(rotated.expiresAt)}.`}
-        </Text>
+            ? datetimeWithZone(rotated.previousKeyExpiresAt)
+            : "Stopped"}
+        </Detail>
+        <Detail label="Key expires">
+          {rotated.expiresAt ? datetimeWithZone(rotated.expiresAt) : "Never"}
+        </Detail>
       </Flex>
     </ModalStandard>
+  );
+}
+
+function Detail({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Flex direction="column" gap="1">
+      <Text size="md" weight="semibold">
+        {label}
+      </Text>
+      <Text color="text-mid">{children}</Text>
+    </Flex>
   );
 }

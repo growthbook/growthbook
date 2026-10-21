@@ -192,6 +192,7 @@ function CustomPermissions({
     <RoleRulesTable
       value={value.scope}
       setValue={(scope) => setValue({ ...value, scope })}
+      forApiKey
     />
   );
 

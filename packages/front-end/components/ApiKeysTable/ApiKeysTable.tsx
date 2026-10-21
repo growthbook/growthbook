@@ -1,6 +1,6 @@
 import React, { FC, ReactNode, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiIdentificationCard, PiInfo } from "react-icons/pi";
+import { PiClockCountdown, PiIdentificationCard, PiInfo } from "react-icons/pi";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
   actsAsUser,
@@ -236,6 +236,19 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     Human-in-the-Loop
                   </KeyTrait>
                 )}
+                {hasActivePreviousKey(key) && (
+                  <KeyTrait
+                    icon={<PiClockCountdown size={18} />}
+                    color="var(--amber-11)"
+                    tooltip={`The previous secret works until ${datetimeWithZone(key.previousKeyExpiresAt as Date)}. ${
+                      key.previousKeyLastUsed
+                        ? `Last used ${datetimeWithZone(key.previousKeyLastUsed)}.`
+                        : "Not used since the rotation."
+                    }`}
+                  >
+                    Previous secret active
+                  </KeyTrait>
+                )}
               </TableCell>
               <TableCell style={dimStyle(key)}>
                 {canManageSecret(key) ? (
@@ -249,24 +262,6 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   <Tooltip content="Revealing a key's value requires permission to create API keys.">
                     <span>
                       <Text color="text-low">Hidden</Text>
-                    </span>
-                  </Tooltip>
-                )}
-                {hasActivePreviousKey(key) && (
-                  <Tooltip
-                    content={`The secret this key had before its last rotation works until ${datetimeWithZone(key.previousKeyExpiresAt as Date)}. ${
-                      key.previousKeyLastUsed
-                        ? `Last used ${datetimeWithZone(key.previousKeyLastUsed)}.`
-                        : "Not used since the rotation."
-                    }`}
-                  >
-                    <span>
-                      <Badge
-                        mt="1"
-                        color="amber"
-                        variant="soft"
-                        label="Previous secret active"
-                      />
                     </span>
                   </Tooltip>
                 )}

@@ -30,10 +30,10 @@ export function datetime(date: string | Date, inTimezone?: string): string {
     ? formatInTimeZone(d, inTimezone, formatStr)
     : format(d, formatStr);
 }
-// The viewer's local time with its zone, e.g. "Oct 21, 2026, 12:00 PM GMT+9".
+// The viewer's local time with its zone, e.g. "Oct 21, 2026 at 12:00 PM GMT+9".
 export function datetimeWithZone(date: string | Date): string {
   if (!date) return "";
-  return formatWithZone(getValidDate(date), "PPp z");
+  return formatWithZone(getValidDate(date), "MMM d, yyyy 'at' h:mm a z");
 }
 export function datetimeAt(date: string | Date, inTimezone?: string): string {
   if (!date) return "";
