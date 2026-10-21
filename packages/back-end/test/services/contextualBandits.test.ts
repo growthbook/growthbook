@@ -118,6 +118,7 @@ function makeCb(
       },
     ],
     banditVersion: 0,
+    periodWeightingEligible: true,
     linkedFeatures: [],
     ...overrides,
   } as unknown as ContextualBanditInterface;
@@ -278,6 +279,36 @@ describe("buildContextualBanditSnapshotSettings", () => {
         schema("country", "device"),
         false,
       ).periodWeighting,
+    ).toBe(false);
+  });
+
+  it("disables period weighting for bandits that predate the feature (no eligibility flag)", () => {
+    // A bandit already running before period weighting shipped has no
+    // `periodWeightingEligible` field, so it lacks historical period data and
+    // weighting stays off even with the org setting on and the column present.
+    const legacyCb = makeCb({ periodWeightingEligible: undefined });
+    const withVersion = makeExposureQuery({
+      query: "SELECT user_id, timestamp, bandit_version FROM cb_assignments",
+    });
+
+    expect(
+      buildContextualBanditSnapshotSettings(
+        legacyCb,
+        withVersion,
+        schema("country", "device"),
+        true,
+      ).periodWeighting,
+    ).toBe(false);
+
+    expect(
+      buildSnapshotSettingsForCb(
+        buildContextualBanditSnapshotSettings(
+          legacyCb,
+          withVersion,
+          schema("country", "device"),
+          true,
+        ),
+      ).banditSettings?.periodWeighting,
     ).toBe(false);
   });
 

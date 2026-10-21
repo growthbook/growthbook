@@ -206,7 +206,7 @@ export default function BanditSettings({
               <Switch
                 id="banditPeriodWeighting"
                 label="Weight results across update periods"
-                description="Correct Contextual Bandit decision-metric estimates for traffic allocation that changes as weights update over time."
+                description="Unbias Contextual Bandit decision-metric estimates due to changing conversion rates over time."
                 value={form.watch("banditPeriodWeighting") ?? true}
                 onChange={(checked) => {
                   form.setValue("banditPeriodWeighting", checked);
