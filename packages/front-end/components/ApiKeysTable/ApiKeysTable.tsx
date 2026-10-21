@@ -7,7 +7,7 @@ import {
   canSetApiKeyDisabled,
   requesterHeaderPolicy,
 } from "shared/permissions";
-import { ago, datetime } from "shared/dates";
+import { ago, datetime, datetimeWithZone } from "shared/dates";
 import { getExpirationStatus, isExpired } from "shared/api-key-expiration";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
 import {
@@ -256,9 +256,9 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                 )}
                 {hasActivePreviousKey(key) && (
                   <Tooltip
-                    content={`The secret this key had before its last rotation works until ${datetime(key.previousKeyExpiresAt as Date)}. ${
+                    content={`The secret this key had before its last rotation works until ${datetimeWithZone(key.previousKeyExpiresAt as Date)}. ${
                       key.previousKeyLastUsed
-                        ? `Last used ${datetime(key.previousKeyLastUsed)}.`
+                        ? `Last used ${datetimeWithZone(key.previousKeyLastUsed)}.`
                         : "Not used since the rotation."
                     }`}
                   >
