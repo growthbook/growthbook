@@ -13,7 +13,6 @@ interface Props {
   clusterTraffic: ExperimentSnapshotTraffic;
   variations: { name: string }[];
   clusterIdentifier: string;
-  subUnitIdentifier: string;
   onNotify?: (issue: IssueValue) => void;
 }
 
@@ -21,7 +20,6 @@ export default function ClusterReliabilityCard({
   clusterTraffic,
   variations,
   clusterIdentifier,
-  subUnitIdentifier,
   onNotify,
 }: Props) {
   const clustersPerVariation = clusterTraffic.overall?.variationUnits;
@@ -70,12 +68,8 @@ export default function ClusterReliabilityCard({
           <strong>Cluster Reliability Warning</strong>. {smallestName} has only{" "}
           {numberFormatter.format(health.smallestCount)} {cluster}{" "}
           {health.smallestCount === 1 ? "value" : "values"}, and at least{" "}
-          {minimum} per variation is recommended. With few {cluster} values, one
-          or two unusual ones can move the result. Running longer won&apos;t
-          help, since it adds{" "}
-          <IdentifierCode>{subUnitIdentifier}</IdentifierCode> values, not{" "}
-          {cluster} values. To tighten results, include more {cluster} values in
-          the next run.
+          {minimum} per variation is recommended. With this few, a single
+          unusual {cluster} can swing the result.
         </Callout>
       ) : (
         <Callout status="success">

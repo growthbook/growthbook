@@ -572,7 +572,6 @@ function HealthSnapshotCards({
             clusterTraffic={clusterTraffic}
             variations={variations}
             clusterIdentifier={clusterIds.cluster}
-            subUnitIdentifier={clusterIds.subUnit}
             onNotify={handleHealthNotification}
           />
         </div>
