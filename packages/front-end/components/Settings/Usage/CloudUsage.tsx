@@ -43,7 +43,6 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Heading from "@/ui/Heading";
-import { ProgressBar } from "@/ui/ProgressBar";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import track from "@/services/track";
@@ -650,7 +649,8 @@ export default function CloudUsage() {
   );
 }
 
-// "X of 1M events"; amber from 80%, red at the limit
+// "X of 1M events this month" with an amber/red share badge from 80%; no bar,
+// the graph's limit line already shows the cap (same as Managed Warehouse)
 export function UsageMeter({
   used,
   limit,
@@ -662,19 +662,16 @@ export function UsageMeter({
   noun: string;
   period?: string;
 }) {
-  const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
-  const color = pct >= 100 ? "red" : pct >= 80 ? "amber" : "violet";
+  const pct = limit > 0 ? Math.round((used / limit) * 100) : 0;
+  const color = pct >= 100 ? "red" : pct >= 80 ? "amber" : null;
   return (
-    <Box mb="3">
+    <Flex align="center" gap="2" mb="3">
       <Text size="sm" color="text-mid">
         {requestsFormatter.format(used)} of {requestsFormatter.format(limit)}{" "}
         {noun} {period}
       </Text>
-      {/* Used share as a full segment; the bar's filler is the headroom */}
-      <ProgressBar
-        segments={[{ id: "usage", weight: pct, completion: 100, color }]}
-      />
-    </Box>
+      {color ? <Badge label={`${pct}%`} color={color} variant="soft" /> : null}
+    </Flex>
   );
 }
 
