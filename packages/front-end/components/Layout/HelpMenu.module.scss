@@ -1,0 +1,94 @@
+// --slate-9: about 3.3:1 on white (3.4:1 in dark mode), above the 3:1
+// icons need.
+.externalIcon {
+  flex-shrink: 0;
+  margin-left: var(--space-3);
+  color: var(--slate-9);
+}
+
+// Its space is kept, so the text doesn't move.
+.versionContent {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  // --slate-11: 5.9:1 on the menu, 7.5:1 in dark mode.
+  color: var(--slate-11);
+}
+
+.versionItem:hover .versionContent,
+.versionItem[data-highlighted] .versionContent,
+.versionItem:focus-visible .versionContent {
+  color: var(--slate-12);
+}
+
+.versionText {
+  font-variant-numeric: tabular-nums;
+}
+
+.copyIcon {
+  flex-shrink: 0;
+  margin-left: auto;
+  visibility: hidden;
+  color: var(--slate-10);
+}
+
+.versionItem:hover .copyIcon,
+.versionItem[data-highlighted] .copyIcon,
+.versionItem:focus-visible .copyIcon {
+  visibility: visible;
+}
+
+// The label takes the row, so what follows it sits at the right.
+.popoverRow {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+// Quadrupled, to outrank the section menus' width (AppRail.module.scss).
+.popover.popover.popover.popover {
+  width: auto;
+  min-width: 220px;
+}
+
+.popoverLabel {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+// Only as wide as its text, so the plan badge sits 8px after it.
+.popoverLabelFit {
+  flex: 0 1 auto;
+}
+
+// Rows with icons start 10px in, so the icons line up with the menu's
+// header.
+.popoverRow.popoverRow {
+  gap: var(--space-2);
+  padding-left: 10px;
+}
+
+.popoverIcon {
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--slate-12) 75%, var(--slate-11));
+}
+
+.popoverRow:hover .popoverIcon {
+  color: var(--slate-12);
+}
+
+.popoverDivider.popoverDivider {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+// In line with the labels: the 16px icon and its 8px gap.
+.popoverVersion.popoverVersion.popoverVersion {
+  padding-left: calc(10px + 16px + var(--space-2));
+}
