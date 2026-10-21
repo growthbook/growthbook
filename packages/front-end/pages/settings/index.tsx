@@ -233,8 +233,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       visualEditorAIContext: settings.visualEditorAIContext || "",
       disableLegacyMetricCreation:
         settings.disableLegacyMetricCreation ?? false,
-      defaultFeatureRulesInAllEnvs:
-        settings.defaultFeatureRulesInAllEnvs ?? false,
       preferredEnvironment: settings.preferredEnvironment || "",
       maxMetricSliceLevels:
         settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
@@ -304,7 +302,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     visualEditorImageModel: form.watch("visualEditorImageModel"),
     visualEditorAIContext: form.watch("visualEditorAIContext") || undefined,
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
-    defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
     topValuesLookbackValue: form.watch("topValuesLookbackValue"),
