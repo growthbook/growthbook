@@ -131,7 +131,7 @@ describe("interleave", () => {
       ranker: "search",
       getList,
       fallbackConfig,
-      rankingSeed: "r1",
+      rankingId: "r1",
     });
 
     expect(res.inExperiment).toBe(true);
@@ -164,14 +164,14 @@ describe("interleave", () => {
     gb.destroy();
   });
 
-  it("replays the same list for the same rankingSeed", async () => {
+  it("replays the same list for the same rankingId", async () => {
     const { gb } = setup();
-    const run = (rankingSeed: string) =>
+    const run = (rankingId: string) =>
       interleave(gb, {
         ranker: "search",
         getList,
         fallbackConfig,
-        rankingSeed,
+        rankingId,
       });
     expect((await run("same")).result).toEqual((await run("same")).result);
     expect((await run("x")).rankingId).toBe("x");
@@ -244,6 +244,38 @@ describe("interleave", () => {
     });
     expect(res.result).toEqual(rankedLists["buyers-pick"]);
     expect(res.variation).toBe("buyers-pick");
+    gb.destroy();
+  });
+
+  it("serves the default ranker without interleaving when enabled is false", async () => {
+    const { gb, onExposure } = setup();
+    const res = await interleave(gb, {
+      ranker: "search",
+      getList,
+      fallbackConfig,
+      enabled: false,
+    });
+    expect(res).toMatchObject({
+      result: rankedLists.popular,
+      inExperiment: false,
+      variation: "popular",
+      trackingProps: {},
+    });
+    expect(onExposure).not.toHaveBeenCalled();
+    gb.destroy();
+  });
+
+  it("uses fallbackConfig when enabled is false and the payload has no interleaving", async () => {
+    const gb = new GrowthBook({ attributes: { id: "u1" } });
+    gb.initSync({ payload: { features: flag() } });
+    const res = await interleave(gb, {
+      ranker: "search",
+      getList,
+      fallbackConfig,
+      enabled: false,
+    });
+    expect(res.result).toEqual(["z"]);
+    expect(res.inExperiment).toBe(false);
     gb.destroy();
   });
 

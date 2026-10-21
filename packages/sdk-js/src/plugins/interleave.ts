@@ -39,8 +39,11 @@ export type InterleaveOptions<T> = {
   getList: (config: InterleaveConfig) => T[] | Promise<T[]>;
   // Used when the interleaving isn't in the payload
   fallbackConfig: InterleaveConfig;
-  // Seeds the draft; reuse it to replay the same list. Defaults to a uuid
-  rankingSeed?: string;
+  // One id per query or impression. Seeds the draft, so reusing it replays the
+  // same list. Defaults to a uuid
+  rankingId?: string;
+  // Set false to skip interleaving for this call, e.g. a user-selected sort
+  enabled?: boolean;
   // Defaults to the item itself for strings and numbers, otherwise `item.id`
   getItemId?: (item: T) => string;
   maxItems?: number;
@@ -161,7 +164,7 @@ export async function interleave<T>(
   const { ranker, getList, fallbackConfig, maxItems } = options;
   const getItemId = options.getItemId || defaultItemId;
   const rankingId =
-    options.rankingSeed ||
+    options.rankingId ??
     genUUID(typeof crypto !== "undefined" ? crypto : undefined);
 
   const payload = gb.getDecryptedPayload();
@@ -180,6 +183,8 @@ export async function interleave<T>(
       trackingProps: {},
     };
   };
+
+  if (options.enabled === false) return notInterleaved(variations[0]?.key);
 
   if (!definition || variations.length !== 2) return notInterleaved();
 
