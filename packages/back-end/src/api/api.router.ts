@@ -6,6 +6,7 @@ import bodyParser from "body-parser";
 import * as Sentry from "@sentry/node";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
+import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
@@ -77,6 +78,7 @@ import { getOpenApiRoutesForApiConfig } from "./apiModelHandlers";
 
 const API_MODELS: ModelClass[] = [
   DashboardModel,
+  DecisionCriteriaModel,
   ContextualBanditModel,
   ContextualBanditQueryModel,
   CustomFieldModel,
