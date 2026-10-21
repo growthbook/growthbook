@@ -21,17 +21,13 @@ import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
-import Modal from "@/ui/Modal";
 import { Select, SelectItem } from "@/ui/Select";
 
 export default function TemplateFieldMapping({
   template,
   onMapped,
   onCancel,
-  inModal = false,
 }: {
-  // Renders as Modal.Body + Modal.Footer for use inside a Modal.Root.
-  inModal?: boolean;
   template: IncompleteFactMetricSeed;
   onMapped: (mapped: FactMetricSeed) => void;
   onCancel: () => void;
@@ -171,8 +167,11 @@ export default function TemplateFieldMapping({
     });
   }
 
-  const fields = (
-    <>
+  return (
+    <Frame>
+      <Heading as="h2" size="sm">
+        Map Template Fields to Your Fact Table
+      </Heading>
       <Text color="text-mid" as="div" mb="3">
         <strong>{template.name || "New metric"}</strong>
         {template.description ? ` — ${template.description}` : ""}
@@ -242,42 +241,14 @@ export default function TemplateFieldMapping({
             setStringMap,
           ),
         )}
-      </Flex>
-    </>
-  );
-  const continueButton = (
-    <Button onClick={handleContinue} disabled={!canContinue}>
-      Continue
-    </Button>
-  );
-
-  if (inModal) {
-    return (
-      <>
-        <Modal.Body>{fields}</Modal.Body>
-        <Modal.Footer>
-          <Modal.Close>
-            <Button variant="ghost" onClick={onCancel}>
-              Cancel
-            </Button>
-          </Modal.Close>
-          {continueButton}
-        </Modal.Footer>
-      </>
-    );
-  }
-
-  return (
-    <Frame>
-      <Heading as="h2" size="sm">
-        Map Template Fields to Your Fact Table
-      </Heading>
-      {fields}
-      <Flex gap="2" mt="3">
-        <Button variant="soft" color="gray" onClick={onCancel}>
-          Cancel
-        </Button>
-        {continueButton}
+        <Flex gap="2">
+          <Button variant="soft" color="gray" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button onClick={handleContinue} disabled={!canContinue}>
+            Continue
+          </Button>
+        </Flex>
       </Flex>
     </Frame>
   );

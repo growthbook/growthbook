@@ -4,7 +4,6 @@ import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import {
   FactMetricInterface,
   FactTableInterface,
-  StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -15,14 +14,7 @@ import {
 } from "@/services/metrics";
 import { envAllowsCreatingMetrics } from "@/services/env";
 import FactTableModal from "@/components/FactTables/FactTableModal";
-import MetricWorkspace from "@/components/FactTables/MetricEditor/MetricWorkspace";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
-import TemplateFieldMapping from "@/components/FactTables/MetricEditor/TemplateFieldMapping";
-import {
-  parseMetricTemplate,
-  TemplateMetric,
-} from "@/components/FactTables/MetricEditor/templateMetric";
-import { useUser } from "@/services/UserContext";
 import Modal from "@/ui/Modal";
 import Callout from "@/ui/Callout";
 import Button, { Props as ButtonProps } from "@/ui/Button";
@@ -34,14 +26,11 @@ type FactMetricCreationTarget = {
   duplicate?: FactMetricInterface;
   datasource?: string;
   project?: string;
-  template?: string;
 };
 
 type ModalTarget = FactMetricCreationTarget & {
   edit?: FactMetricInterface;
   source: string;
-  templateMetric?: TemplateMetric;
-  mappedTemplate?: Partial<StandardFactMetricInterface>;
 };
 
 export default function useFactMetricFlow(
@@ -60,17 +49,13 @@ export default function useFactMetricFlow(
     project,
     projects,
     ready: definitionsReady,
-    mutateDefinitions,
   } = useDefinitions();
-  const { hasCommercialFeature } = useUser();
   const ready = flagReady && definitionsReady;
   const [modalTarget, setModalTarget] = useState<ModalTarget | null>(null);
   const [tableTarget, setTableTarget] = useState<ModalTarget | null>(null);
   const [createdTable, setCreatedTable] = useState<FactTableInterface | null>(
     null,
   );
-  const [actionsContainer, setActionsContainer] =
-    useState<HTMLDivElement | null>(null);
   // Titled by the step that failed, matching the button label.
   const [error, setError] = useState<{
     title: string;
@@ -112,13 +97,12 @@ export default function useFactMetricFlow(
             : "You don't have permission to add Fact Metrics in this Project."
           : null;
     const params = new URLSearchParams({
-      returnUrl: target.template ? "/metrics" : router.asPath,
+      returnUrl: router.asPath,
       source: target.duplicate ? `${source}-duplicate` : source,
     });
     if (target.factTable) params.set("factTable", target.factTable);
     if (target.duplicate) params.set("duplicate", target.duplicate.id);
     if (target.datasource) params.set("datasource", target.datasource);
-    if (target.template) params.set("addMetric", target.template);
     return {
       mode,
       disabledReason,
@@ -127,7 +111,7 @@ export default function useFactMetricFlow(
       href:
         mode === "page"
           ? `/fact-metrics/new?${params}`
-          : mode === "fact-table" && !embedded && !target.template
+          : mode === "fact-table" && !embedded
             ? "/fact-tables"
             : null,
       source: params.get("source") || source,
@@ -142,39 +126,11 @@ export default function useFactMetricFlow(
       return true;
     }
     if (action.href) {
-      if (target.template) void router.replace(action.href);
-      else void router.push(action.href);
+      void router.push(action.href);
     } else {
-      let templateMetric: TemplateMetric | undefined;
-      if (target.template) {
-        try {
-          templateMetric = parseMetricTemplate(target.template);
-          if (
-            (templateMetric.metricType === "quantile" &&
-              !hasCommercialFeature("quantile-metrics")) ||
-            (templateMetric.metricType === "retention" &&
-              !hasCommercialFeature("retention-metrics"))
-          ) {
-            throw new Error("Your plan does not support this metric type.");
-          }
-        } catch (error) {
-          setError({ title: "Add Fact Metric", message: error.message });
-          return true;
-        }
-      }
-      const modalTarget = { ...target, source: action.source, templateMetric };
-      if (action.mode === "fact-table") {
-        setTableTarget(modalTarget);
-      } else {
-        setModalTarget(modalTarget);
-        if (target.template) {
-          const query = { ...router.query };
-          delete query.addMetric;
-          void router.replace({ pathname: router.pathname, query }, undefined, {
-            shallow: true,
-          });
-        }
-      }
+      const modalTarget = { ...target, source: action.source };
+      if (action.mode === "fact-table") setTableTarget(modalTarget);
+      else setModalTarget(modalTarget);
     }
     return true;
   };
@@ -265,9 +221,6 @@ export default function useFactMetricFlow(
     setError(null);
   };
   const duplicate = modalTarget?.duplicate;
-  const template = !modalTarget?.mappedTemplate
-    ? modalTarget?.templateMetric
-    : null;
   const modal = tableTarget ? (
     <FactTableModal
       close={() => setTableTarget(null)}
@@ -288,16 +241,9 @@ export default function useFactMetricFlow(
           return;
         }
         setModalTarget({ ...tableTarget, factTable: factTable.id });
-        if (tableTarget.template) {
-          const query = { ...router.query };
-          delete query.addMetric;
-          void router.replace({ pathname: router.pathname, query }, undefined, {
-            shallow: true,
-          });
-        }
       }}
     />
-  ) : error || template ? (
+  ) : error ? (
     <Modal.Root
       open
       onOpenChange={close}
@@ -305,86 +251,26 @@ export default function useFactMetricFlow(
       trackingEventModalType=""
     >
       <Modal.Header>
-        <Modal.Title>
-          {error?.title ?? "Map Template Fields to Your Fact Table"}
-        </Modal.Title>
-      </Modal.Header>
-      {error ? (
-        <>
-          <Modal.Body>
-            <Callout status="error">{error.message}</Callout>
-          </Modal.Body>
-          <Modal.Footer>
-            <Modal.Close>
-              <Button variant="ghost" onClick={close}>
-                Close
-              </Button>
-            </Modal.Close>
-          </Modal.Footer>
-        </>
-      ) : (
-        template && (
-          <TemplateFieldMapping
-            template={template}
-            inModal
-            onCancel={close}
-            onMapped={(mapped) => {
-              if (mapped.metricType === "funnel" || !mapped.numerator) return;
-              const mappedTemplate: Partial<StandardFactMetricInterface> = {
-                ...mapped,
-                metricType: mapped.metricType,
-                numerator: mapped.numerator,
-                funnelSettings: null,
-              };
-              setModalTarget((current) =>
-                current ? { ...current, mappedTemplate } : null,
-              );
-            }}
-          />
-        )
-      )}
-    </Modal.Root>
-  ) : !modalTarget ? null : embedded && newFlow ? (
-    <Modal.Root
-      open
-      onOpenChange={() => {}}
-      size="xl"
-      hasDescription={false}
-      trackingEventModalType=""
-    >
-      <Modal.Header>
-        <Modal.Title>Create Fact Metric</Modal.Title>
-        <div ref={setActionsContainer} />
+        <Modal.Title>{error.title}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <MetricWorkspace
-          embedded
-          existing={null}
-          initialFactTable={
-            factTables.find((table) => table.id === modalTarget.factTable) ??
-            createdTable
-          }
-          initialDatasource={modalTarget.datasource}
-          isEditing
-          actionsContainer={actionsContainer}
-          mutate={mutateDefinitions}
-          onSaved={close}
-          onCancel={close}
-          source={modalTarget.source}
-        />
+        <Callout status="error">{error.message}</Callout>
       </Modal.Body>
+      <Modal.Footer>
+        <Modal.Close>
+          <Button variant="ghost" onClick={close}>
+            Close
+          </Button>
+        </Modal.Close>
+      </Modal.Footer>
     </Modal.Root>
-  ) : (
+  ) : !modalTarget ? null : (
     <FactMetricModal
       close={close}
-      initialFactTable={
-        modalTarget.factTable ??
-        modalTarget.mappedTemplate?.numerator?.factTableId
-      }
+      initialFactTable={modalTarget.factTable}
       datasource={modalTarget.datasource}
       existing={
         modalTarget.edit ??
-        modalTarget.mappedTemplate ??
         (duplicate
           ? duplicateFactMetric(
               duplicate,
@@ -392,7 +278,7 @@ export default function useFactMetricFlow(
             )
           : undefined)
       }
-      duplicate={!!duplicate || !!modalTarget.templateMetric}
+      duplicate={!!duplicate}
       source={modalTarget.source}
     />
   );

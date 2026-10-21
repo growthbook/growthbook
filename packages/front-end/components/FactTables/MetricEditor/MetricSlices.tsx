@@ -11,12 +11,10 @@ import DataList from "@/ui/DataList";
 // Which fact table columns experiment results break this metric down by
 // (e.g. Revenue by device: desktop / mobile / other).
 export default function MetricSlices({
-  embedded = false,
   form,
   factTable,
   canEdit,
 }: {
-  embedded?: boolean;
   form: UseFormReturn<CreateFactMetricFormProps>;
   factTable: FactTableDefinition;
   canEdit: boolean;
@@ -71,11 +69,7 @@ export default function MetricSlices({
       ) : (
         <Text color="text-mid">
           No slice columns on this fact table.{" "}
-          {embedded ? (
-            "Add slice columns on the fact table after you save."
-          ) : (
-            <Link href={`/fact-tables/${factTable.id}`}>Add one</Link>
-          )}
+          <Link href={`/fact-tables/${factTable.id}`}>Add one</Link>
         </Text>
       )}
     </Frame>

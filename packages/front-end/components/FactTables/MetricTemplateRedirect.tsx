@@ -1,31 +1,23 @@
 import { useRouter } from "next/router";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 
+// Mounted globally on pages/metrics.tsx: landing here with ?addMetric=<json>
+// (a link crafted externally - docs, support, onboarding, not generated
+// anywhere in this repo) used to auto-open FactMetricModal pre-filled from a
+// template. The full flow (parse, premium/name-collision gates, fact-table
+// field mapping) now lives at /fact-metrics/new, which understands the same
+// querystring - this just forwards the request there unchanged.
 export default function MetricTemplateRedirect() {
   const router = useRouter();
-  const { open, modal } = useFactMetricFlow("metric-template");
-  const handled = useRef<string | null>(null);
 
   useEffect(() => {
-    const template = router.query.addMetric;
-    if (typeof template !== "string") {
-      handled.current = null;
-      return;
-    }
-    if (handled.current === template || !open({ template })) return;
-    handled.current = template;
-  }, [router, open]);
+    if (typeof router.query.addMetric !== "string") return;
+    router.replace(
+      `/fact-metrics/new?addMetric=${encodeURIComponent(router.query.addMetric)}`,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.query.addMetric]);
 
-  return (
-    <>
-      {modal}
-      {typeof router.query.addMetric === "string" &&
-      !modal &&
-      handled.current !== router.query.addMetric ? (
-        <LoadingOverlay />
-      ) : null}
-    </>
-  );
+  return typeof router.query.addMetric === "string" ? <LoadingOverlay /> : null;
 }

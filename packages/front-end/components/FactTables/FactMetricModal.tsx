@@ -1208,7 +1208,6 @@ function StandardFactMetricModal({
   const {
     datasources,
     getDatasourceById,
-    factMetrics,
     project,
     getFactTableById,
     mutateDefinitions,
@@ -1604,15 +1603,6 @@ function StandardFactMetricModal({
       <div className="d-flex">
         <div className="px-3 py-4 flex-1">
           {showSQLPreview ? <h3>Enter Details</h3> : null}
-          {duplicate &&
-            factMetrics.some(
-              (metric) => metric.name === form.watch("name"),
-            ) && (
-              <Callout status="warning" mb="3">
-                A Fact Metric with the name &quot;{form.watch("name")}&quot;
-                already exists.
-              </Callout>
-            )}
           <Field
             size="legacy"
             label="Metric Name"
