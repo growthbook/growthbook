@@ -29,11 +29,11 @@ import {
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import UserAvatar from "@/components/Avatar/UserAvatar";
-import { Select, SelectItem } from "@/ui/Select";
+import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import listTableStyles from "@/components/Experiment/ExperimentsListTable.module.scss";
 import EditProfileModal from "./EditProfileModal";
 import {
-  usePrototypeMultipleOrgs,
+  usePrototypeOrgs,
   usePrototypePendingReviews,
 } from "./PrototypeControls";
 import { withOpticalWeight } from "./opticalWeight";
@@ -50,11 +50,11 @@ import {
 // The side nav's user circle, thickened (opticalWeight.tsx; set in review).
 const ProfileIcon = withOpticalWeight(PiUserCircle);
 
-// PROTOTYPE (set in review): with "Multiple organizations" on in the
-// prototype settings (PrototypeControls.tsx), the menu acts as if the user
-// is in several organizations: the current one plus these made-up ones, 5
-// at most, in the organization selector. Choosing a made-up one only
-// changes what the menu shows.
+// PROTOTYPE (set in review): with "Multiple organizations" set to Several
+// orgs in the prototype settings (PrototypeControls.tsx), the menu acts as
+// if the user is in several organizations: the current one plus these
+// made-up ones, 5 at most, in the organization selector. Choosing a made-up
+// one only changes what the menu shows.
 const PROTOTYPE_DEMO_ORGS = [
   { id: "prototype-org-1", name: "Acme Corp" },
   { id: "prototype-org-2", name: "Globex Analytics" },
@@ -63,6 +63,8 @@ const PROTOTYPE_DEMO_ORGS = [
 ];
 // The selector lists 5 organizations at most (prototype).
 const MAX_SELECTOR_ORGS = 5;
+// The selector's Add organization item, after its organizations.
+const ADD_ORG_VALUE = "__add-organization__";
 
 // These icons' lines 0.2px thicker at 18px, as some of the side nav's
 // (opticalWeight.tsx; set in review): their outlines read lighter than the
@@ -165,10 +167,15 @@ export default function ProfileMenu({
   const pendingReviewCount =
     pendingReviewsOverride ?? (hasApprovalFlows ? openRevisionCount : 0);
 
+  // PROTOTYPE: the prototype settings' "Multiple organizations" (null: the
+  // real case). One org can't add one; One org + can add can.
+  const prototypeOrgs = usePrototypeOrgs();
   const canAddOrganization =
-    !isCloud() &&
-    isMultiOrg() &&
-    (showMultiOrgSelfSelector() || allowSelfOrgCreation());
+    prototypeOrgs === "one-can-add" ||
+    (prototypeOrgs !== "one" &&
+      !isCloud() &&
+      isMultiOrg() &&
+      (showMultiOrgSelfSelector() || allowSelfOrgCreation()));
   // The organizations in the selector: the user's own, or with the
   // prototype setting on, the current one and made-up ones.
   const currentOrg = {
@@ -178,13 +185,16 @@ export default function ProfileMenu({
       organization.name ??
       "",
   };
-  const prototypeMultipleOrgs = usePrototypeMultipleOrgs();
   const selectorOrgs = (
-    prototypeMultipleOrgs && organizations.length <= 1
+    prototypeOrgs === "several" && organizations.length <= 1
       ? [currentOrg, ...PROTOTYPE_DEMO_ORGS]
-      : organizations
+      : organizations.length > 0
+        ? organizations
+        : [currentOrg]
   ).slice(0, MAX_SELECTOR_ORGS);
-  const showOrgSelector = selectorOrgs.length > 1;
+  // As main: the selector for more than one organization, or when they can
+  // add one.
+  const showOrgSelector = selectorOrgs.length > 1 || canAddOrganization;
   // A made-up organization chosen in the prototype: shown, not switched to.
   const [prototypeOrgId, setPrototypeOrgId] = useState<string | null>(null);
   const shownOrgId = prototypeOrgId ?? currentOrg.id;
@@ -192,6 +202,11 @@ export default function ProfileMenu({
     selectorOrgs.find((o) => o.id === shownOrgId)?.name ?? currentOrg.name;
 
   const chooseOrg = (id: string) => {
+    if (id === ADD_ORG_VALUE) {
+      inPlace?.onDone();
+      go("/settings/organizations");
+      return;
+    }
     if (id === shownOrgId) return;
     const real = organizations.some((o) => o.id === id);
     if (!real) {
@@ -328,6 +343,22 @@ export default function ProfileMenu({
                     </span>
                   }
                 >
+                  {/* Add organization first, where allowed, then a
+                    divider and the organizations (set in review; main has
+                    it last). */}
+                  {canAddOrganization ? (
+                    <>
+                      <SelectItem value={ADD_ORG_VALUE}>
+                        <span className={styles.addOrgItem}>
+                          <MenuItemContent
+                            Icon={PiPlus}
+                            label="Add Organization"
+                          />
+                        </span>
+                      </SelectItem>
+                      <SelectSeparator />
+                    </>
+                  ) : null}
                   {selectorOrgs.map((o) => (
                     <SelectItem key={o.id} value={o.id}>
                       {o.name}
@@ -337,15 +368,6 @@ export default function ProfileMenu({
               </div>
             ),
           },
-        ]
-      : []),
-    ...(showOrgSelector && canAddOrganization
-      ? [
-          item(
-            "add-org",
-            <MenuItemContent Icon={PiPlus} label="Add organization" />,
-            () => go("/settings/organizations"),
-          ),
         ]
       : []),
     { type: "separator", key: "sep-1" },

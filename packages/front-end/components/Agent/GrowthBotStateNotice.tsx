@@ -24,8 +24,8 @@ import styles from "./GrowthBotStateNotice.module.scss";
 // (SettingsRedesignPlaceholder.tsx) has no sections yet. Point these at its
 // General section (where AI is turned on) and its AI & Prompts section
 // (where the API key is set up) once they exist. Meanwhile both go to
-// today's AI & Prompts tab (/settings#ai), where both live, shown with the
-// prototype's "Interim settings menu" on.
+// today's AI & Prompts tab (/settings#ai), where both live; in the
+// prototype, /settings is the placeholder.
 const SETTINGS_GENERAL_HREF = "/settings#ai";
 const SETTINGS_AI_PROMPTS_HREF = "/settings#ai";
 

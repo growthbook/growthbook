@@ -45,12 +45,11 @@ import styles from "./PrototypeControls.module.scss";
 
 const MULTI_ORG_KEY = "gb-prototype-multiple-orgs";
 const EXISTING_COLORS_KEY = "gb-prototype-existing-page-colors";
-const INTERIM_SETTINGS_KEY = "gb-prototype-interim-settings";
 const DOCKED_GROWTHBOT_KEY = "gb-prototype-docked-growthbot";
 const SHOW_LIVE_CHAT_KEY = "gb-prototype-show-live-chat";
-const LIVE_CHAT_IN_HELP_KEY = "gb-prototype-live-chat-in-help";
 const CURRENT_NOTICES_KEY = "gb-prototype-current-header-notices";
 const PENDING_REVIEWS_KEY = "gb-prototype-pending-reviews";
+const GUIDED_BAR_KEY = "gb-prototype-guided-get-started-bar";
 const COLLAPSED_KEY = "gb-prototype-panel-collapsed";
 // v2: right and bottom (was left and top).
 const POSITION_KEY = "gb-prototype-panel-position-v2";
@@ -60,12 +59,12 @@ const CHANGE_EVENT = "gb-prototype-settings-change";
 export const EXISTING_COLORS_CLASS = "prototype-existing-page-colors";
 
 // On until turned off (set in review): what a browser that hasn't changed
-// them starts with, so reviewers see the current direction. Docked
-// GrowthBot, and live chat shown in the Help menu. The rest start off.
+// them starts with, so reviewers see the current direction. Interim
+// colors, docked GrowthBot and the live chat bubble. The rest start off.
 const DEFAULT_ON = new Set([
+  EXISTING_COLORS_KEY,
   DOCKED_GROWTHBOT_KEY,
   SHOW_LIVE_CHAT_KEY,
-  LIVE_CHAT_IN_HELP_KEY,
 ]);
 
 function readSetting(key: string): boolean {
@@ -101,12 +100,11 @@ function writeSetting(key: string, value: boolean) {
 const SETTING_KEYS = [
   MULTI_ORG_KEY,
   EXISTING_COLORS_KEY,
-  INTERIM_SETTINGS_KEY,
   DOCKED_GROWTHBOT_KEY,
   SHOW_LIVE_CHAT_KEY,
-  LIVE_CHAT_IN_HELP_KEY,
   CURRENT_NOTICES_KEY,
   PENDING_REVIEWS_KEY,
+  GUIDED_BAR_KEY,
 ];
 
 function resetAllSettings() {
@@ -129,10 +127,46 @@ function useSetting(key: string): boolean {
   );
 }
 
-// "Multiple organizations": the profile menu acts as if the user is in
-// several organizations (ProfileMenu.tsx). Off on the server.
-export function usePrototypeMultipleOrgs(): boolean {
-  return useSetting(MULTI_ORG_KEY);
+// PROTOTYPE ONLY: "Multiple organizations", the organizations the profile
+// menu acts as if the user has (ProfileMenu.tsx), to preview its org
+// dropdown: One org (the read-only org name; the default), One org + can
+// add (the dropdown with their one org, then Add organization) or Several
+// orgs (made-up ones, then Add organization if they can really add one).
+// Saved as before ("true" was Several orgs).
+export type PrototypeOrgs = "one" | "one-can-add" | "several";
+const ORGS_OPTIONS: { value: PrototypeOrgs; label: string }[] = [
+  { value: "one", label: "One org" },
+  { value: "one-can-add", label: "One org + can add" },
+  { value: "several", label: "Several orgs" },
+];
+
+function readOrgs(): PrototypeOrgs {
+  try {
+    const value = localStorage.getItem(MULTI_ORG_KEY);
+    if (value === "true" || value === "several") return "several";
+    return value === "one-can-add" ? value : "one";
+  } catch (e) {
+    return "one";
+  }
+}
+
+function writeOrgs(value: PrototypeOrgs) {
+  try {
+    localStorage.setItem(MULTI_ORG_KEY, value);
+  } catch (e) {
+    // Storage blocked: the setting lasts until the page reloads.
+  }
+  window.dispatchEvent(new Event(CHANGE_EVENT));
+}
+
+function useOrgsSetting(): PrototypeOrgs {
+  return useSyncExternalStore(subscribe, readOrgs, () => "one");
+}
+
+// The previewed case, or null for the real one (off the prototype).
+export function usePrototypeOrgs(): PrototypeOrgs | null {
+  const value = useOrgsSetting();
+  return isPrototype() ? value : null;
 }
 
 // "Interim colors" (labelled "Existing page colors" until set in review):
@@ -141,15 +175,6 @@ export function usePrototypeMultipleOrgs(): boolean {
 // redesign's white, to demo them beside pages not yet redesigned.
 export function usePrototypeExistingPageColors(): boolean {
   return useSetting(EXISTING_COLORS_KEY);
-}
-
-// "Interim settings menu": until Settings is redesigned as its own page
-// with its own navigation, the side nav's Settings opens a menu of today's
-// settings pages (AppRail.tsx; SDK Configuration is a main section), and
-// /settings is today's General settings. Off: the redesign (a single
-// Settings link, /settings a placeholder).
-export function usePrototypeInterimSettings(): boolean {
-  return useSetting(INTERIM_SETTINGS_KEY);
 }
 
 // "Docked GrowthBot" (set in review): the GrowthBot drawer as part of the
@@ -167,14 +192,17 @@ export function usePrototypeShowLiveChat(): boolean {
   return useSetting(SHOW_LIVE_CHAT_KEY);
 }
 
-// "Live chat in Help menu" (set in review), with Show live chat on: no
-// bubble; the side nav's Help menu opens the mock chat instead, with a fake
-// unread badge on Help (HelpMenu.tsx). Off, or without Show live chat: as
-// before.
-export function usePrototypeLiveChatInHelp(): boolean {
-  const show = useSetting(SHOW_LIVE_CHAT_KEY);
-  const inHelp = useSetting(LIVE_CHAT_IN_HELP_KEY);
-  return show && inHelp;
+// PROTOTYPE ONLY (set in review): "Getting-started bar": the guided
+// getting-started bar (GuidedGetStartedBar.tsx) on every page with the side
+// nav, as if a real step had been started from a Get Started guide (the
+// feature flag guide's "Create a Test Feature Flag"), to review its layout.
+// A real step still shows instead. Off: as before.
+export function usePrototypeGuidedBar(): boolean {
+  return useSetting(GUIDED_BAR_KEY);
+}
+
+export function setPrototypeGuidedBar(on: boolean) {
+  writeSetting(GUIDED_BAR_KEY, on);
 }
 
 // PROTOTYPE ONLY (set in review): "Pending reviews", overriding the
@@ -552,13 +580,12 @@ function fromTopLeft(left: number, top: number, panel: HTMLElement): Position {
 const KEY_STEP = 10;
 
 export default function PrototypeControls() {
-  const multipleOrgs = usePrototypeMultipleOrgs();
+  const orgs = useOrgsSetting();
   const existingColors = usePrototypeExistingPageColors();
-  const interimSettings = usePrototypeInterimSettings();
   const dockedGrowthBot = usePrototypeDockedGrowthBot();
   const pendingReviews = usePendingReviewsSetting();
   const showLiveChat = usePrototypeShowLiveChat();
-  const liveChatInHelpSetting = useSetting(LIVE_CHAT_IN_HELP_KEY);
+  const guidedBar = usePrototypeGuidedBar();
 
   useEffect(() => {
     document.documentElement.classList.toggle(
@@ -709,10 +736,12 @@ export default function PrototypeControls() {
         hidden={collapsed}
       >
         <div className={styles.settings}>
-          <Toggle
+          <Segmented
+            name="gb-prototype-multiple-orgs"
             label="Multiple organizations"
-            checked={multipleOrgs}
-            onChange={(v) => writeSetting(MULTI_ORG_KEY, v)}
+            options={ORGS_OPTIONS}
+            value={orgs}
+            onChange={writeOrgs}
           />
           <Toggle
             // "Interim colors" (set in review; was "Existing page colors").
@@ -722,16 +751,16 @@ export default function PrototypeControls() {
             onChange={(v) => writeSetting(EXISTING_COLORS_KEY, v)}
           />
           <Toggle
-            label="Interim settings menu"
-            info="Turn this on to see how we'll treat settings before we get the full re-design in place"
-            checked={interimSettings}
-            onChange={(v) => writeSetting(INTERIM_SETTINGS_KEY, v)}
-          />
-          <Toggle
             label="Docked GrowthBot"
             info="Shows the GrowthBot drawer as a full-height right rail, with the page making room for it and the GrowthBot button at its top, instead of floating over the page. Expanding it fills the page area. On smaller screens it still floats."
             checked={dockedGrowthBot}
             onChange={(v) => writeSetting(DOCKED_GROWTHBOT_KEY, v)}
+          />
+          <Toggle
+            label="Getting-started bar"
+            info="Shows the guided getting-started bar on every page with the side nav, as if you'd started the feature flag guide's Create a Test Feature Flag step. Its X or Return to Guide turns this off."
+            checked={guidedBar}
+            onChange={setPrototypeGuidedBar}
           />
         </div>
         {/* PROTOTYPE (set in review): the profile menu's pending-review
@@ -746,8 +775,7 @@ export default function PrototypeControls() {
             onChange={writePendingReviews}
           />
         </fieldset>
-        {/* Live chat's two settings together, as GrowthBot's (set in
-          review). */}
+        {/* Live chat, in its own group as GrowthBot's (set in review). */}
         <fieldset className={styles.group}>
           <legend className={styles.groupTitle}>Live chat</legend>
           <Toggle
@@ -755,13 +783,6 @@ export default function PrototypeControls() {
             info="Shows a mock of the live chat (Pylon): a chat bubble in the lower-right corner that opens a mock chat window. Nothing is sent anywhere."
             checked={showLiveChat}
             onChange={(v) => writeSetting(SHOW_LIVE_CHAT_KEY, v)}
-          />
-          <Toggle
-            label="In Help menu"
-            info="With Show live chat on: no bubble; live chat is in the side nav's Help menu instead, with a mock unread badge on Help."
-            checked={liveChatInHelpSetting}
-            disabled={!showLiveChat}
-            onChange={(v) => writeSetting(LIVE_CHAT_IN_HELP_KEY, v)}
           />
         </fieldset>
         {isPrototype() ? <GrowthBotControls /> : null}

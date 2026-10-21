@@ -7,10 +7,7 @@ import {
   PiXBold,
 } from "react-icons/pi";
 import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
-import {
-  usePrototypeLiveChatInHelp,
-  usePrototypeShowLiveChat,
-} from "./PrototypeControls";
+import { usePrototypeShowLiveChat } from "./PrototypeControls";
 import {
   closeMockLiveChat,
   toggleMockLiveChat,
@@ -19,14 +16,13 @@ import {
 import styles from "./MockLiveChat.module.scss";
 
 // PROTOTYPE ONLY (set in review): a mock of the live chat (Pylon), for
-// reviewers to see where it lives beside the docked GrowthBot panel and the
-// side nav's Help menu. Nothing is loaded from Pylon or sent anywhere; the
+// reviewers to see where it lives beside the docked GrowthBot panel.
+// Nothing is loaded from Pylon or sent anywhere; the
 // real live chat (components/Auth/InAppHelp.tsx, PylonChatVisibility.tsx)
 // is untouched. With "Show live chat" on (PrototypeControls.tsx):
 // - The bubble: a 56px round button in the lower-right corner, 20px in, as
 //   Pylon's. It hides while GrowthBot is open, as the real one does, and
 //   while it's open, shows a caret to close the window (Pylon's pattern).
-//   With "Live chat in Help menu" on there's no bubble; Help opens it.
 // - The window: 380 × 560px (shorter in a short window), above the bubble,
 //   or in the corner without it, as Pylon's.
 // - With GrowthBot: one at a time. Opening the chat closes the GrowthBot
@@ -53,7 +49,6 @@ const MOCK_REPLY =
 
 export default function MockLiveChat() {
   const show = usePrototypeShowLiveChat();
-  const inHelp = usePrototypeLiveChatInHelp();
   const { open } = useMockLiveChat();
   const { open: agentOpen, closePanel } = useAgentPanel();
 
@@ -76,7 +71,7 @@ export default function MockLiveChat() {
   }, [agentOpen]);
 
   if (!show) return null;
-  const showBubble = !inHelp && !agentOpen;
+  const showBubble = !agentOpen;
 
   return (
     <>

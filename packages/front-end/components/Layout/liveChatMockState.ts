@@ -1,17 +1,13 @@
 import { useSyncExternalStore } from "react";
 
 // PROTOTYPE ONLY (set in review): the mock live chat's state (MockLiveChat
-// .tsx), shared by its bubble, the side nav's Help menu and the GrowthBot
-// panel, which take turns with it. Not Pylon: nothing is loaded or sent
-// anywhere, and the real live-chat code (components/Auth) is untouched.
-//   open   - whether the mock chat window is showing
-//   unread - a fake unread count for the Help badge; it clears when the
-//            window opens and comes back on the next page load
+// .tsx), shared by its bubble and the GrowthBot panel, which take turns
+// with it. Not Pylon: nothing is loaded or sent anywhere, and the real
+// live-chat code (components/Auth) is untouched.
+//   open - whether the mock chat window is showing
 
 const CHANGE_EVENT = "gb-prototype-live-chat-change";
-export const MOCK_UNREAD_COUNT = 2;
-
-let state = { open: false, unread: MOCK_UNREAD_COUNT };
+let state = { open: false };
 
 function emit(next: Partial<typeof state>) {
   state = { ...state, ...next };
@@ -23,9 +19,9 @@ function subscribe(onChange: () => void) {
   return () => window.removeEventListener(CHANGE_EVENT, onChange);
 }
 
-const SERVER_STATE = { open: false, unread: MOCK_UNREAD_COUNT };
+const SERVER_STATE = { open: false };
 
-export function useMockLiveChat(): { open: boolean; unread: number } {
+export function useMockLiveChat(): { open: boolean } {
   return useSyncExternalStore(
     subscribe,
     () => state,
@@ -33,9 +29,8 @@ export function useMockLiveChat(): { open: boolean; unread: number } {
   );
 }
 
-// Opening reads the messages, so the unread count clears.
 export function openMockLiveChat() {
-  emit({ open: true, unread: 0 });
+  emit({ open: true });
 }
 
 export function closeMockLiveChat() {

@@ -339,6 +339,20 @@
     display: none;
   }
 
+  // Add Organization left-aligned (set in review): it has no check mark,
+  // so its plus starts where the organizations' check marks do, not after
+  // their column.
+  :global(.rt-SelectItem):has(.addOrgItem) {
+    padding-left: calc((var(--select-item-indicator-width) - 14px) / 2);
+  }
+
+  // The divider across the menu inside its padding, as far as the items'
+  // highlight reaches, not from the items' text (set in review).
+  :global(.rt-SelectSeparator) {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
   :global(.rt-SelectItemIndicator)::before {
     content: "";
     width: 14px;

@@ -1,62 +1,60 @@
-// PROTOTYPE (set in review): the mock live chat's unread badge on Help in
-// the side nav (HelpMenu.tsx): a dot, not a count (set in review; was a
-// red count pill when expanded). An 8px red dot on the icon's top right,
-// expanded or collapsed, ringed in the rail's colour so it reads against
-// the icon, as GrowthBot's limit dot; and an 8px dot at the end of the
-// menu item.
-.iconWrap {
-  position: relative;
-  display: inline-flex;
+// The version row (HelpMenu.tsx; set in review): "Version: …" as one line
+// of text (set in review; was the label left and the value right, as the
+// profile menu's Theme row), quieter than the links: 12px in --slate-11, a
+// little shorter, no icon, and no hover fill as the links have; "Version"
+// lined up with the items' labels (7px + the 18px icon + 10px). Hovered or
+// focused, its text a step darker, with the copy icon; in the drawer, the
+// keyboard's focus ring too (RailMenu.module.scss). No ring in the popover: it moves focus with the pointer, so the
+// ring showed on hover (set in review). Tripled, to outrank the menu items'
+// rules, in the popover and in the drawer.
+.versionItem.versionItem.versionItem {
+  height: 28px;
+  padding: 0 10px 0 35px;
+  color: var(--slate-11);
+  font-size: 12px;
+  font-weight: 400;
+  cursor: pointer;
+
+  &:hover,
+  &[data-highlighted] {
+    background: transparent;
+    color: var(--slate-12);
+  }
+}
+
+.versionContent {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.versionText {
+  flex-grow: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+// "Version:" at 500, hovered or not (set in review); the number stays at
+// the row's 400.
+.versionLabel.versionLabel {
+  font-weight: 500;
+}
+
+// At the row's right, shown on hover and keyboard focus only (its space
+// kept, so the text doesn't move).
+.copyIcon {
   flex-shrink: 0;
+  visibility: hidden;
+  color: var(--slate-10);
 }
 
-.dot {
-  position: absolute;
-  // A little further onto the icon (set in review; was -2px and -3px,
-  // tried 1px down).
-  top: 0;
-  right: 0;
-  width: 8px;
-  height: 8px;
-  box-sizing: border-box;
-  border-radius: 9999px;
-  background: var(--red-9);
-  border: 1.5px solid var(--rail-bg, var(--color-panel-solid));
-}
-
-// Centred under and over the docs and Slack items' 13px "opens in a new
-// tab" icons (set in review): in the same 13px slot at the row's end, with
-// their 4px more from the label (ProfileMenu.module.scss's .externalIcon).
-.itemDot {
-  flex-shrink: 0;
-  box-sizing: content-box;
-  width: 8px;
-  height: 8px;
-  margin: 0 2.5px 0 6.5px;
-  border-radius: 9999px;
-  background: var(--red-9);
-}
-
-// A gentle pulse on both dots, to draw the eye (set in review): shrinking
-// to 75% and back (tried growing to 125%) over the first 40% of a 2.4s
-// loop, then resting at its full size, so it reads as a heartbeat, not a
-// flicker. Still for reduced motion.
-@keyframes unreadPulse {
-  0%,
-  40%,
-  100% {
-    transform: scale(1);
-  }
-  20% {
-    transform: scale(0.75);
-  }
-}
-
-.dot,
-.itemDot {
-  animation: unreadPulse 2.4s ease-in-out infinite;
-
-  @media (prefers-reduced-motion: reduce) {
-    animation: none;
-  }
+.versionItem:hover .copyIcon,
+.versionItem[data-highlighted] .copyIcon,
+.versionItem:focus-visible .copyIcon {
+  visibility: visible;
 }

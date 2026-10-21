@@ -22,6 +22,9 @@ export type RailMenuEntry =
       content: ReactNode;
       onSelect: () => void;
       className?: string;
+      // Stays open after it's chosen (set in review; Help's Version, which
+      // shows "Copied" in place): the popover, and the drawer.
+      keepOpen?: boolean;
     }
   | { type: "separator"; key: string }
   // Anything else in the menu, as is (a header, the organization selector).
@@ -67,13 +70,11 @@ export function DropdownEntries({
         switch (entry.type) {
           case "item":
             return (
-              <DropdownMenuItem
+              <DropdownEntryItem
                 key={entry.key}
-                className={entry.className ?? itemClassName}
-                onClick={entry.onSelect}
-              >
-                {entry.content}
-              </DropdownMenuItem>
+                entry={entry}
+                itemClassName={itemClassName}
+              />
             );
           case "separator":
             return <DropdownMenuSeparator key={entry.key} />;
@@ -96,6 +97,28 @@ export function DropdownEntries({
         }
       })}
     </>
+  );
+}
+
+// A popover item.
+function DropdownEntryItem({
+  entry,
+  itemClassName,
+}: {
+  entry: Extract<RailMenuEntry, { type: "item" }>;
+  itemClassName: string;
+}) {
+  return (
+    <DropdownMenuItem
+      className={entry.className ?? itemClassName}
+      onClick={(event) => {
+        // Radix closes the menu unless this is cancelled.
+        if (entry.keepOpen) event.preventDefault();
+        entry.onSelect();
+      }}
+    >
+      {entry.content}
+    </DropdownMenuItem>
   );
 }
 
@@ -195,7 +218,7 @@ export function InPlaceMenu({
                 className={clsx(entry.className ?? itemClassName, styles.entry)}
                 onClick={() => {
                   entry.onSelect();
-                  inPlace.onDone();
+                  if (!entry.keepOpen) inPlace.onDone();
                 }}
               >
                 {entry.content}

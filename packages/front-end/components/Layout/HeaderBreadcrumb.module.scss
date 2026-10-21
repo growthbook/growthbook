@@ -111,6 +111,12 @@
   line-height: 14px;
 }
 
+// On the selector's button, for the selected demo project: 4px more from
+// the project's name (set in review).
+.demoBadgeSelected {
+  margin-left: 4px;
+}
+
 // Its list: white, 8px corners, 240px wide, with the search field on top.
 // Its 12px padding is set inline (ProjectSelector.tsx), as Popover's own
 // is. The shadow and 1px outline are the experiments list's column menu's

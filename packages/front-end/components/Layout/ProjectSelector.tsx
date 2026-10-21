@@ -213,7 +213,13 @@ export function HeaderProjectSelector() {
     >
       <span className={headerStyles.projectName}>{name}</span>
       {current && isDemo(current.id) ? (
-        <span className={headerStyles.demoBadge} title={demoBadge.badgeTitle}>
+        <span
+          className={clsx(
+            headerStyles.demoBadge,
+            headerStyles.demoBadgeSelected,
+          )}
+          title={demoBadge.badgeTitle}
+        >
           {demoBadge.badgeText}
         </span>
       ) : null}

@@ -6,7 +6,9 @@ import { isPrototype } from "@/services/env";
 // plans actually work (set in review). Not wired to real plan, usage or
 // permission data; they only change what GrowthBot shows:
 //   Plan     - Starter (GrowthBot isn't included), Pro or Enterprise
-//   Hosting  - GrowthBook Cloud or self-hosted
+//   Hosting  - GrowthBook Cloud or self-hosted (also, without real build
+//              info, whether the Help menu shows its Version row;
+//              HelpMenu.tsx; set in review)
 //   State    - only those the plan and hosting can really have:
 //     default     - as built: opens the AI Assistant drawer
 //     not-in-plan - Starter: GrowthBot isn't in the plan

@@ -7,15 +7,33 @@ import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import styles from "./TopNav.module.scss";
+import {
+  setPrototypeGuidedBar,
+  usePrototypeGuidedBar,
+} from "./PrototypeControls";
 
 const manualSteps = ["attributes", "environments"];
 
 const GuidedGetStartedBar = () => {
   const { refreshOrganization } = useUser();
   const { project } = useDefinitions();
-  const { currentStep, getReturnUrl, clearStep, stepKey } = useGetStarted();
+  const realStep = useGetStarted();
   const { apiCall } = useAuth();
   const router = useRouter();
+  // PROTOTYPE ("Getting-started bar" in the prototype panel; set in
+  // review): with no real step, the bar as if the feature flag guide's
+  // "Create a Test Feature Flag" had been started (as
+  // pages/getstarted/feature-flag-guide.tsx starts it), to review its
+  // layout. Its X and Return to Guide turn the setting off.
+  const forced = usePrototypeGuidedBar() && !realStep.currentStep;
+  const { currentStep, getReturnUrl, clearStep, stepKey } = forced
+    ? {
+        currentStep: `Create a Test Feature Flag${project && " in this Project"}`,
+        getReturnUrl: () => "/getstarted/feature-flag-guide",
+        clearStep: () => setPrototypeGuidedBar(false),
+        stepKey: "createFeatureFlag",
+      }
+    : realStep;
 
   if (!currentStep) {
     return null;
@@ -23,12 +41,15 @@ const GuidedGetStartedBar = () => {
 
   return (
     <div
-      className={`navbar ${styles.guidedstepbar} pl-4`}
+      className={`navbar ${styles.guidedstepbar}`}
       style={{
         background: "#7B45EA",
         color: "#FFFFFF",
         height: "50px",
         position: "sticky",
+        // The text 32px in, as the page content below it (set in review;
+        // was 24px, Bootstrap's pl-4).
+        paddingLeft: 32,
       }}
     >
       <span>

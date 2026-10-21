@@ -5,20 +5,22 @@ import { IconType } from "react-icons";
 import {
   PiArrowSquareOutBold,
   PiBookOpen,
-  PiChatTeardropDots,
+  PiCheck,
+  PiCopy,
   PiQuestion,
   PiSlackLogo,
 } from "react-icons/pi";
 import { DropdownMenu } from "@/ui/DropdownMenu";
 import { inferDocUrl } from "@/components/DocLink";
+import { getGrowthBookBuild, isPrototype } from "@/services/env";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { useGrowthBotPrototype } from "@/components/Agent/prototypeGrowthBotState";
 import listTableStyles from "@/components/Experiment/ExperimentsListTable.module.scss";
 import { withOpticalWeight } from "./opticalWeight";
 import { BOTTOM_TOOLTIP_DELAY_MS } from "./railTooltips";
 import railTooltipStyles from "./AppRail.module.scss";
 import styles from "./ProfileMenu.module.scss";
 import helpStyles from "./HelpMenu.module.scss";
-import { usePrototypeLiveChatInHelp } from "./PrototypeControls";
-import { openMockLiveChat, useMockLiveChat } from "./liveChatMockState";
 import {
   DropdownEntries,
   InPlaceMenu,
@@ -31,6 +33,28 @@ const HelpIcon = withOpticalWeight(PiQuestion);
 
 // The in-app help's Slack link (components/Auth/InAppHelp.tsx).
 const SLACK_URL = "https://slack.growthbook.io/?ref=app-top-nav";
+
+// The GrowthBook build, as main's sidebar showed it at its foot (set in
+// review; it moved here): the last version and the commit, e.g.
+// "4.2.0+bd13c78". Only self-hosted builds have it.
+// PROTOTYPE (set in review): without it (as locally), the prototype's
+// Hosting setting (GrowthBot's, prototypeGrowthBotState.ts) set to
+// Self-hosted shows a made-up one, so the row can be seen.
+function useBuild(): { version: string } | null {
+  const { hosting } = useGrowthBotPrototype();
+  const build = getGrowthBookBuild();
+  if (build.sha) {
+    return {
+      version: `${build.lastVersion}+${build.sha.substring(0, 7)}`,
+    };
+  }
+  if (isPrototype() && hosting === "self-hosted") {
+    return {
+      version: `${build.lastVersion || "4.2.0"}+bd13c78`,
+    };
+  }
+  return null;
+}
 
 // A link out: opens in a new tab, marked by the arrow-out icon (and said
 // to screen readers).
@@ -91,17 +115,8 @@ export default function HelpMenu({
   inPlace?: RailMenuInPlace;
 }) {
   const [open, setOpen] = useState(false);
-  // PROTOTYPE (set in review): with "Live chat in Help menu" on, a Chat
-  // with Support item after View Docs (set in review; was first), opening the mock live chat (MockLiveChat.tsx),
-  // with a red dot while there's an unread message, and the same dot on
-  // Help's icon in the rail, until the chat's opened.
-  const liveChat = usePrototypeLiveChatInHelp();
-  const { unread } = useMockLiveChat();
-  const unreadShown = liveChat ? unread : 0;
-  // A dot, not a count (set in review; was the number in a red pill): the
-  // same 8px red dot on the icon, expanded or collapsed, and at the end of
-  // the menu item. Screen readers hear there's something new, not how many.
-  const unreadLabel = "new message";
+  const build = useBuild();
+  const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 1500 });
   const entries: RailMenuEntry[] = [
     {
       // A header, as the section menus' (set in review).
@@ -114,34 +129,55 @@ export default function HelpMenu({
       ),
     },
     helpLinkEntry("docs", PiBookOpen, "View Docs", inferDocUrl()),
-    ...(liveChat
+    helpLinkEntry("slack", PiSlackLogo, "Join Slack Community", SLACK_URL),
+    // The version, below a divider (set in review): "Version: 4.2.0+…" as
+    // one line, lined up with the items' labels, quieter than the links.
+    // Choosing it copies the version and shows "Copied" in its place for a
+    // moment, said to screen readers too; the menu stays open. A copy icon
+    // at the right on hover and focus. (No tooltip: the build date was in
+    // one, set in review, then removed.)
+    ...(build
       ? [
+          { type: "separator" as const, key: "version-divider" },
           {
             type: "item" as const,
-            key: "chat",
-            onSelect: openMockLiveChat,
+            key: "version",
+            className: clsx(styles.item, helpStyles.versionItem),
+            keepOpen: true,
+            onSelect: () => performCopy(build.version),
             content: (
-              <span className={styles.itemContent}>
-                <PiChatTeardropDots
-                  size={18}
-                  className={styles.itemIcon}
-                  aria-hidden="true"
-                />
-                <span className={styles.itemLabel}>
-                  Chat with Support
-                  {unreadShown ? (
-                    <span className="sr-only">, {unreadLabel}</span>
-                  ) : null}
+              <span className={helpStyles.versionContent}>
+                <span className="sr-only">Copy </span>
+                {/* One line of text, "Version: 4.2.0+bd13c78" (set in
+                  review; was the label left and the number right), the
+                  copy icon at the row's right on hover and focus. */}
+                <span className={helpStyles.versionText}>
+                  <span className={helpStyles.versionLabel}>Version:</span>{" "}
+                  {copySuccess ? "Copied" : build.version}
                 </span>
-                {unreadShown ? (
-                  <span className={helpStyles.itemDot} aria-hidden="true" />
-                ) : null}
+                {/* A check in the copy icon's place while it says "Copied"
+                  (set in review). */}
+                {copySuccess ? (
+                  <PiCheck
+                    size={14}
+                    className={helpStyles.copyIcon}
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <PiCopy
+                    size={14}
+                    className={helpStyles.copyIcon}
+                    aria-hidden="true"
+                  />
+                )}
+                <span className="sr-only" role="status">
+                  {copySuccess ? "Version copied" : ""}
+                </span>
               </span>
             ),
           },
         ]
       : []),
-    helpLinkEntry("slack", PiSlackLogo, "Join Slack Community", SLACK_URL),
   ];
 
   const trigger = (onClick?: (fromKeyboard: boolean) => void): ReactNode => (
@@ -151,7 +187,7 @@ export default function HelpMenu({
         triggerClassName,
         (open || inPlace?.open) && openClassName,
       )}
-      aria-label={unreadShown ? `Help, ${unreadLabel}` : "Help"}
+      aria-label="Help"
       data-rail-menu-trigger="help"
       {...(onClick
         ? {
@@ -160,16 +196,7 @@ export default function HelpMenu({
           }
         : {})}
     >
-      <span className={helpStyles.iconWrap}>
-        <HelpIcon
-          size={iconSize}
-          className={iconClassName}
-          aria-hidden="true"
-        />
-        {unreadShown ? (
-          <span className={helpStyles.dot} aria-hidden="true" />
-        ) : null}
-      </span>
+      <HelpIcon size={iconSize} className={iconClassName} aria-hidden="true" />
       {collapsed ? null : <span className={labelClassName}>Help</span>}
     </button>
   );

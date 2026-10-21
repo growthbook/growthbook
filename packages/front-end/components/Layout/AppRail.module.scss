@@ -534,17 +534,6 @@ $rail-dark-bg: #10172e;
   }
 }
 
-// A group's name in an expanded section's list (the interim Settings
-// pages, in the drawer or on a touch screen; set in review): as the
-// section menus' headers (.eyebrow), lined up with the pages' text.
-.subGroupLabel {
-  padding: 8px 10px 2px 43px;
-  color: var(--slate-11);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 14px;
-}
-
 // A section's row and its pages, one item in the rail's column, so a
 // closed list adds no gap and the icons below stay where the collapsed
 // rail has them.
@@ -703,30 +692,6 @@ $rail-dark-bg: #10172e;
   display: flex;
   flex-direction: column;
   gap: 1px;
-}
-
-// The interim Settings menu (set in review): four columns, 170px each
-// (tried three at 200px), room for the longest label, 12px apart, as wide
-// as they need together (a column's groups, if ever more than one, stacked
-// 12px apart); and never taller than the window, scrolling inside if it
-// must.
-.popoverGroups.popoverGroups.popoverGroups {
-  width: auto;
-  max-height: calc(100vh - 16px);
-  overflow-y: auto;
-}
-
-.popoverColumns {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.popoverColumn {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 170px;
 }
 
 // 4px between the menu's items (set in review; was the 1px gap): 3px more
