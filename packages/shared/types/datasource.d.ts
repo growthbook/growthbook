@@ -210,7 +210,7 @@ export interface ExposureQuery {
    * Columns the query returned when it was last tested in the editor, so the
    * column mapping can be edited without re-running the query.
    */
-  columns?: DetectedColumn[];
+  columns?: Pick<DetectedColumn, "column" | "datatype">[];
 }
 
 export type ExposureQueryColumnMapping = Pick<

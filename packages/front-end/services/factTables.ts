@@ -106,6 +106,25 @@ const normalizeColumnName = (name: string) =>
   name.replace(/[^a-z]/gi, "").toLowerCase();
 
 // Ignores case and separators, so userId matches user_id
+const EVENT_TYPE_COLUMNS = [
+  "event_name",
+  "eventName",
+  "event_type",
+  "eventType",
+  "event",
+  "se_action",
+];
+
+// Case-insensitive: Snowflake's information schema reports EVENT_NAME
+export const findEventTypeColumn = (columns: DetectedColumn[]) =>
+  EVENT_TYPE_COLUMNS.map((candidate) =>
+    columns.find(
+      (c) =>
+        c.datatype === "string" &&
+        c.column.toLowerCase() === candidate.toLowerCase(),
+    ),
+  ).find(Boolean)?.column ?? "";
+
 // Closest match first, so user_id beats userId and user_id_2
 export const findColumnByName = (columns: DetectedColumn[], name: string) =>
   (

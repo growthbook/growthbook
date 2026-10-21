@@ -293,12 +293,15 @@ export default function SourceStep({
   validateRef,
   placeholder,
   datasourceHeader,
+  tableHint,
 }: {
   source: SourceTable;
   validateRef: MutableRefObject<(() => Promise<void>) | null>;
   placeholder: string;
   // Shown above the table picker or the SQL editor, e.g. a Data Source picker
   datasourceHeader?: ReactNode;
+  // Shown under the picked table's filters
+  tableHint?: ReactNode;
 }) {
   const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
@@ -607,6 +610,7 @@ export default function SourceStep({
               {rowFilterError}
             </Callout>
           ) : null}
+          {tableHint}
         </Flex>
         {sampleRowsOpen && selectedTable ? (
           <RowFilterSampleRowsModal

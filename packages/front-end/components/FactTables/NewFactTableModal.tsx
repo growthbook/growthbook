@@ -38,6 +38,7 @@ import {
   getColumnMappingError,
   getDefaultTimestampColumn,
   getNewFactTableProjects,
+  findEventTypeColumn,
   getRemappedUserIdColumns,
   rematchColumn,
   rematchUserIdColumns,
@@ -58,15 +59,6 @@ import Table, { TableBody, TableCell, TableRow } from "@/ui/Table";
 import Text from "@/ui/Text";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Link from "@/ui/Link";
-
-const INLINE_FILTER_CANDIDATES = [
-  "event_name",
-  "eventName",
-  "event_type",
-  "eventType",
-  "event",
-  "se_action",
-];
 
 const TABLE_TYPES: {
   value: FactTableType;
@@ -365,15 +357,7 @@ export default function NewFactTableModal({
       rematchUserIdColumns(prev, identifierTypes, columns),
     );
     if (columns.some((c) => c.column === inlineFilterColumn)) return;
-    // Case-insensitive: Snowflake's information schema reports EVENT_NAME
-    const eventTypeColumn =
-      INLINE_FILTER_CANDIDATES.map((candidate) =>
-        columns.find(
-          (c) =>
-            c.datatype === "string" &&
-            c.column.toLowerCase() === candidate.toLowerCase(),
-        ),
-      ).find(Boolean)?.column ?? "";
+    const eventTypeColumn = findEventTypeColumn(columns);
     setInlineFilterColumn(eventTypeColumn);
     setTableType(eventTypeColumn ? "event" : "model");
   };

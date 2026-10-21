@@ -23,6 +23,7 @@ import ColumnMappingRow, {
 } from "@/components/SchemaBrowser/ColumnMappingRow";
 import {
   findColumnByName,
+  findEventTypeColumn,
   getColumnMappingError,
   getDefaultTimestampColumn,
   getRemappedUserIdColumns,
@@ -218,6 +219,11 @@ export const ExperimentAssignmentQueryModal = ({
     onColumnsChanged: remapColumns,
   });
   const { mode, selectedTable, partition, detected, querySql } = source;
+  // A general events table is scanned in full unless filtered to exposures
+  const eventTypeColumn =
+    source.pickerColumns && !source.template && !source.rowFilters.length
+      ? findEventTypeColumn(source.pickerColumns)
+      : "";
   // False while editing a query saved before its columns were stored, whose
   // columns are only guessed from its mapping
   const columnsDetected =
@@ -383,7 +389,15 @@ export const ExperimentAssignmentQueryModal = ({
       ),
       hasNameCol,
       projects,
-      ...(columnsDetected ? { columns } : {}),
+      // Mapping only offers top-level columns, so JSON fields aren't kept
+      ...(columnsDetected
+        ? {
+            columns: columns.map(({ column, datatype }) => ({
+              column,
+              datatype,
+            })),
+          }
+        : {}),
       ...(Object.keys(remappedUserIds).length
         ? { userIdColumns: remappedUserIds }
         : {}),
@@ -455,6 +469,15 @@ export const ExperimentAssignmentQueryModal = ({
             key={mode}
             source={source}
             validateRef={validateSql}
+            tableHint={
+              eventTypeColumn ? (
+                <Callout status="info" size="sm">
+                  This looks like an events table. Add a filter on{" "}
+                  <code>{eventTypeColumn}</code> so only exposure events are
+                  scanned.
+                </Callout>
+              ) : null
+            }
             placeholder={`SELECT\n${starterIdentifierTypes
               .map((id) => `  ${id},\n`)
               .join(
