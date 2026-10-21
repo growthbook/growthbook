@@ -2,7 +2,6 @@ import { ReactNode, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiArrowsSplitBold,
-  PiCalendarBold,
   PiClockBold,
   PiColumnsBold,
   PiFlaskBold,
@@ -40,10 +39,6 @@ const KIND_BADGES = {
   event: {
     tooltip: "Event name filter",
     icon: <PiFunnelBold size={14} />,
-  },
-  partition: {
-    tooltip: "Date partition filter",
-    icon: <PiCalendarBold size={14} />,
   },
   columns: {
     tooltip: "Other columns to include",

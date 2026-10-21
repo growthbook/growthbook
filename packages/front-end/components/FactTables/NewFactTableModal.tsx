@@ -23,6 +23,7 @@ import {
   getInitialFactTableQuery,
 } from "@/services/datasources";
 import SourceStep from "@/components/SchemaBrowser/SourceStep";
+import PartitionFilterField from "@/components/SchemaBrowser/PartitionFilterField";
 import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";
 import ColumnMappingRow, {
   ColumnKindBadge,
@@ -630,6 +631,14 @@ export default function NewFactTableModal({
                     append={<Link onClick={() => setStep(0)}>Change</Link>}
                   />
                 </Box>
+                {isGA4 ? null : (
+                  <Box pb="2">
+                    <PartitionFilterField
+                      partition={partition}
+                      detectedDescription="Detected from the table's partitioning. Each query only reads data from its start date on."
+                    />
+                  </Box>
+                )}
                 {nameField}
 
                 <Box pt="2">
@@ -668,31 +677,6 @@ export default function NewFactTableModal({
                   {mappingTable(
                     isGA4 ? null : (
                       <>
-                        <ColumnMappingRow
-                          kind="partition"
-                          label="Date partition"
-                          value={partition.column}
-                          options={partition.options}
-                          setValue={partition.setColumn}
-                          onRemove={() => partition.setColumn("")}
-                          append={
-                            partition.formats.length ? (
-                              <Select
-                                size="sm"
-                                mb="0"
-                                aria-label="Partition format"
-                                value={partition.format}
-                                setValue={partition.setFormat}
-                              >
-                                {partition.formats.map((f) => (
-                                  <SelectItem key={f} value={f}>
-                                    {f.toUpperCase()}
-                                  </SelectItem>
-                                ))}
-                              </Select>
-                            ) : null
-                          }
-                        />
                         <AdditionalColumnsRow
                           value={additionalColumns}
                           setValue={(kept) =>
