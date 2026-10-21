@@ -1,0 +1,76 @@
+---
+title: "Write an AGENTS.md for GrowthBook"
+description: "A copy-paste AGENTS.md section that teaches coding agents how people use GrowthBook, so the Feature Flags and experiments they create through the REST API are easy to review."
+keywords: [AGENTS.md, CLAUDE.md, AI, agents, REST API, naming]
+sidebarTitle: AGENTS.md for the REST API
+---
+
+If your agents call the [GrowthBook REST API](/app/api) directly, they only know what the API accepts. They don't know what your team sees in the GrowthBook UI. The result is often a Feature Flag whose key is a full sentence and whose description is empty.
+
+Add the section below to your repository's `AGENTS.md` (or `CLAUDE.md`). It tells the agent how people read and review what it creates, and which steps to leave to a person.
+
+<Tip>
+If your agent can use MCP or the Agent Skills plugin, those include their own Feature Flag playbooks. See [Connect AI Agents to GrowthBook](/integrations/ai-agents). This page is for agents that call the REST API on their own.
+</Tip>
+
+## What people see
+
+- **Feature Flag list:** each Feature Flag is shown by its key, so the key acts as its title. People also see keys in code and in review diffs.
+- **Feature Flag page:** `description` is rendered as Markdown. Reviewers read it to understand why the Feature Flag exists.
+- **Experiments:** lists and results show the experiment `name`. The `hypothesis` and `description` appear on the experiment page.
+
+## Copy this into AGENTS.md
+
+Replace `<api-host>` with your API host: `https://api.growthbook.io` on GrowthBook Cloud, or your `API_HOST` when self-hosted.
+
+```markdown
+## GrowthBook
+
+We manage Feature Flags and experiments in GrowthBook through its REST API.
+
+- API base: <api-host>/api. Prefer `/v2` endpoints where they exist.
+- Auth: `Authorization: Bearer $GROWTHBOOK_API_KEY` (a Personal Access Token, so changes are attributed to a person).
+- Reference: <api-host>/api/v1/openapi.yaml. Read the field descriptions before creating anything.
+
+### Naming
+- Feature Flag keys are permanent and act as the title in the GrowthBook UI. Keep them short: 2-5 words in kebab-case (e.g. `checkout-express-pay`), or our key format if we have one.
+- Never put ticket IDs, dates, owners or sentences in a key. Put them in `description` and `tags`.
+- Experiment names are short and readable (e.g. `Express checkout button`). Put the reasoning in `hypothesis` and background and links in `description`.
+- Group with `tags` and `project`, not name prefixes.
+
+### Descriptions
+Write `description` in Markdown with:
+- What the Feature Flag gates and why
+- Who it targets
+- Rollout plan and when it can be removed
+- Links to the ticket, PR and design
+
+### Creating safely
+- Before creating, list existing keys with `GET /api/v2/feature-keys` and reuse a match instead of adding a near-duplicate.
+- Create Feature Flags disabled: list every environment in `environments` with `enabled: false`. An environment you leave out uses its default state, which may be enabled.
+- `POST /api/v2/features/{id}` publishes immediately. For changes that need review, open a draft with `POST /api/v2/features/{id}/revisions` and request review on it.
+- Experiments are created as drafts. Don't start or stop them.
+- Don't enable production environments, publish drafts, or archive anything unless a person asked you to.
+
+### When you're blocked
+- If GrowthBook blocks a request (approval required, a warning, a Custom Hook, schema validation, a permission error, or a duplicate key), stop and tell a person what blocked you and why.
+- Don't retry with override fields (`ignoreWarnings`, `skipSchemaValidation`, `skipHooks`, `bypassDuplicateKeyCheck`, `skipChecklist`, `overrideDraftLimit`, `force`), a different key, a different API key, or another workaround unless a person explicitly asked you to.
+- If a write answers `202` with a `confirmation`, it hasn't run yet. Give a person its `url`, then poll `GET /api/v1/confirmations/{id}` until it's confirmed or rejected.
+```
+
+## Give agents a key that can't bypass review
+
+Instructions help, but permissions are what actually stop a change. GrowthBook skips an approval requirement automatically when the caller has **Bypass draft approvals** access, without any flag in the request. Give agents a Personal Access Token or Secret Key whose role doesn't include that access, so a change that needs review always waits for a person. To have a person confirm risky writes such as publishing to production, turn on [Require confirmation](/integrations/ai-agents/api-keys#require-confirmation) for the agent's key.
+
+## Keep agents on your key format
+
+**Settings → General → Feature Flags** has a **Feature key regex validator**. It applies when people create Feature Flags in the GrowthBook UI. It doesn't block REST API creation, so if you use one, put the same format in your `AGENTS.md`, for example:
+
+```markdown
+- Feature Flag keys must match `^[a-z0-9]+(-[a-z0-9]+){0,4}$` (kebab-case, at most 5 words).
+```
+
+## Next steps
+
+- [Connect AI Agents to GrowthBook](/integrations/ai-agents) with the MCP server or Agent Skills plugin
+- [Browse the GrowthBook REST API](/app/api)

@@ -294,7 +294,8 @@
                       "integrations/ai-agents/wizard",
                       "integrations/mcp",
                       "integrations/ai-agents/agent-skills",
-                      "integrations/ai-agents/api-keys"
+                      "integrations/ai-agents/api-keys",
+                      "integrations/ai-agents/agents-md"
                     ]
                   },
                   "integrations/vercel",
