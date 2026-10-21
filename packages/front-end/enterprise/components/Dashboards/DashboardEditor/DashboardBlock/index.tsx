@@ -21,6 +21,7 @@ export default function DashboardBlock({
   blockIndex,
   isTabActive = true,
   actions,
+  setBlock,
 }: {
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
   dashboardGlobalControls?: DashboardInterface["globalControls"];
@@ -28,6 +29,9 @@ export default function DashboardBlock({
   blockIndex?: number;
   isTabActive?: boolean;
   actions?: React.ReactNode;
+  setBlock?: React.Dispatch<
+    DashboardBlockInterfaceOrData<DashboardBlockInterface>
+  >;
 }) {
   return (
     <Flex
@@ -80,6 +84,7 @@ export default function DashboardBlock({
         dashboardComparison={dashboardComparison}
         blockIndex={blockIndex}
         isTabActive={isTabActive}
+        setBlock={setBlock}
       />
     </Flex>
   );
