@@ -1,13 +1,8 @@
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { PiPlus } from "react-icons/pi";
 import { populationEndpoints } from "shared/api-endpoints";
-import type { ApiPopulation, PopulationStep } from "shared/validators";
-import {
-  getPopulationFactTableIds,
-  MAX_POPULATION_STEPS,
-} from "shared/populations";
+import type { ApiPopulation } from "shared/validators";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -28,10 +23,8 @@ import PopulationStepCard from "./PopulationStepCard";
 import {
   getDefaultPopulationUserIdType,
   getPopulationDraftIssue,
-  movePopulationStep,
   newPopulationStep,
   PopulationDraft,
-  removePopulationStep,
 } from "./populationDraft";
 
 export default function PopulationEditor({
@@ -79,7 +72,7 @@ export default function PopulationEditor({
         description: population.description,
         datasource: population.datasource,
         userIdTypes: population.userIdTypes,
-        steps: population.steps,
+        step: population.steps[0],
       };
     }
     const datasource = eligibleDatasources[0]?.id ?? "";
@@ -88,7 +81,7 @@ export default function PopulationEditor({
       description: "",
       datasource,
       userIdTypes: defaultUserIdTypes(datasource),
-      steps: [newPopulationStep({ isFirst: true })],
+      step: newPopulationStep(),
     };
   });
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +90,7 @@ export default function PopulationEditor({
   const canSave = population
     ? permissionsUtil.canUpdatePopulation(population, { projects })
     : permissionsUtil.canCreatePopulation({ projects });
-  const stepFactTableIds = getPopulationFactTableIds(draft.steps).filter((id) =>
+  const stepFactTableIds = [draft.step.source.factTableId].filter((id) =>
     allFactTables.some((ft) => ft.id === id),
   );
   const {
@@ -111,7 +104,7 @@ export default function PopulationEditor({
     columns: getFullFactTable(ft.id)?.columns ?? ft.columns,
   }));
   // Without full columns a JSON aggregate can't be checked, so Save stays
-  // disabled until every step's fact table loads. SWR retries a failed request
+  // disabled until the step's fact table loads. SWR retries a failed request
   // with isLoading true, so `error` keeps the settled message during retries.
   const issue = !canSave
     ? "You don't have permission to save this Population."
@@ -131,15 +124,12 @@ export default function PopulationEditor({
     if (!userIdTypeOptions.includes(t)) userIdTypeOptions.push(t);
   }
 
-  const setSteps = (steps: PopulationStep[]) =>
-    setDraft((d) => ({ ...d, steps }));
-
   const save = async () => {
     const body = {
       name: draft.name.trim(),
       description: draft.description,
       userIdTypes: draft.userIdTypes,
-      steps: draft.steps,
+      steps: [draft.step],
     };
     if (population) {
       await restApiCall(populationEndpoints.updatePopulation, {
@@ -162,17 +152,6 @@ export default function PopulationEditor({
     : "/populations";
 
   const title = population ? "Edit Population" : "New Population";
-  const addStep = (negation: boolean) =>
-    setSteps([
-      ...draft.steps,
-      newPopulationStep({ isFirst: draft.steps.length === 0, negation }),
-    ]);
-  const moveStep = (from: number, to: number) =>
-    setSteps(movePopulationStep(draft.steps, from, to));
-  const removeStep = (index: number) =>
-    setSteps(removePopulationStep(draft.steps, index));
-  const atStepLimit = draft.steps.length >= MAX_POPULATION_STEPS;
-  const stepLimitMessage = `Populations can have at most ${MAX_POPULATION_STEPS} steps.`;
 
   return (
     <Box className="pagecontents" style={{ margin: "0 auto" }}>
@@ -240,7 +219,7 @@ export default function PopulationEditor({
                   ...d,
                   datasource,
                   userIdTypes: defaultUserIdTypes(datasource),
-                  steps: [newPopulationStep({ isFirst: true })],
+                  step: newPopulationStep(),
                 }))
               }
               placeholder="Choose a Data Source..."
@@ -287,72 +266,20 @@ export default function PopulationEditor({
 
           <Box pt="4" style={{ borderTop: "1px solid var(--gray-a5)" }}>
             <Heading as="h2" size="md" mb="1">
-              Steps
+              Definition
             </Heading>
             <Box mb="3">
               <Text size="sm" color="text-mid">
-                Members match every step, in order. The joined date comes from
-                the last step, or the last &quot;has&quot; step requiring a
-                positive match.
+                Members are the units with a matching row in this fact table.
               </Text>
             </Box>
 
-            {draft.steps.map((step, i) => (
-              <Fragment key={i}>
-                {i > 0 && (
-                  <Box
-                    ml="4"
-                    pl="3"
-                    py="2"
-                    style={{ borderLeft: "2px solid var(--gray-a5)" }}
-                  >
-                    <Text size="sm" weight="semibold" color="text-low">
-                      THEN
-                    </Text>
-                  </Box>
-                )}
-                <PopulationStepCard
-                  steps={draft.steps}
-                  index={i}
-                  datasource={draft.datasource}
-                  userIdTypes={draft.userIdTypes}
-                  onChange={(updated) =>
-                    setSteps(draft.steps.map((s, j) => (j === i ? updated : s)))
-                  }
-                  onMove={(to) => moveStep(i, to)}
-                  onRemove={() => removeStep(i)}
-                />
-              </Fragment>
-            ))}
-
-            <Flex gap="3" mt="3">
-              <Tooltip content={stepLimitMessage} enabled={atStepLimit}>
-                <span>
-                  <Button
-                    variant="soft"
-                    size="sm"
-                    icon={<PiPlus size={14} />}
-                    disabled={atStepLimit}
-                    onClick={() => addStep(false)}
-                  >
-                    Add step
-                  </Button>
-                </span>
-              </Tooltip>
-              <Tooltip content={stepLimitMessage} enabled={atStepLimit}>
-                <span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={<PiPlus size={14} />}
-                    disabled={atStepLimit || draft.steps.length === 0}
-                    onClick={() => addStep(true)}
-                  >
-                    Add &quot;doesn&apos;t have&quot; step
-                  </Button>
-                </span>
-              </Tooltip>
-            </Flex>
+            <PopulationStepCard
+              step={draft.step}
+              datasource={draft.datasource}
+              userIdTypes={draft.userIdTypes}
+              onChange={(step) => setDraft((d) => ({ ...d, step }))}
+            />
           </Box>
         </Box>
 

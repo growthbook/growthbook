@@ -3,10 +3,8 @@ import type { PopulationRuleFactTable } from "shared/populations";
 import {
   getDefaultPopulationUserIdType,
   getPopulationDraftIssue,
-  movePopulationStep,
   newPopulationStep,
   PopulationDraft,
-  removePopulationStep,
 } from "@/components/Populations/populationDraft";
 
 function step(
@@ -14,19 +12,11 @@ function step(
   overrides: Partial<PopulationStep> = {},
 ): PopulationStep {
   return {
-    ...newPopulationStep({ isFirst: false }),
+    ...newPopulationStep(),
     source: { type: "factTable", factTableId },
     ...overrides,
   };
 }
-
-const anyTime: PopulationStep["windowSettings"] = {
-  type: "",
-  delayValue: 0,
-  delayUnit: "days",
-  windowValue: 0,
-  windowUnit: "days",
-};
 
 describe("getDefaultPopulationUserIdType", () => {
   const factTables = [
@@ -58,65 +48,18 @@ describe("getDefaultPopulationUserIdType", () => {
 });
 
 describe("newPopulationStep", () => {
-  it("starts the first step at any time", () => {
-    expect(newPopulationStep({ isFirst: true }).windowSettings).toEqual(
-      anyTime,
-    );
-  });
-
-  it("starts later steps within 7 days of the previous step", () => {
-    const s = newPopulationStep({ isFirst: false, negation: true });
-    expect(s.negation).toBe(true);
-    expect(s.windowSettings).toMatchObject({
-      type: "conversion",
-      windowValue: 7,
-      windowUnit: "days",
+  it("starts at any time with no filters", () => {
+    expect(newPopulationStep()).toEqual({
+      source: { type: "factTable", factTableId: "" },
+      rowFilters: [],
+      windowSettings: {
+        type: "",
+        delayValue: 0,
+        delayUnit: "days",
+        windowValue: 0,
+        windowUnit: "days",
+      },
     });
-  });
-});
-
-describe("movePopulationStep", () => {
-  it("swaps steps", () => {
-    const steps = [step("a", { windowSettings: anyTime }), step("b")];
-    expect(
-      movePopulationStep(steps, 0, 1).map((s) => s.source.factTableId),
-    ).toEqual(["b", "a"]);
-  });
-
-  it("clears negation and a conversion window on the new first step", () => {
-    const steps = [
-      step("a", { windowSettings: anyTime }),
-      step("b", { negation: true }),
-    ];
-    const [first, second] = movePopulationStep(steps, 1, 0);
-    expect(first.source.factTableId).toBe("b");
-    expect(first.negation).toBeUndefined();
-    expect(first.windowSettings).toEqual(anyTime);
-    expect(second.source.factTableId).toBe("a");
-  });
-
-  it("keeps a lookback window on the new first step", () => {
-    const lookback = { ...anyTime, type: "lookback" as const, windowValue: 30 };
-    const steps = [
-      step("a", { windowSettings: anyTime }),
-      step("b", { windowSettings: lookback }),
-    ];
-    expect(movePopulationStep(steps, 1, 0)[0].windowSettings).toEqual(lookback);
-  });
-
-  it("ignores moves past either end", () => {
-    const steps = [step("a"), step("b")];
-    expect(movePopulationStep(steps, 0, -1)).toBe(steps);
-    expect(movePopulationStep(steps, 1, 2)).toBe(steps);
-  });
-});
-
-describe("removePopulationStep", () => {
-  it("normalizes the step that becomes first", () => {
-    const steps = [step("a", { windowSettings: anyTime }), step("b")];
-    const [first] = removePopulationStep(steps, 0);
-    expect(first.source.factTableId).toBe("b");
-    expect(first.windowSettings.type).toBe("");
   });
 });
 
@@ -131,13 +74,13 @@ describe("getPopulationDraftIssue", () => {
     columns: [],
     ...extra,
   });
-  const factTables = [factTable("a"), factTable("b")];
+  const factTables = [factTable("a")];
   const complete: PopulationDraft = {
     name: "Buyers",
     description: "",
     datasource: "ds_1",
     userIdTypes: ["user_id"],
-    steps: [step("a", { windowSettings: anyTime }), step("b")],
+    step: step("a"),
   };
   const issue = (draft: PopulationDraft, tables = factTables) =>
     getPopulationDraftIssue(draft, tables);
@@ -150,40 +93,27 @@ describe("getPopulationDraftIssue", () => {
     expect(issue({ ...complete, name: "  " })).toBe("Enter a name.");
   });
 
-  it("requires a fact table on every step", () => {
-    expect(issue({ ...complete, steps: [complete.steps[0], step("")] })).toBe(
-      "Choose a fact table for step 2.",
-    );
+  it("requires a fact table", () => {
+    expect(issue({ ...complete, step: step("") })).toBe("Choose a fact table.");
   });
 
   it("requires complete row filters", () => {
     expect(
       issue({
         ...complete,
-        steps: [
-          step("a", {
-            windowSettings: anyTime,
-            rowFilters: [{ column: "country", operator: "=", values: [""] }],
-          }),
-        ],
+        step: step("a", {
+          rowFilters: [{ column: "country", operator: "=", values: [""] }],
+        }),
       }),
-    ).toBe("Finish the row filter in step 1.");
+    ).toBe("Finish the row filter.");
   });
 
   it("requires a valid aggregate filter when a column is set", () => {
     const withAggregate = (aggregateFilter: string) => ({
       ...complete,
-      steps: [
-        step("a", {
-          windowSettings: anyTime,
-          aggregateFilterColumn: "$$count",
-          aggregateFilter,
-        }),
-      ],
+      step: step("a", { aggregateFilterColumn: "$$count", aggregateFilter }),
     });
-    expect(issue(withAggregate(">="))).toBe(
-      "Finish the aggregate filter in step 1.",
-    );
+    expect(issue(withAggregate(">="))).toBe("Finish the aggregate filter.");
     expect(issue(withAggregate(">=3,<10"))).toBeNull();
   });
 
@@ -191,31 +121,15 @@ describe("getPopulationDraftIssue", () => {
     expect(
       issue({
         ...complete,
-        steps: [
-          complete.steps[0],
-          step("b", {
-            windowSettings: { ...anyTime, type: "conversion", windowValue: 0 },
-          }),
-        ],
+        step: step("a", {
+          windowSettings: {
+            ...complete.step.windowSettings,
+            type: "lookback",
+            windowValue: 0,
+          },
+        }),
       }),
-    ).toBe("Enter a window length for step 2.");
-  });
-
-  it("limits how many fact tables the steps read from", () => {
-    const ids = ["a", "b", "c", "d", "e", "f"];
-    expect(
-      issue(
-        {
-          ...complete,
-          steps: ids.map((id, i) =>
-            step(id, i === 0 ? { windowSettings: anyTime } : {}),
-          ),
-        },
-        ids.map((id) => factTable(id)),
-      ),
-    ).toBe(
-      "Populations can read from at most 5 distinct fact tables (this one reads from 6).",
-    );
+    ).toBe("Enter a window length.");
   });
 
   it("flags a fact table that doesn't support the identifier type", () => {
@@ -227,13 +141,7 @@ describe("getPopulationDraftIssue", () => {
   it("checks JSON sub-field aggregates against the column's jsonFields", () => {
     const withAggregate = (aggregateFilterColumn: string) => ({
       ...complete,
-      steps: [
-        step("a", {
-          windowSettings: anyTime,
-          aggregateFilterColumn,
-          aggregateFilter: ">=1",
-        }),
-      ],
+      step: step("a", { aggregateFilterColumn, aggregateFilter: ">=1" }),
     });
     const tables = [
       factTable("a", {

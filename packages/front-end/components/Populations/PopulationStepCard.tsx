@@ -1,20 +1,12 @@
 import { ReactNode, useMemo } from "react";
-import {
-  Box,
-  Flex,
-  Grid,
-  IconButton,
-  SegmentedControl,
-} from "@radix-ui/themes";
-import { PiArrowDown, PiArrowUp, PiPlus, PiTrash, PiX } from "react-icons/pi";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { PiPlus, PiX } from "react-icons/pi";
 import type { PopulationStep } from "shared/validators";
 import type { FactTableInterface } from "shared/types/fact-table";
 import {
-  getPopulationStepAnchorIndex,
   POPULATION_AGGREGATE_OPERATORS,
   parseAggregateFilterForEditor,
 } from "shared/populations";
-import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
@@ -42,24 +34,16 @@ const WINDOW_UNITS: { value: WindowSettings["windowUnit"]; label: string }[] = [
 const DEFAULT_AGGREGATE_FILTER = ">=2";
 
 export default function PopulationStepCard({
-  steps,
-  index,
+  step,
   datasource,
   userIdTypes,
   onChange,
-  onMove,
-  onRemove,
 }: {
-  steps: PopulationStep[];
-  index: number;
+  step: PopulationStep;
   datasource: string;
   userIdTypes: string[];
   onChange: (step: PopulationStep) => void;
-  onMove: (to: number) => void;
-  onRemove: () => void;
 }) {
-  const step = steps[index];
-  const isFirst = index === 0;
   const { factTables } = useDefinitions();
   const { factTable } = useFullFactTable(step.source.factTableId || null);
 
@@ -98,27 +82,11 @@ export default function PopulationStepCard({
           borderRadius: "var(--radius-3) var(--radius-3) 0 0",
         }}
       >
-        <Badge label={`Step ${index + 1}`} color="violet" variant="soft" />
-        {isFirst ? (
-          <Text size="sm">Has</Text>
-        ) : (
-          <SegmentedControl.Root
-            size={radixSize("sm")}
-            value={step.negation ? "doesNotHave" : "has"}
-            onValueChange={(v) => update({ negation: v === "doesNotHave" })}
-            aria-label={`Step ${index + 1} match type`}
-          >
-            <SegmentedControl.Item value="has">Has</SegmentedControl.Item>
-            <SegmentedControl.Item value="doesNotHave">
-              Doesn&apos;t have
-            </SegmentedControl.Item>
-          </SegmentedControl.Root>
-        )}
-        <Text size="sm">a row in</Text>
+        <Text size="sm">Has a row in</Text>
         <Box flexGrow="1" minWidth="200px">
           <SelectField
             size="small"
-            aria-label={`Step ${index + 1} fact table`}
+            aria-label="Fact table"
             value={step.source.factTableId}
             onChange={(factTableId) =>
               update({
@@ -135,38 +103,6 @@ export default function PopulationStepCard({
             }
           />
         </Box>
-        <Flex gap="1">
-          <IconButton
-            variant="ghost"
-            color="gray"
-            size={radixSize("sm")}
-            aria-label="Move step up"
-            disabled={isFirst}
-            onClick={() => onMove(index - 1)}
-          >
-            <PiArrowUp />
-          </IconButton>
-          <IconButton
-            variant="ghost"
-            color="gray"
-            size={radixSize("sm")}
-            aria-label="Move step down"
-            disabled={index === steps.length - 1}
-            onClick={() => onMove(index + 1)}
-          >
-            <PiArrowDown />
-          </IconButton>
-          <IconButton
-            variant="ghost"
-            color="gray"
-            size={radixSize("sm")}
-            aria-label="Delete step"
-            disabled={steps.length === 1}
-            onClick={onRemove}
-          >
-            <PiTrash />
-          </IconButton>
-        </Flex>
       </Flex>
 
       <Grid columns="64px 1fr" gapX="3" gapY="3" align="center" p="3">
@@ -186,7 +122,6 @@ export default function PopulationStepCard({
         {step.aggregateFilterColumn !== undefined && (
           <StepRow label="having">
             <AggregateFilterInput
-              stepNumber={index + 1}
               factTable={factTable}
               column={step.aggregateFilterColumn}
               filter={step.aggregateFilter ?? ""}
@@ -206,8 +141,6 @@ export default function PopulationStepCard({
 
         <StepRow label="when">
           <WindowInput
-            steps={steps}
-            index={index}
             value={step.windowSettings}
             onChange={(windowSettings) => update({ windowSettings })}
           />
@@ -275,7 +208,6 @@ function StepRow({
 }
 
 function AggregateFilterInput({
-  stepNumber,
   factTable,
   column,
   filter,
@@ -283,7 +215,6 @@ function AggregateFilterInput({
   onChange,
   onRemove,
 }: {
-  stepNumber: number;
   factTable: Omit<FactTableInterface, "sql"> | null;
   column: string;
   filter: string;
@@ -291,8 +222,6 @@ function AggregateFilterInput({
   onChange: (column: string, filter: string) => void;
   onRemove: () => void;
 }) {
-  // Read from `filter` on every render rather than copying it into state, so
-  // the controls always show the step they belong to.
   const parsedAggregateFilter = parseAggregateFilterForEditor(filter);
 
   const columnOptions = useMemo(
@@ -321,7 +250,7 @@ function AggregateFilterInput({
       <Box minWidth="160px">
         <SelectField
           size="small"
-          aria-label={`Step ${stepNumber} aggregate column`}
+          aria-label="Aggregate column"
           value={column}
           onChange={(v) => onChange(v, filter)}
           options={columnOptions}
@@ -334,14 +263,14 @@ function AggregateFilterInput({
           value={filter}
           onChange={(e) => onChange(column, e.target.value)}
           placeholder=">=3,<10"
-          aria-label={`Step ${stepNumber} aggregate filter`}
+          aria-label="Aggregate filter"
           style={{ width: 120 }}
         />
       ) : (
         <>
           <Select
             size="sm"
-            aria-label={`Step ${stepNumber} aggregate operator`}
+            aria-label="Aggregate operator"
             value={parsedAggregateFilter.operator}
             setValue={(op) =>
               onChange(column, `${op}${parsedAggregateFilter.value}`)
@@ -364,7 +293,7 @@ function AggregateFilterInput({
                 `${parsedAggregateFilter.operator}${e.target.value}`,
               )
             }
-            aria-label={`Step ${stepNumber} aggregate filter value`}
+            aria-label="Aggregate filter value"
             style={{ width: 80 }}
           />
         </>
@@ -376,7 +305,7 @@ function AggregateFilterInput({
         variant="ghost"
         color="gray"
         size={radixSize("sm")}
-        aria-label={`Remove step ${stepNumber} aggregate filter`}
+        aria-label="Remove aggregate filter"
         onClick={onRemove}
       >
         <PiX />
@@ -386,23 +315,17 @@ function AggregateFilterInput({
 }
 
 function WindowInput({
-  steps,
-  index,
   value,
   onChange,
 }: {
-  steps: PopulationStep[];
-  index: number;
   value: WindowSettings;
   onChange: (value: WindowSettings) => void;
 }) {
-  const anchorIndex = getPopulationStepAnchorIndex(steps, index);
-
   return (
     <Flex align="center" gap="2" wrap="wrap">
       <Select
         size="sm"
-        aria-label={`Step ${index + 1} window type`}
+        aria-label="Window type"
         value={value.type || "any"}
         setValue={(v) => {
           const type = v === "any" ? "" : (v as WindowSettings["type"]);
@@ -414,9 +337,6 @@ function WindowInput({
         }}
       >
         <SelectItem value="any">At any time</SelectItem>
-        {anchorIndex !== null && (
-          <SelectItem value="conversion">Within</SelectItem>
-        )}
         <SelectItem value="lookback">In the last</SelectItem>
       </Select>
       {value.type && (
@@ -429,12 +349,12 @@ function WindowInput({
             onChange={(e) =>
               onChange({ ...value, windowValue: Number(e.target.value) })
             }
-            aria-label={`Step ${index + 1} window length`}
+            aria-label="Window length"
             style={{ width: 72 }}
           />
           <Select
             size="sm"
-            aria-label={`Step ${index + 1} window unit`}
+            aria-label="Window unit"
             value={value.windowUnit}
             setValue={(windowUnit) =>
               onChange({
@@ -449,11 +369,6 @@ function WindowInput({
               </SelectItem>
             ))}
           </Select>
-          {value.type === "conversion" && anchorIndex !== null && (
-            <Text size="sm" color="text-mid">
-              after step {anchorIndex + 1}
-            </Text>
-          )}
         </>
       )}
     </Flex>
