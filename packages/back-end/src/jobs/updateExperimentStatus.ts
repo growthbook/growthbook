@@ -8,7 +8,10 @@ import {
   getExperimentsWithScheduledStatusUpdate,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import {
+  assertScheduledStartNotHardBlocked,
+  executeExperimentStart,
+} from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { applyScheduledExperimentStop } from "back-end/src/services/experimentScheduling";
 import {
   assertCanRunExperimentInAffectedEnvironments,
@@ -169,6 +172,9 @@ export const updateSingleExperimentStatus = async (
           });
           return;
         }
+
+        // Transient, not terminal: retried to the cap, then given up with a notice.
+        await assertScheduledStartNotHardBlocked(armer, experiment);
 
         const { updated } = await executeExperimentStart(armer, experiment);
         await armer.auditLog({

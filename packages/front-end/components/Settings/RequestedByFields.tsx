@@ -47,7 +47,7 @@ const RequestedByFields: FC<{
         </Text>
         <SelectField
           aria-label="Header"
-          size="small"
+          size="md"
           sort={false}
           isSearchable={false}
           value={header}
@@ -68,7 +68,7 @@ const RequestedByFields: FC<{
             </Text>
             <SelectField
               aria-label="Permissions"
-              size="small"
+              size="md"
               sort={false}
               isSearchable={false}
               value={permissions}

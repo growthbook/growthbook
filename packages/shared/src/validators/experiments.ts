@@ -17,6 +17,7 @@ import {
   paginationQueryFields,
   apiPaginationFieldsValidator,
   ignoreWarningsBodyField,
+  bypassApprovalPublishBodyField,
   booleanQueryField,
   csvQueryField,
   HUMAN_OVERRIDE_NOTE,
@@ -312,6 +313,23 @@ export type ExperimentAnalysisSettings = z.infer<
   typeof experimentAnalysisSettings
 >;
 
+/**
+ * An unsaved analysis draft: only the touched fields, with anything outside the
+ * analysis settings stripped so a draft can't edit the rest of the experiment.
+ */
+export const experimentAnalysisSettingsDraft = experimentAnalysisSettings
+  .partial()
+  .extend({
+    precomputedUnitDimensionIds: z
+      .array(z.string())
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+      .optional(),
+  })
+  .strip();
+export type ExperimentAnalysisSettingsDraft = z.infer<
+  typeof experimentAnalysisSettingsDraft
+>;
+
 export const experimentAnalysisSummaryHealth = z.object({
   srm: z.number(),
   multipleExposures: z.number(),
@@ -538,6 +556,9 @@ export const experimentInterface = z
           .strict(),
       )
       .optional(),
+    // Feature Flags whose removal waits on a draft taking out the experiment's
+    // live rule; each unlinks once nothing live or open still has the rule.
+    pendingFeatureUnlinks: z.array(z.string()).optional(),
     manualLaunchChecklist: manualLaunchChecklistValidator.optional(),
     type: z.enum(experimentType).optional(),
     banditStage: z.enum(banditStageType).optional(),
@@ -1600,6 +1621,7 @@ const updateExperimentBody = z
       .optional(),
     name: z.string().describe(EXPERIMENT_NAME_DESCRIPTION).optional(),
     type: z.enum(["standard", "multi-armed-bandit"]).optional(),
+    bypassApproval: bypassApprovalPublishBodyField,
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")
@@ -1812,6 +1834,7 @@ const postExperimentStartBody = z
         `If true, skips validating the experiment satisfies all pre-launch checklist items. ${HUMAN_OVERRIDE_NOTE}`,
       )
       .optional(),
+    bypassApproval: bypassApprovalPublishBodyField,
     ignoreWarnings: ignoreWarningsBodyField,
   })
   .strict()
@@ -2052,6 +2075,73 @@ export const getExperimentNamesValidator = {
   path: "/experiment-names",
 };
 
+export const linkedChangesResolution = z.enum(["materialize", "remove"]);
+
+const linkedChangesField = linkedChangesResolution
+  .optional()
+  .describe(
+    'Required while the experiment still serves through linked changes. "materialize" keeps a stopped experiment\'s released variation as a permanent force rule on each linked Feature Flag; "remove" acknowledges that the linked changes stop serving.',
+  );
+
+export const postExperimentArchiveValidator = {
+  bodySchema: z.object({ linkedChanges: linkedChangesField }).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({ experiment: apiExperimentWithEnhancedStatus })
+    .strict(),
+  summary: "Archive an experiment",
+  description:
+    "An archived experiment leaves the SDK payload. Refused while a running experiment or a temporary rollout still serves through linked changes unless `linkedChanges` says what happens to them.",
+  operationId: "postExperimentArchive",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/archive",
+  confirmation: [
+    "experiment.stop",
+    "feature.publish",
+    "feature.archive",
+  ] as const,
+};
+
+export const postExperimentUnarchiveValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({ experiment: apiExperimentWithEnhancedStatus })
+    .strict(),
+  summary: "Unarchive an experiment",
+  operationId: "postExperimentUnarchive",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/unarchive",
+  confirmation: ["experiment.draft"] as const,
+};
+
+export const deleteExperimentValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ linkedChanges: linkedChangesField }).strict(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      deletedId: z.string().describe("The ID of the deleted experiment"),
+    })
+    .strict(),
+  summary: "Delete an experiment",
+  description:
+    'Archive first: a live experiment can only be deleted when the organization allows the REST API to bypass approval requirements. Linked Feature Flags lose their experiment rule unless `linkedChanges` is "materialize".',
+  operationId: "deleteExperiment",
+  tags: ["experiments"],
+  method: "delete" as const,
+  path: "/experiments/:id",
+  confirmation: [
+    "experiment.stop",
+    "feature.publish",
+    "feature.archive",
+  ] as const,
+};
+
 export const getExperimentValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
@@ -2164,7 +2254,7 @@ export const postExperimentStartValidator = {
     .strict(),
   summary: "Start/Stage an experiment",
   description:
-    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment.",
+    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment. Starting publishes any pending Feature Flag drafts linked to the experiment; when those still need approval the start fails with `pending_draft_publish_failed`, unless the caller has Bypass draft approvals access or the organization enables the REST API approval bypass, in which case approval is bypassed automatically.",
   confirmation: [
     "experiment.start",
     "override.skipChecklist",

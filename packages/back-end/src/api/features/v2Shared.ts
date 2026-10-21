@@ -488,23 +488,25 @@ export async function assertValidExperimentRefRule(
 }
 
 // Experiment-ref rules must point at an experiment the caller can read, and
-// their variations must match it. Each referenced experiment is loaded once.
+// their variations must match it. Each referenced experiment is loaded once;
+// `planned` stands in for one the same save is changing.
 export async function assertValidRuleExperimentIds(
   rules: FeatureRule[],
   context: ReqContext | ApiReqContext,
+  planned: ExperimentInterface[] = [],
 ): Promise<void> {
   const refs = rules.filter(
     (r): r is Extract<FeatureRule, { type: "experiment-ref" }> =>
       r.type === "experiment-ref",
   );
   if (!refs.length) return;
-  const experiments = new Map(
-    (
-      await getExperimentsByIds(context, [
-        ...new Set(refs.map((r) => r.experimentId)),
-      ])
-    ).map((e) => [e.id, e]),
+  const experiments = new Map(planned.map((e) => [e.id, e]));
+  const toLoad = [...new Set(refs.map((r) => r.experimentId))].filter(
+    (id) => !experiments.has(id),
   );
+  for (const e of await getExperimentsByIds(context, toLoad)) {
+    experiments.set(e.id, e);
+  }
   for (const rule of refs) {
     const experiment = experiments.get(rule.experimentId);
     if (!experiment) {
@@ -539,6 +541,7 @@ export async function assertValidChangedRuleExperimentIds(
   inbound: FeatureRule[],
   stored: FeatureRule[],
   context: ReqContext | ApiReqContext,
+  planned: ExperimentInterface[] = [],
 ): Promise<void> {
   await assertValidRuleExperimentIds(
     inbound.filter(
@@ -547,6 +550,7 @@ export async function assertValidChangedRuleExperimentIds(
         experimentRefChanged(rule, findStoredRuleCounterpart(stored, rule)),
     ),
     context,
+    planned,
   );
 }
 

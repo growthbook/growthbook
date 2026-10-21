@@ -5,11 +5,11 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import React from "react";
-import { FaExclamationCircle, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
 import { PiArrowSquareOut, PiFolderDuotone } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { getPercentileLabel } from "@/services/metrics";
@@ -146,6 +146,7 @@ export default function MetricName({
   badgeColor,
   officialBadgePosition = "right",
   officialBadgeLeftGap = true,
+  hideGroupTooltip = false,
 }: {
   id?: string;
   metric?: ExperimentMetricDefinition;
@@ -156,6 +157,8 @@ export default function MetricName({
   isGroup?: boolean;
   showGroupIcon?: boolean;
   metrics?: { metric: ExperimentMetricDefinition | null; joinable: boolean }[];
+  /** Skip the group count's metric-list tooltip, e.g. in a card that lists them. */
+  hideGroupTooltip?: boolean;
   showLink?: boolean;
   badgeColor?: string;
   officialBadgePosition?: "left" | "right";
@@ -170,9 +173,29 @@ export default function MetricName({
     if (!metricGroup) {
       return <>{id}</>;
     }
-    const allJoinable = metrics?.every((m) => m.joinable) ?? true;
-    const allNonConversionWindow = metrics?.every(
+    // Callers that know joinability pass it; otherwise list the group's own.
+    const groupMetrics =
+      metrics ??
+      metricGroup.metrics.map((metricId) => ({
+        metric: getExperimentMetricById(metricId),
+        joinable: true,
+      }));
+    const allJoinable = groupMetrics.every((m) => m.joinable);
+    const allNonConversionWindow = groupMetrics.every(
       (m) => m?.metric?.windowSettings?.type !== "conversion",
+    );
+
+    const conversionWarning =
+      !!filterConversionWindowMetrics && !allNonConversionWindow;
+    const groupCount = (
+      <Badge
+        ml="1"
+        size="xs"
+        radius="full"
+        variant="soft"
+        color={!allJoinable ? "red" : conversionWarning ? "amber" : "gray"}
+        label={String(metricGroup.metrics.length)}
+      />
     );
 
     return (
@@ -184,70 +207,52 @@ export default function MetricName({
           />
         ) : null}
         {metricGroup.name}
-        <Tooltip
-          className={clsx("px-1", {
-            "text-danger": !allJoinable,
-            "text-warning":
-              filterConversionWindowMetrics && !allNonConversionWindow,
-          })}
-          body={
-            <>
-              {!allJoinable ? (
-                <div className="mb-2">
-                  <HelperText status="error">
-                    Includes metrics that are not joinable
-                  </HelperText>
-                </div>
-              ) : null}
-              {filterConversionWindowMetrics && !allNonConversionWindow ? (
-                <div className="mb-2">
-                  <HelperText status="warning">
-                    Includes metrics with conversion windows
-                  </HelperText>
-                </div>
-              ) : null}
-              {metrics && metrics.length > 0 ? (
-                <>
-                  <div>Metrics in group:</div>
-                  <ul className="ml-0 pl-3 mb-0">
-                    {metrics.map((m, i) => (
-                      <li
-                        key={i}
-                        className={clsx({
-                          "text-danger": !m.joinable,
-                          "text-warning":
-                            filterConversionWindowMetrics &&
-                            m?.metric?.windowSettings?.type === "conversion",
-                        })}
-                      >
-                        {m.metric?.name}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              ) : null}
-            </>
-          }
-        >
-          <span className="ml-1 small">
-            ({metricGroup.metrics.length} metric
-            {metricGroup.metrics.length !== 1 ? "s" : ""})
-            {!allJoinable && (
-              <FaExclamationCircle
-                size={10}
-                className="position-relative text-danger ml-1"
-                style={{ top: -2 }}
-              />
-            )}
-            {filterConversionWindowMetrics && !allNonConversionWindow ? (
-              <FaExclamationTriangle
-                size={10}
-                className="position-relative text-warning ml-1"
-                style={{ top: -2 }}
-              />
-            ) : null}
-          </span>
-        </Tooltip>
+        {hideGroupTooltip ? (
+          groupCount
+        ) : (
+          <Tooltip
+            body={
+              <>
+                {!allJoinable ? (
+                  <div className="mb-2">
+                    <HelperText status="error">
+                      Includes metrics that are not joinable
+                    </HelperText>
+                  </div>
+                ) : null}
+                {conversionWarning ? (
+                  <div className="mb-2">
+                    <HelperText status="warning">
+                      Includes metrics with conversion windows
+                    </HelperText>
+                  </div>
+                ) : null}
+                {groupMetrics.length > 0 ? (
+                  <>
+                    <div>Metrics in group:</div>
+                    <ul className="ml-0 pl-3 mb-0">
+                      {groupMetrics.map((m, i) => (
+                        <li
+                          key={i}
+                          className={clsx({
+                            "text-danger": !m.joinable,
+                            "text-warning":
+                              filterConversionWindowMetrics &&
+                              m?.metric?.windowSettings?.type === "conversion",
+                          })}
+                        >
+                          {m.metric?.name}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
+              </>
+            }
+          >
+            {groupCount}
+          </Tooltip>
+        )}
         {showDescription && metricGroup.description ? (
           <span className="text-muted">
             {" "}

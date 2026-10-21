@@ -1,7 +1,11 @@
 import { getEqualWeights } from "shared/experiments";
 import {
+  capTypedPercent,
+  coverageFromPercent,
+  coverageToPercent,
   decimalToPercent,
   floatRound,
+  isEqualSplit,
   percentToDecimal,
   rebalance,
 } from "@/services/utils";
@@ -56,6 +60,20 @@ describe("variation weighting functions", () => {
     expect(decimalToPercent(0.869584, 3)).toEqual(87);
   });
 
+  it("cuts a typed weight to the decimals it keeps", () => {
+    expect(capTypedPercent("33.33333", 2)).toBe("33.33");
+    expect(capTypedPercent("33.33333", 3)).toBe("33.333");
+    expect(capTypedPercent("1000", 2)).toBe("100");
+    expect(capTypedPercent("12.", 2)).toBe("12.");
+    expect(capTypedPercent("", 2)).toBe("");
+  });
+
+  it("keeps a typed coverage as typed", () => {
+    expect(coverageFromPercent("33.3333")).toEqual(0.333333);
+    expect(coverageToPercent(0.333333)).toEqual(33.3333);
+    expect(coverageToPercent(0.5)).toEqual(50);
+  });
+
   it("rebalances weights", () => {
     expect(rebalance([0.3334, 0.3333, 0.3333], 1, 0.3406, 4)).toEqual([
       0.3334, 0.3406, 0.326,
@@ -76,5 +94,18 @@ describe("variation weighting functions", () => {
     expect(floatRound(0.546859483, 3)).toEqual(0.547);
     expect(floatRound(0.546859483, 4)).toEqual(0.5469);
     expect(floatRound(0.546859483, 5)).toEqual(0.54686);
+  });
+});
+
+describe("isEqualSplit", () => {
+  it("treats getEqualWeights as equal, including uneven counts", () => {
+    [2, 3, 6, 7].forEach((n) => {
+      expect(isEqualSplit(getEqualWeights(n))).toBe(true);
+    });
+  });
+
+  it("rejects splits that differ by more than one step", () => {
+    expect(isEqualSplit([0.25, 0.25, 0.5])).toBe(false);
+    expect(isEqualSplit([0.5001, 0.4999])).toBe(false);
   });
 });

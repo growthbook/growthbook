@@ -1077,7 +1077,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
                         </Box>
                       );
                     }}
-                    size="small"
+                    size="md"
                     sort={false}
                     isSearchable={false}
                   />

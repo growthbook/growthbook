@@ -599,6 +599,9 @@ function DiffCommentCell({
             <CommentComposer
               placeholder="Comment on this line…"
               initialValue={`${formatDiffRef(refObj, getSnapshot())}\n\n`}
+              // The quoted lines take the first rows, so the text needs room below.
+              height="lg"
+              maxHeight="xl"
               autofocus
               autofocusAtEnd
               onCancel={() => onOpenChange(false)}
@@ -1622,6 +1625,7 @@ export function formatSectionTitle(title: string): string {
 // (FeatureRevisionDiff) and the generic (DiffItem-derived) flows produce this,
 // so FormattedChanges is entity-agnostic and shared across both surfaces.
 export type FormattedChangeItem = {
+  // Empty when the surface already names the section: no heading is drawn.
   title: string;
   a: string;
   b: string;
@@ -1647,12 +1651,16 @@ export function FormattedChanges({
       {diffs.map((d) =>
         d.customRender || !jsonFallback ? (
           <Box key={d.title} p="3" my="3" className="rounded bg-light">
-            <Flex align="center" gap="2" mb="2" wrap="wrap">
-              <Heading as="h6" size="sm" color="text-mid" mb="0">
-                {formatSectionTitle(d.title)}
-              </Heading>
-              {d.titleSuffix}
-            </Flex>
+            {(d.title || d.titleSuffix) && (
+              <Flex align="center" gap="2" mb="2" wrap="wrap">
+                {d.title && (
+                  <Heading as="h6" size="sm" color="text-mid" mb="0">
+                    {formatSectionTitle(d.title)}
+                  </Heading>
+                )}
+                {d.titleSuffix}
+              </Flex>
+            )}
             {d.customRender ?? (
               <Text size="md" as="div" color="text-low">
                 This section changed.{" "}

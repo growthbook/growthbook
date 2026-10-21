@@ -71,10 +71,6 @@ export default function PublicExperimentOverview({
             linkedFeatures={linkedFeatures}
             visualChangesets={visualChangesets}
             urlRedirects={urlRedirects}
-            experiment={experiment}
-            canAddChanges={false}
-            isPublic={true}
-            canEditVisualChangesets={false}
           />
         </>
       ) : null}
@@ -88,9 +84,7 @@ export default function PublicExperimentOverview({
       />
       <DecisionMakingSettings
         experiment={experiment}
-        canEdit={false}
         ssrPolyfills={ssrPolyfills}
-        isPublic={true}
       />
     </>
   );

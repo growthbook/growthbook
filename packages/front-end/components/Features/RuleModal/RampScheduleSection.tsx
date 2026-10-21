@@ -1674,7 +1674,7 @@ export default function RampScheduleSection({
       if ("force" in patch && !hideTemplateSave) {
         rows.push(
           <ReadOnlyEffectRow label="Default value">
-            <span style={{ fontFamily: "monospace" }}>
+            <span style={{ fontFamily: "var(--code-font-family)" }}>
               {patch.force ?? "null"}
             </span>
           </ReadOnlyEffectRow>,
@@ -1802,9 +1802,7 @@ export default function RampScheduleSection({
                     {state.endPatch.coverage ?? 100}%
                   </Text>
                 ) : (
-                  <div
-                    className={`position-relative ${styles.percentInputWrap}`}
-                  >
+                  <div className={styles.percentInputWrap}>
                     <Field
                       style={{ width: COL.coverage }}
                       type="number"
@@ -2023,9 +2021,7 @@ export default function RampScheduleSection({
                               </Text>
                             </Box>
                           ) : (
-                            <div
-                              className={`position-relative ${styles.percentInputWrap}`}
-                            >
+                            <div className={styles.percentInputWrap}>
                               <Field
                                 style={{ width: COL.coverage }}
                                 type="number"

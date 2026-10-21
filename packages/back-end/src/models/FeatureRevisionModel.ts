@@ -521,24 +521,30 @@ export async function countDocuments(
   return FeatureRevisionModel.countDocuments(filter);
 }
 
+type LinkageRevisionSummary = Pick<
+  FeatureRevisionInterface,
+  "version" | "rules"
+>;
+
 /** Returns only the revisions that syncFeatureExperimentLinkages/
  * syncFeatureContextualBanditLinkages need — open drafts, plus the single
  * latest published revision — pre-split so callers don't have to re-derive
- * the distinction themselves. A feature's older superseded published
- * revisions are irrelevant to linkage syncing and deliberately excluded. */
+ * the distinction themselves. A draft cut from an older revision carries that
+ * base, to tell its own edits from what live changed since. Other superseded
+ * published revisions are irrelevant to linkage syncing. */
 export async function getLinkageSyncRevisionSummaries(
   organization: string,
   featureId: string,
 ): Promise<{
-  openDrafts: Pick<FeatureRevisionInterface, "version" | "rules">[];
-  liveRevision: Pick<FeatureRevisionInterface, "version" | "rules"> | null;
+  openDrafts: (LinkageRevisionSummary & { base?: LinkageRevisionSummary })[];
+  liveRevision: LinkageRevisionSummary | null;
 }> {
   const [openDraftDocs, liveDoc] = await Promise.all([
     FeatureRevisionModel.find({
       organization,
       featureId,
       status: { $in: ACTIVE_DRAFT_STATUSES },
-    }).select("version rules"),
+    }).select("version rules baseVersion"),
     FeatureRevisionModel.findOne({
       organization,
       featureId,
@@ -547,14 +553,31 @@ export async function getLinkageSyncRevisionSummaries(
       .sort({ version: -1 })
       .select("version rules"),
   ]);
+  const staleBaseVersions = [
+    ...new Set(
+      openDraftDocs
+        .map((d) => d.baseVersion)
+        .filter((v) => v !== liveDoc?.version),
+    ),
+  ];
+  const baseDocs = staleBaseVersions.length
+    ? await FeatureRevisionModel.find({
+        organization,
+        featureId,
+        version: { $in: staleBaseVersions },
+      }).select("version rules")
+    : [];
+  const basesByVersion = new Map(baseDocs.map((d) => [d.version, d]));
+  const summarize = (d: LinkageRevisionSummary): LinkageRevisionSummary => ({
+    version: d.version,
+    rules: d.rules,
+  });
   return {
-    openDrafts: openDraftDocs.map((d) => ({
-      version: d.version,
-      rules: d.rules,
-    })),
-    liveRevision: liveDoc
-      ? { version: liveDoc.version, rules: liveDoc.rules }
-      : null,
+    openDrafts: openDraftDocs.map((d) => {
+      const base = basesByVersion.get(d.baseVersion);
+      return { ...summarize(d), ...(base && { base: summarize(base) }) };
+    }),
+    liveRevision: liveDoc ? summarize(liveDoc) : null,
   };
 }
 
@@ -782,7 +805,7 @@ export async function getFeatureRevisionsByStatus({
   sort = "desc",
   skipPagination = false,
 }: {
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   organization: string;
   featureId?: string;
   featureIds?: string[];
@@ -3312,18 +3335,20 @@ export async function getFeatureRevisionsByFeatureIds(
   // and v2 inheritance expansion per revision so a feature scoped to a
   // project that excludes some envs doesn't surface dead rules in those envs.
   featuresByFeatureId: Record<string, RevisionFeatureContext | undefined>,
+  statuses: readonly FeatureRevisionInterface["status"][] = ACTIVE_DRAFT_STATUSES,
 ): Promise<Record<string, FeatureRevisionInterface[]>> {
   const revisionsByFeatureId: Record<string, FeatureRevisionInterface[]> = {};
 
   if (featureIds.length) {
     const revisions = await FeatureRevisionModel.find({
       organization,
-      status: { $in: ACTIVE_DRAFT_STATUSES },
+      status: { $in: statuses },
       featureId: { $in: featureIds },
     })
-      .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
-      .sort({ version: -1 })
-      .limit(10);
+      // Uncapped: a shared cap starves some flags of the draft holding their
+      // rule. The log is the one field large enough to leave behind.
+      .select("-log")
+      .sort({ version: -1 });
     revisions.forEach((revision) => {
       const featureId = revision.featureId;
       revisionsByFeatureId[featureId] = revisionsByFeatureId[featureId] || [];
@@ -3416,6 +3441,41 @@ export async function deleteRevisionForFailedLanding(
     featureId,
     version,
   );
+}
+
+// Stored shape, read past mongoose: the interface is env-filtered and
+// inheritance-expanded, so it cannot be written back as the pre-image.
+export type RevisionSnapshot = Record<string, unknown> & { dateUpdated?: Date };
+
+export async function getRevisionSnapshot(
+  organization: string,
+  featureId: string,
+  version: number,
+): Promise<RevisionSnapshot | null> {
+  return FeatureRevisionModel.collection.findOne({
+    organization,
+    featureId,
+    version,
+  });
+}
+
+// Puts a revision back exactly as it was, only while nothing but the caller has
+// written it since `writtenDateUpdated`. False = someone else's edit landed.
+export async function restoreRevisionSnapshot(
+  snapshot: RevisionSnapshot,
+  writtenDateUpdated: Date | undefined,
+): Promise<boolean> {
+  const { organization, featureId, version } = snapshot;
+  const result = await FeatureRevisionModel.collection.replaceOne(
+    {
+      organization,
+      featureId,
+      version,
+      dateUpdated: writtenDateUpdated ?? { $exists: false },
+    },
+    snapshot,
+  );
+  return result.matchedCount === 1;
 }
 
 export async function deleteAllRevisionsForFeature(

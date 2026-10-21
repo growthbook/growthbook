@@ -148,10 +148,7 @@ function TargetingForm({
               holdout. The same amount of traffic will be in the control.
             </Text>
           </Text>
-          <div
-            className={`position-relative ${variationInputStyles.percentInputWrap}`}
-            style={{ width: 110 }}
-          >
+          <div className={variationInputStyles.percentInputWrap}>
             <Field
               size="legacy"
               style={{ width: 105 }}

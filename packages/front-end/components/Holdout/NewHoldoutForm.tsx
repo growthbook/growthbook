@@ -560,8 +560,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 holdout. The same amount of traffic will be in the control.
               </Text>
               <div
-                className={`position-relative ${variationInputStyles.percentInputWrap} ${variationInputStyles.hideArrows}`}
-                style={{ width: 110 }}
+                className={`${variationInputStyles.percentInputWrap} ${variationInputStyles.hideArrows}`}
               >
                 <Field
                   size="legacy"

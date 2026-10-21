@@ -140,7 +140,6 @@ export default function ContextualBanditLinkedFeatureFlag({
     canEditFeatureDraft &&
     cb.status !== "stopped" &&
     info.state !== "discarded" &&
-    info.state !== "locked" &&
     info.state !== "archived";
 
   const cbNotStarted = cb.status === "draft";
@@ -217,11 +216,9 @@ export default function ContextualBanditLinkedFeatureFlag({
               ? "live"
               : info.state === "draft"
                 ? "draft"
-                : info.state === "locked"
-                  ? "published"
-                  : info.state === "discarded"
-                    ? "discarded"
-                    : null;
+                : info.state === "discarded"
+                  ? "discarded"
+                  : null;
           if (!revisionStatus) return null;
           return (
             <Badge
@@ -399,12 +396,8 @@ export default function ContextualBanditLinkedFeatureFlag({
               )}
             </Flex>
 
-            {info.state !== "locked" && (
-              <>
-                <Separator size="4" />
-                <EnvironmentStatesGrid environmentStates={environmentStates} />
-              </>
-            )}
+            <Separator size="4" />
+            <EnvironmentStatesGrid environmentStates={environmentStates} />
           </Box>
         )}
       </LinkedChange>

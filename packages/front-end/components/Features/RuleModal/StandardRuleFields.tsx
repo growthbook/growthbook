@@ -360,7 +360,6 @@ export default function StandardRuleFields({
           valueType={feature.valueType}
           feature={feature}
           renderJSONInline={true}
-          useCodeInput={true}
           showFullscreenButton={true}
           sparse={!!form.watch("sparse")}
           // Config-backed rules are always sparse, so the toggle is dropped and a

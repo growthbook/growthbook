@@ -311,7 +311,6 @@ export default function ConstantModal({
           value={form.watch("value")}
           setValue={(v) => form.setValue("value", v)}
           valueType={type}
-          useCodeInput={type === "json"}
           showFullscreenButton={type === "json"}
           // No cycles possible yet; just scrub a self-reference.
           constantContext={{

@@ -5,12 +5,16 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { executeExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
+import {
+  assertScheduledStartNotHardBlocked,
+  executeExperimentStart,
+} from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   assertCanRunExperimentInAffectedEnvironments,
   getScheduledStatusContext,
 } from "back-end/src/services/experiments";
 import { notifyScheduledStatusUpdateFailed } from "back-end/src/services/experimentNotifications";
+import { ChecklistIncompleteError } from "back-end/src/util/errors";
 
 // A staged status change fires as whoever armed it, user or API key, checked
 // again at fire time. Nobody to run as, or no authority, and the job does not
@@ -37,6 +41,7 @@ jest.mock("back-end/src/services/experimentScheduling", () => ({
 jest.mock(
   "back-end/src/services/experimentChanges/changeExperimentStatus",
   () => ({
+    assertScheduledStartNotHardBlocked: jest.fn(),
     executeExperimentStart: jest.fn(async (_ctx, experiment) => ({
       updated: { ...experiment, status: "running" },
     })),
@@ -87,9 +92,42 @@ describe("updateSingleExperimentStatus", () => {
       armer,
       draft,
     );
+    expect(assertScheduledStartNotHardBlocked).toHaveBeenCalledWith(
+      armer,
+      draft,
+    );
     expect(executeExperimentStart).toHaveBeenCalledWith(armer, draft);
     expect(armer.auditLog).toHaveBeenCalled();
     expect(notifyScheduledStatusUpdateFailed).not.toHaveBeenCalled();
+  });
+
+  it("retries without starting when a hard block appeared after approval", async () => {
+    (assertScheduledStartNotHardBlocked as jest.Mock).mockRejectedValueOnce(
+      new ChecklistIncompleteError("Experiment cannot be started", [
+        {
+          key: "unrelatedDraftChanges:flag_1",
+          required: true,
+          status: "incomplete",
+          manual: false,
+          reason: "",
+          hardBlock: true,
+        },
+      ]),
+    );
+    await updateSingleExperimentStatus(job);
+    expect(executeExperimentStart).not.toHaveBeenCalled();
+    expect(updateExperiment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: {
+          nextScheduledStatusUpdate: expect.objectContaining({
+            failedAttempts: 1,
+          }),
+        },
+      }),
+    );
+    expect(notifyScheduledStatusUpdateFailed).toHaveBeenCalledWith(
+      expect.objectContaining({ willRetry: true }),
+    );
   });
 
   it("gives up at once when the armer may no longer run the experiment", async () => {

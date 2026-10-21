@@ -1,10 +1,9 @@
 import React, { useCallback, useState } from "react";
 import { Box, Text } from "@radix-ui/themes";
 import { AgreementType } from "shared/validators";
-import { PiCaretRight } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useUser } from "@/services/UserContext";
 import Checkbox from "@/ui/Checkbox";
 
@@ -118,8 +117,6 @@ const OptInModal = ({
   onConfirm,
   onClose,
 }: Props): React.ReactElement => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [checked, setChecked] = useState(false);
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
@@ -135,8 +132,6 @@ const OptInModal = ({
     consentText,
   } = agreements[agreement] || {};
   const logAgree = useCallback(async () => {
-    setLoading(true);
-    // send API call to log the agreement
     const res = await apiCall<{ status: number; message?: string }>(
       `/agreements/agree/`,
       {
@@ -147,104 +142,80 @@ const OptInModal = ({
         }),
       },
     );
-    setLoading(false);
     if (!res || res.status !== 200) {
-      // handle error
-      setError("Failed to log your agreement");
-    } else {
-      // they agreed to the terms... if this is the AI agreement, we need to update the user settings
-      if (agreement === "ai") {
-        // update the user settings to reflect the agreement
-        await apiCall(`/organization`, {
-          method: "PUT",
-          body: JSON.stringify({
-            settings: { aiEnabled: true },
-          }),
-        });
-      }
-      await refreshOrganization();
-      if (onConfirm) onConfirm();
-      if (onClose) onClose();
+      throw new Error("Failed to log your agreement");
     }
-  }, [agreement, apiCall, onClose, onConfirm, refreshOrganization, version]);
+    // they agreed to the terms... if this is the AI agreement, we need to update the user settings
+    if (agreement === "ai") {
+      await apiCall(`/organization`, {
+        method: "PUT",
+        body: JSON.stringify({
+          settings: { aiEnabled: true },
+        }),
+      });
+    }
+    await refreshOrganization();
+    onConfirm?.();
+  }, [agreement, apiCall, onConfirm, refreshOrganization, version]);
 
   if (!agreements[agreement]) {
     return <></>;
   }
 
+  // A Radix dialog, so it stacks over another one it's opened from.
   return (
-    <>
-      <Modal
-        trackingEventModalType="modal-opt-in"
-        open={true}
-        submit={isAdmin ? logAgree : undefined}
-        close={() => {
-          if (onClose) onClose();
-        }}
-        size="lg"
-        header={null}
-        showHeaderCloseButton={false}
-        cta={
-          <>
-            I Agree <PiCaretRight size={16} />
-          </>
-        }
-        ctaEnabled={isAdmin && checked}
-        loading={loading}
-        error={error}
-        closeCta={isAdmin ? `No thanks` : `Close`}
-      >
-        <>
-          <Text
-            size="5"
-            weight="bold"
-            style={{ color: "var(--color-text-high)" }}
-          >
-            {isAdmin ? title : noPermissionTitle}
-          </Text>
-          {isAdmin ? (
-            <Box
-              style={{
-                fontSize: "var(--font-size-3)",
-                color: "var(--color-text-high)",
-              }}
-            >
-              {subtitle !== "" && (
-                <Box mb="3">
-                  <Text
-                    size="3"
-                    weight="regular"
-                    style={{ color: "var(--color-text-mid)" }}
-                  >
-                    {subtitle}
-                  </Text>
-                </Box>
-              )}
-              <Box mt="5" mb="3">
-                {terms}
-              </Box>
-              <Checkbox
-                mt="2"
-                size="md"
-                label="I agree"
-                labelSize="lg"
-                value={checked}
-                setValue={(v) => {
-                  setChecked(v);
-                }}
-              />
-              <Box ml="5">{consentText}</Box>
-            </Box>
-          ) : (
-            <Box mb="3" mt="5">
-              <Text size="3" style={{ color: "var(--color-text-high)" }}>
-                {noPermission}
+    <ModalStandard
+      trackingEventModalType="modal-opt-in"
+      open={true}
+      header={(isAdmin ? title : noPermissionTitle) ?? title}
+      submit={isAdmin ? logAgree : undefined}
+      close={() => onClose?.()}
+      size="lg"
+      cta="I agree"
+      ctaEnabled={isAdmin && checked}
+      closeCta={isAdmin ? "No thanks" : "Close"}
+    >
+      {isAdmin ? (
+        <Box
+          style={{
+            fontSize: "var(--font-size-3)",
+            color: "var(--color-text-high)",
+          }}
+        >
+          {subtitle !== "" && (
+            <Box mb="3">
+              <Text
+                size="3"
+                weight="regular"
+                style={{ color: "var(--color-text-mid)" }}
+              >
+                {subtitle}
               </Text>
             </Box>
           )}
-        </>
-      </Modal>
-    </>
+          <Box mt="5" mb="3">
+            {terms}
+          </Box>
+          <Checkbox
+            mt="2"
+            size="md"
+            label="I agree"
+            labelSize="lg"
+            value={checked}
+            setValue={(v) => {
+              setChecked(v);
+            }}
+          />
+          <Box ml="5">{consentText}</Box>
+        </Box>
+      ) : (
+        <Box mb="3" mt="5">
+          <Text size="3" style={{ color: "var(--color-text-high)" }}>
+            {noPermission}
+          </Text>
+        </Box>
+      )}
+    </ModalStandard>
   );
 };
 export default OptInModal;

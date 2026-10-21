@@ -37,6 +37,7 @@ import {
   RampStepAction,
   SafeRolloutInterface,
   SafeRolloutRule,
+  stripUnknownRuleFields,
 } from "shared/validators";
 import {
   PostFeatureRuleBody,
@@ -1680,6 +1681,9 @@ export default function RuleModal({
         hasDescription: values.description && values.description.length > 0,
         numEnvironments: selectedEnvironments.length,
       });
+      // The form carries widget-only fields for every rule type; drop the ones
+      // this type doesn't store, or they read as changes in every later diff.
+      values = stripUnknownRuleFields(values);
       let res: { version: number } | undefined;
 
       if (mode === "edit") {

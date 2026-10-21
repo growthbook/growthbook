@@ -4,6 +4,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Text from "@/ui/Text";
 import ValueDisplay from "./ValueDisplay";
+import { ActionsOverlay } from "./CornerActions";
 import ConfigBackedSummary from "./ConfigBackedSummary";
 
 export default function ForceSummary({
@@ -13,17 +14,31 @@ export default function ForceSummary({
   sparse = false,
   isDefault = false,
   environment,
+  label = "SERVE",
+  fontSize,
+  lineHeight,
+  actionsOverlay,
+  showCopyButton = true,
+  monochrome,
 }: {
   value: string;
   feature: FeatureInterface;
   maxHeight?: number;
   sparse?: boolean;
+  // null for surfaces that already label the value.
+  label?: string | null;
+  // Denser type for a cramped surface; defaults are ValueDisplay's own.
+  fontSize?: string;
+  lineHeight?: number;
+  actionsOverlay?: ActionsOverlay;
   // The feature's default value (vs a rule). A config-backed default is a pure
   // config with no overrides, so the "with overrides" tag never applies to it.
   isDefault?: boolean;
   // Environment this value is shown for, so a config-backed value previews its
   // matching env flavor. Absent (e.g. all-environments view) = the base value.
   environment?: string;
+  showCopyButton?: boolean;
+  monochrome?: boolean;
 }) {
   // Mirror the SDK compiler: a value resolves a config ONLY when the feature is
   // config-backed (baseConfig set). A stray `@config:` hand-typed into a plain
@@ -43,6 +58,11 @@ export default function ForceSummary({
         sparse={sparse}
         isDefault={isDefault}
         environment={environment}
+        label={label}
+        showCopyButton={showCopyButton}
+        fontSize={fontSize}
+        lineHeight={lineHeight}
+        actionsOverlay={actionsOverlay}
       />
     );
   }
@@ -50,14 +70,19 @@ export default function ForceSummary({
   return (
     <>
       <Flex direction="row" gap="2">
-        <Text weight="medium">SERVE</Text>
+        {label !== null && <Text weight="medium">{label}</Text>}
         <Box width="100%">
           <ValueDisplay
             value={value}
             type={feature.valueType}
             showFullscreenButton={true}
+            showCopyButton={showCopyButton}
             sparse={sparse}
             defaultValue={feature.defaultValue}
+            fontSize={fontSize}
+            lineHeight={lineHeight}
+            monochrome={monochrome}
+            actionsOverlay={actionsOverlay}
             fullStyle={{
               maxHeight: maxHeight ?? 150,
               overflowY: "auto",

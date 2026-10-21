@@ -20,6 +20,8 @@ export interface Props {
   close: () => void;
   source?: string;
   holdout?: HoldoutInterfaceStringDates;
+  // Where a draft experiment starts, so its checks aren't skipped here.
+  openStart: (() => void) | null;
 }
 
 export default function EditStatusModal({
@@ -28,6 +30,7 @@ export default function EditStatusModal({
   mutate,
   source,
   holdout,
+  openStart,
 }: Props) {
   const isHoldout = experiment.type === "holdout";
   const form = useForm<{
@@ -47,6 +50,11 @@ export default function EditStatusModal({
     },
   });
   const { apiCall } = useAuth();
+  const startsElsewhere =
+    !isHoldout &&
+    !!openStart &&
+    experiment.status === "draft" &&
+    form.watch("status") === "running";
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
   const statusOptions = [
@@ -87,6 +95,10 @@ export default function EditStatusModal({
           dateEnded: string;
           holdoutRunningStatus?: "running" | "analysis-period";
         }) => {
+          if (startsElsewhere) {
+            openStart();
+            return;
+          }
           const status = value.status;
           if (isHoldout && status === "analysis") {
             value.holdoutRunningStatus = "analysis-period";
@@ -117,8 +129,8 @@ export default function EditStatusModal({
           }
         },
       )}
-      cta="Update"
-      ctaColor="red"
+      cta={startsElsewhere ? "Continue" : "Update"}
+      ctaColor={startsElsewhere ? "violet" : "red"}
     >
       {isHoldout && (
         <Box mb="4">
@@ -129,7 +141,7 @@ export default function EditStatusModal({
           </Text>
         </Box>
       )}
-      {hasLinkedChanges && (
+      {hasLinkedChanges && !startsElsewhere && (
         <Callout status="warning" mb="4">
           Changes you make here will immediately affect any linked Feature Flags
           or Visual Changes.

@@ -2,23 +2,49 @@ import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
+  Variation,
 } from "shared/types/experiment";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import {
+  VisualChange,
+  VisualChangesetInterface,
+} from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
-import { experimentHasLiveLinkedChanges } from "shared/util";
-import { getActivePhaseIndex } from "shared/experiments";
-import { Flex } from "@radix-ui/themes";
-import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
+import {
+  canEditDeliveryInPlace,
+  experimentHasLinkedChanges,
+  getLinkedChangeEnvs,
+} from "shared/util";
+import {
+  getActivePhaseIndex,
+  getLatestPhaseVariations,
+} from "shared/experiments";
+import { Flex, Separator } from "@radix-ui/themes";
+import UrlRedirectColumn from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
+import {
+  ADDABLE_KINDS,
+  AddImplementationMenu,
+} from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
+import VisualChangesetColumn from "@/components/Experiment/VisualChangesetTable";
+import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
+import {
+  ColumnLayout,
+  ImplementationColumn,
+} from "@/components/Experiment/TabbedPage/ImplementationColumn";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
+import EditVariationKeysModal from "@/components/Experiment/EditVariationKeysModal";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
-import TrafficAllocationFunnel from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
+import TrafficAllocationFunnel, {
+  TargetingDraft,
+} from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
-import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
+import AnalysisPlan from "@/components/Experiment/TabbedPage/AnalysisPlan";
+import DecisionPlan from "@/components/Experiment/TabbedPage/DecisionPlan";
 import Callout from "@/ui/Callout";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable";
@@ -30,10 +56,53 @@ import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
+import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import HoldoutEnvironments from "./HoldoutEnvironments";
+import VariationDetails from "./VariationDetails";
+import {
+  experimentFieldChanges,
+  FlagEnvironmentsDraft,
+  HoldoutDraft,
+  useCheckExperimentChanges,
+  useRegisterExperimentEdit,
+  useStagedState,
+} from "./ExperimentEdits";
+import {
+  addRedirect,
+  editRedirect,
+  EMPTY_LINKED_CHANGES,
+  hasSetAsideVisualChanges,
+  LinkedChangesDraft,
+  linkedChangesBody,
+  newRedirectKey,
+  pruneLinkedChanges,
+  RedirectFields,
+  removeRedirect,
+  removeVisual,
+  ShownRedirect,
+  shownUrlRedirects,
+  shownVisualChangesets,
+  stageVisualChange,
+  stageVisualTargeting,
+  undoRedirect,
+  undoVisual,
+  VisualTargeting,
+} from "./linkedChangesDraft";
+
+const LINKED_CHANGES_EDIT_ID = "linked-changes";
+
+/** Where the pre-launch checklist sends you to add linked changes. */
+export const IMPLEMENTATION_ID = "experiment-implementation";
+
+const LINKED_CHANGES_LOCKED_REASON =
+  "URL Redirects and AI Visual Editor changes serve in every environment, so changing them needs permission to run this experiment in all of them.";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  /** Viewing an old phase: nothing staged here can change. */
+  disableEditing?: boolean;
+  /** The page's staged holdout, which the traffic funnel edits. */
+  holdoutDraft?: HoldoutDraft;
   holdout?: HoldoutInterfaceStringDates;
   holdoutFeatures?: FeatureInterface[];
   holdoutExperiments?: ExperimentInterfaceStringDates[];
@@ -41,13 +110,14 @@ export interface Props {
   urlRedirects: URLRedirectInterface[];
   mutate: () => void;
   editTargeting?: (() => void) | null;
-  editTraffic?: ((variationId?: string) => void) | null;
-  addVariation?: (() => void) | null;
+  targetingDraft?: TargetingDraft;
+  analysisSettingsOpen: boolean;
+  setAnalysisSettingsOpen: (open: boolean) => void;
+  editTraffic?: (() => void) | null;
+  canAddVariation?: boolean;
   editNamespace?: (() => void) | null;
-  editVariations?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
-  setUrlRedirectModal: (open: boolean) => void;
   linkedFeatures: LinkedFeatureInfo[];
   envs: string[];
   visualChangesetEnvStates?: LinkedChangeEnvStates;
@@ -56,6 +126,8 @@ export interface Props {
 
 export default function Implementation({
   experiment,
+  disableEditing,
+  holdoutDraft,
   holdout,
   holdoutExperiments,
   holdoutFeatures,
@@ -63,13 +135,14 @@ export default function Implementation({
   urlRedirects,
   mutate,
   editTargeting,
+  targetingDraft,
+  analysisSettingsOpen,
+  setAnalysisSettingsOpen,
   editTraffic,
-  addVariation,
+  canAddVariation,
   editNamespace,
-  editVariations,
   setFeatureModal,
   setVisualEditorModal,
-  setUrlRedirectModal,
   linkedFeatures,
   envs,
   visualChangesetEnvStates,
@@ -80,8 +153,51 @@ export default function Implementation({
   const [editMetadataIndex, setEditMetadataIndex] = useState<number | null>(
     null,
   );
+  const [editingKeys, setEditingKeys] = useState(false);
   const phases = experiment.phases || [];
   const { apiCall } = useAuth();
+
+  // Variation changes wait for the page's Save, like targeting; everything
+  // that shows the variations reads them from here meanwhile.
+  const [variationsDraft, setVariationsDraft] = useStagedState<
+    Variation[] | null
+  >("variations", null);
+  const stagedExperiment = useMemo(
+    () => withStagedVariations(experiment, variationsDraft),
+    [experiment, variationsDraft],
+  );
+  // Laid out like the variation cards above, staged edits included.
+  const shownVariations = getLatestPhaseVariations(stagedExperiment);
+  const shownVariationIds = shownVariations.map((v) => v.id);
+  const [environmentScopes, setEnvironmentScopes] = useStagedState<
+    FlagEnvironmentsDraft["value"]
+  >("flag-environments", {});
+  const flagEnvironments: FlagEnvironmentsDraft = useMemo(
+    () => ({
+      value: environmentScopes,
+      set: (featureId, scope) =>
+        setEnvironmentScopes((prev) => {
+          const next = { ...prev };
+          if (scope) next[featureId] = scope;
+          else delete next[featureId];
+          return next;
+        }),
+    }),
+    [environmentScopes, setEnvironmentScopes],
+  );
+  useRegisterExperimentEdit("variations", !!variationsDraft, {
+    label: "Variations",
+    changes: () =>
+      experimentFieldChanges(experiment, {
+        variations: variationsDraft ?? experiment.variations,
+        // The split the page shows, so both writes agree on the count.
+        variationWeights:
+          targetingDraft?.value?.variationWeights ??
+          phases[phases.length - 1]?.variationWeights,
+      }),
+    onSaved: () => setVariationsDraft(null),
+    discard: () => setVariationsDraft(null),
+  });
 
   // Only a pending scheduled START should lock down editing (the experiment is
   // about to launch). A scheduled STOP (an end date on a running experiment)
@@ -91,12 +207,106 @@ export default function Implementation({
 
   const permissionsUtil = usePermissionsUtil();
 
+  // URL Redirect and Visual Editor edits, staged like the rest.
+  const [linkedDraft, setLinkedDraft] = useStagedState<LinkedChangesDraft>(
+    LINKED_CHANGES_EDIT_ID,
+    EMPTY_LINKED_CHANGES,
+  );
+  const stagedLinked = pruneLinkedChanges(
+    linkedDraft,
+    urlRedirects,
+    visualChangesets,
+    shownVariationIds,
+  );
+  const linkedBody = linkedChangesBody(stagedLinked, shownVariationIds);
+  const clearLinked = () => setLinkedDraft(EMPTY_LINKED_CHANGES);
+  // One set aside by a staged variation removal stays registered, so Discard
+  // and Save still clear it.
+  useRegisterExperimentEdit(
+    LINKED_CHANGES_EDIT_ID,
+    Object.keys(linkedBody).length > 0 ||
+      (!!variationsDraft &&
+        hasSetAsideVisualChanges(
+          linkedDraft,
+          visualChangesets,
+          shownVariationIds,
+        )),
+    {
+      label: "URL redirects and visual changes",
+      changes: () => linkedBody,
+      onSaved: clearLinked,
+      discard: clearLinked,
+    },
+  );
+  const onStageVisualTargeting = useCallback(
+    (stored: VisualChangesetInterface, targeting: VisualTargeting) =>
+      setLinkedDraft((d) => stageVisualTargeting(d, stored, targeting)),
+    [setLinkedDraft],
+  );
+  const onStageVisualChange = useCallback(
+    (stored: VisualChangesetInterface, change: VisualChange) =>
+      setLinkedDraft((d) => stageVisualChange(d, stored, change)),
+    [setLinkedDraft],
+  );
+  const checkChanges = useCheckExperimentChanges();
+  const [redirectModal, setRedirectModal] = useState<{
+    // Null to add one.
+    target: ShownRedirect | null;
+  } | null>(null);
+  // Every check the save runs, so a refusal shows in the modal, not at Save.
+  const stageRedirect = async (
+    target: ShownRedirect | null,
+    fields: RedirectFields,
+  ) => {
+    const key = newRedirectKey(linkedDraft);
+    const change = (d: LinkedChangesDraft) =>
+      target ? editRedirect(d, target, fields) : addRedirect(d, key, fields);
+    await checkChanges?.(
+      LINKED_CHANGES_EDIT_ID,
+      linkedChangesBody(change(stagedLinked), shownVariationIds),
+    );
+    setLinkedDraft(change);
+  };
+  const { canEdit } = useExperimentEditing(experiment, disableEditing);
+  const { hasCommercialFeature } = useUser();
+  // Mirrors the server: a holdout changes only on a draft with nothing linked.
+  const holdoutEditable =
+    experiment.type !== "holdout" &&
+    experiment.status === "draft" &&
+    !experiment.nextScheduledStatusUpdate &&
+    !experimentHasLinkedChanges(experiment);
+  const holdoutInReach = !!holdoutDraft && canEdit;
+  // Leaving needs nothing more; joining or switching needs the feature.
+  const canStageHoldout = holdoutInReach && holdoutEditable;
+  const canJoinHoldout = canStageHoldout && hasCommercialFeature("holdouts");
+  // Said rather than hidden.
+  const holdoutLockedReason =
+    holdoutInReach &&
+    experiment.type !== "holdout" &&
+    experiment.status === "draft" &&
+    experimentHasLinkedChanges(experiment)
+      ? "A holdout can only change while nothing is linked to this experiment."
+      : null;
+  // A staged holdout the experiment has since outgrown (started, or gained a
+  // linked change) couldn't save, so it goes rather than blocking the rest.
+  const stagedHoldout = holdoutDraft?.value ?? null;
+  const setStagedHoldout = holdoutDraft?.set;
+  useEffect(() => {
+    if (!holdoutEditable && stagedHoldout !== null) setStagedHoldout?.(null);
+  }, [holdoutEditable, stagedHoldout, setStagedHoldout]);
   const canEditExperiment =
     !experiment.archived &&
     permissionsUtil.canViewExperimentModal(experiment.project);
 
   const hasVisualEditorPermission =
     canEditExperiment && permissionsUtil.canRunExperiment(experiment, []);
+  // Shown, but locked, to someone who can run it in only some environments.
+  const linkedChangesLockedReason =
+    hasVisualEditorPermission &&
+    !permissionsUtil.canRunExperiment(experiment, getLinkedChangeEnvs())
+      ? LINKED_CHANGES_LOCKED_REASON
+      : null;
+  const stagesLinkedChanges = !disableEditing;
 
   const canAddLinkedChanges =
     hasVisualEditorPermission &&
@@ -108,6 +318,82 @@ export default function Implementation({
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
 
+  const canAddAny = canAddLinkedChanges && !disableEditing;
+  // Linking a Feature Flag writes at once, which would strand it: a holdout
+  // changes only with nothing linked.
+  const addBlockedReason =
+    stagedHoldout !== null
+      ? "Save or discard the holdout change first. A holdout can only change while nothing is linked."
+      : null;
+  const shownRedirects = shownUrlRedirects(stagedLinked, urlRedirects);
+  const shownChangesets = shownVisualChangesets(stagedLinked, visualChangesets);
+  const hasFlags = linkedFeatures.length > 0;
+  const hasVisual = shownChangesets.length > 0;
+  const hasRedirects = shownRedirects.length > 0;
+  const shownKinds = ADDABLE_KINDS.filter(
+    (kind) =>
+      ({ feature: hasFlags, visual: hasVisual, urlredirect: hasRedirects })[
+        kind
+      ],
+  );
+  const implementationColumns: ImplementationColumn[] = [
+    ...shownRedirects.map((r) => ({
+      key: `redirect:${r.key}`,
+      staged: !!r.staged,
+      render: (layout: ColumnLayout) => (
+        <UrlRedirectColumn
+          layout={layout}
+          redirect={r}
+          project={experiment.project ?? ""}
+          canEdit={canAddLinkedChanges && stagesLinkedChanges}
+          lockedReason={linkedChangesLockedReason}
+          environmentStates={urlRedirectEnvStates}
+          onEdit={() => setRedirectModal({ target: r })}
+          onRemove={() => setLinkedDraft((d) => removeRedirect(d, r))}
+          onUndo={() => setLinkedDraft((d) => undoRedirect(d, r.key))}
+        />
+      ),
+    })),
+    ...shownChangesets.map((shown) => ({
+      key: `visual:${shown.stored.id}`,
+      staged: !!shown.staged,
+      render: (layout: ColumnLayout) => (
+        <VisualChangesetColumn
+          layout={layout}
+          shown={shown}
+          experiment={experiment}
+          canEdit={hasVisualEditorPermission && stagesLinkedChanges}
+          lockedReason={linkedChangesLockedReason}
+          canLaunch={
+            experiment.status === "draft" &&
+            !experiment.nextScheduledStatusUpdate
+          }
+          environmentStates={visualChangesetEnvStates}
+          onStageTargeting={onStageVisualTargeting}
+          onStageChange={onStageVisualChange}
+          onRemove={(id) => setLinkedDraft((d) => removeVisual(d, id))}
+          onUndo={(id) => setLinkedDraft((d) => undoVisual(d, id))}
+        />
+      ),
+    })),
+  ];
+  const addImplementation = canAddAny ? (
+    <AddImplementationMenu
+      experiment={experiment}
+      onAdd={{
+        feature: () => setFeatureModal(true),
+        visual: () => setVisualEditorModal(true),
+        urlredirect: () => setRedirectModal({ target: null }),
+      }}
+      primary={shownKinds.length === 1 ? shownKinds[0] : null}
+      blockedReasons={{
+        feature: addBlockedReason,
+        visual: linkedChangesLockedReason,
+        urlredirect: linkedChangesLockedReason,
+      }}
+    />
+  ) : null;
+
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
 
@@ -116,10 +402,10 @@ export default function Implementation({
   );
 
   const isHoldout = experiment.type === "holdout";
+  const isBandit = experiment.type === "multi-armed-bandit";
 
-  const safeToEdit =
-    experiment.status !== "running" ||
-    !experimentHasLiveLinkedChanges(experiment, linkedFeatures);
+  const safeToEdit = canEditDeliveryInPlace(experiment);
+  const canEditSettings = !!editTargeting && !pendingScheduledStart;
 
   // Temporary check while we test the new traffic funnel
   // TODO: Remove this once we're ready to support holdouts in the new traffic funnel UI.
@@ -154,30 +440,77 @@ export default function Implementation({
       )}
       {editMetadataIndex !== null && canEditExperiment && (
         <EditVariationMetadataModal
-          experiment={experiment}
+          experiment={stagedExperiment}
           variationIndex={editMetadataIndex}
           close={() => setEditMetadataIndex(null)}
+          stage={setVariationsDraft}
           mutate={mutate}
           source="implementation-tab"
         />
       )}
-      <div className="my-4">
-        <Heading as="h2" size="lg" color="text-high" mb="2">
+      {redirectModal ? (
+        <UrlRedirectModal
+          mode={redirectModal.target ? "edit" : "add"}
+          experiment={experiment}
+          variations={shownVariations}
+          urlRedirect={redirectModal.target ?? undefined}
+          stage={(fields) => stageRedirect(redirectModal.target, fields)}
+          close={() => setRedirectModal(null)}
+          source={
+            redirectModal.target ? "redirect-linked-changes" : "tabbed-page"
+          }
+        />
+      ) : null}
+      {editingKeys && canEditExperiment && (
+        <EditVariationKeysModal
+          experiment={stagedExperiment}
+          close={() => setEditingKeys(false)}
+          stage={setVariationsDraft}
+        />
+      )}
+      {/* Divides it from the hypothesis, which bandits don't have. */}
+      {!isBandit ? <Separator size="4" my="2" /> : null}
+      <div
+        id={IMPLEMENTATION_ID}
+        // First on a bandit's page, it's inset like the hypothesis it replaces.
+        className={isBandit ? "pt-2 mb-4" : "my-4"}
+        style={{ scrollMarginTop: "100px" }}
+      >
+        <Heading as="h4" size="sm" color="text-high" mb="2">
           Implementation
         </Heading>
         {showTrafficFunnel ? (
-          <TrafficAllocationFunnel
-            experiment={experiment}
-            editTraffic={pendingScheduledStart ? null : editTraffic}
-            editTargeting={pendingScheduledStart ? null : editTargeting}
-            editNamespace={pendingScheduledStart ? null : editNamespace}
-            addVariation={pendingScheduledStart ? null : addVariation}
-            setEditVariationIndex={setEditMetadataIndex}
-            canEditExperiment={canEditExperiment}
-            safeToEdit={safeToEdit}
-            mutate={mutate}
-            phaseIndex={phases.length - 1}
-          />
+          <>
+            <TrafficAllocationFunnel
+              holdoutDraft={holdoutDraft}
+              canStageHoldout={canStageHoldout}
+              canJoinHoldout={canJoinHoldout}
+              holdoutLockedReason={holdoutLockedReason}
+              experiment={stagedExperiment}
+              stageVariations={setVariationsDraft}
+              flagEnvironments={flagEnvironments}
+              editTargeting={pendingScheduledStart ? null : editTargeting}
+              targetingDraft={targetingDraft}
+              editNamespace={pendingScheduledStart ? null : editNamespace}
+              canAddVariation={!pendingScheduledStart && !!canAddVariation}
+              editVariationKeys={() => setEditingKeys(true)}
+              canEditExperiment={canEditExperiment}
+              safeToEdit={safeToEdit}
+              phaseIndex={phases.length - 1}
+              linkedFeatures={linkedFeatures}
+              // Values land in drafts in every status; publishing them is what
+              // goes through review.
+              canEditFlagValues={canEditExperiment}
+              implementationColumns={implementationColumns}
+              addImplementation={addImplementation}
+            />
+            <VariationDetails
+              experiment={stagedExperiment}
+              canEdit={canEditExperiment}
+              onEdit={setEditMetadataIndex}
+              mutate={mutate}
+            />
+          </>
         ) : (
           <TrafficAndTargeting
             experiment={experiment}
@@ -186,28 +519,6 @@ export default function Implementation({
             phaseIndex={getActivePhaseIndex(experiment)}
           />
         )}
-        {!isHoldout &&
-        (!showTrafficFunnel || hasLinkedChanges || canAddLinkedChanges) ? (
-          <LinkedChanges
-            linkedFeatures={linkedFeatures}
-            experiment={experiment}
-            canAddChanges={canAddLinkedChanges}
-            visualChangesets={visualChangesets}
-            urlRedirects={urlRedirects}
-            mutate={mutate}
-            canEditVisualChangesets={hasVisualEditorPermission}
-            visualChangesetEnvStates={visualChangesetEnvStates}
-            urlRedirectEnvStates={urlRedirectEnvStates}
-            setVisualEditorModal={setVisualEditorModal}
-            setFeatureModal={setFeatureModal}
-            setUrlRedirectModal={setUrlRedirectModal}
-            onAddVariation={editVariations ?? undefined}
-            canEditExperiment={canEditExperiment}
-            setEditVariationIndex={setEditMetadataIndex}
-            hideVariations={showTrafficFunnel}
-          />
-        ) : null}
-
         {isHoldout && holdout ? (
           <HoldoutEnvironments
             editEnvironments={() => setShowEditEnvironmentsModal(true)}
@@ -308,20 +619,50 @@ export default function Implementation({
               : "The implementation, traffic, and targeting may be managed by an external system."}
           </Callout>
         ) : null}
-        <AnalysisSettings
+        {/* Bandits and holdouts analyse by a decision metric and a schedule,
+            not this plan. */}
+        {!isHoldout && !isBandit ? (
+          <AnalysisPlan
+            experiment={experiment}
+            mutate={mutate}
+            canEdit={canEditExperiment}
+            envs={envs}
+            settingsOpen={analysisSettingsOpen}
+            setSettingsOpen={setAnalysisSettingsOpen}
+          />
+        ) : (
+          <AnalysisSettings
+            experiment={experiment}
+            mutate={mutate}
+            envs={envs}
+            canEdit={canEditSettings}
+            holdoutProjects={holdout?.projects}
+            settingsOpen={analysisSettingsOpen}
+            setSettingsOpen={setAnalysisSettingsOpen}
+          />
+        )}
+        <DecisionPlan
           experiment={experiment}
           mutate={mutate}
-          envs={envs}
-          canEdit={!!editTargeting && !pendingScheduledStart}
-          holdoutProjects={holdout?.projects}
-        />
-        <DecisionMakingSettings
-          experiment={experiment}
-          mutate={mutate}
-          canEdit={!!editTargeting && !pendingScheduledStart}
+          canEdit={canEditSettings}
           envs={envs}
         />
       </div>
     </>
   );
+}
+
+function withStagedVariations(
+  experiment: ExperimentInterfaceStringDates,
+  variations: Variation[] | null,
+): ExperimentInterfaceStringDates {
+  if (!variations) return experiment;
+  const phases = [...experiment.phases];
+  if (phases.length) {
+    phases[phases.length - 1] = {
+      ...phases[phases.length - 1],
+      variations: variations.map((v) => ({ id: v.id, status: "active" })),
+    };
+  }
+  return { ...experiment, variations, phases };
 }

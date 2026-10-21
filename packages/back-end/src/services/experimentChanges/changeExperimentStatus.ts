@@ -15,6 +15,7 @@ import {
   ChecklistStatus,
   ExperimentStartChecklistStatus,
   getHiddenBuiltInChecklistItems,
+  PENDING_APPROVAL_ITEM_PREFIX,
 } from "shared/validators";
 import { experimentHasLiveLinkedChanges } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
@@ -184,15 +185,22 @@ function getHasLinkedChanges(
   );
 }
 
-function isCustomTaskComplete(
+function isManualTaskComplete(
   experiment: ExperimentInterface,
   key: string,
+): boolean {
+  return (
+    experiment.manualLaunchChecklist?.find((task) => task.key === key)
+      ?.status === "complete"
+  );
+}
+
+function isAutoTaskComplete(
+  experiment: ExperimentInterface,
+  propertyKey: string,
   customFieldId?: string,
 ): boolean {
-  const manualChecklistStatus = experiment.manualLaunchChecklist || [];
-  const item = manualChecklistStatus.find((task) => task.key === key);
-
-  switch (key) {
+  switch (propertyKey) {
     case "hypothesis":
       return !!experiment.hypothesis;
     case "screenshots":
@@ -215,14 +223,12 @@ function isCustomTaskComplete(
     case "schedule":
       return !!experiment.statusUpdateSchedule?.startAt;
     default:
-      break;
+      return isManualTaskComplete(experiment, propertyKey);
   }
-
-  return item?.status === "complete";
 }
 
 export async function getExperimentStartChecklistStatus(
-  context: ReqContext,
+  context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   { arming = false }: { arming?: boolean } = {},
 ): Promise<StartChecklistItemStatus[]> {
@@ -341,10 +347,12 @@ export async function getExperimentStartChecklistStatus(
     .filter((f) => f.pendingApproval && !f.hasUnrelatedDraftChanges)
     .forEach((f) => {
       items.push({
-        key: `pendingApproval:${f.feature.id}`,
+        key: `${PENDING_APPROVAL_ITEM_PREFIX}${f.feature.id}`,
         required: true,
         status:
-          f.draftRevisionStatus === "approved" ? "complete" : "incomplete",
+          (f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved")
+            ? "complete"
+            : "incomplete",
         manual: false,
         hardBlock: true,
         reason: `Approve the draft revision for linked feature ${f.feature.id} before starting.`,
@@ -372,11 +380,17 @@ export async function getExperimentStartChecklistStatus(
   if (checklist) {
     checklist.tasks?.forEach((task) => {
       if (task.completionType === "auto" && task.propertyKey) {
-        if (isBandit && task.propertyKey === "hypothesis") return;
+        // Bandits have no hypothesis and never schedule a start.
+        if (
+          isBandit &&
+          (task.propertyKey === "hypothesis" || task.propertyKey === "schedule")
+        ) {
+          return;
+        }
         items.push({
           key: task.task,
           required: true,
-          status: isCustomTaskComplete(
+          status: isAutoTaskComplete(
             experiment,
             task.propertyKey,
             task.customFieldId,
@@ -390,7 +404,7 @@ export async function getExperimentStartChecklistStatus(
         items.push({
           key: task.task,
           required: true,
-          status: isCustomTaskComplete(experiment, task.task)
+          status: isManualTaskComplete(experiment, task.task)
             ? "complete"
             : "incomplete",
           manual: true,
@@ -435,6 +449,8 @@ async function loadAndValidateExperimentForStatusChange(
 export async function executeExperimentStart(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
+  bypassLockdown = false,
+  restApiBypassesReviews = false,
 ): Promise<{
   updated: ExperimentInterface;
   publishResult: PendingDraftPublishResult;
@@ -442,6 +458,8 @@ export async function executeExperimentStart(
   const publishResult = await publishPendingFeatureDraftsForExperiment(
     context,
     experiment,
+    bypassLockdown,
+    restApiBypassesReviews,
   );
   if (publishResult.failed.length > 0) {
     throw new PendingDraftPublishFailedError(
@@ -579,19 +597,52 @@ function assertNoIncompleteHardBlockers(
   }
 }
 
+// Run when a scheduled start fires. The approver already acknowledged the soft items.
+export async function assertScheduledStartNotHardBlocked(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  assertNoIncompleteHardBlockers(
+    await getExperimentStartChecklistStatus(context, experiment),
+  );
+}
+
+// Once a start goes ahead, every item still open was skipped or waived by the bypass.
+export function getStartAcknowledgment({
+  checklistItems,
+  skipChecklist,
+  bypassLockdown,
+}: {
+  checklistItems: StartChecklistItemStatus[];
+  skipChecklist: boolean;
+  bypassLockdown: boolean;
+}) {
+  return {
+    skipChecklist,
+    bypassLockdown,
+    skippedChecklistItems: checklistItems
+      .filter((item) => item.status === "incomplete")
+      .map((item) => item.key),
+  };
+}
+
 export async function startExperiment({
   context,
   experimentId,
   skipChecklist = false,
   bypassLockdown = false,
+  restApiBypassesReviews = false,
 }: {
   context: ReqContext;
   experimentId: string;
   skipChecklist?: boolean;
+  /** A REST call in an org that lets the REST API skip approval. */
+  restApiBypassesReviews?: boolean;
   /**
    * When true, skip ramp-schedule lockdown enforcement on linked features and
-   * forward the bypass through to pending feature-draft publishing. Caller
-   * must verify admin-bypass permissions before passing true.
+   * forward the bypass through to pending feature-draft publishing, which
+   * re-checks bypass authority per feature. Caller must verify admin-bypass
+   * permissions before passing true.
    */
   bypassLockdown?: boolean;
 }) {
@@ -600,11 +651,11 @@ export async function startExperiment({
     experimentId,
   );
   await assertCanPublishPendingFeatureDrafts(context, loadedExperiment);
-  const { checklistItems, status } = await getExperimentStartChecklist({
+  const checklistItems = await getExperimentStartChecklistStatus(
     context,
-    experiment: loadedExperiment,
-    arming: true,
-  });
+    loadedExperiment,
+    { arming: true },
+  );
 
   const experiment = loadedExperiment;
   if (experiment.status !== "draft") {
@@ -615,12 +666,18 @@ export async function startExperiment({
     );
   }
 
-  assertNoIncompleteHardBlockers(checklistItems);
+  // Safe to waive here: the publish path re-checks bypass authority per feature.
+  const remainingItems = bypassLockdown
+    ? checklistItems.filter(
+        (item) => !item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX),
+      )
+    : checklistItems;
+  assertNoIncompleteHardBlockers(remainingItems);
 
-  if (status === "notReady" && !skipChecklist) {
-    const incompleteRequiredItems = checklistItems.filter(
-      (item) => item.required && item.status === "incomplete",
-    );
+  const incompleteRequiredItems = remainingItems.filter(
+    (item) => item.required && item.status === "incomplete",
+  );
+  if (incompleteRequiredItems.length > 0 && !skipChecklist) {
     throw new ChecklistIncompleteError(
       "Experiment cannot be started: required checklist items are incomplete",
       incompleteRequiredItems,
@@ -633,7 +690,12 @@ export async function startExperiment({
     }
   }
 
-  const { updated } = await executeExperimentStart(context, experiment);
+  const { updated } = await executeExperimentStart(
+    context,
+    experiment,
+    bypassLockdown,
+    restApiBypassesReviews,
+  );
 
   return { experiment, updated, checklistItems };
 }
@@ -716,7 +778,7 @@ export async function approveScheduledExperimentStart({
     changes,
   });
 
-  return { experiment, updated };
+  return { experiment, updated, checklistItems };
 }
 
 /**

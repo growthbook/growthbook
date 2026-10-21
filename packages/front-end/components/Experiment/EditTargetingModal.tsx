@@ -1,17 +1,16 @@
 import {
   ExperimentInterfaceStringDates,
+  ExperimentTargetingData,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { hasAttributeCondition } from "shared/experiments";
 import { Box } from "@radix-ui/themes";
+import LinkHashAttributeCallout from "@/components/Experiment/LinkHashAttributeCallout";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
-import {
-  type AttributeOptionForTooltip,
-  formatAttributeOptionLabel,
-  toAttributeOption,
-} from "@/components/Features/AttributeOptionTooltip";
+import { formatAttributeOptionLabel } from "@/components/Features/AttributeOptionTooltip";
 import SelectField from "@/components/Forms/SelectField";
 import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -28,6 +27,7 @@ import {
   useAttributeScopePicker,
 } from "./useAttributeScopePicker";
 import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
+import useHashAttributeOptions from "./useHashAttributeOptions";
 
 export interface Props {
   close: () => void;
@@ -35,6 +35,10 @@ export interface Props {
   linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   safeToEdit: boolean;
+  /** Stages the confirmed change instead of writing it. */
+  stageChanges?: (value: ExperimentTargetingData) => void;
+  /** Targeting already staged, which the form opens on. */
+  draft?: ExperimentTargetingData | null;
 }
 
 export default function EditTargetingModal({
@@ -43,6 +47,8 @@ export default function EditTargetingModal({
   linkedFeatures,
   mutate,
   safeToEdit,
+  stageChanges,
+  draft,
 }: Props) {
   const { enforcement: enforcementScope, dropdown: dropdownScope } =
     getLinkedExperimentAttributeScopes(experiment.project, linkedFeatures);
@@ -54,7 +60,7 @@ export default function EditTargetingModal({
     setPrerequisiteTargetingSdkIssues,
     canSubmit,
     onSubmit,
-  } = useExperimentTargetingForm(experiment, enforcementScope);
+  } = useExperimentTargetingForm(experiment, enforcementScope, draft);
 
   const { effectiveAttributeProjects, attributeScopeToggle } =
     useAttributeScopePicker({
@@ -99,37 +105,16 @@ export default function EditTargetingModal({
   );
 
   const attributeSchema = useAttributeSchema(false, effectiveAttributeProjects);
-  // Unfiltered (incl. archived) for keep-current tooltip metadata below.
-  const allAttributeSchema = useAttributeSchema(true);
-  const hasHashAttributes =
-    attributeSchema.filter((x) => x.hashAttribute).length > 0;
-
-  const hashAttributeOptions: AttributeOptionForTooltip[] = attributeSchema
-    .filter((s) => !hasHashAttributes || s.hashAttribute)
-    .map(toAttributeOption);
-
-  // If the current hashAttribute isn't in the list, add it for backwards
-  // compatibility (e.g. the attribute was archived or removed from the
-  // experiment's project after creation).
-  if (
-    form.watch("hashAttribute") &&
-    !hashAttributeOptions.find((o) => o.value === form.watch("hashAttribute"))
-  ) {
-    const full = allAttributeSchema.find(
-      (s) => s.property === form.watch("hashAttribute"),
-    );
-    hashAttributeOptions.push({
-      label: form.watch("hashAttribute"),
-      value: form.watch("hashAttribute"),
-      description: full?.description,
-      tags: full?.tags,
-      datatype: full?.datatype,
-      hashAttribute: full?.hashAttribute,
-      projects: full?.projects,
-    });
-  }
+  const hashAttributeOptions = useHashAttributeOptions(
+    effectiveAttributeProjects,
+    form.watch("hashAttribute"),
+  );
 
   const disableStickyBucketing = !!form.watch("disableStickyBucketing");
+  const { getDatasourceById } = useDefinitions();
+  const datasource = experiment.datasource
+    ? getDatasourceById(experiment.datasource)
+    : null;
 
   const settings = useOrgSettings();
 
@@ -143,8 +128,9 @@ export default function EditTargetingModal({
         close={close}
         header="Edit Targeting"
         ctaEnabled={canSubmit}
+        cta={stageChanges ? "Confirm" : "Save"}
         submit={async () => {
-          await onSubmit(mutate, "targeting")();
+          await onSubmit(mutate, "targeting", stageChanges)();
           trackAddedTargeting();
         }}
         size="lg"
@@ -172,11 +158,22 @@ export default function EditTargetingModal({
             value={form.watch("hashAttribute")}
             onChange={(v) => {
               form.setValue("hashAttribute", v);
+              // The fallback selector clears a match itself, but it isn't
+              // always shown.
+              if (v === form.getValues("fallbackAttribute")) {
+                form.setValue("fallbackAttribute", "");
+              }
             }}
             formatOptionLabel={formatAttributeOptionLabel}
             helpText={
               "Will be hashed together with the Tracking Key to determine which variation to assign"
             }
+          />
+          <LinkHashAttributeCallout
+            experimentId={experiment.id}
+            datasource={datasource}
+            hashAttribute={form.watch("hashAttribute")}
+            source="Edit Targeting"
           />
           {orgStickyBucketing ? (
             <StickyBucketingToggle

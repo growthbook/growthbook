@@ -140,7 +140,7 @@ export default function SRMCard({
                   srm={traffic.overall.srm}
                 />
               </div>
-              <div>
+              <div className="mt-3">
                 {srmHealth !== "not-enough-traffic" ? (
                   <SRMWarning
                     srm={traffic.overall.srm}

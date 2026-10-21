@@ -4,202 +4,306 @@ import {
   SDKCapability,
   getConnectionsSDKCapabilities,
 } from "shared/sdk-versioning";
-import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { ReactElement } from "react";
+import { Flex, type AvatarProps } from "@radix-ui/themes";
+import {
+  PiCaretDownFill,
+  PiDesktop,
+  PiFlag,
+  PiLink,
+  PiPlus,
+} from "react-icons/pi";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
-import Text from "@/ui/Text";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Avatar from "@/ui/Avatar";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import Text from "@/ui/Text";
 import Button from "@/ui/Button";
-import { ICON_PROPERTIES, LinkedChange } from "./constants";
+import SplitButton from "@/ui/SplitButton";
+import Tooltip from "@/ui/Tooltip";
+import { ICON_PROPERTIES } from "./constants";
 
-export const LINKED_CHANGES: Record<
-  LinkedChange,
-  {
-    header: string;
-    cta: string;
-    description: string;
-    commercialFeature: CommercialFeature | "";
-    sdkCapabilityKey: SDKCapability | "";
-  }
-> = {
-  "feature-flag": {
-    header: "Feature Flag",
-    cta: "Link Feature Flag",
-    description:
-      "Use feature flags and SDKs to make changes in your front-end, back-end or mobile application code.",
-    commercialFeature: "",
-    sdkCapabilityKey: "",
-  },
-  "visual-editor": {
+// What adding each no-code kind needs: an SDK that applies it, and the plan
+// feature that lets the experiment start. A Feature Flag needs neither.
+const ADD_GATES = {
+  visual: {
     header: "AI Visual Editor",
-    cta: "Launch AI Visual Editor",
-    description:
-      "Use our no-code browser extension to A/B test minor changes, such as headings or button text.",
     commercialFeature: "visual-editor",
     sdkCapabilityKey: "visualEditor",
   },
-  redirects: {
+  urlredirect: {
     header: "URL Redirects",
-    cta: "Add URL Redirect",
-    description:
-      "Use our no-code tool to A/B test URL redirects for whole pages, or to test parts of a URL.",
     commercialFeature: "redirects",
     sdkCapabilityKey: "redirects",
   },
+} as const satisfies Record<
+  string,
+  {
+    header: string;
+    commercialFeature: CommercialFeature;
+    sdkCapabilityKey: SDKCapability;
+  }
+>;
+
+export type AddableKind = "feature" | keyof typeof ADD_GATES;
+export const ADDABLE_KINDS: AddableKind[] = [
+  "feature",
+  "visual",
+  "urlredirect",
+];
+
+const ADD_OPTIONS: Record<
+  AddableKind,
+  {
+    header: string;
+    description: string;
+    icon: ReactElement;
+    color: AvatarProps["color"];
+  }
+> = {
+  feature: {
+    header: "Feature Flag",
+    description: "Make code changes in your app",
+    icon: <PiFlag />,
+    color: ICON_PROPERTIES["feature-flag"].radixColor,
+  },
+  visual: {
+    header: "AI Visual Editor",
+    description: "No-code browser extension",
+    icon: <PiDesktop />,
+    color: ICON_PROPERTIES["visual-editor"].radixColor,
+  },
+  urlredirect: {
+    header: "URL Redirect",
+    description: "A/B test URL redirects",
+    icon: <PiLink />,
+    color: ICON_PROPERTIES.redirects.radixColor,
+  },
 };
 
-const AddLinkedChangeRow = ({
-  type,
-  setModal,
-  experiment,
-}: {
-  type: LinkedChange;
-  setModal: (open: boolean) => void;
-  experiment: ExperimentInterfaceStringDates;
-}) => {
-  const { header, cta, description, commercialFeature, sdkCapabilityKey } =
-    LINKED_CHANGES[type];
-  const { component: Icon, radixColor } = ICON_PROPERTIES[type];
+/** Why this kind can't be added yet, and the plan feature starting it needs. */
+export function useLinkedChangeAddGate(
+  type: AddableKind,
+  experiment: ExperimentInterfaceStringDates,
+): {
+  unsupportedReason: string | null;
+  commercialFeature: CommercialFeature | null;
+} {
   const { data: sdkConnectionsData } = useSDKConnections();
+  if (type === "feature") {
+    return { unsupportedReason: null, commercialFeature: null };
+  }
+  const { header, commercialFeature, sdkCapabilityKey } = ADD_GATES[type];
+  const hasSDKWithFeature = getConnectionsSDKCapabilities({
+    connections: sdkConnectionsData?.connections ?? [],
+    project: experiment.project ?? "",
+  }).includes(sdkCapabilityKey);
+  return {
+    unsupportedReason: hasSDKWithFeature
+      ? null
+      : `The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`,
+    commercialFeature,
+  };
+}
 
+function AddImplementationItem({
+  type,
+  experiment,
+  onClick,
+  blockedReason,
+}: {
+  type: AddableKind;
+  experiment: ExperimentInterfaceStringDates;
+  onClick: () => void;
+  blockedReason?: string | null;
+}) {
   const { hasCommercialFeature } = useUser();
-  const hasFeature = commercialFeature
-    ? hasCommercialFeature(commercialFeature)
-    : true;
-
-  const hasSDKWithFeature =
-    type === "feature-flag" ||
-    getConnectionsSDKCapabilities({
-      connections: sdkConnectionsData?.connections ?? [],
-      project: experiment.project ?? "",
-    }).includes(sdkCapabilityKey as SDKCapability);
-
-  const isCTAClickable = hasSDKWithFeature;
-
-  return (
-    <Flex align="center" justify="between" gap="3" width="100%">
-      <Flex align="center" direction="row" flexGrow="1" minWidth="0" gap="5">
-        <Box minWidth="170px" flexShrink="0">
-          <Avatar
-            radius="full"
-            color={radixColor as AvatarProps["color"]}
-            size="md"
-            variant="soft"
-            mr="2"
-          >
-            <Icon />
-          </Avatar>
-          <Text
-            size="lg"
-            weight="semibold"
-            color="text-high"
-            whiteSpace="nowrap"
-          >
-            {header}
-          </Text>
-        </Box>
-        <Box flexGrow="1" minWidth="0">
-          <Text color="text-low">{description}</Text>
-        </Box>
+  const { unsupportedReason, commercialFeature } = useLinkedChangeAddGate(
+    type,
+    experiment,
+  );
+  const disabledReason = blockedReason ?? unsupportedReason;
+  const option = ADD_OPTIONS[type];
+  const color = disabledReason ? "text-disabled" : "text-high";
+  const content = (
+    <Flex align="center" gap="2" p="3">
+      <Avatar radius="small" color={option.color} size="sm" variant="soft">
+        {option.icon}
+      </Avatar>
+      <Flex direction="column">
+        <Text color={color} weight="semibold">
+          {option.header}
+        </Text>
+        <Text color={color}>{option.description}</Text>
       </Flex>
-      <Box flexShrink="0">
-        {isCTAClickable ? (
-          commercialFeature && !hasFeature ? (
-            <PremiumTooltip
-              commercialFeature={commercialFeature}
-              body={
-                "You can add this to your draft, but you will not be able to start the experiment until upgrading."
-              }
-              usePortal={true}
-            >
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setModal(true);
-                }}
-              >
-                {cta}
-              </Button>
-            </PremiumTooltip>
-          ) : (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setModal(true);
-              }}
-            >
-              {cta}
-            </Button>
-          )
-        ) : (
-          <Tooltip
-            body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
-            tipPosition="top"
-          >
-            <Button variant="ghost" disabled>
-              {cta}
-            </Button>
-          </Tooltip>
-        )}
-      </Box>
     </Flex>
   );
+  return (
+    <DropdownMenuItem
+      onClick={onClick}
+      disabled={!!disabledReason}
+      style={{ padding: 0, height: "auto" }}
+    >
+      {disabledReason ? (
+        <Tooltip content={disabledReason} side="left">
+          <span>{content}</span>
+        </Tooltip>
+      ) : commercialFeature && !hasCommercialFeature(commercialFeature) ? (
+        <PremiumTooltip
+          commercialFeature={commercialFeature}
+          body="You can add this to your draft, but you will not be able to start the experiment until upgrading."
+          tipPosition="left"
+        >
+          {content}
+        </PremiumTooltip>
+      ) : (
+        content
+      )}
+    </DropdownMenuItem>
+  );
+}
+
+const ADD_LABELS: Record<AddableKind, string> = {
+  feature: "Add Feature Flag",
+  visual: "Add AI Visual Editor changes",
+  urlredirect: "Add URL redirect",
 };
 
-export default function AddLinkedChanges({
+function AddAnotherButton({
+  type,
   experiment,
-  numLinkedChanges,
-  hasLinkedFeatures,
-  setFeatureModal,
-  setVisualEditorModal,
-  setUrlRedirectModal,
+  onClick,
+  blockedReason,
+}: {
+  type: AddableKind;
+  experiment: ExperimentInterfaceStringDates;
+  onClick: () => void;
+  blockedReason?: string | null;
+}) {
+  const { unsupportedReason, commercialFeature } = useLinkedChangeAddGate(
+    type,
+    experiment,
+  );
+  return (
+    <AddImplementationButton
+      label={ADD_LABELS[type]}
+      onClick={onClick}
+      disabledReason={blockedReason ?? unsupportedReason}
+      commercialFeature={commercialFeature}
+    />
+  );
+}
+
+export function AddImplementationMenu({
+  experiment,
+  onAdd,
+  primary = null,
+  blockedReasons = {},
 }: {
   experiment: ExperimentInterfaceStringDates;
-  numLinkedChanges: number;
-  hasLinkedFeatures?: boolean;
-  setVisualEditorModal: (state: boolean) => unknown;
-  setFeatureModal: (state: boolean) => unknown;
-  setUrlRedirectModal: (state: boolean) => unknown;
+  onAdd: Record<AddableKind, () => void>;
+  primary?: AddableKind | null;
+  // Why a kind can't be added right now.
+  blockedReasons?: Partial<Record<AddableKind, string | null>>;
 }) {
-  if (experiment.status !== "draft") return null;
-  if (experiment.nextScheduledStatusUpdate) return null;
-  if (experiment.archived) return null;
-  // Already has linked changes
-  if (numLinkedChanges && numLinkedChanges > 0) return null;
-
-  const sections = {
-    "feature-flag": {
-      render: !hasLinkedFeatures,
-      setModal: setFeatureModal,
-    },
-    "visual-editor": {
-      render: !experiment.hasVisualChangesets,
-      setModal: setVisualEditorModal,
-    },
-    redirects: {
-      render: !experiment.hasURLRedirects,
-      setModal: setUrlRedirectModal,
-    },
-  };
-
-  const possibleSections = Object.keys(sections);
-
+  const items = ADDABLE_KINDS.filter((type) => type !== primary).map((type) => (
+    <AddImplementationItem
+      key={type}
+      type={type}
+      experiment={experiment}
+      onClick={onAdd[type]}
+      blockedReason={blockedReasons[type]}
+    />
+  ));
+  if (!primary) {
+    return (
+      <DropdownMenu
+        trigger={
+          <Button
+            variant="outline"
+            icon={<PiCaretDownFill />}
+            iconPosition="right"
+          >
+            Add implementation
+          </Button>
+        }
+        menuPlacement="end"
+        variant="soft"
+      >
+        {items}
+      </DropdownMenu>
+    );
+  }
   return (
-    <Box className="appbox mb-0" p="4" mt="2" mb="0">
-      {possibleSections.map((s, i) => {
-        return (
-          <Box key={s}>
-            <AddLinkedChangeRow
-              type={s as LinkedChange}
-              setModal={sections[s].setModal}
-              experiment={experiment}
-            />
-            {i < possibleSections.length - 1 && <Separator size="4" my="3" />}
-          </Box>
-        );
-      })}
-    </Box>
+    <SplitButton
+      variant="outline"
+      menu={
+        <DropdownMenu
+          trigger={
+            <Button
+              variant="outline"
+              aria-label="Add another kind of implementation"
+            >
+              <PiCaretDownFill />
+            </Button>
+          }
+          menuPlacement="end"
+          variant="soft"
+        >
+          {items}
+        </DropdownMenu>
+      }
+    >
+      <AddAnotherButton
+        type={primary}
+        experiment={experiment}
+        onClick={onAdd[primary]}
+        blockedReason={blockedReasons[primary]}
+      />
+    </SplitButton>
   );
+}
+
+/**
+ * Says why when it can't be added now; a premium kind can still be added to a
+ * draft, which then can't start.
+ */
+function AddImplementationButton({
+  label,
+  onClick,
+  disabledReason = null,
+  commercialFeature = null,
+}: {
+  label: string;
+  onClick: () => void;
+  disabledReason?: string | null;
+  commercialFeature?: CommercialFeature | null;
+}) {
+  const { hasCommercialFeature } = useUser();
+  const button = (
+    <Button
+      variant="outline"
+      icon={<PiPlus />}
+      onClick={onClick}
+      disabled={!!disabledReason}
+    >
+      {label}
+    </Button>
+  );
+  if (disabledReason) {
+    return <Tooltip content={disabledReason}>{button}</Tooltip>;
+  }
+  if (commercialFeature && !hasCommercialFeature(commercialFeature)) {
+    return (
+      <PremiumTooltip
+        commercialFeature={commercialFeature}
+        body="You can add this to your draft, but you will not be able to start the experiment until upgrading."
+        usePortal
+      >
+        {button}
+      </PremiumTooltip>
+    );
+  }
+  return button;
 }

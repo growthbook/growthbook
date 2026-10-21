@@ -61,7 +61,7 @@ function ValuesBox({
           wordBreak: "break-word",
           fontSize: "var(--font-size-1)",
           lineHeight: 1.5,
-          fontFamily: "var(--font-mono)",
+          fontFamily: "var(--code-font-family)",
         }}
       >
         {values.length ? (

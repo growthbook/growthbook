@@ -2,14 +2,14 @@ import { useMemo, ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { RevisionMetadata } from "shared/validators";
+import { RevisionMetadata, stripUnknownRuleFields } from "shared/validators";
 import type { MergeResultChanges } from "shared/util";
 import {
   renderFeatureDefaultValue,
   renderFeatureRules,
   normalizeFeatureRules,
   featureRuleChangeBadges,
-  renderEnvironmentsEnabled,
+  renderEnvironmentToggles,
   renderPrerequisites,
   renderRevisionMetadata,
   prerequisiteChangeBadges,
@@ -311,27 +311,29 @@ export function useFeatureRevisionDiff({
       draft.environmentsEnabled,
       orgEnvs,
     );
-    const draftEnabledEnvs = Object.keys(draft.environmentsEnabled || {});
-    draftEnabledEnvs.forEach((envId) => {
-      const currentVal = inheritedCurrent[envId] ?? false;
-      const draftVal = inheritedDraft[envId] ?? false;
-      if (currentVal !== draftVal) {
-        const direction = draftVal ? "on" : "off";
-        diffs.push({
-          key: `environmentsEnabled.${envId}`,
-          title: `Environment Toggle - ${envId}`,
-          a: String(currentVal),
-          b: String(draftVal),
-          customRender: renderEnvironmentsEnabled(currentVal, draftVal),
-          badges: [
-            {
-              label: `Toggled ${envId} ${direction}`,
-              action: `toggle environment ${envId}`,
-            },
-          ],
-        });
-      }
-    });
+    const toggled = Object.keys(draft.environmentsEnabled || {})
+      .map((envId) => ({
+        envId,
+        from: inheritedCurrent[envId] ?? false,
+        to: inheritedDraft[envId] ?? false,
+      }))
+      .filter(({ from, to }) => from !== to);
+    // One section for every toggle, so twenty environments don't bury the diff.
+    if (toggled.length) {
+      const asMap = (side: "from" | "to") =>
+        Object.fromEntries(toggled.map((t) => [t.envId, t[side]]));
+      diffs.push({
+        key: "environmentsEnabled",
+        title: toggled.length === 1 ? "Environment" : "Environments",
+        a: JSON.stringify(asMap("from"), null, 2),
+        b: JSON.stringify(asMap("to"), null, 2),
+        customRender: renderEnvironmentToggles(toggled),
+        badges: toggled.map(({ envId, to }) => ({
+          label: `Toggled ${envId} ${to ? "on" : "off"}`,
+          action: `toggle environment ${envId}`,
+        })),
+      });
+    }
 
     // 3. Prerequisites (feature-level)
     if (draft.prerequisites !== undefined) {
@@ -401,8 +403,14 @@ export function useFeatureRevisionDiff({
     // footprint is empty (`environments: []`, pending) or universal
     // (`allEnvironments: true`) — all of which were invisible in the old
     // per-env projection layout.
-    const draftRulesArr = Array.isArray(draft.rules) ? draft.rules : [];
-    const currentRulesArr = Array.isArray(current.rules) ? current.rules : [];
+
+    // Fields the rule type never declared would diff as changes nobody made.
+    const draftRulesArr = (Array.isArray(draft.rules) ? draft.rules : []).map(
+      stripUnknownRuleFields,
+    );
+    const currentRulesArr = (
+      Array.isArray(current.rules) ? current.rules : []
+    ).map(stripUnknownRuleFields);
     const draftRampActions = draft.rampActions ?? undefined;
     // Force the Rules section to render when an unchanged rule has a pending
     // ramp create action queued — without this, a draft whose only change is

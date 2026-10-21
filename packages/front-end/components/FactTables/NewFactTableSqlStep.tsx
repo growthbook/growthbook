@@ -227,7 +227,7 @@ function TablePicker({
             ? "Search tables..."
             : "Enter a table, like analytics.events"
         }
-        size="small"
+        size="md"
         autoFocus
       />
     );

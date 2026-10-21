@@ -2,6 +2,14 @@ import type { RevisionStatus } from "shared/validators";
 
 export type RnPMode = "fix-conflicts" | "main";
 
+/** The publish gate's answer when there is one; "approved" can still be short of a team or an environment. */
+export function draftApprovalSatisfied(draft: {
+  approval?: { satisfied: boolean } | null;
+  status: string;
+}): boolean {
+  return draft.approval?.satisfied ?? draft.status === "approved";
+}
+
 // What the primary CTA does when clicked.
 export type RnPSubmitAction =
   | "next-experiments" // advance to the pre-launch checklist step

@@ -153,8 +153,12 @@ export default function TrafficCard({
               : "Experiment Traffic Over Time"}
           </h3>
           {!selectedDimension && (
-            <div className="ml-auto">
-              Cumulative <Switch value={cumulative} onChange={setCumulative} />
+            <div className="ml-auto flex-shrink-0">
+              <Switch
+                label="Cumulative"
+                value={cumulative}
+                onChange={setCumulative}
+              />
             </div>
           )}
         </div>

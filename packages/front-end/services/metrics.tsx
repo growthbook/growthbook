@@ -18,6 +18,7 @@ import {
 import {
   getInlineFilterPromptColumns,
   ExperimentMetricDefinition,
+  isFactMetric,
   isEmptyInlineFilterPlaceholder,
 } from "shared/experiments";
 import {
@@ -720,4 +721,11 @@ export function getMetricFormatter(
   }
 
   return formatPercent;
+}
+
+/** "dailyParticipation" → "Daily participation". */
+export function metricTypeLabel(metric: ExperimentMetricDefinition): string {
+  const type = isFactMetric(metric) ? metric.metricType : metric.type;
+  const words = type.replace(/([A-Z])/g, " $1").toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }

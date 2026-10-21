@@ -242,10 +242,7 @@ const Results: FC<{
   return (
     <>
       {!draftMode ? null : (
-        <StatusBanner
-          mutateExperiment={mutateExperiment}
-          editResult={editResult || undefined}
-        />
+        <StatusBanner editResult={editResult || undefined} />
       )}
 
       {!hasMetrics && (

@@ -163,6 +163,7 @@ import {
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
+import { experimentChangesRouter } from "./routers/experiment-changes/experiment-changes.router";
 import { rampScheduleRouter } from "./routers/ramp-schedule/ramp-schedule.router";
 import { rampScheduleTemplateRouter } from "./routers/ramp-schedule-template/ramp-schedule-template.router";
 import { runStatsEngine } from "./services/stats";
@@ -800,10 +801,6 @@ app.post(
   "/experiment/:id/targeting",
   experimentsController.postExperimentTargeting,
 );
-app.post(
-  "/experiment/:id/features",
-  experimentsController.postExperimentFeatureValues,
-);
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
 app.post(
   "/experiment/:id/approve-scheduled-start",
@@ -825,10 +822,6 @@ app.post("/experiment/:id/stop", experimentsController.postExperimentStop);
 app.put(
   "/experiment/:id/variation/:variation/screenshot",
   experimentsController.addScreenshot,
-);
-app.delete(
-  "/experiment/:id/variation/:variation/screenshot",
-  experimentsController.deleteScreenshot,
 );
 app.post(
   "/experiment/:id/archive",
@@ -927,6 +920,8 @@ app.use("/ramp-schedule-templates", rampScheduleTemplateRouter);
 
 // Holdouts
 app.use("/holdout", holdoutRouter);
+
+app.use("/experiment/:id/changes", experimentChangesRouter);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);

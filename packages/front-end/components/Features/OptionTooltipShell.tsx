@@ -22,24 +22,48 @@ export function useProjectNames(ids?: string[]): string[] {
 export function OptionTooltipShell({
   href,
   title,
+  subtitle,
+  titleColor,
   children,
 }: {
   href: string;
   title: string;
+  /** "dark" for a card with links of its own, so the title isn't one more. */
+  titleColor?: "dark";
+  /** A line held close under the title, such as what kind of thing it is. */
+  subtitle?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const link = (
+    <Link
+      href={href}
+      target="_blank"
+      weight="bold"
+      size="md"
+      color={titleColor}
+    >
+      <span style={{ overflowWrap: "anywhere" }} className="mr-1">
+        {title}
+      </span>
+      <PiArrowSquareOut />
+    </Link>
+  );
   return (
     <Flex
       direction="column"
       gap="2"
       style={{ minWidth: 0, maxWidth: TOOLTIP_MAX_WIDTH }}
     >
-      <Link href={href} target="_blank" weight="bold" size="md">
-        <span style={{ overflowWrap: "anywhere" }} className="mr-1">
-          {title}
-        </span>
-        <PiArrowSquareOut />
-      </Link>
+      {subtitle ? (
+        <div>
+          {link}
+          <Text size="sm" as="div" color="text-low">
+            {subtitle}
+          </Text>
+        </div>
+      ) : (
+        link
+      )}
       {children}
     </Flex>
   );
@@ -101,6 +125,9 @@ export function OptionTooltipTags({ tags }: { tags?: string[] }) {
   );
 }
 
+// The full text is a click away on the item's own page.
+const DESCRIPTION_MAX_LINES = 6;
+
 export function OptionTooltipDescription({
   description,
 }: {
@@ -108,23 +135,35 @@ export function OptionTooltipDescription({
 }) {
   if (!description) return null;
   return (
-    <OptionTooltipSection label="Description:">
+    <div>
+      <Text size="sm" as="div" color="text-low">
+        Description:
+      </Text>
       <div
-        className="fade-mask-bottom-1rem"
-        style={{ maxHeight: 120, overflow: "hidden", paddingBottom: "1rem" }}
+        style={{
+          display: "-webkit-box",
+          WebkitBoxOrient: "vertical",
+          WebkitLineClamp: DESCRIPTION_MAX_LINES,
+          overflow: "hidden",
+        }}
       >
         <Markdown style={{ fontSize: 12 }}>{description}</Markdown>
       </div>
-    </OptionTooltipSection>
+    </div>
   );
 }
 
+export type OptionPopoverSide = "top" | "right" | "bottom" | "left";
+
 export function OptionPopover({
   context = "menu",
+  side,
   content,
   children,
 }: {
   context?: OptionContext;
+  /** Overrides the side the context would use, for a control too narrow for it. */
+  side?: OptionPopoverSide;
   content: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -133,7 +172,7 @@ export function OptionPopover({
     <Popover
       openOnHover
       anchorOnly
-      side={isValue ? "top" : "right"}
+      side={side ?? (isValue ? "top" : "right")}
       sideOffset={8}
       trigger={
         <div

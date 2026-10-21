@@ -3994,6 +3994,26 @@ describe("validateFeatureRuleValues", () => {
       } as never),
     ).toThrow();
   });
+
+  it("refuses JSON that only parses after repair, naming the fix, and passes valid JSON", () => {
+    const jsonFeature = { valueType: "json" as const };
+    const rule = (value: string) =>
+      ({
+        id: "a",
+        type: "experiment-ref",
+        experimentId: "exp",
+        variations: [
+          { variationId: "0", value: "{}" },
+          { variationId: "1", value },
+        ],
+      }) as never;
+    expect(() =>
+      validateFeatureRuleValues(jsonFeature, rule('{"layout":"grid"}}')),
+    ).toThrow(/Variation 2: invalid JSON\. Did you mean/);
+    expect(() =>
+      validateFeatureRuleValues(jsonFeature, rule('{\n  "layout": "grid"\n}')),
+    ).not.toThrow();
+  });
 });
 
 describe("mergeConditionAndSavedGroups with referencesV2", () => {

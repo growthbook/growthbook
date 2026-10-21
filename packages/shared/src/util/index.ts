@@ -59,6 +59,8 @@ export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
 export * from "./holdouts";
+export * from "./experiment-cleanup";
+export * from "./sortObjectKeys";
 export * from "./interleaving";
 export * from "./diffFormats";
 export * from "./format-json";
@@ -67,6 +69,13 @@ export * from "./event-forwarder-fact-table";
 export * from "./event-forwarder-warehouse-queries";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
+
+// URL Redirects and Visual Editor changes serve in every environment, so a
+// write to one needs run permission in all of them. Never empty, which would
+// pass a permission check vacuously.
+export function getLinkedChangeEnvs(): string[] {
+  return ["__ALL__"];
+}
 
 export function getAffectedEnvsForExperiment({
   experiment,
@@ -236,6 +245,20 @@ export function experimentHasLinkedChanges(
   if (exp.hasURLRedirects) return true;
   if (exp.linkedFeatures && exp.linkedFeatures.length > 0) return true;
   return false;
+}
+
+/**
+ * Whether targeting, traffic and namespace can change in place. A running
+ * experiment with any implementation changes through a release plan, served
+ * or not: a draft rule or a re-link can put it back in the payload at once.
+ */
+export function canEditDeliveryInPlace(
+  exp: Pick<
+    ExperimentInterface,
+    "status" | "hasVisualChangesets" | "hasURLRedirects" | "linkedFeatures"
+  >,
+): boolean {
+  return exp.status !== "running" || !experimentHasLinkedChanges(exp);
 }
 
 export function experimentHasLiveLinkedChanges(

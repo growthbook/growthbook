@@ -69,9 +69,16 @@ export function trafficSplitPercentages(weights: number[]): number[] {
   return weights.map((w) => +((w / sum) * 100));
 }
 
-export function formatTrafficSplit(weights: number[], decimals = 0): string {
+/** `trim` drops trailing zeros, so up to `decimals` rather than always that many. */
+export function formatTrafficSplit(
+  weights: number[],
+  decimals = 0,
+  { trim = false }: { trim?: boolean } = {},
+): string {
   return trafficSplitPercentages(weights)
-    .map((w) => w.toFixed(decimals))
+    .map((w) =>
+      trim ? String(Number(w.toFixed(decimals))) : w.toFixed(decimals),
+    )
     .join(" / ");
 }
 
@@ -177,11 +184,34 @@ export function percentToDecimalForNumber(
 export function percentToDecimal(val: string, precision: number = 4): number {
   return parseFloat((parseFloat(val) / 100).toFixed(precision));
 }
+export const VARIATION_WEIGHT_DECIMALS = 2;
+export const COVERAGE_DECIMALS = 4;
+
+export function capTypedPercent(raw: string, decimals: number): string {
+  const match = raw.match(
+    new RegExp(`^(\\d{0,3})\\d*(\\.\\d{0,${decimals}})?`),
+  );
+  return match ? match[1] + (match[2] ?? "") : raw;
+}
+
+export function coverageFromPercent(raw: string): number {
+  return parseFloat((parseFloat(raw) / 100).toFixed(COVERAGE_DECIMALS + 2));
+}
+export function coverageToPercent(coverage: number): number {
+  return decimalToPercent(coverage, COVERAGE_DECIMALS + 2);
+}
 export function decimalToPercent(val: number, precision: number = 4): number {
   return parseFloat((val * 100).toFixed(precision - 2));
 }
 export function floatRound(val: number, precision: number = 4): number {
   return parseFloat(val.toFixed(precision));
+}
+
+// Within one step of the stored precision, as getEqualWeights leaves an
+// uneven count.
+export function isEqualSplit(weights: number[]): boolean {
+  const step = Math.pow(10, -(VARIATION_WEIGHT_DECIMALS + 2));
+  return floatRound(Math.max(...weights) - Math.min(...weights)) <= step;
 }
 
 // Updates one of the variation weights and rebalances
@@ -253,6 +283,13 @@ export function appendQueryParamsToURL(
     },
   );
   return `${root}?${queryParams}${hash ? `#${hash}` : ""}`;
+}
+
+/** "a", "a and b", "a, b and c". */
+export function joinAnd(parts: string[]): string {
+  return parts.length <= 1
+    ? (parts[0] ?? "")
+    : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
 }
 
 export function capitalizeFirstLetter(string): string {
