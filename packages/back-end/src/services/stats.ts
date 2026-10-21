@@ -96,6 +96,7 @@ export function getAnalysisSettingsForStatsEngine(
   variations: ExperimentReportVariation[],
   coverage: number,
   phaseLengthDays: number,
+  isClusterExperiment: boolean = false,
 ): AnalysisSettingsForStatsEngine {
   const sortedVariations = putBaselineVariationFirst(
     variations,
@@ -135,7 +136,8 @@ export function getAnalysisSettingsForStatsEngine(
     num_guardrail_metrics: settings.numGuardrailMetrics ?? 0,
     one_sided_intervals: !!settings.oneSidedIntervals,
     use_covariate_as_response: !!settings.useCovariateAsResponse,
-    post_stratification_enabled: !!settings.postStratificationEnabled,
+    post_stratification_enabled:
+      !isClusterExperiment && !!settings.postStratificationEnabled,
   };
 
   return analysisData;
@@ -240,6 +242,7 @@ function createStatsEngineData(
         variations,
         coverage,
         phaseLengthDays,
+        !!params.isClusterExperiment,
       ),
     ),
     bandit_settings: banditSettings
@@ -336,13 +339,16 @@ export function getMetricSettingsForStatsEngine(
     (isClusterMetric ||
       !isRatioMetric(metric, denominator) ||
       optimizedFactMetric);
-  const mainMetricType = isClusterMetric
-    ? "count"
-    : quantileMetric
-      ? "quantile"
-      : isBinomialMetric(metric)
-        ? "binomial"
-        : "count";
+  let mainMetricType: "count" | "quantile" | "binomial";
+  if (isClusterMetric) {
+    mainMetricType = "count";
+  } else if (quantileMetric) {
+    mainMetricType = "quantile";
+  } else if (isBinomialMetric(metric)) {
+    mainMetricType = "binomial";
+  } else {
+    mainMetricType = "count";
+  }
   // Fact ratio metrics (and every cluster metric) carry the denominator on the
   // metric row itself.
   if (isClusterMetric || (isFactMetric(metric) && ratioMetric)) {
@@ -387,8 +393,7 @@ export function getMetricSettingsForStatsEngine(
       metric.id,
       settings,
     ),
-    compute_uncapped_metric:
-      !isClusterMetric && eligibleForUncappedMetric(metric),
+    compute_uncapped_metric: eligibleForUncappedMetric(metric),
   };
 }
 
@@ -800,6 +805,7 @@ export async function analyzeExperimentResults({
   const params: ExperimentMetricAnalysisParams = {
     id: snapshotSettings.experimentId,
     coverage: snapshotSettings.coverage ?? 1,
+    isClusterExperiment: !!snapshotSettings.isClusterExperiment,
     phaseLengthHours: Math.max(
       hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
       1,

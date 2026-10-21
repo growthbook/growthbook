@@ -689,6 +689,46 @@ describe("snapshot planning", () => {
     expect(analysisSettings.numGuardrailMetrics).toBe(2);
   });
 
+  it("never enables cluster analysis for legacy reports, even for a cluster experiment", () => {
+    const metric = factMetricFactory.build({ id: "m_goal" });
+    const metricMap = new Map<string, ExperimentMetricInterface>([
+      [metric.id, metric],
+    ]);
+    const args: LegacyExperimentReportArgs = {
+      trackingKey: "experiment",
+      datasource: "ds_123",
+      exposureQueryId: "exposure",
+      exposureQueryIdentifierType: "region_id",
+      startDate: new Date(),
+      variations: [
+        { id: "0", index: 0, name: "Control", weight: 0.5 },
+        { id: "1", index: 1, name: "Treatment", weight: 0.5 },
+      ],
+      goalMetrics: ["m_goal"],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      decisionFrameworkSettings: {},
+    };
+
+    // Even if the live experiment is cluster-randomized, legacy reports must
+    // not enable cluster analysis (they can't compute clusterLevelMetricIds).
+    const clusterExperiment = makeExperiment({
+      isClusterExperiment: true,
+      clusterSubUnitIdentifier: "user_id",
+    });
+
+    const { snapshotSettings } = getSnapshotSettingsFromReportArgs(
+      args,
+      metricMap,
+      undefined,
+      clusterExperiment,
+    );
+
+    expect(snapshotSettings.isClusterExperiment).toBe(false);
+    expect(snapshotSettings.clusterSubUnitIdentifier).toBeUndefined();
+    expect(snapshotSettings.clusterLevelMetricIds).toBeUndefined();
+  });
+
   it("rejects a snapshot for an experiment with no metrics without persisting a record", async () => {
     await expect(
       createExperimentSnapshot({

@@ -449,4 +449,28 @@ describe("getAnalysisSettingsForStatsEngine", () => {
       0.05,
     );
   });
+
+  const postStratFor = (
+    settings: Partial<ExperimentSnapshotAnalysisSettings>,
+    isClusterExperiment?: boolean,
+  ): boolean =>
+    getAnalysisSettingsForStatsEngine(
+      { ...analysisSettings, ...settings },
+      reportVariations,
+      1,
+      14,
+      isClusterExperiment,
+    ).post_stratification_enabled;
+
+  it("passes through post-stratification for non-cluster experiments", () => {
+    expect(postStratFor({ postStratificationEnabled: true })).toBe(true);
+    expect(postStratFor({ postStratificationEnabled: false })).toBe(false);
+  });
+
+  it("forces post-stratification off for cluster experiments", () => {
+    expect(postStratFor({ postStratificationEnabled: true }, true)).toBe(false);
+    expect(postStratFor({ postStratificationEnabled: false }, true)).toBe(
+      false,
+    );
+  });
 });

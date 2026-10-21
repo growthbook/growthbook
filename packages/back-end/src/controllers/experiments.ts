@@ -12,7 +12,6 @@ import {
   reconcileMergeBaselines,
   includeExperimentInPayload,
   parseAssignmentQuerySelection,
-  validateClusterExperimentIdentifiers,
 } from "shared/util";
 import {
   expandDerivedMetricsInMap,
@@ -20,7 +19,12 @@ import {
   getAllMetricIdsFromExperiment,
   getAllVariations,
   getActivePhase,
+  canEditContextualBanditVisualChanges,
 } from "shared/experiments";
+import {
+  CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
+  isUnsupportedClusterBanditCombination,
+} from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { v4 as uuidv4 } from "uuid";
@@ -47,6 +51,14 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
+import {
+  ContextualBanditChangesetOwner,
+  ExperimentChangesetOwner,
+  contextualBanditVisualChangesBlocked,
+  ownerNotFoundMessage,
+  resolveChangesetOwner,
+} from "back-end/src/services/changesetOwner";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -59,7 +71,7 @@ import {
   applyVariationWeightsToLatestPhase,
   assertCanEnableClusterExperiment,
   assertCanRunExperimentChanges,
-  assertClusterExperimentMetricsSupported,
+  assertValidClusterExperimentConfig,
   assertExperimentKeyFormat,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
@@ -118,7 +130,10 @@ import {
   updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import { resolveAssignmentQueryIdentifier } from "back-end/src/services/assignmentQuerySelection";
+import {
+  getExperimentAssignmentQueryScope,
+  resolveAssignmentQueryIdentifier,
+} from "back-end/src/services/assignmentQuerySelection";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   getAISettingsForOrg,
@@ -145,10 +160,14 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import { ApiReqContext, PrivateApiErrorResponse } from "back-end/types/api";
-import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperimentsQueryRunner";
+import {
+  PastExperimentsQueryRunner,
+  withCountedIdentifierTypes,
+} from "back-end/src/queryRunners/PastExperimentsQueryRunner";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { assumeUtc } from "back-end/src/util/dates";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
@@ -1318,6 +1337,7 @@ export async function postExperiments(
     implementation: data.implementation || "code",
     status: data.status || "draft",
     results: data.results || undefined,
+    winner: data.winner,
     analysis: data.analysis || "",
     releasedVariationId: "",
     excludeFromPayload: true,
@@ -1383,6 +1403,15 @@ export async function postExperiments(
   try {
     validateVariationIds(obj.variations);
 
+    if (
+      isUnsupportedClusterBanditCombination({
+        type: experimentType,
+        isClusterExperiment: obj.isClusterExperiment,
+      })
+    ) {
+      throw new Error(CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE);
+    }
+
     if (datasource && obj.exposureQueryId) {
       const parsed = parseAssignmentQuerySelection(
         datasource.settings.queries?.exposure ?? [],
@@ -1390,40 +1419,32 @@ export async function postExperiments(
           exposureQueryId: obj.exposureQueryId,
           identifierType: obj.exposureQueryIdentifierType,
           onOmitted: "defaultToFirst",
+          scope: {
+            project: obj.project ?? "",
+            datasourceProjects: datasource.projects,
+          },
         },
       );
       if (!parsed.ok) throw new Error(parsed.error);
       obj.exposureQueryIdentifierType = parsed.identifierType;
-
-      if (obj.isClusterExperiment) {
-        const clusterValidation = validateClusterExperimentIdentifiers(
-          datasource.settings.queries?.exposure?.find(
-            (q) => q.id === obj.exposureQueryId,
-          ),
-          obj.exposureQueryIdentifierType,
-          obj.clusterSubUnitIdentifier,
-        );
-        if (!clusterValidation.ok) throw new Error(clusterValidation.error);
-      }
     }
 
     if (obj.isClusterExperiment) {
       assertCanEnableClusterExperiment(context);
-      const clusterMetricGroups = await context.models.metricGroups.getAll();
-      const clusterMetricMap = await getMetricMap(context);
-      const clusterFactTableMap = await getFactTableMap(context);
-      assertClusterExperimentMetricsSupported({
+    }
+    await assertValidClusterExperimentConfig({
+      context,
+      datasource,
+      current: {
+        isClusterExperiment: obj.isClusterExperiment,
+        exposureQueryId: obj.exposureQueryId,
+        exposureQueryIdentifierType: obj.exposureQueryIdentifierType,
+        clusterSubUnitIdentifier: obj.clusterSubUnitIdentifier,
         goalMetrics: obj.goalMetrics,
         secondaryMetrics: obj.secondaryMetrics,
         guardrailMetrics: obj.guardrailMetrics,
-        metricMap: clusterMetricMap,
-        metricGroups: clusterMetricGroups,
-        clusterIdentifier: obj.exposureQueryIdentifierType,
-        clusterSubUnitIdentifier: obj.clusterSubUnitIdentifier,
-        factTableMap: clusterFactTableMap,
-        datasource,
-      });
-    }
+      },
+    });
 
     if (data.precomputedUnitDimensionIds !== undefined) {
       await assertExperimentPrecomputedUnitDimensionIdsAreValid({
@@ -1513,7 +1534,7 @@ export async function postExperiments(
       );
       for (const visualChangeset of visualChangesets) {
         await createVisualChangeset({
-          experiment,
+          owner: new ExperimentChangesetOwner(context, experiment),
           urlPatterns: visualChangeset.urlPatterns,
           editorUrl: visualChangeset.editorUrl,
           context,
@@ -2060,13 +2081,19 @@ export async function postExperiment(
     next: {
       datasource: changes.datasource ?? experiment.datasource ?? "",
       exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
-      /**
-       * The body's, not `changes`: re-sending the stored value on a new query
-       * leaves it out of `changes` but is still an explicit choice.
-       */
+      // Read from the body, not `changes`: the diff drops an identifier equal
+      // to the stored one, but on a newly chosen query it's still an explicit
+      // selection.
       identifierType: data.exposureQueryIdentifierType,
     },
     onOmitted: "defaultToFirst",
+    // A newly chosen query must fit the experiment's project after this edit.
+    scope: () =>
+      getExperimentAssignmentQueryScope(
+        context,
+        experiment,
+        changes.project ?? experiment.project ?? "",
+      ),
   });
   // Also overrides an echoed identifier on an unchanged selection, so an
   // implicit experiment stays implicit.
@@ -2079,38 +2106,46 @@ export async function postExperiment(
   }
   const effectiveIsClusterExperiment =
     changes.isClusterExperiment ?? experiment.isClusterExperiment;
-  if (effectiveIsClusterExperiment) {
-    const clusterDatasourceId =
-      changes.datasource ?? experiment.datasource ?? "";
-    const clusterDatasource = clusterDatasourceId
-      ? await getDataSourceById(context, clusterDatasourceId)
-      : null;
-    const clusterValidation = validateClusterExperimentIdentifiers(
-      clusterDatasource?.settings.queries?.exposure?.find(
-        (q) => q.id === (changes.exposureQueryId ?? experiment.exposureQueryId),
-      ),
-      changes.exposureQueryIdentifierType ??
-        experiment.exposureQueryIdentifierType,
-      changes.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
-    );
-    if (!clusterValidation.ok) throw new Error(clusterValidation.error);
-
-    const clusterFactTableMap = await getFactTableMap(context);
-    assertClusterExperimentMetricsSupported({
-      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
-      secondaryMetrics: changes.secondaryMetrics ?? experiment.secondaryMetrics,
-      guardrailMetrics: changes.guardrailMetrics ?? experiment.guardrailMetrics,
-      metricMap,
-      metricGroups: allMetricGroups,
-      clusterIdentifier:
+  const effectiveExperimentType = changes.type ?? experiment.type ?? "standard";
+  if (
+    isUnsupportedClusterBanditCombination({
+      type: effectiveExperimentType,
+      isClusterExperiment: effectiveIsClusterExperiment,
+    })
+  ) {
+    throw new Error(CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE);
+  }
+  const clusterDatasourceId = changes.datasource ?? experiment.datasource ?? "";
+  const clusterDatasource = clusterDatasourceId
+    ? await getDataSourceById(context, clusterDatasourceId)
+    : null;
+  await assertValidClusterExperimentConfig({
+    context,
+    datasource: clusterDatasource,
+    current: {
+      isClusterExperiment: effectiveIsClusterExperiment,
+      exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
+      exposureQueryIdentifierType:
         changes.exposureQueryIdentifierType ??
         experiment.exposureQueryIdentifierType,
       clusterSubUnitIdentifier:
         changes.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
-      factTableMap: clusterFactTableMap,
-      datasource: clusterDatasource,
-    });
-  }
+      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
+      secondaryMetrics: changes.secondaryMetrics ?? experiment.secondaryMetrics,
+      guardrailMetrics: changes.guardrailMetrics ?? experiment.guardrailMetrics,
+    },
+    previous: {
+      isClusterExperiment: experiment.isClusterExperiment,
+      exposureQueryId: experiment.exposureQueryId,
+      exposureQueryIdentifierType: experiment.exposureQueryIdentifierType,
+      clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,
+      goalMetrics: experiment.goalMetrics,
+      secondaryMetrics: experiment.secondaryMetrics,
+      guardrailMetrics: experiment.guardrailMetrics,
+    },
+    metricMap,
+    metricGroups: allMetricGroups,
+  });
 
   const shouldValidatePrecomputedUnitDimensionIds =
     changes.precomputedUnitDimensionIds !== undefined ||
@@ -2175,13 +2210,13 @@ export async function postExperiment(
     const firstPhaseClone = { ...phases[0] };
 
     if (phaseStartDate) {
-      phaseClone.dateStarted = getValidDate(phaseStartDate + ":00Z");
+      phaseClone.dateStarted = getValidDate(assumeUtc(phaseStartDate));
     }
     if (experiment.status === "stopped" && phaseEndDate) {
-      phaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+      phaseClone.dateEnded = getValidDate(assumeUtc(phaseEndDate));
       // update both phases when stopped
       if (experiment.type === "holdout") {
-        firstPhaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+        firstPhaseClone.dateEnded = getValidDate(assumeUtc(phaseEndDate));
         phases[0] = firstPhaseClone; // update the first phase to the same date ended
       }
     }
@@ -2515,7 +2550,7 @@ export async function postExperimentStatus(
     phases[lastIndex] = {
       ...phases[lastIndex],
       reason,
-      dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
+      dateEnded: dateEnded ? getValidDate(assumeUtc(dateEnded)) : new Date(),
     };
     changes.phases = phases;
   }
@@ -2742,7 +2777,9 @@ export async function postExperimentStop(
             : undefined),
         reason: req.body.reason,
         analysis: req.body.analysis,
-        dateEnded: req.body.dateEnded ? `${req.body.dateEnded}:00Z` : undefined,
+        dateEnded: req.body.dateEnded
+          ? assumeUtc(req.body.dateEnded)
+          : undefined,
       },
       allowAlreadyStopped: true,
     });
@@ -2936,10 +2973,10 @@ export async function putExperimentPhase(
   );
 
   phase.dateStarted = phase.dateStarted
-    ? getValidDate(phase.dateStarted + ":00Z")
+    ? getValidDate(assumeUtc(phase.dateStarted))
     : new Date();
   phase.dateEnded = phase.dateEnded
-    ? getValidDate(phase.dateEnded + ":00Z")
+    ? getValidDate(assumeUtc(phase.dateEnded))
     : undefined;
 
   await validateChangedPhaseReferences(
@@ -3239,7 +3276,7 @@ export async function postExperimentPhase(
     experiment.phases.slice(-1),
     context,
   );
-  const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
+  const date = dateStarted ? getValidDate(assumeUtc(dateStarted)) : new Date();
 
   const phases = [...experiment.phases];
   // Already has phases
@@ -3979,23 +4016,32 @@ export async function getPastExperimentsList(
     throw new Error("Invalid import id");
   }
 
+  const datasource = await getDataSourceById(
+    context,
+    pastExperiments.datasource,
+  );
+  if (!datasource) {
+    return context.permissions.throwPermissionError();
+  }
+
   const experiments = await getPastExperimentsByDatasource(
     context,
     pastExperiments.datasource,
   );
 
-  const experimentMap = new Map<string, string>();
+  const experimentMap = new Map<string, string | null>();
   (experiments || []).forEach((e) => {
-    experimentMap.set(e.trackingKey, e.id);
-    experimentMap.set(e.trackingKey + "::" + e.exposureQueryId, e.id);
+    [e.trackingKey, e.trackingKey + "::" + e.exposureQueryId].forEach((key) => {
+      if (!experimentMap.get(key)) experimentMap.set(key, e.id);
+    });
   });
 
-  const trackingKeyMap: Record<string, string> = {};
+  const trackingKeyMap: Record<string, string | null> = {};
   (pastExperiments.experiments || []).forEach((e) => {
     const keys = [e.trackingKey, e.trackingKey + "::" + e.exposureQueryId];
     keys.forEach((key) => {
       const id = experimentMap.get(key);
-      if (id) {
+      if (id !== undefined) {
         trackingKeyMap[key] = id;
       }
     });
@@ -4003,7 +4049,13 @@ export async function getPastExperimentsList(
 
   res.status(200).json({
     status: 200,
-    experiments: pastExperiments,
+    experiments: {
+      ...pastExperiments,
+      experiments: withCountedIdentifierTypes(
+        pastExperiments.experiments ?? [],
+        datasource.settings?.queries?.exposure ?? [],
+      ),
+    },
     existing: trackingKeyMap,
     lookbackDays: IMPORT_LIMIT_DAYS,
   });
@@ -4044,6 +4096,12 @@ export async function postPastExperiments(
 
   let needsRun = false;
   if (force) {
+    // Before touching the shared record; the runner would refuse anyway.
+    if (
+      !context.permissions.canRunPastExperimentQueries(integration.datasource)
+    ) {
+      context.permissions.throwPermissionError();
+    }
     needsRun = true;
     pastExperiments = await updatePastExperiments(pastExperiments, {
       config: {
@@ -4106,7 +4164,7 @@ export async function postVisualChangeset(
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
   const visualChangeset = await createVisualChangeset({
-    experiment,
+    owner: new ExperimentChangesetOwner(context, experiment),
     urlPatterns: req.body.urlPatterns,
     editorUrl: req.body.editorUrl,
     context,
@@ -4130,12 +4188,36 @@ export async function putVisualChangeset(
     throw new Error("Visual Changeset not found");
   }
 
-  const experiment = await getExperimentById(
-    context,
-    visualChangeset.experiment,
-  );
-  if (!experiment) {
-    throw new Error("Could not find experiment");
+  const owner = await resolveChangesetOwner(context, visualChangeset);
+  if (!owner) {
+    throw new Error(ownerNotFoundMessage(visualChangeset));
+  }
+  if (owner instanceof ContextualBanditChangesetOwner) {
+    if (!canEditContextualBanditVisualChanges(owner.cb)) {
+      throw new Error(contextualBanditVisualChangesBlocked(owner.cb, "edited"));
+    }
+    if (!owner.canUpdateVisualChange()) {
+      context.permissions.throwPermissionError();
+    }
+    if (owner.cb.status === "running") {
+      const envs = getEnvironments(context.org).map((e) => e.id);
+      if (!context.permissions.canRunContextualBandit(owner.cb, envs)) {
+        context.permissions.throwPermissionError();
+      }
+    }
+  } else if (owner instanceof ExperimentChangesetOwner) {
+    const { experiment } = owner;
+    const orgEnvironments = context.org.settings?.environments || [];
+    const linkedFeatureIds = experiment.linkedFeatures || [];
+    const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+    const envs = getAffectedEnvsForExperiment({
+      experiment,
+      linkedFeatures,
+      orgEnvironments,
+    });
+    if (!context.permissions.canRunExperiment(experiment, envs)) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   const updates: Partial<VisualChangesetInterface> = {
@@ -4144,24 +4226,9 @@ export async function putVisualChangeset(
     visualChanges: req.body.visualChanges,
   };
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = experiment
-    ? getAffectedEnvsForExperiment({
-        experiment,
-        linkedFeatures,
-        orgEnvironments: context.org.settings?.environments || [],
-      })
-    : [];
-  if (!context.permissions.canRunExperiment(experiment, envs)) {
-    context.permissions.throwPermissionError();
-  }
-
   const ret = await updateVisualChangeset({
     visualChangeset,
-    experiment,
+    owner,
     context,
     updates,
   });
@@ -4188,29 +4255,37 @@ export async function deleteVisualChangeset(
     throw new Error("Visual Changeset not found");
   }
 
-  const experiment = await getExperimentById(
-    context,
-    visualChangeset.experiment,
-  );
+  const owner = await resolveChangesetOwner(context, visualChangeset);
+  const orgEnvironments = context.org.settings?.environments || [];
 
-  const linkedFeatureIds = experiment?.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = experiment
-    ? getAffectedEnvsForExperiment({
-        experiment,
-        linkedFeatures,
-        orgEnvironments: context.org.settings?.environments || [],
-      })
-    : [];
-  if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
-    context.permissions.throwPermissionError();
+  if (owner instanceof ContextualBanditChangesetOwner) {
+    const envs = getEnvironments(context.org).map((e) => e.id);
+    if (
+      !owner.canUpdateOwner() ||
+      !context.permissions.canRunContextualBandit(owner.cb, envs)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  } else {
+    const experiment =
+      owner instanceof ExperimentChangesetOwner ? owner.experiment : null;
+    const linkedFeatureIds = experiment?.linkedFeatures || [];
+    const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+    const envs = experiment
+      ? getAffectedEnvsForExperiment({
+          experiment,
+          linkedFeatures,
+          orgEnvironments,
+        })
+      : [];
+    if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   await deleteVisualChangesetById({
     visualChangeset,
-    experiment,
+    owner,
     context,
   });
 

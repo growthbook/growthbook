@@ -162,7 +162,11 @@ export default class ClickHouse extends SqlIntegration {
       // QueryRunner only logs failures at debug level (suppressed in prod), so this is
       // the only place Managed Warehouse failure rate/detail is visible in prod logs.
       if (isManagedWarehouse(this.datasource)) {
-        const code = e instanceof ClickHouseError ? e.code : "unknown";
+        // Network failures (ECONNRESET etc.) aren't ClickHouseErrors but carry a Node errno code.
+        const code =
+          e instanceof ClickHouseError
+            ? e.code
+            : (e as NodeJS.ErrnoException)?.code || "unknown";
         try {
           logger.error(
             {

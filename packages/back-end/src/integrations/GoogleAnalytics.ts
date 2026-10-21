@@ -30,7 +30,7 @@ import {
   InsertMetricSourceDataQueryParams,
   IncrementalRefreshStatisticsQueryParams,
   DimensionSlicesQueryParams,
-  PastExperimentParams,
+  PastExperimentQueryParams,
   MetricAnalysisParams,
   ExperimentFactMetricsQueryResponse,
   UserExperimentExposuresQueryResponse,
@@ -179,7 +179,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<ExperimentUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getPastExperimentQuery(_: PastExperimentParams): string {
+  getPastExperimentQuery(_: PastExperimentQueryParams): string {
     throw new Error("Method not implemented.");
   }
   runPastExperimentQuery(

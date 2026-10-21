@@ -35,6 +35,7 @@ import {
 } from "shared/types/organization";
 import {
   AttributionModel,
+  CustomMetricSlice,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   LookbackOverride,
@@ -1364,17 +1365,15 @@ export function isRatioMetric(
   return !!denominatorMetric && !isBinomialMetric(denominatorMetric);
 }
 
-/**
- * For cluster-randomized experiments, mean/proportion/retention fact metrics are
- * analyzed as a ratio to get cluster-robust inference.  Ratio metrics are alrady cluster-correct.
- */
-export function analyzeClusterMetricAsRatio(
-  m: ExperimentMetricDefinition,
-  { isClusterExperiment }: { isClusterExperiment?: boolean },
-): boolean {
-  if (!isClusterExperiment) return false;
-  if (!isFactMetric(m)) return false;
-  return ["mean", "proportion", "retention"].includes(m.metricType);
+export function getClusterSubUnit(
+  settings: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier"
+  >,
+): string | null {
+  return settings.isClusterExperiment && settings.clusterSubUnitIdentifier
+    ? settings.clusterSubUnitIdentifier
+    : null;
 }
 
 /**
@@ -1390,8 +1389,7 @@ export function isSubUnitClusterMetric(
   >,
 ): boolean {
   return (
-    !!settings.isClusterExperiment &&
-    !!settings.clusterSubUnitIdentifier &&
+    getClusterSubUnit(settings) !== null &&
     isFactMetric(m) &&
     !settings.clusterLevelMetricIds?.includes(m.id)
   );
@@ -1399,10 +1397,13 @@ export function isSubUnitClusterMetric(
 
 export type ClusterMetricAnalysisLevel = "subunit" | "cluster";
 
-// Aggregations whose per-sub-unit values can be summed into a cluster total.
-export const CLUSTER_SUBUNIT_ROLLUP_AGGREGATIONS = [
+// Aggregations that collapse to a single scalar per sub-unit, so the rollup can
+// sum them into a cluster total.
+const CLUSTER_SUBUNIT_ROLLUP_AGGREGATIONS = [
   "sum",
   "count distinct",
+  "max",
+  "hll merge",
 ] as const;
 
 export function getNonRollupAggregation(
@@ -1421,12 +1422,6 @@ export function getNonRollupAggregation(
   return null;
 }
 
-/**
- * A metric is analyzed per sub-unit whenever every fact table it reads can be
- * joined on the sub-unit id and its aggregations sum across sub-units (e.g. a
- * max does not), otherwise per cluster if they can all be joined on the
- * cluster id. Null means it can't be analyzed in the cluster experiment.
- */
 export function getClusterMetricAnalysisLevel(
   metric: FactMetricInterface,
   {
@@ -1477,23 +1472,23 @@ export function quantileMetricType(
   return "";
 }
 
-export const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
+const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
   "proportion",
   "retention",
   "mean",
   "ratio",
 ] as const;
 
-export type ClusterMetricEligibility =
+type ClusterMetricEligibility =
   | { allowed: true }
   | { allowed: false; reason: string };
 
 export function getClusterExperimentMetricEligibility(
   metric: ExperimentMetricDefinition,
-  options?: {
+  options: {
     clusterIdentifier?: string | null;
     clusterSubUnitIdentifier?: string | null;
-    getFactTable?: (
+    getFactTable: (
       id: string,
     ) => Pick<FactTableInterface, "userIdTypes"> | null | undefined;
     datasourceSettings?: DataSourceSettings;
@@ -1502,13 +1497,13 @@ export function getClusterExperimentMetricEligibility(
   if (!isFactMetric(metric)) {
     return {
       allowed: false,
-      reason: "cluster experiments support only fact metrics.",
+      reason: "Cluster experiments support only Fact Metrics.",
     };
   }
   if (quantileMetricType(metric)) {
     return {
       allowed: false,
-      reason: "quantile metrics are not supported in cluster experiments.",
+      reason: "Quantile metrics are not supported in cluster experiments.",
     };
   }
   if (
@@ -1518,11 +1513,10 @@ export function getClusterExperimentMetricEligibility(
   ) {
     return {
       allowed: false,
-      reason: `${metric.metricType} metrics are not supported in cluster experiments. Use proportion, retention, mean, or ratio metrics.`,
+      reason: `Cluster experiments don't support ${metric.metricType} metrics. Use proportion, retention, mean, or ratio metrics.`,
     };
   }
-  const nonRollupAggregation = getNonRollupAggregation(metric);
-  if (options?.clusterSubUnitIdentifier && options.getFactTable) {
+  if (options.clusterSubUnitIdentifier) {
     const level = getClusterMetricAnalysisLevel(metric, {
       clusterIdentifier: options.clusterIdentifier,
       clusterSubUnitIdentifier: options.clusterSubUnitIdentifier,
@@ -1530,21 +1524,17 @@ export function getClusterExperimentMetricEligibility(
       datasourceSettings: options.datasourceSettings,
     });
     if (!level) {
+      if (options.clusterIdentifier) {
+        return {
+          allowed: false,
+          reason: `This metric's fact table exposes neither the sub-unit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`,
+        };
+      }
       return {
         allowed: false,
-        reason: nonRollupAggregation
-          ? `"${nonRollupAggregation}" aggregations can't be summed across sub-units, so this metric's fact table must expose the cluster identifier${options.clusterIdentifier ? ` "${options.clusterIdentifier}"` : ""}.`
-          : options.clusterIdentifier
-            ? `this metric's fact table exposes neither the sub-unit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`
-            : `this metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}".`,
+        reason: `This metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}".`,
       };
     }
-  } else if (nonRollupAggregation) {
-    // Without fact tables we can't tell whether the cluster level is reachable.
-    return {
-      allowed: false,
-      reason: `"${nonRollupAggregation}" aggregations are not supported in cluster experiments (only sums, counts, proportions, and ratios of these).`,
-    };
   }
   return { allowed: true };
 }
@@ -2759,7 +2749,7 @@ export function createCustomSliceDataForMetric({
 }: {
   metricId: string;
   metricName: string;
-  customMetricSlices?: { slices: { column: string; levels: string[] }[] }[];
+  customMetricSlices?: CustomMetricSlice[];
   factTable?: FactTableDefinition | null;
 }): SliceDataForMetric[] {
   // Sanity checks

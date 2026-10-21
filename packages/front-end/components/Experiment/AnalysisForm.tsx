@@ -7,7 +7,7 @@ import {
 } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiCaretRightFill } from "react-icons/pi";
-import { datetime, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -23,6 +23,7 @@ import Collapsible from "react-collapsible";
 import {
   getAllMetricIdsFromExperiment,
   getClusterExperimentMetricEligibility,
+  getClusterSubUnit,
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
@@ -30,6 +31,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   getDefaultIdentifierType,
+  getExposureQueriesInScope,
   getExposureQuery,
   getHashAttributeIdentifierTypeMap,
   getSelectableIdentifierTypes,
@@ -86,6 +88,10 @@ const AnalysisForm: FC<{
   editDates?: boolean;
   editMetrics?: boolean;
   source?: string;
+  /**
+   * A holdout's assignment query must cover every Project the holdout spans.
+   */
+  holdoutProjects?: string[];
 }> = ({
   experiment,
   envs,
@@ -93,6 +99,7 @@ const AnalysisForm: FC<{
   mutate,
   phase,
   source,
+  holdoutProjects,
   editVariationIds = true,
   editDates = true,
   editMetrics = false,
@@ -105,7 +112,7 @@ const AnalysisForm: FC<{
     getSegmentById,
     datasources,
     dimensions,
-    factTables,
+    getFactTableById,
     metricGroups,
   } = useDefinitions();
 
@@ -153,9 +160,8 @@ const AnalysisForm: FC<{
   }
 
   const phaseObj = experiment.phases[phase];
-  const initialDatasourceSettings = getDatasourceById(
-    experiment.datasource,
-  )?.settings;
+  const initialDatasource = getDatasourceById(experiment.datasource);
+  const initialDatasourceSettings = initialDatasource?.settings;
   const initialExposureQuery = getExposureQuery(
     initialDatasourceSettings,
     experiment.exposureQueryId,
@@ -172,7 +178,13 @@ const AnalysisForm: FC<{
       )
     : getDefaultIdentifierType({
         identifierTypes: getSelectableIdentifierTypes(
-          initialDatasourceSettings?.queries?.exposure ?? [],
+          initialDatasource
+            ? getExposureQueriesInScope(
+                initialDatasource,
+                experiment.project,
+                holdoutProjects,
+              )
+            : [],
         ),
         hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
           initialDatasourceSettings?.userIdTypes,
@@ -196,12 +208,8 @@ const AnalysisForm: FC<{
         experiment.attributionModel ||
         orgSettings.attributionModel ||
         "firstExposure",
-      dateStarted: getValidDate(phaseObj?.dateStarted ?? "")
-        .toISOString()
-        .substr(0, 16),
-      dateEnded: getValidDate(phaseObj?.dateEnded ?? "")
-        .toISOString()
-        .substr(0, 16),
+      dateStarted: getValidDate(phaseObj?.dateStarted ?? "").toISOString(),
+      dateEnded: getValidDate(phaseObj?.dateEnded ?? "").toISOString(),
       variations: getLatestPhaseVariations(experiment) || [],
       phases: experiment.phases || [],
       sequentialTestingEnabled:
@@ -354,6 +362,8 @@ const AnalysisForm: FC<{
   );
   const assignmentQuerySelection = useAssignmentQuerySelection({
     datasource,
+    project: experiment.project,
+    holdoutProjects,
     hashAttribute: experiment.hashAttribute,
     exposureQueryId,
     identifierType: exposureQueryIdentifierType,
@@ -372,8 +382,13 @@ const AnalysisForm: FC<{
   const goalMetrics = form.watch("goalMetrics");
   const secondaryMetrics = form.watch("secondaryMetrics");
   const guardrailMetrics = form.watch("guardrailMetrics");
+  // Same inputs as the metric pickers, so both agree on what's eligible.
   const ineligibleClusterMetricNames = useMemo(() => {
-    if (!isClusterExperiment) return [];
+    const clusterSubUnit = getClusterSubUnit({
+      isClusterExperiment,
+      clusterSubUnitIdentifier,
+    });
+    if (!clusterSubUnit || !exposureQuery) return [];
     return getAllMetricIdsFromExperiment(
       { goalMetrics, secondaryMetrics, guardrailMetrics },
       false,
@@ -383,9 +398,8 @@ const AnalysisForm: FC<{
       if (!metric) return [];
       const eligibility = getClusterExperimentMetricEligibility(metric, {
         clusterIdentifier: exposureQueryIdentifierType,
-        clusterSubUnitIdentifier,
-        getFactTable: (factTableId) =>
-          factTables.find((ft) => ft.id === factTableId),
+        clusterSubUnitIdentifier: clusterSubUnit,
+        getFactTable: getFactTableById,
         datasourceSettings: datasource?.settings,
       });
       return eligibility.allowed ? [] : [metric.name];
@@ -398,7 +412,8 @@ const AnalysisForm: FC<{
     secondaryMetrics,
     guardrailMetrics,
     metricGroups,
-    factTables,
+    getFactTableById,
+    exposureQuery,
     datasource,
     getExperimentMetricById,
   ]);
@@ -409,6 +424,11 @@ const AnalysisForm: FC<{
       experiment.id,
       experiment.type,
     );
+  const activationMetricDisabledReason = isClusterExperiment
+    ? "Activation metrics aren't supported for cluster experiments."
+    : isExperimentIncludedInIncrementalRefresh
+      ? "Activation Metrics are not yet supported with Incremental Refresh. Contact support if needed."
+      : null;
 
   const datasourceField = form.watch("datasource");
   const hasPipelineModeFeature = hasCommercialFeature("pipeline-mode");
@@ -714,7 +734,13 @@ const AnalysisForm: FC<{
                     "exposureQueryIdentifierType",
                     getDefaultIdentifierType({
                       identifierTypes: getSelectableIdentifierTypes(
-                        ds?.settings?.queries?.exposure ?? [],
+                        ds
+                          ? getExposureQueriesInScope(
+                              ds,
+                              experiment.project,
+                              holdoutProjects,
+                            )
+                          : [],
                       ),
                       hashAttributeIdentifierTypeMap:
                         getHashAttributeIdentifierTypeMap(
@@ -808,7 +834,6 @@ const AnalysisForm: FC<{
                   setSubUnitIdentifier={(value) =>
                     form.setValue("clusterSubUnitIdentifier", value)
                   }
-                  ineligibleMetricNames={ineligibleClusterMetricNames}
                 />
               )}
             {datasource && !isHoldout && (
@@ -865,11 +890,12 @@ const AnalysisForm: FC<{
             <div className="row">
               <div className="col">
                 <DatePicker
-                  label="Start Time (UTC)"
+                  label="Start time"
+                  timeZone="utc"
                   helpText="Only include users who entered the experiment on or after this date"
                   date={form.watch("dateStarted")}
                   setDate={(v) => {
-                    form.setValue("dateStarted", v ? datetime(v) : "");
+                    form.setValue("dateStarted", v ? v.toISOString() : "");
                   }}
                   scheduleEndDate={form.watch("dateEnded")}
                   disableAfter={form.watch("dateEnded") || undefined}
@@ -878,11 +904,12 @@ const AnalysisForm: FC<{
               {experiment.status === "stopped" && (
                 <div className="col">
                   <DatePicker
-                    label="End Time (UTC)"
+                    label="End time"
+                    timeZone="utc"
                     helpText="Only include users who entered the experiment on or before this date"
                     date={form.watch("dateEnded")}
                     setDate={(v) => {
-                      form.setValue("dateEnded", v ? datetime(v) : "");
+                      form.setValue("dateEnded", v ? v.toISOString() : "");
                     }}
                     scheduleStartDate={form.watch("dateStarted")}
                     disableBefore={form.watch("dateStarted") || undefined}
@@ -934,51 +961,59 @@ const AnalysisForm: FC<{
               </Box>
               {!orgSettings.disablePrecomputedDimensions ? (
                 <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
-                  <SelectField
-                    label={
-                      <PremiumTooltip commercialFeature="post-stratification">
-                        Post-Stratification
-                      </PremiumTooltip>
-                    }
-                    value={
-                      !hasPostStratificationFeature ||
-                      form.watch("postStratificationEnabled") == null
-                        ? ""
-                        : form.watch("postStratificationEnabled")
-                          ? "on"
-                          : "off"
-                    }
-                    onChange={(v) => {
-                      form.setValue(
-                        "postStratificationEnabled",
-                        v === "" ? null : v === "on",
-                      );
-                    }}
-                    options={[
-                      {
-                        label: `Default (${
-                          hasPostStratificationFeature &&
-                          parentScopedSettings.postStratificationEnabled.value
-                            ? "On"
-                            : "Off"
-                        })`,
-                        value: "",
-                      },
-                      { label: "On", value: "on" },
-                      { label: "Off", value: "off" },
-                    ]}
-                    formatOptionLabel={({ value, label }) => {
-                      if (value === "") {
-                        return <em className="text-muted">{label}</em>;
+                  <Tooltip
+                    shouldDisplay={isClusterExperiment}
+                    body="Post-stratification isn't supported for cluster experiments."
+                  >
+                    <SelectField
+                      label={
+                        <PremiumTooltip commercialFeature="post-stratification">
+                          Post-Stratification
+                        </PremiumTooltip>
                       }
-                      return label;
-                    }}
-                    sort={false}
-                    disabled={
-                      !hasPostStratificationFeature ||
-                      (isBandit && experiment.status !== "draft")
-                    }
-                  />
+                      value={
+                        isClusterExperiment
+                          ? "off"
+                          : !hasPostStratificationFeature ||
+                              form.watch("postStratificationEnabled") == null
+                            ? ""
+                            : form.watch("postStratificationEnabled")
+                              ? "on"
+                              : "off"
+                      }
+                      onChange={(v) => {
+                        form.setValue(
+                          "postStratificationEnabled",
+                          v === "" ? null : v === "on",
+                        );
+                      }}
+                      options={[
+                        {
+                          label: `Default (${
+                            hasPostStratificationFeature &&
+                            parentScopedSettings.postStratificationEnabled.value
+                              ? "On"
+                              : "Off"
+                          })`,
+                          value: "",
+                        },
+                        { label: "On", value: "on" },
+                        { label: "Off", value: "off" },
+                      ]}
+                      formatOptionLabel={({ value, label }) => {
+                        if (value === "") {
+                          return <em className="text-muted">{label}</em>;
+                        }
+                        return label;
+                      }}
+                      sort={false}
+                      disabled={
+                        !hasPostStratificationFeature ||
+                        isClusterExperiment ||
+                        (isBandit && experiment.status !== "draft")
+                      }
+                    />
+                  </Tooltip>
                 </Box>
               ) : null}
             </>
@@ -1076,6 +1111,11 @@ const AnalysisForm: FC<{
                 {experiment.status !== "draft" && <Separator my="5" size="4" />}
               </>
             )}
+            {ineligibleClusterMetricNames.length > 0 && (
+              <Callout status="warning" mb="3">
+                {`Remove these metrics before saving. Cluster experiments can't analyze them: ${ineligibleClusterMetricNames.join(", ")}.`}
+              </Callout>
+            )}
             <ExperimentMetricsSelector
               noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
               datasource={form.watch("datasource")}
@@ -1113,13 +1153,13 @@ const AnalysisForm: FC<{
               <>
                 <Tooltip
                   shouldDisplay={
-                    isExperimentIncludedInIncrementalRefresh &&
+                    !!activationMetricDisabledReason &&
                     form.watch("activationMetric") === ""
                   }
-                  body="Activation Metrics are not yet supported with Incremental Refresh. Contact support if needed."
+                  body={activationMetricDisabledReason}
                 >
                   <MetricSelector
-                    disabled={isExperimentIncludedInIncrementalRefresh}
+                    disabled={!!activationMetricDisabledReason}
                     datasource={form.watch("datasource")}
                     exposureQueryId={exposureQueryId}
                     exposureQueryIdentifierType={exposureQueryIdentifierType}
@@ -1128,7 +1168,7 @@ const AnalysisForm: FC<{
                     label={
                       <>
                         Activation Metric
-                        {!isExperimentIncludedInIncrementalRefresh ? (
+                        {!activationMetricDisabledReason ? (
                           <>
                             {" "}
                             <MetricsSelectorTooltip
@@ -1150,11 +1190,13 @@ const AnalysisForm: FC<{
                     helpText="Users must convert on this metric before being included"
                   />
                 </Tooltip>
-                {isExperimentIncludedInIncrementalRefresh &&
+                {activationMetricDisabledReason &&
                   form.watch("activationMetric") !== "" && (
                     <Callout status="warning" mb="2">
-                      Activation metrics are not yet supported with Incremental
-                      Refresh. Please{" "}
+                      {isClusterExperiment
+                        ? "Activation metrics aren't supported for cluster experiments."
+                        : "Activation metrics are not yet supported with Incremental Refresh."}{" "}
+                      Please{" "}
                       <Link
                         style={{ display: "inline" }}
                         onClick={() => form.setValue("activationMetric", "")}

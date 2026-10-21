@@ -1,19 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { Box } from "@radix-ui/themes";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";
 import { getExposureQueryIdentifierTypes } from "shared/util";
-import { PiWarningFill } from "react-icons/pi";
+import { PiInfo, PiWarningFill } from "react-icons/pi";
 import {
   AssignmentQueryNotice,
-  isIdentifierUndeclared,
   getDefaultIdentifierType,
+  getExposureQueriesInScope,
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
   getIdentifierTypeForHashAttribute,
   getSelectableIdentifierTypes,
+  isIdentifierUndeclared,
 } from "@/services/datasources";
 import SelectField, {
   GroupedValue,
@@ -31,14 +32,21 @@ type Selection = {
   identifierTypes: string[];
   groupedIdentifierTypes: (GroupedValue | SingleValue)[];
   exposureQueryOptions: SingleValue[];
+  /** A kept selection the current scope or query no longer allows. */
+  outOfScope: boolean;
   /** A kept selection whose query no longer declares its identifier. */
   identifierUndeclared: boolean;
+  /** A Holdout's Projects; empty means it covers all Projects. */
+  holdoutProjects: string[] | undefined;
+  hasExposureQueries: boolean;
   setExposureQueryId: (exposureQueryId: string) => void;
   changeIdentifierType: (identifierType: string) => void;
 };
 
 export function useAssignmentQuerySelection({
   datasource,
+  project,
+  holdoutProjects,
   hashAttribute,
   exposureQueryId,
   identifierType,
@@ -50,6 +58,9 @@ export function useAssignmentQuerySelection({
   useHashAttribute = true,
 }: {
   datasource: DataSourceInterfaceWithParams | null | undefined;
+  project: string | undefined;
+  /** A holdout's Projects, which the query must all cover. Overrides `project`. */
+  holdoutProjects?: string[];
   hashAttribute: string | undefined;
   exposureQueryId: string | undefined;
   identifierType: string | undefined;
@@ -75,16 +86,26 @@ export function useAssignmentQuerySelection({
   copiedIdentifierType?: string;
 }): Selection {
   const keptQueryId = keepCurrentSelection ? exposureQueryId : undefined;
-  const exposureQueries = useMemo(
-    () => datasource?.settings?.queries?.exposure ?? [],
-    [datasource],
+  const scopedQueries = useMemo(
+    () =>
+      datasource
+        ? getExposureQueriesInScope(datasource, project, holdoutProjects)
+        : [],
+    [datasource, project, holdoutProjects],
   );
   const keptQuery = keptQueryId
-    ? exposureQueries.find((q) => q.id === keptQueryId)
+    ? datasource?.settings?.queries?.exposure?.find((q) => q.id === keptQueryId)
     : undefined;
+  const outOfScope =
+    !!keptQuery && !scopedQueries.some((q) => q.id === keptQuery.id);
   const identifierUndeclared = isIdentifierUndeclared(
     keptQuery,
     identifierType,
+  );
+  const exposureQueries = useMemo(
+    () =>
+      keptQuery && outOfScope ? [...scopedQueries, keptQuery] : scopedQueries,
+    [scopedQueries, keptQuery, outOfScope],
   );
   const hashAttributeIdentifierTypeMap = useMemo(
     () =>
@@ -236,22 +257,66 @@ export function useAssignmentQuerySelection({
     identifierTypes,
     groupedIdentifierTypes,
     exposureQueryOptions,
+    outOfScope,
     identifierUndeclared,
+    holdoutProjects,
+    hasExposureQueries: !!datasource?.settings?.queries?.exposure?.length,
     setExposureQueryId: selectExposureQueryId,
     changeIdentifierType,
   };
 }
 
-type DriftState = Pick<Selection, "identifierUndeclared" | "identifierType">;
+type DriftState = Pick<
+  Selection,
+  "outOfScope" | "identifierUndeclared" | "identifierType" | "holdoutProjects"
+>;
 
-function getAssignmentQueryDriftMessage({
+function getDriftNotice({
+  outOfScope,
   identifierUndeclared,
   identifierType,
-}: DriftState): string | null {
+  holdoutProjects,
+}: DriftState): { status: "warning" | "info"; message: string } | null {
   if (identifierUndeclared) {
-    return `The assignment query no longer declares the "${identifierType}" identifier type, so results can't update until another identifier or query is chosen.`;
+    return {
+      status: "warning",
+      message: `The assignment query no longer declares the "${identifierType}" identifier type, so results can't update until another identifier or query is chosen.`,
+    };
+  }
+  if (outOfScope) {
+    return {
+      status: "info",
+      message: holdoutProjects
+        ? "The selected assignment query isn't available to every Project this Holdout covers. Results will still update, but you may want to switch to one that is."
+        : "The selected assignment query isn't scoped to this Project. Results will still update, but you may want to switch to one that is.",
+    };
   }
   return null;
+}
+
+/** Why no identifier type can be chosen. */
+// Monospace like code, in the surrounding text color.
+export function IdentifierCode({ children }: { children: ReactNode }) {
+  return (
+    <code style={{ color: "inherit", textTransform: "none" }}>{children}</code>
+  );
+}
+
+export function getNoAssignmentQueriesMessage({
+  hasExposureQueries,
+  holdoutProjects,
+}: Pick<Selection, "hasExposureQueries" | "holdoutProjects">): string {
+  if (!hasExposureQueries) {
+    return "This Data Source has no assignment queries. Add one in the Data Source settings.";
+  }
+  if (!holdoutProjects) {
+    return "No assignment queries are scoped to this Project. Add one in the Data Source settings.";
+  }
+  // Only a query with no Project limit, its own or its Data Source's, fits.
+  if (!holdoutProjects.length) {
+    return "No assignment queries are available to a Holdout that covers all Projects. Add one that isn't limited to specific Projects.";
+  }
+  return "No assignment queries cover every Project this Holdout includes. Add one in the Data Source settings.";
 }
 
 export function AssignmentQueryDriftWarning({
@@ -259,11 +324,11 @@ export function AssignmentQueryDriftWarning({
 }: {
   selection: DriftState;
 }) {
-  const message = getAssignmentQueryDriftMessage(selection);
-  if (!message) return null;
+  const drift = getDriftNotice(selection);
+  if (!drift) return null;
   return (
-    <Callout status="warning" mb="3">
-      {message}
+    <Callout status={drift.status} mb="3">
+      {drift.message}
     </Callout>
   );
 }
@@ -273,11 +338,15 @@ export function AssignmentQueryDriftIcon({
 }: {
   selection: DriftState;
 }) {
-  const message = getAssignmentQueryDriftMessage(selection);
-  if (!message) return null;
+  const drift = getDriftNotice(selection);
+  if (!drift) return null;
   return (
-    <Tooltip body={message}>
-      <PiWarningFill style={{ color: "var(--amber-11)" }} />
+    <Tooltip body={drift.message}>
+      {drift.status === "warning" ? (
+        <PiWarningFill style={{ color: "var(--amber-11)" }} />
+      ) : (
+        <PiInfo />
+      )}
     </Tooltip>
   );
 }
@@ -325,7 +394,7 @@ export default function AssignmentQueryFields({
         labelClassName="font-weight-bold"
         helpText={
           identifierTypes.length === 0
-            ? "This Data Source has no assignment queries. Add one in the Data Source settings."
+            ? getNoAssignmentQueriesMessage(selection)
             : undefined
         }
         value={identifierType ?? ""}
@@ -371,7 +440,6 @@ export function ClusterExperimentFields({
   subUnitIdentifier,
   setIsClusterExperiment,
   setSubUnitIdentifier,
-  ineligibleMetricNames,
   disabled,
 }: {
   exposureQuery: ExposureQuery | undefined;
@@ -380,7 +448,6 @@ export function ClusterExperimentFields({
   subUnitIdentifier: string;
   setIsClusterExperiment: (value: boolean) => void;
   setSubUnitIdentifier: (value: string) => void;
-  ineligibleMetricNames: string[];
   disabled?: boolean;
 }) {
   const { hasCommercialFeature } = useUser();
@@ -403,8 +470,9 @@ export function ClusterExperimentFields({
         }
         description={
           <>
-            Every unit in a <code>{identifierType}</code> gets the same
-            variation, and metrics are analyzed on a smaller unit inside it.
+            Every unit in a <IdentifierCode>{identifierType}</IdentifierCode>{" "}
+            gets the same variation, and metrics are analyzed on a smaller unit
+            inside it.
           </>
         }
         value={isClusterExperiment}
@@ -443,19 +511,15 @@ export function ClusterExperimentFields({
               subUnitOptions.length ? (
                 <>
                   Lists the other identifier types in {exposureQuery?.name}.
-                  Metrics are analyzed per <code>{subUnitIdentifier}</code>{" "}
-                  wherever they can be.
+                  Metrics are analyzed per{" "}
+                  <IdentifierCode>{subUnitIdentifier}</IdentifierCode> wherever
+                  they can be.
                 </>
               ) : (
                 `${exposureQuery?.name ?? "This assignment query"} doesn't declare another identifier type to analyze on.`
               )
             }
           />
-          {ineligibleMetricNames.length > 0 && (
-            <Callout status="warning" mt="3">
-              {`Remove these metrics before saving. Cluster experiments can't analyze them: ${ineligibleMetricNames.join(", ")}.`}
-            </Callout>
-          )}
         </Box>
       )}
     </Box>

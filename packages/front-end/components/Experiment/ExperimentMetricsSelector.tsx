@@ -9,6 +9,7 @@ import {
   isFactFunnelMetric,
   getUserIdTypes,
   getClusterExperimentMetricEligibility,
+  getClusterSubUnit,
 } from "shared/experiments";
 import {
   FactMetricType,
@@ -83,28 +84,46 @@ export default function ExperimentMetricsSelector({
   const {
     getExperimentMetricById,
     getDatasourceById,
+    getFactTableById,
     metricGroups,
     factTables,
   } = useDefinitions();
 
-  const getMetricDisabledInfo = useMemo(
-    () => (metricId: string, isGroup: boolean) => {
-      const datasourceObj = datasource ? getDatasourceById(datasource) : null;
-      const isExperimentIncludedInIncrementalRefresh =
-        getIsExperimentIncludedInIncrementalRefresh(
-          datasourceObj ?? undefined,
-          experimentId,
-          experimentType,
-        );
+  const getMetricDisabledInfo = useMemo(() => {
+    const datasourceObj = datasource ? getDatasourceById(datasource) : null;
+    const isExperimentIncludedInIncrementalRefresh =
+      getIsExperimentIncludedInIncrementalRefresh(
+        datasourceObj ?? undefined,
+        experimentId,
+        experimentType,
+      );
+    // Same rule as the back-end and MetricsSelector: cluster checks need a
+    // sub-unit and the selected assignment query.
+    const clusterSubUnit = getClusterSubUnit({
+      isClusterExperiment,
+      clusterSubUnitIdentifier,
+    });
+    const exposureQuery = datasourceObj?.settings?.queries?.exposure?.find(
+      (e) => e.id === exposureQueryId,
+    );
+    const clusterIdentifier =
+      clusterSubUnit && exposureQuery
+        ? resolveAnalysisIdentifierType(
+            exposureQuery,
+            exposureQueryIdentifierType,
+          )
+        : null;
+
+    return (metricId: string, isGroup: boolean) => {
+      const metricGroup = isGroup
+        ? metricGroups.find((mg) => mg.id === metricId)
+        : undefined;
+      const ids = isGroup
+        ? expandMetricGroups(metricGroup?.metrics ?? [], metricGroups)
+        : [metricId];
 
       // Query generation rejects funnel metrics for bandits.
       if (experimentType === "multi-armed-bandit") {
-        const ids = isGroup
-          ? expandMetricGroups(
-              metricGroups.find((mg) => mg.id === metricId)?.metrics ?? [],
-              metricGroups,
-            )
-          : [metricId];
         const hasFunnelMetric = ids.some((id) => {
           const metric = getExperimentMetricById(id);
           return metric && isFactFunnelMetric(metric);
@@ -117,36 +136,22 @@ export default function ExperimentMetricsSelector({
         }
       }
 
-      if (isClusterExperiment) {
-        const ids = isGroup
-          ? expandMetricGroups(
-              metricGroups.find((mg) => mg.id === metricId)?.metrics ?? [],
-              metricGroups,
-            )
-          : [metricId];
-        const exposureQuery = getExposureQuery(
-          datasourceObj?.settings,
-          exposureQueryId,
-        );
+      if (clusterSubUnit && clusterIdentifier) {
         for (const id of ids) {
           const metric = getExperimentMetricById(id);
           if (!metric) continue;
           const eligibility = getClusterExperimentMetricEligibility(metric, {
-            clusterIdentifier: exposureQuery
-              ? resolveAnalysisIdentifierType(
-                  exposureQuery,
-                  exposureQueryIdentifierType,
-                )
-              : undefined,
-            clusterSubUnitIdentifier,
-            getFactTable: (factTableId) =>
-              factTables.find((ft) => ft.id === factTableId),
+            clusterIdentifier,
+            clusterSubUnitIdentifier: clusterSubUnit,
+            getFactTable: getFactTableById,
             datasourceSettings: datasourceObj?.settings,
           });
           if (!eligibility.allowed) {
             return {
               disabled: true,
-              reason: `Not supported in cluster experiments: ${eligibility.reason}`,
+              reason: isGroup
+                ? `"${metric.name}" can't be used in cluster experiments. ${eligibility.reason}`
+                : eligibility.reason,
             };
           }
         }
@@ -155,88 +160,53 @@ export default function ExperimentMetricsSelector({
       if (!isExperimentIncludedInIncrementalRefresh) {
         return { disabled: false };
       }
+      if (isGroup && !metricGroup) {
+        return { disabled: false };
+      }
 
-      if (isGroup) {
-        const metricGroup = metricGroups.find((mg) => mg.id === metricId);
-        if (!metricGroup) {
-          return { disabled: false };
-        }
-        const expandedIds = expandMetricGroups(
-          metricGroup.metrics,
-          metricGroups,
-        );
-
-        // Event quantile metrics require KLL support for incremental refresh.
-        const hasUnsupportedEventQuantileMetrics = expandedIds.some((id) => {
-          const metric = getExperimentMetricById(id);
-          return (
-            metric &&
-            quantileMetricType(metric) === "event" &&
-            !datasourceObj?.properties?.hasQuantileSketch
-          );
-        });
-
-        if (hasUnsupportedEventQuantileMetrics) {
-          return {
-            disabled: true,
-            reason:
-              "Event quantile metrics with Incremental Refresh require a data source that supports KLL quantile sketches.",
-          };
-        }
-
-        // Check if metric group contains legacy metrics
-        const hasLegacyMetrics = expandedIds.some((id) => {
-          const metric = getExperimentMetricById(id);
-          return metric && !isFactMetric(metric);
-        });
-
-        if (hasLegacyMetrics) {
-          return {
-            disabled: true,
-            reason: "Only fact metrics are supported with Incremental Refresh",
-          };
-        }
-      } else {
-        const metric = getExperimentMetricById(metricId);
-
-        // Event quantile metrics require KLL support for incremental refresh.
-        if (
+      // Event quantile metrics require KLL support for incremental refresh.
+      const hasUnsupportedEventQuantileMetrics = ids.some((id) => {
+        const metric = getExperimentMetricById(id);
+        return (
           metric &&
           quantileMetricType(metric) === "event" &&
           !datasourceObj?.properties?.hasQuantileSketch
-        ) {
-          return {
-            disabled: true,
-            reason:
-              "Event quantile metrics with Incremental Refresh require a data source that supports KLL quantile sketches.",
-          };
-        }
+        );
+      });
+      if (hasUnsupportedEventQuantileMetrics) {
+        return {
+          disabled: true,
+          reason:
+            "Event quantile metrics with Incremental Refresh require a data source that supports KLL quantile sketches.",
+        };
+      }
 
-        // Check if metric is a legacy metric (non-fact metric)
-        if (metric && !isFactMetric(metric)) {
-          return {
-            disabled: true,
-            reason: "Only fact metrics are supported with Incremental Refresh",
-          };
-        }
+      const hasLegacyMetrics = ids.some((id) => {
+        const metric = getExperimentMetricById(id);
+        return metric && !isFactMetric(metric);
+      });
+      if (hasLegacyMetrics) {
+        return {
+          disabled: true,
+          reason: "Only fact metrics are supported with Incremental Refresh",
+        };
       }
 
       return { disabled: false };
-    },
-    [
-      datasource,
-      exposureQueryId,
-      exposureQueryIdentifierType,
-      experimentId,
-      experimentType,
-      isClusterExperiment,
-      clusterSubUnitIdentifier,
-      factTables,
-      getExperimentMetricById,
-      getDatasourceById,
-      metricGroups,
-    ],
-  );
+    };
+  }, [
+    datasource,
+    exposureQueryId,
+    exposureQueryIdentifierType,
+    experimentId,
+    experimentType,
+    isClusterExperiment,
+    clusterSubUnitIdentifier,
+    getFactTableById,
+    getExperimentMetricById,
+    getDatasourceById,
+    metricGroups,
+  ]);
 
   const [secondaryCollapsed, setSecondaryCollapsed] = useState<boolean>(
     !!collapseSecondary && secondaryMetrics.length === 0,

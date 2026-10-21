@@ -15,7 +15,7 @@ const ApiKeys: FC = () => {
   const permissionsUtils = usePermissionsUtil();
   const canManageTokens =
     permissionsUtils.canManageOrgSettings() ||
-    permissionsUtils.canDeleteApiKey();
+    permissionsUtils.canManagePersonalAccessTokens();
 
   if (error) {
     return <Callout status="error">{error.message}</Callout>;
@@ -27,7 +27,7 @@ const ApiKeys: FC = () => {
   return (
     <>
       <SecretApiKeys keys={data.keys} mutate={mutate}>
-        {permissionsUtils.canDeleteApiKey() && (
+        {permissionsUtils.canViewApiKeys() && (
           <OrganizationPoliciesCard
             kind="secret"
             keys={data.keys.filter((k) => k.secret && !k.userId)}

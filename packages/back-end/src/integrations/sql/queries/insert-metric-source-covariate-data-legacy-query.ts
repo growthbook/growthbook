@@ -191,14 +191,13 @@ export function getInsertMetricSourceCovariateDataLegacyQuery(
               .join("\n")}
           FROM __factTable m
           INNER JOIN (
-            SELECT ${baseIdType}
+            SELECT ${isClusterLevelGroup ? "DISTINCT " : ""}${baseIdType}
             FROM ${params.unitsSourceTableFullName}
             ${
               params.lastCovariateSuccessfulMaxTimestamp
                 ? `WHERE ${afterWatermark(dialect, "max_timestamp", params.lastCovariateSuccessfulMaxTimestamp, params.lastCovariateSuccessfulMaxTimestampRaw)}`
                 : ""
             }
-            ${isClusterLevelGroup ? `GROUP BY ${baseIdType}` : ""}
           ) d
             ON (d.${baseIdType} = m.${baseIdType})
           GROUP BY

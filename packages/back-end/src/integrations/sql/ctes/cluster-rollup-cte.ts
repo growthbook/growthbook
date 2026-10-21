@@ -41,30 +41,34 @@ export function getClusterRollupCTE({
         , COUNT(DISTINCT m.${baseIdType}) AS sub_count
         ${metricData
           .map((data) => {
-            const numerator = `, SUM(${data.clusterRollupNumerator}) AS ${data.alias}_value`;
-            const denominator =
-              data.clusterRollupDenominator === null
-                ? `, COUNT(DISTINCT m.${baseIdType}) AS ${data.alias}_denominator`
-                : `, SUM(${data.clusterRollupDenominator}) AS ${data.alias}_denominator`;
+            const rollupDenominator = (
+              sumExpr: string,
+              denominatorAlias: string,
+            ) =>
+              data.isClusterRatioConversion
+                ? `, COUNT(DISTINCT m.${baseIdType}) AS ${denominatorAlias}`
+                : `, SUM(${sumExpr}) AS ${denominatorAlias}`;
+            const numerator = `, SUM(${data.capCoalesceMetric}) AS ${data.alias}_value`;
+            const denominator = rollupDenominator(
+              data.capCoalesceDenominator,
+              `${data.alias}_denominator`,
+            );
             const covariate = data.regressionAdjusted
-              ? `, SUM(${data.clusterRollupCovariateNumerator}) AS ${data.alias}_covariate_value\n            ${
-                  data.clusterRollupCovariateDenominator === null
-                    ? `, COUNT(DISTINCT m.${baseIdType}) AS ${data.alias}_covariate_denominator`
-                    : `, SUM(${data.clusterRollupCovariateDenominator}) AS ${data.alias}_covariate_denominator`
-                }`
+              ? `, SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_value\n            ${rollupDenominator(
+                  data.capCoalesceDenominatorCovariate,
+                  `${data.alias}_covariate_denominator`,
+                )}`
               : "";
             const uncapped = data.computeUncappedMetric
-              ? `, SUM(${data.clusterRollupNumeratorUncapped}) AS ${data.alias}_value_uncapped\n            ${
-                  data.clusterRollupDenominatorUncapped === null
-                    ? `, COUNT(DISTINCT m.${baseIdType}) AS ${data.alias}_denominator_uncapped`
-                    : `, SUM(${data.clusterRollupDenominatorUncapped}) AS ${data.alias}_denominator_uncapped`
-                }${
+              ? `, SUM(${data.uncappedCoalesceMetric}) AS ${data.alias}_value_uncapped\n            ${rollupDenominator(
+                  data.uncappedCoalesceDenominator,
+                  `${data.alias}_denominator_uncapped`,
+                )}${
                   data.regressionAdjusted
-                    ? `\n            , SUM(${data.clusterRollupCovariateNumeratorUncapped}) AS ${data.alias}_covariate_value_uncapped\n            ${
-                        data.clusterRollupCovariateDenominatorUncapped === null
-                          ? `, COUNT(DISTINCT m.${baseIdType}) AS ${data.alias}_covariate_denominator_uncapped`
-                          : `, SUM(${data.clusterRollupCovariateDenominatorUncapped}) AS ${data.alias}_covariate_denominator_uncapped`
-                      }`
+                    ? `\n            , SUM(${data.uncappedCoalesceCovariate}) AS ${data.alias}_covariate_value_uncapped\n            ${rollupDenominator(
+                        data.uncappedCoalesceDenominatorCovariate,
+                        `${data.alias}_covariate_denominator_uncapped`,
+                      )}`
                     : ""
                 }`
               : "";
@@ -76,7 +80,7 @@ export function getClusterRollupCTE({
                 : data.denominatorSourceIndex;
             const upper = isUpperPercentileCappedMetric(data.metric);
             const lower = isLowerPercentileCappedMetric(data.metric);
-            const hasDenominatorCap = data.clusterRollupDenominator !== null;
+            const hasDenominatorCap = !data.isClusterRatioConversion;
             const capCols = [
               upper
                 ? `, MAX(cap${numSuffix}.${data.alias}_value_cap) AS ${data.alias}_value_cap`

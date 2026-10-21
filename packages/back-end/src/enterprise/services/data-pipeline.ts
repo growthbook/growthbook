@@ -1,5 +1,6 @@
 import md5 from "md5";
 import {
+  ClusterMetricAnalysisLevel,
   ExperimentMetricInterface,
   getAutoSliceMetrics,
   getFactMetricPrimaryFactTableId,
@@ -219,10 +220,12 @@ export function getMetricSettingsHashForIncrementalRefresh({
   factMetric,
   factTableMap,
   metricSettings,
+  clusterMetricLevel,
 }: {
   factMetric: FactMetricInterface;
   factTableMap: Map<string, FactTableInterface>;
   metricSettings?: MetricForSnapshot;
+  clusterMetricLevel?: ClusterMetricAnalysisLevel;
 }): string {
   const numeratorFactTableId = getFactMetricPrimaryFactTableId(factMetric);
   const numeratorFactTable = numeratorFactTableId
@@ -254,6 +257,8 @@ export function getMetricSettingsHashForIncrementalRefresh({
     ...(isFactFunnelMetric(factMetric)
       ? { funnelSettings: factMetric.funnelSettings }
       : {}),
+    // Only present for cluster experiments, so non-cluster hashes are unchanged.
+    ...(clusterMetricLevel ? { clusterMetricLevel } : {}),
     numeratorFactTable: {
       sql: numeratorFactTable?.sql,
       eventName: numeratorFactTable?.eventName,

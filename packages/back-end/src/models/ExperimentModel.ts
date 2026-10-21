@@ -2,13 +2,20 @@ import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
-import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
+import {
+  changesetOwnerRef,
+  includeExperimentInPayload,
+  hasVisualChanges,
+} from "shared/util";
 import {
   generateTrackingKey,
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
-import { VisualChange } from "shared/types/visual-changeset";
+import {
+  VisualChange,
+  VisualChangesetInterface,
+} from "shared/types/visual-changeset";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentStatus,
@@ -1192,11 +1199,17 @@ export async function getExperimentsWithScheduledStatusUpdate(): Promise<
   }));
 }
 
+/**
+ * Experiments in Projects the user can't read come back without an id, so the
+ * import list can still tell them apart from experiments not yet imported.
+ */
 export async function getPastExperimentsByDatasource(
   context: ReqContext | ApiReqContext,
   datasource: string,
 ): Promise<
-  Pick<ExperimentInterface, "id" | "trackingKey" | "exposureQueryId">[]
+  (Pick<ExperimentInterface, "trackingKey" | "exposureQueryId"> & {
+    id: string | null;
+  })[]
 > {
   const experiments = await getCollection(COLLECTION)
     .find({
@@ -1212,12 +1225,10 @@ export async function getPastExperimentsByDatasource(
     })
     .toArray();
 
-  const experimentsUserCanAccess = experiments.filter((exp) =>
-    context.permissions.canReadSingleProjectResource(exp.project),
-  );
-
-  return experimentsUserCanAccess.map((exp) => ({
-    id: exp.id,
+  return experiments.map((exp) => ({
+    id: context.permissions.canReadSingleProjectResource(exp.project)
+      ? exp.id
+      : null,
     trackingKey: exp.trackingKey,
     exposureQueryId: exp.exposureQueryId,
   }));
@@ -2150,7 +2161,12 @@ export const getAllVisualExperiments = async (
 
   if (!visualChangesets.length) return [];
 
-  const visualChangesByExperimentId = visualChangesets.reduce<
+  const experimentOwned = visualChangesets.filter(
+    (c): c is VisualChangesetInterface & { experiment: string } =>
+      changesetOwnerRef(c)?.kind === "experiment",
+  );
+
+  const visualChangesByExperimentId = experimentOwned.reduce<
     Record<string, Array<VisualChange>>
   >((acc, c) => {
     if (!acc[c.experiment]) acc[c.experiment] = [];
@@ -2169,7 +2185,7 @@ export const getAllVisualExperiments = async (
     );
   };
 
-  return visualChangesets
+  return experimentOwned
     .map<VisualExperiment>((c) => ({
       experiment: experimentMap.get(c.experiment) as ExperimentInterface,
       visualChangeset: c,

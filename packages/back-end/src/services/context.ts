@@ -17,6 +17,7 @@ import {
 } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { EventUser } from "shared/types/events/event-types";
+import { eventUserIdentity, eventUserPerson } from "shared/validators";
 import { TeamInterface } from "shared/types/team";
 import { ProjectInterface } from "shared/types/project";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -49,6 +50,7 @@ import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { addTags, getAllTags } from "back-end/src/models/TagModel";
 import { insertAudit } from "back-end/src/models/AuditModel";
 import { logger } from "back-end/src/util/logger";
+import { encodeArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 import { UrlRedirectModel } from "back-end/src/models/UrlRedirectModel";
 import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import {
@@ -104,6 +106,8 @@ import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspac
 import { SlackUserLinkModel } from "back-end/src/models/SlackUserLinkModel";
 import { SlackTaskClaimModel } from "back-end/src/models/SlackTaskClaimModel";
 import { AICredentialModel } from "back-end/src/models/AICredentialModel";
+import { ConfirmationModel } from "back-end/src/models/ConfirmationModel";
+import { ConfirmationAttemptModel } from "back-end/src/models/ConfirmationAttemptModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
 import { QueryLogModel } from "back-end/src/models/QueryLogModel";
@@ -164,6 +168,8 @@ export type ModelName =
   | "slackUserLinks"
   | "slackTaskClaims"
   | "apiKeys"
+  | "confirmations"
+  | "confirmationAttempts"
   | "oauthAuthCodes"
   | "oauthGrants"
   | "oauthRefreshTokens"
@@ -227,6 +233,8 @@ export const modelClasses = {
   slackUserLinks: SlackUserLinkModel,
   slackTaskClaims: SlackTaskClaimModel,
   apiKeys: ApiKeyModel,
+  confirmations: ConfirmationModel,
+  confirmationAttempts: ConfirmationAttemptModel,
   oauthAuthCodes: OAuthAuthCodeModel,
   queryLogs: QueryLogModel,
   oauthGrants: OAuthGrantModel,
@@ -356,11 +364,14 @@ export class ReqContextClass {
 
   /**
    * The request whose ignoreWarnings/skip* flags apply, when it isn't `req`.
-   * Set by the agent while it replays a confirmed call: the flags belong to
+   * Set while a confirmed call replays (by the agent or decideConfirmation): the flags belong to
    * that call, not to the chat request (web) or to its absence (Slack, which
    * would otherwise read as a background job that ignores every warning).
    */
   public dispatchedRequest: OverrideSource | null = null;
+
+  /** Set while a confirmed request replays, so its hold lets the write through. */
+  public confirmationId: string | null = null;
 
   // Models
   public models!: ModelInstances;
@@ -411,6 +422,8 @@ export class ReqContextClass {
       slackUserLinks: new SlackUserLinkModel(this),
       slackTaskClaims: new SlackTaskClaimModel(this),
       apiKeys: new ApiKeyModel(this),
+      confirmations: new ConfirmationModel(this),
+      confirmationAttempts: new ConfirmationAttemptModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),
       queryLogs: new QueryLogModel(this),
       oauthGrants: new OAuthGrantModel(this),
@@ -435,24 +448,77 @@ export class ReqContextClass {
   public email = "";
   public userName = "";
   public superAdmin = false;
+
+  // The person a request acts for: the signed-in user, a personal token's
+  // owner, or the member whose role an org key assumes. Use it for owners,
+  // `mine` and anything that needs a person.
+  public get actingPerson(): {
+    id: string;
+    name: string;
+    email: string;
+  } | null {
+    if (this.userId) {
+      return { id: this.userId, name: this.userName, email: this.email };
+    }
+    const person = eventUserPerson(this.auditUser);
+    return person?.id
+      ? { id: person.id, name: person.name || "", email: person.email || "" }
+      : null;
+  }
+
+  // Who the request acts as for authorship, contributions and verdicts: its
+  // person, else the org key itself. Empty for the system.
+  public get actorId(): string {
+    return this.userId || eventUserIdentity(this.auditUser) || "";
+  }
+
+  // The org key behind a request that acts as the key itself.
+  public get keyActingAsItself(): string | null {
+    return this.apiKey && this.actorId === this.apiKey ? this.apiKey : null;
+  }
+
+  // An org key assuming a member's role may use that member's author rights
+  // only where its own role allows the action too, so it never does more than
+  // the key alone could. `check` runs against the key's own permissions.
+  public authorRightsAllow(check: (context: this) => boolean): boolean {
+    if (!this.assumingKeyPermissions) return true;
+    const keyContext: this = Object.create(this);
+    keyContext.permissions = this.assumingKeyPermissions;
+    return check(keyContext);
+  }
+
+  public get actingUserId(): string {
+    return this.actingPerson?.id ?? "";
+  }
+
+  public get actingUserName(): string {
+    return this.actingPerson?.name ?? "";
+  }
+
   public teams: TeamInterface[] = [];
   public role?: string;
   public isApiRequest = false;
   public environments: string[];
   public auditUser: EventUser;
   public apiKey?: string;
+  public apiKeyData?: ApiKeyInterface;
   private scopedApiKey = false;
   public req?: Request;
   public logger: pino.BaseLogger;
   public permissions: Permissions;
+  private assumingKeyPermissions: Permissions | null = null;
 
   protected userPermissions: UserPermissions;
 
   // Who a deferred action runs as: a scoped PAT as the key (so its cap travels
-  // with the work), a user as themselves, an org key as itself.
+  // with the work), a user as themselves, an org key as itself with its requester.
   public get armer(): { userId?: string; apiKey?: string } {
     if (this.scopedApiKey) return { apiKey: this.apiKey };
-    return this.userId ? { userId: this.userId } : { apiKey: this.apiKey };
+    if (this.userId) return { userId: this.userId };
+    if (!this.apiKey) return {};
+    return {
+      apiKey: encodeArmingApiKeyId(this.apiKey, this.actingPerson?.id),
+    };
   }
 
   public get armerId(): string | null {
@@ -469,6 +535,7 @@ export class ReqContextClass {
     apiKeyData,
     req,
     restrictedProjects = [],
+    userPermissions,
   }: {
     org: OrganizationInterface;
     user?: {
@@ -484,6 +551,7 @@ export class ReqContextClass {
     auditUser: EventUser;
     req?: Request;
     restrictedProjects?: string[];
+    userPermissions?: UserPermissions;
   }) {
     this.org = org;
     this.auditUser = auditUser;
@@ -492,6 +560,7 @@ export class ReqContextClass {
     this.isApiRequest = auditUser?.type === "api_key";
     this.role = role;
     this.apiKey = apiKey;
+    this.apiKeyData = apiKeyData;
     this.req = req;
 
     if (this.req && this.req.log) {
@@ -531,12 +600,16 @@ export class ReqContextClass {
         environments: [] as string[],
       };
 
-      this.userPermissions = getRolePermissions(
+      const rolePermissions = getRolePermissions(
         { ...roleInfo, role },
         org,
         teams || [],
         restrictedProjects,
       );
+      this.userPermissions = userPermissions ?? rolePermissions;
+      if (userPermissions) {
+        this.assumingKeyPermissions = new Permissions(rolePermissions);
+      }
     }
 
     this.permissions = new Permissions(this.userPermissions);
@@ -718,6 +791,8 @@ export class ReqContextClass {
           id: apiKeyUser?.id,
           name: apiKeyUser?.name,
           email: apiKeyUser?.email,
+          requestedBy: apiKeyUser?.requestedBy,
+          assumedRole: apiKeyUser?.assumedRole,
         }
       : this.userId
         ? {

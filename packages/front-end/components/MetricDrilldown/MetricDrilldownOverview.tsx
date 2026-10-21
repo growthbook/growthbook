@@ -26,6 +26,7 @@ import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import VariationStatsTable from "@/ui/VariationStatsTable";
+import { IdentifierCode } from "@/components/Experiment/AssignmentQueryFields";
 import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
 import MetricDrilldownMetricCard from "./MetricDrilldownMetricCard";
 import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
@@ -148,20 +149,22 @@ function MetricDrilldownOverview({
     <Flex direction="column" gap="6">
       {isClusterLevelMetric && (
         <Callout status="info">
-          Analyzed per <code>{clusterIdentifier}</code>, not per{" "}
-          <code>{subUnitIdentifier}</code>:{" "}
+          Analyzed per <IdentifierCode>{clusterIdentifier}</IdentifierCode>, not
+          per <IdentifierCode>{subUnitIdentifier}</IdentifierCode>:{" "}
           {nonRollupAggregation ? (
             <>
-              <code>{nonRollupAggregation}</code> values can&apos;t be added up
-              across <code>{subUnitIdentifier}</code>s
+              <IdentifierCode>{nonRollupAggregation}</IdentifierCode> values
+              can&apos;t be added up across each{" "}
+              <IdentifierCode>{subUnitIdentifier}</IdentifierCode>
             </>
           ) : (
             <>
               this metric&apos;s fact table has no{" "}
-              <code>{subUnitIdentifier}</code>
+              <IdentifierCode>{subUnitIdentifier}</IdentifierCode>
             </>
           )}
-          , so each <code>{clusterIdentifier}</code> counts as one unit.
+          , so each <IdentifierCode>{clusterIdentifier}</IdentifierCode> counts
+          as one unit.
         </Callout>
       )}
       <ResultsTable

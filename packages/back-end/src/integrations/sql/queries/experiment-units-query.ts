@@ -1,4 +1,8 @@
-import { getDelayWindowHours, getUserIdTypes } from "shared/experiments";
+import {
+  getClusterSubUnit,
+  getDelayWindowHours,
+  getUserIdTypes,
+} from "shared/experiments";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentUnitsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
@@ -58,10 +62,7 @@ export function getExperimentUnitsQuery(
 
   const exposureQuery = unitsSettings.exposureQuery;
 
-  const clusterSubUnit =
-    unitsSettings.isClusterExperiment && unitsSettings.clusterSubUnitIdentifier
-      ? unitsSettings.clusterSubUnitIdentifier
-      : null;
+  const clusterSubUnit = getClusterSubUnit(unitsSettings);
   const clusterIdColumn = clusterSubUnit ? exposureQuery.identifierType : null;
   const effectiveBaseIdType = clusterSubUnit ?? exposureQuery.identifierType;
 

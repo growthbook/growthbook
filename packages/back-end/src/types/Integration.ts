@@ -31,6 +31,8 @@ import {
   ExperimentUnitsQueryParams,
   ExperimentUnitsQueryResponse,
   ExternalIdCallback,
+  ExperimentExposuresQueryParams,
+  ExperimentExposuresQueryResponse,
   FeatureEvalDiagnosticsQueryParams,
   FeatureEvalDiagnosticsQueryResponse,
   FeatureUsageAggregateRow,
@@ -48,7 +50,7 @@ import {
   MetricAnalysisQueryResponse,
   MetricValueParams,
   MetricValueQueryResponse,
-  PastExperimentParams,
+  PastExperimentQueryParams,
   PastExperimentQueryResponse,
   PopulationFactMetricsQueryParams,
   PopulationMetricQueryParams,
@@ -244,7 +246,7 @@ export interface SourceIntegrationInterface<
   // Pipeline validation helpers
   getPipelineValidationInsertQuery?(params: { tableFullName: string }): string;
   getCurrentTimestamp(): string;
-  getPastExperimentQuery(params: PastExperimentParams): string;
+  getPastExperimentQuery(params: PastExperimentQueryParams): string;
   getUserExperimentExposuresQuery(
     params: UserExperimentExposuresQueryParams,
   ): string;
@@ -257,6 +259,10 @@ export interface SourceIntegrationInterface<
   runFeatureEvalDiagnosticsQuery(
     query: string,
   ): Promise<FeatureEvalDiagnosticsQueryResponse>;
+  getExperimentExposuresQuery?(params: ExperimentExposuresQueryParams): string;
+  runExperimentExposuresQuery?(
+    query: string,
+  ): Promise<ExperimentExposuresQueryResponse>;
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
   runDimensionSlicesQuery(
     query: string,

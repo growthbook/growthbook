@@ -1,5 +1,4 @@
 import {
-  analyzeClusterMetricAsRatio,
   isSubUnitClusterMetric,
   eligibleForUncappedMetric,
   ExperimentMetricInterface,
@@ -72,10 +71,10 @@ export function getMetricData(
 ): FactMetricData {
   const { metric, index: metricIndex } = metricWithIndex;
   const isClusterMetric = isSubUnitClusterMetric(metric, settings);
-  const isClusterRatioConversion = analyzeClusterMetricAsRatio(metric, {
-    isClusterExperiment: isClusterMetric,
-  });
-  const ratioMetric = isRatioMetric(metric) || isClusterRatioConversion;
+  const isClusterRatioConversion =
+    isClusterMetric &&
+    ["mean", "proportion", "retention"].includes(metric.metricType);
+  const ratioMetric = isRatioMetric(metric);
   const funnelMetric = isFactFunnelMetric(metric);
   const quantileMetric = funnelMetric ? "" : quantileMetricType(metric);
   const metricQuantileSettings: MetricQuantileSettings = (isFactMetric(
@@ -84,16 +83,13 @@ export function getMetricData(
     ? metric.quantileSettings
     : undefined) ?? { type: "unit", quantile: 0, ignoreZeros: false };
 
-  const rawRegressionAdjustment = funnelMetric
+  const { regressionAdjusted, regressionAdjustmentHours } = funnelMetric
     ? // TODO(funnel): CUPED for funnel metrics
       { regressionAdjusted: false, regressionAdjustmentHours: 0 }
     : getMetricRegressionAdjustmentData(
         metric,
         settings.regressionAdjustmentEnabled,
       );
-  const regressionAdjusted = rawRegressionAdjustment.regressionAdjusted;
-  const regressionAdjustmentHours =
-    rawRegressionAdjustment.regressionAdjustmentHours;
 
   const overrideConversionWindows =
     settings.attributionModel === "experimentDuration" ||
@@ -156,14 +152,6 @@ export function getMetricData(
     lowerCapValueCol: `${alias}_denominator_cap_lower`,
     columnRef: metric.denominator,
   });
-  const clusterRollupNumerator = capCoalesceMetric;
-  const clusterRollupDenominator = isClusterRatioConversion
-    ? null
-    : capCoalesceDenominator;
-  const clusterRollupCovariateNumerator = capCoalesceCovariate;
-  const clusterRollupCovariateDenominator = isClusterRatioConversion
-    ? null
-    : capCoalesceDenominatorCovariate;
   const uncappedMetric = {
     ...metric,
     cappingSettings: {
@@ -208,16 +196,6 @@ export function getMetricData(
     lowerCapValueCol: `${alias}_denominator_cap_lower`,
     columnRef: metric.denominator,
   });
-  // Cluster rollup inputs for the uncapped aggregates (parallel to the capped
-  // rollup inputs above).
-  const clusterRollupNumeratorUncapped = uncappedCoalesceMetric;
-  const clusterRollupDenominatorUncapped = isClusterRatioConversion
-    ? null
-    : uncappedCoalesceDenominator;
-  const clusterRollupCovariateNumeratorUncapped = uncappedCoalesceCovariate;
-  const clusterRollupCovariateDenominatorUncapped = isClusterRatioConversion
-    ? null
-    : uncappedCoalesceDenominatorCovariate;
 
   const orderedMetrics = (activationMetric ? [activationMetric] : []).concat([
     metric,
@@ -296,15 +274,6 @@ export function getMetricData(
     metricIndex,
     ratioMetric,
     isClusterRatioConversion,
-    isClusterMetric,
-    clusterRollupNumerator,
-    clusterRollupDenominator,
-    clusterRollupCovariateNumerator,
-    clusterRollupCovariateDenominator,
-    clusterRollupNumeratorUncapped,
-    clusterRollupDenominatorUncapped,
-    clusterRollupCovariateNumeratorUncapped,
-    clusterRollupCovariateDenominatorUncapped,
     funnelMetric,
     quantileMetric,
     metricQuantileSettings,

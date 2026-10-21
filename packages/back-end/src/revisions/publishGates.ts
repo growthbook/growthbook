@@ -136,6 +136,9 @@ export function gateOr5xx<G extends PublishGate>(
 /** Bypass source derived from the runtime schema to prevent type drift. */
 export type BypassVia = (typeof bypassViaValues)[number];
 
+// A bypassed gate in full, messages included.
+export type SkippedGate = PublishGate & { via: BypassVia };
+
 export type BypassedGate = {
   type: string;
   outcome: "bypassed";
@@ -167,6 +170,15 @@ const LOCKDOWN_GATE_TYPES: ReadonlySet<string> = new Set([
   "publish-locking-sibling",
 ]);
 
+// A hook's rejection as its author wrote it, or why it failed to run.
+export const hookErrorText = (e: CustomHookErrorDetail) =>
+  [
+    e.rejected ? e.message : `${e.hookName} failed: ${e.stack ?? e.message}`,
+    e.log,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
 /**
  * Custom validation-hook results as publish gates — the one mapping shared by
  * every entity family, so the skipHooks/ignoreWarnings classification and copy
@@ -186,16 +198,7 @@ export function hookResultsToGates(
       severity: "blocker",
       messages: [
         "A custom validation hook rejected this publish:",
-        ...results.hardErrors.map((e) =>
-          [
-            e.rejected
-              ? e.message
-              : `${e.hookName} failed: ${e.stack ?? e.message}`,
-            e.log,
-          ]
-            .filter(Boolean)
-            .join("\n"),
-        ),
+        ...results.hardErrors.map(hookErrorText),
       ],
       override: "skipHooks",
       requiresPermission: bypassPermission,
@@ -379,9 +382,14 @@ export function classifyPublishGate(
 export function evaluatePublishGates(
   gates: PublishGate[],
   clearance: PublishGateClearance,
-): { blocking: PublishGate[]; bypassed: BypassedGate[] } {
+): {
+  blocking: PublishGate[];
+  bypassed: BypassedGate[];
+  skipped: SkippedGate[];
+} {
   const blocking: PublishGate[] = [];
   const bypassed: BypassedGate[] = [];
+  const skipped: SkippedGate[] = [];
   for (const gate of gates) {
     const disposition = classifyPublishGate(gate, clearance);
     if (disposition.outcome === "blocking") {
@@ -392,9 +400,10 @@ export function evaluatePublishGates(
         outcome: "bypassed",
         via: disposition.via,
       });
+      skipped.push({ ...gate, via: disposition.via });
     }
   }
-  return { blocking, bypassed };
+  return { blocking, bypassed, skipped };
 }
 
 function formatGateLine(gate: PublishGate): string {
@@ -423,8 +432,8 @@ export function resolveEntityPublishGates({
   bypassApprovalPermission: boolean;
   canForceMergeStaleBase: boolean;
   entityType: "feature" | "config" | "constant" | "saved-group";
-}): { bypassed: BypassedGate[] } {
-  const { blocking, bypassed } = evaluatePublishGates(gates, {
+}): { bypassed: BypassedGate[]; skipped: SkippedGate[] } {
+  const { blocking, bypassed, skipped } = evaluatePublishGates(gates, {
     ignoreWarnings: req.context.ignoreWarnings,
     // Per-FAMILY, like bulk: ORing families would let a Constants bypass
     // clear Config schema gates.
@@ -435,7 +444,7 @@ export function resolveEntityPublishGates({
     canForceMergeStaleBase,
   });
   if (blocking.length) throw new PublishBlockedError(blocking);
-  return { bypassed };
+  return { bypassed, skipped };
 }
 
 export class PublishBlockedError extends Error {
