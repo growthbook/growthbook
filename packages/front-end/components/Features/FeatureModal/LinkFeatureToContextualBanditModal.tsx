@@ -12,6 +12,7 @@ import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   ensureConfigBacking,
+  getApplicableEnvIds,
   setConfigBacking,
   valueHasConfigExtends,
 } from "shared/util";
@@ -178,7 +179,10 @@ export default function LinkFeatureToContextualBanditModal({
   >({});
   const [showValueErrors, setShowValueErrors] = useState(false);
 
-  const scopedRuleDefaultEnv = useScopedRuleDefaultEnvironment(environments);
+  const applicableEnvIds = getApplicableEnvIds(environments, selectedProject);
+  const scopedRuleDefaultEnv = useScopedRuleDefaultEnvironment(
+    environments.filter((env) => applicableEnvIds.includes(env.id)),
+  );
   const [ruleAllEnvironments, setRuleAllEnvironments] =
     useState<boolean>(!scopedRuleDefaultEnv);
   const [ruleSelectedEnvironments, setRuleSelectedEnvironments] = useState<
