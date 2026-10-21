@@ -440,7 +440,6 @@ export function ClusterExperimentFields({
   subUnitIdentifier,
   setIsClusterExperiment,
   setSubUnitIdentifier,
-  ineligibleMetricNames,
   disabled,
 }: {
   exposureQuery: ExposureQuery | undefined;
@@ -449,7 +448,6 @@ export function ClusterExperimentFields({
   subUnitIdentifier: string;
   setIsClusterExperiment: (value: boolean) => void;
   setSubUnitIdentifier: (value: string) => void;
-  ineligibleMetricNames: string[];
   disabled?: boolean;
 }) {
   const { hasCommercialFeature } = useUser();
@@ -522,11 +520,6 @@ export function ClusterExperimentFields({
               )
             }
           />
-          {ineligibleMetricNames.length > 0 && (
-            <Callout status="warning" mt="3">
-              {`Remove these metrics before saving. Cluster experiments can't analyze them: ${ineligibleMetricNames.join(", ")}.`}
-            </Callout>
-          )}
         </Box>
       )}
     </Box>

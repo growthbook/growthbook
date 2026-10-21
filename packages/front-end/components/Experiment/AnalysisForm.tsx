@@ -23,6 +23,7 @@ import Collapsible from "react-collapsible";
 import {
   getAllMetricIdsFromExperiment,
   getClusterExperimentMetricEligibility,
+  getClusterSubUnit,
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
@@ -111,7 +112,7 @@ const AnalysisForm: FC<{
     getSegmentById,
     datasources,
     dimensions,
-    factTables,
+    getFactTableById,
     metricGroups,
   } = useDefinitions();
 
@@ -381,8 +382,13 @@ const AnalysisForm: FC<{
   const goalMetrics = form.watch("goalMetrics");
   const secondaryMetrics = form.watch("secondaryMetrics");
   const guardrailMetrics = form.watch("guardrailMetrics");
+  // Same inputs as the metric pickers, so both agree on what's eligible.
   const ineligibleClusterMetricNames = useMemo(() => {
-    if (!isClusterExperiment) return [];
+    const clusterSubUnit = getClusterSubUnit({
+      isClusterExperiment,
+      clusterSubUnitIdentifier,
+    });
+    if (!clusterSubUnit || !exposureQuery) return [];
     return getAllMetricIdsFromExperiment(
       { goalMetrics, secondaryMetrics, guardrailMetrics },
       false,
@@ -392,9 +398,8 @@ const AnalysisForm: FC<{
       if (!metric) return [];
       const eligibility = getClusterExperimentMetricEligibility(metric, {
         clusterIdentifier: exposureQueryIdentifierType,
-        clusterSubUnitIdentifier,
-        getFactTable: (factTableId) =>
-          factTables.find((ft) => ft.id === factTableId),
+        clusterSubUnitIdentifier: clusterSubUnit,
+        getFactTable: getFactTableById,
         datasourceSettings: datasource?.settings,
       });
       return eligibility.allowed ? [] : [metric.name];
@@ -407,7 +412,8 @@ const AnalysisForm: FC<{
     secondaryMetrics,
     guardrailMetrics,
     metricGroups,
-    factTables,
+    getFactTableById,
+    exposureQuery,
     datasource,
     getExperimentMetricById,
   ]);
@@ -823,7 +829,6 @@ const AnalysisForm: FC<{
                   setSubUnitIdentifier={(value) =>
                     form.setValue("clusterSubUnitIdentifier", value)
                   }
-                  ineligibleMetricNames={ineligibleClusterMetricNames}
                 />
               )}
             {datasource && !isHoldout && (
@@ -1100,6 +1105,11 @@ const AnalysisForm: FC<{
                 </FormProvider>
                 {experiment.status !== "draft" && <Separator my="5" size="4" />}
               </>
+            )}
+            {ineligibleClusterMetricNames.length > 0 && (
+              <Callout status="warning" mb="3">
+                {`Remove these metrics before saving. Cluster experiments can't analyze them: ${ineligibleClusterMetricNames.join(", ")}.`}
+              </Callout>
             )}
             <ExperimentMetricsSelector
               noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
