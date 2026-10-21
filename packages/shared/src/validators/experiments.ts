@@ -241,25 +241,36 @@ export function isUnsupportedClusterBanditCombination({
   return !!isClusterExperiment && type === "multi-armed-bandit";
 }
 
-export const CLUSTER_MODE_LOCKED_MESSAGE =
-  "Cluster randomization can only be turned on or off while the experiment is a draft.";
+export const CLUSTER_CONFIG_LOCKED_MESSAGE =
+  "Cluster randomization and its sub-unit can only be changed while the experiment is a draft.";
 
-// The SDK randomizes on the cluster (or not) from launch, so switching cluster
-// mode afterwards would analyze traffic that wasn't randomized that way.
-export function isClusterModeChangeLocked({
+// The SDK randomizes on the cluster (or not) from launch, and results so far
+// were analyzed per that sub-unit, so neither can change once it has run.
+export function isClusterConfigChangeLocked({
   status,
   nextStatus,
   isClusterExperiment,
   nextIsClusterExperiment,
+  subUnitIdentifier,
+  nextSubUnitIdentifier,
 }: {
   status: string;
   nextStatus?: string;
   isClusterExperiment?: boolean | null;
   nextIsClusterExperiment?: boolean | null;
+  subUnitIdentifier?: string | null;
+  nextSubUnitIdentifier?: string | null;
 }): boolean {
-  if (nextIsClusterExperiment === undefined || nextIsClusterExperiment === null)
-    return false;
-  if (!!nextIsClusterExperiment === !!isClusterExperiment) return false;
+  const modeChanged =
+    (nextIsClusterExperiment ?? null) !== null &&
+    !!nextIsClusterExperiment !== !!isClusterExperiment;
+  const staysCluster =
+    !!isClusterExperiment && (nextIsClusterExperiment ?? true) !== false;
+  const subUnitChanged =
+    staysCluster &&
+    nextSubUnitIdentifier !== undefined &&
+    (nextSubUnitIdentifier || null) !== (subUnitIdentifier || null);
+  if (!modeChanged && !subUnitChanged) return false;
   return status !== "draft" && nextStatus !== "draft";
 }
 

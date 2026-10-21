@@ -23,8 +23,8 @@ import {
 } from "shared/experiments";
 import {
   CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
-  CLUSTER_MODE_LOCKED_MESSAGE,
-  isClusterModeChangeLocked,
+  CLUSTER_CONFIG_LOCKED_MESSAGE,
+  isClusterConfigChangeLocked,
   isUnsupportedClusterBanditCombination,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
@@ -2104,14 +2104,16 @@ export async function postExperiment(
   }
 
   if (
-    isClusterModeChangeLocked({
+    isClusterConfigChangeLocked({
       status: experiment.status,
       nextStatus: changes.status,
       isClusterExperiment: experiment.isClusterExperiment,
       nextIsClusterExperiment: changes.isClusterExperiment,
+      subUnitIdentifier: experiment.clusterSubUnitIdentifier,
+      nextSubUnitIdentifier: changes.clusterSubUnitIdentifier,
     })
   ) {
-    throw new Error(CLUSTER_MODE_LOCKED_MESSAGE);
+    throw new Error(CLUSTER_CONFIG_LOCKED_MESSAGE);
   }
   if (changes.isClusterExperiment) {
     assertCanEnableClusterExperiment(context);

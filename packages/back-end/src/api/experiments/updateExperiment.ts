@@ -6,9 +6,9 @@ import {
 } from "shared/util";
 import {
   CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
-  CLUSTER_MODE_LOCKED_MESSAGE,
+  CLUSTER_CONFIG_LOCKED_MESSAGE,
   ExperimentInterfaceExcludingHoldouts,
-  isClusterModeChangeLocked,
+  isClusterConfigChangeLocked,
   isUnsupportedClusterBanditCombination,
   updateExperimentValidator,
 } from "shared/validators";
@@ -168,14 +168,16 @@ export const updateExperiment = createApiRequestHandler(
     exposureQueryIdentifierType !== experiment.exposureQueryIdentifierType;
 
   if (
-    isClusterModeChangeLocked({
+    isClusterConfigChangeLocked({
       status: experiment.status,
       nextStatus: payload.status,
       isClusterExperiment: experiment.isClusterExperiment,
       nextIsClusterExperiment: payload.isClusterExperiment,
+      subUnitIdentifier: experiment.clusterSubUnitIdentifier,
+      nextSubUnitIdentifier: payload.clusterSubUnitIdentifier,
     })
   ) {
-    throw new Error(CLUSTER_MODE_LOCKED_MESSAGE);
+    throw new Error(CLUSTER_CONFIG_LOCKED_MESSAGE);
   }
   const effectiveIsClusterExperiment =
     payload.isClusterExperiment ?? experiment.isClusterExperiment;

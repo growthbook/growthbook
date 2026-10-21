@@ -1,6 +1,6 @@
 import {
   CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
-  isClusterModeChangeLocked,
+  isClusterConfigChangeLocked,
   isUnsupportedClusterBanditCombination,
   postExperimentValidator,
   updateExperimentValidator,
@@ -28,29 +28,34 @@ describe("isUnsupportedClusterBanditCombination", () => {
   });
 });
 
-describe("isClusterModeChangeLocked", () => {
-  it("locks turning cluster mode on or off once the experiment left draft", () => {
-    expect(
-      isClusterModeChangeLocked({
-        status: "running",
-        isClusterExperiment: false,
-        nextIsClusterExperiment: true,
-      }),
-    ).toBe(true);
-    expect(
-      isClusterModeChangeLocked({
-        status: "stopped",
-        isClusterExperiment: true,
-        nextIsClusterExperiment: false,
-      }),
-    ).toBe(true);
+describe("isClusterConfigChangeLocked", () => {
+  it.each([
+    {
+      status: "running",
+      isClusterExperiment: false,
+      nextIsClusterExperiment: true,
+    },
+    {
+      status: "stopped",
+      isClusterExperiment: true,
+      nextIsClusterExperiment: false,
+    },
+    {
+      status: "running",
+      isClusterExperiment: true,
+      subUnitIdentifier: "user_id",
+      nextSubUnitIdentifier: "device_id",
+    },
+  ])("locks %p", (args) => {
+    expect(isClusterConfigChangeLocked(args)).toBe(true);
   });
 
   it.each([
     {
       status: "draft",
-      isClusterExperiment: false,
-      nextIsClusterExperiment: true,
+      isClusterExperiment: true,
+      subUnitIdentifier: "user_id",
+      nextSubUnitIdentifier: "device_id",
     },
     {
       status: "running",
@@ -62,19 +67,23 @@ describe("isClusterModeChangeLocked", () => {
       status: "running",
       isClusterExperiment: true,
       nextIsClusterExperiment: true,
+      subUnitIdentifier: "user_id",
+      nextSubUnitIdentifier: "user_id",
     },
     {
       status: "running",
-      isClusterExperiment: undefined,
-      nextIsClusterExperiment: false,
+      isClusterExperiment: false,
+      subUnitIdentifier: "",
+      nextSubUnitIdentifier: "device_id",
     },
     {
       status: "running",
       isClusterExperiment: true,
       nextIsClusterExperiment: undefined,
+      nextSubUnitIdentifier: undefined,
     },
   ])("allows %p", (args) => {
-    expect(isClusterModeChangeLocked(args)).toBe(false);
+    expect(isClusterConfigChangeLocked(args)).toBe(false);
   });
 });
 
