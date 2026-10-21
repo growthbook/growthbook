@@ -5,6 +5,7 @@ import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { apiKeySchema, ConfirmRule } from "shared/validators";
 import {
   apiKeyToggleRequiresAdmin,
+  canManageApiKeySecret,
   canSetApiKeyDisabled,
   changesApiKeyAuthority,
   getRoleById,
@@ -903,18 +904,18 @@ export class ApiKeyModel extends BaseClass {
     };
   }
 
-  // Same authority as revealing the secret: the owner for a PAT, and permission
-  // to create API keys for an org key.
   private async getRotatableKey(id: string): Promise<ApiKeyInterface> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
     if (!doc || !doc.secret || doc.oauthClientId) {
       this.context.throwNotFoundError(`API key not found: ${id}`);
     }
-    if (doc.userId) {
-      if (doc.userId !== this.context.userId) {
+    if (
+      !canManageApiKeySecret(this.context.permissions, doc, this.context.userId)
+    ) {
+      // Like delete, another member's PAT reads as missing.
+      if (doc.userId) {
         this.context.throwNotFoundError(`API key not found: ${id}`);
       }
-    } else if (!this.context.permissions.canCreateApiKey()) {
       this.context.permissions.throwPermissionError(
         "Rotating an API key requires permission to create API keys.",
       );

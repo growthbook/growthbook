@@ -153,7 +153,6 @@ const SecretApiKeys: FC<{
           <ApiKeysTable
             onDelete={onDelete}
             keys={organizationSecretKeys}
-            canCreateKeys={canCreateKeys}
             canDeleteKeys={canDeleteKeys}
             onReveal={onReveal}
             onToggleDisabled={
@@ -161,8 +160,8 @@ const SecretApiKeys: FC<{
             }
             onEdit={canEditKeys ? (key) => setEditingKey(key) : undefined}
             onCopy={canCreateKeys ? setCopyFrom : undefined}
-            onRotate={canCreateKeys ? onRotate : undefined}
-            onRevokePrevious={canCreateKeys ? onRevokePrevious : undefined}
+            onRotate={onRotate}
+            onRevokePrevious={onRevokePrevious}
             onShowAuditLog={
               canViewAuditLog
                 ? (key) =>
