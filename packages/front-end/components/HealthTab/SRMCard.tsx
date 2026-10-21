@@ -111,7 +111,7 @@ export default function SRMCard({
         className={clsx("overflow-hidden", { row: !hideDimensions })}
         id="parent-container"
       >
-        <div className={clsx({ "col-8 border-right pr-4": !hideDimensions })}>
+        <div className={clsx({ "col-8 pr-4": !hideDimensions })}>
           <div
             className="overflow-auto"
             id="child-container"
@@ -160,6 +160,7 @@ export default function SRMCard({
             </div>
           </div>
         </div>
+        {!hideDimensions && <Separator orientation="vertical" size="4" />}
         {!hideDimensions && (
           <div className="col h-100 p-0 overflow-hidden">
             <DimensionIssues
