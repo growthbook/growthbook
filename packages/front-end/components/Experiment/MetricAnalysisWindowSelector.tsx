@@ -138,6 +138,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
                   <Box>Only use metric data from</Box>
                   <DatePicker
                     date={lookbackOverride.value}
+                    timeZone="utc"
                     containerClassName={""}
                     setDate={(d) => {
                       if (d) {

@@ -15,7 +15,10 @@ import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { ExperimentReportVariation } from "shared/types/report";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { VisualChange } from "shared/types/visual-changeset";
+import {
+  VisualChange,
+  VisualChangesetInterface,
+} from "shared/types/visual-changeset";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   SafeRolloutSnapshotAnalysis,
@@ -56,6 +59,7 @@ export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
 export * from "./holdouts";
+export * from "./interleaving";
 export * from "./diffFormats";
 export * from "./format-json";
 export * from "./datasource";
@@ -339,8 +343,28 @@ export function isValidEnvironment(
   return environments.includes(env);
 }
 
+export const visualChangeHasContent = (
+  vc: Pick<VisualChange, "js" | "domMutations"> & { css?: string },
+) => !!vc.css || !!vc.domMutations.length || !!vc.js;
+
 export const hasVisualChanges = (visualChanges: VisualChange[]) =>
-  visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length || !!vc.js);
+  visualChanges.some(visualChangeHasContent);
+
+export type ChangesetOwnerRef =
+  | { kind: "experiment"; id: string }
+  | { kind: "contextual-bandit"; id: string };
+
+export function changesetOwnerRef(
+  changeset: Pick<VisualChangesetInterface, "experiment" | "contextualBandit">,
+): ChangesetOwnerRef | null {
+  if (changeset.contextualBandit) {
+    return { kind: "contextual-bandit", id: changeset.contextualBandit };
+  }
+  if (changeset.experiment) {
+    return { kind: "experiment", id: changeset.experiment };
+  }
+  return null;
+}
 
 export type MatchingRule = {
   environmentId: string;
@@ -896,3 +920,4 @@ export {
   NON_PRODUCTION_ENV_PATTERNS,
   isEnvironmentDevLike,
 } from "./environments";
+export * from "./confirmations";

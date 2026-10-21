@@ -28,6 +28,8 @@ import {
   normalizeSnowflakeEventForwarderAccessUrl,
   normalizeSnowflakeTablePrefixForEventForwarder,
   normalizeDatabricksEventForwarderDestination,
+  resolveBigQueryEventForwarderTableNames,
+  resolveSnowflakeEventForwarderTableNames,
   resolveDatabricksEventForwarderTables,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
@@ -42,12 +44,25 @@ type SinkConfig =
 // instead of a per-datasource Confluent connector.
 const IN_HOUSE_CONSUMER_SINKS: ReadonlySet<EventForwarderSinkType> = new Set([
   "databricks",
+  "bigquery",
+  "snowflake",
 ]);
 
 export function isInHouseConsumerSink(
   sinkType: EventForwarderSinkType,
 ): boolean {
   return IN_HOUSE_CONSUMER_SINKS.has(sinkType);
+}
+
+// Whether an existing config is on the consumer: new configs get the shared
+// topic (or a per-org `__<orgId>` override); BigQuery configs created before
+// the consumer kept their per-datasource Confluent topic.
+// TODO: once every pre-consumer config is torn down, isInHouseConsumerSink suffices.
+export function isInHouseConsumerTopic(
+  topic: string,
+  sinkType: EventForwarderSinkType,
+): boolean {
+  return topic.split("__")[0] === getInHouseConsumerTopicName(sinkType);
 }
 
 export function getInHouseConsumerTopicName(
@@ -229,11 +244,17 @@ function buildBigQueryStoredConfigFromDraft(
     ) ||
     "";
 
+  const names = resolveBigQueryEventForwarderTableNames(tablePrefix);
   return {
     projectId,
     dataset,
     tablePrefix,
     serviceAccountKey,
+    tables: {
+      events: names.events,
+      experiment_viewed: names.experimentViewed,
+      feature_usage: names.featureUsage,
+    },
   };
 }
 
@@ -286,12 +307,18 @@ function buildSnowflakeStoredConfigFromDraft(
   const authMethod = datasourceParams?.authMethod ?? "password";
   if (authMethod !== "key-pair") {
     throw new Error(
-      "Snowflake event forwarder requires key-pair authentication. Password and Workload Identity authentication are supported for Snowflake queries, but Confluent Snowflake Sink provisioning requires a private key.",
+      "Snowflake event forwarder requires key-pair authentication. Password and Workload Identity authentication are supported for Snowflake queries, but Snowpipe Streaming requires a private key.",
     );
   }
 
+  const names = resolveSnowflakeEventForwarderTableNames(tablePrefix);
   return {
     tablePrefix,
+    tables: {
+      events: names.events,
+      experiment_viewed: names.experimentViewed,
+      feature_usage: names.featureUsage,
+    },
     account:
       datasourceParams?.account?.trim() ||
       existingStored?.account?.trim() ||
@@ -447,7 +474,7 @@ function validateNormalizedSinkPayload(
       !snowflake.role?.trim()
     ) {
       throw new Error(
-        "Snowflake event forwarder requires account, username, destination table prefix (DATABASE.SCHEMA.PREFIX), Snowflake URL, private key credentials, and Snowflake role (required for Snowpipe Streaming schematization)",
+        "Snowflake event forwarder requires account, username, destination table prefix (DATABASE.SCHEMA.PREFIX), Snowflake URL, private key credentials, and Snowflake role",
       );
     }
   }

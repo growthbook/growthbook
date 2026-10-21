@@ -547,7 +547,7 @@ export const dataSourceConnections: {
   },
   {
     type: "adobe_experience_platform_query_service",
-    display: "Adobe Experience Platform Query Service",
+    display: "Experience Platform",
     icon: <SiAdobe />,
     docs: "adobe_experience_platform_query_service",
     default: {

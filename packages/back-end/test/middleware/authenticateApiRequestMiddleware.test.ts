@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { getRolePermissions } from "shared/permissions";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { OrganizationInterface, Permission } from "shared/types/organization";
 import authenticateApiRequestMiddleware, {
@@ -164,6 +165,24 @@ describe("REST API auth middleware", () => {
           superAdmin: false,
         });
       }).toThrowError();
+    });
+
+    it("judges an org key by its per-request permissions when given", () => {
+      const check = (apiKey: Partial<ApiKeyInterface>, role: string) => () =>
+        verifyApiKeyPermission({
+          apiKey,
+          permission: "createMetrics",
+          organization,
+          teams: [],
+          superAdmin: false,
+          keyPermissions: getRolePermissions(
+            { role, limitAccessByEnvironment: false, environments: [] },
+            organization,
+            [],
+          ),
+        });
+      expect(check(readOnlyKey, "admin")).not.toThrow();
+      expect(check(secretFullAccessKey, "readonly")).toThrow();
     });
 
     it("should throw an error for user API keys where the user does not have access to the environment", () => {
