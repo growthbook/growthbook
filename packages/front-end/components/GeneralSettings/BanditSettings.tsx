@@ -7,9 +7,9 @@ import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
+import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Heading from "@/ui/Heading";
-import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 
 export default function BanditSettings({
@@ -205,20 +205,22 @@ export default function BanditSettings({
 
           {page === "org-settings" && (
             <Box mt="4">
-              <Switch
-                id="banditPeriodWeighting"
+              <Checkbox
+                id="toggle-banditPeriodWeighting"
+                align="start"
+                weight="medium"
                 label={
                   <Flex as="span" align="center" gap="1">
                     Weight results by update period
                     <span
                       onClick={(e) => {
-                        // Keep clicks on the info icon from toggling the switch.
+                        // Keep clicks on the info icon from toggling the checkbox.
                         e.preventDefault();
                         e.stopPropagation();
                       }}
                       style={{ display: "inline-flex" }}
                     >
-                      <Tooltip body="Each update period is weighted proportionally to traffic received. This removes bias, but adds some variance (more exploration).">
+                      <Tooltip body="Each update period is weighted proportionally to traffic received. This removes bias, but adds variance (increases exploration).">
                         <PiInfo color="var(--color-text-low)" />
                       </Tooltip>
                     </span>
@@ -226,9 +228,11 @@ export default function BanditSettings({
                 }
                 description="Unbias Contextual Bandit decision-metric estimates due to changing traffic over time."
                 value={form.watch("banditPeriodWeighting") ?? true}
-                onChange={(checked) => {
-                  form.setValue("banditPeriodWeighting", checked);
-                }}
+                setValue={(value) =>
+                  form.setValue("banditPeriodWeighting", value, {
+                    shouldDirty: true,
+                  })
+                }
                 disabled={!hasBandits && !hasContextualBandits}
               />
             </Box>
