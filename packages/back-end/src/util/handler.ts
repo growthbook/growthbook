@@ -285,7 +285,7 @@ export async function runApiHandler(
       if (e instanceof UnscopedRuleError) {
         body.message =
           e.message +
-          ' Pick specific environments or Projects, or resend with `"allowUnscopedRules": true` in the request body.';
+          ' Set specific `environments`, or resend with `"allowUnscopedRules": true` in the request body.';
       }
       if (e instanceof DraftLimitError) {
         body.message =

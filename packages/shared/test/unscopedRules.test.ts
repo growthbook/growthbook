@@ -38,6 +38,11 @@ describe("getNewlyUnscopedRules", () => {
     ).toEqual(["fr_a", "fr_b"]);
   });
 
+  it("never matches an earlier rule that has no id", () => {
+    const unnamed = { ...everywhere, id: "" };
+    expect(getNewlyUnscopedRules([unnamed], [unnamed])).toEqual([unnamed]);
+  });
+
   it("leaves rules that were already unscoped alone", () => {
     expect(
       getNewlyUnscopedRules(

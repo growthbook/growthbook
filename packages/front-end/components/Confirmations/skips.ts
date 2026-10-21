@@ -68,7 +68,6 @@ export function skipsOf(
 }
 
 export const isPolicySkip = (skip: Skip) =>
-  skip.action === "override.restBypassesReviews" ||
   skip.policy !== null ||
   skip.notices.some((notice) => POLICY_VIAS.has(notice.via));
 

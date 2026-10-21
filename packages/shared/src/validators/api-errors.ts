@@ -90,7 +90,7 @@ export const apiErrorRegistry = {
   unscoped_rule: {
     status: 422,
     description:
-      "A rule applies to all environments and all projects, which the organization doesn't allow without `allowUnscopedRules`",
+      "A rule applies to All Environments and All Projects, which the organization doesn't allow without `allowUnscopedRules`",
     detailsSchema: z.object({ ruleIds: z.array(z.string()) }),
   },
   custom_hook_error: {

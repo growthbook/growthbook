@@ -9520,8 +9520,8 @@ paths:
                 allowUnscopedRules:
                   description: >-
                     When the organization requires rules to target specific
-                    environments or projects, set to true to save a rule that
-                    applies to all environments and all projects. Only set this
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
                     when a person has explicitly asked you to. If a check blocks
                     you, stop and ask a person instead of working around it.
                   type: boolean
@@ -9552,7 +9552,7 @@ paths:
               schema:
                 type: object
                 description: >-
-                  A rule applies to all environments and all projects, which the
+                  A rule applies to All Environments and All Projects, which the
                   organization doesn't allow without `allowUnscopedRules`
                 properties:
                   message:
@@ -10472,8 +10472,8 @@ paths:
                 allowUnscopedRules:
                   description: >-
                     When the organization requires rules to target specific
-                    environments or projects, set to true to save a rule that
-                    applies to all environments and all projects. Only set this
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
                     when a person has explicitly asked you to. If a check blocks
                     you, stop and ask a person instead of working around it.
                   type: boolean
@@ -10508,7 +10508,7 @@ paths:
               schema:
                 type: object
                 description: >-
-                  A rule applies to all environments and all projects, which the
+                  A rule applies to All Environments and All Projects, which the
                   organization doesn't allow without `allowUnscopedRules`
                 properties:
                   message:
@@ -12643,8 +12643,8 @@ paths:
                 allowUnscopedRules:
                   description: >-
                     When the organization requires rules to target specific
-                    environments or projects, set to true to save a rule that
-                    applies to all environments and all projects. Only set this
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
                     when a person has explicitly asked you to. If a check blocks
                     you, stop and ask a person instead of working around it.
                   type: boolean
@@ -12673,7 +12673,7 @@ paths:
               schema:
                 type: object
                 description: >-
-                  A rule applies to all environments and all projects, which the
+                  A rule applies to All Environments and All Projects, which the
                   organization doesn't allow without `allowUnscopedRules`
                 properties:
                   message:
@@ -13417,8 +13417,8 @@ paths:
                 allowUnscopedRules:
                   description: >-
                     When the organization requires rules to target specific
-                    environments or projects, set to true to save a rule that
-                    applies to all environments and all projects. Only set this
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
                     when a person has explicitly asked you to. If a check blocks
                     you, stop and ask a person instead of working around it.
                   type: boolean
@@ -13447,7 +13447,7 @@ paths:
               schema:
                 type: object
                 description: >-
-                  A rule applies to all environments and all projects, which the
+                  A rule applies to All Environments and All Projects, which the
                   organization doesn't allow without `allowUnscopedRules`
                 properties:
                   message:
@@ -19084,8 +19084,8 @@ paths:
                 allowUnscopedRules:
                   description: >-
                     When the organization requires rules to target specific
-                    environments or projects, set to true to save a rule that
-                    applies to all environments and all projects. Only set this
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
                     when a person has explicitly asked you to. If a check blocks
                     you, stop and ask a person instead of working around it.
                   type: boolean
@@ -19128,7 +19128,7 @@ paths:
               schema:
                 type: object
                 description: >-
-                  A rule applies to all environments and all projects, which the
+                  A rule applies to All Environments and All Projects, which the
                   organization doesn't allow without `allowUnscopedRules`
                 properties:
                   message:
@@ -19241,8 +19241,8 @@ paths:
                 allowUnscopedRules:
                   description: >-
                     When the organization requires rules to target specific
-                    environments or projects, set to true to save a rule that
-                    applies to all environments and all projects. Only set this
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
                     when a person has explicitly asked you to. If a check blocks
                     you, stop and ask a person instead of working around it.
                   type: boolean
@@ -19287,7 +19287,7 @@ paths:
               schema:
                 type: object
                 description: >-
-                  A rule applies to all environments and all projects, which the
+                  A rule applies to All Environments and All Projects, which the
                   organization doesn't allow without `allowUnscopedRules`
                 properties:
                   message:

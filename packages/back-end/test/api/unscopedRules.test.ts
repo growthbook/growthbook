@@ -9,6 +9,7 @@ import { setupApp } from "./api.setup";
 const ORG_ID = "org_unscoped_rules";
 const FLAG = "checkout";
 const BANDIT_FLAG = "checkout-layout";
+const RULES_FLAG = "checkout-copy";
 const now = new Date("2026-01-01");
 
 const contextualBandit: ContextualBanditInterface = {
@@ -61,6 +62,13 @@ const banditRule = {
   allEnvironments: false,
   environments: ["production"],
   variations,
+};
+
+const forceRule = {
+  type: "force",
+  description: "",
+  value: "true",
+  enabled: true,
 };
 
 const { app, isReady, setReqContext } = setupApp();
@@ -156,6 +164,15 @@ beforeEach(async () => {
   for (const { collection, doc } of [
     ...flagDocs(FLAG, []),
     ...flagDocs(BANDIT_FLAG, [banditRule]),
+    ...flagDocs(RULES_FLAG, [
+      {
+        ...forceRule,
+        id: "fr_dev",
+        allEnvironments: false,
+        environments: ["dev"],
+      },
+      { ...forceRule, id: "fr_all", allEnvironments: true },
+    ]),
   ]) {
     await db.collection(collection).insertOne(structuredClone(doc));
   }
@@ -225,6 +242,34 @@ describe("PUT /api/v1/contextual-bandits/:id/linked-feature/:featureId", () => {
   it("accepts keeping the rule's environments", async () => {
     asAdmin(true);
     const response = await replace({ environments: ["production"] });
+    expect(response.status).toBe(200);
+  });
+});
+
+describe("PUT /api/v2/features/:id/revisions/:version/rules/:ruleId", () => {
+  const patchRule = (ruleId: string, body: object) =>
+    request(app)
+      .put(`/api/v2/features/${RULES_FLAG}/revisions/new/rules/${ruleId}`)
+      .set("Authorization", "Bearer key_admin")
+      .send(body);
+
+  it("refuses widening a rule to every environment until allowed", async () => {
+    asAdmin(true);
+    const widen = { rule: { allEnvironments: true } };
+    const refused = await patchRule("fr_dev", widen);
+    expect(refused.status).toBe(422);
+    expect(refused.body.details).toEqual({ ruleIds: ["fr_dev"] });
+    expect(
+      (await patchRule("fr_dev", { ...widen, allowUnscopedRules: true }))
+        .status,
+    ).toBe(200);
+  });
+
+  it("keeps a rule that already applies everywhere editable", async () => {
+    asAdmin(true);
+    const response = await patchRule("fr_all", {
+      rule: { description: "Holiday copy" },
+    });
     expect(response.status).toBe(200);
   });
 });

@@ -55,6 +55,10 @@ describe("skipsOf", () => {
       "override.unscopedRules",
       "override.draftLimit",
     ];
+    expect(skipsOf(two, two, [refusal]).map((skip) => skip.action)).toEqual([
+      ...two,
+      null,
+    ]);
     expect(actionsOf(two, [refusal])).toEqual([...two, null]);
     expect(
       skipsOf(["override.restBypassesReviews"], [], [refusal]).map(

@@ -12,6 +12,7 @@ import type {
   ConfirmRule,
   ConfirmationLink,
 } from "shared/validators";
+import type { HttpVerb } from "shared/api-spec";
 import type { RevisionTargetType } from "shared/enterprise";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -20,6 +21,7 @@ import {
   capitalizeFirstCharacter,
   matchConfirmRules,
   proposedArchivedValue,
+  routeConfirmation,
   scheduleActions,
   stringToBoolean,
 } from "shared/util";
@@ -706,7 +708,7 @@ export async function holdAtRoute(
 export type HeldRoute = {
   confirmation: readonly ConfirmAction[];
   tags: readonly string[];
-  method: string;
+  method: HttpVerb;
   path: string;
   summary: string;
 };
@@ -719,7 +721,7 @@ export const holdRoute = (
 ) =>
   holdAtRoute(
     context,
-    route.confirmation,
+    routeConfirmation(route.method, route.tags, route.confirmation),
     route.tags,
     route.method,
     route.path,

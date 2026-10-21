@@ -1082,7 +1082,9 @@ export async function assertValidFeatureRules(
   context: ReqContext | ApiReqContext,
   rules: FeatureRule[],
   stored: FeatureRule[] = [],
+  { copiesRules = false }: { copiesRules?: boolean } = {},
 ): Promise<void> {
+  if (!copiesRules) assertScopedRules(context, rules, stored);
   assertValidChangedRuleEnvironments(context, rules, stored);
   await assertValidChangedRuleProjectIds(rules, stored, context);
   await assertValidChangedRuleExperimentIds(rules, stored, context);
@@ -1098,7 +1100,6 @@ export async function assertValidRuleWrite(
   rule: FeatureRule,
   stored?: FeatureRule,
 ): Promise<void> {
-  assertScopedRules(context, [rule], stored ? [stored] : []);
   await assertValidFeatureRules(context, [rule], stored ? [stored] : []);
   if (
     !stored ||

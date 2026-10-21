@@ -507,7 +507,9 @@ export function isUnscopedRule(rule: FeatureRuleScope): boolean {
 export function getNewlyUnscopedRules<
   T extends FeatureRuleScope & { id: string },
 >(rules: T[], previousRules: T[]): T[] {
-  const previous = new Map(previousRules.map((rule) => [rule.id, rule]));
+  const previous = new Map(
+    previousRules.filter((rule) => rule.id).map((rule) => [rule.id, rule]),
+  );
   return rules.filter((rule) => {
     if (!isUnscopedRule(rule)) return false;
     const before = previous.get(rule.id);

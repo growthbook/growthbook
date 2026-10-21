@@ -256,7 +256,7 @@ export const allowUnscopedRulesBodyField = z
   .boolean()
   .optional()
   .describe(
-    `When the organization requires rules to target specific environments or projects, set to true to save a rule that applies to all environments and all projects. ${HUMAN_OVERRIDE_NOTE}`,
+    `When the organization requires rules to target specific environments or Projects, set to true to save a rule that applies to All Environments and All Projects. ${HUMAN_OVERRIDE_NOTE}`,
   );
 
 export const publishOverrideBodyFields = {
