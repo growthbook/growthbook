@@ -250,6 +250,16 @@ function authenticateWithApiKey(
           new Date(expiresAt).toISOString(),
         );
       }
+      // Likewise for a rotated key's replaced secret, during its grace period.
+      if (
+        apiKeyDoc.previousKey === secretKey &&
+        apiKeyDoc.previousKeyExpiresAt
+      ) {
+        res.set(
+          "X-GrowthBook-Secret-Expires-At",
+          new Date(apiKeyDoc.previousKeyExpiresAt).toISOString(),
+        );
+      }
       req.apiKey = id || "";
       req.usedPreviousSecret =
         !!apiKeyDoc.previousKey && apiKeyDoc.previousKey === secretKey;
