@@ -364,7 +364,6 @@ const CompactResults: FC<{
             <ClusterReliabilityWarning
               snapshot={snapshot}
               variations={variations}
-              setTab={setTab}
             />
           </Flex>
         </>

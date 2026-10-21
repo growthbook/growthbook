@@ -16,7 +16,6 @@ import SRMCard from "@/components/HealthTab/SRMCard";
 import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
 import ClusterIssueCard from "@/components/HealthTab/ClusterIssueCard";
-import ClusterReliabilityCard from "@/components/HealthTab/ClusterReliabilityCard";
 import { IdentifierCode } from "@/components/Experiment/AssignmentQueryFields";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -458,58 +457,6 @@ function HealthSnapshotCards({
         </div>
       )}
 
-      {clusterIds && clusterAssignment ? (
-        <div id="clusterAssignment" style={{ scrollMarginTop: "100px" }}>
-          <ClusterIssueCard
-            id="clusterAssignment"
-            title="Cluster Assignment Check"
-            description={
-              <>
-                Detects whether every{" "}
-                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> in a{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> saw the
-                same variation
-              </>
-            }
-            affectedCount={clusterAssignment.mixedClusters}
-            totalCount={clusterAssignment.totalClusters}
-            error={clusterAssignment.error}
-            onNotify={handleHealthNotification}
-            healthyMessage={
-              <b>
-                Every <IdentifierCode>{clusterIds.cluster}</IdentifierCode> had
-                a single variation.
-              </b>
-            }
-            belowThresholdMessage={(threshold, share) => (
-              <>
-                {numberFormatter.format(clusterAssignment.mixedClusters)} of{" "}
-                {numberFormatter.format(clusterAssignment.totalClusters)}{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
-                {clusterNoun} ({share}) had{" "}
-                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> values in
-                more than one variation and {oneMixedCluster ? "was" : "were"}{" "}
-                removed from results, but that is below your threshold of{" "}
-                {threshold}.
-              </>
-            )}
-            warningMessage={(share) => (
-              <>
-                <strong>Cluster Assignment Warning</strong>.{" "}
-                {numberFormatter.format(clusterAssignment.mixedClusters)} of{" "}
-                {numberFormatter.format(clusterAssignment.totalClusters)}{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
-                {clusterNoun} ({share}) had{" "}
-                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> values in
-                more than one variation and {oneMixedCluster ? "was" : "were"}{" "}
-                automatically removed from results. Check that the{" "}
-                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> in your
-                assignment query matches the attribute the SDK hashes on.
-              </>
-            )}
-          />
-        </div>
-      ) : null}
       {clusterIds && clusterSubUnitMapping ? (
         <div id="clusterMapping" style={{ scrollMarginTop: "100px" }}>
           <ClusterIssueCard
@@ -566,15 +513,55 @@ function HealthSnapshotCards({
           />
         </div>
       ) : null}
-      {clusterIds && clusterTraffic ? (
-        <div id="clusterReliability" style={{ scrollMarginTop: "100px" }}>
-          <ClusterReliabilityCard
-            clusterTraffic={clusterTraffic}
-            clusterUnits={snapshot.health?.clusterUnits}
-            variations={variations}
-            clusterIdentifier={clusterIds.cluster}
-            subUnitIdentifier={clusterIds.subUnit}
+      {clusterIds && clusterAssignment ? (
+        <div id="clusterAssignment" style={{ scrollMarginTop: "100px" }}>
+          <ClusterIssueCard
+            id="clusterAssignment"
+            title="Cluster Assignment Check"
+            description={
+              <>
+                Detects whether every{" "}
+                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> in a{" "}
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> saw the
+                same variation
+              </>
+            }
+            affectedCount={clusterAssignment.mixedClusters}
+            totalCount={clusterAssignment.totalClusters}
+            error={clusterAssignment.error}
             onNotify={handleHealthNotification}
+            healthyMessage={
+              <b>
+                Every <IdentifierCode>{clusterIds.cluster}</IdentifierCode> had
+                a single variation.
+              </b>
+            }
+            belowThresholdMessage={(threshold, share) => (
+              <>
+                {numberFormatter.format(clusterAssignment.mixedClusters)} of{" "}
+                {numberFormatter.format(clusterAssignment.totalClusters)}{" "}
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
+                {clusterNoun} ({share}) had{" "}
+                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> values in
+                more than one variation and {oneMixedCluster ? "was" : "were"}{" "}
+                removed from results, but that is below your threshold of{" "}
+                {threshold}.
+              </>
+            )}
+            warningMessage={(share) => (
+              <>
+                <strong>Cluster Assignment Warning</strong>.{" "}
+                {numberFormatter.format(clusterAssignment.mixedClusters)} of{" "}
+                {numberFormatter.format(clusterAssignment.totalClusters)}{" "}
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
+                {clusterNoun} ({share}) had{" "}
+                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> values in
+                more than one variation and {oneMixedCluster ? "was" : "were"}{" "}
+                automatically removed from results. Check that the{" "}
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> in your
+                assignment query matches the attribute the SDK hashes on.
+              </>
+            )}
           />
         </div>
       ) : null}

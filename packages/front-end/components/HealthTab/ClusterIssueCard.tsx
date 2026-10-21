@@ -13,7 +13,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 // Same layout as MultipleExposuresCard.
-export function CardFrame({
+function CardFrame({
   title,
   description,
   status,
