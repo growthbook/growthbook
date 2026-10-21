@@ -272,18 +272,6 @@ export const ExperimentAssignmentQueryModal = ({
     // A saved query keeps only its SQL, so edits stay in SQL mode
     tableModeAvailable: !exposureQuery,
     templates: TEMPLATES,
-    // Unlike a Fact Table, only the columns the query reads are selected
-    selectColumns: (columnNames) => {
-      const used = new Set([
-        experimentIdColumn,
-        variationIdColumn,
-        timestampColumn,
-        ...Object.values(userIdColumns),
-        ...dimensions,
-        ...(hasNameCol ? ["experiment_name", "variation_name"] : []),
-      ]);
-      return columnNames.filter((c) => used.has(c));
-    },
     setSql,
     onSelectTable: (tableName) => {
       if (!name || name === source.tableName) setName(tableName);
@@ -297,7 +285,7 @@ export const ExperimentAssignmentQueryModal = ({
     },
     onColumnsDetected: handleColumnsDetected,
   });
-  const { mode, selectedTable, pickerColumns, sqlColumns, partition } = source;
+  const { mode, selectedTable, pickerColumns, partition } = source;
   const querySql = mode === "table" ? source.tableSql : sql;
 
   const hasFreshResults = detectedSql === querySql && !!detected?.length;
@@ -416,11 +404,6 @@ export const ExperimentAssignmentQueryModal = ({
       userIdColumns,
     );
 
-    const savedColumns =
-      mode === "table" && sqlColumns.length
-        ? columns.filter((c) => sqlColumns.includes(c.column))
-        : columns;
-
     const saved: ExposureQuery = {
       // Keep fields this modal doesn't edit, but not stale mappings.
       ...omit(exposureQuery ?? {}, [
@@ -441,7 +424,7 @@ export const ExperimentAssignmentQueryModal = ({
       ),
       hasNameCol,
       projects,
-      columns: savedColumns,
+      columns,
       ...(Object.keys(remappedUserIds).length
         ? { userIdColumns: remappedUserIds }
         : {}),

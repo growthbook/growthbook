@@ -50,7 +50,7 @@ export function useSourceTable({
   tableModeAvailable: boolean;
   templates: SourceTableTemplate[];
   // The columns to SELECT from the table's columns; empty selects every one
-  selectColumns: (columnNames: string[]) => string[];
+  selectColumns?: (columnNames: string[]) => string[];
   // Switching to SQL mode seeds the editor with the generated SQL
   setSql: (sql: string) => void;
   onSelectTable: (tableName: string) => void;
@@ -222,7 +222,7 @@ export function useSourceTable({
   }, [mode, pickerColumns, onColumnsDetected]);
 
   const columnNames = (outputColumns ?? []).map((c) => c.columnName);
-  const sqlColumns = selectColumns(columnNames);
+  const sqlColumns = selectColumns?.(columnNames) ?? [];
 
   const dialect = datasource ? getDataSourceSqlDialect(datasource.type) : null;
   const compileRowFilters = (filters: RowFilter[]) => {
