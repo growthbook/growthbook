@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import chunk from "lodash/chunk";
 import { useAuth } from "@/services/auth";
 
 type EnvStatusMap = Record<string, boolean>;
@@ -7,6 +8,8 @@ export type EnvironmentStatusMap = Record<string, EnvStatusMap>;
 // Matches usePrerequisiteStates refresh cadence.
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const ERROR_RETRY_MS = 30_000;
+// The back-end rejects more than 500 ids per request; refreshes can exceed that.
+const IDS_PER_REQUEST = 100;
 
 export interface UseFeaturesStatusReturn {
   // Skips already-loaded IDs; no-op if fetchAll has already run.
@@ -39,14 +42,21 @@ export function useFeaturesStatus(): UseFeaturesStatusReturn {
       const key = ids === undefined ? "__all__" : [...ids].sort().join(",");
       if (inflightKey.current === key) return;
       inflightKey.current = key;
-      const url =
-        ids !== undefined
-          ? `/features/status?ids=${ids.join(",")}`
-          : "/features/status";
       setLoading(true);
       try {
-        const res = await apiCall<{ features: EnvironmentStatusMap }>(url);
-        const incoming = res.features ?? {};
+        const urls =
+          ids !== undefined
+            ? chunk(ids, IDS_PER_REQUEST).map(
+                (batch) => `/features/status?ids=${batch.join(",")}`,
+              )
+            : ["/features/status"];
+        const responses = await Promise.all(
+          urls.map((url) => apiCall<{ features: EnvironmentStatusMap }>(url)),
+        );
+        const incoming: EnvironmentStatusMap = Object.assign(
+          {},
+          ...responses.map((res) => res.features ?? {}),
+        );
         if (ids === undefined) {
           hasFetchedAll.current = true;
           Object.keys(incoming).forEach((id) => loadedIds.current.add(id));
