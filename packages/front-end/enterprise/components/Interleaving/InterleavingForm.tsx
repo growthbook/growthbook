@@ -11,10 +11,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import TagsInput from "@/components/Tags/TagsInput";
 import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
-import InterleavingVariationsInput, {
-  getRankersError,
-  InterleavingRankers,
-} from "@/components/Interleaving/InterleavingVariationsInput";
+import type { InterleavingRankers } from "@/components/Interleaving/InterleavingVariationsInput";
 import InterleavingAnalysisFields, {
   getAnalysisError,
   InterleavingAnalysisValue,
@@ -49,9 +46,7 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
   const [key, setKey] = useState("");
   const [keyEdited, setKeyEdited] = useState(false);
-  const [description, setDescription] = useState("");
   const [tags, setTags] = useState<string[]>([]);
-  const [rankers, setRankers] = useState<InterleavingRankers>(DEFAULT_RANKERS);
   const [analysis, setAnalysis] = useState<InterleavingAnalysisValue>({
     datasource: "",
     interleavingExposureQueryId: "",
@@ -83,7 +78,6 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
   const validateOverview = async () => {
     if (!name.trim()) throw new Error("Name is required");
     if (!key) throw new Error("Key is required");
-    assertNoError(getRankersError(rankers));
   };
 
   const submit = async () => {
@@ -94,11 +88,10 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
       body: {
         name: name.trim(),
         key,
-        description: description || undefined,
         project: project || undefined,
         tags,
         hashAttribute,
-        variations: rankers,
+        variations: DEFAULT_RANKERS,
         environmentSettings: Object.fromEntries(
           Object.entries(environmentSettings).map(([id, s]) => [
             id,
@@ -161,13 +154,6 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
             }}
             helpText="Passed to interleave() in your code. Can't be changed later."
           />
-          <Field
-            label="Description"
-            textarea
-            minRows={2}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
           <div className="form-group">
             <label>Tags</label>
             <TagsInput value={tags} onChange={setTags} />
@@ -191,11 +177,6 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
                 [env.id]: { ...prev[env.id], enabled },
               }))
             }
-          />
-          <InterleavingVariationsInput
-            value={rankers}
-            setValue={setRankers}
-            hideConfig
           />
         </div>
       </Page>

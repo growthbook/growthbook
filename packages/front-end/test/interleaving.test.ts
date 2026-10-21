@@ -6,8 +6,9 @@ describe("interleavingResultToSnapshotMetrics", () => {
       metricId: "fact__m",
       analysis: { type: "paired" },
       users: 100,
-      control: { value: 10, cr: 0.1 },
-      treatment: { value: 15, cr: 0.15 },
+      denominator: 250,
+      control: { value: 10, cr: 0.04 },
+      treatment: { value: 15, cr: 0.06 },
       test: {
         expected: 0.05,
         ci: [0.01, null],
@@ -17,7 +18,13 @@ describe("interleavingResultToSnapshotMetrics", () => {
         pValueErrorMessage: "too few users",
       },
     });
-    expect(control).toEqual({ value: 10, cr: 0.1, users: 100 });
+    expect(control).toEqual({
+      value: 10,
+      cr: 0.04,
+      users: 100,
+      denominator: 250,
+    });
+    expect(treatment.denominator).toBe(250);
     expect(treatment.ci).toEqual([0.01, Infinity]);
     expect(treatment.expected).toBe(0.05);
     expect(treatment.pValue).toBeUndefined();

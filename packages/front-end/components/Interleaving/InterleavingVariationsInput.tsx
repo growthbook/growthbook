@@ -49,13 +49,11 @@ export default function InterleavingVariationsInput({
   setValue,
   jsonSchema = null,
   disabled,
-  hideConfig,
 }: {
   value: InterleavingRankers;
   setValue: (value: InterleavingRankers) => void;
   jsonSchema?: ApiInterleavingInterface["jsonSchema"];
   disabled?: boolean;
-  hideConfig?: boolean;
 }) {
   const update = (
     index: 0 | 1,
@@ -117,19 +115,17 @@ export default function InterleavingVariationsInput({
               onChange={(e) => update(i, { description: e.target.value })}
               disabled={disabled}
             />
-            {!hideConfig && (
-              <CodeTextArea
-                label="Config (JSON)"
-                language="json"
-                value={ranker.config}
-                setValue={(config) => update(i, { config })}
-                minLines={4}
-                maxLines={16}
-                disabled={disabled}
-                error={getRankerConfigError(ranker.config, jsonSchema) ?? ""}
-                helpText="Passed to getList() in the SDK for this ranker."
-              />
-            )}
+            <CodeTextArea
+              label="Config (JSON)"
+              language="json"
+              value={ranker.config}
+              setValue={(config) => update(i, { config })}
+              minLines={4}
+              maxLines={16}
+              disabled={disabled}
+              error={getRankerConfigError(ranker.config, jsonSchema) ?? ""}
+              helpText="Passed to getList() in the SDK for this ranker."
+            />
           </Box>
         );
       })}
