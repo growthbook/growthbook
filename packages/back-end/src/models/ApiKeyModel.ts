@@ -1057,8 +1057,9 @@ export class ApiKeyModel extends BaseClass {
       );
     }
     const updates = { previousKeyExpiresAt: null, dateUpdated: new Date() };
+    // Matching the checked secret keeps a stale revoke off a newer rotation's.
     await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
-      { id, organization: this.context.org.id },
+      { id, organization: this.context.org.id, previousKey: doc.previousKey },
       { $set: updates, $unset: { previousKey: "" } },
     );
     return {

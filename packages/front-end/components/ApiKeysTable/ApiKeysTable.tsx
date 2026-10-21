@@ -228,6 +228,8 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               <TableCell style={dimStyle(key)}>
                 {canManageSecret(key) ? (
                   <ClickToReveal
+                    // Remounts on rotation so a revealed secret isn't the old one.
+                    key={String(key.keyIssuedAt)}
                     valueWhenHidden="secret_abcdefghijklmnop123"
                     getValue={onReveal(key.id)}
                   />
