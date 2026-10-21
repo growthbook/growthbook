@@ -4,6 +4,7 @@ import {
   requesterHeaderValidator,
   requesterPermissionsValidator,
 } from "shared/validators";
+import { MAX_ROTATION_GRACE_HOURS } from "shared/api-key-expiration";
 
 const roleRuleValidator = z
   .object({
@@ -81,6 +82,11 @@ export const putApiKeyValidator = z.strictObject({
 
 export const putApiKeyDisabledValidator = z.strictObject({
   disabled: z.boolean(),
+});
+
+export const postApiKeyRotateValidator = z.strictObject({
+  // 0 revokes the old secret immediately.
+  gracePeriodHours: z.number().int().min(0).max(MAX_ROTATION_GRACE_HOURS),
 });
 
 // These three validators' fields go into database filters, where an object
