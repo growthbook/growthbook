@@ -315,6 +315,7 @@ export const addContextualBanditLinkedFeature = {
   tags: ["ContextualBandits"],
   method: "post" as const,
   path: "/contextual-bandits/:id/linked-feature/:featureId",
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const updateContextualBanditLinkedFeature = {
@@ -345,6 +346,7 @@ export const updateContextualBanditLinkedFeature = {
   tags: ["ContextualBandits"],
   method: "put" as const,
   path: "/contextual-bandits/:id/linked-feature/:featureId",
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const deleteContextualBanditLinkedFeature = {

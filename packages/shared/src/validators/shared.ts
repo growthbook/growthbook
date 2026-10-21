@@ -252,6 +252,13 @@ export const skipHooksBodyField = z
   .describe(
     `Set to true to publish despite a Custom Hook rejection. This does not bypass schema validation; use \`skipSchemaValidation\` for that. The caller must have Bypass draft approvals access for Feature Flags, Configs, and Constants in every Project. Otherwise, this field is ignored. ${HUMAN_OVERRIDE_NOTE}`,
   );
+export const allowUnscopedRulesBodyField = z
+  .boolean()
+  .optional()
+  .describe(
+    `When the organization requires rules to target specific environments or projects, set to true to save a rule that applies to all environments and all projects. ${HUMAN_OVERRIDE_NOTE}`,
+  );
+
 export const publishOverrideBodyFields = {
   ignoreWarnings: ignoreWarningsBodyField,
   skipSchemaValidation: skipSchemaValidationBodyField,

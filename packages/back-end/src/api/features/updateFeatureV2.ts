@@ -59,6 +59,7 @@ import { holdFeatureUpdate } from "back-end/src/services/confirmations";
 import { validateEnvKeys } from "./postFeature";
 import {
   assertValidFeatureRules,
+  assertScopedRules,
   validateCustomFields,
   validateRuleAttributes,
 } from "./validations";
@@ -312,6 +313,7 @@ export const updateFeatureV2 = createApiRequestHandler(
       mapV2ApiRuleToFeatureRule(rule, feature),
     );
     assertUniqueRuleIds(inboundFlatRules);
+    assertScopedRules(req.context, inboundFlatRules, feature.rules ?? []);
     await assertValidFeatureRules(
       req.context,
       inboundFlatRules,

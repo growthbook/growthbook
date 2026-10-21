@@ -35,6 +35,7 @@ import {
   CustomHookError,
   MergeConflictError,
   SoftWarningError,
+  UnscopedRuleError,
 } from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
 
@@ -279,6 +280,14 @@ export async function runApiHandler(
           '\n\nEither address the warnings or re-send with `"ignoreWarnings": true` in the request body to acknowledge them and proceed.';
       }
     }
+    if (
+      e instanceof UnscopedRuleError &&
+      !(req as unknown as ApiRequestLocals).isJwtAuth
+    ) {
+      body.message =
+        e.message +
+        ' Pick specific environments or projects, or resend with `"allowUnscopedRules": true` in the request body.';
+    }
     const status = e.status || 400;
     return {
       status,
@@ -294,6 +303,9 @@ function refusalNotices(e: Error): ConfirmationNotice[] {
     return [
       { severity: "warning", messages: [e.message, ...e.warnings], via: null },
     ];
+  }
+  if (e instanceof UnscopedRuleError) {
+    return [{ severity: "warning", messages: [e.message], via: null }];
   }
   if (e instanceof CustomHookError) {
     return [

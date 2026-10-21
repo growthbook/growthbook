@@ -90,6 +90,7 @@ import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
 import Tooltip from "@/ui/Tooltip";
 import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
+import useUnscopedRuleConfirm from "@/components/Features/useUnscopedRuleConfirm";
 import {
   ConflictCalloutRow,
   WholeConflictCallout,
@@ -1007,6 +1008,7 @@ export default function RuleModal({
       ? `drop:${rampStartImpact.fromPct}:${rampStartImpact.toPct}`
       : `delayed:${rampStartImpact.liveCoveragePct}:${rampSectionState.startDate}:${rampSectionState.requiresStartApproval}`
     : "";
+  const { confirmUnscopedRule, unscopedRuleDialog } = useUnscopedRuleConfirm();
   const [rampAcknowledgedKey, setRampAcknowledgedKey] = useState(() =>
     ruleRampSchedule || pendingCreateActionTyped ? rampImpactKey : "",
   );
@@ -1291,6 +1293,16 @@ export default function RuleModal({
     } else {
       values = { ...values, allProjects: false, projects: selectedProjects };
     }
+
+    const allowUnscopedRules = await confirmUnscopedRule(
+      values,
+      mode === "edit"
+        ? [
+            rule,
+            targetRevision?.rules?.find((r) => r.id === ruleId) ?? liveRule,
+          ]
+        : [],
+    );
 
     // Loop through each scheduleRule and convert the timestamp to an ISOString()
     if (values.scheduleRules?.length) {
@@ -1958,6 +1970,7 @@ export default function RuleModal({
                 ...(rampScheduleInline
                   ? { rampSchedule: rampScheduleInline }
                   : {}),
+                ...(allowUnscopedRules ? { allowUnscopedRules } : {}),
               } as PutFeatureRuleBody),
             },
             (responseData) => {
@@ -2081,6 +2094,7 @@ export default function RuleModal({
               // Land the clone directly above its source rule.
               insertBeforeRuleId:
                 mode === "duplicate" && rampToNewValue ? ruleId : undefined,
+              ...(allowUnscopedRules ? { allowUnscopedRules } : {}),
             } as PostFeatureRuleBody),
           },
         );
@@ -2820,6 +2834,7 @@ export default function RuleModal({
       release={releaseConflictKey}
     >
       {modalContent}
+      {unscopedRuleDialog}
     </ConflictProvider>
   );
 }

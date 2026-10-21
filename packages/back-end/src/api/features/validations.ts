@@ -16,6 +16,8 @@ import {
   rampPlanLacksHashAttribute,
   getRuleAttributeScopeProjectIds,
   findStoredRuleCounterpart,
+  getNewlyUnscopedRules,
+  FeatureRuleScope,
   stemRuleId,
   validateCondition,
   validatePrerequisiteCondition,
@@ -43,7 +45,11 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields";
 import type { ReqContext } from "back-end/types/request";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  NotFoundError,
+  UnscopedRuleError,
+} from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { resolveRampTarget } from "back-end/src/util/flattenRules";
@@ -1050,6 +1056,26 @@ function checkPrerequisiteConditionKeys(
   return null;
 }
 
+export function assertScopedRules(
+  context: ReqContext | ApiReqContext,
+  rules: (FeatureRuleScope & { id: string })[],
+  stored: (FeatureRuleScope & { id: string })[],
+) {
+  if (
+    !context.org.settings?.requireScopedFeatureRules ||
+    context.allowUnscopedRules
+  ) {
+    return;
+  }
+  const unscoped = getNewlyUnscopedRules(rules, stored);
+  if (unscoped.length) {
+    throw new UnscopedRuleError(
+      unscoped.length,
+      unscoped.map((rule) => rule.id).filter(Boolean),
+    );
+  }
+}
+
 // The rule-level checks every feature write runs, dashboard and REST alike.
 // With `stored`, only what differs from the stored rule is re-checked.
 export async function assertValidFeatureRules(
@@ -1072,6 +1098,7 @@ export async function assertValidRuleWrite(
   rule: FeatureRule,
   stored?: FeatureRule,
 ): Promise<void> {
+  assertScopedRules(context, [rule], stored ? [stored] : []);
   await assertValidFeatureRules(context, [rule], stored ? [stored] : []);
   if (
     !stored ||

@@ -96,6 +96,7 @@ export const CONFIRM_ACTIONS = [
   "override.draftLimit",
   "override.skipChecklist",
   "override.bypassDuplicateKeyCheck",
+  "override.unscopedRules",
   "other.write",
 ] as const;
 export type ConfirmAction = (typeof CONFIRM_ACTIONS)[number];
@@ -122,6 +123,7 @@ export const CONFIRM_OVERRIDE_FLAGS = {
   overrideDraftLimit: "override.draftLimit",
   skipChecklist: "override.skipChecklist",
   bypassDuplicateKeyCheck: "override.bypassDuplicateKeyCheck",
+  allowUnscopedRules: "override.unscopedRules",
 } as const satisfies Record<string, ConfirmAction>;
 
 // The checks a publishing write can ask to skip.

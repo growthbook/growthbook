@@ -21,6 +21,7 @@ import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import useUnscopedRuleConfirm from "@/components/Features/useUnscopedRuleConfirm";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
@@ -182,6 +183,7 @@ export default function LinkFeatureToContextualBanditModal({
   >([]);
 
   const { apiCall } = useAuth();
+  const { confirmUnscopedRule, unscopedRuleDialog } = useUnscopedRuleConfirm();
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const existing = form.watch("existing");
@@ -325,6 +327,8 @@ export default function LinkFeatureToContextualBanditModal({
           );
         }
 
+        const allowUnscopedRules = await confirmUnscopedRule(rule);
+
         let targetFeatureId: string;
 
         if (existing) {
@@ -362,6 +366,7 @@ export default function LinkFeatureToContextualBanditModal({
             rule,
             autoPublish: false,
             forceNewDraft: true,
+            ...(allowUnscopedRules ? { allowUnscopedRules } : {}),
           }),
         });
 
@@ -554,6 +559,7 @@ export default function LinkFeatureToContextualBanditModal({
           );
         })}
       </Flex>
+      {unscopedRuleDialog}
     </ModalStandard>
   );
 }

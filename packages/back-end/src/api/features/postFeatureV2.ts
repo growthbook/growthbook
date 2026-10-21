@@ -36,6 +36,7 @@ import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisi
 import type { ApiFeatureEnvSettings } from "./postFeature";
 import {
   assertValidFeatureRules,
+  assertScopedRules,
   validateCustomFields,
   validateRuleAttributes,
 } from "./validations";
@@ -154,6 +155,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       mapV2ApiRuleToFeatureRule(rule),
     );
     assertUniqueRuleIds(feature.rules);
+    assertScopedRules(req.context, feature.rules, []);
     await assertValidFeatureRules(req.context, feature.rules);
     await assertValidPrerequisiteParents(req.context, feature);
 

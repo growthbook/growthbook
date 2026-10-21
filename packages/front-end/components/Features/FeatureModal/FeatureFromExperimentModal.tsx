@@ -33,6 +33,7 @@ import VariationLabel from "@/ui/VariationLabel";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import useUnscopedRuleConfirm from "@/components/Features/useUnscopedRuleConfirm";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
@@ -211,6 +212,7 @@ export default function FeatureFromExperimentModal({
   const [selectedDraft, setSelectedDraft] = useState<number | null>(null);
 
   const { apiCall } = useAuth();
+  const { confirmUnscopedRule, unscopedRuleDialog } = useUnscopedRuleConfirm();
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const existing = form.watch("existing");
@@ -555,6 +557,8 @@ export default function FeatureFromExperimentModal({
           );
         }
 
+        const allowUnscopedRules = await confirmUnscopedRule(rule);
+
         let targetFeatureId: string;
 
         if (existing) {
@@ -600,6 +604,7 @@ export default function FeatureFromExperimentModal({
             autoPublish,
             draftVersion,
             forceNewDraft,
+            ...(allowUnscopedRules ? { allowUnscopedRules } : {}),
           }),
         });
 
@@ -824,6 +829,7 @@ export default function FeatureFromExperimentModal({
           </Box>
         ))}
       </Flex>
+      {unscopedRuleDialog}
     </ModalStandard>
   );
 }

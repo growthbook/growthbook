@@ -50,7 +50,10 @@ import type { SDKAttributeSchema } from "shared/types/organization";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
-import { discardIfJustCreated } from "back-end/src/api/features/validations";
+import {
+  assertScopedRules,
+  discardIfJustCreated,
+} from "back-end/src/api/features/validations";
 import { CasConflictError } from "back-end/src/models/BaseModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
@@ -489,9 +492,11 @@ export async function updateContextualBanditFeatureRule({
   audit,
   autoPublish,
   draftVersion,
+  beforeWrite,
 }: ContextualBanditFeatureLinkOptions & {
   feature: FeatureInterface;
   rule: ContextualBanditRefRule;
+  beforeWrite?: () => Promise<void>;
 }): Promise<{
   version: number;
   published: boolean;
@@ -563,6 +568,11 @@ export async function updateContextualBanditFeatureRule({
   } else {
     scopedRule = stampRuleForEnvs({ ...rule } as FeatureRule, environments);
   }
+  assertScopedRules(
+    context,
+    [{ ...scopedRule, id: baselineRule.id }],
+    [baselineRule],
+  );
 
   const envsForRule = (r: FeatureRule) =>
     r.allEnvironments || r.environments === undefined
@@ -588,6 +598,7 @@ export async function updateContextualBanditFeatureRule({
   await assertConfigBackedFeatureValuesValid(context, feature, {
     rules: [scopedRule],
   });
+  await beforeWrite?.();
 
   // Same discard-on-failure guard as `linkFeatureToContextualBandit`:
   // `getDraftRevision` only creates a new draft when targeting live, so only

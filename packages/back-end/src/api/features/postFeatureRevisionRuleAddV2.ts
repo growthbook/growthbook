@@ -24,6 +24,7 @@ import {
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { holdAtRoute } from "back-end/src/services/confirmations";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -48,6 +49,7 @@ import {
   resolveOrCreateRevision,
   validateRuleAttributes,
   assertValidRevisionRulePrerequisites,
+  assertScopedRules,
   validatePrerequisiteConditions,
   validateRuleReferences,
   collectRampPlanPatches,
@@ -115,6 +117,31 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   // v1 validates its single `environment`; do the same for the v2 list
   // before a draft is created.
   assertValidRuleEnvironments(req.context, [ruleInput]);
+  const scope = ruleInput as {
+    allEnvironments?: boolean;
+    environments?: string[];
+  };
+  assertScopedRules(
+    req.context,
+    [
+      {
+        id: "",
+        ...resolveScopeFromInput(scope.allEnvironments, scope.environments),
+      },
+    ],
+    [],
+  );
+  const { confirmation, tags, method, path, summary } =
+    postFeatureRevisionRuleAddV2Validator;
+  await holdAtRoute(
+    req.context,
+    confirmation,
+    tags,
+    method,
+    path,
+    req,
+    summary,
+  );
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,

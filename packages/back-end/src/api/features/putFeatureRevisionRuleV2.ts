@@ -24,6 +24,7 @@ import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/conf
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { holdAtRoute } from "back-end/src/services/confirmations";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   getRevision,
@@ -37,6 +38,7 @@ import {
   buildScheduleRampAction,
   validateRuleAttributes,
   assertValidRevisionRulePrerequisites,
+  assertScopedRules,
   validatePrerequisiteConditions,
   validateRuleReferences,
   resolveOrCreateRevision,
@@ -93,6 +95,36 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
         id: req.params.ruleId,
       },
     ),
+  );
+  const stagedRule = staged.rules?.find((r) => r.id === req.params.ruleId);
+  if (
+    stagedRule &&
+    (patch.allEnvironments !== undefined || patch.environments !== undefined)
+  ) {
+    assertScopedRules(
+      req.context,
+      [
+        {
+          ...stagedRule,
+          ...resolveScopeFromInput(
+            patch.allEnvironments,
+            patch.environments ?? stagedRule.environments,
+          ),
+        },
+      ],
+      [stagedRule],
+    );
+  }
+  const { confirmation, tags, method, path, summary } =
+    putFeatureRevisionRuleV2Validator;
+  await holdAtRoute(
+    req.context,
+    confirmation,
+    tags,
+    method,
+    path,
+    req,
+    summary,
   );
 
   const { revision, created } = await resolveOrCreateRevision(
