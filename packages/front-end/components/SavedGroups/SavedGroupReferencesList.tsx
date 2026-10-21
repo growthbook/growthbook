@@ -70,7 +70,6 @@ const SavedGroupReferencesList: FC<SavedGroupReferencesListProps> = ({
       items: interleavings.map((il) => ({
         id: il.id,
         label: il.name ?? il.id,
-        href: `/interleaving/${il.id}`,
         projectIds: il.project ? [il.project] : undefined,
       })),
     },

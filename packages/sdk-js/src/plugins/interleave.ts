@@ -87,8 +87,10 @@ function getAttributes(gb: InterleaveInstance): Attributes {
   return { ...user.attributes, ...user.attributeOverrides };
 }
 
+type RankerList<T> = { variation: string; items: T[] };
+
 export function teamDraft<T>(
-  lists: { variation: string; items: T[] }[],
+  lists: [RankerList<T>, RankerList<T>],
   getItemId: (item: T) => string,
   rng: (round: number, ranker: number) => number,
   maxItems?: number,
@@ -96,7 +98,7 @@ export function teamDraft<T>(
   const items: T[] = [];
   const meta: InterleavedItem[] = [];
   const taken = new Set<string>();
-  const cursors = lists.map(() => 0);
+  const cursors = [0, 0];
 
   const next = (ranker: number): T | null => {
     const list = lists[ranker].items;
@@ -118,31 +120,35 @@ export function teamDraft<T>(
     });
   };
 
+  // Never split a round: stop before placing if the round wouldn't fit
+  const capped = (picks: number) =>
+    maxItems !== undefined && items.length + picks > maxItems;
+
   for (let round = 0; ; round++) {
-    const order = lists
-      .map((_, i) => i)
-      .sort((a, b) => rng(round, a) - rng(round, b));
-    const wanted = order.map((ranker) => ({ ranker, item: next(ranker) }));
-    const present = wanted.filter((w) => w.item !== null);
-    if (!present.length) break;
+    const first = rng(round, 0) <= rng(round, 1) ? 0 : 1;
+    const second = first === 0 ? 1 : 0;
+    const firstItem = next(first);
+    const secondItem = next(second);
 
-    const ids = present.map((w) => getItemId(w.item as T));
-    const tie =
-      present.length === lists.length && ids.every((id) => id === ids[0]);
-    const picks = tie ? 1 : present.length;
-    if (maxItems !== undefined && items.length + picks > maxItems) break;
-
-    if (tie) {
-      place(present[0].item as T, present[0].ranker, false);
+    if (firstItem !== null && secondItem !== null) {
+      // A shared top is placed once and credited to neither ranker, so the two
+      // items placed below are always distinct and neither pick goes stale
+      if (getItemId(firstItem) === getItemId(secondItem)) {
+        if (capped(1)) break;
+        place(firstItem, first, false);
+        continue;
+      }
+      if (capped(2)) break;
+      place(firstItem, first, true);
+      place(secondItem, second, true);
       continue;
     }
 
-    const competitive = present.length === lists.length;
-    for (const { ranker } of wanted) {
-      // With 3+ rankers (not currently supported) an earlier pick this round may have taken this ranker's item
-      const item = next(ranker);
-      if (item !== null) place(item, ranker, competitive);
-    }
+    // One ranker is out of items; the other's remainder isn't competitive
+    const leftover = firstItem ?? secondItem;
+    if (leftover === null) break;
+    if (capped(1)) break;
+    place(leftover, firstItem !== null ? first : second, false);
   }
 
   return { items, meta };
@@ -196,12 +202,14 @@ export async function interleave<T>(
     return notInterleaved(variations[0].key);
   }
 
-  const lists = await Promise.all(
-    variations.map(async (v) => ({
-      variation: v.key,
-      items: await getList(v.config),
-    })),
-  );
+  const [itemsA, itemsB] = await Promise.all([
+    getList(variations[0].config),
+    getList(variations[1].config),
+  ]);
+  const lists: [RankerList<T>, RankerList<T>] = [
+    { variation: variations[0].key, items: itemsA },
+    { variation: variations[1].key, items: itemsB },
+  ];
   if (lists.some((l) => l.items.some((item) => !getItemId(item)))) {
     console.error(
       `interleave: every item in "${ranker}" needs an id, pass getItemId`,
