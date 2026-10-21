@@ -1,6 +1,5 @@
 import {
   postFeatureRevisionValidator,
-  ACTIVE_DRAFT_STATUSES,
   type ConfirmAction,
 } from "shared/validators";
 import { stringToBoolean } from "shared/util";
@@ -12,8 +11,8 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { holdAtRoute } from "back-end/src/services/confirmations";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
-  countDocuments,
   createRevision,
+  getActiveDraftVersions,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { auditDetailsCreate } from "back-end/src/services/audit";
@@ -48,15 +47,16 @@ export async function createFeatureDraft(
     req.query?.overrideDraftLimit?.toString(),
   );
   if (maxDrafts > 0 && !overrideDraftLimit) {
-    const activeDrafts = await countDocuments(req.context.org.id, {
-      featureId: feature.id,
-      status: [...ACTIVE_DRAFT_STATUSES],
-    });
-    if (activeDrafts >= maxDrafts) {
+    const drafts = await getActiveDraftVersions(req.context.org.id, feature.id);
+    if (drafts.length >= maxDrafts) {
+      const existing =
+        drafts.length === 1
+          ? `an active draft (revision ${drafts[0]})`
+          : `${drafts.length} active drafts (revisions ${drafts.join(", ")})`;
       throw new DraftLimitError(
-        `This feature already has ${activeDrafts} active draft${
-          activeDrafts === 1 ? "" : "s"
-        } and your organization caps drafts at ${maxDrafts} per feature. Retry with ?overrideDraftLimit=true to create the draft anyway, or publish/discard an existing draft first.`,
+        `This feature already has ${existing}, and your organization allows ${maxDrafts} per feature. Add your changes to ${
+          drafts.length === 1 ? "that draft" : "one of them"
+        }, publish or discard a draft, or retry with ?overrideDraftLimit=true to create a new one anyway.`,
       );
     }
   }
