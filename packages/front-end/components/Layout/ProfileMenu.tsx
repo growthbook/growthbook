@@ -1,4 +1,5 @@
 import { ReactNode, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import { IconButton, VisuallyHidden } from "@radix-ui/themes";
 import clsx from "clsx";
@@ -35,7 +36,13 @@ import UserAvatar from "@/components/Avatar/UserAvatar";
 import EditProfileModal from "./EditProfileModal";
 import { withOpticalWeight } from "./opticalWeight";
 import { useMenuTriggerTooltip } from "./railTooltips";
-import { DropdownEntries, MenuItemContent, RailMenuEntry } from "./railMenu";
+import {
+  DropdownEntries,
+  InPlaceMenu,
+  MenuItemContent,
+  RailMenuEntry,
+  RailMenuInPlace,
+} from "./railMenu";
 import { useUserOrganizations } from "./useUserOrganizations";
 import styles from "./ProfileMenu.module.scss";
 
@@ -52,11 +59,6 @@ const THEME_ICONS: Record<keyof typeof THEME_LABELS, IconType> = {
   dark: PiMoon,
 };
 
-// The account menu: the identity row (opens Edit Profile), the
-// organization picker for users in more than one, then the account's pages
-// and settings. In the side nav it's an item with a profile icon; on pages
-// without the side nav (LayoutLite), the header's profile icon button.
-// Either carries a red dot while there are pending reviews.
 export default function ProfileMenu({
   railCollapsed,
   railClassName,
@@ -64,6 +66,7 @@ export default function ProfileMenu({
   railLabelClassName,
   railIconSize = 18,
   railIconClassName,
+  inPlace,
 }: {
   // The side nav's item styles; without them, the header's button.
   railCollapsed?: boolean;
@@ -72,6 +75,8 @@ export default function ProfileMenu({
   railLabelClassName?: string;
   railIconSize?: number;
   railIconClassName?: string;
+  // In the narrow drawer: its menu drawn in place (AppRail.tsx).
+  inPlace?: RailMenuInPlace;
 } = {}) {
   const inRail = railCollapsed !== undefined;
   const router = useRouter();
@@ -102,6 +107,8 @@ export default function ProfileMenu({
   const chooseOrg = (id: string) => {
     if (id === currentOrgId || !setOrgId) return;
     setOpen(false);
+    // In the drawer, switching closes it, as choosing an item does.
+    inPlace?.onDone();
     setOrgId(id);
     try {
       localStorage.setItem("gb-last-picked-org", `"${id}"`);
@@ -293,7 +300,7 @@ export default function ProfileMenu({
 
   const tooltip = useMenuTriggerTooltip({
     label: "Profile",
-    enabled: !!railCollapsed,
+    enabled: !!railCollapsed && !inPlace,
     menuOpen: open,
   });
 
@@ -308,11 +315,17 @@ export default function ProfileMenu({
       className={clsx(
         railClassName,
         styles.railItem,
-        open && railOpenClassName,
+        (open || inPlace?.open) && railOpenClassName,
       )}
       aria-label={accountLabel}
       data-rail-menu-trigger="profile"
       {...tooltip.triggerProps}
+      {...(inPlace
+        ? {
+            "aria-expanded": inPlace.open,
+            onClick: (e: React.MouseEvent) => inPlace.onOpen(e.detail === 0),
+          }
+        : {})}
     >
       <span className={styles.avatarWrap}>
         <ProfileIcon
@@ -342,11 +355,36 @@ export default function ProfileMenu({
     </IconButton>
   );
 
-  return (
+  const modals = (
     <>
       {editProfileOpen ? (
         <EditProfileModal close={() => setEditProfileOpen(false)} />
       ) : null}
+    </>
+  );
+
+  if (inPlace) {
+    return (
+      <>
+        {modals}
+        {trigger}
+        {inPlace.open && inPlace.host
+          ? createPortal(
+              <InPlaceMenu
+                label="Profile"
+                entries={entries}
+                inPlace={inPlace}
+              />,
+              inPlace.host,
+            )
+          : null}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {modals}
       <DropdownMenu
         open={open}
         onOpenChange={setOpen}

@@ -15,6 +15,14 @@
 :root {
   --header-height: 44px;
 }
+// Below 1180px, beside the side nav's drawer, the header takes two rows: the
+// menu, notices and GrowthBot, then the breadcrumb (TopNav.module.scss). Keep
+// in sync with HEADER_HEIGHT_TWO_ROWS_PX.
+@media (max-width: 1180px) {
+  :root:has(#main-menu-toggle) {
+    --header-height: 80px;
+  }
+}
 
 main {
   padding-top: var(--header-height);
@@ -70,6 +78,11 @@ html.app-breakpoint-switch *,
 html.app-breakpoint-switch *::before,
 html.app-breakpoint-switch *::after {
   transition: none !important;
+}
+// While the side nav's drawer is open, the page behind it doesn't scroll.
+html.app-drawer-open,
+html.app-drawer-open body {
+  overflow: hidden;
 }
 
 .main {
@@ -564,7 +577,7 @@ pre {
   }
   .experiment-tabs {
     background-color: var(--color-background);
-    // NB: Keep top property in sync with STICKY_TABS_TOP_PX (headerHeight.ts)
+    // NB: Keep top property in sync with the tabs' pin (useHeaderHeight)
     // also, make sure shared reports & shared experiments look good
     top: calc(var(--header-height) - 1px);
     height: 40px;
@@ -647,7 +660,7 @@ pre {
 }
 .feature-tabs {
   background-color: var(--color-background);
-  // NB: Keep top property in sync with STICKY_TABS_TOP_PX (headerHeight.ts)
+  // NB: Keep top property in sync with the tabs' pin (useHeaderHeight)
   top: calc(var(--header-height) - 1px);
   height: 40px;
   transition: 150ms all;

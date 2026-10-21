@@ -32,12 +32,12 @@ export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   const [top, ...rest] = ranked;
 
   return (
-    <Flex align="center" gap="2" flexShrink="0">
+    <Flex align="center" gap="2" className={styles.stack}>
       <Tooltip
         content={<Box className={styles["notice-tooltip"]}>{top.details}</Box>}
         enabled={!!top.details}
       >
-        <Flex display="inline-flex">
+        <Flex display="inline-flex" className={styles.pillWrap}>
           <NoticePill notice={top} onUpgrade={setUpgrade} />
         </Flex>
       </Tooltip>
@@ -106,7 +106,7 @@ function NoticePill({
   const content = (
     <>
       <PiWarningFill size={15} />
-      {notice.title}
+      <span className={styles.pillText}>{notice.title}</span>
     </>
   );
   return link ? (

@@ -20,7 +20,7 @@ import {ExperimentTab} from "@/components/Experiment/TabbedPage";
 import PublicExperimentOverview from "@/components/Experiment/Public/PublicExperimentOverview";
 import PublicExperimentResults from "@/components/Experiment/Public/PublicExperimentResults";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
-import { STICKY_TABS_TOP_PX } from "@/components/Layout/headerHeight";
+import { useHeaderHeight } from "@/components/Layout/headerHeight";
 
 export async function getServerSideProps(context) {
   const { e } = context.params;
@@ -116,6 +116,8 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
   const shouldHideTabs = !experiment ||
     (experiment?.status === "draft" && !hasResults && phases.length === 1);
 
+  // Where the tabs pin: 1px under the header, so they cover its edge.
+  const tabsTop = useHeaderHeight() - 1;
   useEffect(() => {
     if (shouldHideTabs) return;
     const el = tabsPinSentinelRef.current;
@@ -127,13 +129,13 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
       },
       {
         root: null,
-        rootMargin: `-${STICKY_TABS_TOP_PX}px 0px 0px 0px`,
+        rootMargin: `-${tabsTop}px 0px 0px 0px`,
         threshold: 0,
       },
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [shouldHideTabs]);
+  }, [shouldHideTabs, tabsTop]);
 
   const isBandit = experiment?.type === "multi-armed-bandit";
 

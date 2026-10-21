@@ -1,4 +1,5 @@
 import { ReactNode, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { VisuallyHidden } from "@radix-ui/themes";
 import { IconType } from "react-icons";
@@ -22,6 +23,12 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { withOpticalWeight } from "./opticalWeight";
 import { useMenuTriggerTooltip } from "./railTooltips";
 import { buildVersionLabel } from "./buildVersion";
+import {
+  InPlaceMenu,
+  MenuItemContent,
+  RailMenuEntry,
+  RailMenuInPlace,
+} from "./railMenu";
 import railStyles from "./AppRail.module.scss";
 import railMenuStyles from "./RailMenu.module.scss";
 import styles from "./HelpMenu.module.scss";
@@ -39,7 +46,6 @@ const externalIcon = (
 );
 const newTab = <VisuallyHidden> (opens in a new tab)</VisuallyHidden>;
 
-// One of Help's items.
 type HelpItem = {
   key: string;
   Icon: IconType;
@@ -69,12 +75,8 @@ function helpLink(
   };
 }
 
-// Help in the side nav: View Docs (for the page you're on), Join Slack
-// Community, Chat with Support on Cloud plans without live chat (opening
-// the upgrade window, as the old floating help panel's Upgrade Now did)
-// and, on self-hosted builds, the version, which copies on click. A click
-// on Help (expanded or collapsed) opens them in a popover with the side
-// nav's section menus' look (AppRail.module.scss).
+// Chat with support opens the upgrade window, as the old floating help
+// panel's Upgrade Now did.
 export default function HelpMenu({
   collapsed,
   iconSize,
@@ -82,6 +84,7 @@ export default function HelpMenu({
   openClassName,
   iconClassName,
   labelClassName,
+  inPlace,
 }: {
   collapsed: boolean;
   iconSize: number;
@@ -90,6 +93,8 @@ export default function HelpMenu({
   openClassName: string;
   iconClassName?: string;
   labelClassName: string;
+  // In the narrow drawer: its menu drawn in place (AppRail.tsx).
+  inPlace?: RailMenuInPlace;
 }) {
   const [open, setOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -147,19 +152,58 @@ export default function HelpMenu({
     </span>
   );
 
+  const entries: RailMenuEntry[] = [
+    { type: "label", key: "header", label: "Help" },
+    ...items.map(
+      (item): RailMenuEntry => ({
+        type: "item",
+        key: item.key,
+        onSelect: item.onSelect,
+        content: (
+          <MenuItemContent
+            Icon={item.Icon}
+            label={
+              <>
+                {item.label}
+                {item.srSuffix}
+              </>
+            }
+            trailing={item.trailing}
+          />
+        ),
+      }),
+    ),
+    ...(version
+      ? [
+          { type: "separator" as const, key: "version-divider" },
+          {
+            type: "item" as const,
+            key: "version",
+            className: styles.versionItem,
+            keepOpen: true,
+            onSelect: copyVersion,
+            content: versionContent,
+          },
+        ]
+      : []),
+  ];
+
   // Opened with a click, focus stays put, as the section menus.
   const openedByPointer = useRef(false);
 
   const tooltip = useMenuTriggerTooltip({
     label: "Help",
-    enabled: collapsed,
+    enabled: collapsed && !inPlace,
     menuOpen: open,
   });
 
   const trigger = (
     <button
       type="button"
-      className={clsx(triggerClassName, open && openClassName)}
+      className={clsx(
+        triggerClassName,
+        (open || inPlace?.open) && openClassName,
+      )}
       aria-label="Help"
       data-rail-menu-trigger="help"
       onPointerDown={() => {
@@ -169,6 +213,12 @@ export default function HelpMenu({
         openedByPointer.current = false;
       }}
       {...tooltip.triggerProps}
+      {...(inPlace
+        ? {
+            "aria-expanded": inPlace.open,
+            onClick: (e: React.MouseEvent) => inPlace.onOpen(e.detail === 0),
+          }
+        : {})}
     >
       <HelpIcon size={iconSize} className={iconClassName} aria-hidden />
       {collapsed ? null : <span className={labelClassName}>Help</span>}
@@ -183,6 +233,21 @@ export default function HelpMenu({
       commercialFeature="livechat"
     />
   ) : null;
+
+  if (inPlace) {
+    return (
+      <>
+        {upgradeModal}
+        {trigger}
+        {inPlace.open && inPlace.host
+          ? createPortal(
+              <InPlaceMenu label="Help" entries={entries} inPlace={inPlace} />,
+              inPlace.host,
+            )
+          : null}
+      </>
+    );
+  }
 
   const popoverRow = (
     key: string,

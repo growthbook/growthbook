@@ -53,7 +53,7 @@ import {
 import { useFeatureHealthStates } from "@/hooks/useFeatureHealthStates";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
-import { STICKY_TABS_TOP_PX } from "@/components/Layout/headerHeight";
+import { useHeaderHeight } from "@/components/Layout/headerHeight";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
@@ -163,6 +163,8 @@ export default function FeaturesHeader({
   const tabsPinSentinelRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
   const { scrollY } = useScrollPosition();
+  // Where the tabs pin: 1px under the header, so they cover its edge.
+  const tabsTop = useHeaderHeight() - 1;
   useEffect(() => {
     const el = tabsPinSentinelRef.current;
     if (!el) return;
@@ -173,13 +175,13 @@ export default function FeaturesHeader({
       },
       {
         root: null,
-        rootMargin: `-${STICKY_TABS_TOP_PX}px 0px 0px 0px`,
+        rootMargin: `-${tabsTop}px 0px 0px 0px`,
         threshold: 0,
       },
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [tabsTop]);
 
   // Portal the revisionAndSettingsGroup between the header and sticky tabs on scroll.
   // Moving a single DOM node keeps dropdown menus stable.

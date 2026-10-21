@@ -2,6 +2,7 @@ import React, { forwardRef, useEffect, useRef, useState } from "react";
 import { Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
+import { useHeaderHeight } from "@/components/Layout/headerHeight";
 import styles from "./Table.module.scss";
 
 export type TableProps = Omit<
@@ -78,6 +79,7 @@ export default function Table({
     return () => observer.disconnect();
   }, [scrollX, stickyLastColumn]);
 
+  const headerHeight = useHeaderHeight();
   useEffect(() => {
     if (!isListVariant || !useStickyHeader) return;
     const wrapper = wrapperRef.current;
@@ -91,15 +93,8 @@ export default function Table({
     const header = wrapper.querySelector(".rt-TableHeader");
     if (!header) return;
 
-    // Without an offset, the header sticks under the app header, whose
-    // height is --header-height (global.scss).
-    const headerHeight = parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue(
-        "--header-height",
-      ),
-    );
-    const topOffset =
-      stickyTopOffset ?? (Number.isFinite(headerHeight) ? headerHeight : 0);
+    // Without an offset, the header sticks under the app header.
+    const topOffset = stickyTopOffset ?? headerHeight;
 
     const check = () => {
       const top = (header as HTMLElement).getBoundingClientRect().top;
@@ -114,7 +109,7 @@ export default function Table({
     check();
     window.addEventListener("scroll", check, { passive: true });
     return () => window.removeEventListener("scroll", check);
-  }, [isListVariant, useStickyHeader, stickyTopOffset, scrollX]);
+  }, [isListVariant, useStickyHeader, stickyTopOffset, scrollX, headerHeight]);
 
   const radixVariant = variant === "list" ? "surface" : variant;
 

@@ -90,6 +90,7 @@ const Layout = (): React.ReactElement => {
         pageTitle={pageTitle}
         showNotices={true}
         toggleLeftMenu={() => setOpen(!open)}
+        menuOpen={open}
       />
     </>
   );

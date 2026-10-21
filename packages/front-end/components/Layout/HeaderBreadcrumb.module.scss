@@ -145,3 +145,21 @@
   gap: var(--space-2);
   min-width: 0;
 }
+
+// On its own row below 1180px (TopNav.module.scss), a breadcrumb that's still
+// too long shortens its middle crumb first, so the project selector and the
+// current page stay readable and tappable.
+@media (max-width: 1180px) {
+  // The section's link, around its button. Shrinking is shared by width
+  // times this, so the others give up next to nothing until it's at its
+  // minimum.
+  .breadcrumb > a {
+    display: flex;
+    flex-shrink: 10000;
+    min-width: 40px;
+  }
+  .breadcrumb .projectButton,
+  .currentCrumb {
+    min-width: 72px;
+  }
+}

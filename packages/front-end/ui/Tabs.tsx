@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
+import { useHeaderHeight } from "@/components/Layout/headerHeight";
 import { radixSize, Size } from "@/ui/sizes";
 
 /**
@@ -145,16 +146,10 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
   function StickyTabsList({ pinnedClass = "pinned", ...props }, ref) {
     const tabsRef = useRef<HTMLDivElement>(null);
     const [headerPinned, setHeaderPinned] = useState(false);
+    // Pinned 1px under the app header.
+    const pinnedTopPx = useHeaderHeight() - 1;
 
     useEffect(() => {
-      // Pinned 1px under the app header, whose height is --header-height
-      // (global.scss).
-      const headerHeight = parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue(
-          "--header-height",
-        ),
-      );
-      const pinnedTopPx = Number.isFinite(headerHeight) ? headerHeight - 1 : 0;
       const observer = new IntersectionObserver(
         ([entry]) => {
           setHeaderPinned(entry.intersectionRatio < 1);
@@ -169,7 +164,7 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
         observer.observe(tabsRef.current);
       }
       return () => observer.disconnect();
-    }, []);
+    }, [pinnedTopPx]);
 
     return (
       <Box

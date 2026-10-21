@@ -24,6 +24,10 @@
   border: 1px solid var(--red-a5);
 }
 
+.stack {
+  flex-shrink: 0;
+}
+
 // One line, whatever else shares the row.
 .pill {
   display: inline-flex;
@@ -69,5 +73,22 @@ a.title:hover {
   // Button's label sets its own taller line-height
   > * {
     line-height: inherit;
+  }
+}
+
+.pillText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// Below 1180px the header's first row is shared with the menu and GrowthBot
+// (TopNav.module.scss): the top notice's title shortens rather than pushing
+// GrowthBot off the window.
+@media (max-width: 1180px) {
+  .stack,
+  .pillWrap,
+  .pill {
+    flex-shrink: 1;
+    min-width: 0;
   }
 }
