@@ -384,11 +384,11 @@ export async function refreshColumnTopValues(
   > & {
     id: string | null;
   },
-  columns: ColumnInterface[],
+  detectedColumns: ColumnInterface[],
 ): Promise<ColumnInterface[]> {
   const refreshedColumns: ColumnInterface[] = [];
   const columnsNeedingTopValues = selectColumnsForTopValues({
-    columns,
+    columns: detectedColumns,
     userIdTypes: factTable.userIdTypes,
     userIdColumns: factTable.userIdColumns,
   });
@@ -404,7 +404,9 @@ export async function refreshColumnTopValues(
         const topValuesByColumn = await runColumnsTopValuesQuery(
           context,
           datasource,
-          { ...factTable, columns },
+          // Use the freshly detected columns, not the persisted ones, so JSON
+          // paths resolve against fields that haven't been saved yet.
+          { ...factTable, columns: detectedColumns },
           columnChunk,
         );
 
