@@ -19,8 +19,8 @@ function getColumnDisplayName(
   );
 }
 
-// A one-line summary such as "Has Events matching the row filter: country = US
-// in the last 1 week", as text and link segments so callers can render both text and links.
+// A one-line summary such as "Has Events matching country = US in the last
+// 1 week", as text and link segments so callers can render both text and links.
 // TODO: Describe conversion windows once Populations support multiple steps.
 export function describePopulationStep({
   step,
@@ -36,12 +36,9 @@ export function describePopulationStep({
   const filtersDescriptions: string[] = [];
 
   if (rowFilters?.length) {
-    const rowFiltersPrefix =
-      rowFilters?.length === 1 ? "row filter: " : "row filters: ";
-    const rowFiltersDescription = `${rowFiltersPrefix}${rowFilters
-      .map((rf) => getRowFilterDescription(rf, factTable))
-      .join(", ")}`;
-    filtersDescriptions.push(rowFiltersDescription);
+    filtersDescriptions.push(
+      rowFilters.map((rf) => getRowFilterDescription(rf, factTable)).join(", "),
+    );
   }
 
   if (aggregateFilter && aggregateFilterColumn) {
@@ -49,11 +46,11 @@ export function describePopulationStep({
     const aggregateFilterDescription = isCount
       ? `count ${aggregateFilter} per ${identifierTypes.join(", ")}`
       : `total ${getColumnDisplayName(aggregateFilterColumn, factTable)} ${aggregateFilter} per ${identifierTypes.join(", ")}`;
-    filtersDescriptions.push(`aggregate filter: ${aggregateFilterDescription}`);
+    filtersDescriptions.push(aggregateFilterDescription);
   }
 
   let conditionsDescriptions = filtersDescriptions.length
-    ? ` matching the ${filtersDescriptions.join(" and ")}`
+    ? ` matching ${filtersDescriptions.join(" and ")}`
     : "";
 
   const { type, windowValue, windowUnit } = step.windowSettings;
