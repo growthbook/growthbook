@@ -588,45 +588,29 @@ export default function CloudUsage() {
           />
         </Box>
       )}
-      {/* Metered orgs see the cap even before their first event */}
-      {(typeof limits.eventForwarderEvents === "number" ||
-        totalEventForwarderEvents > 0) && (
+      {totalEventForwarderEvents > 0 && (
         <Box mt="5">
           <Heading as="h3" size="sm" mb="2">
             Event Forwarder Events
           </Heading>
-          {typeof limits.eventForwarderEvents === "number" && (
-            <UsageMeter
-              used={totalEventForwarderEvents}
-              limit={limits.eventForwarderEvents}
-              noun="events"
-              period={
-                monthsAgo === 0
-                  ? "this month"
-                  : `in ${monthOptions.find((o) => o.value === monthsAgo + "")?.label ?? "that month"}`
-              }
-            />
-          )}
-          {totalEventForwarderEvents > 0 && (
-            <DailyGraph
-              data={usage.map((u) => ({
-                ts: new Date(u.date),
-                v: { [TOTAL_KEY]: u.eventForwarderEvents },
-              }))}
-              series={[
-                { key: TOTAL_KEY, label: "Total", color: SINGLE_SERIES_COLOR },
-              ]}
-              formatValue={(v) => requestsFormatter.format(v)}
-              formatTooltipValue={(v) => v.toLocaleString()}
-              start={startDate}
-              end={endDate}
-              limitLine={
-                typeof limits.eventForwarderEvents === "number"
-                  ? limits.eventForwarderEvents
-                  : null
-              }
-            />
-          )}
+          <DailyGraph
+            data={usage.map((u) => ({
+              ts: new Date(u.date),
+              v: { [TOTAL_KEY]: u.eventForwarderEvents },
+            }))}
+            series={[
+              { key: TOTAL_KEY, label: "Total", color: SINGLE_SERIES_COLOR },
+            ]}
+            formatValue={(v) => requestsFormatter.format(v)}
+            formatTooltipValue={(v) => v.toLocaleString()}
+            start={startDate}
+            end={endDate}
+            limitLine={
+              typeof limits.eventForwarderEvents === "number"
+                ? limits.eventForwarderEvents
+                : null
+            }
+          />
         </Box>
       )}
       <Box mt="5">
@@ -649,8 +633,8 @@ export default function CloudUsage() {
   );
 }
 
-// "X of 1M events this month" with an amber/red share badge from 80%; no bar,
-// the graph's limit line already shows the cap (same as Managed Warehouse)
+// Free-tier line on the Event Forwarder card: "X of 1M events this month",
+// amber/red share badge from 80%
 export function UsageMeter({
   used,
   limit,
