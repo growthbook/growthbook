@@ -18,8 +18,8 @@ import {
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import {
   ExperimentTableRow,
+  getClusterSubUnitsLabel,
   getClusterUnitsLabel,
-  getUnitDisplayName,
 } from "@/services/experiments";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
@@ -133,10 +133,7 @@ function MetricDrilldownOverview({
       : null;
 
   const clusterUnitsLabel = getClusterUnitsLabel(settings);
-  const subUnitsLabel =
-    clusterUnitsLabel && !isClusterLevelMetric
-      ? getUnitDisplayName(subUnitIdentifier)
-      : undefined;
+  const subUnitsLabel = getClusterSubUnitsLabel(settings, metric.id);
 
   const statsTableRows = variations.map((variation, i) => ({
     variationIndex: i,

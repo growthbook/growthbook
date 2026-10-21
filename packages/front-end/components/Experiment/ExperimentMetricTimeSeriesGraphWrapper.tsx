@@ -18,7 +18,10 @@ import {
   formatPercent,
 } from "@/services/metrics";
 import { findTimeSeriesVariation } from "@/services/timeSeriesVariations";
-import { getClusterUnitsLabel } from "@/services/experiments";
+import {
+  getClusterSubUnitsLabel,
+  getClusterUnitsLabel,
+} from "@/services/experiments";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useCurrency } from "@/hooks/useCurrency";
 import type { GraphVariation } from "./ExperimentDateGraph";
@@ -92,6 +95,7 @@ function mapTimeSeriesPointToVariationCells({
         formatterOptions,
       ),
       users: variation.stats?.users ?? 0,
+      subUnits: variation.stats?.sub_count,
       up: liftSlice?.expected ?? 0,
       ctw: liftSlice?.chanceToWin ?? undefined,
       ci: adjustedCI ?? liftSlice?.ci ?? undefined,
@@ -371,6 +375,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
       usesPValueAdjustment={pValueAdjustmentEnabled}
       oneSided={oneSided}
       unitsLabel={getClusterUnitsLabel(snapshot?.settings)}
+      subUnitsLabel={getClusterSubUnitsLabel(snapshot?.settings, metric.id)}
     />
   );
 }

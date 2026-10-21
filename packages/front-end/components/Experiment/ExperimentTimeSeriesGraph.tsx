@@ -33,6 +33,7 @@ export interface DataPointVariation {
   v: number;
   v_formatted: string;
   users?: number;
+  subUnits?: number;
   up?: number; // uplift
   p?: number; // p-value
   ctw?: number; // chance to win
@@ -69,6 +70,7 @@ export interface ExperimentTimeSeriesGraphProps {
   // expanding off the fake bound, and the ribbon fills out to the plot edge.
   oneSided?: boolean;
   unitsLabel?: string;
+  subUnitsLabel?: string;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -142,6 +144,7 @@ const getTooltipContents = (
   formatterOptions?: Intl.NumberFormatOptions,
   hasStats: boolean = true,
   unitsLabel: string = "Users",
+  subUnitsLabel?: string,
 ) => {
   const { d, yaxis } = data;
 
@@ -177,6 +180,11 @@ const getTooltipContents = (
         <TableHeader style={{ fontSize: "12px" }}>
           <TableRow style={{ color: "var(--color-text-mid)" }}>
             <TableColumnHeader pl="0">Variation</TableColumnHeader>
+            {subUnitsLabel ? (
+              <TableColumnHeader justify="center">
+                {subUnitsLabel}
+              </TableColumnHeader>
+            ) : null}
             <TableColumnHeader justify="center">{unitsLabel}</TableColumnHeader>
             <TableColumnHeader justify="center">Value</TableColumnHeader>
             <TableColumnHeader justify="center">Change</TableColumnHeader>
@@ -238,6 +246,15 @@ const getTooltipContents = (
                 </TableRowHeaderCell>
                 {yaxis === "effect" && (
                   <>
+                    {subUnitsLabel ? (
+                      <TableCell
+                        justify="center"
+                        style={{ fontWeight: "normal" }}
+                      >
+                        {/* The stats engine reports 0 when sub-units weren't counted. */}
+                        {variation.subUnits || "—"}
+                      </TableCell>
+                    ) : null}
                     <TableCell
                       justify="center"
                       style={{ fontWeight: "normal" }}
@@ -394,6 +411,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
   cumulative = false,
   oneSided = false,
   unitsLabel,
+  subUnitsLabel,
 }) => {
   const { containerRef, containerBounds, TooltipInPortal } = useTooltipInPortal(
     {
@@ -731,6 +749,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                       formatterOptions,
                       hasStats,
                       unitsLabel,
+                      subUnitsLabel,
                     )}
                   </div>
                 </RadixTheme>
