@@ -590,7 +590,7 @@ export default {
   },
   java: {
     name: "Java SDK",
-    version: "0.11.2",
+    version: "0.11.3",
     github: "https://github.com/growthbook/growthbook-sdk-java",
     examples: [
       {
