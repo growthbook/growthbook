@@ -66,6 +66,7 @@ export default function ApiKeyRowMenu({
         )}
         {onRevokePrevious && (
           <DropdownMenuItem
+            color="red"
             confirmation={{
               submit: onRevokePrevious,
               getConfirmationContent: async () =>
