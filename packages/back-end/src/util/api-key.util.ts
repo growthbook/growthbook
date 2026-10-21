@@ -123,7 +123,11 @@ export async function dangerousLookupOrganizationByApiKey(
     : key;
 
   const doc = await getCollection<ApiKeyInterface>(API_KEY_COLLECTION).findOne({
-    key: lookupKey,
+    $or: [
+      { key: lookupKey },
+      // A rotated key's replaced secret, during its grace period.
+      { previousKey: lookupKey, previousKeyExpiresAt: { $gt: new Date() } },
+    ],
   });
 
   if (!doc || !doc.organization) {
