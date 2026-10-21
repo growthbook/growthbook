@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { Box } from "@radix-ui/themes";
 import {
   DataSourceInterfaceWithParams,
@@ -295,6 +295,13 @@ function getDriftNotice({
 }
 
 /** Why no identifier type can be chosen. */
+// Monospace like code, in the surrounding text color.
+export function IdentifierCode({ children }: { children: ReactNode }) {
+  return (
+    <code style={{ color: "inherit", textTransform: "none" }}>{children}</code>
+  );
+}
+
 export function getNoAssignmentQueriesMessage({
   hasExposureQueries,
   holdoutProjects,
@@ -465,8 +472,9 @@ export function ClusterExperimentFields({
         }
         description={
           <>
-            Every unit in a <code>{identifierType}</code> gets the same
-            variation, and metrics are analyzed on a smaller unit inside it.
+            Every unit in a <IdentifierCode>{identifierType}</IdentifierCode>{" "}
+            gets the same variation, and metrics are analyzed on a smaller unit
+            inside it.
           </>
         }
         value={isClusterExperiment}
@@ -505,8 +513,9 @@ export function ClusterExperimentFields({
               subUnitOptions.length ? (
                 <>
                   Lists the other identifier types in {exposureQuery?.name}.
-                  Metrics are analyzed per <code>{subUnitIdentifier}</code>{" "}
-                  wherever they can be.
+                  Metrics are analyzed per{" "}
+                  <IdentifierCode>{subUnitIdentifier}</IdentifierCode> wherever
+                  they can be.
                 </>
               ) : (
                 `${exposureQuery?.name ?? "This assignment query"} doesn't declare another identifier type to analyze on.`

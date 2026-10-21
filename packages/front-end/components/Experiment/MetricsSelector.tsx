@@ -26,6 +26,7 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
+import { IdentifierCode } from "@/components/Experiment/AssignmentQueryFields";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
 import Link from "@/ui/Link";
@@ -446,11 +447,15 @@ const MetricsSelector: FC<{
             ? option.disabledReason
             : option.description,
       });
-      // Official metrics first within each analysis level.
+      // Official metrics first within each analysis level, then by name.
       const byLevel = (clusterLevel: boolean) =>
         filteredOptions
           .filter((option) => !!option.clusterLevel === clusterLevel)
-          .sort((a, b) => Number(!a.managedBy) - Number(!b.managedBy))
+          .sort(
+            (a, b) =>
+              Number(!a.managedBy) - Number(!b.managedBy) ||
+              a.name.localeCompare(b.name),
+          )
           .map(toSingleValue);
       // Labels are the identifiers; formatClusterGroupLabel renders the heading.
       return [
@@ -521,7 +526,7 @@ const MetricsSelector: FC<{
   const formatClusterGroupLabel = useCallback(
     ({ label }: GroupedValue) => (
       <>
-        Analyzed per <code style={{ textTransform: "none" }}>{label}</code>
+        Analyzed per <IdentifierCode>{label}</IdentifierCode>
       </>
     ),
     [],
@@ -599,6 +604,8 @@ const MetricsSelector: FC<{
           ? formatClusterGroupLabel
           : undefined
       }
+      // The analysis-level groups are already ordered, sub-unit first.
+      sortOptions={!(groupOptions && clusterIdType && userIdType)}
       disabled={selectorDisabled}
       helpText={
         <>
