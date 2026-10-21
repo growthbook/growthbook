@@ -66,7 +66,7 @@ export function OverridesProjectRolesBadge() {
         variant="soft"
         label={
           <Flex align="center" gap="1">
-            <PiInfo /> Overrides Projects
+            <PiInfo /> Overrides Project roles
           </Flex>
         }
       />
