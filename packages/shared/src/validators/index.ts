@@ -108,6 +108,7 @@ export * from "./contextual-bandit-query.spec";
 export * from "./contextual-bandit-snapshot";
 export * from "./contextual-bandit-event";
 export * from "./interleaving";
+export * from "./interleaving.spec";
 export * from "./api-errors";
 export * from "./experiment-alerts";
 export * from "./holdout-notifications";

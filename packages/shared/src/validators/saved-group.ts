@@ -367,8 +367,8 @@ export const deleteSavedGroupValidator = {
   exampleRequest: { params: { id: "abc123" } },
 };
 
-// Features and contextual bandits share this shape; named so the generated
-// spec does not label one after the other.
+// Features, contextual bandits and interleavings share this shape; named so the
+// generated spec does not label one after the other.
 const savedGroupReferenceResource = namedSchema(
   "SavedGroupReferenceResource",
   z
@@ -396,6 +396,7 @@ export const apiSavedGroupReferencesValidator = namedSchema(
           .strict(),
       ),
       contextualBandits: z.array(savedGroupReferenceResource),
+      interleavings: z.array(savedGroupReferenceResource),
       savedGroups: z.array(
         z
           .object({
