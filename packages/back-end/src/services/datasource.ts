@@ -31,9 +31,11 @@ import {
   mergeDataSourceParams,
   redactSecretParams,
   getExposureQueryExperimentIdColumn,
+  getExposureQueryExperimentNameColumn,
   getExposureQueryIdentifierColumn,
   getExposureQueryTimestampColumn,
   getExposureQueryVariationIdColumn,
+  getExposureQueryVariationNameColumn,
 } from "shared/util";
 import { columnNamesMatch, determineColumnTypes } from "back-end/src/util/sql";
 import { detectColumnsFromQueryResult } from "back-end/src/util/factTable";
@@ -516,7 +518,12 @@ export async function testQueryValidity(
       getExposureQueryIdentifierColumn(query, idType),
     ),
     ...query.dimensions,
-    ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
+    ...(query.hasNameCol
+      ? [
+          getExposureQueryExperimentNameColumn(query),
+          getExposureQueryVariationNameColumn(query),
+        ]
+      : []),
   ]);
 
   const sql = integration.getTestValidityQuery(

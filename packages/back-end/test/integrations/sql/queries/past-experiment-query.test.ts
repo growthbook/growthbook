@@ -34,4 +34,26 @@ describe("getPastExperimentQuery", () => {
     expect(sql).toMatch(/PARTITION BY\s+identifier_type/);
     expect(sql).toMatch(/WHERE\s+rn <= 1500/);
   });
+
+  it("reads mapped name columns when the query has them", () => {
+    const sql = getPastExperimentQuery(
+      postgresDialect,
+      {
+        id: "exq_1",
+        name: "Assignments",
+        userIdType: "user_id",
+        userIdTypes: ["user_id"],
+        query: "SELECT * FROM t",
+        dimensions: [],
+        hasNameCol: true,
+        experimentNameColumn: "exp_title",
+        variationNameColumn: "variant_title",
+      },
+      ["user_id"],
+      new Date("2026-01-01T00:00:00Z"),
+      new Date("2026-02-01T00:00:00Z"),
+    );
+    expect(sql).toMatch(/MIN\(exp_title\) as experiment_name/);
+    expect(sql).toMatch(/MIN\(variant_title\) as variation_name/);
+  });
 });

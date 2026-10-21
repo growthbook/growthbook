@@ -2,9 +2,11 @@ import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import { format } from "shared/sql";
 import {
   getExposureQueryExperimentIdColumn,
+  getExposureQueryExperimentNameColumn,
   getExposureQueryIdentifierColumn,
   getExposureQueryTimestampColumn,
   getExposureQueryVariationIdColumn,
+  getExposureQueryVariationNameColumn,
 } from "shared/util";
 import type { ExposureQuery } from "shared/types/datasource";
 import type { SqlDialect } from "shared/types/sql";
@@ -39,10 +41,16 @@ export function getPastExperimentQuery(
       __exposures as (
         SELECT
           ${expIdCol} as experiment_id,
-          ${hasNameCol ? "MIN(experiment_name)" : expIdCol} as experiment_name,
+          ${
+            hasNameCol
+              ? `MIN(${getExposureQueryExperimentNameColumn(exposureQuery)})`
+              : expIdCol
+          } as experiment_name,
           ${dialect.castToString(varIdCol)} as variation_id,
           ${
-            hasNameCol ? "MIN(variation_name)" : dialect.castToString(varIdCol)
+            hasNameCol
+              ? `MIN(${getExposureQueryVariationNameColumn(exposureQuery)})`
+              : dialect.castToString(varIdCol)
           } as variation_name,
           ${dialect.dateTrunc(dialect.castUserDateCol(tsCol), "day")} as date,
           ${identifierTypes

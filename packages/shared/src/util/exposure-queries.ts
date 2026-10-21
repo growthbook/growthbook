@@ -37,6 +37,8 @@ export const EXPOSURE_QUERY_COLUMN_MAPPING_FIELDS = [
   "timestampColumn",
   "experimentIdColumn",
   "variationIdColumn",
+  "experimentNameColumn",
+  "variationNameColumn",
 ] as const;
 
 export const pickExposureQueryColumnMapping = (
@@ -62,6 +64,18 @@ export function getExposureQueryTimestampColumn(
   query: ExposureQueryColumnMapping,
 ): string {
   return query.timestampColumn || "timestamp";
+}
+
+export function getExposureQueryExperimentNameColumn(
+  query: ExposureQueryColumnMapping,
+): string {
+  return query.experimentNameColumn || "experiment_name";
+}
+
+export function getExposureQueryVariationNameColumn(
+  query: ExposureQueryColumnMapping,
+): string {
+  return query.variationNameColumn || "variation_name";
 }
 
 export function getExposureQueryIdentifierColumn(

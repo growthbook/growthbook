@@ -206,6 +206,9 @@ export interface ExposureQuery {
   timestampColumn?: string;
   experimentIdColumn?: string;
   variationIdColumn?: string;
+  // Only read when hasNameCol is set
+  experimentNameColumn?: string;
+  variationNameColumn?: string;
   /**
    * Columns the query returned when it was last tested in the editor, so the
    * column mapping can be edited without re-running the query.
@@ -219,6 +222,8 @@ export type ExposureQueryColumnMapping = Pick<
   | "timestampColumn"
   | "experimentIdColumn"
   | "variationIdColumn"
+  | "experimentNameColumn"
+  | "variationNameColumn"
 >;
 
 export interface FeatureUsageQuery {

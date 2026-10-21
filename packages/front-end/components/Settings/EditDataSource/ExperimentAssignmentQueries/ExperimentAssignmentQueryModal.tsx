@@ -6,10 +6,12 @@ import omit from "lodash/omit";
 import {
   EXPOSURE_QUERY_COLUMN_MAPPING_FIELDS,
   getExposureQueryExperimentIdColumn,
+  getExposureQueryExperimentNameColumn,
   getExposureQueryIdentifierColumn,
   getExposureQueryIdentifierTypes,
   getExposureQueryTimestampColumn,
   getExposureQueryVariationIdColumn,
+  getExposureQueryVariationNameColumn,
 } from "shared/util";
 import {
   DataSourceInterfaceWithParams,
@@ -70,6 +72,8 @@ const ROLE_LABELS: Record<string, string> = {
   experiment_id: "Experiment ID",
   variation_id: "Variation ID",
   timestamp: "Timestamp",
+  experiment_name: "Experiment name",
+  variation_name: "Variation name",
 };
 
 // The columns each role reads from, keyed by role (identifier types by name).
@@ -78,6 +82,12 @@ function getRoleColumns(query: ExposureQuery): Record<string, string> {
     experiment_id: getExposureQueryExperimentIdColumn(query),
     variation_id: getExposureQueryVariationIdColumn(query),
     timestamp: getExposureQueryTimestampColumn(query),
+    ...(query.hasNameCol
+      ? {
+          experiment_name: getExposureQueryExperimentNameColumn(query),
+          variation_name: getExposureQueryVariationNameColumn(query),
+        }
+      : {}),
     ...Object.fromEntries(
       getExposureQueryIdentifierTypes(query).map((idType) => [
         idType,
@@ -95,7 +105,6 @@ function getSavedColumns(query: ExposureQuery): DetectedColumn[] {
   const known = new Set([
     ...Object.values(getRoleColumns(query)),
     ...query.dimensions,
-    ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
   ]);
   return [...known].map((column) => ({
     column,
@@ -154,6 +163,12 @@ export const ExperimentAssignmentQueryModal = ({
   const [timestampColumn, setTimestampColumn] = useState(
     savedRoleColumns.timestamp ?? "",
   );
+  const [experimentNameColumn, setExperimentNameColumn] = useState(
+    savedRoleColumns.experiment_name ?? "",
+  );
+  const [variationNameColumn, setVariationNameColumn] = useState(
+    savedRoleColumns.variation_name ?? "",
+  );
   const [userIdColumns, setUserIdColumns] = useState<Record<string, string>>(
     () =>
       Object.fromEntries(
@@ -196,6 +211,14 @@ export const ExperimentAssignmentQueryModal = ({
     setUserIdColumns((prev) =>
       rematchUserIdColumns(prev, identifierTypes, cols),
     );
+    setExperimentNameColumn((prev) =>
+      rematchColumn(prev, cols, () =>
+        findColumnByName(cols, "experiment_name"),
+      ),
+    );
+    setVariationNameColumn((prev) =>
+      rematchColumn(prev, cols, () => findColumnByName(cols, "variation_name")),
+    );
   };
 
   const source = useSourceTable({
@@ -215,6 +238,8 @@ export const ExperimentAssignmentQueryModal = ({
       setVariationIdColumn("");
       setTimestampColumn("");
       setUserIdColumns({});
+      setExperimentNameColumn("");
+      setVariationNameColumn("");
       setDimensions([]);
     },
     onColumnsChanged: remapColumns,
@@ -235,9 +260,8 @@ export const ExperimentAssignmentQueryModal = ({
   const columns = detected || [];
   const timestampOptions = columns.filter(isTimestampCandidate);
   const identifierOptions = columns.filter(isIdentifierCandidate);
-  const hasNameCol =
-    columns.some((c) => c.column === "experiment_name") &&
-    columns.some((c) => c.column === "variation_name");
+  const experimentName = validColumn(columns, experimentNameColumn);
+  const variationName = validColumn(columns, variationNameColumn);
 
   // String columns not claimed by a role are offered as dimensions. Already
   // saved dimensions stay listed so editing never silently drops one.
@@ -247,8 +271,8 @@ export const ExperimentAssignmentQueryModal = ({
       variationIdColumn,
       timestampColumn,
       ...Object.values(userIdColumns),
-      "experiment_name",
-      "variation_name",
+      experimentNameColumn,
+      variationNameColumn,
     ].filter(Boolean),
   );
   const savedDimensions = exposureQuery?.dimensions ?? [];
@@ -276,6 +300,8 @@ export const ExperimentAssignmentQueryModal = ({
         experiment_id: experimentIdColumn,
         variation_id: variationIdColumn,
         timestamp: timestampColumn,
+        experiment_name: experimentNameColumn,
+        variation_name: variationNameColumn,
         ...userIdColumns,
       }).filter(
         ([, column]) => column && !columns.some((c) => c.column === column),
@@ -353,6 +379,13 @@ export const ExperimentAssignmentQueryModal = ({
     if (!mappedUserIdTypes.length) {
       throw new Error("Map at least one identifier column");
     }
+    // Imports read both names or neither
+    if (!experimentName !== !variationName) {
+      throw new Error(
+        "Map both the experiment name and variation name columns, or neither.",
+      );
+    }
+    const hasNameCol = !!experimentName && !!variationName;
 
     // The generated SQL can't tell roles apart when they share a column
     const mappedColumns = [
@@ -408,6 +441,12 @@ export const ExperimentAssignmentQueryModal = ({
         : {}),
       ...(variationId !== "variation_id"
         ? { variationIdColumn: variationId }
+        : {}),
+      ...(hasNameCol && experimentName !== "experiment_name"
+        ? { experimentNameColumn: experimentName }
+        : {}),
+      ...(hasNameCol && variationName !== "variation_name"
+        ? { variationNameColumn: variationName }
         : {}),
     };
 
@@ -635,6 +674,24 @@ export const ExperimentAssignmentQueryModal = ({
                       }
                     />
                   ))}
+                  <ColumnMappingRow
+                    label="Experiment name"
+                    kind="experiment"
+                    tooltip="Optional display name, used when importing experiments"
+                    value={experimentNameColumn}
+                    options={columns}
+                    setValue={setExperimentNameColumn}
+                    onRemove={() => setExperimentNameColumn("")}
+                  />
+                  <ColumnMappingRow
+                    label="Variation name"
+                    kind="variation"
+                    tooltip="Optional display name, used when importing experiments"
+                    value={variationNameColumn}
+                    options={columns}
+                    setValue={setVariationNameColumn}
+                    onRemove={() => setVariationNameColumn("")}
+                  />
                 </TableBody>
               </Table>
               {mode === "table" && source.template ? (
