@@ -240,6 +240,19 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     Human-in-the-loop
                   </KeyTrait>
                 )}
+                {hasActivePreviousKey(key) && (
+                  <KeyTrait
+                    icon={<PiClockCountdown size={18} />}
+                    color="var(--amber-11)"
+                    tooltip={`The previous secret works until ${datetimeWithZone(key.previousKeyExpiresAt as Date)}. ${
+                      key.previousKeyLastUsed
+                        ? `Last used ${datetimeWithZone(key.previousKeyLastUsed)}.`
+                        : "Not used since the rotation."
+                    }`}
+                  >
+                    Previous secret active
+                  </KeyTrait>
+                )}
               </TableCell>
               <TableCell style={dimStyle(key)}>
                 {canManageSecret(key) ? (
@@ -255,19 +268,6 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                       <Text color="text-low">Hidden</Text>
                     </span>
                   </Tooltip>
-                )}
-                {hasActivePreviousKey(key) && (
-                  <KeyTrait
-                    icon={<PiClockCountdown size={18} />}
-                    color="var(--amber-11)"
-                    tooltip={`The secret this key had before its last rotation works until ${datetimeWithZone(key.previousKeyExpiresAt as Date)}. ${
-                      key.previousKeyLastUsed
-                        ? `Last used ${datetimeWithZone(key.previousKeyLastUsed)}.`
-                        : "Not used since the rotation."
-                    }`}
-                  >
-                    Previous secret active
-                  </KeyTrait>
                 )}
               </TableCell>
               <TableCell style={dimStyle(key)}>
