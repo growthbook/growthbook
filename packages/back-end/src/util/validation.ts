@@ -31,7 +31,7 @@ export function parseArrayIndex(
   let index: number;
   if (typeof value === "number") {
     index = value;
-  } else if (typeof value === "string" && /^\d+$/.test(value)) {
+  } else if (typeof value === "string" && /^(0|[1-9]\d*)$/.test(value)) {
     index = Number(value);
   } else {
     return undefined;

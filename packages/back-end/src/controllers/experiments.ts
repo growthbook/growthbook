@@ -3402,7 +3402,8 @@ export async function postSnapshot(
     return;
   }
 
-  if (parseArrayIndex(phase, experiment.phases.length) === undefined) {
+  const phaseIndex = parseArrayIndex(phase, experiment.phases.length);
+  if (phaseIndex === undefined) {
     res.status(404).json({
       status: 404,
       message: "Phase not found",
@@ -3425,7 +3426,7 @@ export async function postSnapshot(
       datasource,
       dimension,
       organization: context.org.id,
-      phase,
+      phase: phaseIndex,
     });
   }
 
@@ -3451,7 +3452,7 @@ export async function postSnapshot(
     experiment,
     datasource,
     dimension,
-    phase,
+    phase: phaseIndex,
     useCache,
     type: experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
   });
@@ -3463,7 +3464,7 @@ export async function postSnapshot(
       id: experiment.id,
     },
     details: auditDetailsCreate({
-      phase,
+      phase: phaseIndex,
       dimension,
       useCache,
       manual: false,
