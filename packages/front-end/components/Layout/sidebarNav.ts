@@ -70,6 +70,11 @@ export const navlinks: SidebarLinkProps[] = [
           gb?.getFeatureValue("contextual-bandits", true) ?? true,
       },
       {
+        name: "Interleaving",
+        href: "/interleavings",
+        path: /^interleavings?($|\/)/,
+      },
+      {
         name: "Holdouts",
         href: "/holdouts",
         path: /^holdouts/,
