@@ -9523,6 +9523,14 @@ paths:
                     you to. If a check blocks you, stop and ask a person instead
                     of working around it.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
               required:
                 - id
                 - valueType
@@ -9543,6 +9551,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -10445,6 +10475,14 @@ paths:
                     you to. If a check blocks you, stop and ask a person instead
                     of working around it.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -10469,6 +10507,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -12586,6 +12646,14 @@ paths:
                     you to. If a check blocks you, stop and ask a person instead
                     of working around it.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
               required:
                 - rule
               additionalProperties: false
@@ -12604,6 +12672,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -13330,6 +13420,14 @@ paths:
                     you to. If a check blocks you, stop and ask a person instead
                     of working around it.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
               required:
                 - rule
               additionalProperties: false
@@ -13348,6 +13446,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -19082,6 +19202,14 @@ paths:
                     Publish the resulting revision immediately instead of
                     leaving it as a draft.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
                 draftVersion:
                   description: >-
                     Add the rule to this existing draft revision instead of
@@ -19114,6 +19242,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -19209,6 +19359,14 @@ paths:
                     Publish the resulting revision immediately instead of
                     leaving it as a draft.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
                 draftVersion:
                   description: >-
                     Update the rule on this existing draft revision instead of
@@ -19243,6 +19401,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -76357,6 +76537,7 @@ components:
                   - override.draftLimit
                   - override.skipChecklist
                   - override.bypassDuplicateKeyCheck
+                  - override.unscopedRules
                   - other.write
               environments:
                 type: array
@@ -85395,6 +85576,7 @@ components:
                       - override.draftLimit
                       - override.skipChecklist
                       - override.bypassDuplicateKeyCheck
+                      - override.unscopedRules
                       - other.write
                   environments:
                     type: array
@@ -86195,6 +86377,16 @@ components:
       required:
         - pattern
         - example
+      additionalProperties: false
+    ApiErrorUnscopedRuleDetails:
+      type: object
+      properties:
+        ruleIds:
+          type: array
+          items:
+            type: string
+      required:
+        - ruleIds
       additionalProperties: false
     ApiErrorCustomHookErrorDetails:
       type: object

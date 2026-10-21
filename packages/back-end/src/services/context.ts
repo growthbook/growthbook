@@ -633,6 +633,11 @@ export class ReqContextClass {
     return stringToBoolean(v);
   }
 
+  // Background jobs (no req) are never blocked by the rule scope setting.
+  public get allowUnscopedRules(): boolean {
+    return !this.overrideSource || this.bodyFlag("allowUnscopedRules");
+  }
+
   private get overrideSource(): OverrideSource | undefined {
     return this.dispatchedRequest ?? this.req;
   }

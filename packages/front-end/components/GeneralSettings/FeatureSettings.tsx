@@ -170,6 +170,20 @@ export default function FeatureSettings() {
 
           <Box mb="6" width="100%">
             <Checkbox
+              id="toggle-requireScopedFeatureRules"
+              label="Require rules to target specific environments or Projects"
+              description="Rules for All Environments and All Projects need an extra confirmation."
+              value={!!form.watch("requireScopedFeatureRules")}
+              setValue={(value) =>
+                form.setValue("requireScopedFeatureRules", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </Box>
+
+          <Box mb="6" width="100%">
+            <Checkbox
               id="toggle-sparseJSONRulesByDefault"
               label="Default JSON rules to sparse patch mode"
               description="New rules on object-valued JSON flags open in sparse mode, where you edit only the keys that differ from the default."

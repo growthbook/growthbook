@@ -13,6 +13,7 @@ import type {
   ConfirmRule,
   ConfirmationLink,
 } from "shared/validators";
+import type { HttpVerb } from "shared/api-spec";
 import type { RevisionTargetType } from "shared/enterprise";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -21,17 +22,18 @@ import {
   capitalizeFirstCharacter,
   matchConfirmRules,
   proposedArchivedValue,
+  routeConfirmation,
   scheduleActions,
   stringToBoolean,
 } from "shared/util";
 import {
   CONFIRM_OVERRIDE_FLAGS,
+  BYPASS_OVERRIDE_ACTIONS,
   FEATURE_LANDING_ACTIONS,
 } from "shared/validators";
 import type { ReqContext } from "back-end/types/request";
 import type {
   BypassedGate,
-  BypassVia,
   PublishGate,
   SkippedGate,
 } from "back-end/src/revisions/publishGates";
@@ -44,15 +46,6 @@ import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/exper
 
 const TTL_MS = 60 * 60 * 1000;
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
-
-const OVERRIDE_ACTIONS: Record<BypassVia, ConfirmAction | null> = {
-  ignoreWarnings: "override.ignoreWarnings",
-  skipSchemaValidation: "override.skipSchemaValidation",
-  skipHooks: "override.skipHooks",
-  bypassApprovalPermission: "override.bypassApproval",
-  restApiBypassesReviews: "override.restBypassesReviews",
-  revertsBypassApproval: null,
-};
 
 const hash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -242,7 +235,7 @@ export async function requireConfirmation(
     ...new Set([
       ...opts.actions,
       ...(opts.bypassing ?? []).flatMap(
-        ({ via }) => OVERRIDE_ACTIONS[via] ?? [],
+        ({ via }) => BYPASS_OVERRIDE_ACTIONS[via] ?? [],
       ),
       ...(context.org.settings?.restApiBypassesReviews &&
       opts.actions.some((action) => REVIEWED_WRITES.has(action))
@@ -341,15 +334,20 @@ export async function requireConfirmation(
 const asks = (v: unknown) =>
   v === true || (typeof v === "string" && stringToBoolean(v));
 
-// Skip flags the request sends hold wherever it is checked, needed or not.
-// Reads the replayed request on a confirmed run, so both see the same flags.
-function requestedOverrides(context: ReqContext): ConfirmAction[] {
-  const source = context.dispatchedRequest ?? context.req;
-  const query = asRecord(source?.query);
-  const body = asRecord(source?.body);
+export function overridesIn(
+  request: { query?: unknown; body?: unknown } | undefined,
+): ConfirmAction[] {
+  const query = asRecord(request?.query);
+  const body = asRecord(request?.body);
   return Object.entries(CONFIRM_OVERRIDE_FLAGS).flatMap(([flag, action]) =>
     asks(query[flag]) || asks(body[flag]) ? [action] : [],
   );
+}
+
+// Skip flags the request sends hold wherever it is checked, needed or not.
+// Reads the replayed request on a confirmed run, so both see the same flags.
+function requestedOverrides(context: ReqContext): ConfirmAction[] {
+  return overridesIn(context.dispatchedRequest ?? context.req);
 }
 
 // Routes by API tag: what they act on, its page, and how to find its name
@@ -707,6 +705,30 @@ export async function holdAtRoute(
     pin: null,
   });
 }
+
+export type HeldRoute = {
+  confirmation: readonly ConfirmAction[];
+  tags: readonly string[];
+  method: HttpVerb;
+  path: string;
+  summary: string;
+};
+
+// The route-level hold, for a handler that checks the request first.
+export const holdRoute = (
+  context: ReqContext,
+  route: HeldRoute,
+  req: { params?: unknown; body?: unknown; query?: unknown },
+) =>
+  holdAtRoute(
+    context,
+    routeConfirmation(route.method, route.tags, route.confirmation),
+    route.tags,
+    route.method,
+    route.path,
+    req,
+    route.summary,
+  );
 
 // A direct flag update in words: "Archive my-flag", or
 // "Update my-flag: turn on in staging, change the default value".

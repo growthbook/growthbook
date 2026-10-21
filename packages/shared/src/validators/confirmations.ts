@@ -96,6 +96,7 @@ export const CONFIRM_ACTIONS = [
   "override.draftLimit",
   "override.skipChecklist",
   "override.bypassDuplicateKeyCheck",
+  "override.unscopedRules",
   "other.write",
 ] as const;
 export type ConfirmAction = (typeof CONFIRM_ACTIONS)[number];
@@ -122,7 +123,21 @@ export const CONFIRM_OVERRIDE_FLAGS = {
   overrideDraftLimit: "override.draftLimit",
   skipChecklist: "override.skipChecklist",
   bypassDuplicateKeyCheck: "override.bypassDuplicateKeyCheck",
+  allowUnscopedRules: "override.unscopedRules",
 } as const satisfies Record<string, ConfirmAction>;
+
+// The override a bypassed check counts as; null when no override covers it.
+export const BYPASS_OVERRIDE_ACTIONS: Record<
+  (typeof bypassViaValues)[number],
+  ConfirmAction | null
+> = {
+  ignoreWarnings: "override.ignoreWarnings",
+  skipSchemaValidation: "override.skipSchemaValidation",
+  skipHooks: "override.skipHooks",
+  bypassApprovalPermission: "override.bypassApproval",
+  restApiBypassesReviews: "override.restBypassesReviews",
+  revertsBypassApproval: null,
+};
 
 // The checks a publishing write can ask to skip.
 export const PUBLISH_OVERRIDE_ACTIONS = [

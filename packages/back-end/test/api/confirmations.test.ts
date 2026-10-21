@@ -692,11 +692,11 @@ describe("confirmations", () => {
     });
   });
 
-  it("shows what refused the agent's last try when the retry skips it", async () => {
+  it("refuses a draft past the cap first, then shows why when the retry skips it", async () => {
     await seed("production");
     setReqContext(
       asKey(
-        { ...pat, confirmRules: [{ actions: ["override.*"] }] },
+        { ...pat, confirmRules: [{ actions: ["feature.*", "override.*"] }] },
         { maxConcurrentDrafts: 1 },
       ),
     );
@@ -707,18 +707,82 @@ describe("confirmations", () => {
 
     const refused = await createDraft("");
     expect(refused.status).toBe(409);
+    expect(refused.body.message).toContain("?overrideDraftLimit=true");
     const held = await createDraft("?overrideDraftLimit=true");
     expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "feature.draft", environments: [] },
+      { action: "override.draftLimit", environments: [] },
+    ]);
     expect(
       await mongoose.connection
         .collection("confirmations")
         .findOne({ id: held.body.confirmation.id }),
     ).toMatchObject({
       notices: [
-        { severity: "error", messages: [refused.body.message], via: null },
+        {
+          severity: "warning",
+          messages: [
+            refused.body.message.replace(
+              " To create a new one anyway, resend with `?overrideDraftLimit=true`.",
+              "",
+            ),
+          ],
+          via: null,
+        },
       ],
       lastAttemptAt: expect.any(Date),
     });
+  });
+
+  it("holds a rule for all environments and projects once the org requires scoped rules", async () => {
+    await seed("production");
+    const scoped = { requireScopedFeatureRules: true };
+    setReqContext(
+      asKey({ ...pat, confirmRules: [{ actions: ["override.*"] }] }, scoped),
+    );
+    const addRule = (body: object) =>
+      auth(
+        request(app).post(`/api/v2/features/${FLAG}/revisions/2/rules`),
+      ).send({ rule: { type: "force", value: "true" }, ...body });
+
+    const refused = await addRule({});
+    expect(refused.status).toBe(422);
+    expect(refused.body.code).toBe("unscoped_rule");
+    const held = await addRule({ allowUnscopedRules: true });
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "override.unscopedRules", environments: [] },
+    ]);
+    expect(
+      await mongoose.connection
+        .collection("confirmations")
+        .findOne({ id: held.body.confirmation.id }),
+    ).toMatchObject({
+      notices: [
+        {
+          severity: "warning",
+          messages: [
+            "This rule applies to All Environments and All Projects. Your organization requires rules to target specific environments or Projects.",
+          ],
+          via: null,
+        },
+      ],
+    });
+
+    // Refused before a key that holds drafts is asked to confirm one.
+    setReqContext(asKey(bot, scoped));
+    expect((await addRule({})).status).toBe(422);
+
+    setReqContext(asKey(ci, scoped));
+    expect((await addRule({ allowUnscopedRules: true })).status).toBe(200);
+    expect(
+      (
+        await addRule({
+          rule: { type: "force", value: "true", environments: ["dev"] },
+        })
+      ).status,
+    ).toBe(200);
   });
 
   it("lets only the member a request names confirm it, assumed or not", async () => {
