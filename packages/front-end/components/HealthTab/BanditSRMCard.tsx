@@ -1,4 +1,5 @@
 import { BanditEvent } from "shared/validators";
+import { Separator } from "@radix-ui/themes";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
@@ -89,7 +90,7 @@ export default function BanditSRMCard({
             Shows actual unit split compared to percent selected for the
             experiment
           </p>
-          <hr />
+          <Separator size="4" my="3" />
           <div>
             <div className="mb-3">
               <label className="uppercase-title">Chart</label>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { Separator } from "@radix-ui/themes";
 import { getMultipleExposureHealthData } from "shared/health";
 import {
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
@@ -64,7 +65,7 @@ export default function MultipleExposuresCard({
       <p className="mt-1">
         Detects whether units have been exposed to multiple variations
       </p>
-      <hr></hr>
+      <Separator size="4" my="3" />
       <div className="row justify-content-start">
         <div className="ml-2 mr-2 mt-1 w-100">
           {health.status === "healthy" ? (

@@ -1,4 +1,5 @@
 import { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
+import { Separator } from "@radix-ui/themes";
 import { ExperimentReportVariation } from "shared/types/report";
 import { useEffect, useLayoutEffect, useMemo } from "react";
 import { getSRMHealthData } from "shared/health";
@@ -131,7 +132,7 @@ export default function SRMCard({
               Shows actual unit split compared to percent selected for the
               experiment
             </p>
-            <hr className="mb-0"></hr>
+            <Separator size="4" mt="3" mb="0" />
             <div style={{ paddingTop: "10px" }}>
               <div className="row justify-content-start w-100 overflow-auto">
                 <VariationUsersTable

@@ -1,4 +1,5 @@
 import { ExperimentSnapshotTrafficDimension } from "shared/types/experiment-snapshot";
+import { Separator } from "@radix-ui/themes";
 import { ExperimentReportVariation } from "shared/types/report";
 import { useMemo, useState } from "react";
 import {
@@ -259,7 +260,7 @@ export const DimensionIssues = ({
           <p className="mt-1">Highlights perceived issues across dimensions</p>
         </div>
 
-        <hr className="my-0 w-100" />
+        <Separator size="4" my="0" />
         {areDimensionsAvailable ? (
           <>
             <div
