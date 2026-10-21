@@ -404,8 +404,9 @@ export async function refreshColumnTopValues(
         const topValuesByColumn = await runColumnsTopValuesQuery(
           context,
           datasource,
-          // Use the freshly detected columns, not the persisted ones, so JSON
-          // paths resolve against fields that haven't been saved yet.
+          // The query needs a column list to resolve JSON paths and virtual
+          // columns; the columns selected here are always plain, so the
+          // freshly detected list works.
           { ...factTable, columns: detectedColumns },
           columnChunk,
         );
