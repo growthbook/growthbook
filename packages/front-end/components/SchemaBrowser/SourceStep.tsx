@@ -290,39 +290,30 @@ type TestQueryResults = {
 };
 
 export default function SourceStep({
-  datasourceId,
-  datasourceHeader,
-  sql,
-  setSql,
-  detected,
-  hasFreshResults,
-  onColumnsDetected,
+  source,
   validateRef,
-  columnError,
-  getColumnMappingError,
   queryType,
   placeholder,
-  source,
+  datasourceHeader,
 }: {
-  datasourceId: string;
-  // Shown above the table picker or the SQL editor, e.g. a Data Source picker
-  datasourceHeader?: ReactNode;
-  sql: string;
-  setSql: (sql: string) => void;
-  detected: DetectedColumn[] | null;
-  hasFreshResults: boolean;
-  onColumnsDetected: (columns: DetectedColumn[], sql: string) => void;
+  source: SourceTable;
   validateRef: MutableRefObject<(() => Promise<void>) | null>;
-  columnError: string | null;
-  // Whether the detected columns are enough for the object being created
-  getColumnMappingError: (columns: DetectedColumn[]) => string | null;
   queryType: TestQueryType;
   placeholder: string;
-  source: SourceTable;
+  // Shown above the table picker or the SQL editor, e.g. a Data Source picker
+  datasourceHeader?: ReactNode;
 }) {
   const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
   const {
+    datasourceId,
+    querySql: sql,
+    setSql,
+    detected,
+    handleColumnsDetected: onColumnsDetected,
+    hasFreshResults,
+    columnError,
+    getColumnMappingError,
     mode,
     setMode,
     selectedTable,

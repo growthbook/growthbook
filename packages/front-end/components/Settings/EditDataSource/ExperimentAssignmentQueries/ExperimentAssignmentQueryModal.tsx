@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowClockwise, PiArrowLeft } from "react-icons/pi";
 import uniqId from "uniqid";
@@ -24,7 +24,6 @@ import {
   findColumnByName,
   getDefaultTimestampColumn,
   getRemappedUserIdColumns,
-  haveSameColumnNames,
   isDimensionCandidate,
   isIdentifierCandidate,
   isTimestampCandidate,
@@ -142,16 +141,8 @@ export const ExperimentAssignmentQueryModal = ({
       exposureQuery?.query ??
       getInitialExposureQuery(dataSource, defaultIdentifierTypes),
   );
-  const [detected, setDetected] = useState<DetectedColumn[] | null>(() =>
+  const [savedColumns] = useState(() =>
     exposureQuery ? getSavedColumns(exposureQuery) : null,
-  );
-  // False while editing a query saved before its columns were stored, whose
-  // columns are only guessed from its mapping
-  const [columnsDetected, setColumnsDetected] = useState(
-    !exposureQuery || !!exposureQuery.columns?.length,
-  );
-  const [detectedSql, setDetectedSql] = useState<string | null>(
-    exposureQuery?.query ?? null,
   );
 
   const [name, setName] = useState(exposureQuery?.name ?? "");
@@ -193,6 +184,59 @@ export const ExperimentAssignmentQueryModal = ({
   const placeholderIdentifierTypes = defaultIdentifierTypes?.length
     ? defaultIdentifierTypes
     : identifierTypes.slice(0, 1);
+
+  // A mapping survives as long as its column does
+  const remapColumns = (cols: DetectedColumn[]) => {
+    const exists = (column: string) => cols.some((c) => c.column === column);
+
+    setExperimentIdColumn((prev) =>
+      exists(prev) ? prev : findColumnByName(cols, "experiment_id"),
+    );
+    setVariationIdColumn((prev) =>
+      exists(prev) ? prev : findColumnByName(cols, "variation_id"),
+    );
+    setTimestampColumn((prev) =>
+      exists(prev) ? prev : getDefaultTimestampColumn(cols),
+    );
+    setUserIdColumns((prev) =>
+      Object.fromEntries(
+        identifierTypes.flatMap((idType) => {
+          const current = prev[idType];
+          if (current && exists(current)) return [[idType, current]];
+          const match = findColumnByName(cols, idType);
+          return match ? [[idType, match]] : [];
+        }),
+      ),
+    );
+  };
+
+  const source = useSourceTable({
+    datasource: dataSource,
+    // A saved query keeps only its SQL, so edits stay in SQL mode
+    tableModeAvailable: !exposureQuery,
+    templates: TEMPLATES,
+    sql,
+    setSql,
+    initialColumns: savedColumns,
+    getColumnMappingError: getExposureQueryColumnMappingError,
+    onSelectTable: (tableName) => {
+      if (!name || name === source.tableName) setName(tableName);
+      // Otherwise the previous table's mappings carry over
+      setExperimentIdColumn("");
+      setVariationIdColumn("");
+      setTimestampColumn("");
+      setUserIdColumns({});
+      setDimensions([]);
+    },
+    onColumnsChanged: remapColumns,
+  });
+  const { mode, selectedTable, partition, detected, querySql } = source;
+  // False while editing a query saved before its columns were stored, whose
+  // columns are only guessed from its mapping
+  const columnsDetected =
+    !exposureQuery ||
+    !!exposureQuery.columns?.length ||
+    detected !== savedColumns;
 
   const columns = detected || [];
   const timestampOptions = columns.filter(isTimestampCandidate);
@@ -244,71 +288,6 @@ export const ExperimentAssignmentQueryModal = ({
       )
     : [];
 
-  const handleColumnsDetected = useCallback(
-    (cols: DetectedColumn[], ranSql: string | null = null) => {
-      setDetectedSql(ranSql);
-      setDetected(cols);
-      setColumnsDetected(true);
-
-      // Same columns as before? Leave the user's mapping choices alone.
-      if (detected && haveSameColumnNames(detected, cols)) return;
-
-      const exists = (column: string) => cols.some((c) => c.column === column);
-
-      setExperimentIdColumn((prev) =>
-        exists(prev) ? prev : findColumnByName(cols, "experiment_id"),
-      );
-      setVariationIdColumn((prev) =>
-        exists(prev) ? prev : findColumnByName(cols, "variation_id"),
-      );
-      setTimestampColumn((prev) =>
-        exists(prev) ? prev : getDefaultTimestampColumn(cols),
-      );
-      setUserIdColumns((prev) =>
-        Object.fromEntries(
-          identifierTypes.flatMap((idType) => {
-            const current = prev[idType];
-            if (current && exists(current)) return [[idType, current]];
-            const match = findColumnByName(cols, idType);
-            return match ? [[idType, match]] : [];
-          }),
-        ),
-      );
-    },
-    [detected, identifierTypes],
-  );
-
-  const source = useSourceTable({
-    datasource: dataSource,
-    // A saved query keeps only its SQL, so edits stay in SQL mode
-    tableModeAvailable: !exposureQuery,
-    templates: TEMPLATES,
-    setSql,
-    onSelectTable: (tableName) => {
-      if (!name || name === source.tableName) setName(tableName);
-      // Otherwise the previous table's mappings carry over
-      setDetected(null);
-      setExperimentIdColumn("");
-      setVariationIdColumn("");
-      setTimestampColumn("");
-      setUserIdColumns({});
-      setDimensions([]);
-    },
-    onColumnsDetected: handleColumnsDetected,
-  });
-  const { mode, selectedTable, pickerColumns, partition } = source;
-  const querySql = mode === "table" ? source.tableSql : sql;
-
-  const hasFreshResults = detectedSql === querySql && !!detected?.length;
-  const columnError =
-    mode === "table"
-      ? pickerColumns
-        ? getExposureQueryColumnMappingError(pickerColumns, true)
-        : null
-      : hasFreshResults && detected
-        ? getExposureQueryColumnMappingError(detected)
-        : null;
-
   async function refreshColumns() {
     setRefreshingColumns(true);
     setRefreshError(null);
@@ -330,7 +309,7 @@ export const ExperimentAssignmentQueryModal = ({
       const cols = res.columns || [];
       const error = getExposureQueryColumnMappingError(cols);
       if (error) throw new Error(error);
-      handleColumnsDetected(cols, sql);
+      source.handleColumnsDetected(cols, sql);
     } catch (e) {
       setRefreshError(e.message);
     } finally {
@@ -458,22 +437,13 @@ export const ExperimentAssignmentQueryModal = ({
       disabledMessage={
         step === 0 && source.loadingColumns ? "Loading columns..." : undefined
       }
-      ctaEnabled={
-        step > 0 ||
-        (!columnError &&
-          (mode === "sql" ||
-            (!!pickerColumns && source.rowFilterWhere !== null)))
-      }
+      ctaEnabled={step > 0 || source.canContinue}
       overflowAuto={false}
       autoFocusSelector=""
       hideNav
       bodyClassName="p-0"
       backButton
-      onBackFirstStep={
-        mode === "sql" && source.tableModeAvailable
-          ? () => source.setMode("table")
-          : undefined
-      }
+      onBackFirstStep={source.backToTableMode}
     >
       <Page
         display="Write SQL"
@@ -500,22 +470,14 @@ export const ExperimentAssignmentQueryModal = ({
         >
           <SourceStep
             key={mode}
-            datasourceId={dataSource.id}
-            sql={querySql}
-            setSql={setSql}
-            detected={detected}
-            hasFreshResults={hasFreshResults}
-            onColumnsDetected={handleColumnsDetected}
+            source={source}
             validateRef={validateSql}
-            columnError={columnError}
-            getColumnMappingError={getExposureQueryColumnMappingError}
             queryType="exposureQueryTest"
             placeholder={`SELECT\n${placeholderIdentifierTypes
               .map((id) => `  ${id},\n`)
               .join(
                 "",
               )}  timestamp,\n  experiment_id,\n  variation_id\nFROM\n  exposures`}
-            source={source}
           />
         </Box>
       </Page>

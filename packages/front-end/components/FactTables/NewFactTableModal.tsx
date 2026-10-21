@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -40,7 +40,6 @@ import {
   getDefaultTimestampColumn,
   getNewFactTableProjects,
   getRemappedUserIdColumns,
-  haveSameColumnNames,
   isIdentifierCandidate,
   isTimestampCandidate,
 } from "@/services/factTables";
@@ -319,8 +318,6 @@ export default function NewFactTableModal({
   const [sql, setSql] = useState("");
   const [removedColumns, setRemovedColumns] = useState<string[]>([]);
 
-  const [detected, setDetected] = useState<DetectedColumn[] | null>(null);
-  const [detectedSql, setDetectedSql] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [timestampColumn, setTimestampColumn] = useState("");
   const [userIdColumns, setUserIdColumns] = useState<Record<string, string>>(
@@ -350,6 +347,87 @@ export default function NewFactTableModal({
     (t) => t.userIdType,
   );
 
+  const removeIdentifier = (idType: string) =>
+    setUserIdColumns((prev) => {
+      const next = { ...prev };
+      delete next[idType];
+      return next;
+    });
+
+  // Better types for the same columns leave the configuration alone, so this
+  // only runs when the columns themselves change
+  const remapColumns = (columns: DetectedColumn[]) => {
+    const exists = (column: string) => columns.some((c) => c.column === column);
+
+    const idTypes = (datasource?.settings?.userIdTypes || []).map(
+      (t) => t.userIdType,
+    );
+
+    // A mapping the user picked survives as long as its column does; only
+    // the ones that no longer resolve are detected again.
+    setTimestampColumn((prev) =>
+      exists(prev) ? prev : getDefaultTimestampColumn(columns),
+    );
+    setUserIdColumns((prev) =>
+      Object.fromEntries(
+        idTypes.flatMap((idType) => {
+          const current = prev[idType];
+          if (current && exists(current)) return [[idType, current]];
+          const match = findColumnByName(columns, idType);
+          return match ? [[idType, match]] : [];
+        }),
+      ),
+    );
+    if (exists(inlineFilterColumn)) return;
+    // Case-insensitive: Snowflake's information schema reports EVENT_NAME
+    const eventTypeColumn =
+      INLINE_FILTER_CANDIDATES.map((candidate) =>
+        columns.find(
+          (c) =>
+            c.datatype === "string" &&
+            c.column.toLowerCase() === candidate.toLowerCase(),
+        ),
+      ).find(Boolean)?.column ?? "";
+    setInlineFilterColumn(eventTypeColumn);
+    setTableType(eventTypeColumn ? "event" : "model");
+  };
+
+  const source = useSourceTable({
+    datasource,
+    tableModeAvailable: growthbook.isOn("fact-table-table-mode"),
+    templates: [GA4_EVENTS_TEMPLATE],
+    sql,
+    setSql,
+    getColumnMappingError,
+    columnSelection: {
+      mapped: [
+        timestampColumn,
+        tableType === "event" ? inlineFilterColumn : "",
+        ...Object.values(userIdColumns),
+      ].filter(Boolean),
+      removed: removedColumns,
+    },
+    onSelectTable: (tableName) => {
+      if (!name || name === source.tableName) setName(tableName);
+      setRemovedColumns([]);
+      // Otherwise the previous table's mappings carry over
+      setTimestampColumn("");
+      setUserIdColumns({});
+      setInlineFilterColumn("");
+    },
+    onColumnsChanged: remapColumns,
+  });
+  const {
+    mode,
+    selectedTable,
+    detected,
+    sqlColumns,
+    otherColumns,
+    additionalColumns,
+    partition,
+  } = source;
+  const factTableSql = source.querySql;
+
   const timestampOptions = (detected || []).filter(isTimestampCandidate);
   const identifierOptions = (detected || []).filter(isIdentifierCandidate);
   // An event type is a low-cardinality string many rows share. A column named
@@ -362,114 +440,6 @@ export default function NewFactTableModal({
       c.column !== timestampColumn &&
       !Object.values(userIdColumns).includes(c.column),
   );
-
-  const removeIdentifier = (idType: string) =>
-    setUserIdColumns((prev) => {
-      const next = { ...prev };
-      delete next[idType];
-      return next;
-    });
-
-  const handleColumnsDetected = useCallback(
-    (columns: DetectedColumn[], ranSql: string | null = null) => {
-      setDetectedSql(ranSql);
-      setDetected(columns);
-
-      // Only re-detect when the SQL returns a different set of columns.
-      // Better types for the same columns leave the configuration alone.
-      if (detected && haveSameColumnNames(detected, columns)) return;
-
-      const exists = (column: string) =>
-        columns.some((c) => c.column === column);
-
-      const idTypes = (datasource?.settings?.userIdTypes || []).map(
-        (t) => t.userIdType,
-      );
-
-      // A mapping the user picked survives as long as its column does; only
-      // the ones that no longer resolve are detected again.
-      setTimestampColumn((prev) =>
-        exists(prev) ? prev : getDefaultTimestampColumn(columns),
-      );
-      setUserIdColumns((prev) =>
-        Object.fromEntries(
-          idTypes.flatMap((idType) => {
-            const current = prev[idType];
-            if (current && exists(current)) return [[idType, current]];
-            const match = findColumnByName(columns, idType);
-            return match ? [[idType, match]] : [];
-          }),
-        ),
-      );
-      if (exists(inlineFilterColumn)) return;
-      // Case-insensitive: Snowflake's information schema reports EVENT_NAME
-      const eventTypeColumn =
-        INLINE_FILTER_CANDIDATES.map((candidate) =>
-          columns.find(
-            (c) =>
-              c.datatype === "string" &&
-              c.column.toLowerCase() === candidate.toLowerCase(),
-          ),
-        ).find(Boolean)?.column ?? "";
-      setInlineFilterColumn(eventTypeColumn);
-      setTableType(eventTypeColumn ? "event" : "model");
-    },
-    [detected, datasource, inlineFilterColumn],
-  );
-
-  // Mapped columns are always selected and the rest unless removed. Nothing
-  // removed selects every column.
-  function getColumnSelection(columnNames: string[]) {
-    const mappedColumns = [
-      timestampColumn,
-      tableType === "event" ? inlineFilterColumn : "",
-      ...Object.values(userIdColumns),
-    ].filter(Boolean);
-    const otherColumns = columnNames.filter((c) => !mappedColumns.includes(c));
-    const additionalColumns = otherColumns.filter(
-      (c) => !removedColumns.includes(c),
-    );
-    const sqlColumns =
-      additionalColumns.length === otherColumns.length
-        ? []
-        : columnNames.filter(
-            (c) => mappedColumns.includes(c) || additionalColumns.includes(c),
-          );
-    return { otherColumns, additionalColumns, sqlColumns };
-  }
-
-  const source = useSourceTable({
-    datasource,
-    tableModeAvailable: growthbook.isOn("fact-table-table-mode"),
-    templates: [GA4_EVENTS_TEMPLATE],
-    selectColumns: (columnNames) => getColumnSelection(columnNames).sqlColumns,
-    setSql,
-    onSelectTable: (tableName) => {
-      if (!name || name === source.tableName) setName(tableName);
-      setRemovedColumns([]);
-      // Otherwise the previous table's mappings carry over
-      setDetected(null);
-      setTimestampColumn("");
-      setUserIdColumns({});
-      setInlineFilterColumn("");
-    },
-    onColumnsDetected: handleColumnsDetected,
-  });
-  const { mode, selectedTable, pickerColumns, sqlColumns, partition } = source;
-  const { otherColumns, additionalColumns } = getColumnSelection(
-    source.columnNames,
-  );
-  const factTableSql = mode === "table" ? source.tableSql : sql;
-
-  const hasFreshResults = detectedSql === factTableSql && !!detected?.length;
-  const columnError =
-    mode === "table"
-      ? pickerColumns
-        ? getColumnMappingError(pickerColumns, true)
-        : null
-      : hasFreshResults && detected
-        ? getColumnMappingError(detected)
-        : null;
 
   const missingMapping = !validColumn(timestampOptions, timestampColumn)
     ? "Select a timestamp column"
@@ -625,23 +595,13 @@ export default function NewFactTableModal({
             ? "Loading columns..."
             : null) ?? undefined
       }
-      ctaEnabled={
-        step > 0
-          ? !missingMapping
-          : !columnError &&
-            (mode === "sql" ||
-              (!!pickerColumns && source.rowFilterWhere !== null))
-      }
+      ctaEnabled={step > 0 ? !missingMapping : source.canContinue}
       overflowAuto={false}
       autoFocusSelector=""
       hideNav
       bodyClassName="p-0"
       backButton
-      onBackFirstStep={
-        mode === "sql" && source.tableModeAvailable
-          ? () => source.setMode("table")
-          : undefined
-      }
+      onBackFirstStep={source.backToTableMode}
     >
       <Page
         display="Write SQL"
@@ -659,7 +619,10 @@ export default function NewFactTableModal({
         >
           <SourceStep
             key={mode}
-            datasourceId={datasourceId}
+            source={source}
+            validateRef={validateSql}
+            queryType="factTableTest"
+            placeholder={"SELECT\n  user_id,\n  timestamp\nFROM\n  events"}
             datasourceHeader={
               <Select
                 aria-label="Data Source"
@@ -676,17 +639,6 @@ export default function NewFactTableModal({
                 ))}
               </Select>
             }
-            sql={factTableSql}
-            setSql={setSql}
-            detected={detected}
-            hasFreshResults={hasFreshResults}
-            onColumnsDetected={handleColumnsDetected}
-            validateRef={validateSql}
-            columnError={columnError}
-            getColumnMappingError={getColumnMappingError}
-            queryType="factTableTest"
-            placeholder={"SELECT\n  user_id,\n  timestamp\nFROM\n  events"}
-            source={source}
           />
         </Box>
       </Page>

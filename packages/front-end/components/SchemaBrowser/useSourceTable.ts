@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   DetectedColumn,
@@ -25,6 +25,7 @@ import {
   getPickerTableColumns,
   getPickerTableName,
   getPickerTableSql,
+  haveSameColumnNames,
   isPseudoColumn,
   SourceTableTemplate,
 } from "@/services/factTables";
@@ -41,20 +42,31 @@ export function useSourceTable({
   datasource,
   tableModeAvailable,
   templates,
-  selectColumns,
+  sql,
   setSql,
+  initialColumns = null,
+  getColumnMappingError,
+  columnSelection,
   onSelectTable,
-  onColumnsDetected,
+  onColumnsChanged,
 }: {
   datasource: DataSourceInterfaceWithParams | null | undefined;
   tableModeAvailable: boolean;
   templates: SourceTableTemplate[];
-  // The columns to SELECT from the table's columns; empty selects every one
-  selectColumns?: (columnNames: string[]) => string[];
-  // Switching to SQL mode seeds the editor with the generated SQL
+  // SQL mode's query; switching to SQL mode seeds it with the generated SQL
+  sql: string;
   setSql: (sql: string) => void;
+  // Columns already known for `sql`, e.g. a saved query's
+  initialColumns?: DetectedColumn[] | null;
+  getColumnMappingError: (
+    columns: DetectedColumn[],
+    fromTable?: boolean,
+  ) => string | null;
+  // Columns kept out of the generated SELECT. Removing none selects every one.
+  columnSelection?: { mapped: string[]; removed: string[] };
   onSelectTable: (tableName: string) => void;
-  onColumnsDetected: (columns: DetectedColumn[]) => void;
+  // Called when the detected columns change, not when only their types do
+  onColumnsChanged: (columns: DetectedColumn[]) => void;
 }) {
   const { apiCall } = useAuth();
   const datasourceId = datasource?.id ?? "";
@@ -75,6 +87,23 @@ export function useSourceTable({
     columns?: Column[];
     error?: string;
   } | null>(null);
+  const [detected, setDetected] = useState(initialColumns);
+  const [detectedSql, setDetectedSql] = useState<string | null>(
+    initialColumns ? sql : null,
+  );
+
+  const onColumnsChangedRef = useRef(onColumnsChanged);
+  onColumnsChangedRef.current = onColumnsChanged;
+  const handleColumnsDetected = useCallback(
+    (columns: DetectedColumn[], ranSql: string | null = null) => {
+      setDetectedSql(ranSql);
+      setDetected(columns);
+      if (!detected || !haveSameColumnNames(detected, columns)) {
+        onColumnsChangedRef.current(columns);
+      }
+    },
+    [detected],
+  );
 
   useEffect(() => {
     setSelectedTable(null);
@@ -95,6 +124,7 @@ export function useSourceTable({
     if (table.path === selectedTable?.path) return;
     onSelectTable(getPickerTableName(table, findTemplate(table)));
     setSelectedTable(table);
+    setDetected(null);
     setUnlistedColumns(null);
     setRowFilters([]);
     setPartitionChoice(null);
@@ -217,12 +247,25 @@ export function useSourceTable({
   );
   useEffect(() => {
     if (mode === "table" && pickerColumns) {
-      onColumnsDetected(pickerColumns);
+      handleColumnsDetected(pickerColumns);
     }
-  }, [mode, pickerColumns, onColumnsDetected]);
+  }, [mode, pickerColumns, handleColumnsDetected]);
 
   const columnNames = (outputColumns ?? []).map((c) => c.columnName);
-  const sqlColumns = selectColumns?.(columnNames) ?? [];
+  const otherColumns = columnNames.filter(
+    (c) => !columnSelection?.mapped.includes(c),
+  );
+  const additionalColumns = otherColumns.filter(
+    (c) => !columnSelection?.removed.includes(c),
+  );
+  const sqlColumns =
+    additionalColumns.length === otherColumns.length
+      ? []
+      : columnNames.filter(
+          (c) =>
+            columnSelection?.mapped.includes(c) ||
+            additionalColumns.includes(c),
+        );
 
   const dialect = datasource ? getDataSourceSqlDialect(datasource.type) : null;
   const compileRowFilters = (filters: RowFilter[]) => {
@@ -313,7 +356,33 @@ export function useSourceTable({
     setPreferredMode(next);
   };
 
+  const querySql = mode === "table" ? tableSql : sql;
+  const hasFreshResults = detectedSql === querySql && !!detected?.length;
+  const columnError =
+    mode === "table"
+      ? pickerColumns
+        ? getColumnMappingError(pickerColumns, true)
+        : null
+      : hasFreshResults && detected
+        ? getColumnMappingError(detected)
+        : null;
+
   return {
+    datasourceId,
+    querySql,
+    setSql,
+    detected,
+    handleColumnsDetected,
+    hasFreshResults,
+    columnError,
+    getColumnMappingError,
+    // Table mode needs the columns loaded and complete filters; SQL mode is
+    // validated when the step is submitted
+    canContinue:
+      !columnError &&
+      (mode === "sql" || (!!pickerColumns && rowFilterWhere !== null)),
+    backToTableMode:
+      mode === "sql" && tableModeAvailable ? () => setMode("table") : undefined,
     mode,
     setMode,
     tableModeAvailable,
@@ -326,9 +395,10 @@ export function useSourceTable({
     retryColumns,
     refreshColumns,
     columnTypes,
-    columnNames,
     columnSource,
     pickerColumns,
+    otherColumns,
+    additionalColumns,
     sqlColumns,
     rowFilters,
     setRowFilters,
