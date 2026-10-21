@@ -17264,6 +17264,58 @@ paths:
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/experiments/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/log:
+    get:
+      operationId: getExperimentLog
+      summary: Get audit log for an experiment
+      description: >-
+        Returns a paginated list of audit log events for a specific experiment,
+        newest first. Events include creation, updates, status changes (start,
+        stop, archive), phase changes, and more.
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - name: limit
+          in: query
+          description: Number of events to return (max 100, default 50)
+          schema:
+            description: Number of events to return (max 100, default 50)
+            type: string
+        - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/events'
+                  total:
+                    description: Total count of matching audit events for this experiment
+                    type: integer
+                  nextCursor:
+                    description: >-
+                      Pagination cursor to fetch the next page. Null when no
+                      more events exist.
+                    anyOf:
+                      - type: string
+                      - type: 'null'
+                required:
+                  - events
+                  - total
+                  - nextCursor
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET 'https://api.growthbook.io/api/v1/experiments/{id}/log'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/start-checklist:
     get:
       operationId: getExperimentStartChecklist
@@ -18396,7 +18448,28 @@ paths:
                   events:
                     type: array
                     items:
-                      $ref: '#/components/schemas/events'
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        contextualBandit:
+                          type: string
+                        snapshotId:
+                          type: string
+                        weightsWereUpdated:
+                          type: boolean
+                        degreesOfFreedom:
+                          type: integer
+                          minimum: 0
+                        dateCreated:
+                          type: string
+                      required:
+                        - id
+                        - contextualBandit
+                        - snapshotId
+                        - weightsWereUpdated
+                        - dateCreated
+                      additionalProperties: false
                 required:
                   - events
                 additionalProperties: false
@@ -18430,7 +18503,7 @@ paths:
                 type: object
                 properties:
                   event:
-                    $ref: '#/components/schemas/events'
+                    $ref: '#/components/schemas/event'
                 required:
                   - event
                 additionalProperties: false
@@ -64545,6 +64618,17 @@ components:
         enum:
           - asc
           - desc
+    cursor:
+      name: cursor
+      in: query
+      description: >-
+        Pagination cursor (ISO date string from a previous response's
+        nextCursor)
+      schema:
+        description: >-
+          Pagination cursor (ISO date string from a previous response's
+          nextCursor)
+        type: string
     phase:
       name: phase
       in: query
@@ -85887,6 +85971,36 @@ components:
         - timestamp
         - user
       additionalProperties: false
+    events:
+      type: object
+      properties:
+        id:
+          description: Unique audit event ID
+          type: string
+        event:
+          description: The event type (e.g. experiment.create)
+          type: string
+        dateCreated:
+          format: date-time
+          type: string
+        user:
+          description: Who performed the action
+          anyOf:
+            - title: Event User
+              $ref: '#/components/schemas/EventUser'
+            - type: 'null'
+        reason:
+          description: Optional reason for the change
+          type: string
+        details:
+          description: JSON string with before/after details for update events
+          type: string
+      required:
+        - id
+        - event
+        - dateCreated
+        - user
+      additionalProperties: false
     checklistItems:
       type: object
       properties:
@@ -86012,7 +86126,7 @@ components:
         - status
         - dateCreated
       additionalProperties: false
-    events:
+    event:
       type: object
       properties:
         id:

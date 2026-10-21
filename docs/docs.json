@@ -690,6 +690,7 @@
                   "api/experiments/operation/listExperimentResults",
                   "api/experiments/operation/getExperiment",
                   "api/experiments/operation/updateExperiment",
+                  "api/experiments/operation/getExperimentLog",
                   "api/experiments/operation/getExperimentStartChecklist",
                   "api/experiments/operation/getExperimentResults",
                   "api/experiments/operation/postExperimentStart",

@@ -4,7 +4,7 @@ import {
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
   MAX_DESCRIPTION_LENGTH,
 } from "shared/constants";
-import { REQUIRES_PERSON_NOTE } from "./event-user";
+import { apiEventUser, REQUIRES_PERSON_NOTE } from "./event-user";
 import { FEATURE_LANDING_ACTIONS } from "./confirmations";
 import {
   apiAssignmentQueryInputFields,
@@ -2627,4 +2627,60 @@ export const getExperimentSnapshotValidator = {
   tags: ["snapshots"],
   method: "get" as const,
   path: "/snapshots/:id",
+};
+
+const apiAuditLogEventValidator = z
+  .object({
+    id: z.string().describe("Unique audit event ID"),
+    event: z.string().describe("The event type (e.g. experiment.create)"),
+    dateCreated: z.string().meta({ format: "date-time" }),
+    user: apiEventUser.nullable().describe("Who performed the action"),
+    reason: z.string().optional().describe("Optional reason for the change"),
+    details: z
+      .string()
+      .optional()
+      .describe("JSON string with before/after details for update events"),
+  })
+  .strict();
+
+export const getExperimentLogValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      limit: z
+        .string()
+        .optional()
+        .describe("Number of events to return (max 100, default 50)"),
+      cursor: z
+        .string()
+        .optional()
+        .describe(
+          "Pagination cursor (ISO date string from a previous response's nextCursor)",
+        ),
+    })
+    .strict(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      events: z.array(apiAuditLogEventValidator),
+      total: z
+        .number()
+        .int()
+        .describe("Total count of matching audit events for this experiment"),
+      nextCursor: z
+        .string()
+        .nullable()
+        .describe(
+          "Pagination cursor to fetch the next page. Null when no more events exist.",
+        ),
+    })
+    .strict(),
+  summary: "Get audit log for an experiment",
+  description:
+    "Returns a paginated list of audit log events for a specific experiment, newest first. " +
+    "Events include creation, updates, status changes (start, stop, archive), phase changes, and more.",
+  operationId: "getExperimentLog",
+  tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments/:id/log",
 };
