@@ -176,6 +176,8 @@ export function getExperimentFactMetricStatisticsCTE(
               numeratorCapRef,
               denominatorCapRef,
             } = getStatisticColumnRefs(dialect, data, useClusterRollup);
+            const createRatioStatistic =
+              data.ratioMetric || data.isClusterRatioConversion;
             const numeratorPercentileCapCols = [
               numeratorUpperPct
                 ? `
@@ -250,7 +252,7 @@ export function getExperimentFactMetricStatisticsCTE(
                 : ""
             }
             ${
-              data.ratioMetric || data.isClusterRatioConversion
+              createRatioStatistic
                 ? `
                 ${
                   data.computeUncappedMetric
@@ -318,7 +320,7 @@ export function getExperimentFactMetricStatisticsCTE(
               }
             `
             }
-          `; /*ends ifelse ratioMetric*/
+          `; /*ends ifelse createRatioStatistic*/
           })
           .join("\n")}
       FROM

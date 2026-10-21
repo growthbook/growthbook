@@ -321,7 +321,8 @@ export function getMetricSettingsForStatsEngine(
   // Cluster-level metrics are a standard analysis with the cluster as the unit.
   const isClusterMetric = isSubUnitClusterMetric(metric, settings);
 
-  const ratioMetric = isClusterMetric || isRatioMetric(metric, denominator);
+  const createRatioStatistic =
+    isClusterMetric || isRatioMetric(metric, denominator);
   const quantileMetric = quantileMetricType(metric);
   const regressionAdjusted =
     settings.regressionAdjustmentEnabled &&
@@ -341,7 +342,7 @@ export function getMetricSettingsForStatsEngine(
   }
   // Fact ratio metrics (and every cluster metric) carry the denominator on the
   // metric row itself.
-  if (isClusterMetric || (isFactMetric(metric) && ratioMetric)) {
+  if (isClusterMetric || (isFactMetric(metric) && createRatioStatistic)) {
     denominator = metric;
   }
 
@@ -354,9 +355,9 @@ export function getMetricSettingsForStatsEngine(
         ? "quantile_unit"
         : quantileMetric === "event"
           ? "quantile_event"
-          : ratioMetric && regressionAdjusted
+          : createRatioStatistic && regressionAdjusted
             ? "ratio_ra"
-            : ratioMetric && !regressionAdjusted
+            : createRatioStatistic && !regressionAdjusted
               ? "ratio"
               : regressionAdjusted
                 ? "mean_ra"
