@@ -126,13 +126,20 @@ describe("getEffectiveRolesForProject", () => {
       additionalRoles: [
         { role: "engineer", limitAccessByEnvironment: false, environments: [] },
       ],
+      projectRoles: [
+        readonlyIn("prj_a"),
+        { ...readonlyIn("prj_b"), role: "admin" },
+      ],
     };
-    const expected = {
+    expect(split(member, "prj_a", [])).toEqual({
       applied: ["admin"],
       shadowed: ["all:engineer", "prj_a:readonly"],
-    };
-    expect(split(member, "prj_a", [])).toEqual(expected);
-    expect(split(member, null, [])).toEqual(expected);
+    });
+    // A project Admin rule is shadowed too, not merged into the global one.
+    expect(split(member, null, [])).toEqual({
+      applied: ["admin"],
+      shadowed: ["all:engineer", "prj_a:readonly", "prj_b:admin"],
+    });
   });
 
   it("shadows a project's other rules beside a project-scoped Admin", () => {

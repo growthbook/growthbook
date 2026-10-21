@@ -587,7 +587,8 @@ export function getEffectiveRolesForProject(
   );
 
   if (globals.some((r) => r.role === "admin")) {
-    return shadowedByAdmin([...globals, ...projectRules]);
+    const { applied, shadowed } = shadowedByAdmin(globals);
+    return { applied, shadowed: [...shadowed, ...projectRules] };
   }
   // An explicit project role takes precedence over global roles, so only fall
   // back to global roles when no explicit project role applies.
