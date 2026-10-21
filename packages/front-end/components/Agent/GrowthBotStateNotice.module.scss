@@ -1,0 +1,18 @@
+// The title's icon, centred on the title's 20px line.
+.titleIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-text-low);
+}
+
+.action {
+  margin-top: var(--space-4);
+}
+
+.centered {
+  text-align: center;
+
+  .titleIcon {
+    margin-top: 0;
+  }
+}

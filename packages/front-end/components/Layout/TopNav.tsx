@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { PiList, PiSparkle } from "react-icons/pi";
+import { PiList } from "react-icons/pi";
 import { IconButton } from "@radix-ui/themes";
 import Head from "next/head";
 import Breadcrumbs from "@/ui/Breadcrumbs";
@@ -7,11 +7,11 @@ import NoticeStack from "@/components/Notices/NoticeStack";
 import useAccountPlanNotices from "@/components/Notices/useAccountPlanNotices";
 import useKeyExpiryNotices from "@/components/Notices/useKeyExpiryNotices";
 import { usePayloadSizeNotices } from "@/components/Features/SDKConnections/PayloadSizeNotices";
-import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
 import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 import HeaderBreadcrumb from "./HeaderBreadcrumb";
 import ProfileMenu from "./ProfileMenu";
+import GrowthBotButton from "./GrowthBotButton";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -33,12 +33,6 @@ const TopNav: FC<{
     ...usePayloadSizeNotices(),
     ...useKeyExpiryNotices(),
   ];
-
-  const {
-    available: agentAvailable,
-    open: agentOpen,
-    togglePanel: toggleAgentPanel,
-  } = useAgentPanel();
 
   const renderTitleOrBreadCrumb = () => {
     const breadcrumbItems =
@@ -96,24 +90,7 @@ const TopNav: FC<{
               <NoticeStack notices={notices} />
             </div>
           )}
-          {agentAvailable && (
-            <button
-              type="button"
-              onClick={toggleAgentPanel}
-              aria-label={
-                agentOpen
-                  ? "Close GrowthBook AI assistant"
-                  : "Open GrowthBook AI assistant"
-              }
-              aria-pressed={agentOpen}
-              title="Ask GrowthBook AI"
-              className={`nav-link ${styles.agentTrigger} ${
-                agentOpen ? styles.agentTriggerActive : ""
-              }`}
-            >
-              <PiSparkle size={18} />
-            </button>
-          )}
+          <GrowthBotButton />
           {/* With the side nav, the profile menu is in it. */}
           {toggleLeftMenu ? null : <ProfileMenu />}
         </div>
