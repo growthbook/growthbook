@@ -9,6 +9,7 @@ import {
   stepHoldConditions,
   isAwaitingStartApproval,
   readOnlyEcho,
+  HUMAN_OVERRIDE_NOTE,
 } from "shared/validators";
 import type { RampScheduleInterface } from "shared/validators";
 import {
@@ -770,7 +771,7 @@ export const apiAdvanceRampSchedule = createApiRequestHandler({
         .boolean()
         .optional()
         .describe(
-          "Bypass a pending approval gate on the current step. Requires admin-level (`FlagsBypassApprovals`) permission. When omitted or `false`, a 409 is returned if the step has an unsatisfied `holdConditions.requiresApproval` gate.",
+          `Bypass a pending approval gate on the current step. Requires admin-level (\`FlagsBypassApprovals\`) permission. When omitted or \`false\`, a 409 is returned if the step has an unsatisfied \`holdConditions.requiresApproval\` gate. ${HUMAN_OVERRIDE_NOTE}`,
         ),
     })
     .optional(),

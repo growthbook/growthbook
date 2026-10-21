@@ -1034,6 +1034,17 @@
                 ]
               },
               {
+                "group": "Interleaving Experiments",
+                "pages": [
+                  "api/Interleavings/operation/getInterleaving",
+                  "api/Interleavings/operation/updateInterleaving",
+                  "api/Interleavings/operation/listInterleavings",
+                  "api/Interleavings/operation/createInterleaving",
+                  "api/Interleavings/operation/startInterleaving",
+                  "api/Interleavings/operation/stopInterleaving"
+                ]
+              },
+              {
                 "group": "Custom Fields",
                 "pages": [
                   "api/CustomFields/operation/listCustomFields",
@@ -1222,6 +1233,7 @@
               "api/Holdout_model",
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
+              "api/Interleaving_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",
@@ -1260,7 +1272,8 @@
               "api/TargetingReviewRule_model",
               "api/Team_model",
               "api/VisualChange_model",
-              "api/VisualChangeset_model"
+              "api/VisualChangeset_model",
+              "api/VisualEditorCbExperimentStub_model"
             ]
           }
         ]

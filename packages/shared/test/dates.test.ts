@@ -1,5 +1,6 @@
 import {
   dateStringArrayBetweenDates,
+  datetimeWithZone,
   getValidDate,
   lastMondayString,
   parseWarehouseDate,
@@ -26,6 +27,17 @@ describe("getValidDate", () => {
     expect(getValidDate(d, fallback)).toEqual(d);
     expect(getValidDate(t, fallback)).toEqual(d);
     expect(getValidDate(d.toISOString(), fallback)).toEqual(d);
+  });
+});
+
+describe("datetimeWithZone", () => {
+  it("appends the viewer's zone to the local date and time", () => {
+    const local = new Date(2026, 9, 21, 12, 0);
+    expect(datetimeWithZone(local)).toMatch(/^Oct 21, 2026 at 12:00 PM \S+$/);
+  });
+
+  it("is empty for a missing date", () => {
+    expect(datetimeWithZone("")).toBe("");
   });
 });
 

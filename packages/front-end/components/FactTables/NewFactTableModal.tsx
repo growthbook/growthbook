@@ -292,7 +292,15 @@ function AdditionalColumnsRow({
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
-export default function NewFactTableModal({ close }: { close: () => void }) {
+export default function NewFactTableModal({
+  close,
+  datasourceId: initialDatasourceId,
+  lockDatasource = false,
+}: {
+  close: () => void;
+  datasourceId?: string;
+  lockDatasource?: boolean;
+}) {
   const router = useRouter();
   const growthbook = useGrowthBook();
   const { apiCall } = useAuth();
@@ -304,6 +312,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
   const [step, setStep] = useState(0);
   const [datasourceId, setDatasourceId] = useState(
     () =>
+      initialDatasourceId ||
       getNewExperimentDatasourceDefaults({ datasources, settings, project })
         .datasource,
   );
@@ -656,6 +665,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
                 aria-label="Data Source"
                 value={datasourceId}
                 setValue={setDatasourceId}
+                disabled={lockDatasource}
                 placeholder="Select..."
                 mb="0"
               >

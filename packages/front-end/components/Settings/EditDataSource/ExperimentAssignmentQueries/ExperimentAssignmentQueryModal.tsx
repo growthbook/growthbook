@@ -112,12 +112,15 @@ function getSavedColumns(query: ExposureQuery): DetectedColumn[] {
 export const ExperimentAssignmentQueryModal = ({
   dataSource,
   exposureQuery,
+  defaultIdentifierTypes,
   onSave,
   onCancel,
 }: {
   dataSource: DataSourceInterfaceWithParams;
   // Edits this query when set; otherwise creates a new one.
   exposureQuery?: ExposureQuery;
+  // Identifiers a new query is meant to cover, shown in the SQL placeholder
+  defaultIdentifierTypes?: string[];
   onSave: (exposureQuery: ExposureQuery) => Promise<void> | void;
   onCancel: () => void;
 }) => {
@@ -176,6 +179,9 @@ export const ExperimentAssignmentQueryModal = ({
     [dataSource],
   );
   const canRunQueries = permissionsUtil.canRunTestQueries(dataSource);
+  const placeholderIdentifierTypes = defaultIdentifierTypes?.length
+    ? defaultIdentifierTypes
+    : identifierTypes.slice(0, 1);
 
   const columns = detected || [];
   const timestampOptions = columns.filter(isTimestampCandidate);
@@ -516,9 +522,11 @@ export const ExperimentAssignmentQueryModal = ({
             columnError={columnError}
             getColumnMappingError={getExposureQueryColumnMappingError}
             queryType="exposureQueryTest"
-            placeholder={
-              "SELECT\n  user_id,\n  timestamp,\n  experiment_id,\n  variation_id\nFROM\n  exposures"
-            }
+            placeholder={`SELECT\n${placeholderIdentifierTypes
+              .map((id) => `  ${id},\n`)
+              .join(
+                "",
+              )}  timestamp,\n  experiment_id,\n  variation_id\nFROM\n  exposures`}
             source={source}
           />
         </Box>
