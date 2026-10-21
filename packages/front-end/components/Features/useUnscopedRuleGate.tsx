@@ -4,6 +4,7 @@ import { FeatureRuleScope, isUnscopedRule } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
 import Checkbox from "@/ui/Checkbox";
+import { StopSubmit } from "@/ui/Modal/StopSubmit";
 
 // `previous`: every earlier copy of the rule the server may compare against.
 // The banner appears once a save is stopped, then gates Save until acknowledged.
@@ -25,11 +26,11 @@ export default function useUnscopedRuleGate(
   return {
     allowUnscopedRules: gated && acknowledged,
     unscopedRuleBlocksSubmit: gated && stopped && !acknowledged,
-    // Call in submit before any request. The empty error keeps the modal open quietly.
+    // Call in submit before any request.
     checkUnscopedRule: () => {
       if (gated && !acknowledged) {
         setStopped(true);
-        throw new Error("");
+        throw new StopSubmit();
       }
     },
     unscopedRuleBanner:
@@ -48,7 +49,7 @@ export default function useUnscopedRuleGate(
           }
         >
           Your organization requires rules to target specific environments or
-          projects.
+          Projects.
         </ModalWarningBanner>
       ) : null,
   };

@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { CSSProperties, ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import Modal, { Size, TrackingEventModalProps } from "@/ui/Modal";
@@ -99,7 +99,17 @@ export default function ModalStandard({
       </Modal.Header>
       {subheader && <Modal.Description>{subheader}</Modal.Description>}
       <Modal.Body>{children}</Modal.Body>
-      {aboveFooterContent}
+      {aboveFooterContent ? (
+        <Box
+          style={
+            {
+              "--modal-warning-banner-inset": "var(--space-7)",
+            } as CSSProperties
+          }
+        >
+          {aboveFooterContent}
+        </Box>
+      ) : null}
       <Modal.Footer justify={secondaryAction ? "between" : "end"}>
         {secondaryAction ? <Box>{secondaryAction}</Box> : null}
         <Flex gap="3" align="center">

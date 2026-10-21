@@ -171,8 +171,8 @@ export default function FeatureSettings() {
           <Box mb="6" width="100%">
             <Checkbox
               id="toggle-requireScopedFeatureRules"
-              label="Require rules to target specific environments or projects"
-              description="Rules for all environments and all projects need an extra confirmation."
+              label="Require rules to target specific environments or Projects"
+              description="Rules for All Environments and All Projects need an extra confirmation."
               value={!!form.watch("requireScopedFeatureRules")}
               setValue={(value) =>
                 form.setValue("requireScopedFeatureRules", value, {

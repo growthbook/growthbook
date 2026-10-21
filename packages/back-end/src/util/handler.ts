@@ -281,13 +281,17 @@ export async function runApiHandler(
           '\n\nEither address the warnings or re-send with `"ignoreWarnings": true` in the request body to acknowledge them and proceed.';
       }
     }
-    if (
-      e instanceof UnscopedRuleError &&
-      !(req as unknown as ApiRequestLocals).isJwtAuth
-    ) {
-      body.message =
-        e.message +
-        ' Pick specific environments or projects, or resend with `"allowUnscopedRules": true` in the request body.';
+    if (!(req as unknown as ApiRequestLocals).isJwtAuth) {
+      if (e instanceof UnscopedRuleError) {
+        body.message =
+          e.message +
+          ' Pick specific environments or Projects, or resend with `"allowUnscopedRules": true` in the request body.';
+      }
+      if (e instanceof DraftLimitError) {
+        body.message =
+          e.message +
+          " To create a new one anyway, resend with `?overrideDraftLimit=true`.";
+      }
     }
     const status = e.status || 400;
     return {

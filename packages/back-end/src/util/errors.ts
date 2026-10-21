@@ -76,7 +76,7 @@ export class UnscopedRuleError extends ApiError<"unscoped_rule"> {
   constructor(count: number, ruleIds: string[]) {
     super(
       "unscoped_rule",
-      `${count === 1 ? "This rule applies" : `${count} rules apply`} to all environments and projects. Your organization requires rules to target specific environments or projects.`,
+      `${count === 1 ? "This rule applies" : `${count} rules apply`} to All Environments and All Projects. Your organization requires rules to target specific environments or Projects.`,
       { ruleIds },
     );
     this.name = "UnscopedRuleError";

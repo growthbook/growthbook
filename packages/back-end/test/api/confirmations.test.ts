@@ -707,6 +707,7 @@ describe("confirmations", () => {
 
     const refused = await createDraft("");
     expect(refused.status).toBe(409);
+    expect(refused.body.message).toContain("?overrideDraftLimit=true");
     const held = await createDraft("?overrideDraftLimit=true");
     expect(held.status).toBe(202);
     expect(held.body.confirmation.actions).toEqual([
@@ -719,7 +720,16 @@ describe("confirmations", () => {
         .findOne({ id: held.body.confirmation.id }),
     ).toMatchObject({
       notices: [
-        { severity: "warning", messages: [refused.body.message], via: null },
+        {
+          severity: "warning",
+          messages: [
+            refused.body.message.replace(
+              " To create a new one anyway, resend with `?overrideDraftLimit=true`.",
+              "",
+            ),
+          ],
+          via: null,
+        },
       ],
       lastAttemptAt: expect.any(Date),
     });
@@ -753,7 +763,7 @@ describe("confirmations", () => {
         {
           severity: "warning",
           messages: [
-            "This rule applies to all environments and projects. Your organization requires rules to target specific environments or projects.",
+            "This rule applies to All Environments and All Projects. Your organization requires rules to target specific environments or Projects.",
           ],
           via: null,
         },

@@ -45,9 +45,9 @@ export async function createFeatureDraft(
           ? `an active draft (revision ${drafts[0]})`
           : `${drafts.length} active drafts (revisions ${drafts.join(", ")})`;
       throw new DraftLimitError(
-        `This feature already has ${existing}, and your organization allows ${maxDrafts} per feature. Add your changes to ${
+        `This Feature Flag already has ${existing}, and your organization allows ${maxDrafts} per Feature Flag. Add your changes to ${
           drafts.length === 1 ? "that draft" : "one of them"
-        }, publish or discard a draft, or retry with ?overrideDraftLimit=true to create a new one anyway.`,
+        }, or publish or discard a draft first.`,
       );
     }
   }
