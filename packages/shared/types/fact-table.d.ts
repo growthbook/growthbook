@@ -262,4 +262,6 @@ export type RowFilterTestResults = FactFilterTestResults & {
   // can see what their filters compile to. Only the dialect can build it, so it
   // comes back with the results rather than being derived on the front-end.
   where: string;
+  // The whole query, when the filters apply to SQL we generated
+  generatedSql?: string;
 };

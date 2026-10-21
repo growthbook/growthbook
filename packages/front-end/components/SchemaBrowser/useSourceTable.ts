@@ -344,15 +344,17 @@ export function useSourceTable({
     filters: RowFilter[],
   ): Promise<RowFilterTestResults> => {
     const where = compileRowFilters(filters);
+    const generatedSql = buildTableSql(where);
     const res = await apiCall<FactFilterTestResults>("/query/test", {
       method: "POST",
       body: JSON.stringify({
-        query: buildTableSql(where),
+        query: generatedSql,
         datasourceId,
         limit: SAMPLE_ROW_LIMIT,
+        queryType,
       }),
     });
-    return { ...res, where };
+    return { ...res, where, generatedSql };
   };
 
   const setMode = (next: SourceMode) => {
