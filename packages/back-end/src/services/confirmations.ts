@@ -3,6 +3,7 @@ import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import type {
   ContextualBanditInterface,
+  InterleavingInterface,
   ExperimentInterface,
   ExperimentPhase,
   ApiConfirmation,
@@ -995,6 +996,41 @@ export function contextualBanditChangeActions(
       if (field === "status" || !changed(before[field], after)) continue;
       const action =
         BANDIT_FIELD_ACTIONS[field as keyof ContextualBanditInterface];
+      if (action !== null) actions.add(action ?? "experiment.other");
+    }
+  }
+  return actions.size ? [...actions] : ["experiment.draft"];
+}
+
+const INTERLEAVING_FIELD_ACTIONS: Partial<
+  Record<keyof InterleavingInterface, ConfirmAction | null>
+> = {
+  coverage: "experiment.traffic",
+  condition: "experiment.targeting",
+  savedGroups: "experiment.targeting",
+  prerequisites: "experiment.targeting",
+  environmentSettings: "experiment.targeting",
+  seed: "experiment.phases",
+  hashAttribute: "experiment.phases",
+  trackingKey: "experiment.phases",
+  name: null,
+  description: null,
+  owner: null,
+  tags: null,
+  archived: null,
+};
+
+export function interleavingChangeActions(
+  existing: InterleavingInterface,
+  changes: Partial<InterleavingInterface>,
+): ConfirmAction[] {
+  const actions = new Set<ConfirmAction>();
+  if (existing.status !== "draft") {
+    const before = existing as Record<string, unknown>;
+    for (const [field, after] of Object.entries(changes)) {
+      if (!changed(before[field], after)) continue;
+      const action =
+        INTERLEAVING_FIELD_ACTIONS[field as keyof InterleavingInterface];
       if (action !== null) actions.add(action ?? "experiment.other");
     }
   }
