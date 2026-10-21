@@ -29,12 +29,22 @@ import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 import { getFactMetricColumn } from "back-end/src/integrations/sql/columns/fact-metric-column";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
+import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
+
+/**
+ * Output column for one statistic of one metric. Keyed by metric id (not
+ * position) so the analysis can read results from the frozen metric list
+ * without re-resolving metrics or depending on how queries were grouped.
+ */
+export function interleavingMetricColumn(metricId: string, stat: string) {
+  return `${encodeMetricIdForColumnName(metricId)}_${stat}`;
+}
 
 /**
  * Sufficient-statistics query for interleaving experiments: one query per
  * fact table, covering every metric on that table and each analysis
- * requested on it. Output columns are prefixed m{i}_ by the metric's index
- * in `metrics`; paired and preference column names do not collide.
+ * requested on it. Output columns are named by interleavingMetricColumn;
+ * paired and preference statistic names do not collide.
  *
  * The exposure query returns ONE ROW PER IMPRESSION with the item detail in
  * an `items` JSON column (the SDK's nested exposure shape). __exposures
@@ -72,7 +82,10 @@ import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metri
 
 // One metric with the SQL fragments its CTEs need
 type PlanEntry = {
+  // Index within the query, used for intermediate CTE columns
   i: number;
+  // Output column prefix (see interleavingMetricColumn)
+  out: (stat: string) => string;
   paired: boolean;
   preference: boolean;
   // Aggregated metric value per group in __events
@@ -142,6 +155,7 @@ function buildPlan(
     });
     return {
       i,
+      out: (stat) => interleavingMetricColumn(metric.id, stat),
       ...has,
       value: agg.fullAggregationFunction(
         filters.length
@@ -397,22 +411,22 @@ export function getInterleavingMetricQuery(
   const gate = (i: number, expr: string) =>
     `SUM(${dialect.ifElse(`pu.exposures_${i} > 0`, expr, "0")})`;
   const finalCols = [
-    ...plan.paired.flatMap(({ i }) => [
-      `${gate(i, "1")} AS m${i}_users`,
-      `${gate(i, `pu.treatment_${i}`)} AS m${i}_treatment_sum`,
-      `${gate(i, `pu.treatment_${i} * pu.treatment_${i}`)} AS m${i}_treatment_sum_squares`,
-      `${gate(i, `pu.control_${i}`)} AS m${i}_control_sum`,
-      `${gate(i, `pu.control_${i} * pu.control_${i}`)} AS m${i}_control_sum_squares`,
-      `${gate(i, `pu.exposures_${i}`)} AS m${i}_exposures_sum`,
-      `${gate(i, `pu.exposures_${i} * pu.exposures_${i}`)} AS m${i}_exposures_sum_squares`,
-      `${gate(i, `pu.treatment_${i} * pu.control_${i}`)} AS m${i}_treatment_control_sum_product`,
-      `${gate(i, `pu.treatment_${i} * pu.exposures_${i}`)} AS m${i}_treatment_exposures_sum_product`,
-      `${gate(i, `pu.control_${i} * pu.exposures_${i}`)} AS m${i}_control_exposures_sum_product`,
+    ...plan.paired.flatMap(({ i, out }) => [
+      `${gate(i, "1")} AS ${out("users")}`,
+      `${gate(i, `pu.treatment_${i}`)} AS ${out("treatment_sum")}`,
+      `${gate(i, `pu.treatment_${i} * pu.treatment_${i}`)} AS ${out("treatment_sum_squares")}`,
+      `${gate(i, `pu.control_${i}`)} AS ${out("control_sum")}`,
+      `${gate(i, `pu.control_${i} * pu.control_${i}`)} AS ${out("control_sum_squares")}`,
+      `${gate(i, `pu.exposures_${i}`)} AS ${out("exposures_sum")}`,
+      `${gate(i, `pu.exposures_${i} * pu.exposures_${i}`)} AS ${out("exposures_sum_squares")}`,
+      `${gate(i, `pu.treatment_${i} * pu.control_${i}`)} AS ${out("treatment_control_sum_product")}`,
+      `${gate(i, `pu.treatment_${i} * pu.exposures_${i}`)} AS ${out("treatment_exposures_sum_product")}`,
+      `${gate(i, `pu.control_${i} * pu.exposures_${i}`)} AS ${out("control_exposures_sum_product")}`,
     ]),
-    ...plan.preference.flatMap(({ i }) => [
-      `SUM(${dialect.ifElse(`pref.wins_t_${i} > pref.wins_c_${i}`, "1", "0")}) AS m${i}_users_pref_treatment`,
-      `SUM(${dialect.ifElse(`pref.wins_c_${i} > pref.wins_t_${i}`, "1", "0")}) AS m${i}_users_pref_control`,
-      `SUM(${dialect.ifElse(`pref.wins_t_${i} = pref.wins_c_${i}`, "1", "0")}) AS m${i}_users_tied`,
+    ...plan.preference.flatMap(({ i, out }) => [
+      `SUM(${dialect.ifElse(`pref.wins_t_${i} > pref.wins_c_${i}`, "1", "0")}) AS ${out("users_pref_treatment")}`,
+      `SUM(${dialect.ifElse(`pref.wins_c_${i} > pref.wins_t_${i}`, "1", "0")}) AS ${out("users_pref_control")}`,
+      `SUM(${dialect.ifElse(`pref.wins_t_${i} = pref.wins_c_${i}`, "1", "0")}) AS ${out("users_tied")}`,
     ]),
   ];
 

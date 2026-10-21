@@ -52,6 +52,7 @@ const metricOn = (
 ) => {
   const { metricType, ...numerator } = overrides;
   return factMetricFactory.build({
+    id: `fact__${metricType ?? "proportion"}_${numerator.column ?? "count"}`,
     metricType: metricType ?? "proportion",
     numerator: { factTableId, column: "$$count", ...numerator },
   });
@@ -92,14 +93,16 @@ describe("getInterleavingMetricQuery", () => {
     expect(paired).toContain("jsonb_array_elements");
     expect(paired).toContain("__credited");
     expect(paired).toContain("__pairedUser");
-    expect(paired).toContain("m0_treatment_control_sum_product");
+    expect(paired).toContain(
+      "fact__proportion_count_treatment_control_sum_product",
+    );
     expect(paired).not.toContain("users_pref_treatment");
     expect(paired).not.toContain("__share");
     expect(paired).toContain("'featured-products-ranker'");
     expect(preference).toContain("__share");
-    expect(preference).toContain("m0_users_pref_treatment");
+    expect(preference).toContain("fact__proportion_count_users_pref_treatment");
     expect(preference).toMatch(
-      /WHEN pref\.wins_t_0 = pref\.wins_c_0 THEN 1\s+ELSE 0\s+END\s*\)\s*\) AS m0_users_tied/,
+      /WHEN pref\.wins_t_0 = pref\.wins_c_0 THEN 1\s+ELSE 0\s+END\s*\)\s*\) AS fact__proportion_count_users_tied/,
     );
     expect(preference).not.toContain("__credited");
     // Preference alone reads __events at item grain directly
@@ -107,9 +110,11 @@ describe("getInterleavingMetricQuery", () => {
     expect(preference).toContain("ev.value_0 * s.share_t, 0)) AS wins_t_0");
     expect(preference).toMatch(/GROUP BY\s+m\.user_id,\s+m\.item_id/);
     // Mixed: both chains off one events scan, rolled up for preference; one
-    // value column feeds both analyses under the same m0_ prefix
-    expect(both).toContain("m0_treatment_control_sum_product");
-    expect(both).toContain("m0_users_pref_treatment");
+    // value column feeds both analyses; output columns are keyed by metric id
+    expect(both).toContain(
+      "fact__proportion_count_treatment_control_sum_product",
+    );
+    expect(both).toContain("fact__proportion_count_users_pref_treatment");
     expect(both).not.toContain("value_1");
     expect(both).toContain("__itemEvents");
     expect(both).toMatch(
@@ -231,8 +236,8 @@ describe("getInterleavingMetricQuery dialects", () => {
     // The competitive filter and item grouping go through fieldText
     expect(squashed).toContain("= 'true'");
     expect(squashed).toContain("AS item_id");
-    expect(squashed).toContain("m0_treatment_sum");
-    expect(squashed).toContain("m0_users_tied");
+    expect(squashed).toContain("fact__proportion_count_treatment_sum");
+    expect(squashed).toContain("fact__proportion_count_users_tied");
     // Equi-join only; the timestamp test is in the credited value
     expect(squashed).not.toMatch(/ON \([^)]*>=/);
   });

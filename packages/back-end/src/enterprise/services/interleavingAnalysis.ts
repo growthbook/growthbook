@@ -8,6 +8,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { InterleavingResultsQueryRunner } from "back-end/src/enterprise/queryRunners/InterleavingResultsQueryRunner";
+import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
 
 type Context = ReqContext | ApiReqContext;
 
@@ -104,6 +105,9 @@ export async function runInterleavingSnapshot(
     context.permissions.throwPermissionError();
   }
 
+  // Resolve before the snapshot exists so a bad metric never creates one
+  const metrics = await resolveInterleavingMetrics(context, settings);
+
   const snapshot = await context.models.interleavingSnapshots.create({
     interleavingId: settings.interleavingId,
     project: interleaving.project,
@@ -119,7 +123,17 @@ export async function runInterleavingSnapshot(
     integration,
     false,
   );
-  return runner.startAnalysis({ snapshotSettings: settings });
+  try {
+    return await runner.startAnalysis({ snapshotSettings: settings, metrics });
+  } catch (e) {
+    // startAnalysis doesn't catch startQueries errors; without this the
+    // snapshot would stay "running" forever and the UI would poll it
+    await context.models.interleavingSnapshots.updateById(snapshot.id, {
+      status: "error",
+      error: e.message,
+    });
+    throw e;
+  }
 }
 
 /** Cancel a running snapshot's queries and delete it. */
