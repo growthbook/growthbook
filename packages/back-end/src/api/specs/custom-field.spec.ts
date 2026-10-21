@@ -36,6 +36,11 @@ export const customFieldApiSpec = {
   },
   includeDefaultCrud: false,
   crudActions: ["create", "delete", "get", "update"],
+  confirmation: {
+    create: ["customField.create"],
+    update: ["customField.edit"],
+    delete: ["customField.delete"],
+  },
   crudValidatorOverrides: {
     delete: apiDeleteCustomFieldValidator,
   },

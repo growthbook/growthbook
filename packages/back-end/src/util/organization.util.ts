@@ -51,6 +51,8 @@ export function getUserPermissions(
       },
       org,
       teams,
+      undefined,
+      { member: true },
     );
   }
 
@@ -64,6 +66,7 @@ export function getUserPermissions(
     teams,
     // Super admins bypass access-restricted projects
     user.superAdmin ? undefined : restrictedProjects,
+    { member: true },
   );
 }
 

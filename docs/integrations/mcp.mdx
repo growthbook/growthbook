@@ -151,7 +151,7 @@ If you run GrowthBook yourself, you can still use the official MCP server in two
 
 Runs `@growthbook/mcp` on your machine and talks to your GrowthBook API with an API key or personal access token (PAT). Requires **Node.js 18+**.
 
-1. Create a key in GrowthBook: **Settings** → **API Keys**, or a PAT under **Account** → **Personal Access Tokens**. A PAT is recommended so actions are attributed to your user and scoped to your permissions.
+1. Create a key in GrowthBook: **Settings** → **API Keys**, or a PAT under **Account** → **Personal Access Tokens**. A PAT is recommended so actions are attributed to your user and scoped to your permissions. With a Secret Key, set `GB_HTTP_HEADER_X_GROWTHBOOK_REQUESTED_BY` to your email to name yourself on each change. To have a person confirm risky changes before they run, turn on **Require confirmation** for the key. See [API Keys for Agents](/integrations/ai-agents/api-keys).
 2. Add an MCP server entry that runs `npx` with env vars:
 
 | Variable            | Status                   | Description                                                                     |

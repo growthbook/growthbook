@@ -2,6 +2,7 @@ import type { RevisionedEntityType } from "back-end/src/revisions/entityNames";
 import type {
   BypassedGate,
   PublishGate,
+  SkippedGate,
 } from "back-end/src/revisions/publishGates";
 import type { BulkRevisionRef } from "back-end/src/revisions/bulkPublish/BulkPublishableAdapter";
 
@@ -53,6 +54,7 @@ export type PlannedItemPublish = {
   baseline: ClaimBaseline;
   isApprovalBypass: boolean;
   bypassedGates: BypassedGate[];
+  skippedGates: SkippedGate[];
 };
 
 /** Read-only plan shared by dry-run and commit. */

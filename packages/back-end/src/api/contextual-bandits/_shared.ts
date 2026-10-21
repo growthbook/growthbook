@@ -8,6 +8,11 @@ import { ApiReqContext } from "back-end/types/api";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import {
+  featureDraftActions,
+  confirmationLink,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
+import {
   assertValidRuleConfigKeys,
   composeConfigBacking,
   resolveProjectScopeFromInput,
@@ -164,4 +169,28 @@ export function buildContextualBanditRefRule(
           : v.value,
     })),
   };
+}
+
+// Publishing the rule change now holds as landing its draft; staging it is draft
+// work, and all a landing can do when that draft is armed.
+export async function holdLinkedFeatureWrite(
+  context: ApiReqContext,
+  feature: FeatureInterface,
+  autoPublish: boolean | undefined,
+  draftVersion: number | string | undefined,
+) {
+  await requireConfirmation(context, {
+    actions: await featureDraftActions(
+      context,
+      feature.id,
+      draftVersion,
+      !!autoPublish,
+    ),
+    project: feature.project,
+    summary: autoPublish
+      ? `Publish the contextual bandit rule on ${feature.id}`
+      : `Draft the contextual bandit rule on ${feature.id}`,
+    links: [confirmationLink("feature", feature.id)],
+    pin: feature.dateUpdated,
+  });
 }

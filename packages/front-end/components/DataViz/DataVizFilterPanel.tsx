@@ -200,7 +200,7 @@ export default function DataVizFilterPanel({
                     // Default to last 30 days for date filters
                     const today = new Date();
                     const thirtyDaysAgo = new Date(today);
-                    thirtyDaysAgo.setDate(today.getDate() - 30);
+                    thirtyDaysAgo.setUTCDate(today.getUTCDate() - 30);
 
                     newFilter = {
                       column: firstColumnFilterOption.column,

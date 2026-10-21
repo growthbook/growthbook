@@ -20,7 +20,11 @@ import {
   UserContext,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
-import { ConditionInterface, TestedObj } from "./types/mongrule";
+import {
+  ConditionInterface,
+  EvalConditionOptions,
+  TestedObj,
+} from "./types/mongrule";
 import {
   chooseVariation,
   decrypt,
@@ -951,7 +955,7 @@ function conditionPasses(
   return evalCondition(
     getAttributes(ctx.user),
     condition,
-    ctx.global.savedGroups || {},
+    evalConditionOptions(ctx),
   );
 }
 
@@ -962,12 +966,22 @@ function evalParentCondition(
   ctx: EvalContext,
 ): boolean {
   try {
-    return evalCondition(obj, condition, ctx.global.savedGroups || {});
+    return evalCondition(obj, condition, evalConditionOptions(ctx));
   } catch (e) {
     process.env.NODE_ENV !== "production" &&
       ctx.global.log("Invalid prerequisite condition", { condition, error: e });
     return false;
   }
+}
+
+function evalConditionOptions(ctx: EvalContext): EvalConditionOptions {
+  return {
+    savedGroups: ctx.global.savedGroups || {},
+    // Checking types has a cost, so only in debug mode
+    onTypeMismatch: ctx.global.debug
+      ? (mismatch) => ctx.global.log("Type mismatch in condition", mismatch)
+      : undefined,
+  };
 }
 
 function isFilteredOut(filters: Filter[], ctx: EvalContext): boolean {

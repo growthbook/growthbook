@@ -2,6 +2,7 @@ import { cloneDeep, isEqual, omit } from "lodash";
 import { v4 as uuidv4 } from "uuid";
 import type {
   ExperimentSnapshotSettings,
+  ExperimentSnapshotTraffic,
   SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
@@ -26,7 +27,11 @@ import {
   VariationWeightPair,
   RevisionRampAction,
 } from "shared/validators";
-import { generateVariationId, validateFeatureValue } from "shared/util";
+import {
+  generateVariationId,
+  validateFeatureValue,
+  visualChangeHasContent,
+} from "shared/util";
 import {
   assertAtLeastTwoVariations,
   assertUniqueVariationIds,
@@ -73,6 +78,8 @@ import {
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBanditChanges";
+import { findVisualChangesetsByContextualBandit } from "back-end/src/models/VisualChangesetModel";
+import { onContextualBanditVisualStateChanged } from "back-end/src/services/contextualBanditVisualState";
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
 import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -1003,13 +1010,16 @@ export async function activatePendingContextualBanditVariations(
   const pendingIds = cb.variations.filter(isPendingVariation).map((v) => v.id);
   if (!pendingIds.length) return { activatedIds: [], updated: cb };
 
-  // An arm activates once it is live on every linked feature. With no linked
-  // features there is nothing gating activation, so pending arms activate
-  // immediately.
+  // An arm activates once every linked feature serves it and every changeset has content for it; with neither, nothing gates it.
   const liveArmInfo = await getLiveArmIdsByLinkedFeature(context, cb);
-  const activatedIds = liveArmInfo.length
+  const liveOnFeatures = liveArmInfo.length
     ? pendingIds.filter((id) => liveArmInfo.every((i) => i.liveArmIds.has(id)))
     : pendingIds;
+  const activatedIds = await filterArmsWithVisualContent(
+    context,
+    cb,
+    liveOnFeatures,
+  );
   if (!activatedIds.length) return { activatedIds: [], updated: cb };
 
   const activatedSet = new Set(activatedIds);
@@ -1037,6 +1047,25 @@ export async function activatePendingContextualBanditVariations(
   );
 
   return { activatedIds, updated };
+}
+
+async function filterArmsWithVisualContent(
+  context: ReqContext | ApiReqContext,
+  cb: ContextualBanditInterface,
+  armIds: string[],
+): Promise<string[]> {
+  if (!armIds.length) return armIds;
+  const changesets = await findVisualChangesetsByContextualBandit(
+    cb.id,
+    context.org.id,
+  );
+  return armIds.filter((id) =>
+    changesets.every((changeset) =>
+      changeset.visualChanges.some(
+        (vc) => vc.variation === id && visualChangeHasContent(vc),
+      ),
+    ),
+  );
 }
 
 export async function executeContextualBanditVariationChange(
@@ -1214,6 +1243,14 @@ export async function executeContextualBanditVariationChange(
     newVariationValues,
     linkedInfo,
   );
+  if (
+    cb.status === "running" &&
+    cb.hasVisualChangesets &&
+    (diff.addedIds.length > 0 || diff.removedIds.length > 0) &&
+    !context.permissions.canRunContextualBandit(cb, context.environments)
+  ) {
+    context.permissions.throwPermissionError();
+  }
 
   const removedSet = new Set(diff.removedIds);
 
@@ -1291,11 +1328,7 @@ export async function executeContextualBanditVariationChange(
     ));
   }
 
-  await refreshLinkedFeaturePayloads(
-    context,
-    updated,
-    "contextualBandit.refresh",
-  );
+  updated = await onContextualBanditVisualStateChanged(context, updated);
 
   return {
     updated,
@@ -1503,12 +1536,23 @@ export async function reconcileLinkedFeatureVariations(
   return { failures };
 }
 
+export type ContextualBanditResultsHealth = {
+  variations: { id: string; weight: number }[];
+  srm: ContextualBanditSrmResult | null;
+  traffic: ExperimentSnapshotTraffic | null;
+  /** Null when the SRM query did not run (assignment query lacks the bandit columns). */
+  multipleExposures: number | null;
+};
+
 export type ContextualBanditResultsForUi = {
   contextualBanditSnapshot: ContextualBanditSnapshot | null;
   latestSnapshotSummary: SnapshotStatusSummary | null;
+  /** Variations frozen by the run that produced `contextualBanditSnapshot`. */
   snapshotVariationIds: string[] | null;
-  /** SRM of the latest snapshot run; null when the run has no SRM result. */
-  srm: ContextualBanditSrmResult | null;
+  /** The run that produced `contextualBanditSnapshot`. */
+  resultsRun: { snapshotId: string; dateCreated: Date } | null;
+  /** Health computed by that same run. Null for runs that predate health checks. */
+  health: ContextualBanditResultsHealth | null;
 };
 
 function mapCbsStatusToSnapshotStatus(
@@ -1533,7 +1577,7 @@ export function toContextualBanditSnapshotStatusSummary(
     queries: cbs.queries,
     runStarted: cbs.runStarted,
     dateCreated: cbs.dateCreated,
-    multipleExposures: 0,
+    multipleExposures: cbs.multipleExposures ?? 0,
     type: "standard",
     triggeredBy: cbs.triggeredBy,
   };
@@ -1551,6 +1595,16 @@ export async function getContextualBanditResultsForUi(
     context.models.contextualBanditEvents.getLatestForContextualBandit(cb.id),
   ]);
 
+  // Results and health both come from the run that produced the latest event;
+  // the runner writes them to that snapshot in the same update.
+  const eventSnapshot = latestEvent
+    ? latestSnapshot?.id === latestEvent.snapshotId
+      ? latestSnapshot
+      : await context.models.contextualBanditSnapshots.getBySnapshotIdInOrg(
+          latestEvent.snapshotId,
+        )
+    : null;
+
   const contextualBanditSnapshot: ContextualBanditSnapshot | null = latestEvent
     ? {
         attributes: latestEvent.attributes,
@@ -1566,15 +1620,49 @@ export async function getContextualBanditResultsForUi(
     ? toContextualBanditSnapshotStatusSummary(latestSnapshot)
     : null;
 
+  // The event carries its own frozen ids (newer events) so results survive
+  // deletion of the producing snapshot; older events fall back to the snapshot.
   const snapshotVariationIds =
-    latestSnapshot?.frozenSettings?.variations?.map((v) => v.id) ?? null;
+    latestEvent?.frozenVariationIds ??
+    eventSnapshot?.frozenSettings?.variations?.map((v) => v.id) ??
+    null;
+
+  const health: ContextualBanditResultsHealth | null =
+    eventSnapshot && snapshotHasHealthResults(eventSnapshot)
+      ? {
+          variations:
+            eventSnapshot.frozenSettings?.variations?.map((v) => ({
+              id: v.id,
+              weight: v.weight,
+            })) ?? [],
+          srm: eventSnapshot.srm ?? null,
+          traffic: eventSnapshot.traffic ?? null,
+          multipleExposures: eventSnapshot.multipleExposures ?? null,
+        }
+      : null;
 
   return {
     contextualBanditSnapshot,
     latestSnapshotSummary,
     snapshotVariationIds,
-    srm: latestSnapshot?.srm ?? null,
+    resultsRun: latestEvent
+      ? {
+          snapshotId: latestEvent.snapshotId,
+          dateCreated: latestEvent.dateCreated,
+        }
+      : null,
+    health,
   };
+}
+
+function snapshotHasHealthResults(
+  cbs: ContextualBanditSnapshotInterface,
+): boolean {
+  return (
+    cbs.srm !== undefined ||
+    cbs.multipleExposures !== undefined ||
+    cbs.traffic !== undefined
+  );
 }
 
 export async function runContextualBanditSnapshot(
@@ -1742,7 +1830,7 @@ export async function cancelContextualBanditLatestRunningSnapshot(
  * skipped.
  */
 export function leafWeightsFromContextualBanditResult(
-  result: ContextualBanditResult,
+  result: Pick<ContextualBanditResult, "responses" | "leaf_map">,
   variations: { id: string }[],
 ): LeafWeight[] {
   const responses = result.responses ?? [];
@@ -1815,7 +1903,10 @@ export function contextualBanditWeightsWereUpdated(
   });
 }
 
-/** Persists one CB run's side effects: creates the CBE doc, patches parent CB leaf weights, refreshes SDK payload. */
+/**
+ * Persists one CB run's side effects: creates the CBE doc, patches parent CB leaf
+ * weights, refreshes SDK payload. Idempotent per snapshot.
+ */
 export async function persistContextualBanditEvent(
   context: ReqContext,
   cbs: ContextualBanditSnapshotInterface,
@@ -1828,12 +1919,18 @@ export async function persistContextualBanditEvent(
     throw new Error(`No CB doc for ${cbs.contextualBandit}`);
   }
 
+  // Idempotency: this snapshot's run may be retried if a later write below (the
+  // serving-weight update or the payload refresh) throws before the snapshot is marked
+  // finished. We create the event at most once per snapshot.
+  const existingEvent =
+    await context.models.contextualBanditEvents.getBySnapshotId(cbs.id);
+
   const currentLeafWeights = cb.currentLeafWeights ?? [];
   const inExploreStage = cb.stage === "explore";
 
   const staleWeightEpoch =
     cbs.banditVersion !== undefined && cbs.banditVersion !== cb.banditVersion;
-  if (staleWeightEpoch) {
+  if (staleWeightEpoch && !existingEvent) {
     context.logger.warn(
       `Contextual bandit ${cb.id} snapshot ${cbs.id} ran against banditVersion ` +
         `${cbs.banditVersion} but the CB is now at ${cb.banditVersion}; ` +
@@ -1841,39 +1938,59 @@ export async function persistContextualBanditEvent(
     );
   }
 
-  const discardWeights = inExploreStage || staleWeightEpoch;
+  // A resume must honor the decision the original attempt recorded on the event
+  // (discard when it did not update weights) AND still respect today's guards.
+  // The CB may have moved since the first attempt — e.g. a stop/start resets the
+  // stage to `explore` without bumping banditVersion — so re-publishing the
+  // saved exploit weights would leak them into a fresh exploration period.
+  const discardWeights = existingEvent
+    ? inExploreStage || !existingEvent.weightsWereUpdated || staleWeightEpoch
+    : inExploreStage || staleWeightEpoch;
   // Engine weights are positional over the run's frozen variation list, not
   // today's cb.variations (which may have gained pending arms/tombstones).
   const engineVariations =
     cbs.frozenSettings?.variations ?? getActiveVariations(cb.variations);
-  const weightsWereUpdated = discardWeights
-    ? false
-    : contextualBanditWeightsWereUpdated(
-        result,
-        currentLeafWeights,
-        engineVariations,
-      );
+  // On a resume, serve the weights the event already recorded — never the
+  // freshly re-run `result`.
+  const weightsSource: Pick<ContextualBanditResult, "responses" | "leaf_map"> =
+    existingEvent ?? result;
+  const weightsWereUpdated = existingEvent
+    ? existingEvent.weightsWereUpdated
+    : discardWeights
+      ? false
+      : contextualBanditWeightsWereUpdated(
+          result,
+          currentLeafWeights,
+          engineVariations,
+        );
   const leafWeights = discardWeights
     ? []
-    : leafWeightsFromContextualBanditResult(result, engineVariations);
+    : leafWeightsFromContextualBanditResult(weightsSource, engineVariations);
 
-  // Generate a new random seed when weights are updated to re-bucket users each period
-  const newSeed = weightsWereUpdated ? uuidv4() : undefined;
+  // Generate a new random seed when weights are updated to re-bucket users each period;
+  // on a resume, reuse the seed the event already recorded so the replay is consistent.
+  const newSeed = weightsWereUpdated
+    ? (existingEvent?.seed ?? uuidv4())
+    : undefined;
 
-  const cbe = await context.models.contextualBanditEvents.create({
-    contextualBandit: cb.id,
-    snapshotId: cbs.id,
-    attributes: result.attributes,
-    responses: result.responses,
-    leaf_map: result.leaf_map,
-    leaf_stats: result.leaf_stats,
-    sse_trajectory: result.sse_trajectory,
-    bic_trajectory: result.bic_trajectory,
-    weightsWereUpdated,
-    ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
-    // Store the seed for historical tracking
-    ...(newSeed ? { seed: newSeed } : {}),
-  });
+  // Create the event only on the first attempt; a resume reuses the persisted one.
+  const cbe =
+    existingEvent ??
+    (await context.models.contextualBanditEvents.create({
+      contextualBandit: cb.id,
+      snapshotId: cbs.id,
+      frozenVariationIds: engineVariations.map((v) => v.id),
+      attributes: result.attributes,
+      responses: result.responses,
+      leaf_map: result.leaf_map,
+      leaf_stats: result.leaf_stats,
+      sse_trajectory: result.sse_trajectory,
+      bic_trajectory: result.bic_trajectory,
+      weightsWereUpdated,
+      ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
+      // Store the seed for historical tracking
+      ...(newSeed ? { seed: newSeed } : {}),
+    }));
 
   let updatedCb = cb;
   if (leafWeights.length > 0) {

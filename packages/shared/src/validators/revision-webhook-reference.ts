@@ -1,5 +1,5 @@
-// What a revision webhook says about its revision. The full record is a REST
-// lookup away, by the entity and version.
+// What every revision webhook says about its revision: who, when and its review
+// and schedule state. Each entity adds the revision's content.
 
 import { z } from "zod";
 import { actorIdField, apiEventUser } from "./event-user";
@@ -26,6 +26,12 @@ export const revisionWebhookReference = z.object({
   author: apiEventUser.optional(),
   ...revisionScheduleResponseFields,
 });
+
+// Loose like main's: the docs generator can't render the strict JSON Patch
+// union, and `passthrough` keeps each operation's `value` and `from`.
+export const webhookProposedChanges = z
+  .array(z.object({ op: z.string(), path: z.string() }).passthrough())
+  .describe("The JSON Patch the draft applies, with each change's value");
 
 export const revisionWebhookReview = {
   reviewer: apiEventUser,

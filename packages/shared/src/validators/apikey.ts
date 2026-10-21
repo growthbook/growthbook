@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createBaseSchemaWithPrimaryKey } from "./base-model";
 import { projectMemberRole, roleRule } from "./organization";
+import { confirmRulesValidator } from "./confirmations";
 
 export const requesterHeaderValidator = z.enum([
   "optional",
@@ -120,10 +121,43 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     .describe(
       "OAuth scopes granted at issuance. Stored for audit; Phase 1 tokens act as the full user (PAT-equivalent).",
     ),
+  confirmRules: confirmRulesValidator
+    .nullable()
+    .optional()
+    .describe(
+      "Actions this key can't complete until a person confirms them. Null or absent means off.",
+    ),
+  keyIssuedAt: z
+    .date()
+    .optional()
+    .describe(
+      "When the current secret was issued. Absent means `dateCreated`; set on rotation, and the expiration policy's maximum lifetime runs from it.",
+    ),
+  previousKey: z
+    .string()
+    .optional()
+    .describe(
+      "The secret a rotation replaced, still accepted until `previousKeyExpiresAt`.",
+    ),
+  previousKeyExpiresAt: z
+    .date()
+    .nullable()
+    .optional()
+    .describe("When `previousKey` stops being accepted."),
+  previousKeyLastUsed: z
+    .date()
+    .nullable()
+    .optional()
+    .describe(
+      "Most recent authentication with `previousKey`. `null` means it hasn't been used since the rotation.",
+    ),
 });
 
 export const secretApiKey = apiKeySchema
   .omit({ id: true, secret: true, environment: true, project: true })
   .safeExtend({ id: z.string(), secret: z.literal(true) });
 
-export const secretApiKeyRedacted = secretApiKey.omit({ key: true });
+export const secretApiKeyRedacted = secretApiKey.omit({
+  key: true,
+  previousKey: true,
+});

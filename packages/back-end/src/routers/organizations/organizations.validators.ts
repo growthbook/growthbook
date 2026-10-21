@@ -1,8 +1,10 @@
 import { z } from "zod";
 import {
+  confirmRulesValidator,
   requesterHeaderValidator,
   requesterPermissionsValidator,
 } from "shared/validators";
+import { MAX_ROTATION_GRACE_HOURS } from "shared/api-key-expiration";
 
 const roleRuleValidator = z
   .object({
@@ -55,6 +57,8 @@ export const postApiKeyValidator = z.strictObject({
   requesterPermissions: requesterPermissionsValidator.optional(),
   // ISO string; null or absent means no expiration, subject to the org policy.
   expiresAt: z.string().nullable().optional(),
+  // Null or omitted means no confirmations.
+  confirmRules: confirmRulesValidator.nullable().optional(),
 });
 
 export const putApiKeyValidator = z.strictObject({
@@ -72,8 +76,30 @@ export const putApiKeyValidator = z.strictObject({
   requesterPermissions: requesterPermissionsValidator.optional(),
   // Omitted leaves the expiry unchanged; null removes it where the policy allows.
   expiresAt: z.string().nullable().optional(),
+  // Null turns confirmations off for this key; omitted leaves them unchanged.
+  confirmRules: confirmRulesValidator.nullable().optional(),
 });
 
 export const putApiKeyDisabledValidator = z.strictObject({
   disabled: z.boolean(),
+});
+
+export const postApiKeyRotateValidator = z.strictObject({
+  // 0 revokes the old secret immediately.
+  gracePeriodHours: z.number().int().min(0).max(MAX_ROTATION_GRACE_HOURS),
+});
+
+// These three validators' fields go into database filters, where an object
+// would act as a query operator.
+export const deleteApiKeyValidator = z.strictObject({
+  id: z.string().optional(),
+  key: z.string().optional(),
+});
+
+export const postApiKeyRevealValidator = z.strictObject({
+  id: z.string().optional(),
+});
+
+export const postInviteAcceptValidator = z.strictObject({
+  key: z.string(),
 });
