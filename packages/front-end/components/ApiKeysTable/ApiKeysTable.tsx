@@ -98,6 +98,8 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
     canSetApiKeyDisabled(permissionsUtil, key, userId || "", !key.disabled);
   const canManageSecret = (key: ApiKeyInterface) =>
     canManageApiKeySecret(permissionsUtil, key, userId || "");
+  const maxLifetimeDays = (key: ApiKeyInterface) =>
+    key.userId ? settings?.maxPatLifetimeDays : settings?.maxApiKeyLifetimeDays;
   // A PAT the owner can't toggle keeps a locked toggle that explains why; org keys hide it.
   const isAdminLocked = (key: ApiKeyInterface) =>
     !!key.userId && !canToggle(key);
@@ -318,11 +320,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               <TableCell style={dimStyle(key)}>
                 <ExpiresCell
                   expiresAt={key.expiresAt}
-                  maxLifetimeDays={
-                    key.userId
-                      ? settings?.maxPatLifetimeDays
-                      : settings?.maxApiKeyLifetimeDays
-                  }
+                  maxLifetimeDays={maxLifetimeDays(key)}
                 />
               </TableCell>
               {hasActions && (
@@ -384,6 +382,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
       {rotating && onRotate && (
         <RotateApiKeyModal
           apiKey={rotating}
+          maxLifetimeDays={maxLifetimeDays(rotating)}
           onRotate={async (gracePeriodHours) =>
             setRotated(await onRotate(rotating.id as string, gracePeriodHours))
           }

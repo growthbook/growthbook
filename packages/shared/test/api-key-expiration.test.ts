@@ -6,6 +6,7 @@ import {
   isExpired,
   latestEditedExpiration,
   maxExpirationDate,
+  previousKeyExpiration,
   rotatedExpiration,
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
@@ -171,6 +172,25 @@ describe("latestEditedExpiration", () => {
     expect(getExpirationProblem(addDays(NOW, 21), 30, NOW, latest)).toBe(
       "too-late",
     );
+  });
+});
+
+describe("previousKeyExpiration", () => {
+  const inHours = (h: number) => new Date(NOW.getTime() + h * 60 * 60 * 1000);
+
+  it("ends the replaced secret immediately with no grace period", () => {
+    expect(previousKeyExpiration(addDays(NOW, 30), 0, NOW)).toBeNull();
+  });
+
+  it("keeps the replaced secret for the grace period", () => {
+    expect(previousKeyExpiration(addDays(NOW, 30), 24, NOW)).toEqual(
+      inHours(24),
+    );
+    expect(previousKeyExpiration(null, 168, NOW)).toEqual(inHours(168));
+  });
+
+  it("never outlives the expiry the secret was issued with", () => {
+    expect(previousKeyExpiration(inHours(2), 24, NOW)).toEqual(inHours(2));
   });
 });
 

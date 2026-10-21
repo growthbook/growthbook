@@ -18,6 +18,7 @@ import {
   isExpired,
   latestEditedExpiration,
   maxExpirationDate,
+  previousKeyExpiration,
   rotatedExpiration,
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
@@ -74,8 +75,6 @@ const BaseClass = MakeModelClass({
 });
 
 const toTime = (d: ExpiresAt) => (d ? new Date(d).getTime() : null);
-
-const MS_PER_HOUR = 60 * 60 * 1000;
 
 export class ApiKeyModel extends BaseClass {
   protected canCreate(apiKey: ApiKeyInterface): boolean {
@@ -830,7 +829,6 @@ export class ApiKeyModel extends BaseClass {
     }
 
     const now = new Date();
-    const graceEnd = new Date(now.getTime() + gracePeriodHours * MS_PER_HOUR);
     const updates = {
       key: generateSigningKey(
         this.prefixForApiKey({
@@ -847,12 +845,11 @@ export class ApiKeyModel extends BaseClass {
         this.maxLifetimeDaysFor(doc),
         now,
       ),
-      // The old secret can't outlive the expiry it was issued with.
-      previousKeyExpiresAt: gracePeriodHours
-        ? doc.expiresAt && doc.expiresAt < graceEnd
-          ? doc.expiresAt
-          : graceEnd
-        : null,
+      previousKeyExpiresAt: previousKeyExpiration(
+        doc.expiresAt,
+        gracePeriodHours,
+        now,
+      ),
       previousKeyLastUsed: null,
       dateUpdated: now,
     };

@@ -19,7 +19,8 @@ export type MaxLifetimeDays = number | null | undefined;
 
 export type ExpiresAt = Date | string | null | undefined;
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const MS_PER_HOUR = 60 * 60 * 1000;
+const MS_PER_DAY = 24 * MS_PER_HOUR;
 
 export function addDays(from: Date, days: number): Date {
   return new Date(from.getTime() + days * MS_PER_DAY);
@@ -122,6 +123,18 @@ export function latestEditedExpiration(
 /** How long a rotated key's previous secret can stay valid, in hours. */
 export const ROTATION_GRACE_PRESET_HOURS = [0, 1, 24, 168] as const;
 export const MAX_ROTATION_GRACE_HOURS = 168;
+
+/** When a rotated key's replaced secret stops working: never after the expiry it was issued with. */
+export function previousKeyExpiration(
+  current: ExpiresAt,
+  gracePeriodHours: number,
+  now: Date = new Date(),
+): Date | null {
+  if (!gracePeriodHours) return null;
+  const graceEnd = new Date(now.getTime() + gracePeriodHours * MS_PER_HOUR);
+  const expiresAt = toDate(current);
+  return expiresAt && expiresAt < graceEnd ? expiresAt : graceEnd;
+}
 
 /**
  * A rotated key's new expiry: the same lifetime it had, counted from the new
