@@ -23,12 +23,13 @@ const GuidedGetStartedBar = () => {
 
   return (
     <div
-      className={`navbar ${styles.guidedstepbar} pl-4`}
+      className={`navbar ${styles.guidedstepbar}`}
       style={{
         background: "#7B45EA",
         color: "#FFFFFF",
         height: "50px",
         position: "sticky",
+        paddingLeft: 32,
       }}
     >
       <span>
