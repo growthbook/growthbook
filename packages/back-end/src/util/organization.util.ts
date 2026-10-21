@@ -87,12 +87,22 @@ export function getPersonalAccessTokenPermissions(
   if (!apiKey.scoped) return userPermissions;
   return intersectUserPermissions(
     userPermissions,
-    getRolePermissions(
-      { ...apiKey, role: apiKey.role ?? "noaccess" },
-      org,
-      teams,
-      restrictedProjects,
-    ),
+    getPersonalAccessTokenCap(apiKey, org, teams, restrictedProjects),
+  );
+}
+
+// What a scoped token's own role allows, before its user's permissions narrow it.
+export function getPersonalAccessTokenCap(
+  apiKey: ApiKeyInterface,
+  org: OrganizationInterface,
+  teams: TeamInterface[],
+  restrictedProjects?: string[],
+): UserPermissions {
+  return getRolePermissions(
+    { ...apiKey, role: apiKey.role ?? "noaccess" },
+    org,
+    teams,
+    restrictedProjects,
   );
 }
 

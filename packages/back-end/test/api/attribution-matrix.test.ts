@@ -1115,6 +1115,57 @@ describe("attribution across callers", () => {
     );
   });
 
+  describe("author rights through a personal token", () => {
+    // Dana loses draft permissions, so only her author rights could let her
+    // own token discard her draft, and a token scoped to read only gets none.
+    it.each([
+      ["an unscoped token", false, 200],
+      ["a token scoped to read only", true, 403],
+    ] as const)(
+      "lets the author discard their constant draft with %s",
+      async (_, scoped, status) => {
+        await as("a personal token").post("/api/v1/constants", {
+          key: "timeout",
+          name: "Timeout",
+          type: "json",
+          value: '{"t":1}',
+        });
+        const draft = await as("a personal token").put(
+          "/api/v1/constants-revisions/timeout/new/value",
+          { value: '{"t":2}' },
+        );
+        const token = {
+          ...KEY,
+          id: "key_dana",
+          userId: dana.id,
+          actAs: undefined,
+          scoped,
+          role: scoped ? "readonly" : "user",
+        };
+        await withRole(dana, "readonly", async () => {
+          const context = new ReqContextClass({
+            org,
+            teams: [],
+            req: { query: {}, headers: {}, body: {} } as unknown as Request,
+            role: "admin",
+            user: { ...dana, superAdmin: false },
+            apiKey: token.id,
+            apiKeyData: token,
+            auditUser: { type: "api_key", apiKey: token.id, ...dana },
+          });
+          context.hasPremiumFeature = () => true;
+          setReqContext(context);
+          const res = await request(app)
+            .post(
+              `/api/v1/constants-revisions/timeout/${draft.body.revision.version}/discard`,
+            )
+            .set("Authorization", "Bearer x");
+          expect(res.status).toBe(status);
+        });
+      },
+    );
+  });
+
   describe("through the auth middleware", () => {
     const MIDDLEWARE =
       "back-end/src/middleware/authenticateApiRequestMiddleware";
