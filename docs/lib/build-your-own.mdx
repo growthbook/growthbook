@@ -4,7 +4,7 @@ description: Spec for library authors building a GrowthBook SDK in an unsupporte
 sidebarTitle: Build Your Own
 ---
 
-**Latest spec version: 0.7.1 [View Changelog](#changelog)**
+**Latest spec version: 0.9.1 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
@@ -1271,3 +1271,7 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - `$inGroup` and `$notInGroup` also read typed `list` entries
   - Saved Groups are passed into prerequisite conditions (`parentConditions`)
   - New `savedGroupReferencesV2` key in the test cases, with `evalCondition`, `feature`, and `run` sub-suites. SDKs that do not support it yet can skip the whole key
+- **v0.9.1** 2026-10-19
+  - New `run` test cases for users whose hash lands exactly on a bucket range end, across equal and uneven weights and hash versions 1 and 2. Compute each range end as `start + coverage * weight` by rounding the product to a double first, then the sum. An SDK that fuses the two into one multiply-add (for example, Go on arm64) rounds once, gets a slightly different end, and fails these cases
+  - New `feature` test cases for a percentage rollout where the user's hash equals the coverage exactly. JS includes that user (`n <= coverage`)
+  - New `hash` test cases that pin these users' hashes to the range ends and to the rollout coverage
