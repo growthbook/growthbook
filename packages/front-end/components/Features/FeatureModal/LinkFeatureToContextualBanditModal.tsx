@@ -183,11 +183,15 @@ export default function LinkFeatureToContextualBanditModal({
   >([]);
 
   const { apiCall } = useAuth();
-  const { allowUnscopedRules, unscopedRuleBlocksSubmit, unscopedRuleBanner } =
-    useUnscopedRuleGate({
-      allEnvironments: ruleAllEnvironments,
-      environments: ruleSelectedEnvironments,
-    });
+  const {
+    allowUnscopedRules,
+    unscopedRuleBlocksSubmit,
+    checkUnscopedRule,
+    unscopedRuleBanner,
+  } = useUnscopedRuleGate({
+    allEnvironments: ruleAllEnvironments,
+    environments: ruleSelectedEnvironments,
+  });
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const existing = form.watch("existing");
@@ -331,6 +335,8 @@ export default function LinkFeatureToContextualBanditModal({
             "We fixed some errors in the feature. If it looks correct, submit again.",
           );
         }
+
+        checkUnscopedRule();
 
         let targetFeatureId: string;
 

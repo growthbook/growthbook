@@ -315,11 +315,15 @@ export default function FeatureFromExperimentModal({
           };
   const ruleAllEnvironments = ruleScope.allEnvironments;
   const ruleSelectedEnvironments = ruleScope.selectedEnvironments;
-  const { allowUnscopedRules, unscopedRuleBlocksSubmit, unscopedRuleBanner } =
-    useUnscopedRuleGate({
-      allEnvironments: ruleAllEnvironments,
-      environments: ruleSelectedEnvironments,
-    });
+  const {
+    allowUnscopedRules,
+    unscopedRuleBlocksSubmit,
+    checkUnscopedRule,
+    unscopedRuleBanner,
+  } = useUnscopedRuleGate({
+    allEnvironments: ruleAllEnvironments,
+    environments: ruleSelectedEnvironments,
+  });
 
   const setRuleAllEnvironments = (allEnvironments: boolean) =>
     setScopeOverride({
@@ -561,6 +565,8 @@ export default function FeatureFromExperimentModal({
             "We fixed some errors in the feature. If it looks correct, submit again.",
           );
         }
+
+        checkUnscopedRule();
 
         let targetFeatureId: string;
 

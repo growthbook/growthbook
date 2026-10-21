@@ -829,21 +829,22 @@ export default function RuleModal({
       return environment ? [environment] : [];
     },
   );
-  const { allowUnscopedRules, unscopedRuleBlocksSubmit, unscopedRuleBanner } =
-    useUnscopedRuleGate(
-      {
-        allEnvironments: scopeAllEnvs,
-        environments: selectedEnvironments,
-        allProjects: scopeAllProjects,
-        projects: selectedProjects,
-      },
-      mode === "edit"
-        ? [
-            rule,
-            targetRevision?.rules?.find((r) => r.id === ruleId) ?? liveRule,
-          ]
-        : [],
-    );
+  const {
+    allowUnscopedRules,
+    unscopedRuleBlocksSubmit,
+    checkUnscopedRule,
+    unscopedRuleBanner,
+  } = useUnscopedRuleGate(
+    {
+      allEnvironments: scopeAllEnvs,
+      environments: selectedEnvironments,
+      allProjects: scopeAllProjects,
+      projects: selectedProjects,
+    },
+    mode === "edit"
+      ? [rule, targetRevision?.rules?.find((r) => r.id === ruleId) ?? liveRule]
+      : [],
+  );
 
   const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
     (scheduleRule) => scheduleRule.timestamp !== null,
@@ -1308,6 +1309,8 @@ export default function RuleModal({
     } else {
       values = { ...values, allProjects: false, projects: selectedProjects };
     }
+
+    checkUnscopedRule();
 
     // Loop through each scheduleRule and convert the timestamp to an ISOString()
     if (values.scheduleRules?.length) {
