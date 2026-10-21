@@ -36,6 +36,10 @@ import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
+import FinishSettingUp, {
+  isDataSourceSetupComplete,
+  useExposureQuerySkipped,
+} from "@/components/DataSourceSetup/FinishSettingUp";
 import Badge from "@/ui/Badge";
 import {
   DropdownMenu,
@@ -111,6 +115,8 @@ const DataSourcePage: FC = () => {
   const combinedMetrics = useCombinedMetrics({});
   const metrics = combinedMetrics.filter((m) => m.datasource === did);
   const factTables = allFactTables.filter((ft) => ft.datasource === did);
+  const { skipped: exposureQuerySkipped, skip: skipExposureQuery } =
+    useExposureQuerySkipped(did);
 
   const { apiCall, orgId } = useAuth();
   const { hasCommercialFeature, settings: orgSettings } = useUser();
@@ -211,6 +217,11 @@ const DataSourcePage: FC = () => {
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
   const datasourceSupportsEventForwarder = supportsEventForwarder(d);
+  const showFinishSettingUp =
+    supportsSQL &&
+    !isManagedWarehouse &&
+    newDataSourceOnboarding.enabled &&
+    !isDataSourceSetupComplete(d, factTables.length, exposureQuerySkipped);
 
   return (
     <div className="container pagecontents">
@@ -563,6 +574,19 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               )
             ) : (
               <>
+                {showFinishSettingUp && (
+                  <Frame px="0" py="0" style={{ overflow: "hidden" }}>
+                    <FinishSettingUp
+                      dataSource={d}
+                      factTableCount={factTables.length}
+                      canEdit={canUpdateDataSourceSettings}
+                      onSave={updateDataSourceSettings}
+                      exposureQuerySkipped={exposureQuerySkipped}
+                      onSkipExposureQuery={skipExposureQuery}
+                    />
+                  </Frame>
+                )}
+
                 {datasourceSupportsEventForwarder &&
                   eventsForwarderFlag !== "OFF" && (
                     <Frame>
@@ -579,7 +603,8 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     </Frame>
                   )}
 
-                {d.dateUpdated === d.dateCreated &&
+                {!newDataSourceOnboarding.enabled &&
+                  d.dateUpdated === d.dateCreated &&
                   d?.settings?.schemaFormat !== "custom" && (
                     <Callout status="info" mt="4" mb="4">
                       We have prefilled the identifiers and assignment queries
