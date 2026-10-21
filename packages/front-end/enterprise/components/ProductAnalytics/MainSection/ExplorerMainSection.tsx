@@ -259,9 +259,9 @@ function ExplorerVisualizationPane({ emptyState }: { emptyState: ReactNode }) {
                 ) : undefined
               }
             >
-              <Text title={floatingCallout.title}>
+              <Text size="sm" title={floatingCallout.title}>
                 {slowJourneyLoading
-                  ? "Taking longer than expected…"
+                  ? "Taking longer than expected..."
                   : floatingCallout.text}
               </Text>
             </Callout>

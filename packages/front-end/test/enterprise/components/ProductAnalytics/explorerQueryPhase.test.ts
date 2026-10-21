@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ProductAnalyticsExploration } from "shared/validators";
+import { MANAGED_WAREHOUSE_PENDING_ERROR_CODE } from "shared/util";
 import type { ExplorerDraftConfig } from "@/enterprise/components/ProductAnalytics/util";
 import {
   getExplorerFloatingCallout,
@@ -224,5 +225,15 @@ describe("getExplorerFloatingCallout", () => {
       text: "Query failed",
       action: "retry",
     });
+  });
+
+  it("returns null for managed-warehouse no-events guidance", () => {
+    expect(
+      getExplorerFloatingCallout({
+        type: "error",
+        kind: "query",
+        message: MANAGED_WAREHOUSE_PENDING_ERROR_CODE,
+      }),
+    ).toBe(null);
   });
 });

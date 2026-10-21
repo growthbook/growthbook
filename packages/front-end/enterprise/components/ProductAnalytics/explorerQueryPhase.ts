@@ -1,4 +1,5 @@
 import type { ProductAnalyticsExploration } from "shared/validators";
+import { isManagedWarehouseNoEventsGuidanceMessage } from "shared/util";
 import {
   hasSubmittablePayload,
   type ExplorerDraftConfig,
@@ -96,6 +97,8 @@ export function getExplorerFloatingCallout(
           "Some configuration changes require running a new SQL query against your data source",
       };
     case "error":
+      // The chart and table already show the managed-warehouse no-events callout; Retry will not help.
+      if (isManagedWarehouseNoEventsGuidanceMessage(phase.message)) return null;
       return {
         status: "error",
         text: phase.kind === "timeout" ? "Query timed out" : "Query failed",
