@@ -44,7 +44,6 @@ type ModalTarget = FactMetricCreationTarget & {
   mappedTemplate?: Partial<StandardFactMetricInterface>;
 };
 
-// Owns experiment routing, prerequisites, and permissions for metric entry points.
 export default function useFactMetricFlow(
   source: string,
   {
