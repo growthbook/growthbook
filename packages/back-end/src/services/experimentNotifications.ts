@@ -4,6 +4,7 @@ import {
   expandMetricGroups,
   getMetricResultStatus,
   parseFunnelStepMetricId,
+  parseSliceMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
   getLatestPhaseVariations,
@@ -981,6 +982,13 @@ export const computeExperimentChanges = async ({
       );
       if (!resolved) continue;
       const { id: variationId, name: variationName } = resolved.variation;
+      const { sliceLevels } = parseSliceMetricId(m);
+      const sliceContext = sliceLevels
+        .map(
+          (s) =>
+            `${s.column}: ${s.levels.length ? s.levels.join(" OR ") : "other"}`,
+        )
+        .join(", ");
 
       experimentChanges.push({
         experimentId: experiment.id,
@@ -988,7 +996,9 @@ export const computeExperimentChanges = async ({
         variationId,
         variationName,
         metricId: m,
-        metricName: metric.name,
+        metricName: sliceContext
+          ? `${metric.name} (${sliceContext})`
+          : metric.name,
         statsEngine,
         criticalValue,
         winning,
