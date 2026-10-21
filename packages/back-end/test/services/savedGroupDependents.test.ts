@@ -37,6 +37,7 @@ const dependents = (args: Partial<Args>) => {
   return {
     features: result.features.map((f) => f.id),
     experiments: result.experiments.map((e) => e.id),
+    bandits: result.bandits.map((b) => b.id),
     holdoutAffected: result.holdoutAffected,
   };
 };
@@ -110,6 +111,7 @@ describe("findSavedGroupDependents", () => {
     ).toEqual({
       features: ["bandit_flag"],
       experiments: ["exp"],
+      bandits: ["cb"],
       holdoutAffected: true,
     });
   });
@@ -120,6 +122,11 @@ describe("findSavedGroupDependents", () => {
         features: [feature("f", { rules: [rule({ condition: "{}" })] })],
         experiments: [experiment("e", { condition: "" })],
       }),
-    ).toEqual({ features: [], experiments: [], holdoutAffected: false });
+    ).toEqual({
+      features: [],
+      experiments: [],
+      bandits: [],
+      holdoutAffected: false,
+    });
   });
 });

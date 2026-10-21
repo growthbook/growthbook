@@ -17,6 +17,8 @@ interface ApiKeyRowMenuProps {
   toggleLockedReason?: string;
   onShowAuditLog?: (key: ApiKeyInterface) => void;
   onCopy?: (key: ApiKeyInterface) => void;
+  onRotate?: (key: ApiKeyInterface) => void;
+  onRevokePrevious?: () => Promise<void>;
 }
 
 export default function ApiKeyRowMenu({
@@ -28,6 +30,8 @@ export default function ApiKeyRowMenu({
   toggleLockedReason,
   onShowAuditLog,
   onCopy,
+  onRotate,
+  onRevokePrevious,
 }: ApiKeyRowMenuProps) {
   return (
     <DropdownMenu
@@ -55,6 +59,26 @@ export default function ApiKeyRowMenu({
               Edit key
             </DropdownMenuItem>
           )}
+        {onRotate && (
+          <DropdownMenuItem onClick={() => onRotate(apiKey)}>
+            Rotate key
+          </DropdownMenuItem>
+        )}
+        {onRevokePrevious && (
+          <DropdownMenuItem
+            color="red"
+            confirmation={{
+              submit: onRevokePrevious,
+              getConfirmationContent: async () =>
+                "Requests using the secret this key had before its last rotation will be rejected immediately.",
+              confirmationTitle: "Revoke Previous Secret",
+              cta: "Revoke",
+              ctaColor: "red",
+            }}
+          >
+            Revoke previous secret
+          </DropdownMenuItem>
+        )}
         {onCopy && (
           <DropdownMenuItem onClick={() => onCopy(apiKey)}>
             Copy settings to new key
