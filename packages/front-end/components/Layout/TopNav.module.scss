@@ -11,9 +11,10 @@ $sidebarwidth: var(--app-rail-width, 240px);
   right: 0;
   height: var(--header-height);
   z-index: 1010;
-  background-color: var(--color-surface-solid);
-  box-shadow: 0px 0px 1px 0px var(--border-color-200);
-  padding: 0 16px;
+  // Always solid, so nothing shows through as the page scrolls under it.
+  background-color: var(--color-background);
+  // 32px on the right, in line with the page content.
+  padding: 0 var(--space-6) 0 var(--space-5);
   transition: left 200ms ease;
   @media (max-width: 520px) {
     padding: 0 8px;
