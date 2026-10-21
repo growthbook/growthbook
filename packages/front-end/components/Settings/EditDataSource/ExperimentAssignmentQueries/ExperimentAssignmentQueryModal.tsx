@@ -9,14 +9,12 @@ import {
   getExposureQueryIdentifierTypes,
   getExposureQueryTimestampColumn,
   getExposureQueryVariationIdColumn,
-  getUnquotableExposureQueryColumn,
 } from "shared/util";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";
 import { DetectedColumn } from "shared/types/fact-table";
-import { getDataSourceSqlDialect } from "shared/dialects";
 import SourceStep from "@/components/SchemaBrowser/SourceStep";
 import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";
 import ColumnMappingRow, {
@@ -147,6 +145,11 @@ export const ExperimentAssignmentQueryModal = ({
   const [detected, setDetected] = useState<DetectedColumn[] | null>(() =>
     exposureQuery ? getSavedColumns(exposureQuery) : null,
   );
+  // False while editing a query saved before its columns were stored, whose
+  // columns are only guessed from its mapping
+  const [columnsDetected, setColumnsDetected] = useState(
+    !exposureQuery || !!exposureQuery.columns?.length,
+  );
   const [detectedSql, setDetectedSql] = useState<string | null>(
     exposureQuery?.query ?? null,
   );
@@ -230,14 +233,22 @@ export const ExperimentAssignmentQueryModal = ({
   const removesLegacyIdentifierType =
     !!exposureQuery?.userIdType &&
     removedIdentifierTypes.includes(exposureQuery.userIdType);
-  const missingRoleColumns = Object.entries(savedRoleColumns).filter(
-    ([, column]) => !columns.some((c) => c.column === column),
-  );
+  const missingRoleColumns = exposureQuery
+    ? Object.entries({
+        experiment_id: experimentIdColumn,
+        variation_id: variationIdColumn,
+        timestamp: timestampColumn,
+        ...userIdColumns,
+      }).filter(
+        ([, column]) => column && !columns.some((c) => c.column === column),
+      )
+    : [];
 
   const handleColumnsDetected = useCallback(
     (cols: DetectedColumn[], ranSql: string | null = null) => {
       setDetectedSql(ranSql);
       setDetected(cols);
+      setColumnsDetected(true);
 
       // Same columns as before? Leave the user's mapping choices alone.
       if (detected && haveSameColumnNames(detected, cols)) return;
@@ -384,20 +395,6 @@ export const ExperimentAssignmentQueryModal = ({
         `Column "${duplicate}" is mapped to more than one role. Each role must map to a distinct column.`,
       );
     }
-    const unquotable = getUnquotableExposureQueryColumn(
-      {
-        experimentIdColumn: experimentId,
-        variationIdColumn: variationId,
-        timestampColumn: timestamp,
-        userIdColumns,
-      },
-      getDataSourceSqlDialect(dataSource.type)?.unquotedIdentifierFold,
-    );
-    if (unquotable) {
-      throw new Error(
-        `Column "${unquotable}" can't be mapped because its name needs quoting. In SQL mode, alias it to an unquoted name.`,
-      );
-    }
 
     const remappedUserIds = getRemappedUserIdColumns(
       mappedUserIdTypes,
@@ -424,7 +421,7 @@ export const ExperimentAssignmentQueryModal = ({
       ),
       hasNameCol,
       projects,
-      columns,
+      ...(columnsDetected ? { columns } : {}),
       ...(Object.keys(remappedUserIds).length
         ? { userIdColumns: remappedUserIds }
         : {}),
@@ -610,7 +607,7 @@ export const ExperimentAssignmentQueryModal = ({
                   </Button>
                 ) : null}
               </Flex>
-              {exposureQuery && !exposureQuery.columns?.length ? (
+              {!columnsDetected ? (
                 <Callout status="info" mb="2">
                   Only the columns this query already uses are listed. Refresh
                   columns to see everything it returns.

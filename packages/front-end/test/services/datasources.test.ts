@@ -856,6 +856,15 @@ describe("getInitialExposureQuery", () => {
     expect(all).toContain("user_id as user_id");
   });
 
+  it("falls back to user_id when the Data Source declares no identifiers", () => {
+    const sql = getInitialExposureQuery({
+      ...datasource,
+      settings: { userIdTypes: [], schemaFormat: "segment" },
+    } as unknown as DataSourceInterfaceWithParams);
+    expect(sql).toMatch(/^SELECT\n {2}user_id,/);
+    expect(sql).toContain("user_id is not null");
+  });
+
   it("keeps rows with any of a tracker's identifiers", () => {
     const sql = getInitialExposureQuery({
       ...datasource,

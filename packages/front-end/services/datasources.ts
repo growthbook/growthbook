@@ -1433,11 +1433,14 @@ export function getInitialExposureQuery(
   identifierTypes?: string[],
 ): string {
   const schema = getSchemaObject(datasource.settings?.schemaFormat);
+  const declared = (datasource.settings?.userIdTypes ?? []).map(
+    (ut) => ut.userIdType,
+  );
   const userIdTypes = identifierTypes?.length
     ? identifierTypes
-    : datasource.settings?.userIdTypes?.map((ut) => ut.userIdType) || [
-        "user_id",
-      ];
+    : declared.length
+      ? declared
+      : ["user_id"];
   return schema.getExperimentSQL(
     getTablePrefix(datasource.params),
     userIdTypes,

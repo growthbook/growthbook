@@ -1,6 +1,7 @@
 import { DetectedColumn } from "shared/types/fact-table";
 import { SchemaWithPath } from "shared/types/integrations";
 import {
+  findColumnByName,
   GA4_EVENTS_TEMPLATE,
   getColumnMappingError,
   getDefaultPartitionColumn,
@@ -346,5 +347,18 @@ describe("getDefaultTimestampColumn", () => {
         detected("user_id", "created_at", "updated_at"),
       ),
     ).toBe("created_at");
+  });
+});
+
+describe("findColumnByName", () => {
+  it("prefers an exact match over looser ones", () => {
+    expect(findColumnByName(cols("", "", ""), "c1")).toBe("c1");
+    const named = ["userId", "user_id_2", "user_id"].map((column) => ({
+      column,
+      datatype: "string" as const,
+    }));
+    expect(findColumnByName(named, "user_id")).toBe("user_id");
+    expect(findColumnByName(named, "USER_ID")).toBe("user_id");
+    expect(findColumnByName(named.slice(0, 2), "user_id")).toBe("userId");
   });
 });

@@ -10,6 +10,7 @@ import type {
 } from "shared/types/integrations";
 import {
   formatQueryExecutionErrorForApi,
+  getExposureQueryExperimentIdColumn,
   getExposureQueryIdentifierColumn,
   getExposureQueryTimestampColumn,
   getExposureQueryVariationIdColumn,
@@ -205,7 +206,12 @@ export async function postExposures(
     exposureQueryId: exposureQuery.id,
     exposureQuerySql: resolvedExposureQuery.query,
     identifierType: resolvedExposureQuery.identifierType,
-    columnMapping,
+    columnMapping: {
+      ...columnMapping,
+      experimentIdColumn: getExposureQueryExperimentIdColumn(
+        resolvedExposureQuery,
+      ),
+    },
     dimensions,
     window,
     rowFilters,

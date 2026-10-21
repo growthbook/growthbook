@@ -81,9 +81,14 @@ const normalizeColumnName = (name: string) =>
   name.replace(/[^a-z]/gi, "").toLowerCase();
 
 // Ignores case and separators, so userId matches user_id
+// Closest match first, so user_id beats userId and user_id_2
 export const findColumnByName = (columns: DetectedColumn[], name: string) =>
-  columns.find(
-    (c) => normalizeColumnName(c.column) === normalizeColumnName(name),
+  (
+    columns.find((c) => c.column === name) ??
+    columns.find((c) => c.column.toLowerCase() === name.toLowerCase()) ??
+    columns.find(
+      (c) => normalizeColumnName(c.column) === normalizeColumnName(name),
+    )
   )?.column ?? "";
 
 export const haveSameColumnNames = (a: DetectedColumn[], b: DetectedColumn[]) =>

@@ -18,7 +18,7 @@ export interface ExposuresCacheKeyParams {
   exposureQueryId: string;
   exposureQuerySql: string;
   identifierType: string;
-  // Remapping columns changes what the cached rows are keyed by
+  // The mapped columns change both the filter and the shape of cached rows
   columnMapping: Record<string, string>;
   dimensions: string[];
   window: ExposuresWindow;
