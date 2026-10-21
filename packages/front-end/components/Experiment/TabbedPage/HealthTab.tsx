@@ -459,7 +459,8 @@ function HealthSnapshotCards({
             title="Cluster Assignment Check"
             description={
               <>
-                Detects whether every unit in a{" "}
+                Detects whether every{" "}
+                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> in a{" "}
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode> saw the
                 same variation
               </>
@@ -478,19 +479,21 @@ function HealthSnapshotCards({
               <>
                 {numberFormatter.format(clusterAssignment.mixedClusters)}{" "}
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
-                {oneMixedCluster ? "value" : "values"} saw more than one
-                variation and {oneMixedCluster ? "was" : "were"} removed from
-                results, but that is below your threshold of {threshold}.
+                {oneMixedCluster ? "value" : "values"} had{" "}
+                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> values in
+                more than one variation and {oneMixedCluster ? "was" : "were"}{" "}
+                removed from results, but that is below your threshold of{" "}
+                {threshold}.
               </>
             )}
             warningMessage={(share) => (
               <>
-                <strong>Cluster Assignment Warning</strong>. Units in{" "}
+                <strong>Cluster Assignment Warning</strong>.{" "}
                 {numberFormatter.format(clusterAssignment.mixedClusters)}{" "}
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
-                {oneMixedCluster ? "value" : "values"} ({share}) saw more than
-                one variation, and{" "}
-                {oneMixedCluster ? "that cluster was" : "those clusters were"}{" "}
+                {oneMixedCluster ? "value" : "values"} ({share}) had{" "}
+                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> values in
+                more than one variation and {oneMixedCluster ? "was" : "were"}{" "}
                 automatically removed from results. Check that the{" "}
                 <IdentifierCode>{clusterIds.cluster}</IdentifierCode> in your
                 assignment query matches the attribute the SDK hashes on.
