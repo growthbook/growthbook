@@ -66542,6 +66542,80 @@ paths:
             curl -X POST 'https://api.growthbook.io/api/v1/api-keys/{id}/enable'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/api-keys/{id}/rotate:
+    post:
+      operationId: postApiKeyRotate
+      summary: Rotate an API key's secret
+      description: >-
+        Issues a new secret under the same id, role and settings. The replaced
+        secret keeps working for `gracePeriodHours`, and a later rotation ends
+        that early.
+      tags:
+        - api-keys
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The API key id (not the secret)
+          schema:
+            description: The API key id (not the secret)
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                gracePeriodHours:
+                  description: >-
+                    How long the replaced secret keeps working, in hours. 0
+                    rejects it immediately. Defaults to 24.
+                  type: integer
+                  minimum: 0
+                  maximum: 168
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  apiKey:
+                    $ref: '#/components/schemas/ApiKey'
+                  key:
+                    description: The new secret
+                    type: string
+                  expiresAt:
+                    description: When the key expires. Rotation restarts its lifetime.
+                    anyOf:
+                      - format: date-time
+                        type: string
+                      - type: 'null'
+                  previousKeyExpiresAt:
+                    description: >-
+                      When the replaced secret stops working. Null when it
+                      already has.
+                    anyOf:
+                      - format: date-time
+                        type: string
+                      - type: 'null'
+                required:
+                  - apiKey
+                  - key
+                  - expiresAt
+                  - previousKeyExpiresAt
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST 'https://api.growthbook.io/api/v1/api-keys/{id}/rotate'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
 components:
   parameters:
     limit:

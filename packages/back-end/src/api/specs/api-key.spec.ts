@@ -4,6 +4,8 @@ import {
   apiApiKeyValidator,
   apiCreateApiKeyBody,
   apiListApiKeysValidator,
+  apiRotateApiKeyReturn,
+  apiRotateApiKeyValidator,
   apiUpdateApiKeyBody,
 } from "shared/validators";
 import { OpenApiModelSpec } from "shared/api-model";
@@ -29,6 +31,18 @@ export const enableApiKeyEndpoint = {
   summary: "Re-enable a disabled API key",
 };
 
+export const rotateApiKeyEndpoint = {
+  pathFragment: "/:id/rotate",
+  verb: "post" as const,
+  confirmation: ["access.apiKeys"] as const,
+  operationId: "postApiKeyRotate",
+  validator: apiRotateApiKeyValidator,
+  zodReturnObject: apiRotateApiKeyReturn,
+  summary: "Rotate an API key's secret",
+  description:
+    "Issues a new secret under the same id, role and settings. The replaced secret keeps working for `gracePeriodHours`, and a later rotation ends that early.",
+};
+
 // Organization secret keys only: PATs, SDK keys and OAuth tokens are left out.
 export const apiKeyApiSpec = {
   modelSingular: "apiKey",
@@ -47,7 +61,11 @@ export const apiKeyApiSpec = {
     list: "Key values are never returned. Personal access tokens, SDK keys and keys created before ids existed are not included.",
   },
   confirmation: { delete: ["access.apiKeys"] },
-  customEndpoints: [disableApiKeyEndpoint, enableApiKeyEndpoint],
+  customEndpoints: [
+    disableApiKeyEndpoint,
+    enableApiKeyEndpoint,
+    rotateApiKeyEndpoint,
+  ],
   tag: "api-keys",
 } satisfies OpenApiModelSpec;
 export default apiKeyApiSpec;

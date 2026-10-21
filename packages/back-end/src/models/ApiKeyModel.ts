@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   apiApiKeyActionReturn,
   apiKeySchema,
+  apiRotateApiKeyReturn,
   ConfirmRule,
 } from "shared/validators";
 import {
@@ -42,6 +43,7 @@ import {
   apiKeyApiSpec,
   disableApiKeyEndpoint,
   enableApiKeyEndpoint,
+  rotateApiKeyEndpoint,
 } from "back-end/src/api/specs/api-key.spec";
 import {
   auditDetailsDelete,
@@ -50,6 +52,7 @@ import {
 import { ApiRequestLocals } from "back-end/types/api";
 
 type ApiApiKeyActionReturn = z.infer<typeof apiApiKeyActionReturn>;
+type ApiRotateApiKeyReturn = z.infer<typeof apiRotateApiKeyReturn>;
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
@@ -109,6 +112,15 @@ const BaseClass = MakeModelClass({
             req,
             req.params.id,
             false,
+          ),
+      }),
+      defineCustomApiHandler({
+        ...rotateApiKeyEndpoint,
+        reqHandler: (req): Promise<ApiRotateApiKeyReturn> =>
+          req.context.models.apiKeys.rotateOrgSecretKey(
+            req,
+            req.params.id,
+            req.body.gracePeriodHours ?? 24,
           ),
       }),
     ],
@@ -173,6 +185,35 @@ export class ApiKeyModel extends BaseClass {
       ),
     });
     return { apiKey: this.toApiInterface(after) };
+  }
+
+  public async rotateOrgSecretKey(
+    req: Pick<ApiRequestLocals, "audit">,
+    id: string,
+    gracePeriodHours: number,
+  ): Promise<ApiRotateApiKeyReturn> {
+    // REST only addresses org keys, so check their rule before the lookup.
+    if (
+      !canManageApiKeySecret(this.context.permissions, {}, this.context.userId)
+    ) {
+      this.context.permissions.throwPermissionError();
+    }
+    await this.getOrgSecretKey(id);
+    const { before, after } = await this.rotateSecret(id, gracePeriodHours);
+    await req.audit({
+      event: "apiKey.rotate",
+      entity: { object: "apiKey", id, name: after.description },
+      details: auditDetailsUpdate(
+        ApiKeyModel.toAuditDetails(before),
+        ApiKeyModel.toAuditDetails(after),
+      ),
+    });
+    return {
+      apiKey: this.toApiInterface(after),
+      key: after.key,
+      expiresAt: after.expiresAt?.toISOString() ?? null,
+      previousKeyExpiresAt: after.previousKeyExpiresAt?.toISOString() ?? null,
+    };
   }
 
   public override async handleApiList() {
