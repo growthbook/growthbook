@@ -1,6 +1,7 @@
 import {
   apiKeyToggleRequiresAdmin,
   canApplyExpirationPolicy,
+  canManageApiKeySecret,
   canSetApiKeyDisabled,
   changesApiKeyAuthority,
 } from "../../src/permissions/apiKeyAuthority";
@@ -137,6 +138,25 @@ describe("canSetApiKeyDisabled", () => {
       expect(canSetApiKeyDisabled(tokensOnly, key, "u_1", target)).toBe(true);
     },
   );
+});
+
+describe("canManageApiKeySecret", () => {
+  const creator = { canCreateApiKey: () => true };
+  const nonCreator = { canCreateApiKey: () => false };
+
+  it("needs permission to create API keys for an org key", () => {
+    expect(canManageApiKeySecret(creator, {}, "u_1")).toBe(true);
+    expect(canManageApiKeySecret(nonCreator, {}, "u_1")).toBe(false);
+  });
+
+  it("lets only the owner manage a PAT's secret, whatever their permissions", () => {
+    expect(canManageApiKeySecret(nonCreator, { userId: "u_1" }, "u_1")).toBe(
+      true,
+    );
+    expect(canManageApiKeySecret(creator, { userId: "u_2" }, "u_1")).toBe(
+      false,
+    );
+  });
 });
 
 describe("canApplyExpirationPolicy", () => {

@@ -81,7 +81,7 @@ const ApiKeysModal: FC<{
     existingKey
       ? latestEditedExpiration(
           existingKey.expiresAt,
-          existingKey.dateCreated,
+          existingKey.keyIssuedAt ?? existingKey.dateCreated,
           maxLifetimeDays,
         )
       : undefined,

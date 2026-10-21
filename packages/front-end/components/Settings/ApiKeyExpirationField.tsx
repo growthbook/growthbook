@@ -37,8 +37,12 @@ const ApiKeyExpirationField: FC<{
   maxLifetimeDays: MaxLifetimeDays;
   value: Date | null;
   setValue: (date: Date | null) => void;
-  /** The key being edited, whose policy maximum runs from its creation. */
-  existing?: { expiresAt?: ExpiresAt; dateCreated: ExpiresAt };
+  /** The key being edited, whose policy maximum runs from when its secret was issued. */
+  existing?: {
+    expiresAt?: ExpiresAt;
+    dateCreated: ExpiresAt;
+    keyIssuedAt?: ExpiresAt;
+  };
   /** Why the viewer can't create a replacement for an expired key, or null when they can. */
   replaceBlocked: string | null;
 }> = ({ maxLifetimeDays, value, setValue, existing, replaceBlocked }) => {
@@ -46,7 +50,7 @@ const ApiKeyExpirationField: FC<{
   const latest = existing
     ? latestEditedExpiration(
         existing.expiresAt,
-        existing.dateCreated,
+        existing.keyIssuedAt ?? existing.dateCreated,
         maxLifetimeDays,
       )
     : maxExpirationDate(maxLifetimeDays);
@@ -135,7 +139,7 @@ const ApiKeyExpirationField: FC<{
       {cleared
         ? `Your organization changed its expiration policy, so the date you chose is no longer allowed. The latest allowed is now ${date(latest)}.`
         : existing
-          ? `Your organization's ${maxLifetimeDays}-day maximum counts from when this key was created, so the latest allowed is ${date(latest)}.`
+          ? `Your organization's ${maxLifetimeDays}-day maximum counts from when this key was created or last rotated, so the latest allowed is ${date(latest)}.`
           : `Your organization requires an expiration date, and the latest allowed is ${date(latest)}.`}
     </HelperText>
   ) : null;

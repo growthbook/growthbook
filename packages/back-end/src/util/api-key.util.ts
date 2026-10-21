@@ -129,7 +129,7 @@ export async function dangerousLookupOrganizationByApiKey(
     : key;
 
   const doc = await getCollection<ApiKeyInterface>(API_KEY_COLLECTION).findOne({
-    key: lookupKey,
+    $or: [{ key: lookupKey }, { previousKey: lookupKey }],
   });
 
   if (!doc || !doc.organization) {
@@ -137,6 +137,20 @@ export async function dangerousLookupOrganizationByApiKey(
   }
 
   const migrated = migrateApiKey(removeMongooseFields(doc));
+
+  // A rotated key's replaced secret only works until its grace period ends.
+  if (
+    migrated.key !== lookupKey &&
+    !(
+      migrated.previousKeyExpiresAt && !isExpired(migrated.previousKeyExpiresAt)
+    )
+  ) {
+    throw new Error(
+      migrated.userId
+        ? `This personal access token was rotated and has expired. Reveal the new one at ${APP_ORIGIN}/account/personal-access-tokens`
+        : `This API key was rotated and has expired. An admin can reveal the new one at ${APP_ORIGIN}/settings/keys`,
+    );
+  }
 
   // The one expiry check for every caller. The attempt is recorded first so a
   // lapsed key's `lastUsed` shows whether something still depends on it.
