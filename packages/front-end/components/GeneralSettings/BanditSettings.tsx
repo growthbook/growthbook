@@ -1,9 +1,11 @@
 import { useFormContext } from "react-hook-form";
 import { ScopedSettings } from "shared/settings";
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import { PiInfo } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import HelperText from "@/ui/HelperText";
 import Heading from "@/ui/Heading";
@@ -205,8 +207,24 @@ export default function BanditSettings({
             <Box mt="4">
               <Switch
                 id="banditPeriodWeighting"
-                label="Weight results across update periods"
-                description="Unbias Contextual Bandit decision-metric estimates due to changing conversion rates over time."
+                label={
+                  <Flex as="span" align="center" gap="1">
+                    Weight results by update period
+                    <span
+                      onClick={(e) => {
+                        // Keep clicks on the info icon from toggling the switch.
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      style={{ display: "inline-flex" }}
+                    >
+                      <Tooltip body="Each update period is weighted proportionally to traffic received. This removes bias, but adds some variance (more exploration).">
+                        <PiInfo color="var(--color-text-low)" />
+                      </Tooltip>
+                    </span>
+                  </Flex>
+                }
+                description="Unbias Contextual Bandit decision-metric estimates due to changing traffic over time."
                 value={form.watch("banditPeriodWeighting") ?? true}
                 onChange={(checked) => {
                   form.setValue("banditPeriodWeighting", checked);
