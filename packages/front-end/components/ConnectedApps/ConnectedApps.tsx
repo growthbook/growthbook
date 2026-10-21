@@ -1,5 +1,7 @@
 import React, { FC, useCallback, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { ago, datetime } from "shared/dates";
+import { OAuthTokenPermissions } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import Button from "@/ui/Button";
@@ -7,12 +9,19 @@ import Badge from "@/ui/Badge";
 import Tooltip from "@/ui/Tooltip";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
+import {
+  describeGrant,
+  PRESET_LABELS,
+} from "@/components/Settings/apiKeyPermissions";
+import { RoleRulesSummary } from "@/components/Settings/Team/RoleRulesSummary";
 
 interface ConnectedApp {
   clientId: string;
   clientName: string;
   clientUri?: string;
   scopes: string[];
+  permissions: OAuthTokenPermissions | null;
   firstAuthorizedAt: string;
   lastUsedAt: string;
 }
@@ -42,6 +51,7 @@ export const ConnectedApps: FC<ConnectedAppsProps> = ({ apps, onRevoke }) => {
           <thead>
             <tr>
               <th>Application</th>
+              <th>Permissions</th>
               <th>Scopes</th>
               <th>Last used</th>
               <th style={{ width: 100 }}></th>
@@ -51,6 +61,9 @@ export const ConnectedApps: FC<ConnectedAppsProps> = ({ apps, onRevoke }) => {
             {apps.map((app) => (
               <tr key={app.clientId}>
                 <td>{app.clientName}</td>
+                <td>
+                  <GrantPermissions permissions={app.permissions} />
+                </td>
                 <td>
                   {app.scopes.length > 0 ? (
                     app.scopes.map((s) => (
@@ -95,6 +108,26 @@ export const ConnectedApps: FC<ConnectedAppsProps> = ({ apps, onRevoke }) => {
     </div>
   );
 };
+
+function GrantPermissions({
+  permissions,
+}: {
+  permissions: OAuthTokenPermissions | null;
+}) {
+  const { preset, scope, confirmations } = describeGrant(permissions);
+  if (preset) return <>{PRESET_LABELS[preset]}</>;
+  return (
+    <Flex direction="column" gap="1">
+      <span>Custom</span>
+      {scope && <RoleRulesSummary value={scope} />}
+      {confirmations && (
+        <Text size="sm" color="text-mid">
+          Requires your confirmation
+        </Text>
+      )}
+    </Flex>
+  );
+}
 
 export const ConnectedAppsContainer = () => {
   const { apiCall } = useAuth();

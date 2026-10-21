@@ -21,6 +21,7 @@ import {
   Holder,
   PermissionsValue,
   Preset,
+  PRESET_LABELS,
   presetAllowed,
   presetsFor,
   presetValue,
@@ -94,14 +95,13 @@ export default function PermissionsField({
     full: FULL_ACCESS[holder],
   };
   const labels: Record<Preset, string | JSX.Element> = {
-    readonly: "Read only",
+    ...PRESET_LABELS,
     hitl: (
       <>
-        Human-in-the-Loop{" "}
+        {PRESET_LABELS.hitl}{" "}
         <PaidFeatureBadge commercialFeature="human-in-the-loop" ml="1" />
       </>
     ),
-    full: "Full access",
   };
   const disabledReason: Partial<Record<Preset, string>> = {
     readonly: allowed.roles

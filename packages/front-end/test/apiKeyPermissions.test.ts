@@ -1,5 +1,6 @@
 import {
   canCustomize,
+  describeGrant,
   forHolder,
   initialPermissions,
   orgKeyFields,
@@ -174,5 +175,33 @@ describe("rulesProblem", () => {
     expect(rulesProblem({ ...custom, rules: [{ actions: [] }] })).toMatch(
       /at least one action/,
     );
+  });
+});
+
+describe("describeGrant", () => {
+  it("reads a grant from before consent asked as full access", () => {
+    expect(describeGrant(null)).toEqual({
+      preset: "full",
+      scope: null,
+      confirmations: false,
+    });
+  });
+
+  it("names the preset a grant matches", () => {
+    expect(describeGrant({ scopedRole: "readonly" }).preset).toBe("readonly");
+    expect(describeGrant({ confirmRules: RECOMMENDED }).preset).toBe("hitl");
+  });
+
+  it("shows custom permissions' role rules and confirmations", () => {
+    expect(
+      describeGrant({
+        scopedRole: "engineer",
+        confirmRules: [{ actions: ["*"] }],
+      }),
+    ).toMatchObject({
+      preset: null,
+      scope: { role: "engineer" },
+      confirmations: true,
+    });
   });
 });

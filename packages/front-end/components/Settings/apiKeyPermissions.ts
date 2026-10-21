@@ -1,6 +1,6 @@
 import { ApiKeyInterface } from "shared/types/apikey";
 import { MemberRoleWithProjects } from "shared/types/organization";
-import { ConfirmRule } from "shared/validators";
+import { ConfirmRule, OAuthTokenPermissions } from "shared/validators";
 import {
   mergeConfirmRules,
   presetOf as confirmPresetOf,
@@ -32,6 +32,12 @@ export type PermissionsValue = {
   restricted: boolean;
   requireConfirmation: boolean;
   rules: ConfirmRule[];
+};
+
+export const PRESET_LABELS: Record<Preset, string> = {
+  readonly: "Read only",
+  hitl: "Human-in-the-Loop",
+  full: "Full access",
 };
 
 const RECOMMENDED_RULES: ConfirmRule[] = [{ actions: [RECOMMENDED] }];
@@ -111,6 +117,28 @@ export function presetOfKey(key: SavedKey, holder: Holder): Preset | null {
       ? "hitl"
       : null;
   return preset && presetsFor(holder).includes(preset) ? preset : null;
+}
+
+// What a connected app was allowed on the consent page: its preset, or for
+// custom permissions the role rules (when restricted) and whether it confirms.
+// A grant from before consent asked acts as its user.
+export function describeGrant(permissions: OAuthTokenPermissions | null) {
+  const { scopedRole, ...rest } = permissions ?? {};
+  const scope = {
+    role: scopedRole || "admin",
+    limitAccessByEnvironment: rest.limitAccessByEnvironment ?? false,
+    environments: rest.environments ?? [],
+    additionalRoles: rest.additionalRoles,
+    projectRoles: rest.projectRoles,
+  };
+  return {
+    preset: presetOfKey(
+      { ...scope, scoped: !!scopedRole, confirmRules: rest.confirmRules },
+      "pat",
+    ),
+    scope: scopedRole ? scope : null,
+    confirmations: !!rest.confirmRules,
+  };
 }
 
 export function initialPermissions(

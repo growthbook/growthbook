@@ -100,6 +100,8 @@ export interface ConnectedApp {
   clientName: string;
   clientUri?: string;
   scopes: string[];
+  // What the user chose on the consent page. Null for a grant from before it asked.
+  permissions: OAuthTokenPermissions | null;
   firstAuthorizedAt: Date;
   // Last token activity (issuance or refresh bumps the grant), not last consent
   lastUsedAt: Date;
@@ -121,6 +123,7 @@ export async function listConnectedApps(
     clientId: grant.clientId,
     clientName: grant.clientId,
     scopes: grant.scope ? grant.scope.split(/\s+/).filter(Boolean) : [],
+    permissions: grant.permissions ?? null,
     firstAuthorizedAt: grant.dateCreated,
     lastUsedAt: grant.dateUpdated,
   }));
