@@ -57,7 +57,7 @@ const HREFS: Partial<Record<EppoCategory, (id: string) => string>> = {
   flags: (id) => `/features/${id}`,
 };
 
-const UNTOUCHED: EppoCategory[] = ["environments", "tags"];
+const UNTOUCHED: EppoCategory[] = ["environments", "tags", "teams"];
 
 function StatusBadge({
   item,

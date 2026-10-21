@@ -42,6 +42,16 @@ export type EppoEnvironment = { id: number; name: string };
 
 export type EppoTag = { id: number; name: string; description?: string };
 
+// With `with_relations`, a team lists the ids of what it owns
+export type EppoTeam = {
+  id: number;
+  name: string;
+  experiments?: number[];
+  metrics?: number[];
+  feature_flags?: number[];
+  archived_at?: string | null;
+};
+
 export type EppoCondition = {
   attribute: string;
   operator:
@@ -222,6 +232,7 @@ export type EppoExperiment = {
 export type EppoData = {
   environments: EppoEnvironment[];
   tags: EppoTag[];
+  teams: EppoTeam[];
   audiences: EppoAudience[];
   flags: EppoFlag[];
   entities: EppoEntity[];
@@ -281,6 +292,7 @@ export async function fetchEppoData(
   const [
     environments,
     tags,
+    teams,
     audiences,
     flags,
     entities,
@@ -290,6 +302,7 @@ export async function fetchEppoData(
   ] = await Promise.all([
     get<EppoEnvironment>("environments"),
     get<EppoTag>("tags"),
+    get<EppoTeam>("teams?with_relations=true"),
     get<EppoAudience>("audiences?status=active"),
     get<EppoFlag>("feature-flags?include_detailed_allocations=true"),
     get<EppoEntity>("definitions/entities"),
@@ -300,6 +313,7 @@ export async function fetchEppoData(
   return {
     environments,
     tags,
+    teams: teams.filter((t) => !t.archived_at),
     audiences,
     flags,
     entities,
@@ -350,8 +364,21 @@ export type TransformContext = {
   factTableIds: Map<number, string>;
   metricIds: Map<number, string>;
   experiments: Map<number, GBExperimentRef>;
+  // Eppo team id -> the GrowthBook tag it became
+  teamTags: Map<number, string>;
   factTableColumns: Map<string, string[]>;
 };
+
+// The tag for the team that owns an Eppo object, once that team is imported
+export function teamTag(
+  ctx: TransformContext,
+  owns: "feature_flags" | "experiments" | "metrics",
+  id: number,
+): string[] {
+  const team = ctx.eppo.teams.find((t) => t[owns]?.includes(id));
+  const tag = team && ctx.teamTags.get(team.id);
+  return tag ? [tag] : [];
+}
 
 export function toEnvironmentId(name: string): string {
   return name
@@ -706,7 +733,10 @@ export function transformFlag(
     id: flag.key,
     description: flag.description || (flag.name !== flag.key ? flag.name : ""),
     project: ctx.project,
-    tags: flag.tag_names ?? [],
+    tags: [
+      ...(flag.tag_names ?? []),
+      ...teamTag(ctx, "feature_flags", flag.id),
+    ],
     valueType,
     defaultValue,
     environmentSettings,
@@ -1105,7 +1135,7 @@ export function transformMetric(
     description: metric.description || "",
     datasource: datasource.id,
     projects: ctx.project ? [ctx.project] : [],
-    tags: [],
+    tags: teamTag(ctx, "metrics", metric.id),
     archived: false,
     ...getMetricDefinition(metric, ctx),
     priorSettings: {
@@ -1231,7 +1261,10 @@ export function transformExperiment(
     project: ctx.project,
     hashAttribute: "id",
     hashVersion: 2,
-    tags: experiment.tag_names ?? [],
+    tags: [
+      ...(experiment.tag_names ?? []),
+      ...teamTag(ctx, "experiments", experiment.id),
+    ],
     variations: variations.map((v) => ({
       id: variationId(v),
       key: v.variant_key,
@@ -1368,6 +1401,7 @@ export type ImportResult = Pick<ImportItem<unknown>, "status" | "error">;
 export type EppoImportData = {
   environments: ImportItem<EppoEnvironment>[];
   tags: ImportItem<EppoTag>[];
+  teams: ImportItem<EppoTeam>[];
   audiences: ImportItem<EppoAudience>[];
   factSources: ImportItem<EppoFactSource>[];
   metrics: ImportItem<EppoMetric>[];
@@ -1380,6 +1414,7 @@ export type EppoCategory = keyof EppoImportData;
 export const CATEGORIES: { key: EppoCategory; label: string }[] = [
   { key: "environments", label: "Environments" },
   { key: "tags", label: "Tags" },
+  { key: "teams", label: "Teams → Tags" },
   { key: "audiences", label: "Audiences → Saved Groups" },
   { key: "factSources", label: "Fact sources → Fact Tables" },
   { key: "metrics", label: "Metrics → Fact Metrics" },
@@ -1390,6 +1425,7 @@ export const CATEGORIES: { key: EppoCategory; label: string }[] = [
 export const ARTIFACT_KINDS: Record<EppoCategory, AutoRunArtifact["kind"]> = {
   environments: "environment",
   tags: "tag",
+  teams: "tag",
   audiences: "saved-group",
   factSources: "fact-table",
   metrics: "metric",
@@ -1409,7 +1445,11 @@ function artifactAction(
   if (!item.existingId) {
     return { action: "created", detail: "Created from Eppo" };
   }
-  if (category === "environments" || category === "tags") {
+  if (
+    category === "environments" ||
+    category === "tags" ||
+    category === "teams"
+  ) {
     return { action: "existing", detail: "Already in GrowthBook" };
   }
   return { action: "updated", detail: "Updated from Eppo" };
@@ -1710,7 +1750,7 @@ export async function teardownRun(
 }
 
 export type ImportedIds = Record<
-  Exclude<EppoCategory, "environments" | "tags">,
+  Exclude<EppoCategory, "environments" | "tags" | "teams">,
   Map<number, string>
 >;
 
@@ -1810,6 +1850,12 @@ export function matchItems(
     tags: new Map(
       eppo.tags.map((t) => [
         t.name,
+        existing.tags.has(t.name) ? { existingId: t.name, match: "run" } : {},
+      ]),
+    ),
+    teams: new Map(
+      eppo.teams.map((t) => [
+        String(t.id),
         existing.tags.has(t.name) ? { existingId: t.name, match: "run" } : {},
       ]),
     ),
@@ -1937,6 +1983,7 @@ function getInitialContext(
         factTableIds,
         metricIds,
         experiments,
+        teamTags: new Map(),
         factTableColumns: new Map(),
       });
       experiments.set(e.id, {
@@ -1968,6 +2015,15 @@ function getInitialContext(
     factTableIds,
     metricIds,
     experiments,
+    teamTags: new Map(
+      eppo.teams.flatMap((t) => {
+        const existingId = matches.teams.get(String(t.id))?.existingId;
+        const id =
+          existingId ??
+          (isSelected("teams", String(t.id)) ? t.name : undefined);
+        return id ? [[t.id, id] as const] : [];
+      }),
+    ),
     factTableColumns: new Map(existing.factTableColumns),
   };
 }
@@ -2003,6 +2059,12 @@ export function buildImportData(
       buildItem(t.name, t.name, t, match("tags", t.name), () => ({
         id: t.name,
         description: t.description ?? "",
+      })),
+    ),
+    teams: eppo.teams.map((t) =>
+      buildItem(String(t.id), t.name, t, match("teams", String(t.id)), () => ({
+        id: t.name,
+        description: "Eppo team",
       })),
     ),
     audiences: eppo.audiences.map((a) =>
@@ -2087,12 +2149,13 @@ export async function runEppoImport({
     (n, { key }) => n + selected(key, data[key]).length,
     0,
   );
-  const existingUntouched = (category: "environments" | "tags") =>
+  const existingUntouched = (category: "environments" | "tags" | "teams") =>
     data[category].filter((i) => i.existingId && i.status !== "invalid");
   const recordedCount =
     selectedCount +
     existingUntouched("environments").length +
-    existingUntouched("tags").length;
+    existingUntouched("tags").length +
+    existingUntouched("teams").length;
   if (recordedCount > MAX_AUTO_RUN_ARTIFACTS) {
     throw new Error(
       `Select at most ${MAX_AUTO_RUN_ARTIFACTS} items per import so the run can record them all`,
@@ -2215,9 +2278,9 @@ export async function runEppoImport({
       await ensureAttributeExists(attribute, attributeSchema, apiCall);
     }
 
-    const recordExisting = (category: "environments" | "tags") =>
+    const recordExisting = (category: "environments" | "tags" | "teams") =>
       existingUntouched(category).forEach((i) =>
-        recorded.push({ item: i, id: i.key }),
+        recorded.push({ item: i, id: i.existingId ?? i.key }),
       );
 
     recordExisting("environments");
@@ -2241,6 +2304,7 @@ export async function runEppoImport({
     ctx.environmentIds = new Set([...existing.environments, ...createdEnvs]);
 
     recordExisting("tags");
+    const createdTags = new Set<string>();
     await importEach("tags", data.tags, async (item) => {
       if (item.existingId) return;
       await apiCall("/tag", {
@@ -2251,7 +2315,26 @@ export async function runEppoImport({
           color: "blue",
         }),
       });
+      createdTags.add(item.key);
       record(item, item.key);
+    });
+
+    // A team becomes a tag on everything it owns. A tag of the same name
+    // created just above is reused rather than written again.
+    recordExisting("teams");
+    await importEach("teams", data.teams, async (item) => {
+      if (!item.existingId && !createdTags.has(item.eppo.name)) {
+        await apiCall("/tag", {
+          method: "POST",
+          body: JSON.stringify({
+            id: item.eppo.name,
+            description: "Eppo team",
+            color: "purple",
+          }),
+        });
+        record(item, item.eppo.name);
+      }
+      ctx.teamTags.set(item.eppo.id, item.eppo.name);
     });
 
     const dropOnFailure = async <K>(
