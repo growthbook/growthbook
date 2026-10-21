@@ -18455,9 +18455,10 @@ paths:
         Returns the latest contextual-bandit stats engine output (per-context
         responses tagged with their leaf, the per-leaf targeting conditions, and
         per-leaf aggregated stats), the overall (marginal) variation weights
-        across all contexts, the SRM of the most recent run, and the status of
-        the most recent snapshot run for the contextual bandit. Same payload the
-        GrowthBook UI uses to render the contextual bandit results table.
+        across all contexts, the health checks (traffic, SRM, multiple
+        exposures) computed by that same run, and the status of the most recent
+        snapshot run for the contextual bandit. Same payload the GrowthBook UI
+        uses to render the contextual bandit results and health tabs.
       tags:
         - ContextualBandits
       parameters:
@@ -18739,11 +18740,143 @@ paths:
                                 - variations
                                 - contexts
                               additionalProperties: false
+                          snapshotId:
+                            type: string
+                          dateCreated:
+                            type: string
+                          health:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  variations:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        variationId:
+                                          type: string
+                                        variationName:
+                                          type: string
+                                        weight:
+                                          type: number
+                                      required:
+                                        - variationId
+                                        - weight
+                                      additionalProperties: false
+                                  traffic:
+                                    anyOf:
+                                      - type: object
+                                        properties:
+                                          overall:
+                                            type: object
+                                            properties:
+                                              name:
+                                                type: string
+                                              srm:
+                                                type: number
+                                              variationUnits:
+                                                type: array
+                                                items:
+                                                  type: number
+                                            required:
+                                              - name
+                                              - srm
+                                              - variationUnits
+                                            additionalProperties: false
+                                          dimension:
+                                            type: object
+                                            propertyNames:
+                                              type: string
+                                            additionalProperties:
+                                              type: array
+                                              items:
+                                                type: object
+                                                properties:
+                                                  name:
+                                                    type: string
+                                                  srm:
+                                                    type: number
+                                                  variationUnits:
+                                                    type: array
+                                                    items:
+                                                      type: number
+                                                required:
+                                                  - name
+                                                  - srm
+                                                  - variationUnits
+                                                additionalProperties: false
+                                          error:
+                                            type: string
+                                        required:
+                                          - overall
+                                          - dimension
+                                        additionalProperties: false
+                                      - type: 'null'
+                                  srm:
+                                    anyOf:
+                                      - type: object
+                                        properties:
+                                          statistic:
+                                            type: number
+                                          pValue:
+                                            type: number
+                                          degreesOfFreedom:
+                                            type: integer
+                                            minimum: 0
+                                          latestPeriod:
+                                            type: object
+                                            properties:
+                                              banditVersion:
+                                                type: string
+                                              leaves:
+                                                type: array
+                                                items:
+                                                  type: object
+                                                  properties:
+                                                    leafId:
+                                                      type: string
+                                                    observed:
+                                                      type: array
+                                                      items:
+                                                        type: number
+                                                    expected:
+                                                      type: array
+                                                      items:
+                                                        type: number
+                                                  required:
+                                                    - leafId
+                                                    - observed
+                                                    - expected
+                                                  additionalProperties: false
+                                            required:
+                                              - banditVersion
+                                              - leaves
+                                            additionalProperties: false
+                                        required:
+                                          - statistic
+                                          - pValue
+                                          - degreesOfFreedom
+                                        additionalProperties: false
+                                      - type: 'null'
+                                  multipleExposures:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                required:
+                                  - variations
+                                  - traffic
+                                  - srm
+                                  - multipleExposures
+                                additionalProperties: false
+                              - type: 'null'
                         required:
                           - attributes
                           - sseTrajectory
                           - overall
                           - leaves
+                          - snapshotId
+                          - dateCreated
+                          - health
                         additionalProperties: false
                       - type: 'null'
                   latest:
@@ -18794,23 +18927,6 @@ paths:
                             type: string
                           triggeredBy:
                             type: string
-                          srm:
-                            anyOf:
-                              - type: object
-                                properties:
-                                  statistic:
-                                    type: number
-                                  pValue:
-                                    type: number
-                                  degreesOfFreedom:
-                                    type: integer
-                                    minimum: 0
-                                required:
-                                  - statistic
-                                  - pValue
-                                  - degreesOfFreedom
-                                additionalProperties: false
-                              - type: 'null'
                         required:
                           - id
                           - status
@@ -18821,7 +18937,6 @@ paths:
                           - multipleExposures
                           - type
                           - triggeredBy
-                          - srm
                         additionalProperties: false
                       - type: 'null'
                 required:
@@ -81300,6 +81415,33 @@ components:
         stageDateStarted:
           type: string
           format: date-time
+        analysisSummary:
+          type: object
+          properties:
+            snapshotId:
+              type: string
+            health:
+              type: object
+              properties:
+                srm:
+                  anyOf:
+                    - type: number
+                    - type: 'null'
+                totalUsers:
+                  type: number
+                multipleExposures:
+                  type: number
+                variationIds:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - srm
+                - totalUsers
+              additionalProperties: false
+          required:
+            - snapshotId
+          additionalProperties: false
         autoSnapshots:
           type: boolean
         nextSnapshotAttempt:
