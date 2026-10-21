@@ -7,7 +7,6 @@ import {
   GBSettings,
 } from "@/components/Icons";
 import type { SidebarLinkFilterProps, SidebarLinkProps } from "./SidebarLink";
-import styles from "./Layout.module.scss";
 
 export const navlinks: SidebarLinkProps[] = [
   {
@@ -15,7 +14,6 @@ export const navlinks: SidebarLinkProps[] = [
     href: "/",
     Icon: BsHouse,
     path: /^$/,
-    className: styles.first,
   },
   {
     name: "Features",
