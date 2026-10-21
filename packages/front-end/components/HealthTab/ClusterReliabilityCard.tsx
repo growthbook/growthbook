@@ -55,13 +55,22 @@ export default function ClusterReliabilityCard({
     return clusterUnits.clusters.reduce((a, b) => (b.pct > a.pct ? b : a));
   }, [clusterUnits]);
 
+  const totalClusters = (clustersPerVariation ?? []).reduce(
+    (sum, n) => sum + n,
+    0,
+  );
+  // With 1 / share clusters or fewer, one always reaches the share.
+  const canCheckSize =
+    totalClusters > Math.floor(1 / DEFAULT_MAX_CLUSTER_SHARE);
+
   const tooFewClusters = countHealth.status === "unhealthy";
+  const sizeChecked = canCheckSize && !!largestCluster;
   const oversizedCluster =
-    !!largestCluster && largestCluster.pct >= DEFAULT_MAX_CLUSTER_SHARE;
+    sizeChecked && largestCluster.pct >= DEFAULT_MAX_CLUSTER_SHARE;
   const status =
     tooFewClusters || oversizedCluster
       ? "unhealthy"
-      : countHealth.status === "healthy" || largestCluster
+      : countHealth.status === "healthy" || sizeChecked
         ? "healthy"
         : "not-enough-traffic";
 
@@ -125,10 +134,8 @@ export default function ClusterReliabilityCard({
                   Every variation has at least {minimum} {cluster} values
                 </>
               ) : null}
-              {countHealth.status === "healthy" && largestCluster
-                ? ", and "
-                : ""}
-              {largestCluster ? (
+              {countHealth.status === "healthy" && sizeChecked ? ", and " : ""}
+              {sizeChecked ? (
                 <>
                   {countHealth.status === "healthy" ? "no" : "No"} {cluster}{" "}
                   holds {maxShare} or more of {subUnit} values
