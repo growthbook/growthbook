@@ -21,7 +21,7 @@ import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import useUnscopedRuleConfirm from "@/components/Features/useUnscopedRuleConfirm";
+import useUnscopedRuleGate from "@/components/Features/useUnscopedRuleGate";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
@@ -183,7 +183,11 @@ export default function LinkFeatureToContextualBanditModal({
   >([]);
 
   const { apiCall } = useAuth();
-  const { confirmUnscopedRule, unscopedRuleDialog } = useUnscopedRuleConfirm();
+  const { allowUnscopedRules, unscopedRuleBlocksSubmit, unscopedRuleBanner } =
+    useUnscopedRuleGate({
+      allEnvironments: ruleAllEnvironments,
+      environments: ruleSelectedEnvironments,
+    });
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const existing = form.watch("existing");
@@ -212,7 +216,7 @@ export default function LinkFeatureToContextualBanditModal({
     });
   }, [isConfigBacked, defaultConfigKey, form]);
 
-  let ctaEnabled = true;
+  let ctaEnabled = !unscopedRuleBlocksSubmit;
   let disabledMessage: string | undefined;
 
   if (
@@ -263,6 +267,7 @@ export default function LinkFeatureToContextualBanditModal({
       cta={cta}
       close={close}
       ctaEnabled={ctaEnabled}
+      aboveFooterContent={unscopedRuleBanner}
       submit={form.handleSubmit(async (values) => {
         const { variations, existing, ...feature } = values;
 
@@ -326,8 +331,6 @@ export default function LinkFeatureToContextualBanditModal({
             "We fixed some errors in the feature. If it looks correct, submit again.",
           );
         }
-
-        const allowUnscopedRules = await confirmUnscopedRule(rule);
 
         let targetFeatureId: string;
 
@@ -559,7 +562,6 @@ export default function LinkFeatureToContextualBanditModal({
           );
         })}
       </Flex>
-      {unscopedRuleDialog}
     </ModalStandard>
   );
 }

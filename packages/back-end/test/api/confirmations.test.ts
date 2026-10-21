@@ -748,7 +748,9 @@ describe("confirmations", () => {
       notices: [
         {
           severity: "warning",
-          messages: ["This rule applies to all environments and all projects."],
+          messages: [
+            "This rule applies to all environments and projects. Your organization requires rules to target specific environments or projects.",
+          ],
           via: null,
         },
       ],

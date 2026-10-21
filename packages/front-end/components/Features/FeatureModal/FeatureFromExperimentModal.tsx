@@ -33,7 +33,7 @@ import VariationLabel from "@/ui/VariationLabel";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import useUnscopedRuleConfirm from "@/components/Features/useUnscopedRuleConfirm";
+import useUnscopedRuleGate from "@/components/Features/useUnscopedRuleGate";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
@@ -212,7 +212,6 @@ export default function FeatureFromExperimentModal({
   const [selectedDraft, setSelectedDraft] = useState<number | null>(null);
 
   const { apiCall } = useAuth();
-  const { confirmUnscopedRule, unscopedRuleDialog } = useUnscopedRuleConfirm();
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const existing = form.watch("existing");
@@ -316,6 +315,11 @@ export default function FeatureFromExperimentModal({
           };
   const ruleAllEnvironments = ruleScope.allEnvironments;
   const ruleSelectedEnvironments = ruleScope.selectedEnvironments;
+  const { allowUnscopedRules, unscopedRuleBlocksSubmit, unscopedRuleBanner } =
+    useUnscopedRuleGate({
+      allEnvironments: ruleAllEnvironments,
+      environments: ruleSelectedEnvironments,
+    });
 
   const setRuleAllEnvironments = (allEnvironments: boolean) =>
     setScopeOverride({
@@ -427,7 +431,7 @@ export default function FeatureFromExperimentModal({
       "You don't have permission to create feature flag drafts.";
   }
 
-  if (holdoutWarning) {
+  if (holdoutWarning || unscopedRuleBlocksSubmit) {
     ctaEnabled = false;
   }
 
@@ -493,6 +497,7 @@ export default function FeatureFromExperimentModal({
       cta={cta}
       close={close}
       ctaEnabled={ctaEnabled}
+      aboveFooterContent={unscopedRuleBanner}
       submit={form.handleSubmit(async (values) => {
         const { variations, existing, ...feature } = values;
 
@@ -556,8 +561,6 @@ export default function FeatureFromExperimentModal({
             "We fixed some errors in the feature. If it looks correct, submit again.",
           );
         }
-
-        const allowUnscopedRules = await confirmUnscopedRule(rule);
 
         let targetFeatureId: string;
 
@@ -829,7 +832,6 @@ export default function FeatureFromExperimentModal({
           </Box>
         ))}
       </Flex>
-      {unscopedRuleDialog}
     </ModalStandard>
   );
 }
