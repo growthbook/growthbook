@@ -22,6 +22,7 @@ import {
 import { useAuth } from "@/services/auth";
 import {
   getDefaultPartitionColumn,
+  getPartitionCondition,
   getPartitionFormats,
   getPickerTableColumns,
   getPickerTableName,
@@ -415,6 +416,18 @@ export function useSourceTable({
     partition: {
       column: partitionColumn,
       format: partitionFormat,
+      isDefault: partitionChoice === null,
+      condition: partitionColumn
+        ? getPartitionCondition(
+            {
+              column: partitionColumn,
+              datatype: partitionType,
+              format: partitionFormat,
+            },
+            datasourceType,
+            dialect?.identifierQuote,
+          )
+        : "",
       options: partitionOptions,
       formats: partitionFormats,
       setColumn: (column: string) =>

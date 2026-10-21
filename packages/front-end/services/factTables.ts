@@ -303,6 +303,21 @@ function getPartitionStart(
 
 const SIMPLE_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+const quoteIfNeeded = (column: string, identifierQuote: SqlIdentifierQuote) =>
+  SIMPLE_IDENTIFIER.test(column)
+    ? column
+    : quoteIdentifier(column, identifierQuote);
+
+export const getPartitionCondition = (
+  partition: PartitionFilter,
+  datasourceType?: DataSourceType,
+  identifierQuote: SqlIdentifierQuote = '"',
+) =>
+  `${quoteIfNeeded(partition.column, identifierQuote)} >= ${getPartitionStart(
+    partition,
+    datasourceType,
+  )}`;
+
 // Pruning filters only, lower bound only: metric queries bound the timestamp
 export function getPickerTableSql(
   table: SchemaBrowserTable,
@@ -322,13 +337,12 @@ export function getPickerTableSql(
     rowFilterWhere?: string;
   } = {},
 ): string {
-  const quote = (c: string) =>
-    SIMPLE_IDENTIFIER.test(c) ? c : quoteIdentifier(c, identifierQuote);
+  const quote = (c: string) => quoteIfNeeded(c, identifierQuote);
 
   const where = table.shards ? [shardFilter(table.hasIntraday)] : [];
   if (partition?.column) {
     where.push(
-      `${quote(partition.column)} >= ${getPartitionStart(partition, datasourceType)}`,
+      getPartitionCondition(partition, datasourceType, identifierQuote),
     );
   }
   if (rowFilterWhere) where.push(rowFilterWhere);

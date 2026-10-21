@@ -19,6 +19,7 @@ import {
 } from "shared/types/datasource";
 import { DetectedColumn } from "shared/types/fact-table";
 import SourceStep from "@/components/SchemaBrowser/SourceStep";
+import PartitionFilterField from "@/components/SchemaBrowser/PartitionFilterField";
 import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";
 import ColumnMappingRow, {
   validColumn,
@@ -540,14 +541,6 @@ export const ExperimentAssignmentQueryModal = ({
                 value={selectedTable.path.replace(/`/g, "")}
                 readOnly
                 append={<Link onClick={() => setStep(0)}>Change</Link>}
-                helpText={
-                  !source.template && partition.column ? (
-                    <>
-                      Filtered on partition column{" "}
-                      <code>{partition.column}</code> to limit data scanned.
-                    </>
-                  ) : undefined
-                }
               />
             ) : (
               <Code
@@ -564,6 +557,12 @@ export const ExperimentAssignmentQueryModal = ({
                 }
               />
             )}
+            {mode === "table" && !source.template ? (
+              <PartitionFilterField
+                partition={partition}
+                detectedDescription="Detected from the table's partitioning. Each analysis only reads data since the experiment started."
+              />
+            ) : null}
             <TextField
               label="Display name"
               value={name}
