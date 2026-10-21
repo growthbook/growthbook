@@ -384,7 +384,7 @@ Instead of reading Langfuse or Phoenix, GrowthBook can store your OpenTelemetry 
    }).start();
    ```
 
-   Use the protobuf exporter (`exporter-trace-otlp-proto`, or `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` in other languages): large traces need it, because JSON requests are capped at 16MB. Protobuf requests are capped at 256MB. If your agent sends a lot of screenshots or other images, lower the batch size so each export stays under that, for example `new BatchSpanProcessor(exporter, { maxExportBatchSize: 16 })`.
+   Use the protobuf exporter (`exporter-trace-otlp-proto`, or `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` in other languages): large traces need it, because JSON requests are capped at 64MB. Protobuf requests are capped at 256MB. If your agent sends a lot of screenshots or other images, lower the batch size so each export stays under that, for example `new BatchSpanProcessor(exporter, { maxExportBatchSize: 16 })`.
 
    Every span in the export is stored, including HTTP, database, and other non-AI spans, so you can send your whole trace. The fact tables below only read AI spans: spans with `gen_ai.*` attributes or the OpenInference, Langfuse, Traceloop, or Vercel AI SDK conventions.
 
