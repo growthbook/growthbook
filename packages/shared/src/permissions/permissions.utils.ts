@@ -574,7 +574,7 @@ export function getEffectiveRolesForProject(
       sourceName: p.sourceName,
       limitAccessByEnvironment: !!rule.limitAccessByEnvironment,
       environments: rule.environments || [],
-      ...(base.project ? { project: base.project } : {}),
+      project: base.project,
     }));
 
   // Additional rules grant alongside their base role, and a project override

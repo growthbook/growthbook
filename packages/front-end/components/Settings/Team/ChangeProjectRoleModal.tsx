@@ -11,7 +11,7 @@ import ProjectRuleFields from "./ProjectRuleFields";
 const ChangeProjectRoleModal: FC<{
   memberName: string;
   projectRole: ProjectMemberRole;
-  // A global admin's project role can only add, never narrow.
+  // A global admin's project roles have no effect.
   adminEverywhere?: boolean;
   close: () => void;
   onConfirm: (data: ProjectMemberRole) => Promise<void>;
