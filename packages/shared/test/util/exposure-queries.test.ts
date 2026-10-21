@@ -21,7 +21,6 @@ import {
   getExposureQueryIdentifierColumn,
   getExposureQueryTimestampColumn,
   getExposureQueryVariationIdColumn,
-  getUnquotableExposureQueryColumn,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 
@@ -968,32 +967,5 @@ describe("exposure query column resolvers", () => {
       "anon",
     );
     expect(getExposureQueryIdentifierColumn(query, "user_id")).toBe("user_id");
-  });
-});
-
-describe("getUnquotableExposureQueryColumn", () => {
-  it("rejects names that need quoting", () => {
-    expect(
-      getUnquotableExposureQueryColumn(
-        { timestampColumn: "event time" },
-        undefined,
-      ),
-    ).toBe("event time");
-    expect(
-      getUnquotableExposureQueryColumn(
-        { userIdColumns: { user_id: "uid" } },
-        undefined,
-      ),
-    ).toBeNull();
-  });
-
-  it("rejects names the warehouse would re-case when unquoted", () => {
-    const query = { userIdColumns: { user_id: "UserId" } };
-    expect(getUnquotableExposureQueryColumn(query, "lower")).toBe("UserId");
-    expect(getUnquotableExposureQueryColumn(query, "upper")).toBe("UserId");
-    expect(getUnquotableExposureQueryColumn(query, undefined)).toBeNull();
-    expect(
-      getUnquotableExposureQueryColumn({ timestampColumn: "TS" }, "upper"),
-    ).toBeNull();
   });
 });
