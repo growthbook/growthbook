@@ -20,96 +20,15 @@ concurrency:
 jobs:
   # Build and publish the commit to docker
   docker:
-    runs-on: ubuntu-latest
     if: ${{ github.repository == 'growthbook/growthbook' }}
     permissions:
       contents: read
       id-token: write
-    outputs:
-      docker_sha: ${{ steps.metadata.outputs.docker_sha }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Checkout agent skills
-        uses: ./.github/actions/checkout-agent-skills
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-
-      # Required to pull the hardened base image (FROM dhi.io/...) in the Dockerfile.
-      # Depot forwards these credentials to its remote builder.
-      - name: Login to Docker Hardened Images
-        uses: docker/login-action@v4
-        with:
-          registry: dhi.io
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-
-      - name: Configure AWS credentials for ECR
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Install Depot CLI
-        uses: depot/setup-action@v1
-
-      - name: Prepare build metadata
-        id: metadata
-        run: |
-          # Store current git hash and date in files
-          mkdir -p buildinfo
-          echo "${GITHUB_SHA}" > buildinfo/SHA
-          printf '%(%Y-%m-%dT%H:%M:%SZ)T' > buildinfo/DATE
-          echo "docker_sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
-
-      # Registry round trips drop often enough to redden Deploy: one soft
-      # attempt, then a blocking retry.
-      - name: Build, tag, and push image to Docker Hub and ECR
-        id: build
-        uses: depot/build-push-action@v1
-        continue-on-error: true
-        with:
-          push: true
-          context: .
-          project: vmp2ssvj9r
-          build-args: |
-            DD_GIT_COMMIT_SHA=${{ github.sha }}
-            DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
-            DD_VERSION=${{ github.sha }}
-          # No ECR :latest — the ECR repo is immutable, so we push only the
-          # unique git-<sha> tag. Docker Hub :latest stays for self-host.
-          tags: |
-            growthbook/growthbook:latest
-            growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
-            ${{ steps.login-ecr.outputs.registry }}/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
-          platforms: linux/amd64,linux/arm64
-
-      - name: Retry build, tag, and push image to Docker Hub and ECR
-        if: steps.build.outcome == 'failure'
-        uses: depot/build-push-action@v1
-        with:
-          push: true
-          context: .
-          project: vmp2ssvj9r
-          build-args: |
-            DD_GIT_COMMIT_SHA=${{ github.sha }}
-            DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
-            DD_VERSION=${{ github.sha }}
-          tags: |
-            growthbook/growthbook:latest
-            growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
-            ${{ steps.login-ecr.outputs.registry }}/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
-          platforms: linux/amd64,linux/arm64
+    uses: ./.github/workflows/build-image.yml
+    with:
+      ref: ${{ github.sha }}
+      deploy: true
+    secrets: inherit
 
   # Extract front-end static assets to S3 and publish Sentry releases. This runs
   # before the services go live (deploy needs it) so the new app's content-hashed

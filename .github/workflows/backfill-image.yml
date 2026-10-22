@@ -1,0 +1,18 @@
+name: Backfill image
+
+# Deploy keeps one queued run, so a commit merged mid-deploy can be cancelled before it builds.
+on:
+  workflow_run:
+    workflows: [Deploy]
+    types: [completed]
+
+jobs:
+  docker:
+    if: ${{ github.repository == 'growthbook/growthbook' && github.event.workflow_run.conclusion == 'cancelled' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      ref: ${{ github.event.workflow_run.head_sha }}
+    secrets: inherit

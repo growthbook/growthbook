@@ -7,21 +7,14 @@ on:
       - "v*"
 
 jobs:
-  # Tag the latest docker release with the tag
+  # Build the tagged commit itself, so the version tag never picks up later commits from :latest
   docker:
-    runs-on: ubuntu-latest
     if: ${{ github.repository == 'growthbook/growthbook' }}
-    steps:
-      - name: Login to Docker Hub
-        uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-
-      - name: Install buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Add tag to latest image
-        run: |
-          TAG=${GITHUB_REF#refs/tags/v}
-          docker buildx imagetools create -t growthbook/growthbook:$TAG growthbook/growthbook:latest
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      ref: ${{ github.sha }}
+      release: ${{ github.ref_name }}
+    secrets: inherit
