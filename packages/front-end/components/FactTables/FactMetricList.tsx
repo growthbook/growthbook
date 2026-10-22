@@ -65,10 +65,7 @@ function FactMetricRowMenu({
     canEdit && !metric.archived && !editDisabledReason && !!onEdit;
   const canShowDisabledEdit =
     canEdit && !metric.archived && !!editDisabledReason;
-  // Duplicate uses the same FactMetricModal as Edit, so anything that locks
-  // editing to the REST API also has to lock Duplicate — otherwise a user
-  // could open a half-broken modal pre-filled with values the picker can no
-  // longer represent.
+  // Neither editor can represent metrics restricted to REST API editing.
   const canDuplicateMenu = canDuplicate && !editDisabledReason;
   const canShowDisabledDuplicate = canDuplicate && !!editDisabledReason;
 
@@ -353,12 +350,7 @@ export default function FactMetricList({
           </>
         )}
         <Box ml="auto">
-          {factMetricFlow.button(
-            { factTable: factTable.id },
-            !canCreateMetrics
-              ? "You don't have permission to add Fact Metrics to this fact table."
-              : undefined,
-          )}
+          {factMetricFlow.createButton({ factTable: factTable.id })}
         </Box>
       </Flex>
       {metrics.length > 0 && (

@@ -10,7 +10,12 @@ GrowthBook uses a three-tier permission system with Global, Project-scoped, and 
 
 Apply organization-wide, not restricted to projects or environments:
 
-- `manageTeam`, `manageBilling`, `manageApiKeys`
+- `manageTeam`, `manageBilling`
+- org API keys: `viewApiKeys`, `createApiKeys` (includes revealing key
+  values, and changing a key's authority — see `changesApiKeyAuthority`),
+  `editApiKeys` (description, expiry, re-enable), `deleteApiKeys` (also disables);
+  other members' PATs: `managePersonalAccessTokens` — see
+  `canSetApiKeyDisabled` in `apiKeyAuthority.ts`
 - `organizationSettings`, `viewAuditLog`
 - `createPresentations`, `createDimensions`, `manageNamespaces`
 - `manageCustomRoles`, `manageCustomFields`, `manageDecisionCriteria`
@@ -245,7 +250,7 @@ context.permissions.throwPermissionError("Custom error message");
 
 ### The Acting User vs the Credential
 
-An org API key can name a member with `X-GrowthBook-Requested-By`. A key is its own identity until it assumes that member's role, then it is that member. A key set to keep its own role stays itself; the name is only logged.
+An org API key can name a member with `X-GrowthBook-Requested-By`. A User key (`actAs: "user"`) must send the header, assumes that member's role and then is that member. A System key (`actAs: "system"`, the default) stays its own identity; the name is only logged. Check it with `actsAsUser`. The retired `requesterHeader` and `requesterPermissions` fields are converted and dropped in `migrateApiKey`.
 
 - `context.actingPerson` (and `actingUserId`, `actingUserName`) is the signed-in user, a personal token's owner, or the member whose role an org key assumes. Use it for owners, `mine` and anything that needs a person; `context.userId` stays empty for org keys.
 - `context.actorId` is who the request acts as: the person, else the key's own ID. Use it for authorship, contributors, review verdicts and author rights (acting on your own draft without draft permission, editing your own comments, retracting your own verdict).
@@ -372,6 +377,10 @@ export async function createArchetype(req: AuthRequest, res: Response) {
 3. User can be on teams with their own roles
 4. Permissions merge using OR logic (union)
 5. Environment limits apply only to environment-scoped permissions
+6. A member who is a global Admin (own role, additional role, or a team's
+   global role) isn't affected by project roles; they have no effect. API keys
+   and scoped tokens keep project roles binding, so member callers pass
+   `{ member: true }` to `getRolePermissions`.
 
 ## Best Practices
 

@@ -8,6 +8,7 @@ import {
   hasStartDateFilter,
   isMultiStatementSQL,
   isReadOnlySQL,
+  stripTrailingSemicolon,
   usesBackslashStringEscapes,
 } from "../src/sql";
 
@@ -179,6 +180,71 @@ describe("ensureLimit", () => {
       const sql = "SELECT * FROM users;\n-- note";
       const result = ensureLimit(sql, 10);
       expect(result).toBe("SELECT * FROM users\nLIMIT 10");
+    });
+  });
+});
+
+describe("stripTrailingSemicolon", () => {
+  it.each([
+    ["SELECT 1", "SELECT 1"],
+    ["SELECT 1;", "SELECT 1"],
+    ["SELECT 1 ;  \n\t", "SELECT 1"],
+    ["  SELECT 1;  ", "SELECT 1"],
+    ["SELECT 1;\n-- note", "SELECT 1"],
+    ["SELECT 1; -- note\n", "SELECT 1"],
+    ["SELECT 1; -- a\n-- b\n", "SELECT 1"],
+    ["SELECT 1; /* note */", "SELECT 1"],
+    ["SELECT 1;/* a *//* b */", "SELECT 1"],
+    ["SELECT 1; /* multi\nline */ -- and more\n", "SELECT 1"],
+    ["SELECT 1;/**/", "SELECT 1"],
+    // Only the terminating semicolon is removed
+    ["SELECT 1;;", "SELECT 1;"],
+    ["SELECT 1; ;", "SELECT 1;"],
+    ["SELECT 1; SELECT 2;", "SELECT 1; SELECT 2"],
+    // Content after the semicolon means it is not terminating
+    ["SELECT 1; SELECT 2", "SELECT 1; SELECT 2"],
+    ["SELECT 1; /* c */ SELECT 2", "SELECT 1; /* c */ SELECT 2"],
+    ["SELECT 1; -- c\nSELECT 2", "SELECT 1; -- c\nSELECT 2"],
+    ["SELECT ';' AS a", "SELECT ';' AS a"],
+    ["SELECT 1 /* a; */", "SELECT 1 /* a; */"],
+    // A comment that never closes is not trailing trivia
+    ["SELECT 1; /* never closed", "SELECT 1; /* never closed"],
+    ["SELECT 1; /* a; ", "SELECT 1; /* a"],
+    // A line comment ends at the newline, so a later `*/` is not part of it
+    ["SELECT 1; -- a /*\n*/", "SELECT 1; -- a /*\n*/"],
+    ["", ""],
+    [";", ""],
+  ])("%j", (sql, expected) => {
+    expect(stripTrailingSemicolon(sql)).toBe(expected);
+  });
+
+  describe("pathological input", () => {
+    // These used to backtrack exponentially (each extra `/**/` doubled the
+    // time), which stalled the server on user-supplied SQL.
+    const pathological = [
+      ";" + "/**/".repeat(30) + "x",
+      ";" + "/**/".repeat(100000) + "x",
+      ";/*".repeat(100000) + "x",
+      ";--\n".repeat(100000) + "x",
+      ";" + " ".repeat(100000) + "x",
+    ];
+
+    it.each(pathological.map((sql) => ({ label: sql.slice(0, 20), sql })))(
+      "finishes quickly for $label...",
+      ({ sql }) => {
+        const start = Date.now();
+        // Nothing trailing to strip: x follows every semicolon. Compare as a
+        // boolean so a failure does not print a megabyte of SQL.
+        expect(stripTrailingSemicolon(sql) === sql).toBe(true);
+        expect(Date.now() - start).toBeLessThan(500);
+      },
+    );
+
+    it("ensureLimit stays fast on the same input", () => {
+      const sql = ";" + "/**/".repeat(30) + "x";
+      const start = Date.now();
+      expect(ensureLimit(sql, 10)).toBe(`${sql}\nLIMIT 10`);
+      expect(Date.now() - start).toBeLessThan(500);
     });
   });
 });

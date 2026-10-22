@@ -7,8 +7,10 @@ import { getDefaultFactMetricProps } from "@/services/metrics";
 const state = vi.hoisted(() => ({
   newFlow: false,
   premium: false,
+  ready: true,
   project: "project-a",
-  factTables: [] as { projects: string[] }[],
+  projects: [],
+  factTables: [] as { id: string; datasource: string; projects: string[] }[],
   router: { asPath: "/metrics", push: vi.fn() },
 }));
 vi.mock("next/router", () => ({ useRouter: () => state.router }));
@@ -24,7 +26,15 @@ vi.mock("@/services/DefinitionsContext", () => ({
   useDefinitions: () => state,
 }));
 vi.mock("@/hooks/usePermissionsUtils", () => ({
-  default: () => ({ canCreateOfficialResources: () => false }),
+  default: () => ({
+    canCreateOfficialResources: () => false,
+    canCreateFactMetric: () => true,
+    canViewCreateFactTableModal: () => true,
+  }),
+}));
+vi.mock("@/services/env", () => ({ envAllowsCreatingMetrics: () => true }));
+vi.mock("@/components/FactTables/FactTableModal", () => ({
+  default: () => null,
 }));
 vi.mock("@/components/FactTables/FactMetricModal", () => ({
   default: () => null,
@@ -48,27 +58,46 @@ beforeEach(() => {
   state.newFlow = false;
   state.premium = false;
   state.factTables = [];
+  state.ready = true;
   state.router.push.mockReset();
 });
 afterEach(cleanup);
 
 describe("useFactMetricFlow", () => {
-  it("does not open the old modal without a project-visible Fact Table", () => {
-    state.factTables = [{ projects: ["project-b"] }];
+  it("sends the user to Fact Tables without a project-visible Fact Table", () => {
+    state.factTables = [
+      { id: "ft_b", datasource: "ds", projects: ["project-b"] },
+    ];
     const { result } = renderHook(() => useFactMetricFlow("test"));
-    act(() => result.current.open());
+    expect(result.current.creation().mode).toBe("fact-table");
+    act(() => {
+      result.current.open();
+    });
     expect(result.current.modal).toBeNull();
-    expect(state.router.push).not.toHaveBeenCalled();
+    expect(state.router.push).toHaveBeenCalledWith("/fact-tables");
   });
 
-  it.each([{ factTable: "ftb_other" }, { duplicate: metric }])(
+  it.each([
+    { factTable: "ft_b" },
+    {
+      duplicate: {
+        ...metric,
+        numerator: { ...metric.numerator, factTableId: "ft_b" },
+      },
+    },
+  ])(
     "opens the old modal for a target outside the selected Project: %o",
     (target) => {
-      state.factTables = [{ projects: ["project-b"] }];
+      state.factTables = [
+        { id: "ft_b", datasource: "ds", projects: ["project-b"] },
+      ];
       const { result } = renderHook(() => useFactMetricFlow("test"));
-      expect(result.current.canOpen).toBe(false);
-      act(() => result.current.open(target));
-      expect(result.current.modal).not.toBeNull();
+      expect(result.current.creation().mode).toBe("fact-table");
+      expect(result.current.creation(target).mode).toBe("modal");
+      act(() => {
+        result.current.open(target);
+      });
+      expect(result.current.modal?.props.duplicate).toBe(!!target.duplicate);
     },
   );
 
@@ -77,7 +106,9 @@ describe("useFactMetricFlow", () => {
     (newFlow) => {
       state.newFlow = newFlow;
       const { result } = renderHook(() => useFactMetricFlow("fact-metric"));
-      act(() => result.current.edit(metric, "metrics-list"));
+      act(() => {
+        result.current.edit(metric, "metrics-list");
+      });
       if (newFlow) {
         expect(state.router.push).toHaveBeenCalledWith(
           `/fact-metrics/${metric.id}?edit=true&source=metrics-list`,
@@ -91,18 +122,26 @@ describe("useFactMetricFlow", () => {
   it.each(["quantile", "retention", "funnel"] as const)(
     "gates %s duplication in the old modal before allowing edits",
     (metricType) => {
-      state.factTables = [{ projects: [] }];
+      state.factTables = [{ id: "ft_1", datasource: "ds", projects: [] }];
       const source: FactMetricInterface =
         metricType === "funnel"
           ? {
               ...metric,
               metricType,
               numerator: null,
-              funnelSettings: { steps: [] },
+              funnelSettings: {
+                steps: [{ factTableId: "ft_1" }],
+              } as NonNullable<FactMetricInterface["funnelSettings"]>,
             }
-          : { ...metric, metricType };
+          : {
+              ...metric,
+              metricType,
+              numerator: { ...metric.numerator, factTableId: "ft_1" },
+            };
       const { result, rerender } = renderHook(() => useFactMetricFlow("test"));
-      act(() => result.current.open({ duplicate: source }));
+      act(() => {
+        result.current.open({ duplicate: source });
+      });
       expect(result.current.modal?.props.commercialFeature).toBe(
         `${metricType}-metrics`,
       );
@@ -112,34 +151,23 @@ describe("useFactMetricFlow", () => {
     },
   );
 
-  it("requires a project-visible Fact Table only for the old flow", () => {
-    const { result, rerender } = renderHook(() => useFactMetricFlow("test"));
-    expect(result.current.canOpen).toBe(false);
-    state.factTables = [{ projects: ["project-b"] }];
-    rerender();
-    expect(result.current.canOpen).toBe(false);
-    state.factTables = [{ projects: ["project-a"] }];
-    rerender();
-    expect(result.current.canOpen).toBe(true);
-    state.factTables = [{ projects: [] }];
-    rerender();
-    expect(result.current.canOpen).toBe(true);
-    state.factTables = [];
-    state.newFlow = true;
-    rerender();
-    expect(result.current.canOpen).toBe(true);
+  it("does not wait for the flag to load before opening", () => {
+    state.factTables = [{ id: "ft_1", datasource: "ds", projects: [] }];
+    const { result } = renderHook(() => useFactMetricFlow("test"));
+    expect(result.current.creation().disabledReason).toBeNull();
+    expect(result.current.editDisabledReason).toBeNull();
   });
 
   it("preserves creation context and edit tracking source when navigating", () => {
     state.newFlow = true;
     const { result } = renderHook(() => useFactMetricFlow("metrics-list"));
-    act(() =>
+    act(() => {
       result.current.open({
         factTable: "ft_1",
         datasource: "ds_1",
         duplicate: metric,
-      }),
-    );
+      });
+    });
     const url = new URL(
       state.router.push.mock.calls[0][0],
       "https://example.com",
@@ -152,7 +180,9 @@ describe("useFactMetricFlow", () => {
       datasource: "ds_1",
       duplicate: metric.id,
     });
-    act(() => result.current.edit(metric));
+    act(() => {
+      result.current.edit(metric);
+    });
     expect(state.router.push).toHaveBeenLastCalledWith(
       `/fact-metrics/${metric.id}?edit=true&source=metrics-list`,
     );
@@ -160,11 +190,15 @@ describe("useFactMetricFlow", () => {
   });
 
   it("opens creation and edit modals in the old flow", () => {
-    state.factTables = [{ projects: [] }];
+    state.factTables = [{ id: "ft_1", datasource: "ds", projects: [] }];
     const { result } = renderHook(() => useFactMetricFlow("test"));
-    act(() => result.current.open());
+    act(() => {
+      result.current.open();
+    });
     expect(result.current.modal).not.toBeNull();
-    act(() => result.current.edit(metric));
+    act(() => {
+      result.current.edit(metric);
+    });
     expect(result.current.modal).not.toBeNull();
     expect(state.router.push).not.toHaveBeenCalled();
   });

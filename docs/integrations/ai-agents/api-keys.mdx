@@ -1,7 +1,7 @@
 ---
 title: "API Keys for Agents"
-description: "Name the member an agent works for with X-GrowthBook-Requested-By, require a person to confirm risky changes before they run, and set when keys expire."
-keywords: [AI, agents, API keys, human-in-the-loop, confirmation, Requested-By, expiration]
+description: "Name the member an agent works for with X-GrowthBook-Requested-By, require a person to confirm risky changes before they run, and set when keys expire and rotate."
+keywords: [AI, agents, API keys, human-in-the-loop, confirmation, Requested-By, expiration, rotation]
 sidebarTitle: API Keys for Agents
 ---
 
@@ -17,14 +17,26 @@ Edit a Secret Key under **Settings → API Keys**, or your own token under **Per
 
 A request made with a Secret Key can send an `X-GrowthBook-Requested-By` header with a member's id or email address. History, revision logs and webhooks show that member next to the key.
 
-- **Header**: **Optional** (the default) uses the header when it's sent, **Required** rejects requests without it, and **Rejected** rejects requests that send it.
-- **Permissions**: **Assume member's role** (the default) acts as that member, with only what both the key and the member can do. **Use key's role** acts with the key's own permissions and only records the name.
+Each Secret Key acts as **System** or **User**:
+
+- **System** (the default): requests act as the key, with its own permissions. The header is optional and only records who asked.
+- **User**: every request must send the header, or it's rejected. The request acts as that member, with only what both the key and the member can do.
 
 The header isn't verified, so whoever holds the key can name any member. See [Naming who asked](/api/introduction#naming-who-asked) in the API docs for the full rules.
 
+## Permissions
+
+Choose what a key or token can do with a preset:
+
+- **Read only**: reads work, and every write is blocked.
+- **Human-in-the-Loop** (Enterprise): risky or destructive writes wait for a person to [confirm them](#require-confirmation). Not offered for a key that acts as System, since no one in particular is behind its requests.
+- **Full access**: everything the token's owner, or the member a key names, can do. A key that acts as System gets full admin access.
+
+Choose **Customize** to pick a base role, limit it by Project or environment, and set confirmation rules yourself. On a plan with only the admin role, **Full access** is the only option. The same choices appear on the consent page when an app such as the [MCP server](/integrations/mcp) signs in with OAuth.
+
 ## Require confirmation
 
-With **Require confirmation** on, a write the key's rules cover isn't run when the agent sends it. GrowthBook holds it and answers with a link to a confirmation page. A person opens the link, reviews the change, and confirms or rejects it, optionally leaving a note for the agent. A confirmed request then runs, with the key's permissions.
+With the **Human-in-the-Loop** preset, or **Require confirmation** on under **Customize**, a write the key's rules cover isn't run when the agent sends it. GrowthBook holds it and answers with a link to a confirmation page. A person opens the link, reviews the change, and confirms or rejects it, optionally leaving a note for the agent. A confirmed request then runs, with the key's permissions.
 
 The confirmation page shows:
 
@@ -64,26 +76,38 @@ Confirming isn't a review approval. A change that needs approval still needs it.
 - A request waits an hour for a decision, then expires.
 - A request that publishes, reverts or archives, or that changes a Feature Flag or an Experiment's status, schedule, targeting or traffic, isn't run if what it acts on changed after it was held. Other writes, such as editing settings or a draft, run as sent, so they can overwrite changes made while they waited. The agent can send a request that wasn't run again for a new confirmation.
 - A confirmed request runs once. If it fails, the agent gets the error and can ask again.
-- Confirmation rules apply to Secret Keys and Personal Access Tokens. The hosted MCP endpoint's sign-in doesn't use them.
+- Confirmation rules apply to Secret Keys, Personal Access Tokens, and OAuth sign-ins such as the hosted MCP endpoint, which choose them on the consent page.
 
 To build an agent that handles held requests, see [Waiting for confirmation](/api/introduction#waiting-for-confirmation) in the API docs.
 
 ## Expiration
 
-When you create a key, choose when it expires: after 1, 7, 30, 60, 90, 180 or 365 days, on a date you pick, or never. You can change it later by editing the key. To replace a key, choose **Copy settings to new key** from its menu: the new key gets its own value and expiration, and you can delete the old one once the new one exists.
+When you create a key, choose when it expires: after 1, 7, 30, 60, 90, 180 or 365 days, on a date you pick, or never. You can change it later by editing the key. To replace a key's secret, [rotate it](#rotate-a-key). To start a different key from an existing one's settings, choose **Copy settings to new key** from its menu.
 
 Before a key stops working:
 
-- Every API response carries its expiration in the `X-GrowthBook-Key-Expires-At` header.
-- GrowthBook shows a notice when a key expires within 7 days, or has expired while something still uses it. You see your own Personal Access Tokens, and members who can manage API keys see the organization's Secret Keys.
+- Every API response carries its expiration in the `X-GrowthBook-Key-Expires-At` header. A request made with a rotated key's previous secret also carries `X-GrowthBook-Secret-Expires-At`, when that secret stops working.
+- GrowthBook shows a notice when a key expires within 7 days, or has expired while something still uses it. You see your own Personal Access Tokens, and members who can create or edit Secret Keys see the organization's.
 - Secret Keys trigger the `apiKey.expiring` [webhook event](/app/webhooks/event-webhooks/events) a week before they expire, and `apiKey.expired` when they do.
 
-A request made with an expired key fails with a `401` that says where to create a replacement.
+A request made with an expired key fails with a `401` that says where to create a replacement. One made with a previous secret after its grace period ends, or after it's revoked, fails with a `401` that says the key was rotated and where to reveal the new secret.
+
+### Rotate a key
+
+Choose **Rotate key** from a key's menu to give it a new secret. Its id, role, permissions and settings stay the same, so nothing tied to the key needs to be set up again.
+
+- Choose when the current secret stops working: immediately, or after 1 hour, 24 hours or 7 days. The dialog shows the exact times before you confirm, and the new secret once you do.
+- Rotating restarts the key's expiration: it keeps the lifetime it had, counted from now, within your organization's maximum.
+- While the previous secret still works, the key is marked **Previous secret active**, with when that secret was last used, so you can tell when every client has switched. **Revoke previous secret** stops it early, for example if it leaked.
+- Only one previous secret is kept, so rotating again stops the earlier one right away.
+- An expired key can't be rotated. Create a new one instead.
+
+Rotating a Secret Key takes permission to create API keys, and only its owner can rotate a Personal Access Token. Each rotation is recorded in the audit log.
 
 ### Organization policies
 
 Admins can require keys to expire within a maximum lifetime: under **Settings → API Keys** for Secret Keys, and under **Settings → Manage PATs** for Personal Access Tokens. Turn on **Require secret API keys to expire** (or **Require personal access tokens to expire**) and set the **Maximum lifetime (days)**.
 
 - New keys must expire within the maximum, and **No expiration** is no longer offered.
-- The maximum counts from when a key was created, so editing a key can't push it past the limit. Shortening is always allowed.
+- The maximum counts from when a key was created or last rotated, so editing a key can't push it past the limit. Shortening is always allowed.
 - Existing keys aren't changed. Ones with no expiration, or a later one, are counted as non-compliant on the policy and marked in the **Expires** column. Click the count to have them expire the maximum lifetime from today.

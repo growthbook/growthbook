@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { flushSync } from "react-dom";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
@@ -42,8 +43,6 @@ import {
 import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import LinkButton from "@/ui/LinkButton";
-import UILink from "@/ui/Link";
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import Text from "@/ui/Text";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -395,7 +394,6 @@ const MetricsList = (): React.ReactElement => {
     getProjectById,
     metricGroups,
     project,
-    factTables,
     metrics: legacyMetrics,
     ready,
   } = useDefinitions();
@@ -439,19 +437,6 @@ const MetricsList = (): React.ReactElement => {
       f.datasource !== demoDataSourceId,
   ); // Don't factor in demo datasource metrics
 
-  const hasFactTables = factTables.some((f) =>
-    isProjectListValidForProject(f.projects, project),
-  );
-
-  // Show the create fact table button if there are no legacy metrics and no fact tables
-  // If disableLegacyMetricCreation is true, show the create fact table button if there are no fact tables
-  const showCreateFactTableButton = disableLegacyMetricCreation
-    ? !hasFactTables
-    : !hasLegacyMetrics && !hasFactTables;
-
-  const canCreateFactMetric = permissionsUtil.canCreateFactMetric({
-    projects: project ? [project] : [],
-  });
   const canCreateLegacyMetric =
     !disableLegacyMetricCreation &&
     permissionsUtil.canCreateMetric({ projects: project ? [project] : [] });
@@ -583,18 +568,13 @@ const MetricsList = (): React.ReactElement => {
           </DocLink>
         </Flex>
         <Box style={{ flex: 1 }} />
-        {envAllowsCreatingMetrics() && !showCreateFactTableButton ? (
+        {envAllowsCreatingMetrics() ? (
           <Flex gap="2" align="center">
             <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
             />
-            {factMetricFlow.button(
-              {},
-              !canCreateFactMetric
-                ? "You don't have permission to add Fact Metrics in this Project."
-                : undefined,
-            )}
-            {showLegacyOption && !factMetricFlow.modal && (
+            {factMetricFlow.createButton()}
+            {showLegacyOption && (
               // Legacy creation stays possible for orgs that already use
               // it, tucked behind this menu and a confirmation.
               <DropdownMenu
@@ -618,7 +598,7 @@ const MetricsList = (): React.ReactElement => {
                     cta: "Continue with legacy SQL metric",
                     ctaColor: "violet",
                     submit: () => setShowLegacyForm(true),
-                    getConfirmationContent: async () => (
+                    getConfirmationContent: async (close) => (
                       <Flex direction="column" gap="2">
                         <Text as="p" mb="0">
                           Legacy SQL metrics are no longer the recommended way
@@ -626,12 +606,17 @@ const MetricsList = (): React.ReactElement => {
                           types, reuse shared fact tables, and run faster
                           queries.
                         </Text>
-                        {factMetricFlow.newFlow && canCreateFactMetric && (
-                          <Text as="p" mb="0">
-                            <UILink href={factMetricFlow.href()}>
-                              Create a Fact Metric instead
-                            </UILink>
-                          </Text>
+                        <Text as="p" mb="0">
+                          If needed, create a fact table first.
+                        </Text>
+                        {factMetricFlow.createButton(
+                          {},
+                          {
+                            variant: "ghost",
+                            children: "Create a Fact Metric instead",
+                          },
+                          // Unmount the focus trap before opening the legacy portal.
+                          () => flushSync(close),
                         )}
                       </Flex>
                     ),
@@ -642,10 +627,6 @@ const MetricsList = (): React.ReactElement => {
               </DropdownMenu>
             )}
           </Flex>
-        ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
-          <Box>
-            <LinkButton href="/fact-tables">Create fact table</LinkButton>
-          </Box>
         ) : null}
       </Flex>
       <Box mt="4">

@@ -1356,7 +1356,7 @@ function StandardFactMetricModal({
     <Modal
       trackingEventModalType=""
       open={true}
-      header={!isNew ? "Edit Metric" : "Create Fact Table Metric"}
+      header={!isNew ? "Edit Metric" : "Create Fact Metric"}
       bodyClassName="p-0"
       close={close}
       submit={form.handleSubmit(

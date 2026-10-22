@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useRouter } from "next/router";
+import { PiArrowRight } from "react-icons/pi";
 import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "shared/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -212,30 +213,19 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       </p>
                     }
                     hideCTA={!envAllowsCreatingMetrics()}
-                    cta={
-                      factMetricFlow.canOpen
-                        ? "Add metric"
-                        : "Create fact table"
-                    }
+                    action={factMetricFlow.createButton(
+                      {},
+                      {
+                        variant: currentStep === 2 ? "solid" : "ghost",
+                        icon: <PiArrowRight />,
+                        iconPosition: "right",
+                        showPermissionError: true,
+                      },
+                    )}
                     finishedCTA="View metrics"
-                    permissionsError={
-                      envAllowsCreatingMetrics() &&
-                      !hasMetrics &&
-                      // Check the permission for the step the button names.
-                      (factMetricFlow.canOpen
-                        ? !permissionsUtil.canCreateFactMetric({
-                            projects: [project],
-                          })
-                        : !permissionsUtil.canViewCreateFactTableModal(
-                            project,
-                            projects,
-                          ))
-                    }
                     imageLeft={false}
                     onClick={(finished) => {
                       if (finished) router.push("/metrics");
-                      else if (factMetricFlow.canOpen) factMetricFlow.open();
-                      else router.push("/fact-tables");
                     }}
                   />
                   <GetStartedStep

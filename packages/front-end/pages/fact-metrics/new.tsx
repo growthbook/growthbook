@@ -5,7 +5,7 @@ import { FactMetricInterface } from "shared/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import { CommercialFeature } from "shared/enterprise";
 import { getFactMetricCommercialFeature } from "@/services/factMetrics";
-import { buildFactMetricDuplicate } from "@/services/metrics";
+import { duplicateFactMetric } from "@/services/metrics";
 import { getSafeReturnUrl } from "@/services/returnUrl";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -102,7 +102,7 @@ export default function NewFactMetricPage() {
   const duplicateFrom =
     template ??
     (duplicateSource
-      ? buildFactMetricDuplicate(
+      ? duplicateFactMetric(
           duplicateSource,
           permissionsUtil.canCreateOfficialResources(duplicateSource),
         )
