@@ -1,5 +1,7 @@
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import {
+  draftNextStep,
+  draftReviewState,
   resolveDraftPick,
   withPickedDraft,
 } from "@/components/Experiment/TabbedPage/draftPicks";
@@ -69,5 +71,47 @@ describe("withPickedDraft", () => {
     expect(
       withPickedDraft(flag, { newestVersion: 7, target: "new" }).pendingDraft,
     ).toBeUndefined();
+  });
+});
+
+describe("draftReviewState", () => {
+  const pending = (fields: Partial<PendingDraft>) =>
+    ({ status: "draft", pendingApproval: false, ...fields }) as PendingDraft;
+
+  it.each([
+    ["needs no review", pending({}), "ready", "Publish"],
+    [
+      "already gets past the review it needs",
+      pending({ pendingApproval: true, approval: { satisfied: true } }),
+      "ready",
+      "Publish",
+    ],
+    [
+      "still needs approval",
+      pending({ pendingApproval: true, approval: { satisfied: false } }),
+      "needs-approval",
+      "Request review",
+    ],
+    [
+      "is waiting on a reviewer",
+      pending({ pendingApproval: true, status: "pending-review" }),
+      "in-review",
+      "Review",
+    ],
+    [
+      "had changes requested",
+      pending({ pendingApproval: true, status: "changes-requested" }),
+      "changes-requested",
+      "View feedback",
+    ],
+    [
+      "is approved",
+      pending({ pendingApproval: true, status: "approved" }),
+      "approved",
+      "Publish",
+    ],
+  ])("a draft that %s", (_, draft, state, step) => {
+    expect(draftReviewState(draft)).toBe(state);
+    expect(draftNextStep(draft)).toBe(step);
   });
 });

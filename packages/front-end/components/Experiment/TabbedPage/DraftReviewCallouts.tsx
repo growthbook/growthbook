@@ -6,12 +6,24 @@ import {
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { draftApprovalSatisfied } from "@/components/Reviews/reviewAndPublishState";
+import StatusDot from "@/components/Experiment/StatusDot";
+import {
+  draftStatusDotColor,
+  revisionStatusLabel,
+} from "@/components/Reviews/RevisionStatusBadge";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
-import { draftInReview, draftReviewHref } from "./draftPicks";
+import Tooltip from "@/ui/Tooltip";
+import {
+  DraftReviewState,
+  draftInReview,
+  draftNextStep,
+  draftReviewHref,
+  draftReviewState,
+  revisionHref,
+} from "./draftPicks";
 
 type DraftInReview = {
   featureId: string;
@@ -19,54 +31,46 @@ type DraftInReview = {
   publishesAtStart: boolean;
 };
 
-type ReviewState =
-  | "changes-requested"
-  | "approved"
-  | "ready"
-  | "needs-approval"
-  | "in-review";
+const READY_STATES: DraftReviewState[] = ["approved", "ready"];
 
-function reviewState(draft: LinkedFeaturePendingDraft): ReviewState {
-  if (draft.status === "changes-requested") return "changes-requested";
-  if (draft.status === "approved") return "approved";
-  if (draftApprovalSatisfied(draft)) return "ready";
-  if (draft.pendingApproval) return "needs-approval";
-  return "in-review";
-}
-
-const STATE_LABELS: Record<ReviewState, string> = {
-  "changes-requested": "changes requested",
-  approved: "approved",
-  ready: "ready to publish",
-  "needs-approval": "needs approval",
-  "in-review": "in review",
-};
-
-const READY_STATES: ReviewState[] = ["approved", "ready"];
-
-function listHeading(states: ReviewState[]): string {
-  if (states.every((state) => state === "needs-approval")) {
-    return "The following Feature Flags need approval:";
-  }
-  if (states.every((state) => READY_STATES.includes(state))) {
+function listHeading(states: DraftReviewState[]): string {
+  const ready = states.filter((state) => READY_STATES.includes(state)).length;
+  if (ready === states.length) {
     return "The following Feature Flags are ready to publish:";
   }
-  if (states.every((state) => !READY_STATES.includes(state))) {
-    return "The following Feature Flags need review:";
-  }
-  return "The following Feature Flags need review or publishing:";
+  return ready
+    ? "The following Feature Flags need approval or publishing:"
+    : "The following Feature Flags need approval:";
+}
+
+// The flag and its revision, with the revision's status dot.
+function DraftLink({
+  featureId,
+  draft,
+}: Omit<DraftInReview, "publishesAtStart">) {
+  return (
+    <Link
+      href={revisionHref(featureId, draft.version)}
+      external
+      color="violet"
+      underline="hover"
+    >
+      <strong>{featureId}</strong> ·{" "}
+      <Tooltip content={revisionStatusLabel(draft.status)}>
+        <StatusDot inline color={draftStatusDotColor(draft.status)} />
+      </Tooltip>{" "}
+      Revision {draft.version}
+    </Link>
+  );
 }
 
 function reviewSentence({ featureId, draft }: DraftInReview): ReactNode {
   const subject = (
     <>
-      Feature Flag{" "}
-      <strong>
-        {featureId} · Revision {draft.version}
-      </strong>
+      Feature Flag <DraftLink featureId={featureId} draft={draft} />
     </>
   );
-  switch (reviewState(draft)) {
+  switch (draftReviewState(draft)) {
     case "changes-requested":
       return <>Changes were requested on {subject}.</>;
     case "approved":
@@ -81,7 +85,7 @@ function reviewSentence({ featureId, draft }: DraftInReview): ReactNode {
 }
 
 function startSentence({ draft, publishesAtStart }: DraftInReview) {
-  const state = reviewState(draft);
+  const state = draftReviewState(draft);
   if (READY_STATES.includes(state)) {
     return publishesAtStart
       ? "It publishes when the experiment starts, or you can publish it now."
@@ -132,6 +136,7 @@ export default function DraftReviewCallouts({
       <Callout
         status="info"
         contentAlign="center"
+        mt="2"
         mb="4"
         action={
           <LinkButton
@@ -142,7 +147,7 @@ export default function DraftReviewCallouts({
             icon={<PiArrowSquareOut />}
             iconPosition="right"
           >
-            Review & Publish
+            {draftNextStep(only.draft)}
           </LinkButton>
         }
       >
@@ -152,38 +157,36 @@ export default function DraftReviewCallouts({
     );
   }
 
-  const states = inReview.map(({ draft }) => reviewState(draft));
-  const mixed = new Set(states).size > 1;
+  const states = inReview.map(({ draft }) => draftReviewState(draft));
 
   // TODO: Replace with a single CTA once multi-entity / multi-draft releases are available in-app
   return (
-    <Callout status="info" mb="4">
+    <Callout status="info" mt="2" mb="4">
       <Box mb="2">{listHeading(states)}</Box>
       <Flex direction="column" gap="1">
-        {inReview.map((item, i) => (
+        {inReview.map((item) => (
           <Flex
             key={`${item.featureId}:${item.draft.version}`}
-            align="baseline"
+            align="center"
             justify="between"
             gap="4"
           >
-            <Text size="sm">
-              <strong>
-                {item.featureId} · Revision {item.draft.version}
-              </strong>
-              {mixed ? (
-                <Text color="text-low"> · {STATE_LABELS[states[i]]}</Text>
-              ) : null}
+            <Flex align="center" gap="3" wrap="wrap">
+              <Text>
+                <DraftLink featureId={item.featureId} draft={item.draft} />
+              </Text>
               {item.publishesAtStart ? (
-                <Text color="text-low"> · publishes at start</Text>
+                <Text color="text-low">Publishes at start</Text>
               ) : null}
-            </Text>
-            <Text size="sm" whiteSpace="nowrap">
+            </Flex>
+            <Text whiteSpace="nowrap">
               <Link
                 href={draftReviewHref(item.featureId, item.draft.version)}
                 external
+                color="violet"
+                underline="hover"
               >
-                Review & Publish
+                {draftNextStep(item.draft)}
                 <PiArrowSquareOut style={{ marginLeft: "var(--space-1)" }} />
               </Link>
             </Text>
