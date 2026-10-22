@@ -1,3 +1,5 @@
+import { z } from "zod";
+import type { exposureQueryColumnMappingValidator } from "shared/validators";
 import { AthenaConnectionParams } from "./integrations/athena";
 import { BigQueryConnectionParams } from "./integrations/bigquery";
 import { ClickHouseConnectionParams } from "./integrations/clickhouse";
@@ -207,18 +209,11 @@ export interface ExposureQuery {
 
 /**
  * The columns an assignment query's roles read from, for SQL that doesn't alias
- * them to the canonical names (`experiment_id`, `variation_id`, `timestamp`,
- * and each identifier type's own name). Only remapped roles are stored.
+ * them to the canonical names.
  */
-export interface ExposureQueryColumnMapping {
-  userIdColumns?: Record<string, string>;
-  timestampColumn?: string;
-  experimentIdColumn?: string;
-  variationIdColumn?: string;
-  // Only read when hasNameCol is set
-  experimentNameColumn?: string;
-  variationNameColumn?: string;
-}
+export type ExposureQueryColumnMapping = z.infer<
+  typeof exposureQueryColumnMappingValidator
+>;
 
 export interface FeatureUsageQuery {
   id: string;
