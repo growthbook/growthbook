@@ -92,7 +92,10 @@ import Table, {
 import SavedGroupRevisionDropdown from "@/components/SavedGroups/SavedGroupRevisionDropdown";
 import CompareSavedGroupRevisionsModal from "@/components/SavedGroups/CompareSavedGroupRevisionsModal";
 import { useSavedGroupRevision } from "@/hooks/useSavedGroupRevision";
-import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
+import {
+  totalSavedGroupReferences,
+  useSavedGroupReferences,
+} from "@/hooks/useSavedGroupReferences";
 import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/RevisionDiffConfig";
 import { useUser } from "@/services/UserContext";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
@@ -167,12 +170,9 @@ export default function EditSavedGroupPage() {
   const referencingFeatures = references?.features ?? [];
   const referencingExperiments = references?.experiments ?? [];
   const referencingBandits = references?.contextualBandits ?? [];
+  const referencingInterleavings = references?.interleavings ?? [];
   const referencingSavedGroups = references?.savedGroups ?? [];
-  const totalReferences =
-    referencingFeatures.length +
-    referencingExperiments.length +
-    referencingBandits.length +
-    referencingSavedGroups.length;
+  const totalReferences = totalSavedGroupReferences(references);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [filter, setFilter] = useState("");
@@ -895,12 +895,14 @@ export default function EditSavedGroupPage() {
         >
           <Text as="p" mb="3">
             This Saved Group is referenced by the following Feature Flags,
-            Experiments, and Saved Groups.
+            Experiments, Contextual Bandits, Interleaving Experiments, and Saved
+            Groups.
           </Text>
           <SavedGroupReferencesList
             features={referencingFeatures}
             experiments={referencingExperiments}
             contextualBandits={referencingBandits}
+            interleavings={referencingInterleavings}
             savedGroups={referencingSavedGroups}
           />
         </Modal>

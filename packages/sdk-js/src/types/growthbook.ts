@@ -357,6 +357,7 @@ export type ClientOptions = {
 // Contexts
 export type GlobalContext = {
   log: (msg: string, ctx: any) => void;
+  debug?: boolean;
   features?: FeatureDefinitions;
   experiments?: AutoExperiment[];
   enabled?: boolean;

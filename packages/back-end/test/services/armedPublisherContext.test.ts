@@ -4,6 +4,10 @@ import {
   getContextForApiKeyIdInOrg,
   getContextForArmedPublisherInOrg,
 } from "back-end/src/services/organizations";
+import {
+  decodeArmingApiKeyId,
+  encodeArmingApiKeyId,
+} from "back-end/src/util/armingApiKeyId";
 import { setupApp } from "../api/api.setup";
 
 // An org API key that armed a deferred change runs it as itself: its own role,
@@ -68,8 +72,8 @@ describe("getContextForApiKeyIdInOrg", () => {
     ).toBe(false);
   });
 
-  it("fires a key armed for a member with only what both of them hold", async () => {
-    await keys().insertOne(key({}));
+  it("fires a User key armed for a member with only what both of them hold", async () => {
+    await keys().insertOne(key({ actAs: "user" }));
     await seedUser();
     const readerOrg = {
       ...memberOrg,
@@ -124,6 +128,73 @@ describe("getContextForApiKeyIdInOrg", () => {
     await seedUser();
     if (fields) await keys().insertOne(key(fields));
     expect(await getContextForApiKeyIdInOrg(org, "key_ci")).toBeNull();
+  });
+
+  describe("an OAuth sign-in's armed work", () => {
+    // Client ids are the client's to choose, so the armer id escapes them.
+    const clientId = "https://agent.example/client:1@a";
+    const grants = () => mongoose.connection.collection("oauthgrants");
+    const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const seedGrant = (fields: Record<string, unknown> = {}) =>
+      grants().insertOne({
+        id: "oag_armed",
+        organization: ORG_ID,
+        clientId,
+        userId: "u_1",
+        revoked: false,
+        permissions: {
+          scopedRole: "experimenter",
+          limitAccessByEnvironment: true,
+          environments: ["dev"],
+        },
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        dateCreated: hourAgo,
+        dateUpdated: hourAgo,
+        ...fields,
+      });
+    // Armed half an hour ago, by a token that has since lapsed.
+    const armer = encodeArmingApiKeyId("key_oauth", undefined, {
+      clientId,
+      userId: "u_1",
+      armedAt: Date.now() - 30 * 60 * 1000,
+    });
+
+    it("fires on its grant, with the grant's permissions", async () => {
+      await seedUser();
+      await seedGrant();
+      const context = await getContextForApiKeyIdInOrg(memberOrg, armer);
+      expect(context?.apiKey).toBe("key_oauth");
+      expect(
+        context?.permissions.canRunExperiment({ project: "" }, ["dev"]),
+      ).toBe(true);
+      expect(
+        context?.permissions.canRunExperiment({ project: "" }, ["production"]),
+      ).toBe(false);
+      // Work it arms in turn names the same sign-in.
+      expect(decodeArmingApiKeyId(context?.armerId ?? "").oauth).toMatchObject({
+        clientId,
+        userId: "u_1",
+      });
+    });
+
+    it.each([
+      ["once the grant is revoked", { revoked: true, revokedAt: new Date() }],
+      [
+        "after a revoke, even once the user signs in again",
+        { revokedAt: new Date() },
+      ],
+      ["on a grant made after it was armed", { dateCreated: new Date() }],
+    ])("fires nothing %s", async (_label, fields) => {
+      await seedUser();
+      await seedGrant(fields);
+      expect(await getContextForApiKeyIdInOrg(memberOrg, armer)).toBeNull();
+    });
+
+    it("still fires when a revoke came before it was armed", async () => {
+      await seedUser();
+      await seedGrant({ revokedAt: new Date(Date.now() - 45 * 60 * 1000) });
+      expect(await getContextForApiKeyIdInOrg(memberOrg, armer)).not.toBeNull();
+    });
   });
 
   it("resolves a scoped PAT to nobody once the org disables personal access tokens", async () => {

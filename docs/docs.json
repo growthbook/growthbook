@@ -1014,7 +1014,9 @@
                   "api/ContextualBandits/operation/stopContextualBandit",
                   "api/ContextualBandits/operation/refreshContextualBandit",
                   "api/ContextualBandits/operation/updateContextualBanditVariations",
-                  "api/ContextualBandits/operation/cancelContextualBandit"
+                  "api/ContextualBandits/operation/cancelContextualBandit",
+                  "api/ContextualBandits/operation/listContextualBanditVisualChangesets",
+                  "api/ContextualBandits/operation/postContextualBanditVisualChangesets"
                 ]
               },
               {
@@ -1038,6 +1040,17 @@
                   "api/ContextualBanditQueries/operation/deleteContextualBanditQuery",
                   "api/ContextualBanditQueries/operation/listContextualBanditQueries",
                   "api/ContextualBanditQueries/operation/createContextualBanditQuery"
+                ]
+              },
+              {
+                "group": "Interleaving Experiments",
+                "pages": [
+                  "api/Interleavings/operation/getInterleaving",
+                  "api/Interleavings/operation/updateInterleaving",
+                  "api/Interleavings/operation/listInterleavings",
+                  "api/Interleavings/operation/createInterleaving",
+                  "api/Interleavings/operation/startInterleaving",
+                  "api/Interleavings/operation/stopInterleaving"
                 ]
               },
               {
@@ -1229,6 +1242,7 @@
               "api/Holdout_model",
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
+              "api/Interleaving_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",

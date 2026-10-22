@@ -72,6 +72,9 @@ export type {
   ParentConditionInterface,
   SavedGroupReference,
   SavedGroupCondition,
+  ConditionTypeMismatch,
+  EvalConditionOptions,
+  TypeMismatchCallback,
 } from "./types/mongrule";
 
 export {

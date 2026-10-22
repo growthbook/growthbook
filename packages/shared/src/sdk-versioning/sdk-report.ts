@@ -31,6 +31,7 @@ const allCapabilities: Record<SDKCapability, boolean> = {
   namespacesV2: true,
   contextualBandits: true,
   contextualBanditsAuto: true,
+  interleaving: true,
   trackingPlugin: true,
 };
 

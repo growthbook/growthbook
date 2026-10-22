@@ -4,6 +4,7 @@ import {
   isRemoteGroupSupportedAttribute,
   targetingReferencesSavedGroup,
   contextualBanditTargetingServes,
+  interleavingTargetingServes,
 } from "shared/util";
 import { forEachSavedGroupIdInCondition } from "shared/sdk-versioning";
 import type { FeatureInterface } from "shared/types/feature";
@@ -12,7 +13,10 @@ import type {
   GroupMap,
   SavedGroupWithoutValues,
 } from "shared/types/saved-group";
-import type { ContextualBanditInterface } from "shared/validators";
+import type {
+  ContextualBanditInterface,
+  InterleavingInterface,
+} from "shared/validators";
 import type { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -43,13 +47,15 @@ import {
   TargetingSource,
 } from "back-end/src/util/featureDefinitionReferences.util";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { getInterleavingPayloadKeys } from "back-end/src/util/interleavings";
 import { queueSDKPayloadRefresh } from "./features";
 import { getContextForAgendaJobByOrgObject } from "./organizations";
 
 /**
  * What a change to one saved group can alter in SDK payloads: the features and
- * experiments whose targeting names it, directly or through condition groups
- * that name it. `holdoutAffected` is set when a holdout's targeting names it.
+ * experiments (and interleavings) whose targeting names it, directly or through
+ * condition groups that name it. `holdoutAffected` is set when a holdout's
+ * targeting names it.
  */
 export function findSavedGroupDependents({
   groupId,
@@ -58,6 +64,7 @@ export function findSavedGroupDependents({
   experiments,
   holdoutExperiments,
   bandits,
+  interleavings,
 }: {
   groupId: string;
   savedGroups: Pick<SavedGroupWithoutValues, "id" | "condition">[];
@@ -65,6 +72,7 @@ export function findSavedGroupDependents({
   experiments: Iterable<ExperimentInterface>;
   holdoutExperiments: ExperimentInterface[];
   bandits: ContextualBanditInterface[];
+  interleavings: InterleavingInterface[];
 }) {
   // The group plus every condition group that reaches it.
   const reaching = new Set([groupId]);
@@ -115,6 +123,9 @@ export function findSavedGroupDependents({
     holdoutAffected: holdoutExperiments.some((experiment) =>
       names({ features: [], experiments: [experiment] }),
     ),
+    interleavings: interleavings.filter((interleaving) =>
+      names({ features: [], interleavings: [interleaving] }),
+    ),
   };
 }
 
@@ -124,14 +135,21 @@ export async function getSavedGroupPayloadKeys(
   context: ReqContext,
   groupId: string,
 ): Promise<SDKPayloadKey[] | null> {
-  const [savedGroups, features, experimentMap, holdoutExperiments, bandits] =
-    await Promise.all([
-      context.models.savedGroups.getAllWithoutValues(),
-      getAllFeaturesForGraph(context, {}),
-      getAllPayloadExperiments(context),
-      getAllExperiments(context, { type: "holdout" }),
-      context.models.contextualBandits.getAll(),
-    ]);
+  const [
+    savedGroups,
+    features,
+    experimentMap,
+    holdoutExperiments,
+    bandits,
+    interleavings,
+  ] = await Promise.all([
+    context.models.savedGroups.getAllWithoutValues(),
+    getAllFeaturesForGraph(context, {}),
+    getAllPayloadExperiments(context),
+    getAllExperiments(context, { type: "holdout" }),
+    context.models.contextualBandits.getAll(),
+    context.models.interleavings.getAllPayloadInterleavings(),
+  ]);
   const dependents = findSavedGroupDependents({
     groupId,
     savedGroups,
@@ -139,6 +157,7 @@ export async function getSavedGroupPayloadKeys(
     experiments: experimentMap.values(),
     holdoutExperiments,
     bandits,
+    interleavings,
   });
   if (dependents.holdoutAffected) return null;
 
@@ -146,6 +165,7 @@ export async function getSavedGroupPayloadKeys(
   const featuresById = new Map(features.map((f) => [f.id, f]));
   const environments = getEnvironmentIdsFromOrg(context.org);
   return [
+    ...getInterleavingPayloadKeys(dependents.interleavings, environments),
     ...getAffectedSDKPayloadKeys(
       dependents.features,
       environments,
@@ -229,6 +249,7 @@ export type SavedGroupReferences = {
     projects?: string[];
   }[];
   contextualBandits: { id: string; name: string; project?: string }[];
+  interleavings: { id: string; name: string; project?: string }[];
   savedGroups: { id: string; groupName: string; projects?: string[] }[];
 };
 
@@ -259,15 +280,21 @@ export async function loadSavedGroupReferences(
   // The lean loader: the reference scan reads only rules/env settings, and
   // this loader honors the bulk publisher's feature scan overlay so the scan
   // can evaluate a release's proposed end-state.
-  const [allFeatures, allExperiments, holdoutExperiments, allBandits] =
-    await Promise.all([
-      getAllFeaturesForGraph(context, {}),
-      getAllExperiments(context, {}),
-      // Left out of the default experiment query; a holdout's phase targeting
-      // is served on every feature it holds out.
-      getAllExperiments(context, { type: "holdout" }),
-      context.models.contextualBandits.getAll(),
-    ]);
+  const [
+    allFeatures,
+    allExperiments,
+    holdoutExperiments,
+    allBandits,
+    allInterleavings,
+  ] = await Promise.all([
+    getAllFeaturesForGraph(context, {}),
+    getAllExperiments(context, {}),
+    // Left out of the default experiment query; a holdout's phase targeting
+    // is served on every feature it holds out.
+    getAllExperiments(context, { type: "holdout" }),
+    context.models.contextualBandits.getAll(),
+    context.models.interleavings.getAll(),
+  ]);
 
   const featureRefMap = featuresReferencingSavedGroups({
     savedGroups: savedGroupsToCheck,
@@ -311,11 +338,19 @@ export async function loadSavedGroupReferences(
         groupIds.some((id) => targetingReferencesSavedGroup(cb, id)),
     )
     .map((cb) => ({ id: cb.id, name: cb.name, project: cb.project }));
+  const interleavings = allInterleavings
+    .filter(
+      (il) =>
+        interleavingTargetingServes(il) &&
+        groupIds.some((id) => targetingReferencesSavedGroup(il, id)),
+    )
+    .map((il) => ({ id: il.id, name: il.name, project: il.project }));
 
   return {
     features: Array.from(featuresSet.values()),
     experiments: Array.from(experimentsSet.values()),
     contextualBandits,
+    interleavings,
     savedGroups: savedGroupsReferencingTarget.map((sg) => ({
       id: sg.id,
       groupName: sg.groupName,
@@ -329,6 +364,7 @@ export function totalSavedGroupReferences(refs: SavedGroupReferences): number {
     refs.features.length +
     refs.experiments.length +
     refs.contextualBandits.length +
+    refs.interleavings.length +
     refs.savedGroups.length
   );
 }
@@ -353,6 +389,9 @@ export async function assertSavedGroupDeletable(
   }
   if (refs.contextualBandits.length) {
     parts.push(`${refs.contextualBandits.length} contextual bandit(s)`);
+  }
+  if (refs.interleavings.length) {
+    parts.push(`${refs.interleavings.length} interleaving experiment(s)`);
   }
   if (refs.savedGroups.length) {
     parts.push(`${refs.savedGroups.length} other Saved Group(s)`);

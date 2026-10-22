@@ -199,6 +199,9 @@ RUN mkdir -p /krb5deps && \
 FROM dhi.io/node:${NODE_MAJOR}-debian12
 WORKDIR /usr/local/src/app
 
+# TEMP for CVE-2026-111497. Remove once dhi.io/node:24-debian12 ships >= 24.22.1.
+COPY --from=node:24.22.1-bookworm-slim /usr/local/bin/node /usr/local/bin/node
+
 # Hardened Python interpreter + gbstats venv + the system shared-lib closure they
 # need (staged in pybuild; absent from the node base).
 COPY --from=pybuild /opt/python /opt/python

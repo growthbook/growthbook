@@ -752,6 +752,7 @@ export class GrowthBook<
       features: this._options.features,
       experiments: this._options.experiments,
       log: this.log,
+      debug: this.debug,
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,

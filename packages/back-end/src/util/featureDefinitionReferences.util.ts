@@ -13,6 +13,8 @@ export type FeatureDefinitionSources = {
   experiments?: Iterable<Pick<ExperimentInterface, "phases">>;
   // `contextual-bandit-ref` rules take their targeting from the bandit.
   bandits?: Iterable<TargetingSource>;
+  // Interleavings target their `$interleave:` pseudo flag.
+  interleavings?: Iterable<TargetingSource>;
 };
 
 export type TargetingSource = {
@@ -92,6 +94,9 @@ export function getSavedGroupIdsForFeatureDefinitions(
     }
   }
   getSavedGroupIdsInTargeting(sources.bandits ?? []).forEach((id) =>
+    ids.add(id),
+  );
+  getSavedGroupIdsInTargeting(sources.interleavings ?? []).forEach((id) =>
     ids.add(id),
   );
 
