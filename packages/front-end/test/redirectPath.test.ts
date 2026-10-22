@@ -11,12 +11,17 @@ describe("isSameOriginRelativePath", () => {
     },
   );
 
-  it.each(["//evil.test", "/\\evil.test", "https://evil.test", "features/a"])(
-    "rejects %s",
-    (path) => {
-      expect(isSameOriginRelativePath(path)).toBe(false);
-    },
-  );
+  it.each([
+    "//evil.test",
+    "/\\evil.test",
+    "/\t/evil.test",
+    "/\n/evil.test",
+    "/\r\n/evil.test",
+    "https://evil.test",
+    "features/a",
+  ])("rejects %s", (path) => {
+    expect(isSameOriginRelativePath(path)).toBe(false);
+  });
 });
 
 describe("getVercelDeepLinkPath", () => {
