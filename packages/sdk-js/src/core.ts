@@ -1363,6 +1363,16 @@ export async function decryptPayload(
     }
     delete data.encryptedContextualBandits;
   }
+  if (data.encryptedInterleavings) {
+    try {
+      data.interleavings = JSON.parse(
+        await decrypt(data.encryptedInterleavings, decryptionKey, subtle),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    delete data.encryptedInterleavings;
+  }
   return data;
 }
 

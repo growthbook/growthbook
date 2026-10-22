@@ -8,6 +8,7 @@
 - In debug mode, log every type mismatch seen while evaluating a condition
 - **Breaking:** `evalCondition(obj, condition, options)` takes an options object, `{ savedGroups, onTypeMismatch }`, instead of positional `savedGroups` and `visited` arguments. Passing saved groups as the third argument no longer works
 - Run visual and URL redirect auto experiments as Contextual Bandits when they carry a `contextualBanditRef`
+- Add `interleavePlugin` and `interleave()` for interleaving experiments
 
 ## **1.8.0** - Sep 29, 2026
 

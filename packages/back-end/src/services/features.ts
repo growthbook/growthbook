@@ -475,7 +475,9 @@ export function generateInterleavingsPayload({
   interleavings?: InterleavingDefinitions;
 } {
   const features: Record<string, FeatureDefinition> = {};
-  const defs: InterleavingDefinitions = {};
+  // Null-prototype: an interleaving key may be `__proto__`, which on a plain
+  // object would set the prototype instead of adding an entry.
+  const defs: InterleavingDefinitions = Object.create(null);
   interleavings.forEach((il) => {
     if (!interleavingInPayloadScope(il, environment, projects)) return;
 
@@ -492,7 +494,12 @@ export function generateInterleavingsPayload({
       );
       return;
     }
-    defs[il.key] = { trackingKey: il.trackingKey, variations };
+    defs[il.key] = {
+      trackingKey: il.trackingKey,
+      hashAttribute: il.hashAttribute,
+      seed: il.seed,
+      variations,
+    };
 
     const id = getInterleavingFeatureDefId(il.key);
     const rule: FeatureDefinitionRule = {

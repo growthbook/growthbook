@@ -254,11 +254,15 @@ export class GrowthBookClient<
   ) {
     if (this._options.eventLogger) {
       const ctx = this._getEvalContext(userContext);
-      this._options.eventLogger(
-        eventName,
-        properties,
-        getTrackingUserContext(ctx.user),
-      );
+      try {
+        this._options.eventLogger(
+          eventName,
+          properties,
+          getTrackingUserContext(ctx.user),
+        );
+      } catch (e) {
+        console.error(e);
+      }
     }
   }
 
@@ -476,6 +480,17 @@ export class UserScopedGrowthBook<
       this._userContext.experimentViewedSubs || new Set());
     subs.add(cb);
     return () => subs.delete(cb);
+  }
+  // Internal — first-party plugin use only.
+  // The attributes feature evaluation sees: the client's globalAttributes under
+  // this user's own, then attributeOverrides on top. getUserContext() omits the
+  // global ones, so reading that directly disagrees with evalFeature.
+  public _getEffectiveAttributes(): Attributes {
+    return {
+      ...this._gb.getGlobalAttributes(),
+      ...this._userContext.attributes,
+      ...this._userContext.attributeOverrides,
+    };
   }
   public getApiInfo(): [ApiHost, ClientKey] {
     return this._gb.getApiInfo();

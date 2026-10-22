@@ -156,6 +156,9 @@ describe("generateInterleavingsPayload", () => {
     expect(out.interleavings).toEqual({
       "search-ranking": {
         trackingKey: "search-ranking-tk",
+        // Carried so they survive remote evaluation, which strips the rule
+        hashAttribute: "id",
+        seed: "il-seed",
         variations: [
           { key: "control", config: { algorithm: "popular" } },
           {
