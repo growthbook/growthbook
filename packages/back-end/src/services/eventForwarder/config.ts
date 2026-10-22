@@ -737,6 +737,37 @@ export async function createUnconfiguredEventForwarderConfig({
   });
 }
 
+// The Data Source already exists. Keep a config row so the Data Source page
+// can show the failure instead of looking like a normal warehouse connection.
+export async function recordEventForwarderCreateFailure({
+  context,
+  datasource,
+  region,
+  message,
+}: {
+  context: ReqContext;
+  datasource: Pick<
+    DataSourceInterface,
+    "id" | "organization" | "projects" | "type"
+  >;
+  region: "us-east-1" | "eu-west-1";
+  message: string;
+}): Promise<void> {
+  const existing =
+    (await getEventForwarderForDatasource(context, datasource.id)) ??
+    (await createUnconfiguredEventForwarderConfig({
+      context,
+      datasource,
+      region,
+    }));
+  if (!existing) return;
+
+  await context.models.eventForwarderConfigs.update(existing, {
+    status: "error",
+    lastProvisioningError: message,
+  });
+}
+
 export async function syncEventForwarderConfigFromDatasource({
   context,
   datasource,

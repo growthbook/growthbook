@@ -495,7 +495,11 @@ export default function FinishSettingUp({
           current={currentStep === "forwarder"}
           expanded={expandedStep === "forwarder"}
           title="Configure Event Forwarder"
-          description="Define where GrowthBook should write forwarded events in your warehouse."
+          description={
+            dataSource.eventForwarderConfig?.status === "error"
+              ? "The Event Forwarder was not set up."
+              : "Define where GrowthBook should write forwarded events in your warehouse."
+          }
           actions={
             expandedStep === "forwarder" || completion.forwarder
               ? null
