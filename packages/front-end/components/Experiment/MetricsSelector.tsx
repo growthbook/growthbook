@@ -32,7 +32,7 @@ import {
 } from "@/components/Experiment/MetricOverrideTooltip";
 import {
   getOverriddenMetricIds,
-  METRIC_OVERRIDE_COLOR,
+  METRIC_OVERRIDE_BORDER_COLOR,
 } from "@/services/metricOverrides";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadixTooltip from "@/ui/Tooltip";
@@ -656,7 +656,9 @@ const MetricsSelector: FC<{
               multiValue: (base, state) => ({
                 ...ReactSelectProps.styles.multiValue(base),
                 ...(overriddenChips.has(state.data.value)
-                  ? { boxShadow: `inset 0 0 0 1px ${METRIC_OVERRIDE_COLOR}` }
+                  ? {
+                      boxShadow: `inset 0 0 0 1px ${METRIC_OVERRIDE_BORDER_COLOR}`,
+                    }
                   : {}),
               }),
             }

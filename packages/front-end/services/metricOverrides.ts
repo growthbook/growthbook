@@ -3,6 +3,8 @@ import { StatsEngine } from "shared/types/stats";
 import { DecisionFrameworkMetricOverrides } from "shared/types/experiment";
 
 export const METRIC_OVERRIDE_COLOR = "var(--blue-9)";
+// Outlines an overridden metric's chip; a border step reads alike in both modes.
+export const METRIC_OVERRIDE_BORDER_COLOR = "var(--blue-a8)";
 
 /** Which setting a row is about, so an override can stand in for it. */
 type MetricSettingKey =

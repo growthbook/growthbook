@@ -5,7 +5,7 @@ import {
 } from "shared/types/experiment";
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut, PiFlag } from "react-icons/pi";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { draftApprovalSatisfied } from "@/components/Reviews/reviewAndPublishState";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -19,35 +19,77 @@ type DraftInReview = {
   publishesAtStart: boolean;
 };
 
+type ReviewState =
+  | "changes-requested"
+  | "approved"
+  | "ready"
+  | "needs-approval"
+  | "in-review";
+
+function reviewState(draft: LinkedFeaturePendingDraft): ReviewState {
+  if (draft.status === "changes-requested") return "changes-requested";
+  if (draft.status === "approved") return "approved";
+  if (draftApprovalSatisfied(draft)) return "ready";
+  if (draft.pendingApproval) return "needs-approval";
+  return "in-review";
+}
+
+const STATE_LABELS: Record<ReviewState, string> = {
+  "changes-requested": "changes requested",
+  approved: "approved",
+  ready: "ready to publish",
+  "needs-approval": "needs approval",
+  "in-review": "in review",
+};
+
+const READY_STATES: ReviewState[] = ["approved", "ready"];
+
+function listHeading(states: ReviewState[]): string {
+  if (states.every((state) => state === "needs-approval")) {
+    return "The following Feature Flags need approval:";
+  }
+  if (states.every((state) => READY_STATES.includes(state))) {
+    return "The following Feature Flags are ready to publish:";
+  }
+  if (states.every((state) => !READY_STATES.includes(state))) {
+    return "The following Feature Flags need review:";
+  }
+  return "The following Feature Flags need review or publishing:";
+}
+
 function reviewSentence({ featureId, draft }: DraftInReview): ReactNode {
   const subject = (
     <>
-      <strong style={{ whiteSpace: "nowrap" }}>
-        <PiFlag style={{ verticalAlign: "-0.125em", marginRight: "0.2em" }} />
-        {featureId}
-      </strong>{" "}
-      · <strong>Revision {draft.version}</strong>
+      Feature Flag{" "}
+      <strong>
+        {featureId} · Revision {draft.version}
+      </strong>
     </>
   );
-  if (draft.status === "changes-requested") {
-    return <>Changes were requested on {subject}.</>;
+  switch (reviewState(draft)) {
+    case "changes-requested":
+      return <>Changes were requested on {subject}.</>;
+    case "approved":
+      return <>{subject} is approved.</>;
+    case "ready":
+      return <>{subject} is ready to publish.</>;
+    case "needs-approval":
+      return <>{subject} needs approval.</>;
+    case "in-review":
+      return <>{subject} is in review.</>;
   }
-  if (draft.status === "approved") return <>{subject} is approved.</>;
-  if (draftApprovalSatisfied(draft)) return <>{subject} is ready to publish.</>;
-  if (draft.pendingApproval) return <>{subject} needs approval.</>;
-  return <>{subject} is in review.</>;
 }
 
 function startSentence({ draft, publishesAtStart }: DraftInReview) {
-  if (draft.status === "changes-requested") return null;
-  if (draft.status === "approved" || draftApprovalSatisfied(draft)) {
+  const state = reviewState(draft);
+  if (READY_STATES.includes(state)) {
     return publishesAtStart
       ? "It publishes when the experiment starts, or you can publish it now."
-      : draft.status === "approved"
+      : state === "approved"
         ? "It's ready to publish."
         : null;
   }
-  return draft.pendingApproval && publishesAtStart
+  return state === "needs-approval" && publishesAtStart
     ? "Once approved, it publishes when the experiment starts."
     : null;
 }
@@ -110,14 +152,15 @@ export default function DraftReviewCallouts({
     );
   }
 
+  const states = inReview.map(({ draft }) => reviewState(draft));
+  const mixed = new Set(states).size > 1;
+
   // TODO: Replace with a single CTA once multi-entity / multi-draft releases are available in-app
   return (
     <Callout status="info" mb="4">
-      <Box mb="2">
-        {inReview.length} Feature Flag drafts aren&apos;t published yet.
-      </Box>
+      <Box mb="2">{listHeading(states)}</Box>
       <Flex direction="column" gap="1">
-        {inReview.map((item) => (
+        {inReview.map((item, i) => (
           <Flex
             key={`${item.featureId}:${item.draft.version}`}
             align="baseline"
@@ -125,9 +168,14 @@ export default function DraftReviewCallouts({
             gap="4"
           >
             <Text size="sm">
-              {reviewSentence(item)}
+              <strong>
+                {item.featureId} · Revision {item.draft.version}
+              </strong>
+              {mixed ? (
+                <Text color="text-low"> · {STATE_LABELS[states[i]]}</Text>
+              ) : null}
               {item.publishesAtStart ? (
-                <Text color="text-low"> Publishes at start.</Text>
+                <Text color="text-low"> · publishes at start</Text>
               ) : null}
             </Text>
             <Text size="sm" whiteSpace="nowrap">
