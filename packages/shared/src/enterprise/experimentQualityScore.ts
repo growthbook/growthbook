@@ -65,18 +65,18 @@ export const EXPERIMENT_QUALITY_SECTIONS: Record<
   setup: {
     label: "Setup",
     note: "before the experiment starts",
-    defaultWeight: 20,
+    defaultWeight: 35,
   },
-  documentation: { label: "Documentation", defaultWeight: 25 },
   process: {
     label: "Process",
     note: "stopped experiments only, from change history",
     defaultWeight: 30,
   },
+  documentation: { label: "Documentation", defaultWeight: 15 },
   ai: {
     label: "AI checks",
     note: "judged by AI, cached until inputs change",
-    defaultWeight: 25,
+    defaultWeight: 20,
   },
 };
 
@@ -94,6 +94,18 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
   ExperimentQualityCheckKey,
   ExperimentQualityCheckDefinition
 > = {
+  hypothesis: {
+    section: "setup",
+    type: "deterministic",
+    label: "Has a hypothesis",
+    defaultEnabled: true,
+  },
+  description: {
+    section: "setup",
+    type: "deterministic",
+    label: "Has a description",
+    defaultEnabled: true,
+  },
   "goal-metrics": {
     section: "setup",
     type: "deterministic",
@@ -114,18 +126,6 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     note: "all except bandits",
     defaultEnabled: false,
     defaultParams: { maxVariations: 4 },
-  },
-  hypothesis: {
-    section: "documentation",
-    type: "deterministic",
-    label: "Has a hypothesis",
-    defaultEnabled: true,
-  },
-  description: {
-    section: "documentation",
-    type: "deterministic",
-    label: "Has a description",
-    defaultEnabled: true,
   },
   screenshots: {
     section: "documentation",

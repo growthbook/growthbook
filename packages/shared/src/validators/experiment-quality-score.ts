@@ -6,19 +6,19 @@ import {
 
 export const experimentQualitySectionKeys = [
   "setup",
-  "documentation",
   "process",
+  "documentation",
   "ai",
 ] as const;
 export type ExperimentQualitySectionKey =
   (typeof experimentQualitySectionKeys)[number];
 
 export const deterministicExperimentQualityCheckKeys = [
+  "hypothesis",
+  "description",
   "goal-metrics",
   "guardrail-metrics",
   "max-variations",
-  "hypothesis",
-  "description",
   "screenshots",
   "tags-or-project",
   "decision",

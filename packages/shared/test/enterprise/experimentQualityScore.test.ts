@@ -119,12 +119,12 @@ function checkByKey(result: ReturnType<typeof score>, key: string) {
 }
 
 describe("resolveExperimentQualityScoreSettings", () => {
-  it("uses default shares 20/25/30/25", () => {
+  it("uses default shares 35/30/15/20", () => {
     const resolved = resolveExperimentQualityScoreSettings();
-    expect(resolved.sections.setup.share).toBeCloseTo(0.2, 9);
-    expect(resolved.sections.documentation.share).toBeCloseTo(0.25, 9);
+    expect(resolved.sections.setup.share).toBeCloseTo(0.35, 9);
     expect(resolved.sections.process.share).toBeCloseTo(0.3, 9);
-    expect(resolved.sections.ai.share).toBeCloseTo(0.25, 9);
+    expect(resolved.sections.documentation.share).toBeCloseTo(0.15, 9);
+    expect(resolved.sections.ai.share).toBeCloseTo(0.2, 9);
   });
 
   it("defaults some checks to disabled and splits the rest equally", () => {
@@ -138,12 +138,15 @@ describe("resolveExperimentQualityScoreSettings", () => {
       expect(resolved.checks[key].enabled).toBe(false);
       expect(resolved.checks[key].split).toBe(0);
     }
-    for (const key of ["hypothesis", "description", "decision"] as const) {
-      expect(resolved.checks[key].split).toBeCloseTo(1 / 3, 9);
+    for (const key of [
+      "hypothesis",
+      "description",
+      "goal-metrics",
+      "guardrail-metrics",
+    ] as const) {
+      expect(resolved.checks[key].split).toBeCloseTo(1 / 4, 9);
     }
-    for (const key of ["goal-metrics", "guardrail-metrics"] as const) {
-      expect(resolved.checks[key].split).toBeCloseTo(1 / 2, 9);
-    }
+    expect(resolved.checks.decision.split).toBeCloseTo(1, 9);
   });
 
   it("redistributes the AI share when aiChecksEnabled is false", () => {
@@ -152,9 +155,9 @@ describe("resolveExperimentQualityScoreSettings", () => {
     });
     expect(resolved.sections.ai.enabled).toBe(false);
     expect(resolved.sections.ai.share).toBe(0);
-    expect(resolved.sections.setup.share).toBeCloseTo(20 / 75, 9);
-    expect(resolved.sections.documentation.share).toBeCloseTo(25 / 75, 9);
-    expect(resolved.sections.process.share).toBeCloseTo(30 / 75, 9);
+    expect(resolved.sections.setup.share).toBeCloseTo(35 / 80, 9);
+    expect(resolved.sections.process.share).toBeCloseTo(30 / 80, 9);
+    expect(resolved.sections.documentation.share).toBeCloseTo(15 / 80, 9);
   });
 
   it("treats scaled raw weights as identical shares", () => {
@@ -190,14 +193,14 @@ describe("resolveExperimentQualityScoreSettings", () => {
     });
     expect(resolved.sections.process.enabled).toBe(false);
     expect(resolved.sections.process.share).toBe(0);
-    expect(resolved.sections.documentation.share).toBeCloseTo(25 / 70, 9);
+    expect(resolved.sections.documentation.share).toBeCloseTo(15 / 70, 9);
   });
 
   it("resolving without a config yields catalog defaults", () => {
     const fromUndefined = resolveExperimentQualityScoreSettings(undefined);
     const fromNull = resolveExperimentQualityScoreSettings(null);
-    expect(fromUndefined.sections.documentation.share).toBeCloseTo(0.25, 9);
-    expect(fromNull.sections.documentation.share).toBeCloseTo(0.25, 9);
+    expect(fromUndefined.sections.documentation.share).toBeCloseTo(0.15, 9);
+    expect(fromNull.sections.documentation.share).toBeCloseTo(0.15, 9);
   });
 
   describe("resolveQualityScope", () => {
@@ -394,26 +397,30 @@ describe("getExperimentQualityScore", () => {
       0,
     );
     expect(totalPossible).toBeCloseTo(100, 6);
-    // Documentation absorbed more than its configured 25%
-    expect(
-      sectionByKey(result, "documentation").possiblePoints,
-    ).toBeGreaterThan(25);
+    // Setup absorbed more than its configured 35%
+    expect(sectionByKey(result, "setup").possiblePoints).toBeGreaterThan(35);
   });
 
   it("computes proportional section points for partial failures", () => {
-    // Documentation-only config with two enabled equal-split checks: one
-    // passes (hypothesis), one fails (description)
+    // Setup-only config with two enabled equal-split checks: one passes
+    // (hypothesis), one fails (description)
     const settings = resolveExperimentQualityScoreSettings({
       aiChecksEnabled: false,
-      sections: { setup: { enabled: false }, process: { enabled: false } },
-      checks: { decision: { enabled: false } },
+      sections: {
+        process: { enabled: false },
+        documentation: { enabled: false },
+      },
+      checks: {
+        "goal-metrics": { enabled: false },
+        "guardrail-metrics": { enabled: false },
+      },
     });
     const experiment = baseExperiment({ description: "" });
     const result = score(experiment, settings);
     expect(result.score).toBe(50);
-    const doc = sectionByKey(result, "documentation");
-    expect(doc.possiblePoints).toBeCloseTo(100, 6);
-    expect(doc.earnedPoints).toBeCloseTo(50, 6);
+    const setup = sectionByKey(result, "setup");
+    expect(setup.possiblePoints).toBeCloseTo(100, 6);
+    expect(setup.earnedPoints).toBeCloseTo(50, 6);
   });
 
   it("excludes pending AI checks from numerator and denominator", () => {
@@ -673,11 +680,12 @@ describe("getExperimentQualityScore", () => {
         settings,
       );
       const improvements = getQualityImprovements(result);
-      // Setup's 20 points split 2 ways beat Documentation's 25 split 3 ways
       expect(improvements.map((i) => i.key)).toEqual([
-        "guardrail-metrics",
         "description",
+        "guardrail-metrics",
       ]);
+      // Equal checks in one section are worth the same
+      expect(improvements[0].gain).toBeCloseTo(improvements[1].gain, 9);
       const total = result.sections
         .flatMap((s) => s.checks)
         .reduce((sum, c) => sum + c.possiblePoints, 0);
