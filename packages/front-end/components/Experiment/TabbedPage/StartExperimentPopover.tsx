@@ -1,6 +1,4 @@
 import { ReactNode, useState } from "react";
-import omit from "lodash/omit";
-import { format } from "date-fns";
 import { Flex, Grid, Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
@@ -12,16 +10,13 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
-import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
-import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 import {
   ChecklistCountBadge,
   PreLaunchChecklistPanel,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
-import { useAuth } from "@/services/auth";
 import { StartExperiment } from "./useStartExperiment";
 import useStartGate from "./useStartGate";
 import { getStartTitle } from "./startActions";
@@ -30,7 +25,11 @@ import {
   StartFailures,
   StartUpgradeCallout,
 } from "./StartSections";
-import { scheduledEnd, scheduledTime } from "./RunningScheduleLink";
+import {
+  hasStatusSchedule,
+  scheduledEnd,
+  scheduledTime,
+} from "./RunningScheduleLink";
 import { useEditsBlockedReason } from "./ExperimentEdits";
 
 // getAffectedEnvsForExperiment's answer for "every environment".
@@ -42,7 +41,6 @@ type ContentProps = {
   envs: string[];
   start: StartExperiment;
   editSchedule: (() => void) | null;
-  mutate: () => void;
 };
 
 export type Props = ContentProps & {
@@ -78,97 +76,6 @@ export default function StartExperimentPopover({
         overflowY: "auto",
       }}
     />
-  );
-}
-
-// In the date field's local format.
-const toLocalInput = (date: Date) => format(date, "yyyy-MM-dd'T'HH:mm");
-
-/** Now, or a date the popover saves as the schedule's start. */
-function StartTimeField({
-  experiment,
-  mutate,
-  container,
-  setError,
-}: {
-  experiment: ExperimentInterfaceStringDates;
-  mutate: () => void;
-  // The popover, so the select's menu opens inside it.
-  container: HTMLElement | null;
-  setError: (error: string | null) => void;
-}) {
-  const { apiCall } = useAuth();
-  const startAt = experiment.statusUpdateSchedule?.startAt;
-  const [draft, setDraft] = useState(() =>
-    startAt ? toLocalInput(new Date(startAt)) : "",
-  );
-
-  const save = async (next: Date | null) => {
-    setError(null);
-    if (next && next <= new Date()) {
-      setError("Pick a start time in the future.");
-      return;
-    }
-    const rest = omit(experiment.statusUpdateSchedule ?? {}, "startAt");
-    try {
-      await apiCall(`/experiment/${experiment.id}`, {
-        method: "POST",
-        body: JSON.stringify({
-          statusUpdateSchedule: next
-            ? { ...rest, startAt: next.toISOString() }
-            : rest.stopAt || rest.stopAfter
-              ? rest
-              : null,
-        }),
-      });
-      mutate();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  };
-
-  return (
-    <Flex align="center" gap="2" wrap="wrap">
-      <Select
-        value={startAt ? "date" : "now"}
-        setValue={(value) => {
-          if (value === "now") {
-            setDraft("");
-            void save(null);
-            return;
-          }
-          // The next whole hour, a ready default to adjust.
-          const next = new Date();
-          next.setHours(next.getHours() + 1, 0, 0, 0);
-          setDraft(toLocalInput(next));
-          void save(next);
-        }}
-        container={container}
-        size="md"
-      >
-        <SelectItem value="now">Immediately</SelectItem>
-        <SelectItem value="date">On a date</SelectItem>
-      </Select>
-      {startAt ? (
-        <TextField
-          type="datetime-local"
-          size="md"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          // On leaving the field, so a half-typed time isn't saved.
-          onBlur={() => {
-            const next = draft ? new Date(draft) : null;
-            if (
-              next &&
-              !Number.isNaN(next.getTime()) &&
-              next.toISOString() !== new Date(startAt).toISOString()
-            ) {
-              void save(next);
-            }
-          }}
-        />
-      ) : null}
-    </Flex>
   );
 }
 
@@ -222,14 +129,12 @@ function StartContent({
   envs,
   start,
   editSchedule,
-  mutate,
   close,
 }: ContentProps & { close: () => void }) {
   const gate = useStartGate({ experiment, linkedFeatures, start });
   const editsBlocked = useEditsBlockedReason();
   const rows = useSummaryRows(experiment, envs);
   const [error, setError] = useState<string | null>(null);
-  const [container, setContainer] = useState<HTMLElement | null>(null);
 
   const startApproved = experiment.nextScheduledStatusUpdate?.type === "start";
   const dateLabel = gate.scheduledStartAt
@@ -251,7 +156,7 @@ function StartContent({
     openSchedule ? <Link onClick={openSchedule}>{text}</Link> : text;
 
   return (
-    <Flex ref={setContainer} direction="column" gap="4">
+    <Flex direction="column" gap="4">
       <Heading as="h4" size="sm" mb="0">
         {getStartTitle(experiment, new Date())}
       </Heading>
@@ -282,19 +187,16 @@ function StartContent({
       {/* Every row a control's height, so values and fields line up. */}
       <Grid columns="max-content minmax(0, 1fr)" gapX="5" gapY="1">
         <SummaryRow label="Start">
-          {openSchedule && !startApproved ? (
-            <Flex align="center" gap="3" wrap="wrap">
-              <StartTimeField
-                experiment={experiment}
-                mutate={mutate}
-                container={container}
-                setError={setError}
-              />
-              <Link onClick={openSchedule}>More options</Link>
-            </Flex>
-          ) : (
+          <Flex align="center" gap="3" wrap="wrap">
             <Text color="text-high">{dateLabel ?? "Immediately"}</Text>
-          )}
+            {openSchedule && !startApproved ? (
+              <Link onClick={openSchedule}>
+                {hasStatusSchedule(experiment)
+                  ? "Change schedule"
+                  : "Add schedule"}
+              </Link>
+            ) : null}
+          </Flex>
         </SummaryRow>
         {rows.map((row) => (
           <SummaryRow key={row.key} label={row.label}>

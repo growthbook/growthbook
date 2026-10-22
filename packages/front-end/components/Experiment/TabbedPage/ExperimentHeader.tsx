@@ -563,7 +563,6 @@ export default function ExperimentHeader({
       envs={envs}
       start={start}
       editSchedule={editSchedule ?? null}
-      mutate={mutate}
       open={startOpen}
       setOpen={setStartOpen}
       trigger={startButton}
