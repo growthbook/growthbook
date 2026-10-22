@@ -157,10 +157,7 @@
       "presto-client@1.1.0": "patches/presto-client@1.1.0.patch",
       "agenda@5.0.0": "patches/agenda@5.0.0.patch",
       "@ephys/zod-to-ts@2.3.2": "patches/@ephys__zod-to-ts@2.3.2.patch",
-      "snowflake-sdk@2.4.3": "patches/snowflake-sdk@2.4.3.patch",
-      "@clickhouse/client@1.23.1": "patches/@clickhouse__client@1.23.1.patch",
-      "node-fetch@2.7.0": "patches/node-fetch@2.7.0.patch",
-      "axios@1.20.0": "patches/axios@1.20.0.patch"
+      "snowflake-sdk@2.4.3": "patches/snowflake-sdk@2.4.3.patch"
     },
     "onlyBuiltDependencies": [
       "@datadog/native-appsec",

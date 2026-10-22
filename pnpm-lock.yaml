@@ -71,9 +71,6 @@ overrides:
   yaml@1: ^1.10.3
 
 patchedDependencies:
-  '@clickhouse/client@1.23.1':
-    hash: b468336b7a762b5aebfe1ec6ab1711be4405a3bd1794f1e0a9bab327ededb180
-    path: patches/@clickhouse__client@1.23.1.patch
   '@ephys/zod-to-ts@2.3.2':
     hash: 9a20bc019cac7fdedd7e3e3dc15d91158a5f0dc676edef9ecd8ee4823fce522a
     path: patches/@ephys__zod-to-ts@2.3.2.patch
@@ -83,12 +80,6 @@ patchedDependencies:
   agenda@5.0.0:
     hash: 043b22bcd76baf271350e363692bb4b5c7422fd6943c70c61c23c1ed7cbc71d8
     path: patches/agenda@5.0.0.patch
-  axios@1.20.0:
-    hash: e0084584eb212dd958fe0fda30024918865f0e0734c2ad9a5c71e23163666951
-    path: patches/axios@1.20.0.patch
-  node-fetch@2.7.0:
-    hash: 5058b422a26741c96849b55c24e0ffd7f9303402232634f49cf0c6014fd27490
-    path: patches/node-fetch@2.7.0.patch
   presto-client@1.1.0:
     hash: 9fd1f0ac9c8a83e477d0fbea5a3b9c67665121c24b78fa4d5af0cf112c3d1efb
     path: patches/presto-client@1.1.0.patch
@@ -214,7 +205,7 @@ importers:
         version: 3.1031.0
       '@clickhouse/client':
         specifier: ^1.23.1
-        version: 1.23.1(patch_hash=b468336b7a762b5aebfe1ec6ab1711be4405a3bd1794f1e0a9bab327ededb180)
+        version: 1.23.1
       '@databricks/sql':
         specifier: ^2.0.0
         version: 2.0.0(encoding@0.1.13)
@@ -421,7 +412,7 @@ importers:
         version: 3.24.4(@types/node@22.8.6)
       node-fetch:
         specifier: ^2.6.1
-        version: 2.7.0(patch_hash=5058b422a26741c96849b55c24e0ffd7f9303402232634f49cf0c6014fd27490)(encoding@0.1.13)
+        version: 2.7.0(encoding@0.1.13)
       nodemailer:
         specifier: ^10.0.10
         version: 10.0.10
@@ -16111,7 +16102,7 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@clickhouse/client@1.23.1(patch_hash=b468336b7a762b5aebfe1ec6ab1711be4405a3bd1794f1e0a9bab327ededb180)': {}
+  '@clickhouse/client@1.23.1': {}
 
   '@colors/colors@1.6.0': {}
 
@@ -16155,7 +16146,7 @@ snapshots:
       apache-arrow: 13.0.0
       commander: 9.5.0
       flatbuffers: 23.5.26
-      node-fetch: 2.7.0(patch_hash=5058b422a26741c96849b55c24e0ffd7f9303402232634f49cf0c6014fd27490)(encoding@0.1.13)
+      node-fetch: 2.7.0(encoding@0.1.13)
       node-int64: 0.4.0
       open: 8.4.2
       openid-client: 5.4.3
@@ -19272,7 +19263,7 @@ snapshots:
   '@sentry/cli@2.58.5(encoding@0.1.13)':
     dependencies:
       https-proxy-agent: 5.0.1
-      node-fetch: 2.7.0(patch_hash=5058b422a26741c96849b55c24e0ffd7f9303402232634f49cf0c6014fd27490)(encoding@0.1.13)
+      node-fetch: 2.7.0(encoding@0.1.13)
       progress: 2.0.3
       proxy-from-env: 1.1.0
       which: 2.0.2
@@ -19292,7 +19283,7 @@ snapshots:
   '@sentry/cli@2.58.6(encoding@0.1.13)':
     dependencies:
       https-proxy-agent: 5.0.1
-      node-fetch: 2.7.0(patch_hash=5058b422a26741c96849b55c24e0ffd7f9303402232634f49cf0c6014fd27490)(encoding@0.1.13)
+      node-fetch: 2.7.0(encoding@0.1.13)
       progress: 2.0.3
       proxy-from-env: 1.1.0
       which: 2.0.2
@@ -21827,7 +21818,7 @@ snapshots:
 
   axe-core@4.11.1: {}
 
-  axios@1.20.0(patch_hash=e0084584eb212dd958fe0fda30024918865f0e0734c2ad9a5c71e23163666951):
+  axios@1.20.0:
     dependencies:
       follow-redirects: 1.16.0(debug@4.4.3)
       form-data: 4.0.6
@@ -23975,7 +23966,7 @@ snapshots:
       extend: 3.0.2
       https-proxy-agent: 5.0.1
       is-stream: 2.0.1
-      node-fetch: 2.7.0(patch_hash=5058b422a26741c96849b55c24e0ffd7f9303402232634f49cf0c6014fd27490)(encoding@0.1.13)
+      node-fetch: 2.7.0(encoding@0.1.13)
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -24233,10 +24224,10 @@ snapshots:
       '@oclif/core': 2.5.0
       '@oclif/plugin-help': 5.2.7
       '@oclif/plugin-plugins': 2.3.2
-      axios: 1.20.0(patch_hash=e0084584eb212dd958fe0fda30024918865f0e0734c2ad9a5c71e23163666951)
+      axios: 1.20.0
       chalk: 4.1.2
       handlebars: 4.7.10
-      node-fetch: 2.7.0(patch_hash=5058b422a26741c96849b55c24e0ffd7f9303402232634f49cf0c6014fd27490)(encoding@0.1.13)
+      node-fetch: 2.7.0(encoding@0.1.13)
     transitivePeerDependencies:
       - debug
       - encoding
@@ -26754,7 +26745,7 @@ snapshots:
 
   node-domexception@1.0.0: {}
 
-  node-fetch@2.7.0(patch_hash=5058b422a26741c96849b55c24e0ffd7f9303402232634f49cf0c6014fd27490)(encoding@0.1.13):
+  node-fetch@2.7.0(encoding@0.1.13):
     dependencies:
       whatwg-url: 5.0.0
     optionalDependencies:
@@ -28637,7 +28628,7 @@ snapshots:
       asn1.js: 5.4.1
       asn1.js-rfc2560: 5.0.1(asn1.js@5.4.1)
       asn1.js-rfc5280: 3.0.0
-      axios: 1.20.0(patch_hash=e0084584eb212dd958fe0fda30024918865f0e0734c2ad9a5c71e23163666951)
+      axios: 1.20.0
       big-integer: 1.6.52
       bignumber.js: 9.1.2
       expand-tilde: 2.0.2
@@ -29077,7 +29068,7 @@ snapshots:
     dependencies:
       http-proxy-agent: 5.0.0
       https-proxy-agent: 5.0.1
-      node-fetch: 2.7.0(patch_hash=5058b422a26741c96849b55c24e0ffd7f9303402232634f49cf0c6014fd27490)(encoding@0.1.13)
+      node-fetch: 2.7.0(encoding@0.1.13)
       stream-events: 1.0.5
       uuid: 11.1.1
     transitivePeerDependencies:
