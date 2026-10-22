@@ -414,7 +414,15 @@ function AdditionalColumnsRow({
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
-export default function NewFactTableModal({ close }: { close: () => void }) {
+export default function NewFactTableModal({
+  close,
+  datasourceId: initialDatasourceId,
+  lockDatasource = false,
+}: {
+  close: () => void;
+  datasourceId?: string;
+  lockDatasource?: boolean;
+}) {
   const router = useRouter();
   const growthbook = useGrowthBook();
   const { apiCall } = useAuth();
@@ -426,6 +434,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
   const [step, setStep] = useState(0);
   const [datasourceId, setDatasourceId] = useState(
     () =>
+      initialDatasourceId ||
       getNewExperimentDatasourceDefaults({ datasources, settings, project })
         .datasource,
   );
@@ -1012,6 +1021,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
             key={mode}
             datasourceId={datasourceId}
             setDatasourceId={setDatasourceId}
+            lockDatasource={lockDatasource}
             sql={factTableSql}
             setSql={setSql}
             detected={detected}

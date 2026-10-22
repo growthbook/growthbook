@@ -157,6 +157,19 @@ export function useFeatureRulesEnv(): [
   return [stored === FEATURE_RULES_ALL_ENVS ? null : stored, setEnv];
 }
 
+// With scoped rules required, a new rule starts in the org's preferred
+// environment instead of all of them. Null when there's no usable preference.
+export function useScopedRuleDefaultEnvironment(
+  environments: { id: string }[],
+): string | null {
+  const { requireScopedFeatureRules, preferredEnvironment } = useOrgSettings();
+  return requireScopedFeatureRules &&
+    preferredEnvironment &&
+    environments.some((e) => e.id === preferredEnvironment)
+    ? preferredEnvironment
+    : null;
+}
+
 export function useEnvironmentState() {
   const [state, setState] = useLocalStorage("currentEnvironment", "dev");
   const { settings } = useUser();

@@ -38,6 +38,15 @@ export function canSetApiKeyDisabled(
     : permissions.canUpdateApiKey();
 }
 
+// Who may reveal or rotate a key's secret: the owner for a PAT, key creators for an org key.
+export function canManageApiKeySecret(
+  permissions: Pick<Permissions, "canCreateApiKey">,
+  key: Pick<ApiKeyInterface, "userId">,
+  actorId: string,
+): boolean {
+  return key.userId ? key.userId === actorId : permissions.canCreateApiKey();
+}
+
 export function canApplyExpirationPolicy(
   permissions: Pick<
     Permissions,
@@ -50,16 +59,10 @@ export function canApplyExpirationPolicy(
     : permissions.canDeleteApiKey();
 }
 
-export function requesterHeaderPolicy(
-  key: Pick<ApiKeyInterface, "requesterHeader">,
-): NonNullable<ApiKeyInterface["requesterHeader"]> {
-  return key.requesterHeader ?? "optional";
-}
-
-export function assumesRequesterRole(
-  key: Pick<ApiKeyInterface, "requesterPermissions">,
-): boolean {
-  return (key.requesterPermissions ?? "assume") === "assume";
+// A User key must name a member with X-GrowthBook-Requested-By and acts as
+// them; a System key keeps its own role and only records who asked.
+export function actsAsUser(key: Pick<ApiKeyInterface, "actAs">): boolean {
+  return key.actAs === "user";
 }
 
 type ApiKeyAuthority = Pick<
@@ -69,8 +72,7 @@ type ApiKeyAuthority = Pick<
   | "environments"
   | "additionalRoles"
   | "projectRoles"
-  | "requesterHeader"
-  | "requesterPermissions"
+  | "actAs"
   | "confirmRules"
 >;
 
@@ -83,8 +85,7 @@ function authorityOf(key: ApiKeyAuthority) {
       : null,
     additionalRoles: key.additionalRoles ?? [],
     projectRoles: key.projectRoles ?? [],
-    requesterHeader: requesterHeaderPolicy(key),
-    assumesRequesterRole: assumesRequesterRole(key),
+    actAs: key.actAs ?? "system",
     confirmRules: key.confirmRules ?? null,
   };
 }

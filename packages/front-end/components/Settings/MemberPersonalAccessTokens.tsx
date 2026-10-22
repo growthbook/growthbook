@@ -197,7 +197,7 @@ const MemberPersonalAccessTokens: FC = () => {
                   Member
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="description">
-                  Description
+                  Name
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="lastUsedSort">
                   Last used

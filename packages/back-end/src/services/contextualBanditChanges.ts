@@ -1,4 +1,7 @@
+import isEqual from "lodash/isEqual";
+import uniqBy from "lodash/uniqBy";
 import { ContextualBanditInterface } from "shared/validators";
+import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -6,7 +9,10 @@ import {
   determineNextContextualBanditSchedule,
 } from "back-end/src/services/contextualBanditSchedule";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
-import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
+import {
+  getAffectedSDKPayloadKeys,
+  getContextualBanditVisualPayloadKeys,
+} from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
@@ -17,6 +23,32 @@ import {
   publishPendingFeatureDraftsForContextualBandit,
 } from "back-end/src/services/experiment-feature";
 
+const SDK_PAYLOAD_FIELDS = [
+  "status",
+  "archived",
+  "project",
+  "name",
+  "tags",
+  "trackingKey",
+  "hashAttribute",
+  "seed",
+  "coverage",
+  "condition",
+  "savedGroups",
+  "prerequisites",
+] as const;
+
+export function contextualBanditUpdateAffectsPayload(
+  existing: ContextualBanditInterface,
+  updates: Partial<ContextualBanditInterface>,
+  updated: ContextualBanditInterface,
+): boolean {
+  if (existing.status === "draft" && updated.status === "draft") return false;
+  return SDK_PAYLOAD_FIELDS.some(
+    (field) => field in updates && !isEqual(existing[field], updated[field]),
+  );
+}
+
 export async function refreshLinkedFeaturePayloads(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,
@@ -24,24 +56,35 @@ export async function refreshLinkedFeaturePayloads(
     | "contextualBandit.start"
     | "contextualBandit.stop"
     | "contextualBandit.refresh",
+  options: { includeVisualKeys?: boolean } = {},
 ): Promise<void> {
-  const features = await getAllFeatures(context);
-  if (!features.length) return;
-
   const environments = getEnvironmentIdsFromOrg(context.org);
-  const allProjectIds = await context.getAllProjectIds();
-  const payloadKeys = getAffectedSDKPayloadKeys(
-    features,
-    environments,
-    (rule) => {
-      if (rule.enabled === false) return false;
-      return (
-        rule.type === "contextual-bandit-ref" &&
-        rule.contextualBanditId === cb.id
-      );
-    },
-    allProjectIds,
+  const features = await getAllFeatures(context);
+
+  const ruleKeys: SDKPayloadKey[] = features.length
+    ? getAffectedSDKPayloadKeys(
+        features,
+        environments,
+        (rule) => {
+          if (rule.enabled === false) return false;
+          return (
+            rule.type === "contextual-bandit-ref" &&
+            rule.contextualBanditId === cb.id
+          );
+        },
+        await context.getAllProjectIds(),
+      )
+    : [];
+
+  const visualKeys =
+    options.includeVisualKeys || cb.hasVisualChangesets
+      ? getContextualBanditVisualPayloadKeys(cb, environments)
+      : [];
+  const payloadKeys = uniqBy(
+    [...ruleKeys, ...visualKeys],
+    (k) => `${k.environment}|${k.project}`,
   );
+
   if (payloadKeys.length === 0) return;
   queueSDKPayloadRefresh({
     context,
@@ -92,6 +135,7 @@ export async function executeContextualBanditStart(
   const updated = await context.models.contextualBandits.update(
     cb,
     startChanges,
+    { skipSDKRefresh: true },
   );
 
   await context.auditLog({
@@ -132,10 +176,14 @@ export async function executeContextualBanditStop(
 
   const now = new Date();
 
-  const updated = await context.models.contextualBandits.update(cb, {
-    status: "stopped",
-    dateStopped: cb.dateStopped ?? now,
-  });
+  const updated = await context.models.contextualBandits.update(
+    cb,
+    {
+      status: "stopped",
+      dateStopped: cb.dateStopped ?? now,
+    },
+    { skipSDKRefresh: true },
+  );
 
   await context.auditLog({
     event: "contextualBandit.stop",

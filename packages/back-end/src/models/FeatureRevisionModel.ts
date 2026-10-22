@@ -756,6 +756,19 @@ export async function getOpenDraftRules(
   return docs.map((d) => d.rules);
 }
 
+export async function getActiveDraftVersions(
+  organization: string,
+  featureId: string,
+): Promise<number[]> {
+  const docs = await FeatureRevisionModel.find(
+    { organization, featureId, status: { $in: ACTIVE_DRAFT_STATUSES } },
+    { version: 1, _id: 0 },
+  )
+    .sort({ version: 1 })
+    .lean();
+  return docs.map((d) => d.version);
+}
+
 export async function hasDraft(
   organization: string,
   feature: FeatureInterface,

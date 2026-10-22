@@ -3,6 +3,7 @@ import {
   Permissions,
   archiveFootprintForControl,
   canApplyExpirationPolicy,
+  canManageApiKeySecret,
   canSetApiKeyDisabled,
   featurePublishFootprint,
   revertFootprint,
@@ -381,7 +382,9 @@ describe("API key controls have no environment footprint", () => {
     const deleteOnly = envLimited("deleteApiKeys");
     const editOnly = envLimited("editApiKeys");
     const tokensOnly = envLimited("managePersonalAccessTokens");
+    const createOnly = envLimited("createApiKeys");
 
+    expect(canManageApiKeySecret(createOnly, {}, "u_1")).toBe(true);
     expect(
       canSetApiKeyDisabled(deleteOnly, { disabled: false }, "u_1", true),
     ).toBe(true);

@@ -301,6 +301,7 @@ type TestQueryResults = {
 export default function NewFactTableSqlStep({
   datasourceId,
   setDatasourceId,
+  lockDatasource = false,
   sql,
   setSql,
   detected,
@@ -324,6 +325,7 @@ export default function NewFactTableSqlStep({
 }: {
   datasourceId: string;
   setDatasourceId: (id: string) => void;
+  lockDatasource?: boolean;
   sql: string;
   setSql: (sql: string) => void;
   detected: DetectedFactTableColumn[] | null;
@@ -520,6 +522,7 @@ export default function NewFactTableSqlStep({
       aria-label="Data Source"
       value={datasourceId}
       setValue={setDatasourceId}
+      disabled={lockDatasource}
       placeholder="Select..."
       mb="0"
     >
