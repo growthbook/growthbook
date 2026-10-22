@@ -202,6 +202,26 @@ export async function syncEventForwarderEventsFactTableMetadata(
       datasource,
     );
     if (!factTable) {
+      if (eventForwarderConfig.status === "unconfigured") {
+        continue;
+      }
+      try {
+        await ensureEventForwarderEventsFactTable(
+          context,
+          eventForwarderConfig,
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+        logger.error(
+          {
+            datasourceId,
+            organizationId: context.org.id,
+            error: message,
+          },
+          "Failed to create Events fact table after event forwarder attribute sync",
+        );
+      }
       continue;
     }
 

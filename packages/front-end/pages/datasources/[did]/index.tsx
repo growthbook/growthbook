@@ -3,12 +3,13 @@ import { FC, useCallback, useEffect, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  isEventForwarderSetupStepComplete,
   isManagedWarehouseAwaitingProvisioning,
   supportsEventForwarder,
 } from "shared/util";
 import { isSampleDatasource } from "shared/demo-datasource";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiLinkBold } from "react-icons/pi";
+import { PiInfo, PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
@@ -31,6 +32,7 @@ import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
+import useURLHash from "@/hooks/useURLHash";
 import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline";
 import AskDataSettings from "@/components/Settings/EditDataSource/AskDataSettings/AskDataSettings";
 import { useUser } from "@/services/UserContext";
@@ -41,6 +43,8 @@ import FinishSettingUp, {
   isDataSourceSetupComplete,
   useExposureQuerySkipped,
 } from "@/components/DataSourceSetup/FinishSettingUp";
+import { EventForwarderDestinationSummary } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
+import EventForwarderTab from "@/components/DataSourceSetup/EventForwarderTab";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
@@ -52,6 +56,7 @@ import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
@@ -217,6 +222,7 @@ const DataSourcePage: FC = () => {
     setDeleteBlockedByEventForwarderModalOpen,
   ] = useState(false);
   const router = useRouter();
+  const [urlHash, setUrlHash] = useURLHash();
 
   const {
     getDatasourceById,
@@ -388,6 +394,25 @@ const DataSourcePage: FC = () => {
     newDataSourceOnboarding.enabled &&
     !isDataSourceSetupComplete(d, factTables.length, exposureQuerySkipped);
 
+  // Event Forwarder leads when this Data Source has one. Otherwise Queries
+  // is the default, since adjusting assignment queries is the usual reason
+  // to come back. Unknown hashes fall back to the first tab too.
+  const showEventForwarderTab =
+    newDataSourceOnboarding.enabled &&
+    !!d.eventForwarderConfig &&
+    d.eventForwarderConfig.status !== "unconfigured";
+  const refreshDataSource = async () => {
+    await Promise.all([mutateDefinitions({}), mutateCurrentDataSource()]);
+  };
+  const tabIds = [
+    ...(showEventForwarderTab ? ["event-forwarder"] : []),
+    ...(supportsSQL ? ["queries", "explore"] : []),
+    "resources",
+    "usage",
+    "settings",
+  ];
+  const activeTab = urlHash && tabIds.includes(urlHash) ? urlHash : tabIds[0];
+
   return (
     <div className="container pagecontents">
       <PageHead
@@ -411,9 +436,28 @@ const DataSourcePage: FC = () => {
         </Callout>
       )}
       <Flex align="center" gap="3" wrap="wrap">
-        <Heading as="h1" size="xl" overflowWrap="anywhere" mb="0">
-          {d.name}
-        </Heading>
+        <Flex align="center" gap="2">
+          <Heading as="h1" size="xl" overflowWrap="anywhere" mb="0">
+            {d.name}
+          </Heading>
+          {d.description && (
+            <Tooltip
+              content={
+                <Text as="div" whiteSpace="pre-wrap">
+                  {d.description}
+                </Text>
+              }
+            >
+              <span
+                tabIndex={0}
+                aria-label="Description"
+                style={{ display: "inline-flex", color: "var(--gray-11)" }}
+              >
+                <PiInfo size={18} />
+              </span>
+            </Tooltip>
+          )}
+        </Flex>
         <Badge
           label={
             <>
@@ -425,24 +469,11 @@ const DataSourcePage: FC = () => {
           variant="solid"
           radius="full"
         />
-        <Flex align="center" gap="1">
-          <ProjectBadges
-            resourceType="data source"
-            projectIds={d.projects?.length ? d.projects : undefined}
-            skipMargin
-          />
-          {canUpdateDataSourceSettings && projects.length > 0 && (
-            <Link
-              aria-label="Edit Projects"
-              onClick={(e) => {
-                e.preventDefault();
-                setEditProjectsOpen(true);
-              }}
-            >
-              <GBEdit />
-            </Link>
-          )}
-        </Flex>
+        <ProjectBadges
+          resourceType="data source"
+          projectIds={d.projects?.length ? d.projects : undefined}
+          skipMargin
+        />
       </Flex>
       {d.type === "mixpanel" && (
         <Callout status="warning" mt="3">
@@ -464,6 +495,7 @@ const DataSourcePage: FC = () => {
               onSave={updateDataSourceSettings}
               exposureQuerySkipped={exposureQuerySkipped}
               onSkipExposureQuery={skipExposureQuery}
+              onRefresh={refreshDataSource}
             />
           </Frame>
         )}
@@ -497,46 +529,25 @@ const DataSourcePage: FC = () => {
             </Frame>
           ))}
 
-        <Tabs defaultValue="overview" persistInURL>
+        <Tabs value={activeTab} onValueChange={setUrlHash}>
           <TabsList size="lg">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="usage">Usage</TabsTrigger>
+            {showEventForwarderTab ? (
+              <TabsTrigger value="event-forwarder">Event Forwarder</TabsTrigger>
+            ) : null}
             {supportsSQL && (
               <>
                 <TabsTrigger value="queries">Queries</TabsTrigger>
                 <TabsTrigger value="explore">Explore</TabsTrigger>
               </>
             )}
+            <TabsTrigger value="resources">Connected Resources</TabsTrigger>
+            <TabsTrigger value="usage">Usage</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview">
+          <TabsContent value="resources">
             <Flex direction="column" gap="2" mt="3">
-              {(d.description || canUpdateDataSourceSettings) && (
-                <Frame mb="0">
-                  <Heading as="h2" size="md">
-                    Description
-                  </Heading>
-                  <DataSourceDescription
-                    value={d.description || ""}
-                    canEdit={canUpdateDataSourceSettings}
-                    save={async (description) => {
-                      await apiCall(`/datasource/${d.id}`, {
-                        method: "PUT",
-                        body: JSON.stringify({ description }),
-                      });
-                      await Promise.all([
-                        mutateDefinitions({}),
-                        mutateCurrentDataSource(),
-                      ]);
-                    }}
-                  />
-                </Frame>
-              )}
               <Frame mb="0">
-                <Heading as="h2" size="md" mb="3">
-                  Connected Resources
-                </Heading>
                 <Flex direction={{ initial: "column", md: "row" }} gap="6">
                   <Box flexGrow="1" flexBasis="0">
                     <ResourceReferenceList
@@ -577,6 +588,20 @@ const DataSourcePage: FC = () => {
               </Frame>
             </Flex>
           </TabsContent>
+
+          {showEventForwarderTab ? (
+            <TabsContent value="event-forwarder">
+              <Flex direction="column" gap="2" mt="3">
+                <Frame mb="0">
+                  <EventForwarderTab
+                    dataSource={d}
+                    canEdit={canUpdateDataSourceSettings}
+                    onRefresh={refreshDataSource}
+                  />
+                </Frame>
+              </Flex>
+            </TabsContent>
+          ) : null}
 
           <TabsContent value="usage">
             <Flex direction="column" gap="2" mt="3">
@@ -741,6 +766,50 @@ const DataSourcePage: FC = () => {
                       </Button>
                     )}
                   </Flex>
+                  <Box>
+                    <Text as="div" weight="medium">
+                      Description
+                    </Text>
+                    <DataSourceDescription
+                      value={d.description || ""}
+                      canEdit={canUpdateDataSourceSettings}
+                      save={async (description) => {
+                        await apiCall(`/datasource/${d.id}`, {
+                          method: "PUT",
+                          body: JSON.stringify({ description }),
+                        });
+                        await Promise.all([
+                          mutateDefinitions({}),
+                          mutateCurrentDataSource(),
+                        ]);
+                      }}
+                    />
+                    {!d.description && !canUpdateDataSourceSettings && (
+                      <Text as="div" color="text-mid" mt="2">
+                        None
+                      </Text>
+                    )}
+                  </Box>
+                  <Box>
+                    <Text as="div" weight="medium" mb="2">
+                      Projects
+                    </Text>
+                    <Flex align="center" gap="2">
+                      <ProjectBadges
+                        resourceType="data source"
+                        projectIds={d.projects?.length ? d.projects : undefined}
+                        skipMargin
+                      />
+                      {canUpdateDataSourceSettings && projects.length > 0 && (
+                        <Link
+                          aria-label="Edit Projects"
+                          onClick={() => setEditProjectsOpen(true)}
+                        >
+                          <GBEdit />
+                        </Link>
+                      )}
+                    </Flex>
+                  </Box>
                   <DataList
                     data={[
                       {
@@ -777,8 +846,18 @@ const DataSourcePage: FC = () => {
                 </Flex>
               </Frame>
 
+              {!showFinishSettingUp &&
+                newDataSourceOnboarding.enabled &&
+                d.eventForwarderConfig &&
+                isEventForwarderSetupStepComplete(
+                  d.eventForwarderConfig.status,
+                ) && <EventForwarderDestinationSummary dataSource={d} />}
+
               {datasourceSupportsEventForwarder &&
-                eventsForwarderFlag !== "OFF" && (
+                eventsForwarderFlag !== "OFF" &&
+                !(
+                  newDataSourceOnboarding.enabled && d.eventForwarderConfig
+                ) && (
                   <Frame mb="0">
                     <EventForwarder
                       dataSource={d}

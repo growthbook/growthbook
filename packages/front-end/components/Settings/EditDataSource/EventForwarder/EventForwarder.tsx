@@ -73,6 +73,7 @@ type EventForwarderDatasourceDraft = {
 };
 
 const statusLabels: Record<EventForwarderStatus, string> = {
+  unconfigured: "Not configured",
   pending: "Pending",
   ready: "Ready",
   paused: "Paused",
@@ -84,6 +85,7 @@ const statusColors: Record<
   EventForwarderStatus,
   "gray" | "green" | "amber" | "red"
 > = {
+  unconfigured: "gray",
   pending: "gray",
   ready: "green",
   paused: "amber",

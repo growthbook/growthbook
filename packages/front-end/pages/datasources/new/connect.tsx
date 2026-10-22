@@ -6,6 +6,7 @@ import {
   DataSourceType,
   SchemaFormat,
 } from "shared/types/datasource";
+import type { DataRegion } from "shared/util";
 import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { isTestableDataSourceType } from "shared/validators";
 import ConnectDataSourceLayout from "@/components/DataSourceSetup/ConnectDataSourceLayout";
@@ -30,6 +31,14 @@ const PASSWORD_USER_TYPES = new Set<DataSourceType>([
 
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function parseDataRegion(
+  value: string | string[] | undefined,
+): DataRegion | null {
+  const raw = first(value);
+  if (raw === "us-east-1" || raw === "eu-west-1") return raw;
+  return null;
 }
 
 function parseType(
@@ -126,6 +135,11 @@ const NewDataSourceConnectPage: FC = () => {
         initial={initial}
         setup={setup}
         schemaFormat={schemaFormat}
+        eventForwarderRegion={
+          setup === "event_forwarder"
+            ? parseDataRegion(router.query.region)
+            : null
+        }
         source="datasource-new-connect"
         onCancel={() => {
           router.push("/datasources/new");

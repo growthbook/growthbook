@@ -56,6 +56,7 @@ import {
   testUnsavedDataSourceConnection,
 } from "back-end/src/services/datasource";
 import {
+  createUnconfiguredEventForwarderConfig,
   getEventForwarderForDatasource,
   hasAnyEventForwarderConfig,
   syncEventForwarderConfigFromDatasource,
@@ -229,6 +230,7 @@ export async function postDataSources(
     settings: DataSourceSettings;
     projects?: string[];
     eventForwarderConfig?: EventForwarderConfigDraft | null;
+    eventForwarderRegion?: "us-east-1" | "eu-west-1";
   }>,
   res: Response<
     | {
@@ -243,8 +245,15 @@ export async function postDataSources(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { name, description, type, params, projects, eventForwarderConfig } =
-    req.body;
+  const {
+    name,
+    description,
+    type,
+    params,
+    projects,
+    eventForwarderConfig,
+    eventForwarderRegion,
+  } = req.body;
   const settings = req.body.settings || {};
 
   if (!context.permissions.canCreateDataSource({ projects, type })) {
@@ -275,18 +284,31 @@ export async function postDataSources(
       params,
     );
 
-    const syncedEventForwarderConfig =
-      await syncEventForwarderConfigFromDatasource({
+    if (eventForwarderConfig) {
+      const syncedEventForwarderConfig =
+        await syncEventForwarderConfigFromDatasource({
+          context,
+          datasource,
+          draft: eventForwarderConfig,
+          datasourceParams: eventForwarderDatasourceParams,
+        });
+      await provisionEventForwarderThroughLicenseServer(
+        context,
+        syncedEventForwarderConfig,
+        eventForwarderDatasourceParams,
+      );
+    } else if (
+      eventForwarderRegion === "us-east-1" ||
+      eventForwarderRegion === "eu-west-1"
+    ) {
+      // Region is already chosen and cannot change. Destination and
+      // provisioning wait until Configure Event Forwarder.
+      await createUnconfiguredEventForwarderConfig({
         context,
         datasource,
-        draft: eventForwarderConfig,
-        datasourceParams: eventForwarderDatasourceParams,
+        region: eventForwarderRegion,
       });
-    await provisionEventForwarderThroughLicenseServer(
-      context,
-      syncedEventForwarderConfig,
-      eventForwarderDatasourceParams,
-    );
+    }
     const integration = getSourceIntegrationObject(context, datasource);
 
     res.status(200).json({

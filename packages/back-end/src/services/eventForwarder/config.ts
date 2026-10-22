@@ -90,6 +90,46 @@ function encryptSinkConfig(config: SinkConfig): string {
   return AES.encrypt(JSON.stringify(config), ENCRYPTION_KEY).toString();
 }
 
+function emptyStoredConfig(sinkType: EventForwarderSinkType): SinkConfig {
+  const tables = {
+    events: "",
+    experiment_viewed: "",
+    feature_usage: "",
+  };
+  switch (sinkType) {
+    case "bigquery":
+      return {
+        projectId: "",
+        dataset: "",
+        tablePrefix: "",
+        serviceAccountKey: "",
+        tables,
+      };
+    case "snowflake":
+      return {
+        tablePrefix: "",
+        tables,
+        account: "",
+        username: "",
+        database: "",
+        schema: "",
+        privateKey: "",
+      };
+    case "databricks":
+      return {
+        catalog: "",
+        schema: "",
+        tablePrefix: "",
+        zerobusEndpoint: "",
+        tables,
+        host: "",
+        path: "",
+        oauthClientId: "",
+        oauthClientSecret: "",
+      };
+  }
+}
+
 function decryptSinkConfig<T extends SinkConfig>(encrypted: string): T {
   return JSON.parse(AES.decrypt(encrypted, ENCRYPTION_KEY).toString(enc.Utf8));
 }
@@ -656,6 +696,45 @@ export async function getEventForwarderMetadataForDatasource(
 
   const existing = await getEventForwarderForDatasource(context, datasource.id);
   return toEventForwarderConfigWithMetadata(existing);
+}
+
+export async function createUnconfiguredEventForwarderConfig({
+  context,
+  datasource,
+  region,
+}: {
+  context: ReqContext;
+  datasource: Pick<
+    DataSourceInterface,
+    "id" | "organization" | "projects" | "type"
+  >;
+  region: "us-east-1" | "eu-west-1";
+}): Promise<EventForwarderConfigInterface | null> {
+  const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
+  if (!sinkType) {
+    return null;
+  }
+
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
+  if (existing) {
+    return existing;
+  }
+
+  return context.models.eventForwarderConfigs.create({
+    datasourceId: datasource.id,
+    projects: [...(datasource.projects ?? [])].sort(),
+    topic: isInHouseConsumerSink(sinkType)
+      ? getInHouseConsumerTopicName(sinkType)
+      : getEventForwarderTopicName(datasource.organization, datasource.id),
+    schemaId: 0,
+    sinkType,
+    region,
+    config: encryptSinkConfig(emptyStoredConfig(sinkType)),
+    status: "unconfigured",
+    connectorName: "",
+    connectorId: "",
+    lastProvisioningError: "",
+  });
 }
 
 export async function syncEventForwarderConfigFromDatasource({

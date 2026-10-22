@@ -39,6 +39,7 @@ export * from "./units-query-settings";
 export * from "./exposure-queries";
 export * from "./ramp-monitoring";
 export * from "./event-forwarder-destination";
+export * from "./event-forwarder-warehouse-region";
 export * from "./features";
 export * from "./featureHealth";
 export * from "./threeWayMerge";

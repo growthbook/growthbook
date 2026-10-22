@@ -4,13 +4,19 @@ import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
-  DataSourceUsage,
+  DataSourceUsage as DataSourceUsageData,
   QueryInterface,
   QueryLogInterface,
   QueryLogUsage,
   QueryLogUsageGroup,
 } from "shared/types/query";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import {
+  Box,
+  Flex,
+  Grid,
+  IconButton,
+  SegmentedControl,
+} from "@radix-ui/themes";
 import { isManagedWarehouseUnavailable } from "shared/util";
 import { useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
@@ -33,7 +39,6 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Table, {
   TableBody,
   TableCell,
@@ -54,7 +59,7 @@ type UsageUnit = {
 };
 
 type UsageResponse = {
-  usage: DataSourceUsage;
+  usage: DataSourceUsageData;
   recent: QueryLogInterface[];
   running: Pick<
     QueryInterface,
@@ -193,6 +198,9 @@ export function DataSourceUsage({
   const { data, error, mutate } = useApi<UsageResponse>(
     `/datasource/${datasource.id}/usage`,
   );
+  const [driverTab, setDriverTab] = useState<(typeof DRIVER_TABS)[number]>(
+    DRIVER_TABS[0],
+  );
 
   if (error) {
     return <Callout status="error">{error.message}</Callout>;
@@ -252,26 +260,28 @@ export function DataSourceUsage({
         units={units}
       />
 
-      <Tabs defaultValue="factTables">
-        <TabsList>
-          {DRIVER_TABS.map((t) => (
-            <TabsTrigger key={t.key} value={t.key}>
-              {t.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      <SegmentedControl.Root
+        aria-label="Group usage by"
+        mb="3"
+        value={driverTab.key}
+        onValueChange={(key) => {
+          const tab = DRIVER_TABS.find((t) => t.key === key);
+          if (tab) setDriverTab(tab);
+        }}
+      >
         {DRIVER_TABS.map((t) => (
-          <TabsContent key={t.key} value={t.key}>
-            <UsageGroupTable
-              tab={t}
-              groups={data.usage[t.key]}
-              total={total}
-              units={units}
-              data={data}
-            />
-          </TabsContent>
+          <SegmentedControl.Item key={t.key} value={t.key}>
+            {t.label}
+          </SegmentedControl.Item>
         ))}
-      </Tabs>
+      </SegmentedControl.Root>
+      <UsageGroupTable
+        tab={driverTab}
+        groups={data.usage[driverTab.key]}
+        total={total}
+        units={units}
+        data={data}
+      />
 
       <Heading as="h2" size="md" mt="6" mb="3">
         Recent Queries
@@ -292,7 +302,7 @@ function IncrementalRefreshCallout({
   units,
 }: {
   datasource: DataSourceInterfaceWithParams;
-  usage: DataSourceUsage;
+  usage: DataSourceUsageData;
   units: UsageUnit[];
 }) {
   const pipeline = datasource.settings.pipelineSettings;

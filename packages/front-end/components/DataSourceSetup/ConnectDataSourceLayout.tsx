@@ -21,7 +21,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { DEFAULT_DATA_REGION } from "@/services/dataRegions";
+import { DataRegion, DEFAULT_DATA_REGION } from "@/services/dataRegions";
 import { dataSourceConnections } from "@/services/eventSchema";
 import track from "@/services/track";
 import Avatar from "@/ui/Avatar";
@@ -67,6 +67,9 @@ export type ConnectDataSourceLayoutProps = {
   initial: Partial<DataSourceInterfaceWithParams>;
   setup?: ConnectSetupKind;
   schemaFormat?: SchemaFormat;
+  // The processing region chosen in Event Forwarder setup. Edit mode reads
+  // the saved config instead.
+  eventForwarderRegion?: DataRegion | null;
   source: string;
   onCancel: () => void;
   onSuccess: (id: string) => Promise<void>;
@@ -77,15 +80,18 @@ export default function ConnectDataSourceLayout({
   initial,
   setup = "custom",
   schemaFormat = "custom",
+  eventForwarderRegion: eventForwarderRegionOverride = null,
   source,
   onCancel,
   onSuccess,
 }: ConnectDataSourceLayoutProps) {
   const existing = mode === "edit";
   // Saved Event Forwarder configs predating the region field are us-east-1.
-  const eventForwarderRegion = initial.eventForwarderConfig
-    ? (initial.eventForwarderConfig.region ?? DEFAULT_DATA_REGION)
-    : null;
+  const eventForwarderRegion =
+    eventForwarderRegionOverride ??
+    (initial.eventForwarderConfig
+      ? (initial.eventForwarderConfig.region ?? DEFAULT_DATA_REGION)
+      : null);
   const { mutateDefinitions, projects: orgProjects } = useDefinitions();
   const { apiCall, orgId } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -96,17 +102,18 @@ export default function ConnectDataSourceLayout({
   const [paramsDirty, setParamsDirty] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [testStatus, setTestStatus] = useState<TestStatus>("idle");
-  const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [readStatus, setReadStatus] = useState<TestStatus>("idle");
+  const [readMessage, setReadMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  // Incremented whenever the params a test would cover change, so a response
-  // from an earlier test cannot approve credentials it never saw.
+  // Incremented whenever the connection a test would cover changes, so an
+  // earlier response cannot approve what it never saw.
   const testRunRef = useRef(0);
+  const saveErrorRef = useRef<HTMLDivElement>(null);
 
   const resetTest = useCallback(() => {
     testRunRef.current += 1;
-    setTestStatus("idle");
-    setTestMessage(null);
+    setReadStatus("idle");
+    setReadMessage(null);
   }, []);
 
   useEffect(() => {
@@ -117,6 +124,11 @@ export default function ConnectDataSourceLayout({
       setup,
     });
   }, [source, mode, initial.type, setup]);
+
+  useEffect(() => {
+    if (!saveError) return;
+    saveErrorRef.current?.scrollIntoView({ block: "nearest" });
+  }, [saveError]);
 
   useEffect(() => {
     if (!dirty) {
@@ -227,6 +239,7 @@ export default function ConnectDataSourceLayout({
     !!datasource.type &&
     isTestableDataSourceType(datasource.type) &&
     !isSampleData;
+  const testStatus = readStatus;
 
   const runTest = async () => {
     if (
@@ -237,9 +250,22 @@ export default function ConnectDataSourceLayout({
       return;
     }
     const runId = (testRunRef.current += 1);
-    setTestStatus("running");
-    setTestMessage(null);
+    setReadStatus("running");
+    setReadMessage(null);
     setHasError(false);
+
+    const fail = (message: string) => {
+      if (runId !== testRunRef.current) return;
+      setReadStatus("failed");
+      setReadMessage(message);
+      setHasError(true);
+      track("Data Source Connection Test Failed", {
+        source,
+        mode,
+        type: datasource.type,
+        error: message.slice(0, 32),
+      });
+    };
 
     try {
       const res = await apiCall<{ status: number; message?: string }>(
@@ -261,35 +287,30 @@ export default function ConnectDataSourceLayout({
       }
       // Params changed while this test was in flight; its result is stale.
       if (runId !== testRunRef.current) return;
-      setTestStatus("passed");
-      setTestMessage(null);
+      setReadStatus("passed");
       track("Data Source Connection Test Passed", {
         source,
         mode,
         type: datasource.type,
       });
     } catch (e) {
-      if (runId !== testRunRef.current) return;
-      const message =
-        e instanceof Error ? e.message : "Unable to connect to the Data Source";
-      setTestStatus("failed");
-      setTestMessage(message);
-      setHasError(true);
-      track("Data Source Connection Test Failed", {
-        source,
-        mode,
-        type: datasource.type,
-        error: message.slice(0, 32),
-      });
+      fail(
+        e instanceof Error ? e.message : "Unable to connect to the Data Source",
+      );
     }
   };
 
   const needsSuccessfulTest = (!existing || paramsDirty) && canTest;
+  // Region is stored once at create. A missing value must not fall back to
+  // us-east-1, because it cannot be changed later.
+  const needsEventForwarderRegion =
+    !existing && setup === "event_forwarder" && !eventForwarderRegion;
   const canSave =
     !isSampleData &&
     !!datasource.name?.trim() &&
     !!datasource.type &&
     projectPermissionError === null &&
+    !needsEventForwarderRegion &&
     (!needsSuccessfulTest || testStatus === "passed") &&
     (existing ? dirty : true);
 
@@ -302,6 +323,9 @@ export default function ConnectDataSourceLayout({
     }
     if (projectPermissionError !== null) {
       return "Select a Project to continue";
+    }
+    if (needsEventForwarderRegion) {
+      return "Choose a warehouse region to continue";
     }
     if (needsSuccessfulTest && testStatus === "idle") {
       return "Test the connection to continue";
@@ -332,7 +356,11 @@ export default function ConnectDataSourceLayout({
         // on the Data Source page, and sending stale copies would overwrite
         // changes made there while this form was open. Params only go up when
         // touched, since the server re-tests the connection whenever present.
-        const putBody: Partial<DataSourceInterfaceWithParams> = {
+        const putBody: {
+          name?: string;
+          params?: DataSourceInterfaceWithParams["params"];
+          settings?: DataSourceInterfaceWithParams["settings"];
+        } = {
           name: datasource.name,
         };
         if (paramsDirty) {
@@ -371,6 +399,9 @@ export default function ConnectDataSourceLayout({
               userIdTypes: [],
               queries: { exposure: [] },
             },
+            ...(setup === "event_forwarder" && eventForwarderRegion
+              ? { eventForwarderRegion }
+              : {}),
           }),
         });
         id = res.id;
@@ -474,12 +505,6 @@ export default function ConnectDataSourceLayout({
           </Callout>
         )}
 
-        {saveError && (
-          <Callout status="error" mb="4">
-            {saveError}
-          </Callout>
-        )}
-
         <Frame mb="4">
           <Heading as="h3" size="md" mb="4">
             Connection
@@ -550,21 +575,28 @@ export default function ConnectDataSourceLayout({
                     : "Retry test"}
               </Button>
             </Flex>
-            {testStatus === "idle" || testStatus === "running" ? (
+            {readStatus === "idle" || readStatus === "running" ? (
               <Text as="p" size="sm" color="text-mid" mb="0">
-                {setup === "event_forwarder"
-                  ? "Checks that GrowthBook can connect and read your data. Write access for the Event Forwarder is validated when you finish setup."
-                  : "Checks that GrowthBook can connect and read your data."}
+                Checks that GrowthBook can connect and read your data.
               </Text>
             ) : (
-              <ConnectionTestRow
-                status={testStatus}
-                name={readAccessTarget}
-                error={testStatus === "failed" ? testMessage : null}
-              />
+              <Flex direction="column" gap="3" mt="3">
+                <ConnectionTestRow
+                  access="read"
+                  status={readStatus}
+                  name={readAccessTarget}
+                  error={readStatus === "failed" ? readMessage : null}
+                />
+              </Flex>
             )}
           </Frame>
         )}
+
+        {saveError ? (
+          <Box ref={saveErrorRef} mb="4">
+            <Callout status="error">{saveError}</Callout>
+          </Box>
+        ) : null}
       </Box>
 
       <Box gridArea="instructions" minWidth="0" minHeight="0">
@@ -613,18 +645,21 @@ export default function ConnectDataSourceLayout({
 }
 
 function ConnectionTestRow({
+  access,
   status,
   name,
   error,
 }: {
+  access: "read" | "write";
   status: "passed" | "failed";
   name: string;
   error: string | null;
 }) {
   const passed = status === "passed";
+  const verb = access === "write" ? "write" : "read";
 
   return (
-    <Box mt="4">
+    <Box>
       <Flex align="center" gap="3">
         <Flex
           align="center"
@@ -643,8 +678,8 @@ function ConnectionTestRow({
         </Flex>
         <Text as="span" size="sm" color="text-high">
           {passed
-            ? "Confirmed read access to"
-            : "Could not confirm read access to"}{" "}
+            ? `Confirmed ${verb} access to`
+            : `Could not confirm ${verb} access to`}{" "}
           <Text as="span" size="sm" weight="medium">
             {name}
           </Text>
