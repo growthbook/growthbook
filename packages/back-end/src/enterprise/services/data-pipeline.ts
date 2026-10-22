@@ -135,8 +135,9 @@ export function getExperimentSettingsHashForIncrementalRefresh(
     settingsForHash.exposureQueryIdentifierType = identifierType;
   }
 
-  // Units read through a different mapping don't line up with the stored ones.
-  // Only mapped queries are salted, so existing hashes stay valid.
+  // A new column mapping reads units from different columns, so the stored
+  // units table has to be rebuilt. Queries without a mapping leave the hash
+  // unchanged, so existing pipelines don't trigger a full refresh.
   const columnMapping = exposureQueries.find(
     (q) => q.id === snapshotSettings.exposureQueryId,
   )?.columnMapping;
