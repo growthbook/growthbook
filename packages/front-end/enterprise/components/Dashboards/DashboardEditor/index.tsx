@@ -215,6 +215,7 @@ function DashboardEditor({
           block={block}
           blockIndex={i}
           isTabActive={isTabActive}
+          setBlock={setBlock}
           dashboardGlobalControls={globalControls}
           dashboardComparison={dashboardComparison}
           actions={
@@ -637,7 +638,7 @@ function DashboardEditor({
                 block,
                 i,
                 isFocused: false,
-                setBlock: undefined,
+                setBlock: setBlock ? (block) => setBlock(i, block) : undefined,
                 isEditingBlock: false,
               })
             }
