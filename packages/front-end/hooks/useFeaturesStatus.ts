@@ -44,28 +44,39 @@ export function useFeaturesStatus(): UseFeaturesStatusReturn {
       inflightKey.current = key;
       setLoading(true);
       try {
+        const batches = ids !== undefined ? chunk(ids, IDS_PER_REQUEST) : [];
         const urls =
           ids !== undefined
-            ? chunk(ids, IDS_PER_REQUEST).map(
-                (batch) => `/features/status?ids=${batch.join(",")}`,
-              )
+            ? batches.map((batch) => `/features/status?ids=${batch.join(",")}`)
             : ["/features/status"];
-        const responses = await Promise.all(
+        // Keep the batches that succeeded so one failure doesn't discard the rest
+        const results = await Promise.allSettled(
           urls.map((url) => apiCall<{ features: EnvironmentStatusMap }>(url)),
+        );
+        const rejected = results.find(
+          (r): r is PromiseRejectedResult => r.status === "rejected",
         );
         const incoming: EnvironmentStatusMap = Object.assign(
           {},
-          ...responses.map((res) => res.features ?? {}),
+          ...results.map((r) =>
+            r.status === "fulfilled" ? (r.value.features ?? {}) : {},
+          ),
         );
         if (ids === undefined) {
+          if (rejected) throw rejected.reason;
           hasFetchedAll.current = true;
           Object.keys(incoming).forEach((id) => loadedIds.current.add(id));
           setEnvironmentStatus(incoming);
         } else {
           // Mark ALL requested IDs as loaded, not just ones returned by the server.
           // IDs absent from the response are permission-filtered or don't exist.
-          ids.forEach((id) => loadedIds.current.add(id));
+          results.forEach((r, i) => {
+            if (r.status === "fulfilled") {
+              batches[i].forEach((id) => loadedIds.current.add(id));
+            }
+          });
           setEnvironmentStatus((prev) => ({ ...prev, ...incoming }));
+          if (rejected) throw rejected.reason;
         }
       } finally {
         setLoading(false);

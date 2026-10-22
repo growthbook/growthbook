@@ -33,25 +33,34 @@ export function useFeatureRampStates(): UseFeatureRampStatesReturn {
       inflightKey.current = key;
       setLoading(true);
       try {
+        const batches = ids !== undefined ? chunk(ids, IDS_PER_REQUEST) : [];
         const urls =
           ids !== undefined
-            ? chunk(ids, IDS_PER_REQUEST).map(
+            ? batches.map(
                 (batch) => `/features/ramp-states?ids=${batch.join(",")}`,
               )
             : ["/features/ramp-states"];
-        const responses = await Promise.all(
+        // Keep the batches that succeeded so one failure doesn't discard the rest
+        const results = await Promise.allSettled(
           urls.map((url) => apiCall<{ features: RampStateCache }>(url)),
         );
         const incoming: RampStateCache = Object.assign(
           {},
-          ...responses.map((res) => res.features ?? {}),
+          ...results.map((r) =>
+            r.status === "fulfilled" ? (r.value.features ?? {}) : {},
+          ),
         );
         if (ids === undefined) {
+          if (results[0].status === "rejected") return;
           hasFetchedAll.current = true;
           Object.keys(incoming).forEach((id) => cachedIds.current.add(id));
           setRampStates(incoming);
         } else {
-          ids.forEach((id) => cachedIds.current.add(id));
+          results.forEach((r, i) => {
+            if (r.status === "fulfilled") {
+              batches[i].forEach((id) => cachedIds.current.add(id));
+            }
+          });
           setRampStates((prev) => ({ ...prev, ...incoming }));
         }
       } catch {
