@@ -11,6 +11,7 @@ import styles from "./TopNav.module.scss";
 import { usePageHead } from "./PageHead";
 import HeaderBreadcrumb from "./HeaderBreadcrumb";
 import ProfileMenu from "./ProfileMenu";
+import HelpMenu from "./HelpMenu";
 import GrowthBotButton from "./GrowthBotButton";
 
 const TopNav: FC<{
@@ -91,8 +92,13 @@ const TopNav: FC<{
             </div>
           )}
           <GrowthBotButton />
-          {/* With the side nav, the profile menu is in it. */}
-          {toggleLeftMenu ? null : <ProfileMenu />}
+          {/* With the side nav, Help and the profile menu are in it. */}
+          {toggleLeftMenu ? null : (
+            <>
+              <HelpMenu />
+              <ProfileMenu />
+            </>
+          )}
         </div>
       </div>
     </>

@@ -1,7 +1,7 @@
 import { ReactNode, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import clsx from "clsx";
-import { VisuallyHidden } from "@radix-ui/themes";
+import { IconButton, VisuallyHidden } from "@radix-ui/themes";
 import { IconType } from "react-icons";
 import {
   PiArrowSquareOutBold,
@@ -78,24 +78,25 @@ function helpLink(
 // Chat with support opens the upgrade window, as the old floating help
 // panel's Upgrade Now did.
 export default function HelpMenu({
-  collapsed,
-  iconSize,
+  collapsed = false,
+  iconSize = 16,
   triggerClassName,
   openClassName,
   iconClassName,
   labelClassName,
   inPlace,
 }: {
-  collapsed: boolean;
-  iconSize: number;
-  // The side nav's item styles.
-  triggerClassName: string;
-  openClassName: string;
+  // Without these, the header's Help (pages without the side nav).
+  collapsed?: boolean;
+  iconSize?: number;
+  triggerClassName?: string;
+  openClassName?: string;
   iconClassName?: string;
-  labelClassName: string;
+  labelClassName?: string;
   // In the narrow drawer: its menu drawn in place (AppRail.tsx).
   inPlace?: RailMenuInPlace;
 }) {
+  const inRail = triggerClassName !== undefined;
   const [open, setOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const { hasCommercialFeature } = useUser();
@@ -197,7 +198,7 @@ export default function HelpMenu({
     menuOpen: open,
   });
 
-  const trigger = (
+  const trigger = inRail ? (
     <button
       type="button"
       className={clsx(
@@ -224,6 +225,23 @@ export default function HelpMenu({
       {collapsed ? null : <span className={labelClassName}>Help</span>}
       {tooltip.anchor}
     </button>
+  ) : (
+    <IconButton
+      variant="ghost"
+      color="gray"
+      size="2"
+      className={styles.headerButton}
+      aria-label="Help"
+      data-rail-menu-trigger="help"
+      onPointerDown={() => {
+        openedByPointer.current = true;
+      }}
+      onKeyDown={() => {
+        openedByPointer.current = false;
+      }}
+    >
+      <HelpIcon size={iconSize} aria-hidden="true" />
+    </IconButton>
   );
 
   const upgradeModal = upgradeOpen ? (
@@ -272,11 +290,10 @@ export default function HelpMenu({
         open={open}
         onOpenChange={setOpen}
         trigger={trigger}
-        side="right"
-        // Its bottom edge level with Help's, so it grows up from the item.
+        // In the side nav, clear of its edge (the item sits 8px inside it).
+        side={inRail ? "right" : "bottom"}
         align="end"
-        // Clear of the side nav's edge: the item sits 8px inside it.
-        sideOffset={16}
+        sideOffset={inRail ? 16 : 8}
         showArrow={false}
         contentClassName={clsx(railStyles.popover, styles.popover)}
         // The padding is on the list inside (.popoverBody), as the section
