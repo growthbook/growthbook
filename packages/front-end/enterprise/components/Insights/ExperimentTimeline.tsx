@@ -137,16 +137,16 @@ const ExperimentTimeline: React.FC<{
     hideTooltip();
   };
 
+  // Follows its container, not just the window: the docked GrowthBot panel
+  // narrows the page without resizing the window.
   useEffect(() => {
-    const handleResize = () => {
-      if (containerRef.current) {
-        setWidth(containerRef.current.offsetWidth);
-      }
-    };
-
-    handleResize(); // Set initial width
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const el = containerRef.current;
+    if (!el) return;
+    const handleResize = () => setWidth(el.offsetWidth);
+    handleResize();
+    const observer = new ResizeObserver(handleResize);
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   // Scales

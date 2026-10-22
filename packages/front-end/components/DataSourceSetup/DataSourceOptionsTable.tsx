@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { useRouter } from "next/router";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   PiArrowSquareOut,
   PiCheck,
@@ -354,77 +354,83 @@ export default function DataSourceOptionsTable() {
       </Text>
       <SampleDataSourceLink />
 
-      <Table
-        variant="surface"
-        layout="fixed"
-        style={{ minWidth: 820, maxWidth: 1200 }}
-      >
-        <TableHeader>
-          <TableRow align="start">
-            <TableColumnHeader style={{ width: 190 }} />
-            {OPTION_KEYS.map((option) => (
-              <TableColumnHeader key={option} style={OPTION_COLUMN_STYLE}>
-                <OptionHead
-                  option={option}
-                  upgradeRequired={
-                    eligibility[option].status === "upgrade-required"
-                  }
-                />
-              </TableColumnHeader>
+      {/* Scrolls sideways where the page is narrower than the table. */}
+      <Box overflowX="auto">
+        <Table
+          variant="surface"
+          layout="fixed"
+          style={{ minWidth: 820, maxWidth: 1200 }}
+        >
+          <TableHeader>
+            <TableRow align="start">
+              <TableColumnHeader style={{ width: 190 }} />
+              {OPTION_KEYS.map((option) => (
+                <TableColumnHeader key={option} style={OPTION_COLUMN_STYLE}>
+                  <OptionHead
+                    option={option}
+                    upgradeRequired={
+                      eligibility[option].status === "upgrade-required"
+                    }
+                  />
+                </TableColumnHeader>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {COMPARISON_ROWS.map((row) => (
+              <TableRow key={row.label} align="center">
+                <TableRowHeaderCell>
+                  <Text weight="medium">
+                    {row.tooltip ? (
+                      <LabelWithTooltip
+                        label={row.label}
+                        tooltip={row.tooltip}
+                      />
+                    ) : (
+                      row.label
+                    )}
+                  </Text>
+                </TableRowHeaderCell>
+                {OPTION_KEYS.map((option) => (
+                  <TableCell key={option} style={OPTION_COLUMN_STYLE}>
+                    <ComparisonCellContent {...row.cells[option]} />
+                  </TableCell>
+                ))}
+              </TableRow>
             ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {COMPARISON_ROWS.map((row) => (
-            <TableRow key={row.label} align="center">
-              <TableRowHeaderCell>
-                <Text weight="medium">
-                  {row.tooltip ? (
-                    <LabelWithTooltip label={row.label} tooltip={row.tooltip} />
-                  ) : (
-                    row.label
-                  )}
-                </Text>
-              </TableRowHeaderCell>
+            {showPricing ? (
+              <TableRow align="center">
+                <TableRowHeaderCell>
+                  <Text weight="medium">Event pricing</Text>
+                </TableRowHeaderCell>
+                {OPTION_KEYS.map((option) => {
+                  const { headline, detail } = pricing[option];
+                  return (
+                    <TableCell key={option} style={OPTION_COLUMN_STYLE}>
+                      <Text as="div" weight="semibold">
+                        {headline}
+                      </Text>
+                      {detail ? (
+                        <Text as="div" color="text-mid">
+                          {detail}
+                        </Text>
+                      ) : null}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            ) : null}
+            <TableRow align="start">
+              <TableRowHeaderCell />
               {OPTION_KEYS.map((option) => (
                 <TableCell key={option} style={OPTION_COLUMN_STYLE}>
-                  <ComparisonCellContent {...row.cells[option]} />
+                  {renderAction(option)}
                 </TableCell>
               ))}
             </TableRow>
-          ))}
-          {showPricing ? (
-            <TableRow align="center">
-              <TableRowHeaderCell>
-                <Text weight="medium">Event pricing</Text>
-              </TableRowHeaderCell>
-              {OPTION_KEYS.map((option) => {
-                const { headline, detail } = pricing[option];
-                return (
-                  <TableCell key={option} style={OPTION_COLUMN_STYLE}>
-                    <Text as="div" weight="semibold">
-                      {headline}
-                    </Text>
-                    {detail ? (
-                      <Text as="div" color="text-mid">
-                        {detail}
-                      </Text>
-                    ) : null}
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-          ) : null}
-          <TableRow align="start">
-            <TableRowHeaderCell />
-            {OPTION_KEYS.map((option) => (
-              <TableCell key={option} style={OPTION_COLUMN_STYLE}>
-                {renderAction(option)}
-              </TableCell>
-            ))}
-          </TableRow>
-        </TableBody>
-      </Table>
+          </TableBody>
+        </Table>
+      </Box>
       {pricingFootnote ? (
         <Text as="p" size="sm" color="text-mid" mt="3">
           {pricingFootnote}

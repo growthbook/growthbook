@@ -1580,7 +1580,9 @@ export default function ConfigDetailPage(): React.ReactElement {
           </Box>
 
           <Box style={{ flex: 1, minWidth: 0 }}>
-            <Flex align="start" justify="between" gap="2" mb="2">
+            {/* The revision picker moves under the title where both don't
+              fit, rather than squeezing it. */}
+            <Flex align="start" justify="between" gap="2" mb="2" wrap="wrap">
               <Box style={{ marginTop: "-4px" }}>
                 <Flex align="center" gap="3">
                   <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
@@ -1870,7 +1872,13 @@ export default function ConfigDetailPage(): React.ReactElement {
                     }}
                   >
                     <Box mb="4">
-                      <Flex align="center" justify="between" width="100%">
+                      <Flex
+                        align="center"
+                        justify="between"
+                        width="100%"
+                        wrap="wrap"
+                        gap="2"
+                      >
                         <SplitButton variant="outline">
                           {(["form", "json", "resolved"] as const).map((t) => (
                             <Button

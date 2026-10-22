@@ -337,13 +337,18 @@ export default function ExecReport() {
               </div>
             </Box>
           )}
-          <Flex gap="3" mb="3">
+          {/* Side by side while both fit, at their widths below; stacked
+            beside the docked GrowthBot panel or on a narrow window. */}
+          <Flex gap="3" mb="3" wrap="wrap">
             <Box
               className="appbox"
               p="4"
               px="4"
+              flexGrow={
+                !selectedProjects?.length && projects.length ? "3" : "1"
+              }
               flexBasis={
-                !selectedProjects?.length && projects.length ? "60%" : "50%"
+                !selectedProjects?.length && projects.length ? "580px" : "380px"
               }
             >
               <ExperimentWinRate
@@ -361,9 +366,13 @@ export default function ExecReport() {
               className="appbox"
               p="4"
               px="4"
-              flexBasis={
-                !selectedProjects?.length && projects.length ? "40%" : "50%"
+              flexGrow={
+                !selectedProjects?.length && projects.length ? "2" : "1"
               }
+              flexBasis={
+                !selectedProjects?.length && projects.length ? "320px" : "380px"
+              }
+              minWidth="0"
             >
               <Box>
                 <ExecExperimentsGraph
@@ -416,7 +425,8 @@ export default function ExecReport() {
             View all
           </Link>
         </Flex>
-        <Box className="appbox" p="4" px="4">
+        {/* The table scrolls sideways when it's wider than its space. */}
+        <Box className="appbox" p="4" px="4" overflowX="auto">
           <ExperimentList
             num={5}
             status={"running"}
