@@ -20,7 +20,7 @@ else
   git checkout -B "$release" "$tag"
   # A tag runs release.yml from its own commit, so the branch needs main's, which builds the tagged commit.
   git checkout "$source_ref" -- .github/workflows/release.yml .github/workflows/build-image.yml
-  git commit -m "Use main's release workflows on $release"
+  git diff --cached --quiet || git commit -m "Use main's release workflows on $release"
 fi
 git checkout -B "$branch"
 
@@ -49,12 +49,20 @@ for ref in "$@"; do
     esac
   done
   for f in "${conflicted[@]}"; do
-    if [ "$f" != pnpm-lock.yaml ]; then
+    if [ "$f" = pnpm-lock.yaml ]; then
+      # Keep the release's lockfile; the pnpm install below resolves this commit's manifest changes into it.
+      git checkout --ours -- "$f"
+    else
       # Apply only the values this commit changed; a text merge would also pull in main's neighbouring lines.
+      # Arrays count as one value, edited by the entries this commit added or removed.
       jq --indent 2 --argjson base "$(git show ":1:$f")" --argjson theirs "$(git show ":3:$f")" '
-        reduce ([$base, $theirs] | map([paths(scalars)]) | add | unique[]) as $p (.;
+        reduce ([$base, $theirs] | map([path(recurse(objects[]) | select(type != "object"))]) | add | unique[]) as $p (.;
           ($base | getpath($p)) as $b | ($theirs | getpath($p)) as $t |
-          if $b == $t then . elif $t == null then delpaths([$p]) else setpath($p; $t) end)
+          if $b == $t then .
+          elif $t == null then delpaths([$p])
+          elif ($t | type) == "array" then
+            setpath($p; (getpath($p) // []) - (($b // []) - $t) | . + ($t - ($b // []) - .))
+          else setpath($p; $t) end)
       ' <(git show ":2:$f") >"$f"
     fi
     git add "$f"
@@ -62,8 +70,7 @@ for ref in "$@"; do
   git -c core.editor=true cherry-pick --continue
 done
 
-# Rebuild the lockfile from the release's own one rather than trusting merged lockfile text.
-git checkout "$release" -- pnpm-lock.yaml
+# Resolve the picked manifests into the picked lockfile, which also drops entries nothing uses any more.
 pnpm install --lockfile-only --ignore-scripts
 if ! git diff --quiet HEAD -- pnpm-lock.yaml; then
   git commit -m "Regenerate pnpm-lock.yaml" -- pnpm-lock.yaml
