@@ -16,9 +16,9 @@ describe("parseOptionalQueryString", () => {
   });
 
   it.each([{ $ne: "x" }, ["a", "b"], 1, null])("rejects %p", (value) => {
-    expect(() => parseOptionalQueryString("dimension", value)).toThrow(
-      new BadRequestError("Invalid dimension"),
-    );
+    const parse = () => parseOptionalQueryString("dimension", value);
+    expect(parse).toThrow(BadRequestError);
+    expect(parse).toThrow("Invalid dimension");
   });
 });
 
@@ -34,9 +34,9 @@ describe("parseSnapshotTypeQuery", () => {
   it.each(["other", "Standard", { $ne: "standard" }, ["standard"], null])(
     "rejects %p",
     (value) => {
-      expect(() => parseSnapshotTypeQuery(value)).toThrow(
-        new BadRequestError("Invalid type"),
-      );
+      const parse = () => parseSnapshotTypeQuery(value);
+      expect(parse).toThrow(BadRequestError);
+      expect(parse).toThrow("Invalid type");
     },
   );
 });
