@@ -1,4 +1,5 @@
 import { useRouter } from "next/router";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useEffect, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -54,6 +55,7 @@ import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenI
 import { DocLink } from "@/components/DocLink";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getAutoSliceUpdateFrequencyText } from "@/services/env";
+import FactTableDetailsPage from "@/components/FactTables/FactTableDetailsPage";
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
@@ -65,6 +67,11 @@ export function getMetricsForFactTable(
 }
 
 export default function FactTablePage() {
+  const newPage = useFeatureIsOn("new-fact-table-page");
+  return newPage ? <FactTableDetailsPage /> : <LegacyFactTablePage />;
+}
+
+function LegacyFactTablePage() {
   const router = useRouter();
   const { ftid } = router.query;
 

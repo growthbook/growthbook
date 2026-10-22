@@ -3,9 +3,13 @@ import {
   DataSourceType,
 } from "shared/types/datasource";
 import {
+  ColumnInterface,
   CreateFactTableProps,
   DetectedColumn,
   FactTableColumnType,
+  FactMetricInterface,
+  FactTableInterface,
+  RowFilter,
 } from "shared/types/fact-table";
 import { Column } from "shared/types/integrations";
 import { SqlIdentifierQuote } from "shared/types/sql";
@@ -435,3 +439,112 @@ export const getPickerTableName = (
   table: SchemaBrowserTable,
   template: SourceTableTemplate | null,
 ) => template?.name ?? table.tableName.replace(/_?\*$/, "");
+
+/**
+ * Event Columns: string columns whose values name the event each row records.
+ * The new Fact Table flow saves its "Event name" mapping as alwaysInlineFilter.
+ */
+export function getEventColumns(
+  factTable: Pick<FactTableInterface, "columns">,
+): ColumnInterface[] {
+  return factTable.columns.filter(
+    (c) => c.alwaysInlineFilter && c.datatype === "string" && !c.deleted,
+  );
+}
+
+/**
+ * One-line summary of a SQL query: everything from its first top-level FROM,
+ * with comments dropped and whitespace collapsed. Falls back to the whole
+ * query when there is no top-level FROM.
+ */
+export function getSqlSummary(sql: string): string {
+  const tokens: { text: string; spaceBefore: boolean }[] = [];
+  let fromIndex = -1;
+  let depth = 0;
+  let space = false;
+  let i = 0;
+  const push = (text: string) => {
+    tokens.push({ text, spaceBefore: space && tokens.length > 0 });
+    space = false;
+  };
+  const skipTo = (end: string, from: number) => {
+    const j = sql.indexOf(end, from);
+    return j < 0 ? sql.length : j + end.length;
+  };
+  while (i < sql.length) {
+    const c = sql[i];
+    if (/\s/.test(c)) {
+      space = true;
+      i++;
+    } else if (sql.startsWith("--", i)) {
+      space = true;
+      i = skipTo("\n", i);
+    } else if (sql.startsWith("/*", i)) {
+      space = true;
+      i = skipTo("*/", i + 2);
+    } else if (sql.startsWith("{{", i)) {
+      const j = skipTo("}}", i + 2);
+      push(sql.slice(i, j));
+      i = j;
+    } else if (c === "'" || c === '"' || c === "`") {
+      // Quotes are escaped by doubling, so a doubled quote just continues
+      let j = i + 1;
+      while (j < sql.length) {
+        if (sql[j] === c && sql[j + 1] === c) j += 2;
+        else if (sql[j] === c) break;
+        else j++;
+      }
+      push(sql.slice(i, j + 1));
+      i = j + 1;
+    } else if (/[\w$]/.test(c)) {
+      let j = i + 1;
+      while (j < sql.length && /[\w$]/.test(sql[j])) j++;
+      const word = sql.slice(i, j);
+      if (fromIndex < 0 && depth === 0 && word.toUpperCase() === "FROM") {
+        fromIndex = tokens.length;
+      }
+      push(word);
+      i = j;
+    } else {
+      if (c === "(") depth++;
+      if (c === ")") depth = Math.max(0, depth - 1);
+      push(c);
+      i++;
+    }
+  }
+  return tokens
+    .slice(Math.max(fromIndex, 0))
+    .map((t, k) => (k > 0 && t.spaceBefore ? " " : "") + t.text)
+    .join("");
+}
+
+/**
+ * Fact Metrics that filter this Fact Table to one event: a numerator,
+ * denominator, or funnel step on the table whose row filters match `event`
+ * on the Event Column with `=` or `in`.
+ */
+export function getMetricsForEvent(
+  metrics: FactMetricInterface[],
+  factTableId: string,
+  column: string,
+  event: string,
+): FactMetricInterface[] {
+  const matches = (factTable: string, rowFilters: RowFilter[] = []) =>
+    factTable === factTableId &&
+    rowFilters.some(
+      (f) =>
+        f.column === column &&
+        (f.operator === "=" || f.operator === "in") &&
+        !!f.values?.includes(event),
+    );
+  return metrics.filter(
+    (m) =>
+      (m.numerator &&
+        matches(m.numerator.factTableId, m.numerator.rowFilters)) ||
+      (m.denominator &&
+        matches(m.denominator.factTableId, m.denominator.rowFilters)) ||
+      m.funnelSettings?.steps?.some((s) =>
+        matches(s.factTableId, s.rowFilters),
+      ),
+  );
+}

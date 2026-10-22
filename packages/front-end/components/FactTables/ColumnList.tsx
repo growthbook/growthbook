@@ -3,7 +3,7 @@ import {
   getFactTableIdColumn,
   getFactTableTimestampColumn,
 } from "shared/experiments";
-import { useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import {
   PiUserBold,
   PiClockBold,
@@ -26,12 +26,18 @@ import ColumnModal from "./ColumnModal";
 export interface Props {
   factTable: FactTableInterface;
   canEdit?: boolean;
+  // Adds a Values column, rendered per non-JSON-field column
+  renderValues?: (column: ColumnInterface) => ReactNode;
 }
 
 const POLL_INTERVAL_MS = 3000; // Poll every 3 seconds
 const POLL_TIMEOUT_MS = 60000; // Give up after 1 minute
 
-export default function ColumnList({ factTable, canEdit = false }: Props) {
+export default function ColumnList({
+  factTable,
+  canEdit = false,
+  renderValues,
+}: Props) {
   const [editOpen, setEditOpen] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const { mutateDefinitions } = useDefinitions();
@@ -190,6 +196,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                 <SortableTH field="column">Column</SortableTH>
                 <th></th>
                 <SortableTH field="type">Type</SortableTH>
+                {renderValues ? <th>Values</th> : null}
                 <th style={{ width: 30 }}></th>
               </tr>
             </thead>
@@ -305,6 +312,9 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                       </Tooltip>
                     )}
                   </td>
+                  {renderValues ? (
+                    <td>{col.isJsonField ? null : renderValues(col)}</td>
+                  ) : null}
                   <td>
                     <div className="d-flex align-items-center px-1">
                       {canEdit && !col.isJsonField && (
