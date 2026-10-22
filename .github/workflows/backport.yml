@@ -1,0 +1,74 @@
+name: Backport
+
+# Opens a PR into release/<line> with only the given main commits, for a patch release like 5.1.1.
+# Merge it, then tag the merge commit v<line>.<n>; Release builds and publishes that commit.
+on:
+  workflow_dispatch:
+    inputs:
+      line:
+        description: Release line to patch, e.g. 5.1
+        required: true
+      commits:
+        description: PR numbers or main commit SHAs to cherry-pick, space-separated, oldest first
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  backport:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository == 'growthbook/growthbook' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      # Picks up whichever pnpm the release branch's packageManager pins.
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Cherry-pick onto the release branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINE: ${{ inputs.line }}
+          COMMITS: ${{ inputs.commits }}
+          BRANCH: backport/${{ inputs.line }}-${{ github.run_id }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
+          # Run a copy: the script checks out the release branch, which may not have it.
+          cp .github/scripts/backport.sh "$RUNNER_TEMP/backport.sh"
+          # shellcheck disable=SC2086 # COMMITS is a list of words
+          bash "$RUNNER_TEMP/backport.sh" "$LINE" "$BRANCH" "$GITHUB_SHA" $COMMITS
+          git push origin "release/$LINE" "$BRANCH"
+
+      - name: Open the PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINE: ${{ inputs.line }}
+          COMMITS: ${{ inputs.commits }}
+          BRANCH: backport/${{ inputs.line }}-${{ github.run_id }}
+        run: |
+          {
+            echo "### Features and Changes"
+            echo
+            echo "Backports these commits from main onto \`release/$LINE\`:"
+            echo
+            git log --reverse --format='- %s' "origin/release/$LINE..$BRANCH"
+            echo
+            echo "Opened by GitHub Actions, so CI doesn't start on its own: close and reopen this PR to run it."
+            echo
+            echo "### Self-hosted build impact"
+            echo
+            echo "See the backported PRs above."
+          } > "$RUNNER_TEMP/body.md"
+          gh pr create --base "release/$LINE" --head "$BRANCH" \
+            --title "Backport to $LINE: $COMMITS" --body-file "$RUNNER_TEMP/body.md"
