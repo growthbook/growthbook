@@ -109,7 +109,11 @@ const ProjectPage: FC = () => {
   );
   const projectDashboards = useMemo(
     () =>
-      dashboards.filter((d) => isProjectListValidForProject(d.projects, pid)),
+      dashboards.filter(
+        (d) =>
+          d.shareLevel !== "private" &&
+          isProjectListValidForProject(d.projects, pid),
+      ),
     [dashboards, pid],
   );
   // A stored default that was deleted or no longer fits this Project is
