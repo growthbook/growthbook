@@ -286,8 +286,8 @@ export const ExperimentAssignmentQueryModal = ({
   const dimensionOptions = columns
     .filter(
       (c) =>
-        !roleColumns.has(c.column) &&
-        (isDimensionCandidate(c) || savedDimensions.includes(c.column)),
+        savedDimensions.includes(c.column) ||
+        (!roleColumns.has(c.column) && isDimensionCandidate(c)),
     )
     .map((c) => ({ label: c.column, value: c.column }));
 
