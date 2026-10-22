@@ -41,7 +41,7 @@ export function customQualityCheckKey(id: string): CustomQualityCheckKey {
 
 // Bump when the quality prompt or verdict schema changes so cached AI
 // results are recomputed with the new prompt.
-export const EXPERIMENT_QUALITY_PROMPT_VERSION = 7;
+export const EXPERIMENT_QUALITY_PROMPT_VERSION = 8;
 
 const EPS = 1e-9;
 
@@ -584,6 +584,9 @@ export interface ExperimentQualityCheckResult {
   // Who made the change a process check failed on, and when
   evidence?: { user?: string; date?: Date | string };
   params?: ExperimentQualityCheckParams;
+  // Points on the 0-100 scale, like the section's; both 0 when not scored
+  earnedPoints: number;
+  possiblePoints: number;
 }
 
 export interface ExperimentQualitySectionResult {
@@ -789,7 +792,10 @@ export function getExperimentQualityScore({
   type Evaluated = {
     section: ExperimentQualitySectionKey;
     effW: number;
-    result: ExperimentQualityCheckResult;
+    result: Omit<
+      ExperimentQualityCheckResult,
+      "earnedPoints" | "possiblePoints"
+    >;
   };
   const evaluated: Evaluated[] = [];
   for (const key of experimentQualityCheckKeys) {
@@ -828,7 +834,7 @@ export function getExperimentQualityScore({
       // The built-in AI checks judge the hypothesis, so without one they fail
       applicable = true;
       score = 0;
-      reason = "No hypothesis";
+      reason = NO_HYPOTHESIS_REASON;
     } else {
       applicable = isAICheckApplicable(
         key as AIExperimentQualityCheckKey,
@@ -906,7 +912,11 @@ export function getExperimentQualityScore({
         sharePercent: section.share * 100,
         earnedPoints: points(sectionChecks, true),
         possiblePoints: points(sectionChecks, false),
-        checks: sectionChecks.map((e) => e.result),
+        checks: sectionChecks.map((e) => ({
+          ...e.result,
+          earnedPoints: points([e], true),
+          possiblePoints: points([e], false),
+        })),
       };
     });
 
@@ -923,8 +933,51 @@ export function getExperimentQualityScore({
   };
 }
 
+// Why the built-in AI checks fail when there's no hypothesis
+export const NO_HYPOTHESIS_REASON = "No hypothesis";
+
 // A check scoring at or above this passes; below it needs attention
 export const QUALITY_CHECK_PASS_THRESHOLD = 0.5;
+
+export type QualityImprovement = ExperimentQualityCheckResult & {
+  // Points the score would gain if this check passed fully
+  gain: number;
+};
+
+/**
+ * What would raise the score most, largest gain first. Process checks are
+ * left out: how an experiment was run can't be changed afterwards.
+ */
+export function getQualityImprovements(
+  result: ExperimentQualityScoreResult,
+): QualityImprovement[] {
+  const all = result.sections
+    .flatMap((section) => section.checks)
+    .filter((check) => check.type !== "process")
+    .map((check) => ({
+      ...check,
+      gain: check.possiblePoints - check.earnedPoints,
+    }));
+  // Writing the hypothesis also fixes the AI checks failing for lack of one
+  const addHypothesis = all.find((c) => c.key === "hypothesis" && c.gain > 0);
+  const improvements = addHypothesis
+    ? all
+        .filter((c) => c.reason !== NO_HYPOTHESIS_REASON)
+        .map((c) =>
+          c === addHypothesis
+            ? {
+                ...c,
+                gain: all
+                  .filter((o) => o === c || o.reason === NO_HYPOTHESIS_REASON)
+                  .reduce((sum, o) => sum + o.gain, 0),
+              }
+            : c,
+        )
+    : all;
+  return improvements
+    .filter((check) => check.gain >= 0.5)
+    .sort((a, b) => b.gain - a.gain);
+}
 
 // ---------------------------------------------------------------------------
 // Share math for the settings editors

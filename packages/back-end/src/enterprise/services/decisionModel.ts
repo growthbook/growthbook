@@ -29,10 +29,9 @@ function getClient(): TypeSafeClient {
 }
 
 // Judges the built-in AI quality checks with one decision-model request
-export async function judgeQualityWithDecisionModel(input: {
-  hypothesis: string;
-  goalMetricNames: string[];
-}): Promise<{ verdicts: QualityDecisionVerdicts; inputTokens: number }> {
+export async function judgeQualityWithDecisionModel(
+  input: Parameters<typeof buildQualityDecisionRequest>[0],
+): Promise<{ verdicts: QualityDecisionVerdicts; inputTokens: number }> {
   const response = await getClient().systemOne({
     model: QUALITY_DECISION_MODEL,
     ...buildQualityDecisionRequest(input),

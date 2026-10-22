@@ -22,6 +22,10 @@ import {
 } from "back-end/src/enterprise/services/ai";
 import { getExperimentMetricsByIds } from "back-end/src/services/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  isDecisionModelConfigured,
+  judgeQualityWithDecisionModel,
+} from "back-end/src/enterprise/services/decisionModel";
 import { logger } from "back-end/src/util/logger";
 
 const aiQualityVerdict = z.object({
@@ -131,6 +135,146 @@ export async function getStaleAIQualityExperimentIds(
     .map((experiment) => experiment.id);
 }
 
+type AIQualityCheckResult = ExperimentAIQualityResults["checks"][number];
+type ResolvedSettings = NonNullable<
+  ReturnType<typeof resolveExperimentQualitySettings>
+>;
+
+async function judgeWithDecisionModel({
+  experiment,
+  settings,
+  checks,
+  goalMetricNames,
+  hypothesisPrompt,
+}: {
+  experiment: ExperimentInterface;
+  settings: ResolvedSettings;
+  checks: AIExperimentQualityCheckKey[];
+  goalMetricNames: string[];
+  hypothesisPrompt: { prompt: string; isDefaultPrompt: boolean } | null;
+}): Promise<AIQualityCheckResult[]> {
+  // The org's own guidance; the default definition is covered by the
+  // built-in questions
+  const customDefinition =
+    hypothesisPrompt && !hypothesisPrompt.isDefaultPrompt
+      ? hypothesisPrompt.prompt.trim()
+      : "";
+  const { verdicts } = await judgeQualityWithDecisionModel({
+    hypothesis: experiment.hypothesis ?? "",
+    goalMetricNames,
+    hypothesisGuidance:
+      settings.checks["ai-hypothesis-quality"].aiContext?.trim() ||
+      customDefinition ||
+      undefined,
+    alignmentGuidance:
+      settings.checks["ai-hypothesis-metric-alignment"].aiContext?.trim() ||
+      undefined,
+  });
+  return checks.flatMap((key) => {
+    const verdict = verdicts[key];
+    return verdict ? [{ key, ...verdict }] : [];
+  });
+}
+
+async function judgeWithChatModel({
+  context,
+  experiment,
+  settings,
+  checks,
+  customChecks,
+  goalMetricNames,
+  hypothesisDefinition,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+  settings: ResolvedSettings;
+  checks: AIExperimentQualityCheckKey[];
+  customChecks: ResolvedSettings["customAiChecks"];
+  goalMetricNames: string[];
+  hypothesisDefinition: string;
+}): Promise<AIQualityCheckResult[]> {
+  // Custom rules read a trimmed projection of the whole experiment
+  const experimentDigest = customChecks.length
+    ? getExperimentDigestForCustomRules(experiment, goalMetricNames)
+    : "";
+
+  const customRulesPrompt = customChecks.length
+    ? [
+        `Experiment data (JSON):\n${experimentDigest}`,
+        `Additionally, evaluate these custom rules against the experiment data. Return one entry per rule in customVerdicts with the rule's id, a score from 0 to 1, and a one-sentence reason. For point-based rules, return the fraction of the maximum points.\n${customChecks
+          .map((c) => `- id: ${c.id} · name: ${c.name} · rule: ${c.rule}`)
+          .join("\n")}`,
+      ]
+    : [];
+
+  const userPrompt = [
+    `Experiment name: ${experiment.name}`,
+    experiment.hypothesis ? `Hypothesis: ${experiment.hypothesis}` : "",
+    goalMetricNames.length ? `Goal metrics: ${goalMetricNames.join(", ")}` : "",
+    checks.length
+      ? `Score ONLY these dimensions:\n${checks
+          .map((key) => {
+            const checkContext = settings.checks[key].aiContext?.trim();
+            if (key === "ai-hypothesis-quality") {
+              // The check's own context (seeded from, and editable next to,
+              // the AI settings hypothesis definition) replaces the definition
+              // when set — never both
+              const definition = checkContext || hypothesisDefinition.trim();
+              return (
+                `- ${dimensionInstructionByCheckKey[key]}` +
+                (definition
+                  ? `\n  Judge the hypothesis against this definition of a good hypothesis: ${definition}`
+                  : "")
+              );
+            }
+            return (
+              `- ${dimensionInstructionByCheckKey[key]}` +
+              (checkContext
+                ? `\n  Additional context for this dimension: ${checkContext}`
+                : "")
+            );
+          })
+          .join("\n")}`
+      : "Do not score the built-in dimensions (hypothesisQuality, hypothesisMetricAlignment) — omit them from your response.",
+    ...customRulesPrompt,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const { prompt, isDefaultPrompt, overrideModel } =
+    await context.models.aiPrompts.getAIPrompt("experiment-quality");
+  const verdicts = await parsePrompt({
+    context,
+    instructions: prompt,
+    prompt: userPrompt,
+    temperature: 0.1,
+    type: "experiment-quality",
+    isDefaultPrompt,
+    zodObjectSchema: aiQualityVerdictSchema,
+    overrideModel,
+  });
+  return [
+    ...checks.flatMap((key) => {
+      const verdict = verdicts[verdictKeyByCheckKey[key]];
+      return verdict
+        ? [{ key, score: verdict.score, reason: verdict.reason }]
+        : [];
+    }),
+    ...customChecks.flatMap((custom) => {
+      const verdict = verdicts.customVerdicts?.find((v) => v.id === custom.id);
+      return verdict
+        ? [
+            {
+              key: customQualityCheckKey(custom.id),
+              score: verdict.score,
+              reason: verdict.reason,
+            },
+          ]
+        : [];
+    }),
+  ];
+}
+
 /**
  * Runs the AI quality checks for an experiment and caches the verdicts on
  * the experiment document (`aiQualityResults`), keyed by an inputs hash so
@@ -174,105 +318,51 @@ export async function computeAndStoreAIQualityChecks({
     return null;
   }
 
-  // Custom rules read a trimmed projection of the whole experiment
-  const experimentDigest = applicableCustomChecks.length
-    ? getExperimentDigestForCustomRules(experiment, goalMetricNames)
-    : "";
+  // Built-in checks go to the decision model when one is configured; custom
+  // rules, and every check without one, go to the chat model
+  const decisionChecks = isDecisionModelConfigured() ? applicableChecks : [];
+  const chatChecks = decisionChecks.length ? [] : applicableChecks;
+  const useChatModel = !!chatChecks.length || !!applicableCustomChecks.length;
 
   // Skip while over the AI usage limit; the sweep job will retry later
-  if ((await secondsUntilAICanBeUsedAgain(context.org)) > 0) return null;
+  if (useChatModel && (await secondsUntilAICanBeUsedAgain(context.org)) > 0) {
+    return null;
+  }
 
   // Hypothesis quality is judged against the same (possibly customized)
   // definition of a good hypothesis used on the AI settings page
-  const [{ prompt, isDefaultPrompt, overrideModel }, hypothesisPrompt] =
-    await Promise.all([
-      context.models.aiPrompts.getAIPrompt("experiment-quality"),
-      applicableChecks.includes("ai-hypothesis-quality")
-        ? context.models.aiPrompts.getAIPrompt("experiment-hypothesis")
-        : null,
-    ]);
-  const hypothesisDefinition = hypothesisPrompt?.prompt ?? "";
-
-  const customRulesPrompt = applicableCustomChecks.length
-    ? [
-        `Experiment data (JSON):\n${experimentDigest}`,
-        `Additionally, evaluate these custom rules against the experiment data. Return one entry per rule in customVerdicts with the rule's id, a score from 0 to 1, and a one-sentence reason. For point-based rules, return the fraction of the maximum points.\n${applicableCustomChecks
-          .map((c) => `- id: ${c.id} · name: ${c.name} · rule: ${c.rule}`)
-          .join("\n")}`,
-      ]
-    : [];
-
-  const userPrompt = [
-    `Experiment name: ${experiment.name}`,
-    experiment.hypothesis ? `Hypothesis: ${experiment.hypothesis}` : "",
-    goalMetricNames.length ? `Goal metrics: ${goalMetricNames.join(", ")}` : "",
-    applicableChecks.length
-      ? `Score ONLY these dimensions:\n${applicableChecks
-          .map((key) => {
-            const checkContext = settings.checks[key].aiContext?.trim();
-            if (key === "ai-hypothesis-quality") {
-              // The check's own context (seeded from, and editable next to,
-              // the AI settings hypothesis definition) replaces the definition
-              // when set — never both
-              const definition = checkContext || hypothesisDefinition.trim();
-              return (
-                `- ${dimensionInstructionByCheckKey[key]}` +
-                (definition
-                  ? `\n  Judge the hypothesis against this definition of a good hypothesis: ${definition}`
-                  : "")
-              );
-            }
-            return (
-              `- ${dimensionInstructionByCheckKey[key]}` +
-              (checkContext
-                ? `\n  Additional context for this dimension: ${checkContext}`
-                : "")
-            );
-          })
-          .join("\n")}`
-      : "Do not score the built-in dimensions (hypothesisQuality, hypothesisMetricAlignment) — omit them from your response.",
-    ...customRulesPrompt,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  const hypothesisPrompt = applicableChecks.includes("ai-hypothesis-quality")
+    ? await context.models.aiPrompts.getAIPrompt("experiment-hypothesis")
+    : null;
 
   let aiQualityResults: ExperimentAIQualityResults;
   try {
-    const verdicts = await parsePrompt({
-      context,
-      instructions: prompt,
-      prompt: userPrompt,
-      temperature: 0.1,
-      type: "experiment-quality",
-      isDefaultPrompt,
-      zodObjectSchema: aiQualityVerdictSchema,
-      overrideModel,
-    });
+    const checks = await Promise.all([
+      decisionChecks.length
+        ? judgeWithDecisionModel({
+            experiment,
+            settings,
+            checks: decisionChecks,
+            goalMetricNames,
+            hypothesisPrompt,
+          })
+        : [],
+      useChatModel
+        ? judgeWithChatModel({
+            context,
+            experiment,
+            settings,
+            checks: chatChecks,
+            customChecks: applicableCustomChecks,
+            goalMetricNames,
+            hypothesisDefinition: hypothesisPrompt?.prompt ?? "",
+          })
+        : [],
+    ]);
     aiQualityResults = {
       inputsHash,
       dateComputed: new Date(),
-      checks: [
-        ...applicableChecks.flatMap((key) => {
-          const verdict = verdicts[verdictKeyByCheckKey[key]];
-          return verdict
-            ? [{ key, score: verdict.score, reason: verdict.reason }]
-            : [];
-        }),
-        ...applicableCustomChecks.flatMap((custom) => {
-          const verdict = verdicts.customVerdicts?.find(
-            (v) => v.id === custom.id,
-          );
-          return verdict
-            ? [
-                {
-                  key: customQualityCheckKey(custom.id),
-                  score: verdict.score,
-                  reason: verdict.reason,
-                },
-              ]
-            : [];
-        }),
-      ],
+      checks: checks.flat(),
     };
   } catch (e) {
     logger.error(

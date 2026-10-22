@@ -5,6 +5,7 @@ import {
   getAICheckHashInputs,
   getExperimentDigestForCustomRules,
   getExperimentQualityScore,
+  getQualityImprovements,
   haveAIQualityInputsChanged,
   resolveExperimentQualityScoreSettings,
   reflowShares,
@@ -614,6 +615,48 @@ describe("getExperimentQualityScore", () => {
       });
     }
     expect(result.pending).toBe(false);
+  });
+
+  describe("getQualityImprovements", () => {
+    it("lists failing checks by the points they would add, without process checks", () => {
+      const settings = resolveExperimentQualityScoreSettings({
+        aiChecksEnabled: false,
+      });
+      const result = score(
+        baseExperiment({
+          description: "",
+          tags: [],
+          processResults: {
+            version: EXPERIMENT_PROCESS_RULES_VERSION,
+            rules: [{ key: "goal-metrics-locked", result: "fail" }],
+          },
+        }),
+        settings,
+      );
+      const improvements = getQualityImprovements(result);
+      expect(improvements.map((i) => i.key)).toEqual([
+        "description",
+        "tags-or-project",
+      ]);
+      // Equal checks in one section are worth the same
+      expect(improvements[0].gain).toBeCloseTo(improvements[1].gain, 9);
+      const total = result.sections
+        .flatMap((s) => s.checks)
+        .reduce((sum, c) => sum + c.possiblePoints, 0);
+      expect(total).toBeCloseTo(100, 6);
+    });
+  });
+
+  it("folds the AI checks a missing hypothesis fails into adding one", () => {
+    const result = score(baseExperiment({ hypothesis: "" }));
+    const improvements = getQualityImprovements(result);
+    const add = improvements.find((i) => i.key === "hypothesis");
+    const checks = result.sections.flatMap((s) => s.checks);
+    const expected = checks
+      .filter((c) => c.key === "hypothesis" || c.reason === "No hypothesis")
+      .reduce((sum, c) => sum + c.possiblePoints - c.earnedPoints, 0);
+    expect(add?.gain).toBeCloseTo(expected, 9);
+    expect(improvements.some((i) => i.reason === "No hypothesis")).toBe(false);
   });
 
   describe("manual override", () => {

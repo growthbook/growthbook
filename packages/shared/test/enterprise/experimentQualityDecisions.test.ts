@@ -30,6 +30,23 @@ describe("buildQualityDecisionRequest", () => {
   });
 });
 
+describe("buildQualityDecisionRequest with guidance", () => {
+  it("adds the organization's guidance as one more judgment per check", () => {
+    const { state, questions } = buildQualityDecisionRequest({
+      hypothesis: "h",
+      goalMetricNames: ["Signups"],
+      hypothesisGuidance: "Name the user segment",
+      alignmentGuidance: "Prefer revenue metrics",
+    });
+    expect(state).toMatchObject({
+      hypothesisGuidance: "Name the user segment",
+      alignmentGuidance: "Prefer revenue metrics",
+    });
+    expect(questions.hypothesisGuidance?.type).toBe("noul");
+    expect(questions.alignmentGuidance?.type).toBe("noul");
+  });
+});
+
 describe("interpretQualityDecisions", () => {
   it("averages the hypothesis parts and names the ones that are missing", () => {
     const verdicts = interpretQualityDecisions({
@@ -77,6 +94,30 @@ describe("interpretQualityDecisions", () => {
     expect(verdicts["ai-hypothesis-metric-alignment"]).toEqual({
       score: 0,
       reason: "The hypothesis doesn't predict an outcome to measure",
+    });
+  });
+
+  it("folds guidance answers into both checks", () => {
+    const verdicts = interpretQualityDecisions({
+      namesChange: noul(1),
+      predictsEffect: noul(1),
+      givesReason: noul(1),
+      hypothesisGuidance: noul(0),
+      alignment: {
+        type: "score",
+        score: 2,
+        probabilities: { "0": 0, "1": 0, "2": 1 },
+      },
+      alignmentGuidance: noul(0),
+    });
+    expect(verdicts["ai-hypothesis-quality"]).toEqual({
+      score: 0.75,
+      reason: "The hypothesis doesn't meet the organization's guidance",
+    });
+    expect(verdicts["ai-hypothesis-metric-alignment"]).toEqual({
+      score: 0.5,
+      reason:
+        "A goal metric directly measures the predicted outcome, and they don't follow the organization's guidance",
     });
   });
 

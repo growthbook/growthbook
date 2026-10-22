@@ -1,10 +1,11 @@
-import { FC, useState } from "react";
+import { FC, ReactNode, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   ExperimentQualityCheckResult,
   ExperimentQualityScoreResult,
   ExperimentQualitySectionResult,
   QUALITY_CHECK_PASS_THRESHOLD,
+  getQualityImprovements,
 } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date } from "shared/dates";
@@ -26,6 +27,158 @@ import {
 } from "@/components/Experiment/Quality/qualityDisplay";
 import { ExperimentTab } from "./index";
 
+type FixAction = { label: string } & (
+  | { onClick: () => void }
+  | { href: string }
+);
+
+// Where to fix a failing check, when it can be fixed from the experiment
+function getFixAction(
+  check: Pick<ExperimentQualityCheckResult, "key">,
+  editMetrics: (() => void) | null | undefined,
+  setTabAndScroll: (tab: ExperimentTab, scrollToId?: string) => void,
+): FixAction | null {
+  switch (check.key) {
+    case "hypothesis":
+      return {
+        label: "Add hypothesis",
+        onClick: () => setTabAndScroll("overview", "hypothesis"),
+      };
+    case "description":
+      return {
+        label: "Add description",
+        onClick: () => setTabAndScroll("overview", "description"),
+      };
+    case "screenshots":
+      return {
+        label: "Add screenshots",
+        onClick: () => setTabAndScroll("overview", "variations"),
+      };
+    case "goal-metrics":
+      return editMetrics
+        ? { label: "Edit Metrics", onClick: editMetrics }
+        : null;
+    case "ai-hypothesis-quality":
+    case "ai-hypothesis-metric-alignment":
+      return {
+        label: "Edit Hypothesis",
+        onClick: () => setTabAndScroll("overview", "hypothesis"),
+      };
+    case "tags-or-project":
+    case "decision":
+    case "goal-metrics-locked":
+    case "hypothesis-locked":
+    case "stable-assignment":
+    case "stable-analysis":
+    case "no-early-stop":
+    case "clean-restarts":
+    case "planned-end":
+      return null;
+  }
+  // Custom AI checks
+  return null;
+}
+
+const FixLink: FC<{ action: FixAction; children?: ReactNode }> = ({
+  action,
+  children,
+}) =>
+  "href" in action ? (
+    <Link href={action.href}>{children ?? action.label}</Link>
+  ) : (
+    <Link onClick={action.onClick}>{children ?? action.label}</Link>
+  );
+
+// The action that fixes a check, for "How to improve this score"
+function describeImprovement(check: ExperimentQualityCheckResult): string {
+  if (check.key.startsWith("custom:")) return `Meet “${check.label}”`;
+  switch (check.key) {
+    case "hypothesis":
+      return "Add a hypothesis";
+    case "description":
+      return "Add a description";
+    case "screenshots":
+      return "Add screenshots of the variations";
+    case "tags-or-project":
+      return "Add tags or a Project";
+    case "goal-metrics":
+      return check.reason?.startsWith("No goal")
+        ? "Add goal metrics"
+        : "Use fewer goal metrics";
+    case "decision":
+      return "Record a decision";
+    case "ai-hypothesis-quality":
+      return "Strengthen the hypothesis";
+    case "ai-hypothesis-metric-alignment":
+      return "Choose goal metrics that measure what the hypothesis predicts";
+    // Process checks aren't listed: they can't change after the fact
+    case "goal-metrics-locked":
+    case "hypothesis-locked":
+    case "stable-assignment":
+    case "stable-analysis":
+    case "no-early-stop":
+    case "clean-restarts":
+    case "planned-end":
+      return check.label;
+  }
+  return check.label;
+}
+
+const ImprovementsCard: FC<{
+  result: ExperimentQualityScoreResult;
+  editMetrics?: (() => void) | null;
+  setTabAndScroll: (tab: ExperimentTab, scrollToId?: string) => void;
+}> = ({ result, editMetrics, setTabAndScroll }) => {
+  const improvements = getQualityImprovements(result).slice(0, 5);
+  if (!improvements.length) return null;
+  return (
+    <Box
+      p="4"
+      mb="4"
+      style={{
+        border: "1px solid var(--border-color-200)",
+        borderRadius: 8,
+        background: "var(--color-panel)",
+      }}
+    >
+      <Text size="md" weight="semibold">
+        How to improve this score
+      </Text>
+      <Flex direction="column" gap="2" mt="2">
+        {improvements.map((check) => {
+          const fix = getFixAction(check, editMetrics, setTabAndScroll);
+          const action = describeImprovement(check);
+          return (
+            <Flex key={check.key} gap="3" align="start">
+              <span
+                style={{
+                  minWidth: 32,
+                  color: scaleColors("green").text,
+                  fontVariantNumeric: "tabular-nums",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                +{Math.round(check.gain)}
+              </span>
+              <Box>
+                <Text size="md">
+                  {fix ? <FixLink action={fix}>{action}</FixLink> : action}
+                </Text>
+                {check.reason && check.key !== "hypothesis" && (
+                  <Text as="p" size="sm" color="text-mid" mb="0">
+                    {check.reason}
+                  </Text>
+                )}
+              </Box>
+            </Flex>
+          );
+        })}
+      </Flex>
+    </Box>
+  );
+};
+
 const CheckResultCell: FC<{
   check: ExperimentQualityCheckResult;
   editMetrics?: (() => void) | null;
@@ -39,50 +192,7 @@ const CheckResultCell: FC<{
     );
   }
 
-  // Fix links for failing/partial checks
-  const fixLink = (() => {
-    switch (check.key) {
-      case "hypothesis":
-        return (
-          <Link onClick={() => setTabAndScroll("overview", "hypothesis")}>
-            Add hypothesis
-          </Link>
-        );
-      case "description":
-        return (
-          <Link onClick={() => setTabAndScroll("overview", "description")}>
-            Add description
-          </Link>
-        );
-      case "screenshots":
-        return (
-          <Link onClick={() => setTabAndScroll("overview", "variations")}>
-            Add screenshots
-          </Link>
-        );
-      case "goal-metrics":
-        return editMetrics ? (
-          <Link onClick={() => editMetrics()}>Edit Metrics</Link>
-        ) : null;
-      case "ai-hypothesis-quality":
-      case "ai-hypothesis-metric-alignment":
-        return (
-          <Link onClick={() => setTabAndScroll("overview", "hypothesis")}>
-            Edit Hypothesis
-          </Link>
-        );
-      case "tags-or-project":
-      case "decision":
-      case "goal-metrics-locked":
-      case "hypothesis-locked":
-      case "stable-assignment":
-      case "stable-analysis":
-      case "no-early-stop":
-      case "clean-restarts":
-      case "planned-end":
-        return null;
-    }
-  })();
+  const fix = getFixAction(check, editMetrics, setTabAndScroll);
 
   if (check.type === "ai") {
     if (check.score === null) {
@@ -124,7 +234,12 @@ const CheckResultCell: FC<{
       ✕{check.reason ? ` ${check.reason}` : ""}
       {check.evidence?.user ? ` by ${check.evidence.user}` : ""}
       {check.evidence?.date ? ` on ${date(check.evidence.date)}` : ""}
-      {fixLink ? <> · {fixLink}</> : null}
+      {fix ? (
+        <>
+          {" "}
+          · <FixLink action={fix} />
+        </>
+      ) : null}
     </span>
   );
 };
@@ -411,6 +526,14 @@ const QualityTab: FC<{
             ))}
         </Flex>
       </Flex>
+
+      {!result.override && (
+        <ImprovementsCard
+          result={result}
+          editMetrics={editMetrics}
+          setTabAndScroll={setTabAndScroll}
+        />
+      )}
 
       {/* Rubric cards */}
       <Flex direction="column" gap="3">

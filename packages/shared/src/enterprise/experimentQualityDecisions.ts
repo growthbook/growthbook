@@ -76,19 +76,37 @@ const ALIGNMENT_REASONS = [
 // A judgment counts as "yes" from this probability
 const YES = 0.5;
 
+// An org's own guidance for a check becomes one more judgment in it
+const MEETS_GUIDANCE = "the organization's guidance";
+
 export function buildQualityDecisionRequest({
   hypothesis,
   goalMetricNames,
+  hypothesisGuidance,
+  alignmentGuidance,
 }: {
   hypothesis: string;
   goalMetricNames: string[];
+  hypothesisGuidance?: string;
+  alignmentGuidance?: string;
 }): {
-  state: { hypothesis: string; goalMetrics: string[] };
+  state: Record<string, string | string[]>;
   questions: Record<string, QualityDecisionQuestion>;
 } {
+  const state: Record<string, string | string[]> = {
+    hypothesis,
+    goalMetrics: goalMetricNames,
+  };
   const questions: Record<string, QualityDecisionQuestion> = Object.fromEntries(
     Object.entries(HYPOTHESIS_PARTS).map(([key, part]) => [key, part.question]),
   );
+  if (hypothesisGuidance) {
+    state.hypothesisGuidance = hypothesisGuidance;
+    questions.hypothesisGuidance = {
+      type: "noul",
+      instructions: `Does \`hypothesis\` meet ${MEETS_GUIDANCE} on a good hypothesis in \`hypothesisGuidance\`?`,
+    };
+  }
   if (goalMetricNames.length) {
     questions.alignment = {
       type: "score",
@@ -96,8 +114,15 @@ export function buildQualityDecisionRequest({
         "How directly do `goalMetrics` measure the outcome that `hypothesis` predicts?",
       criteria: ALIGNMENT_LEVELS,
     };
+    if (alignmentGuidance) {
+      state.alignmentGuidance = alignmentGuidance;
+      questions.alignmentGuidance = {
+        type: "noul",
+        instructions: `Do \`goalMetrics\` follow ${MEETS_GUIDANCE} on goal metrics in \`alignmentGuidance\`?`,
+      };
+    }
   }
-  return { state: { hypothesis, goalMetrics: goalMetricNames }, questions };
+  return { state, questions };
 }
 
 export interface QualityDecisionVerdicts {
@@ -113,13 +138,24 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 export function interpretQualityDecisions(
   answers: Record<string, QualityDecisionAnswer | undefined>,
 ): QualityDecisionVerdicts {
-  const parts = Object.entries(HYPOTHESIS_PARTS).map(([key, part]) => {
+  const yes = (key: string) => {
     const answer = answers[key];
-    return {
-      yes: answer?.type === "noul" ? answer.noul : 0,
+    return answer?.type === "noul" ? answer.noul : 0;
+  };
+  const parts = [
+    ...Object.entries(HYPOTHESIS_PARTS).map(([key, part]) => ({
+      yes: yes(key),
       missing: part.missing,
-    };
-  });
+    })),
+    ...(answers.hypothesisGuidance
+      ? [
+          {
+            yes: yes("hypothesisGuidance"),
+            missing: `doesn't meet ${MEETS_GUIDANCE}`,
+          },
+        ]
+      : []),
+  ];
   const missing = parts.filter((p) => p.yes < YES).map((p) => p.missing);
   const verdicts: QualityDecisionVerdicts = {
     "ai-hypothesis-quality": {
@@ -146,9 +182,17 @@ export function interpretQualityDecisions(
     const level = Object.entries(alignment.probabilities).sort(
       (a, b) => b[1] - a[1],
     )[0]?.[0];
+    const levelScore = alignment.score / (ALIGNMENT_LEVELS.length - 1);
+    const levelReason =
+      ALIGNMENT_REASONS[Number(level)] ?? ALIGNMENT_REASONS[0];
+    const guided = !!answers.alignmentGuidance;
+    const followsGuidance = yes("alignmentGuidance");
     verdicts["ai-hypothesis-metric-alignment"] = {
-      score: round2(alignment.score / (ALIGNMENT_LEVELS.length - 1)),
-      reason: ALIGNMENT_REASONS[Number(level)] ?? ALIGNMENT_REASONS[0],
+      score: round2(guided ? (levelScore + followsGuidance) / 2 : levelScore),
+      reason:
+        guided && followsGuidance < YES
+          ? `${levelReason}, and they don't follow ${MEETS_GUIDANCE}`
+          : levelReason,
     };
   }
   return verdicts;
