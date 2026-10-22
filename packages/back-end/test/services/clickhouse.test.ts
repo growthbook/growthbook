@@ -296,7 +296,7 @@ describe("syncManagedWarehouseIdentifiers", () => {
         makeManagedFactTable(schema),
       );
       mockGetFactTableById.mockImplementation(
-        async (_org, id) => byId.get(id) ?? null,
+        async (...[, id]) => byId.get(id) ?? null,
       );
     }
 

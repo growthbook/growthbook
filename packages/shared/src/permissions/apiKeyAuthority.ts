@@ -1,6 +1,60 @@
 import { isEqual } from "lodash";
 import { ApiKeyInterface } from "shared/types/apikey";
 import type { Permissions } from "./permissionsClass";
+import { DEFAULT_ROLES } from "./permissions.constants";
+import { isApiKeyOnlyRole } from "./permissions.utils";
+
+type ApiKeyScope = Pick<
+  ApiKeyInterface,
+  | "role"
+  | "userId"
+  | "limitAccessByEnvironment"
+  | "environments"
+  | "additionalRoles"
+  | "projectRoles"
+>;
+
+function roleName(role: string): string {
+  return DEFAULT_ROLES[role as keyof typeof DEFAULT_ROLES]?.displayName ?? role;
+}
+
+// Why a key with an API-key-only role (e.g. trace ingest), or one changing to
+// or from such a role, can't be saved; null otherwise. Such a key is pasted
+// into many service configs and is the only kind the license server shares
+// with the ingestor, so converting one would widen a widely-distributed key
+// or start sharing a broad one. Rotate instead.
+export function apiKeyOnlyRoleProblem(
+  doc: ApiKeyScope,
+  previousDoc?: ApiKeyScope,
+): string | null {
+  if (
+    previousDoc &&
+    isApiKeyOnlyRole(previousDoc.role || "") !==
+      isApiKeyOnlyRole(doc.role || "")
+  ) {
+    return "This key's role can't be changed to or from that role. Create a new key instead.";
+  }
+  if (!doc.role || !isApiKeyOnlyRole(doc.role)) return null;
+  if (doc.userId) {
+    return `The ${roleName(doc.role)} role can only be used for organization API keys.`;
+  }
+  if (
+    doc.limitAccessByEnvironment ||
+    doc.environments?.length ||
+    doc.additionalRoles?.length ||
+    doc.projectRoles?.length
+  ) {
+    return `The ${roleName(doc.role)} role can't have environment limits, additional roles, or project roles.`;
+  }
+  return null;
+}
+
+// The role in a secret key's cosmetic `secret_<role>_` prefix.
+export function apiKeyPrefixRole(role: string): string {
+  return (
+    isApiKeyOnlyRole(role) ? role.replace(/^gbDefault_/, "") : role
+  ).slice(0, 20);
+}
 
 // Whether toggling a PAT's `disabled` needs permission over members' tokens rather than the owner's own rights.
 export function apiKeyToggleRequiresAdmin(

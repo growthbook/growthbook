@@ -116,14 +116,14 @@ describe("REST API auth middleware", () => {
       });
     });
 
-    it("should throw for every permission on a traceIngest key", () => {
+    it("should throw for every permission on a trace ingest key", () => {
       const traceIngestKey: Partial<ApiKeyInterface> = {
         id: "key_traceingest",
         secret: true,
         organization: orgId,
         key: "secret_traceIngest_abc123",
         encryptSDK: false,
-        role: "traceIngest",
+        role: "gbDefault_traceIngest",
         description: "AI traces",
       };
       const permissions: Permission[] = [
@@ -392,23 +392,23 @@ describe("authenticateApiRequestMiddleware with an API key", () => {
     return { res, next };
   };
 
-  it("rejects a traceIngest key before it reaches any handler", async () => {
+  it("rejects a trace ingest key before it reaches any handler", async () => {
     const { res, next } = await run({
       id: "key_1",
       key: "secret_traceIngest_abc",
       secret: true,
       organization: "org_1",
-      role: "traceIngest",
+      role: "gbDefault_traceIngest",
     });
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({
       message:
-        "This API key has the traceIngest role and can't be used with the GrowthBook API",
+        "This API key has the AI Trace Ingest role and can't be used with the GrowthBook API.",
     });
   });
 
-  it("rejects a token carrying traceIngest even if it's user-attributed", async () => {
+  it("rejects a token carrying the trace ingest role even if it's user-attributed", async () => {
     const { res, next } = await run({
       id: "key_2",
       key: "secret_user_abc",
@@ -416,7 +416,7 @@ describe("authenticateApiRequestMiddleware with an API key", () => {
       organization: "org_1",
       userId: "u_1",
       scoped: true,
-      role: "traceIngest",
+      role: "gbDefault_traceIngest",
     });
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(401);

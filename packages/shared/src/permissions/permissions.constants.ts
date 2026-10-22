@@ -880,8 +880,8 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   },
   // API keys only (see API_KEY_ONLY_ROLE_IDS). No policies, so the key can't do
   // anything on the REST API; the ingestor accepts it for sending AI traces.
-  traceIngest: {
-    id: "traceIngest",
+  gbDefault_traceIngest: {
+    id: "gbDefault_traceIngest",
     displayName: "AI Trace Ingest",
     description:
       "Send AI traces to GrowthBook. No access to the GrowthBook API. For API keys only.",
@@ -1022,8 +1022,9 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
   },
 };
 
-// Role for org secret keys that send AI traces (OTLP) to the ingestor.
-export const TRACE_INGEST_ROLE_ID = "traceIngest";
+// Role for org secret keys that send AI traces (OTLP) to the ingestor. The
+// gbDefault_ prefix can't be used by custom roles, so no org already has one.
+export const TRACE_INGEST_ROLE_ID = "gbDefault_traceIngest";
 
 // Default roles that exist only for org secret API keys. They can't be given to
 // members, invites, teams, SCIM users/groups, or used as the org default role,

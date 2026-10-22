@@ -14,6 +14,9 @@ import {
   changesApiKeyAuthority,
   getRoleById,
   isApiKeyOnlyRole,
+  getRoleDisplayName,
+  apiKeyOnlyRoleProblem,
+  apiKeyPrefixRole,
 } from "shared/permissions";
 import {
   addDays,
@@ -272,41 +275,15 @@ export class ApiKeyModel extends BaseClass {
     await this.validateScope(doc, previousDoc);
   }
 
-  // API-key-only roles (e.g. traceIngest) are single-purpose org secret keys.
+  // API-key-only roles (e.g. trace ingest) are single-purpose org secret keys.
   // Returns true when `doc` is one and has been fully validated.
   private validateApiKeyOnlyRole(
     doc: ApiKeyInterface,
     previousDoc?: ApiKeyInterface,
   ): boolean {
-    // Such a key is pasted into many service configs and is the only kind the
-    // license server shares with the ingestor, so converting one to or from
-    // another role would widen a widely-distributed key or start sharing a
-    // broad one. Rotate instead.
-    if (
-      previousDoc &&
-      isApiKeyOnlyRole(previousDoc.role || "") !==
-        isApiKeyOnlyRole(doc.role || "")
-    ) {
-      this.context.throwBadRequestError(
-        "This key's role can't be changed to or from that role. Create a new key instead.",
-      );
-    }
+    const problem = apiKeyOnlyRoleProblem(doc, previousDoc);
+    if (problem) this.context.throwBadRequestError(problem);
     if (!doc.role || !isApiKeyOnlyRole(doc.role)) return false;
-    if (doc.userId) {
-      this.context.throwBadRequestError(
-        `The ${doc.role} role can only be used for organization API keys.`,
-      );
-    }
-    if (
-      doc.limitAccessByEnvironment ||
-      doc.environments?.length ||
-      doc.additionalRoles?.length ||
-      doc.projectRoles?.length
-    ) {
-      this.context.throwBadRequestError(
-        `The ${doc.role} role can't have environment limits, additional roles, or project roles.`,
-      );
-    }
     // Skips the plan's admin-only gate: it grants nothing on the REST API, so
     // it's narrower than the admin key the plan would otherwise require.
     this.validateRole(doc.role);
@@ -323,7 +300,7 @@ export class ApiKeyModel extends BaseClass {
     const { scopedRole, ...scope } = permissions;
     if (scopedRole && isApiKeyOnlyRole(scopedRole)) {
       this.context.throwBadRequestError(
-        `The ${scopedRole} role can only be used for organization API keys.`,
+        `The ${getRoleDisplayName(scopedRole, this.context.org)} role can only be used for organization API keys.`,
       );
     }
     if (!scopedRole) {
@@ -503,7 +480,7 @@ export class ApiKeyModel extends BaseClass {
     if (role === undefined) return;
     if (extraRule && isApiKeyOnlyRole(role)) {
       this.context.throwBadRequestError(
-        `The ${role} role can only be a key's base role.`,
+        `The ${getRoleDisplayName(role, this.context.org)} role can only be a key's base role.`,
       );
     }
     if (this.context.org.deactivatedRoles?.includes(role)) {
@@ -1106,7 +1083,7 @@ export class ApiKeyModel extends BaseClass {
     if (userId) {
       prefix += "user_";
     } else if (role) {
-      prefix += `${role.slice(0, 20)}_`;
+      prefix += `${apiKeyPrefixRole(role)}_`;
     }
 
     return prefix;
