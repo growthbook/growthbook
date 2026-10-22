@@ -162,6 +162,7 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { assumeUtc } from "back-end/src/util/dates";
+import { parseArrayIndex } from "back-end/src/util/validation";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import {
   parseOptionalQueryString,
@@ -3405,7 +3406,8 @@ export async function postSnapshot(
     return;
   }
 
-  if (!experiment.phases[phase]) {
+  const phaseIndex = parseArrayIndex(phase, experiment.phases.length);
+  if (phaseIndex === undefined) {
     res.status(404).json({
       status: 404,
       message: "Phase not found",
@@ -3428,7 +3430,7 @@ export async function postSnapshot(
       datasource,
       dimension,
       organization: context.org.id,
-      phase,
+      phase: phaseIndex,
     });
   }
 
@@ -3454,7 +3456,7 @@ export async function postSnapshot(
     experiment,
     datasource,
     dimension,
-    phase,
+    phase: phaseIndex,
     useCache,
     type: experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
   });
@@ -3466,7 +3468,7 @@ export async function postSnapshot(
       id: experiment.id,
     },
     details: auditDetailsCreate({
-      phase,
+      phase: phaseIndex,
       dimension,
       useCache,
       manual: false,
@@ -3739,7 +3741,7 @@ export async function postSnapshotsWithScaledImpactAnalysis(
 }
 
 export async function deleteScreenshot(
-  req: AuthRequest<{ url: string }, { id: string; variation: number }>,
+  req: AuthRequest<{ url: string }, { id: string; variation: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -3770,7 +3772,11 @@ export async function deleteScreenshot(
     context.permissions.throwPermissionError();
   }
 
-  if (!experiment.variations[variation]) {
+  const variationIndex = parseArrayIndex(
+    variation,
+    experiment.variations.length,
+  );
+  if (variationIndex === undefined) {
     res.status(404).json({
       status: 404,
       message: "Unknown variation " + variation,
@@ -3781,8 +3787,8 @@ export async function deleteScreenshot(
   changes.variations = cloneDeep(experiment.variations);
 
   // TODO: delete from s3 as well?
-  changes.variations[variation].screenshots = changes.variations[
-    variation
+  changes.variations[variationIndex].screenshots = changes.variations[
+    variationIndex
   ].screenshots.filter((s) => s.path !== url);
   await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
@@ -3798,9 +3804,9 @@ export async function deleteScreenshot(
       id: experiment.id,
     },
     details: auditDetailsUpdate(
-      experiment.variations[variation].screenshots,
-      updated?.variations[variation].screenshots,
-      { variation },
+      experiment.variations[variationIndex].screenshots,
+      updated?.variations[variationIndex].screenshots,
+      { variation: variationIndex },
     ),
   });
 
@@ -3814,7 +3820,7 @@ type AddScreenshotRequestBody = {
   description?: string;
 };
 export async function addScreenshot(
-  req: AuthRequest<AddScreenshotRequestBody, { id: string; variation: number }>,
+  req: AuthRequest<AddScreenshotRequestBody, { id: string; variation: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -3845,7 +3851,11 @@ export async function addScreenshot(
     context.permissions.throwPermissionError();
   }
 
-  if (!experiment.variations[variation]) {
+  const variationIndex = parseArrayIndex(
+    variation,
+    experiment.variations.length,
+  );
+  if (variationIndex === undefined) {
     res.status(404).json({
       status: 404,
       message: "Unknown variation " + variation,
@@ -3853,12 +3863,12 @@ export async function addScreenshot(
     return;
   }
 
-  experiment.variations[variation].screenshots =
-    experiment.variations[variation].screenshots || [];
+  experiment.variations[variationIndex].screenshots =
+    experiment.variations[variationIndex].screenshots || [];
 
   changes.variations = cloneDeep(experiment.variations);
 
-  changes.variations[variation].screenshots.push({
+  changes.variations[variationIndex].screenshots.push({
     path: url,
     description: description,
   });
@@ -3877,7 +3887,7 @@ export async function addScreenshot(
       id: experiment.id,
     },
     details: auditDetailsCreate({
-      variation,
+      variation: variationIndex,
       url,
       description,
     }),
