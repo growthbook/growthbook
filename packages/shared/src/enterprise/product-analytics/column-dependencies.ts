@@ -9,7 +9,7 @@ import {
   metricExplorationConfigValidator,
   dataSourceExplorationConfigValidator,
   sqlExplorationConfigValidator,
-  type PopulationExplorationConfig,
+  populationExplorationConfigValidator,
 } from "../../validators/product-analytics";
 import { sqlReferencesColumn } from "../../experiments/experiments";
 
@@ -25,7 +25,7 @@ type ExplorationConfig =
   | z.infer<typeof sqlExplorationConfigValidator>
   | z.infer<typeof funnelExplorationConfigValidator>
   | z.infer<typeof journeyExplorationConfigValidator>
-  | PopulationExplorationConfig;
+  | z.infer<typeof populationExplorationConfigValidator>;
 
 type Dimension = z.infer<typeof dimensionValidator>;
 
@@ -163,8 +163,6 @@ export function explorationConfigReferencesColumn(
     );
   }
 
-  // metric / data_source / sql configs never reference fact-table columns
-  // directly. Population configs are only cached previews; the Population
-  // itself is what depends on the column.
+  // metric / data_source / sql configs never reference fact-table columns directly.
   return false;
 }

@@ -439,7 +439,7 @@ export const journeyExplorationConfigValidator =
     dataset: journeyDatasetValidator,
   });
 
-const populationExplorationConfigValidator =
+export const populationExplorationConfigValidator =
   baseExplorationConfigValidator.extend({
     type: z.literal("population"),
     dataset: populationDatasetValidator,
