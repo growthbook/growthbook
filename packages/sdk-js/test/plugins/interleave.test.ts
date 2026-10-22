@@ -353,6 +353,61 @@ describe("interleave", () => {
     client.destroy();
   });
 
+  it("hashes with an attribute that only globalAttributes supplies", async () => {
+    const onExposure = jest.fn();
+    const client = new GrowthBookClient({
+      globalAttributes: { id: "global-user" },
+      plugins: [interleavePlugin({ onExposure })],
+    });
+    client.initSync({ payload: payload() });
+    const user = client.createScopedInstance({ attributes: {} });
+    const res = await interleave(user, {
+      ranker: "search",
+      getList,
+      fallbackConfig,
+    });
+    expect(res.inExperiment).toBe(true);
+    expect(onExposure.mock.calls[0][0].hashValue).toBe("global-user");
+    client.destroy();
+  });
+
+  it("still serves the list when a scoped eventLogger throws", async () => {
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const client = new GrowthBookClient({
+      eventLogger: () => {
+        throw new Error("analytics down");
+      },
+      plugins: [interleavePlugin()],
+    });
+    client.initSync({ payload: payload() });
+    const user = client.createScopedInstance({ attributes: { id: "u2" } });
+    const res = await interleave(user, {
+      ranker: "search",
+      getList,
+      fallbackConfig,
+    });
+    expect(res.inExperiment).toBe(true);
+    expect(res.result.length).toBeGreaterThan(0);
+    client.destroy();
+    spy.mockRestore();
+  });
+
+  it.each([
+    ["interleaved", { id: "u1" }, undefined],
+    ["a targeting miss", { id: "u1" }, { condition: { country: "US" } }],
+    ["no hash attribute", {}, undefined],
+  ])("caps the list at maxItems on %s", async (_label, attributes, rule) => {
+    const { gb } = setup(attributes, rule);
+    const res = await interleave(gb, {
+      ranker: "search",
+      getList,
+      fallbackConfig,
+      maxItems: 2,
+    });
+    expect(res.result.length).toBeLessThanOrEqual(2);
+    gb.destroy();
+  });
+
   it("hashes with attribute overrides", async () => {
     const { gb, onExposure } = setup();
     await gb.setAttributeOverrides({ id: "override" });

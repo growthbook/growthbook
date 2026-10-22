@@ -1,10 +1,12 @@
 import type { GrowthBook } from "../GrowthBook";
-import type {
-  GrowthBookClient,
-  UserScopedGrowthBook,
-} from "../GrowthBookClient";
+import type { UserScopedGrowthBook } from "../GrowthBookClient";
 import type { Attributes } from "../types/growthbook";
 import { genUUID, hash } from "../util";
+import {
+  AnyGrowthBook,
+  isFullGrowthBook,
+  isGrowthBookClient,
+} from "./utils/instance";
 
 export const EVENT_INTERLEAVE_EXPOSURE = "Interleave Exposure";
 
@@ -69,9 +71,9 @@ type InterleaveInstance = GrowthBook | UserScopedGrowthBook;
 const optionsByInstance = new WeakMap<object, InterleavePluginOptions>();
 
 export function interleavePlugin(options: InterleavePluginOptions = {}) {
-  return (gb: GrowthBook | UserScopedGrowthBook | GrowthBookClient) => {
+  return (gb: AnyGrowthBook) => {
     // Re-run by each UserScopedGrowthBook a multi-user client creates
-    if ("createScopedInstance" in gb) return;
+    if (isGrowthBookClient(gb)) return;
     optionsByInstance.set(gb, options);
   };
 }
@@ -85,9 +87,11 @@ function defaultItemId(item: unknown): string {
 }
 
 function getAttributes(gb: InterleaveInstance): Attributes {
-  if (!("getUserContext" in gb)) return gb.getAttributes();
-  const user = gb.getUserContext();
-  return { ...user.attributes, ...user.attributeOverrides };
+  // Scoped instances must go through _getEffectiveAttributes: the client's
+  // globalAttributes are merged in by evalFeature but not by getUserContext.
+  return isFullGrowthBook(gb)
+    ? gb.getAttributes()
+    : gb._getEffectiveAttributes();
 }
 
 type RankerList<T> = { variation: string; items: T[] };
@@ -171,12 +175,17 @@ export async function interleave<T>(
   const definition = payload.interleavings?.[ranker];
   const variations = definition?.variations || [];
 
+  // maxItems caps every list this returns, not just the drafted one, so the
+  // option means the same thing on each exit.
+  const capItems = (items: T[]) =>
+    maxItems === undefined ? items : items.slice(0, maxItems);
+
   const notInterleaved = async (
     variation?: string,
   ): Promise<InterleaveResult<T>> => {
     const match = variations.find((v) => v.key === variation);
     return {
-      result: await getList(match ? match.config : fallbackConfig),
+      result: capItems(await getList(match ? match.config : fallbackConfig)),
       inExperiment: false,
       variation: match?.key,
       rankingId,
@@ -220,7 +229,7 @@ export async function interleave<T>(
       `interleave: every item in "${ranker}" needs an id, pass getItemId`,
     );
     return {
-      result: lists[0].items,
+      result: capItems(lists[0].items),
       inExperiment: false,
       variation: lists[0].variation,
       rankingId,
