@@ -929,6 +929,7 @@ export function toDataSourceApiInterface(
       dimensionColumns: q.dimensions,
       error: q.error,
       projects: q.projects || [],
+      ...(q.columnMapping ? { columnMapping: q.columnMapping } : {}),
     })),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
       (q) => ({
