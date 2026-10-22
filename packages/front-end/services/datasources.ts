@@ -155,13 +155,14 @@ export const getGA4ExposureTemplate = (
   matches: isGA4EventsTable,
   name: "GA4 Experiment Exposures",
   columns: [
-    ...userIdTypes,
-    "experiment_id",
-    "variation_id",
-    ...GA4_EXPERIMENT_DIMENSIONS,
-  ]
-    .map((column) => ({ column, datatype: "string" as const }))
-    .concat({ column: "timestamp", datatype: "date" as const }),
+    { column: "timestamp", datatype: "date" },
+    ...[
+      ...userIdTypes,
+      "experiment_id",
+      "variation_id",
+      ...GA4_EXPERIMENT_DIMENSIONS,
+    ].map((column) => ({ column, datatype: "string" as const })),
+  ],
   getSql: (table, rowFilterWhere) =>
     getGA4ExposureSql(table.path, userIdTypes, rowFilterWhere),
 });
