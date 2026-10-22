@@ -163,6 +163,10 @@ import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { assumeUtc } from "back-end/src/util/dates";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import {
+  parseOptionalQueryString,
+  parseSnapshotTypeQuery,
+} from "back-end/src/util/snapshotQueryParams";
 import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
   getFeature,
@@ -1019,7 +1023,7 @@ export async function getSnapshotWithDimension(
 ) {
   const context = getContextFromReq(req);
   const { id, phase, dimension } = req.params;
-  const type = req.query?.type || undefined;
+  const type = parseSnapshotTypeQuery(req.query?.type);
 
   const snapshot = await _getSuccessfulSnapshot({
     context,
@@ -1054,7 +1058,7 @@ export async function getSnapshot(
 ) {
   const context = getContextFromReq(req);
   const { id, phase } = req.params;
-  const type = req.query?.type || undefined;
+  const type = parseSnapshotTypeQuery(req.query?.type);
 
   const snapshot = await _getSuccessfulSnapshot({
     context,
@@ -1083,8 +1087,8 @@ export async function getSnapshotSummary(
 ) {
   const context = getContextFromReq(req);
   const { id, phase } = req.params;
-  const dimension = req.query?.dimension || undefined;
-  const type = req.query?.type || undefined;
+  const dimension = parseOptionalQueryString("dimension", req.query?.dimension);
+  const type = parseSnapshotTypeQuery(req.query?.type);
 
   const experimentObj = await getExperimentById(context, id);
   if (!experimentObj) {
