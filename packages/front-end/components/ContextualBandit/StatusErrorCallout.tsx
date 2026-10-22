@@ -8,7 +8,7 @@ export default function StatusErrorCallout({
   onRetry,
 }: {
   error: Error;
-  onRetry: () => void;
+  onRetry: () => Promise<unknown>;
 }) {
   return (
     <Callout
@@ -19,7 +19,9 @@ export default function StatusErrorCallout({
           variant="soft"
           color="inherit"
           size="sm"
-          onClick={() => onRetry()}
+          onClick={async () => {
+            await onRetry();
+          }}
         >
           Retry
         </Button>
