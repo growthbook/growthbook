@@ -10,6 +10,7 @@ import useApi from "@/hooks/useApi";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
+import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import { CheckListItem, getChecklistItems } from "./PreLaunchChecklistItems";
 import { ChecklistSummary, summarizeChecklist } from "./checklistSummary";
 import { useManualChecklistToggle } from "./useManualChecklistToggle";
@@ -55,7 +56,7 @@ export interface PreLaunchChecklistProviderProps {
   editTargeting?: (() => void) | null;
   editSchedule?: (() => void) | null;
   openImplementation?: () => void;
-  openAnalysisSettings?: () => void;
+  openAnalysisSettings?: (focus: AnalysisFormFocus | null) => void;
   children: ReactNode;
 }
 

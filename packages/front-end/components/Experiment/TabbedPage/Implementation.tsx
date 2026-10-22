@@ -57,6 +57,7 @@ import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
+import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 import VariationDetails from "./VariationDetails";
 import {
@@ -113,6 +114,7 @@ export interface Props {
   targetingDraft?: TargetingDraft;
   analysisSettingsOpen: boolean;
   setAnalysisSettingsOpen: (open: boolean) => void;
+  analysisSettingsFocus: AnalysisFormFocus | null;
   editTraffic?: (() => void) | null;
   canAddVariation?: boolean;
   editNamespace?: (() => void) | null;
@@ -138,6 +140,7 @@ export default function Implementation({
   targetingDraft,
   analysisSettingsOpen,
   setAnalysisSettingsOpen,
+  analysisSettingsFocus,
   editTraffic,
   canAddVariation,
   editNamespace,
@@ -629,6 +632,7 @@ export default function Implementation({
             envs={envs}
             settingsOpen={analysisSettingsOpen}
             setSettingsOpen={setAnalysisSettingsOpen}
+            settingsFocus={analysisSettingsFocus}
           />
         ) : (
           <AnalysisSettings
@@ -639,6 +643,7 @@ export default function Implementation({
             holdoutProjects={holdout?.projects}
             settingsOpen={analysisSettingsOpen}
             setSettingsOpen={setAnalysisSettingsOpen}
+            settingsFocus={analysisSettingsFocus}
           />
         )}
         <DecisionPlan

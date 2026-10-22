@@ -76,6 +76,9 @@ import MetricSelector from "./MetricSelector";
 import BanditDecisionMetricSettings from "./BanditDecisionMetricSettings";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
+/** A field the settings can open on, ready to fill in. */
+export type AnalysisFormFocus = "datasource" | "exposureQuery" | "goalMetrics";
+
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   envs: string[];
@@ -92,6 +95,8 @@ const AnalysisForm: FC<{
   holdoutProjects?: string[];
   /** Stages the analysis settings on the page's draft instead of writing them. */
   stageChanges?: (changes: ExperimentAnalysisSettingsDraft) => void;
+  /** Opens with this field focused. */
+  focus?: AnalysisFormFocus | null;
 }> = ({
   experiment,
   envs,
@@ -104,6 +109,7 @@ const AnalysisForm: FC<{
   editDates = true,
   editMetrics = false,
   stageChanges,
+  focus = null,
 }) => {
   const {
     segments,
@@ -653,6 +659,7 @@ const AnalysisForm: FC<{
             <SelectField
               label="Data Source"
               value={datasource?.id || ""}
+              autoFocus={focus === "datasource"}
               disabled={isBandit && experiment.status !== "draft"}
               onChange={(newDatasource) => {
                 form.setValue("datasource", newDatasource);
@@ -756,6 +763,7 @@ const AnalysisForm: FC<{
               <AssignmentQueryFields
                 selection={assignmentQuerySelection}
                 placeholder="Choose..."
+                autoFocus={focus === "exposureQuery"}
                 disabled={isBandit && experiment.status !== "draft"}
               />
             )}
@@ -1028,6 +1036,7 @@ const AnalysisForm: FC<{
             )}
             <ExperimentMetricsSelector
               noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
+              autoFocus={focus === "goalMetrics"}
               datasource={form.watch("datasource")}
               exposureQueryId={exposureQueryId}
               exposureQueryIdentifierType={exposureQueryIdentifierType}

@@ -20,7 +20,9 @@ import {
   getAutoExposureQueryId,
 } from "@/components/Experiment/SimpleNewExperimentForm";
 import { getExposureQueriesForAttribute } from "@/services/datasources";
-import AnalysisForm from "@/components/Experiment/AnalysisForm";
+import AnalysisForm, {
+  AnalysisFormFocus,
+} from "@/components/Experiment/AnalysisForm";
 import MetricOverridesModal from "@/components/Experiment/MetricOverridesModal";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -53,6 +55,8 @@ export interface Props {
   /** The settings modal's open state; other parts of the page open it too. */
   settingsOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
+  /** The field the settings modal opens on. */
+  settingsFocus?: AnalysisFormFocus | null;
 }
 
 /**
@@ -67,6 +71,7 @@ export default function AnalysisPlan({
   envs,
   settingsOpen,
   setSettingsOpen,
+  settingsFocus = null,
 }: Props) {
   const {
     datasources,
@@ -400,6 +405,7 @@ export default function AnalysisPlan({
           editDates={false}
           editVariationIds={false}
           editMetrics={true}
+          focus={settingsFocus}
           source="analysis-plan"
           envs={envs}
           stageChanges={(changes) => {

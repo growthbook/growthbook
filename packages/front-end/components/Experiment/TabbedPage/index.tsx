@@ -52,6 +52,7 @@ import {
   TABS_HEADER_HEIGHT_PX,
 } from "@/components/Layout/constants";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import ExperimentHeader from "./ExperimentHeader";
 import useExperimentEditing from "./useExperimentEditing";
 import useStartExperiment from "./useStartExperiment";
@@ -179,8 +180,18 @@ function TabbedPageContents({
   );
   // Up here because the panel unmounts whenever it closes.
   const [detailsTab, setDetailsTab] = useState<DetailsPanelTab>("details");
-  // The analysis settings modal, which the pre-launch checklist opens too.
+  // The analysis settings modal, which the pre-launch checklist opens too, on
+  // the field its item is about.
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
+  const [analysisSettingsFocus, setAnalysisSettingsFocus] =
+    useState<AnalysisFormFocus | null>(null);
+  const showAnalysisSettings = (
+    open: boolean,
+    focus: AnalysisFormFocus | null = null,
+  ) => {
+    setAnalysisSettingsOpen(open);
+    setAnalysisSettingsFocus(focus);
+  };
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
@@ -538,9 +549,9 @@ function TabbedPageContents({
       editTargeting={editTargeting}
       editSchedule={editSchedule}
       openImplementation={() => setTabAndScroll("overview", IMPLEMENTATION_ID)}
-      openAnalysisSettings={() => {
+      openAnalysisSettings={(focus) => {
         setTabAndScroll("overview");
-        setAnalysisSettingsOpen(true);
+        showAnalysisSettings(true, focus);
       }}
     >
       {compareModal && (
@@ -751,7 +762,8 @@ function TabbedPageContents({
                   editTargeting={editTargeting}
                   targetingDraft={targetingDraft}
                   analysisSettingsOpen={analysisSettingsOpen}
-                  setAnalysisSettingsOpen={setAnalysisSettingsOpen}
+                  setAnalysisSettingsOpen={showAnalysisSettings}
+                  analysisSettingsFocus={analysisSettingsFocus}
                   editTraffic={editTraffic}
                   canAddVariation={canAddVariation}
                   editNamespace={editNamespace}

@@ -344,6 +344,7 @@ export default function AssignmentQueryFields({
   size,
   disabled,
   notice,
+  autoFocus = false,
 }: {
   selection: Selection;
   initialOption?: string;
@@ -351,6 +352,8 @@ export default function AssignmentQueryFields({
   size?: "legacy";
   disabled?: boolean;
   notice?: AssignmentQueryNotice | null;
+  /** Focuses the assignment table when it mounts. */
+  autoFocus?: boolean;
 }) {
   const {
     exposureQueryId,
@@ -408,6 +411,7 @@ export default function AssignmentQueryFields({
         }
         value={exposureQueryId ?? ""}
         onChange={setExposureQueryId}
+        autoFocus={autoFocus}
         initialOption={initialOption}
         placeholder={placeholder}
         required

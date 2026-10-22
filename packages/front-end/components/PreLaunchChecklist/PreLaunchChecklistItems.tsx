@@ -15,6 +15,7 @@ import {
   PENDING_APPROVAL_ITEM_PREFIX,
 } from "shared/validators";
 import track from "@/services/track";
+import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import { MERGE_CONFLICT_ITEM_PREFIX } from "./checklistSummary";
 
 export type ChecklistAction =
@@ -80,7 +81,7 @@ export function getChecklistItems({
   connections: SDKConnectionInterface[];
   checklist?: ExperimentLaunchChecklistInterface;
   publishingFeatureId?: string;
-  openAnalysisSettings?: (() => void) | null;
+  openAnalysisSettings?: ((focus: AnalysisFormFocus | null) => void) | null;
   openImplementation?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editSchedule?: (() => void) | null;
@@ -92,6 +93,9 @@ export function getChecklistItems({
   const startApproved = experiment.nextScheduledStatusUpdate?.type === "start";
   const onClick = (fn?: (() => void) | null): ChecklistAction | undefined =>
     fn && !startApproved ? { onClick: fn } : undefined;
+  // Opens the analysis settings on the field the item is about.
+  const openSettingsOn = (focus: AnalysisFormFocus | null) =>
+    onClick(openAnalysisSettings && (() => openAnalysisSettings(focus)));
 
   function isChecklistItemComplete(
     // Some items we check completion for automatically, others require users to manually check an item as complete
@@ -156,7 +160,7 @@ export function getChecklistItems({
       required: true,
       status: hasDatasource ? "complete" : "incomplete",
       display: "Select a Data Source",
-      action: onClick(openAnalysisSettings),
+      action: openSettingsOn("datasource"),
     });
 
     pushBuiltIn("exposureQuery", {
@@ -165,7 +169,7 @@ export function getChecklistItems({
       required: true,
       status: hasAssignmentTable ? "complete" : "incomplete",
       display: "Select an experiment assignment table",
-      action: onClick(openAnalysisSettings),
+      action: openSettingsOn("exposureQuery"),
     });
 
     if (hasDatasource && hasAssignmentTable) {
@@ -176,7 +180,7 @@ export function getChecklistItems({
         status:
           (experiment.goalMetrics?.length ?? 0) > 0 ? "complete" : "incomplete",
         display: "Add at least one goal metric",
-        action: onClick(openAnalysisSettings),
+        action: openSettingsOn("goalMetrics"),
       });
     }
   }
@@ -212,7 +216,7 @@ export function getChecklistItems({
     items.push({
       key: "banditGoalMetric",
       display: "Choose a decision metric and update cadence",
-      action: onClick(openAnalysisSettings),
+      action: openSettingsOn(null),
       status: experiment.goalMetrics?.[0] ? "complete" : "incomplete",
       type: "auto",
       required: true,
