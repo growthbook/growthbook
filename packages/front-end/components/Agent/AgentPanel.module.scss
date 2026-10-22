@@ -5,8 +5,8 @@
   bottom: 0;
   display: flex;
   flex-direction: column;
-  background: var(--color-background);
-  border-left: 1px solid var(--gray-a3);
+  background: var(--color-panel-solid);
+  border-left: 1px solid var(--agent-panel-border);
   // Its own layer, so the slide runs off the main thread while the page
   // re-lays itself out beside it.
   will-change: transform;
@@ -26,6 +26,30 @@
   }
 }
 
+// Focus mode: the conversation and message box share one centred column, so
+// replies stay near your messages; replies' text is a little narrower than
+// the cards beside it.
+.expanded {
+  --agent-column-width: 800px;
+
+  .column {
+    width: 100%;
+    max-width: var(--agent-column-width);
+    margin-inline: auto;
+  }
+
+  // Its box sits 24px in from each side, as the conversation's does.
+  .composerColumn {
+    width: 100%;
+    max-width: calc(var(--agent-column-width) + 48px);
+    margin-inline: auto;
+  }
+
+  .prose {
+    max-width: 640px;
+  }
+}
+
 .overlay {
   width: 400px;
   box-shadow: -8px 0 24px var(--black-a4);
@@ -37,6 +61,83 @@
   @media (max-width: 480px) {
     width: 100%;
   }
+}
+
+:global(:root) {
+  --agent-panel-border: var(--slate-4);
+}
+
+:global(.dark-theme) {
+  --agent-panel-border: var(--slate-a4);
+}
+
+// Fades while there's more to scroll that way (AgentPanel.tsx sets .fadeTop
+// and .fadeBottom).
+.messages {
+  mask-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / var(--messages-fade-top)) 0,
+    #000 32px,
+    #000 calc(100% - 48px),
+    rgb(0 0 0 / calc(var(--messages-fade-bottom) + 0.33)) calc(100% - 16px),
+    rgb(0 0 0 / var(--messages-fade-bottom)) 100%
+  );
+  transition:
+    --messages-fade-top 200ms ease,
+    --messages-fade-bottom 200ms ease;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.messages.fadeTop {
+  --messages-fade-top: 0;
+}
+
+.messages.fadeBottom {
+  --messages-fade-bottom: 0;
+}
+
+// Registered, so the fades can ease in and out: 1 is no fade.
+@property --messages-fade-top {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --messages-fade-bottom {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+// Text sets its colour inline, so !important.
+.intro {
+  :global(.rt-Text)[style*="text-mid"] {
+    color: var(--slate-11) !important;
+  }
+
+  :global(.rt-Button.rt-variant-outline.rt-variant-outline) {
+    color: var(--slate-12);
+    background-color: var(--color-panel-solid);
+    box-shadow: inset 0 0 0 1px var(--slate-6);
+    transition: box-shadow 150ms ease;
+
+    &:hover:not([data-disabled]) {
+      box-shadow: inset 0 0 0 1px var(--slate-9);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+}
+
+.introHeading {
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .navDrawerVeil {

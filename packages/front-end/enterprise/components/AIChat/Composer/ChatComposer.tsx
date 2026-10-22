@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import React, {
   forwardRef,
   useCallback,
@@ -14,7 +15,12 @@ import TextNode from "@tiptap/extension-text";
 import HardBreak from "@tiptap/extension-hard-break";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
 import { Flex, VisuallyHidden } from "@radix-ui/themes";
-import { PiArrowRightBold, PiStop } from "react-icons/pi";
+import {
+  PiArrowElbowDownLeftBold,
+  PiArrowRightBold,
+  PiStop,
+  PiStopBold,
+} from "react-icons/pi";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { AIChatMention } from "shared/ai-chat";
 import Badge from "@/ui/Badge";
@@ -81,6 +87,8 @@ export interface ChatComposerProps {
   autoFocus?: boolean;
   /** "wide" = PA chat, "compact" = agent panel, "hero" = PA empty state. */
   variant?: "wide" | "compact" | "hero";
+  /** Compact only, opt-in (the GrowthBot panel). */
+  seamless?: boolean;
   mentionItems?: MentionItem[];
   /** Until true, mentions aren't marked stale — the list may still be loading. */
   mentionItemsReady?: boolean;
@@ -94,6 +102,8 @@ export interface ChatComposerProps {
   suggestedReply?: { key: string; text: string };
   /** Canned prompts to complete against before asking the model. */
   quickSuggestions?: readonly string[];
+  /** Ids of what explains the box to screen readers, e.g. why it's disabled. */
+  describedBy?: string;
 }
 
 type ActiveSuggestion =
@@ -149,6 +159,7 @@ function ChatComposer(
     placeholder = "Ask about metrics, experiments, or setup...",
     autoFocus = false,
     variant = "wide",
+    seamless = false,
     mentionItems,
     mentionItemsReady = false,
     skillItems,
@@ -156,6 +167,7 @@ function ChatComposer(
     conversationId,
     suggestedReply,
     quickSuggestions,
+    describedBy,
   }: ChatComposerProps,
   ref: React.ForwardedRef<ChatComposerHandle>,
 ) {
@@ -243,6 +255,8 @@ function ChatComposer(
     [suggestion],
   );
 
+  const placeholderRef = useRef(placeholder);
+  placeholderRef.current = placeholder;
   const editor = useEditor({
     immediatelyRender: false,
     autofocus: autoFocus ? "end" : false,
@@ -254,7 +268,8 @@ function ChatComposer(
       UndoRedo,
       GhostText,
       Placeholder.configure({
-        placeholder,
+        // Read when drawn, so a changed placeholder shows (see below).
+        placeholder: () => placeholderRef.current,
         showOnlyWhenEditable: false,
       }),
       MetricMention.configure({
@@ -336,12 +351,15 @@ function ChatComposer(
         role: "textbox",
         "aria-multiline": "true",
         "aria-label": "Chat message",
-        ...(ghost
+        ...(disabled ? { "aria-disabled": "true" } : {}),
+        ...(ghost || describedBy
           ? {
-              "aria-describedby": ghostId,
-              "aria-keyshortcuts": "Tab ArrowRight",
+              "aria-describedby": [ghost ? ghostId : null, describedBy]
+                .filter(Boolean)
+                .join(" "),
             }
           : {}),
+        ...(ghost ? { "aria-keyshortcuts": "Tab ArrowRight" } : {}),
         ...(suggestionVisible
           ? {
               "aria-expanded": "true",
@@ -422,6 +440,12 @@ function ChatComposer(
     editor?.setEditable(!loading && !disabled);
   }, [editor, loading, disabled]);
 
+  // The placeholder is drawn as a decoration: redraw it when it changes.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    editor.view.dispatch(editor.state.tr);
+  }, [editor, placeholder]);
+
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
     const storage = editor.storage[METRIC_MENTION_NAME] as MentionStorage;
@@ -477,35 +501,51 @@ function ChatComposer(
   const isCompact = variant === "compact";
   const isHero = variant === "hero";
 
-  const Icon = isLocalStream ? PiStop : PiArrowRightBold;
+  const Icon = isLocalStream
+    ? seamless
+      ? PiStopBold
+      : PiStop
+    : PiArrowRightBold;
   const action = isLocalStream
     ? { onClick: onCancel, label: "Cancel generation", disabled: false }
     : { onClick: submit, label: "Send message", disabled: !canSend };
 
-  const sendButton = isCompact ? (
-    <button
-      type="button"
-      className={`${styles.sendButton}${isLocalStream ? ` ${styles.stopButton}` : ""}`}
-      onClick={action.onClick}
-      disabled={action.disabled}
-      title={action.label}
-      aria-label={action.label}
-    >
-      <Icon size={16} />
-    </button>
-  ) : (
-    <Button
-      className={styles.wideSendButton}
-      color={isLocalStream ? "gray" : "violet"}
-      variant={isLocalStream ? "soft" : "solid"}
-      onClick={action.onClick}
-      disabled={action.disabled}
-      title={action.label}
-      aria-label={action.label}
-    >
-      <Icon size={16} />
-    </Button>
-  );
+  const sendButton =
+    isCompact && seamless && !isLocalStream ? (
+      // Stop, while streaming, stays as below.
+      <Button
+        className={styles.primarySendButton}
+        onClick={action.onClick}
+        disabled={action.disabled}
+        title={action.label}
+        aria-label={action.label}
+      >
+        <PiArrowElbowDownLeftBold size={16} />
+      </Button>
+    ) : isCompact ? (
+      <button
+        type="button"
+        className={`${styles.sendButton}${isLocalStream ? ` ${styles.stopButton}` : ""}`}
+        onClick={action.onClick}
+        disabled={action.disabled}
+        title={action.label}
+        aria-label={action.label}
+      >
+        <Icon size={16} />
+      </button>
+    ) : (
+      <Button
+        className={styles.wideSendButton}
+        color={isLocalStream ? "gray" : "violet"}
+        variant={isLocalStream ? "soft" : "solid"}
+        onClick={action.onClick}
+        disabled={action.disabled}
+        title={action.label}
+        aria-label={action.label}
+      >
+        <Icon size={16} />
+      </Button>
+    );
 
   // Typing dismisses a stale dictation error.
   const { clearError: clearDictationError } = dictation;
@@ -589,7 +629,16 @@ function ChatComposer(
   );
 
   if (isCompact) {
-    return <div className={styles.compactWrapper}>{box}</div>;
+    return (
+      <div
+        className={clsx(
+          styles.compactWrapper,
+          seamless && styles.compactWrapperSeamless,
+        )}
+      >
+        {box}
+      </div>
+    );
   }
 
   if (isHero) return box;

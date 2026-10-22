@@ -8,23 +8,21 @@ import React, {
 } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton, VisuallyHidden } from "@radix-ui/themes";
 import {
-  PiArrowsInSimple,
-  PiArrowsOutSimple,
   PiChartLine,
   PiChartLineUp,
+  PiCornersInBold,
+  PiCornersOutBold,
   PiFlag,
   PiFlask,
-  PiPlus,
-  PiSparkle,
-  PiX,
+  PiXBold,
 } from "react-icons/pi";
 import { useSWRConfig } from "swr";
 import { getMessageText, type AIChatMessage } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
 import Button from "@/ui/Button";
-import Heading from "@/ui/Heading";
+import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import track from "@/services/track";
 import { suggestedReplyFromOptions } from "@/enterprise/components/AIChat/Composer/useAutocomplete";
@@ -89,13 +87,18 @@ import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
 import { resolveAgentInternalHref } from "./agentLinkUtils";
 import styles from "./AgentPanel.module.scss";
-import GrowthBotStateNotice from "./GrowthBotStateNotice";
+import GrowthBotLimitCallout from "./GrowthBotLimitCallout";
+import { formatResetsIn } from "./growthBotState";
 import { useGrowthBotState } from "./useGrowthBotState";
 
 // Scoped per org and user below: conversation ids are unique across the whole
 // collection but only readable by their owner, so a stale id from another org
 // or account would make the next send collide on insert.
 const STORAGE_KEY = "growthbook.agent.conversationId";
+
+// A loading conversation stays hidden this long at most, then its loading
+// state shows.
+const SWITCH_HOLD_MS = 300;
 
 const CALL_API_LABEL = "Calling GrowthBook API…";
 const ASK_USER_LABEL = "Asking you a question…";
@@ -110,11 +113,11 @@ function resolveAgentPanelInternalHref(href: string): string | null {
 
 const STARTER_PROMPTS = [
   {
-    prompt: "Help me understand and analyze my product metrics",
+    prompt: "Help me analyze my product metrics",
     Icon: PiChartLine,
   },
   {
-    prompt: "Show me how my recently started experiments are going",
+    prompt: "Help me check on my recent experiments",
     Icon: PiChartLineUp,
   },
   { prompt: "Help me create a Feature Flag", Icon: PiFlag },
@@ -203,6 +206,7 @@ function preWorkToSteps(
 
 // The page makes room for it (global.scss's .main reads --agent-rail-width).
 const DOCKED_WIDTH = "400px";
+const LIMIT_CALLOUT_ID = "growthbot-limit-callout";
 // Before paint in the browser, as a plain effect on the server.
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
@@ -461,6 +465,16 @@ export default function AgentPanel({
     enabled: open,
   });
 
+  // Checked on scroll, on resize, and as replies stream in.
+  const [fadeTop, setFadeTop] = useState(false);
+  const [fadeBottom, setFadeBottom] = useState(false);
+  const checkFades = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    setFadeTop(el.scrollTop > 1);
+    setFadeBottom(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+  }, [scrollContainerRef]);
+
   const { ref: activeTurnRef, minHeight: activeTurnMinHeight } =
     useRatchetedMinHeight(loading);
 
@@ -530,6 +544,94 @@ export default function AgentPanel({
   const reduceMotion =
     typeof window !== "undefined" &&
     !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!rendered || !el) return;
+    let frame = 0;
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(checkFades);
+    };
+    schedule();
+    const resize = new ResizeObserver(schedule);
+    resize.observe(el);
+    const mutations = new MutationObserver(schedule);
+    mutations.observe(el, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      resize.disconnect();
+      mutations.disconnect();
+    };
+  }, [rendered, checkFades, scrollContainerRef]);
+
+  // Switching conversations: the next one fades in once it's loaded, already
+  // at its end rather than scrolling through it.
+  const conversationRef = useRef<HTMLDivElement>(null);
+  const switchRef = useRef<{
+    from: string;
+    needsLoad: boolean;
+    loadSeen: boolean;
+  } | null>(null);
+  const [switchHolding, setSwitchHolding] = useState(false);
+  const beginSwitch = useCallback(
+    (needsLoad: boolean) => {
+      if (reduceMotion) return;
+      switchRef.current = { from: conversationId, needsLoad, loadSeen: false };
+      setSwitchHolding(true);
+    },
+    [conversationId, reduceMotion],
+  );
+  const revealConversation = useCallback(() => {
+    setSwitchHolding(false);
+    const scroller = scrollContainerRef.current;
+    const el = conversationRef.current;
+    if (!scroller || !el) return;
+    el.animate(
+      [
+        { opacity: 0, transform: "translateY(6px)" },
+        { opacity: 1, transform: "none" },
+      ],
+      {
+        duration: AGENT_DOCK_MOTION_MS,
+        easing: getComputedStyle(el)
+          .getPropertyValue("--agent-dock-easing")
+          .trim(),
+      },
+    );
+    // Charts settle their height after mounting, so hold the end meanwhile.
+    const end = performance.now() + AGENT_DOCK_MOTION_MS;
+    const pin = () => {
+      scroller.scrollTop = scroller.scrollHeight;
+      if (performance.now() < end) requestAnimationFrame(pin);
+    };
+    pin();
+  }, [scrollContainerRef]);
+  useIsomorphicLayoutEffect(() => {
+    const pending = switchRef.current;
+    if (!pending || conversationId === pending.from) return;
+    if (isLoadingConversation) {
+      pending.loadSeen = true;
+      return;
+    }
+    if (pending.needsLoad && !pending.loadSeen) return;
+    switchRef.current = null;
+    revealConversation();
+  }, [conversationId, isLoadingConversation, revealConversation]);
+  useEffect(() => {
+    if (!switchHolding) return;
+    const timer = window.setTimeout(() => {
+      if (!switchRef.current) return;
+      // Shows the loading state; the conversation fades in again on arrival.
+      switchRef.current.needsLoad = false;
+      revealConversation();
+    }, SWITCH_HOLD_MS);
+    return () => window.clearTimeout(timer);
+  }, [switchHolding, revealConversation]);
 
   // html.agent-dock-full styles what sits beside the panel (the header's
   // GrowthBot button fades out).
@@ -744,6 +846,7 @@ export default function AgentPanel({
       previousConversationMessageCount: messages.length,
     });
     stepsExpandedRef.current = false;
+    beginSwitch(false);
     newChat();
     resetTransientState();
     clearFeedback();
@@ -754,17 +857,25 @@ export default function AgentPanel({
     resetTransientState,
     clearFeedback,
     focusInput,
+    beginSwitch,
   ]);
 
   const handleSelectConversation = useCallback(
     (id: string) => {
       track("AI Assistant Load Conversation");
       stepsExpandedRef.current = false;
+      if (id !== conversationId) beginSwitch(true);
       void loadConversation(id);
       resetTransientState();
       focusInput();
     },
-    [loadConversation, resetTransientState, focusInput],
+    [
+      conversationId,
+      beginSwitch,
+      loadConversation,
+      resetTransientState,
+      focusInput,
+    ],
   );
 
   if (!rendered) return null;
@@ -828,9 +939,6 @@ export default function AgentPanel({
   const interactionPending =
     (askPrompt !== null && !askPrompt.resolved) || confirmationPending;
 
-  const limitEmptyState =
-    limitReached && messages.length === 0 && !isLoadingConversation;
-
   const panel = (
     <Box
       ref={panelRef}
@@ -850,6 +958,13 @@ export default function AgentPanel({
         expanded && styles.expanded,
       )}
       style={{
+        ...({
+          // Translucent, so a touch lighter than the panel in dark mode.
+          "--ai-artifact-bg": "var(--slate-a2)",
+          "--ai-artifact-border": "var(--slate-a4)",
+          "--ai-artifact-inner-bg": "var(--color-panel-solid)",
+          "--ai-artifact-strip-outline": "inset 0 0 0 1px var(--gray-a3)",
+        } as React.CSSProperties),
         zIndex: AGENT_PANEL_Z_INDEX,
         transform: shown ? "translateX(0)" : "translateX(100%)",
         pointerEvents: open ? undefined : "none",
@@ -866,105 +981,97 @@ export default function AgentPanel({
         aria-hidden="true"
         onClick={() => setNavDrawerOpen(false)}
       />
-      {/* Header */}
+      {/* The "AI Assistant" title stays for screen readers. */}
       <Flex
         align="center"
         justify="between"
-        px="4"
-        py="3"
-        style={{
-          borderBottom: "1px solid var(--gray-a3)",
-          background: "var(--color-panel-solid)",
-        }}
+        px="5"
+        style={{ minHeight: 44, paddingTop: 8, paddingBottom: 4 }}
       >
-        <Flex align="center" gap="3">
-          <Flex
-            align="center"
-            justify="center"
-            style={{
-              width: 32,
-              height: 32,
-              flexShrink: 0,
-              background: "var(--violet-a4)",
-              borderRadius: "999px",
-            }}
-          >
-            <PiSparkle size={16} color="var(--violet-11)" />
-          </Flex>
-          <Heading as="h2" size="xs">
-            AI Assistant
-          </Heading>
-        </Flex>
-        <Flex align="center" gap="3">
+        <Flex align="center" minWidth="0">
+          <VisuallyHidden asChild>
+            <h2>AI Assistant</h2>
+          </VisuallyHidden>
           <AgentChatHistory
             activeConversationId={conversationId}
             onSelect={handleSelectConversation}
+            onNewChat={handleNewChat}
+            newChatDisabled={limitReached}
           />
-          <IconButton
-            variant="ghost"
-            size="1"
-            onClick={handleNewChat}
-            disabled={limitReached}
-            title="Start new conversation"
-            aria-label="Start new conversation"
-          >
-            <PiPlus size={18} />
-          </IconButton>
+        </Flex>
+        <Flex align="center" gap="3" flexShrink="0">
           {onToggleExpanded && (
+            <Tooltip
+              content={expanded ? "Collapse" : "Expand"}
+              side="bottom"
+              style={{ zIndex: AGENT_PANEL_PORTAL_Z_INDEX }}
+            >
+              <IconButton
+                variant="ghost"
+                color="gray"
+                size="2"
+                style={{ color: "var(--slate-12)" }}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={onToggleExpanded}
+                aria-label={
+                  expanded ? "Minimize agent panel" : "Maximize agent panel"
+                }
+              >
+                {expanded ? (
+                  <PiCornersInBold size={16} />
+                ) : (
+                  <PiCornersOutBold size={16} />
+                )}
+              </IconButton>
+            </Tooltip>
+          )}
+          <Tooltip
+            content="Close"
+            side="bottom"
+            style={{ zIndex: AGENT_PANEL_PORTAL_Z_INDEX }}
+          >
             <IconButton
               variant="ghost"
-              size="1"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={onToggleExpanded}
-              title={expanded ? "Minimize panel" : "Maximize panel"}
-              aria-label={
-                expanded ? "Minimize agent panel" : "Maximize agent panel"
-              }
+              color="gray"
+              size="2"
+              style={{ color: "var(--slate-12)" }}
+              onClick={onClose}
+              aria-label="Close agent panel"
             >
-              {expanded ? (
-                <PiArrowsInSimple size={18} />
-              ) : (
-                <PiArrowsOutSimple size={18} />
-              )}
+              <PiXBold size={16} />
             </IconButton>
-          )}
-          <IconButton
-            variant="ghost"
-            size="1"
-            onClick={onClose}
-            title="Close"
-            aria-label="Close agent panel"
-          >
-            <PiX size={18} />
-          </IconButton>
+          </Tooltip>
         </Flex>
       </Flex>
 
       {/* Messages */}
+      {/* 6px below the header, so scrolled messages stop short of it. */}
       <Box
         ref={scrollContainerRef}
-        onScroll={handleScroll}
-        style={{ flex: 1, overflowY: "auto", padding: "20px" }}
+        onScroll={() => {
+          handleScroll();
+          checkFades();
+        }}
+        className={clsx(
+          styles.messages,
+          fadeTop && styles.fadeTop,
+          fadeBottom && styles.fadeBottom,
+        )}
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          marginTop: 6,
+          padding: "14px 24px 20px",
+        }}
       >
-        {limitEmptyState ? (
-          <Flex
-            align="center"
-            justify="center"
-            style={{ height: "100%" }}
-            role="status"
-          >
-            <Box style={{ width: "min(320px, 100%)" }}>
-              <GrowthBotStateNotice
-                state="limit"
-                resetsAt={resetsAt}
-                centered
-              />
-            </Box>
-          </Flex>
-        ) : null}
-        <Flex direction="column" gap="3">
+        <Flex
+          ref={conversationRef}
+          direction="column"
+          gap="3"
+          className={styles.column}
+          style={switchHolding ? { opacity: 0 } : undefined}
+        >
           {messages.length === 0 &&
-            !limitReached &&
             !loading &&
             !isLoadingConversation &&
             !error && (
@@ -975,62 +1082,63 @@ export default function AgentPanel({
                   alignSelf: "flex-start",
                   width: expanded ? "100%" : "min(640px, 100%)",
                 }}
+                className={styles.intro}
               >
-                <Box
-                  p="4"
-                  style={{
-                    border: "1px solid var(--violet-a3)",
-                    borderRadius: "var(--radius-3)",
-                    background: "var(--gray-a2)",
-                  }}
-                >
-                  <Flex direction="column" gap="3">
-                    <Text size="md" weight="semibold">
-                      Hey there! 👋
-                    </Text>
-                    <Text size="md" color="text-mid">
-                      I&apos;m your AI Assistant. I have access to your
-                      experiments, Feature Flags, metrics, and database schemas.
+                <Flex direction="column" gap="3">
+                  <Text size="md" weight="semibold">
+                    Hi, I&apos;m GrowthBot 👋
+                  </Text>
+                  <Text size="md" color="text-mid">
+                    I&apos;m your GrowthBook AI assistant. I have access to your
+                    experiments, Feature Flags, metrics, and database schemas.
+                    <span
+                      style={{ display: "block", marginTop: "var(--space-2)" }}
+                    >
                       Let me know what you&apos;d like to build or explore
                       today!
-                    </Text>
-                  </Flex>
-                </Box>
-                <Flex direction="column" gap="2">
-                  <Heading as="h3" size="xs" color="text-low">
-                    Suggestions
-                  </Heading>
-                  <Grid columns={expanded ? "2" : "1"} gap="2">
-                    {STARTER_PROMPTS.map(({ prompt, Icon }) => (
-                      <Button
-                        key={prompt}
-                        variant="outline"
-                        color="gray"
-                        size="sm"
-                        icon={
-                          <Flex
-                            align="center"
-                            justify="center"
-                            style={{
-                              width: 26,
-                              height: 26,
-                              flexShrink: 0,
-                              borderRadius: "var(--radius-2)",
-                              background: "var(--violet-a4)",
-                              color: "var(--violet-11)",
-                            }}
-                          >
-                            <Icon size={16} />
-                          </Flex>
-                        }
-                        onClick={() => handleStarterPrompt(prompt)}
-                        className={aiChatStyles.suggestedPrompt}
-                      >
-                        {prompt}
-                      </Button>
-                    ))}
-                  </Grid>
+                    </span>
+                  </Text>
                 </Flex>
+                {limitReached ? null : (
+                  <Flex direction="column" gap="2">
+                    {/* A heading for its structure, styled as the greeting. */}
+                    <h3 className={styles.introHeading}>
+                      <Text size="md" weight="semibold">
+                        Suggestions
+                      </Text>
+                    </h3>
+                    <Grid columns={expanded ? "2" : "1"} gap="2">
+                      {STARTER_PROMPTS.map(({ prompt, Icon }) => (
+                        <Button
+                          key={prompt}
+                          variant="outline"
+                          color="gray"
+                          size="sm"
+                          icon={
+                            <Flex
+                              align="center"
+                              justify="center"
+                              style={{
+                                width: 26,
+                                height: 26,
+                                flexShrink: 0,
+                                borderRadius: "var(--radius-2)",
+                                background: "var(--violet-a4)",
+                                color: "var(--violet-11)",
+                              }}
+                            >
+                              <Icon size={16} />
+                            </Flex>
+                          }
+                          onClick={() => handleStarterPrompt(prompt)}
+                          className={aiChatStyles.suggestedPrompt}
+                        >
+                          {prompt}
+                        </Button>
+                      ))}
+                    </Grid>
+                  </Flex>
+                )}
               </Flex>
             )}
 
@@ -1133,33 +1241,31 @@ export default function AgentPanel({
         </Flex>
       </Box>
 
-      {/* Stop stays while an answer streams: the limit can be reached mid-answer,
-        by anyone in the org. */}
-      {limitEmptyState ? null : limitReached && !isLocalStream ? (
-        <Box
-          role="status"
-          px="4"
-          py="4"
-          style={{
-            borderTop: "1px solid var(--gray-a3)",
-            background: "var(--color-panel-solid)",
-          }}
-        >
-          <GrowthBotStateNotice state="limit" resetsAt={resetsAt} />
-        </Box>
-      ) : (
+      {/* At the limit the message box stays, disabled and explained by the
+        callout above it; Stop still works while an answer streams in. */}
+      <Box className={styles.composerColumn}>
+        {limitReached ? (
+          <Box px="5" pb="2">
+            <GrowthBotLimitCallout id={LIMIT_CALLOUT_ID} resetsAt={resetsAt} />
+          </Box>
+        ) : null}
         <ChatComposer
           variant="compact"
+          seamless
           ref={composerRef}
           autoFocus
           mentionItems={mentionItems}
           mentionItemsReady={mentionItemsReady}
           skillItems={skillItems}
-          autocomplete={aiAutocompleteEnabled}
-          suggestedReply={suggestedReply}
+          autocomplete={aiAutocompleteEnabled && !limitReached}
+          suggestedReply={limitReached ? undefined : suggestedReply}
           quickSuggestions={
-            messages.length === 0 ? STARTER_PROMPT_TEXTS : undefined
+            messages.length === 0 && !limitReached
+              ? STARTER_PROMPT_TEXTS
+              : undefined
           }
+          disabled={limitReached}
+          describedBy={limitReached ? LIMIT_CALLOUT_ID : undefined}
           conversationId={conversationId}
           value={input}
           onChange={setInput}
@@ -1167,9 +1273,13 @@ export default function AgentPanel({
           onCancel={cancelGeneration}
           loading={loading}
           isLocalStream={isLocalStream}
-          placeholder="Ask GrowthBook anything…"
+          placeholder={
+            limitReached
+              ? `Available again ${resetsAt ? formatResetsIn(resetsAt, Date.now()) : "after the daily reset"}`
+              : "Ask GrowthBook anything…"
+          }
         />
-      )}
+      </Box>
     </Box>
   );
 
@@ -1274,9 +1384,10 @@ function ActiveTurnItemRow({
       <AssistantBubble>
         <Markdown
           resolveInternalHref={resolveAgentPanelInternalHref}
-          className={
-            waitingForLink ? aiChatStyles.streamingMarkdown : undefined
-          }
+          className={clsx(
+            styles.prose,
+            waitingForLink && aiChatStyles.streamingMarkdown,
+          )}
         >
           {displayed}
         </Markdown>
@@ -1372,8 +1483,8 @@ function PersistedTurn({
   return (
     <>
       {turn.user && (
-        <UserBubble>
-          <Text size="sm">
+        <UserBubble soft>
+          <Text size="md">
             <MessageTokens
               text={getUserText(turn.user)}
               mentions={
@@ -1400,7 +1511,10 @@ function PersistedTurn({
 
       {hasReply && !replyIsError && (
         <AssistantBubble>
-          <Markdown resolveInternalHref={resolveAgentPanelInternalHref}>
+          <Markdown
+            resolveInternalHref={resolveAgentPanelInternalHref}
+            className={styles.prose}
+          >
             {replyContent}
           </Markdown>
         </AssistantBubble>
