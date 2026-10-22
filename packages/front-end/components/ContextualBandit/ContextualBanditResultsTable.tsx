@@ -16,6 +16,7 @@ import type {
   ContextualLeafClause,
 } from "shared/experiments";
 import Text from "@/ui/Text";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Metadata from "@/ui/Metadata";
@@ -172,6 +173,8 @@ export default function ContextualBanditResultsTable({
     refresh,
     cancel,
     refreshError,
+    statusError,
+    mutate: refetchSnapshot,
   } = useContextualBanditSnapshot();
 
   const datasource = cb.datasource ? getDatasourceById(cb.datasource) : null;
@@ -467,6 +470,26 @@ export default function ContextualBanditResultsTable({
       {refreshError ? (
         <Callout status="error" mb="3">
           {refreshError}
+        </Callout>
+      ) : null}
+
+      {statusError ? (
+        <Callout
+          status="error"
+          mb="3"
+          action={
+            <Button
+              variant="soft"
+              color="inherit"
+              size="sm"
+              onClick={() => refetchSnapshot()}
+            >
+              Retry
+            </Button>
+          }
+        >
+          Could not load the latest status, so run progress and results may be
+          out of date: {statusError.message}
         </Callout>
       ) : null}
 

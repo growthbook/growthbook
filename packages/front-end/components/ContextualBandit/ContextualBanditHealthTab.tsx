@@ -17,7 +17,8 @@ export default function ContextualBanditHealthTab({
 }: {
   cb: ApiContextualBanditInterface;
 }) {
-  const { results, latest, loading, error } = useContextualBanditSnapshot();
+  const { results, latest, loading, error, statusError } =
+    useContextualBanditSnapshot();
   const healthIssues = useContextualBanditHealthIssues(cb);
 
   const health = results?.health ?? null;
@@ -99,6 +100,13 @@ export default function ContextualBanditHealthTab({
 
   return (
     <Flex direction="column">
+      {statusError ? (
+        <Callout status="warning" mb="3">
+          Could not load the latest run status, so the refresh state below may
+          be out of date: {statusError.message}
+        </Callout>
+      ) : null}
+
       {newerRun?.status === "error" ? (
         <Callout status="warning" mb="3">
           The most recent refresh failed, so the health results below are from
