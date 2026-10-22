@@ -185,7 +185,7 @@ function FieldBelow({
     <>
       <Text size="sm" weight="medium" color="text-mid" as="p" mb="1">
         {label}
-        {optional && <Text color="text-low"> · optional</Text>}
+        {optional && <Text color="text-low"> (optional)</Text>}
       </Text>
       <Field
         textarea
