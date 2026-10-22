@@ -50,16 +50,113 @@ With that in place you can filter or group error spans by `@feature_flag.<key>` 
 
 ## Automatically rolling back flags
 
-All three options end the same way: something calls the GrowthBook REST API to roll the flag back. There are two ways to do that:
+All three options end the same way: something calls the GrowthBook REST API to roll the flag back. Two endpoints exist for this:
 
-- **Kill switch.** [Toggle the feature off](/api/features-v2/operation/toggleFeatureV2) in the affected environment. Fast and blunt; users get the SDK's fallback value.
-- **Revert the rollout.** [Disable the active rollout rules](/api/feature-revisions-v2/operation/putFeatureRevisionRuleV2) in a new revision and [publish it](/api/feature-revisions-v2/operation/postFeatureRevisionPublishV2). Users fall back to the value they had before the rollout, nothing is deleted, and the revision history records the alert that caused it.
+- [List active rollouts](/api/features-v2/operation/listRolloutsV2) returns every rule that is still ramping (a percentage rollout, a running safe rollout, a running linked experiment, or a ramp schedule), one entry per rule and environment, so tooling knows which flags have something to roll back.
+- [Roll back a feature](/api/features-v2/operation/rollbackFeatureV2) ends those rollouts for one feature and publishes the change in one call. Users fall back to the value they had before the rollout, nothing is deleted, and the revision comment records why. A feature with nothing active is returned unchanged, so repeated alerts are harmless.
+
+For a blunt kill switch instead, [toggle the feature off](/api/features-v2/operation/toggleFeatureV2) in the affected environment; users then get the SDK's fallback value.
 
 The options differ in who decides which flag to roll back.
 
+### Shared code
+
+The examples below are Node.js (18 or newer, for built-in `fetch`) written as AWS Lambda handlers that take `event.body` and `event.headers`. They run anywhere that can receive a webhook. They share two small modules and read their credentials from environment variables: `GB_API_KEY` (a GrowthBook API key whose role can publish in the environment being protected), `DD_API_KEY`, and `DD_APP_KEY` (a Datadog application key with monitor write and span read access).
+
+```javascript growthbook.js
+// Shared GrowthBook REST helpers used by every option.
+const GB_API = process.env.GB_API_HOST ?? "https://api.growthbook.io";
+
+async function gb(path, init = {}) {
+  const res = await fetch(`${GB_API}/api/v2${path}`, {
+    ...init,
+    headers: { Authorization: `Bearer ${process.env.GB_API_KEY}`, "Content-Type": "application/json" },
+  });
+  if (!res.ok) throw new Error(`GrowthBook ${path} → ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+// Every active rollout in this environment: one entry per rule, with the feature id.
+export async function listActiveRollouts(env) {
+  const { rollouts } = await gb(`/rollouts?environment=${env}&limit=100`);
+  return rollouts;
+}
+
+// End the flag's active rollouts in this environment and publish. Returns what was rolled back.
+export async function rollbackRollouts(key, env, comment) {
+  const { rolledBack } = await gb(`/features/${key}/rollback`, {
+    method: "POST",
+    body: JSON.stringify({ environments: [env], comment }),
+  });
+  return rolledBack;
+}
+```
+
+```javascript datadog.js
+// Shared Datadog API helpers used by every option.
+const DD_API = process.env.DD_API_HOST ?? "https://api.datadoghq.com";
+
+export async function dd(path, init = {}) {
+  const res = await fetch(`${DD_API}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      "DD-API-KEY": process.env.DD_API_KEY,
+      "DD-APPLICATION-KEY": process.env.DD_APP_KEY,
+    },
+  });
+  if (!res.ok) throw new Error(`Datadog ${path} → ${res.status}: ${await res.text()}`);
+  return res.status === 204 ? null : res.json();
+}
+
+// Number of spans matching a query in a time window.
+export async function countSpans(query, from, to) {
+  const { data } = await dd("/api/v2/spans/analytics/aggregate", {
+    method: "POST",
+    body: JSON.stringify({
+      data: {
+        type: "aggregate_request",
+        attributes: { filter: { query, from, to }, compute: [{ aggregation: "count" }] },
+      },
+    }),
+  });
+  return data.buckets[0]?.computes.c0 ?? 0;
+}
+
+// Up to 1000 spans matching a query in a time window.
+export async function searchSpans(query, from, to) {
+  const { data } = await dd("/api/v2/spans/events/search", {
+    method: "POST",
+    body: JSON.stringify({
+      data: {
+        type: "search_request",
+        attributes: { filter: { query, from, to }, page: { limit: 1000 }, sort: "-timestamp" },
+      },
+    }),
+  });
+  return data;
+}
+```
+
+The shared-monitor option also needs a Datadog [Webhook integration](https://docs.datadoghq.com/integrations/webhooks/) named `growthbook-rollback` that points at the handler's URL with this custom payload, so the handler gets the alert's context:
+
+```json
+{
+  "alert_id": "$ALERT_ID",
+  "alert_title": "$ALERT_TITLE",
+  "alert_transition": "$ALERT_TRANSITION",
+  "alert_scope": "$ALERT_SCOPE",
+  "tags": "$TAGS",
+  "date": "$DATE",
+  "link": "$LINK"
+}
+```
+
+Adding `@webhook-growthbook-rollback` to a monitor's notification message makes it call the handler. The handlers only act on `Triggered` and `Re-Triggered` transitions; `Recovered`, `Warn`, and `No Data` return 200 and do nothing.
+
 ### Option 1: One monitor per flag
 
-Datadog names the flag. Each flag you want to protect gets its own monitor comparing the error rate with the flag on against the flag off. When it fires, the alert carries the flag key, so no guessing is needed.
+Datadog names the flag. Each flag you want to protect gets its own monitor on the error rate of users who have the flag on. When it fires, the alert carries the flag key, so no guessing is needed.
 
 #### Creating a monitor manually
 
@@ -105,62 +202,113 @@ Now that you've built the Webhook, you can go back to the monitor alert and inst
 
 Creating monitors by hand works for a handful of flags. To cover every rollout, let GrowthBook drive it:
 
-1. GrowthBook triggers a “Monitor-sync” function through an [event webhook](/app/webhooks/event-webhooks) whenever a feature is published.
-2. The “Monitor-sync” function creates one monitor per active rollout using the [Datadog Monitors API](https://docs.datadoghq.com/api/latest/monitors/), and cleans up monitors for rollouts that have ended.
-3. Datadog triggers a “Rollback” function whenever a monitor alerts.
-4. The “Rollback” function calls the GrowthBook API to trigger a rollback.
+1. GrowthBook calls the monitor-sync handler below through an [event webhook](/app/webhooks/event-webhooks) filtered to `feature.updated`. The handler creates a Datadog monitor tagged `growthbook_flag:<key>` when the feature has an active rollout, and deletes it when the rollout ends.
+2. Datadog calls GrowthBook directly when a monitor alerts. No second handler is needed: the Datadog webhook's URL can read the flag key from the monitor's tag, `https://api.growthbook.io/api/v2/features/$TAGS[growthbook_flag]/rollback`, with the API key in a custom `Authorization: Bearer <key>` header and `{"environments": ["production"], "comment": "$ALERT_TITLE $LINK"}` as the payload. Reference the webhook inside `{{#is_alert}} ... {{/is_alert}}` in the monitor message so warnings and recoveries do not call it.
 
-```python
-# GrowthBook event webhook
-onFeaturePublished(feature):
-  if hasActiveRollout(feature):
-    addDatadogMonitor(feature.id)
-  else:
-    removeDatadogMonitor(feature.id)
+```javascript monitor-sync.js
+// Option 1: GrowthBook event webhook → one Datadog monitor per flag with an active rollout.
+import crypto from "node:crypto";
+import { dd } from "./datadog.js";
 
-# Datadog alert webhook
-onDatadogAlert(alert):
-  flag = alert.scope["feature_flag.key"]
-  rollbackRollouts(flag)
+const ENV = process.env.GB_ENVIRONMENT ?? "production";
+
+export async function handler(event) {
+  const sig = event.headers["x-growthbook-signature"];
+  const expected = crypto.createHmac("sha256", process.env.GB_WEBHOOK_SECRET).update(event.body).digest("hex");
+  if (sig?.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+    return { statusCode: 401 };
+  }
+
+  const payload = JSON.parse(event.body);
+  if (payload.event !== "feature.updated") return { statusCode: 200 };
+
+  const feature = payload.data.object;
+  const monitors = await dd(`/api/v1/monitor?monitor_tags=growthbook_flag:${feature.id}`);
+  if (hasActiveRollout(feature, ENV)) {
+    if (!monitors.length) await dd("/api/v1/monitor", { method: "POST", body: JSON.stringify(monitorFor(feature.id)) });
+  } else {
+    for (const m of monitors) await dd(`/api/v1/monitor/${m.id}`, { method: "DELETE" });
+  }
+  return { statusCode: 200 };
+}
+
+function hasActiveRollout(feature, env) {
+  const { enabled, rules = [] } = feature.environments[env] ?? {};
+  return enabled && rules.some((r) => r.enabled && ["rollout", "safe-rollout", "experiment-ref"].includes(r.type));
+}
+
+// Alert when error spans with the flag on exceed a threshold in 5 minutes.
+// Swap in an error-rate or on-vs-off formula once the basic version works.
+const monitorFor = (key) => ({
+  name: `[GrowthBook] ${key} rollout errors`,
+  type: "trace-analytics alert",
+  query: `trace-analytics("env:${ENV} status:error @feature_flag.${key}:true").rollup("count").last("5m") > 50`,
+  message: "@webhook-growthbook-rollback",
+  tags: [`growthbook_flag:${key}`],
+  options: { thresholds: { critical: 50 }, notify_no_data: false },
+});
 ```
 
-Tag each monitor with the flag key and group its query by `feature_flag.key`, so the alert's `$ALERT_SCOPE` names the flag (see the webhook payload in [Option 2](#option-2-shared-monitor-with-correlation-logic)).
+The `feature.updated` payload carries the full feature, including each environment's rules, so the handler decides without calling GrowthBook. `GB_WEBHOOK_SECRET` is the event webhook's signing secret (it starts with `ewhk_`).
 
 Use this option when a warehouse export is not practical and you need to protect small rollouts (a few percent of traffic) that a shared, service-level monitor can't see.
 
 ### Option 2: Shared monitor with correlation logic
 
-A function infers the flag. One ordinary monitor on a service's error rate fires, and the function works out which active rollouts are likely responsible before rolling them back.
+A handler infers the flag. One ordinary monitor on a service's error rate fires (for example, error rate above 5%), and the handler works out which active rollouts are likely responsible before rolling them back:
 
-1. A single shared Datadog alert triggers a function (for example, error rate above 5%).
-2. The function gets all active rollouts from GrowthBook's API.
-3. (Optional) The function calls Datadog's API and tries to correlate rollouts with metrics, for example by comparing the error rate with each flag on against off over the alert window.
-4. The function calls the GrowthBook API and triggers rollbacks if needed.
+1. It searches the last 15 minutes of error spans for the alert's service and collects every flag that was on, from the `feature_flag.*` span tags.
+2. For each of those flags that GrowthBook lists as an active rollout, it compares the error rate with the flag on against the flag off over the same window.
+3. Flags whose on-cohort is materially worse are rolled back. The rest are reported and left alone.
 
-```python
-onDatadogAlert(alert):
-  flags = growthbook.getAllActiveRollouts()
-  for flag in flags:
-    if datadog.errorRate(flag, on) > datadog.errorRate(flag, off) + margin:
-      growthbook.rollbackRollout(flag)
-```
+```javascript rollback-shared.js
+// Option 2: one service-level Datadog alert → work out which active rollouts are responsible → roll them back.
+import { countSpans, searchSpans } from "./datadog.js";
+import { listActiveRollouts, rollbackRollouts } from "./growthbook.js";
 
-Point the Datadog webhook at your function with a custom payload so the handler gets the alert's context. A useful template:
+const MIN_SPANS = 50;   // ignore cohorts too small to judge
+const MIN_LIFT = 0.03;  // flag-on error rate must be at least 3 points worse than flag-off
 
-```json
-{
-  "alert_id": "$ALERT_ID",
-  "alert_title": "$ALERT_TITLE",
-  "alert_transition": "$ALERT_TRANSITION",
-  "alert_scope": "$ALERT_SCOPE",
-  "alert_query": "$ALERT_QUERY",
-  "tags": "$TAGS",
-  "date": "$DATE",
-  "link": "$LINK"
+export async function handler(event) {
+  const alert = JSON.parse(event.body);
+  if (!/^(Re-)?Triggered$/.test(alert.alert_transition)) return { statusCode: 200 };
+
+  const scope = Object.fromEntries(alert.alert_scope.split(",").map((t) => t.trim().split(":")));
+  const env = scope.env ?? "production";
+  const base = scope.service ? `env:${env} service:${scope.service}` : `env:${env}`;
+  const to = new Date(Number(alert.date)).toISOString();
+  const from = new Date(Number(alert.date) - 15 * 60 * 1000).toISOString();
+
+  // Flags that were on in failing traces, from the span tags set by onFeatureUsage.
+  const errorSpans = await searchSpans(`${base} status:error`, from, to);
+  const seen = new Set();
+  for (const span of errorSpans) {
+    for (const [key, value] of Object.entries(span.attributes.custom?.feature_flag ?? {})) {
+      if (value !== "false") seen.add(key);
+    }
+  }
+
+  const results = [];
+  const candidates = new Set((await listActiveRollouts(env)).map((r) => r.featureId));
+  for (const key of candidates) {
+    if (!seen.has(key)) continue;
+    const on = await errorRate(`${base} @feature_flag.${key}:true`, from, to);
+    const off = await errorRate(`${base} -@feature_flag.${key}:true`, from, to);
+    const responsible = on.total >= MIN_SPANS && on.rate - off.rate >= MIN_LIFT;
+    if (responsible) {
+      await rollbackRollouts(key, env, `Auto rollback: ${alert.alert_title} ${alert.link}`);
+    }
+    results.push({ key, errorRateOn: on.rate, errorRateOff: off.rate, rolledBack: responsible });
+  }
+  return { statusCode: 200, body: JSON.stringify(results) };
+}
+
+async function errorRate(query, from, to) {
+  const total = await countSpans(query, from, to);
+  const errors = await countSpans(`${query} status:error`, from, to);
+  return { total, rate: total ? errors / total : 0 };
 }
 ```
-
-Only act on `Triggered` and `Re-Triggered` transitions; `Recovered`, `Warn`, and `No Data` should be acknowledged and ignored.
 
 Use this option if you want the fastest path to a working loop. It catches big regressions but is less sensitive to subtle issues, and a rollout at a few percent of traffic may not move a service-level monitor at all.
 
@@ -168,11 +316,63 @@ Use this option if you want the fastest path to a working loop. It catches big r
 
 GrowthBook decides. Datadog data lands in your warehouse as a guardrail metric, and [Safe Rollouts](/features/safe-rollouts) revert the flag automatically when a guardrail regresses. Datadog becomes a data source rather than the decision maker.
 
-1. Datadog APM or RUM data gets synced into your warehouse, for example through Datadog's log forwarding or a scheduled export of error counts per user.
-2. You define guardrail metrics in GrowthBook with SQL (for example, error rate per user) on a fact table over that data.
+1. Datadog APM or RUM data gets synced into your warehouse.
+2. You define a guardrail metric in GrowthBook with SQL on that data.
 3. Feature rollouts query the warehouse on a schedule and run GrowthBook's stats engine.
 4. If significant regressions are detected, GrowthBook rolls back automatically.
 
-The warehouse rows need a user identifier that matches the one in your SDK's tracking callback, so errors can be joined to flag exposures. Tagging spans with the user id (for example, `usr.id`) alongside the flags makes this straightforward.
+If Datadog's native log forwarding is not an option, a scheduled job can export per-user request and error counts through the spans aggregation API. This one prints a CSV to load with your warehouse's bulk loader (`COPY INTO`, `bq load`, and so on):
+
+```javascript export-errors.js
+// Option 3: export per-user request and error counts from Datadog for the last 5 minutes, as CSV.
+// Run on a schedule and load the output into your warehouse (COPY INTO, bq load, etc).
+import { dd } from "./datadog.js";
+
+const to = new Date();
+const from = new Date(to.getTime() - 5 * 60 * 1000);
+
+const { data } = await dd("/api/v2/spans/analytics/aggregate", {
+  method: "POST",
+  body: JSON.stringify({
+    data: {
+      type: "aggregate_request",
+      attributes: {
+        filter: { query: "env:production @usr.id:*", from: from.toISOString(), to: to.toISOString() },
+        compute: [{ aggregation: "count" }],
+        group_by: [{ facet: "@usr.id", limit: 10000 }, { facet: "status" }],
+      },
+    },
+  }),
+});
+
+const rows = new Map(); // user id → { requests, errors }
+for (const bucket of data.buckets) {
+  const { "@usr.id": userId, status } = bucket.by;
+  const row = rows.get(userId) ?? { requests: 0, errors: 0 };
+  row.requests += bucket.computes.c0;
+  if (status === "error") row.errors += bucket.computes.c0;
+  rows.set(userId, row);
+}
+
+console.log("window_start,user_id,requests,errors");
+for (const [userId, { requests, errors }] of rows) {
+  console.log(`${from.toISOString()},${userId},${requests},${errors}`);
+}
+```
+
+The rows need a user identifier that matches the one in your SDK's tracking callback, so errors can be joined to flag exposures. Tagging spans with the user id (`usr.id` above) alongside the flags is what makes that possible.
+
+In GrowthBook, create a [Fact Table](/app/fact-tables) over the loaded table and a ratio metric on it, then add the metric as a guardrail on each Safe Rollout:
+
+```sql
+SELECT
+  window_start AS timestamp,
+  user_id,
+  requests,
+  errors
+FROM datadog_requests
+```
+
+The guardrail metric is `SUM(errors) / SUM(requests)` with "lower is better".
 
 Use this option if you have a warehouse and are OK owning the ETL. It gives statistical rigor and avoids false positives, at the cost of a slower reaction time than a Datadog monitor.

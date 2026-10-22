@@ -504,6 +504,8 @@
                   "api/features-v2/operation/deleteFeatureV2",
                   "api/features-v2/operation/toggleFeatureV2",
                   "api/features-v2/operation/revertFeatureV2",
+                  "api/features-v2/operation/rollbackFeatureV2",
+                  "api/features-v2/operation/listRolloutsV2",
                   "api/features-v2/operation/getFeatureKeysV2",
                   "api/features-v2/operation/getFeatureStaleV2"
                 ]
@@ -1163,6 +1165,7 @@
           {
             "group": "Models",
             "pages": [
+              "api/ActiveRollout_model",
               "api/AggregatedFactTable_model",
               "api/AnalyticsExploration_model",
               "api/Archetype_model",

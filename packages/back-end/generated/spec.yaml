@@ -632,6 +632,9 @@ tags:
 
       Populations define a set of units by the steps they must complete, such as
       appearing in a fact table. Populations are not yet used in analysis.
+  - name: ActiveRollout_model
+    x-displayName: Active Rollout
+    description: <SchemaDefinition schemaRef="#/components/schemas/ActiveRollout" />
   - name: AggregatedFactTable_model
     x-displayName: Aggregated Fact Table
     description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />
@@ -10757,6 +10760,162 @@ paths:
           source: >-
             curl -X POST 'https://api.growthbook.io/api/v2/features/{id}/revert'
             \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/rollback:
+    post:
+      operationId: rollbackFeatureV2
+      summary: Roll back a feature's active rollouts
+      description: >-
+        Ends every active rollout on the feature in the given environments and
+        immediately publishes the change, so users fall back to the value they
+        had before the rollout. Percentage rollout and experiment rules are
+        disabled (the experiment itself keeps running), running safe rollouts
+        are marked rolled back, and serving ramp schedules are rolled back to
+        their starting position. Nothing is deleted; re-enable a rule to resume.
+        A feature with no active rollout is returned unchanged with an empty
+        `rolledBack` list.
+
+
+        The caller needs Publish access for every environment with an active
+        rollout. When approval is required, the request is allowed only if the
+        caller can bypass draft approvals.
+
+
+        Built for alerting integrations: point a monitor's webhook at this
+        endpoint to revert a rollout automatically.
+
+
+        A feature has an active rollout in an environment when an enabled,
+        hash-assigned rule splits users into two or more values: a percentage
+        rollout strictly between 0% and 100%, a running safe rollout, a running
+        linked experiment, or a rule driven by a serving ramp schedule. Force
+        rules are never rollouts, even with targeting conditions:
+        attribute-based splits are configuration, with no control cohort to
+        compare against or revert to. Rules in a disabled environment, disabled
+        rules, rules outside their schedule window, archived features, and
+        features statically blocked by a prerequisite are excluded.
+        Attribute-dependent prerequisites are not evaluated, so the result is an
+        upper bound on what users can see.
+      tags:
+        - features-v2
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                environments:
+                  description: >-
+                    Environments to roll back in. Defaults to every environment
+                    the feature applies to.
+                  type: array
+                  items:
+                    type: string
+                comment:
+                  description: >-
+                    Comment to record on the revision this publishes. Defaults
+                    to "Rolled back via REST API".
+                  type: string
+                reason:
+                  description: Recorded in the audit log only.
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  feature:
+                    $ref: '#/components/schemas/FeatureV2'
+                  rolledBack:
+                    description: >-
+                      The rollouts this request ended. Empty when there was
+                      nothing to roll back.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ActiveRollout'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
+                required:
+                  - feature
+                  - rolledBack
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v2/features/{id}/rollback' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/rollouts:
+    get:
+      operationId: listRolloutsV2
+      summary: List active rollouts
+      description: >-
+        Returns every active rollout across features, one entry per rule and
+        environment, sorted by feature id. Pass the result to monitoring or
+        auto-rollback tooling: each entry names the flag, the rule and what is
+        ramping.
+
+
+        A feature has an active rollout in an environment when an enabled,
+        hash-assigned rule splits users into two or more values: a percentage
+        rollout strictly between 0% and 100%, a running safe rollout, a running
+        linked experiment, or a rule driven by a serving ramp schedule. Force
+        rules are never rollouts, even with targeting conditions:
+        attribute-based splits are configuration, with no control cohort to
+        compare against or revert to. Rules in a disabled environment, disabled
+        rules, rules outside their schedule window, archived features, and
+        features statically blocked by a prerequisite are excluded.
+        Attribute-dependent prerequisites are not evaluated, so the result is an
+        upper bound on what users can see.
+      tags:
+        - features-v2
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/environment'
+        - name: featureId
+          in: query
+          description: Only rollouts on this feature
+          schema:
+            description: Only rollouts on this feature
+            type: string
+        - $ref: '#/components/parameters/projectId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      rollouts:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ActiveRollout'
+                    required:
+                      - rollouts
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v2/rollouts' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/feature-keys:
     get:
@@ -65555,6 +65714,13 @@ components:
           - type: string
             const: '1'
           - type: boolean
+    environment:
+      name: environment
+      in: query
+      description: Only rollouts in this environment
+      schema:
+        description: Only rollouts in this environment
+        type: string
     format:
       name: format
       in: query
@@ -66049,12 +66215,6 @@ components:
       description: The id of the information schema table
       schema:
         description: The id of the information schema table
-        type: string
-    environment:
-      name: environment
-      in: query
-      description: ''
-      schema:
         type: string
     index:
       name: index
@@ -70025,6 +70185,46 @@ components:
         - date
         - status
         - rules
+      additionalProperties: false
+    ActiveRollout:
+      type: object
+      properties:
+        featureId:
+          type: string
+        environment:
+          type: string
+        ruleId:
+          type: string
+        type:
+          description: >-
+            What is ramping: a percentage `rollout`, a running `safe-rollout`, a
+            running linked experiment (`experiment-ref`), or a rule driven by a
+            serving ramp schedule (`ramp-schedule`, whatever the rule's own
+            type).
+          type: string
+          enum:
+            - rollout
+            - safe-rollout
+            - experiment-ref
+            - ramp-schedule
+        description:
+          description: The rule's description
+          type: string
+        coverage:
+          description: Fraction of users in the rollout, for percentage rollouts
+          type: number
+        experimentId:
+          type: string
+        safeRolloutId:
+          type: string
+        rampScheduleId:
+          type: string
+      required:
+        - featureId
+        - environment
+        - ruleId
+        - type
+        - description
       additionalProperties: false
     Targeting Rule:
       description: >-
@@ -88979,6 +89179,7 @@ x-tagGroups:
       - Populations
   - name: Models
     tags:
+      - ActiveRollout_model
       - AggregatedFactTable_model
       - AnalyticsExploration_model
       - Archetype_model
