@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { contextualBanditEndpoints } from "shared/api-endpoints";
@@ -73,13 +74,23 @@ function useRefetchHeavyOnStatusSuccess(
   heavyIsValidating: boolean,
   refetchHeavy: () => Promise<unknown>,
 ): void {
-  const needsHeavyRefetch =
-    statusLatest?.status === "success" &&
-    !heavyIsValidating &&
-    !heavyReflectsSuccess(statusLatest, heavyLatest);
+  const successStatusId =
+    statusLatest?.status === "success" ? statusLatest.id : undefined;
+  const heavyCaughtUp = heavyReflectsSuccess(statusLatest, heavyLatest);
+  const refetchedForStatusId = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (needsHeavyRefetch) void refetchHeavy();
-  }, [needsHeavyRefetch, refetchHeavy]);
+    if (successStatusId === undefined) return;
+    if (heavyIsValidating) return;
+    if (heavyCaughtUp) {
+      // Heavy fetch caught up — reset so a later regression to this id can
+      // trigger a fresh refetch.
+      refetchedForStatusId.current = undefined;
+      return;
+    }
+    if (refetchedForStatusId.current === successStatusId) return;
+    refetchedForStatusId.current = successStatusId;
+    void refetchHeavy();
+  }, [successStatusId, heavyCaughtUp, heavyIsValidating, refetchHeavy]);
 }
 
 // Surfaces the status endpoint's view atomically with the heavy results.
