@@ -20,15 +20,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { POPULATION_AGGREGATE_OPERATORS } from "./populationDraft";
 
-type WindowSettings = PopulationStep["windowSettings"];
-
-const WINDOW_UNITS: { value: WindowSettings["windowUnit"]; label: string }[] = [
-  { value: "minutes", label: "Minutes" },
-  { value: "hours", label: "Hours" },
-  { value: "days", label: "Days" },
-  { value: "weeks", label: "Weeks" },
-];
-
 const DEFAULT_AGGREGATE_FILTER = ">=2";
 
 export default function PopulationStepCard({
@@ -136,13 +127,6 @@ export default function PopulationStepCard({
             />
           </StepRow>
         )}
-
-        <StepRow label="when">
-          <WindowInput
-            value={step.windowSettings}
-            onChange={(windowSettings) => update({ windowSettings })}
-          />
-        </StepRow>
 
         <Box />
         <Flex gap="3">
@@ -308,67 +292,6 @@ function AggregateFilterInput({
       >
         <PiX />
       </IconButton>
-    </Flex>
-  );
-}
-
-function WindowInput({
-  value,
-  onChange,
-}: {
-  value: WindowSettings;
-  onChange: (value: WindowSettings) => void;
-}) {
-  return (
-    <Flex align="center" gap="2" wrap="wrap">
-      <Select
-        size="sm"
-        aria-label="Window type"
-        value={value.type || "any"}
-        setValue={(v) => {
-          const type = v === "any" ? "" : (v as WindowSettings["type"]);
-          onChange({
-            ...value,
-            type,
-            windowValue: type ? value.windowValue || 7 : 0,
-          });
-        }}
-      >
-        <SelectItem value="any">At any time</SelectItem>
-        <SelectItem value="lookback">In the last</SelectItem>
-      </Select>
-      {value.type && (
-        <>
-          <TextField
-            size="sm"
-            type="number"
-            min={1}
-            value={value.windowValue || ""}
-            onChange={(e) =>
-              onChange({ ...value, windowValue: Number(e.target.value) })
-            }
-            aria-label="Window length"
-            style={{ width: 72 }}
-          />
-          <Select
-            size="sm"
-            aria-label="Window unit"
-            value={value.windowUnit}
-            setValue={(windowUnit) =>
-              onChange({
-                ...value,
-                windowUnit: windowUnit as WindowSettings["windowUnit"],
-              })
-            }
-          >
-            {WINDOW_UNITS.map((u) => (
-              <SelectItem key={u.value} value={u.value}>
-                {u.label}
-              </SelectItem>
-            ))}
-          </Select>
-        </>
-      )}
     </Flex>
   );
 }

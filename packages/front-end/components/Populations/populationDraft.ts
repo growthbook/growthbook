@@ -84,8 +84,6 @@ export function getPopulationDraftIssue(
   ) {
     return "Finish the aggregate filter.";
   }
-  const { type, windowValue } = step.windowSettings;
-  if (type && !(windowValue > 0)) return "Enter a window length.";
   const [violation] = getPopulationRuleViolations({
     datasource: draft.datasource,
     userIdTypes: draft.userIdTypes,

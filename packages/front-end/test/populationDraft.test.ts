@@ -117,21 +117,6 @@ describe("getPopulationDraftIssue", () => {
     expect(issue(withAggregate(">=3,<10"))).toBeNull();
   });
 
-  it("requires a window length when a window is set", () => {
-    expect(
-      issue({
-        ...complete,
-        step: step("a", {
-          windowSettings: {
-            ...complete.step.windowSettings,
-            type: "lookback",
-            windowValue: 0,
-          },
-        }),
-      }),
-    ).toBe("Enter a window length.");
-  });
-
   it("flags a fact table that doesn't support the identifier type", () => {
     expect(issue({ ...complete, userIdTypes: ["anonymous_id"] })).toBe(
       "Fact table a does not support identifier types: anonymous_id.",
