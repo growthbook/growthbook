@@ -28,7 +28,7 @@ export default function QualityScoreTab({
   canRecalculate,
   aiAvailable,
   hypothesisDefinition,
-  stoppedExperiments,
+  experimentCount,
 }: {
   isOrgScope: boolean;
   orgQuality: ExperimentationHealthQualitySettings;
@@ -44,7 +44,8 @@ export default function QualityScoreTab({
   canRecalculate: boolean;
   aiAvailable: boolean;
   hypothesisDefinition: string;
-  stoppedExperiments?: number;
+  // Non-archived experiments, for the re-score note
+  experimentCount?: number;
 }) {
   const { apiCall } = useAuth();
   const [recalculateStatus, setRecalculateStatus] = useState("");
@@ -128,7 +129,7 @@ export default function QualityScoreTab({
                   AI changes apply to new verdicts only. Re-score existing
                   experiments —{" "}
                   <Text weight="semibold" color="text-high">
-                    {stoppedExperiments ?? "…"} stopped
+                    {experimentCount ?? "…"} experiments
                   </Text>{" "}
                   · uses AI tokens.
                 </Text>

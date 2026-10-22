@@ -5,6 +5,7 @@ import {
   getAICheckHashInputs,
   getExperimentDigestForCustomRules,
   getExperimentQualityScore,
+  haveAIQualityInputsChanged,
   resolveExperimentQualityScoreSettings,
   reflowShares,
   roundToTotal,
@@ -262,6 +263,31 @@ describe("resolveExperimentQualityScoreSettings", () => {
     expect(resolved.checks["no-early-stop"].params).toEqual({
       minRuntimeDays: 14,
     });
+  });
+});
+
+describe("haveAIQualityInputsChanged", () => {
+  it("flags edits the AI checks read, and ignores the rest", () => {
+    const before = baseExperiment();
+    expect(haveAIQualityInputsChanged(before, { ...before })).toBe(false);
+    expect(
+      haveAIQualityInputsChanged(before, { ...before, hypothesis: "New" }),
+    ).toBe(true);
+    expect(
+      haveAIQualityInputsChanged(before, {
+        ...before,
+        goalMetrics: ["met_revenue"],
+      }),
+    ).toBe(true);
+    expect(
+      haveAIQualityInputsChanged(before, { ...before, status: "running" }),
+    ).toBe(true);
+    expect(
+      haveAIQualityInputsChanged(before, {
+        ...before,
+        aiQualityResults: { inputsHash: "x", checks: [] },
+      }),
+    ).toBe(false);
   });
 });
 

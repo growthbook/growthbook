@@ -1,4 +1,4 @@
-import Agenda, { Job } from "agenda";
+import Agenda from "agenda";
 import { EXPERIMENT_PROCESS_RULES_VERSION } from "shared/enterprise";
 import {
   getAISettingsForOrg,
@@ -9,7 +9,7 @@ import {
   getExperimentById,
   getExperimentIdsNeedingProcessResults,
   getExperimentsByIds,
-  getStoppedExperimentIdsByOrganization,
+  getUnarchivedExperimentIdsByOrganization,
 } from "back-end/src/models/ExperimentModel";
 import { queueExperimentProcessScoreBackfill } from "back-end/src/jobs/updateExperimentProcessScores";
 import {
@@ -17,18 +17,14 @@ import {
   getStaleAIQualityExperimentIds,
 } from "back-end/src/enterprise/services/experimentQualityScore";
 import { EXPERIMENTATION_HEALTH_SETTINGS_COLLECTION } from "back-end/src/enterprise/models/ExperimentationHealthSettingsModel";
-import { getAgendaInstance } from "back-end/src/services/queueing";
+import {
+  UPDATE_SINGLE_EXPERIMENT_QUALITY,
+  UpdateSingleExperimentQualityJob,
+  queueExperimentQualityScoreUpdate,
+} from "back-end/src/jobs/experimentQualityScoreQueue";
 import { getCollection } from "back-end/src/util/mongo.util";
 
-type UpdateSingleExperimentQualityJob = Job<{
-  experimentId: string;
-  organization: string;
-  force?: boolean;
-}>;
-
 const QUEUE_EXPERIMENT_QUALITY_UPDATES = "queueExperimentQualityScoreUpdates";
-
-const UPDATE_SINGLE_EXPERIMENT_QUALITY = "updateSingleExperimentQualityScore";
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_QUALITY_UPDATES, async () => {
@@ -58,26 +54,6 @@ export default async function (agenda: Agenda) {
   await job.save();
 }
 
-// `force` re-runs the AI checks even when the cached verdicts are fresh
-export async function queueExperimentQualityScoreUpdate({
-  experimentId,
-  organization,
-  force,
-}: {
-  experimentId: string;
-  organization: string;
-  force?: boolean;
-}) {
-  const job = getAgendaInstance().create(UPDATE_SINGLE_EXPERIMENT_QUALITY, {
-    experimentId,
-    organization,
-    ...(force ? { force } : {}),
-  }) as UpdateSingleExperimentQualityJob;
-  job.unique({ experimentId, organization });
-  job.schedule(new Date());
-  await job.save();
-}
-
 // Queues the cached parts of quality scoring that are missing or out of
 // date: process results, then AI verdicts (skipped for orgs without AI)
 async function queueStaleExperimentQualityUpdates(organization: string) {
@@ -96,7 +72,7 @@ async function queueStaleExperimentQualityUpdates(organization: string) {
 
   const experiments = await getExperimentsByIds(
     context,
-    await getStoppedExperimentIdsByOrganization(organization),
+    await getUnarchivedExperimentIdsByOrganization(organization),
   );
   const staleIds = await getStaleAIQualityExperimentIds(context, experiments);
   for (const experimentId of staleIds) {
@@ -104,13 +80,13 @@ async function queueStaleExperimentQualityUpdates(organization: string) {
   }
 }
 
-// Every stopped, non-archived experiment in the org
+// Every non-archived experiment in the org
 export async function queueExperimentQualityScoreUpdatesForOrg(
   organization: string,
   { force }: { force?: boolean } = {},
 ): Promise<number> {
   const experimentIds =
-    await getStoppedExperimentIdsByOrganization(organization);
+    await getUnarchivedExperimentIdsByOrganization(organization);
   for (const experimentId of experimentIds) {
     await queueExperimentQualityScoreUpdate({
       experimentId,

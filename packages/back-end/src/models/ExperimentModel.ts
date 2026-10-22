@@ -11,6 +11,7 @@ import {
   generateTrackingKey,
   getLatestPhaseVariations,
 } from "shared/experiments";
+import { haveAIQualityInputsChanged } from "shared/enterprise";
 import { v4 as uuidv4 } from "uuid";
 import {
   VisualChange,
@@ -86,6 +87,7 @@ import {
   notifyExperimentStatusTransition,
   notifyExperimentBanditWeightsTransition,
 } from "back-end/src/services/experimentNotifications";
+import { queueExperimentQualityScoreUpdate } from "back-end/src/jobs/experimentQualityScoreQueue";
 import { CasConflictError } from "./BaseModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -97,6 +99,9 @@ import {
 import { getFeaturesByIds } from "./FeatureModel";
 
 const COLLECTION = "experiments";
+
+// Lets a burst of edits finish before the AI quality checks re-run
+const AI_QUALITY_EDIT_DELAY_MS = 60 * 1000;
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -1234,19 +1239,19 @@ export async function getExperimentsWithScheduledStatusUpdate(): Promise<
   }));
 }
 
-const stoppedExperimentsFilter = (organization: string) => ({
+const unarchivedExperimentsFilter = (organization: string) => ({
   organization,
-  status: "stopped",
   archived: { $ne: true },
 });
 
-// Candidates for AI quality scoring. IDs only — each per-experiment job
-// re-fetches the doc and no-ops when its cached AI results are still fresh.
-export async function getStoppedExperimentIdsByOrganization(
+// Candidates for AI quality scoring, in any status. IDs only — each
+// per-experiment job re-fetches the doc and no-ops when its cached AI
+// results are still fresh.
+export async function getUnarchivedExperimentIdsByOrganization(
   organization: string,
 ): Promise<string[]> {
   const experiments = await getCollection(COLLECTION)
-    .find(stoppedExperimentsFilter(organization))
+    .find(unarchivedExperimentsFilter(organization))
     .project({ id: true })
     .toArray();
 
@@ -1261,7 +1266,8 @@ export async function getExperimentIdsNeedingProcessResults(
 ): Promise<string[]> {
   const experiments = await getCollection(COLLECTION)
     .find({
-      ...stoppedExperimentsFilter(organization),
+      ...unarchivedExperimentsFilter(organization),
+      status: "stopped",
       type: { $nin: ["multi-armed-bandit", "holdout"] },
       "processResults.version": { $ne: version },
     })
@@ -1271,11 +1277,11 @@ export async function getExperimentIdsNeedingProcessResults(
   return experiments.map((exp) => exp.id);
 }
 
-export function countStoppedExperimentsByOrganization(
+export function countUnarchivedExperimentsByOrganization(
   organization: string,
 ): Promise<number> {
   return getCollection(COLLECTION).countDocuments(
-    stoppedExperimentsFilter(organization),
+    unarchivedExperimentsFilter(organization),
   );
 }
 
@@ -2597,6 +2603,26 @@ const onExperimentUpdate = async ({
   }
 
   notifyAlerts();
+
+  // AI quality checks judge experiments in any status, so re-run them when
+  // what they read changes. The job re-checks every gate and the cache.
+  if (
+    context.hasPremiumFeature("experiment-quality-score") &&
+    context.org.settings?.aiEnabled &&
+    !newExperiment.archived &&
+    haveAIQualityInputsChanged(oldExperiment, newExperiment)
+  ) {
+    queueExperimentQualityScoreUpdate({
+      experimentId: newExperiment.id,
+      organization: newExperiment.organization,
+      delayMs: AI_QUALITY_EDIT_DELAY_MS,
+    }).catch((e) =>
+      logger.error(
+        e,
+        `Failed to queue AI quality checks for ${newExperiment.id}`,
+      ),
+    );
+  }
 
   if (context.org.isVercelIntegration)
     await updateVercelExperimentationItemFromExperiment({

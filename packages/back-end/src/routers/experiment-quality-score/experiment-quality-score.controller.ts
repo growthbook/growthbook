@@ -2,7 +2,7 @@ import type { Response } from "express";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
-  countStoppedExperimentsByOrganization,
+  countUnarchivedExperimentsByOrganization,
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
@@ -18,7 +18,7 @@ function requireQualityScoreFeature(context: ReqContext) {
   }
 }
 
-// Re-runs the AI checks for every stopped experiment in the org, even ones
+// Re-runs the AI checks for every non-archived experiment in the org, even ones
 // whose inputs haven't changed (e.g. after editing the AI prompt)
 export async function postRecalculateExperimentQualityScores(
   req: AuthRequest,
@@ -42,10 +42,10 @@ export async function getExperimentQualityScoreStatus(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const stoppedExperiments = await countStoppedExperimentsByOrganization(
+  const experiments = await countUnarchivedExperimentsByOrganization(
     context.org.id,
   );
-  return res.status(200).json({ status: 200, stoppedExperiments });
+  return res.status(200).json({ status: 200, experiments });
 }
 
 // Set or clear the manual quality-score override for an experiment.

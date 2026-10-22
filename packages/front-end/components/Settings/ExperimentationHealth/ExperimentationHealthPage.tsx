@@ -69,7 +69,7 @@ export default function ExperimentationHealthPage() {
   const [saveMsg, setSaveMsg] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  const { data: statusData } = useApi<{ stoppedExperiments: number }>(
+  const { data: statusData } = useApi<{ experiments: number }>(
     "/experiment-quality-score/status",
   );
   // The org's definition of a good hypothesis seeds the Hypothesis quality
@@ -289,7 +289,7 @@ export default function ExperimentationHealthPage() {
           canRecalculate={canManageOrg}
           aiAvailable={aiEnabled}
           hypothesisDefinition={hypothesisDefinition}
-          stoppedExperiments={statusData?.stoppedExperiments}
+          experimentCount={statusData?.experiments}
         />
       </Box>
 

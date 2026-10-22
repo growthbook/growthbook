@@ -465,6 +465,19 @@ export function getExperimentDigestForCustomRules(
   });
 }
 
+// Whether an edit could change an AI verdict. The built-in AI checks read
+// the hypothesis and goal metrics, and custom rules read the whole digest,
+// which includes both.
+export function haveAIQualityInputsChanged(
+  before: ExperimentForQualityScore,
+  after: ExperimentForQualityScore,
+): boolean {
+  return (
+    getExperimentDigestForCustomRules(before, before.goalMetrics) !==
+    getExperimentDigestForCustomRules(after, after.goalMetrics)
+  );
+}
+
 export function computeAIQualityInputsHash({
   hypothesis,
   goalMetricNames,
