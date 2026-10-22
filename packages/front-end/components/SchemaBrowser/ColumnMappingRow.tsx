@@ -150,6 +150,7 @@ export default function ColumnMappingRow({
             size="sm"
             icon={<PiPlus />}
             onClick={() => setAdding(true)}
+            aria-label={`Add ${label} column`}
           >
             Add column
           </Button>
