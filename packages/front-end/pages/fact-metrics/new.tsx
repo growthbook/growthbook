@@ -195,7 +195,10 @@ export default function NewFactMetricPage() {
       ) : missingCommercialFeature ? (
         <UpgradeMessage
           commercialFeature={missingCommercialFeature}
-          upgradeMessage={`create ${seedMetricType} metrics`}
+          upgradeMessage={`create ${
+            // Match the type picker's "Percentile" label.
+            seedMetricType === "quantile" ? "percentile" : seedMetricType
+          } metrics`}
           showUpgradeModal={() =>
             setUpgradeModal({
               source: `${template ? "metric-template" : "metric-duplicate"}-${missingCommercialFeature}`,

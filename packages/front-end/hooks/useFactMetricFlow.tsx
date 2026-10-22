@@ -90,7 +90,7 @@ export default function useFactMetricFlow(
         ? "Metric creation is disabled."
         : !canCreate
           ? mode === "fact-table"
-            ? "You don't have permission to create a Fact Table in this Project."
+            ? "You don't have permission to create a fact table in this Project."
             : "You don't have permission to add Fact Metrics in this Project."
           : null;
     const params = new URLSearchParams({
@@ -104,7 +104,7 @@ export default function useFactMetricFlow(
       mode,
       disabledReason,
       permissionError: ready && !canCreate ? disabledReason : null,
-      label: mode === "fact-table" ? "Create Fact Table" : "Add Fact Metric",
+      label: mode === "fact-table" ? "Create fact table" : "Add Fact Metric",
       href:
         mode === "page"
           ? `/fact-metrics/new?${params}`
@@ -236,7 +236,7 @@ export default function useFactMetricFlow(
           setError({
             title: "Add Fact Metric",
             message:
-              "You don't have permission to add Fact Metrics to this Fact Table.",
+              "You don't have permission to add Fact Metrics to this fact table.",
           });
           return;
         }
