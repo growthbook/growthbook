@@ -53,6 +53,7 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
+import UITooltip from "@/ui/Tooltip";
 import TextField from "@/ui/TextField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Table, { TableBody } from "@/ui/Table";
@@ -599,22 +600,31 @@ export const ExperimentAssignmentQueryModal = ({
                   Column mapping
                 </Text>
                 {exposureQuery ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon={<PiArrowClockwise />}
-                    onClick={refreshColumns}
-                    loading={refreshingColumns}
-                    disabled={!canRunQueries || !sql}
+                  <UITooltip
+                    content="You don't have permission to run test queries"
+                    enabled={!canRunQueries}
                   >
-                    Refresh columns
-                  </Button>
+                    <span style={{ display: "inline-flex" }}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={<PiArrowClockwise />}
+                        onClick={refreshColumns}
+                        loading={refreshingColumns}
+                        disabled={!canRunQueries || !sql}
+                      >
+                        Refresh columns
+                      </Button>
+                    </span>
+                  </UITooltip>
                 ) : null}
               </Flex>
               {!columnsDetected ? (
                 <Callout status="info" mb="2">
-                  Only the columns this query already uses are listed. Refresh
-                  columns to see everything it returns.
+                  Only the columns this query already uses are listed.
+                  {canRunQueries
+                    ? " Refresh columns to see everything it returns."
+                    : ""}
                 </Callout>
               ) : null}
               {refreshError ? (
