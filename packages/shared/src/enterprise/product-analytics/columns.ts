@@ -9,6 +9,7 @@ import {
   ExplorationConfig,
   ExplorationDataset,
   ProductAnalyticsDimension,
+  datasetHasValues,
 } from "../../validators/product-analytics";
 
 export interface AvailableDimensionColumn {
@@ -170,6 +171,9 @@ export function getRelevantFactTableIds(
       if (initialStepFactTableId) ids.add(initialStepFactTableId);
       break;
     }
+    case "population":
+      dataset.steps.forEach((step) => ids.add(step.source.factTableId));
+      break;
     case "data_source":
     case "sql":
       break;
@@ -253,6 +257,8 @@ export function getAvailableDimensionColumns(
         : null;
       return ft ? getFactTableDimensionColumns(ft) : [];
     }
+    case "population":
+      return [];
     default: {
       const _exhaustive: never = dataset;
       return _exhaustive;
@@ -331,8 +337,8 @@ export function dimensionColumnIsAvailable(
 }
 
 export function getMaxDimensions(dataset: ExplorationDataset): number {
-  // Phase 1 funnels and journeys are capped at a single dimension.
-  if (dataset.type === "funnel" || dataset.type === "journey") return 1;
+  // Phase 1 funnels, journeys, and population previews are capped at a single dimension.
+  if (!datasetHasValues(dataset)) return 1;
   let maxDimensions = 2;
   if (dataset.values.length > 1) {
     maxDimensions -= 1;

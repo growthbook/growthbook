@@ -7,6 +7,7 @@ import {
   funnelStepValidator,
   factMetricValidator,
 } from "./fact-table";
+import { populationStepValidator } from "./population";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -43,6 +44,7 @@ export type DatasetType =
   | "data_source"
   | "funnel"
   | "journey"
+  | "population"
   | "sql";
 
 const metricDatasetValidator = z
@@ -217,6 +219,19 @@ const journeyDatasetValidator = z
   })
   .strict();
 export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;
+
+// Internal only (population editor preview). Step windows are omitted: the
+// preview ignores them, and leaving them out keeps them from busting the cache.
+const populationDatasetValidator = z
+  .object({
+    type: z.literal("population"),
+    unit: z.string().nullable(),
+    steps: z
+      .array(populationStepValidator.omit({ windowSettings: true }))
+      .min(1),
+  })
+  .strict();
+export type PopulationDataset = z.infer<typeof populationDatasetValidator>;
 
 /**
  * The literal values a discriminated union accepts, as an error message.
@@ -424,6 +439,12 @@ export const journeyExplorationConfigValidator =
     dataset: journeyDatasetValidator,
   });
 
+const populationExplorationConfigValidator =
+  baseExplorationConfigValidator.extend({
+    type: z.literal("population"),
+    dataset: populationDatasetValidator,
+  });
+
 const configOptions = [
   metricExplorationConfigValidator,
   factTableExplorationConfigValidator,
@@ -431,6 +452,13 @@ const configOptions = [
   sqlExplorationConfigValidator,
   funnelExplorationConfigValidator,
   journeyExplorationConfigValidator,
+] as const;
+
+// Population previews are stored like any other run but never exposed by the
+// REST API, so they're accepted here and not in `configOptions`.
+const storedConfigOptions = [
+  ...configOptions,
+  populationExplorationConfigValidator,
 ] as const;
 
 // For SQL datasets, we need to know the column types
@@ -509,8 +537,8 @@ export const productAnalyticsExplorationValidator = z.object({
   datasource: z.string(),
   configHash: z.string(),
   valueHashes: z.array(z.string()),
-  config: z.discriminatedUnion("type", configOptions, {
-    error: mustBeOneOf(configOptions, "type"),
+  config: z.discriminatedUnion("type", storedConfigOptions, {
+    error: mustBeOneOf(storedConfigOptions, "type"),
   }),
   result: productAnalyticsResultValidator,
   dateStart: z.string(),
@@ -553,6 +581,7 @@ const internalConfigOptions = [
   sqlExplorationConfigValidator,
   funnelExplorationConfigValidator,
   journeyExplorationConfigValidator,
+  populationExplorationConfigValidator,
 ] as const;
 export const internalExplorationConfigValidator = z.discriminatedUnion(
   "type",
@@ -581,6 +610,9 @@ export type FunnelExplorationConfig = z.infer<
 >;
 export type JourneyExplorationConfig = z.infer<
   typeof journeyExplorationConfigValidator
+>;
+export type PopulationExplorationConfig = z.infer<
+  typeof populationExplorationConfigValidator
 >;
 
 export type MetricDataset = z.infer<typeof internalMetricDatasetValidator>;
@@ -613,6 +645,7 @@ export function datasetHasValues(
   switch (dataset.type) {
     case "funnel":
     case "journey":
+    case "population":
       return false;
     case "metric":
     case "fact_table":
@@ -629,7 +662,7 @@ export function datasetHasValues(
 export function datasetTypeHasValues(
   type: DatasetType,
 ): type is ValuesDataset["type"] {
-  return type !== "funnel" && type !== "journey";
+  return type !== "funnel" && type !== "journey" && type !== "population";
 }
 export type ProductAnalyticsFunnelStepResult = z.infer<
   typeof productAnalyticsFunnelStepResultValidator

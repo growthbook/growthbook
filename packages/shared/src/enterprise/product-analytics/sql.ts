@@ -39,6 +39,7 @@ import {
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
   FunnelDataset,
+  PopulationDataset,
   dateGranularity,
 } from "../../validators/product-analytics";
 import {
@@ -207,6 +208,59 @@ function getMetricsAndUnitsFromValues(
 
   return { metrics, units: Array.from(units) };
 }
+export const POPULATION_PREVIEW_VALUE_ID = "population";
+
+// A population step is a distinct-units count with an optional aggregate
+// filter. The aggregate filter is applied per unit within each dimension
+// bucket (e.g. per day), not across the whole date range.
+function getPopulationFactTableGroup(
+  dataset: PopulationDataset,
+  factTableMap: FactTableMap,
+): FactTableGroup {
+  if (dataset.steps.length !== 1) {
+    throw new Error("Population previews support a single step");
+  }
+  if (!dataset.unit) {
+    throw new Error("Population unit is required");
+  }
+  const [step] = dataset.steps;
+  const factTable = factTableMap.get(step.source.factTableId);
+  if (!factTable) {
+    throw new Error(`Fact table ${step.source.factTableId} not found`);
+  }
+  const metric = createSimpleMetric(
+    "unit_count",
+    null,
+    step.rowFilters,
+    POPULATION_PREVIEW_VALUE_ID,
+  );
+  return {
+    index: 0,
+    factTable: toMinimalFactTable(factTable),
+    units: [dataset.unit],
+    metrics: [
+      {
+        index: 0,
+        unit: dataset.unit,
+        metric: {
+          ...metric,
+          id: POPULATION_PREVIEW_VALUE_ID,
+          numerator: {
+            ...metric.numerator,
+            factTableId: factTable.id,
+            ...(step.aggregateFilter && step.aggregateFilterColumn
+              ? {
+                  aggregateFilter: step.aggregateFilter,
+                  aggregateFilterColumn: step.aggregateFilterColumn,
+                }
+              : {}),
+          },
+        },
+      },
+    ],
+  };
+}
+
 function getFactTableGroups({
   config,
   factTableMap,
@@ -279,6 +333,8 @@ function getFactTableGroups({
           },
         ];
       })();
+    case "population":
+      return [getPopulationFactTableGroup(config.dataset, factTableMap)];
     case "funnel":
     case "journey":
       // Dispatched away from this code path in generateProductAnalyticsSQL;

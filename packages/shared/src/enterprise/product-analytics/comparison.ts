@@ -10,7 +10,10 @@ import { parseWarehouseDate } from "shared/dates";
 import type { FactMetricInterface } from "shared/types/fact-table";
 // Imported from the module rather than the `shared/validators` barrel: the
 // barrel forms a require cycle with this file, leaving the array undefined.
-import { comparisonMode } from "../../validators/product-analytics";
+import {
+  comparisonMode,
+  datasetHasValues,
+} from "../../validators/product-analytics";
 import { calculateProductAnalyticsDateRange, getDateGranularity } from "./sql";
 import {
   buildExplorationColumns,
@@ -921,10 +924,7 @@ export function computeExplorationComparisonPayload(
 
   // Funnels have no metric values but still need comparison.exploration
   // passed through so the funnel table can render previous-period data.
-  if (
-    submittedConfig.dataset?.type === "funnel" ||
-    submittedConfig.dataset?.type === "journey"
-  ) {
+  if (!datasetHasValues(submittedConfig.dataset)) {
     return {
       exploration: comparison,
       previousPeriod,
@@ -933,7 +933,7 @@ export function computeExplorationComparisonPayload(
     };
   }
 
-  const n = submittedConfig.dataset?.values?.length ?? 0;
+  const n = submittedConfig.dataset.values.length;
   const emptyTrends = Array.from({ length: n }, () => null);
 
   if (!primary?.result?.rows?.length || n === 0) {

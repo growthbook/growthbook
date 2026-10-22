@@ -1657,4 +1657,94 @@ describe("productAnalytics", () => {
       ),
     ).toThrow("Timestamp column is required");
   });
+
+  describe("population datasets", () => {
+    const populationConfig = (
+      dataset: Partial<
+        Extract<ExplorationConfig["dataset"], { type: "population" }>
+      > = {},
+    ): ExplorationConfig => ({
+      type: "population",
+      datasource: "ds_1",
+      chartType: "bar",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        { dimensionType: "date", column: null, dateGranularity: "day" },
+      ],
+      dataset: {
+        type: "population",
+        unit: "user_id",
+        steps: [
+          {
+            source: { type: "factTable", factTableId: "orders" },
+            rowFilters: [{ operator: ">", column: "revenue", values: ["10"] }],
+          },
+        ],
+        ...dataset,
+      },
+    });
+
+    it("counts each matching unit once per date bucket", () => {
+      const { sql, orderedMetricIds } = generateProductAnalyticsSQL(
+        populationConfig(),
+        factTableMap,
+        metricMap,
+        helpers,
+        datasource,
+      );
+
+      expect(orderedMetricIds).toEqual(["population"]);
+      expect(sql).toMatch(
+        /SELECT\s+unit0,\s+dimension0,\s+MAX\(m0\) AS m0\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit0,\s+dimension0/,
+      );
+      expect(sql).toMatch(
+        /CASE\s+WHEN \(\(revenue > 10\)\) THEN 1\s+ELSE NULL\s+END AS m0/,
+      );
+    });
+
+    it("applies the aggregate filter per unit within each date bucket", () => {
+      const { sql } = generateProductAnalyticsSQL(
+        populationConfig({
+          steps: [
+            {
+              source: { type: "factTable", factTableId: "orders" },
+              rowFilters: [],
+              aggregateFilter: ">=3",
+              aggregateFilterColumn: "$$count",
+            },
+          ],
+        }),
+        factTableMap,
+        metricMap,
+        helpers,
+        datasource,
+      );
+
+      expect(sql).toMatch(
+        /SELECT\s+unit0,\s+dimension0,\s+CASE\s+WHEN \(SUM\(m0\) >= 3\) THEN 1\s+ELSE NULL\s+END AS m0\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit0,\s+dimension0/,
+      );
+    });
+
+    it("rejects multi-step populations", () => {
+      const step = {
+        source: { type: "factTable" as const, factTableId: "orders" },
+        rowFilters: [],
+      };
+      expect(() =>
+        generateProductAnalyticsSQL(
+          populationConfig({ steps: [step, step] }),
+          factTableMap,
+          metricMap,
+          helpers,
+          datasource,
+        ),
+      ).toThrow("Population previews support a single step");
+    });
+  });
 });

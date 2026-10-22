@@ -5,7 +5,12 @@ import {
   ProductAnalyticsExploration,
   ExplorationCacheQuery,
   factMetricValidator,
+  PopulationStep,
 } from "shared/validators";
+import {
+  getPopulationFactTableIds,
+  getPopulationRuleViolations,
+} from "shared/populations";
 import {
   calculateProductAnalyticsDateRange,
   encodeExplorationConfig,
@@ -74,6 +79,14 @@ function withRequestedDisplayConfig(
 // result. Bounds request latency for heavy funnel/metric queries over large
 // event tables.
 const PRODUCT_ANALYTICS_SYNC_TIMEOUT_MS = 5000;
+
+const NO_POPULATION_WINDOW: PopulationStep["windowSettings"] = {
+  type: "",
+  delayValue: 0,
+  delayUnit: "days",
+  windowValue: 0,
+  windowUnit: "days",
+};
 
 export async function runProductAnalyticsExploration(
   context: ReqContext | ApiReqContext,
@@ -374,6 +387,41 @@ export async function runProductAnalyticsExploration(
         `Journey unit "${dataset.unit}" is not a userIdType on the Fact Table`,
       );
     }
+  } else if (dataset.type === "population") {
+    if (dataset.steps.length !== 1) {
+      throw new BadRequestError("Population previews support a single step");
+    }
+    if (!dataset.unit) {
+      throw new BadRequestError("Population unit is required");
+    }
+    if (config.chartType === "rawTable") {
+      throw new BadRequestError(
+        "Population previews do not support raw tables",
+      );
+    }
+    if (config.dimensions.some((d) => d.dimensionType !== "date")) {
+      throw new BadRequestError(
+        "Population previews can only be grouped by date",
+      );
+    }
+    const steps: PopulationStep[] = dataset.steps.map((step) => ({
+      ...step,
+      windowSettings: NO_POPULATION_WINDOW,
+    }));
+    const factTables = await getFactTablesByIds(
+      context,
+      getPopulationFactTableIds(steps),
+    );
+    factTables.forEach((ft) => factTableMap.set(ft.id, ft));
+    const violations = getPopulationRuleViolations({
+      datasource: datasource.id,
+      userIdTypes: [dataset.unit],
+      steps,
+      factTables,
+    });
+    if (violations.length) {
+      throw new BadRequestError(violations.join(" "));
+    }
   } else {
     throw new BadRequestError("Invalid dataset type");
   }
@@ -449,17 +497,22 @@ export async function runProductAnalyticsExploration(
   return withRequestedDisplayConfig(queryRunner.model, config);
 }
 
-const DATASET_TYPE_PATH: Record<ExplorationConfig["dataset"]["type"], string> =
-  {
-    metric: "metrics",
-    fact_table: "fact-table",
-    data_source: "data-source",
-    sql: "sql",
-    funnel: "funnel",
-    journey: "journey",
-  };
+const DATASET_TYPE_PATH: Record<
+  Exclude<ExplorationConfig["dataset"]["type"], "population">,
+  string
+> = {
+  metric: "metrics",
+  fact_table: "fact-table",
+  data_source: "data-source",
+  sql: "sql",
+  funnel: "funnel",
+  journey: "journey",
+};
 
 export function getProductAnalyticsExplorationUrl(config: ExplorationConfig) {
+  if (config.dataset.type === "population") {
+    throw new Error("Population previews have no explorer page");
+  }
   const baseUrl = `${APP_ORIGIN}/product-analytics/explore/${DATASET_TYPE_PATH[config.dataset.type]}`;
   return `${baseUrl}?config=${encodeURIComponent(encodeExplorationConfig(config))}`;
 }
