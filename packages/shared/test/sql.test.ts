@@ -229,9 +229,9 @@ describe("stripTrailingSemicolon", () => {
       ";" + " ".repeat(100000) + "x",
     ];
 
-    it.each(pathological.map((sql) => [sql.slice(0, 20), sql]))(
-      "finishes quickly for %j...",
-      (_label, sql) => {
+    it.each(pathological.map((sql) => ({ label: sql.slice(0, 20), sql })))(
+      "finishes quickly for $label...",
+      ({ sql }) => {
         const start = Date.now();
         // Nothing trailing to strip: x follows every semicolon. Compare as a
         // boolean so a failure does not print a megabyte of SQL.
