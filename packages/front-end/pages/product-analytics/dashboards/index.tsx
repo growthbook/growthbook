@@ -66,6 +66,9 @@ export default function DashboardsPage() {
     DashboardInterface | undefined
   >(undefined);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [defaultDashboardError, setDefaultDashboardError] = useState<
+    string | null
+  >(null);
   const [_blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >([]);
@@ -170,13 +173,22 @@ export default function DashboardsPage() {
     projectId: string,
     dashId: string | null,
   ) => {
-    await apiCall(`/projects/${projectId}/default-dashboard`, {
-      method: "PUT",
-      body: JSON.stringify({
-        defaultDashboardId: dashId,
-      }),
-    });
-    mutateDefinitions();
+    setDefaultDashboardError(null);
+    try {
+      await apiCall(`/projects/${projectId}/default-dashboard`, {
+        method: "PUT",
+        body: JSON.stringify({
+          defaultDashboardId: dashId,
+        }),
+      });
+      mutateDefinitions();
+    } catch (e) {
+      setDefaultDashboardError(
+        e instanceof Error
+          ? e.message
+          : "Failed to update the default dashboard.",
+      );
+    }
   };
 
   if (loading || saving) return <LoadingOverlay />;
@@ -326,6 +338,12 @@ export default function DashboardsPage() {
                 View Docs <FaArrowRight size={10} />
               </DocLink>
             </p>
+
+            {defaultDashboardError && (
+              <Callout status="error" mb="3">
+                {defaultDashboardError}
+              </Callout>
+            )}
 
             {error ? (
               <Callout status="error">
