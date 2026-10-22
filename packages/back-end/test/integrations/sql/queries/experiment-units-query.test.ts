@@ -15,10 +15,12 @@ describe("getExperimentUnitsQuery", () => {
           exposureQuery: {
             query: "SELECT * FROM exposures",
             identifierType: "user_id",
-            userIdColumns: { user_id: "uid" },
-            timestampColumn: "received_at",
-            experimentIdColumn: "exp_key",
-            variationIdColumn: "variant",
+            columnMapping: {
+              userIdColumns: { user_id: "uid" },
+              timestampColumn: "received_at",
+              experimentIdColumn: "exp_key",
+              variationIdColumn: "variant",
+            },
           },
           startDate: new Date("2026-01-01T00:00:00Z"),
           endDate: new Date("2026-02-01T00:00:00Z"),

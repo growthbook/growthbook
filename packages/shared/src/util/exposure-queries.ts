@@ -1,6 +1,5 @@
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
-import pick from "lodash/pick";
 import {
   DataSourceSettings,
   ExposureQuery,
@@ -33,57 +32,45 @@ export function getExposureQueryIdentifierTypes(
     : [query.userIdType].filter(Boolean);
 }
 
-export const EXPOSURE_QUERY_COLUMN_MAPPING_FIELDS = [
-  "userIdColumns",
-  "timestampColumn",
-  "experimentIdColumn",
-  "variationIdColumn",
-  "experimentNameColumn",
-  "variationNameColumn",
-] as const;
-
-export const pickExposureQueryColumnMapping = (
-  query: ExposureQueryColumnMapping,
-): ExposureQueryColumnMapping =>
-  pick(query, EXPOSURE_QUERY_COLUMN_MAPPING_FIELDS);
+type WithColumnMapping = { columnMapping?: ExposureQueryColumnMapping };
 
 // An unset mapping falls back to the canonical name, so SQL that aliases its
 // columns to those names needs no mapping.
 export function getExposureQueryExperimentIdColumn(
-  query: ExposureQueryColumnMapping,
+  query: WithColumnMapping,
 ): string {
-  return query.experimentIdColumn || "experiment_id";
+  return query.columnMapping?.experimentIdColumn || "experiment_id";
 }
 
 export function getExposureQueryVariationIdColumn(
-  query: ExposureQueryColumnMapping,
+  query: WithColumnMapping,
 ): string {
-  return query.variationIdColumn || "variation_id";
+  return query.columnMapping?.variationIdColumn || "variation_id";
 }
 
 export function getExposureQueryTimestampColumn(
-  query: ExposureQueryColumnMapping,
+  query: WithColumnMapping,
 ): string {
-  return query.timestampColumn || "timestamp";
+  return query.columnMapping?.timestampColumn || "timestamp";
 }
 
 export function getExposureQueryExperimentNameColumn(
-  query: ExposureQueryColumnMapping,
+  query: WithColumnMapping,
 ): string {
-  return query.experimentNameColumn || "experiment_name";
+  return query.columnMapping?.experimentNameColumn || "experiment_name";
 }
 
 export function getExposureQueryVariationNameColumn(
-  query: ExposureQueryColumnMapping,
+  query: WithColumnMapping,
 ): string {
-  return query.variationNameColumn || "variation_name";
+  return query.columnMapping?.variationNameColumn || "variation_name";
 }
 
 export function getExposureQueryIdentifierColumn(
-  query: ExposureQueryColumnMapping,
+  query: WithColumnMapping,
   identifierType: string,
 ): string {
-  return query.userIdColumns?.[identifierType] || identifierType;
+  return query.columnMapping?.userIdColumns?.[identifierType] || identifierType;
 }
 
 const PLAIN_COLUMN_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -91,16 +78,17 @@ const PLAIN_COLUMN_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 // Mapped columns are interpolated unquoted. On warehouses that fold unquoted
 // names to lowercase, a capital letter means the column was created quoted.
 export function findColumnNeedingQuotes(
-  query: ExposureQueryColumnMapping,
+  query: WithColumnMapping,
   fold: UnquotedIdentifierFold | undefined,
 ): string | null {
+  const mapping = query.columnMapping ?? {};
   const mapped = [
-    query.experimentIdColumn,
-    query.variationIdColumn,
-    query.timestampColumn,
-    query.experimentNameColumn,
-    query.variationNameColumn,
-    ...Object.values(query.userIdColumns ?? {}),
+    mapping.experimentIdColumn,
+    mapping.variationIdColumn,
+    mapping.timestampColumn,
+    mapping.experimentNameColumn,
+    mapping.variationNameColumn,
+    ...Object.values(mapping.userIdColumns ?? {}),
   ];
   return (
     mapped.find(
@@ -592,14 +580,14 @@ export function resolveExposureQueryForAnalysis(
     ExposureQuery,
     "id" | "name" | "query" | "userIdType" | "userIdTypes"
   > &
-    ExposureQueryColumnMapping,
+    WithColumnMapping,
   storedIdentifierType: string | undefined,
 ): ResolvedExposureQuery {
   assertExposureQueryDeclaresIdentifierType(query, storedIdentifierType);
   return {
     query: query.query,
     identifierType: resolveAnalysisIdentifierType(query, storedIdentifierType),
-    ...pickExposureQueryColumnMapping(query),
+    columnMapping: query.columnMapping,
   };
 }
 

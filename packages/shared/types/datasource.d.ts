@@ -197,18 +197,7 @@ export interface ExposureQuery {
   managedBy?: "" | "api";
   /** Projects this query is scoped to. Empty = all of the data source's projects; when set, a subset of them. */
   projects?: string[];
-  /**
-   * Column-role mappings for SQL that doesn't alias its columns to the canonical
-   * role names (`experiment_id`, `variation_id`, `timestamp`, and each
-   * identifier type's own name). Only remapped roles are stored.
-   */
-  userIdColumns?: Record<string, string>;
-  timestampColumn?: string;
-  experimentIdColumn?: string;
-  variationIdColumn?: string;
-  // Only read when hasNameCol is set
-  experimentNameColumn?: string;
-  variationNameColumn?: string;
+  columnMapping?: ExposureQueryColumnMapping;
   /**
    * Columns the query returned when it was last tested in the editor, so the
    * column mapping can be edited without re-running the query.
@@ -216,15 +205,20 @@ export interface ExposureQuery {
   columns?: Pick<DetectedColumn, "column" | "datatype">[];
 }
 
-export type ExposureQueryColumnMapping = Pick<
-  ExposureQuery,
-  | "userIdColumns"
-  | "timestampColumn"
-  | "experimentIdColumn"
-  | "variationIdColumn"
-  | "experimentNameColumn"
-  | "variationNameColumn"
->;
+/**
+ * The columns an assignment query's roles read from, for SQL that doesn't alias
+ * them to the canonical names (`experiment_id`, `variation_id`, `timestamp`,
+ * and each identifier type's own name). Only remapped roles are stored.
+ */
+export interface ExposureQueryColumnMapping {
+  userIdColumns?: Record<string, string>;
+  timestampColumn?: string;
+  experimentIdColumn?: string;
+  variationIdColumn?: string;
+  // Only read when hasNameCol is set
+  experimentNameColumn?: string;
+  variationNameColumn?: string;
+}
 
 export interface FeatureUsageQuery {
   id: string;

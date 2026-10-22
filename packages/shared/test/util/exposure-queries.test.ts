@@ -934,19 +934,25 @@ describe("getDataSourceSaveChanges", () => {
 
 describe("findColumnNeedingQuotes", () => {
   it("rejects capitals only where unquoted names fold to lowercase", () => {
-    const query = { userIdColumns: { user_id: "userId" } };
+    const query = { columnMapping: { userIdColumns: { user_id: "userId" } } };
     expect(findColumnNeedingQuotes(query, "lower")).toBe("userId");
     // Snowflake's driver lowercases every name, so case says nothing there
     expect(findColumnNeedingQuotes(query, "upper")).toBeNull();
     expect(findColumnNeedingQuotes(query, undefined)).toBeNull();
     expect(
-      findColumnNeedingQuotes({ timestampColumn: "created_at" }, "lower"),
+      findColumnNeedingQuotes(
+        { columnMapping: { timestampColumn: "created_at" } },
+        "lower",
+      ),
     ).toBeNull();
   });
 
   it("rejects names that need quoting on every warehouse", () => {
     expect(
-      findColumnNeedingQuotes({ experimentNameColumn: "exp name" }, undefined),
+      findColumnNeedingQuotes(
+        { columnMapping: { experimentNameColumn: "exp name" } },
+        undefined,
+      ),
     ).toBe("exp name");
   });
 });

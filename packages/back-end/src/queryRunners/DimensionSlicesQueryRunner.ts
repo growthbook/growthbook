@@ -8,10 +8,7 @@ import {
 } from "shared/types/dimension";
 import { Queries } from "shared/types/query";
 import { ExposureQuery } from "shared/types/datasource";
-import {
-  getExposureQueryIdentifierTypes,
-  pickExposureQueryColumnMapping,
-} from "shared/util";
+import { getExposureQueryIdentifierTypes } from "shared/util";
 import {
   getDimensionSlicesById,
   updateDimensionSlices,
@@ -74,9 +71,7 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
             identifierType: exposureQuery
               ? getDimensionSlicesIdentifierType(exposureQuery)
               : "",
-            ...(exposureQuery
-              ? pickExposureQueryColumnMapping(exposureQuery)
-              : {}),
+            columnMapping: exposureQuery?.columnMapping,
           },
           dimensions: dimensions,
           lookbackDays: params.lookbackDays,

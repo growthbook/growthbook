@@ -46,8 +46,10 @@ describe("getPastExperimentQuery", () => {
         query: "SELECT * FROM t",
         dimensions: [],
         hasNameCol: true,
-        experimentNameColumn: "exp_title",
-        variationNameColumn: "variant_title",
+        columnMapping: {
+          experimentNameColumn: "exp_title",
+          variationNameColumn: "variant_title",
+        },
       },
       ["user_id"],
       new Date("2026-01-01T00:00:00Z"),

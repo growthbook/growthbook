@@ -4,7 +4,6 @@ import { PiArrowClockwise, PiArrowLeft } from "react-icons/pi";
 import uniqId from "uniqid";
 import omit from "lodash/omit";
 import {
-  EXPOSURE_QUERY_COLUMN_MAPPING_FIELDS,
   findColumnNeedingQuotes,
   getExposureQueryExperimentIdColumn,
   getExposureQueryExperimentNameColumn,
@@ -17,6 +16,7 @@ import {
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
+  ExposureQueryColumnMapping,
 } from "shared/types/datasource";
 import { DetectedColumn } from "shared/types/fact-table";
 import { getDataSourceSqlDialect } from "shared/dialects";
@@ -415,9 +415,31 @@ export const ExperimentAssignmentQueryModal = ({
       userIdColumns,
     );
 
+    // Only roles whose column isn't the canonical name are stored
+    const columnMapping: ExposureQueryColumnMapping = Object.fromEntries(
+      Object.entries({
+        userIdColumns: Object.keys(remappedUserIds).length
+          ? remappedUserIds
+          : undefined,
+        timestampColumn: timestamp !== "timestamp" ? timestamp : undefined,
+        experimentIdColumn:
+          experimentId !== "experiment_id" ? experimentId : undefined,
+        variationIdColumn:
+          variationId !== "variation_id" ? variationId : undefined,
+        experimentNameColumn:
+          hasNameCol && experimentName !== "experiment_name"
+            ? experimentName
+            : undefined,
+        variationNameColumn:
+          hasNameCol && variationName !== "variation_name"
+            ? variationName
+            : undefined,
+      }).filter(([, value]) => value !== undefined),
+    );
+
     const saved: ExposureQuery = {
-      // Keep fields this modal doesn't edit, but not stale mappings.
-      ...omit(exposureQuery ?? {}, EXPOSURE_QUERY_COLUMN_MAPPING_FIELDS),
+      // Keep fields this modal doesn't edit, but not a stale mapping.
+      ...omit(exposureQuery ?? {}, "columnMapping"),
       id: exposureQuery?.id ?? uniqId("exq_"),
       name,
       description,
@@ -439,22 +461,7 @@ export const ExperimentAssignmentQueryModal = ({
             })),
           }
         : {}),
-      ...(Object.keys(remappedUserIds).length
-        ? { userIdColumns: remappedUserIds }
-        : {}),
-      ...(timestamp !== "timestamp" ? { timestampColumn: timestamp } : {}),
-      ...(experimentId !== "experiment_id"
-        ? { experimentIdColumn: experimentId }
-        : {}),
-      ...(variationId !== "variation_id"
-        ? { variationIdColumn: variationId }
-        : {}),
-      ...(hasNameCol && experimentName !== "experiment_name"
-        ? { experimentNameColumn: experimentName }
-        : {}),
-      ...(hasNameCol && variationName !== "variation_name"
-        ? { variationNameColumn: variationName }
-        : {}),
+      ...(Object.keys(columnMapping).length ? { columnMapping } : {}),
     };
 
     const quotedColumn = findColumnNeedingQuotes(

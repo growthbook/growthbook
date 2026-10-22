@@ -1969,10 +1969,12 @@ describe("getExperimentExposuresQuery", () => {
       exposureQuery: {
         query: "SELECT * FROM t",
         identifierType: "user_id",
-        userIdColumns: { user_id: "uid" },
-        timestampColumn: "ts",
-        experimentIdColumn: "eid",
-        variationIdColumn: "vid",
+        columnMapping: {
+          userIdColumns: { user_id: "uid" },
+          timestampColumn: "ts",
+          experimentIdColumn: "eid",
+          variationIdColumn: "vid",
+        },
       },
       rowFilters: [{ operator: "=", column: "variation_id", values: ["1"] }],
     });

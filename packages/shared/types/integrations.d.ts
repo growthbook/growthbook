@@ -596,7 +596,8 @@ type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
 export type ResolvedExposureQuery = {
   query: string;
   identifierType: string;
-} & ExposureQueryColumnMapping;
+  columnMapping?: ExposureQueryColumnMapping;
+};
 
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   metric: MetricInterface;
