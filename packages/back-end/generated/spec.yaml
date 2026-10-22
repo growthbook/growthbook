@@ -103,32 +103,36 @@ info:
     next to the key.
 
 
-    Each key's settings under `Settings -> API Keys`:
+    Each key acts as **System** (the default) or **User**, set under `Settings
+    -> API Keys`:
 
 
-    - **Header**: **Optional** (the default) uses the header when it's sent,
-    **Required** rejects requests without it, and **Rejected** rejects requests
-    that send it, each with a 400.
+    - **System**: the header is optional. The key acts as itself, with its own
+    permissions, and the named member is only recorded in history.
 
-    - **Permissions**, when a member is named:
-      - **Assume member's role** (the default): the request acts as that member, with only what both the key and the member can do, so the header can narrow a key but never widen it. Drafts, owners, `mine` filters and reviews are the member's. The member's rights over their own drafts, comments and verdicts apply only where the key's own role allows the same action.
-      - **Use key's role**: the key acts as itself, with its own permissions, and the name is only recorded in history. Drafts, verdicts and ownership are the key's, as when no member is named.
+    - **User**: a request without the header is rejected with a 400. The request
+    acts as the named member, with only what both the key and the member can do,
+    so the header can narrow a key but never widen it. Drafts, owners, `mine`
+    filters and reviews are the member's. The member's rights over their own
+    drafts, comments and verdicts apply only where the key's own role allows the
+    same action.
 
-    A key that names no one, or uses its own role, acts as itself: it can draft
-    and review with its own permissions, and its verdicts are judged on its
-    role. A key belongs to no team, so its approval never satisfies a rule that
-    requires approval from a team. No one can rule on a draft they created, and
-    a key acting as itself can't rule on a draft it created or edited in either
-    mode. An approval a key gives while assuming a member counts only where both
-    the key and the member could approve, and stops counting if the key is
-    disabled, expires or is deleted. Because the header isn't verified, whoever
-    holds the key can act as any member. A value that does not match a member of
-    the organization is rejected with a 400. A create request that omits `owner`
-    defaults it to the member whose role the key assumes. Scheduled and
-    auto-publishes run later with the permissions of the request that armed
-    them, and don't run if that member has left the organization, the key has
-    expired, or the key no longer assumes members' roles. Personal Access Tokens
-    and OAuth tokens already act as their user and reject the header.
+
+    A System key, or any key that names no one, acts as itself: it can draft and
+    review with its own permissions, and its verdicts are judged on its role. A
+    key belongs to no team, so its approval never satisfies a rule that requires
+    approval from a team. No one can rule on a draft they created, and a key
+    acting as itself can't rule on a draft it created or edited. An approval a
+    User key gives counts only where both the key and the member could approve,
+    and stops counting if the key is disabled, expires or is deleted. Because
+    the header isn't verified, whoever holds the key can act as any member. A
+    value that does not match a member of the organization is rejected with a
+    400. A create request that omits `owner` defaults it to the member a User
+    key names. Scheduled and auto-publishes run later with the permissions of
+    the request that armed them, and don't run if that member has left the
+    organization, the key has expired, or the key no longer acts as User.
+    Personal Access Tokens and OAuth tokens already act as their user and reject
+    the header.
 
 
     ```bash
@@ -9523,6 +9527,14 @@ paths:
                     you to. If a check blocks you, stop and ask a person instead
                     of working around it.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
               required:
                 - id
                 - valueType
@@ -9543,6 +9555,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -10445,6 +10479,14 @@ paths:
                     you to. If a check blocks you, stop and ask a person instead
                     of working around it.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -10469,6 +10511,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -12586,6 +12650,14 @@ paths:
                     you to. If a check blocks you, stop and ask a person instead
                     of working around it.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
               required:
                 - rule
               additionalProperties: false
@@ -12604,6 +12676,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -13330,6 +13424,14 @@ paths:
                     you to. If a check blocks you, stop and ask a person instead
                     of working around it.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
               required:
                 - rule
               additionalProperties: false
@@ -13348,6 +13450,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -18455,9 +18579,10 @@ paths:
         Returns the latest contextual-bandit stats engine output (per-context
         responses tagged with their leaf, the per-leaf targeting conditions, and
         per-leaf aggregated stats), the overall (marginal) variation weights
-        across all contexts, the SRM of the most recent run, and the status of
-        the most recent snapshot run for the contextual bandit. Same payload the
-        GrowthBook UI uses to render the contextual bandit results table.
+        across all contexts, the health checks (traffic, SRM, multiple
+        exposures) computed by that same run, and the status of the most recent
+        snapshot run for the contextual bandit. Same payload the GrowthBook UI
+        uses to render the contextual bandit results and health tabs.
       tags:
         - ContextualBandits
       parameters:
@@ -18739,11 +18864,143 @@ paths:
                                 - variations
                                 - contexts
                               additionalProperties: false
+                          snapshotId:
+                            type: string
+                          dateCreated:
+                            type: string
+                          health:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  variations:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        variationId:
+                                          type: string
+                                        variationName:
+                                          type: string
+                                        weight:
+                                          type: number
+                                      required:
+                                        - variationId
+                                        - weight
+                                      additionalProperties: false
+                                  traffic:
+                                    anyOf:
+                                      - type: object
+                                        properties:
+                                          overall:
+                                            type: object
+                                            properties:
+                                              name:
+                                                type: string
+                                              srm:
+                                                type: number
+                                              variationUnits:
+                                                type: array
+                                                items:
+                                                  type: number
+                                            required:
+                                              - name
+                                              - srm
+                                              - variationUnits
+                                            additionalProperties: false
+                                          dimension:
+                                            type: object
+                                            propertyNames:
+                                              type: string
+                                            additionalProperties:
+                                              type: array
+                                              items:
+                                                type: object
+                                                properties:
+                                                  name:
+                                                    type: string
+                                                  srm:
+                                                    type: number
+                                                  variationUnits:
+                                                    type: array
+                                                    items:
+                                                      type: number
+                                                required:
+                                                  - name
+                                                  - srm
+                                                  - variationUnits
+                                                additionalProperties: false
+                                          error:
+                                            type: string
+                                        required:
+                                          - overall
+                                          - dimension
+                                        additionalProperties: false
+                                      - type: 'null'
+                                  srm:
+                                    anyOf:
+                                      - type: object
+                                        properties:
+                                          statistic:
+                                            type: number
+                                          pValue:
+                                            type: number
+                                          degreesOfFreedom:
+                                            type: integer
+                                            minimum: 0
+                                          latestPeriod:
+                                            type: object
+                                            properties:
+                                              banditVersion:
+                                                type: string
+                                              leaves:
+                                                type: array
+                                                items:
+                                                  type: object
+                                                  properties:
+                                                    leafId:
+                                                      type: string
+                                                    observed:
+                                                      type: array
+                                                      items:
+                                                        type: number
+                                                    expected:
+                                                      type: array
+                                                      items:
+                                                        type: number
+                                                  required:
+                                                    - leafId
+                                                    - observed
+                                                    - expected
+                                                  additionalProperties: false
+                                            required:
+                                              - banditVersion
+                                              - leaves
+                                            additionalProperties: false
+                                        required:
+                                          - statistic
+                                          - pValue
+                                          - degreesOfFreedom
+                                        additionalProperties: false
+                                      - type: 'null'
+                                  multipleExposures:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                required:
+                                  - variations
+                                  - traffic
+                                  - srm
+                                  - multipleExposures
+                                additionalProperties: false
+                              - type: 'null'
                         required:
                           - attributes
                           - sseTrajectory
                           - overall
                           - leaves
+                          - snapshotId
+                          - dateCreated
+                          - health
                         additionalProperties: false
                       - type: 'null'
                   latest:
@@ -18794,23 +19051,6 @@ paths:
                             type: string
                           triggeredBy:
                             type: string
-                          srm:
-                            anyOf:
-                              - type: object
-                                properties:
-                                  statistic:
-                                    type: number
-                                  pValue:
-                                    type: number
-                                  degreesOfFreedom:
-                                    type: integer
-                                    minimum: 0
-                                required:
-                                  - statistic
-                                  - pValue
-                                  - degreesOfFreedom
-                                additionalProperties: false
-                              - type: 'null'
                         required:
                           - id
                           - status
@@ -18821,7 +19061,6 @@ paths:
                           - multipleExposures
                           - type
                           - triggeredBy
-                          - srm
                         additionalProperties: false
                       - type: 'null'
                 required:
@@ -18967,6 +19206,14 @@ paths:
                     Publish the resulting revision immediately instead of
                     leaving it as a draft.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
                 draftVersion:
                   description: >-
                     Add the rule to this existing draft revision instead of
@@ -18999,6 +19246,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -19094,6 +19363,14 @@ paths:
                     Publish the resulting revision immediately instead of
                     leaving it as a draft.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
                 draftVersion:
                   description: >-
                     Update the rule on this existing draft revision instead of
@@ -19128,6 +19405,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -53868,6 +54167,114 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/cancel' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandits/{id}/visual-changesets:
+    post:
+      operationId: postContextualBanditVisualChangesets
+      summary: Create a visual changeset for a Contextual Bandit
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Contextual Bandit id
+          schema:
+            description: The Contextual Bandit id
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                editorUrl:
+                  description: >-
+                    URL of the page opened in the visual editor when creating
+                    this changeset
+                  type: string
+                urlPatterns:
+                  description: >-
+                    URL patterns that determine which pages this visual
+                    changeset applies to
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        type: boolean
+                      type:
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                    required:
+                      - type
+                      - pattern
+                    additionalProperties: {}
+              required:
+                - editorUrl
+                - urlPatterns
+              additionalProperties: {}
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  visualChangeset:
+                    $ref: '#/components/schemas/VisualChangeset'
+                required:
+                  - visualChangeset
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/visual-changesets'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listContextualBanditVisualChangesets
+      summary: List visual changesets for a Contextual Bandit
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Contextual Bandit id
+          schema:
+            description: The Contextual Bandit id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  visualChangesets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/VisualChangeset'
+                required:
+                  - visualChangesets
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/visual-changesets'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandit-queries/{id}:
     get:
       operationId: getContextualBanditQuery
@@ -76134,6 +76541,7 @@ components:
                   - override.draftLimit
                   - override.skipChecklist
                   - override.bypassDuplicateKeyCheck
+                  - override.unscopedRules
                   - other.write
               environments:
                 type: array
@@ -81300,6 +81708,33 @@ components:
         stageDateStarted:
           type: string
           format: date-time
+        analysisSummary:
+          type: object
+          properties:
+            snapshotId:
+              type: string
+            health:
+              type: object
+              properties:
+                srm:
+                  anyOf:
+                    - type: number
+                    - type: 'null'
+                totalUsers:
+                  type: number
+                multipleExposures:
+                  type: number
+                variationIds:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - srm
+                - totalUsers
+              additionalProperties: false
+          required:
+            - snapshotId
+          additionalProperties: false
         autoSnapshots:
           type: boolean
         nextSnapshotAttempt:
@@ -85145,6 +85580,7 @@ components:
                       - override.draftLimit
                       - override.skipChecklist
                       - override.bypassDuplicateKeyCheck
+                      - override.unscopedRules
                       - other.write
                   environments:
                     type: array
@@ -85945,6 +86381,16 @@ components:
       required:
         - pattern
         - example
+      additionalProperties: false
+    ApiErrorUnscopedRuleDetails:
+      type: object
+      properties:
+        ruleIds:
+          type: array
+          items:
+            type: string
+      required:
+        - ruleIds
       additionalProperties: false
     ApiErrorCustomHookErrorDetails:
       type: object

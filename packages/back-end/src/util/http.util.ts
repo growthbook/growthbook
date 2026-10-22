@@ -10,6 +10,13 @@ import {
 
 const DEFAULT_WEBHOOK_TIMEOUT_SECONDS = 30;
 
+// Non-regex equivalent of `.replace(/\/+$/, "")`, which is polynomial on long runs of slashes
+export function trimTrailingSlashes(str: string): string {
+  let end = str.length;
+  while (end > 0 && str.charCodeAt(end - 1) === 47 /* "/" */) end--;
+  return str.slice(0, end);
+}
+
 // Clamped at read time too, so lowering MAX_WEBHOOK_TIMEOUT_SECONDS later still applies to stored webhooks
 export function getWebhookTimeoutMs(timeoutSeconds?: number | null) {
   return (

@@ -10,6 +10,7 @@ import {
   booleanQueryField,
   schemaValidationQueryFields,
   publishOverrideBodyFields,
+  allowUnscopedRulesBodyField,
   bypassApprovalPublishBodyField,
   ignoreWarningsBodyField,
   publishBypassedGatesField,
@@ -420,6 +421,7 @@ export const postFeatureRevisionV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions",
   confirmation: ["feature.draft"] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionV2",
   summary: "Create a draft revision",
   description:
@@ -1097,6 +1099,7 @@ export const postFeatureRevisionRuleAddV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rules",
   confirmation: ["feature.draft"] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionRuleAddV2",
   summary: "Add a rule to a draft revision",
   description:
@@ -1118,11 +1121,13 @@ export const postFeatureRevisionRuleAddV2Validator = {
         ),
       ...newDraftMetadataFields,
       ...publishOverrideBodyFields,
+      allowUnscopedRules: allowUnscopedRulesBodyField,
     })
     .strict(),
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const postFeatureRevisionRulesReorderV2Validator = {
@@ -1151,6 +1156,7 @@ export const putFeatureRevisionRuleV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId",
   confirmation: ["feature.draft"] as const,
+  confirmationInHandler: true,
   operationId: "putFeatureRevisionRuleV2",
   summary: "Update a rule in a draft revision",
   description:
@@ -1172,11 +1178,13 @@ export const putFeatureRevisionRuleV2Validator = {
         ),
       ...newDraftMetadataFields,
       ...publishOverrideBodyFields,
+      allowUnscopedRules: allowUnscopedRulesBodyField,
     })
     .strict(),
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const deleteFeatureRevisionRuleV2Validator = {

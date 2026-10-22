@@ -456,7 +456,11 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
         }
       },
       mutateDefinitions: async (changes) => {
-        await mutate(Object.assign({ ...data }, changes), true);
+        if (changes) {
+          await mutate(Object.assign({ ...data }, changes), false);
+        }
+        // Passing cache data to SWR starts revalidation without awaiting it.
+        await mutate();
       },
     };
   }

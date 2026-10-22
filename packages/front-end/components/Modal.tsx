@@ -18,6 +18,7 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import UITooltip from "@/ui/Tooltip";
 import { getErrorDetails } from "@/services/apiCallError";
+import { StopSubmit } from "@/ui/Modal/StopSubmit";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -482,6 +483,10 @@ const Modal: FC<ModalProps> = ({
                   sendTrackingEvent("modal-submit-success");
                 }
               } catch (e) {
+                if (e instanceof StopSubmit) {
+                  setLoading(false);
+                  return;
+                }
                 setError(e.message);
                 setErrorDetails(getErrorDetails(e));
                 scrollToTop();

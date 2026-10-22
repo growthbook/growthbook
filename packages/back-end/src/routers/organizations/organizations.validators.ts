@@ -1,9 +1,5 @@
 import { z } from "zod";
-import {
-  confirmRulesValidator,
-  requesterHeaderValidator,
-  requesterPermissionsValidator,
-} from "shared/validators";
+import { confirmRulesValidator, actAsValidator } from "shared/validators";
 import { MAX_ROTATION_GRACE_HOURS } from "shared/api-key-expiration";
 
 const roleRuleValidator = z
@@ -53,8 +49,7 @@ export const postApiKeyValidator = z.strictObject({
   environments: z.array(z.string()).optional(),
   projectRoles: z.array(projectMemberRoleValidator).optional(),
   additionalRoles: z.array(roleRuleValidator).optional(),
-  requesterHeader: requesterHeaderValidator.optional(),
-  requesterPermissions: requesterPermissionsValidator.optional(),
+  actAs: actAsValidator.optional(),
   // ISO string; null or absent means no expiration, subject to the org policy.
   expiresAt: z.string().nullable().optional(),
   // Null or omitted means no confirmations.
@@ -72,8 +67,7 @@ export const putApiKeyValidator = z.strictObject({
   projectRoles: z.array(projectMemberRoleValidator).optional(),
   additionalRoles: z.array(roleRuleValidator).optional(),
   // Org keys only; omitted keeps the saved value.
-  requesterHeader: requesterHeaderValidator.optional(),
-  requesterPermissions: requesterPermissionsValidator.optional(),
+  actAs: actAsValidator.optional(),
   // Omitted leaves the expiry unchanged; null removes it where the policy allows.
   expiresAt: z.string().nullable().optional(),
   // Null turns confirmations off for this key; omitted leaves them unchanged.
