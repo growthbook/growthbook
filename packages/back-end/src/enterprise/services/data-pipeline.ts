@@ -113,7 +113,7 @@ const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 type HashExposureQuery = Pick<
   ExposureQuery,
-  "id" | "userIdType" | "userIdTypes"
+  "id" | "userIdType" | "userIdTypes" | "columnMapping"
 >;
 
 export function getExperimentSettingsHashForIncrementalRefresh(
@@ -133,6 +133,15 @@ export function getExperimentSettingsHashForIncrementalRefresh(
   );
   if (identifierType) {
     settingsForHash.exposureQueryIdentifierType = identifierType;
+  }
+
+  // Units read through a different mapping don't line up with the stored ones.
+  // Only mapped queries are salted, so existing hashes stay valid.
+  const columnMapping = exposureQueries.find(
+    (q) => q.id === snapshotSettings.exposureQueryId,
+  )?.columnMapping;
+  if (columnMapping && Object.keys(columnMapping).length) {
+    settingsForHash.columnMapping = columnMapping;
   }
 
   // Incremental units SQL used to ignore segment and queryFilter before #6711.
