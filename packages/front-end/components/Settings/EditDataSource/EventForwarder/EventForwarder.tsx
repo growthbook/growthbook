@@ -776,6 +776,29 @@ export default function EventForwarder({
         </Callout>
       ) : null}
 
+      {eventForwarderConfig && isOverLimit ? (
+        <Callout
+          status="warning"
+          mb="3"
+          action={
+            <Button color="inherit" onClick={() => setShowUpgrade(true)}>
+              Upgrade
+            </Button>
+          }
+        >
+          Monthly event limit reached. Forwarding has stopped until the 1st and
+          events received meanwhile are not delivered.
+          {isPaused ? " It is also paused; resume it after that." : ""}
+        </Callout>
+      ) : null}
+      {showUpgrade ? (
+        <UpgradeModal
+          close={() => setShowUpgrade(false)}
+          source="event-forwarder-card-usage-blocked"
+          commercialFeature="unlimited-event-forwarder-usage"
+        />
+      ) : null}
+
       {!eventForwarderConfig ? (
         eventsForwarderFlag === "VISIBLE" ? (
           <Callout status="info">
@@ -911,28 +934,6 @@ export default function EventForwarder({
                 )}
               />
             </Flex>
-
-            {isOverLimit ? (
-              <Callout
-                status="warning"
-                action={
-                  <Button color="inherit" onClick={() => setShowUpgrade(true)}>
-                    Upgrade
-                  </Button>
-                }
-              >
-                Monthly event limit reached. Forwarding has stopped until the
-                1st and events received meanwhile are not delivered.
-                {isPaused ? " It is also paused; resume it after that." : ""}
-              </Callout>
-            ) : null}
-            {showUpgrade ? (
-              <UpgradeModal
-                close={() => setShowUpgrade(false)}
-                source="event-forwarder-card-usage-blocked"
-                commercialFeature="unlimited-event-forwarder-usage"
-              />
-            ) : null}
 
             {typeof forwarderLimit === "number" ? (
               <UsageMeter
