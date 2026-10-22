@@ -91,14 +91,6 @@ export default function ProjectTagBar({
   if (panel === "details") {
     return (
       <Flex direction="column" gap="3">
-        {!isHoldout && useStickyBucketing ? (
-          <Metadata
-            size="sm"
-            stacked
-            label="Sticky bucketing"
-            value={experiment.disableStickyBucketing ? "Disabled" : "Enabled"}
-          />
-        ) : null}
         {!isHoldout && (
           <Metadata
             size="sm"
@@ -130,6 +122,14 @@ export default function ProjectTagBar({
               : experiment.hashAttribute || "id"
           }
         />
+        {!isHoldout && useStickyBucketing ? (
+          <Metadata
+            size="sm"
+            stacked
+            label="Sticky bucketing"
+            value={experiment.disableStickyBucketing ? "Disabled" : "Enabled"}
+          />
+        ) : null}
       </Flex>
     );
   }
