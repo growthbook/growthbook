@@ -176,7 +176,6 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "ai",
     type: "ai",
     label: "Hypothesis quality",
-    note: "hypothesis present",
     defaultEnabled: true,
   },
   "ai-hypothesis-metric-alignment": {
@@ -812,6 +811,11 @@ export function getExperimentQualityScore({
       applicable = res.applicable;
       score = res.applicable ? (res.score ?? 0) : null;
       reason = res.reason;
+    } else if (!experiment.hypothesis?.trim()) {
+      // The built-in AI checks judge the hypothesis, so without one they fail
+      applicable = true;
+      score = 0;
+      reason = "No hypothesis";
     } else {
       applicable = isAICheckApplicable(
         key as AIExperimentQualityCheckKey,

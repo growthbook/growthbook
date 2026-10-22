@@ -575,6 +575,21 @@ describe("getExperimentQualityScore", () => {
     });
   });
 
+  it("fails the built-in AI checks without a hypothesis instead of asking the AI", () => {
+    const result = score(baseExperiment({ hypothesis: " " }));
+    for (const key of [
+      "ai-hypothesis-quality",
+      "ai-hypothesis-metric-alignment",
+    ]) {
+      expect(checkByKey(result, key)).toMatchObject({
+        applicable: true,
+        score: 0,
+        reason: "No hypothesis",
+      });
+    }
+    expect(result.pending).toBe(false);
+  });
+
   describe("manual override", () => {
     it("override becomes the effective score; computed stays available", () => {
       const experiment = baseExperiment({
