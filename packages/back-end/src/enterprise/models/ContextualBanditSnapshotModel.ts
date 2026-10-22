@@ -42,7 +42,26 @@ export class ContextualBanditSnapshotModel extends BaseClass {
   ): Promise<ContextualBanditSnapshotInterface | null> {
     const results = await this._find(
       { contextualBandit },
-      { sort: { dateCreated: -1 }, limit: 1 },
+      {
+        sort: { dateCreated: -1 },
+        limit: 1,
+        bypassReadPermissionChecks: true,
+      },
+    );
+    return results[0] ?? null;
+  }
+
+  public async getLatestStatusForContextualBandit(
+    contextualBandit: string,
+  ): Promise<ContextualBanditSnapshotInterface | null> {
+    const results = await this._find(
+      { contextualBandit },
+      {
+        sort: { dateCreated: -1 },
+        limit: 1,
+        bypassReadPermissionChecks: true,
+        projection: { traffic: 0, frozenSettings: 0, srm: 0 },
+      },
     );
     return results[0] ?? null;
   }

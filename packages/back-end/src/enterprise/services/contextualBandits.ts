@@ -1599,7 +1599,7 @@ export async function getContextualBanditStatusForUi(
   cb: ContextualBanditInterface,
 ): Promise<SnapshotStatusSummary | null> {
   const latestSnapshot =
-    await context.models.contextualBanditSnapshots.getLatestForContextualBandit(
+    await context.models.contextualBanditSnapshots.getLatestStatusForContextualBandit(
       cb.id,
     );
   return latestSnapshot

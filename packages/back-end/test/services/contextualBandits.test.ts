@@ -1194,14 +1194,16 @@ describe("getContextualBanditStatusForUi", () => {
   function makeStatusContext(
     latestSnapshot: ContextualBanditSnapshotInterface | null,
   ) {
-    const getLatestForContextualBandit = jest
+    const getLatestStatusForContextualBandit = jest
       .fn()
       .mockResolvedValue(latestSnapshot);
+    const getLatestForContextualBandit = jest.fn();
     const getBySnapshotIdInOrg = jest.fn();
     const getLatestEventForContextualBandit = jest.fn();
     const context = {
       models: {
         contextualBanditSnapshots: {
+          getLatestStatusForContextualBandit,
           getLatestForContextualBandit,
           getBySnapshotIdInOrg,
         },
@@ -1212,6 +1214,7 @@ describe("getContextualBanditStatusForUi", () => {
     } as unknown as ReqContext;
     return {
       context,
+      getLatestStatusForContextualBandit,
       getLatestForContextualBandit,
       getBySnapshotIdInOrg,
       getLatestEventForContextualBandit,
@@ -1247,10 +1250,11 @@ describe("getContextualBanditStatusForUi", () => {
     expect(summary?.status).toBe("success");
   });
 
-  it("only reads the latest snapshot, never events or full results", async () => {
+  it("only reads the latest snapshot status, never events or full results", async () => {
     const cb = makeCb();
     const {
       context,
+      getLatestStatusForContextualBandit,
       getLatestForContextualBandit,
       getBySnapshotIdInOrg,
       getLatestEventForContextualBandit,
@@ -1258,9 +1262,11 @@ describe("getContextualBanditStatusForUi", () => {
 
     await getContextualBanditStatusForUi(context, cb);
 
-    expect(getLatestForContextualBandit).toHaveBeenCalledTimes(1);
-    expect(getLatestForContextualBandit).toHaveBeenCalledWith("cb_1");
-    // Status polling must stay cheap: no event read, no heavy snapshot lookup.
+    expect(getLatestStatusForContextualBandit).toHaveBeenCalledTimes(1);
+    expect(getLatestStatusForContextualBandit).toHaveBeenCalledWith("cb_1");
+    // Status polling must stay cheap: use the projected status lookup, never
+    // the full-document latest read, an event read, or a heavy snapshot lookup.
+    expect(getLatestForContextualBandit).not.toHaveBeenCalled();
     expect(getLatestEventForContextualBandit).not.toHaveBeenCalled();
     expect(getBySnapshotIdInOrg).not.toHaveBeenCalled();
   });
