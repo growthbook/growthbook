@@ -3,13 +3,14 @@ import {
   PopulationAnalysisInterface,
   PopulationInterface,
 } from "shared/validators";
-import { getPopulationMembershipAsOf } from "shared/enterprise";
 import { getPopulationFactTableIds } from "shared/populations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getFactTablesByIds } from "back-end/src/models/FactTableModel";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import { getPopulationMembershipAsOf } from "back-end/src/integrations/sql/dates/population-membership-points";
+import { isPopulationSupportedDatasourceType } from "back-end/src/integrations/sql/queries/population-membership-query";
 import { PopulationAnalysisQueryRunner } from "back-end/src/queryRunners/PopulationAnalysisQueryRunner";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
@@ -72,6 +73,11 @@ export async function refreshPopulationAnalysis(
   }
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
+  }
+  if (!isPopulationSupportedDatasourceType(datasource.type)) {
+    throw new BadRequestError(
+      "Population membership isn't supported for this data source yet.",
+    );
   }
 
   const integration = getSourceIntegrationObject(context, datasource, true);

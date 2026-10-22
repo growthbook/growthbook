@@ -1,8 +1,4 @@
 import {
-  getPopulationMembershipPoints,
-  transformPopulationMembershipRows,
-} from "shared/enterprise";
-import {
   PopulationAnalysisInterface,
   PopulationMembershipResult,
 } from "shared/validators";
@@ -10,6 +6,8 @@ import { FactTableMap } from "shared/types/fact-table";
 import { Queries, QueryStatus } from "shared/types/query";
 import { UpdateProps } from "shared/types/base-model";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
+import { getPopulationMembershipPoints } from "back-end/src/integrations/sql/dates/population-membership-points";
+import { processPopulationMembershipRows } from "back-end/src/integrations/sql/processing/process-population-membership-rows";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export type PopulationAnalysisParams = {
@@ -65,7 +63,7 @@ export class PopulationAnalysisQueryRunner extends QueryRunner<
     if (!rows) {
       throw new Error("Population membership query result not found");
     }
-    return transformPopulationMembershipRows(
+    return processPopulationMembershipRows(
       getPopulationMembershipPoints(this.model.asOf),
       rows as Record<string, unknown>[],
     );

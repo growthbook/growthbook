@@ -14,12 +14,9 @@ import {
   DEFAULT_METRIC_HISTOGRAM_BINS,
 } from "shared/constants";
 import {
-  buildPopulationMembershipSql,
   generateProductAnalyticsSQL,
   calculateProductAnalyticsDateRange,
-  getPopulationMembershipEndDate,
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
-  PopulationMembershipSqlParams,
 } from "shared/enterprise";
 import {
   ensureLimit,
@@ -192,6 +189,10 @@ import { getInsertMetricSourceCovariateFromAggregatedFactTableQuery } from "back
 import { getMetricValueQuery as buildMetricValueQuerySql } from "back-end/src/integrations/sql/queries/metric-value-query";
 import { getPastExperimentQuery as buildPastExperimentQuerySql } from "back-end/src/integrations/sql/queries/past-experiment-query";
 import { getPipelineValidationInsertQuery } from "back-end/src/integrations/sql/queries/pipeline-validation-insert-query";
+import {
+  getPopulationMembershipQuery as buildPopulationMembershipQuerySql,
+  PopulationMembershipQueryParams,
+} from "back-end/src/integrations/sql/queries/population-membership-query";
 import { getPowerPopulationCTEs } from "back-end/src/integrations/sql/ctes/power-population-ctes";
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
 import { processDimensions } from "back-end/src/integrations/sql/processing/process-dimensions";
@@ -3498,38 +3499,9 @@ export default abstract class SqlIntegration
   }
 
   getPopulationMembershipQuery(
-    params: Omit<PopulationMembershipSqlParams, "dialect">,
+    params: PopulationMembershipQueryParams,
   ): string {
-    const dialect = this.getSqlDialect();
-    // Every earlier row can qualify a unit, so templated fact tables shouldn't
-    // be cut off at a start date.
-    const templateDates = {
-      startDate: new Date(0),
-      endDate: getPopulationMembershipEndDate(params.points),
-    };
-
-    const factTableMap: FactTableMap = new Map(
-      Array.from(params.factTableMap.entries()).map(([id, ft]) => [
-        id,
-        {
-          ...ft,
-          sql: compileSqlTemplate(
-            ft.sql,
-            {
-              ...templateDates,
-              templateVariables: getFactTableTemplateVariables(ft),
-            },
-            dialect,
-          ),
-        },
-      ]),
-    );
-
-    return compileSqlTemplate(
-      buildPopulationMembershipSql({ ...params, factTableMap, dialect }),
-      templateDates,
-      dialect,
-    );
+    return buildPopulationMembershipQuerySql(this.getSqlDialect(), params);
   }
 
   async runPopulationMembershipQuery(

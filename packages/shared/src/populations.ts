@@ -1,7 +1,10 @@
 import type { PopulationStep } from "shared/validators";
 import type { FactTableInterface } from "shared/types/fact-table";
 import { getSelectedColumnDatatype } from "./experiments/experiments";
-import { parseAggregateFilter } from "./aggregate-filters";
+import {
+  AggregateFilterCondition,
+  parseAggregateFilter,
+} from "./aggregate-filters";
 
 // Multi-step populations aren't supported yet.
 export const MAX_POPULATION_STEPS = 1;
@@ -26,6 +29,19 @@ export type PopulationRuleInput = {
   steps: PopulationStep[];
   factTables: PopulationRuleFactTable[];
 };
+
+// The step's aggregate filter as comparisons against its total, or none when
+// the step has no aggregate filter.
+export function getPopulationAggregateConditions(
+  step: Pick<PopulationStep, "aggregateFilter" | "aggregateFilterColumn">,
+): AggregateFilterCondition[] {
+  const { aggregateFilter, aggregateFilterColumn } = step;
+  if (!aggregateFilter || !aggregateFilterColumn) return [];
+  if (!isValidAggregateFilter(aggregateFilter)) {
+    throw new Error(`Invalid aggregate filter: ${aggregateFilter}`);
+  }
+  return parseAggregateFilter(aggregateFilter).conditions;
+}
 
 export function getPopulationFactTableIds(steps: PopulationStep[]): string[] {
   return [...new Set(steps.map((step) => step.source.factTableId))];
