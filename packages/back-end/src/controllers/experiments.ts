@@ -1,5 +1,6 @@
 import { Response } from "express";
 import uniqid from "uniqid";
+import { z } from "zod";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -162,7 +163,10 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { assumeUtc } from "back-end/src/util/dates";
-import { parseArrayIndex } from "back-end/src/util/validation";
+import {
+  errorStringFromZodResult,
+  parseArrayIndex,
+} from "back-end/src/util/validation";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
 import {
   parseOptionalQueryString,
@@ -4253,21 +4257,33 @@ export async function findOrCreateVisualEditorToken(
   });
 }
 
+const experimentTimeSeriesQuerySchema = z.object({
+  phase: z.string(),
+  metricIds: z.array(z.string()).min(1),
+  dimensions: z
+    .array(z.object({ id: z.string(), value: z.string().optional() }))
+    .max(50)
+    .optional(),
+});
+
 export async function getExperimentTimeSeries(
   req: AuthRequest<
     null,
     { id: string },
-    {
-      phase: string;
-      metricIds: string[];
-      dimensions?: { id: string; value?: string }[];
-    }
+    z.infer<typeof experimentTimeSeriesQuerySchema>
   >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { phase, metricIds, dimensions } = req.query;
+
+  // The query string is qs-parsed, so these can arrive as strings, arrays or
+  // nested objects regardless of what the types above claim.
+  const parsedQuery = experimentTimeSeriesQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) {
+    throw new BadRequestError(errorStringFromZodResult(parsedQuery));
+  }
+  const { phase, metricIds, dimensions } = parsedQuery.data;
   const phaseIndex = parseInt(phase, 10);
 
   const experiment = await getExperimentById(context, id);
@@ -4275,22 +4291,8 @@ export async function getExperimentTimeSeries(
     throw new Error("Experiment not found");
   }
 
-  if (metricIds.length === 0) {
-    throw new Error("metricIds is required");
-  }
-
   if (isNaN(phaseIndex)) {
     throw new Error("Invalid phase");
-  }
-
-  if (!!dimensions && !Array.isArray(dimensions)) {
-    throw new Error(
-      "dimensions must be an array containing id and optionally value objects",
-    );
-  }
-
-  if (!!dimensions && dimensions.length > 50) {
-    throw new Error("dimensions cannot contain more than 50 values");
   }
 
   const timeSeries =
