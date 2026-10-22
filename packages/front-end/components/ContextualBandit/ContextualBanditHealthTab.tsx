@@ -72,27 +72,27 @@ export default function ContextualBanditHealthTab({
   let body: ReactNode;
   if (!results) {
     body = (
-      <Callout status="info" mt="3">
+      <Callout status="info">
         No updates yet. Traffic and health results will appear after a
         successful refresh of the results.
       </Callout>
     );
   } else if (!traffic) {
     body = (
-      <Callout status="info" mt="3">
+      <Callout status="info">
         Traffic data will appear after a successful results refresh.
       </Callout>
     );
   } else if (traffic.error && traffic.error !== "NO_ROWS_IN_UNIT_QUERY") {
     body = (
-      <Callout status="error" mt="3">
+      <Callout status="error">
         There was an error running the traffic query for the Health tab:{" "}
         {traffic.error}.
       </Callout>
     );
   } else if (totalUsers === 0) {
     body = (
-      <Callout status="info" mt="3">
+      <Callout status="info">
         No data found. It is likely there are no units in your Bandit yet.
       </Callout>
     );
@@ -153,7 +153,7 @@ export default function ContextualBanditHealthTab({
   }
 
   return (
-    <Flex direction="column">
+    <Flex direction="column" mt="3">
       {statusErrorCallout}
       {body}
     </Flex>
