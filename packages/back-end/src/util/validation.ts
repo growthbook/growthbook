@@ -14,17 +14,17 @@ export const errorStringFromZodResult = (
     .map((i) => "[" + i.path.join(".") + "] " + i.message)
     .join(", ");
 
-// Generous for real usage: the UI requests one page of features at a time.
+// Only for routes whose front-end callers chunk their requests to fit under it.
 export const MAX_IDS_QUERY_LENGTH = 500;
 
 /**
  * Parses a comma-separated `ids` query param into a list of ids.
  * Returns undefined when the param is absent or empty, and throws a 400 if
- * it isn't a single string (e.g. `?ids=a&ids=b`) or has too many ids.
+ * it isn't a single string (e.g. `?ids=a&ids=b`) or has more than `max` ids.
  */
 export function parseIdsQuery(
   ids: unknown,
-  { max = MAX_IDS_QUERY_LENGTH }: { max?: number } = {},
+  { max = Infinity }: { max?: number } = {},
 ): string[] | undefined {
   if (ids === undefined || ids === "") return undefined;
   if (typeof ids !== "string") {

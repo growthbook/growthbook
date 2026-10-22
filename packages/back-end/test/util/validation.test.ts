@@ -29,9 +29,13 @@ describe("parseIdsQuery", () => {
       { length: MAX_IDS_QUERY_LENGTH },
       (_, i) => `f${i}`,
     );
-    expect(parseIdsQuery(atLimit.join(","))).toHaveLength(MAX_IDS_QUERY_LENGTH);
-    expect(() => parseIdsQuery([...atLimit, "extra"].join(","))).toThrow(
-      BadRequestError,
+    const max = MAX_IDS_QUERY_LENGTH;
+    expect(parseIdsQuery(atLimit.join(","), { max })).toHaveLength(max);
+    expect(() =>
+      parseIdsQuery([...atLimit, "extra"].join(","), { max }),
+    ).toThrow(BadRequestError);
+    expect(parseIdsQuery([...atLimit, "extra"].join(","))).toHaveLength(
+      max + 1,
     );
     expect(() => parseIdsQuery("a,b,c", { max: 2 })).toThrow(
       "ids cannot contain more than 2 values",

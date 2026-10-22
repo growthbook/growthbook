@@ -315,7 +315,10 @@ import {
 import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
-import { parseIdsQuery } from "back-end/src/util/validation";
+import {
+  MAX_IDS_QUERY_LENGTH,
+  parseIdsQuery,
+} from "back-end/src/util/validation";
 import {
   canDisarmFeatureAutoPublishOnApproval,
   canEnableFeatureAutoPublishOnApproval,
@@ -7904,7 +7907,9 @@ export async function getFeaturesStatus(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = parseIdsQuery(req.query.ids);
+  const featureIds = parseIdsQuery(req.query.ids, {
+    max: MAX_IDS_QUERY_LENGTH,
+  });
 
   const raw = await getFeatureEnvStatus(context, featureIds);
 
@@ -8236,7 +8241,9 @@ export async function getFeatureRampStates(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = parseIdsQuery(req.query.ids);
+  const featureIds = parseIdsQuery(req.query.ids, {
+    max: MAX_IDS_QUERY_LENGTH,
+  });
 
   const NON_TERMINAL_STATUSES = [
     "pending",
