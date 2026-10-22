@@ -336,7 +336,7 @@ export default function UpgradeModal({
     "unlimited-managed-warehouse-usage":
       "Access to all your tracked events in the Managed Warehouse",
     "unlimited-event-forwarder-usage":
-      "Keep forwarding events to your warehouse past the free monthly limit",
+      "Forward unlimited events to your warehouse",
     saveSqlExplorerQueries:
       "Save query results and visualizations from the SQL Explorer.",
     holdouts: "Measure aggregate impact with Holdouts",
