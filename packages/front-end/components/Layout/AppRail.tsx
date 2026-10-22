@@ -34,6 +34,10 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { Popover } from "@/ui/Popover";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
+import {
+  AGENT_DOCK_MOTION_MS,
+  useAgentPanel,
+} from "@/components/Agent/AgentPanelContext";
 import { BOTTOM_TOOLTIP_DELAY_MS } from "./railTooltips";
 import GrowthBookLogo from "./GrowthBookLogo";
 import ProfileMenu from "./ProfileMenu";
@@ -86,6 +90,8 @@ const RAIL_SECTIONS = navlinks.filter((l) => !!SECTION_ICONS[l.name]);
 const SETTINGS_LINK = navlinks.find((l) => l.name === "Settings");
 
 const COLLAPSED_CLASS = "app-rail-collapsed";
+// Below this width, opening the docked GrowthBot panel collapses the side nav.
+const AUTO_COLLAPSE_MAX_WIDTH = "(max-width: 1599px)";
 // Matches .rail's width transition (AppRail.module.scss).
 const RAIL_WIDTH_TRANSITION_MS = 200;
 const ICON_SIZE = 18;
@@ -492,6 +498,9 @@ export default function AppRail() {
   const route = router.route.substring(1);
   const { open: drawerOpen, setOpen: setDrawerOpen } = useSidebarOpen();
   const [collapsedPref, toggleCollapsed] = useRailCollapsed();
+  // Not saved as your preference.
+  const [autoCollapsed, setAutoCollapsed] = useState(false);
+  const railCollapsed = collapsedPref || autoCollapsed;
 
   // Below 1180px the rail is a drawer, always expanded.
   const [isNarrow, setIsNarrow] = useState(false);
@@ -502,7 +511,7 @@ export default function AppRail() {
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
   }, []);
-  const collapsed = collapsedPref && !isNarrow;
+  const collapsed = railCollapsed && !isNarrow;
 
   // Widening past 1180px closes the drawer.
   const navRef = useRef<HTMLElement>(null);
@@ -614,8 +623,8 @@ export default function AppRail() {
   }, [drawer, setDrawerOpen]);
 
   useIsomorphicLayoutEffect(() => {
-    document.documentElement.classList.toggle(COLLAPSED_CLASS, collapsedPref);
-  }, [collapsedPref]);
+    document.documentElement.classList.toggle(COLLAPSED_CLASS, railCollapsed);
+  }, [railCollapsed]);
   useEffect(
     () => () => document.documentElement.classList.remove(COLLAPSED_CLASS),
     [],
@@ -635,8 +644,25 @@ export default function AppRail() {
   const userToggled = useRef(false);
   const toggleAnimated = () => {
     userToggled.current = true;
-    toggleCollapsed();
+    // Collapsed for the GrowthBot panel: expanding keeps your saved choice.
+    if (autoCollapsed) setAutoCollapsed(false);
+    else toggleCollapsed();
   };
+
+  // Once per opening, and not saved: after a reload, your saved choice
+  // applies.
+  const { open: agentOpen } = useAgentPanel();
+  const panelDocked = agentOpen && !isNarrow;
+  const wasPanelDocked = useRef(panelDocked);
+  // Before paint, so it collapses in the same frame the panel starts sliding.
+  useIsomorphicLayoutEffect(() => {
+    const opened = panelDocked && !wasPanelDocked.current;
+    wasPanelDocked.current = panelDocked;
+    if (!opened || railCollapsed) return;
+    if (!window.matchMedia(AUTO_COLLAPSE_MAX_WIDTH).matches) return;
+    userToggled.current = true;
+    setAutoCollapsed(true);
+  }, [panelDocked, railCollapsed]);
   const [contentCollapsed, setContentCollapsed] = useState(collapsed);
   useIsomorphicLayoutEffect(() => {
     const animate = userToggled.current;
@@ -652,9 +678,12 @@ export default function AppRail() {
       setContentCollapsed(true);
       return;
     }
+    // Collapsing for the docked panel, it moves on the panel's timing.
     const timer = setTimeout(
       () => setContentCollapsed(true),
-      RAIL_WIDTH_TRANSITION_MS,
+      document.documentElement.classList.contains("agent-dock-motion")
+        ? AGENT_DOCK_MOTION_MS
+        : RAIL_WIDTH_TRANSITION_MS,
     );
     return () => clearTimeout(timer);
   }, [collapsed]);

@@ -121,6 +121,16 @@
   overflow-y: auto;
 }
 
+// While the docked GrowthBot panel slides in or out, on its timing.
+:global(html.agent-dock-motion) .rail {
+  transition-duration: var(--agent-dock-duration);
+  transition-timing-function: var(--agent-dock-easing);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
 // Dark mode: translucent white lines, which take the panel's navy beneath.
 :global(.dark-theme) .rail {
   --rail-border: var(--slate-a4);

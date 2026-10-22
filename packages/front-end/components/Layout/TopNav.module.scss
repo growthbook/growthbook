@@ -20,6 +20,15 @@ $sidebarwidth: var(--app-rail-width, 240px);
   transition:
     left 200ms ease,
     right var(--agent-dock-duration) var(--agent-dock-easing);
+  :global(html.agent-dock-motion) & {
+    transition:
+      left var(--agent-dock-duration) var(--agent-dock-easing),
+      right var(--agent-dock-duration) var(--agent-dock-easing);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
   @media (max-width: 520px) {
     padding: 0 8px;
   }
@@ -63,6 +72,15 @@ $sidebarwidth: var(--app-rail-width, 240px);
   height: 56px;
   z-index: 995;
   transition: right var(--agent-dock-duration) var(--agent-dock-easing);
+  :global(html.agent-dock-motion) & {
+    transition:
+      left var(--agent-dock-duration) var(--agent-dock-easing),
+      right var(--agent-dock-duration) var(--agent-dock-easing);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }
