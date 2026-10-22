@@ -61,7 +61,7 @@ __topValues AS (
     timestampColumn,
   })}
 )
-SELECT column_name, value FROM __topValues
+SELECT column_name, value, count FROM __topValues
 ORDER BY column_name, count DESC
   `,
     dialect.formatDialect,

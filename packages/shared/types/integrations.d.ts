@@ -355,6 +355,7 @@ export type ColumnTopValuesParams = {
 export type ColumnTopValuesResponseRow = {
   column: string;
   value: string;
+  count: number;
 };
 
 export interface ExperimentUnitsQuerySettings {

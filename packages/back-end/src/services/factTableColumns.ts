@@ -95,6 +95,18 @@ export function selectColumnsForTopValues({
 }
 
 export async function runColumnsTopValuesQuery(
+  ...args: Parameters<typeof runColumnsTopValueCountsQuery>
+): Promise<Record<string, string[]>> {
+  const counts = await runColumnsTopValueCountsQuery(...args);
+  return Object.fromEntries(
+    Object.entries(counts).map(([column, rows]) => [
+      column,
+      rows.map((r) => r.value),
+    ]),
+  );
+}
+
+export async function runColumnsTopValueCountsQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   factTable: Pick<
@@ -109,7 +121,7 @@ export async function runColumnsTopValuesQuery(
     limit?: number;
     searchTerm?: string;
   },
-): Promise<Record<string, string[]>> {
+): Promise<Record<string, { value: string; count: number }[]>> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
@@ -149,12 +161,12 @@ export async function runColumnsTopValuesQuery(
   const result = await integration.runColumnsTopValuesQuery(sql, factTable.id);
 
   // Group results by column name
-  const columnValues: Record<string, string[]> = {};
+  const columnValues: Record<string, { value: string; count: number }[]> = {};
   for (const row of result.rows) {
     if (!columnValues[row.column]) {
       columnValues[row.column] = [];
     }
-    columnValues[row.column].push(row.value);
+    columnValues[row.column].push({ value: row.value, count: row.count });
   }
 
   return columnValues;

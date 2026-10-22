@@ -75,6 +75,9 @@ function registerSharedTopValuesTests(dialect: SqlDialect) {
     expect(sql).toMatch(/\bvalue\b/i);
     expect(sql).toMatch(/\bcount\b/i);
     expect(sql).toMatch(/ORDER BY\s+column_name,\s*count DESC/i);
+    expect(sql).toMatch(
+      /SELECT\s+column_name,\s*value,\s*count\s+FROM\s+__topValues/i,
+    );
   });
 
   it("applies the max-value-length gate", () => {
@@ -122,7 +125,6 @@ const approxDialects: {
   { name: "Snowflake", dialect: snowflakeDialect, aggFn: /APPROX_TOP_K/i },
   { name: "Databricks", dialect: databricksDialect, aggFn: /approx_top_k/i },
   { name: "Presto", dialect: prestoDialect, aggFn: /approx_most_frequent/i },
-  { name: "ClickHouse", dialect: clickHouseDialect, aggFn: /topK/ },
 ];
 
 describe("getColumnsTopValuesQuery — approximate top-k path", () => {
@@ -156,6 +158,8 @@ describe("getColumnsTopValuesQuery — exact fallback path", () => {
     // Athena v3 should support it, but v2 does not (I think)
     // so taking the safe route for now until we can add engine version detection.
     { name: "Athena", dialect: athenaDialect },
+    // topK has no counts before ClickHouse 24.2
+    { name: "ClickHouse", dialect: clickHouseDialect },
   ];
 
   exactDialects.forEach(({ name, dialect }) => {
@@ -167,7 +171,7 @@ describe("getColumnsTopValuesQuery — exact fallback path", () => {
         expect(sql).toMatch(/ROW_NUMBER/i);
         expect(sql).toMatch(/GROUP BY/i);
         expect(sql).not.toMatch(
-          /APPROX_TOP_COUNT|APPROX_TOP_K|approx_most_frequent/i,
+          /APPROX_TOP_COUNT|APPROX_TOP_K|approx_most_frequent|topK/i,
         );
       });
     });
@@ -179,5 +183,6 @@ describe("getColumnsTopValuesQuery — exact fallback path", () => {
     expect(redshiftDialect.approxTopValuesCTEBody).toBeUndefined();
     expect(mysqlDialect.approxTopValuesCTEBody).toBeUndefined();
     expect(athenaDialect.approxTopValuesCTEBody).toBeUndefined();
+    expect(clickHouseDialect.approxTopValuesCTEBody).toBeUndefined();
   });
 });

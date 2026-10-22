@@ -59,6 +59,7 @@ import {
   runColumnDetectionQuery,
   refreshColumnTopValues,
   runColumnsTopValuesQuery,
+  runColumnsTopValueCountsQuery,
   populateAutoSlices,
 } from "back-end/src/services/factTableColumns";
 import {
@@ -871,7 +872,7 @@ export const postColumnTopValues = async (
     { id: string; column: string },
     { forceAutoSlice?: string }
   >,
-  res: Response<{ status: 200 }>,
+  res: Response<{ status: 200; values: { value: string; count: number }[] }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -908,20 +909,23 @@ export const postColumnTopValues = async (
       }
     : databaseColumn;
 
+  let values: { value: string; count: number }[] = [];
+
   if (
     forceAutoSlice ||
     (canInlineFilterColumn(factTable, column.column) &&
       column.datatype === "string")
   ) {
     try {
-      const topValuesByColumn = await runColumnsTopValuesQuery(
+      const countsByColumn = await runColumnsTopValueCountsQuery(
         context,
         datasource,
         factTable,
         [column],
       );
 
-      const topValues = topValuesByColumn[column.column] || [];
+      values = countsByColumn[column.column] || [];
+      const topValues = values.map((v) => v.value);
       const maxSliceLevels =
         context.org.settings?.maxMetricSliceLevels ??
         DEFAULT_MAX_METRIC_SLICE_LEVELS;
@@ -963,6 +967,7 @@ export const postColumnTopValues = async (
 
   res.status(200).json({
     status: 200,
+    values,
   });
 };
 
