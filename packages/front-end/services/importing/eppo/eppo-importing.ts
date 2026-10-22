@@ -848,13 +848,24 @@ function toColumnRef(
   };
 }
 
+// An "Each Record" fact has no value column; Eppo's API sends the constant 1
+export const isEachRecord = (column: FactColumn) =>
+  !column || /^\s*1(\.0+)?\s*$/.test(column);
+
 function requireColumn(
   factSourceId: number,
   column: FactColumn,
   ctx: TransformContext,
 ): string {
-  if (!column) {
-    throw new Error("This metric needs a value column, but its fact has none");
+  if (!column || isEachRecord(column)) {
+    throw new Error(
+      "This metric needs a value column, but its fact counts each record",
+    );
+  }
+  if (/^\s*-?\d+(\.\d+)?\s*$/.test(column)) {
+    throw new Error(
+      `Fact value "${column.trim()}" is a constant, not a column`,
+    );
   }
   const columns = ctx.factTableColumns.get(
     ctx.factTableIds.get(factSourceId) ?? "",
@@ -889,7 +900,8 @@ function aggregationToColumnRef(
     requireColumn(agg.metric_event_source_id, agg.column, ctx);
   switch (agg.operation) {
     case "sum":
-      return ref(valueColumn());
+      // Summing an each-record fact counts the records
+      return isEachRecord(agg.column) ? ref("$$count") : ref(valueColumn());
     case "countDistinct":
       return { ...ref(valueColumn()), aggregation: "count distinct" };
     case "count":
@@ -908,7 +920,9 @@ function aggregationToColumnRef(
       return {
         ...ref("$$distinctUsers"),
         aggregateFilterColumn:
-          t.aggregation_type === "sum" ? valueColumn() : "$$count",
+          t.aggregation_type === "sum" && !isEachRecord(agg.column)
+            ? valueColumn()
+            : "$$count",
         aggregateFilter: `${op} ${t.breach_value}`,
       };
     }
