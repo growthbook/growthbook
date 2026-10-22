@@ -707,7 +707,7 @@ export default function EventForwarder({
                     variant="soft"
                   />
                   {isOverLimit ? (
-                    <Badge label="Limit reached" color="amber" variant="soft" />
+                    <Badge label="Limit reached" color="red" variant="soft" />
                   ) : null}
                 </>
               )}
@@ -778,7 +778,7 @@ export default function EventForwarder({
 
       {eventForwarderConfig && isOverLimit ? (
         <Callout
-          status="warning"
+          status="error"
           mb="3"
           action={
             <Button color="inherit" onClick={() => setShowUpgrade(true)}>
