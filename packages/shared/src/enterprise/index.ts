@@ -10,6 +10,7 @@ export * from "./decision-criteria";
 export * from "./experimentQualityScore";
 export * from "./experimentationHealth";
 export * from "./experimentProcess";
+export * from "./experimentQualityDecisions";
 export * from "./dashboards";
 export * from "./product-analytics/sql";
 export * from "./product-analytics/columns";
