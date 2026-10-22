@@ -76,7 +76,7 @@ const recommended = keyDoc("key_recommended", {
 });
 const assumer = keyDoc("key_assume", {
   role: "admin",
-  requesterPermissions: "assume",
+  actAs: "user",
   confirmRules: [{ actions: ["feature.*"] }],
 });
 
@@ -96,7 +96,7 @@ function asKey(
           name: key.description || "",
           ...(requestedBy && {
             requestedBy,
-            assumedRole: key.requesterPermissions === "assume",
+            assumedRole: key.actAs === "user",
           }),
         },
     ...(key.userId
@@ -424,6 +424,62 @@ describe("confirmations", () => {
     expect((await poll(orphaned)).body.confirmation.status).toBe("expired");
     expect(await featureVersion()).toBe(1);
   });
+
+  // A held OAuth request whose token lapses before anyone confirms it.
+  const holdFromOAuth = async (clientId: string) => {
+    await seed("production");
+    await mongoose.connection.collection("oauthgrants").insertOne({
+      id: `oag_${clientId}`,
+      organization: ORG_ID,
+      clientId,
+      userId: "u_torres",
+      permissions: { confirmRules: pat.confirmRules },
+      revoked: false,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    const sent = keyDoc(`key_${clientId}`, {
+      userId: "u_torres",
+      role: "user",
+      oauthClientId: clientId,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      confirmRules: pat.confirmRules,
+    });
+    await mongoose.connection.collection("apikeys").insertOne({ ...sent });
+    setReqContext(asKey(sent));
+    const id = (await publish()).body.confirmation.id;
+    await mongoose.connection.collection("apikeys").deleteOne({ id: sent.id });
+    return id;
+  };
+
+  it("replays an OAuth sign-in's request on its grant once the token is gone", async () => {
+    const id = await holdFromOAuth("client_mcp");
+    expect(
+      await decideConfirmation(asUser("u_torres"), id, "confirm"),
+    ).toMatchObject({ status: "completed", response: { status: 200 } });
+    expect(await featureVersion()).toBe(2);
+  });
+
+  it.each([
+    ["has been revoked", "client_revoked", { revoked: true }],
+    ["was revoked, even after signing in again", "client_back", {}],
+  ])(
+    "runs nothing for an OAuth sign-in that %s",
+    async (_label, clientId, fields) => {
+      const id = await holdFromOAuth(clientId);
+      await mongoose.connection
+        .collection("oauthgrants")
+        .updateOne(
+          { clientId },
+          { $set: { revokedAt: new Date(Date.now() + 1000), ...fields } },
+        );
+      await expect(
+        decideConfirmation(asUser("u_torres"), id, "confirm"),
+      ).rejects.toThrow(/key that made this request is gone/);
+      expect(await featureVersion()).toBe(1);
+    },
+  );
 
   it("reports a run a restart cut off as failed, so the agent can ask again", async () => {
     await seed("production");

@@ -299,6 +299,7 @@ export async function requireConfirmation(
       requestedBy,
       assumedRole,
       apiKeyId: context.apiKey,
+      oauthClientId: context.apiKeyData?.oauthClientId,
       project: opts.project || "",
       ...request,
       requestHash,

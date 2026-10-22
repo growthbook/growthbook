@@ -271,6 +271,9 @@ export const confirmationValidator = baseSchema.safeExtend({
   requestedBy: eventUserRequestedBy.nullable(),
   assumedRole: z.boolean(),
   apiKeyId: z.string(),
+  // The OAuth app whose sign-in sent it. Its tokens last an hour, so a confirm
+  // replays the request as whichever token the grant holds by then.
+  oauthClientId: z.string().optional(),
   project: z.string(),
   method: z.string(),
   path: z.string(),

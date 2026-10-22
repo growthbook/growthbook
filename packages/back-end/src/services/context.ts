@@ -41,6 +41,7 @@ import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
+  getPersonalAccessTokenCap,
   getPersonalAccessTokenPermissions,
   getUserPermissions,
   getEnvironmentIdsFromOrg,
@@ -477,9 +478,10 @@ export class ReqContextClass {
     return this.apiKey && this.actorId === this.apiKey ? this.apiKey : null;
   }
 
-  // An org key assuming a member's role may use that member's author rights
-  // only where its own role allows the action too, so it never does more than
-  // the key alone could. `check` runs against the key's own permissions.
+  // An org key assuming a member's role, or a scoped token acting as its user,
+  // may use that person's author rights only where its own role allows the
+  // action too, so it never does more than the key alone could. `check` runs
+  // against the key's own permissions.
   public authorRightsAllow(check: (context: this) => boolean): boolean {
     if (!this.assumingKeyPermissions) return true;
     const keyContext: this = Object.create(this);
@@ -513,7 +515,19 @@ export class ReqContextClass {
   // Who a deferred action runs as: a scoped PAT as the key (so its cap travels
   // with the work), a user as themselves, an org key as itself with its requester.
   public get armer(): { userId?: string; apiKey?: string } {
-    if (this.scopedApiKey) return { apiKey: this.apiKey };
+    if (this.scopedApiKey) {
+      const clientId = this.apiKeyData?.oauthClientId;
+      return {
+        apiKey:
+          this.apiKey && clientId && this.userId
+            ? encodeArmingApiKeyId(this.apiKey, undefined, {
+                clientId,
+                userId: this.userId,
+                armedAt: Date.now(),
+              })
+            : this.apiKey,
+      };
+    }
     if (this.userId) return { userId: this.userId };
     if (!this.apiKey) return {};
     return {
@@ -587,6 +601,16 @@ export class ReqContextClass {
             restrictedProjects,
           )
         : getUserPermissions(user, org, teams || [], restrictedProjects);
+      if (apiKeyData?.userId && apiKeyData.scoped) {
+        this.assumingKeyPermissions = new Permissions(
+          getPersonalAccessTokenCap(
+            apiKeyData,
+            org,
+            teams || [],
+            restrictedProjects,
+          ),
+        );
+      }
     }
     // If an API key or background job is making this request
     else {
