@@ -107,6 +107,7 @@ export default function ColumnMappingRow({
                 <Select
                   size="sm"
                   mb="0"
+                  aria-label={label}
                   autoFocus={adding}
                   value={selected || undefined}
                   setValue={setValue}
