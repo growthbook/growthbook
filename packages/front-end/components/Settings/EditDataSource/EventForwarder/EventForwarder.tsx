@@ -786,9 +786,11 @@ export default function EventForwarder({
             </Button>
           }
         >
-          Monthly event limit reached. Forwarding has stopped until the 1st and
-          events received meanwhile are not delivered.
-          {isPaused ? " It is also paused; resume it after that." : ""}
+          Monthly event limit reached. Forwarding has stopped until the 1st or
+          until you upgrade, and events received meanwhile are not delivered.
+          {isPaused
+            ? " It is also paused. You can resume it now; forwarding restarts once the limit clears."
+            : ""}
         </Callout>
       ) : null}
       {showUpgrade ? (
