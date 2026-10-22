@@ -1,20 +1,22 @@
+import { useEffect } from "react";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import { useAITokenUsage } from "@/enterprise/hooks/useAITokenUsage";
 import { getGrowthBotState, GrowthBotState } from "./growthBotState";
 
-// The GrowthBot button's state for this org (growthBotState.ts), and when
-// Cloud's daily limit resets, if it's been reached.
+// Past the reset time, so the server has reset the count when we ask.
+const RESET_REFRESH_DELAY_MS = 1000;
+
 export function useGrowthBotState(): {
   state: GrowthBotState;
   resetsAt: number | null;
+  refreshUsage: () => void;
 } {
   const { hasCommercialFeature, settings, effectiveAccountPlan } = useUser();
   const { aiEnabled, aiAgreedTo } = useAISettings();
-  // Only orgs with a daily limit can reach it: Cloud plans other than
-  // Enterprise, which is uncapped (getDailyTokenLimit in the back-end).
-  // Null elsewhere, and while the plan loads.
-  const { data: tokenUsage } = useAITokenUsage({
+  // Only Cloud plans other than Enterprise have a daily limit
+  // (getDailyTokenLimit in the back-end).
+  const { data: tokenUsage, refresh: refreshUsage } = useAITokenUsage({
     enabled: !!effectiveAccountPlan && effectiveAccountPlan !== "enterprise",
   });
   const state = getGrowthBotState({
@@ -24,8 +26,18 @@ export function useGrowthBotState(): {
     aiUsable: aiEnabled,
     tokenUsage,
   });
-  return {
-    state,
-    resetsAt: state === "limit" ? (tokenUsage?.nextResetAt ?? null) : null,
-  };
+  const resetsAt = state === "limit" ? (tokenUsage?.nextResetAt ?? null) : null;
+
+  // The usage is only fetched on load and focus, so a tab left open at the
+  // limit would stay blocked past the reset without this.
+  useEffect(() => {
+    if (resetsAt === null) return;
+    const timer = window.setTimeout(
+      refreshUsage,
+      Math.max(0, resetsAt - Date.now()) + RESET_REFRESH_DELAY_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [resetsAt, refreshUsage]);
+
+  return { state, resetsAt, refreshUsage };
 }
