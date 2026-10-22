@@ -700,19 +700,16 @@ export default function EventForwarder({
               {isProvisioning ? (
                 <EventForwarderSetupIndicator />
               ) : (
-                <Badge
-                  label={
-                    isOverLimit
-                      ? "Limit reached"
-                      : statusLabels[eventForwarderConfig.status]
-                  }
-                  color={
-                    isOverLimit
-                      ? "amber"
-                      : statusColors[eventForwarderConfig.status]
-                  }
-                  variant="soft"
-                />
+                <>
+                  <Badge
+                    label={statusLabels[eventForwarderConfig.status]}
+                    color={statusColors[eventForwarderConfig.status]}
+                    variant="soft"
+                  />
+                  {isOverLimit ? (
+                    <Badge label="Limit reached" color="amber" variant="soft" />
+                  ) : null}
+                </>
               )}
             </Flex>
           ) : null}
