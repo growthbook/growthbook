@@ -1,0 +1,293 @@
+import { useState } from "react";
+import { Box, Flex, Grid } from "@radix-ui/themes";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
+import {
+  attributeMatchesDatasourceProjects,
+  attributeToUserIdTypeName,
+  isValidUserIdTypeName,
+  USER_ID_TYPE_NAME_RULE,
+} from "shared/util";
+import { PiCode, PiDatabase } from "react-icons/pi";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
+import { useAttributeSchema } from "@/services/features";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useProjectOptions from "@/hooks/useProjectOptions";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import TextField from "@/ui/TextField";
+import MultiSelectField from "@/ui/MultiSelectField";
+import Checkbox from "@/ui/Checkbox";
+import Text from "@/ui/Text";
+import HelperText from "@/ui/HelperText";
+import Code from "@/components/SyntaxHighlighting/Code";
+
+const DATASOURCE_COLUMNS = "24px minmax(0, 1fr) 200px";
+const ROW_BORDER = { borderTop: "1px solid var(--gray-a5)" };
+
+// These rebuild their identifier types from the attribute schema on their own.
+function syncsIdentifiersAutomatically(
+  datasource: DataSourceInterfaceWithParams,
+) {
+  return (
+    datasource.type === "growthbook_clickhouse" ||
+    !!datasource.eventForwarderConfig
+  );
+}
+
+export default function AddIdentifierModal({
+  close,
+  onCreate,
+  defaultProjects,
+  source,
+}: {
+  close: () => void;
+  onCreate?: (property: string) => void;
+  defaultProjects?: string[];
+  source: string;
+}) {
+  const { project, datasources, mutateDefinitions } = useDefinitions();
+  const { refreshOrganization } = useUser();
+  const { apiCall, orgId } = useAuth();
+  const permissionsUtil = usePermissionsUtil();
+
+  const [name, setName] = useState("");
+  const [projects, setProjects] = useState<string[]>(
+    () =>
+      defaultProjects ??
+      getDefaultProjectsForNewResource({
+        project,
+        organizationId: orgId || undefined,
+      }),
+  );
+  const [uncheckedIds, setUncheckedIds] = useState<string[]>([]);
+  const [columns, setColumns] = useState<Record<string, string>>({});
+
+  const projectOptions = useProjectOptions(
+    (p) => permissionsUtil.canCreateAttribute({ projects: [p] }),
+    projects,
+  );
+  const canCreate = permissionsUtil.canCreateAttribute({ projects });
+
+  const identifiers = useAttributeSchema(false, projects).filter(
+    (a) => a.hashAttribute,
+  );
+
+  const inScope = datasources.filter((d) =>
+    attributeMatchesDatasourceProjects(
+      { property: name, datatype: "string", projects },
+      d.projects,
+    ),
+  );
+  const automatic = inScope.filter(syncsIdentifiersAutomatically);
+  const mappable = inScope.filter((d) => !syncsIdentifiersAutomatically(d));
+
+  const defaultColumn = attributeToUserIdTypeName(name);
+  const columnFor = (id: string) => columns[id] || defaultColumn;
+  const canEdit = (d: DataSourceInterfaceWithParams) =>
+    permissionsUtil.canUpdateDataSourceSettings(d);
+  const checked = mappable.filter(
+    (d) => canEdit(d) && !uncheckedIds.includes(d.id),
+  );
+  const checkedColumns = [...new Set(checked.map((d) => columnFor(d.id)))];
+
+  const sdkLines = [
+    "gb.setAttributes({",
+    ...identifiers.map((a) => `  ${a.property}: "...",`),
+    `  ${name || "new_identifier"}: "...",`,
+    "});",
+  ];
+  const sqlLines = [
+    "SELECT",
+    ...checkedColumns.map((column) => `  ${column},`),
+    "  timestamp,",
+    "  ...",
+    "FROM ...",
+  ];
+
+  const invalidColumn = checked.find(
+    (d) => !isValidUserIdTypeName(columnFor(d.id)),
+  );
+
+  return (
+    <ModalStandard
+      open={true}
+      header="Add identifier"
+      cta="Add identifier"
+      size="xl"
+      ctaEnabled={canCreate && !!name.trim() && !invalidColumn}
+      trackingEventModalType="add-identifier"
+      trackingEventModalSource={source}
+      close={close}
+      submit={async () => {
+        const property = name.trim();
+        const res = await apiCall<{ failedDatasources: string[] }>(
+          "/attribute/identifier",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              property,
+              projects,
+              datasources: checked.map((d) => ({
+                id: d.id,
+                column: columnFor(d.id),
+              })),
+            }),
+          },
+        );
+        await Promise.all([refreshOrganization(), mutateDefinitions()]);
+        onCreate?.(property);
+        if (res.failedDatasources.length > 0) {
+          throw new Error(
+            `${property} was added, but ${res.failedDatasources.join(", ")} couldn't be updated. Add the column from each Data Source's settings.`,
+          );
+        }
+      }}
+    >
+      <Grid columns="minmax(0, 1fr) 380px" gap="5">
+        <Flex direction="column" gap="5">
+          <Grid columns="2" gap="4">
+            <TextField
+              label="Name"
+              required
+              markRequired
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              helpText="The attribute name used in the SDK"
+            />
+            <MultiSelectField
+              label="Projects"
+              placeholder="All Projects"
+              value={projects}
+              options={projectOptions}
+              onChange={setProjects}
+            />
+          </Grid>
+
+          {inScope.length > 0 && (
+            <Flex direction="column" gap="2">
+              <Text weight="semibold">Data Sources</Text>
+              {mappable.length > 0 && (
+                <Box
+                  style={{
+                    border: "1px solid var(--gray-a5)",
+                    borderRadius: "var(--radius-3)",
+                  }}
+                >
+                  <Grid
+                    columns={DATASOURCE_COLUMNS}
+                    gap="3"
+                    px="3"
+                    py="2"
+                    style={{ background: "var(--gray-a2)" }}
+                  >
+                    <span />
+                    <Text size="sm" color="text-mid">
+                      Data Source
+                    </Text>
+                    <Text size="sm" color="text-mid">
+                      Column
+                    </Text>
+                  </Grid>
+                  {mappable.map((d) => {
+                    const editable = canEdit(d);
+                    const isChecked = editable && !uncheckedIds.includes(d.id);
+                    return (
+                      <Grid
+                        key={d.id}
+                        columns={DATASOURCE_COLUMNS}
+                        gap="3"
+                        px="3"
+                        py="2"
+                        align="center"
+                        style={ROW_BORDER}
+                      >
+                        <Checkbox
+                          value={isChecked}
+                          disabled={!editable}
+                          disabledMessage="You don't have permission to edit this Data Source"
+                          setValue={(v) =>
+                            setUncheckedIds((ids) =>
+                              v
+                                ? ids.filter((id) => id !== d.id)
+                                : [...ids, d.id],
+                            )
+                          }
+                        />
+                        <Flex align="center" gap="2">
+                          <PiDatabase />
+                          <Text
+                            weight="medium"
+                            color={isChecked ? undefined : "text-low"}
+                          >
+                            {d.name}
+                          </Text>
+                        </Flex>
+                        <TextField
+                          value={columns[d.id] ?? ""}
+                          placeholder={defaultColumn}
+                          disabled={!isChecked}
+                          aria-label={`Column in ${d.name}`}
+                          onChange={(e) =>
+                            setColumns((c) => ({
+                              ...c,
+                              [d.id]: e.target.value,
+                            }))
+                          }
+                        />
+                      </Grid>
+                    );
+                  })}
+                </Box>
+              )}
+              {invalidColumn && (
+                <HelperText status="error">{USER_ID_TYPE_NAME_RULE}</HelperText>
+              )}
+              {automatic.length > 0 && (
+                <HelperText status="info">
+                  {automatic.map((d) => d.name).join(", ")}{" "}
+                  {automatic.length === 1
+                    ? "updates its identifiers automatically."
+                    : "update their identifiers automatically."}
+                </HelperText>
+              )}
+            </Flex>
+          )}
+        </Flex>
+
+        <Flex direction="column" gap="4">
+          <Flex direction="column" gap="2">
+            <Flex align="center" gap="2">
+              <PiCode />
+              <Text weight="semibold" color="text-mid">
+                In your app
+              </Text>
+            </Flex>
+            <Code
+              language="javascript"
+              code={sdkLines.join("\n")}
+              highlightLine={sdkLines.length - 1}
+            />
+          </Flex>
+          {checkedColumns.length > 0 && (
+            <Flex direction="column" gap="2">
+              <Flex align="center" gap="2">
+                <PiDatabase />
+                <Text weight="semibold" color="text-mid">
+                  In your fact tables &amp; exposure queries
+                </Text>
+              </Flex>
+              <Code
+                language="sql"
+                code={sqlLines.join("\n")}
+                highlightLine={2}
+              />
+            </Flex>
+          )}
+        </Flex>
+      </Grid>
+    </ModalStandard>
+  );
+}

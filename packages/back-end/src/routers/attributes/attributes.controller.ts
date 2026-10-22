@@ -1,6 +1,11 @@
 import type { Response } from "express";
 import { SDKAttribute } from "shared/types/organization";
-import { extractConditionAttributeKeys } from "shared/util";
+import {
+  addAttributeToUserIdTypes,
+  extractConditionAttributeKeys,
+  isValidUserIdTypeName,
+  USER_ID_TYPE_NAME_RULE,
+} from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { parseIdsQuery } from "back-end/src/util/validation";
@@ -12,20 +17,24 @@ import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { syncManagedWarehouseIdentifiersOnAttributeChange } from "back-end/src/services/clickhouse";
 import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarder/attributeSync";
 import { yieldEventLoop } from "back-end/src/util/yield";
+import { logger } from "back-end/src/util/logger";
+import { usingFileConfig } from "back-end/src/init/config";
+import {
+  getDataSourcesByIds,
+  updateDataSource,
+} from "back-end/src/models/DataSourceModel";
+import { getEventForwarderForDatasource } from "back-end/src/services/eventForwarder/config";
+import { ReqContext } from "back-end/types/request";
 import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSectionAndProjects,
 } from "back-end/src/util/custom-fields";
-export const postAttribute = async (
-  req: AuthRequest<SDKAttribute>,
-  res: Response<{ status: number }>,
-) => {
-  const { tags = [], ...attributeFields } = req.body;
-  const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateAttribute({ ...req.body })) {
-    context.permissions.throwPermissionError();
-  }
+async function createAttribute(
+  req: AuthRequest<unknown>,
+  context: ReqContext,
+  { tags = [], ...attributeFields }: SDKAttribute,
+) {
   const { org } = context;
 
   const attributeSchema = org.settings?.attributeSchema || [];
@@ -81,8 +90,111 @@ export const postAttribute = async (
       { settings: { attributeSchema: updatedAttributeSchema } },
     ),
   });
+}
+
+export const postAttribute = async (
+  req: AuthRequest<SDKAttribute>,
+  res: Response<{ status: number }>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canCreateAttribute({ ...req.body })) {
+    context.permissions.throwPermissionError();
+  }
+
+  await createAttribute(req, context, req.body);
+
   return res.status(200).json({
     status: 200,
+  });
+};
+
+export const postIdentifier = async (
+  req: AuthRequest<{
+    property: string;
+    projects: string[];
+    datasources: { id: string; column: string }[];
+  }>,
+  res: Response<{ status: number; failedDatasources: string[] }>,
+) => {
+  const { property, projects, datasources: mappings } = req.body;
+  const context = getContextFromReq(req);
+
+  const attribute: SDKAttribute = {
+    property,
+    projects,
+    datatype: "string",
+    hashAttribute: true,
+  };
+  if (!context.permissions.canCreateAttribute(attribute)) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (mappings.length > 0 && usingFileConfig()) {
+    context.throwBadRequestError(
+      "Data Sources are managed by config.yml and can't be updated here",
+    );
+  }
+
+  // Check every Data Source before writing anything, so a bad mapping doesn't
+  // leave the attribute created without its columns.
+  const datasources = await getDataSourcesByIds(
+    context,
+    mappings.map(({ id }) => id),
+  );
+  const targets = await Promise.all(
+    mappings.map(async ({ id, column }) => {
+      const datasource = datasources.find((d) => d.id === id);
+      if (!datasource) {
+        return context.throwNotFoundError(`Data Source ${id} not found`);
+      }
+      if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+        context.permissions.throwPermissionError();
+      }
+      if (!isValidUserIdTypeName(column)) {
+        context.throwBadRequestError(
+          `Invalid column "${column}" for ${datasource.name}. ${USER_ID_TYPE_NAME_RULE}`,
+        );
+      }
+      // These already sync their identifier types from the attribute schema.
+      if (
+        datasource.type === "growthbook_clickhouse" ||
+        (await getEventForwarderForDatasource(context, id))
+      ) {
+        context.throwBadRequestError(
+          `${datasource.name} updates its identifiers automatically`,
+        );
+      }
+      return { datasource, column };
+    }),
+  );
+
+  await createAttribute(req, context, attribute);
+
+  // The attribute is saved at this point, so report Data Sources that fail
+  // instead of failing the whole request.
+  const failedDatasources: string[] = [];
+  for (const { datasource, column } of targets) {
+    try {
+      await updateDataSource(context, datasource, {
+        settings: {
+          ...datasource.settings,
+          userIdTypes: addAttributeToUserIdTypes(
+            datasource.settings?.userIdTypes ?? [],
+            column,
+            property,
+          ),
+        },
+      });
+    } catch (e) {
+      logger.error(e, "Failed to add identifier to Data Source");
+      failedDatasources.push(datasource.name);
+    }
+  }
+
+  return res.status(200).json({
+    status: 200,
+    failedDatasources,
   });
 };
 
