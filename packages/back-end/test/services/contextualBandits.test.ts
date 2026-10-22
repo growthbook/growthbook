@@ -14,6 +14,7 @@ import {
   buildSnapshotSettingsForCb,
   contextualBanditWeightsWereUpdated,
   getContextualBanditResultsForUi,
+  getContextualBanditStatusForUi,
   leafWeightsFromContextualBanditResult,
   persistContextualBanditEvent,
   runContextualBanditSnapshot,
@@ -1186,6 +1187,82 @@ describe("persistContextualBanditEvent — P3 stale-epoch guard", () => {
     expect(cbe).toEqual(expect.objectContaining({ id: "cbe_x" }));
     expect(applyWeightEpochUpdateMock).toHaveBeenCalledTimes(1);
     expect(warnMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("getContextualBanditStatusForUi", () => {
+  function makeStatusContext(
+    latestSnapshot: ContextualBanditSnapshotInterface | null,
+  ) {
+    const getLatestForContextualBandit = jest
+      .fn()
+      .mockResolvedValue(latestSnapshot);
+    const getBySnapshotIdInOrg = jest.fn();
+    const getLatestEventForContextualBandit = jest.fn();
+    const context = {
+      models: {
+        contextualBanditSnapshots: {
+          getLatestForContextualBandit,
+          getBySnapshotIdInOrg,
+        },
+        contextualBanditEvents: {
+          getLatestForContextualBandit: getLatestEventForContextualBandit,
+        },
+      },
+    } as unknown as ReqContext;
+    return {
+      context,
+      getLatestForContextualBandit,
+      getBySnapshotIdInOrg,
+      getLatestEventForContextualBandit,
+    };
+  }
+
+  it("returns null when there is no snapshot yet", async () => {
+    const cb = makeCb();
+    const { context } = makeStatusContext(null);
+
+    expect(await getContextualBanditStatusForUi(context, cb)).toBeNull();
+  });
+
+  it("returns the mapped status summary for the latest snapshot", async () => {
+    const cb = makeCb();
+    const cbs = makeCbs({
+      id: "cbs_1",
+      // "partial" folds to "success" in the UI status summary.
+      status: "partial",
+      error: "",
+      queries: [
+        { name: "contextual-bandit-rows", query: "q_1", status: "succeeded" },
+      ],
+      runStarted: new Date("2025-01-03T00:00:00Z"),
+      multipleExposures: 7,
+      triggeredBy: "scheduled",
+    });
+    const { context } = makeStatusContext(cbs);
+
+    const summary = await getContextualBanditStatusForUi(context, cb);
+
+    expect(summary).toEqual(toContextualBanditSnapshotStatusSummary(cbs));
+    expect(summary?.status).toBe("success");
+  });
+
+  it("only reads the latest snapshot, never events or full results", async () => {
+    const cb = makeCb();
+    const {
+      context,
+      getLatestForContextualBandit,
+      getBySnapshotIdInOrg,
+      getLatestEventForContextualBandit,
+    } = makeStatusContext(makeCbs({ id: "cbs_1", status: "running" }));
+
+    await getContextualBanditStatusForUi(context, cb);
+
+    expect(getLatestForContextualBandit).toHaveBeenCalledTimes(1);
+    expect(getLatestForContextualBandit).toHaveBeenCalledWith("cb_1");
+    // Status polling must stay cheap: no event read, no heavy snapshot lookup.
+    expect(getLatestEventForContextualBandit).not.toHaveBeenCalled();
+    expect(getBySnapshotIdInOrg).not.toHaveBeenCalled();
   });
 });
 
