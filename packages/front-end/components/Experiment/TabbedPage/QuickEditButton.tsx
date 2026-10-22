@@ -29,6 +29,8 @@ export default function QuickEditButton({
       <Tooltip
         content={blockedReason ?? label}
         enabled={!!blockedReason || labelTooltip}
+        // Why it can't be clicked shows wherever its row is pointed at.
+        confineToTrigger={!blockedReason}
       >
         <IconButton
           size={size}

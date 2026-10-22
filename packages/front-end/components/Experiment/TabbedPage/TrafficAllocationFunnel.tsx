@@ -160,7 +160,11 @@ function FunnelCard({
         </Text>
         <Flex align="center" gap="3" className={styles.cardActions}>
           {editable ? (
-            <Tooltip content={editBlockedReason} enabled={!!editBlockedReason}>
+            <Tooltip
+              content={editBlockedReason}
+              enabled={!!editBlockedReason}
+              confineToTrigger={false}
+            >
               <IconButton
                 className={styles.edit}
                 variant="ghost"
