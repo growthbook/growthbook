@@ -13,6 +13,7 @@ import {
   booleanQueryField,
   paginationQueryFields,
   publishOverrideBodyFields,
+  allowUnscopedRulesBodyField,
   schemaValidationQueryFields,
   skipPaginationQueryField,
   publishBypassedGatesField,
@@ -764,6 +765,7 @@ export const postFeatureBodyV2 = z
       )
       .optional(),
     ...publishOverrideBodyFields,
+    allowUnscopedRules: allowUnscopedRulesBodyField,
   })
   .strict();
 
@@ -841,6 +843,7 @@ export const updateFeatureBodyV2 = z
       )
       .optional(),
     ...publishOverrideBodyFields,
+    allowUnscopedRules: allowUnscopedRulesBodyField,
   })
   .strict();
 
@@ -913,6 +916,7 @@ export const postFeatureV2Validator = {
   method: "post" as const,
   path: "/features",
   version: "v2" as const,
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const getFeatureV2Validator = {
@@ -959,6 +963,7 @@ export const updateFeatureV2Validator = {
   method: "post" as const,
   path: "/features/:id",
   version: "v2" as const,
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const deleteFeatureV2Validator = {

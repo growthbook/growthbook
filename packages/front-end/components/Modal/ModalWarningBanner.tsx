@@ -15,12 +15,14 @@ export default function ModalWarningBanner({
 }) {
   return (
     <Flex
+      role="status"
       align="center"
       justify="between"
       gap="4"
-      px="4"
       py="2"
       style={{
+        // A host can widen the side inset to match its body padding.
+        paddingInline: "var(--modal-warning-banner-inset, var(--space-4))",
         background: "var(--amber-a3)",
         borderTop: "1px solid var(--amber-a5)",
         borderBottom: "1px solid var(--amber-a5)",

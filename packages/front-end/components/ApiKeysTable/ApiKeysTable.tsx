@@ -3,9 +3,9 @@ import { Box, Flex } from "@radix-ui/themes";
 import { PiClockCountdown, PiIdentificationCard, PiInfo } from "react-icons/pi";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
+  actsAsUser,
   canManageApiKeySecret,
   canSetApiKeyDisabled,
-  requesterHeaderPolicy,
 } from "shared/permissions";
 import { ago, datetime, datetimeWithZone } from "shared/dates";
 import { getExpirationStatus, isExpired } from "shared/api-key-expiration";
@@ -151,7 +151,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
       <Table variant="surface" layout="fixed" minTableWidth={950} mb="3">
         <TableHeader>
           <TableRow style={{ whiteSpace: "nowrap" }}>
-            <TableColumnHeader>Description</TableColumnHeader>
+            <TableColumnHeader>Name</TableColumnHeader>
             <TableColumnHeader width="170px">Key</TableColumnHeader>
             <TableColumnHeader width="110px">
               Internal ID{" "}
@@ -218,17 +218,13 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     </span>
                   </Tooltip>
                 )}
-                {!key.userId && requesterHeaderPolicy(key) !== "optional" && (
+                {!key.userId && actsAsUser(key) && (
                   <KeyTrait
                     icon={<PiIdentificationCard size={18} />}
                     color="var(--brown-10)"
-                    tooltip={
-                      requesterHeaderPolicy(key) === "required"
-                        ? "Every request must name a member with X-GrowthBook-Requested-By"
-                        : "Requests that send X-GrowthBook-Requested-By are rejected"
-                    }
+                    tooltip="Every request must name a member with X-GrowthBook-Requested-By. The key acts as that member."
                   >
-                    Requested-by {requesterHeaderPolicy(key)}
+                    Acts as user
                   </KeyTrait>
                 )}
                 {key.confirmRules && (
@@ -237,7 +233,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     color="var(--violet-11)"
                     tooltip="Risky actions made with this key wait for a person to confirm them."
                   >
-                    Human-in-the-loop
+                    Human-in-the-Loop
                   </KeyTrait>
                 )}
                 {hasActivePreviousKey(key) && (
