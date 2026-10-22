@@ -42,6 +42,7 @@ export default function TrafficCard({
   variations,
   isBandit,
   disableDimensions,
+  disableDimensionSRM,
   cardTitle = "Traffic",
   containerClassName = "box p-3 my-4",
   cluster,
@@ -50,6 +51,7 @@ export default function TrafficCard({
   variations: ExperimentReportVariation[];
   isBandit: boolean;
   disableDimensions?: boolean;
+  disableDimensionSRM?: boolean;
   cardTitle?: string;
   containerClassName?: string;
   cluster?: {
@@ -81,8 +83,16 @@ export default function TrafficCard({
             variations,
             srmThreshold,
             isBandit,
+            disableDimensionSRM,
           ),
-    [disableDimensions, unitTraffic, variations, srmThreshold, isBandit],
+    [
+      disableDimensions,
+      disableDimensionSRM,
+      unitTraffic,
+      variations,
+      srmThreshold,
+      isBandit,
+    ],
   );
 
   const [selectedDimension, setSelectedDimension] = useState<string>("");
@@ -219,7 +229,7 @@ export default function TrafficCard({
               return (
                 <tr key={i}>
                   <td className="border-right">
-                    {!isBandit ? (
+                    {!isBandit && !disableDimensionSRM ? (
                       <>
                         <Tooltip
                           body={

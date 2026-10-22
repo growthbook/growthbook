@@ -386,6 +386,8 @@ function HealthSnapshotCards({
   const subUnitNoun =
     clusterSubUnitMapping?.totalUnits === 1 ? "value" : "values";
 
+  const isClusterExperiment = !!snapshot.settings.isClusterExperiment;
+
   const phaseObj = experiment.phases?.[phase];
 
   const variations = getLatestPhaseVariations(experiment).map((v, i) => {
@@ -415,6 +417,7 @@ function HealthSnapshotCards({
               }
             : undefined
         }
+        disableDimensionSRM={isClusterExperiment}
       />
       <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
         {!isBandit ? (
@@ -427,6 +430,7 @@ function HealthSnapshotCards({
             exposureQuery={exposureQuery}
             healthTabConfigParams={healthTabConfigParams}
             canConfigHealthTab={hasPermissionToConfigHealthTag}
+            hideDimensions={isClusterExperiment}
           />
         ) : (
           <BanditSRMCard
