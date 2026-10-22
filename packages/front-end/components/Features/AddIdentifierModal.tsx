@@ -40,6 +40,7 @@ import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguag
 
 const DATASOURCE_COLUMNS = "24px minmax(0, 1fr) 200px";
 const ROW_BORDER = { borderTop: "1px solid var(--gray-a5)" };
+const PLACEHOLDER_NAME = "newIdentifier";
 
 // No-code and edge SDKs set attributes another way, so they have no snippet.
 const SNIPPET_LANGUAGES = (
@@ -107,7 +108,8 @@ export default function AddIdentifierModal({
   const automatic = inScope.filter(syncsIdentifiersAutomatically);
   const mappable = inScope.filter((d) => !syncsIdentifiersAutomatically(d));
 
-  const defaultColumn = attributeToUserIdTypeName(name);
+  const newProperty = name.trim() || PLACEHOLDER_NAME;
+  const defaultColumn = attributeToUserIdTypeName(newProperty);
   const columnFor = (id: string) => columns[id] || defaultColumn;
   const canEdit = (d: DataSourceInterfaceWithParams) =>
     permissionsUtil.canUpdateDataSourceSettings(d);
@@ -133,7 +135,6 @@ export default function AddIdentifierModal({
   );
   const language = pickedLanguage ?? connectedLanguages[0] ?? "javascript";
 
-  const newProperty = name.trim() || "new_identifier";
   const sdkSnippet = getSetAttributesCode(
     language,
     getExampleAttributes({
@@ -163,8 +164,8 @@ export default function AddIdentifierModal({
   return (
     <ModalStandard
       open={true}
-      header="Add identifier"
-      cta="Add identifier"
+      header="Add Identifier"
+      cta="Add Identifier"
       size="xl"
       ctaEnabled={canCreate && !!name.trim() && !invalidColumn}
       trackingEventModalType="add-identifier"
@@ -204,6 +205,7 @@ export default function AddIdentifierModal({
               markRequired
               autoFocus
               value={name}
+              placeholder={PLACEHOLDER_NAME}
               onChange={(e) => setName(e.target.value)}
               helpText="The attribute name used in the SDK"
             />
