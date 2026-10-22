@@ -121,6 +121,22 @@
   overflow-y: auto;
 }
 
+// While the docked GrowthBot panel slides in or out, on its timing.
+:global(html.agent-dock-motion) .rail {
+  transition-duration: var(--agent-dock-duration);
+  transition-timing-function: var(--agent-dock-easing);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// The panel's curve moves the rail's edge sooner, so the wordmark fades
+// faster to be gone before the edge reaches it.
+:global(html.agent-dock-motion) .collapsing .brandWordmark {
+  transition-duration: 40ms;
+}
+
 // Dark mode: translucent white lines, which take the panel's navy beneath.
 :global(.dark-theme) .rail {
   --rail-border: var(--slate-a4);

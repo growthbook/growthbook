@@ -96,6 +96,15 @@ html.app-drawer-open body {
   transition:
     padding-left 200ms ease,
     padding-right var(--agent-dock-duration) var(--agent-dock-easing);
+  html.agent-dock-motion & {
+    transition:
+      padding-left var(--agent-dock-duration) var(--agent-dock-easing),
+      padding-right var(--agent-dock-duration) var(--agent-dock-easing);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }
