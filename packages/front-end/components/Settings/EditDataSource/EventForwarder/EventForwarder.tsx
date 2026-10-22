@@ -31,7 +31,7 @@ import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { isCloud } from "@/services/env";
-import { UsageMeter } from "@/components/Settings/Usage/CloudUsage";
+import UsageMeter from "@/components/Settings/EditDataSource/EventForwarder/UsageMeter";
 import PremiumCallout from "@/ui/PremiumCallout";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import SelectField from "@/components/Forms/SelectField";

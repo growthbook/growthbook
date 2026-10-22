@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { date, daysLeft } from "shared/dates";
+import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import track from "@/services/track";
@@ -24,14 +24,9 @@ export default function useAccountPlanNotices(): AppNotice[] {
     ) : (
       <>
         Click to upgrade, or visit{" "}
-        <a
-          href={docsHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={() => track(trackEvent)}
-        >
+        <Link href={docsHref} external onClick={() => track(trackEvent)}>
           GrowthBook Docs &gt; {docsLabel}
-        </a>
+        </Link>
       </>
     );
 
