@@ -272,11 +272,9 @@ function sanitizeParams(
 }
 
 /**
- * Expands a config body (from an ExperimentQualityConfig doc, or undefined
- * for the built-in GrowthBook default — including when a referenced config
- * has been deleted) into a fully-populated, normalized config. Missing
- * fields fall back to catalog defaults. The enabled gate is resolved
- * separately via resolveQualityScope.
+ * Expands a scope's stored checks (undefined for the built-in defaults) into
+ * a fully-populated, normalized config. Missing fields fall back to catalog
+ * defaults. The enabled gate is resolved separately via resolveQualityScope.
  */
 export function resolveExperimentQualityScoreSettings(
   cfg?: ExperimentQualityConfigBody | null,

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
+import { experimentQualityConfigBodyValidator } from "./experiment-quality-score";
 
 // The organization default's `project` value
 export const ORG_DEFAULT_SCOPE = "";
@@ -10,9 +11,9 @@ export const ORG_DEFAULT_SCOPE = "";
 export const experimentationHealthQualitySettingsValidator = z
   .object({
     enabled: z.boolean().optional(),
-    // A named ExperimentQualityConfig; unset uses the built-in default (org
-    // record) or the organization default's choice (Project record)
-    configId: z.string().optional(),
+    // The checks, customized as one group; unset uses the built-in defaults
+    // (org record) or the organization default's checks (Project record)
+    config: experimentQualityConfigBodyValidator.optional(),
   })
   .strict();
 export type ExperimentationHealthQualitySettings = z.infer<

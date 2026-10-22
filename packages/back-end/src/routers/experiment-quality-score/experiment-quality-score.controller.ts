@@ -1,6 +1,4 @@
 import type { Response } from "express";
-import { CreateProps, UpdateProps } from "shared/types/base-model";
-import { ExperimentQualityConfigInterface } from "shared/validators";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
@@ -92,52 +90,4 @@ export async function postExperimentQualityScoreOverride(
   });
 
   return res.status(200).json({ status: 200, experiment: updated });
-}
-
-// Named, shareable quality configs. Permissions are enforced by the model.
-
-export async function postExperimentQualityConfig(
-  req: AuthRequest<CreateProps<ExperimentQualityConfigInterface>>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const config = await context.models.experimentQualityConfigs.create(req.body);
-  return res.status(200).json({ status: 200, config });
-}
-
-// Only the fields sent change, so a rename can send just the name
-export async function putExperimentQualityConfig(
-  req: AuthRequest<
-    UpdateProps<ExperimentQualityConfigInterface>,
-    { id: string }
-  >,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const existing = await context.models.experimentQualityConfigs.getById(
-    req.params.id,
-  );
-  if (!existing) {
-    return context.throwNotFoundError("Could not find that configuration");
-  }
-  const config = await context.models.experimentQualityConfigs.update(
-    existing,
-    req.body,
-  );
-  return res.status(200).json({ status: 200, config });
-}
-
-export async function deleteExperimentQualityConfig(
-  req: AuthRequest<null, { id: string }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const existing = await context.models.experimentQualityConfigs.getById(
-    req.params.id,
-  );
-  if (!existing) {
-    return context.throwNotFoundError("Could not find that configuration");
-  }
-  await context.models.experimentQualityConfigs.delete(existing);
-  return res.status(200).json({ status: 200 });
 }

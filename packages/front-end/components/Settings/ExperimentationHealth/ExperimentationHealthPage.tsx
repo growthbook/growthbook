@@ -5,7 +5,6 @@ import isUndefined from "lodash/isUndefined";
 import omitBy from "lodash/omitBy";
 import { countHealthOverrides, resolveQualityScope } from "shared/enterprise";
 import {
-  ExperimentQualityConfigInterface,
   ExperimentationHealthSettingsInterface,
   ORG_DEFAULT_SCOPE,
 } from "shared/validators";
@@ -30,7 +29,6 @@ import {
   isDegenerateDraft,
 } from "@/components/Settings/ExperimentQuality/qualityConfigDraft";
 import QualityScoreTab from "./QualityScoreTab";
-import ConfigNameModal from "./ConfigNameModal";
 import { OverrideDot } from "./OverrideMarker";
 
 // Select items can't use "" as a value
@@ -42,7 +40,8 @@ type ScopeDraft = Pick<ExperimentationHealthSettingsInterface, "quality">;
 function toScopeDraft(
   record: ExperimentationHealthSettingsInterface | null,
 ): ScopeDraft {
-  return { quality: record?.quality ?? {} };
+  const { enabled, config } = record?.quality ?? {};
+  return { quality: omitBy({ enabled, config }, isUndefined) };
 }
 
 export default function ExperimentationHealthPage() {
@@ -53,7 +52,6 @@ export default function ExperimentationHealthPage() {
     projects,
     experimentationHealthSettings,
     getHealthSettingsForScope,
-    getExperimentQualityConfigById,
     mutateDefinitions,
   } = useDefinitions();
   // Org admins edit every scope; Project admins edit their own Projects
@@ -68,7 +66,6 @@ export default function ExperimentationHealthPage() {
       : (editableProjects[0]?.id ?? ORG_DEFAULT_SCOPE),
   );
   const [resetOpen, setResetOpen] = useState(false);
-  const [nameOnSaveOpen, setNameOnSaveOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
   const [saveError, setSaveError] = useState("");
 
@@ -84,7 +81,7 @@ export default function ExperimentationHealthPage() {
     promptsData?.prompts?.find((p) => p.type === "experiment-hypothesis")
       ?.prompt || AI_PROMPT_DEFAULTS["experiment-hypothesis"];
 
-  // --- Scope draft: quality choice, targets and grade weights ---
+  // --- Scope draft: on/off and the saved checks ---
   const isOrgScope = scope === ORG_DEFAULT_SCOPE;
   const orgRecord = getHealthSettingsForScope(ORG_DEFAULT_SCOPE);
   const scopeRecord = getHealthSettingsForScope(scope);
@@ -106,35 +103,17 @@ export default function ExperimentationHealthPage() {
   const projectForResolve = isOrgScope ? null : scopeDraft;
   const effective = resolveQualityScope(orgForResolve, projectForResolve);
 
-  // --- Config draft: the checks and weights of the configuration in use ---
-  // A missing or deleted configuration falls back to the built-in default
-  const effectiveConfig: ExperimentQualityConfigInterface | null =
-    (effective.configId &&
-      getExperimentQualityConfigById(effective.configId)) ||
-    null;
-  // A Project admin can change a configuration only when nothing outside
-  // their Projects uses it (the server enforces the same rule)
-  const canEditConfig =
-    canManageOrg ||
-    (!!effectiveConfig &&
-      experimentationHealthSettings
-        .filter((r) => r.quality?.configId === effectiveConfig.id)
-        .every(
-          (r) =>
-            r.project !== ORG_DEFAULT_SCOPE &&
-            permissionsUtil.canUpdateProject(r.project),
-        ));
+  // --- Checks draft: the editor's form of the checks in effect ---
   const configSeed = useMemo(
-    () => configToDraft(effectiveConfig),
-    [effectiveConfig],
+    () => configToDraft(effective.config),
+    [effective.config],
   );
-  const configKey = `${scope}:${effectiveConfig?.id ?? ""}`;
   const [configEdits, setConfigEdits] = useState<{
-    key: string;
+    scope: string;
     draft: QualityConfigDraft;
   } | null>(null);
   const configDraft =
-    configEdits?.key === configKey ? configEdits.draft : configSeed;
+    configEdits?.scope === scope ? configEdits.draft : configSeed;
   const configDirty = !isEqual(configDraft, configSeed);
 
   const anyDirty = scopeDirty || configDirty;
@@ -150,25 +129,6 @@ export default function ExperimentationHealthPage() {
   );
   const projectCustomized = !isOrgScope && countHealthOverrides(scopeDraft) > 0;
 
-  async function saveScope(draft: ScopeDraft) {
-    await apiCall("/experimentation-health/settings", {
-      method: "PUT",
-      body: JSON.stringify({ project: scope, ...draft }),
-    });
-  }
-
-  async function createConfig(name: string): Promise<string> {
-    const res = await apiCall<{ config: ExperimentQualityConfigInterface }>(
-      "/experiment-quality-score/configs",
-      {
-        method: "POST",
-        body: JSON.stringify({ name, ...draftToConfig(configDraft) }),
-      },
-    );
-    await mutateDefinitions();
-    return res.config.id;
-  }
-
   async function afterSave() {
     setScopeEdits(null);
     setConfigEdits(null);
@@ -177,19 +137,16 @@ export default function ExperimentationHealthPage() {
   }
 
   async function save() {
-    // The built-in default can't be edited, so edits to it are saved as a
-    // new named configuration
-    if (configDirty && !effectiveConfig) {
-      setNameOnSaveOpen(true);
-      return;
-    }
-    if (configDirty && effectiveConfig) {
-      await apiCall(`/experiment-quality-score/configs/${effectiveConfig.id}`, {
-        method: "PUT",
-        body: JSON.stringify(draftToConfig(configDraft)),
-      });
-    }
-    if (scopeDirty) await saveScope(scopeDraft);
+    // Edited checks are saved on this scope's record; on a Project that
+    // makes them its own
+    const quality = {
+      ...scopeDraft.quality,
+      ...(configDirty ? { config: draftToConfig(configDraft) } : {}),
+    };
+    await apiCall("/experimentation-health/settings", {
+      method: "PUT",
+      body: JSON.stringify({ project: scope, quality }),
+    });
     await afterSave();
   }
 
@@ -198,6 +155,10 @@ export default function ExperimentationHealthPage() {
     setConfigEdits(null);
     setSaveError("");
   }
+
+  // Drop reset fields so an undone change doesn't read as an edit
+  const setQualityDraft = (quality: ScopeDraft["quality"]) =>
+    updateScope({ quality: omitBy(quality, isUndefined) });
 
   const scopeLabel = isOrgScope
     ? "the organization default"
@@ -226,23 +187,6 @@ export default function ExperimentationHealthPage() {
             organization default for all of them.
           </Text>
         </ModalStandard>
-      )}
-
-      {nameOnSaveOpen && (
-        <ConfigNameModal
-          header="Name This Configuration"
-          cta="Save"
-          note={`The GrowthBook default can't be changed, so your edits are saved as a new configuration used by ${scopeLabel}.`}
-          close={() => setNameOnSaveOpen(false)}
-          submit={async (name) => {
-            const configId = await createConfig(name);
-            await saveScope({
-              ...scopeDraft,
-              quality: { ...scopeDraft.quality, configId },
-            });
-            await afterSave();
-          }}
-        />
       )}
 
       <Heading as="h1" size="xl" mb="1">
@@ -327,27 +271,25 @@ export default function ExperimentationHealthPage() {
 
       <Box mt="4">
         <QualityScoreTab
-          scope={scope}
+          isOrgScope={isOrgScope}
           orgQuality={
             (isOrgScope ? scopeDraft.quality : orgRecord?.quality) ?? {}
           }
           qualityDraft={scopeDraft.quality ?? {}}
-          setQualityDraft={(quality) =>
-            // Drop reset fields so an undone change doesn't read as an edit
-            updateScope({ quality: omitBy(quality, isUndefined) })
-          }
+          setQualityDraft={setQualityDraft}
           effective={effective}
-          effectiveConfig={effectiveConfig}
           configDraft={configDraft}
-          setConfigDraft={(draft) => setConfigEdits({ key: configKey, draft })}
-          configDirty={configDirty}
+          setConfigDraft={(draft) => setConfigEdits({ scope, draft })}
+          checksCustomized={effective.overridden.config || configDirty}
+          resetChecks={() => {
+            setConfigEdits(null);
+            setQualityDraft({ ...scopeDraft.quality, config: undefined });
+          }}
           anyDirty={anyDirty}
-          canEditConfig={canEditConfig}
           canRecalculate={canManageOrg}
           aiAvailable={aiEnabled}
           hypothesisDefinition={hypothesisDefinition}
           stoppedExperiments={statusData?.stoppedExperiments}
-          createConfig={createConfig}
         />
       </Box>
 

@@ -5,7 +5,7 @@ describe("countHealthOverrides", () => {
     expect(countHealthOverrides(null)).toBe(0);
     expect(countHealthOverrides({ quality: {} })).toBe(0);
     expect(
-      countHealthOverrides({ quality: { enabled: false, configId: "eqc_1" } }),
+      countHealthOverrides({ quality: { enabled: false, config: {} } }),
     ).toBe(2);
   });
 });

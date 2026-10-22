@@ -186,8 +186,7 @@ describe("resolveExperimentQualityScoreSettings", () => {
     expect(resolved.sections.documentation.share).toBeCloseTo(40 / 70, 9);
   });
 
-  it("resolving without a config (or with a dangling config id) yields catalog defaults", () => {
-    // A deleted/missing referenced config resolves as undefined → defaults
+  it("resolving without a config yields catalog defaults", () => {
     const fromUndefined = resolveExperimentQualityScoreSettings(undefined);
     const fromNull = resolveExperimentQualityScoreSettings(null);
     expect(fromUndefined.sections.documentation.share).toBeCloseTo(0.4, 9);
@@ -195,45 +194,48 @@ describe("resolveExperimentQualityScoreSettings", () => {
   });
 
   describe("resolveQualityScope", () => {
+    const orgConfig = { aiChecksEnabled: false };
+    const projectConfig = { sections: { process: { enabled: false } } };
+
     it("is off with no records", () => {
       expect(resolveQualityScope(undefined, undefined)).toEqual({
         enabled: false,
-        configId: undefined,
-        overridden: { enabled: false, configId: false },
+        config: undefined,
+        overridden: { enabled: false, config: false },
       });
     });
 
     it("inherits every field from the organization default", () => {
       const scope = resolveQualityScope(
-        { quality: { enabled: true, configId: "eqc__org" } },
+        { quality: { enabled: true, config: orgConfig } },
         null,
       );
       expect(scope.enabled).toBe(true);
-      expect(scope.configId).toBe("eqc__org");
-      expect(scope.overridden).toEqual({ enabled: false, configId: false });
+      expect(scope.config).toBe(orgConfig);
+      expect(scope.overridden).toEqual({ enabled: false, config: false });
     });
 
     it("lets a Project override each field independently", () => {
-      const org = { quality: { enabled: true, configId: "eqc__org" } };
+      const org = { quality: { enabled: true, config: orgConfig } };
 
       const disabledOnly = resolveQualityScope(org, {
         quality: { enabled: false },
       });
       expect(disabledOnly.enabled).toBe(false);
-      expect(disabledOnly.configId).toBe("eqc__org");
+      expect(disabledOnly.config).toBe(orgConfig);
       expect(disabledOnly.overridden).toEqual({
         enabled: true,
-        configId: false,
+        config: false,
       });
 
       const configOnly = resolveQualityScope(org, {
-        quality: { configId: "eqc__proj" },
+        quality: { config: projectConfig },
       });
       expect(configOnly.enabled).toBe(true);
-      expect(configOnly.configId).toBe("eqc__proj");
+      expect(configOnly.config).toBe(projectConfig);
       expect(configOnly.overridden).toEqual({
         enabled: false,
-        configId: true,
+        config: true,
       });
     });
 
@@ -243,7 +245,7 @@ describe("resolveExperimentQualityScoreSettings", () => {
         { quality: { enabled: true } },
       );
       expect(scope.enabled).toBe(true);
-      expect(scope.configId).toBeUndefined();
+      expect(scope.config).toBeUndefined();
     });
   });
 

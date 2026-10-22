@@ -70,12 +70,6 @@ export class ExperimentationHealthSettingsModel extends BaseClass {
     return this._findOne({ project });
   }
 
-  public getByQualityConfigId(
-    configId: string,
-  ): Promise<ExperimentationHealthSettingsInterface[]> {
-    return this._find({ "quality.configId": configId });
-  }
-
   public async upsertForScope(
     project: string,
     updates: ScopeUpdates,

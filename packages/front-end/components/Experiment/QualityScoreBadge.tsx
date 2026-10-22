@@ -82,11 +82,10 @@ const QualityScoreTooltipBody: FC<{ result: ExperimentQualityScoreResult }> = ({
 const QualityScoreBadge: FC<{
   experiment: ExperimentInterfaceStringDates;
 }> = ({ experiment }) => {
-  const quality = useExperimentQualityScore(experiment);
+  const result = useExperimentQualityScore(experiment);
 
-  const score = quality?.result.score ?? null;
-  if (!quality || score === null) return null;
-  const { result } = quality;
+  const score = result?.score ?? null;
+  if (!result || score === null) return null;
 
   return (
     <Tooltip body={<QualityScoreTooltipBody result={result} />}>

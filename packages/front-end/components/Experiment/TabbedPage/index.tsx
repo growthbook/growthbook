@@ -771,7 +771,7 @@ export default function TabbedPage({
       >
         <QualityTab
           experiment={experiment}
-          quality={qualityScore}
+          result={qualityScore}
           mutate={mutate}
           editMetrics={editMetrics}
           setTabAndScroll={setTabAndScroll}

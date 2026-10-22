@@ -69,7 +69,6 @@ import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshM
 import { AggregatedFactTableModel } from "back-end/src/models/AggregatedFactTableModel";
 import { AggregatedFactTableRunModel } from "back-end/src/models/AggregatedFactTableRunModel";
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
-import { ExperimentQualityConfigModel } from "back-end/src/enterprise/models/ExperimentQualityConfigModel";
 import { ExperimentationHealthSettingsModel } from "back-end/src/enterprise/models/ExperimentationHealthSettingsModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
@@ -146,7 +145,6 @@ export type ModelName =
   | "safeRollout"
   | "safeRolloutSnapshots"
   | "decisionCriteria"
-  | "experimentQualityConfigs"
   | "experimentationHealthSettings"
   | "metricTimeSeries"
   | "webhookSecrets"
@@ -213,7 +211,6 @@ export const modelClasses = {
   safeRollout: SafeRolloutModel,
   safeRolloutSnapshots: SafeRolloutSnapshotModel,
   decisionCriteria: DecisionCriteriaModel,
-  experimentQualityConfigs: ExperimentQualityConfigModel,
   experimentationHealthSettings: ExperimentationHealthSettingsModel,
   metricTimeSeries: MetricTimeSeriesModel,
   webhookSecrets: WebhookSecretDataModel,
@@ -403,7 +400,6 @@ export class ReqContextClass {
       safeRollout: new SafeRolloutModel(this),
       safeRolloutSnapshots: new SafeRolloutSnapshotModel(this),
       decisionCriteria: new DecisionCriteriaModel(this),
-      experimentQualityConfigs: new ExperimentQualityConfigModel(this),
       experimentationHealthSettings: new ExperimentationHealthSettingsModel(
         this,
       ),

@@ -26,12 +26,12 @@ import {
 } from "shared/types/report";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { format } from "date-fns-tz";
+import { ExperimentQualityScoreResult } from "shared/enterprise";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
-import { ExperimentQualityScoreHookResult } from "@/hooks/useExperimentQualityScore";
 import { getScoreTier } from "@/components/Experiment/Quality/qualityDisplay";
 import Modal from "@/components/Modal";
 import track from "@/services/track";
@@ -86,7 +86,7 @@ import { ExperimentTab } from ".";
 
 export interface Props {
   tab: ExperimentTab;
-  qualityScore: ExperimentQualityScoreHookResult | null;
+  qualityScore: ExperimentQualityScoreResult | null;
   setTab: (tab: ExperimentTab, scrollToId?: string) => void;
   experiment: ExperimentInterfaceStringDates;
   envs: string[];
@@ -1344,11 +1344,11 @@ export default function ExperimentHeader({
                             radius="full"
                             variant="soft"
                             color={
-                              qualityScore.result.score === null
+                              qualityScore.score === null
                                 ? "gray"
-                                : getScoreTier(qualityScore.result.score)
+                                : getScoreTier(qualityScore.score)
                             }
-                            label={String(qualityScore.result.score ?? "—")}
+                            label={String(qualityScore.score ?? "—")}
                           />
                         </TabsTrigger>
                       )}

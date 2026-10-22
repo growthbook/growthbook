@@ -3,7 +3,6 @@ import {
   aiExperimentQualityCheckKeys,
   processExperimentQualityCheckKeys,
 } from "./experiments";
-import { baseSchema } from "./base-model";
 
 export const experimentQualitySectionKeys = [
   "documentation",
@@ -78,9 +77,8 @@ export const customQualityCheckValidator = z
   .strict();
 export type CustomQualityCheck = z.infer<typeof customQualityCheckValidator>;
 
-// The checks-and-weights config body. Stored on ExperimentQualityConfig
-// documents (own collection) and referenced by id from Experimentation
-// Health settings records.
+// The checks and section weights, stored on an Experimentation Health
+// settings record (unset uses the built-in defaults)
 export const experimentQualityConfigBodyValidator = z
   .object({
     aiChecksEnabled: z.boolean().optional(),
@@ -104,15 +102,4 @@ export const experimentQualityConfigBodyValidator = z
   .strict();
 export type ExperimentQualityConfigBody = z.infer<
   typeof experimentQualityConfigBodyValidator
->;
-
-// A named, shareable quality config document
-export const experimentQualityConfigValidator = baseSchema
-  .extend({
-    name: z.string().min(1).max(100),
-    ...experimentQualityConfigBodyValidator.shape,
-  })
-  .strict();
-export type ExperimentQualityConfigInterface = z.infer<
-  typeof experimentQualityConfigValidator
 >;

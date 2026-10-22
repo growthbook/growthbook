@@ -2,6 +2,7 @@ import { FC, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   ExperimentQualityCheckResult,
+  ExperimentQualityScoreResult,
   ExperimentQualitySectionResult,
   QUALITY_CHECK_PASS_THRESHOLD,
 } from "shared/enterprise";
@@ -15,7 +16,6 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import { ExperimentQualityScoreHookResult } from "@/hooks/useExperimentQualityScore";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import ScoreRing from "@/components/Experiment/Quality/ScoreRing";
@@ -215,21 +215,20 @@ const SectionCard: FC<{
 
 const QualityTab: FC<{
   experiment: ExperimentInterfaceStringDates;
-  quality: ExperimentQualityScoreHookResult | null;
+  result: ExperimentQualityScoreResult | null;
   mutate: () => void;
   editMetrics?: (() => void) | null;
   setTabAndScroll: (tab: ExperimentTab, scrollToId?: string) => void;
-}> = ({ experiment, quality, mutate, editMetrics, setTabAndScroll }) => {
+}> = ({ experiment, result, mutate, editMetrics, setTabAndScroll }) => {
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
   const [overrideModalOpen, setOverrideModalOpen] = useState(false);
   const [overrideScore, setOverrideScore] = useState<number>(
-    quality?.result.score ?? 50,
+    result?.score ?? 50,
   );
   const [overrideReason, setOverrideReason] = useState("");
 
-  if (!quality) return null;
-  const { result, configName } = quality;
+  if (!result) return null;
 
   const canOverride =
     permissionsUtil.canUpdateExperiment(experiment, {}) && !experiment.archived;
@@ -301,13 +300,8 @@ const QualityTab: FC<{
         </Heading>
         <Flex align="center" gap="3">
           <Text size="sm" color="text-low">
-            Scored with{" "}
-            {configName
-              ? `the ${configName} configuration`
-              : "the GrowthBook default configuration"}{" "}
-            ·{" "}
-            <Link href="/settings/experimentation-health#quality">
-              view configuration
+            <Link href="/settings/experimentation-health">
+              How the score is calculated
             </Link>
           </Text>
           {canOverride && !result.override && (

@@ -15,10 +15,10 @@ type HealthRecord = Partial<
 
 export interface ResolvedQualityScope {
   enabled: boolean;
-  // undefined = the built-in GrowthBook default configuration
-  configId?: string;
+  // undefined = the built-in default checks
+  config?: ExperimentQualityConfigBody;
   // Which fields the Project record sets itself rather than inheriting
-  overridden: { enabled: boolean; configId: boolean };
+  overridden: { enabled: boolean; config: boolean };
 }
 
 // Quality scoring is off unless the org or Project record turns it on
@@ -30,48 +30,38 @@ export function resolveQualityScope(
   const project = projectRecord?.quality;
   return {
     enabled: project?.enabled ?? org?.enabled ?? false,
-    configId: project?.configId ?? org?.configId,
+    config: project?.config ?? org?.config,
     overridden: {
       enabled: project?.enabled !== undefined,
-      configId: project?.configId !== undefined,
+      config: project?.config !== undefined,
     },
   };
 }
 
 /**
  * The settings that score an experiment, or null when quality scoring is
- * off for its scope. A missing or deleted configuration resolves to the
- * built-in defaults. With org AI off, AI checks are dropped so their share
+ * off for its scope. With org AI off, AI checks are dropped so their share
  * goes to the other checks instead of staying pending.
  */
 export function resolveExperimentQualitySettings({
   orgRecord,
   projectRecord,
-  getConfig,
   aiEnabled,
 }: {
   orgRecord?: HealthRecord | null;
   projectRecord?: HealthRecord | null;
-  getConfig: (id: string) => ExperimentQualityConfigBody | null | undefined;
   aiEnabled: boolean;
-}): {
-  settings: ResolvedExperimentQualityScoreSettings;
-  configId?: string;
-} | null {
-  const { enabled, configId } = resolveQualityScope(orgRecord, projectRecord);
+}): ResolvedExperimentQualityScoreSettings | null {
+  const { enabled, config } = resolveQualityScope(orgRecord, projectRecord);
   if (!enabled) return null;
-  const config = configId ? getConfig(configId) : null;
-  return {
-    settings: resolveExperimentQualityScoreSettings(
-      aiEnabled ? config : { ...config, aiChecksEnabled: false },
-    ),
-    configId,
-  };
+  return resolveExperimentQualityScoreSettings(
+    aiEnabled ? config : { ...config, aiChecksEnabled: false },
+  );
 }
 
 // How many settings a record customizes (for "N settings customized")
 export function countHealthOverrides(record?: HealthRecord | null): number {
   if (!record) return 0;
-  return Object.values(record.quality ?? {}).filter((v) => v !== undefined)
-    .length;
+  const { enabled, config } = record.quality ?? {};
+  return [enabled, config].filter((v) => v !== undefined).length;
 }

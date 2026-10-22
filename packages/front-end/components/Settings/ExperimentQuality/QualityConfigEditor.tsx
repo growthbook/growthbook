@@ -202,14 +202,12 @@ export default function QualityConfigEditor({
   draft,
   setDraft,
   aiAvailable,
-  readOnly,
   hypothesisDefinition,
   aiSectionFooter,
 }: {
   draft: QualityConfigDraft;
   setDraft: (draft: QualityConfigDraft) => void;
   aiAvailable: boolean;
-  readOnly: boolean;
   hypothesisDefinition: string;
   // Rendered at the bottom of the open AI checks section
   aiSectionFooter?: ReactNode;
@@ -226,7 +224,7 @@ export default function QualityConfigEditor({
   );
 
   return (
-    <Box className={clsx(readOnly && styles.ghosted)}>
+    <Box>
       <div className={styles.distributionStrip}>
         {stripSections.map((key) => (
           <span

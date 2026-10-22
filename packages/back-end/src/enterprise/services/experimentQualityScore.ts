@@ -67,15 +67,13 @@ async function loadAIQualityInputs(
   context: ReqContext,
   goalMetricIds: string[],
 ) {
-  const [records, configs, metrics] = await Promise.all([
+  const [records, metrics] = await Promise.all([
     context.models.experimentationHealthSettings.getAll(),
-    context.models.experimentQualityConfigs.getAll(),
     getExperimentMetricsByIds(context, [...new Set(goalMetricIds)]),
   ]);
   const recordsByProject = new Map(records.map((r) => [r.project, r]));
-  const configsById = new Map(configs.map((c) => [c.id, c]));
   const metricNames = new Map(metrics.map((m) => [m.id, m.name]));
-  return { recordsByProject, configsById, metricNames };
+  return { recordsByProject, metricNames };
 }
 
 // The AI checks an experiment needs and their current inputs hash, or null
@@ -84,16 +82,14 @@ function getAIQualityWork(
   experiment: ExperimentInterface,
   inputs: Awaited<ReturnType<typeof loadAIQualityInputs>>,
 ) {
-  const resolved = resolveExperimentQualitySettings({
+  const settings = resolveExperimentQualitySettings({
     orgRecord: inputs.recordsByProject.get(ORG_DEFAULT_SCOPE),
     projectRecord: experiment.project
       ? inputs.recordsByProject.get(experiment.project)
       : null,
-    getConfig: (id) => inputs.configsById.get(id),
     aiEnabled: true,
   });
-  if (!resolved?.settings.aiChecksEnabled) return null;
-  const { settings } = resolved;
+  if (!settings?.aiChecksEnabled) return null;
 
   const applicableChecks = aiExperimentQualityCheckKeys.filter(
     (key) =>
