@@ -1,0 +1,14 @@
+.bar {
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  background: var(--violet-9);
+}
+
+.hitTarget {
+  display: flex;
+  align-items: flex-end;
+
+  &:hover .bar {
+    background: var(--violet-11);
+  }
+}

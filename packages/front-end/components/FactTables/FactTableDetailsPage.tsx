@@ -53,6 +53,7 @@ import AggregatedFactTablesCard from "./AggregatedFactTablesCard";
 import FactTableEventsTab from "./FactTableEventsTab";
 import FactTableSampleRows from "./FactTableSampleRows";
 import styles from "./FactTableDetailsPage.module.scss";
+import FactTableRowsPerDay from "./FactTableRowsPerDay";
 
 // One line of SQL with SELECT lists shortened, colored like the full SQL view
 function SqlSummary({
@@ -498,6 +499,12 @@ export default function FactTableDetailsPage() {
           </Callout>
         )}
       </Frame>
+
+      {datasource &&
+        permissionsUtil.canRunProductAnalyticsExplorationQueries(
+          datasource,
+          "fact_table",
+        ) && <FactTableRowsPerDay factTable={factTable} />}
 
       <Tabs
         value={tab ?? (eventColumns.length > 0 ? "events" : "columns")}
