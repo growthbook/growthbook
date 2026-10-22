@@ -214,8 +214,11 @@ describe("incremental refresh units query for cluster experiments", () => {
 
     // The per-sub-unit aggregation groups by the sub-unit, not the cluster.
     expect(sql).toMatch(/GROUP BY\s+user_id/i);
-    // One cluster per sub-unit, carried via MAX.
-    expect(sql).toMatch(/MAX\s*\(\s*e\.region_id\s*\)\s+AS region_id/i);
+    // One cluster per sub-unit; a sub-unit seen in several is marked
+    // '__multiple__' so it can be dropped.
+    expect(sql).toMatch(
+      /WHEN\s+COUNT\s*\(\s*DISTINCT\s+e\.region_id\s*\)\s*>\s*1\s+THEN\s+'__multiple__'\s+ELSE\s+MAX\s*\(\s*e\.region_id\s*\)\s+END\s*\)\s+AS region_id/i,
+    );
     // New exposures project the cluster id (cast to string like the sub-unit).
     expect(sql).toMatch(/e\.region_id[\s\S]*AS region_id/i);
   });
