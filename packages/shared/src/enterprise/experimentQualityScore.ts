@@ -147,6 +147,13 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     note: "stopped experiments only",
     defaultEnabled: true,
   },
+  "analysis-written": {
+    section: "documentation",
+    type: "deterministic",
+    label: "Analysis written",
+    note: "stopped experiments only",
+    defaultEnabled: false,
+  },
   "goal-metrics-locked": {
     section: "process",
     type: "process",
@@ -712,6 +719,11 @@ function evaluateDeterministicCheck(
           }
         : { applicable: true, score: 1 };
     }
+    case "analysis-written":
+      if (experiment.status !== "stopped") return { applicable: false };
+      return experiment.analysis?.trim()
+        ? { applicable: true, score: 1 }
+        : { applicable: true, score: 0, reason: "No analysis written" };
     case "decision": {
       if (experiment.status !== "stopped") return { applicable: false };
       const hasDecision =

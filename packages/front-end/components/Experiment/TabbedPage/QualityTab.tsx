@@ -72,6 +72,7 @@ function getFixAction(
       };
     case "tags-or-project":
     case "decision":
+    case "analysis-written":
     case "goal-metrics-locked":
     case "hypothesis-locked":
     case "stable-assignment":
@@ -117,6 +118,8 @@ function describeImprovement(check: ExperimentQualityCheckResult): string {
       return "Use fewer variations";
     case "decision":
       return "Record a decision";
+    case "analysis-written":
+      return "Write up the analysis";
     case "ai-hypothesis-quality":
       return "Strengthen the hypothesis";
     case "ai-hypothesis-metric-alignment":

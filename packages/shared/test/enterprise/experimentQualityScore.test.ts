@@ -514,6 +514,31 @@ describe("getExperimentQualityScore", () => {
     });
   });
 
+  it("checks the analysis write-up once stopped, when turned on", () => {
+    const settings = resolveExperimentQualityScoreSettings({
+      checks: { "analysis-written": { enabled: true } },
+    });
+    expect(
+      resolveExperimentQualityScoreSettings().checks["analysis-written"]
+        .enabled,
+    ).toBe(false);
+    expect(
+      checkByKey(score(baseExperiment(), settings), "analysis-written")?.score,
+    ).toBe(1);
+    expect(
+      checkByKey(
+        score(baseExperiment({ analysis: " " }), settings),
+        "analysis-written",
+      ),
+    ).toMatchObject({ score: 0, reason: "No analysis written" });
+    expect(
+      checkByKey(
+        score(baseExperiment({ status: "running" }), settings),
+        "analysis-written",
+      )?.applicable,
+    ).toBe(false);
+  });
+
   describe("setup checks", () => {
     it("checks guardrails and, when enabled, the number of variations", () => {
       const settings = resolveExperimentQualityScoreSettings({

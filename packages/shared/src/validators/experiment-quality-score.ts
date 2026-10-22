@@ -22,6 +22,7 @@ export const deterministicExperimentQualityCheckKeys = [
   "screenshots",
   "tags-or-project",
   "decision",
+  "analysis-written",
 ] as const;
 export type DeterministicExperimentQualityCheckKey =
   (typeof deterministicExperimentQualityCheckKeys)[number];
