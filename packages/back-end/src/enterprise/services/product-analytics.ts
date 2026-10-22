@@ -80,14 +80,6 @@ function withRequestedDisplayConfig(
 // event tables.
 const PRODUCT_ANALYTICS_SYNC_TIMEOUT_MS = 5000;
 
-const NO_POPULATION_WINDOW: PopulationStep["windowSettings"] = {
-  type: "",
-  delayValue: 0,
-  delayUnit: "days",
-  windowValue: 0,
-  windowUnit: "days",
-};
-
 export async function runProductAnalyticsExploration(
   context: ReqContext | ApiReqContext,
   config: ExplorationConfig,
@@ -401,7 +393,13 @@ export async function runProductAnalyticsExploration(
     }
     const steps: PopulationStep[] = dataset.steps.map((step) => ({
       ...step,
-      windowSettings: NO_POPULATION_WINDOW,
+      windowSettings: {
+        type: "",
+        delayValue: 0,
+        delayUnit: "days",
+        windowValue: 0,
+        windowUnit: "days",
+      },
     }));
     const factTables = await getFactTablesByIds(
       context,
