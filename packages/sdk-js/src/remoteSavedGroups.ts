@@ -18,10 +18,14 @@ const remoteGroupsByPayload = new WeakMap<
   RemoteSavedGroup[]
 >();
 
+const NO_REMOTE_GROUPS: RemoteSavedGroup[] = [];
+
 /** Only v2 payloads include the remote group metadata this helper reads. */
 export function getRemoteSavedGroups(
-  savedGroups: SavedGroupsPayload = {},
+  savedGroups?: SavedGroupsPayload,
 ): RemoteSavedGroup[] {
+  // Most payloads have no saved groups; skip the allocation on the hot path
+  if (!savedGroups) return NO_REMOTE_GROUPS;
   let groups = remoteGroupsByPayload.get(savedGroups);
   if (!groups) {
     groups = Object.keys(savedGroups).reduce<RemoteSavedGroup[]>(

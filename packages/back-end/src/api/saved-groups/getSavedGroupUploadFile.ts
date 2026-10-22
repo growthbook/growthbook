@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ApiRequestLocals } from "back-end/types/api";
 import { getRemoteSavedGroupUpload } from "back-end/src/services/remoteSavedGroups";
 import { getSignedImageUrl } from "back-end/src/services/files";
+import { logger } from "back-end/src/util/logger";
 
 const SIGNED_URL_MINUTES = 15;
 
@@ -37,7 +38,17 @@ export async function getSavedGroupUploadFile(req: Request, res: Response) {
       await getSignedImageUrl(upload.fileKey, SIGNED_URL_MINUTES),
     );
   } catch (e) {
-    const status = (e as { status?: number }).status ?? 400;
-    return res.status(status).json({ message: (e as Error).message });
+    const status = (e as { status?: number }).status;
+    if (typeof status === "number" && status < 500) {
+      return res.status(status).json({ message: (e as Error).message });
+    }
+    // Storage or database errors: don't expose internals to loaders
+    logger.error(
+      { err: e, path: req.path },
+      "Could not get a remote Saved Group upload file",
+    );
+    return res
+      .status(500)
+      .json({ message: "Could not get the upload file. Try again later." });
   }
 }

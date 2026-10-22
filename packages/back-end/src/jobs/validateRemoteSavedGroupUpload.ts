@@ -50,8 +50,21 @@ export default function (ag: Agenda) {
             attempt: attempt + 1,
           });
         } else {
-          const context = await getContextForAgendaJobByOrgId(organization);
-          await failRemoteSavedGroupUploadValidation(context, uploadId);
+          try {
+            const context = await getContextForAgendaJobByOrgId(organization);
+            await failRemoteSavedGroupUploadValidation(context, uploadId);
+          } catch (err) {
+            // Otherwise the upload would stay pending with nothing queued
+            logger.error(
+              { err, organization, uploadId, attempt },
+              "Could not mark a remote Saved Group upload invalid; retrying",
+            );
+            await agenda.schedule(RETRY_DELAY, JOB_NAME, {
+              organization,
+              uploadId,
+              attempt,
+            });
+          }
         }
       }
     },

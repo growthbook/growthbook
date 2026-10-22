@@ -44,6 +44,11 @@ describe("getRemoteSavedGroups", () => {
       },
     ]);
   });
+
+  it("returns the same empty list when there are no saved groups", () => {
+    expect(getRemoteSavedGroups()).toEqual([]);
+    expect(getRemoteSavedGroups()).toBe(getRemoteSavedGroups(undefined));
+  });
 });
 
 describe("GrowthBookClient.addRemoteSavedGroups", () => {

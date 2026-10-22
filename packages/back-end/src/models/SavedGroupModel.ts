@@ -12,15 +12,10 @@ import {
 import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
-import {
-  assertRemoteSavedGroupsEnabled,
-  assertRemoteSavedGroupsLicensed,
-  assertRemoteSavedGroupAttribute,
-  savedGroupUpdated,
-} from "back-end/src/services/savedGroups";
+import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 import { BadRequestError } from "back-end/src/util/errors";
 import {
-  assertUsableUploadVersion,
+  assertValidRemoteSavedGroupWrite,
   deleteRemoteSavedGroupUploads,
 } from "back-end/src/services/remoteSavedGroups";
 import { assertSavedGroupProjectScope } from "back-end/src/services/savedGroupProjectScope";
@@ -166,7 +161,12 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       await assertSavedGroupProjectScope(this.context, doc, previousDoc);
     }
     if (doc.type === "remote") {
-      await this.validateRemoteGroup(doc, previousDoc, writeOptions);
+      await assertValidRemoteSavedGroupWrite(
+        this.context,
+        doc,
+        previousDoc,
+        !!writeOptions?.isCompensation,
+      );
     } else if (doc.currentUploadVersion !== undefined) {
       throw new BadRequestError(
         "Only remote Saved Groups can have a currentUploadVersion",
@@ -180,51 +180,6 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
         "saved group",
         previousDoc ? { condition: previousDoc.condition } : undefined,
         doc.projects,
-      );
-    }
-  }
-
-  private async validateRemoteGroup(
-    doc: SavedGroupInterface,
-    previousDoc?: SavedGroupInterface,
-    writeOptions?: WriteOptions,
-  ) {
-    // Archiving stays possible after the flag or the plan is turned off, for
-    // cleanup.
-    const onlyArchiving =
-      !!previousDoc &&
-      isEqual(
-        omit(doc, ["archived", "dateUpdated"]),
-        omit(previousDoc, ["archived", "dateUpdated"]),
-      );
-    if (!onlyArchiving && !writeOptions?.isCompensation) {
-      assertRemoteSavedGroupsEnabled(this.context.org);
-      assertRemoteSavedGroupsLicensed(this.context);
-    }
-    // Every write path ends here (APIs, revisions), unlike request validators.
-    if (doc.values?.length || doc.condition) {
-      throw new BadRequestError(
-        "Remote Saved Groups cannot have values or a condition",
-      );
-    }
-    if (!previousDoc) {
-      assertRemoteSavedGroupAttribute(this.context.org, doc.attributeKey);
-    } else if (doc.attributeKey !== previousDoc.attributeKey) {
-      // Loaders store IDs by attribute, so changing it would need a reload.
-      throw new BadRequestError(
-        "The attributeKey of a remote Saved Group cannot change",
-      );
-    }
-    // Compensation restores a version that was valid when it was written.
-    if (
-      doc.currentUploadVersion !== undefined &&
-      doc.currentUploadVersion !== previousDoc?.currentUploadVersion &&
-      !writeOptions?.isCompensation
-    ) {
-      await assertUsableUploadVersion(
-        this.context,
-        doc.id,
-        doc.currentUploadVersion,
       );
     }
   }

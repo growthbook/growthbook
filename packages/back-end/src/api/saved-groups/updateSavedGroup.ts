@@ -66,6 +66,14 @@ export const updateSavedGroup = createApiRequestHandler(
   if (savedGroup.type === "list" && condition && condition !== "{}") {
     throw new Error("Cannot specify a condition for list groups");
   }
+  if (
+    savedGroup.type === "remote" &&
+    (values?.length || (condition && condition !== "{}"))
+  ) {
+    throw new BadRequestError(
+      "Remote Saved Groups get their values from uploads. Use POST /saved-groups/{id}/upload-url, then POST /saved-groups/{id}/uploads.",
+    );
+  }
 
   const fieldsToUpdate: UpdateSavedGroupProps = {};
 

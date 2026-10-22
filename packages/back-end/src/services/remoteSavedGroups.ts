@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import { isEqual, omit } from "lodash";
 import { v4 as uuidv4 } from "uuid";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { applyTopLevelPatchOps } from "shared/enterprise";
@@ -43,6 +44,11 @@ import {
 } from "back-end/src/services/savedGroups";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import {
+  gateOr5xx,
+  makeBlockingGate,
+  type PublishGate,
+} from "back-end/src/revisions/publishGates";
 import {
   IS_CLOUD,
   REMOTE_SAVED_GROUP_MAX_UPLOAD_MB,
@@ -555,6 +561,74 @@ export async function assertUsableUploadVersion(
     throw new BadRequestError(
       `Version ${version} is not a valid upload of this Saved Group`,
     );
+  }
+}
+
+/**
+ * Checks a remote group about to be written. Every write path runs this
+ * (APIs, revisions, bulk publish plans), unlike request validators.
+ * Compensation restores a state that was valid when it was written, so it
+ * skips the flag, plan and upload checks.
+ */
+export async function assertValidRemoteSavedGroupWrite(
+  context: Context,
+  doc: SavedGroupInterface,
+  previousDoc?: SavedGroupInterface,
+  isCompensation = false,
+): Promise<void> {
+  // Archiving stays possible after the flag or the plan is turned off, for
+  // cleanup.
+  const onlyArchiving =
+    !!previousDoc &&
+    isEqual(
+      omit(doc, ["archived", "dateUpdated"]),
+      omit(previousDoc, ["archived", "dateUpdated"]),
+    );
+  if (!onlyArchiving && !isCompensation) {
+    assertRemoteSavedGroupsEnabled(context.org);
+    assertRemoteSavedGroupsLicensed(context);
+  }
+  if (doc.values?.length || doc.condition) {
+    throw new BadRequestError(
+      "Remote Saved Groups cannot have values or a condition",
+    );
+  }
+  if (!previousDoc) {
+    assertRemoteSavedGroupAttribute(context.org, doc.attributeKey);
+  } else if (doc.attributeKey !== previousDoc.attributeKey) {
+    // Loaders store IDs by attribute, so changing it would need a reload.
+    throw new BadRequestError(
+      "The attributeKey of a remote Saved Group cannot change",
+    );
+  }
+  if (
+    doc.currentUploadVersion !== undefined &&
+    doc.currentUploadVersion !== previousDoc?.currentUploadVersion &&
+    !isCompensation
+  ) {
+    await assertUsableUploadVersion(context, doc.id, doc.currentUploadVersion);
+  }
+}
+
+/**
+ * The remote group checks as a bulk publish gate, so a release that would
+ * fail them at commit is blocked at plan time instead of rolling back.
+ */
+export async function collectRemoteSavedGroupGate(
+  context: Context,
+  proposed: SavedGroupInterface,
+  current: SavedGroupInterface,
+): Promise<PublishGate[]> {
+  if (current.type !== "remote") return [];
+  try {
+    await assertValidRemoteSavedGroupWrite(context, proposed, current);
+    return [];
+  } catch (e) {
+    return [
+      gateOr5xx(e, (message) =>
+        makeBlockingGate({ type: "remote-saved-group", messages: [message] }),
+      ),
+    ];
   }
 }
 

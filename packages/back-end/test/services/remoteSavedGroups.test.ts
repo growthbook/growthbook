@@ -16,8 +16,10 @@ import {
   readFileStream,
 } from "back-end/src/services/files";
 import { queueValidateRemoteSavedGroupUpload } from "back-end/src/jobs/validateRemoteSavedGroupUpload";
+import { BadRequestError } from "back-end/src/util/errors";
 import {
   assertUsableUploadVersion,
+  collectRemoteSavedGroupGate,
   createRemoteSavedGroupUpload,
   deleteRemoteSavedGroupUpload,
   deleteRemoteSavedGroupUploads,
@@ -46,9 +48,13 @@ jest.mock("back-end/src/services/files", () => ({
 jest.mock("back-end/src/jobs/validateRemoteSavedGroupUpload", () => ({
   queueValidateRemoteSavedGroupUpload: jest.fn(),
 }));
+// An import cycle runs this factory twice, so both copies share one mock
+const mockAssertRemoteSavedGroupsEnabled = jest.fn();
 jest.mock("back-end/src/services/savedGroups", () => ({
   ...jest.requireActual("back-end/src/services/savedGroups"),
-  assertRemoteSavedGroupsEnabled: jest.fn(),
+  assertRemoteSavedGroupsEnabled: (
+    ...args: Parameters<typeof mockAssertRemoteSavedGroupsEnabled>
+  ) => mockAssertRemoteSavedGroupsEnabled(...args),
   assertRemoteSavedGroupStorage: jest.fn(),
 }));
 
@@ -935,6 +941,84 @@ describe("assertUsableUploadVersion", () => {
     await expect(
       assertUsableUploadVersion(context, "grp_1", 1),
     ).rejects.toThrow("require an Enterprise plan");
+  });
+});
+
+describe("collectRemoteSavedGroupGate", () => {
+  const flagOff = () => {
+    mockAssertRemoteSavedGroupsEnabled.mockImplementation(() => {
+      throw new BadRequestError("Remote Saved Groups are not enabled");
+    });
+  };
+  afterEach(() => {
+    mockAssertRemoteSavedGroupsEnabled.mockReset();
+  });
+
+  it("passes a valid change, and ignores other group types", async () => {
+    const { context, uploads } = makeContext();
+    files.set(stagingKey("a"), Buffer.from("u1\n"));
+    await createRemoteSavedGroupUpload(context, "grp_1", stagingKey("a"));
+    uploads[0].status = { type: "valid", idCount: 1 };
+
+    await expect(
+      collectRemoteSavedGroupGate(
+        context,
+        { ...group, currentUploadVersion: 1 },
+        group,
+      ),
+    ).resolves.toEqual([]);
+
+    flagOff();
+    const list: SavedGroupInterface = { ...group, type: "list", values: [] };
+    await expect(
+      collectRemoteSavedGroupGate(context, { ...list, groupName: "x" }, list),
+    ).resolves.toEqual([]);
+  });
+
+  it("blocks when the flag is off or the plan has lapsed", async () => {
+    const { context } = makeContext();
+    const renamed = { ...group, groupName: "Renamed" };
+
+    flagOff();
+    const [flagGate] = await collectRemoteSavedGroupGate(
+      context,
+      renamed,
+      group,
+    );
+    expect(flagGate).toMatchObject({
+      type: "remote-saved-group",
+      severity: "blocker",
+      messages: ["Remote Saved Groups are not enabled"],
+    });
+
+    mockAssertRemoteSavedGroupsEnabled.mockReset();
+    context.hasPremiumFeature = () => false;
+    const [planGate] = await collectRemoteSavedGroupGate(
+      context,
+      renamed,
+      group,
+    );
+    expect(planGate.messages[0]).toContain("require an Enterprise plan");
+  });
+
+  it("still allows archiving when the flag is off", async () => {
+    const { context } = makeContext();
+    flagOff();
+    await expect(
+      collectRemoteSavedGroupGate(context, { ...group, archived: true }, group),
+    ).resolves.toEqual([]);
+  });
+
+  it("blocks an upload version that isn't valid", async () => {
+    const { context } = makeContext();
+    const [gate] = await collectRemoteSavedGroupGate(
+      context,
+      { ...group, currentUploadVersion: 3 },
+      group,
+    );
+    expect(gate.messages).toEqual([
+      "Version 3 is not a valid upload of this Saved Group",
+    ]);
   });
 });
 
