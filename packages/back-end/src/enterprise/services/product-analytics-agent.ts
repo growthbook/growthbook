@@ -137,7 +137,6 @@ Common operators: "=", "!=", "in", "not_in", "contains", "not_contains", "starts
 For date columns only, "between" and "not_between" take exactly two values (a lower and an upper bound); "!=" and "is_null" are not offered for date columns.
 CRITICAL — never guess column values for filters. Always call getColumnValues first. Pass a searchTerm for partial matches (e.g. 'US' to find 'United States').
 getColumnValues only works on string-typed columns.
-getColumnValues doesn't support dotted JSON paths (e.g. 'props.plan') yet. Use JSON paths as dimensions or with "is_null" / "not_null" filters, but never with value filters.
 </row_filter_rules>
 
 <date_range_rules>
@@ -1173,12 +1172,10 @@ async function executeGetColumnValues(
       .filter((entry): entry is [string, DataSourceInterface] => !!entry[1]),
   );
 
-  // Separate requested columns into queryable (string-typed, top-level),
-  // skipped (wrong type, or a nested JSON field — no live-value lookup for
-  // those yet), and not-found.
+  // Separate requested columns into queryable (string-typed, including
+  // string JSON sub-paths), skipped (wrong type), and not-found.
   const nonStringCols: string[] = [];
   const notFoundCols: string[] = [];
-  const nestedJsonCols: string[] = [];
   const targetsByFactTable = new Map<
     string,
     { factTable: FactTableInterface; columns: ColumnInterface[] }
@@ -1192,10 +1189,6 @@ async function executeGetColumnValues(
     }
     if (found.datatype !== "string") {
       nonStringCols.push(name);
-      continue;
-    }
-    if (name.includes(".")) {
-      nestedJsonCols.push(name);
       continue;
     }
     const column: ColumnInterface = {
@@ -1233,10 +1226,6 @@ async function executeGetColumnValues(
     );
   if (nonStringCols.length)
     warnings.push(`Skipped (non-string type): ${nonStringCols.join(", ")}`);
-  if (nestedJsonCols.length)
-    warnings.push(
-      `Skipped (nested JSON field — live value lookup isn't supported yet): ${nestedJsonCols.join(", ")}`,
-    );
   if (notFoundCols.length)
     warnings.push(`Columns not found: ${notFoundCols.join(", ")}`);
 
@@ -1398,7 +1387,7 @@ const SEARCH_DESCRIPTION =
 
 const GET_AVAILABLE_COLUMNS_DESCRIPTION =
   "Get the columns available for dimensions and filters based on the current selection. " +
-  "Every column can be used in row filters (dotted JSON paths like 'props.plan' only with is_null/not_null, since their values can't be looked up yet); only columns with groupable=true can be used as a dimension column. " +
+  "Every column can be used in row filters (including dotted JSON paths like 'props.plan'); only columns with groupable=true can be used as a dimension column. " +
   "Also returns userIdTypes and a unitNote that tells you exactly how to set the unit field for each value. " +
   "Set source to 'fact_table' and pass factTableId for fact table explorations. " +
   "Set source to 'metric' and pass metricIds for metric explorations — returns the intersection of columns across selected metrics, plus per-metric needsUnit flags.";

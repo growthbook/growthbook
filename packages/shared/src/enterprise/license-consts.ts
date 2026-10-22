@@ -89,7 +89,8 @@ export type CommercialFeature =
   | "feature-configs"
   | "releases"
   | "contextual-bandits"
-  | "interleaving";
+  | "interleaving"
+  | "human-in-the-loop";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -298,6 +299,7 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "scheduled-revisions",
   "feature-configs",
   "releases",
+  "human-in-the-loop",
 ];
 
 const commercialFeaturesEnterprise: CommercialFeature[] = [

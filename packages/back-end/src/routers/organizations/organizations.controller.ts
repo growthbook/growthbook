@@ -10,7 +10,12 @@ import {
   parseIntWithDefaultCapped,
   pruneApprovalRuleReferences,
 } from "shared/util";
-import { canApplyExpirationPolicy, getRoles } from "shared/permissions";
+import {
+  canApplyExpirationPolicy,
+  canManageApiKeySecret,
+  getRoles,
+} from "shared/permissions";
+import { isExpired } from "shared/api-key-expiration";
 import uniqid from "uniqid";
 import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import {
@@ -2002,8 +2007,7 @@ export async function postApiKey(
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
-    requesterHeader?: ApiKeyInterface["requesterHeader"];
-    requesterPermissions?: ApiKeyInterface["requesterPermissions"];
+    actAs?: ApiKeyInterface["actAs"];
     expiresAt?: string | null;
     confirmRules?: ConfirmRule[] | null;
   }>,
@@ -2019,8 +2023,7 @@ export async function postApiKey(
     environments,
     additionalRoles,
     projectRoles,
-    requesterHeader,
-    requesterPermissions,
+    actAs,
     expiresAt: expiresAtInput,
     confirmRules,
   } = req.body;
@@ -2056,8 +2059,7 @@ export async function postApiKey(
       environments,
       additionalRoles,
       projectRoles,
-      requesterHeader,
-      requesterPermissions,
+      actAs,
       expiresAt,
       confirmRules,
     });
@@ -2089,8 +2091,7 @@ export async function putApiKey(
       environments?: string[];
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
-      requesterHeader?: ApiKeyInterface["requesterHeader"];
-      requesterPermissions?: ApiKeyInterface["requesterPermissions"];
+      actAs?: ApiKeyInterface["actAs"];
       expiresAt?: string | null;
       confirmRules?: ConfirmRule[] | null;
     },
@@ -2108,8 +2109,7 @@ export async function putApiKey(
     environments,
     additionalRoles,
     projectRoles,
-    requesterHeader,
-    requesterPermissions,
+    actAs,
     expiresAt,
     confirmRules,
   } = req.body;
@@ -2126,8 +2126,7 @@ export async function putApiKey(
       environments,
       additionalRoles,
       projectRoles,
-      requesterHeader,
-      requesterPermissions,
+      actAs,
       expiresAt:
         expiresAt === undefined ? undefined : parseExpiresAt(expiresAt),
       confirmRules,
@@ -2211,6 +2210,67 @@ export async function putApiKeyDisabled(
   res.status(200).json({ status: 200 });
 }
 
+export async function postApiKeyRotate(
+  req: AuthRequest<{ gracePeriodHours: number }, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const { before, after } = await context.models.apiKeys.rotateSecret(
+    id,
+    req.body.gracePeriodHours,
+  );
+
+  await req.audit({
+    event: "apiKey.rotate",
+    entity: {
+      object: "apiKey",
+      id,
+      name: after.description,
+    },
+    details: auditDetailsUpdate(
+      ApiKeyModel.toAuditDetails(before),
+      ApiKeyModel.toAuditDetails(after),
+    ),
+  });
+
+  res.status(200).json({
+    status: 200,
+    key: after.key,
+    expiresAt: after.expiresAt ?? null,
+    // An immediate rotation keeps the old secret, already expired.
+    previousKeyExpiresAt: isExpired(after.previousKeyExpiresAt)
+      ? null
+      : (after.previousKeyExpiresAt ?? null),
+  });
+}
+
+export async function deleteApiKeyPreviousKey(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  const { before, after } = await context.models.apiKeys.revokePreviousKey(id);
+
+  await req.audit({
+    event: "apiKey.update",
+    entity: {
+      object: "apiKey",
+      id,
+      name: after.description,
+    },
+    details: auditDetailsUpdate(
+      ApiKeyModel.toAuditDetails(before),
+      ApiKeyModel.toAuditDetails(after),
+    ),
+  });
+
+  res.status(200).json({ status: 200 });
+}
+
 export async function postApiKeyReveal(
   req: AuthRequest<{ id: string }>,
   res: Response,
@@ -2225,20 +2285,11 @@ export async function postApiKeyReveal(
     });
   }
 
-  if (!key.userId) {
-    // Only admins can reveal non-user keys
-    if (!context.permissions.canCreateApiKey()) {
-      context.permissions.throwPermissionError();
-    }
-  } else {
-    // This is a user key
-    // The key must be owned by the user requesting to reveal it
-    const isMatchingUserKey = req.userId === key.userId;
-    if (!isMatchingUserKey) {
-      return res.status(403).json({
-        status: 403,
-      });
-    }
+  if (!canManageApiKeySecret(context.permissions, key, context.userId)) {
+    if (!key.userId) context.permissions.throwPermissionError();
+    return res.status(403).json({
+      status: 403,
+    });
   }
 
   res.status(200).json({
