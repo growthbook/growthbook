@@ -1,7 +1,7 @@
 import {
   buildPopulationMembershipSql,
   getPopulationMembershipAsOf,
-  getPopulationMembershipDateRange,
+  getPopulationMembershipEndDate,
   getPopulationMembershipPoints,
   PopulationMembershipPoint,
   PopulationMembershipSqlParams,
@@ -51,7 +51,16 @@ const orders: FactTableInterface = {
   owner: "",
   projects: [],
   tags: [],
-  filters: [],
+  filters: [
+    {
+      id: "flt_paid",
+      dateCreated: new Date(0),
+      dateUpdated: new Date(0),
+      name: "Paid",
+      description: "",
+      value: "status = 'paid'",
+    },
+  ],
   columns: [
     column("user_id", "string"),
     column("timestamp", "date"),
@@ -130,77 +139,76 @@ describe("getPopulationMembershipPoints", () => {
   });
 });
 
-describe("getPopulationMembershipDateRange", () => {
-  const points = getPopulationMembershipPoints(asOf);
-  const earliest = new Date(asOf.getTime() - 52 * 7 * 24 * 60 * 60 * 1000);
-
-  it("starts one lookback window before the earliest date", () => {
-    const s = step();
-    s.windowSettings = windowSettings({
-      type: "lookback",
-      windowValue: 30,
-      windowUnit: "days",
-    });
-
-    expect(getPopulationMembershipDateRange([s], points)).toEqual({
-      startDate: new Date(earliest.getTime() - 30 * 24 * 60 * 60 * 1000),
-      endDate: asOf,
-    });
+describe("getPopulationMembershipEndDate", () => {
+  it("is the latest point's date", () => {
+    expect(
+      getPopulationMembershipEndDate(getPopulationMembershipPoints(asOf)),
+    ).toEqual(asOf);
   });
 
-  it("has no start date without a lookback window", () => {
-    expect(getPopulationMembershipDateRange([step()], points)).toEqual({
-      startDate: null,
-      endDate: asOf,
-    });
+  it("throws without any points", () => {
+    expect(() => getPopulationMembershipEndDate([])).toThrow(
+      "At least one membership point is required",
+    );
   });
 });
 
 describe("buildPopulationMembershipSql", () => {
-  it("reads the fact table once with the row filters and date range", () => {
-    const s = step([{ column: "status", operator: "=", values: ["paid"] }]);
-    s.windowSettings = windowSettings({
-      type: "lookback",
-      windowValue: 30,
-      windowUnit: "days",
-    });
-    const { startDate } = getPopulationMembershipDateRange(
-      [s],
-      getPopulationMembershipPoints(asOf),
-    );
-
-    const sql = buildSql([s]);
-
-    expect(sql.match(/FROM orders/g)).toHaveLength(1);
-    expect(sql).toContain(
-      `WHERE (status = 'paid') AND timestamp < ${dialect.toTimestamp(asOf)} AND timestamp >= ${dialect.toTimestamp(startDate as Date)}`,
-    );
-  });
-
-  it("applies the lookback window at every date", () => {
-    const s = step();
-    s.windowSettings = windowSettings({
-      type: "lookback",
-      windowValue: 30,
-      windowUnit: "days",
-    });
-
-    const sql = buildSql([s]);
-
-    expect(sql).toContain(
-      `SELECT ${dialect.toTimestamp(asOf)} AS as_of, ${dialect.toTimestamp(new Date("2026-09-20T00:00:00Z"))} AS window_start`,
-    );
-    expect(sql).toContain(
-      "WHERE r.bucket < d.as_of AND r.bucket >= d.window_start",
-    );
-  });
-
-  it("counts every earlier row without a lookback window", () => {
+  it("reads the fact table once, up to the latest date", () => {
     const sql = buildSql([step()]);
 
-    expect(sql).not.toContain("window_start");
+    expect(sql.match(/FROM orders/g)).toHaveLength(1);
+    expect(sql).toContain(`WHERE timestamp < ${dialect.toTimestamp(asOf)}`);
     expect(sql).not.toContain("timestamp >=");
-    expect(sql).toContain("WHERE r.bucket < d.as_of\n");
+  });
+
+  it("counts every row before each date", () => {
+    expect(buildSql([step()])).toContain("WHERE r.bucket < d.as_of\n");
+  });
+
+  it("applies a row filter", () => {
+    const sql = buildSql([
+      step([{ column: "status", operator: "=", values: ["paid"] }]),
+    ]);
+
+    expect(sql).toContain(
+      `WHERE (status = 'paid') AND timestamp < ${dialect.toTimestamp(asOf)}`,
+    );
+  });
+
+  it("applies multiple row filters with multiple values", () => {
+    const sql = buildSql([
+      step([
+        { column: "status", operator: "in", values: ["paid", "refunded"] },
+        { column: "amount", operator: ">", values: ["10"] },
+      ]),
+    ]);
+
+    expect(sql).toContain(
+      "WHERE (status IN (\n  'paid',\n  'refunded'\n)) AND (amount > 10)",
+    );
+  });
+
+  it("applies a saved filter", () => {
+    const sql = buildSql([
+      step([{ operator: "saved_filter", values: ["flt_paid"] }]),
+    ]);
+
+    expect(sql).toContain("WHERE (status = 'paid')");
+  });
+
+  it("throws when a saved filter doesn't exist", () => {
+    expect(() =>
+      buildSql([step([{ operator: "saved_filter", values: ["flt_gone"] }])]),
+    ).toThrow("Unknown saved filter: flt_gone");
+  });
+
+  it("applies a SQL expression filter", () => {
+    const sql = buildSql([
+      step([{ operator: "sql_expr", values: ["amount > 0"] }]),
+    ]);
+
+    expect(sql).toContain("WHERE (amount > 0)");
   });
 
   it("lists every point with the date it's compared against", () => {
@@ -245,33 +253,28 @@ describe("buildPopulationMembershipSql", () => {
     expect(buildSql([step()])).not.toContain("HAVING");
   });
 
-  it("rolls up by hour when the lookback window isn't whole days", () => {
+  it("throws when the aggregate filter is invalid", () => {
     const s = step();
-    s.windowSettings = windowSettings({
-      type: "lookback",
-      windowValue: 36,
-      windowUnit: "hours",
-    });
+    s.aggregateFilterColumn = "$$count";
+    s.aggregateFilter = "invalid";
 
-    expect(buildSql([s])).toContain(
-      `${dialect.dateTrunc("timestamp", "hour")} AS bucket`,
-    );
+    expect(() => buildSql([s])).toThrow("Invalid aggregate filter: invalid");
   });
 
-  it("throws when the lookback window isn't whole hours", () => {
+  it("throws on a lookback window", () => {
     const s = step();
     s.windowSettings = windowSettings({
       type: "lookback",
-      windowValue: 90,
-      windowUnit: "minutes",
+      windowValue: 30,
+      windowUnit: "days",
     });
 
     expect(() => buildSql([s])).toThrow(
-      "Membership over time needs a lookback window of whole hours",
+      "Populations don't support lookback windows yet",
     );
   });
 
-  it("throws when a date doesn't start on a whole bucket", () => {
+  it("throws when a date doesn't start on a whole day", () => {
     const points: PopulationMembershipPoint[] = [
       {
         id: POPULATION_MEMBERSHIP_SUMMARY_POINT_ID,

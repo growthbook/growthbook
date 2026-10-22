@@ -47,7 +47,6 @@ import {
   getFactTableIdColumnExpression,
   getAggregateFilters,
   getFactTableTimestampColumn,
-  getMetricWindowHours,
   isFactFunnelMetric,
 } from "../../experiments/experiments";
 import { getCappingTailState, FunnelStep } from "../../validators/fact-table";
@@ -1901,52 +1900,7 @@ export function transformFunnelRowsToResult(
 
 /* ------- start Populations SQL ------- */
 
-export type PopulationSqlParams = {
-  steps: PopulationStep[];
-  userIdType: string;
-  factTableMap: FactTableMap;
-  dialect: SqlDialect;
-  // Lookback windows end here. Defaults to now.
-  asOf?: Date;
-};
-
-export function buildPopulationSql(params: PopulationSqlParams): string {
-  const { userIdType, dialect } = params;
-  const asOf = params.asOf ?? new Date();
-  const { step, factTable, minimalFactTable, rowFilters } =
-    getPopulationStepSource(params);
-
-  const filters = [...rowFilters];
-  const lookbackHours = getPopulationLookbackHours(step);
-  if (lookbackHours !== null) {
-    const timestampColumn = requirePopulationTimestampColumn(
-      minimalFactTable,
-      dialect,
-      "Lookback window",
-    );
-    const startDate = new Date(asOf.getTime() - lookbackHours * HOUR_MS);
-    filters.push(
-      `(${timestampColumn} >= ${dialect.toTimestamp(startDate)} AND ${timestampColumn} <= ${dialect.toTimestamp(asOf)})`,
-    );
-  }
-
-  const value = getPopulationValueExpression(step, minimalFactTable, dialect);
-  const having = getPopulationAggregateComparisons(step).map(
-    ({ operator, value: threshold }) =>
-      `SUM(${value}) ${operator} ${threshold}`,
-  );
-
-  return format(
-    `SELECT ${userIdType} FROM (${factTable.sql})
-    ${filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : ""}
-    ${having.length > 0 ? `GROUP BY ${userIdType} HAVING ${having.join(" AND ")}` : ""}
-    `,
-    dialect.formatDialect,
-  );
-}
-
-const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * HOUR_MS;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const POPULATION_MEMBERSHIP_WEEKS = 52;
 export const POPULATION_MEMBERSHIP_SUMMARY_DAYS = 30;
@@ -1992,78 +1946,58 @@ export function getPopulationMembershipPoints(
   return points;
 }
 
-export type PopulationMembershipSqlParams = Omit<
-  PopulationSqlParams,
-  "asOf"
-> & {
+export type PopulationMembershipSqlParams = {
+  steps: PopulationStep[];
+  userIdType: string;
+  factTableMap: FactTableMap;
+  dialect: SqlDialect;
   points: PopulationMembershipPoint[];
 };
 
-// The rows a membership query reads, for resolving fact table SQL templates.
-// `startDate` is null when there's no lookback window, since every earlier row
-// can still qualify a unit.
-export function getPopulationMembershipDateRange(
-  steps: PopulationStep[],
+// The latest date a membership query reads up to, for resolving fact table SQL
+// templates. There's no start date since every earlier row can qualify a unit.
+export function getPopulationMembershipEndDate(
   points: PopulationMembershipPoint[],
-): { startDate: Date | null; endDate: Date } {
+): Date {
   const dates = getPopulationMembershipDates(points);
   if (!dates.length) {
     throw new Error("At least one membership point is required");
   }
-  const lookbackHours = steps[0] ? getPopulationLookbackHours(steps[0]) : null;
-  return {
-    startDate:
-      lookbackHours === null
-        ? null
-        : new Date(dates[0].getTime() - lookbackHours * HOUR_MS),
-    endDate: dates[dates.length - 1],
-  };
+  return dates[dates.length - 1];
 }
 
 // Membership, joined, and left at every point in one scan of the fact table:
-// roll rows up per unit per day (or hour), apply the lookback window and
-// aggregate filter at each date, then compare each point with its earlier date.
+// roll rows up per unit per day, apply the aggregate filter to every row before
+// each date, then compare each point with its earlier date.
 export function buildPopulationMembershipSql(
   params: PopulationMembershipSqlParams,
 ): string {
   const { userIdType, dialect, points } = params;
   const { step, factTable, minimalFactTable, rowFilters } =
     getPopulationStepSource(params);
-  const timestampColumn = requirePopulationTimestampColumn(
+  const timestampColumn = getTimestampColumnExpression(
     minimalFactTable,
     dialect,
-    "Membership over time",
   );
-  const lookbackHours = getPopulationLookbackHours(step);
-  const bucket = getPopulationMembershipBucket(lookbackHours);
+  if (!timestampColumn) {
+    throw new Error("Membership over time requires a timestamp column");
+  }
   const dates = getPopulationMembershipDates(points);
-  const misaligned = dates.find((d) => d.getTime() % bucket.ms !== 0);
+  const misaligned = dates.find((d) => d.getTime() % DAY_MS !== 0);
   if (misaligned) {
     throw new Error(
-      `Membership dates must start on a whole ${bucket.unit}: ${misaligned.toISOString()}`,
+      `Membership dates must start on a whole day: ${misaligned.toISOString()}`,
     );
   }
-  const { startDate, endDate } = getPopulationMembershipDateRange(
-    params.steps,
-    points,
-  );
+  const endDate = getPopulationMembershipEndDate(points);
 
   const scanFilters = [
     ...rowFilters,
     `${timestampColumn} < ${dialect.toTimestamp(endDate)}`,
   ];
-  if (startDate) {
-    scanFilters.push(`${timestampColumn} >= ${dialect.toTimestamp(startDate)}`);
-  }
 
   const datesSql = dates
-    .map((d) => {
-      const windowStart =
-        lookbackHours === null
-          ? ""
-          : `, ${dialect.toTimestamp(new Date(d.getTime() - lookbackHours * HOUR_MS))} AS window_start`;
-      return `SELECT ${dialect.toTimestamp(d)} AS as_of${windowStart}`;
-    })
+    .map((d) => `SELECT ${dialect.toTimestamp(d)} AS as_of`)
     .join("\n    UNION ALL ");
 
   const pointsSql = points
@@ -2078,11 +2012,9 @@ export function buildPopulationMembershipSql(
     userIdType,
     dialect,
   );
-  const bucketExpr = dialect.dateTrunc(timestampColumn, bucket.unit);
+  const bucketExpr = dialect.dateTrunc(timestampColumn, "day");
   const value = getPopulationValueExpression(step, minimalFactTable, dialect);
 
-  const windowFilters = ["r.bucket < d.as_of"];
-  if (lookbackHours !== null) windowFilters.push("r.bucket >= d.window_start");
   const having = getPopulationAggregateComparisons(step).map(
     ({ operator, value: threshold }) =>
       `SUM(r.agg_value) ${operator} ${threshold}`,
@@ -2110,7 +2042,7 @@ export function buildPopulationMembershipSql(
       SELECT d.as_of AS as_of, r.unit AS unit
       FROM __dates d
       CROSS JOIN __rollup r
-      WHERE ${windowFilters.join(" AND ")}
+      WHERE r.bucket < d.as_of
       GROUP BY d.as_of, r.unit
       ${having.length > 0 ? `HAVING ${having.join(" AND ")}` : ""}
     ),
@@ -2178,8 +2110,8 @@ export function transformPopulationMembershipRows(
 
 function getPopulationStepSource(
   params: Pick<
-    PopulationSqlParams,
-    "steps" | "factTableMap" | "dialect" | "userIdType"
+    PopulationMembershipSqlParams,
+    "steps" | "factTableMap" | "dialect"
   >,
 ) {
   const { factTableMap, dialect, steps } = params;
@@ -2187,11 +2119,25 @@ function getPopulationStepSource(
   if (!step) {
     throw new Error("At least one population step is required");
   }
+  if (step.windowSettings.type === "lookback") {
+    throw new Error("Populations don't support lookback windows yet");
+  }
 
-  const factTableId = step?.source?.factTableId;
+  const factTableId = step.source?.factTableId;
   const factTable = factTableId ? factTableMap.get(factTableId) : undefined;
   if (!factTable) {
     throw new Error(`Unknown fact table: ${factTableId}`);
+  }
+
+  // generateRowFilterSQL skips a saved filter it can't find, which would
+  // silently widen the Population.
+  const missingSavedFilter = step.rowFilters?.find(
+    (rf) =>
+      rf.operator === "saved_filter" &&
+      !factTable.filters.some((f) => f.id === rf.values?.[0]),
+  );
+  if (missingSavedFilter) {
+    throw new Error(`Unknown saved filter: ${missingSavedFilter.values?.[0]}`);
   }
 
   const minimalFactTable = toMinimalFactTable(factTable);
@@ -2200,18 +2146,6 @@ function getPopulationStepSource(
     : [];
 
   return { step, factTable, minimalFactTable, rowFilters };
-}
-
-function requirePopulationTimestampColumn(
-  factTable: MinimalFactTable,
-  dialect: SqlDialect,
-  requiredFor: string,
-): string {
-  const timestampColumn = getTimestampColumnExpression(factTable, dialect);
-  if (!timestampColumn) {
-    throw new Error(`${requiredFor} requires a timestamp column`);
-  }
-  return timestampColumn;
 }
 
 // "$$count" sums 1 per row; any other column is summed as-is.
@@ -2243,30 +2177,6 @@ function getPopulationAggregateComparisons(
     throw new Error(`Invalid aggregate filter: ${aggregateFilter}`);
   }
   return conditions;
-}
-
-function getPopulationLookbackHours(step: PopulationStep): number | null {
-  if (step.windowSettings.type !== "lookback") return null;
-  const hours = getMetricWindowHours(step.windowSettings);
-  if (!(hours > 0)) {
-    throw new Error("Lookback window must be greater than zero");
-  }
-  return hours;
-}
-
-function getPopulationMembershipBucket(lookbackHours: number | null): {
-  unit: "day" | "hour";
-  ms: number;
-} {
-  if (lookbackHours === null || lookbackHours % 24 === 0) {
-    return { unit: "day", ms: DAY_MS };
-  }
-  if (Number.isInteger(lookbackHours)) {
-    return { unit: "hour", ms: HOUR_MS };
-  }
-  throw new Error(
-    "Membership over time needs a lookback window of whole hours",
-  );
 }
 
 function getPopulationMembershipDates(

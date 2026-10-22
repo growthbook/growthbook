@@ -17,7 +17,7 @@ import {
   buildPopulationMembershipSql,
   generateProductAnalyticsSQL,
   calculateProductAnalyticsDateRange,
-  getPopulationMembershipDateRange,
+  getPopulationMembershipEndDate,
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
   PopulationMembershipSqlParams,
 } from "shared/enterprise";
@@ -3501,13 +3501,12 @@ export default abstract class SqlIntegration
     params: Omit<PopulationMembershipSqlParams, "dialect">,
   ): string {
     const dialect = this.getSqlDialect();
-    const { startDate, endDate } = getPopulationMembershipDateRange(
-      params.steps,
-      params.points,
-    );
-    // Without a lookback window every earlier row can qualify a unit, so
-    // templated fact tables shouldn't be cut off at a start date.
-    const templateDates = { startDate: startDate ?? new Date(0), endDate };
+    // Every earlier row can qualify a unit, so templated fact tables shouldn't
+    // be cut off at a start date.
+    const templateDates = {
+      startDate: new Date(0),
+      endDate: getPopulationMembershipEndDate(params.points),
+    };
 
     const factTableMap: FactTableMap = new Map(
       Array.from(params.factTableMap.entries()).map(([id, ft]) => [
