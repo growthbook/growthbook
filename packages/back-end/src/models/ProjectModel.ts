@@ -118,6 +118,8 @@ export class ProjectModel extends BaseClass {
       if (
         !dashboard ||
         !!dashboard.experimentId ||
+        // Other members can't read a private dashboard, so it can't be their default.
+        dashboard.shareLevel === "private" ||
         !isProjectListValidForProject(dashboard.projects, project.id)
       ) {
         this.context.throwBadRequestError(
