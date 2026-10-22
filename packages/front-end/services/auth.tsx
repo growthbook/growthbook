@@ -27,6 +27,7 @@ import { getGrowthBookTrackingHeaders } from "./utils";
 import { useProject, LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 import { captureAttribution } from "./attribution-capture";
 import { ApiCallError } from "./apiCallError";
+import { isSameOriginRelativePath } from "./redirectPath";
 
 export type UserOrganizations = { id: string; name: string }[];
 // eslint-disable-next-line
@@ -222,8 +223,7 @@ export function getPostAuthRedirectPath({ consume = false } = {}): string {
     if (consume) {
       window.sessionStorage.removeItem("postAuthRedirectPath");
     }
-    // Reject protocol-relative (//host) and backslash (/\host) escapes
-    return /^\/(?![/\\])/.test(path) ? path : "/";
+    return isSameOriginRelativePath(path) ? path : "/";
   } catch (e) {
     return "/";
   }
