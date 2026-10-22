@@ -632,8 +632,6 @@ export default function CloudUsage() {
   );
 }
 
-// Free-tier line on the Event Forwarder card: "X of 1M events this month",
-// amber/red share badge from 80%
 export function UsageMeter({
   used,
   limit,

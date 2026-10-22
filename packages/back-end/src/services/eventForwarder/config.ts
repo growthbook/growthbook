@@ -147,7 +147,7 @@ export async function assertNoEventForwarderInOrg(
     await context.models.eventForwarderConfigs.getAllBypassingReadPermissions();
   if (other) {
     throw new Error(
-      `This organization already has an Event Forwarder on Data Source ${other.datasourceId}. Only one Event Forwarder is allowed per organization.`,
+      "This organization already has an Event Forwarder. Only one Event Forwarder is allowed per organization.",
     );
   }
 }
