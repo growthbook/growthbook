@@ -22,7 +22,9 @@ type ContextualBanditSnapshotContextValue = {
   overallWeights: ResultsResponse["overallWeights"];
   results: ResultsResponse["results"];
   latest: LatestStatus;
+  /** Error from the heavy results fetch. */
   error?: Error;
+  statusError?: Error;
   /** Refetch both the cheap status and the heavy results. */
   mutate: () => Promise<unknown>;
   /** Trigger a new run, then pull the cheap status (heavy upgrades on success). */
@@ -54,28 +56,30 @@ const contextualBanditSnapshotContext =
     setRefreshError: noop,
   });
 
-// When the cheap status endpoint reports a newer successful snapshot than the
-// one currently held by the heavy fetch, pull the fresh results exactly once.
-// This lets poll loops use a status-only mutator: the provider handles
-// upgrading to the full results on completion. `heavyIsValidating` suppresses
-// redundant refetches when the heavy fetch is already in flight.
+function heavyReflectsSuccess(
+  statusLatest: LatestStatus,
+  heavyLatest: LatestStatus,
+): boolean {
+  return (
+    statusLatest?.status === "success" &&
+    heavyLatest?.id === statusLatest.id &&
+    heavyLatest?.status === "success"
+  );
+}
+
 function useRefetchHeavyOnStatusSuccess(
   statusLatest: LatestStatus,
-  heavyLatestId: string | undefined,
+  heavyLatest: LatestStatus,
   heavyIsValidating: boolean,
   refetchHeavy: () => Promise<unknown>,
 ): void {
+  const needsHeavyRefetch =
+    statusLatest?.status === "success" &&
+    !heavyIsValidating &&
+    !heavyReflectsSuccess(statusLatest, heavyLatest);
   useEffect(() => {
-    if (statusLatest?.status !== "success") return;
-    if (heavyIsValidating) return;
-    if (statusLatest.id !== heavyLatestId) void refetchHeavy();
-  }, [
-    statusLatest?.id,
-    statusLatest?.status,
-    heavyLatestId,
-    heavyIsValidating,
-    refetchHeavy,
-  ]);
+    if (needsHeavyRefetch) void refetchHeavy();
+  }, [needsHeavyRefetch, refetchHeavy]);
 }
 
 // Surfaces the status endpoint's view atomically with the heavy results.
@@ -86,12 +90,12 @@ function useRefetchHeavyOnStatusSuccess(
 // final success flip is gated on heavy-fetch agreement.
 function useCoherentLatest(
   statusLatest: LatestStatus,
-  heavyLatestId: string | undefined,
+  heavyLatest: LatestStatus,
 ): LatestStatus {
   const heavyAgrees =
     !statusLatest ||
     statusLatest.status !== "success" ||
-    statusLatest.id === heavyLatestId;
+    heavyReflectsSuccess(statusLatest, heavyLatest);
   const [held, setHeld] = useState<LatestStatus>(null);
   useEffect(() => {
     if (!heavyAgrees) return;
@@ -127,7 +131,11 @@ export default function ContextualBanditSnapshotProvider({
   );
 
   // Cheap status fetch. Polls every 2s only while a run is in progress.
-  const { data: statusData, mutate: mutateStatus } = useRestApi(
+  const {
+    data: statusData,
+    error: statusError,
+    mutate: mutateStatus,
+  } = useRestApi(
     contextualBanditEndpoints.getContextualBanditStatus,
     cbId ? { params: { id: cbId } } : null,
     {
@@ -136,15 +144,15 @@ export default function ContextualBanditSnapshotProvider({
   );
 
   const statusLatest = statusData?.latest ?? null;
-  const heavyLatestId = heavyData?.latest?.id;
+  const heavyLatest = heavyData?.latest ?? null;
 
   useRefetchHeavyOnStatusSuccess(
     statusLatest,
-    heavyLatestId,
+    heavyLatest,
     isValidating,
     mutateHeavy,
   );
-  const latest = useCoherentLatest(statusLatest, heavyLatestId);
+  const latest = useCoherentLatest(statusLatest, heavyLatest);
 
   const mutate = useCallback(
     () => Promise.all([mutateStatus(), mutateHeavy()]),
@@ -186,6 +194,7 @@ export default function ContextualBanditSnapshotProvider({
         results: heavyData?.results ?? null,
         latest,
         error,
+        statusError,
         mutate,
         refresh,
         cancel,
