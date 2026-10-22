@@ -305,6 +305,7 @@ export const entityEvents = {
     "delete",
     "disable",
     "enable",
+    "rotate",
     "confirm",
     "reject",
   ],

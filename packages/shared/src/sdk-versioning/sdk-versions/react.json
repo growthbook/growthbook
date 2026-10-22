@@ -1,8 +1,14 @@
 {
   "versions": [
     {
+      "version": "1.9.0",
+      "prerelease": true,
+      "capabilities": ["interleaving"]
+    },
+    {
       "version": "1.8.1",
-      "prerelease": true
+      "prerelease": true,
+      "capabilities": ["contextualBanditsAuto"]
     },
     {
       "version": "1.8.0",
