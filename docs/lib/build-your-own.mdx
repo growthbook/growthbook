@@ -736,7 +736,7 @@ Determines if the user is part of a gradual feature rollout.
     return inRange(n, range)
    }
    else if (coverage !== null) {
-    return n <= coverage
+    return n < coverage
    }
 
    return true
@@ -1273,3 +1273,6 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - New `savedGroupReferencesV2` key in the test cases, with `evalCondition`, `feature`, and `run` sub-suites. SDKs that do not support it yet can skip the whole key
 - **v0.10.1** 2026-10-22
   - Add a `feature` test case for a prerequisite (`parentConditions`) with a malformed condition (`{"$not": null}`). It never matches, so the rule is skipped instead of throwing
+- **v0.10.2** 2026-10-22
+  - `isIncludedInRollout` checks `n < coverage` instead of `n <= coverage`, so a rollout includes exactly the share of hash buckets its coverage says. Before, a coverage of k/10000 included k+1 buckets
+  - Add `feature` test cases where the hash equals the coverage exactly

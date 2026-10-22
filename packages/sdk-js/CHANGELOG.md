@@ -9,6 +9,7 @@
 - **Breaking:** `evalCondition(obj, condition, options)` takes an options object, `{ savedGroups, onTypeMismatch }`, instead of positional `savedGroups` and `visited` arguments. Passing saved groups as the third argument no longer works
 - Run visual and URL redirect auto experiments as Contextual Bandits when they carry a `contextualBanditRef`
 - Fix a malformed prerequisite condition (e.g. `{"$not": null}`) throwing from `isOn`/`getFeatureValue`/`run`; it now never matches
+- Fix a percentage rollout (`coverage`) including one extra hash bucket, e.g. a 0.01% rollout turning on for 0.02% of users
 
 ## **1.8.0** - Sep 29, 2026
 
