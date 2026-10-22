@@ -21,34 +21,7 @@ import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-
-function validateUrl(urlString: string): {
-  isValid: boolean;
-  message?: string;
-} {
-  try {
-    const url = new URL(urlString);
-    if (url.pathname.includes("*")) {
-      return { isValid: false, message: "Please remove any wildcards" };
-    }
-    if (url.protocol === "http:" || url.protocol === "https:") {
-      return { isValid: true };
-    }
-
-    return {
-      isValid: false,
-      message: `Incomplete URL. Specify a valid URL starting with "http:// or "https://"`,
-    };
-  } catch (_) {
-    if (!urlString.startsWith("http") && !urlString.startsWith("https")) {
-      return {
-        isValid: false,
-        message: `Incomplete URL. Specify a valid URL starting with "http:// or "https://"`,
-      };
-    }
-    return { isValid: false, message: "Invalid URL" };
-  }
-}
+import { validateUrl } from "@/services/url-redirect-utils";
 
 const UrlRedirectModal: FC<{
   mode: "add" | "edit";
@@ -91,37 +64,42 @@ const UrlRedirectModal: FC<{
         },
   );
 
-  const onSubmit = form.handleSubmit(async (value) => {
-    const payload = {
-      urlPattern: value.originUrl,
-      destinationURLs: getLatestPhaseVariations(experiment).map((v, i) => {
-        return {
-          variation: v.id,
-          url: value.destinationUrls[i],
-        };
-      }),
-      persistQueryString: value.persistQueryString,
-    };
-    if (mode === "add") {
-      await apiCall<{ urlRedirect: URLRedirectInterface }>(
-        `/url-redirects/?circularDependencyCheck=${value.circularDependencyCheck}`,
-        {
-          method: "POST",
-          body: JSON.stringify({ ...payload, experiment: experiment.id }),
-        },
-      );
-      mutate();
-    } else {
-      await apiCall(
-        `/url-redirects/${urlRedirect?.id}/?circularDependencyCheck=${value.circularDependencyCheck}`,
-        {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        },
-      );
-      mutate();
-    }
-  });
+  const onSubmit = form.handleSubmit(
+    async (value) => {
+      const payload = {
+        urlPattern: value.originUrl,
+        destinationURLs: getLatestPhaseVariations(experiment).map((v, i) => {
+          return {
+            variation: v.id,
+            url: value.destinationUrls[i],
+          };
+        }),
+        persistQueryString: value.persistQueryString,
+      };
+      if (mode === "add") {
+        await apiCall<{ urlRedirect: URLRedirectInterface }>(
+          `/url-redirects/?circularDependencyCheck=${value.circularDependencyCheck}`,
+          {
+            method: "POST",
+            body: JSON.stringify({ ...payload, experiment: experiment.id }),
+          },
+        );
+        mutate();
+      } else {
+        await apiCall(
+          `/url-redirects/${urlRedirect?.id}/?circularDependencyCheck=${value.circularDependencyCheck}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          },
+        );
+        mutate();
+      }
+    },
+    () => {
+      throw new Error("Please correct the highlighted fields.");
+    },
+  );
 
   const handleRedirectToggle = (i: number, enabled: boolean) => {
     const newArray = [...redirectToggle];
