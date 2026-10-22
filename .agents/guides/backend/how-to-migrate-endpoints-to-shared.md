@@ -2,7 +2,7 @@
 
 Read this when a front-end caller needs a typed definition for a GrowthBook `/api/v1/*` or `/api/v2/*` endpoint, including when `local/no-rest-api-path` flags a raw URL. The definition must describe the route the back-end actually mounts and supply its request and response schemas.
 
-Sharing a definition does not require changing the endpoint's URL, API version, model, permissions, or behavior. Internal API routes such as `/features` still use `useApi` and `apiCall`; this guide is for the public REST API.
+Sharing a definition does not require changing the endpoint's URL, API version, model, permissions, or behavior. Internal API routes such as `/metrics` still use `useApi` and `apiCall`; this guide is for the public REST API.
 
 ## Choose the migration
 
@@ -31,9 +31,7 @@ Resource files such as `src/api/contextual-bandits/contextual-bandits.router.ts`
 
 BaseModel helpers compose the resource path first. For example, `pathBase: "/teams"` and `pathFragment: "/:id"` produce `path: "/teams/:id"`, so the final URL is `/api/v1/teams/:id`. Export the composed endpoint; passing the fragment alone to the front-end would request `/api/v1/:id`.
 
-If a legacy route uses actual nested Express routers, trace every `app.use` and `router.use` mount. For example, mounting a child at `/widgets` with `get("/:id")` under `/api/v1` gives `/api/v1/widgets/:id`; the shared definition needs `path: "/widgets/:id"`. Route metadata does not discover or inherit these prefixes automatically. Public REST endpoints migrated to the shared pattern must be registered through `allRoutes` with the complete resource path, preserving middleware, permissions, and route ordering and removing the old registration. Do not mount that complete path under `/widgets` again.
-
-The OpenAPI generation check compares exported endpoint metadata with `allRoutes` by method, path, operationId, and version. It does not walk arbitrary Express router trees, verify the top-level `/api` mount, or prove that separately copied schemas are equal. Internal, SCIM, and vendor routes use different mounts and should not be passed to `useRestApi`.
+The OpenAPI generation check compares exported endpoint metadata with `allRoutes` by method, path, operationId, and version. It does not verify the top-level `/api` mount or prove that separately copied schemas are equal. Internal, SCIM, and vendor routes use different mounts and should not be passed to `useRestApi`.
 
 ## 1. Reuse a complete shared endpoint
 
@@ -99,7 +97,7 @@ export const getWidget = {
 export * as widgetEndpoints from "./widgets";
 ```
 
-Preserve existing descriptions, tags, examples, and `excludeFromSpec` metadata. Keep `version: "v2" as const` for an existing v2 route; an omitted version means v1. Preserve back-end-only metadata such as middleware, deprecation settings, and possible errors at the handler call site. Use a response schema for the actual JSON response, including its wrapper keys and serialized dates. Do not replace an unknown response shape with `z.any()` to get the migration to compile.
+Preserve existing descriptions, tags, examples, and `excludeFromSpec` metadata. Keep `version: "v2" as const` for an existing v2 route; an omitted version means v1. Keep `middleware` at the handler call site, because shared can't import Express handlers. Plain-data metadata such as `possibleErrors`, `deprecated`, and `deprecationDate` can move with the definition, as `possibleErrors` already does in `shared/validators/features-v2.ts`. Use a response schema for the actual JSON response, including its wrapper keys and serialized dates. Do not replace an unknown response shape with `z.any()` to get the migration to compile.
 
 Import the definition on both sides:
 
@@ -133,7 +131,7 @@ BaseModel specs hold `pathBase`, enabled CRUD actions, and custom `pathFragment`
 
 1. Move the model's spec and custom endpoint definitions from `back-end/src/api/specs/` into `shared/src/validators/` if they are not already shared. Move referenced schemas too, keeping runtime handlers and model imports on the back-end.
 2. Declare the shared model spec `as const satisfies OpenApiModelSpec` from `shared/api-model` so response keys and enabled actions retain literal types.
-3. Keep the back-end `src/api/specs/*.spec.ts` module as a re-export with a default export for spec discovery. Have the model's `apiConfig.openApiSpec` reference that same spec, and its `customHandlers` use the same custom definitions.
+3. Point the model's `apiConfig.openApiSpec` at the shared spec, and spread the same shared custom endpoint definitions into its `customHandlers` (`defineCustomApiHandler({ ...startContextualBanditEndpoint, reqHandler })`). Nothing discovers specs by directory, so delete the old `src/api/specs/*.spec.ts` module once nothing imports it.
 4. Export only enabled, mounted endpoints from a `shared/api-endpoints` module and add its namespace export to `api-endpoints/index.ts`.
 
 For example, the existing Contextual Bandit definitions are used this way:

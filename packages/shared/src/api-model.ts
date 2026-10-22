@@ -297,9 +297,11 @@ export function crudEndpoint<
   } as CrudEndpoint<S, A>;
 }
 
+// Pick only the request schemas the validator declares; a key it omits must
+// stay absent rather than become a required `unknown`.
 export type CustomEndpoint<E extends OpenApiEndpointSpec> = Pick<
   E["validator"],
-  keyof RequestSchemas<unknown, unknown, unknown>
+  Extract<keyof E["validator"], keyof RequestSchemas<unknown, unknown, unknown>>
 > & {
   responseSchema: E["zodReturnObject"];
   method: E["verb"];
@@ -319,6 +321,8 @@ export function customEndpoint<E extends OpenApiEndpointSpec>(
   spec: OpenApiModelSpec,
   endpoint: E,
 ): CustomEndpoint<E> {
+  // TS can't relate the spread of a generic validator to the keys
+  // CustomEndpoint picks from it, so the cast carries them.
   return {
     ...endpoint.validator,
     responseSchema: endpoint.zodReturnObject,
@@ -332,7 +336,7 @@ export function customEndpoint<E extends OpenApiEndpointSpec>(
     version: endpoint.version,
     confirmation: endpoint.confirmation,
     confirmationInHandler: endpoint.confirmationInHandler,
-  };
+  } as CustomEndpoint<E>;
 }
 
 function getCrudValidator(
