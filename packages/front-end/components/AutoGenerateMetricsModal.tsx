@@ -326,6 +326,7 @@ export default function AutoGenerateMetricsModal({
                     tipPosition="top"
                   >
                     <button
+                      type="button"
                       className="btn btn-link p-0 pl-1 text-secondary"
                       disabled={refreshingSchema}
                       onClick={async (e) => {

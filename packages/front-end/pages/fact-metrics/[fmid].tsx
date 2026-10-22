@@ -358,6 +358,7 @@ export default function FactMetricPage() {
             disabled={isEditing}
             trigger={
               <IconButton
+                type="button"
                 disabled={isEditing}
                 variant="ghost"
                 color="gray"

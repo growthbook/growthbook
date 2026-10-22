@@ -213,6 +213,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                       <MoreMenu useRadix={false}>
                         {canEdit(query) && (
                           <button
+                            type="button"
                             className="dropdown-item"
                             onClick={() => handleEdit(query)}
                           >

@@ -162,6 +162,7 @@ const TeamPage: FC = () => {
               <DropdownMenu
                 trigger={
                   <IconButton
+                    type="button"
                     variant="ghost"
                     color="gray"
                     radius="full"
@@ -350,6 +351,7 @@ const TeamPage: FC = () => {
                     <DropdownMenu
                       trigger={
                         <IconButton
+                          type="button"
                           variant="ghost"
                           color="gray"
                           radius="full"

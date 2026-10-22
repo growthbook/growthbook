@@ -124,6 +124,7 @@ export default function FactTableAutoSliceSelector({
           Save
         </Button>
         <IconButton
+          type="button"
           variant="ghost"
           size={compactButtons ? "2" : "3"}
           onClick={cancelEditing}
@@ -187,7 +188,12 @@ export default function FactTableAutoSliceSelector({
         )}
       </div>
       {canEdit && compactButtons ? (
-        <IconButton variant="ghost" size="1" onClick={startEditing}>
+        <IconButton
+          type="button"
+          variant="ghost"
+          size="1"
+          onClick={startEditing}
+        >
           <PiPencilSimpleFill />
         </IconButton>
       ) : (

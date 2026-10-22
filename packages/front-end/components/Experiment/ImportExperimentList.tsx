@@ -740,6 +740,7 @@ const ImportExperimentList: FC<{
                         </UITooltip>
                       ) : (
                         <button
+                          type="button"
                           className={`btn btn-primary`}
                           onClick={(ev) => {
                             ev.preventDefault();

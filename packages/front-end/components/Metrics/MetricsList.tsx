@@ -88,6 +88,7 @@ function MetricRowMenu({ metric }: { metric: MetricTableItem }) {
     <DropdownMenu
       trigger={
         <IconButton
+          type="button"
           variant="ghost"
           color="gray"
           radius="full"
@@ -587,6 +588,7 @@ const MetricsList = (): React.ReactElement => {
               <DropdownMenu
                 trigger={
                   <IconButton
+                    type="button"
                     variant="ghost"
                     color="gray"
                     radius="full"

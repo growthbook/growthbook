@@ -96,6 +96,7 @@ export default function ResetPasswordPage(): ReactElement {
             Successfully reset password for <strong>{email}</strong>
           </Callout>
           <button
+            type="button"
             className="btn btn-primary"
             onClick={(e) => {
               e.preventDefault();

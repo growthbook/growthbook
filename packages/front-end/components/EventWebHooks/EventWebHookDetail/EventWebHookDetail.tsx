@@ -193,6 +193,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           <DropdownMenu
             trigger={
               <IconButton
+                type="button"
                 variant="ghost"
                 color="gray"
                 radius="full"
@@ -267,6 +268,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           <code className="text-main text-break">{signingKey}</code>
           {copySupported && (
             <IconButton
+              type="button"
               variant="ghost"
               color="gray"
               size="1"

@@ -171,6 +171,7 @@ export default function ResultsVariationsFilter({
             <div className="d-flex mt-2">
               {filteringApplied ? (
                 <button
+                  type="button"
                   className="btn btn-sm btn-link px-0"
                   onClick={(e) => {
                     e.preventDefault();
@@ -185,6 +186,7 @@ export default function ResultsVariationsFilter({
               ) : null}
               <div className="flex-1" />
               <button
+                type="button"
                 className="btn btn-link"
                 onClick={(e) => {
                   e.preventDefault();

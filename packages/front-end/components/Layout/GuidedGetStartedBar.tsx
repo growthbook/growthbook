@@ -67,6 +67,7 @@ const GuidedGetStartedBar = () => {
         )}
         <Link href={getReturnUrl()} onClick={() => clearStep()}>
           <button
+            type="button"
             className="mx-2"
             style={{
               background: "#EDE9FE",

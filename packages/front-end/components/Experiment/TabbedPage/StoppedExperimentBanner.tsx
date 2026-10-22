@@ -147,7 +147,7 @@ export default function StoppedExperimentBanner({
                 }
                 cta="Stop Rollout"
               >
-                <button className="btn btn-primary">
+                <button type="button" className="btn btn-primary">
                   Stop Temporary Rollout
                 </button>
               </ConfirmButton>

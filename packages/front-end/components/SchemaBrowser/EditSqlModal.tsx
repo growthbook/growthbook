@@ -353,6 +353,7 @@ export default function EditSqlModal({
                         <DropdownMenu
                           trigger={
                             <IconButton
+                              type="button"
                               variant="ghost"
                               color="gray"
                               radius="full"

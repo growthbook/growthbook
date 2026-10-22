@@ -328,6 +328,7 @@ export const SelectStep = ({
       cta="Next >"
       secondaryCTA={
         <button
+          type="button"
           disabled={isNextDisabled}
           onClick={onNext}
           className="btn btn-primary"

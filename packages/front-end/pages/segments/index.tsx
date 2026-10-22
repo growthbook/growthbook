@@ -314,6 +314,7 @@ const SegmentPage: FC = () => {
                           otherwise the cta should be `View Details`. This is because Segment's don't have an id page,
                          in order for the user to see the sql that powers the segment, we need to show the edit form, but in read only mode */}
                           <button
+                            type="button"
                             className="dropdown-item"
                             onClick={(e) => {
                               e.preventDefault();

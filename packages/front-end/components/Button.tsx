@@ -58,6 +58,7 @@ const Button: FC<Props> = ({
   return (
     <>
       <button
+        type="button"
         {...otherProps}
         className={clsx("btn", className, {
           [loadingClassName]: loading,

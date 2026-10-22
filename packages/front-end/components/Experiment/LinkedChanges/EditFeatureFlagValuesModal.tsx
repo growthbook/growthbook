@@ -641,6 +641,7 @@ export default function EditFeatureFlagValuesModal({
                         <DropdownMenu
                           trigger={
                             <IconButton
+                              type="button"
                               variant="ghost"
                               color="gray"
                               radius="full"
@@ -695,6 +696,7 @@ export default function EditFeatureFlagValuesModal({
                     <DropdownMenu
                       trigger={
                         <IconButton
+                          type="button"
                           variant="ghost"
                           color="gray"
                           radius="full"

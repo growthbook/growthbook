@@ -273,6 +273,7 @@ const PopulationDataQueryInput = ({
           <DropdownMenu
             trigger={
               <IconButton
+                type="button"
                 variant="ghost"
                 color="gray"
                 radius="full"
@@ -437,12 +438,13 @@ export const SetParamsStep = ({
       includeCloseCta={false}
       cta="Submit"
       secondaryCTA={
-        <button className="btn btn-link" onClick={onBack}>
+        <button type="button" className="btn btn-link" onClick={onBack}>
           &lt; Back
         </button>
       }
       tertiaryCTA={
         <button
+          type="button"
           disabled={
             !isValidPowerCalculationParams(engineType, form.getValues())
           }

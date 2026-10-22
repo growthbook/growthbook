@@ -19,6 +19,7 @@ const ViewQueryButton: FC<{
         />
       )}
       <button
+        type="button"
         className="btn btn-link"
         onClick={(e) => {
           e.preventDefault();

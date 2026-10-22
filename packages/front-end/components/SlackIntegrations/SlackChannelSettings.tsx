@@ -238,6 +238,7 @@ export default function SlackChannelSettings({
               menuPlacement="end"
               trigger={
                 <IconButton
+                  type="button"
                   variant="ghost"
                   color="gray"
                   radius="full"

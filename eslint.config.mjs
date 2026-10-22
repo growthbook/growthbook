@@ -15,6 +15,7 @@ import * as tsParser from "@typescript-eslint/parser";
 import js from "@eslint/js";
 import { FlatCompat } from "@eslint/eslintrc";
 import noAlertClassname from "./eslint-rules/no-alert-classname.mjs";
+import radixButtonHasType from "./eslint-rules/radix-button-has-type.mjs";
 import restrictedQueryTypes from "./eslint-rules/restricted-query-types.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -149,6 +150,8 @@ export default defineConfig([
         },
       ],
 
+      "react/button-has-type": "error",
+
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
 
@@ -264,6 +267,7 @@ export default defineConfig([
       local: {
         rules: {
           "no-alert-classname": noAlertClassname,
+          "radix-button-has-type": radixButtonHasType,
         },
       },
     },
@@ -297,6 +301,7 @@ export default defineConfig([
         },
       ],
       "local/no-alert-classname": "error",
+      "local/radix-button-has-type": "error",
     },
   },
   {

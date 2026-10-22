@@ -52,6 +52,7 @@ export default function CollapsibleSidePanel({
       )}
       <Box className={styles.divider}>
         <IconButton
+          type="button"
           variant="soft"
           color="gray"
           size="1"

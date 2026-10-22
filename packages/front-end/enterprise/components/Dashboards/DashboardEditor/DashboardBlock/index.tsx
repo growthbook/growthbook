@@ -472,6 +472,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       <Flex align="center" mb="2">
         {isEditing && canMoveBlock && disableBlock !== "full" && (
           <IconButton
+            type="button"
             className="dashboard-block-drag-handle"
             variant="ghost"
             size="1"
@@ -578,6 +579,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 menuPlacement="end"
                 trigger={
                   <IconButton
+                    type="button"
                     variant="ghost"
                     radius="full"
                     size="1"
@@ -650,6 +652,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
               menuPlacement="end"
               trigger={
                 <IconButton
+                  type="button"
                   variant="ghost"
                   radius="full"
                   size="1"

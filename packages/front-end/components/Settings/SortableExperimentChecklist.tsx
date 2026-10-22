@@ -69,6 +69,7 @@ export const ChecklistItem = forwardRef<HTMLDivElement, ChecklistItemProps>(
           )}
         </div>
         <button
+          type="button"
           className="btn"
           style={{
             color: "red",

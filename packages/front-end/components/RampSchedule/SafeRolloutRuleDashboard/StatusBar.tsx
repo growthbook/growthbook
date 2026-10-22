@@ -353,6 +353,7 @@ export function MonitoringControls({
               <Tooltip body={autoUpdateTooltipBody}>
                 {monitoringMode === "auto" ? (
                   <IconButton
+                    type="button"
                     variant="ghost"
                     radius="full"
                     aria-label="Disable auto-monitoring"
@@ -371,6 +372,7 @@ export function MonitoringControls({
                   </IconButton>
                 ) : (
                   <IconButton
+                    type="button"
                     variant="ghost"
                     radius="full"
                     aria-label="Enable auto-monitoring"
@@ -439,6 +441,7 @@ export function MonitoringControls({
                         }}
                       >
                         <IconButton
+                          type="button"
                           variant="ghost"
                           color="violet"
                           size="1"

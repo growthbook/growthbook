@@ -165,6 +165,7 @@ export default function NewExperimentChecklistItem({
         ) : null}
         <div>
           <button
+            type="button"
             disabled={!newTaskInput.task}
             className="btn btn-primary"
             onClick={(e) => {
@@ -175,6 +176,7 @@ export default function NewExperimentChecklistItem({
             Add To Checklist
           </button>
           <button
+            type="button"
             className="btn btn-link"
             onClick={(e) => {
               e.preventDefault();

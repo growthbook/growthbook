@@ -108,6 +108,7 @@ export default function ExplorerPageActions() {
           description="Anyone in your organization with read access to the Data Source this exploration uses, can open this exploration."
           trigger={
             <IconButton
+              type="button"
               size="2"
               variant="solid"
               color="violet"

@@ -45,6 +45,7 @@ const LoggedInPageGuard = ({
                   Log Out
                 </Button>
                 <button
+                  type="button"
                   className="btn btn-link"
                   onClick={(e) => {
                     e.preventDefault();

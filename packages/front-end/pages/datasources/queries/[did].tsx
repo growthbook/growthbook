@@ -792,6 +792,7 @@ function QueryStatus({
       {onCancel && (
         <Tooltip content="Cancel query">
           <IconButton
+            type="button"
             variant="solid"
             color="tomato"
             size="1"

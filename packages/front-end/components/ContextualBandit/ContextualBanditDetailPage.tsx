@@ -348,6 +348,7 @@ export default function ContextualBanditDetailPage({
           <DropdownMenu
             trigger={
               <IconButton
+                type="button"
                 variant="ghost"
                 color="gray"
                 radius="full"

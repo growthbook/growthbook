@@ -85,6 +85,7 @@ export default function RevisionDescription({
           </Heading>
           {canEditNotes && !editing && (
             <IconButton
+              type="button"
               variant="ghost"
               color="violet"
               size="2"

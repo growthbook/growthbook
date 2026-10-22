@@ -170,6 +170,7 @@ const IdeaPage = (): ReactElement => {
             !data.experiment && (
               <div className="col-md-auto">
                 <button
+                  type="button"
                   className="btn btn-outline-primary"
                   onClick={() => {
                     setNewExperiment(true);
@@ -295,6 +296,7 @@ const IdeaPage = (): ReactElement => {
                     {!edit && canEdit && (
                       <div className="col-auto">
                         <button
+                          type="button"
                           className="btn btn-outline-secondary"
                           onClick={() => {
                             setEdit(true);
@@ -420,6 +422,7 @@ const IdeaPage = (): ReactElement => {
               {(!idea.estimateParams || !estimate) && canEdit && (
                 <div className="mt-2 text-center">
                   <button
+                    type="button"
                     className="btn btn-outline-primary"
                     onClick={() => {
                       setImpactOpen(true);

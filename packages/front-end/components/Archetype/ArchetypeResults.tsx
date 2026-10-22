@@ -75,6 +75,7 @@ const ArchetypeResults: FC<{
             <div className="col-12">
               <div className={styles.closeButton}>
                 <button
+                  type="button"
                   className="btn btn-sm "
                   onClick={() => {
                     setShowExpandedResults(false);

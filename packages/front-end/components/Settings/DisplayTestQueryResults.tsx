@@ -350,6 +350,7 @@ export function TestQueryResultsTable({
                   menuPlacement="end"
                   trigger={
                     <IconButton
+                      type="button"
                       variant="ghost"
                       color="gray"
                       radius="full"

@@ -997,6 +997,7 @@ export default function FeaturesOverview({
                     )}
                     {isDraft && canEditDrafts && !editingTitle && (
                       <IconButton
+                        type="button"
                         variant="ghost"
                         color="violet"
                         size="2"
@@ -1240,6 +1241,7 @@ export default function FeaturesOverview({
                             >
                               {!isReadOnly && canChangeEnvironments ? (
                                 <IconButton
+                                  type="button"
                                   variant="ghost"
                                   radius="full"
                                   aria-label={
@@ -1429,6 +1431,7 @@ export default function FeaturesOverview({
                         >
                           {!isReadOnly && canChangeEnvironments ? (
                             <IconButton
+                              type="button"
                               variant="ghost"
                               radius="full"
                               aria-label={
@@ -1928,6 +1931,7 @@ export default function FeaturesOverview({
                   )}
                   {!editingNewDraftTitle && (
                     <IconButton
+                      type="button"
                       variant="ghost"
                       color="violet"
                       size="2"

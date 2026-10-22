@@ -180,6 +180,7 @@ export function Popover({
                   }}
                 >
                   <IconButton
+                    type="button"
                     variant="ghost"
                     color="gray"
                     size="1"

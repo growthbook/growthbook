@@ -459,6 +459,7 @@ export default function RevisionSummaryCard({
                   )}
                   {canEditTitle && !editingTitle && (
                     <IconButton
+                      type="button"
                       variant="ghost"
                       color="violet"
                       size="2"

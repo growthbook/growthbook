@@ -380,6 +380,7 @@ export default function JourneyTabContent() {
                       disabled={!canRun}
                       trigger={
                         <IconButton
+                          type="button"
                           variant="ghost"
                           color="gray"
                           size="1"

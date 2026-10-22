@@ -705,6 +705,7 @@ export default function AgentPanel({
             onSelect={handleSelectConversation}
           />
           <IconButton
+            type="button"
             variant="ghost"
             size="1"
             onClick={handleNewChat}
@@ -715,6 +716,7 @@ export default function AgentPanel({
           </IconButton>
           {onToggleExpanded && (
             <IconButton
+              type="button"
               variant="ghost"
               size="1"
               onMouseDown={(event) => event.preventDefault()}
@@ -732,6 +734,7 @@ export default function AgentPanel({
             </IconButton>
           )}
           <IconButton
+            type="button"
             variant="ghost"
             size="1"
             onClick={onClose}

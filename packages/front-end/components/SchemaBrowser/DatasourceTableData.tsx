@@ -231,6 +231,7 @@ export default function DatasourceSchema({
                     tipPosition="top"
                   >
                     <button
+                      type="button"
                       className="btn btn-link p-0 text-secondary"
                       disabled={fetching}
                       onClick={async (e) => {

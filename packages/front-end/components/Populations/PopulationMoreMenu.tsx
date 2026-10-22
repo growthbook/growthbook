@@ -35,6 +35,7 @@ export default function PopulationMoreMenu({
       onOpenChange={setOpen}
       trigger={
         <IconButton
+          type="button"
           variant="ghost"
           color="gray"
           radius="full"

@@ -286,6 +286,7 @@ export default function FeaturesHeader({
       <DropdownMenu
         trigger={
           <IconButton
+            type="button"
             variant="ghost"
             color="gray"
             radius="full"
@@ -368,6 +369,7 @@ export default function FeaturesHeader({
           >
             <Flex as="div" align="center">
               <IconButton
+                type="button"
                 style={{
                   marginRight: "5px",
                   backgroundColor:

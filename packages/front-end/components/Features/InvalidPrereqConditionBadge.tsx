@@ -18,6 +18,7 @@ export default function InvalidPrereqConditionBadge({
     <Tooltip content={message}>
       {iconOnly ? (
         <IconButton
+          type="button"
           variant="ghost"
           color="red"
           size="1"

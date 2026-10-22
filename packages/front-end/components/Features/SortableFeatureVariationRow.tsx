@@ -289,6 +289,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 <DropdownMenu
                   trigger={
                     <IconButton
+                      type="button"
                       variant="ghost"
                       color="gray"
                       radius="full"
