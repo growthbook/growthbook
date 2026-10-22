@@ -185,6 +185,11 @@ function UploadModal({
   // submits the same key, so the file isn't sent again and the server can
   // finish an upload it recorded before failing.
   const staged = useRef<{ file: File; fileKey: string } | null>(null);
+  // An upload recorded but not yet checked. If waiting for its check fails,
+  // retrying resumes the check instead of sending the file again.
+  const recorded = useRef<{ file: File; upload: ApiSavedGroupUpload } | null>(
+    null,
+  );
   // Stops waiting for validation once the modal is closed or unmounted. Set
   // again on mount, since a dev hot reload runs the cleanup without closing.
   const closed = useRef(false);
@@ -275,26 +280,31 @@ function UploadModal({
 
   const uploadAndCheck = async () => {
     if (!file) return;
-    if (staged.current?.file !== file) {
-      const fileKey = await sendToStorage(file);
-      if (fileKey === null) return;
-      staged.current = { file, fileKey };
+    let upload =
+      recorded.current?.file === file ? recorded.current.upload : null;
+    if (!upload) {
+      if (staged.current?.file !== file) {
+        const fileKey = await sendToStorage(file);
+        if (fileKey === null) return;
+        staged.current = { file, fileKey };
+      }
+      // Closed after the transfer finished: don't record the upload
+      if (closed.current) return;
+      setStage({ type: "saving" });
+      ({ upload } = await apiCall<{ upload: ApiSavedGroupUpload }>(
+        `/saved-groups/${savedGroup.id}/uploads`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            fileKey: staged.current.fileKey,
+            fileName: file.name,
+          }),
+        },
+      ));
+      staged.current = null;
+      recorded.current = { file, upload };
+      await onUploaded();
     }
-    // Closed after the transfer finished: don't record the upload
-    if (closed.current) return;
-    setStage({ type: "saving" });
-    const { upload } = await apiCall<{ upload: ApiSavedGroupUpload }>(
-      `/saved-groups/${savedGroup.id}/uploads`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          fileKey: staged.current.fileKey,
-          fileName: file.name,
-        }),
-      },
-    );
-    staged.current = null;
-    await onUploaded();
 
     setStage({ type: "validating" });
     const status =
@@ -302,6 +312,7 @@ function UploadModal({
         ? await waitForCheck(upload.version)
         : upload.status;
     if (!status) return;
+    recorded.current = null;
     await onUploaded();
     if (closed.current) return;
     if (status.type === "invalid") {

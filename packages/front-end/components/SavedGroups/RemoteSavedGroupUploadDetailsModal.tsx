@@ -232,8 +232,13 @@ export default function RemoteSavedGroupUploadDetailsModal({
   const { data, error } = useApi<SavedGroupUploadDetails>(
     `/saved-groups/${savedGroupId}/uploads/${version}`,
     {
+      // Also while pending, so the check's result shows when it finishes
       refreshInterval: (latest) =>
-        latest && isAwaitingLoads(latest.upload) ? LOAD_REPORT_POLL_MS : 0,
+        latest &&
+        (latest.upload.status.type === "pending" ||
+          isAwaitingLoads(latest.upload))
+          ? LOAD_REPORT_POLL_MS
+          : 0,
     },
   );
 
