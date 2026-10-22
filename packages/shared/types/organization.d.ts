@@ -21,6 +21,7 @@ import {
 import { AIModel, AIProvider, EmbeddingModel, STTModel } from "shared/ai";
 import {
   AgreementType,
+  dailyUsageByKeyValidator,
   environment,
   expandedMember,
   expandedMemberInfo,
@@ -30,8 +31,10 @@ import {
   memberRoleWithProjects,
   pendingMember,
   projectMemberRole,
+  SdkPayloadSizeAlert,
 } from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
+import { ApiKeyInterface } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
@@ -62,7 +65,9 @@ export type UserPermission = {
   /**
    * Per role: its env-scoped permissions with its own env restriction, so one
    * role's permission can't borrow another's environments. Absent for roles
-   * granting nothing env-scoped, and for payloads predating the field.
+   * granting nothing env-scoped, and for payloads predating the field. An
+   * intersection (scoped PAT) instead carries one grant per environment set,
+   * covering every permission it grants.
    */
   envGrants?: {
     environments: string[];
@@ -256,10 +261,6 @@ export type ApprovalFlowPolicy = Omit<
 export interface OrganizationSettings {
   visualEditorEnabled?: boolean;
   confidenceLevel?: number;
-  customized?: boolean;
-  logoPath?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
   northStar?: NorthStarMetric;
   namespaces?: Namespaces[];
   metricDefaults?: MetricDefaults;
@@ -283,6 +284,10 @@ export interface OrganizationSettings {
   srmThreshold?: number;
   aiEnabled?: boolean;
   aiAskDataEnabled?: boolean;
+  /** Inline suggestions in the AI Assistant composer. Unset means on. */
+  aiAutocompleteEnabled?: boolean;
+  // Unset resolves to the cheapest tier in getAISettingsForOrg.
+  aiAutocompleteModel?: AIModel;
   // AI Assistant skill names turned off for this org, so new skills start enabled.
   disabledAgentSkills?: string[];
   defaultAIModel?: AIModel;
@@ -362,6 +367,8 @@ export interface OrganizationSettings {
   // Only affects new rules on eligible JSON features; off by default.
   sparseJSONRulesByDefault?: boolean;
   requireProjectForFeatures?: boolean;
+  // New Feature Flag rules for all environments and all projects need an explicit override.
+  requireScopedFeatureRules?: boolean;
   requireProjectForSdkConnections?: boolean;
   // When true, saving a feature rule or experiment rejects hashAttribute,
   // fallbackAttribute, or condition keys that don't appear (unarchived) in
@@ -400,7 +407,6 @@ export interface OrganizationSettings {
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;
   blockFileUploads?: boolean;
-  defaultFeatureRulesInAllEnvs?: boolean;
   savedGroupSizeLimit?: number;
   // Opt-in validation of Saved Group scope at consuming Feature Flags.
   enforceSavedGroupProjectScope?: boolean;
@@ -413,6 +419,11 @@ export interface OrganizationSettings {
   // ones are rejected at authentication. Covers Personal Access Tokens and
   // OAuth-issued access tokens; app-issued Visual Editor keys are unaffected.
   disablePersonalAccessTokens?: boolean;
+  // Maximum lifetime, in days, for newly issued tokens of each kind. Unset
+  // means expiry is optional. Kept separate because a PAT expiring inconveniences
+  // one member, while a secret key expiring takes down an integration.
+  maxPatLifetimeDays?: number | null;
+  maxApiKeyLifetimeDays?: number | null;
 }
 
 export type LearningStatusColor =
@@ -561,6 +572,15 @@ export type GetOrganizationResponse = {
     features: string[];
   };
   usage: OrganizationUsage;
+  // SDK Connections the viewer manages whose payload is large enough to warn about
+  sdkPayloadSizeAlerts: SdkPayloadSizeAlert[];
+  // The viewer's own PATs that lapse within a week, or lapsed but are still in use
+  expiringPersonalAccessTokens: Pick<
+    ApiKeyInterface,
+    "id" | "description" | "expiresAt" | "lastUsed"
+  >[];
+  // The organization's API keys in the same state, for members who manage API keys
+  expiringApiKeys: GetOrganizationResponse["expiringPersonalAccessTokens"];
   // Providers with a usable key, stored or inherited from the environment.
   // Non-secret, and rides along here so AI gating needs no separate request.
   aiKeyProviders: AIProvider[];
@@ -574,6 +594,9 @@ export type DailyUsage = {
   bandwidth: number;
   managedClickhouseEvents: number;
 };
+
+// One row per day, SDK key and request type; empty key is image traffic.
+export type DailyUsageByKey = z.infer<typeof dailyUsageByKeyValidator>;
 
 type UsageLimit = number | "unlimited";
 

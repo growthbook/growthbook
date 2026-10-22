@@ -112,10 +112,7 @@ export async function requestReview(
   // "enabling user could not be resolved". Mirrors the schedule-publish endpoint.
   if (
     scheduledDate !== null &&
-    !resolveArmedPublisherId(
-      revision,
-      req.context.userId ?? req.context.apiKey ?? null,
-    )
+    !resolveArmedPublisherId(revision, req.context.armerId)
   ) {
     throw new BadRequestError(
       "Scheduled publishes must run as a user, but this request has no resolvable user actor " +

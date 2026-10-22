@@ -35,6 +35,7 @@ pnpm --filter shared type-check
 
 # OpenAPI spec generation
 pnpm --filter back-end generate-openapi  # Regenerate spec from Zod validators
+pnpm doc-gen                             # Regenerate event webhook docs from shared event schemas
 
 # Testing
 pnpm test             # All packages

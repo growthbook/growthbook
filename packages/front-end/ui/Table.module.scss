@@ -9,6 +9,12 @@
   overflow-wrap: anywhere;
 }
 
+// No-op until a caller sets the var. Applied to the table rather than the
+// slack <col>, whose min-width the CSS Tables spec doesn't honour.
+:global(.rt-TableRootTable) {
+  min-width: var(--table-min-width, 0);
+}
+
 // List table variant: sticky header, row hover (use same solid surface as surface variant)
 .wrapper[data-table-list] {
   max-width: 100%;
@@ -196,7 +202,13 @@
   // rather than to the viewport.
   &[data-scroll-x="true"] {
     overflow: auto;
-    max-height: calc(100vh - var(--table-sticky-top, 56px) - 24px);
+    // Defaults to "as tall as the viewport allows". A caller that owns its own
+    // layout (a log panel with pagination under it) passes an explicit height
+    // so the body scrolls instead of pushing what follows off screen.
+    max-height: var(
+      --table-max-height,
+      calc(100vh - var(--table-sticky-top, 56px) - 24px)
+    );
     // The frame moves onto the scroll container, so it stays put while the
     // content scrolls under it. No top edge: the header draws its own, as in
     // the unbounded case.
@@ -279,12 +291,6 @@
       background-color: var(--gray-a5);
       pointer-events: none;
     }
-  }
-
-  // No-op until a caller sets the var. Applied to the table rather than the
-  // slack <col>, whose min-width the CSS Tables spec doesn't honour.
-  :global(.rt-TableRootTable) {
-    min-width: var(--table-min-width, 0);
   }
 
   // Anchor for the absolutely positioned resize handle.

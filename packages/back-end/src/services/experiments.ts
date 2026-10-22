@@ -39,7 +39,9 @@ import {
   liveRevisionFromFeature,
   MatchingRule,
   naiveFlattenV1Rules,
-  validateCondition,
+  assertExposureQueryDeclaresIdentifierType,
+  toApiAssignmentQueryRef,
+  resolveAnalysisIdentifierType,
 } from "shared/util";
 import {
   getBanditSRMValue,
@@ -162,6 +164,7 @@ import {
   PRESET_DECISION_CRITERIA,
   getPresetDecisionCriteriaForOrg,
 } from "shared/enterprise";
+import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { generateId } from "back-end/src/util/uuid";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
@@ -248,11 +251,13 @@ import {
   ExperimentUpdateLogPlan,
   ExperimentUpdateExecutionLogger,
 } from "back-end/src/services/experimentUpdateExecutionLogger";
+import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
 import { getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
 } from "./datasource";
+import { getExposureQueriesForDatasource } from "./assignmentQuerySelection";
 import {
   analyzeExperimentResults,
   getMetricsAndQueryDataForStatsEngine,
@@ -559,20 +564,19 @@ export function isJoinableMetric({
   metricId,
   metricMap,
   factTableMap,
-  exposureQuery,
+  identifierType,
   datasource,
 }: {
   metricId: string;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
-  exposureQuery?: ExposureQuery;
+  identifierType?: string;
   datasource?: DataSourceInterface;
 }): boolean {
-  if (!exposureQuery || !datasource) {
+  if (!identifierType || !datasource) {
     // be lenient and allow metrics through
     return true;
   }
-  const experimentIdType = exposureQuery.userIdType;
   const metric = metricMap.get(metricId);
 
   if (!metric) {
@@ -583,7 +587,7 @@ export function isJoinableMetric({
   if (isFactMetric(metric)) {
     return isFactMetricJoinable(
       metric,
-      experimentIdType,
+      identifierType,
       (id) => factTableMap.get(id),
       datasource.settings,
     );
@@ -591,7 +595,7 @@ export function isJoinableMetric({
 
   return isMetricJoinable(
     metric.userIdTypes ?? [],
-    experimentIdType,
+    identifierType,
     datasource.settings,
   );
 }
@@ -648,6 +652,17 @@ export function getSnapshotSettings({
   const exposureQuery = queries.find(
     (q) => q.id === experiment.exposureQueryId,
   );
+  // A missing query is left to the query builder to surface.
+  if (exposureQuery) {
+    assertExposureQueryDeclaresIdentifierType(
+      exposureQuery,
+      experiment.exposureQueryIdentifierType,
+    );
+  }
+  const exposureQueryIdentifierType = resolveAnalysisIdentifierType(
+    exposureQuery,
+    experiment.exposureQueryIdentifierType,
+  );
 
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
@@ -699,7 +714,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -711,7 +726,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -723,7 +738,7 @@ export function getSnapshotSettings({
       metricId: m,
       metricMap,
       factTableMap,
-      exposureQuery,
+      identifierType: exposureQueryIdentifierType,
       datasource,
     }),
   );
@@ -900,6 +915,7 @@ export function getSnapshotSettings({
     regressionAdjustmentEnabled,
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
+    exposureQueryIdentifierType,
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
       id: v.key || i + "",
@@ -1203,7 +1219,7 @@ export async function syncVisualChangesetsAndUrlRedirectsForExperiment({
       visualChangesets.map((vc) =>
         syncVisualChangesWithVariations({
           visualChangeset: vc,
-          experiment: updated,
+          owner: new ExperimentChangesetOwner(context, updated),
           context,
         }),
       ),
@@ -1728,6 +1744,7 @@ async function planSnapshotQueryRunner({
     incrementalRefreshModel &&
     exploratoryOverallRequiresFullRefresh({
       snapshotSettings,
+      exposureQueries: datasource.settings.queries?.exposure ?? [],
       incrementalRefreshModel,
       latestOverallSnapshotId,
     })
@@ -1917,6 +1934,7 @@ export async function planSnapshot({
           ...snapshotSettingsArgs,
           incrementalRefreshModel: null,
         }),
+        exposureQueries: datasource.settings.queries?.exposure ?? [],
       })
     ) {
       legacyIncrementalRefresh = legacyDoc;
@@ -2092,6 +2110,7 @@ export async function createSnapshotFromPlan({
         legacyExperimentSettingsHash:
           getExperimentSettingsHashForIncrementalRefresh(
             plan.snapshot.settings,
+            datasource.settings.queries?.exposure ?? [],
           ),
       });
     if (!hasIncrementalRefreshLock) {
@@ -2399,39 +2418,12 @@ export function assertValidExperimentPhases(
   });
 }
 
-// Only some experiment fields reach SDK payloads. A change that touches any of
-// them needs run-experiments permission in the environments the experiment
-// affects (on both the current project and, if it moves, the new one); other
-// edits need only the update permission the caller has already been checked
-// for. Shared by the dashboard POST /experiment/:id and the REST
-// POST /api/v1/experiments/:id so the two agree on which fields count.
-const PAYLOAD_AFFECTING_EXPERIMENT_FIELDS: (keyof ExperimentInterface)[] = [
-  "phases",
-  "variations",
-  "project",
-  "name",
-  "trackingKey",
-  "archived",
-  "status",
-  "releasedVariationId",
-  "excludeFromPayload",
-  "type",
-  "banditStage",
-  "banditStageDateStarted",
-  "banditScheduleValue",
-  "banditScheduleUnit",
-  "banditBurnInValue",
-  "banditBurnInUnit",
-  // Bucketing fields. The REST route accepts these and they end up in the SDK
-  // payload, so changing bucketVersion re-buckets every user. The dashboard
-  // edits them on POST /experiment/:id/targeting, which always checks this.
-  "hashAttribute",
-  "fallbackAttribute",
-  "hashVersion",
-  "disableStickyBucketing",
-  "bucketVersion",
-  "minBucketVersion",
-];
+// A change that touches a payload field needs run-experiments permission in the
+// environments the experiment affects (on both the current project and, if it
+// moves, the new one); other edits need only the update permission the caller
+// has already been checked for. Shared by the dashboard POST /experiment/:id
+// and the REST POST /api/v1/experiments/:id so the two agree on which fields
+// count.
 export async function assertCanRunExperimentChanges(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -3445,6 +3437,11 @@ export async function toExperimentApiInterface(
     })),
     settings: {
       datasourceId: experiment.datasource || "",
+      assignmentQuery: toApiAssignmentQueryRef(
+        experiment.exposureQueryId,
+        experiment.exposureQueryIdentifierType,
+        await getExposureQueriesForDatasource(context, experiment.datasource),
+      ),
       assignmentQueryId: experiment.exposureQueryId || "",
       experimentId: experiment.trackingKey,
       segmentId: experiment.segment || "",
@@ -3610,6 +3607,7 @@ export function toSnapshotApiInterface(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
+  exposureQueries: ExposureQuery[],
 ): ApiExperimentResults {
   const dimension = toApiDimension(snapshot.dimension);
 
@@ -3676,6 +3674,15 @@ export function toSnapshotApiInterface(
       "",
     settings: {
       datasourceId: experiment.datasource || "",
+      /**
+       * Legacy contract: settings describe the current experiment, not the
+       * snapshot (bulk results are the snapshot-authoritative view).
+       */
+      assignmentQuery: toApiAssignmentQueryRef(
+        experiment.exposureQueryId,
+        experiment.exposureQueryIdentifierType,
+        exposureQueries,
+      ),
       assignmentQueryId: experiment.exposureQueryId || "",
       experimentId: experiment.trackingKey,
       segmentId: snapshot.settings.segment,
@@ -4699,8 +4706,18 @@ function apiScheduleToInterface(
   };
 }
 
+export type PostExperimentApiPayload = z.infer<
+  typeof postExperimentValidator.bodySchema
+> & {
+  /**
+   * Internal-only: the handler resolves this from assignmentQuery or a
+   * template.
+   */
+  assignmentQueryIdentifierType?: string;
+};
+
 export function postExperimentApiPayloadToInterface(
-  payload: z.infer<typeof postExperimentValidator.bodySchema>,
+  payload: PostExperimentApiPayload,
   organization: OrganizationInterface,
   datasource: DataSourceInterface | null,
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
@@ -4716,18 +4733,6 @@ export function postExperimentApiPayloadToInterface(
     // Accept the GET-response field names as aliases so a GET -> POST
     // round-trip is lossless. The POST-only fields take precedence when set.
     const condition = p.condition || p.targetingCondition || "{}";
-    const conditionRes = validateCondition(condition);
-    if (!conditionRes.success) {
-      throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
-    }
-    p.prerequisites?.forEach((prerequisite) => {
-      const conditionRes = validateCondition(prerequisite.condition);
-      if (!conditionRes.success) {
-        throw new Error(
-          `Invalid prerequisite condition: ${conditionRes.error}`,
-        );
-      }
-    });
 
     return {
       ...p,
@@ -4800,6 +4805,8 @@ export function postExperimentApiPayloadToInterface(
       payload.assignmentQueryId ||
       datasource?.settings.queries?.exposure?.[0]?.id ||
       "",
+    /** Parsed by the caller, which has the data source's queries. */
+    exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
     name: payload.name || "",
     type: payload.type || "standard",
     phases,
@@ -4891,7 +4898,7 @@ export function postExperimentApiPayloadToInterface(
   return obj;
 }
 
-type UpdateExperimentApiPayload = z.infer<
+export type UpdateExperimentApiPayload = z.infer<
   typeof updateExperimentValidator.bodySchema
 >;
 
@@ -4972,18 +4979,6 @@ function resolveExperimentUpdateVariationsAndPhases(
       // Accept the GET-response field names as aliases so a GET -> POST
       // round-trip is lossless. The POST-only fields take precedence when set.
       const condition = p.condition || p.targetingCondition || "{}";
-      const conditionRes = validateCondition(condition);
-      if (!conditionRes.success) {
-        throw new Error(`Invalid targeting condition: ${conditionRes.error}`);
-      }
-      p.prerequisites?.forEach((prerequisite) => {
-        const conditionRes = validateCondition(prerequisite.condition);
-        if (!conditionRes.success) {
-          throw new Error(
-            `Invalid prerequisite condition: ${conditionRes.error}`,
-          );
-        }
-      });
 
       // Update phase variations to match new variations payload if it exists
       // otherwise, use the existing phase variations

@@ -316,6 +316,17 @@ src/api/
     ...
 ```
 
+### Confirmation Holds on Writes
+
+An API key can require a person to confirm some writes before they run. A held write answers `202` with a confirmation to poll. Every non-GET REST endpoint takes part, so each new write needs a classification:
+
+- **Declare its actions.** Set `confirmation: [...]` on the route validator (or per CRUD action on a model spec, or on a custom endpoint) using the most specific actions from `CONFIRM_ACTIONS` in `shared/src/validators/confirmations.ts`. An undeclared write holds as `<model>.other` (or `other.write`), which is safe but coarse.
+- **Pick by effect.** A write that changes what SDKs serve, deletes, or skips a check gets that action (`<model>.publish`, `experiment.start`, `override.*`, …). Use `<model>.create` or `<model>.draft` only when the write can't reach users. When unsure, pick the live action: under-declaring lets a write skip confirmation.
+- **`[]` is only for POSTs that read or compute** (search, preview, dry run).
+- **Armed drafts are covered for you.** On draft-revision routes, the route-level hold adds what landing does when a request arms a draft (on approval or on a schedule), and everything a landing can do when it edits a draft that's already armed. Don't add those actions to each draft route's `confirmation`. As a backstop, the draft writers (`updateRevision` and the revision engine's content edits) disarm an armed draft when a key whose rules would hold its publish edits it unconfirmed, so a path that misses its hold can't publish without a person.
+- **Decide in the handler when the action depends on the change** (archive vs publish, live vs draft): set `confirmationInHandler: true` and call `requireConfirmation` before the first write. Still list every action it can ask for in `confirmation`, so the spec and the key editor stay complete.
+- **New fields on live experiments:** payload fields belong in `PAYLOAD_AFFECTING_EXPERIMENT_FIELDS`, and phase fields in `PHASE_FIELD_ACTIONS` (`back-end/src/services/confirmations.ts`), which won't compile until a new phase field is placed.
+
 ### Resolving `ownerEmail` on API Responses
 
 Every external API response that includes an owner-bearing resource must expose a resolved `ownerEmail` alongside the raw `owner` field. Use the helpers in [src/services/owner.ts](../../../packages/back-end/src/services/owner.ts):

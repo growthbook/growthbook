@@ -1,6 +1,11 @@
 import { z } from "zod";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  ENVIRONMENT_PROJECTS_DESCRIPTION,
+  ENVIRONMENT_PROJECTS_UPDATE_DESCRIPTION,
+  PLAIN_DESCRIPTION,
+} from "./api-field-descriptions";
 
 export const updateEnvOrderValidator = z
   .object({
@@ -62,17 +67,21 @@ export const apiEnvironmentValidator = namedSchema(
 // Corresponds to paths/postEnvironment.yaml requestBody
 const postEnvironmentBody = z
   .object({
-    id: z.string().describe("The ID of the new environment"),
-    description: z
+    id: z
       .string()
-      .describe("The description of the new environment")
-      .optional(),
+      .describe(
+        "Permanent ID, shown as the environment name (e.g. `production`). Short lowercase slug.",
+      ),
+    description: z.string().describe(PLAIN_DESCRIPTION).optional(),
     toggleOnList: z.boolean().describe("Show on feature list page").optional(),
     defaultState: z
       .boolean()
       .describe("Default state for new features")
       .optional(),
-    projects: z.array(z.string()).optional(),
+    projects: z
+      .array(z.string())
+      .describe(ENVIRONMENT_PROJECTS_DESCRIPTION)
+      .optional(),
     parent: z
       .string()
       .describe(
@@ -85,16 +94,16 @@ const postEnvironmentBody = z
 // Corresponds to paths/putEnvironment.yaml requestBody
 const putEnvironmentBody = z
   .object({
-    description: z
-      .string()
-      .describe("The description of the new environment")
-      .optional(),
+    description: z.string().describe(PLAIN_DESCRIPTION).optional(),
     toggleOnList: z.boolean().describe("Show on feature list page").optional(),
     defaultState: z
       .boolean()
       .describe("Default state for new features")
       .optional(),
-    projects: z.array(z.string()).optional(),
+    projects: z
+      .array(z.string())
+      .describe(ENVIRONMENT_PROJECTS_UPDATE_DESCRIPTION)
+      .optional(),
   })
   .strict();
 
@@ -130,6 +139,7 @@ export const postEnvironmentValidator = {
     })
     .strict(),
   summary: "Create a new environment",
+  confirmation: ["environment.create"] as const,
   operationId: "postEnvironment",
   tags: ["environments"],
   method: "post" as const,
@@ -149,6 +159,7 @@ export const putEnvironmentValidator = {
     })
     .strict(),
   summary: "Update an environment",
+  confirmation: ["environment.edit"] as const,
   operationId: "putEnvironment",
   tags: ["environments"],
   method: "put" as const,
@@ -169,6 +180,7 @@ export const deleteEnvironmentValidator = {
     })
     .strict(),
   summary: "Deletes a single environment",
+  confirmation: ["environment.delete"] as const,
   operationId: "deleteEnvironment",
   tags: ["environments"],
   method: "delete" as const,

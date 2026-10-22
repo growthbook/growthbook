@@ -12,6 +12,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Every job only checks out code and reads caches, so the token needs nothing more.
+permissions:
+  contents: read
+
 jobs:
   format:
     runs-on: depot-ubuntu-24.04
@@ -126,6 +130,11 @@ jobs:
         run: |
           pnpm generate-openapi
           [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm generate-openapi" && git status --porcelain && exit 1 || true
+
+      - name: Check event webhook docs
+        run: |
+          pnpm doc-gen
+          [[ -n $(git status --porcelain) ]] && echo "You need to run pnpm doc-gen" && git status --porcelain && exit 1 || true
 
   type-check:
     runs-on: depot-ubuntu-24.04

@@ -780,8 +780,14 @@ export default function ResultsTable({
                   let alreadyShownQuantileError = false;
                   let alreadyShownComputeError = false;
 
+                  // In a dimension breakdown the same slice repeats under
+                  // every dimension value, so the value is part of its id.
                   const rowId = row.sliceId
-                    ? `${id}-${row.metric.id}-${row.sliceId}`
+                    ? `${id}-${row.metric.id}-${
+                        row.dimensionValue !== undefined
+                          ? `${row.dimensionValue}-`
+                          : ""
+                      }${row.sliceId}`
                     : `${id}-${row.metric.id}-${i}`;
 
                   const funnelStepId =

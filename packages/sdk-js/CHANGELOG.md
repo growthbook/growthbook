@@ -1,5 +1,15 @@
 # Changelog
 
+## **2.0.0** - Unreleased
+
+- **Breaking:** targeting conditions are strict about types. An attribute only matches a condition of the same type, with no conversions between strings, numbers, booleans and null. Missing attributes no longer count as `0` in comparisons, and version operators no longer convert numbers or missing values. See [Updating to 2.0.0](https://docs.growthbook.io/lib/js#updating-to-200)
+- Negated operators (`$ne`, `$nin`, `$not`, `$vne`, `$notInGroup`) are always the exact opposite of their positive form
+- Booleans always fail `$gt`, `$gte`, `$lt` and `$lte`
+- In debug mode, log every type mismatch seen while evaluating a condition
+- **Breaking:** `evalCondition(obj, condition, options)` takes an options object, `{ savedGroups, onTypeMismatch }`, instead of positional `savedGroups` and `visited` arguments. Passing saved groups as the third argument no longer works
+- Run visual and URL redirect auto experiments as Contextual Bandits when they carry a `contextualBanditRef`
+- Fix a malformed prerequisite condition (e.g. `{"$not": null}`) throwing from `isOn`/`getFeatureValue`/`run`; it now never matches
+
 ## **1.8.0** - Sep 29, 2026
 
 - Add `$savedGroup` operator for referencing any kind of Saved Group, not just ID Lists

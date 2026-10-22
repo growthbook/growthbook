@@ -28,6 +28,16 @@ export class ChecklistIncompleteError extends ApiError<"checklist_incomplete"> {
   }
 }
 
+export class CustomHookError extends ApiError<"custom_hook_error"> {
+  constructor(
+    message: string,
+    hooks: ApiErrorDetails<"custom_hook_error">["hooks"],
+  ) {
+    super("custom_hook_error", message, { hooks });
+    this.name = "CustomHookError";
+  }
+}
+
 // Message is supplied by the caller (typically via formatPendingDraftFailureMessage
 // in services/experiment-feature) to keep this module free of back-end imports
 // — errors.ts is loaded by licenseUtil and other low-level modules.
@@ -59,6 +69,17 @@ export class InvalidTrackingKeyError extends ApiError<"invalid_tracking_key"> {
   constructor(message: string, pattern: string, example: string) {
     super("invalid_tracking_key", message, { pattern, example });
     this.name = "InvalidTrackingKeyError";
+  }
+}
+
+export class UnscopedRuleError extends ApiError<"unscoped_rule"> {
+  constructor(count: number, ruleIds: string[]) {
+    super(
+      "unscoped_rule",
+      `${count === 1 ? "This rule applies" : `${count} rules apply`} to All Environments and All Projects. Your organization requires rules to target specific environments or Projects.`,
+      { ruleIds },
+    );
+    this.name = "UnscopedRuleError";
   }
 }
 
@@ -103,6 +124,18 @@ export class LicenseServerError extends Error {
 }
 
 export class VercelInstallationNotFound extends Error {}
+
+// Thrown before a held request's first write; runApiHandler turns it into a 202.
+export class ConfirmationRequiredError extends Error {
+  status = 202;
+  constructor(
+    readonly body: Record<string, unknown>,
+    readonly headers: Record<string, string>,
+  ) {
+    super(String(body.message));
+    this.name = "ConfirmationRequiredError";
+  }
+}
 
 export class BadRequestError extends Error {
   status = 400;
@@ -154,6 +187,14 @@ export class ConflictError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "ConflictError";
+  }
+}
+
+// The org's soft cap on drafts per feature; `overrideDraftLimit` gets past it.
+export class DraftLimitError extends ConflictError {
+  constructor(message: string) {
+    super(message);
+    this.name = "DraftLimitError";
   }
 }
 

@@ -1,11 +1,13 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
+import pick from "lodash/pick";
 import { z } from "zod";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
   getEventForwarderDatasourceParams,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseUserIdTypeSettings,
+  getDataSourceSaveChanges,
 } from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
@@ -18,6 +20,8 @@ import { TemplateVariables } from "shared/types/sql";
 import {
   eventForwarderAccessTestCreateBodySchema,
   eventForwarderAccessTestEditBodySchema,
+  testQueryTypeValidator,
+  testDataSourceConnectionBodySchema,
 } from "shared/validators";
 import { AutoMetricToCreate } from "shared/types/integrations";
 import { AuditUserLoggedIn } from "shared/types/audit";
@@ -39,6 +43,7 @@ import type { ClickHouseConnectionParams } from "shared/types/integrations/click
 import { SDKAttributeSchema } from "shared/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { ReqContext } from "back-end/types/request";
 import {
   getSourceIntegrationObject,
   mergeParams,
@@ -48,6 +53,7 @@ import {
   runFeatureEvalDiagnosticsQuery,
   runFreeFormQuery,
   runUserExposureQuery,
+  testUnsavedDataSourceConnection,
 } from "back-end/src/services/datasource";
 import {
   getEventForwarderForDatasource,
@@ -76,7 +82,6 @@ import {
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
-  getQueriesByDatasource,
   getQueriesByIds,
   getQueryById,
   updateQueryIfRunning,
@@ -363,20 +368,124 @@ export async function postManagedWarehouse(
   });
 }
 
+type PutDataSourceBody = {
+  name?: string;
+  description?: string;
+  type?: DataSourceType;
+  params?: DataSourceParams;
+  settings?: DataSourceSettings;
+  projects?: string[];
+  metricsToCreate?: AutoMetricToCreate[];
+  eventForwarderConfig?: EventForwarderConfigDraft | null;
+};
+
+/**
+ * Assignment queries are scoped to projects, so editing one needs the
+ * permission in the projects it covers rather than in every project of the
+ * data source. Anything else still needs the data source-wide permission.
+ */
+function assertCanUpdateDataSource(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  body: PutDataSourceBody,
+) {
+  const { permissions } = context;
+  const { changesOtherFields, exposureQueryChanges } = getDataSourceSaveChanges(
+    datasource,
+    body,
+  );
+  if (
+    changesOtherFields &&
+    !permissions.canUpdateDataSourceSettings(datasource)
+  ) {
+    permissions.throwPermissionError();
+  }
+
+  const nextDatasource = { projects: body.projects ?? datasource.projects };
+  for (const change of exposureQueryChanges) {
+    if (
+      (change.previous &&
+        !permissions.canUpdateExposureQuery(change.previous, datasource)) ||
+      (change.next &&
+        !permissions.canUpdateExposureQuery(change.next, nextDatasource))
+    ) {
+      permissions.throwPermissionError();
+    }
+  }
+}
+
+// Tests credentials without saving anything. Connection failures come back as a
+// 400 with the driver's message, the same as a failed save.
+export async function postTestDataSourceConnection(
+  req: AuthRequest,
+  res: Response<{ status: 200 } | { status: 400 | 404; message: string }>,
+) {
+  const parsed = testDataSourceConnectionBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: parsed.error.issues.map((i) => i.message).join("; "),
+    });
+  }
+
+  const context = getContextFromReq(req);
+  const { type, projects, datasourceId } = parsed.data;
+  const params = parsed.data.params as Partial<DataSourceParams>;
+
+  let datasource: DataSourceInterface;
+  if (datasourceId) {
+    const existing = await getDataSourceById(context, datasourceId);
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ status: 404, message: "Cannot find data source" });
+    }
+    if (!context.permissions.canUpdateDataSourceParams(existing)) {
+      context.permissions.throwPermissionError();
+    }
+    const integration = getSourceIntegrationObject(context, existing);
+    if (existing.type !== type) {
+      return res.status(400).json({
+        status: 400,
+        message: "Cannot change the type of an existing data source.",
+      });
+    }
+
+    // The browser never receives saved secrets, so blank fields keep them.
+    mergeParams(integration, params);
+    datasource = { ...existing, params: encryptParams(integration.params) };
+  } else {
+    if (!context.permissions.canCreateDataSource({ projects, type })) {
+      context.permissions.throwPermissionError();
+    }
+    datasource = {
+      id: "",
+      name: "",
+      description: "",
+      organization: context.org.id,
+      dateCreated: null,
+      dateUpdated: null,
+      type,
+      params: encryptParams(params as DataSourceParams),
+      projects,
+      settings: {},
+    } as DataSourceInterface;
+  }
+
+  try {
+    await testUnsavedDataSourceConnection(context, datasource);
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message || "Unable to connect to the data source",
+    });
+  }
+
+  res.status(200).json({ status: 200 });
+}
+
 export async function putDataSource(
-  req: AuthRequest<
-    {
-      name?: string;
-      description?: string;
-      type?: DataSourceType;
-      params?: DataSourceParams;
-      settings?: DataSourceSettings;
-      projects?: string[];
-      metricsToCreate?: AutoMetricToCreate[];
-      eventForwarderConfig?: EventForwarderConfigDraft | null;
-    },
-    { id: string }
-  >,
+  req: AuthRequest<PutDataSourceBody, { id: string }>,
   res: Response<
     | {
         status: 200;
@@ -437,9 +546,7 @@ export async function putDataSource(
     return;
   }
 
-  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
-    context.permissions.throwPermissionError();
-  }
+  assertCanUpdateDataSource(context, datasource, req.body);
 
   // Require higher permissions to change connection settings vs updating query settings
   if (params) {
@@ -1139,6 +1246,7 @@ export async function postValidatePipelineSettings(
       }),
       undefined,
       "pipelineValidation",
+      null,
     );
     results.create.result = "success";
   } catch (e) {
@@ -1164,6 +1272,7 @@ export async function postValidatePipelineSettings(
           }),
           undefined,
           "pipelineValidation",
+          null,
         );
         results.insert = { result: "success" };
       } catch (e) {
@@ -1195,6 +1304,7 @@ export async function postValidatePipelineSettings(
           }),
           undefined,
           "pipelineValidation",
+          null,
         );
         results.drop = { result: "success" };
       } catch (e) {
@@ -1231,10 +1341,6 @@ export async function updateExposureQuery(
     return;
   }
 
-  if (!context.permissions.canUpdateDataSourceSettings(dataSource)) {
-    context.permissions.throwPermissionError();
-  }
-
   const copy = cloneDeep<DataSourceInterface>(dataSource);
   const exposureQueryIndex = copy.settings.queries?.exposure?.findIndex(
     (e) => e.id === exposureQueryId,
@@ -1251,9 +1357,14 @@ export async function updateExposureQuery(
   }
 
   const exposureQuery = copy.settings.queries.exposure[exposureQueryIndex];
+  if (!context.permissions.canUpdateExposureQuery(exposureQuery, dataSource)) {
+    context.permissions.throwPermissionError();
+  }
+  // Only dimension metadata; the rest of the query is edited through the data
+  // source save, which validates it.
   copy.settings.queries.exposure[exposureQueryIndex] = {
     ...exposureQuery,
-    ...updates,
+    ...pick(updates, ["dimensions", "dimensionSlicesId", "dimensionMetadata"]),
   };
 
   try {
@@ -1332,10 +1443,14 @@ export async function testLimitedQuery(
     timestampColumn?: string;
     limit?: number;
     detectColumns?: boolean;
+    queryType?: unknown;
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
+  const queryType = testQueryTypeValidator
+    .catch("testQuery")
+    .parse(req.body.queryType);
 
   const {
     query,
@@ -1370,6 +1485,7 @@ export async function testLimitedQuery(
     context,
     datasource,
     query,
+    queryType,
     templateVariables,
     maxLimit,
     timestampColumn,
@@ -1529,31 +1645,6 @@ export async function getDataSourceMetrics(
   res.status(200).json({
     status: 200,
     metrics,
-  });
-}
-
-export async function getDataSourceQueries(
-  req: AuthRequest<null, { id: string }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const { id } = req.params;
-
-  const datasourceObj = await getDataSourceById(context, id);
-  if (!datasourceObj) {
-    throw new Error("Could not find datasource");
-  }
-
-  req.checkPermissions(
-    "readData",
-    datasourceObj?.projects?.length ? datasourceObj.projects : [],
-  );
-
-  const queries = await getQueriesByDatasource(context.org.id, id);
-
-  res.status(200).json({
-    status: 200,
-    queries,
   });
 }
 

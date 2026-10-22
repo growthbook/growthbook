@@ -142,6 +142,7 @@ export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
   changeId?: string;
   // If true, require the experiment to be manually triggered
   manual?: boolean;
+  contextualBanditRef?: string;
 };
 
 export type ExperimentOverride = {
@@ -354,6 +355,7 @@ export type ClientOptions = {
 // Contexts
 export type GlobalContext = {
   log: (msg: string, ctx: any) => void;
+  debug?: boolean;
   features?: FeatureDefinitions;
   experiments?: AutoExperiment[];
   enabled?: boolean;

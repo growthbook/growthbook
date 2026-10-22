@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import type { apiBaseSchema } from "./validators/base-model";
 import type { ApiErrorCode } from "./validators/api-errors";
+import type { ConfirmAction } from "./validators/confirmations";
 import { capitalizeFirstCharacter } from "./util";
 import { HttpVerb, NoEndpointFields, RequestSchemas } from "./api-spec";
 
@@ -88,6 +89,10 @@ export type OpenApiEndpointSpec = {
   version?: "v1" | "v2";
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
+  /** Actions a person may have to confirm before this request runs. */
+  confirmation?: readonly ConfirmAction[];
+  /** The handler holds for confirmation itself, once it knows the change. */
+  confirmationInHandler?: boolean;
 };
 
 /**
@@ -126,6 +131,10 @@ export type OpenApiModelSpec<
   crudDeprecations?: Partial<Record<CrudAction, string>>;
   /** Error codes that may be thrown by CRUD actions, used to generate OpenAPI error response schemas. */
   possibleErrors?: Partial<Record<CrudAction, readonly ApiErrorCode[]>>;
+  /** Actions a person may have to confirm before each CRUD action runs. */
+  confirmation?: Partial<Record<CrudAction, readonly ConfirmAction[]>>;
+  /** CRUD actions whose handler holds for confirmation itself, once it knows the change. */
+  confirmationInHandler?: Partial<Record<CrudAction, boolean>>;
   /** Human-readable label shown in the docs nav (e.g. "Ramp Schedule Templates"). Defaults to the raw tag name. */
   navDisplayName?: string;
   /** Short description shown under the nav label in the docs. */
@@ -214,6 +223,8 @@ export type CrudEndpoint<S extends OpenApiModelSpec, A extends CrudAction> = {
   deprecationDate?: string;
   tags: string[];
   possibleErrors?: readonly ApiErrorCode[];
+  confirmation?: readonly ConfirmAction[];
+  confirmationInHandler?: boolean;
 };
 
 function getFullPath(basePath: string, pathFragment: string): string {
@@ -281,6 +292,8 @@ export function crudEndpoint<
     deprecationDate,
     tags: [getApiModelTag(spec)],
     possibleErrors: spec.possibleErrors?.[action],
+    confirmation: spec.confirmation?.[action],
+    confirmationInHandler: spec.confirmationInHandler?.[action],
   } as CrudEndpoint<S, A>;
 }
 
@@ -297,6 +310,8 @@ export type CustomEndpoint<E extends OpenApiEndpointSpec> = Pick<
   tags: string[];
   possibleErrors?: readonly ApiErrorCode[];
   version?: "v1" | "v2";
+  confirmation?: readonly ConfirmAction[];
+  confirmationInHandler?: boolean;
 };
 
 /** The endpoint the back-end mounts for one of a spec's custom endpoints. */
@@ -315,6 +330,8 @@ export function customEndpoint<E extends OpenApiEndpointSpec>(
     tags: [getApiModelTag(spec)],
     possibleErrors: endpoint.possibleErrors,
     version: endpoint.version,
+    confirmation: endpoint.confirmation,
+    confirmationInHandler: endpoint.confirmationInHandler,
   };
 }
 

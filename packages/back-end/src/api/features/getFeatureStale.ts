@@ -3,16 +3,20 @@ import {
   ACTIVE_DRAFT_STATUSES,
   FeatureStaleEntry,
 } from "shared/validators";
-import { isFeatureStale, TempRolloutStaleReason } from "shared/util";
+import {
+  getApplicableEnvIds,
+  isFeatureStale,
+  TempRolloutStaleReason,
+} from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { getAllFeaturesWithoutEditorFields } from "back-end/src/models/FeatureModel";
-import { getAllExperimentsForStaleGraph } from "back-end/src/models/ExperimentModel";
 import { getRevisionsByStatus } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { buildFeatureLookups } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { yieldEventLoop } from "back-end/src/util/yield";
 import { ReqContext } from "back-end/types/request";
+import { loadStaleGraph } from "back-end/src/services/featureStaleGraph";
 
 export async function computeFeatureStale(
   context: ApiReqContext,
@@ -27,16 +31,22 @@ export async function computeFeatureStale(
     return { features: {} };
   }
 
-  const idSet = new Set(ids);
-  const [allFeatures, allExperiments, draftRevisions] = await Promise.all([
-    getAllFeaturesWithoutEditorFields(context),
-    getAllExperimentsForStaleGraph(context),
+  const [
+    { features: allFeatures, experiments: allExperiments },
+    requestedFeatures,
+    draftRevisions,
+  ] = await Promise.all([
+    // The verdict reports the values the requested features evaluate to,
+    // so those load in full.
+    loadStaleGraph(context, ids),
+    getAllFeaturesWithoutEditorFields(context, { ids, includeArchived: true }),
     getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES], {
       sparse: true,
+      featureIds: ids,
     }),
   ]);
 
-  const features = allFeatures.filter((f) => idSet.has(f.id));
+  const features = requestedFeatures.filter((f) => !f.archived);
 
   const lookups = buildFeatureLookups(allFeatures, allExperiments);
 
@@ -64,14 +74,7 @@ export async function computeFeatureStale(
         return !max || d > max ? d : max;
       }, null);
 
-    const applicableEnvIds = orgEnvs
-      .filter(
-        (env) =>
-          !feature.project ||
-          !env.projects?.length ||
-          env.projects.includes(feature.project as string),
-      )
-      .map((env) => env.id);
+    const applicableEnvIds = getApplicableEnvIds(orgEnvs, feature);
 
     const { stale, reason, envResults } = isFeatureStale({
       feature,

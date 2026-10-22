@@ -20,7 +20,11 @@ import {
   UserContext,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
-import { ConditionInterface } from "./types/mongrule";
+import {
+  ConditionInterface,
+  EvalConditionOptions,
+  TestedObj,
+} from "./types/mongrule";
 import {
   chooseVariation,
   decrypt,
@@ -254,10 +258,10 @@ export function evalFeature<V = unknown>(
           }
 
           const evalObj = { value: parentResult.value };
-          const evaled = evalCondition(
+          const evaled = evalParentCondition(
             evalObj,
             parentCondition.condition || {},
-            ctx.global.savedGroups || {},
+            ctx,
           );
           if (!evaled) {
             // blocking prerequisite eval failed: feature evaluation fails
@@ -628,11 +632,7 @@ export function runExperiment<T>(
 
         const evalObj = { value: parentResult.value };
         if (
-          !evalCondition(
-            evalObj,
-            parentCondition.condition || {},
-            ctx.global.savedGroups || {},
-          )
+          !evalParentCondition(evalObj, parentCondition.condition || {}, ctx)
         ) {
           process.env.NODE_ENV !== "production" &&
             ctx.global.log("Skip because prerequisite evaluation fails", {
@@ -896,7 +896,7 @@ function getContextualBanditLeaf(
 
 const CONTEXTUAL_BANDIT_FALLBACK_LEAF_ID = -1;
 
-function buildContextualBanditExperiment<T>(
+export function buildContextualBanditExperiment<T>(
   experiment: Experiment<T>,
   contextualBanditRef: string,
   id: string,
@@ -955,8 +955,33 @@ function conditionPasses(
   return evalCondition(
     getAttributes(ctx.user),
     condition,
-    ctx.global.savedGroups || {},
+    evalConditionOptions(ctx),
   );
+}
+
+// A malformed prerequisite condition never matches, rather than throwing into the app
+function evalParentCondition(
+  obj: TestedObj,
+  condition: ConditionInterface,
+  ctx: EvalContext,
+): boolean {
+  try {
+    return evalCondition(obj, condition, evalConditionOptions(ctx));
+  } catch (e) {
+    process.env.NODE_ENV !== "production" &&
+      ctx.global.log("Invalid prerequisite condition", { condition, error: e });
+    return false;
+  }
+}
+
+function evalConditionOptions(ctx: EvalContext): EvalConditionOptions {
+  return {
+    savedGroups: ctx.global.savedGroups || {},
+    // Checking types has a cost, so only in debug mode
+    onTypeMismatch: ctx.global.debug
+      ? (mismatch) => ctx.global.log("Type mismatch in condition", mismatch)
+      : undefined,
+  };
 }
 
 function isFilteredOut(filters: Filter[], ctx: EvalContext): boolean {

@@ -18,11 +18,12 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
+import { assertValidDescription } from "./validations";
 
 export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator,
 )(async (req) => {
-  const { name, values, condition, owner, projects } = req.body;
+  const { name, description, values, condition, owner, projects } = req.body;
   const bypassApproval = req.body.bypassApproval === true;
 
   const { id } = req.params;
@@ -66,6 +67,13 @@ export const updateSavedGroup = createApiRequestHandler(
     fieldsToUpdate.owner = owner;
   }
   if (
+    typeof description !== "undefined" &&
+    description !== (savedGroup.description ?? "")
+  ) {
+    assertValidDescription(description);
+    fieldsToUpdate.description = description;
+  }
+  if (
     savedGroup.type === "list" &&
     values &&
     !isEqual(values, savedGroup.values)
@@ -82,8 +90,11 @@ export const updateSavedGroup = createApiRequestHandler(
     condition &&
     condition !== savedGroup.condition
   ) {
-    const allSavedGroups = await req.context.models.savedGroups.getAll();
-    const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+    const referencedGroups =
+      await req.context.models.savedGroups.getReferencedWithoutValues(
+        condition,
+      );
+    const groupMap = new Map(referencedGroups.map((sg) => [sg.id, sg]));
     // Include the updated condition in the groupMap for validation
     groupMap.set(savedGroup.id, {
       ...savedGroup,

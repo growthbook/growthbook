@@ -7,11 +7,45 @@ import {
   namedSchemaRegistry,
   apiErrorRegistry,
   ApiErrorCode,
+  CONFIRM_OVERRIDE_FLAGS,
 } from "shared/validators";
+import { armableActions, routeConfirmation } from "shared/util";
 import type { ApiEndpointSpec } from "shared/api-spec";
 import * as endpointModules from "shared/api-endpoints";
 import { allRoutes, apiModelTagMeta } from "back-end/src/api/api.router";
 import { getBuild } from "back-end/src/util/build";
+
+// Top-level body fields, across the arms of a union body.
+function bodyFieldNames(schema: unknown): string[] {
+  if (!schema || typeof schema !== "object") return [];
+  const s = schema as Record<string, unknown>;
+  const arms = [s.anyOf, s.oneOf, s.allOf].flatMap((a) =>
+    Array.isArray(a) ? a : [],
+  );
+  return [
+    ...Object.keys((s.properties as object | undefined) ?? {}),
+    ...arms.flatMap(bodyFieldNames),
+  ];
+}
+
+// The docs site's API introduction, minus its frontmatter, so the spec and the
+// docs can't drift apart.
+function readApiIntroduction(): string {
+  const mdx = fs.readFileSync(
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "docs",
+      "api",
+      "introduction.mdx",
+    ),
+    "utf8",
+  );
+  return mdx.replace(/^---\n[\s\S]*?\n---\n+/, "");
+}
 
 const openApiTags = [
   "projects",
@@ -429,11 +463,36 @@ type RequestBody = {
 
 type Response = {
   description: string;
+  headers?: Record<
+    string,
+    { description: string; schema: z.core.JSONSchema.BaseSchema }
+  >;
   content: {
     "application/json": {
       schema: z.core.JSONSchema.BaseSchema;
     };
   };
+};
+
+// Any write that can be held answers this way, so it's one shared response.
+const HELD_RESPONSE: Response = {
+  description:
+    "Held until a person confirms it in GrowthBook. Poll the Location until the confirmation completes.",
+  headers: {
+    Location: {
+      description: "The confirmation to poll",
+      schema: { type: "string" },
+    },
+    "Retry-After": {
+      description: "Seconds to wait before polling",
+      schema: { type: "integer" },
+    },
+  },
+  content: {
+    "application/json": {
+      schema: { $ref: "#/components/schemas/ConfirmationHeld" },
+    },
+  },
 };
 
 function defaultResponseDescription(method: string): string {
@@ -458,7 +517,7 @@ type Path = {
   tags?: string[];
   parameters?: (Parameter | Ref)[];
   requestBody?: RequestBody;
-  responses: Record<string, Response>;
+  responses: Record<string, Response | Ref>;
   "x-codeSamples"?: CodeSample[];
 };
 
@@ -538,6 +597,7 @@ async function run() {
     paths: Record<string, Record<string, Path>>;
     components: {
       parameters: Record<string, Parameter>;
+      responses: Record<string, Response>;
       schemas: Record<string, z.core.JSONSchema.BaseSchema>;
       securitySchemes: Record<
         string,
@@ -553,74 +613,7 @@ async function run() {
     info: {
       version,
       title: "GrowthBook REST API",
-      description: `GrowthBook offers a full REST API for interacting with the application.
-
-Request data can use either JSON or Form data encoding (with proper \`Content-Type\` headers). All response bodies are JSON-encoded.
-
-The API base URL for GrowthBook Cloud is \`https://api.growthbook.io/api\`. For self-hosted deployments, it is the same as your API_HOST environment variable (defaults to \`http://localhost:3100/api\`). The rest of these docs will assume you are using GrowthBook Cloud.
-
-## Versioning
-
-Endpoints are versioned by path prefix:
-
-- \`/v1/...\` — stable, widely-supported endpoints
-- \`/v2/...\` — updated endpoints with improved shapes (e.g. unified per-rule environment scope for feature flags)
-
-New integrations should prefer v2 where available.
-
-## Authentication
-
-We support both the HTTP Basic and Bearer authentication schemes for convenience.
-
-You first need to generate a new API Key in GrowthBook. Different keys have different permissions:
-
-- **Personal Access Tokens**: These are sensitive and provide the same level of access as the user has to an organization. These can be created by going to \`Personal Access Tokens\` under the your user menu.
-- **Secret Keys**: These are sensitive and provide the level of access for the role, which currently is either \`admin\` or \`readonly\`. Only Admins with the \`manageApiKeys\` permission can manage Secret Keys on behalf of an organization. These can be created by going to \`Settings -> API Keys\`
-
-If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank (when using curl, add \`:\` at the end of the secret to indicate an empty password)
-
-\`\`\`bash
-curl https://api.growthbook.io/api/v1/features \\
-  -u secret_abc123DEF456:
-\`\`\`
-
-If using Bearer auth, pass the Secret Key as the token:
-
-\`\`\`bash
-curl https://api.growthbook.io/api/v1/features \\
--H "Authorization: Bearer secret_abc123DEF456"
-\`\`\`
-
-## Errors
-
-The API may return the following error status codes:
-
-- **400** - Bad Request - Often due to a missing required parameter
-- **401** - Unauthorized - No valid API key provided
-- **402** - Request Failed - The parameters are valid, but the request failed
-- **403** - Forbidden - Provided API key does not have the required access
-- **404** - Not Found - Unknown API route or requested resource
-- **422** - Unprocessable Entity - The request is valid, but a warning, validation rule, approval requirement, or another publishing gate blocked it. Do not assume that \`ignoreWarnings\` clears every 422 response.
-- **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
-- **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
-
-The response body will be a JSON object with the following properties:
-
-- **message** - Information about the error
-
-### Publishing gates
-
-Publish responses include a \`gates\` array that explains every blocker:
-
-- \`type\`, \`severity\`, and \`messages\` identify the problem.
-- \`override\` names the request-body field that can bypass it. This is \`ignoreWarnings\` for warnings, \`skipSchemaValidation\` for schema and invariant failures, or \`skipHooks\` for Custom Hook rejections. A value of \`null\` means there is no request-body override.
-- \`requiresPermission\` identifies any additional permission needed to use the override.
-- \`resolution\` provides an API action, method, and path when the blocker must be resolved another way.
-
-For example, an approval gate is cleared by approving the revision or by using a caller with **Bypass draft approvals** access. A Config lock is cleared through the unlock route in \`resolution\`.
-
-When a successful publish bypasses a gate, the response includes \`bypassedGates\`. Each entry reports the gate \`type\` and how it was bypassed in \`via\`, which is one of \`ignoreWarnings\`, \`skipSchemaValidation\`, \`skipHooks\`, \`bypassApprovalPermission\`, \`restApiBypassesReviews\`, or \`revertsBypassApproval\` (reverts only). This field is omitted when no gates were bypassed.
-`,
+      description: readApiIntroduction(),
     },
     servers: [
       {
@@ -647,6 +640,7 @@ When a successful publish bypasses a gate, the response includes \`bypassedGates
     paths: {},
     components: {
       parameters: {},
+      responses: { ConfirmationHeld: HELD_RESPONSE },
       schemas: {},
       securitySchemes: {
         bearerAuth: {
@@ -723,6 +717,7 @@ curl https://api.growthbook.io/api/v1/features \
       version,
       deprecated,
       possibleErrors,
+      confirmation,
     } = route;
 
     if (!path || !method || !operationId) {
@@ -906,7 +901,7 @@ curl https://api.growthbook.io/api/v1/features \
       delete responseSchema.description;
     }
 
-    const responses: Record<string, Response> = {
+    const responses: Record<string, Response | Ref> = {
       "200": {
         description: responseDescription || defaultResponseDescription(method),
         content: {
@@ -967,6 +962,23 @@ curl https://api.growthbook.io/api/v1/features \
       },
     ];
 
+    // Held for its own actions, a skip flag it accepts, or a publish it can arm.
+    const accepted = [
+      // Shared parameters are refs keyed by their name.
+      ...parameters.map((p) =>
+        "name" in p ? p.name : (p.$ref.split("/").pop() ?? ""),
+      ),
+      ...bodyFieldNames(requestBody?.content["application/json"].schema),
+    ];
+    if (
+      routeConfirmation(method, tags, confirmation).length > 0 ||
+      Object.keys(CONFIRM_OVERRIDE_FLAGS).some((flag) =>
+        accepted.includes(flag),
+      ) ||
+      armableActions(tags, accepted).length > 0
+    ) {
+      responses["202"] = { $ref: "#/components/responses/ConfirmationHeld" };
+    }
     openapiSpec.paths[fullPath] = openapiSpec.paths[fullPath] || {};
     openapiSpec.paths[fullPath][method] = {
       operationId,

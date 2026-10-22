@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.9.0",
+  "specVersion": "0.10.1",
   "evalCondition": [
     [
       "$not - pass",
@@ -833,7 +833,7 @@
         }
       },
       {},
-      true
+      false
     ],
     [
       "comparing numbers and strings",
@@ -846,7 +846,7 @@
       {
         "n": "8"
       },
-      true
+      false
     ],
     [
       "comparing numbers and strings - v2",
@@ -859,7 +859,7 @@
       {
         "n": 8
       },
-      true
+      false
     ],
     [
       "empty $or - pass",
@@ -1164,6 +1164,156 @@
         "word": "AZL"
       },
       false
+    ],
+    [
+      "$gt/$lt numeric strings - \"10\" < \"9\"",
+      { "n": { "$lt": "9" } },
+      { "n": "10" },
+      true
+    ],
+    [
+      "$gt/$lt numeric strings - \"10\" not > \"9\"",
+      { "n": { "$gt": "9" } },
+      { "n": "10" },
+      false
+    ],
+    [
+      "$gt/$lt numeric strings - \"10\" not > \"2\"",
+      { "n": { "$gt": "2" } },
+      { "n": "10" },
+      false
+    ],
+    [
+      "$gt/$lt numeric strings - \"1.10\" < \"1.5\"",
+      { "n": { "$lt": "1.5" } },
+      { "n": "1.10" },
+      true
+    ],
+    [
+      "$gt/$lt numeric strings - \"10\" >= \"10\"",
+      { "n": { "$gte": "10" } },
+      { "n": "10" },
+      true
+    ],
+    [
+      "$gt/$lt numeric strings - \"10.0\" not <= \"10\"",
+      { "n": { "$lte": "10" } },
+      { "n": "10.0" },
+      false
+    ],
+    [
+      "$gt/$lt ISO dates - later date > earlier date",
+      { "d": { "$gt": "2026-09-01" } },
+      { "d": "2026-10-20" },
+      true
+    ],
+    [
+      "$gt/$lt ISO dates - later date not < earlier date",
+      { "d": { "$lt": "2026-09-01" } },
+      { "d": "2026-10-20" },
+      false
+    ],
+    [
+      "$gt/$lt ISO dates - same date >= and <=",
+      { "d": { "$gte": "2026-10-20", "$lte": "2026-10-20" } },
+      { "d": "2026-10-20" },
+      true
+    ],
+    [
+      "$gt/$lt ISO dates - date range pass",
+      { "d": { "$gt": "2026-01-01", "$lt": "2027-01-01" } },
+      { "d": "2026-10-20" },
+      true
+    ],
+    [
+      "$gt/$lt ISO dates - date range fail",
+      { "d": { "$gt": "2026-01-01", "$lt": "2027-01-01" } },
+      { "d": "2027-01-01" },
+      false
+    ],
+    [
+      "$gt/$lt ISO dates - datetime < later datetime",
+      { "d": { "$lt": "2026-10-20T13:00:00Z" } },
+      { "d": "2026-10-20T12:00:00Z" },
+      true
+    ],
+    [
+      "$gt/$lt ISO dates - datetime > its date",
+      { "d": { "$gt": "2026-10-20" } },
+      { "d": "2026-10-20T00:00:00Z" },
+      true
+    ],
+    [
+      "$gt/$lt booleans - true not > false",
+      { "b": { "$gt": false } },
+      { "b": true },
+      false
+    ],
+    [
+      "$gt/$lt booleans - false not < true",
+      { "b": { "$lt": true } },
+      { "b": false },
+      false
+    ],
+    [
+      "$gt/$lt booleans - true not > true",
+      { "b": { "$gt": true } },
+      { "b": true },
+      false
+    ],
+    [
+      "$gt/$lt booleans - false not < false",
+      { "b": { "$lt": false } },
+      { "b": false },
+      false
+    ],
+    [
+      "$gt/$lt booleans - $not $gt",
+      { "b": { "$not": { "$gt": false } } },
+      { "b": true },
+      true
+    ],
+    [
+      "$gt/$lt booleans - $not $lt",
+      { "b": { "$not": { "$lt": true } } },
+      { "b": false },
+      true
+    ],
+    [
+      "$gte/$lte booleans - true not >= false",
+      { "b": { "$gte": false } },
+      { "b": true },
+      false
+    ],
+    [
+      "$gte/$lte booleans - false not <= true",
+      { "b": { "$lte": true } },
+      { "b": false },
+      false
+    ],
+    [
+      "$gte/$lte booleans - true not >= true",
+      { "b": { "$gte": true } },
+      { "b": true },
+      false
+    ],
+    [
+      "$gte/$lte booleans - false not <= false",
+      { "b": { "$lte": false } },
+      { "b": false },
+      false
+    ],
+    [
+      "$gte/$lte booleans - $not $gte",
+      { "b": { "$not": { "$gte": true } } },
+      { "b": true },
+      true
+    ],
+    [
+      "$gte/$lte booleans - $not $lte",
+      { "b": { "$not": { "$lte": false } } },
+      { "b": false },
+      true
     ],
     [
       "nested value is null",
@@ -3187,14 +3337,14 @@
       true
     ],
     [
-      "$vlt - absent attribute is below any release",
+      "$vlt - absent attribute is not a version",
       {
         "version": {
           "$vlt": "0.0.1"
         }
       },
       {},
-      true
+      false
     ],
     [
       "$vgt - absent attribute is not above a release",
@@ -3207,14 +3357,14 @@
       false
     ],
     [
-      "$veq - absent attribute equals 0",
+      "$veq - absent attribute is not a version",
       {
         "version": {
           "$veq": "0"
         }
       },
       {},
-      true
+      false
     ],
     [
       "$vne - absent attribute differs from a real version",
@@ -3227,7 +3377,7 @@
       true
     ],
     [
-      "$vgt - numeric attribute is stringified",
+      "$vgt - numeric attribute is not a version",
       {
         "version": {
           "$vgt": "1.0.0"
@@ -3236,7 +3386,7 @@
       {
         "version": 2
       },
-      true
+      false
     ],
     [
       "$veq - numeric attribute equals numeric condition",
@@ -3251,7 +3401,7 @@
       true
     ],
     [
-      "$veq - float attribute splits on the decimal point",
+      "$veq - float attribute is not a version string",
       {
         "version": {
           "$veq": "1.5"
@@ -3260,7 +3410,7 @@
       {
         "version": 1.5
       },
-      true
+      false
     ],
     [
       "$veq - empty string attribute is version 0",
@@ -3275,7 +3425,7 @@
       true
     ],
     [
-      "$veq - boolean attribute is version 0",
+      "$veq - boolean attribute is not a version",
       {
         "version": {
           "$veq": "0"
@@ -3284,10 +3434,10 @@
       {
         "version": true
       },
-      true
+      false
     ],
     [
-      "$veq - array attribute is version 0",
+      "$veq - array attribute is not a version",
       {
         "version": {
           "$veq": "0"
@@ -3296,10 +3446,10 @@
       {
         "version": ["1.0.0"]
       },
-      true
+      false
     ],
     [
-      "$veq - null attribute is version 0",
+      "$veq - null attribute is not a version",
       {
         "version": {
           "$veq": "0"
@@ -3308,7 +3458,7 @@
       {
         "version": null
       },
-      true
+      false
     ],
     [
       "$veq - leading v is ignored",
@@ -3542,6 +3692,1570 @@
       { "id": "3" },
       false,
       { "group_id": [1, "2", 3] }
+    ],
+    [
+      "type mismatch - implicit 5 vs \"5\" attribute",
+      { "x": 5 },
+      { "x": "5" },
+      false
+    ],
+    [
+      "type mismatch - $eq 5 vs \"5\" attribute",
+      { "x": { "$eq": 5 } },
+      { "x": "5" },
+      false
+    ],
+    [
+      "type mismatch - $ne 5 vs \"5\" attribute",
+      { "x": { "$ne": 5 } },
+      { "x": "5" },
+      true
+    ],
+    [
+      "type mismatch - $not 5 vs \"5\" attribute",
+      { "x": { "$not": 5 } },
+      { "x": "5" },
+      true
+    ],
+    [
+      "type mismatch - implicit \"5\" vs 5 attribute",
+      { "x": "5" },
+      { "x": 5 },
+      false
+    ],
+    [
+      "type mismatch - $eq \"5\" vs 5 attribute",
+      { "x": { "$eq": "5" } },
+      { "x": 5 },
+      false
+    ],
+    [
+      "type mismatch - $ne \"5\" vs 5 attribute",
+      { "x": { "$ne": "5" } },
+      { "x": 5 },
+      true
+    ],
+    [
+      "type mismatch - $not \"5\" vs 5 attribute",
+      { "x": { "$not": "5" } },
+      { "x": 5 },
+      true
+    ],
+    [
+      "type mismatch - implicit 5 vs \" 5 \" attribute",
+      { "x": 5 },
+      { "x": " 5 " },
+      false
+    ],
+    [
+      "type mismatch - $eq 5 vs \" 5 \" attribute",
+      { "x": { "$eq": 5 } },
+      { "x": " 5 " },
+      false
+    ],
+    [
+      "type mismatch - $ne 5 vs \" 5 \" attribute",
+      { "x": { "$ne": 5 } },
+      { "x": " 5 " },
+      true
+    ],
+    [
+      "type mismatch - $not 5 vs \" 5 \" attribute",
+      { "x": { "$not": 5 } },
+      { "x": " 5 " },
+      true
+    ],
+    [
+      "type mismatch - implicit 5 vs \"5e0\" attribute",
+      { "x": 5 },
+      { "x": "5e0" },
+      false
+    ],
+    [
+      "type mismatch - $eq 5 vs \"5e0\" attribute",
+      { "x": { "$eq": 5 } },
+      { "x": "5e0" },
+      false
+    ],
+    [
+      "type mismatch - $ne 5 vs \"5e0\" attribute",
+      { "x": { "$ne": 5 } },
+      { "x": "5e0" },
+      true
+    ],
+    [
+      "type mismatch - $not 5 vs \"5e0\" attribute",
+      { "x": { "$not": 5 } },
+      { "x": "5e0" },
+      true
+    ],
+    [
+      "type mismatch - implicit 0 vs \"\" attribute",
+      { "x": 0 },
+      { "x": "" },
+      false
+    ],
+    [
+      "type mismatch - $eq 0 vs \"\" attribute",
+      { "x": { "$eq": 0 } },
+      { "x": "" },
+      false
+    ],
+    [
+      "type mismatch - $ne 0 vs \"\" attribute",
+      { "x": { "$ne": 0 } },
+      { "x": "" },
+      true
+    ],
+    [
+      "type mismatch - $not 0 vs \"\" attribute",
+      { "x": { "$not": 0 } },
+      { "x": "" },
+      true
+    ],
+    [
+      "type mismatch - implicit \"\" vs 0 attribute",
+      { "x": "" },
+      { "x": 0 },
+      false
+    ],
+    [
+      "type mismatch - $eq \"\" vs 0 attribute",
+      { "x": { "$eq": "" } },
+      { "x": 0 },
+      false
+    ],
+    [
+      "type mismatch - $ne \"\" vs 0 attribute",
+      { "x": { "$ne": "" } },
+      { "x": 0 },
+      true
+    ],
+    [
+      "type mismatch - $not \"\" vs 0 attribute",
+      { "x": { "$not": "" } },
+      { "x": 0 },
+      true
+    ],
+    [
+      "type mismatch - implicit 1 vs true attribute",
+      { "x": 1 },
+      { "x": true },
+      false
+    ],
+    [
+      "type mismatch - $eq 1 vs true attribute",
+      { "x": { "$eq": 1 } },
+      { "x": true },
+      false
+    ],
+    [
+      "type mismatch - $ne 1 vs true attribute",
+      { "x": { "$ne": 1 } },
+      { "x": true },
+      true
+    ],
+    [
+      "type mismatch - $not 1 vs true attribute",
+      { "x": { "$not": 1 } },
+      { "x": true },
+      true
+    ],
+    [
+      "type mismatch - implicit true vs 1 attribute",
+      { "x": true },
+      { "x": 1 },
+      false
+    ],
+    [
+      "type mismatch - $eq true vs 1 attribute",
+      { "x": { "$eq": true } },
+      { "x": 1 },
+      false
+    ],
+    [
+      "type mismatch - $ne true vs 1 attribute",
+      { "x": { "$ne": true } },
+      { "x": 1 },
+      true
+    ],
+    [
+      "type mismatch - $not true vs 1 attribute",
+      { "x": { "$not": true } },
+      { "x": 1 },
+      true
+    ],
+    [
+      "type mismatch - implicit 0 vs false attribute",
+      { "x": 0 },
+      { "x": false },
+      false
+    ],
+    [
+      "type mismatch - $eq 0 vs false attribute",
+      { "x": { "$eq": 0 } },
+      { "x": false },
+      false
+    ],
+    [
+      "type mismatch - $ne 0 vs false attribute",
+      { "x": { "$ne": 0 } },
+      { "x": false },
+      true
+    ],
+    [
+      "type mismatch - $not 0 vs false attribute",
+      { "x": { "$not": 0 } },
+      { "x": false },
+      true
+    ],
+    [
+      "type mismatch - implicit false vs 0 attribute",
+      { "x": false },
+      { "x": 0 },
+      false
+    ],
+    [
+      "type mismatch - $eq false vs 0 attribute",
+      { "x": { "$eq": false } },
+      { "x": 0 },
+      false
+    ],
+    [
+      "type mismatch - $ne false vs 0 attribute",
+      { "x": { "$ne": false } },
+      { "x": 0 },
+      true
+    ],
+    [
+      "type mismatch - $not false vs 0 attribute",
+      { "x": { "$not": false } },
+      { "x": 0 },
+      true
+    ],
+    [
+      "type mismatch - implicit \"true\" vs true attribute",
+      { "x": "true" },
+      { "x": true },
+      false
+    ],
+    [
+      "type mismatch - $eq \"true\" vs true attribute",
+      { "x": { "$eq": "true" } },
+      { "x": true },
+      false
+    ],
+    [
+      "type mismatch - $ne \"true\" vs true attribute",
+      { "x": { "$ne": "true" } },
+      { "x": true },
+      true
+    ],
+    [
+      "type mismatch - $not \"true\" vs true attribute",
+      { "x": { "$not": "true" } },
+      { "x": true },
+      true
+    ],
+    [
+      "type mismatch - implicit true vs \"true\" attribute",
+      { "x": true },
+      { "x": "true" },
+      false
+    ],
+    [
+      "type mismatch - $eq true vs \"true\" attribute",
+      { "x": { "$eq": true } },
+      { "x": "true" },
+      false
+    ],
+    [
+      "type mismatch - $ne true vs \"true\" attribute",
+      { "x": { "$ne": true } },
+      { "x": "true" },
+      true
+    ],
+    [
+      "type mismatch - $not true vs \"true\" attribute",
+      { "x": { "$not": true } },
+      { "x": "true" },
+      true
+    ],
+    [
+      "type mismatch - implicit \"false\" vs false attribute",
+      { "x": "false" },
+      { "x": false },
+      false
+    ],
+    [
+      "type mismatch - $eq \"false\" vs false attribute",
+      { "x": { "$eq": "false" } },
+      { "x": false },
+      false
+    ],
+    [
+      "type mismatch - $ne \"false\" vs false attribute",
+      { "x": { "$ne": "false" } },
+      { "x": false },
+      true
+    ],
+    [
+      "type mismatch - $not \"false\" vs false attribute",
+      { "x": { "$not": "false" } },
+      { "x": false },
+      true
+    ],
+    [
+      "type mismatch - implicit false vs \"false\" attribute",
+      { "x": false },
+      { "x": "false" },
+      false
+    ],
+    [
+      "type mismatch - $eq false vs \"false\" attribute",
+      { "x": { "$eq": false } },
+      { "x": "false" },
+      false
+    ],
+    [
+      "type mismatch - $ne false vs \"false\" attribute",
+      { "x": { "$ne": false } },
+      { "x": "false" },
+      true
+    ],
+    [
+      "type mismatch - $not false vs \"false\" attribute",
+      { "x": { "$not": false } },
+      { "x": "false" },
+      true
+    ],
+    [
+      "type mismatch - implicit true vs \"yes\" attribute",
+      { "x": true },
+      { "x": "yes" },
+      false
+    ],
+    [
+      "type mismatch - $eq true vs \"yes\" attribute",
+      { "x": { "$eq": true } },
+      { "x": "yes" },
+      false
+    ],
+    [
+      "type mismatch - $ne true vs \"yes\" attribute",
+      { "x": { "$ne": true } },
+      { "x": "yes" },
+      true
+    ],
+    [
+      "type mismatch - $not true vs \"yes\" attribute",
+      { "x": { "$not": true } },
+      { "x": "yes" },
+      true
+    ],
+    [
+      "type mismatch - implicit \"yes\" vs true attribute",
+      { "x": "yes" },
+      { "x": true },
+      false
+    ],
+    [
+      "type mismatch - $eq \"yes\" vs true attribute",
+      { "x": { "$eq": "yes" } },
+      { "x": true },
+      false
+    ],
+    [
+      "type mismatch - $ne \"yes\" vs true attribute",
+      { "x": { "$ne": "yes" } },
+      { "x": true },
+      true
+    ],
+    [
+      "type mismatch - $not \"yes\" vs true attribute",
+      { "x": { "$not": "yes" } },
+      { "x": true },
+      true
+    ],
+    [
+      "type mismatch - implicit false vs \"\" attribute",
+      { "x": false },
+      { "x": "" },
+      false
+    ],
+    [
+      "type mismatch - $eq false vs \"\" attribute",
+      { "x": { "$eq": false } },
+      { "x": "" },
+      false
+    ],
+    [
+      "type mismatch - $ne false vs \"\" attribute",
+      { "x": { "$ne": false } },
+      { "x": "" },
+      true
+    ],
+    [
+      "type mismatch - $not false vs \"\" attribute",
+      { "x": { "$not": false } },
+      { "x": "" },
+      true
+    ],
+    [
+      "type mismatch - implicit \"\" vs false attribute",
+      { "x": "" },
+      { "x": false },
+      false
+    ],
+    [
+      "type mismatch - $eq \"\" vs false attribute",
+      { "x": { "$eq": "" } },
+      { "x": false },
+      false
+    ],
+    [
+      "type mismatch - $ne \"\" vs false attribute",
+      { "x": { "$ne": "" } },
+      { "x": false },
+      true
+    ],
+    [
+      "type mismatch - $not \"\" vs false attribute",
+      { "x": { "$not": "" } },
+      { "x": false },
+      true
+    ],
+    [
+      "type mismatch - implicit 0 vs null attribute",
+      { "x": 0 },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $eq 0 vs null attribute",
+      { "x": { "$eq": 0 } },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $ne 0 vs null attribute",
+      { "x": { "$ne": 0 } },
+      { "x": null },
+      true
+    ],
+    [
+      "type mismatch - $not 0 vs null attribute",
+      { "x": { "$not": 0 } },
+      { "x": null },
+      true
+    ],
+    [
+      "type mismatch - implicit \"null\" vs null attribute",
+      { "x": "null" },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $eq \"null\" vs null attribute",
+      { "x": { "$eq": "null" } },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $ne \"null\" vs null attribute",
+      { "x": { "$ne": "null" } },
+      { "x": null },
+      true
+    ],
+    [
+      "type mismatch - $not \"null\" vs null attribute",
+      { "x": { "$not": "null" } },
+      { "x": null },
+      true
+    ],
+    [
+      "type mismatch - implicit false vs null attribute",
+      { "x": false },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $eq false vs null attribute",
+      { "x": { "$eq": false } },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $ne false vs null attribute",
+      { "x": { "$ne": false } },
+      { "x": null },
+      true
+    ],
+    [
+      "type mismatch - $not false vs null attribute",
+      { "x": { "$not": false } },
+      { "x": null },
+      true
+    ],
+    ["type mismatch - implicit 0 vs missing attribute", { "x": 0 }, {}, false],
+    [
+      "type mismatch - $eq 0 vs missing attribute",
+      { "x": { "$eq": 0 } },
+      {},
+      false
+    ],
+    [
+      "type mismatch - $ne 0 vs missing attribute",
+      { "x": { "$ne": 0 } },
+      {},
+      true
+    ],
+    [
+      "type mismatch - $not 0 vs missing attribute",
+      { "x": { "$not": 0 } },
+      {},
+      true
+    ],
+    [
+      "type mismatch - implicit \"null\" vs missing attribute",
+      { "x": "null" },
+      {},
+      false
+    ],
+    [
+      "type mismatch - $eq \"null\" vs missing attribute",
+      { "x": { "$eq": "null" } },
+      {},
+      false
+    ],
+    [
+      "type mismatch - $ne \"null\" vs missing attribute",
+      { "x": { "$ne": "null" } },
+      {},
+      true
+    ],
+    [
+      "type mismatch - $not \"null\" vs missing attribute",
+      { "x": { "$not": "null" } },
+      {},
+      true
+    ],
+    [
+      "type mismatch - implicit false vs missing attribute",
+      { "x": false },
+      {},
+      false
+    ],
+    [
+      "type mismatch - $eq false vs missing attribute",
+      { "x": { "$eq": false } },
+      {},
+      false
+    ],
+    [
+      "type mismatch - $ne false vs missing attribute",
+      { "x": { "$ne": false } },
+      {},
+      true
+    ],
+    [
+      "type mismatch - $not false vs missing attribute",
+      { "x": { "$not": false } },
+      {},
+      true
+    ],
+    [
+      "type mismatch - implicit 5 vs [5] attribute",
+      { "x": 5 },
+      { "x": [5] },
+      false
+    ],
+    [
+      "type mismatch - $eq 5 vs [5] attribute",
+      { "x": { "$eq": 5 } },
+      { "x": [5] },
+      false
+    ],
+    [
+      "type mismatch - $ne 5 vs [5] attribute",
+      { "x": { "$ne": 5 } },
+      { "x": [5] },
+      true
+    ],
+    [
+      "type mismatch - $not 5 vs [5] attribute",
+      { "x": { "$not": 5 } },
+      { "x": [5] },
+      true
+    ],
+    [
+      "type mismatch - $eq [5] vs 5 attribute",
+      { "x": { "$eq": [5] } },
+      { "x": 5 },
+      false
+    ],
+    [
+      "type mismatch - $ne [5] vs 5 attribute",
+      { "x": { "$ne": [5] } },
+      { "x": 5 },
+      true
+    ],
+    [
+      "type mismatch - implicit 5 vs [\"5\"] attribute",
+      { "x": 5 },
+      { "x": ["5"] },
+      false
+    ],
+    [
+      "type mismatch - $eq 5 vs [\"5\"] attribute",
+      { "x": { "$eq": 5 } },
+      { "x": ["5"] },
+      false
+    ],
+    [
+      "type mismatch - $ne 5 vs [\"5\"] attribute",
+      { "x": { "$ne": 5 } },
+      { "x": ["5"] },
+      true
+    ],
+    [
+      "type mismatch - $not 5 vs [\"5\"] attribute",
+      { "x": { "$not": 5 } },
+      { "x": ["5"] },
+      true
+    ],
+    [
+      "type mismatch - $eq [\"5\"] vs 5 attribute",
+      { "x": { "$eq": ["5"] } },
+      { "x": 5 },
+      false
+    ],
+    [
+      "type mismatch - $ne [\"5\"] vs 5 attribute",
+      { "x": { "$ne": ["5"] } },
+      { "x": 5 },
+      true
+    ],
+    [
+      "type mismatch - implicit \"5\" vs [5] attribute",
+      { "x": "5" },
+      { "x": [5] },
+      false
+    ],
+    [
+      "type mismatch - $eq \"5\" vs [5] attribute",
+      { "x": { "$eq": "5" } },
+      { "x": [5] },
+      false
+    ],
+    [
+      "type mismatch - $ne \"5\" vs [5] attribute",
+      { "x": { "$ne": "5" } },
+      { "x": [5] },
+      true
+    ],
+    [
+      "type mismatch - $not \"5\" vs [5] attribute",
+      { "x": { "$not": "5" } },
+      { "x": [5] },
+      true
+    ],
+    [
+      "type mismatch - $eq [5] vs \"5\" attribute",
+      { "x": { "$eq": [5] } },
+      { "x": "5" },
+      false
+    ],
+    [
+      "type mismatch - $ne [5] vs \"5\" attribute",
+      { "x": { "$ne": [5] } },
+      { "x": "5" },
+      true
+    ],
+    [
+      "type mismatch - implicit \"a\" vs [\"a\"] attribute",
+      { "x": "a" },
+      { "x": ["a"] },
+      false
+    ],
+    [
+      "type mismatch - $eq \"a\" vs [\"a\"] attribute",
+      { "x": { "$eq": "a" } },
+      { "x": ["a"] },
+      false
+    ],
+    [
+      "type mismatch - $ne \"a\" vs [\"a\"] attribute",
+      { "x": { "$ne": "a" } },
+      { "x": ["a"] },
+      true
+    ],
+    [
+      "type mismatch - $not \"a\" vs [\"a\"] attribute",
+      { "x": { "$not": "a" } },
+      { "x": ["a"] },
+      true
+    ],
+    [
+      "type mismatch - $eq [\"a\"] vs \"a\" attribute",
+      { "x": { "$eq": ["a"] } },
+      { "x": "a" },
+      false
+    ],
+    [
+      "type mismatch - $ne [\"a\"] vs \"a\" attribute",
+      { "x": { "$ne": ["a"] } },
+      { "x": "a" },
+      true
+    ],
+    [
+      "type mismatch - implicit 0 vs [] attribute",
+      { "x": 0 },
+      { "x": [] },
+      false
+    ],
+    [
+      "type mismatch - $eq 0 vs [] attribute",
+      { "x": { "$eq": 0 } },
+      { "x": [] },
+      false
+    ],
+    [
+      "type mismatch - $ne 0 vs [] attribute",
+      { "x": { "$ne": 0 } },
+      { "x": [] },
+      true
+    ],
+    [
+      "type mismatch - $not 0 vs [] attribute",
+      { "x": { "$not": 0 } },
+      { "x": [] },
+      true
+    ],
+    [
+      "type mismatch - implicit \"\" vs [] attribute",
+      { "x": "" },
+      { "x": [] },
+      false
+    ],
+    [
+      "type mismatch - $eq \"\" vs [] attribute",
+      { "x": { "$eq": "" } },
+      { "x": [] },
+      false
+    ],
+    [
+      "type mismatch - $ne \"\" vs [] attribute",
+      { "x": { "$ne": "" } },
+      { "x": [] },
+      true
+    ],
+    [
+      "type mismatch - $not \"\" vs [] attribute",
+      { "x": { "$not": "" } },
+      { "x": [] },
+      true
+    ],
+    [
+      "type mismatch - implicit true vs [] attribute",
+      { "x": true },
+      { "x": [] },
+      false
+    ],
+    [
+      "type mismatch - $eq true vs [] attribute",
+      { "x": { "$eq": true } },
+      { "x": [] },
+      false
+    ],
+    [
+      "type mismatch - $ne true vs [] attribute",
+      { "x": { "$ne": true } },
+      { "x": [] },
+      true
+    ],
+    [
+      "type mismatch - $not true vs [] attribute",
+      { "x": { "$not": true } },
+      { "x": [] },
+      true
+    ],
+    [
+      "type mismatch - implicit true vs {\"a\": 1} attribute",
+      { "x": true },
+      { "x": { "a": 1 } },
+      false
+    ],
+    [
+      "type mismatch - $eq true vs {\"a\": 1} attribute",
+      { "x": { "$eq": true } },
+      { "x": { "a": 1 } },
+      false
+    ],
+    [
+      "type mismatch - $ne true vs {\"a\": 1} attribute",
+      { "x": { "$ne": true } },
+      { "x": { "a": 1 } },
+      true
+    ],
+    [
+      "type mismatch - $not true vs {\"a\": 1} attribute",
+      { "x": { "$not": true } },
+      { "x": { "a": 1 } },
+      true
+    ],
+    [
+      "type mismatch - $in [5] vs \"5\" attribute",
+      { "x": { "$in": [5] } },
+      { "x": "5" },
+      false
+    ],
+    [
+      "type mismatch - $nin [5] vs \"5\" attribute",
+      { "x": { "$nin": [5] } },
+      { "x": "5" },
+      true
+    ],
+    [
+      "type mismatch - $in [\"5\"] vs 5 attribute",
+      { "x": { "$in": ["5"] } },
+      { "x": 5 },
+      false
+    ],
+    [
+      "type mismatch - $nin [\"5\"] vs 5 attribute",
+      { "x": { "$nin": ["5"] } },
+      { "x": 5 },
+      true
+    ],
+    [
+      "type mismatch - $in [1] vs true attribute",
+      { "x": { "$in": [1] } },
+      { "x": true },
+      false
+    ],
+    [
+      "type mismatch - $nin [1] vs true attribute",
+      { "x": { "$nin": [1] } },
+      { "x": true },
+      true
+    ],
+    [
+      "type mismatch - $in [true] vs 1 attribute",
+      { "x": { "$in": [true] } },
+      { "x": 1 },
+      false
+    ],
+    [
+      "type mismatch - $nin [true] vs 1 attribute",
+      { "x": { "$nin": [true] } },
+      { "x": 1 },
+      true
+    ],
+    [
+      "type mismatch - $in [\"true\"] vs true attribute",
+      { "x": { "$in": ["true"] } },
+      { "x": true },
+      false
+    ],
+    [
+      "type mismatch - $nin [\"true\"] vs true attribute",
+      { "x": { "$nin": ["true"] } },
+      { "x": true },
+      true
+    ],
+    [
+      "type mismatch - $in [true] vs \"true\" attribute",
+      { "x": { "$in": [true] } },
+      { "x": "true" },
+      false
+    ],
+    [
+      "type mismatch - $nin [true] vs \"true\" attribute",
+      { "x": { "$nin": [true] } },
+      { "x": "true" },
+      true
+    ],
+    [
+      "type mismatch - $in [0] vs null attribute",
+      { "x": { "$in": [0] } },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $nin [0] vs null attribute",
+      { "x": { "$nin": [0] } },
+      { "x": null },
+      true
+    ],
+    [
+      "type mismatch - $in [\"null\"] vs null attribute",
+      { "x": { "$in": ["null"] } },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $nin [\"null\"] vs null attribute",
+      { "x": { "$nin": ["null"] } },
+      { "x": null },
+      true
+    ],
+    [
+      "type mismatch - $in [5] vs [\"5\"] attribute",
+      { "x": { "$in": [5] } },
+      { "x": ["5"] },
+      false
+    ],
+    [
+      "type mismatch - $nin [5] vs [\"5\"] attribute",
+      { "x": { "$nin": [5] } },
+      { "x": ["5"] },
+      true
+    ],
+    [
+      "type mismatch - $in [\"5\"] vs [5] attribute",
+      { "x": { "$in": ["5"] } },
+      { "x": [5] },
+      false
+    ],
+    [
+      "type mismatch - $nin [\"5\"] vs [5] attribute",
+      { "x": { "$nin": ["5"] } },
+      { "x": [5] },
+      true
+    ],
+    [
+      "type mismatch - $ini [\"5\"] vs 5 attribute",
+      { "x": { "$ini": ["5"] } },
+      { "x": 5 },
+      false
+    ],
+    [
+      "type mismatch - $nini [\"5\"] vs 5 attribute",
+      { "x": { "$nini": ["5"] } },
+      { "x": 5 },
+      true
+    ],
+    [
+      "type mismatch - $gte 5 vs \"5\" attribute",
+      { "x": { "$gte": 5 } },
+      { "x": "5" },
+      false
+    ],
+    [
+      "type mismatch - $not $gte 5 vs \"5\" attribute",
+      { "x": { "$not": { "$gte": 5 } } },
+      { "x": "5" },
+      true
+    ],
+    [
+      "type mismatch - $lte 5 vs \"5\" attribute",
+      { "x": { "$lte": 5 } },
+      { "x": "5" },
+      false
+    ],
+    [
+      "type mismatch - $not $lte 5 vs \"5\" attribute",
+      { "x": { "$not": { "$lte": 5 } } },
+      { "x": "5" },
+      true
+    ],
+    [
+      "type mismatch - $gte \"5\" vs 5 attribute",
+      { "x": { "$gte": "5" } },
+      { "x": 5 },
+      false
+    ],
+    [
+      "type mismatch - $not $gte \"5\" vs 5 attribute",
+      { "x": { "$not": { "$gte": "5" } } },
+      { "x": 5 },
+      true
+    ],
+    [
+      "type mismatch - $lte \"5\" vs 5 attribute",
+      { "x": { "$lte": "5" } },
+      { "x": 5 },
+      false
+    ],
+    [
+      "type mismatch - $not $lte \"5\" vs 5 attribute",
+      { "x": { "$not": { "$lte": "5" } } },
+      { "x": 5 },
+      true
+    ],
+    [
+      "type mismatch - $gte 1 vs true attribute",
+      { "x": { "$gte": 1 } },
+      { "x": true },
+      false
+    ],
+    [
+      "type mismatch - $not $gte 1 vs true attribute",
+      { "x": { "$not": { "$gte": 1 } } },
+      { "x": true },
+      true
+    ],
+    [
+      "type mismatch - $lte 1 vs true attribute",
+      { "x": { "$lte": 1 } },
+      { "x": true },
+      false
+    ],
+    [
+      "type mismatch - $not $lte 1 vs true attribute",
+      { "x": { "$not": { "$lte": 1 } } },
+      { "x": true },
+      true
+    ],
+    [
+      "type mismatch - $gte true vs 1 attribute",
+      { "x": { "$gte": true } },
+      { "x": 1 },
+      false
+    ],
+    [
+      "type mismatch - $not $gte true vs 1 attribute",
+      { "x": { "$not": { "$gte": true } } },
+      { "x": 1 },
+      true
+    ],
+    [
+      "type mismatch - $lte true vs 1 attribute",
+      { "x": { "$lte": true } },
+      { "x": 1 },
+      false
+    ],
+    [
+      "type mismatch - $not $lte true vs 1 attribute",
+      { "x": { "$not": { "$lte": true } } },
+      { "x": 1 },
+      true
+    ],
+    [
+      "type mismatch - $gte 0 vs false attribute",
+      { "x": { "$gte": 0 } },
+      { "x": false },
+      false
+    ],
+    [
+      "type mismatch - $not $gte 0 vs false attribute",
+      { "x": { "$not": { "$gte": 0 } } },
+      { "x": false },
+      true
+    ],
+    [
+      "type mismatch - $lte 0 vs false attribute",
+      { "x": { "$lte": 0 } },
+      { "x": false },
+      false
+    ],
+    [
+      "type mismatch - $not $lte 0 vs false attribute",
+      { "x": { "$not": { "$lte": 0 } } },
+      { "x": false },
+      true
+    ],
+    [
+      "type mismatch - $gte false vs 0 attribute",
+      { "x": { "$gte": false } },
+      { "x": 0 },
+      false
+    ],
+    [
+      "type mismatch - $not $gte false vs 0 attribute",
+      { "x": { "$not": { "$gte": false } } },
+      { "x": 0 },
+      true
+    ],
+    [
+      "type mismatch - $lte false vs 0 attribute",
+      { "x": { "$lte": false } },
+      { "x": 0 },
+      false
+    ],
+    [
+      "type mismatch - $not $lte false vs 0 attribute",
+      { "x": { "$not": { "$lte": false } } },
+      { "x": 0 },
+      true
+    ],
+    [
+      "type mismatch - $gte 0 vs null attribute",
+      { "x": { "$gte": 0 } },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $not $gte 0 vs null attribute",
+      { "x": { "$not": { "$gte": 0 } } },
+      { "x": null },
+      true
+    ],
+    [
+      "type mismatch - $lte 0 vs null attribute",
+      { "x": { "$lte": 0 } },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $not $lte 0 vs null attribute",
+      { "x": { "$not": { "$lte": 0 } } },
+      { "x": null },
+      true
+    ],
+    [
+      "type mismatch - $gte \"\" vs null attribute",
+      { "x": { "$gte": "" } },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $not $gte \"\" vs null attribute",
+      { "x": { "$not": { "$gte": "" } } },
+      { "x": null },
+      true
+    ],
+    [
+      "type mismatch - $lte \"\" vs null attribute",
+      { "x": { "$lte": "" } },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $not $lte \"\" vs null attribute",
+      { "x": { "$not": { "$lte": "" } } },
+      { "x": null },
+      true
+    ],
+    [
+      "type mismatch - $gte 0 vs missing attribute",
+      { "x": { "$gte": 0 } },
+      {},
+      false
+    ],
+    [
+      "type mismatch - $not $gte 0 vs missing attribute",
+      { "x": { "$not": { "$gte": 0 } } },
+      {},
+      true
+    ],
+    [
+      "type mismatch - $lte 0 vs missing attribute",
+      { "x": { "$lte": 0 } },
+      {},
+      false
+    ],
+    [
+      "type mismatch - $not $lte 0 vs missing attribute",
+      { "x": { "$not": { "$lte": 0 } } },
+      {},
+      true
+    ],
+    [
+      "type mismatch - $gte 0 vs \"\" attribute",
+      { "x": { "$gte": 0 } },
+      { "x": "" },
+      false
+    ],
+    [
+      "type mismatch - $not $gte 0 vs \"\" attribute",
+      { "x": { "$not": { "$gte": 0 } } },
+      { "x": "" },
+      true
+    ],
+    [
+      "type mismatch - $lte 0 vs \"\" attribute",
+      { "x": { "$lte": 0 } },
+      { "x": "" },
+      false
+    ],
+    [
+      "type mismatch - $not $lte 0 vs \"\" attribute",
+      { "x": { "$not": { "$lte": 0 } } },
+      { "x": "" },
+      true
+    ],
+    [
+      "type mismatch - $gte \"\" vs 0 attribute",
+      { "x": { "$gte": "" } },
+      { "x": 0 },
+      false
+    ],
+    [
+      "type mismatch - $not $gte \"\" vs 0 attribute",
+      { "x": { "$not": { "$gte": "" } } },
+      { "x": 0 },
+      true
+    ],
+    [
+      "type mismatch - $lte \"\" vs 0 attribute",
+      { "x": { "$lte": "" } },
+      { "x": 0 },
+      false
+    ],
+    [
+      "type mismatch - $not $lte \"\" vs 0 attribute",
+      { "x": { "$not": { "$lte": "" } } },
+      { "x": 0 },
+      true
+    ],
+    [
+      "type mismatch - $gte 5 vs [5] attribute",
+      { "x": { "$gte": 5 } },
+      { "x": [5] },
+      false
+    ],
+    [
+      "type mismatch - $not $gte 5 vs [5] attribute",
+      { "x": { "$not": { "$gte": 5 } } },
+      { "x": [5] },
+      true
+    ],
+    [
+      "type mismatch - $lte 5 vs [5] attribute",
+      { "x": { "$lte": 5 } },
+      { "x": [5] },
+      false
+    ],
+    [
+      "type mismatch - $not $lte 5 vs [5] attribute",
+      { "x": { "$not": { "$lte": 5 } } },
+      { "x": [5] },
+      true
+    ],
+    [
+      "type mismatch - $gte \"a\" vs [\"a\"] attribute",
+      { "x": { "$gte": "a" } },
+      { "x": ["a"] },
+      false
+    ],
+    [
+      "type mismatch - $not $gte \"a\" vs [\"a\"] attribute",
+      { "x": { "$not": { "$gte": "a" } } },
+      { "x": ["a"] },
+      true
+    ],
+    [
+      "type mismatch - $lte \"a\" vs [\"a\"] attribute",
+      { "x": { "$lte": "a" } },
+      { "x": ["a"] },
+      false
+    ],
+    [
+      "type mismatch - $not $lte \"a\" vs [\"a\"] attribute",
+      { "x": { "$not": { "$lte": "a" } } },
+      { "x": ["a"] },
+      true
+    ],
+    [
+      "type mismatch - $gt 5 vs \"8\" attribute",
+      { "x": { "$gt": 5 } },
+      { "x": "8" },
+      false
+    ],
+    [
+      "type mismatch - $lt \"10\" vs 8 attribute",
+      { "x": { "$lt": "10" } },
+      { "x": 8 },
+      false
+    ],
+    [
+      "type mismatch - $gt 0 vs true attribute",
+      { "x": { "$gt": 0 } },
+      { "x": true },
+      false
+    ],
+    [
+      "type mismatch - $lt 10 vs null attribute",
+      { "x": { "$lt": 10 } },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $regex vs 5 attribute",
+      { "x": { "$regex": "5" } },
+      { "x": 5 },
+      false
+    ],
+    [
+      "type mismatch - $regexi vs 5 attribute",
+      { "x": { "$regexi": "5" } },
+      { "x": 5 },
+      false
+    ],
+    [
+      "type mismatch - $not $regex vs 5 attribute",
+      { "x": { "$not": { "$regex": "5" } } },
+      { "x": 5 },
+      true
+    ],
+    [
+      "type mismatch - $regex vs true attribute",
+      { "x": { "$regex": "^true$" } },
+      { "x": true },
+      false
+    ],
+    [
+      "type mismatch - $regexi vs true attribute",
+      { "x": { "$regexi": "^true$" } },
+      { "x": true },
+      false
+    ],
+    [
+      "type mismatch - $not $regex vs true attribute",
+      { "x": { "$not": { "$regex": "^true$" } } },
+      { "x": true },
+      true
+    ],
+    [
+      "type mismatch - $regex vs null attribute",
+      { "x": { "$regex": "^null$" } },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $regexi vs null attribute",
+      { "x": { "$regexi": "^null$" } },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $not $regex vs null attribute",
+      { "x": { "$not": { "$regex": "^null$" } } },
+      { "x": null },
+      true
+    ],
+    [
+      "type mismatch - $regex vs missing attribute",
+      { "x": { "$regex": "^null$" } },
+      {},
+      false
+    ],
+    [
+      "type mismatch - $regexi vs missing attribute",
+      { "x": { "$regexi": "^null$" } },
+      {},
+      false
+    ],
+    [
+      "type mismatch - $not $regex vs missing attribute",
+      { "x": { "$not": { "$regex": "^null$" } } },
+      {},
+      true
+    ],
+    [
+      "type mismatch - $regex vs [\"a\"] attribute",
+      { "x": { "$regex": "^a$" } },
+      { "x": ["a"] },
+      false
+    ],
+    [
+      "type mismatch - $regexi vs [\"a\"] attribute",
+      { "x": { "$regexi": "^a$" } },
+      { "x": ["a"] },
+      false
+    ],
+    [
+      "type mismatch - $not $regex vs [\"a\"] attribute",
+      { "x": { "$not": { "$regex": "^a$" } } },
+      { "x": ["a"] },
+      true
+    ],
+    [
+      "type mismatch - $regex vs {\"a\": 1} attribute",
+      { "x": { "$regex": "object" } },
+      { "x": { "a": 1 } },
+      false
+    ],
+    [
+      "type mismatch - $regexi vs {\"a\": 1} attribute",
+      { "x": { "$regexi": "object" } },
+      { "x": { "a": 1 } },
+      false
+    ],
+    [
+      "type mismatch - $not $regex vs {\"a\": 1} attribute",
+      { "x": { "$not": { "$regex": "object" } } },
+      { "x": { "a": 1 } },
+      true
+    ],
+    [
+      "type mismatch - $veq \"2\" vs 2 attribute",
+      { "x": { "$veq": "2" } },
+      { "x": 2 },
+      false
+    ],
+    [
+      "type mismatch - $vne \"2\" vs 2 attribute",
+      { "x": { "$vne": "2" } },
+      { "x": 2 },
+      true
+    ],
+    [
+      "type mismatch - $veq \"0\" vs false attribute",
+      { "x": { "$veq": "0" } },
+      { "x": false },
+      false
+    ],
+    [
+      "type mismatch - $vne \"0\" vs false attribute",
+      { "x": { "$vne": "0" } },
+      { "x": false },
+      true
+    ],
+    [
+      "type mismatch - $veq \"0\" vs null attribute",
+      { "x": { "$veq": "0" } },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $vne \"0\" vs null attribute",
+      { "x": { "$vne": "0" } },
+      { "x": null },
+      true
+    ],
+    [
+      "type mismatch - $veq \"0\" vs missing attribute",
+      { "x": { "$veq": "0" } },
+      {},
+      false
+    ],
+    [
+      "type mismatch - $vne \"0\" vs missing attribute",
+      { "x": { "$vne": "0" } },
+      {},
+      true
+    ],
+    [
+      "type mismatch - $veq \"0\" vs [] attribute",
+      { "x": { "$veq": "0" } },
+      { "x": [] },
+      false
+    ],
+    [
+      "type mismatch - $vne \"0\" vs [] attribute",
+      { "x": { "$vne": "0" } },
+      { "x": [] },
+      true
+    ],
+    [
+      "type mismatch - $veq \"0\" vs {\"a\": 1} attribute",
+      { "x": { "$veq": "0" } },
+      { "x": { "a": 1 } },
+      false
+    ],
+    [
+      "type mismatch - $vne \"0\" vs {\"a\": 1} attribute",
+      { "x": { "$vne": "0" } },
+      { "x": { "a": 1 } },
+      true
+    ],
+    [
+      "type mismatch - $vlt \"2.0.0\" vs missing attribute",
+      { "x": { "$vlt": "2.0.0" } },
+      {},
+      false
+    ],
+    [
+      "type mismatch - $vgte \"0.0.0\" vs missing attribute",
+      { "x": { "$vgte": "0.0.0" } },
+      {},
+      false
+    ],
+    [
+      "type mismatch - $vlte \"2.0.0\" vs null attribute",
+      { "x": { "$vlte": "2.0.0" } },
+      { "x": null },
+      false
+    ],
+    [
+      "type mismatch - $elemMatch $eq 5 vs [\"5\"] attribute",
+      { "x": { "$elemMatch": { "$eq": 5 } } },
+      { "x": ["5"] },
+      false
+    ],
+    [
+      "type mismatch - $elemMatch $eq \"5\" vs [5] attribute",
+      { "x": { "$elemMatch": { "$eq": "5" } } },
+      { "x": [5] },
+      false
+    ],
+    [
+      "type mismatch - $elemMatch $gte 5 vs [\"5\"] attribute",
+      { "x": { "$elemMatch": { "$gte": 5 } } },
+      { "x": ["5"] },
+      false
+    ],
+    [
+      "type mismatch - $elemMatch $gte \"5\" vs [5] attribute",
+      { "x": { "$elemMatch": { "$gte": "5" } } },
+      { "x": [5] },
+      false
+    ],
+    [
+      "type mismatch - $all [5] vs [\"5\"] attribute",
+      { "x": { "$all": [5] } },
+      { "x": ["5"] },
+      false
+    ],
+    [
+      "type mismatch - $all [\"5\"] vs [5] attribute",
+      { "x": { "$all": ["5"] } },
+      { "x": [5] },
+      false
+    ],
+    [
+      "type mismatch - $all [true] vs [1] attribute",
+      { "x": { "$all": [true] } },
+      { "x": [1] },
+      false
+    ],
+    [
+      "type mismatch - $alli [\"5\"] vs [5] attribute",
+      { "x": { "$alli": ["5"] } },
+      { "x": [5] },
+      false
+    ],
+    [
+      "type mismatch - $size \"1\" vs [\"a\"] attribute",
+      { "x": { "$size": "1" } },
+      { "x": ["a"] },
+      false
+    ],
+    [
+      "type mismatch - $inGroup 2 vs [\"2\"] group",
+      { "x": { "$inGroup": "group_id" } },
+      { "x": 2 },
+      false,
+      { "group_id": [1, "2", 3] }
+    ],
+    [
+      "type mismatch - $notInGroup 2 vs [\"2\"] group",
+      { "x": { "$notInGroup": "group_id" } },
+      { "x": 2 },
+      true,
+      { "group_id": [1, "2", 3] }
+    ],
+    [
+      "type mismatch - $notInGroup \"3\" vs [3] group",
+      { "x": { "$notInGroup": "group_id" } },
+      { "x": "3" },
+      true,
+      { "group_id": [1, "2", 3] }
+    ],
+    [
+      "type mismatch - $exists false vs null attribute",
+      { "x": { "$exists": false } },
+      { "x": null },
+      true
+    ],
+    [
+      "type mismatch - $type \"number\" vs \"5\" attribute",
+      { "x": { "$type": "number" } },
+      { "x": "5" },
+      false
     ]
   ],
   "hash": [
@@ -5375,6 +7089,43 @@
         "on": true,
         "off": false,
         "source": "force",
+        "ruleId": ""
+      }
+    ],
+    [
+      "Malformed prerequisite condition does not match, skip rule",
+      {
+        "attributes": {
+          "id": "123"
+        },
+        "features": {
+          "parentFlag": {
+            "defaultValue": true
+          },
+          "childFlag": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "parentConditions": [
+                  {
+                    "id": "parentFlag",
+                    "condition": {
+                      "$not": null
+                    }
+                  }
+                ],
+                "force": "prereq"
+              }
+            ]
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": "default",
+        "on": true,
+        "off": false,
+        "source": "defaultValue",
         "ruleId": ""
       }
     ],
@@ -12237,6 +13988,54 @@
             "type": "list",
             "attributeKey": "id",
             "values": ["u_1", "u_2"]
+          }
+        }
+      ],
+      [
+        "type mismatch - $savedGroup number attribute vs string list",
+        { "$savedGroup": { "id": "grp_strs" } },
+        { "id": 1 },
+        false,
+        {
+          "grp_strs": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["1", "2"]
+          }
+        }
+      ],
+      [
+        "type mismatch - $savedGroup string attribute vs number list",
+        { "$savedGroup": { "id": "grp_nums" } },
+        { "id": "1" },
+        false,
+        {
+          "grp_nums": { "type": "list", "attributeKey": "id", "values": [1, 2] }
+        }
+      ],
+      [
+        "type mismatch - $inGroup number attribute vs typed string list",
+        { "id": { "$inGroup": "grp_strs" } },
+        { "id": 1 },
+        false,
+        {
+          "grp_strs": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["1", "2"]
+          }
+        }
+      ],
+      [
+        "type mismatch - $notInGroup number attribute vs typed string list",
+        { "id": { "$notInGroup": "grp_strs" } },
+        { "id": 1 },
+        true,
+        {
+          "grp_strs": {
+            "type": "list",
+            "attributeKey": "id",
+            "values": ["1", "2"]
           }
         }
       ]

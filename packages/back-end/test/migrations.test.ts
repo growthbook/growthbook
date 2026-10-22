@@ -11,6 +11,7 @@ import { LegacyMetricInterface } from "shared/types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
+  ExposureQuery,
 } from "shared/types/datasource";
 import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
@@ -47,6 +48,7 @@ import {
   normalizeJsonSchemaDef,
   pinLegacyRolloutSeeds,
   upgradeDatasourceObject,
+  upgradeExposureQuery,
   upgradeExperimentDoc,
   upgradeFeatureRule,
   upgradeMetricDoc,
@@ -54,6 +56,7 @@ import {
   upgradeV0Feature,
 } from "back-end/src/util/migrations";
 import { flattenV1ToV2Rules } from "back-end/src/util/flattenRules";
+import { deepFreeze } from "back-end/test/test-helpers";
 
 describe("Fact Metric Migration", () => {
   it("upgrades delay hours", () => {
@@ -1140,6 +1143,7 @@ describe("Datasource Migration", () => {
             name: "Logged-in User Experiments",
             query: "testing",
             userIdType: "user_id",
+            userIdTypes: ["user_id"],
           },
           {
             id: "anonymous_id",
@@ -1148,6 +1152,7 @@ describe("Datasource Migration", () => {
             name: "Anonymous Visitor Experiments",
             query: "testing",
             userIdType: "anonymous_id",
+            userIdTypes: ["anonymous_id"],
           },
         ],
       },
@@ -1198,6 +1203,7 @@ describe("Datasource Migration", () => {
             query:
               "SELECT\n  user_id as user_id,\n  received_at as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM \n  test.experiment_viewed",
             userIdType: "user_id",
+            userIdTypes: ["user_id"],
           },
           {
             id: "anonymous_id",
@@ -1207,10 +1213,104 @@ describe("Datasource Migration", () => {
             query:
               "SELECT\n  anonymous_id as anonymous_id,\n  received_at as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM \n  test.experiment_viewed",
             userIdType: "anonymous_id",
+            userIdTypes: ["anonymous_id"],
           },
         ],
       },
     });
+  });
+
+  it("normalizes exposure query identifier types", () => {
+    const datasource = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      id: "",
+      name: "",
+      description: "",
+      organization: "",
+      params: "",
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "legacy",
+              name: "Legacy",
+              userIdType: "user_id",
+              dimensions: [],
+              query: "SELECT user_id",
+            },
+            {
+              id: "multi",
+              name: "Multi",
+              userIdType: "anonymous_id",
+              userIdTypes: ["user_id", "anonymous_id"],
+              dimensions: [],
+              query: "SELECT user_id, anonymous_id",
+            },
+          ],
+        },
+      },
+      type: "mixpanel",
+    } as DataSourceInterface;
+
+    const exposureQueries = upgradeDatasourceObject(cloneDeep(datasource))
+      .settings.queries?.exposure;
+
+    expect(exposureQueries?.[0]).toMatchObject({
+      userIdType: "user_id",
+      userIdTypes: ["user_id"],
+    });
+    // The legacy identifier is frozen, so it doesn't follow userIdTypes[0].
+    expect(exposureQueries?.[1]).toMatchObject({
+      userIdType: "anonymous_id",
+      userIdTypes: ["user_id", "anonymous_id"],
+    });
+  });
+
+  it("fills a missing legacy identifier from userIdTypes and drops empty scalars", () => {
+    expect(
+      upgradeExposureQuery({
+        id: "q",
+        name: "Q",
+        userIdType: "",
+        userIdTypes: ["user_id", "anonymous_id"],
+        dimensions: [],
+        query: "",
+      }),
+    ).toMatchObject({ userIdType: "user_id" });
+    expect(
+      upgradeExposureQuery({
+        id: "q",
+        name: "Q",
+        userIdType: "",
+        userIdTypes: [],
+        dimensions: [],
+        query: "",
+      }).userIdTypes,
+    ).toEqual([]);
+  });
+
+  it("upgrades exposure queries idempotently", () => {
+    const queries: ExposureQuery[] = [
+      {
+        id: "legacy",
+        name: "Legacy",
+        userIdType: "user_id",
+        dimensions: [],
+        query: "",
+      } as unknown as ExposureQuery,
+      {
+        id: "multi",
+        name: "Multi",
+        userIdType: "anonymous_id",
+        userIdTypes: ["user_id", "anonymous_id"],
+        dimensions: [],
+        query: "",
+      },
+    ];
+    const once = queries.map((q) => upgradeExposureQuery(cloneDeep(q)));
+    const twice = once.map((q) => upgradeExposureQuery(cloneDeep(q)));
+    expect(twice).toEqual(once);
   });
 
   it("migrates pipelineSettings: add mode if not existing", () => {
@@ -2106,6 +2206,12 @@ describe("Experiment Migration", () => {
 });
 
 describe("Organization Migration", () => {
+  // The upgrade shares nested values with its input, so a write to the input must throw
+  const upgradeFrozen = (doc: OrganizationInterface) => {
+    deepFreeze(doc as unknown as Record<string, unknown>);
+    return upgradeOrganizationDoc(doc);
+  };
+
   it("Upgrades old Organization objects", () => {
     const org: OrganizationInterface = {
       dateCreated: new Date(),
@@ -2118,7 +2224,7 @@ describe("Organization Migration", () => {
     };
 
     expect(
-      upgradeOrganizationDoc({
+      upgradeFrozen({
         ...org,
       }),
     ).toEqual({
@@ -2158,6 +2264,67 @@ describe("Organization Migration", () => {
     });
   });
 
+  it("copies only the parts it upgrades and leaves the given document unchanged", () => {
+    const testOrg: OrganizationInterface = {
+      id: "org_test",
+      name: "Test",
+      ownerEmail: "test@test.com",
+      url: "",
+      dateCreated: new Date(0),
+      invites: [],
+      members: [
+        {
+          id: "u_1",
+          role: "designer",
+          dateCreated: new Date(0),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        {
+          id: "u_2",
+          role: "admin",
+          dateCreated: new Date(0),
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+      ] as OrganizationInterface["members"],
+      settings: {
+        implementationTypes: ["visual"],
+        requireReviews: true,
+        postStratificationDisabled: true,
+        namespaces: [{ name: "ns1", description: "", status: "active" }],
+        metricDefaults: {
+          priorSettings: {
+            override: false,
+            proper: true,
+            mean: 0,
+            stddev: -1,
+          },
+        },
+      } as OrganizationInterface["settings"],
+    };
+    const snapshot = cloneDeep(testOrg);
+
+    const result = upgradeFrozen(testOrg);
+
+    expect(testOrg).toStrictEqual(snapshot);
+    expect(result.members[0].role).toBe("collaborator");
+    expect(result.members[1]).toBe(testOrg.members[1]);
+    expect(result.settings.visualEditorEnabled).toBe(true);
+    expect(result.settings.implementationTypes).toBeUndefined();
+    expect(result.settings.postStratificationEnabled).toBe(false);
+    expect(result.settings.postStratificationDisabled).toBeUndefined();
+    expect(Array.isArray(result.settings.requireReviews)).toBe(true);
+    expect(result.settings.namespaces?.[0]).toMatchObject({
+      label: "ns1",
+      seed: "ns1",
+      format: "legacy",
+    });
+    expect(result.settings.metricDefaults?.priorSettings?.stddev).toBe(
+      DEFAULT_PROPER_PRIOR_STDDEV,
+    );
+  });
+
   it("backfills restApiBypassesReviews=true for orgs missing the setting", () => {
     const testOrg: OrganizationInterface = {
       id: "org_test",
@@ -2169,7 +2336,7 @@ describe("Organization Migration", () => {
       members: [],
       settings: {},
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.restApiBypassesReviews).toBe(true);
   });
 
@@ -2184,7 +2351,7 @@ describe("Organization Migration", () => {
       members: [],
       settings: { restApiBypassesReviews: false },
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.restApiBypassesReviews).toBe(false);
   });
 
@@ -2201,7 +2368,7 @@ describe("Organization Migration", () => {
       members: [],
       settings: { restApiBypassesReviews: false },
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.restApiBypassesReviews).toBe(false);
   });
 
@@ -2216,7 +2383,7 @@ describe("Organization Migration", () => {
       members: [],
       settings: {},
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.stickyBucketingOnByDefault).toBe(true);
   });
 
@@ -2234,7 +2401,7 @@ describe("Organization Migration", () => {
         stickyBucketingOnByDefault: false,
       },
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.stickyBucketingOnByDefault).toBe(false);
   });
 
@@ -2252,7 +2419,7 @@ describe("Organization Migration", () => {
         stickyBucketingOnByDefault: true,
       },
     };
-    const result = upgradeOrganizationDoc(testOrg);
+    const result = upgradeFrozen(testOrg);
     expect(result.settings.stickyBucketingOnByDefault).toBe(true);
   });
 
@@ -2269,7 +2436,7 @@ describe("Organization Migration", () => {
         requireReviews: true,
       },
     };
-    const org = upgradeOrganizationDoc(testOrg);
+    const org = upgradeFrozen(testOrg);
     expect(org).toEqual({
       ...org,
       settings: {

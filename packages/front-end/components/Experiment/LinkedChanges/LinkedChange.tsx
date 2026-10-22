@@ -136,7 +136,7 @@ export default function LinkedChange({
                     visualChangeset={vc}
                     useLink={true}
                     button={
-                      <Button variant="ghost">Launch Visual Editor</Button>
+                      <Button variant="ghost">Launch AI Visual Editor</Button>
                     }
                   />
                 )}

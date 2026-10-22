@@ -5,11 +5,15 @@ import { addDays } from "date-fns";
 import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getFactTableIdsForMetrics,
   quantileMetricType,
 } from "shared/experiments";
 import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
 import { daysBetween } from "shared/dates";
-import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import {
+  resolveExposureQueryForAnalysis,
+  buildUnitsQuerySettingsFromSnapshot,
+} from "shared/util";
 import { SegmentInterface } from "shared/types/segment";
 import {
   Dimension,
@@ -141,9 +145,12 @@ export const startExperimentResultQueries = async (
   // an empty exposureQueryId falls back to the auto-generated anonymous_id/user_id
   // exposure query, and an unknown id throws a clear error rather than generating
   // an invalid query with an empty user id type.
-  const resolvedExposureQuery = getExposureQuery(
-    integration.datasource,
-    snapshotSettings.exposureQueryId || "",
+  const resolvedExposureQuery = resolveExposureQueryForAnalysis(
+    getExposureQuery(
+      integration.datasource,
+      snapshotSettings.exposureQueryId || "",
+    ),
+    snapshotSettings.exposureQueryIdentifierType,
   );
 
   const snapshotDimensions: Dimension[] = (
@@ -343,6 +350,7 @@ export const startExperimentResultQueries = async (
             setExternalId,
             queryMetadata,
           ),
+        metadata: { factTableIds: getFactTableIdsForMetrics(m) },
         queryType: "experimentMultiMetric",
       }),
     );
@@ -384,6 +392,7 @@ export const startExperimentResultQueries = async (
                 setExternalId,
                 queryMetadata,
               ),
+            metadata: { factTableIds: getFactTableIdsForMetrics(m) },
             queryType: "experimentMultiMetric",
           }),
         );

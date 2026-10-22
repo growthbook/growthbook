@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import escapeRegExp from "lodash/escapeRegExp";
 import { z } from "zod";
 import { OWNER_JOB_TITLES, USAGE_INTENTS } from "shared/constants";
 import { POLICIES, RESERVED_ROLE_IDS } from "shared/permissions";
@@ -283,7 +284,7 @@ export async function findAllOrganizations(
   search: string,
   limit: number = 50,
 ) {
-  const regex = new RegExp(search, "i");
+  const regex = new RegExp(escapeRegExp(search), "i");
 
   const query = search
     ? {
@@ -688,15 +689,25 @@ export async function editCustomRole(
 }
 
 function usingRole(member: MemberRoleWithProjects, role: string): boolean {
+  // Stored data can predate validation, so treat a non-array list as empty.
+  const asArray = <T>(v: T[] | undefined): T[] => (Array.isArray(v) ? v : []);
   return (
     member.role === role ||
-    (member.projectRoles || []).some((pr) => pr.role === role)
+    asArray(member.additionalRoles).some((r) => r.role === role) ||
+    asArray(member.projectRoles).some(
+      (pr) =>
+        pr.role === role ||
+        asArray(pr.additionalRoles).some((r) => r.role === role),
+    )
   );
 }
 
 export async function removeCustomRole(context: ReqContext, id: string) {
   // Make sure the id isn't the org's default
-  if (context.org.settings?.defaultRole?.role === id) {
+  if (
+    context.org.settings?.defaultRole &&
+    usingRole(context.org.settings.defaultRole, id)
+  ) {
     throw new Error(
       "Cannot delete role. This role is set as the organization's default role.",
     );
@@ -718,9 +729,10 @@ export async function removeCustomRole(context: ReqContext, id: string) {
   if (context.teams.some((team) => usingRole(team, id))) {
     throw new Error("Role is currently being used by at least one team");
   }
+  // PATs are invisible to admins; a deleted role just fails closed for them.
   if (
     (await context.models.apiKeys.dangerousGetAllApiKeysInOrg()).some(
-      (key) => key.role === id,
+      (key) => !key.userId && key.role === id,
     )
   ) {
     throw new Error("Role is currently being used by at least one API key");

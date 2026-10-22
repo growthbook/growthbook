@@ -1,8 +1,13 @@
 import { OpenApiModelSpec } from "../api-model";
+import { FEATURE_LANDING_ACTIONS } from "./confirmations";
 import {
   apiContextualBanditCancelReturn,
   apiContextualBanditCancelValidator,
   apiContextualBanditLifecycleReturn,
+  apiContextualBanditListVisualChangesetsReturn,
+  apiContextualBanditListVisualChangesetsValidator,
+  apiContextualBanditPostVisualChangesetsReturn,
+  apiContextualBanditPostVisualChangesetsValidator,
   apiContextualBanditRefreshReturn,
   apiContextualBanditRefreshValidator,
   apiContextualBanditStartValidator,
@@ -20,6 +25,8 @@ import {
 export const startContextualBanditEndpoint = {
   pathFragment: "/:id/start",
   verb: "post" as const,
+  confirmation: ["experiment.start", ...FEATURE_LANDING_ACTIONS] as const,
+  confirmationInHandler: true,
   operationId: "startContextualBandit",
   validator: apiContextualBanditStartValidator,
   zodReturnObject: apiContextualBanditLifecycleReturn,
@@ -29,6 +36,7 @@ export const startContextualBanditEndpoint = {
 export const stopContextualBanditEndpoint = {
   pathFragment: "/:id/stop",
   verb: "post" as const,
+  confirmation: ["experiment.stop"] as const,
   operationId: "stopContextualBandit",
   validator: apiContextualBanditStopValidator,
   zodReturnObject: apiContextualBanditLifecycleReturn,
@@ -38,6 +46,7 @@ export const stopContextualBanditEndpoint = {
 export const refreshContextualBanditEndpoint = {
   pathFragment: "/:id/refresh",
   verb: "post" as const,
+  confirmation: ["experiment.traffic"] as const,
   operationId: "refreshContextualBandit",
   validator: apiContextualBanditRefreshValidator,
   zodReturnObject: apiContextualBanditRefreshReturn,
@@ -47,6 +56,13 @@ export const refreshContextualBanditEndpoint = {
 export const updateVariationsContextualBanditEndpoint = {
   pathFragment: "/:id/variations",
   verb: "post" as const,
+  confirmation: [
+    "experiment.draft",
+    "experiment.traffic",
+    "feature.draft",
+    "feature.publish",
+  ] as const,
+  confirmationInHandler: true,
   operationId: "updateContextualBanditVariations",
   validator: apiContextualBanditUpdateVariationsValidator,
   zodReturnObject: apiContextualBanditVariationsReturn,
@@ -57,10 +73,30 @@ export const updateVariationsContextualBanditEndpoint = {
 export const cancelContextualBanditEndpoint = {
   pathFragment: "/:id/cancel",
   verb: "post" as const,
+  confirmation: [],
   operationId: "cancelContextualBandit",
   validator: apiContextualBanditCancelValidator,
   zodReturnObject: apiContextualBanditCancelReturn,
   summary: "Cancel a running Contextual Bandit snapshot refresh",
+};
+
+export const postContextualBanditVisualChangesetsEndpoint = {
+  pathFragment: "/:id/visual-changesets",
+  verb: "post" as const,
+  confirmation: ["experiment.visualEditor"] as const,
+  operationId: "postContextualBanditVisualChangesets",
+  validator: apiContextualBanditPostVisualChangesetsValidator,
+  zodReturnObject: apiContextualBanditPostVisualChangesetsReturn,
+  summary: "Create a visual changeset for a Contextual Bandit",
+};
+
+export const listContextualBanditVisualChangesetsEndpoint = {
+  pathFragment: "/:id/visual-changesets",
+  verb: "get" as const,
+  operationId: "listContextualBanditVisualChangesets",
+  validator: apiContextualBanditListVisualChangesetsValidator,
+  zodReturnObject: apiContextualBanditListVisualChangesetsReturn,
+  summary: "List visual changesets for a Contextual Bandit",
 };
 
 export const contextualBanditApiSpec = {
@@ -76,12 +112,27 @@ export const contextualBanditApiSpec = {
   crudValidatorOverrides: {
     list: apiListContextualBanditsValidator,
   },
+  confirmation: {
+    create: ["experiment.create"],
+    update: [
+      "experiment.draft",
+      "experiment.start",
+      "experiment.stop",
+      "experiment.targeting",
+      "experiment.traffic",
+      "experiment.phases",
+      "experiment.other",
+    ],
+  },
+  confirmationInHandler: { update: true },
   customEndpoints: [
     startContextualBanditEndpoint,
     stopContextualBanditEndpoint,
     refreshContextualBanditEndpoint,
     updateVariationsContextualBanditEndpoint,
     cancelContextualBanditEndpoint,
+    postContextualBanditVisualChangesetsEndpoint,
+    listContextualBanditVisualChangesetsEndpoint,
   ],
   navAfterTag: "experiments",
 } as const satisfies OpenApiModelSpec;

@@ -1,4 +1,5 @@
 import { AES, enc } from "crypto-js";
+import uniqid from "uniqid";
 import { isReadOnlySQL } from "shared/sql";
 import {
   SqlDialect,
@@ -6,6 +7,8 @@ import {
   TemplateVariables,
 } from "shared/types/sql";
 import {
+  ExperimentExposuresQueryParams,
+  ExperimentExposuresQueryResponse,
   FeatureEvalDiagnosticsQueryResponseRows,
   QueryResponseColumnData,
   TestQueryResult,
@@ -24,7 +27,7 @@ import {
   FactTableColumnType,
 } from "shared/types/fact-table";
 import { FeatureInterface } from "shared/types/feature";
-import { QueryStatistics, QueryType } from "shared/types/query";
+import { QueryStatistics, QueryType, TestQueryType } from "shared/types/query";
 import {
   formatQueryExecutionErrorForApi,
   DataSourceParamsForType,
@@ -54,6 +57,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { SQLExecutionError } from "back-end/src/util/errors";
+import { closeMssqlPool } from "back-end/src/util/mssqlPoolManager";
 
 // freeFormQuery runs user-authored SQL; we should only use it for this scenario
 const FREE_FORM_QUERY_TYPE: QueryType = "freeFormQuery";
@@ -195,6 +199,26 @@ export async function testDataSourceConnection(
   await integration.testConnection();
 }
 
+// MSSQL caches connection pools by Data Source id. An unsaved test uses a
+// throwaway id so it does not replace a saved Data Source's pool, then closes
+// that pool. Other engines open a connection for the test and drop it.
+export async function testUnsavedDataSourceConnection(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+) {
+  if (datasource.type !== "mssql") {
+    await testDataSourceConnection(context, datasource);
+    return;
+  }
+
+  const id = uniqid("ds_connection_test_");
+  try {
+    await testDataSourceConnection(context, { ...datasource, id });
+  } finally {
+    await closeMssqlPool(id);
+  }
+}
+
 export async function runFreeFormQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
@@ -229,6 +253,7 @@ export async function runFreeFormQuery(
       sql,
       ["timestamp"],
       FREE_FORM_QUERY_TYPE,
+      null,
     );
 
     // Build a type map from SQL engine metadata
@@ -357,10 +382,30 @@ export async function runFeatureEvalDiagnosticsQuery(
   }
 }
 
+export async function runExperimentExposuresQuery(
+  integration: SourceIntegrationInterface,
+  params: ExperimentExposuresQueryParams,
+): Promise<ExperimentExposuresQueryResponse & { sql: string }> {
+  if (
+    !integration.getExperimentExposuresQuery ||
+    !integration.runExperimentExposuresQuery
+  ) {
+    throw new Error(
+      "Exposure logs are not supported for this Data Source type.",
+    );
+  }
+
+  const sql = integration.getExperimentExposuresQuery(params);
+  const { rows, statistics } =
+    await integration.runExperimentExposuresQuery(sql);
+  return { rows, statistics, sql };
+}
+
 export async function testQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   query: string,
+  queryType: TestQueryType,
   templateVariables?: TemplateVariables,
   limit?: number,
   timestampColumn?: string,
@@ -397,7 +442,8 @@ export async function testQuery(
     const result = await integration.runTestQuery(
       sql,
       timestampCols,
-      "testQuery",
+      queryType,
+      null,
     );
 
     return {
@@ -464,7 +510,7 @@ export async function testQueryValidity(
     "experiment_id",
     "variation_id",
     "timestamp",
-    query.userIdType,
+    ...query.userIdTypes,
     ...query.dimensions,
     ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
   ]);
@@ -476,7 +522,12 @@ export async function testQueryValidity(
     "timestamp",
   );
   try {
-    const results = await integration.runTestQuery(sql, undefined, "testQuery");
+    const results = await integration.runTestQuery(
+      sql,
+      undefined,
+      "exposureQueryValidation",
+      null,
+    );
     return findMissingRequiredColumns(
       results,
       requiredColumns,
@@ -505,7 +556,12 @@ export async function testFeatureUsageQueryValidity(
     "timestamp",
   );
   try {
-    const results = await integration.runTestQuery(sql, undefined, "testQuery");
+    const results = await integration.runTestQuery(
+      sql,
+      undefined,
+      "featureUsageQueryValidation",
+      null,
+    );
     return findMissingRequiredColumns(
       results,
       requiredColumns,

@@ -18,6 +18,7 @@ import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
 import { PiXBold, PiCaretDown } from "react-icons/pi";
 import CreatableSelect from "react-select/creatable";
+import VirtualizedMenuList from "@/components/Forms/VirtualizedMenuList";
 import Text, { TextSizes, TextWeights } from "@/ui/Text";
 import { RadixTheme } from "@/services/RadixTheme";
 import HelperText from "@/ui/HelperText";
@@ -34,7 +35,7 @@ export const RadixThemeMenuPortal = (
 export type SingleValue = {
   label: string;
   value: string;
-  tooltip?: string;
+  tooltip?: ReactNode;
   isDisabled?: boolean;
 };
 export type GroupedValue = { label: string; options: SingleValue[] };
@@ -77,6 +78,7 @@ export type SelectFieldProps = Omit<
   isClearable?: boolean;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
+  noOptionsMessage?: () => ReactNode;
   forceUndefinedValueToNull?: boolean;
   useMultilineLabels?: boolean;
   containerStyles?: StylesConfig<SingleValue, boolean>;
@@ -88,6 +90,10 @@ export type SelectFieldProps = Omit<
   labelWeight?: TextWeights;
   size?: "x-small" | "small" | "legacy" | "medium";
   errorLevel?: "error" | "warning";
+  /** Names the control when its visible label isn't the `label` prop. */
+  "aria-label"?: string;
+  /** Tallest the open menu grows before it scrolls, in px (default 300). */
+  maxMenuHeight?: number;
 };
 
 export function useSelectOptions(
@@ -278,8 +284,9 @@ const SelectField: FC<SelectFieldProps> = ({
   isClearable = false,
   onPaste,
   isOptionDisabled,
-  // forces re-render when input is undefined
-  forceUndefinedValueToNull = false,
+  noOptionsMessage,
+  // An undefined react-select value leaves its previous selection uncontrolled.
+  forceUndefinedValueToNull = true,
   useMultilineLabels = false,
   containerStyles = {},
   extraIndicator,
@@ -289,6 +296,8 @@ const SelectField: FC<SelectFieldProps> = ({
   labelWeight = "semibold",
   size = "legacy" as "x-small" | "small" | "legacy" | "medium",
   errorLevel = "error",
+  "aria-label": ariaLabel,
+  maxMenuHeight,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -430,6 +439,8 @@ const SelectField: FC<SelectFieldProps> = ({
                   {...ReactSelectProps}
                   styles={mergedStyles}
                   id={id}
+                  aria-label={ariaLabel}
+                  maxMenuHeight={maxMenuHeight}
                   ref={ref}
                   className={clsx({
                     error: !!error && errorLevel === "error",
@@ -493,6 +504,7 @@ const SelectField: FC<SelectFieldProps> = ({
                     IndicatorSeparator: () => null,
                     ClearIndicator: CustomClearIndicator,
                     IndicatorsContainer: IndicatorsContainerWithExtra,
+                    MenuList: VirtualizedMenuList,
                     ...(withRadixThemedPortal && {
                       MenuPortal: RadixThemeMenuPortal,
                     }),
@@ -504,6 +516,8 @@ const SelectField: FC<SelectFieldProps> = ({
                   {...ReactSelectProps}
                   styles={mergedStyles}
                   id={id}
+                  aria-label={ariaLabel}
+                  maxMenuHeight={maxMenuHeight}
                   ref={ref}
                   className={clsx({
                     error: !!error && errorLevel === "error",
@@ -522,6 +536,7 @@ const SelectField: FC<SelectFieldProps> = ({
                     forceUndefinedValueToNull ? (selected ?? null) : selected
                   }
                   placeholder={initialOption ?? placeholder}
+                  noOptionsMessage={noOptionsMessage}
                   formatOptionLabel={formatOptionLabel}
                   formatGroupLabel={formatGroupLabel}
                   isSearchable={!!isSearchable}
@@ -533,6 +548,7 @@ const SelectField: FC<SelectFieldProps> = ({
                     IndicatorSeparator: () => null,
                     ClearIndicator: CustomClearIndicator,
                     IndicatorsContainer: IndicatorsContainerWithExtra,
+                    MenuList: VirtualizedMenuList,
                     ...(withRadixThemedPortal && {
                       MenuPortal: RadixThemeMenuPortal,
                     }),

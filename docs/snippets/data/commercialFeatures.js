@@ -105,9 +105,17 @@ export default {
     plan: "enterprise",
     displayName: "Holdouts",
   },
+  "human-in-the-loop": {
+    plan: "enterprise",
+    displayName: "Human In The Loop",
+  },
   "incremental-refresh": {
     plan: "enterprise",
     displayName: "Incremental Refresh",
+  },
+  interleaving: {
+    plan: "enterprise",
+    displayName: "Interleaving",
   },
   "json-validation": {
     plan: "enterprise",
