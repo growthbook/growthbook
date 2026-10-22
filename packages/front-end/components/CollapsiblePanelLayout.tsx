@@ -8,7 +8,6 @@ import {
 import { Box, Flex } from "@radix-ui/themes";
 import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 import useMediaQuery from "@/hooks/useMediaQuery";
-import { SAVE_BAR_RESIZE_EVENT } from "@/components/Experiment/TabbedPage/UnsavedEditsBar";
 import styles from "./CollapsiblePanelLayout.module.scss";
 
 export const PANEL_WIDTH_PX = 360;
@@ -24,6 +23,8 @@ export interface Props {
   children: ReactNode;
   /** The right column. */
   panel: ReactNode;
+  /** Sticks to the bottom of the content column, not under the panel. */
+  footer?: ReactNode;
   open: boolean;
   /** Viewport offset the panel sticks to, below any fixed page header. */
   top?: number;
@@ -44,6 +45,7 @@ export interface Props {
 export default function CollapsiblePanelLayout({
   children,
   panel,
+  footer = null,
   open,
   top = 0,
   width = PANEL_WIDTH_PX,
@@ -119,23 +121,14 @@ export default function CollapsiblePanelLayout({
     if (!el) return;
     const fit = () => {
       const offset = Math.max(el.getBoundingClientRect().top, 0);
-      // Stop above the fixed save bar.
-      const bar =
-        parseFloat(
-          getComputedStyle(document.documentElement).getPropertyValue(
-            "--experiment-save-bar-height",
-          ),
-        ) || 0;
-      el.style.height = `${Math.max(0, window.innerHeight - offset - bar)}px`;
+      el.style.height = `${Math.max(0, window.innerHeight - offset)}px`;
     };
     fit();
     window.addEventListener("scroll", fit, { passive: true });
     window.addEventListener("resize", fit);
-    window.addEventListener(SAVE_BAR_RESIZE_EVENT, fit);
     return () => {
       window.removeEventListener("scroll", fit);
       window.removeEventListener("resize", fit);
-      window.removeEventListener(SAVE_BAR_RESIZE_EVENT, fit);
     };
   });
 
@@ -180,7 +173,8 @@ export default function CollapsiblePanelLayout({
     ? {
         // Tracks the animated width so the right edge stays put mid-slide.
         marginLeft: -currentWidth,
-        zIndex: 900,
+        // Over the content's footer too, since it floats over that content.
+        zIndex: 1002,
         // The pinned header's shadow, facing left. The negative spread keeps it
         // from bleeding above the panel.
         boxShadow:
@@ -197,9 +191,16 @@ export default function CollapsiblePanelLayout({
       // while it slides; clip, not hidden, so nothing inside stops sticking.
       style={{ overflowX: "clip" }}
     >
-      <Box flexGrow="1" style={{ minWidth: 0 }}>
-        {children}
-      </Box>
+      {/* At least as tall as the panel, so the footer starts at the bottom of
+          the screen even under short content. */}
+      <Flex
+        direction="column"
+        flexGrow="1"
+        style={{ minWidth: 0, alignSelf: "stretch" }}
+      >
+        <Box flexGrow="1">{children}</Box>
+        {footer}
+      </Flex>
       {mounted ? (
         <Box
           ref={panelBox}

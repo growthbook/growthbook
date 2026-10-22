@@ -648,6 +648,8 @@ function TabbedPageContents({
           width={detailsWidth}
           onWidthChange={setDetailsWidth}
           onCollapse={() => setDetailsShown(false)}
+          // Only the content's edits stage; the panel's save as they're made.
+          footer={<UnsavedEditsBar />}
           panel={
             showDetailsPanel ? (
               <ExperimentDetailsPanel
@@ -869,9 +871,6 @@ function TabbedPageContents({
           </div>
         </CollapsiblePanelLayout>
       </Box>
-      {/* Outside the page's max width: the bar spans the window, its contents
-          line up with the page. */}
-      <UnsavedEditsBar />
     </PreLaunchChecklistProvider>
   );
 }
