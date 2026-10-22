@@ -238,9 +238,6 @@ export class AnalyticsExplorationModel extends BaseClass {
         ...(dataset.type === "journey"
           ? { journeyFamily: journeyFamilyIdentity(dataset) }
           : {}),
-        ...(dataset.type === "population"
-          ? { populationUnit: dataset.unit }
-          : {}),
       }),
     );
 
@@ -249,7 +246,7 @@ export class AnalyticsExplorationModel extends BaseClass {
     // the cache on any step change. Per-step incremental refresh is a
     // future optimization.
     const valueHashes =
-      dataset.type === "funnel" || dataset.type === "population"
+      dataset.type === "funnel"
         ? [md5(JSON.stringify(dataset.steps))]
         : dataset.type === "journey"
           ? [md5("journey")]

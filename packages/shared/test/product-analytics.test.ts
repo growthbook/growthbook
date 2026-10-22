@@ -5,6 +5,7 @@ import {
 import { format, createLikeStringMatchFn } from "shared/sql";
 import {
   ExplorationConfig,
+  PopulationValue,
   ProductAnalyticsDimension,
 } from "shared/validators";
 import { SqlDialect } from "shared/types/sql";
@@ -1662,10 +1663,18 @@ describe("productAnalytics", () => {
   });
 
   describe("population datasets", () => {
+    const populationValue = (
+      overrides: Partial<PopulationValue> = {},
+    ): PopulationValue => ({
+      type: "population",
+      name: "Big spenders",
+      unit: "user_id",
+      source: { type: "factTable", factTableId: "orders" },
+      rowFilters: [{ operator: ">", column: "revenue", values: ["10"] }],
+      ...overrides,
+    });
     const populationConfig = (
-      dataset: Partial<
-        Extract<ExplorationConfig["dataset"], { type: "population" }>
-      > = {},
+      values: PopulationValue[] = [populationValue()],
       overrides: Partial<
         Pick<ExplorationConfig, "dateRange" | "dimensions">
       > = {},
@@ -1684,17 +1693,12 @@ describe("productAnalytics", () => {
         { dimensionType: "date", column: null, dateGranularity: "day" },
       ],
       ...overrides,
-      dataset: {
-        type: "population",
-        unit: "user_id",
-        steps: [
-          {
-            source: { type: "factTable", factTableId: "orders" },
-            rowFilters: [{ operator: ">", column: "revenue", values: ["10"] }],
-          },
-        ],
-        ...dataset,
-      },
+      dataset: { type: "population", values },
+    });
+    const countAtLeastThree = populationValue({
+      rowFilters: [],
+      aggregateFilter: ">=3",
+      aggregateFilterColumn: "$$count",
     });
 
     it("counts each matching unit once per date bucket", () => {
@@ -1706,7 +1710,7 @@ describe("productAnalytics", () => {
         datasource,
       );
 
-      expect(orderedMetricIds).toEqual(["population"]);
+      expect(orderedMetricIds).toEqual(["population_0"]);
       expect(sql).toMatch(
         /SELECT\s+unit0,\s+dimension0,\s+MAX\(m0\) AS m0\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit0,\s+dimension0/,
       );
@@ -1717,16 +1721,7 @@ describe("productAnalytics", () => {
 
     it("applies the aggregate filter per unit within each date bucket", () => {
       const { sql } = generateProductAnalyticsSQL(
-        populationConfig({
-          steps: [
-            {
-              source: { type: "factTable", factTableId: "orders" },
-              rowFilters: [],
-              aggregateFilter: ">=3",
-              aggregateFilterColumn: "$$count",
-            },
-          ],
-        }),
+        populationConfig([countAtLeastThree]),
         factTableMap,
         metricMap,
         helpers,
@@ -1747,24 +1742,12 @@ describe("productAnalytics", () => {
         lookbackUnit: null,
       };
       const { sql } = generateProductAnalyticsSQL(
-        populationConfig(
-          {
-            steps: [
-              {
-                source: { type: "factTable", factTableId: "orders" },
-                rowFilters: [],
-                aggregateFilter: ">=3",
-                aggregateFilterColumn: "$$count",
-              },
-            ],
-          },
-          {
-            dateRange,
-            dimensions: [
-              { dimensionType: "date", column: null, dateGranularity: "week" },
-            ],
-          },
-        ),
+        populationConfig([countAtLeastThree], {
+          dateRange,
+          dimensions: [
+            { dimensionType: "date", column: null, dateGranularity: "week" },
+          ],
+        }),
         factTableMap,
         metricMap,
         helpers,
@@ -1782,20 +1765,43 @@ describe("productAnalytics", () => {
       );
     });
 
-    it("rejects multi-step populations", () => {
-      const step = {
-        source: { type: "factTable" as const, factTableId: "orders" },
-        rowFilters: [],
-      };
+    it("counts each value as its own series", () => {
+      const { sql, orderedMetricIds } = generateProductAnalyticsSQL(
+        populationConfig([
+          populationValue(),
+          populationValue({
+            name: "Repeat visitors",
+            unit: "anonymous_id",
+            rowFilters: [],
+            aggregateFilter: ">=3",
+            aggregateFilterColumn: "$$count",
+          }),
+        ]),
+        factTableMap,
+        metricMap,
+        helpers,
+        datasource,
+      );
+
+      expect(orderedMetricIds).toEqual(["population_0", "population_1"]);
+      expect(sql).toMatch(
+        /SELECT\s+unit0,\s+dimension0,\s+MAX\(m0\) AS m0\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit0,\s+dimension0/,
+      );
+      expect(sql).toMatch(
+        /SELECT\s+unit1,\s+dimension0,\s+CASE\s+WHEN \(SUM\(m1\) >= 3\) THEN 1\s+ELSE NULL\s+END AS m1\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit1,\s+dimension0/,
+      );
+    });
+
+    it("requires a unit on every value", () => {
       expect(() =>
         generateProductAnalyticsSQL(
-          populationConfig({ steps: [step, step] }),
+          populationConfig([populationValue({ unit: null })]),
           factTableMap,
           metricMap,
           helpers,
           datasource,
         ),
-      ).toThrow("Population previews support a single step");
+      ).toThrow("Population unit is required");
     });
   });
 });

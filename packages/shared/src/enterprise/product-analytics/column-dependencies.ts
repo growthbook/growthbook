@@ -163,6 +163,26 @@ export function explorationConfigReferencesColumn(
     );
   }
 
+  if (config.type === "population") {
+    const values = config.dataset.values.filter(
+      (value) => value.source.factTableId === factTableId,
+    );
+    if (!values.length) return false;
+
+    const valueReferences = values.some(
+      (value) =>
+        value.aggregateFilterColumn === columnName ||
+        value.rowFilters.some((f) =>
+          rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
+        ),
+    );
+    if (valueReferences) return true;
+
+    return config.dimensions.some((d) =>
+      dimensionReferencesColumn(d, columnName, identifierQuote, filters),
+    );
+  }
+
   // metric / data_source / sql configs never reference fact-table columns directly.
   return false;
 }

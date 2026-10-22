@@ -9,7 +9,6 @@ import {
   ExplorationConfig,
   ExplorationDataset,
   ProductAnalyticsDimension,
-  datasetHasValues,
 } from "../../validators/product-analytics";
 
 export interface AvailableDimensionColumn {
@@ -172,7 +171,7 @@ export function getRelevantFactTableIds(
       break;
     }
     case "population":
-      dataset.steps.forEach((step) => ids.add(step.source.factTableId));
+      dataset.values.forEach((v) => ids.add(v.source.factTableId));
       break;
     case "data_source":
     case "sql":
@@ -257,8 +256,19 @@ export function getAvailableDimensionColumns(
         : null;
       return ft ? getFactTableDimensionColumns(ft) : [];
     }
-    case "population":
-      return [];
+    case "population": {
+      if (!dataset.values.length) return [];
+      const factTables = dataset.values.map((v) =>
+        getFactTableById(v.source.factTableId),
+      );
+      if (factTables.some((ft) => !ft)) return [];
+      const [first, ...rest] = factTables as DimensionFactTable[];
+      // Every value's fact table has to resolve the column, or that value
+      // couldn't be broken down by it.
+      return getFactTableDimensionColumns(first).filter((c) =>
+        rest.every((ft) => factTableHasResolvableColumn(ft, c.column)),
+      );
+    }
     default: {
       const _exhaustive: never = dataset;
       return _exhaustive;
@@ -337,8 +347,8 @@ export function dimensionColumnIsAvailable(
 }
 
 export function getMaxDimensions(dataset: ExplorationDataset): number {
-  // Phase 1 funnels, journeys, and population previews are capped at a single dimension.
-  if (!datasetHasValues(dataset)) return 1;
+  // Phase 1 funnels and journeys are capped at a single dimension.
+  if (dataset.type === "funnel" || dataset.type === "journey") return 1;
   let maxDimensions = 2;
   if (dataset.values.length > 1) {
     maxDimensions -= 1;

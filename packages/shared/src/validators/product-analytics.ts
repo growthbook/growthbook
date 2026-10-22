@@ -220,15 +220,24 @@ const journeyDatasetValidator = z
   .strict();
 export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;
 
-// Internal only (population editor preview). Step windows are omitted: the
-// preview ignores them, and leaving them out keeps them from busting the cache.
+// Populations: one single-step population definition per value. Step windows
+// aren't supported, so they're not part of the value.
+const populationValueValidator = baseValueValidator.extend({
+  type: z.literal("population"),
+  unit: z.string().nullable(),
+  ...populationStepValidator.pick({
+    source: true,
+    aggregateFilter: true,
+    aggregateFilterColumn: true,
+  }).shape,
+});
+export type PopulationValue = z.infer<typeof populationValueValidator>;
+
+// Internal only until the Explorer supports populations.
 const populationDatasetValidator = z
   .object({
     type: z.literal("population"),
-    unit: z.string().nullable(),
-    steps: z
-      .array(populationStepValidator.omit({ windowSettings: true }))
-      .min(1),
+    values: z.array(populationValueValidator),
   })
   .strict();
 export type PopulationDataset = z.infer<typeof populationDatasetValidator>;
@@ -266,6 +275,7 @@ const _valueValidator = z.discriminatedUnion("type", [
   factTableValueValidator,
   dataSourceValueValidator,
   sqlValueValidator,
+  populationValueValidator,
 ]);
 export type ProductAnalyticsValue = z.infer<typeof _valueValidator>;
 
@@ -630,7 +640,8 @@ export type ValuesDataset =
   | MetricDataset
   | FactTableDataset
   | DataSourceDataset
-  | SqlDataset;
+  | SqlDataset
+  | PopulationDataset;
 
 export function datasetHasValues(
   dataset: ExplorationDataset,
@@ -645,12 +656,12 @@ export function datasetHasValues(
   switch (dataset.type) {
     case "funnel":
     case "journey":
-    case "population":
       return false;
     case "metric":
     case "fact_table":
     case "data_source":
     case "sql":
+    case "population":
       return true;
     default: {
       const exhaustive: never = dataset;
@@ -662,7 +673,7 @@ export function datasetHasValues(
 export function datasetTypeHasValues(
   type: DatasetType,
 ): type is ValuesDataset["type"] {
-  return type !== "funnel" && type !== "journey" && type !== "population";
+  return type !== "funnel" && type !== "journey";
 }
 export type ProductAnalyticsFunnelStepResult = z.infer<
   typeof productAnalyticsFunnelStepResultValidator

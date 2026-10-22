@@ -208,57 +208,56 @@ function getMetricsAndUnitsFromValues(
 
   return { metrics, units: Array.from(units) };
 }
-export const POPULATION_PREVIEW_VALUE_ID = "population";
-
-// A population step is a distinct-units count with an optional aggregate
+// Each population value is a distinct-units count with an optional aggregate
 // filter. The aggregate filter is applied per unit within each dimension
 // bucket (e.g. per day), not across the whole date range.
-function getPopulationFactTableGroup(
+function getPopulationFactTableGroups(
   dataset: PopulationDataset,
   factTableMap: FactTableMap,
-): FactTableGroup {
-  if (dataset.steps.length !== 1) {
-    throw new Error("Population previews support a single step");
-  }
-  if (!dataset.unit) {
-    throw new Error("Population unit is required");
-  }
-  const [step] = dataset.steps;
-  const factTable = factTableMap.get(step.source.factTableId);
-  if (!factTable) {
-    throw new Error(`Fact table ${step.source.factTableId} not found`);
-  }
-  const metric = createSimpleMetric(
-    "unit_count",
-    null,
-    step.rowFilters,
-    POPULATION_PREVIEW_VALUE_ID,
-  );
-  return {
-    index: 0,
-    factTable: toMinimalFactTable(factTable),
-    units: [dataset.unit],
-    metrics: [
-      {
-        index: 0,
-        unit: dataset.unit,
-        metric: {
-          ...metric,
-          id: POPULATION_PREVIEW_VALUE_ID,
-          numerator: {
-            ...metric.numerator,
-            factTableId: factTable.id,
-            ...(step.aggregateFilter && step.aggregateFilterColumn
-              ? {
-                  aggregateFilter: step.aggregateFilter,
-                  aggregateFilterColumn: step.aggregateFilterColumn,
-                }
-              : {}),
-          },
+): FactTableGroup[] {
+  const groups: Record<string, FactTableGroup> = {};
+  dataset.values.forEach((value, index) => {
+    if (!value.unit) {
+      throw new Error("Population unit is required");
+    }
+    const factTable = factTableMap.get(value.source.factTableId);
+    if (!factTable) {
+      throw new Error(`Fact table ${value.source.factTableId} not found`);
+    }
+    const metric = createSimpleMetric(
+      "unit_count",
+      null,
+      value.rowFilters,
+      value.name,
+    );
+    groups[factTable.id] ??= {
+      index: Object.keys(groups).length,
+      factTable: toMinimalFactTable(factTable),
+      metrics: [],
+      units: [],
+    };
+    const group = groups[factTable.id];
+    group.metrics.push({
+      index,
+      unit: value.unit,
+      metric: {
+        ...metric,
+        id: `population_${index}`,
+        numerator: {
+          ...metric.numerator,
+          factTableId: factTable.id,
+          ...(value.aggregateFilter && value.aggregateFilterColumn
+            ? {
+                aggregateFilter: value.aggregateFilter,
+                aggregateFilterColumn: value.aggregateFilterColumn,
+              }
+            : {}),
         },
       },
-    ],
-  };
+    });
+    if (!group.units.includes(value.unit)) group.units.push(value.unit);
+  });
+  return Object.values(groups);
 }
 
 function getFactTableGroups({
@@ -334,7 +333,7 @@ function getFactTableGroups({
         ];
       })();
     case "population":
-      return [getPopulationFactTableGroup(config.dataset, factTableMap)];
+      return getPopulationFactTableGroups(config.dataset, factTableMap);
     case "funnel":
     case "journey":
       // Dispatched away from this code path in generateProductAnalyticsSQL;

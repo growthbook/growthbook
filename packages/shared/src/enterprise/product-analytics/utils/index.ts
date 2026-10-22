@@ -10,7 +10,6 @@ import type {
   ProductAnalyticsResultRow,
   ShowAs,
 } from "../../../validators/product-analytics";
-import { datasetHasValues } from "../../../validators/product-analytics";
 
 /**
  * Narrows an already-classified warehouse column type to the smaller set an
@@ -550,8 +549,10 @@ export function buildExplorationColumns(
   // column layout (see useExplorationTableData). Bail out here with only
   // dimension columns so the shared schema doesn't claim a value layout
   // that doesn't exist on the row.
-  const dataset = config?.dataset;
-  const values = datasetHasValues(dataset) ? dataset.values : [];
+  const values =
+    config?.dataset?.type === "funnel" || config?.dataset?.type === "journey"
+      ? []
+      : (config?.dataset?.values ?? []);
   if (values.length === 0) return cols;
 
   const isRatio = getIsRatioByIndex(config, getFactMetricById);

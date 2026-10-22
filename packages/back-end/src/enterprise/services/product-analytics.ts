@@ -380,19 +380,19 @@ export async function runProductAnalyticsExploration(
       );
     }
   } else if (dataset.type === "population") {
-    if (dataset.steps.length !== 1) {
-      throw new BadRequestError("Populations only support a single step");
-    }
-    if (!dataset.unit) {
-      throw new BadRequestError("Population unit is required");
+    if (!dataset.values.length) {
+      throw new BadRequestError("No populations provided");
     }
     if (config.dimensions.some((d) => d.dimensionType !== "date")) {
       throw new BadRequestError(
         "Population previews can only be grouped by date",
       );
     }
-    const steps: PopulationStep[] = dataset.steps.map((step) => ({
-      ...step,
+    const steps: PopulationStep[] = dataset.values.map((value) => ({
+      source: value.source,
+      rowFilters: value.rowFilters,
+      aggregateFilter: value.aggregateFilter,
+      aggregateFilterColumn: value.aggregateFilterColumn,
       windowSettings: {
         type: "",
         delayValue: 0,
@@ -406,11 +406,14 @@ export async function runProductAnalyticsExploration(
       getPopulationFactTableIds(steps),
     );
     factTables.forEach((ft) => factTableMap.set(ft.id, ft));
-    const violations = getPopulationRuleViolations({
-      datasource: datasource.id,
-      userIdTypes: [dataset.unit],
-      steps,
-      factTables,
+    const violations = dataset.values.flatMap((value, i) => {
+      if (!value.unit) return [`${value.name}: Population unit is required.`];
+      return getPopulationRuleViolations({
+        datasource: datasource.id,
+        userIdTypes: [value.unit],
+        steps: [steps[i]],
+        factTables,
+      }).map((violation) => `${value.name}: ${violation}`);
     });
     if (violations.length) {
       throw new BadRequestError(violations.join(" "));
