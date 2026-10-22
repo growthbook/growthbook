@@ -12,7 +12,6 @@ import {
   PiX,
 } from "react-icons/pi";
 import { DetectedColumn } from "shared/types/fact-table";
-import Avatar from "@/ui/Avatar";
 import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
 import { Select, SelectItem } from "@/ui/Select";
@@ -22,50 +21,45 @@ import Text from "@/ui/Text";
 export const validColumn = (options: DetectedColumn[], column: string) =>
   options.some((c) => c.column === column) ? column : "";
 
-// Identifier and timestamp match the badges on the Fact Table column list.
-const KIND_BADGES = {
+const KIND_ICONS = {
   experiment: {
     tooltip: "The experiment's tracking key",
-    icon: <PiFlaskBold size={14} />,
+    icon: <PiFlaskBold />,
   },
   variation: {
     tooltip: "Which variation the unit saw",
-    icon: <PiArrowsSplitBold size={14} />,
+    icon: <PiArrowsSplitBold />,
   },
   identifier: {
     tooltip: "Unit identifier type",
-    icon: <PiUserBold size={14} />,
+    icon: <PiUserBold />,
   },
-  timestamp: { tooltip: "Main date field", icon: <PiClockBold size={14} /> },
+  timestamp: { tooltip: "Main date field", icon: <PiClockBold /> },
   event: {
     tooltip: "Event name filter",
-    icon: <PiFunnelBold size={14} />,
+    icon: <PiFunnelBold />,
   },
   partition: {
     tooltip: "Date partition filter",
-    icon: <PiCalendarBold size={14} />,
+    icon: <PiCalendarBold />,
   },
   columns: {
     tooltip: "Other columns to include",
-    icon: <PiColumnsBold size={14} />,
+    icon: <PiColumnsBold />,
   },
 };
 
-export function ColumnKindBadge({
+export function ColumnKindIcon({
   kind,
   tooltip,
 }: {
-  kind: keyof typeof KIND_BADGES;
+  kind: keyof typeof KIND_ICONS;
   tooltip?: string;
 }) {
   return (
-    <Tooltip content={tooltip ?? KIND_BADGES[kind].tooltip} side="left">
-      {/* Avatar forwards trigger props to its hidden image, so the wrapper
-          takes the tooltip's hover handlers instead. */}
+    <Tooltip content={tooltip ?? KIND_ICONS[kind].tooltip} side="left">
       <Flex as="span" flexShrink="0">
-        <Avatar size="sm" color="violet" variant="soft" radius="small">
-          {KIND_BADGES[kind].icon}
-        </Avatar>
+        {KIND_ICONS[kind].icon}
       </Flex>
     </Tooltip>
   );
@@ -82,7 +76,7 @@ export default function ColumnMappingRow({
   append,
 }: {
   label: string;
-  kind?: keyof typeof KIND_BADGES;
+  kind: keyof typeof KIND_ICONS;
   // Replaces the kind's tooltip where the role means something more specific
   tooltip?: string;
   value: string;
@@ -99,12 +93,7 @@ export default function ColumnMappingRow({
     <TableRow align="center">
       <TableCell style={{ width: "40%" }}>
         <Flex align="center" gap="2">
-          {kind ? (
-            <ColumnKindBadge kind={kind} tooltip={tooltip} />
-          ) : (
-            // Keeps labels aligned with the badged rows.
-            <Box width="var(--space-5)" flexShrink="0" />
-          )}
+          <ColumnKindIcon kind={kind} tooltip={tooltip} />
           <Text size="sm" weight="medium">
             {label}
           </Text>

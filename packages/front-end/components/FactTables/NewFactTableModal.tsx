@@ -25,7 +25,7 @@ import {
 import SourceStep from "@/components/SchemaBrowser/SourceStep";
 import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";
 import ColumnMappingRow, {
-  ColumnKindBadge,
+  ColumnKindIcon,
   validColumn,
 } from "@/components/SchemaBrowser/ColumnMappingRow";
 import SelectField from "@/components/Forms/SelectField";
@@ -116,7 +116,7 @@ function AdditionalColumnsRow({
     <TableRow align="start">
       <TableCell>
         <Flex align="center" gap="2" height="24px">
-          <ColumnKindBadge kind="columns" />
+          <ColumnKindIcon kind="columns" />
           <Text size="sm" weight="medium">
             Additional columns
           </Text>
