@@ -172,7 +172,7 @@ If you want to refresh the features at any time (e.g. when a navigation event oc
 
 #### Encrypted Payloads
 
-Decrypting an encrypted payload requires the Web Crypto `SubtleCrypto` API. Hermes, the default JavaScript engine for React Native and Expo, does not provide it. Without it, decryption fails with `No SubtleCrypto implementation found` and every feature evaluates to its default value.
+Decrypting an encrypted payload requires the Web Crypto `SubtleCrypto` API. Hermes, the default JavaScript engine for React Native and Expo, does not provide it. Without it, decryption fails with `No SubtleCrypto implementation found` and the SDK keeps any features it already loaded. If none were loaded, features evaluate to `null`, so `getFeatureValue` returns the fallback passed in code, not the default value set in GrowthBook.
 
 To use encryption, pass a `SubtleCrypto` implementation that supports AES-CBC to `setPolyfills` before calling `init`:
 
