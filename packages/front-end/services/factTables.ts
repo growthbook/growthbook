@@ -105,10 +105,10 @@ export const rematchUserIdColumns = (
     }),
   );
 
+// Ignores case and separators, so userId matches user_id
 const normalizeColumnName = (name: string) =>
   name.replace(/[^a-z]/gi, "").toLowerCase();
 
-// Ignores case and separators, so userId matches user_id
 const EVENT_TYPE_COLUMNS = [
   "event_name",
   "eventName",

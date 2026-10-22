@@ -75,7 +75,6 @@ export function getExposureQueryIdentifierColumn(
 
 const PLAIN_COLUMN_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
-// Says why the columns can't be mapped and how to alias them instead
 export function getColumnsNeedingQuotesMessage(columns: string[]): string {
   const one = columns.length === 1;
   const names = columns.map((c) => `"${c}"`);

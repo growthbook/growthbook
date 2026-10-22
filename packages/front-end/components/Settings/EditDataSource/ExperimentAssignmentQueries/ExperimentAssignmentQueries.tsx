@@ -43,7 +43,7 @@ export const ExperimentAssignmentQueries: FC<
 
   const permissionsUtil = usePermissionsUtil();
   const canAdd = canEdit && permissionsUtil.canAddExposureQuery(dataSource);
-  // A query maps its columns to the Data Source's identifier types
+  // A query needs at least one identifier type to map a column to
   const hasIdentifiers = !!dataSource.settings?.userIdTypes?.length;
   const canEditQuery = (query: ExposureQuery) =>
     canEdit && permissionsUtil.canUpdateExposureQuery(query, dataSource);

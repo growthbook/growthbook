@@ -1406,8 +1406,7 @@ export function getInitialFactTableQuery(
   };
 }
 
-// The requested identifiers, else every declared one, like
-// getInitialFactTableQuery
+// The requested identifiers, or every declared one when none are requested
 export function getStarterIdentifierTypes(
   datasource: DataSourceInterfaceWithParams,
   identifierTypes?: string[],

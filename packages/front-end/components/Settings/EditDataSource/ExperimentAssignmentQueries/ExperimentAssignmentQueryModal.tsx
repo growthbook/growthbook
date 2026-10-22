@@ -125,7 +125,6 @@ export const ExperimentAssignmentQueryModal = ({
   onCancel,
 }: {
   dataSource: DataSourceInterfaceWithParams;
-  // Edits this query when set; otherwise creates a new one.
   exposureQuery?: ExposureQuery;
   // Identifiers a new query is meant to cover
   defaultIdentifierTypes?: string[];
@@ -202,7 +201,6 @@ export const ExperimentAssignmentQueryModal = ({
     getGA4ExposureTemplate(starterIdentifierTypes),
   ]);
 
-  // A mapping survives as long as its column does
   const remapColumns = (cols: DetectedColumn[]) => {
     setExperimentIdColumn((prev) =>
       rematchColumn(prev, cols, () => findColumnByName(cols, "experiment_id")),
@@ -268,7 +266,6 @@ export const ExperimentAssignmentQueryModal = ({
   const columns = detected || [];
   const timestampOptions = columns.filter(isTimestampCandidate);
   const identifierOptions = columns.filter(isIdentifierCandidate);
-  // Checked as columns are picked, so the problem shows before Add
   const columnsNeedingQuotes = findColumnsNeedingQuotes(
     {
       columnMapping: {
@@ -425,6 +422,10 @@ export const ExperimentAssignmentQueryModal = ({
       );
     }
 
+    if (columnsNeedingQuotes.length) {
+      throw new Error(getColumnsNeedingQuotesMessage(columnsNeedingQuotes));
+    }
+
     const remappedUserIds = getRemappedUserIdColumns(
       mappedUserIdTypes,
       userIdColumns,
@@ -478,10 +479,6 @@ export const ExperimentAssignmentQueryModal = ({
         : {}),
       ...(Object.keys(columnMapping).length ? { columnMapping } : {}),
     };
-
-    if (columnsNeedingQuotes.length) {
-      throw new Error(getColumnsNeedingQuotesMessage(columnsNeedingQuotes));
-    }
 
     await onSave(saved);
   }
