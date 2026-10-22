@@ -55,16 +55,22 @@ describe("trace ingest role", () => {
     const withCustom = {
       ...org,
       customRoles: [
-        { id: "gbDefault_traceIngest", description: "", policies: [...POLICIES] },
+        {
+          id: "gbDefault_traceIngest",
+          description: "",
+          policies: [...POLICIES],
+        },
       ],
     } as OrganizationInterface;
-    expect(getRoles(withCustom).filter((r) => r.id === "gbDefault_traceIngest")).toEqual([
-      DEFAULT_ROLES.gbDefault_traceIngest,
-    ]);
+    expect(
+      getRoles(withCustom).filter((r) => r.id === "gbDefault_traceIngest"),
+    ).toEqual([DEFAULT_ROLES.gbDefault_traceIngest]);
   });
 
   it("can be looked up (for API keys) but isn't valid for members or teams", () => {
-    expect(getRoleById("gbDefault_traceIngest", org)).toBe(DEFAULT_ROLES.gbDefault_traceIngest);
+    expect(getRoleById("gbDefault_traceIngest", org)).toBe(
+      DEFAULT_ROLES.gbDefault_traceIngest,
+    );
     expect(isRoleValid("gbDefault_traceIngest", org)).toBe(false);
     // Other default roles, including the visual editor one, are unaffected.
     expect(isRoleValid("visualEditor", org)).toBe(true);
@@ -73,7 +79,10 @@ describe("trace ingest role", () => {
 
   it("isn't valid as a project role or a project role's additional role", () => {
     expect(
-      areProjectRolesValid([{ ...rule("gbDefault_traceIngest"), project: "prj_a" }], org),
+      areProjectRolesValid(
+        [{ ...rule("gbDefault_traceIngest"), project: "prj_a" }],
+        org,
+      ),
     ).toBe(false);
     expect(
       areProjectRolesValid(
@@ -114,7 +123,9 @@ describe("trace ingest role", () => {
   });
 
   it("isn't valid as an additional role", () => {
-    expect(areAdditionalRolesValid([rule("gbDefault_traceIngest")], org)).toBe(false);
+    expect(areAdditionalRolesValid([rule("gbDefault_traceIngest")], org)).toBe(
+      false,
+    );
     expect(areAdditionalRolesValid([rule("engineer")], org)).toBe(true);
   });
 
@@ -132,7 +143,11 @@ describe("trace ingest role", () => {
   });
 
   it("resolves to empty permissions without errors", () => {
-    const permissions = getRolePermissions(rule("gbDefault_traceIngest"), org, []);
+    const permissions = getRolePermissions(
+      rule("gbDefault_traceIngest"),
+      org,
+      [],
+    );
     expect(permissions.global.permissions).toEqual({});
     expect(permissions.projects).toEqual({});
 
