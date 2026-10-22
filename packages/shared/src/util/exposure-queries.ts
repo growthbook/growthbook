@@ -75,12 +75,45 @@ export function getExposureQueryIdentifierColumn(
 
 const PLAIN_COLUMN_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+// Says why the columns can't be mapped and how to alias them instead
+export function getColumnsNeedingQuotesMessage(columns: string[]): string {
+  const one = columns.length === 1;
+  const names = columns.map((c) => `"${c}"`);
+  const list = one
+    ? names[0]
+    : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  const capitals = columns.some((c) => PLAIN_COLUMN_NAME.test(c));
+  const special = columns.some((c) => !PLAIN_COLUMN_NAME.test(c));
+  const reason =
+    capitals && special
+      ? "capital letters or special characters"
+      : capitals
+        ? "capital letters"
+        : "special characters";
+  const target = special
+    ? `${one ? "a lowercase name" : "lowercase names"} with only letters, numbers and underscores`
+    : one
+      ? "a lowercase name"
+      : "lowercase names";
+  const alias =
+    columns[0]
+      .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, "_")
+      .replace(/^_+|_+$/g, "") || "column_name";
+  return `${one ? "Column" : "Columns"} ${list} can't be mapped because of ${
+    one ? "its" : "their"
+  } ${reason}. In SQL mode, quote ${one ? "it" : "each one"} and alias ${
+    one ? "it" : "them"
+  } to ${target}, like ${names[0]} AS ${alias}.`;
+}
+
 // Mapped columns are interpolated unquoted. On warehouses that fold unquoted
 // names to lowercase, a capital letter means the column was created quoted.
-export function findColumnNeedingQuotes(
+export function findColumnsNeedingQuotes(
   query: WithColumnMapping,
   fold: UnquotedIdentifierFold | undefined,
-): string | null {
+): string[] {
   const mapping = query.columnMapping ?? {};
   const mapped = [
     mapping.experimentIdColumn,
@@ -90,14 +123,16 @@ export function findColumnNeedingQuotes(
     mapping.variationNameColumn,
     ...Object.values(mapping.userIdColumns ?? {}),
   ];
-  return (
-    mapped.find(
-      (c) =>
-        !!c &&
-        (!PLAIN_COLUMN_NAME.test(c) ||
-          (fold === "lower" && c !== c.toLowerCase())),
-    ) ?? null
-  );
+  return [
+    ...new Set(
+      mapped.filter(
+        (c): c is string =>
+          !!c &&
+          (!PLAIN_COLUMN_NAME.test(c) ||
+            (fold === "lower" && c !== c.toLowerCase())),
+      ),
+    ),
+  ];
 }
 
 /**

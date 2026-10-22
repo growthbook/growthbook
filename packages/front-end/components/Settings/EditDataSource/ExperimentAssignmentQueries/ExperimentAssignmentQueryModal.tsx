@@ -4,7 +4,8 @@ import { PiArrowClockwise, PiArrowLeft } from "react-icons/pi";
 import uniqId from "uniqid";
 import omit from "lodash/omit";
 import {
-  findColumnNeedingQuotes,
+  findColumnsNeedingQuotes,
+  getColumnsNeedingQuotesMessage,
   getExposureQueryExperimentIdColumn,
   getExposureQueryExperimentNameColumn,
   getExposureQueryIdentifierColumn,
@@ -267,6 +268,20 @@ export const ExperimentAssignmentQueryModal = ({
   const columns = detected || [];
   const timestampOptions = columns.filter(isTimestampCandidate);
   const identifierOptions = columns.filter(isIdentifierCandidate);
+  // Checked as columns are picked, so the problem shows before Add
+  const columnsNeedingQuotes = findColumnsNeedingQuotes(
+    {
+      columnMapping: {
+        experimentIdColumn,
+        variationIdColumn,
+        timestampColumn,
+        experimentNameColumn,
+        variationNameColumn,
+        userIdColumns,
+      },
+    },
+    getDataSourceSqlDialect(dataSource.type)?.unquotedIdentifierFold,
+  );
   const experimentName = validColumn(columns, experimentNameColumn);
   const variationName = validColumn(columns, variationNameColumn);
 
@@ -464,14 +479,8 @@ export const ExperimentAssignmentQueryModal = ({
       ...(Object.keys(columnMapping).length ? { columnMapping } : {}),
     };
 
-    const quotedColumn = findColumnNeedingQuotes(
-      saved,
-      getDataSourceSqlDialect(dataSource.type)?.unquotedIdentifierFold,
-    );
-    if (quotedColumn) {
-      throw new Error(
-        `Column "${quotedColumn}" can't be mapped because its name needs quoting. In SQL mode, alias it to a lowercase name like "user_id".`,
-      );
+    if (columnsNeedingQuotes.length) {
+      throw new Error(getColumnsNeedingQuotesMessage(columnsNeedingQuotes));
     }
 
     await onSave(saved);
@@ -750,6 +759,11 @@ export const ExperimentAssignmentQueryModal = ({
                   ) : null}
                 </TableBody>
               </Table>
+              {columnsNeedingQuotes.length ? (
+                <Callout status="warning" size="sm" mb="2">
+                  {getColumnsNeedingQuotesMessage(columnsNeedingQuotes)}
+                </Callout>
+              ) : null}
               {!experimentName !== !variationName ? (
                 <Callout status="warning" size="sm" mb="2">
                   Map both the experiment name and the variation name, or leave

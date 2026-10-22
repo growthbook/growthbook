@@ -13,7 +13,8 @@ import {
   isManagedWarehouseUnavailable,
   findNewDuplicateUserIdTypeName,
   getExposureQueryIdentifierTypes,
-  findColumnNeedingQuotes,
+  findColumnsNeedingQuotes,
+  getColumnsNeedingQuotesMessage,
   resolveAnalysisIdentifierType,
 } from "shared/util";
 import {
@@ -649,15 +650,15 @@ export async function validateExposureQueriesAndAddMissingIds(
             }" must declare at least one identifier type`,
           );
         }
-        const quotedColumn = findColumnNeedingQuotes(
+        const quotedColumns = findColumnsNeedingQuotes(
           exposure,
           getDataSourceSqlDialect(datasource.type)?.unquotedIdentifierFold,
         );
-        if (quotedColumn) {
+        if (quotedColumns.length) {
           throw new Error(
             `Experiment assignment query "${
               exposure.name || exposure.id
-            }" maps column "${quotedColumn}", which needs quoting. Alias it in the SQL to a lowercase name like "user_id".`,
+            }": ${getColumnsNeedingQuotesMessage(quotedColumns)}`,
           );
         }
         // The legacy identifier is frozen once the query exists, so ignore
