@@ -1063,7 +1063,9 @@ export async function postFeatures(
   // A duplicate echoes its source's rules; only what the copy changes is
   // re-checked.
   const source = duplicateOf ? await getFeature(context, duplicateOf) : null;
-  await assertValidFeatureRules(context, feature.rules ?? [], source?.rules);
+  await assertValidFeatureRules(context, feature.rules ?? [], source?.rules, {
+    copiesRules: true,
+  });
   validatePrerequisiteConditions(feature.prerequisites ?? []);
   await assertValidPrerequisiteParents(context, feature, source ?? undefined);
   assertFeatureValuesValid(context, feature, {
@@ -3783,7 +3785,9 @@ export async function postFeatureSync(
     needsNewRevision = true;
   }
 
-  await assertValidFeatureRules(context, nextFlatRules, feature.rules ?? []);
+  await assertValidFeatureRules(context, nextFlatRules, feature.rules ?? [], {
+    copiesRules: true,
+  });
   await assertValidPrerequisiteParents(
     context,
     { ...feature, rules: nextFlatRules },

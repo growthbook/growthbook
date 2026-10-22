@@ -39,3 +39,32 @@ export function parseIdsQuery(
   }
   return list;
 }
+
+/**
+ * Parses an untrusted value (e.g. a route param or request body field) into a
+ * valid index for an array of the given length. Returns undefined unless the
+ * value is a non-negative integer (or its canonical decimal string) that is
+ * within bounds.
+ *
+ * Use this instead of indexing with the raw value: strings such as
+ * "__proto__" or "constructor" resolve to truthy inherited properties on
+ * arrays, which defeats `if (!arr[i])` existence checks and can lead to
+ * prototype pollution on assignment.
+ */
+export function parseArrayIndex(
+  value: unknown,
+  length: number,
+): number | undefined {
+  let index: number;
+  if (typeof value === "number") {
+    index = value;
+  } else if (typeof value === "string" && /^(0|[1-9]\d*)$/.test(value)) {
+    index = Number(value);
+  } else {
+    return undefined;
+  }
+  if (!Number.isSafeInteger(index) || index < 0 || index >= length) {
+    return undefined;
+  }
+  return index;
+}

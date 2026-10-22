@@ -1189,6 +1189,8 @@ type SavedGroupReferencesResponse =
         project?: string;
         projects?: string[];
       }[];
+      contextualBandits: { id: string; name: string; project?: string }[];
+      interleavings: { id: string; name: string; project?: string }[];
       savedGroups: { id: string; groupName: string; projects?: string[] }[];
     }
   | { message: string };

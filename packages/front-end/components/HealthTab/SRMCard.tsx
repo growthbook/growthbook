@@ -1,30 +1,26 @@
 import { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
 import { ExperimentReportVariation } from "shared/types/report";
-import { useEffect, useLayoutEffect, useMemo } from "react";
-import { getSRMHealthData } from "shared/health";
-import {
-  DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-  DEFAULT_SRM_THRESHOLD,
-} from "shared/constants";
+import { useEffect, useLayoutEffect } from "react";
+import { DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION } from "shared/constants";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
 } from "shared/types/datasource";
 import clsx from "clsx";
-import { useUser } from "@/services/UserContext";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
-import SRMWarning from "@/components/Experiment/SRMWarning";
 import { HealthTabConfigParams } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
 import Callout from "@/ui/Callout";
 import { StatusBadge } from "./StatusBadge";
 import { DimensionIssues } from "./DimensionIssues";
 import { IssueValue } from "./IssueTags";
+import { SRMWarningFooter, useSrmHealth } from "./SRMCardShell";
 
 interface Props {
   traffic: ExperimentSnapshotTraffic;
   variations: ExperimentReportVariation[];
   totalUsers: number;
   onNotify?: (issue: IssueValue) => void;
+  snapshotId?: string;
   dataSource: DataSourceInterfaceWithParams | null;
   exposureQuery?: ExposureQuery;
   healthTabConfigParams?: HealthTabConfigParams;
@@ -41,6 +37,7 @@ export default function SRMCard({
   variations,
   totalUsers,
   onNotify,
+  snapshotId,
   dataSource,
   exposureQuery,
   healthTabConfigParams,
@@ -48,21 +45,14 @@ export default function SRMCard({
   newDesign = false,
   hideDimensions = false,
 }: Props) {
-  const { settings } = useUser();
-
-  const srmThreshold = settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD;
-
-  const srmHealth = useMemo(
-    () =>
-      getSRMHealthData({
-        srm: traffic.overall.srm,
-        srmThreshold,
-        numOfVariations: variations.length,
-        totalUsersCount: totalUsers,
-        minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-      }),
-    [traffic.overall.srm, srmThreshold, variations.length, totalUsers],
-  );
+  const srmHealth = useSrmHealth({
+    srm: traffic.overall.srm,
+    numOfVariations: variations.length,
+    totalUsersCount: totalUsers,
+    minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+    onNotify,
+    snapshotId,
+  });
 
   function onResize() {
     const childHeight =
@@ -77,13 +67,6 @@ export default function SRMCard({
     return () => window.removeEventListener("resize", onResize, false);
   }, []);
   useLayoutEffect(onResize, []);
-
-  useEffect(() => {
-    if (srmHealth === "unhealthy") {
-      onNotify &&
-        onNotify({ label: "Experiment Balance", value: "balanceCheck" });
-    }
-  }, [traffic, srmHealth, onNotify]);
 
   if (!traffic?.overall?.variationUnits?.length) {
     return (
@@ -141,20 +124,13 @@ export default function SRMCard({
                 />
               </div>
               <div>
-                {srmHealth !== "not-enough-traffic" ? (
-                  <SRMWarning
-                    srm={traffic.overall.srm}
-                    variations={variations}
-                    users={traffic.overall.variationUnits}
-                    showWhenHealthy
-                    isBandit={false}
-                  />
-                ) : (
-                  <Callout status="info">
-                    More traffic is required to detect a Sample Ratio Mismatch
-                    (SRM).
-                  </Callout>
-                )}
+                <SRMWarningFooter
+                  srm={traffic.overall.srm}
+                  srmHealth={srmHealth}
+                  variations={variations}
+                  users={traffic.overall.variationUnits}
+                  isBandit={false}
+                />
               </div>
             </div>
           </div>
