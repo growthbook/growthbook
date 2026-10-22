@@ -62,7 +62,12 @@ export const EXPERIMENT_QUALITY_SECTIONS: Record<
   ExperimentQualitySectionKey,
   ExperimentQualitySectionDefinition
 > = {
-  documentation: { label: "Documentation", defaultWeight: 40 },
+  setup: {
+    label: "Setup",
+    note: "before the experiment starts",
+    defaultWeight: 20,
+  },
+  documentation: { label: "Documentation", defaultWeight: 25 },
   process: {
     label: "Process",
     note: "stopped experiments only, from change history",
@@ -71,7 +76,7 @@ export const EXPERIMENT_QUALITY_SECTIONS: Record<
   ai: {
     label: "AI checks",
     note: "judged by AI, cached until inputs change",
-    defaultWeight: 30,
+    defaultWeight: 25,
   },
 };
 
@@ -89,6 +94,27 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
   ExperimentQualityCheckKey,
   ExperimentQualityCheckDefinition
 > = {
+  "goal-metrics": {
+    section: "setup",
+    type: "deterministic",
+    label: "Has goal metrics",
+    defaultEnabled: true,
+    defaultParams: { maxGoalMetrics: 3 },
+  },
+  "guardrail-metrics": {
+    section: "setup",
+    type: "deterministic",
+    label: "Has guardrail metrics",
+    defaultEnabled: true,
+  },
+  "max-variations": {
+    section: "setup",
+    type: "deterministic",
+    label: "Not too many variations",
+    note: "all except bandits",
+    defaultEnabled: false,
+    defaultParams: { maxVariations: 4 },
+  },
   hypothesis: {
     section: "documentation",
     type: "deterministic",
@@ -112,14 +138,7 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "documentation",
     type: "deterministic",
     label: "Organized with tags or a Project",
-    defaultEnabled: true,
-  },
-  "goal-metrics": {
-    section: "documentation",
-    type: "deterministic",
-    label: "Has goal metrics",
-    defaultEnabled: true,
-    defaultParams: { maxGoalMetrics: 3 },
+    defaultEnabled: false,
   },
   decision: {
     section: "documentation",
@@ -260,6 +279,12 @@ function sanitizeParams(
     (!Number.isInteger(merged.maxGoalMetrics) || merged.maxGoalMetrics < 2)
   ) {
     merged.maxGoalMetrics = defaults.maxGoalMetrics;
+  }
+  if (
+    merged.maxVariations !== undefined &&
+    (!Number.isInteger(merged.maxVariations) || merged.maxVariations < 2)
+  ) {
+    merged.maxVariations = defaults.maxVariations;
   }
   if (
     merged.minRuntimeDays !== undefined &&
@@ -547,6 +572,7 @@ export type ExperimentForQualityScore = Pick<
   | "phases"
   | "variations"
   | "goalMetrics"
+  | "guardrailMetrics"
   | "results"
   | "releasedVariationId"
   | "analysis"
@@ -663,6 +689,28 @@ function evaluateDeterministicCheck(
         };
       }
       return { applicable: true, score: 1 };
+    }
+    case "guardrail-metrics":
+      return {
+        applicable: true,
+        score: experiment.guardrailMetrics?.length ? 1 : 0,
+        reason: experiment.guardrailMetrics?.length
+          ? undefined
+          : "No guardrail metrics selected",
+      };
+    case "max-variations": {
+      // Bandits are built to explore many arms
+      if (experiment.type === "multi-armed-bandit")
+        return { applicable: false };
+      const n = experiment.variations.length;
+      const max = params?.maxVariations ?? 4;
+      return n > max
+        ? {
+            applicable: true,
+            score: 0,
+            reason: `Has ${n} variations (at most ${max} keeps each one well powered)`,
+          }
+        : { applicable: true, score: 1 };
     }
     case "decision": {
       if (experiment.status !== "stopped") return { applicable: false };

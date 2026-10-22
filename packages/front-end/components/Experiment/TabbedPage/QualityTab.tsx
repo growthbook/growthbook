@@ -55,9 +55,15 @@ function getFixAction(
         onClick: () => setTabAndScroll("overview", "variations"),
       };
     case "goal-metrics":
+    case "guardrail-metrics":
       return editMetrics
         ? { label: "Edit Metrics", onClick: editMetrics }
         : null;
+    case "max-variations":
+      return {
+        label: "Edit variations",
+        onClick: () => setTabAndScroll("overview", "variations"),
+      };
     case "ai-hypothesis-quality":
     case "ai-hypothesis-metric-alignment":
       return {
@@ -105,6 +111,10 @@ function describeImprovement(check: ExperimentQualityCheckResult): string {
       return check.reason?.startsWith("No goal")
         ? "Add goal metrics"
         : "Use fewer goal metrics";
+    case "guardrail-metrics":
+      return "Add guardrail metrics";
+    case "max-variations":
+      return "Use fewer variations";
     case "decision":
       return "Record a decision";
     case "ai-hypothesis-quality":
@@ -294,6 +304,9 @@ const SectionCard: FC<{
                 {check.label}
                 {check.key === "goal-metrics" && check.params?.maxGoalMetrics
                   ? ` · fewer than ${check.params.maxGoalMetrics}`
+                  : ""}
+                {check.key === "max-variations" && check.params?.maxVariations
+                  ? ` · at most ${check.params.maxVariations}`
                   : ""}
                 {check.key === "no-early-stop" && check.params?.minRuntimeDays
                   ? ` · or before ${check.params.minRuntimeDays} days without a scheduled end`

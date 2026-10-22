@@ -142,6 +142,23 @@ function CheckLabel({
           />
         </Flex>
       )}
+      {checkKey === "max-variations" && (
+        <Flex align="center" gap="1">
+          <Text size="sm" color="text-mid">
+            · at most
+          </Text>
+          <ParamInput
+            value={check.params?.maxVariations ?? 4}
+            min={2}
+            disabled={inputDisabled}
+            ariaLabel="Maximum variations, including control"
+            onChange={(v) => setParam({ maxVariations: v })}
+          />
+          <Text size="sm" color="text-mid">
+            including control
+          </Text>
+        </Flex>
+      )}
       {checkKey === "no-early-stop" && (
         <Flex align="center" gap="1">
           <Text size="sm" color="text-mid">

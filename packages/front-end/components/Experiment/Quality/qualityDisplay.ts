@@ -10,6 +10,7 @@ export const SECTION_COLORS: Record<
   ExperimentQualitySectionKey,
   { bar: string; text: string }
 > = {
+  setup: scaleColors("amber"),
   documentation: scaleColors("indigo"),
   process: scaleColors("teal"),
   ai: scaleColors("violet"),

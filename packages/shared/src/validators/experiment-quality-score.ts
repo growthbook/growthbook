@@ -5,6 +5,7 @@ import {
 } from "./experiments";
 
 export const experimentQualitySectionKeys = [
+  "setup",
   "documentation",
   "process",
   "ai",
@@ -13,11 +14,13 @@ export type ExperimentQualitySectionKey =
   (typeof experimentQualitySectionKeys)[number];
 
 export const deterministicExperimentQualityCheckKeys = [
+  "goal-metrics",
+  "guardrail-metrics",
+  "max-variations",
   "hypothesis",
   "description",
   "screenshots",
   "tags-or-project",
-  "goal-metrics",
   "decision",
 ] as const;
 export type DeterministicExperimentQualityCheckKey =
@@ -37,6 +40,8 @@ export const experimentQualityCheckParamsValidator = z
   .object({
     // goal-metrics: pass when 1 <= count < maxGoalMetrics
     maxGoalMetrics: z.number().int().min(2).optional(),
+    // max-variations: pass with at most this many variations, control included
+    maxVariations: z.number().int().min(2).optional(),
     // no-early-stop: without a scheduled end, pass when the experiment ran
     // at least this many days
     minRuntimeDays: z.number().int().min(1).optional(),
