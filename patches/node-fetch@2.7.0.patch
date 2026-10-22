@@ -1,0 +1,57 @@
+diff --git a/lib/index.es.js b/lib/index.es.js
+index aae9799c1a8798d5899ffed6deda4c98b7007b48..a601442381a66478b8bdb5413fd32ed61b472aea 100644
+--- a/lib/index.es.js
++++ b/lib/index.es.js
+@@ -1706,13 +1706,7 @@ function fetch(url, opts) {
+ 				return;
+ 			}
+ 
+-			// for br
+-			if (codings == 'br' && typeof zlib.createBrotliDecompress === 'function') {
+-				body = body.pipe(zlib.createBrotliDecompress());
+-				response = new Response(body, response_options);
+-				resolve(response);
+-				return;
+-			}
++			// GrowthBook: br is never requested, so never feed it to Node's decoder (CVE-2026-111497)
+ 
+ 			// otherwise, use response as-is
+ 			response = new Response(body, response_options);
+diff --git a/lib/index.js b/lib/index.js
+index 567ff5da58e83683bec0ea9e86221041ddf9435f..5720922361ced819ba59dd0d61d0abd1ce6b74e7 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -1710,13 +1710,7 @@ function fetch(url, opts) {
+ 				return;
+ 			}
+ 
+-			// for br
+-			if (codings == 'br' && typeof zlib.createBrotliDecompress === 'function') {
+-				body = body.pipe(zlib.createBrotliDecompress());
+-				response = new Response(body, response_options);
+-				resolve(response);
+-				return;
+-			}
++			// GrowthBook: br is never requested, so never feed it to Node's decoder (CVE-2026-111497)
+ 
+ 			// otherwise, use response as-is
+ 			response = new Response(body, response_options);
+diff --git a/lib/index.mjs b/lib/index.mjs
+index 2863dd9c318754a77c6bfb57ec5e7db8759abd8b..18f8d7fdee0de0fb15d69f34983acba1d4aec53d 100644
+--- a/lib/index.mjs
++++ b/lib/index.mjs
+@@ -1704,13 +1704,7 @@ function fetch(url, opts) {
+ 				return;
+ 			}
+ 
+-			// for br
+-			if (codings == 'br' && typeof zlib.createBrotliDecompress === 'function') {
+-				body = body.pipe(zlib.createBrotliDecompress());
+-				response = new Response(body, response_options);
+-				resolve(response);
+-				return;
+-			}
++			// GrowthBook: br is never requested, so never feed it to Node's decoder (CVE-2026-111497)
+ 
+ 			// otherwise, use response as-is
+ 			response = new Response(body, response_options);

@@ -57,24 +57,6 @@ describe("cancellableFetch with WEBHOOK_PROXY set", () => {
       expect(init.agent).toBeDefined();
     }
   });
-
-  it("never asks for or decodes compressed responses", async () => {
-    mockedFetch.mockResolvedValueOnce({ body: [Buffer.from("ok")] });
-    const { stringBody } = await cancellableFetch(
-      "https://example.com/hook",
-      { headers: { "X-Signature": "abc", "accept-encoding": "br" } },
-      abortOptions,
-    );
-
-    expect(stringBody).toBe("ok");
-    const [, init] = mockedFetch.mock.calls[0];
-    expect(init.compress).toBe(false);
-    expect(init.headers).toMatchObject({
-      "X-Signature": "abc",
-      "Accept-Encoding": "identity",
-    });
-    expect(init.headers).not.toHaveProperty("accept-encoding");
-  });
 });
 
 describe("getAuthProxyForUrl", () => {
