@@ -1,3 +1,41 @@
+.panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background);
+  border-left: 1px solid var(--gray-a3);
+  // Its own layer, so the slide runs off the main thread while the page
+  // re-lays itself out beside it.
+  will-change: transform;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+// No shadow: the page makes room for it (--agent-rail-width, global.scss).
+.docked {
+  width: 400px;
+
+  &.expanded {
+    width: calc(100% - var(--app-rail-width, 240px));
+    border-left: none;
+
+    // Beside the drawer there's no side nav to leave room for.
+    @media (max-width: 1180px) {
+      width: 100%;
+    }
+  }
+}
+
+// Below 1024px: the whole window.
+.overlay {
+  width: 100%;
+}
+
 .navDrawerVeil {
   position: absolute;
   inset: 0;

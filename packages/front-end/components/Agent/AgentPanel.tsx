@@ -1,11 +1,12 @@
 import React, {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useMemo,
 } from "react";
-import { createPortal } from "react-dom";
+import clsx from "clsx";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
@@ -28,7 +29,6 @@ import Text from "@/ui/Text";
 import track from "@/services/track";
 import { suggestedReplyFromOptions } from "@/enterprise/components/AIChat/Composer/useAutocomplete";
 import { useUser } from "@/services/UserContext";
-import { RadixTheme } from "@/services/RadixTheme";
 import { useAuth } from "@/services/auth";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
@@ -67,10 +67,12 @@ import ChatComposer, {
 } from "@/enterprise/components/AIChat/Composer/ChatComposer";
 import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
+import { GHOST_TEXT_CLASS } from "@/enterprise/components/AIChat/Composer/extensions/ghostText";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
 import { useSidebarOpen } from "@/components/Layout/SidebarOpenProvider";
 import AgentChatHistory from "./AgentChatHistory";
 import {
+  AGENT_DOCK_MOTION_MS,
   AGENT_PANEL_PORTAL_Z_INDEX,
   AGENT_PANEL_Z_INDEX,
 } from "./AgentPanelContext";
@@ -199,6 +201,17 @@ function preWorkToSteps(
   });
 }
 
+// The page makes room for it (global.scss's .main reads --agent-rail-width).
+const DOCKED_WIDTH = "400px";
+// Before paint in the browser, as a plain effect on the server.
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+// Below 1024px there's too little room beside it, so the panel covers the
+// window.
+const OVERLAY_MAX_WIDTH = "(max-width: 1023px)";
+const PANEL_FOCUSABLE =
+  "a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [contenteditable='true'], [tabindex]:not([tabindex='-1'])";
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -274,21 +287,14 @@ export default function AgentPanel({
     conversationIdRef: feedbackConversationIdRef,
   } = useChatFeedback("/agent/chat");
 
-  // Below this width the left sidebar collapses (see TopNav.module.scss
-  // `@media (max-width: 1180px)`), so the docked expanded panel must run to
-  // the left edge instead of clearing the 240px sidebar.
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
-  // Portaled to body so the panel stacks against body-portaled page controls
-  // instead of being sealed inside the root theme's stacking context. Tradeoff:
-  // #portal-root stays sealed, so legacy modals render under an open panel.
-  const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
-  useEffect(() => setPortalHost(document.body), []);
+  const [overlay, setOverlay] = useState(false);
+  const docked = !overlay;
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia("(max-width: 1180px)");
-    const update = () => setSidebarCollapsed(mq.matches);
+    const mq = window.matchMedia(OVERLAY_MAX_WIDTH);
+    const update = () => setOverlay(mq.matches);
     update();
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
@@ -446,7 +452,8 @@ export default function AgentPanel({
     };
   }, [askPrompt, messages, loading]);
 
-  // Panel stays mounted while closed; listeners need the container to exist.
+  // Mounted while closed but without its DOM, so the listeners wait until
+  // it's open and the container exists.
   const { scrollContainerRef, handleScroll, resumeAutoScroll } = useAutoScroll({
     messages,
     activeTurnItems,
@@ -491,6 +498,173 @@ export default function AgentPanel({
     }
     prevLoadingRef.current = loading;
   }, [loading, open, focusInput]);
+
+  // Kept mounted while it slides out. It mounts off-screen and starts sliding
+  // before the first paint: the read below makes the browser take in the
+  // off-screen position first, which waiting a frame doesn't guarantee on a
+  // busy page (the slide is then skipped).
+  const [rendered, setRendered] = useState(open);
+  const [shown, setShown] = useState(false);
+  // For the whole slide in and out, and set first, before the read below
+  // applies styles, so what moves on its own timing (the side nav) picks it up.
+  const dockMotion = docked && (open || rendered);
+  useIsomorphicLayoutEffect(() => {
+    document.documentElement.classList.toggle("agent-dock-motion", dockMotion);
+  }, [dockMotion]);
+  useIsomorphicLayoutEffect(() => {
+    if (open) {
+      setRendered(true);
+      return;
+    }
+    setShown(false);
+    const timer = window.setTimeout(
+      () => setRendered(false),
+      AGENT_DOCK_MOTION_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [open]);
+  useIsomorphicLayoutEffect(() => {
+    if (!open || !rendered || shown) return;
+    panelRef.current?.getBoundingClientRect();
+    setShown(true);
+  }, [open, rendered, shown]);
+  const reduceMotion =
+    typeof window !== "undefined" &&
+    !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+  // html.agent-dock-full styles what sits beside the panel (the header's
+  // GrowthBot button fades out).
+  // Set as the slide starts (shown), so everything moves together.
+  const dockedShown = docked && shown;
+  useIsomorphicLayoutEffect(() => {
+    const root = document.documentElement;
+    if (dockedShown) {
+      root.style.setProperty("--agent-rail-width", DOCKED_WIDTH);
+    } else {
+      root.style.removeProperty("--agent-rail-width");
+    }
+    root.classList.toggle("agent-dock-full", dockedShown);
+    root.classList.toggle(
+      "agent-dock-full-expanded",
+      dockedShown && open && expanded,
+    );
+  }, [dockedShown, open, expanded]);
+  useEffect(
+    () => () => {
+      const root = document.documentElement;
+      root.style.removeProperty("--agent-rail-width");
+      root.classList.remove(
+        "agent-dock-full",
+        "agent-dock-full-expanded",
+        "agent-dock-motion",
+      );
+    },
+    [],
+  );
+
+  // Where there's no message box (at the daily limit), focus goes to the
+  // panel itself.
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (open) {
+      const active = document.activeElement;
+      returnFocusRef.current =
+        active instanceof HTMLElement && active !== document.body
+          ? active
+          : null;
+      const timer = window.setTimeout(() => {
+        const panelEl = panelRef.current;
+        if (panelEl && !panelEl.contains(document.activeElement)) {
+          panelEl.focus({ preventScroll: true });
+        }
+      }, 50);
+      return () => window.clearTimeout(timer);
+    }
+    const panelEl = panelRef.current;
+    const active = document.activeElement;
+    const focusWasInPanel =
+      !!panelEl && (panelEl.contains(active) || active === document.body);
+    const target =
+      returnFocusRef.current && returnFocusRef.current.isConnected
+        ? returnFocusRef.current
+        : document.querySelector<HTMLElement>("[data-growthbot-trigger]");
+    if (!focusWasInPanel || !target) return;
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() =>
+        target.focus({ preventScroll: true }),
+      );
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
+
+  // Not while the side nav's drawer is open over it (it keeps its own), nor
+  // once focus has left the panel.
+  useEffect(() => {
+    if (!overlay || !open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab" || e.defaultPrevented) return;
+      if (document.documentElement.classList.contains("app-drawer-open")) {
+        return;
+      }
+      const panelEl = panelRef.current;
+      const active = document.activeElement;
+      if (!panelEl || !active || !panelEl.contains(active)) return;
+      const items = Array.from(
+        panelEl.querySelectorAll<HTMLElement>(PANEL_FOCUSABLE),
+      ).filter(
+        (el) =>
+          el.getClientRects().length > 0 &&
+          getComputedStyle(el).visibility !== "hidden",
+      );
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && (active === first || active === panelEl)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [overlay, open]);
+
+  // The editor claims every Esc (ProseMirror), so whether the message box
+  // owns it is decided before it sees the key.
+  const inputRef = useRef(input);
+  inputRef.current = input;
+  const composerOwnsEscRef = useRef(false);
+  const handlePanelKeyDownCapture = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== "Escape") return;
+      const editor = (event.target as HTMLElement).closest<HTMLElement>(
+        "[contenteditable='true']",
+      );
+      composerOwnsEscRef.current =
+        !!editor &&
+        (!!inputRef.current.trim() ||
+          editor.getAttribute("aria-expanded") === "true" ||
+          !!editor.querySelector(`.${GHOST_TEXT_CLASS}`));
+    },
+    [],
+  );
+  const handlePanelKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== "Escape") return;
+      const target = event.target as HTMLElement;
+      // From a portaled menu or popover (React bubbles it here): theirs.
+      if (!panelRef.current?.contains(target)) return;
+      const fromComposer = !!target.closest("[contenteditable='true']");
+      if (fromComposer ? composerOwnsEscRef.current : event.defaultPrevented) {
+        return;
+      }
+      event.preventDefault();
+      onClose();
+    },
+    [onClose],
+  );
 
   const trackMessageSent = useCallback(() => {
     track("AI Assistant Message Sent", {
@@ -594,7 +768,7 @@ export default function AgentPanel({
     [loadConversation, resetTransientState, focusInput],
   );
 
-  if (!open || !portalHost) return null;
+  if (!rendered) return null;
 
   const latestActivityItem = [...visibleItems]
     .reverse()
@@ -660,31 +834,30 @@ export default function AgentPanel({
 
   const panel = (
     <Box
-      role="dialog"
+      ref={panelRef}
+      // Docked, part of the page's chrome, so a complementary region; as an
+      // overlay, a dialog.
+      role={docked ? "complementary" : "dialog"}
       aria-label="GrowthBook AI assistant"
+      // Focusable, so focus can move into it where there's no message box.
+      tabIndex={-1}
+      onKeyDownCapture={handlePanelKeyDownCapture}
+      onKeyDown={handlePanelKeyDown}
+      // Hidden from screen readers while it slides out.
+      aria-hidden={open ? undefined : true}
+      className={clsx(
+        styles.panel,
+        docked ? styles.docked : styles.overlay,
+        expanded && styles.expanded,
+      )}
       style={{
-        position: "fixed",
-        right: 0,
-        top: 0,
-        bottom: 0,
-        // Right-anchored, overlapping the navbar. Expanded grows to ~90% of the
-        // main content region (100vw minus the 240px sidebar, or full width when
-        // the sidebar is collapsed) so a sliver of the page stays visible
-        // behind it; collapsed is a lightweight right-edge overlay. Width
-        // animates between the two states.
-        left: "auto",
-        width: expanded
-          ? `calc((100vw - ${
-              sidebarCollapsed ? "0px" : "var(--app-rail-width, 240px)"
-            }) * 0.9)`
-          : "min(400px, 100vw)",
-        background: "var(--color-background)",
-        borderLeft: "1px solid var(--gray-a3)",
-        boxShadow: "-8px 0 24px var(--black-a4)",
-        display: "flex",
-        flexDirection: "column",
         zIndex: AGENT_PANEL_Z_INDEX,
-        transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
+        transform: shown ? "translateX(0)" : "translateX(100%)",
+        pointerEvents: open ? undefined : "none",
+        // In step with the page making room (--agent-dock-*, global.scss).
+        transition: reduceMotion
+          ? "none"
+          : "width var(--agent-dock-duration) var(--agent-dock-easing), transform var(--agent-dock-duration) var(--agent-dock-easing)",
       }}
     >
       {/* The panel sits above the app's own layer, out of the drawer veil's reach,
@@ -1001,7 +1174,10 @@ export default function AgentPanel({
     </Box>
   );
 
-  return createPortal(<RadixTheme>{panel}</RadixTheme>, portalHost);
+  // In the app's own layer (the root theme's stacking context), not portaled
+  // to body: above the header, and below #portal-root, so the command
+  // palette and modals open over it.
+  return panel;
 }
 
 // ---------------------------------------------------------------------------
