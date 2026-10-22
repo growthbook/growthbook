@@ -221,10 +221,8 @@ export default function AgentPanel({
   onToggleExpanded,
 }: AgentPanelProps) {
   const composerRef = useRef<ChatComposerHandle>(null);
-  // Cloud's daily AI limit: at it, nothing new can be sent or started. Past
-  // conversations stay readable; the limit's message takes the message
-  // box's place, or, with no conversation open, the empty state's.
-  const { state: growthBotState, resetsAt } = useGrowthBotState();
+  // At the limit, past conversations stay readable; nothing new can be sent.
+  const { state: growthBotState, resetsAt, refreshUsage } = useGrowthBotState();
   const limitReached = growthBotState === "limit";
   const { setOpen: setNavDrawerOpen } = useSidebarOpen();
   const { userId, organization } = useUser();
@@ -398,7 +396,9 @@ export default function AgentPanel({
     onSSEEvent: handleAgentSSEEvent,
     onConversationLoaded: handleConversationLoaded,
     conversationStorageKey: `${STORAGE_KEY}:${organization.id}:${userId}`,
+    // Each answer adds to the usage, and a failed send may be the limit (429).
     onMessageComplete: (info) => {
+      refreshUsage();
       track("AI Assistant Response Completed", {
         model: defaultAIModel,
         durationMs: info.durationMs,
@@ -412,6 +412,7 @@ export default function AgentPanel({
       });
     },
     onMessageError: (info) => {
+      refreshUsage();
       track("AI Assistant Error", {
         errorType: info.errorType,
         httpStatus: info.httpStatus,
