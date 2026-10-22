@@ -20,7 +20,11 @@ import {
   UserContext,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
-import { ConditionInterface, EvalConditionOptions } from "./types/mongrule";
+import {
+  ConditionInterface,
+  EvalConditionOptions,
+  TestedObj,
+} from "./types/mongrule";
 import {
   chooseVariation,
   decrypt,
@@ -254,10 +258,10 @@ export function evalFeature<V = unknown>(
           }
 
           const evalObj = { value: parentResult.value };
-          const evaled = evalCondition(
+          const evaled = evalParentCondition(
             evalObj,
             parentCondition.condition || {},
-            evalConditionOptions(ctx),
+            ctx,
           );
           if (!evaled) {
             // blocking prerequisite eval failed: feature evaluation fails
@@ -628,11 +632,7 @@ export function runExperiment<T>(
 
         const evalObj = { value: parentResult.value };
         if (
-          !evalCondition(
-            evalObj,
-            parentCondition.condition || {},
-            evalConditionOptions(ctx),
-          )
+          !evalParentCondition(evalObj, parentCondition.condition || {}, ctx)
         ) {
           process.env.NODE_ENV !== "production" &&
             ctx.global.log("Skip because prerequisite evaluation fails", {
@@ -957,6 +957,21 @@ function conditionPasses(
     condition,
     evalConditionOptions(ctx),
   );
+}
+
+// A malformed prerequisite condition never matches, rather than throwing into the app
+function evalParentCondition(
+  obj: TestedObj,
+  condition: ConditionInterface,
+  ctx: EvalContext,
+): boolean {
+  try {
+    return evalCondition(obj, condition, evalConditionOptions(ctx));
+  } catch (e) {
+    process.env.NODE_ENV !== "production" &&
+      ctx.global.log("Invalid prerequisite condition", { condition, error: e });
+    return false;
+  }
 }
 
 function evalConditionOptions(ctx: EvalContext): EvalConditionOptions {
