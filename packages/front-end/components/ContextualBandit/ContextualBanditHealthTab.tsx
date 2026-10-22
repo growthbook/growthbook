@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { ReactNode, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { ExperimentReportVariation } from "shared/types/report";
@@ -10,6 +10,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import { useContextualBanditHealthIssues } from "@/hooks/useContextualBandits";
 import { useContextualBanditSnapshot } from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
+import StatusErrorCallout from "@/components/ContextualBandit/StatusErrorCallout";
 import ContextualBanditSRMCard from "./ContextualBanditSRMCard";
 
 export default function ContextualBanditHealthTab({
@@ -17,7 +18,7 @@ export default function ContextualBanditHealthTab({
 }: {
   cb: ApiContextualBanditInterface;
 }) {
-  const { results, latest, loading, error, statusError } =
+  const { results, latest, loading, error, statusError, mutate } =
     useContextualBanditSnapshot();
   const healthIssues = useContextualBanditHealthIssues(cb);
 
@@ -64,98 +65,97 @@ export default function ContextualBanditHealthTab({
     );
   }
 
+  const statusErrorCallout = statusError ? (
+    <StatusErrorCallout error={statusError} onRetry={() => mutate()} />
+  ) : null;
+
+  let body: ReactNode;
   if (!results) {
-    return (
+    body = (
       <Callout status="info" mt="3">
         No updates yet. Traffic and health results will appear after a
         successful refresh of the results.
       </Callout>
     );
-  }
-
-  if (!traffic) {
-    return (
+  } else if (!traffic) {
+    body = (
       <Callout status="info" mt="3">
         Traffic data will appear after a successful results refresh.
       </Callout>
     );
-  }
-
-  if (traffic.error && traffic.error !== "NO_ROWS_IN_UNIT_QUERY") {
-    return (
+  } else if (traffic.error && traffic.error !== "NO_ROWS_IN_UNIT_QUERY") {
+    body = (
       <Callout status="error" mt="3">
         There was an error running the traffic query for the Health tab:{" "}
         {traffic.error}.
       </Callout>
     );
-  }
-
-  if (totalUsers === 0) {
-    return (
+  } else if (totalUsers === 0) {
+    body = (
       <Callout status="info" mt="3">
         No data found. It is likely there are no units in your Bandit yet.
       </Callout>
+    );
+  } else {
+    body = (
+      <>
+        {newerRun?.status === "error" ? (
+          <Callout status="warning" mb="3">
+            The most recent refresh failed, so the health results below are from
+            the last successful refresh{resultsDateClause}.
+            {newerRun.error ? ` Error: ${newerRun.error}` : ""}
+          </Callout>
+        ) : newerRun?.status === "running" ? (
+          <Callout status="info" mb="3">
+            A refresh is in progress. The health results below are from the last
+            successful refresh{resultsDateClause}.
+          </Callout>
+        ) : null}
+
+        <IssueTags issues={healthIssues} />
+
+        <TrafficCard
+          traffic={traffic}
+          variations={variations}
+          isBandit
+          disableDimensions
+          overTimeTitle="Traffic Over Time"
+        />
+
+        {health?.multipleExposures === null ? (
+          <Callout status="info" mt="4">
+            Balance and multiple exposure checks need the bandit_version,
+            leaf_id, and variation_weights columns in your assignment query.
+          </Callout>
+        ) : (
+          <>
+            <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
+              <ContextualBanditSRMCard
+                srm={health?.srm?.pValue ?? null}
+                variations={variations}
+                users={overallUsers}
+                totalUsers={totalUsers}
+                latestPeriod={health?.srm?.latestPeriod ?? null}
+              />
+            </div>
+
+            <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
+              <MultipleExposuresCard
+                totalUsers={totalUsers}
+                multipleExposures={health?.multipleExposures ?? 0}
+                isBandit
+              />
+            </div>
+          </>
+        )}
+      </>
     );
   }
 
   return (
     <Flex direction="column">
-      {statusError ? (
-        <Callout status="warning" mb="3">
-          Could not load the latest run status, so the refresh state below may
-          be out of date: {statusError.message}
-        </Callout>
-      ) : null}
-
-      {newerRun?.status === "error" ? (
-        <Callout status="warning" mb="3">
-          The most recent refresh failed, so the health results below are from
-          the last successful refresh{resultsDateClause}.
-          {newerRun.error ? ` Error: ${newerRun.error}` : ""}
-        </Callout>
-      ) : newerRun?.status === "running" ? (
-        <Callout status="info" mb="3">
-          A refresh is in progress. The health results below are from the last
-          successful refresh{resultsDateClause}.
-        </Callout>
-      ) : null}
-
-      <IssueTags issues={healthIssues} />
-
-      <TrafficCard
-        traffic={traffic}
-        variations={variations}
-        isBandit
-        disableDimensions
-        overTimeTitle="Traffic Over Time"
-      />
-
-      {health?.multipleExposures === null ? (
-        <Callout status="info" mt="4">
-          Balance and multiple exposure checks need the bandit_version, leaf_id,
-          and variation_weights columns in your assignment query.
-        </Callout>
-      ) : (
-        <>
-          <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
-            <ContextualBanditSRMCard
-              srm={health?.srm?.pValue ?? null}
-              variations={variations}
-              users={overallUsers}
-              totalUsers={totalUsers}
-              latestPeriod={health?.srm?.latestPeriod ?? null}
-            />
-          </div>
-
-          <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
-            <MultipleExposuresCard
-              totalUsers={totalUsers}
-              multipleExposures={health?.multipleExposures ?? 0}
-              isBandit
-            />
-          </div>
-        </>
-      )}
+      {statusErrorCallout}
+      {body}
     </Flex>
   );
 }

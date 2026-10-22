@@ -16,7 +16,6 @@ import type {
   ContextualLeafClause,
 } from "shared/experiments";
 import Text from "@/ui/Text";
-import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Metadata from "@/ui/Metadata";
@@ -30,6 +29,7 @@ import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useContextualBanditSnapshot } from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
+import StatusErrorCallout from "@/components/ContextualBandit/StatusErrorCallout";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import ContextualBanditAttributeTable from "@/components/ContextualBandit/ContextualBanditAttributeTable";
@@ -474,23 +474,10 @@ export default function ContextualBanditResultsTable({
       ) : null}
 
       {statusError ? (
-        <Callout
-          status="error"
-          mb="3"
-          action={
-            <Button
-              variant="soft"
-              color="inherit"
-              size="sm"
-              onClick={() => refetchSnapshot()}
-            >
-              Retry
-            </Button>
-          }
-        >
-          Could not load the latest status, so run progress and results may be
-          out of date: {statusError.message}
-        </Callout>
+        <StatusErrorCallout
+          error={statusError}
+          onRetry={() => refetchSnapshot()}
+        />
       ) : null}
 
       {hasTableData ? (
