@@ -15,6 +15,8 @@ import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { ReadOnlyChecklistRows } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import type { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
 import { ServerChecklistItem } from "./startActions";
 import { StartUpgrade } from "./useStartGate";
 import { PendingDraftFailure } from "./useStartExperiment";
@@ -216,28 +218,45 @@ export function StartSummary({
   );
 }
 
+const UPGRADE_REASONS: Record<StartUpgrade, string> = {
+  "visual-editor":
+    "This experiment contains AI Visual Editor changes, which require a paid plan.",
+  redirects:
+    "This experiment contains URL redirects, which require a paid plan.",
+};
+
 export function StartUpgradeCallout({
   upgrade,
 }: {
   upgrade: StartUpgrade | null;
 }) {
-  if (upgrade === "visual-editor") {
-    return (
-      <PremiumCallout
-        commercialFeature="visual-editor"
-        id="start-experiment-modal"
-      >
-        This experiment contains AI Visual Editor changes, which require a paid
-        plan.
-      </PremiumCallout>
-    );
-  }
-  if (upgrade === "redirects") {
-    return (
-      <PremiumCallout commercialFeature="redirects" id="start-experiment-modal">
-        This experiment contains URL redirects, which require a paid plan.
-      </PremiumCallout>
-    );
-  }
-  return null;
+  if (!upgrade) return null;
+  return (
+    <PremiumCallout commercialFeature={upgrade} id="start-experiment-modal">
+      {UPGRADE_REASONS[upgrade]}
+    </PremiumCallout>
+  );
+}
+
+/** Why a start no one here can force is held back, read only. */
+export function StartBlockers({
+  items,
+  upgrade,
+}: {
+  items: CheckListItem[];
+  upgrade: StartUpgrade | null;
+}) {
+  return (
+    <Flex direction="column" gap="2">
+      <Text size="sm" weight="semibold" color="text-high">
+        Resolve before starting
+      </Text>
+      {upgrade ? (
+        <Text size="sm" color="text-mid">
+          {UPGRADE_REASONS[upgrade]}
+        </Text>
+      ) : null}
+      <ReadOnlyChecklistRows items={items} size="sm" />
+    </Flex>
+  );
 }

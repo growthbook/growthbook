@@ -92,6 +92,10 @@ export default function useStartGate({
     needsUpgrade: !!upgrade,
     bypassed,
   });
+  // What still stands in the way once this viewer's bypass is counted.
+  const blockers = summary.incomplete.blocking.filter(
+    (item) => !(actions.waivesApproval && isBypassableStartItem(item)),
+  );
   const runPrimary = () => {
     const skipChecklist = bypassed && checklist.remaining > 0;
     return actions.action === "approve-schedule"
@@ -110,6 +114,7 @@ export default function useStartGate({
     bypassed,
     setBypassed,
     actions,
+    blockers,
     runPrimary,
   };
 }

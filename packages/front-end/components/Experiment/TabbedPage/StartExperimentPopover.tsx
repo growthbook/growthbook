@@ -1,7 +1,7 @@
-import { Fragment, ReactNode, useState } from "react";
+import { ReactNode, useState } from "react";
 import omit from "lodash/omit";
 import { format } from "date-fns";
-import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
+import { Flex, Grid, Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -28,9 +28,7 @@ import { getStartTitle } from "./startActions";
 import {
   StartChecklistFailures,
   StartFailures,
-  StartSummaryRow,
   StartUpgradeCallout,
-  useStartSummaryRows,
 } from "./StartSections";
 import { scheduledEnd, scheduledTime } from "./RunningScheduleLink";
 import { useEditsBlockedReason } from "./ExperimentEdits";
@@ -146,7 +144,7 @@ function StartTimeField({
           void save(next);
         }}
         container={container}
-        size="sm"
+        size="md"
       >
         <SelectItem value="now">Immediately</SelectItem>
         <SelectItem value="date">On a date</SelectItem>
@@ -154,7 +152,7 @@ function StartTimeField({
       {startAt ? (
         <TextField
           type="datetime-local"
-          size="sm"
+          size="md"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           // On leaving the field, so a half-typed time isn't saved.
@@ -174,34 +172,48 @@ function StartTimeField({
   );
 }
 
+type Row = { key: string; label: string; value: ReactNode };
+
+// What starting sets going: where it serves and when it ends. The setup it
+// starts with is on the page already.
 function useSummaryRows(
   experiment: ExperimentInterfaceStringDates,
   envs: string[],
-): StartSummaryRow[] {
-  const rows = [...useStartSummaryRows(experiment)];
-  if (experiment.phases?.length) {
-    rows.push({
-      key: "assignmentAttribute",
-      label: "Assignment attribute",
-      inline: true,
-      value: [experiment.hashAttribute || "id", experiment.fallbackAttribute]
-        .filter(Boolean)
-        .join(", "),
-    });
-  }
+): Row[] {
+  const rows: Row[] = [];
   // Visual Editor changes and redirects serve everywhere.
   const allEnvs = envs.includes(ALL_ENVIRONMENTS);
   if (envs.length > 0) {
     rows.push({
       key: "environments",
       label: envs.length === 1 && !allEnvs ? "Environment" : "Environments",
-      inline: true,
       value: allEnvs ? "All environments" : envs.join(", "),
     });
   }
   const end = scheduledEnd(experiment.statusUpdateSchedule);
-  if (end) rows.push({ key: "end", label: "Ends", inline: true, value: end });
+  if (end) rows.push({ key: "end", label: "Ends", value: end });
   return rows;
+}
+
+const ROW_HEIGHT = "32px";
+
+function SummaryRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      <Flex align="center" minHeight={ROW_HEIGHT}>
+        <Text color="text-mid">{label}</Text>
+      </Flex>
+      <Flex align="center" minHeight={ROW_HEIGHT} minWidth="0">
+        {children}
+      </Flex>
+    </>
+  );
 }
 
 function StartContent({
@@ -267,33 +279,27 @@ function StartContent({
       ) : null}
       <StartUpgradeCallout upgrade={gate.upgrade} />
 
-      <Grid
-        columns="max-content minmax(0, 1fr)"
-        gapX="4"
-        gapY="3"
-        align="center"
-      >
-        <Text color="text-low">Start</Text>
-        {openSchedule && !startApproved ? (
-          <Flex align="center" gap="3" wrap="wrap">
-            <StartTimeField
-              experiment={experiment}
-              mutate={mutate}
-              container={container}
-              setError={setError}
-            />
-            <Link onClick={openSchedule}>More options</Link>
-          </Flex>
-        ) : (
-          <Text color="text-high">{dateLabel ?? "Immediately"}</Text>
-        )}
+      {/* Every row a control's height, so values and fields line up. */}
+      <Grid columns="max-content minmax(0, 1fr)" gapX="5" gapY="1">
+        <SummaryRow label="Start">
+          {openSchedule && !startApproved ? (
+            <Flex align="center" gap="3" wrap="wrap">
+              <StartTimeField
+                experiment={experiment}
+                mutate={mutate}
+                container={container}
+                setError={setError}
+              />
+              <Link onClick={openSchedule}>More options</Link>
+            </Flex>
+          ) : (
+            <Text color="text-high">{dateLabel ?? "Immediately"}</Text>
+          )}
+        </SummaryRow>
         {rows.map((row) => (
-          <Fragment key={row.key}>
-            <Text color="text-low">{row.label}</Text>
-            <Box style={{ color: "var(--color-text-high)", minWidth: 0 }}>
-              {row.value}
-            </Box>
-          </Fragment>
+          <SummaryRow key={row.key} label={row.label}>
+            <Text color="text-high">{row.value}</Text>
+          </SummaryRow>
         ))}
       </Grid>
 
@@ -353,9 +359,6 @@ function StartContent({
             </Callout>
           ) : null}
           <Flex justify="end" align="center" gap="3">
-            <Button variant="ghost" onClick={close}>
-              Cancel
-            </Button>
             <Tooltip content={blockedReason} enabled={!!blockedReason}>
               <Button
                 onClick={async () => {

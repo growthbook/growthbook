@@ -97,20 +97,24 @@ function ChecklistRow({
   size,
   onToggleManual,
   onFaded = null,
+  readOnly = false,
 }: {
   item: CheckListItem;
   size: ChecklistSize;
   onToggleManual: ((manualKey: string, checked: boolean) => void) | null;
   // Fades the row out, then calls this.
   onFaded?: (() => void) | null;
+  // To read, not act on: no ticking, no action.
+  readOnly?: boolean;
 }) {
   const complete = item.status === "complete";
   const manualKey = item.type === "manual" ? item.manualKey : undefined;
   const toggle =
-    manualKey && onToggleManual
+    manualKey && onToggleManual && !readOnly
       ? (checked: boolean) => onToggleManual(manualKey, checked)
       : null;
-  const action = !complete || item.warning ? item.action : undefined;
+  const action =
+    !readOnly && (!complete || item.warning) ? item.action : undefined;
   return (
     <div
       className={clsx(styles.row, onFaded && styles.fading)}
@@ -126,7 +130,7 @@ function ChecklistRow({
         setValue={(checked) => toggle?.(checked)}
         readOnly={!toggle}
         checkboxTooltip={
-          item.type === "auto" && !complete
+          item.type === "auto" && !complete && !readOnly
             ? "Automatically detected and marked as 'complete' when task is finished"
             : undefined
         }
@@ -201,6 +205,29 @@ function useFadingCompletions(
   const faded = (key: string) =>
     setFading((items) => items.filter((item) => item.key !== key));
   return { withFading, isFading, faded };
+}
+
+/** Checklist rows to read, not act on. */
+export function ReadOnlyChecklistRows({
+  items,
+  size,
+}: {
+  items: CheckListItem[];
+  size: ChecklistSize;
+}) {
+  return (
+    <Flex direction="column" gap="2">
+      {items.map((item) => (
+        <ChecklistRow
+          key={item.key}
+          item={item}
+          size={size}
+          onToggleManual={null}
+          readOnly
+        />
+      ))}
+    </Flex>
+  );
 }
 
 // Done items, in a last section that starts shut.

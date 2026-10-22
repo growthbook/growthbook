@@ -37,6 +37,7 @@ import { HoldoutInterfaceStringDates } from "shared/validators";
 import { format } from "date-fns-tz";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import UITooltip from "@/ui/Tooltip";
+import { Popover } from "@/ui/Popover";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";
@@ -84,6 +85,8 @@ import { useEditsBlockedReason } from "./ExperimentEdits";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import { StartExperiment } from "./useStartExperiment";
 import StartExperimentPopover from "./StartExperimentPopover";
+import useStartGate from "./useStartGate";
+import { StartBlockers } from "./StartSections";
 import { hasStatusSchedule } from "./RunningScheduleLink";
 import { ExperimentTab } from ".";
 
@@ -532,18 +535,39 @@ export default function ExperimentHeader({
     experiment.nextScheduledStatusUpdate?.date
       ? new Date(experiment.nextScheduledStatusUpdate.date)
       : null;
+  const startGate = useStartGate({ experiment, linkedFeatures, start });
+  // Nothing this viewer can do from the popover would start it, so the button
+  // says what's left instead of opening.
+  const startBlocked =
+    !isHoldout && !startGate.checklistLoading && startGate.actions.hardBlocked;
   // A holdout starts from its modal; anything else, from the start popover.
   const startButton = (
     <Button
       variant={checklistReady ? "solid" : "soft"}
       onClick={isHoldout ? () => setShowStartExperiment(true) : undefined}
-      disabled={!!editsBlocked}
+      disabled={!!editsBlocked || startBlocked}
+      // Disabled buttons take no hover, so it reaches the summary around it.
+      style={startBlocked ? { pointerEvents: "none" } : undefined}
       icon={hasExperimentSchedule ? undefined : <MdRocketLaunch />}
     >
       {hasExperimentSchedule
         ? "Approve for Scheduled Start"
         : `Start ${isHoldout ? "Holdout" : "Experiment"}`}
     </Button>
+  );
+
+  const startPopover = (
+    <StartExperimentPopover
+      experiment={experiment}
+      linkedFeatures={linkedFeatures}
+      envs={envs}
+      start={start}
+      editSchedule={editSchedule ?? null}
+      mutate={mutate}
+      open={startOpen}
+      setOpen={setStartOpen}
+      trigger={startButton}
+    />
   );
 
   const runningExperimentDecisionBanner =
@@ -964,18 +988,27 @@ export default function ExperimentHeader({
                   <Tooltip shouldDisplay={!!editsBlocked} body={editsBlocked}>
                     {isHoldout ? (
                       startButton
-                    ) : (
-                      <StartExperimentPopover
-                        experiment={experiment}
-                        linkedFeatures={linkedFeatures}
-                        envs={envs}
-                        start={start}
-                        editSchedule={editSchedule ?? null}
-                        mutate={mutate}
-                        open={startOpen}
-                        setOpen={setStartOpen}
-                        trigger={startButton}
+                    ) : startBlocked ? (
+                      <Popover
+                        openOnHover
+                        side="bottom"
+                        align="end"
+                        contentStyle={{ maxWidth: 360 }}
+                        content={
+                          <StartBlockers
+                            items={startGate.blockers}
+                            upgrade={startGate.upgrade}
+                          />
+                        }
+                        trigger={
+                          // Still opens on request, as the status modal does.
+                          <span style={{ display: "inline-flex" }}>
+                            {startPopover}
+                          </span>
+                        }
                       />
+                    ) : (
+                      startPopover
                     )}
                   </Tooltip>
                 ) : null}
