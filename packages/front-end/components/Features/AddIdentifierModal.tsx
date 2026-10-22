@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { SDKLanguage } from "shared/types/sdk-connection";
+import { getLatestSDKVersion } from "shared/sdk-versioning";
 import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import {
   attributeMatchesDatasourceProjects,
@@ -14,6 +16,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAttributeSchema } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import TextField from "@/ui/TextField";
@@ -21,10 +24,27 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
+import {
+  Select,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+} from "@/ui/Select";
 import Code from "@/components/SyntaxHighlighting/Code";
+import {
+  getExampleAttributes,
+  getSetAttributesCode,
+} from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
+import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 
 const DATASOURCE_COLUMNS = "24px minmax(0, 1fr) 200px";
 const ROW_BORDER = { borderTop: "1px solid var(--gray-a5)" };
+
+// No-code and edge SDKs set attributes another way, so they have no snippet.
+const SNIPPET_LANGUAGES = (
+  Object.keys(languageMapping) as SDKLanguage[]
+).filter((language) => getSetAttributesCode(language, {}) !== null);
 
 // These rebuild their identifier types from the attribute schema on their own.
 function syncsIdentifiersAutomatically(
@@ -63,6 +83,10 @@ export default function AddIdentifierModal({
   );
   const [uncheckedIds, setUncheckedIds] = useState<string[]>([]);
   const [columns, setColumns] = useState<Record<string, string>>({});
+  const [pickedLanguage, setPickedLanguage] = useState<SDKLanguage | null>(
+    null,
+  );
+  const { data: sdkConnectionsData } = useSDKConnections();
 
   const projectOptions = useProjectOptions(
     (p) => permissionsUtil.canCreateAttribute({ projects: [p] }),
@@ -92,12 +116,38 @@ export default function AddIdentifierModal({
   );
   const checkedColumns = [...new Set(checked.map((d) => columnFor(d.id)))];
 
-  const sdkLines = [
-    "gb.setAttributes({",
-    ...identifiers.map((a) => `  ${a.property}: "...",`),
-    `  ${name || "new_identifier"}: "...",`,
-    "});",
-  ];
+  const connectedLanguages = [
+    ...new Set(
+      (sdkConnectionsData?.connections ?? [])
+        .filter(
+          (c) =>
+            !projects.length ||
+            !c.projects.length ||
+            c.projects.some((p) => projects.includes(p)),
+        )
+        .flatMap((c) => c.languages),
+    ),
+  ].filter((l) => SNIPPET_LANGUAGES.includes(l));
+  const otherLanguages = SNIPPET_LANGUAGES.filter(
+    (l) => !connectedLanguages.includes(l),
+  );
+  const language = pickedLanguage ?? connectedLanguages[0] ?? "javascript";
+
+  const newProperty = name.trim() || "new_identifier";
+  const sdkSnippet = getSetAttributesCode(
+    language,
+    getExampleAttributes({
+      attributeSchema: [
+        ...identifiers.filter((a) => a.property !== newProperty),
+        { property: newProperty, datatype: "string" },
+      ],
+    }),
+    { version: getLatestSDKVersion(language), onePerLine: true },
+  );
+  const sdkHighlightLine =
+    (sdkSnippet?.code
+      .split("\n")
+      .findIndex((line) => line.includes(`"${newProperty}"`)) ?? -1) + 1;
   const sqlLines = [
     "SELECT",
     ...checkedColumns.map((column) => `  ${column},`),
@@ -259,17 +309,53 @@ export default function AddIdentifierModal({
 
         <Flex direction="column" gap="4">
           <Flex direction="column" gap="2">
-            <Flex align="center" gap="2">
-              <PiCode />
-              <Text weight="semibold" color="text-mid">
-                In your app
-              </Text>
+            <Flex align="center" justify="between" gap="2">
+              <Flex align="center" gap="2">
+                <PiCode />
+                <Text weight="semibold" color="text-mid">
+                  In your app
+                </Text>
+              </Flex>
+              <Select
+                size="sm"
+                value={language}
+                setValue={(v) =>
+                  setPickedLanguage(
+                    SNIPPET_LANGUAGES.find((l) => l === v) ?? null,
+                  )
+                }
+              >
+                {connectedLanguages.length > 0 && (
+                  <>
+                    <SelectGroup>
+                      <SelectLabel>Your SDK Connections</SelectLabel>
+                      {connectedLanguages.map((l) => (
+                        <SelectItem key={l} value={l}>
+                          {languageMapping[l].label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                    <SelectSeparator />
+                  </>
+                )}
+                <SelectGroup>
+                  <SelectLabel>All languages</SelectLabel>
+                  {otherLanguages.map((l) => (
+                    <SelectItem key={l} value={l}>
+                      {languageMapping[l].label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </Select>
             </Flex>
-            <Code
-              language="javascript"
-              code={sdkLines.join("\n")}
-              highlightLine={sdkLines.length - 1}
-            />
+            {sdkSnippet && (
+              <Code
+                language={sdkSnippet.language}
+                filename={sdkSnippet.filename}
+                code={sdkSnippet.code}
+                highlightLine={sdkHighlightLine}
+              />
+            )}
           </Flex>
           {checkedColumns.length > 0 && (
             <Flex direction="column" gap="2">
