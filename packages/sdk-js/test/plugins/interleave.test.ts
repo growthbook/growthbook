@@ -54,6 +54,8 @@ function payload(rule?: Record<string, unknown>): FeatureApiResponse {
     interleavings: {
       search: {
         trackingKey: "search-tk",
+        hashAttribute: "id",
+        seed: "il-seed",
         variations: [
           { key: "popular", config: configs.popular },
           { key: "buyers-pick", config: configs["buyers-pick"] },
@@ -406,6 +408,58 @@ describe("interleave", () => {
     });
     expect(res.result.length).toBeLessThanOrEqual(2);
     gb.destroy();
+  });
+
+  // Remote evaluation replaces the pseudo flag's rules with a forced
+  // defaultValue, so the hash settings have to come off the interleaving itself.
+  it("hashes on the definition's attribute when the payload has no rules", async () => {
+    const onExposure = jest.fn();
+    const gb = new GrowthBook({
+      attributes: { device_id: "d1" },
+      plugins: [interleavePlugin({ onExposure })],
+    });
+    gb.initSync({
+      payload: {
+        features: {
+          "$interleave:search": { defaultValue: { interleave: true } },
+        },
+        interleavings: {
+          search: {
+            trackingKey: "search-tk",
+            hashAttribute: "device_id",
+            seed: "il-seed",
+            variations: [
+              { key: "popular", config: configs.popular },
+              { key: "buyers-pick", config: configs["buyers-pick"] },
+            ],
+          },
+        },
+      },
+    });
+    const res = await interleave(gb, {
+      ranker: "search",
+      getList,
+      fallbackConfig,
+      rankingId: "r1",
+    });
+
+    expect(res.inExperiment).toBe(true);
+    expect(onExposure.mock.calls[0][0]).toMatchObject({
+      hashAttribute: "device_id",
+      hashValue: "d1",
+    });
+    // Same seed as the rule-bearing payload, so the draft is identical
+    const { gb: normal } = setup({ device_id: "d1", id: "u1" });
+    const viaRules = await interleave(normal, {
+      ranker: "search",
+      getList,
+      fallbackConfig,
+      rankingId: "r1",
+    });
+    expect(res.result).toEqual(viaRules.result);
+
+    gb.destroy();
+    normal.destroy();
   });
 
   it("hashes with attribute overrides", async () => {

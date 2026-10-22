@@ -494,7 +494,12 @@ export function generateInterleavingsPayload({
       );
       return;
     }
-    defs[il.key] = { trackingKey: il.trackingKey, variations };
+    defs[il.key] = {
+      trackingKey: il.trackingKey,
+      hashAttribute: il.hashAttribute,
+      seed: il.seed,
+      variations,
+    };
 
     const id = getInterleavingFeatureDefId(il.key);
     const rule: FeatureDefinitionRule = {

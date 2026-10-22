@@ -209,8 +209,7 @@ export async function interleave<T>(
     );
   }
 
-  const rule = payload.features?.[featureId]?.rules?.[0];
-  const hashAttribute = rule?.hashAttribute || "id";
+  const hashAttribute = definition.hashAttribute;
   const hashValue = getAttributes(gb)[hashAttribute];
   if (!hashValue) {
     return notInterleaved(variations[0].key);
@@ -237,11 +236,11 @@ export async function interleave<T>(
     };
   }
 
-  const seed = rule?.seed || ranker;
   const { items, meta } = teamDraft(
     lists,
     getItemId,
-    (round, index) => hash(seed, rankingId + ":" + round + ":" + index, 2) || 0,
+    (round, index) =>
+      hash(definition.seed, rankingId + ":" + round + ":" + index, 2) || 0,
     maxItems,
   );
 

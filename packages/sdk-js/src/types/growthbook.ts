@@ -68,6 +68,10 @@ export type ContextualBanditDefinitions = Record<
 
 export type InterleavingDefinition = {
   trackingKey: string;
+  // Carried here, not read off the pseudo flag's rule: remote evaluation
+  // replaces rules with a forced defaultValue, so the rule is gone client-side.
+  hashAttribute: string;
+  seed: string;
   variations: { key: string; config: Record<string, unknown> }[];
 };
 
