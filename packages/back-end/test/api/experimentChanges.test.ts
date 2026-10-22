@@ -456,6 +456,67 @@ describe("applyExperimentChanges", () => {
     expect(added[added.length - 1]?.variations).toEqual(arms("p", "q"));
   });
 
+  describe("when the organization requires scoped rules", () => {
+    const requireScoped = (body: Record<string, unknown> = {}) => {
+      context = new ReqContextClass({
+        org: {
+          ...org,
+          settings: { ...org.settings, requireScopedFeatureRules: true },
+        },
+        auditUser: { type: "api_key", apiKey: "key" },
+        role: "admin",
+        req: { query: {}, headers: {}, body } as unknown as Request,
+      });
+      context.hasPremiumFeature = () => true;
+    };
+
+    it("refuses widening a rule to every environment unless the save allows it", async () => {
+      await seed({ withDraft: true });
+      await collection("featurerevisions").updateOne(
+        { featureId: FLAG, version: 2 },
+        {
+          $set: {
+            "rules.0.allEnvironments": false,
+            "rules.0.environments": ["staging"],
+          },
+        },
+      );
+      const body: ExperimentChangesBody = {
+        flagValues: [
+          {
+            featureId: FLAG,
+            variations: arms("a", "wide"),
+            environments: { allEnvironments: true, environments: [] },
+            revision: { version: 2, dateUpdated: LOADED },
+          },
+        ],
+      };
+      requireScoped();
+      await expect(run(body)).rejects.toMatchObject({ code: "unscoped_rule" });
+      expect(await revisionRules(2)).toEqual(arms("a", "draft"));
+
+      requireScoped({ allowUnscopedRules: true });
+      await run({ ...body, allowUnscopedRules: true });
+      expect(await revisionRules(2)).toEqual(arms("a", "wide"));
+    });
+
+    it("refuses linking a flag again everywhere before writing anything, unless the save allows it", async () => {
+      await seed({ withDraft: false });
+      const body: ExperimentChangesBody = {
+        experiment: hypothesisChange("old"),
+        linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }],
+      };
+      requireScoped();
+      await expect(run(body)).rejects.toMatchObject({ code: "unscoped_rule" });
+      expect((await getExperimentById(context, EXP))?.hypothesis).toBe("old");
+
+      requireScoped({ allowUnscopedRules: true });
+      await run({ ...body, allowUnscopedRules: true });
+      const added = await refRules("draft");
+      expect(added[added.length - 1]?.variations).toEqual(arms("p", "q"));
+    });
+  });
+
   describe("removing a flag", () => {
     const publishDraft = async () => {
       const feature = await getFeature(context, FLAG);

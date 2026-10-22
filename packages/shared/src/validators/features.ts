@@ -6,6 +6,7 @@ import {
 } from "shared/constants";
 import { eventUser } from "./event-user";
 import {
+  allowUnscopedRulesBodyField,
   featurePrerequisite,
   namespaceValue,
   savedGroupTargeting,
@@ -2313,6 +2314,7 @@ export const experimentChangesBody = z
     removeVisualChangesets: z.array(z.string()).optional(),
     // Runs every check the save would and writes nothing.
     dryRun: z.boolean().optional(),
+    allowUnscopedRules: allowUnscopedRulesBodyField,
   })
   .strict();
 export type ExperimentChangesBody = z.infer<typeof experimentChangesBody>;

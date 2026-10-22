@@ -42,6 +42,7 @@ import {
   removeFlagFromExperiment,
 } from "back-end/src/services/experiment-feature";
 import {
+  assertScopedRules,
   assertValidRuleWrite,
   withStagedSchema,
 } from "back-end/src/api/features/validations";
@@ -502,6 +503,9 @@ export async function applyExperimentChanges({
     const feature = await getFeature(context, featureId);
     if (feature) await assertFlagKeepable(context, experiment, feature);
   }
+  for (const link of body.linkFeatures ?? []) {
+    assertScopedRules(context, [{ id: "", ...linkRuleScope(link) }], []);
+  }
   const linkedPlan = await planLinkedChanges(
     context,
     experiment,
@@ -591,6 +595,19 @@ export async function applyExperimentChanges({
   };
 }
 
+// Where a flag linked again runs: every environment unless the link names some.
+function linkRuleScope(
+  link: NonNullable<ExperimentChangesBody["linkFeatures"]>[number],
+) {
+  const scope = link.environments ?? {
+    allEnvironments: true,
+    environments: [],
+  };
+  return scope.allEnvironments
+    ? { allEnvironments: true }
+    : { allEnvironments: false, environments: scope.environments };
+}
+
 // Once the values and experiment have landed: flags linked again or unlinked,
 // then Visual Editor changes and URL Redirects.
 async function finishFlags({
@@ -611,10 +628,6 @@ async function finishFlags({
   for (const link of body.linkFeatures ?? []) {
     const feature = await getFeature(context, link.featureId);
     if (!feature) throw new NotFoundError(`Feature Flag ${link.featureId}`);
-    const scope = link.environments ?? {
-      allEnvironments: true,
-      environments: [],
-    };
     await linkFeatureToExperiment({
       context,
       experiment,
@@ -627,9 +640,7 @@ async function finishFlags({
         experimentId: experiment.id,
         variations: link.variations,
         ...(link.sparse && { sparse: true }),
-        ...(scope.allEnvironments
-          ? { allEnvironments: true }
-          : { allEnvironments: false, environments: scope.environments }),
+        ...linkRuleScope(link),
       },
       eventAudit,
       audit,

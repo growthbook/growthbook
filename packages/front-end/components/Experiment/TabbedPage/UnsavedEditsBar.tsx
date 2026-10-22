@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
+import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import { useExperimentEdits } from "./ExperimentEdits";
 import StagedChanges from "./StagedChanges";
@@ -57,7 +58,22 @@ export default function UnsavedEditsBar() {
         <Flex align="center" gap="3">
           <StagedChanges />
           <Box flexGrow="1" />
-          {edits.error ? (
+          {edits.unscopedRule ? (
+            <Flex align="center" gap="3">
+              <HelperText status="warning" size="sm">
+                {edits.unscopedRule.message}
+              </HelperText>
+              <Box flexShrink="0" style={{ color: "var(--violet-11)" }}>
+                <Checkbox
+                  value={edits.unscopedRule.acknowledged}
+                  setValue={edits.unscopedRule.acknowledge}
+                  label="Acknowledge"
+                  weight="medium"
+                  align="center"
+                />
+              </Box>
+            </Flex>
+          ) : edits.error ? (
             <HelperText status="error" size="sm">
               {edits.error}
             </HelperText>

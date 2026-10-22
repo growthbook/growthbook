@@ -12,7 +12,9 @@ const redirect = {
 };
 
 // Required, so a key added to the body doesn't compile until it's here.
-const part: Required<Omit<ExperimentChangesBody, "dryRun">> = {
+const part: Required<
+  Omit<ExperimentChangesBody, "dryRun" | "allowUnscopedRules">
+> = {
   experiment: { changes: { name: "New" }, base: { name: "Old" } },
   flagValues: [
     {
@@ -49,7 +51,7 @@ const listLengths = (body: ExperimentChangesBody) =>
 describe("mergeChanges", () => {
   it("keeps every key an edit can send", () => {
     const editKeys = Object.keys(experimentChangesBody.shape).filter(
-      (key) => key !== "dryRun",
+      (key) => key !== "dryRun" && key !== "allowUnscopedRules",
     );
     expect(Object.keys(part).sort()).toEqual(editKeys.sort());
     expect(mergeChanges([{}, part])).toEqual(part);

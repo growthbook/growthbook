@@ -2,8 +2,8 @@ import type { ExperimentChangesBody } from "shared/validators";
 
 /**
  * One changeset from the page's edits, each holding a share of it. A body key
- * with no branch here is silently dropped from the save; `dryRun` is the
- * caller's, not an edit's.
+ * with no branch here is silently dropped from the save; `dryRun` and
+ * `allowUnscopedRules` are the caller's, not an edit's.
  */
 export function mergeChanges(
   parts: ExperimentChangesBody[],

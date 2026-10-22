@@ -17,6 +17,7 @@ import type {
   ExperimentRuleEnvironments,
 } from "shared/validators";
 import { useAuth } from "@/services/auth";
+import { ApiCallError } from "@/services/apiCallError";
 import useUnsavedChangesGuard from "@/hooks/useUnsavedChangesGuard";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import { mergeChanges } from "./mergeChanges";
@@ -67,6 +68,15 @@ interface ExperimentEditsValue {
   dirty: boolean;
   saving: boolean;
   error: string | null;
+  /**
+   * Set once a save is refused for a rule that applies everywhere; acknowledging
+   * lets the next save, and its checks, write it anyway.
+   */
+  unscopedRule: {
+    message: string;
+    acknowledged: boolean;
+    acknowledge: (acknowledged: boolean) => void;
+  } | null;
   /** Resolves with why the save failed, or null once it's written. */
   saveAll: () => Promise<string | null>;
   discardAll: () => void;
@@ -213,6 +223,8 @@ export function ExperimentEditsProvider({
   const [staged, setStaged] = useState<{ id: string; label: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unscopedRefusal, setUnscopedRefusal] = useState<string | null>(null);
+  const [allowUnscopedRules, setAllowUnscopedRules] = useState(false);
 
   const register = useCallback((id: string, edit: PendingEdit | null) => {
     if (edit) edits.current.set(id, edit);
@@ -241,13 +253,14 @@ export function ExperimentEditsProvider({
       if (inChangeset.length) {
         await apiCall(`/experiment/${experimentId}/changes`, {
           method: "POST",
-          body: JSON.stringify(
-            mergeChanges(
+          body: JSON.stringify({
+            ...mergeChanges(
               inChangeset.map(
                 (edit) => edit.changes?.({ dryRun: false }) ?? {},
               ),
             ),
-          ),
+            ...(allowUnscopedRules && { allowUnscopedRules: true }),
+          }),
         });
         wrote = true;
         inChangeset.forEach((edit) => edit.onSaved?.());
@@ -260,20 +273,28 @@ export function ExperimentEditsProvider({
         wrote = true;
         edit.onSaved?.();
       }
+      setUnscopedRefusal(null);
+      setAllowUnscopedRules(false);
       return null;
     } catch (e) {
       const message = e.message || "Could not save your changes";
-      setError(message);
+      if (e instanceof ApiCallError && e.code === "unscoped_rule") {
+        setUnscopedRefusal(message);
+      } else {
+        setError(message);
+      }
       return message;
     } finally {
       setSaving(false);
       if (wrote) mutate();
     }
-  }, [apiCall, experimentId, mutate]);
+  }, [apiCall, experimentId, mutate, allowUnscopedRules]);
 
   const discardAll = useCallback(() => {
     [...edits.current.values()].forEach((edit) => edit.discard());
     setError(null);
+    setUnscopedRefusal(null);
+    setAllowUnscopedRules(false);
   }, []);
 
   const discard = useCallback((id: string) => {
@@ -310,11 +331,12 @@ export function ExperimentEditsProvider({
         method: "POST",
         body: JSON.stringify({
           ...mergeChanges([...parts, ...extra]),
+          ...(allowUnscopedRules && { allowUnscopedRules: true }),
           dryRun: true,
         }),
       });
     },
-    [apiCall, experimentId],
+    [apiCall, experimentId, allowUnscopedRules],
   );
   const checkChanges: CheckChanges = useCallback(
     (id, part) => dryRun(id, [part]),
@@ -327,12 +349,24 @@ export function ExperimentEditsProvider({
   const navigationGuard = useUnsavedChangesGuard(staged.length > 0, discardAll);
 
   const { allowUnload } = navigationGuard;
+  const unscopedRule = useMemo(
+    () =>
+      unscopedRefusal
+        ? {
+            message: unscopedRefusal,
+            acknowledged: allowUnscopedRules,
+            acknowledge: setAllowUnscopedRules,
+          }
+        : null,
+    [unscopedRefusal, allowUnscopedRules],
+  );
   const value = useMemo(
     () => ({
       scope,
       dirty: staged.length > 0,
       saving,
       error,
+      unscopedRule,
       saveAll,
       discardAll,
       staged,
@@ -348,6 +382,7 @@ export function ExperimentEditsProvider({
       staged,
       saving,
       error,
+      unscopedRule,
       saveAll,
       discardAll,
       discard,
