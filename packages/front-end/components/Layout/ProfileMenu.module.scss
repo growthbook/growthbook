@@ -4,6 +4,9 @@
   position: relative;
   flex-shrink: 0;
   margin: 0 0 0 var(--space-1);
+  // Its icon on the content's right edge: shifted by the space around it in
+  // its 32px box, which its hover fill still covers. Help moves with it.
+  translate: 6px 0;
   // The small button's corners (Radix's size 1), as the GrowthBot button's.
   border-radius: max(var(--radius-1), var(--radius-full));
 

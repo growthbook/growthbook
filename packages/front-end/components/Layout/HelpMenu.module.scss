@@ -92,3 +92,14 @@
 .popoverVersion.popoverVersion.popoverVersion {
   padding-left: calc(10px + 16px + var(--space-2));
 }
+
+// As the profile button beside it (ProfileMenu.module.scss), 12px after
+// GrowthBot's outline.
+.headerButton.headerButton {
+  flex-shrink: 0;
+  margin: 0 0 0 var(--space-3);
+  // With the profile button, so its icon ends on the content's right edge
+  // (ProfileMenu.module.scss).
+  translate: 6px 0;
+  border-radius: max(var(--radius-1), var(--radius-full));
+}
