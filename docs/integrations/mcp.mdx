@@ -50,7 +50,7 @@ GrowthBook MCP 2.x removes the old per-endpoint tools (`create_feature_flag`, `g
 
 ## GrowthBook Cloud
 
-If you use [GrowthBook Cloud](https://app.growthbook.io), connect your MCP client to the hosted server. You sign in with OAuth in the browser — no API key in the MCP config.
+If you use [GrowthBook Cloud](https://app.growthbook.io), connect your MCP client to the hosted server. You sign in with OAuth in the browser — no API key in the MCP config. The consent page asks what the connection may do: **Read only**, **Human-in-the-Loop** (the default, where risky changes wait for you to [confirm them](/integrations/ai-agents/api-keys#require-confirmation)), **Full access**, or custom permissions.
 
 | Endpoint                            | Tools                                 |
 | ----------------------------------- | ------------------------------------- |
@@ -233,7 +233,7 @@ Run the same HTTP MCP server GrowthBook Cloud uses, against your own API. Client
 
 **Prerequisites**
 
-- Your GrowthBook API must expose the OAuth 2.1 Authorization Server. Set `OAUTH_AS_ENABLED=1` on the API process (see [Environment variables](/self-host/env#oauth-authorization-server-mcp)).
+- Your GrowthBook API must expose the OAuth 2.1 Authorization Server. It's on by default; on older versions, set `OAUTH_AS_ENABLED=1` on the API process (see [Environment variables](/self-host/env#oauth-authorization-server-mcp)).
 - A public HTTPS URL for the MCP server (clients and OAuth metadata use this base URL).
 
 **Image:** [`ghcr.io/growthbook/growthbook-mcp`](https://github.com/growthbook/growthbook-mcp/pkgs/container/growthbook-mcp) — pin a version tag (for example `2.1.0`) rather than relying on `latest` in production.

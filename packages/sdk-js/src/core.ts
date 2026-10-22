@@ -20,7 +20,7 @@ import {
   UserContext,
 } from "./types/growthbook";
 import { evalCondition } from "./mongrule";
-import { ConditionInterface } from "./types/mongrule";
+import { ConditionInterface, EvalConditionOptions } from "./types/mongrule";
 import {
   chooseVariation,
   decrypt,
@@ -257,7 +257,7 @@ export function evalFeature<V = unknown>(
           const evaled = evalCondition(
             evalObj,
             parentCondition.condition || {},
-            ctx.global.savedGroups || {},
+            evalConditionOptions(ctx),
           );
           if (!evaled) {
             // blocking prerequisite eval failed: feature evaluation fails
@@ -631,7 +631,7 @@ export function runExperiment<T>(
           !evalCondition(
             evalObj,
             parentCondition.condition || {},
-            ctx.global.savedGroups || {},
+            evalConditionOptions(ctx),
           )
         ) {
           process.env.NODE_ENV !== "production" &&
@@ -955,8 +955,18 @@ function conditionPasses(
   return evalCondition(
     getAttributes(ctx.user),
     condition,
-    ctx.global.savedGroups || {},
+    evalConditionOptions(ctx),
   );
+}
+
+function evalConditionOptions(ctx: EvalContext): EvalConditionOptions {
+  return {
+    savedGroups: ctx.global.savedGroups || {},
+    // Checking types has a cost, so only in debug mode
+    onTypeMismatch: ctx.global.debug
+      ? (mismatch) => ctx.global.log("Type mismatch in condition", mismatch)
+      : undefined,
+  };
 }
 
 function isFilteredOut(filters: Filter[], ctx: EvalContext): boolean {

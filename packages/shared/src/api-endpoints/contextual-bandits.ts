@@ -23,6 +23,8 @@ import {
 import {
   cancelContextualBanditEndpoint,
   contextualBanditApiSpec,
+  listContextualBanditVisualChangesetsEndpoint,
+  postContextualBanditVisualChangesetsEndpoint,
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
@@ -69,6 +71,14 @@ export const updateContextualBanditVariations = customEndpoint(
 export const cancelContextualBandit = customEndpoint(
   contextualBanditApiSpec,
   cancelContextualBanditEndpoint,
+);
+export const postContextualBanditVisualChangesets = customEndpoint(
+  contextualBanditApiSpec,
+  postContextualBanditVisualChangesetsEndpoint,
+);
+export const listContextualBanditVisualChangesets = customEndpoint(
+  contextualBanditApiSpec,
+  listContextualBanditVisualChangesetsEndpoint,
 );
 
 export const getContextualBanditCurrentWeights = {
@@ -339,6 +349,7 @@ export const addContextualBanditLinkedFeature = {
   tags: ["ContextualBandits"],
   method: "post" as const,
   path: "/contextual-bandits/:id/linked-feature/:featureId",
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const updateContextualBanditLinkedFeature = {
@@ -369,6 +380,7 @@ export const updateContextualBanditLinkedFeature = {
   tags: ["ContextualBandits"],
   method: "put" as const,
   path: "/contextual-bandits/:id/linked-feature/:featureId",
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const deleteContextualBanditLinkedFeature = {
