@@ -248,9 +248,12 @@ export const ExperimentAssignmentQueryModal = ({
   const { mode, selectedTable, partition, detected, querySql } = source;
   // A general events table is scanned in full unless filtered to exposures
   const eventTypeColumn =
-    source.pickerColumns && !source.template && !source.rowFilters.length
+    source.pickerColumns && !source.template
       ? findEventTypeColumn(source.pickerColumns)
       : "";
+  const showEventTableHint =
+    !!eventTypeColumn &&
+    !source.rowFilters.some((f) => f.column === eventTypeColumn);
   // False while editing a query saved before its columns were stored, whose
   // columns are only guessed from its mapping
   const columnsDetected =
@@ -511,11 +514,12 @@ export const ExperimentAssignmentQueryModal = ({
             source={source}
             validateRef={validateSql}
             tableHint={
-              eventTypeColumn ? (
+              showEventTableHint ? (
                 <Callout status="info" size="sm">
                   This looks like an events table. Add a filter on{" "}
-                  <code>{eventTypeColumn}</code> so only exposure events are
-                  scanned.
+                  <code>{eventTypeColumn}</code>, like{" "}
+                  <code>{eventTypeColumn} = &apos;experiment_viewed&apos;</code>
+                  , so only exposure events are scanned.
                 </Callout>
               ) : null
             }
@@ -670,7 +674,7 @@ export const ExperimentAssignmentQueryModal = ({
                   <ColumnMappingRow
                     label="Experiment name"
                     kind="experiment"
-                    tooltip="Optional display name, used when importing experiments"
+                    tooltip="Display name for imported experiments. Map it with the variation name, or leave both empty."
                     value={experimentNameColumn}
                     options={columns}
                     setValue={setExperimentNameColumn}
@@ -679,7 +683,7 @@ export const ExperimentAssignmentQueryModal = ({
                   <ColumnMappingRow
                     label="Variation name"
                     kind="variation"
-                    tooltip="Optional display name, used when importing experiments"
+                    tooltip="Display name for imported variations. Map it with the experiment name, or leave both empty."
                     value={variationNameColumn}
                     options={columns}
                     setValue={setVariationNameColumn}
@@ -691,6 +695,7 @@ export const ExperimentAssignmentQueryModal = ({
                     <ColumnMappingRow
                       kind="partition"
                       label="Date partition"
+                      tooltip="Only reads partitions from the experiment's start date on, to limit data scanned"
                       value={partition.column}
                       options={partition.options}
                       setValue={partition.setColumn}
@@ -716,6 +721,12 @@ export const ExperimentAssignmentQueryModal = ({
                   ) : null}
                 </TableBody>
               </Table>
+              {!experimentName !== !variationName ? (
+                <Callout status="warning" size="sm" mb="2">
+                  Map both the experiment name and the variation name, or leave
+                  both empty.
+                </Callout>
+              ) : null}
               {mode === "table" && source.template ? (
                 <Callout status="info" size="sm" mb="2">
                   GA4 events table detected. The experiment_viewed events were

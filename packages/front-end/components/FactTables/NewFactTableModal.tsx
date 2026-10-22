@@ -672,6 +672,7 @@ export default function NewFactTableModal({
                           <ColumnMappingRow
                             kind="partition"
                             label="Date partition"
+                            tooltip="Only reads partitions from each query's start date on, to limit data scanned"
                             value={partition.column}
                             options={partition.options}
                             setValue={partition.setColumn}
