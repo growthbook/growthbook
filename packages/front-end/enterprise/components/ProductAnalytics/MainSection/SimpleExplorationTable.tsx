@@ -7,6 +7,7 @@ import { isManagedWarehousePendingQueryError } from "shared/util";
 import Text from "@/ui/Text";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import useExplorationTableData from "./useExplorationTableData";
+import styles from "./SimpleExplorationTable.module.scss";
 
 export default function SimpleExplorationTable({
   exploration,
@@ -63,7 +64,7 @@ export default function SimpleExplorationTable({
         </Text>
       </Flex>
       <table
-        className="table table-bordered gbtable table-hover mb-0"
+        className={`table table-bordered gbtable table-hover mb-0 ${styles.table}`}
         style={{ fontSize: "var(--font-size-1)" }}
       >
         <thead
