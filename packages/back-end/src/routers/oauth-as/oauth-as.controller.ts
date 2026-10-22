@@ -1,5 +1,8 @@
 import { Request, Response } from "express";
-import { oauthDcrRequestValidator } from "shared/validators";
+import {
+  oauthDcrRequestValidator,
+  oauthTokenPermissionsValidator,
+} from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -176,6 +179,7 @@ export async function postAuthorize(
     scope?: string;
     resource?: string;
     organization?: string;
+    permissions?: unknown;
   }>,
   res: Response,
 ) {
@@ -193,6 +197,17 @@ export async function postAuthorize(
       return res.status(400).json({
         status: 400,
         message: "organization is required",
+      });
+    }
+    // The role, scope and confirmations are checked when the token is minted.
+    const permissions = oauthTokenPermissionsValidator
+      .nullable()
+      .optional()
+      .safeParse(body.permissions);
+    if (!permissions.success) {
+      return res.status(400).json({
+        status: 400,
+        message: "permissions is invalid",
       });
     }
 
@@ -218,6 +233,7 @@ export async function postAuthorize(
       scope: body.scope ? String(body.scope) : undefined,
       resource: body.resource ? String(body.resource) : undefined,
       state: body.state ? String(body.state) : undefined,
+      permissions: permissions.data ?? null,
     });
 
     return res.status(200).json({ status: 200, redirectTo });

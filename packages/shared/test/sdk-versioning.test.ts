@@ -2,6 +2,7 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   getConnectionSDKCapabilities,
   getConnectionsSDKCapabilities,
+  someConnectionSupportsCapabilities,
 } from "../src/sdk-versioning";
 
 const baseConnection: SDKConnectionInterface = {
@@ -108,5 +109,43 @@ describe("contextualBanditsAuto", () => {
         project: "prj_b",
       }),
     ).not.toContain("contextualBanditsAuto");
+  });
+
+  it("requires one connection to support every capability itself", () => {
+    const browserOnly = { ...baseConnection, sdkVersion: "1.8.0" };
+    const serverOnly = {
+      ...baseConnection,
+      languages: ["nodejs" as const],
+      sdkVersion: "1.8.1",
+    };
+    const capabilities = ["visualEditor", "contextualBanditsAuto"] as const;
+
+    expect(
+      getConnectionsSDKCapabilities({
+        connections: [browserOnly, serverOnly],
+      }),
+    ).toEqual(expect.arrayContaining([...capabilities]));
+    expect(
+      someConnectionSupportsCapabilities({
+        connections: [browserOnly, serverOnly],
+        capabilities: [...capabilities],
+      }),
+    ).toBe(false);
+    expect(
+      someConnectionSupportsCapabilities({
+        connections: [{ ...baseConnection, sdkVersion: "1.8.1" }],
+        capabilities: [...capabilities],
+        project: "prj_a",
+      }),
+    ).toBe(true);
+    expect(
+      someConnectionSupportsCapabilities({
+        connections: [
+          { ...baseConnection, sdkVersion: "1.8.1", projects: ["prj_b"] },
+        ],
+        capabilities: [...capabilities],
+        project: "prj_a",
+      }),
+    ).toBe(false);
   });
 });

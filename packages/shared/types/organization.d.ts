@@ -368,6 +368,8 @@ export interface OrganizationSettings {
   // Only affects new rules on eligible JSON features; off by default.
   sparseJSONRulesByDefault?: boolean;
   requireProjectForFeatures?: boolean;
+  // New Feature Flag rules for all environments and all projects need an explicit override.
+  requireScopedFeatureRules?: boolean;
   requireProjectForSdkConnections?: boolean;
   // When true, saving a feature rule or experiment rejects hashAttribute,
   // fallbackAttribute, or condition keys that don't appear (unarchived) in
@@ -406,7 +408,6 @@ export interface OrganizationSettings {
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;
   blockFileUploads?: boolean;
-  defaultFeatureRulesInAllEnvs?: boolean;
   savedGroupSizeLimit?: number;
   // Opt-in validation of Saved Group scope at consuming Feature Flags.
   enforceSavedGroupProjectScope?: boolean;

@@ -33,11 +33,13 @@ import VariationLabel from "@/ui/VariationLabel";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import useUnscopedRuleGate from "@/components/Features/useUnscopedRuleGate";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
   getDefaultValue,
   useEnvironments,
+  useScopedRuleDefaultEnvironment,
   getDefaultVariationValue,
   validateFeatureRule,
 } from "@/services/features";
@@ -300,20 +302,37 @@ export default function FeatureFromExperimentModal({
     selectedEnvironments: string[];
   } | null>(null);
 
+  const scopedRuleDefaultEnv = useScopedRuleDefaultEnvironment(environments);
+  const seededScope =
+    enabledEnvsForDestination === null
+      ? // New feature, or the selected one hasn't loaded yet.
+        { allEnvironments: true, selectedEnvironments: NO_ENVIRONMENTS }
+      : {
+          allEnvironments:
+            environments.length > 0 &&
+            enabledEnvsForDestination.length === environments.length,
+          selectedEnvironments: enabledEnvsForDestination,
+        };
   const ruleScope =
     scopeOverride?.key === destinationKey
       ? scopeOverride
-      : enabledEnvsForDestination === null
-        ? // New feature, or the selected one hasn't loaded yet.
-          { allEnvironments: true, selectedEnvironments: NO_ENVIRONMENTS }
-        : {
-            allEnvironments:
-              environments.length > 0 &&
-              enabledEnvsForDestination.length === environments.length,
-            selectedEnvironments: enabledEnvsForDestination,
-          };
+      : seededScope.allEnvironments && scopedRuleDefaultEnv
+        ? {
+            allEnvironments: false,
+            selectedEnvironments: [scopedRuleDefaultEnv],
+          }
+        : seededScope;
   const ruleAllEnvironments = ruleScope.allEnvironments;
   const ruleSelectedEnvironments = ruleScope.selectedEnvironments;
+  const {
+    allowUnscopedRules,
+    unscopedRuleBlocksSubmit,
+    checkUnscopedRule,
+    unscopedRuleBanner,
+  } = useUnscopedRuleGate({
+    allEnvironments: ruleAllEnvironments,
+    environments: ruleSelectedEnvironments,
+  });
 
   const setRuleAllEnvironments = (allEnvironments: boolean) =>
     setScopeOverride({
@@ -425,7 +444,7 @@ export default function FeatureFromExperimentModal({
       "You don't have permission to create feature flag drafts.";
   }
 
-  if (holdoutWarning) {
+  if (holdoutWarning || unscopedRuleBlocksSubmit) {
     ctaEnabled = false;
   }
 
@@ -491,6 +510,7 @@ export default function FeatureFromExperimentModal({
       cta={cta}
       close={close}
       ctaEnabled={ctaEnabled}
+      aboveFooterContent={unscopedRuleBanner}
       submit={form.handleSubmit(async (values) => {
         const { variations, existing, ...feature } = values;
 
@@ -555,6 +575,8 @@ export default function FeatureFromExperimentModal({
           );
         }
 
+        checkUnscopedRule();
+
         let targetFeatureId: string;
 
         if (existing) {
@@ -600,6 +622,7 @@ export default function FeatureFromExperimentModal({
             autoPublish,
             draftVersion,
             forceNewDraft,
+            allowUnscopedRules,
           }),
         });
 
