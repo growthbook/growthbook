@@ -121,12 +121,6 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     defaultEnabled: true,
     defaultParams: { maxGoalMetrics: 3 },
   },
-  owner: {
-    section: "documentation",
-    type: "deterministic",
-    label: "Has an owner",
-    defaultEnabled: true,
-  },
   decision: {
     section: "documentation",
     type: "deterministic",
@@ -657,8 +651,6 @@ function evaluateDeterministicCheck(
       }
       return { applicable: true, score: 1 };
     }
-    case "owner":
-      return { applicable: true, score: experiment.owner?.trim() ? 1 : 0 };
     case "decision": {
       if (experiment.status !== "stopped") return { applicable: false };
       const hasDecision =

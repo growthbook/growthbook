@@ -134,7 +134,6 @@ describe("resolveExperimentQualityScoreSettings", () => {
         "description",
         "tags-or-project",
         "goal-metrics",
-        "owner",
         "decision",
       ] as const
     )
@@ -378,7 +377,6 @@ describe("getExperimentQualityScore", () => {
         screenshots: { enabled: false },
         "tags-or-project": { enabled: false },
         "goal-metrics": { enabled: false },
-        owner: { enabled: false },
       },
     });
     const experiment = baseExperiment({ description: "" });
@@ -433,21 +431,14 @@ describe("getExperimentQualityScore", () => {
       releasedVariationId: "",
     });
     const result = score(experiment);
-    // Enabled by default: 6 documentation (screenshots off) + 6 process
-    // (planned-end off) + 2 ai = 14
-    expect(result.totalEnabledCheckCount).toBe(14);
+    // Enabled by default: 5 documentation (screenshots off) + 6 process
+    // (planned-end off) + 2 ai = 13
+    expect(result.totalEnabledCheckCount).toBe(13);
     // N/A while running: decision and the 6 process checks
-    expect(result.appliedCheckCount).toBe(7);
+    expect(result.appliedCheckCount).toBe(6);
   });
 
   describe("new checks", () => {
-    it("owner check passes and fails", () => {
-      expect(checkByKey(score(baseExperiment()), "owner")?.score).toBe(1);
-      expect(
-        checkByKey(score(baseExperiment({ owner: " " })), "owner")?.score,
-      ).toBe(0);
-    });
-
     it("goal-metrics enforces fewer-than-max", () => {
       const none = checkByKey(
         score(baseExperiment({ goalMetrics: [] })),

@@ -19,7 +19,6 @@ export const deterministicExperimentQualityCheckKeys = [
   "screenshots",
   "tags-or-project",
   "goal-metrics",
-  "owner",
   "decision",
 ] as const;
 export type DeterministicExperimentQualityCheckKey =

@@ -72,7 +72,6 @@ const CheckResultCell: FC<{
           </Link>
         );
       case "tags-or-project":
-      case "owner":
       case "decision":
       case "goal-metrics-locked":
       case "hypothesis-locked":
