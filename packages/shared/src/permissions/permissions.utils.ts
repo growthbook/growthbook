@@ -12,6 +12,7 @@ import {
 } from "shared/types/organization";
 import { hasNoDuplicateProjects } from "../validators/organization";
 import {
+  API_KEY_ONLY_ROLE_IDS,
   DEFAULT_ROLES,
   ENV_SCOPED_PERMISSIONS,
   POLICY_PERMISSION_MAP,
@@ -89,7 +90,15 @@ export function getRoles(org: Partial<OrganizationInterface>) {
   return roles;
 }
 
+export function isApiKeyOnlyRole(roleId: string): boolean {
+  return API_KEY_ONLY_ROLE_IDS.includes(roleId);
+}
+
+// Whether a role can be given to a member, invite, team, SCIM user/group, or be
+// the org default role. API-key-only roles exist but aren't valid here; API
+// keys validate their role with getRoleById instead.
 export function isRoleValid(role: string, org: Partial<OrganizationInterface>) {
+  if (isApiKeyOnlyRole(role)) return false;
   return !!getRoleById(role, org);
 }
 

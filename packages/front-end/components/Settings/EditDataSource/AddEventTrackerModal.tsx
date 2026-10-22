@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   DataSourceInterfaceWithParams,
@@ -12,7 +13,7 @@ import {
   getDatasourceTemplateSettings,
 } from "@/services/initial-resources";
 import { hasEventTrackerSql } from "@/services/datasources";
-import { eventSchemas } from "@/services/eventSchema";
+import { addOnlyEventSchemas, eventSchemas } from "@/services/eventSchema";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import track from "@/services/track";
@@ -24,13 +25,20 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 
 export function getAddableEventTrackers(
-  datasource: Pick<DataSourceInterfaceWithParams, "type" | "settings">,
+  datasource: DataSourceInterfaceWithParams,
+  traceIngestEnabled: boolean,
 ) {
-  return eventSchemas.filter(
+  // Older warehouses skip identifier syncing, which the AI fact tables rely on.
+  const tracesAddable =
+    traceIngestEnabled &&
+    datasource.type === "growthbook_clickhouse" &&
+    !!datasource.settings.useJsonColumns;
+  return [...eventSchemas, ...addOnlyEventSchemas].filter(
     (s) =>
       !!s.types?.includes(datasource.type) &&
       hasEventTrackerSql(s.value) &&
-      s.value !== datasource.settings?.schemaFormat,
+      s.value !== datasource.settings?.schemaFormat &&
+      (s.value !== "growthbook_traces" || tracesAddable),
   );
 }
 
@@ -53,7 +61,10 @@ export default function AddEventTrackerModal({
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
 
-  const trackers = getAddableEventTrackers(datasource);
+  const trackers = getAddableEventTrackers(
+    datasource,
+    useFeatureIsOn("trace-ingest"),
+  );
   const [tracker, setTracker] = useState(trackers[0]);
   const template = tracker.value;
   const { label, options = [] } = tracker;
@@ -78,9 +89,9 @@ export default function AddEventTrackerModal({
     return { updatedSettings, resources };
   }, [datasource, template, schemaOptions, factTables]);
 
-  const alreadyAdded =
-    resources.factTables.length === 0 &&
-    JSON.stringify(updatedSettings) === JSON.stringify(datasource.settings);
+  const settingsChanged =
+    JSON.stringify(updatedSettings) !== JSON.stringify(datasource.settings);
+  const alreadyAdded = resources.factTables.length === 0 && !settingsChanged;
 
   return (
     <ModalStandard
@@ -93,10 +104,12 @@ export default function AddEventTrackerModal({
       ctaEnabled={!alreadyAdded}
       submit={async () => {
         // Fact tables are validated against the saved identifier types.
-        await apiCall(`/datasource/${datasource.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ settings: updatedSettings }),
-        });
+        if (settingsChanged) {
+          await apiCall(`/datasource/${datasource.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ settings: updatedSettings }),
+          });
+        }
 
         let errors = 0;
         if (resources.factTables.length > 0) {

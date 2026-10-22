@@ -83,6 +83,11 @@ export const eventTrackerMapping: Record<
     label: "Arize Phoenix",
     beta: true,
   },
+  growthbook_traces: {
+    logo: "/logo/Logo-mark.png",
+    label: "GrowthBook AI traces",
+    beta: true,
+  },
   eventForwarder: {
     label: "Event Forwarder",
   },

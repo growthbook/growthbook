@@ -40,6 +40,26 @@ describe("useAccountPlanNotices", () => {
     });
   });
 
+  it("shows an error, with an upgrade, when AI traces usage is over", () => {
+    vi.mocked(useUser).mockReturnValue({
+      // @ts-expect-error "partial test mock"
+      usage: {
+        cdn: { lastUpdated: new Date(), status: "under" },
+        traces: { lastUpdated: new Date(), status: "over" },
+      },
+      license: null,
+      seatsInUse: 0,
+    });
+    canManageBilling(true);
+
+    const [notice] = renderHook(() => useAccountPlanNotices()).result.current;
+    expect(notice).toMatchObject({
+      severity: "error",
+      title: "AI traces usage limit exceeded",
+      upgrade: { commercialFeature: "unlimited-managed-warehouse-usage" },
+    });
+  });
+
   describe("enterprise license seat quota", () => {
     it("does not warn when seats are within the limit", () => {
       // @ts-expect-error "partial test mock"

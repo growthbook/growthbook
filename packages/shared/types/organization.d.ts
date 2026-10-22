@@ -125,6 +125,7 @@ export type DefaultMemberRole =
   | "readonly"
   | "collaborator"
   | "visualEditor"
+  | "gbDefault_traceIngest"
   | "analyst"
   | "engineer"
   | "experimenter"
@@ -611,12 +612,17 @@ export type OrganizationUsage = {
     requests: UsageLimit;
     bandwidth: UsageLimit;
     managedClickhouseEvents?: UsageLimit;
+    tracesBytes?: UsageLimit;
   };
   cdn: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
   };
   managedClickhouse?: {
+    lastUpdated: Date;
+    status: "under" | "approaching" | "over";
+  };
+  traces?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
   };

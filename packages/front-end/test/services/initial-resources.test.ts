@@ -6,6 +6,7 @@ import {
   getDatasourceTemplateSettings,
 } from "@/services/initial-resources";
 import { validateSQL } from "@/services/datasources";
+import { getAddableEventTrackers } from "@/components/Settings/EditDataSource/AddEventTrackerModal";
 
 // initial-resources imports getDefaultFactMetricProps, which pulls in a React
 // component tree the generators never touch.
@@ -376,10 +377,21 @@ describe("getDatasourceTemplateResources", () => {
       template: "langfuse",
       schemaOptions: {},
       existingFactTables: [
-        { name: "Langfuse Traces", datasource: "ds_business", archived: false },
-        // Archived, or on another Data Source: still created.
-        { name: "Langfuse Scores", datasource: "ds_business", archived: true },
         {
+          id: "ftb_1",
+          name: "Langfuse Traces",
+          datasource: "ds_business",
+          archived: false,
+        },
+        // Archived, or on another Data Source: still created.
+        {
+          id: "ftb_2",
+          name: "Langfuse Scores",
+          datasource: "ds_business",
+          archived: true,
+        },
+        {
+          id: "ftb_3",
           name: "Langfuse Observations",
           datasource: "ds_other",
           archived: false,
@@ -390,5 +402,147 @@ describe("getDatasourceTemplateResources", () => {
       "Langfuse Observations",
       "Langfuse Scores",
     ]);
+  });
+});
+
+describe("GrowthBook AI traces on the Managed Warehouse", () => {
+  function managedWarehouse(
+    idAttributeIdentifier?: "user_id" | "device_id",
+  ): DataSourceInterfaceWithParams {
+    return {
+      id: "ds_managed",
+      type: "growthbook_clickhouse",
+      params: {},
+      settings: {
+        userIdTypes: [
+          { userIdType: "user_id", description: "" },
+          { userIdType: "device_id", description: "" },
+        ],
+        queries: { exposure: [] },
+        ...(idAttributeIdentifier ? { idAttributeIdentifier } : {}),
+      },
+    } as unknown as DataSourceInterfaceWithParams;
+  }
+
+  function tracesTracker(ds: DataSourceInterfaceWithParams) {
+    return {
+      ...ds,
+      settings: { ...ds.settings, schemaFormat: "growthbook_traces" },
+    } as DataSourceInterfaceWithParams;
+  }
+
+  it("generates consistent fact tables, filters, and metrics", () => {
+    const factTables = assertResourcesAreConsistent(
+      tracesTracker(managedWarehouse()),
+    );
+    expect(factTables.map((f) => f.factTable.name)).toEqual([
+      "AI spans",
+      "AI turns",
+      "AI conversations",
+    ]);
+    const spans = factTables[0];
+    expect(spans.factTable.sql).toContain("FROM ai_spans_priced");
+    expect(spans.factTable.sql).not.toContain("FINAL");
+    expect(spans.filters.find((f) => f.name === "Model calls")?.value).toBe(
+      "operation IN ('chat', 'text_completion', 'generate_content', 'embeddings')",
+    );
+    for (const ft of factTables.slice(1)) {
+      expect(ft.factTable.sql).toContain(
+        "FROM trace_spans WHERE SpanCategory = 'ai' AND",
+      );
+    }
+    expect(spans.metrics.map((m) => m.name)).toEqual([
+      "LLM calls per user",
+      "LLM cost per user",
+      "LLM error rate",
+      "p95 LLM latency",
+      "Tokens per LLM call",
+      "Tokens per user",
+    ]);
+  });
+
+  it.each([
+    { setting: undefined, idType: "device_id" },
+    { setting: "device_id" as const, idType: "device_id" },
+    { setting: "user_id" as const, idType: "user_id" },
+  ])(
+    "maps UserId to $idType when the id attribute is $setting",
+    ({ setting, idType }) => {
+      const { factTables } = getInitialDatasourceResources({
+        datasource: tracesTracker(managedWarehouse(setting)),
+      });
+      for (const { factTable } of factTables) {
+        expect(factTable.userIdTypes).toEqual([idType]);
+        expect(factTable.sql).toContain(`UserId AS ${idType},`);
+      }
+    },
+  );
+
+  it("gives each fact table a fixed id and skips ones already taken", () => {
+    const ds = managedWarehouse();
+    const { factTables } = getInitialDatasourceResources({
+      datasource: tracesTracker(ds),
+    });
+    expect(factTables.map((f) => f.factTable.id)).toEqual([
+      "ch_ai_spans",
+      "ch_ai_turns",
+      "ch_ai_conversations",
+    ]);
+
+    const resources = getDatasourceTemplateResources({
+      datasource: ds,
+      template: "growthbook_traces",
+      schemaOptions: {},
+      existingFactTables: [
+        {
+          id: "ch_ai_spans",
+          name: "Renamed spans",
+          datasource: "ds_managed",
+          archived: true,
+        },
+      ],
+    });
+    expect(resources.factTables.map((f) => f.factTable.name)).toEqual([
+      "AI turns",
+      "AI conversations",
+    ]);
+  });
+
+  it("is only addable to JSON-columns Managed Warehouses with the flag on", () => {
+    const addable = (
+      ds: DataSourceInterfaceWithParams,
+      flag: boolean,
+    ): boolean =>
+      getAddableEventTrackers(ds, flag).some(
+        (t) => t.value === "growthbook_traces",
+      );
+    const legacy = managedWarehouse();
+    const json = {
+      ...legacy,
+      settings: { ...legacy.settings, useJsonColumns: true },
+    } as DataSourceInterfaceWithParams;
+
+    expect(addable(json, true)).toBe(true);
+    expect(addable(json, false)).toBe(false);
+    expect(addable(legacy, true)).toBe(false);
+    expect(addable(tracesTracker(json), true)).toBe(false);
+  });
+
+  it("still builds the Events fact table for the Managed Warehouse itself", () => {
+    const { factTables } = getInitialDatasourceResources({
+      datasource: managedWarehouse(),
+    });
+    expect(factTables.map((f) => f.factTable.name)).toEqual(["Events"]);
+  });
+
+  it("adds no identifier types or assignment queries", () => {
+    const ds = managedWarehouse();
+    expect(
+      getDatasourceTemplateSettings({
+        datasource: ds,
+        template: "growthbook_traces",
+        schemaOptions: {},
+      }),
+    ).toBe(ds.settings);
   });
 });

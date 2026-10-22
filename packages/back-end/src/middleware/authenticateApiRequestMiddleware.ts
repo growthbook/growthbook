@@ -1,6 +1,11 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import asyncHandler from "express-async-handler";
-import { getRolePermissions, hasPermission } from "shared/permissions";
+import {
+  getRoleDisplayName,
+  getRolePermissions,
+  hasPermission,
+  isApiKeyOnlyRole,
+} from "shared/permissions";
 import {
   EventUserLoggedIn,
   EventUserRequestedBy,
@@ -242,6 +247,14 @@ function authenticateWithApiKey(
       );
       if (disabled) {
         throw new Error("This API key has been disabled");
+      }
+      // Single-purpose keys (e.g. trace ingest) have no policies, so every
+      // permission check would fail anyway; reject them outright so endpoints
+      // that don't check permissions can't be reached either.
+      if (role && isApiKeyOnlyRole(role)) {
+        throw new Error(
+          `This API key has the ${getRoleDisplayName(role, {})} role and can't be used with the GrowthBook API.`,
+        );
       }
       // Expiry is enforced at lookup; this lets clients warn before it lands.
       if (expiresAt && !apiKeyDoc.oauthClientId) {

@@ -79,6 +79,29 @@ export default function useAccountPlanNotices(): AppNotice[] {
     });
   }
 
+  const traces = usage?.traces?.status;
+  if (traces === "approaching" || traces === "over") {
+    notices.push({
+      id: "traces-usage",
+      severity: traces === "over" ? "error" : "warning",
+      title:
+        traces === "over"
+          ? "AI traces usage limit exceeded"
+          : "Approaching AI traces usage limit",
+      details: usageDetails(
+        "https://docs.growthbook.io/integrations/llm-tracing#sending-traces-to-growthbook",
+        "Clicked Read About AI Traces Limits Link in Tooltip",
+      ),
+      upgrade: {
+        source:
+          traces === "over"
+            ? "traces-usage-exceeded-topnav-notification"
+            : "traces-usage-approaching-topnav-notification",
+        commercialFeature: "unlimited-managed-warehouse-usage",
+      },
+    });
+  }
+
   const licenseNotice = ((): AppNotice | null => {
     if (
       license?.message &&

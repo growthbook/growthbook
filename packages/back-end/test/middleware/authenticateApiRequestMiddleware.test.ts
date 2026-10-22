@@ -1,7 +1,21 @@
+import { Request, Response } from "express";
 import { getRolePermissions } from "shared/permissions";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { OrganizationInterface, Permission } from "shared/types/organization";
-import { verifyApiKeyPermission } from "back-end/src/middleware/authenticateApiRequestMiddleware";
+import authenticateApiRequestMiddleware, {
+  verifyApiKeyPermission,
+} from "back-end/src/middleware/authenticateApiRequestMiddleware";
+import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
+import { ApiRequestLocals } from "back-end/types/api";
+
+jest.mock("back-end/src/util/api-key.util", () => ({
+  ...jest.requireActual("back-end/src/util/api-key.util"),
+  dangerousLookupOrganizationByApiKey: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/ApiKeyModel", () => ({
+  ApiKeyModel: { dangerousRecordUsageByKey: jest.fn(() => Promise.resolve()) },
+}));
 
 describe("REST API auth middleware", () => {
   describe("verifyApiKeyPermission", () => {
@@ -100,6 +114,39 @@ describe("REST API auth middleware", () => {
         teams: [],
         superAdmin: false,
       });
+    });
+
+    it("should throw for every permission on a trace ingest key", () => {
+      const traceIngestKey: Partial<ApiKeyInterface> = {
+        id: "key_traceingest",
+        secret: true,
+        organization: orgId,
+        key: "secret_traceIngest_abc123",
+        encryptSDK: false,
+        role: "gbDefault_traceIngest",
+        description: "AI traces",
+      };
+      const permissions: Permission[] = [
+        "readData",
+        "createMetrics",
+        "editFeatureDrafts",
+        "manageApiKeys",
+      ];
+      for (const permission of permissions) {
+        for (const project of [undefined, "prj_abc123"]) {
+          expect(() =>
+            verifyApiKeyPermission({
+              apiKey: traceIngestKey,
+              permission,
+              organization,
+              environments: ["production"],
+              project,
+              teams: [],
+              superAdmin: false,
+            }),
+          ).toThrow("API key user does not have this level of access");
+        }
+      }
     });
 
     it("should throw an error for read-only API keys", () => {
@@ -316,5 +363,62 @@ describe("REST API auth middleware", () => {
         });
       }).toThrowError();
     });
+  });
+});
+
+describe("authenticateApiRequestMiddleware with an API key", () => {
+  const run = async (apiKeyDoc: Partial<ApiKeyInterface>) => {
+    jest
+      .mocked(dangerousLookupOrganizationByApiKey)
+      .mockResolvedValue(apiKeyDoc as ApiKeyInterface);
+
+    const next = jest.fn();
+    let resolve: () => void = () => undefined;
+    const responded = new Promise<void>((r) => (resolve = r));
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(() => resolve()),
+    };
+    const req = {
+      headers: { authorization: `Bearer ${apiKeyDoc.key}` },
+      log: { warn: jest.fn(), child: jest.fn() },
+    };
+    authenticateApiRequestMiddleware(
+      req as unknown as Request & ApiRequestLocals,
+      res as unknown as Response & { log: Request["log"] },
+      next,
+    );
+    await responded;
+    return { res, next };
+  };
+
+  it("rejects a trace ingest key before it reaches any handler", async () => {
+    const { res, next } = await run({
+      id: "key_1",
+      key: "secret_traceIngest_abc",
+      secret: true,
+      organization: "org_1",
+      role: "gbDefault_traceIngest",
+    });
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({
+      message:
+        "This API key has the AI Trace Ingest role and can't be used with the GrowthBook API.",
+    });
+  });
+
+  it("rejects a token carrying the trace ingest role even if it's user-attributed", async () => {
+    const { res, next } = await run({
+      id: "key_2",
+      key: "secret_user_abc",
+      secret: true,
+      organization: "org_1",
+      userId: "u_1",
+      scoped: true,
+      role: "gbDefault_traceIngest",
+    });
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(401);
   });
 });
