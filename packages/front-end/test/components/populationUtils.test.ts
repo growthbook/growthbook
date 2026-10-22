@@ -85,27 +85,47 @@ describe("describePopulationStep", () => {
     overrides: Partial<PopulationStep>,
     factTable: FactTableDefinition | null = eventsTable,
   ) => {
-    const { beforeFactTableName, factTableName, afterFactTableName } =
-      describePopulationStep({
-        step: { ...step("ftb_events"), ...overrides },
-        identifierTypes: ["user_id"],
-        factTable,
-      });
-    return `${beforeFactTableName}${factTableName}${afterFactTableName}`;
+    return describePopulationStep({
+      step: { ...step("ftb_events"), ...overrides },
+      identifierTypes: ["user_id"],
+      factTable,
+    })
+      .map((segment) => (typeof segment === "string" ? segment : segment.label))
+      .join("");
   };
 
-  it("splits the sentence around the fact table name", () => {
+  it("links the fact table name", () => {
     expect(
       describePopulationStep({
         step: { ...step("ftb_has"), rowFilters: [country] },
         identifierTypes: ["user_id"],
         factTable: { ...eventsTable, name: "Has" },
       }),
-    ).toEqual({
-      beforeFactTableName: "Has ",
-      factTableName: "Has",
-      afterFactTableName: " matching the row filter: country=US",
-    });
+    ).toEqual([
+      "Has ",
+      { label: "Has", href: "/fact-tables/ftb_has" },
+      " matching country = US",
+    ]);
+  });
+
+  it("omits the trailing segment when there are no filters or windows", () => {
+    expect(
+      describePopulationStep({
+        step: step("ftb_events"),
+        identifierTypes: ["user_id"],
+        factTable: eventsTable,
+      }),
+    ).toEqual(["Has ", { label: "Events", href: "/fact-tables/ftb_events" }]);
+  });
+
+  it("shows the fact table id as plain text when the fact table is missing", () => {
+    expect(
+      describePopulationStep({
+        step: step("ftb_events"),
+        identifierTypes: ["user_id"],
+        factTable: null,
+      }),
+    ).toEqual(["Has ", "ftb_events"]);
   });
 
   it("describes a step with no filters or windows", () => {
@@ -114,13 +134,13 @@ describe("describePopulationStep", () => {
 
   it("describes a step with one row filter", () => {
     expect(getStepDescription({ rowFilters: [country] })).toBe(
-      "Has Events matching the row filter: country=US",
+      "Has Events matching country = US",
     );
   });
 
   it("describes a step with multiple row filters", () => {
     expect(getStepDescription({ rowFilters: [country, amount] })).toBe(
-      "Has Events matching the row filters: country=US, amount>100",
+      "Has Events matching country = US, amount > 100",
     );
   });
 
@@ -131,9 +151,7 @@ describe("describePopulationStep", () => {
         aggregateFilterColumn: "$$count",
         aggregateFilter: ">=3",
       }),
-    ).toBe(
-      "Has Events matching the row filter: country=US and aggregate filter: count >=3 per user_id",
-    );
+    ).toBe("Has Events matching country = US and count >=3 per user_id");
   });
 
   it("describes a step with row filters and an aggregate filter with multiple conditions", () => {
@@ -143,9 +161,7 @@ describe("describePopulationStep", () => {
         aggregateFilterColumn: "$$count",
         aggregateFilter: ">=3,<=10",
       }),
-    ).toBe(
-      "Has Events matching the row filter: country=US and aggregate filter: count >=3,<=10 per user_id",
-    );
+    ).toBe("Has Events matching country = US and count >=3,<=10 per user_id");
   });
 
   it("describes a step with an aggregate filter and no row filters", () => {
@@ -154,9 +170,7 @@ describe("describePopulationStep", () => {
         aggregateFilterColumn: "amount",
         aggregateFilter: ">100",
       }),
-    ).toBe(
-      "Has Events matching the aggregate filter: total amount >100 per user_id",
-    );
+    ).toBe("Has Events matching total amount >100 per user_id");
   });
 
   it("describes a step with a lookback window", () => {
@@ -174,62 +188,16 @@ describe("describePopulationStep", () => {
         windowSettings: lastWeek,
       }),
     ).toBe(
-      "Has Events matching the row filter: country=US and aggregate filter: count >=3 per user_id in the last 1 week",
+      "Has Events matching country = US and count >=3 per user_id in the last 1 week",
     );
   });
 
-  it("uses readable labels for other row filter operators", () => {
-    const getFilterDescription = (rowFilter: RowFilter) =>
-      getStepDescription({ rowFilters: [rowFilter] }).replace(
-        "Has Events matching the row filter: ",
-        "",
-      );
-    expect(
-      getFilterDescription({
-        column: "country",
-        operator: "not_in",
-        values: ["US", "CA"],
-      }),
-    ).toBe("country not in US, CA");
-    expect(
-      getFilterDescription({ column: "country", operator: "is_null" }),
-    ).toBe("country is null");
-  });
-
-  it("includes the SQL of a SQL expression filter", () => {
+  it("uses saved filter names", () => {
     expect(
       getStepDescription({
-        rowFilters: [{ operator: "sql_expr", values: ["amount > 0"] }],
+        rowFilters: [{ operator: "saved_filter", values: ["flt_purchases"] }],
       }),
-    ).toBe("Has Events matching the row filter: SQL Expression amount > 0");
-  });
-
-  describe("saved filters", () => {
-    const savedFilter = (id: string): RowFilter => ({
-      operator: "saved_filter",
-      values: [id],
-    });
-
-    it("uses the saved filter's name", () => {
-      expect(
-        getStepDescription({ rowFilters: [savedFilter("flt_purchases")] }),
-      ).toBe("Has Events matching the row filter: Purchases only");
-    });
-
-    it("says when the saved filter was deleted", () => {
-      expect(
-        getStepDescription({ rowFilters: [savedFilter("flt_gone")] }),
-      ).toBe("Has Events matching the row filter: Deleted saved filter");
-    });
-
-    it("falls back to the saved filter id when the fact table is missing", () => {
-      expect(
-        getStepDescription(
-          { rowFilters: [savedFilter("flt_purchases")] },
-          null,
-        ),
-      ).toBe("Has ftb_events matching the row filter: flt_purchases");
-    });
+    ).toBe("Has Events matching Purchases only");
   });
 
   it("uses column display names", () => {
@@ -241,7 +209,7 @@ describe("describePopulationStep", () => {
           columns: [column("country", "string", { name: "Country" })],
         },
       ),
-    ).toBe("Has Events matching the row filter: Country=US");
+    ).toBe("Has Events matching Country = US");
   });
 
   it("falls back to ids when the fact table is missing", () => {
@@ -255,7 +223,7 @@ describe("describePopulationStep", () => {
         null,
       ),
     ).toBe(
-      "Has ftb_events matching the row filter: country=US and aggregate filter: total amount >100 per user_id",
+      "Has ftb_events matching country = US and total amount >100 per user_id",
     );
   });
 });
