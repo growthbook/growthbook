@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.10.0",
+  "specVersion": "0.10.1",
   "evalCondition": [
     [
       "$not - pass",
@@ -7089,6 +7089,43 @@
         "on": true,
         "off": false,
         "source": "force",
+        "ruleId": ""
+      }
+    ],
+    [
+      "Malformed prerequisite condition does not match, skip rule",
+      {
+        "attributes": {
+          "id": "123"
+        },
+        "features": {
+          "parentFlag": {
+            "defaultValue": true
+          },
+          "childFlag": {
+            "defaultValue": "default",
+            "rules": [
+              {
+                "parentConditions": [
+                  {
+                    "id": "parentFlag",
+                    "condition": {
+                      "$not": null
+                    }
+                  }
+                ],
+                "force": "prereq"
+              }
+            ]
+          }
+        }
+      },
+      "childFlag",
+      {
+        "value": "default",
+        "on": true,
+        "off": false,
+        "source": "defaultValue",
         "ruleId": ""
       }
     ],
