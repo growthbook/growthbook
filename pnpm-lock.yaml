@@ -71,6 +71,9 @@ overrides:
   yaml@1: ^1.10.3
 
 patchedDependencies:
+  '@clickhouse/client@1.23.1':
+    hash: b468336b7a762b5aebfe1ec6ab1711be4405a3bd1794f1e0a9bab327ededb180
+    path: patches/@clickhouse__client@1.23.1.patch
   '@ephys/zod-to-ts@2.3.2':
     hash: 9a20bc019cac7fdedd7e3e3dc15d91158a5f0dc676edef9ecd8ee4823fce522a
     path: patches/@ephys__zod-to-ts@2.3.2.patch
@@ -205,7 +208,7 @@ importers:
         version: 3.1031.0
       '@clickhouse/client':
         specifier: ^1.23.1
-        version: 1.23.1
+        version: 1.23.1(patch_hash=b468336b7a762b5aebfe1ec6ab1711be4405a3bd1794f1e0a9bab327ededb180)
       '@databricks/sql':
         specifier: ^2.0.0
         version: 2.0.0(encoding@0.1.13)
@@ -16102,7 +16105,7 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@clickhouse/client@1.23.1': {}
+  '@clickhouse/client@1.23.1(patch_hash=b468336b7a762b5aebfe1ec6ab1711be4405a3bd1794f1e0a9bab327ededb180)': {}
 
   '@colors/colors@1.6.0': {}
 

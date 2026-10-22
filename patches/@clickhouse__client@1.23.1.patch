@@ -1,0 +1,24 @@
+diff --git a/dist/connection/compression.js b/dist/connection/compression.js
+index 9b92b5dcf3a4c8da3e6d69778f7e6edc45aea89c..8fc8ad0ca9f3b86cfb222ddd8292624cdfd2bcab 100644
+--- a/dist/connection/compression.js
++++ b/dist/connection/compression.js
+@@ -51,18 +51,7 @@ function decompressResponse(response, log_writer, log_level) {
+             }),
+         };
+     }
+-    if (encoding === "br") {
+-        return {
+-            response: stream_1.default.pipeline(response, zlib_1.default.createBrotliDecompress(), function pipelineCb(err) {
+-                if (err && log_level <= index_1.ClickHouseLogLevel.ERROR) {
+-                    log_writer.error({
+-                        message: "An error occurred while decompressing the response",
+-                        err,
+-                    });
+-                }
+-            }),
+-        };
+-    }
++    // GrowthBook: never feed a server's Brotli to Node's decoder (CVE-2026-111497); we only request gzip.
+     return { error: new Error(`Unexpected encoding: ${encoding}`) };
+ }
+ function isDecompressionError(result) {
