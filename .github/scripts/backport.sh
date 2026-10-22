@@ -54,14 +54,14 @@ for ref in "$@"; do
       git checkout --ours -- "$f"
     else
       # Apply only the values this commit changed; a text merge would also pull in main's neighbouring lines.
-      # Arrays count as one value, edited by the entries this commit added or removed.
-      jq --indent 2 --argjson base "$(git show ":1:$f")" --argjson theirs "$(git show ":3:$f")" '
+      # Arrays count as one value, and need a person if the release's copy differs from main's.
+      jq --indent 2 --arg ref "$ref" --arg f "$f" --argjson base "$(git show ":1:$f")" --argjson theirs "$(git show ":3:$f")" '
         reduce ([$base, $theirs] | map([path(recurse(objects[]) | select(type != "object"))]) | add | unique[]) as $p (.;
           ($base | getpath($p)) as $b | ($theirs | getpath($p)) as $t |
           if $b == $t then .
+          elif ([$b, $t] | any(type == "array")) and getpath($p) != $b then
+            "::error::\($ref) changes \($p | join(".")) in \($f), which differs on the release; backport it by hand\n" | halt_error
           elif $t == null then delpaths([$p])
-          elif ($t | type) == "array" then
-            setpath($p; (getpath($p) // []) - (($b // []) - $t) | . + ($t - ($b // []) - .))
           else setpath($p; $t) end)
       ' <(git show ":2:$f") >"$f"
     fi
