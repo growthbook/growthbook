@@ -13,9 +13,7 @@ on:
       - "Dockerfile"
       - ".dockerignore"
 
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
+# No workflow-level concurrency: a shared group drops queued runs, which skipped commits' git-<sha> images.
 
 jobs:
   # Build and publish the commit to docker
@@ -86,10 +84,8 @@ jobs:
             DD_GIT_COMMIT_SHA=${{ github.sha }}
             DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
             DD_VERSION=${{ github.sha }}
-          # No ECR :latest — the ECR repo is immutable, so we push only the
-          # unique git-<sha> tag. Docker Hub :latest stays for self-host.
+          # Builds run in parallel, so :latest is moved by the `latest` job instead.
           tags: |
-            growthbook/growthbook:latest
             growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
             ${{ steps.login-ecr.outputs.registry }}/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
           platforms: linux/amd64,linux/arm64
@@ -106,10 +102,42 @@ jobs:
             DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
             DD_VERSION=${{ github.sha }}
           tags: |
-            growthbook/growthbook:latest
             growthbook/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
             ${{ steps.login-ecr.outputs.registry }}/growthbook:git-${{ steps.metadata.outputs.docker_sha }}
           platforms: linux/amd64,linux/arm64
+
+  # Point Docker Hub :latest at this build, only forward: parallel builds can finish out of order.
+  latest:
+    runs-on: ubuntu-latest
+    needs: [docker]
+    if: ${{ github.repository == 'growthbook/growthbook' }}
+    concurrency:
+      group: docker-latest
+      cancel-in-progress: false
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Install buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Move :latest if this commit is newer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CURRENT=$(docker buildx imagetools inspect growthbook/growthbook:latest \
+            --format '{{ range (index .Image "linux/amd64").Config.Env }}{{ println . }}{{ end }}' \
+            | sed -n 's/^DD_GIT_COMMIT_SHA=//p')
+          STATUS=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${CURRENT}...${GITHUB_SHA}" --jq .status || echo unknown)
+          if [ "$STATUS" = behind ] || [ "$STATUS" = identical ]; then
+            echo "Leaving :latest at ${CURRENT} (this commit is ${STATUS} of it)"
+            exit 0
+          fi
+          docker buildx imagetools create -t growthbook/growthbook:latest \
+            growthbook/growthbook:git-${{ needs.docker.outputs.docker_sha }}
 
   # Extract front-end static assets to S3 and publish Sentry releases. This runs
   # before the services go live (deploy needs it) so the new app's content-hashed
@@ -222,6 +250,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [docker, assets]
     if: ${{ github.repository == 'growthbook/growthbook' }}
+    # Per service: a single shared group would make the matrix legs cancel each other.
+    concurrency:
+      group: deploy-production-${{ matrix.service }}
+      cancel-in-progress: false
     strategy:
       # Don't cancel a healthy service's rollout because another service failed.
       fail-fast: false
@@ -242,7 +274,27 @@ jobs:
         id: login-ecr-prod
         uses: aws-actions/amazon-ecr-login@v2
 
+      # Builds no longer finish in commit order, so never roll a service back to an older commit.
+      - name: Skip if the service already runs this or a newer commit
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TASKDEF=$(aws ecs describe-services --cluster ${{ matrix.service }} --services ${{ matrix.service }} \
+            --query 'services[0].taskDefinition' --output text)
+          IMAGE=$(aws ecs describe-task-definition --task-definition "$TASKDEF" \
+            --query "taskDefinition.containerDefinitions[?name=='${{ matrix.container }}'].image | [0]" --output text)
+          RUNNING=${IMAGE##*:git-}
+          STATUS=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${RUNNING}...${GITHUB_SHA}" --jq .status || echo unknown)
+          echo "Service runs ${RUNNING}; this commit is ${STATUS} of it"
+          if [ "$STATUS" = behind ] || [ "$STATUS" = identical ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Render task definition
+        if: steps.check.outputs.deploy == 'true'
         id: taskdef
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
@@ -251,6 +303,7 @@ jobs:
           image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ needs.docker.outputs.docker_sha }}
 
       - name: Deploy to ECS
+        if: steps.check.outputs.deploy == 'true'
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.taskdef.outputs.task-definition }}
