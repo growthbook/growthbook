@@ -39,6 +39,7 @@ import {
   useDataRegionOptions,
 } from "@/services/dataRegions";
 import { dataSourceConnections } from "@/services/eventSchema";
+import { isCloud } from "@/services/env";
 import track from "@/services/track";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
@@ -46,8 +47,8 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
+import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
-import { Select, SelectGroup, SelectItem, SelectLabel } from "@/ui/Select";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
@@ -75,6 +76,121 @@ function isEventForwarderSink(
 
 function ingestorForRegion(region: DataRegion): string {
   return region === "eu-west-1" ? "EU ingestor" : "US ingestor";
+}
+
+function hasText(value: unknown): boolean {
+  if (typeof value === "number") return !Number.isNaN(value);
+  return typeof value === "string" && value.trim() !== "";
+}
+
+// Saved connections omit secrets from the browser. A blank secret is fine
+// there; a new connection has to supply one.
+function hasConnectionTestInputs(
+  type: DataSourceType | undefined,
+  params: object | undefined,
+  keepStoredSecrets: boolean,
+): boolean {
+  if (!type) return false;
+  const fields = (params ?? {}) as Record<string, unknown>;
+  const text = (key: string) => hasText(fields[key]);
+  const secret = (key: string) => keepStoredSecrets || text(key);
+
+  switch (type) {
+    case "bigquery": {
+      if (!isCloud() && (fields.authType ?? "json") === "auto") return true;
+      return text("projectId") && text("clientEmail") && secret("privateKey");
+    }
+    case "snowflake": {
+      const authMethod =
+        (typeof fields.authMethod === "string" ? fields.authMethod : null) ??
+        (keepStoredSecrets ? "password" : "key-pair");
+      if (
+        !text("account") ||
+        !text("username") ||
+        !text("database") ||
+        !text("schema")
+      ) {
+        return false;
+      }
+      if (authMethod === "workload-identity") {
+        return text("workloadIdentityProvider");
+      }
+      if (authMethod === "password") return secret("password");
+      return secret("privateKey");
+    }
+    case "databricks": {
+      if (!text("host") || !text("path")) return false;
+      if ((fields.authType ?? "pat") === "oauth-m2m") {
+        return text("oauthClientId") && secret("oauthClientSecret");
+      }
+      return secret("token");
+    }
+    case "postgres":
+    case "redshift":
+    case "vertica":
+    case "mysql":
+      return (
+        text("host") &&
+        text("port") &&
+        text("database") &&
+        text("user") &&
+        secret("password")
+      );
+    case "mssql":
+      return (
+        text("server") &&
+        text("port") &&
+        text("database") &&
+        text("user") &&
+        secret("password")
+      );
+    case "clickhouse":
+      return text("url") && text("port");
+    case "athena": {
+      if (!text("region") || !text("bucketUri")) return false;
+      const authType = isCloud()
+        ? "accessKey"
+        : ((fields.authType as string | undefined) ?? "accessKey");
+      if (authType === "auto") return true;
+      if (authType === "assumeRole") {
+        return (
+          secret("assumeRoleARN") &&
+          secret("roleSessionName") &&
+          secret("externalId")
+        );
+      }
+      return secret("accessKeyId") && secret("secretAccessKey");
+    }
+    case "presto": {
+      if (!text("engine") || !text("host")) return false;
+      const authType = (fields.authType as string | undefined) ?? "basicAuth";
+      if (authType === "basicAuth") {
+        return text("username") && secret("password");
+      }
+      if (authType === "customAuth") return secret("customAuth");
+      if (authType === "kerberos") return text("kerberosServicePrincipal");
+      return true;
+    }
+    case "mixpanel":
+      return text("username") && text("projectId") && secret("secret");
+    case "adobe_experience_platform_query_service":
+      return (
+        text("host") &&
+        text("port") &&
+        text("database") &&
+        text("username") &&
+        text("technicalAccountId") &&
+        secret("credential")
+      );
+    case "growthbook_clickhouse": {
+      throw new Error('Not implemented yet: "growthbook_clickhouse" case');
+    }
+    case "google_analytics": {
+      throw new Error('Not implemented yet: "google_analytics" case');
+    }
+    default:
+      return true;
+  }
 }
 
 function warehouseRegionHelp(sinkType: EventForwarderSinkType): string {
@@ -239,6 +355,19 @@ export default function ConnectDataSourceLayout({
     }
     return groups;
   }, [warehouseRegions]);
+  const regionOptions = useMemo(
+    () =>
+      regionsByArea.map((group) => ({
+        label: group.area,
+        options: group.regions.map((region) => ({
+          value: region.id,
+          label: `${region.cloud} ${region.label}${
+            region.id === detectedWarehouseRegionId ? " (detected)" : ""
+          }`,
+        })),
+      })),
+    [regionsByArea, detectedWarehouseRegionId],
+  );
 
   const chooseManualRegion = (id: string) => {
     setManualWarehouseRegionId(id);
@@ -377,6 +506,17 @@ export default function ConnectDataSourceLayout({
     !!datasource.type &&
     isTestableDataSourceType(datasource.type) &&
     !isSampleData;
+  const connectionInputsReady =
+    hasConnectionTestInputs(
+      datasource.type,
+      datasource.params,
+      existing && !datasource.decryptionError,
+    ) &&
+    (!checksWrite ||
+      (!!eventDestination.location.trim() &&
+        !!eventDestination.tablePrefix.trim() &&
+        (datasource.type !== "databricks" ||
+          !!eventDestination.zerobusEndpoint.trim())));
   const eventForwarderDraft =
     checksWrite && datasource.type
       ? buildEventForwarderConnectDraft({
@@ -403,6 +543,7 @@ export default function ConnectDataSourceLayout({
   const runTest = async () => {
     if (
       !canTest ||
+      !connectionInputsReady ||
       !datasource.type ||
       !isTestableDataSourceType(datasource.type)
     ) {
@@ -563,6 +704,9 @@ export default function ConnectDataSourceLayout({
     }
     if (regionBlockedMessage) {
       return "The EU ingestor is not enabled for this organization";
+    }
+    if (needsSuccessfulTest && !connectionInputsReady) {
+      return "Enter the connection details to continue";
     }
     if (needsSuccessfulTest && testStatus === "idle") {
       return "Test the connection to continue";
@@ -829,7 +973,10 @@ export default function ConnectDataSourceLayout({
                 variant="outline"
                 size="sm"
                 disabled={
-                  testStatus === "running" || detectingRegion || isSampleData
+                  !connectionInputsReady ||
+                  testStatus === "running" ||
+                  detectingRegion ||
+                  isSampleData
                 }
                 loading={testStatus === "running" || detectingRegion}
                 icon={<PiArrowClockwise />}
@@ -919,28 +1066,19 @@ export default function ConnectDataSourceLayout({
                           : "We could not detect your warehouse region. Choose it below so GrowthBook can route events to the closest ingestor."}{" "}
                       This cannot be changed later.
                     </Text>
-                    <Select
-                      aria-label="Warehouse region"
-                      value={manualWarehouseRegionId || undefined}
-                      setValue={chooseManualRegion}
-                      placeholder="Select a region"
-                      style={{ maxWidth: 360 }}
-                    >
-                      {regionsByArea.map((group) => (
-                        <SelectGroup key={group.area}>
-                          <SelectLabel>{group.area}</SelectLabel>
-                          {group.regions.map((region) => (
-                            <SelectItem key={region.id} value={region.id}>
-                              {`${region.cloud} ${region.label}${
-                                region.id === detectedWarehouseRegionId
-                                  ? " (detected)"
-                                  : ""
-                              }`}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      ))}
-                    </Select>
+                    <Box maxWidth="360px">
+                      <SelectField
+                        aria-label="Warehouse region"
+                        value={manualWarehouseRegionId}
+                        onChange={chooseManualRegion}
+                        placeholder="Select a region"
+                        options={regionOptions}
+                        sort={false}
+                        size="small"
+                        legacyLabelFormatting={false}
+                        noOptionsMessage={() => "No matching regions"}
+                      />
+                    </Box>
                   </Box>
                 ) : null}
                 {checksWrite &&
