@@ -1,4 +1,4 @@
-import { evalCondition } from "@growthbook/growthbook";
+import { evalCondition, EvalConditionOptions } from "@growthbook/growthbook";
 import { OrganizationInterface } from "shared/types/organization";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import {
@@ -9,7 +9,7 @@ import {
   parseDerivedGroupId,
   SDKCapability,
 } from "../src/sdk-versioning";
-import { recursiveWalk } from "../util";
+import { recursiveWalk, targetingReferencesSavedGroup } from "../util";
 
 const savedGroup = (
   props: Pick<SavedGroupInterface, "id" | "type"> &
@@ -266,6 +266,31 @@ describe("derived group IDs", () => {
   });
 });
 
+describe("targetingReferencesSavedGroup", () => {
+  it("counts a derived ID as a reference to its source group", () => {
+    const derived = JSON.stringify({ $savedGroup: { id: "vip:parent_id" } });
+    expect(targetingReferencesSavedGroup({ condition: derived }, "vip")).toBe(
+      true,
+    );
+    expect(
+      targetingReferencesSavedGroup(
+        { prerequisites: [{ condition: derived }] },
+        "vip",
+      ),
+    ).toBe(true);
+    // Only a whole ID before the ":" matches
+    expect(targetingReferencesSavedGroup({ condition: derived }, "vi")).toBe(
+      false,
+    );
+    expect(
+      targetingReferencesSavedGroup(
+        { condition: JSON.stringify({ id: { $inGroup: "vip_2" } }) },
+        "vip",
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("remote groups evaluate correctly", () => {
   const evalGroups: SavedGroupInterface[] = [
     ...groups,
@@ -299,11 +324,9 @@ describe("remote groups evaluate correctly", () => {
     recursiveWalk(condition, strategy.createSavedGroupsOperatorHandler());
     strategy.finalizeCondition(condition);
     const payloadGroups = strategy.buildSavedGroupsPayload(evalGroups);
-    return evalCondition(
-      attributes,
-      condition,
-      payloadGroups as Parameters<typeof evalCondition>[2],
-    );
+    return evalCondition(attributes, condition, {
+      savedGroups: payloadGroups as EvalConditionOptions["savedGroups"],
+    });
   };
   const member = {
     account_id: "a1",

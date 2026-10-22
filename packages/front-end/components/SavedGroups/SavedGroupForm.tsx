@@ -601,7 +601,11 @@ const SavedGroupForm: FC<{
               ? Object.fromEntries(
                   Object.keys(payload).map((k) => [
                     k,
-                    (livePin as unknown as Record<string, unknown>)[k],
+                    // null, not undefined: JSON drops undefined, which would
+                    // skip the conflict check for a group's first upload
+                    k === "currentUploadVersion"
+                      ? (livePin.currentUploadVersion ?? null)
+                      : (livePin as unknown as Record<string, unknown>)[k],
                   ]),
                 )
               : guard.baseline;

@@ -170,7 +170,9 @@ describe("json test suite", () => {
   it.each(remote.evalCondition)(
     "savedGroupReferencesRemote.evalCondition[%#] %s",
     (name, condition, value, expected, savedGroups = {}) => {
-      expect(evalCondition(value, condition, savedGroups)).toEqual(expected);
+      expect(evalCondition(value, condition, { savedGroups })).toEqual(
+        expected,
+      );
     },
   );
 
