@@ -1,4 +1,7 @@
-import { generateProductAnalyticsSQL } from "shared/enterprise";
+import {
+  calculateProductAnalyticsDateRange,
+  generateProductAnalyticsSQL,
+} from "shared/enterprise";
 import { format, createLikeStringMatchFn } from "shared/sql";
 import {
   ExplorationConfig,
@@ -1663,6 +1666,9 @@ describe("productAnalytics", () => {
       dataset: Partial<
         Extract<ExplorationConfig["dataset"], { type: "population" }>
       > = {},
+      overrides: Partial<
+        Pick<ExplorationConfig, "dateRange" | "dimensions">
+      > = {},
     ): ExplorationConfig => ({
       type: "population",
       datasource: "ds_1",
@@ -1677,6 +1683,7 @@ describe("productAnalytics", () => {
       dimensions: [
         { dimensionType: "date", column: null, dateGranularity: "day" },
       ],
+      ...overrides,
       dataset: {
         type: "population",
         unit: "user_id",
@@ -1728,6 +1735,50 @@ describe("productAnalytics", () => {
 
       expect(sql).toMatch(
         /SELECT\s+unit0,\s+dimension0,\s+CASE\s+WHEN \(SUM\(m0\) >= 3\) THEN 1\s+ELSE NULL\s+END AS m0\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit0,\s+dimension0/,
+      );
+    });
+
+    it("counts members per week over the last 30 days", () => {
+      const dateRange: ExplorationConfig["dateRange"] = {
+        predefined: "last30Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      };
+      const { sql } = generateProductAnalyticsSQL(
+        populationConfig(
+          {
+            steps: [
+              {
+                source: { type: "factTable", factTableId: "orders" },
+                rowFilters: [],
+                aggregateFilter: ">=3",
+                aggregateFilterColumn: "$$count",
+              },
+            ],
+          },
+          {
+            dateRange,
+            dimensions: [
+              { dimensionType: "date", column: null, dateGranularity: "week" },
+            ],
+          },
+        ),
+        factTableMap,
+        metricMap,
+        helpers,
+        datasource,
+      );
+
+      const { startDate } = calculateProductAnalyticsDateRange(dateRange);
+      expect(sql).toContain(`timestamp >= ${helpers.toTimestamp(startDate)}`);
+      expect(sql).toContain("date_trunc('week', timestamp) AS dimension0");
+      expect(sql).toMatch(
+        /SELECT\s+unit0,\s+dimension0,\s+CASE\s+WHEN \(SUM\(m0\) >= 3\) THEN 1\s+ELSE NULL\s+END AS m0\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit0,\s+dimension0/,
+      );
+      expect(sql).toMatch(
+        /_factTable0_unit0_rollup AS \(\s+SELECT\s+dimension0,\s+CAST\(SUM\(m0\) AS FLOAT\) AS m0_numerator,[\s\S]*?FROM\s+_factTable0_unit0\s+GROUP BY\s+dimension0\s+\)/,
       );
     });
 
