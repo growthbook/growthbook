@@ -1310,7 +1310,7 @@ export default function ExperimentHeader({
             })}
           >
             <div className="position-relative container-fluid pagecontents px-4">
-              <div className="d-flex align-items-center header-tabs has-tab-actions">
+              <div className="d-flex align-items-center header-tabs">
                 <Tabs
                   value={tab}
                   onValueChange={setTab}

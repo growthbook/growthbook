@@ -138,6 +138,7 @@ function FunnelCard({
   menu?: ReactNode;
   grow?: boolean;
 }) {
+  const editable = !!onEdit && !disabled;
   return (
     <Box
       className={clsx("appbox", styles.card)}
@@ -148,14 +149,20 @@ function FunnelCard({
       py="3"
       style={{ paddingLeft: 16, paddingRight: 16 }}
     >
-      <Flex justify="between" align="center" gap="3">
+      <Flex
+        justify="between"
+        align="center"
+        gap="3"
+        className={clsx(editable && styles.editableHeader)}
+      >
         <Text size="lg" weight="medium" color="text-high">
           {title}
         </Text>
         <Flex align="center" gap="3" className={styles.cardActions}>
-          {onEdit && !disabled ? (
-            <Tooltip content={editBlockedReason ?? `Edit ${title}`}>
+          {editable ? (
+            <Tooltip content={editBlockedReason} enabled={!!editBlockedReason}>
               <IconButton
+                className={styles.edit}
                 variant="ghost"
                 color="gray"
                 radius="full"
@@ -191,7 +198,7 @@ function FunnelCard({
           ) : null}
         </Flex>
       </Flex>
-      {children ? <Box mt="1">{children}</Box> : null}
+      {children ? <Box mt="2">{children}</Box> : null}
     </Box>
   );
 }

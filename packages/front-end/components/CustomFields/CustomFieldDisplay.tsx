@@ -78,7 +78,6 @@ const CustomFieldDisplay: FC<{
               stacked
               key={field.id}
               label={field.name}
-              actionPlacement="value"
               action={rowAction?.(field)}
               value={
                 value === "" ? (

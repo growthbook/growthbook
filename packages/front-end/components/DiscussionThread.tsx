@@ -12,6 +12,7 @@ import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
+import ScrollArea from "@/ui/ScrollArea";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -29,7 +30,10 @@ const DiscussionThread: FC<{
   title?: string;
   /** Slim chrome for a narrow column: see `CommentCard`. */
   compact?: boolean;
-  /** Fill the given height: the thread scrolls above a pinned composer. */
+  /**
+   * Fill the given height, edge to edge: the thread scrolls above a pinned
+   * composer, both padded like a side panel's.
+   */
   fillHeight?: boolean;
 }> = ({
   type,
@@ -64,130 +68,132 @@ const DiscussionThread: FC<{
 
   const comments: Comment[] = data.discussion ? data.discussion.comments : [];
 
+  const thread =
+    comments.length > 0 ? (
+      <Flex direction="column" gap="4">
+        {comments.map((comment, i) => {
+          const user = users.get(comment.userId);
+          const email = user ? user.email : comment.userEmail;
+          const name = user ? user.name : comment.userName;
+          const eventUser = {
+            type: "dashboard" as const,
+            id: comment.userId,
+            email: email ?? "",
+            name: name ?? "",
+          };
+
+          return (
+            <Flex key={i} align="start">
+              <Box flexGrow="1">
+                <CommentCard
+                  compact={compact}
+                  user={eventUser}
+                  metadata={`commented on ${datetime(comment.date)}`}
+                  metadataExtra={
+                    comment.edited && (
+                      <Text color="text-low" size="sm" fontStyle="italic">
+                        &bull; edited
+                      </Text>
+                    )
+                  }
+                  actions={
+                    edit === i
+                      ? null
+                      : comment.userId === userId && (
+                          <DropdownMenu
+                            trigger={
+                              <IconButton
+                                variant="ghost"
+                                color="gray"
+                                radius="full"
+                                size="1"
+                                highContrast
+                                // Undo the ghost variant's negative margin.
+                                style={{ margin: 0 }}
+                              >
+                                <BsThreeDotsVertical size={14} />
+                              </IconButton>
+                            }
+                            variant="soft"
+                            menuPlacement="end"
+                          >
+                            <DropdownMenuItem onClick={() => setEdit(i)}>
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              color="red"
+                              confirmation={{
+                                confirmationTitle: "Delete Comment",
+                                cta: "Delete",
+                                submit: async () => {
+                                  await apiCall(
+                                    `/discussion/${type}/${id}/${i}`,
+                                    { method: "DELETE" },
+                                  );
+                                  mutate();
+                                },
+                              }}
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenu>
+                        )
+                  }
+                  body={
+                    edit === i ? (
+                      <CommentForm
+                        cta="Save"
+                        onSave={() => {
+                          mutate();
+                          setEdit(null);
+                        }}
+                        index={i}
+                        id={id}
+                        type={type}
+                        initialValue={comment.content}
+                        autofocus={true}
+                        onCancel={() => setEdit(null)}
+                      />
+                    ) : (
+                      <Markdown className="speech-bubble">
+                        {comment.content || ""}
+                      </Markdown>
+                    )
+                  }
+                />
+              </Box>
+            </Flex>
+          );
+        })}
+      </Flex>
+    ) : (
+      <Text color="text-low" fontStyle="italic" size={compact ? "sm" : "md"}>
+        {allowNewComments
+          ? "No comments yet. Add the first one!"
+          : "No comments."}
+      </Text>
+    );
+
   return (
     <Flex
       direction="column"
       flexGrow={fillHeight ? "1" : undefined}
       minHeight={fillHeight ? "0" : undefined}
     >
-      {/* The thread scrolls in whatever height the composer leaves. */}
-      <Box
-        flexGrow={fillHeight ? "1" : undefined}
-        minHeight={fillHeight ? "0" : undefined}
-        overflowY={fillHeight ? "auto" : undefined}
-      >
-        {comments.length > 0 ? (
-          <Flex direction="column" gap="4">
-            {comments.map((comment, i) => {
-              const user = users.get(comment.userId);
-              const email = user ? user.email : comment.userEmail;
-              const name = user ? user.name : comment.userName;
-              const eventUser = {
-                type: "dashboard" as const,
-                id: comment.userId,
-                email: email ?? "",
-                name: name ?? "",
-              };
-
-              return (
-                <Flex key={i} align="start">
-                  <Box flexGrow="1">
-                    <CommentCard
-                      compact={compact}
-                      user={eventUser}
-                      metadata={`commented on ${datetime(comment.date)}`}
-                      metadataExtra={
-                        comment.edited && (
-                          <Text color="text-low" size="sm" fontStyle="italic">
-                            &bull; edited
-                          </Text>
-                        )
-                      }
-                      actions={
-                        edit === i
-                          ? null
-                          : comment.userId === userId && (
-                              <DropdownMenu
-                                trigger={
-                                  <IconButton
-                                    variant="ghost"
-                                    color="gray"
-                                    radius="full"
-                                    size="1"
-                                    highContrast
-                                    // Undo the ghost variant's negative margin.
-                                    style={{ margin: 0 }}
-                                  >
-                                    <BsThreeDotsVertical size={14} />
-                                  </IconButton>
-                                }
-                                variant="soft"
-                                menuPlacement="end"
-                              >
-                                <DropdownMenuItem onClick={() => setEdit(i)}>
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  color="red"
-                                  confirmation={{
-                                    confirmationTitle: "Delete Comment",
-                                    cta: "Delete",
-                                    submit: async () => {
-                                      await apiCall(
-                                        `/discussion/${type}/${id}/${i}`,
-                                        { method: "DELETE" },
-                                      );
-                                      mutate();
-                                    },
-                                  }}
-                                >
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenu>
-                            )
-                      }
-                      body={
-                        edit === i ? (
-                          <CommentForm
-                            cta="Save"
-                            onSave={() => {
-                              mutate();
-                              setEdit(null);
-                            }}
-                            index={i}
-                            id={id}
-                            type={type}
-                            initialValue={comment.content}
-                            autofocus={true}
-                            onCancel={() => setEdit(null)}
-                          />
-                        ) : (
-                          <Markdown className="speech-bubble">
-                            {comment.content || ""}
-                          </Markdown>
-                        )
-                      }
-                    />
-                  </Box>
-                </Flex>
-              );
-            })}
-          </Flex>
-        ) : (
-          <Text
-            color="text-low"
-            fontStyle="italic"
-            size={compact ? "sm" : "md"}
-          >
-            {allowNewComments
-              ? "No comments yet. Add the first one!"
-              : "No comments."}
-          </Text>
-        )}
-      </Box>
+      {fillHeight ? (
+        // The thread scrolls in whatever height the composer leaves.
+        <ScrollArea style={{ flex: 1, minHeight: 0 }}>
+          <Box px="5" pt="4">
+            {thread}
+          </Box>
+        </ScrollArea>
+      ) : (
+        thread
+      )}
       {allowNewComments && (
         <Box
           mt="4"
+          px={fillHeight ? "5" : undefined}
           pb={fillHeight ? "5" : undefined}
           flexShrink={fillHeight ? "0" : undefined}
         >

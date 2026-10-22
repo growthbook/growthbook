@@ -663,207 +663,209 @@ function TabbedPageContents({
             ) : null
           }
         >
-          <div
-            className={clsx(
-              "container-fluid pagecontents px-4",
-              showDashboardView && "pt-0",
-            )}
-          >
-            {experiment.type !== "holdout" &&
-              tab !== "dashboards" &&
-              !showDashboardView && (
-                <CustomMarkdown page={"experiment"} variables={variables} />
-              )}
-            {showStoppedBanner && (
-              <div className="pt-3">
-                <StoppedExperimentBanner
-                  experiment={experiment}
-                  linkedFeatures={linkedFeatures}
-                  mutate={mutate}
-                  editResult={editResult || undefined}
-                />
-              </div>
-            )}
-            {viewingOldPhase &&
-              ((!isBandit && tab === "results") ||
-                (isBandit && tab === "explore")) && (
-                <Callout status="info">
-                  {isHoldout
-                    ? "You are viewing the results of the entire holdout period."
-                    : "You are viewing the results of a previous experiment phase."}
-                  <Link
-                    ml="2"
-                    onClick={() => setPhase(experiment.phases.length - 1)}
-                  >
-                    {isHoldout
-                      ? "Switch to the analysis phase to view results with a lookback based on the analysis phase start date."
-                      : "Switch to the latest phase"}
-                  </Link>
-                </Callout>
-              )}
-
-            {showDashboardView && (
-              <DashboardsTab
-                experiment={experiment}
-                initialDashboardId={experiment.defaultDashboardId ?? ""}
-                isTabActive
-                showDashboardView
-                switchToExperimentView={() => setShowDashboardView(false)}
-                updateTabPath={persistTabPath}
-              />
-            )}
+          <div className="experiment-column">
             <div
               className={clsx(
-                "pt-2",
-                // Hidden, never unmounted: staged edits live in Setup.
-                tab === "overview" && !showDashboardView
-                  ? "d-block"
-                  : "d-none d-print-block",
+                "container-fluid pagecontents px-4",
+                showDashboardView && "pt-0",
               )}
             >
-              <DraftReviewCallouts
-                experiment={experiment}
-                linkedFeatures={linkedFeatures}
-              />
-              <SetupTabOverview
-                experiment={experiment}
-                holdout={holdout}
-                holdoutExperiments={holdoutExperiments}
-                mutate={mutate}
-                disableEditing={viewingOldPhase}
-                editSchedule={editSchedule}
-              />
-              <Implementation
-                experiment={experiment}
-                holdoutDraft={holdoutDraft}
-                disableEditing={viewingOldPhase}
-                holdout={holdout}
-                holdoutFeatures={holdoutFeatures}
-                holdoutExperiments={holdoutExperiments}
-                mutate={mutate}
-                setFeatureModal={setFeatureModal}
-                setVisualEditorModal={setVisualEditorModal}
-                visualChangesets={visualChangesets}
-                urlRedirects={urlRedirects}
-                editTargeting={editTargeting}
-                targetingDraft={targetingDraft}
-                analysisSettingsOpen={analysisSettingsOpen}
-                setAnalysisSettingsOpen={setAnalysisSettingsOpen}
-                editTraffic={editTraffic}
-                canAddVariation={canAddVariation}
-                editNamespace={editNamespace}
-                linkedFeatures={linkedFeatures}
-                envs={envs}
-                visualChangesetEnvStates={visualChangesetEnvStates}
-                urlRedirectEnvStates={urlRedirectEnvStates}
-              />
-            </div>
-            {isBandit && !showDashboardView ? (
-              <div
-                className={
-                  // todo: standardize explore & results tabs across experiment types
-                  isBandit && tab === "results"
-                    ? "container-fluid pagecontents px-4 py-4 d-block"
-                    : "d-none d-print-block"
-                }
-              >
-                <BanditSummaryResultsTab
+              {experiment.type !== "holdout" &&
+                tab !== "dashboards" &&
+                !showDashboardView && (
+                  <CustomMarkdown page={"experiment"} variables={variables} />
+                )}
+              {showStoppedBanner && (
+                <div className="pt-3">
+                  <StoppedExperimentBanner
+                    experiment={experiment}
+                    linkedFeatures={linkedFeatures}
+                    mutate={mutate}
+                    editResult={editResult || undefined}
+                  />
+                </div>
+              )}
+              {viewingOldPhase &&
+                ((!isBandit && tab === "results") ||
+                  (isBandit && tab === "explore")) && (
+                  <Callout status="info">
+                    {isHoldout
+                      ? "You are viewing the results of the entire holdout period."
+                      : "You are viewing the results of a previous experiment phase."}
+                    <Link
+                      ml="2"
+                      onClick={() => setPhase(experiment.phases.length - 1)}
+                    >
+                      {isHoldout
+                        ? "Switch to the analysis phase to view results with a lookback based on the analysis phase start date."
+                        : "Switch to the latest phase"}
+                    </Link>
+                  </Callout>
+                )}
+
+              {showDashboardView && (
+                <DashboardsTab
                   experiment={experiment}
+                  initialDashboardId={experiment.defaultDashboardId ?? ""}
+                  isTabActive
+                  showDashboardView
+                  switchToExperimentView={() => setShowDashboardView(false)}
+                  updateTabPath={persistTabPath}
+                />
+              )}
+              <div
+                className={clsx(
+                  "pt-2",
+                  // Hidden, never unmounted: staged edits live in Setup.
+                  tab === "overview" && !showDashboardView
+                    ? "d-block"
+                    : "d-none d-print-block",
+                )}
+              >
+                <DraftReviewCallouts
+                  experiment={experiment}
+                  linkedFeatures={linkedFeatures}
+                />
+                <SetupTabOverview
+                  experiment={experiment}
+                  holdout={holdout}
+                  holdoutExperiments={holdoutExperiments}
                   mutate={mutate}
-                  isTabActive={tab === "results"}
+                  disableEditing={viewingOldPhase}
+                  editSchedule={editSchedule}
+                />
+                <Implementation
+                  experiment={experiment}
+                  holdoutDraft={holdoutDraft}
+                  disableEditing={viewingOldPhase}
+                  holdout={holdout}
+                  holdoutFeatures={holdoutFeatures}
+                  holdoutExperiments={holdoutExperiments}
+                  mutate={mutate}
+                  setFeatureModal={setFeatureModal}
+                  setVisualEditorModal={setVisualEditorModal}
+                  visualChangesets={visualChangesets}
+                  urlRedirects={urlRedirects}
+                  editTargeting={editTargeting}
+                  targetingDraft={targetingDraft}
+                  analysisSettingsOpen={analysisSettingsOpen}
+                  setAnalysisSettingsOpen={setAnalysisSettingsOpen}
+                  editTraffic={editTraffic}
+                  canAddVariation={canAddVariation}
+                  editNamespace={editNamespace}
+                  linkedFeatures={linkedFeatures}
+                  envs={envs}
+                  visualChangesetEnvStates={visualChangesetEnvStates}
+                  urlRedirectEnvStates={urlRedirectEnvStates}
                 />
               </div>
-            ) : null}
-          </div>
-          <div
-            className={
-              // todo: standardize explore & results tabs across experiment types
-              ((!isBandit && tab === "results") ||
-                (isBandit && tab === "explore")) &&
-              !showDashboardView
-                ? "container-fluid pagecontents px-4 py-4 d-block"
-                : "d-none d-print-block"
-            }
-          >
-            {showMetricGroupPromo() ? (
-              <PremiumCallout
-                commercialFeature="metric-groups"
-                dismissible={true}
-                id="metrics-list-metric-group-promo"
-                docSection="metricGroups"
-                mb="2"
-              >
-                <strong>Metric Groups</strong> help you organize and manage your
-                metrics at scale.
-              </PremiumCallout>
-            ) : null}
-            {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
-            <ResultsTab
-              experiment={experiment}
-              mutate={mutate}
-              holdoutProjects={holdout?.projects}
-              editMetrics={editMetrics}
-              editResult={editResult}
-              newPhase={newPhase}
-              connections={connections}
-              envs={envs}
-              setTab={setTabAndScroll}
-              visualChangesets={visualChangesets}
-              editTargeting={editTargeting}
-              isTabActive={tab === "results"}
-              metricTagFilter={metricTagFilter}
-              metricsFilter={metricsFilter}
-              setMetricsFilter={setMetricsFilter}
-              availableMetricsFilters={availableMetricsFilters}
-              availableMetricTags={availableMetricTags}
-              availableSliceTags={availableSliceTags}
-              sliceTagsFilter={sliceTagsFilter}
-              setSliceTagsFilter={setSliceTagsFilter}
-              analysisBarSettings={analysisBarSettings}
-              setAnalysisBarSettings={setAnalysisBarSettings}
-              setMetricTagFilter={setMetricTagFilterWithPriority}
-              sortBy={sortBy}
-              setSortBy={setSortBy}
-              sortDirection={sortDirection}
-              setSortDirection={setSortDirection}
-            />
-          </div>
-          <div
-            className={
-              tab === "dashboards" && !showDashboardView
-                ? "container-fluid pagecontents px-4 py-4 d-block"
-                : "d-none d-print-block"
-            }
-          >
-            <DashboardsTab
-              experiment={experiment}
-              initialDashboardId={tabPath}
-              isTabActive={tab === "dashboards"}
-              mutateExperiment={mutate}
-              updateTabPath={persistTabPath}
-            />
-          </div>
-          <div
-            className={
-              tab === "health" && !showDashboardView
-                ? "container-fluid pagecontents px-4 py-4 d-block"
-                : "d-none d-print-block"
-            }
-          >
-            <HealthTab
-              experiment={experiment}
-              onHealthNotify={handleIncrementHealthNotifications}
-              onSnapshotUpdate={handleSnapshotChange}
-              resetResultsSettings={() => {
-                setAnalysisBarSettings({
-                  ...analysisBarSettings,
-                  baselineRow: 0,
-                  differenceType: "relative",
-                  variationFilter: [],
-                });
-              }}
-              isTabActive={tab === "health"}
-            />
+              {isBandit && !showDashboardView ? (
+                <div
+                  className={
+                    // todo: standardize explore & results tabs across experiment types
+                    isBandit && tab === "results"
+                      ? "container-fluid pagecontents px-4 py-4 d-block"
+                      : "d-none d-print-block"
+                  }
+                >
+                  <BanditSummaryResultsTab
+                    experiment={experiment}
+                    mutate={mutate}
+                    isTabActive={tab === "results"}
+                  />
+                </div>
+              ) : null}
+            </div>
+            <div
+              className={
+                // todo: standardize explore & results tabs across experiment types
+                ((!isBandit && tab === "results") ||
+                  (isBandit && tab === "explore")) &&
+                !showDashboardView
+                  ? "container-fluid pagecontents px-4 py-4 d-block"
+                  : "d-none d-print-block"
+              }
+            >
+              {showMetricGroupPromo() ? (
+                <PremiumCallout
+                  commercialFeature="metric-groups"
+                  dismissible={true}
+                  id="metrics-list-metric-group-promo"
+                  docSection="metricGroups"
+                  mb="2"
+                >
+                  <strong>Metric Groups</strong> help you organize and manage
+                  your metrics at scale.
+                </PremiumCallout>
+              ) : null}
+              {/* TODO: Update ResultsTab props to include redirect and pipe through to StartExperimentBanner */}
+              <ResultsTab
+                experiment={experiment}
+                mutate={mutate}
+                holdoutProjects={holdout?.projects}
+                editMetrics={editMetrics}
+                editResult={editResult}
+                newPhase={newPhase}
+                connections={connections}
+                envs={envs}
+                setTab={setTabAndScroll}
+                visualChangesets={visualChangesets}
+                editTargeting={editTargeting}
+                isTabActive={tab === "results"}
+                metricTagFilter={metricTagFilter}
+                metricsFilter={metricsFilter}
+                setMetricsFilter={setMetricsFilter}
+                availableMetricsFilters={availableMetricsFilters}
+                availableMetricTags={availableMetricTags}
+                availableSliceTags={availableSliceTags}
+                sliceTagsFilter={sliceTagsFilter}
+                setSliceTagsFilter={setSliceTagsFilter}
+                analysisBarSettings={analysisBarSettings}
+                setAnalysisBarSettings={setAnalysisBarSettings}
+                setMetricTagFilter={setMetricTagFilterWithPriority}
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                sortDirection={sortDirection}
+                setSortDirection={setSortDirection}
+              />
+            </div>
+            <div
+              className={
+                tab === "dashboards" && !showDashboardView
+                  ? "container-fluid pagecontents px-4 py-4 d-block"
+                  : "d-none d-print-block"
+              }
+            >
+              <DashboardsTab
+                experiment={experiment}
+                initialDashboardId={tabPath}
+                isTabActive={tab === "dashboards"}
+                mutateExperiment={mutate}
+                updateTabPath={persistTabPath}
+              />
+            </div>
+            <div
+              className={
+                tab === "health" && !showDashboardView
+                  ? "container-fluid pagecontents px-4 py-4 d-block"
+                  : "d-none d-print-block"
+              }
+            >
+              <HealthTab
+                experiment={experiment}
+                onHealthNotify={handleIncrementHealthNotifications}
+                onSnapshotUpdate={handleSnapshotChange}
+                resetResultsSettings={() => {
+                  setAnalysisBarSettings({
+                    ...analysisBarSettings,
+                    baselineRow: 0,
+                    differenceType: "relative",
+                    variationFilter: [],
+                  });
+                }}
+                isTabActive={tab === "health"}
+              />
+            </div>
           </div>
         </CollapsiblePanelLayout>
       </Box>

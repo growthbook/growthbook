@@ -1,0 +1,15 @@
+@import "../styles/hover-highlight";
+
+.actionRow {
+  @include hover-highlight;
+  @include click-row;
+
+  .action :global(button) {
+    @include click-row-target;
+  }
+}
+
+.action {
+  display: flex;
+  flex-shrink: 0;
+}

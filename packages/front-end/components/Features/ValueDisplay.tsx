@@ -12,7 +12,7 @@ import React, {
   useState,
 } from "react";
 import stringify from "json-stringify-pretty-compact";
-import { IconButton, ScrollArea } from "@radix-ui/themes";
+import { IconButton } from "@radix-ui/themes";
 import { PiCheck, PiCopy } from "react-icons/pi";
 import { parsePlainJSONObject } from "shared/util";
 import InlineCode, {
@@ -29,6 +29,7 @@ import { parseFeatureResult } from "@/hooks/useArchetype";
 import Modal from "@/components/Modal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
+import ScrollArea from "@/ui/ScrollArea";
 import { CopyIcon, FullscreenIcon } from "@/ui/ActionIcons";
 import { CODE_FONT_SIZE } from "@/components/SyntaxHighlighting/codeTheme";
 import CornerActions, { ActionsOverlay } from "./CornerActions";
@@ -288,12 +289,10 @@ export default function ValueDisplay({
           )
         }
       >
-        {/* Its scrollbar draws only while hovered or scrolled, whatever the OS
-          setting, and it handles overflow itself. */}
+        {/* The gutter keeps highlighted lines clear of the scrollbar. */}
         <ScrollArea
           ref={scrollBoxRef}
-          type="hover"
-          scrollbars="vertical"
+          gutter
           className={fullClassName}
           style={{
             maxHeight: boxStyle.maxHeight,
@@ -302,37 +301,30 @@ export default function ValueDisplay({
             maxWidth: boxStyle.maxWidth,
           }}
         >
-          {/* The gutter keeps highlighted lines clear of the scrollbar. */}
-          <div style={{ width: "100%", paddingRight: "var(--space-3)" }}>
-            {virtualize ? (
-              <VirtualizedCode
-                scrollRef={scrollBoxRef}
-                language="json"
-                code={formatted}
-                boldLines={
-                  sparseMerge && !differingKeys ? boldLines : undefined
-                }
-                highlightLines={highlightLines}
-                linkify={resolvedLinkify}
-                fontSize={fontSize}
-                lineHeight={lineHeight}
-                monochrome={monochrome}
-              />
-            ) : (
-              <InlineCode
-                language="json"
-                code={formatted}
-                boldLines={
-                  sparseMerge && !differingKeys ? boldLines : undefined
-                }
-                highlightLines={highlightLines}
-                linkify={resolvedLinkify}
-                fontSize={fontSize}
-                lineHeight={lineHeight}
-                monochrome={monochrome}
-              />
-            )}
-          </div>
+          {virtualize ? (
+            <VirtualizedCode
+              scrollRef={scrollBoxRef}
+              language="json"
+              code={formatted}
+              boldLines={sparseMerge && !differingKeys ? boldLines : undefined}
+              highlightLines={highlightLines}
+              linkify={resolvedLinkify}
+              fontSize={fontSize}
+              lineHeight={lineHeight}
+              monochrome={monochrome}
+            />
+          ) : (
+            <InlineCode
+              language="json"
+              code={formatted}
+              boldLines={sparseMerge && !differingKeys ? boldLines : undefined}
+              highlightLines={highlightLines}
+              linkify={resolvedLinkify}
+              fontSize={fontSize}
+              lineHeight={lineHeight}
+              monochrome={monochrome}
+            />
+          )}
         </ScrollArea>
       </CornerActions>
       {modalOpen && (

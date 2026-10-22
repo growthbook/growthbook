@@ -2,6 +2,7 @@ import { forwardRef } from "react";
 import { Flex } from "@radix-ui/themes";
 import { Size } from "@/ui/sizes";
 import Text from "@/ui/Text";
+import styles from "./Metadata.module.scss";
 
 type Props = {
   label: string;
@@ -10,23 +11,15 @@ type Props = {
   size?: Size<"sm" | "md">;
   /** Label above the value, for a narrow column. Otherwise inline "Label: value". */
   stacked?: boolean;
-  /** A stacked row's own control, such as its edit button. */
+  /**
+   * A stacked row's own button, such as its pencil. It ends the row, and the
+   * whole row clicks it; links and buttons in the value keep their own clicks.
+   */
   action?: React.ReactNode;
-  /** Straight after the label, or straight after the value. */
-  actionPlacement?: "label" | "value";
 };
 
 export default forwardRef<HTMLDivElement, Props>(function Metadata(
-  {
-    label,
-    value,
-    style,
-    size = "md",
-    stacked,
-    action,
-    actionPlacement = "label",
-    ...props
-  },
+  { label, value, style, size = "md", stacked, action, ...props },
   ref,
 ) {
   if (stacked) {
@@ -43,32 +36,48 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
       ) : (
         value
       );
-    const withAction = (
-      node: React.ReactNode,
-      placement: typeof actionPlacement,
-    ) =>
-      action && actionPlacement === placement ? (
-        <Flex align="center" gap="1">
-          {node}
-          {action}
-        </Flex>
-      ) : (
-        node
-      );
+    const content = (
+      <>
+        {labelNode}
+        {valueNode}
+      </>
+    );
 
+    if (!action) {
+      return (
+        <Flex
+          direction="column"
+          gap="1"
+          align="start"
+          style={style}
+          {...props}
+          ref={ref}
+        >
+          {content}
+        </Flex>
+      );
+    }
     return (
       <Flex
-        direction="column"
-        gap="1"
         align="start"
+        gap="2"
+        className={styles.actionRow}
         style={style}
         // Hovering the row reveals its action.
-        data-reveals-action={action ? "" : undefined}
+        data-reveals-action=""
         {...props}
         ref={ref}
       >
-        {withAction(labelNode, "label")}
-        {withAction(valueNode, "value")}
+        <Flex
+          direction="column"
+          gap="1"
+          align="start"
+          flexGrow="1"
+          minWidth="0"
+        >
+          {content}
+        </Flex>
+        <span className={styles.action}>{action}</span>
       </Flex>
     );
   }

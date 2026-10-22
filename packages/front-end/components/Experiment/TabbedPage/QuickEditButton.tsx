@@ -15,15 +15,21 @@ export default function QuickEditButton({
   onClick,
   blockedReason,
   size = "1",
+  labelTooltip = true,
 }: {
   label: string;
   onClick: () => void;
   blockedReason?: string | null;
   size?: "1" | "2";
+  /** Off where what it edits is plain; a blocked reason still shows. */
+  labelTooltip?: boolean;
 }) {
   return (
     <span className={styles.edit}>
-      <Tooltip content={blockedReason ?? label}>
+      <Tooltip
+        content={blockedReason ?? label}
+        enabled={!!blockedReason || labelTooltip}
+      >
         <IconButton
           size={size}
           variant="ghost"

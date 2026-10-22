@@ -189,7 +189,14 @@ export default function CollapsiblePanelLayout({
     : {};
 
   return (
-    <Flex align="start" width="100%" ref={layout}>
+    <Flex
+      align="start"
+      width="100%"
+      ref={layout}
+      // The drag handle straddles the panel's edge, which reaches the window's
+      // while it slides; clip, not hidden, so nothing inside stops sticking.
+      style={{ overflowX: "clip" }}
+    >
       <Box flexGrow="1" style={{ minWidth: 0 }}>
         {children}
       </Box>
@@ -231,19 +238,15 @@ export default function CollapsiblePanelLayout({
           {/* Clips the contents mid-slide; the handle sits outside it so it
               can straddle the border. */}
           <Box height="100%" style={{ overflow: "hidden" }}>
-            {/* Holds its width mid-slide so the contents don't reflow. */}
-            <Box
+            {/* Holds its width mid-slide so the contents don't reflow. A
+                full-height column: the panel lays out and scrolls its own. */}
+            <Flex
+              direction="column"
               height="100%"
-              style={{
-                overflowY: "auto",
-                width: `${panelWidth}px`,
-                // A column, so a panel that wants to fill the height can.
-                display: "flex",
-                flexDirection: "column",
-              }}
+              style={{ width: `${panelWidth}px` }}
             >
               {panel}
-            </Box>
+            </Flex>
           </Box>
         </Box>
       ) : null}

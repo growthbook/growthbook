@@ -4,25 +4,21 @@ import {
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import {
-  PiArrowSquareOut,
-  PiCaretDown,
-  PiCaretRight,
-  PiCheckBold,
-} from "react-icons/pi";
+import { PiArrowSquareOut, PiCheckBold } from "react-icons/pi";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import { format } from "date-fns-tz";
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
+import NextLink from "next/link";
 import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import Callout from "@/ui/Callout";
+import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import Checkbox from "@/ui/Checkbox";
 import Badge from "@/ui/Badge";
-import Switch from "@/ui/Switch";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
@@ -57,7 +53,8 @@ const TIER_TITLES: Record<ChecklistTier, string> = {
   optional: "Optional",
 };
 
-function ChecklistActionLink({
+// Stretched over its row, so the whole row takes the action.
+function ChecklistRowAction({
   action,
   children,
 }: {
@@ -65,16 +62,33 @@ function ChecklistActionLink({
   children: ReactNode;
 }) {
   if ("onClick" in action) {
-    return <Link onClick={action.onClick}>{children}</Link>;
-  }
-  if (!action.external) return <Link href={action.href}>{children}</Link>;
-  return (
-    <Link href={action.href} external>
-      <Flex as="span" display="inline-flex" align="center" gap="1">
+    return (
+      <button
+        type="button"
+        className={styles.rowAction}
+        onClick={action.onClick}
+      >
         {children}
-        <PiArrowSquareOut style={{ flexShrink: 0 }} />
-      </Flex>
-    </Link>
+      </button>
+    );
+  }
+  if (!action.external) {
+    return (
+      <NextLink href={action.href} className={styles.rowAction}>
+        {children}
+      </NextLink>
+    );
+  }
+  return (
+    <a
+      href={action.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={styles.rowAction}
+    >
+      {children}
+      <PiArrowSquareOut className={styles.externalIcon} />
+    </a>
   );
 }
 
@@ -82,10 +96,13 @@ function ChecklistRow({
   item,
   size,
   onToggleManual,
+  onFaded = null,
 }: {
   item: CheckListItem;
   size: ChecklistSize;
   onToggleManual: ((manualKey: string, checked: boolean) => void) | null;
+  // Fades the row out, then calls this.
+  onFaded?: (() => void) | null;
 }) {
   const complete = item.status === "complete";
   const manualKey = item.type === "manual" ? item.manualKey : undefined;
@@ -95,45 +112,98 @@ function ChecklistRow({
       : null;
   const action = !complete || item.warning ? item.action : undefined;
   return (
-    <Checkbox
-      size={size}
-      labelSize={size}
-      weight="regular"
-      value={complete}
-      setValue={(checked) => toggle?.(checked)}
-      readOnly={!toggle}
-      checkboxTooltip={
-        item.type === "auto" && !complete
-          ? "Automatically detected and marked as 'complete' when task is finished"
-          : undefined
-      }
-      containerClassName={clsx({
-        [styles.readonly]: !toggle,
-        [styles.readonlyIncomplete]: !toggle && !complete,
-      })}
-      label={
-        <span
-          className={clsx({
-            [styles.completedLabel]: complete && !item.warning,
-          })}
-        >
-          {action ? (
-            <ChecklistActionLink action={action}>
+    <div
+      className={clsx(styles.row, onFaded && styles.fading)}
+      onAnimationEnd={(e) => {
+        if (e.target === e.currentTarget) onFaded?.();
+      }}
+    >
+      <Checkbox
+        size={size}
+        labelSize={size}
+        weight="regular"
+        value={complete}
+        setValue={(checked) => toggle?.(checked)}
+        readOnly={!toggle}
+        checkboxTooltip={
+          item.type === "auto" && !complete
+            ? "Automatically detected and marked as 'complete' when task is finished"
+            : undefined
+        }
+        containerClassName={clsx({
+          [styles.interactive]: !!toggle || !!action,
+          [styles.actionable]: !!action,
+          [styles.readonly]: !toggle,
+          [styles.readonlyIncomplete]: !toggle && !complete,
+        })}
+        label={
+          action ? (
+            <ChecklistRowAction action={action}>
               {item.display}
-            </ChecklistActionLink>
+            </ChecklistRowAction>
           ) : (
             item.display
-          )}
-        </span>
-      }
-      description={complete ? undefined : item.description}
-      error={item.warning}
-      errorLevel="warning"
-    />
+          )
+        }
+        description={complete ? undefined : item.description}
+        error={item.warning}
+        errorLevel="warning"
+      />
+    </div>
   );
 }
 
-// Done items, folded away behind their count.
+type FadingItem = { key: string; tier: ChecklistTier; index: number };
+
+/**
+ * Items just ticked off stay in their sections, ticked, until they've faded
+ * out of them. They're under Completed from the start.
+ */
+function useFadingCompletions(
+  lists: Record<ChecklistTier, CheckListItem[]>,
+  complete: CheckListItem[],
+) {
+  const signature = CHECKLIST_TIERS.map((tier) =>
+    lists[tier].map((item) => item.key).join("\n"),
+  ).join("\n\n");
+  const [prev, setPrev] = useState({ signature, lists });
+  const [fading, setFading] = useState<FadingItem[]>([]);
+  if (signature !== prev.signature) {
+    const listed = new Set(
+      CHECKLIST_TIERS.flatMap((tier) => lists[tier].map((item) => item.key)),
+    );
+    const done = new Set(complete.map((item) => item.key));
+    const justDone = (key: string) => done.has(key) && !listed.has(key);
+    setPrev({ signature, lists });
+    setFading([
+      ...fading.filter((item) => justDone(item.key)),
+      ...CHECKLIST_TIERS.flatMap((tier) =>
+        prev.lists[tier].flatMap((item, index) =>
+          justDone(item.key) ? [{ key: item.key, tier, index }] : [],
+        ),
+      ),
+    ]);
+  }
+
+  const doneByKey = new Map(complete.map((item) => [item.key, item]));
+  const withFading = (tier: ChecklistTier) => {
+    const items = [...lists[tier]];
+    fading
+      .filter((item) => item.tier === tier)
+      .sort((a, b) => a.index - b.index)
+      .forEach(({ key, index }) => {
+        const item = doneByKey.get(key);
+        if (item) items.splice(Math.min(index, items.length), 0, item);
+      });
+    return items;
+  };
+  const isFading = (key: string) => fading.some((item) => item.key === key);
+  const faded = (key: string) =>
+    setFading((items) => items.filter((item) => item.key !== key));
+  return { withFading, isFading, faded };
+}
+
+// Done items, in a last section that starts shut.
 function CompletedItems({
   items,
   size,
@@ -145,27 +215,25 @@ function CompletedItems({
 }) {
   const [expanded, setExpanded] = useState(false);
   return (
-    <Flex direction="column" gap="2" align="start">
-      {/* Inline, since an underline doesn't reach into a flex box. */}
-      <Link onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
-        {expanded ? (
-          <PiCaretDown style={{ verticalAlign: "-0.125em", marginRight: 4 }} />
-        ) : (
-          <PiCaretRight style={{ verticalAlign: "-0.125em", marginRight: 4 }} />
-        )}
-        {items.length} completed
-      </Link>
-      {expanded
-        ? items.map((item) => (
+    <div>
+      <CollapseTrigger open={expanded} onOpenChange={setExpanded}>
+        <Text size="sm" weight="semibold" color="text-high">
+          Completed ({items.length})
+        </Text>
+      </CollapseTrigger>
+      <Collapse open={expanded}>
+        <Flex direction="column" gap="2" pt="3">
+          {items.map((item) => (
             <ChecklistRow
               key={item.key}
               item={item}
               size={size}
               onToggleManual={onToggleManual}
             />
-          ))
-        : null}
-    </Flex>
+          ))}
+        </Flex>
+      </Collapse>
+    </div>
   );
 }
 
@@ -173,32 +241,33 @@ function CompletedItems({
 export function ChecklistItems({
   summary,
   size,
-  completed = "hidden",
+  showCompleted = false,
   onToggleManual = null,
 }: {
   summary: ChecklistSummary;
   size: ChecklistSize;
-  // Listed as their own group, folded behind their count, or left out.
-  completed?: "shown" | "folded" | "hidden";
+  showCompleted?: boolean;
   // null when the viewer can't check tasks off.
   onToggleManual?: ((manualKey: string, checked: boolean) => void) | null;
 }) {
-  const sections: { key: string; title: string; items: CheckListItem[] }[] =
-    CHECKLIST_TIERS.map((tier) => ({
-      key: tier,
-      title: TIER_TITLES[tier],
-      items: [
-        ...summary.incomplete[tier],
-        ...summary.flagged.filter((item) => getChecklistTier(item) === tier),
-      ],
-    }));
-  if (completed === "shown") {
-    sections.push({
-      key: "completed",
-      title: "Completed",
-      items: summary.complete,
-    });
-  }
+  const listed = (tier: ChecklistTier) => [
+    ...summary.incomplete[tier],
+    ...summary.flagged.filter((item) => getChecklistTier(item) === tier),
+  ];
+  const lists = {
+    blocking: listed("blocking"),
+    recommended: listed("recommended"),
+    optional: listed("optional"),
+  };
+  const { withFading, isFading, faded } = useFadingCompletions(
+    lists,
+    summary.complete,
+  );
+  const sections = CHECKLIST_TIERS.map((tier) => ({
+    key: tier,
+    title: TIER_TITLES[tier],
+    items: withFading(tier),
+  }));
 
   return (
     <Flex direction="column" gap="4">
@@ -215,11 +284,12 @@ export function ChecklistItems({
                 item={item}
                 size={size}
                 onToggleManual={onToggleManual}
+                onFaded={isFading(item.key) ? () => faded(item.key) : null}
               />
             ))}
           </Flex>
         ))}
-      {completed === "folded" && summary.complete.length > 0 ? (
+      {showCompleted && summary.complete.length > 0 ? (
         <CompletedItems
           items={summary.complete}
           size={size}
@@ -253,11 +323,8 @@ export function ChecklistCountBadge({
 /** The details rail's To Do tab, or the start popover's To Do. */
 export function PreLaunchChecklistPanel({
   size = "sm",
-  foldCompleted = false,
 }: {
   size?: ChecklistSize;
-  // Done items behind their count instead of a switch, where room is short.
-  foldCompleted?: boolean;
 }) {
   const {
     experiment,
@@ -267,8 +334,6 @@ export function PreLaunchChecklistPanel({
     toggleManualItem,
     toggleError,
   } = usePreLaunchChecklist();
-  const [showCompleted, setShowCompleted] = useState(false);
-
   if (loading) return <LoadingSpinner />;
 
   const scheduledStart =
@@ -279,15 +344,6 @@ export function PreLaunchChecklistPanel({
 
   return (
     <>
-      {summary.complete.length > 0 && !foldCompleted ? (
-        <Switch
-          size={size}
-          value={showCompleted}
-          onChange={setShowCompleted}
-          label="Show completed"
-          weight="regular"
-        />
-      ) : null}
       {scheduledStart ? (
         <Callout status="info" size={size}>
           Scheduled to start{" "}
@@ -306,9 +362,7 @@ export function PreLaunchChecklistPanel({
       <ChecklistItems
         summary={summary}
         size={size}
-        completed={
-          foldCompleted ? "folded" : showCompleted ? "shown" : "hidden"
-        }
+        showCompleted
         onToggleManual={toggleManualItem}
       />
       {toggleError ? (

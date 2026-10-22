@@ -153,7 +153,6 @@ export default function InlineMarkdownField({
       <Metadata
         size="sm"
         stacked
-        style={{ width: "100%" }}
         label={label}
         action={labelAction}
         value={<Box width="100%">{body}</Box>}

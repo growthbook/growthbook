@@ -104,7 +104,6 @@ export default function ProjectTagBar({
             size="sm"
             stacked
             label="Experiment Key"
-            actionPlacement="value"
             action={fieldAction?.("trackingKey")}
             value={experiment.trackingKey || empty()}
           />
@@ -165,7 +164,6 @@ export default function ProjectTagBar({
         size="sm"
         stacked
         label="Owner"
-        actionPlacement="value"
         action={fieldAction?.("owner")}
         value={
           <Owner
@@ -199,7 +197,6 @@ export default function ProjectTagBar({
           size="sm"
           stacked
           label="Project"
-          actionPlacement="value"
           action={fieldAction?.("project")}
           value={projectValue}
         />
@@ -208,7 +205,6 @@ export default function ProjectTagBar({
         size="sm"
         stacked
         label="Tags"
-        actionPlacement="value"
         action={fieldAction?.("tags")}
         value={
           experiment.tags?.length > 0 ? (

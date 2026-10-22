@@ -320,7 +320,7 @@ function StartContent({
             }
           }}
         >
-          <PreLaunchChecklistPanel size="md" foldCompleted />
+          <PreLaunchChecklistPanel size="md" />
         </Flex>
       </Flex>
 

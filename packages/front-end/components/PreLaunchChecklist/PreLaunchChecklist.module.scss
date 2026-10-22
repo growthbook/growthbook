@@ -1,9 +1,67 @@
-.completedLabel {
-  text-decoration: line-through;
+@import "../../styles/hover-highlight";
 
-  :global(a),
-  :global(button) {
-    text-decoration: line-through;
+// A column, so a row's hover tint can reach past it.
+.row {
+  display: flex;
+  flex-direction: column;
+}
+
+// A row just ticked off lingers a moment before it leaves its section.
+.fading {
+  animation: fadeOut 250ms ease 1s forwards;
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+  }
+}
+
+// Rows that tick their box or take their item's action.
+.interactive {
+  @include hover-highlight;
+}
+
+// The action takes the whole row but for its checkbox, which still ticks.
+.actionable {
+  position: relative;
+
+  :global(.rt-CheckboxRoot) {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+.rowAction {
+  all: unset;
+  cursor: pointer;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 2px;
+    border-radius: var(--radius-1);
+  }
+}
+
+// Inline after the text, and only on hover, focus or touch.
+.externalIcon {
+  margin-left: var(--space-1);
+  vertical-align: -0.125em;
+  opacity: 0;
+
+  .interactive:hover &,
+  .rowAction:focus-visible & {
+    opacity: 1;
+  }
+
+  @media (hover: none) {
+    opacity: 1;
   }
 }
 

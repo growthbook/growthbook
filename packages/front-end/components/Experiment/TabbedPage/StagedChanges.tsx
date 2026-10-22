@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretDown, PiCaretRight, PiCaretUp } from "react-icons/pi";
+import { PiCaretUp } from "react-icons/pi";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { stringifyForRawDiff } from "@/components/Reviews/Feature/RevisionDiffUtils";
 import Button from "@/ui/Button";
+import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
@@ -26,31 +27,37 @@ function StagedChange({
   const before = stringifyForRawDiff(review?.before);
   const after = stringifyForRawDiff(review?.after);
   const hasDiff = before !== after;
+  const discardLink = (
+    <Link
+      size="sm"
+      color="gray"
+      onClick={(e) => {
+        e.preventDefault();
+        discard();
+      }}
+    >
+      Discard
+    </Link>
+  );
+  if (!hasDiff) {
+    return (
+      <Flex align="center" justify="between" gap="4">
+        <Text color="text-high">{label}</Text>
+        {discardLink}
+      </Flex>
+    );
+  }
   return (
     <Box>
-      <Flex align="center" justify="between" gap="4">
-        {hasDiff ? (
-          <Link color="gray" onClick={() => setOpen(!open)}>
-            <Flex align="center" gap="1">
-              {open ? <PiCaretDown /> : <PiCaretRight />}
-              <Text color="text-high">{label}</Text>
-            </Flex>
-          </Link>
-        ) : (
-          <Text color="text-high">{label}</Text>
-        )}
-        <Link
-          size="sm"
-          color="gray"
-          onClick={(e) => {
-            e.preventDefault();
-            discard();
-          }}
-        >
-          Discard
-        </Link>
-      </Flex>
-      {open && hasDiff ? (
+      <CollapseTrigger
+        open={open}
+        onOpenChange={setOpen}
+        caret="start"
+        action={discardLink}
+      >
+        <Text color="text-high">{label}</Text>
+      </CollapseTrigger>
+      <Collapse open={open}>
         <Box mt="1" style={{ maxHeight: 240, overflowY: "auto" }}>
           <LazyDiffViewer
             oldValue={before}
@@ -60,7 +67,7 @@ function StagedChange({
             styles={COMPACT_DIFF_STYLES}
           />
         </Box>
-      ) : null}
+      </Collapse>
     </Box>
   );
 }
