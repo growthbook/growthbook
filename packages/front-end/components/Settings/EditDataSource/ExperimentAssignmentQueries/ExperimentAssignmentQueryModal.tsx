@@ -5,6 +5,7 @@ import uniqId from "uniqid";
 import omit from "lodash/omit";
 import {
   EXPOSURE_QUERY_COLUMN_MAPPING_FIELDS,
+  findColumnNeedingQuotes,
   getExposureQueryExperimentIdColumn,
   getExposureQueryExperimentNameColumn,
   getExposureQueryIdentifierColumn,
@@ -18,6 +19,7 @@ import {
   ExposureQuery,
 } from "shared/types/datasource";
 import { DetectedColumn } from "shared/types/fact-table";
+import { getDataSourceSqlDialect } from "shared/dialects";
 import SourceStep from "@/components/SchemaBrowser/SourceStep";
 import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";
 import ColumnMappingRow, {
@@ -454,6 +456,16 @@ export const ExperimentAssignmentQueryModal = ({
         ? { variationNameColumn: variationName }
         : {}),
     };
+
+    const quotedColumn = findColumnNeedingQuotes(
+      saved,
+      getDataSourceSqlDialect(dataSource.type)?.unquotedIdentifierFold,
+    );
+    if (quotedColumn) {
+      throw new Error(
+        `Column "${quotedColumn}" can't be mapped because its name needs quoting. In SQL mode, alias it to a lowercase name like "user_id".`,
+      );
+    }
 
     await onSave(saved);
   }

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import { getDataSourceSqlDialect } from "shared/dialects";
 import {
   DataRegion,
   findEventForwarderManagedViolation,
@@ -12,6 +13,7 @@ import {
   isManagedWarehouseUnavailable,
   findNewDuplicateUserIdTypeName,
   getExposureQueryIdentifierTypes,
+  findColumnNeedingQuotes,
   resolveAnalysisIdentifierType,
 } from "shared/util";
 import {
@@ -645,6 +647,17 @@ export async function validateExposureQueriesAndAddMissingIds(
             `Experiment assignment query "${
               exposure.name || exposure.id
             }" must declare at least one identifier type`,
+          );
+        }
+        const quotedColumn = findColumnNeedingQuotes(
+          exposure,
+          getDataSourceSqlDialect(datasource.type)?.unquotedIdentifierFold,
+        );
+        if (quotedColumn) {
+          throw new Error(
+            `Experiment assignment query "${
+              exposure.name || exposure.id
+            }" maps column "${quotedColumn}", which needs quoting. Alias it in the SQL to a lowercase name like "user_id".`,
           );
         }
         // The legacy identifier is frozen once the query exists, so ignore

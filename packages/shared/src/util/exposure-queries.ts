@@ -7,6 +7,7 @@ import {
   ExposureQueryColumnMapping,
 } from "shared/types/datasource";
 import { ResolvedExposureQuery } from "shared/types/integrations";
+import type { UnquotedIdentifierFold } from "shared/types/sql";
 import type {
   ApiAssignmentQueryRef,
   ApiAssignmentQueryRefInput,
@@ -83,6 +84,32 @@ export function getExposureQueryIdentifierColumn(
   identifierType: string,
 ): string {
   return query.userIdColumns?.[identifierType] || identifierType;
+}
+
+const PLAIN_COLUMN_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+// Mapped columns are interpolated unquoted. On warehouses that fold unquoted
+// names to lowercase, a capital letter means the column was created quoted.
+export function findColumnNeedingQuotes(
+  query: ExposureQueryColumnMapping,
+  fold: UnquotedIdentifierFold | undefined,
+): string | null {
+  const mapped = [
+    query.experimentIdColumn,
+    query.variationIdColumn,
+    query.timestampColumn,
+    query.experimentNameColumn,
+    query.variationNameColumn,
+    ...Object.values(query.userIdColumns ?? {}),
+  ];
+  return (
+    mapped.find(
+      (c) =>
+        !!c &&
+        (!PLAIN_COLUMN_NAME.test(c) ||
+          (fold === "lower" && c !== c.toLowerCase())),
+    ) ?? null
+  );
 }
 
 /**
