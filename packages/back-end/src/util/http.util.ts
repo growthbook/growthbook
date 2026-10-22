@@ -127,7 +127,14 @@ export const cancellableFetch = async (
       ...fetchOptions,
       // Never decode compressed bodies from user-configured hosts: Node's Brotli decoder has an RCE (CVE-2026-111497).
       compress: false,
-      headers: { ...fetchOptions.headers, "Accept-Encoding": "identity" },
+      headers: {
+        ...Object.fromEntries(
+          Object.entries(fetchOptions.headers ?? {}).filter(
+            ([name]) => name.toLowerCase() !== "accept-encoding",
+          ),
+        ),
+        "Accept-Encoding": "identity",
+      },
     });
 
     stringBody = await readResponseBody(response);

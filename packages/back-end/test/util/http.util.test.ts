@@ -62,7 +62,7 @@ describe("cancellableFetch with WEBHOOK_PROXY set", () => {
     mockedFetch.mockResolvedValueOnce({ body: [Buffer.from("ok")] });
     const { stringBody } = await cancellableFetch(
       "https://example.com/hook",
-      { headers: { "X-Signature": "abc", "Accept-Encoding": "br" } },
+      { headers: { "X-Signature": "abc", "accept-encoding": "br" } },
       abortOptions,
     );
 
@@ -73,6 +73,7 @@ describe("cancellableFetch with WEBHOOK_PROXY set", () => {
       "X-Signature": "abc",
       "Accept-Encoding": "identity",
     });
+    expect(init.headers).not.toHaveProperty("accept-encoding");
   });
 });
 
