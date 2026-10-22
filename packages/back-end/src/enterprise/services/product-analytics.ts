@@ -389,15 +389,10 @@ export async function runProductAnalyticsExploration(
     }
   } else if (dataset.type === "population") {
     if (dataset.steps.length !== 1) {
-      throw new BadRequestError("Population previews support a single step");
+      throw new BadRequestError("Populations only support a single step");
     }
     if (!dataset.unit) {
       throw new BadRequestError("Population unit is required");
-    }
-    if (config.chartType === "rawTable") {
-      throw new BadRequestError(
-        "Population previews do not support raw tables",
-      );
     }
     if (config.dimensions.some((d) => d.dimensionType !== "date")) {
       throw new BadRequestError(
