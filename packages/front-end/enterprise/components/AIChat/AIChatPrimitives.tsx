@@ -25,10 +25,16 @@ export function AssistantBubble({
         width: "min(920px, 100%)",
         maxWidth: "100%",
         minWidth: 0,
+        // Set by its container (the GrowthBot panel, AgentPanel.tsx); as before
+        // otherwise.
         background:
-          variant === "artifact" ? "var(--color-panel-solid)" : undefined,
+          variant === "artifact"
+            ? "var(--ai-artifact-bg, var(--color-panel-solid))"
+            : undefined,
         border:
-          variant === "artifact" ? "1px solid var(--slate-a5)" : undefined,
+          variant === "artifact"
+            ? "1px solid var(--ai-artifact-border, var(--slate-a5))"
+            : undefined,
       }}
       className={aiChatStyles.bubble}
     >
@@ -37,19 +43,31 @@ export function AssistantBubble({
   );
 }
 
-export function UserBubble({ children }: { children: React.ReactNode }) {
+export function UserBubble({
+  children,
+  soft = false,
+}: {
+  children: React.ReactNode;
+  /**
+   * Opt-in (the GrowthBot panel): speech-bubble corners, so it reads as a
+   * message, not a button.
+   */
+  soft?: boolean;
+}) {
   return (
     <Box
       style={{
-        borderRadius: "var(--radius-3)",
+        borderRadius: soft ? "16px 16px 4px 16px" : "var(--radius-3)",
         padding: "8px 12px",
         maxWidth: "85%",
         alignSelf: "flex-end",
-        background: "var(--violet-10)",
+        background: soft ? "var(--violet-a3)" : "var(--violet-10)",
         marginLeft: "auto",
         whiteSpace: "pre-wrap",
       }}
-      className={`${aiChatStyles.bubble} ${aiChatStyles.userBubble}`}
+      className={`${aiChatStyles.bubble} ${
+        soft ? aiChatStyles.userBubbleSoft : aiChatStyles.userBubble
+      }`}
     >
       {children}
     </Box>

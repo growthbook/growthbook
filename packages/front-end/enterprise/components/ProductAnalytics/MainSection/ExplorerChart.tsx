@@ -937,8 +937,11 @@ export default function ExplorerChart({
     <Flex
       direction="column"
       position="relative"
+      // Set by its container (the GrowthBot panel, AgentPanel.tsx); as before
+      // otherwise.
       style={{
-        border: "1px solid var(--gray-a3)",
+        border: "var(--ai-artifact-inner-border, 1px solid var(--gray-a3))",
+        background: "var(--ai-artifact-inner-bg, transparent)",
         borderRadius: "var(--radius-4)",
         flex: 1,
         minHeight: 0,

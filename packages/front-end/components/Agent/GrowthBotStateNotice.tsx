@@ -15,7 +15,7 @@ import styles from "./GrowthBotStateNotice.module.scss";
 export const SETTINGS_AI_PROMPTS_HREF = "/settings/#ai";
 
 // As the upgrade modal's Enterprise path.
-const CONTACT_SALES_URL = "https://www.growthbook.io/demo";
+export const CONTACT_SALES_URL = "https://www.growthbook.io/demo";
 
 // Its modal renders outside the header button's popover, so it outlasts the
 // message, which closes for it.
