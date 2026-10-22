@@ -28,7 +28,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useContextualBanditResults } from "@/hooks/useContextualBandits";
+import { useContextualBanditSnapshot } from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import ContextualBanditAttributeTable from "@/components/ContextualBandit/ContextualBanditAttributeTable";
@@ -172,7 +172,7 @@ export default function ContextualBanditResultsTable({
     refresh,
     cancel,
     refreshError,
-  } = useContextualBanditResults(cb.id);
+  } = useContextualBanditSnapshot();
 
   const datasource = cb.datasource ? getDatasourceById(cb.datasource) : null;
   const { contextualBanditQueriesMap } = useContextualBanditQueries(

@@ -8,10 +8,8 @@ import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard"
 import { IssueTags } from "@/components/HealthTab/IssueTags";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
-import {
-  useContextualBanditHealthIssues,
-  useContextualBanditResults,
-} from "@/hooks/useContextualBandits";
+import { useContextualBanditHealthIssues } from "@/hooks/useContextualBandits";
+import { useContextualBanditSnapshot } from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
 import ContextualBanditSRMCard from "./ContextualBanditSRMCard";
 
 export default function ContextualBanditHealthTab({
@@ -19,7 +17,7 @@ export default function ContextualBanditHealthTab({
 }: {
   cb: ApiContextualBanditInterface;
 }) {
-  const { results, latest, loading, error } = useContextualBanditResults(cb.id);
+  const { results, latest, loading, error } = useContextualBanditSnapshot();
   const healthIssues = useContextualBanditHealthIssues(cb);
 
   const health = results?.health ?? null;
