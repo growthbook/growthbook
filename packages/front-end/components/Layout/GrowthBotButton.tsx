@@ -54,6 +54,8 @@ export default function GrowthBotButton() {
           color="gray"
           size="sm"
           icon={<PiRobotBold />}
+          // Where focus goes back to as the panel closes (AgentPanel.tsx).
+          data-growthbot-trigger
           onClick={agentAvailable ? toggleAgentPanel : undefined}
           aria-label={
             agentOpen
@@ -84,6 +86,7 @@ export default function GrowthBotButton() {
       color="gray"
       size="sm"
       className={clsx(unavailable && styles.unavailable)}
+      data-growthbot-trigger
       icon={
         <span className={styles.iconWrap}>
           <PiRobotBold />

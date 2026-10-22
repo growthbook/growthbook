@@ -22,8 +22,13 @@ interface AgentPanelContextValue {
 
 const AgentPanelContext = createContext<AgentPanelContextValue | null>(null);
 
-/** Above the panel. Portaling the panel to body also puts it over its own body portals. */
-export const AGENT_PANEL_Z_INDEX = 10001;
+/**
+ * Above the header (1010) and its notices (1015), below the command palette
+ * and modals (1050 and up), which open over it.
+ */
+export const AGENT_PANEL_Z_INDEX = 1020;
+// The panel's slide, as --agent-dock-duration (global.scss).
+export const AGENT_DOCK_MOTION_MS = 220;
 export const AGENT_PANEL_PORTAL_Z_INDEX = AGENT_PANEL_Z_INDEX + 1;
 
 /**

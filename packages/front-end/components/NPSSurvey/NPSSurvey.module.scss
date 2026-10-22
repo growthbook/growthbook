@@ -1,6 +1,12 @@
 .wrapper {
   position: fixed;
-  right: 24px;
+  // Clear of the docked GrowthBot panel while it's open (AgentPanel.tsx).
+  right: calc(24px + var(--agent-rail-width, 0px));
+  transition: right var(--agent-dock-duration) var(--agent-dock-easing);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
   // Clears the in-app help / Pylon launcher, which owns this corner at
   // bottom: 20px with a 50px button. At 24px the card buried it, so Help
   // couldn't be clicked until the survey was answered or dismissed.
