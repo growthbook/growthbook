@@ -19,6 +19,8 @@ export const GB_SDK_ID_PROD = "sdk-ueFMOgZ2daLa0M";
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
 export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
+// Applied only to newly created organizations; existing orgs keep DEFAULT_CONFIDENCE_LEVEL.
+export const NEW_ORG_DEFAULT_CONFIDENCE_LEVEL = 0.975;
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
 export const BAYESIAN_CREDIBLE_INTERVAL_ALPHA = 0.05;
 export const DEFAULT_P_VALUE_CORRECTION = null;
