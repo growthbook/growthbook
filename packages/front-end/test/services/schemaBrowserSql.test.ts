@@ -118,6 +118,15 @@ describe("columnInsertDisabledReason", () => {
     ).toMatch(/different table/);
   });
 
+  it.each(['"a""b"', "`a``b`", "[a]]b]"])(
+    "parses %s with an escaped quote",
+    (table) => {
+      expect(
+        columnInsertDisabledReason(`SELECT * FROM ${table}`, TABLE_A, "id"),
+      ).toMatch(/different table/);
+    },
+  );
+
   it("does not backtrack catastrophically on many dot-separated segments", () => {
     const sql = "select a from !." + "!.".repeat(30) + ",";
     const start = performance.now();
@@ -128,7 +137,7 @@ describe("columnInsertDisabledReason", () => {
     expect(performance.now() - start).toBeLessThan(500);
   });
 
-  it.each(['"x"', "`x`", "[x]"])(
+  it.each(['"x"', "`x`", "[x]", '"x""y"', "`x``y`", "[x]]y]"])(
     "does not backtrack catastrophically on many %s segments",
     (segment) => {
       const sql = "select a from " + Array(30).fill(segment).join(".") + ",";
