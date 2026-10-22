@@ -28,6 +28,7 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import { useSavedGroupDraftStates } from "@/hooks/useSavedGroupDraftStates";
+import SearchFilterRow from "@/components/Search/SearchFilterRow";
 import SavedGroupSearchFilters from "@/components/Search/SavedGroupSearchFilters";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
@@ -200,23 +201,26 @@ export default function IdLists({ groups, mutate }: Props) {
 
         {filteredIdLists.length > 0 && (
           <>
-            <Flex align="center" justify="between" gap="3" mb="4">
-              <Box style={{ width: "40%" }}>
+            <SearchFilterRow
+              mb="4"
+              search={
                 <Field
                   size="legacy"
                   placeholder="Search..."
                   type="search"
                   {...searchInputProps}
                 />
-              </Box>
-              <SavedGroupSearchFilters
-                searchInputProps={searchInputProps}
-                syntaxFilters={syntaxFilters}
-                setSearchValue={setSearchValue}
-                groups={filteredIdLists}
-                hasArchived={hasArchived}
-              />
-            </Flex>
+              }
+              filters={
+                <SavedGroupSearchFilters
+                  searchInputProps={searchInputProps}
+                  syntaxFilters={syntaxFilters}
+                  setSearchValue={setSearchValue}
+                  groups={filteredIdLists}
+                  hasArchived={hasArchived}
+                />
+              }
+            />
             <Table variant="list" stickyHeader roundedCorners>
               <TableHeader>
                 <TableRow>
