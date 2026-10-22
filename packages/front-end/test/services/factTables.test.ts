@@ -2,6 +2,8 @@ import { DetectedColumn } from "shared/types/fact-table";
 import { SchemaWithPath } from "shared/types/integrations";
 import {
   findColumnByName,
+  getRemappedUserIdColumns,
+  rematchUserIdColumns,
   GA4_EVENTS_TEMPLATE,
   getColumnMappingError,
   getDefaultPartitionColumn,
@@ -360,5 +362,41 @@ describe("findColumnByName", () => {
     expect(findColumnByName(named, "user_id")).toBe("user_id");
     expect(findColumnByName(named, "USER_ID")).toBe("user_id");
     expect(findColumnByName(named.slice(0, 2), "user_id")).toBe("userId");
+  });
+});
+
+describe("rematchUserIdColumns", () => {
+  const columns = ["uid", "anonymous_id", "device_id"].map((column) => ({
+    column,
+    datatype: "string" as const,
+  }));
+
+  it("keeps a mapping whose column still exists", () => {
+    expect(
+      rematchUserIdColumns({ user_id: "uid" }, ["user_id"], columns),
+    ).toEqual({ user_id: "uid" });
+  });
+
+  it("re-matches by name when the mapped column is gone", () => {
+    expect(
+      rematchUserIdColumns({ anonymous_id: "anon" }, ["anonymous_id"], columns),
+    ).toEqual({ anonymous_id: "anonymous_id" });
+  });
+
+  it("drops identifiers with no matching column", () => {
+    expect(
+      rematchUserIdColumns({ user_id: "gone" }, ["user_id"], columns),
+    ).toEqual({});
+  });
+});
+
+describe("getRemappedUserIdColumns", () => {
+  it("stores only identifiers whose column isn't their own name", () => {
+    expect(
+      getRemappedUserIdColumns(["user_id", "anonymous_id"], {
+        user_id: "user_id",
+        anonymous_id: "device_id",
+      }),
+    ).toEqual({ anonymous_id: "device_id" });
   });
 });
