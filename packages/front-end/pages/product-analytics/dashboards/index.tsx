@@ -157,6 +157,8 @@ export default function DashboardsPage() {
   // project. Either way, setting a project's default requires permission on
   // that project specifically, not on the dashboard.
   const getEligibleProjectsForDefault = (d: DashboardInterface) => {
+    // Other members can't read a private dashboard, so it can't be their default.
+    if (d.shareLevel === "private") return [];
     return projects.filter(
       (p) =>
         isProjectListValidForProject(d.projects, p.id) &&
