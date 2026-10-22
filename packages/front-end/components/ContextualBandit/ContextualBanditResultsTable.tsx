@@ -1,5 +1,5 @@
 // TODO(holdout-v1.5): attach holdout-vs-bandit comparison view and EDF recommendations here.
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex, SegmentedControl } from "@radix-ui/themes";
 import { startCase } from "lodash";
 import { getValidDate } from "shared/dates";
@@ -175,7 +175,16 @@ export default function ContextualBanditResultsTable({
     refreshError,
     statusError,
     mutate: refetchSnapshot,
+    refreshStatus,
   } = useContextualBanditSnapshot();
+
+  // Radix unmounts inactive tabs, so this runs each time the Results tab opens.
+  // Refresh the cheap status to catch a run that completed while idle (the
+  // provider only polls while a run is in progress); a newer success then
+  // triggers the heavy results fetch automatically.
+  useEffect(() => {
+    void refreshStatus();
+  }, [refreshStatus]);
 
   const datasource = cb.datasource ? getDatasourceById(cb.datasource) : null;
   const { contextualBanditQueriesMap } = useContextualBanditQueries(

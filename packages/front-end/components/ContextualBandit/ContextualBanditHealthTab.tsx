@@ -1,4 +1,4 @@
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useEffect, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { ExperimentReportVariation } from "shared/types/report";
@@ -18,9 +18,20 @@ export default function ContextualBanditHealthTab({
 }: {
   cb: ApiContextualBanditInterface;
 }) {
-  const { results, latest, loading, error, statusError, mutate } =
-    useContextualBanditSnapshot();
+  const {
+    results,
+    latest,
+    loading,
+    error,
+    statusError,
+    mutate,
+    refreshStatus,
+  } = useContextualBanditSnapshot();
   const healthIssues = useContextualBanditHealthIssues(cb);
+
+  useEffect(() => {
+    void refreshStatus();
+  }, [refreshStatus]);
 
   const health = results?.health ?? null;
 

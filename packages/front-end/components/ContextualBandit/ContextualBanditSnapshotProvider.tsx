@@ -28,6 +28,7 @@ type ContextualBanditSnapshotContextValue = {
   statusError?: Error;
   /** Refetch both the cheap status and the heavy results. */
   mutate: () => Promise<unknown>;
+  refreshStatus: () => Promise<unknown>;
   /** Trigger a new run, then pull the cheap status (heavy upgrades on success). */
   refresh: () => Promise<void>;
   /** Cancel the in-progress run, then pull the cheap status. */
@@ -50,6 +51,7 @@ const contextualBanditSnapshotContext =
     results: null,
     latest: null,
     mutate: () => Promise.resolve(),
+    refreshStatus: () => Promise.resolve(),
     refresh: () => Promise.resolve(),
     cancel: () => Promise.resolve(),
     refreshing: false,
@@ -170,6 +172,8 @@ export default function ContextualBanditSnapshotProvider({
     [mutateStatus, mutateHeavy],
   );
 
+  const refreshStatus = useCallback(() => mutateStatus(), [mutateStatus]);
+
   const refresh = useCallback(async () => {
     if (!cbId) return;
     setRefreshing(true);
@@ -207,6 +211,7 @@ export default function ContextualBanditSnapshotProvider({
         error,
         statusError,
         mutate,
+        refreshStatus,
         refresh,
         cancel,
         refreshing,
