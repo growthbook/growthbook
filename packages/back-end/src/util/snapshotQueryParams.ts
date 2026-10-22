@@ -10,7 +10,12 @@ const optionalQueryString = z
 
 const snapshotTypeQuery = z
   .union([
-    z.enum(["standard", "exploratory", "report"]),
+    // `satisfies` fails type-check if SnapshotType gains or loses a member
+    z.enum({
+      standard: "standard",
+      exploratory: "exploratory",
+      report: "report",
+    } satisfies Record<SnapshotType, SnapshotType>),
     z.literal(""),
     z.undefined(),
   ])
