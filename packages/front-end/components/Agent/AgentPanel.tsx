@@ -204,6 +204,8 @@ function preWorkToSteps(
   });
 }
 
+// Past the GrowthBot button's fade back in, however slow the frames.
+const FOCUS_RETURN_MAX_MS = 1000;
 // The page makes room for it (global.scss's .main reads --agent-rail-width).
 const DOCKED_WIDTH = "400px";
 const LIMIT_CALLOUT_ID = "growthbot-limit-callout";
@@ -690,11 +692,22 @@ export default function AgentPanel({
         ? returnFocusRef.current
         : document.querySelector<HTMLElement>("[data-growthbot-trigger]");
     if (!focusWasInPanel || !target) return;
-    let frame = requestAnimationFrame(() => {
-      frame = requestAnimationFrame(() =>
-        target.focus({ preventScroll: true }),
-      );
-    });
+    // The button stays hidden for the start of its fade back in
+    // (GrowthBotButton.module.scss), and focus() does nothing until it shows,
+    // so try each frame until focus lands, unless it has moved on meanwhile.
+    const deadline = Date.now() + FOCUS_RETURN_MAX_MS;
+    let frame = 0;
+    const tryFocus = () => {
+      const now = document.activeElement;
+      const stillAway =
+        !now || now === document.body || !!panelEl?.contains(now);
+      if (!stillAway || Date.now() > deadline) return;
+      target.focus({ preventScroll: true });
+      if (document.activeElement !== target) {
+        frame = requestAnimationFrame(tryFocus);
+      }
+    };
+    tryFocus();
     return () => cancelAnimationFrame(frame);
   }, [open]);
 

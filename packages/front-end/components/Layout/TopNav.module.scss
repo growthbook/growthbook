@@ -102,6 +102,21 @@ $sidebarwidth: var(--app-rail-width, 240px);
   }
 }
 
+// The notices' right padding spaces them from the GrowthBot button. While the
+// docked panel hides the button it goes too, so the notices end 32px from the
+// panel, in step with the button narrowing (GrowthBotButton.module.scss).
+.navbar > :global(.nav-link) {
+  transition: padding-right var(--agent-dock-duration) var(--agent-dock-easing);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+:global(html.agent-dock-full) .navbar > :global(.nav-link) {
+  padding-right: 0;
+}
+
 .dropdownItemIconColor {
   &:focus {
     svg {
