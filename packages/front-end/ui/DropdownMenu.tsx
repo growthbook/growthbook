@@ -221,7 +221,9 @@ type DropdownItemProps = {
   tooltipStyle?: React.CSSProperties;
   confirmation?: {
     submit: () => Promise<void> | void;
-    getConfirmationContent?: () => Promise<string | ReactElement | null>;
+    getConfirmationContent?: (
+      close: () => void,
+    ) => Promise<string | ReactElement | null>;
     confirmationTitle: string;
     cta: string;
     ctaColor?: "red" | "violet";
@@ -251,14 +253,6 @@ export function DropdownMenuItem({
   const [confirmationContent, setConfirmationContent] = useState<
     string | ReactElement | null
   >(null);
-  useEffect(() => {
-    if (!confirming || !confirmation || !confirmation.getConfirmationContent)
-      return;
-    confirmation
-      .getConfirmationContent()
-      .then((c) => setConfirmationContent(c))
-      .catch((e) => console.error(e));
-  }, [confirming, confirmation]);
 
   const [error, setError] = useState<null | string>(null);
   const [loading, setLoading] = useState(false);
@@ -272,11 +266,20 @@ export function DropdownMenuItem({
   const closeDropdown =
     confirmation?.closeDropdown ?? visibilityContext?.closeDropdown;
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setConfirming(false);
     showDropdown?.();
     closeDropdown?.();
-  };
+  }, [showDropdown, closeDropdown]);
+
+  useEffect(() => {
+    if (!confirming || !confirmation || !confirmation.getConfirmationContent)
+      return;
+    confirmation
+      .getConfirmationContent(handleClose)
+      .then((c) => setConfirmationContent(c))
+      .catch((e) => console.error(e));
+  }, [confirming, confirmation, handleClose]);
 
   const menuItem = (
     <RadixDropdownMenu.Item

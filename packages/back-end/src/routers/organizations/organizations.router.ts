@@ -3,6 +3,10 @@ import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
+  deleteApiKeyValidator,
+  postApiKeyRevealValidator,
+  postApiKeyRotateValidator,
+  postInviteAcceptValidator,
   postApiKeyValidator,
   putApiKeyValidator,
   putApiKeyDisabledValidator,
@@ -45,7 +49,13 @@ router.post(
   organizationsController.autoAddGroupsAttribute,
 );
 router.get("/invite/:key", organizationsController.getInviteInfo);
-router.post("/invite/accept", organizationsController.postInviteAccept);
+router.post(
+  "/invite/accept",
+  validateRequestMiddleware({
+    body: postInviteAcceptValidator,
+  }),
+  organizationsController.postInviteAccept,
+);
 router.post("/invite", organizationsController.postInvite);
 router.post("/invite/resend", organizationsController.postInviteResend);
 router.put("/invite/:key/role", organizationsController.putInviteRole);
@@ -107,18 +117,41 @@ router.put(
   }),
   organizationsController.putApiKey,
 );
-router.delete("/keys", organizationsController.deleteApiKey);
+router.delete(
+  "/keys",
+  validateRequestMiddleware({
+    body: deleteApiKeyValidator,
+  }),
+  organizationsController.deleteApiKey,
+);
 router.post(
   "/keys/apply-expiration-policy",
   organizationsController.postApplyExpirationPolicy,
 );
-router.post("/keys/reveal", organizationsController.postApiKeyReveal);
+router.post(
+  "/keys/reveal",
+  validateRequestMiddleware({
+    body: postApiKeyRevealValidator,
+  }),
+  organizationsController.postApiKeyReveal,
+);
 router.put(
   "/keys/:id/disabled",
   validateRequestMiddleware({
     body: putApiKeyDisabledValidator,
   }),
   organizationsController.putApiKeyDisabled,
+);
+router.post(
+  "/keys/:id/rotate",
+  validateRequestMiddleware({
+    body: postApiKeyRotateValidator,
+  }),
+  organizationsController.postApiKeyRotate,
+);
+router.delete(
+  "/keys/:id/previous-key",
+  organizationsController.deleteApiKeyPreviousKey,
 );
 
 // Legacy Webhooks

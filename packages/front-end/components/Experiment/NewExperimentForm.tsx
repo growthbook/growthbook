@@ -6,7 +6,7 @@ import {
   Variation,
 } from "shared/types/experiment";
 import { useRouter } from "next/router";
-import { date, datetime, getValidDate } from "shared/dates";
+import { date, getValidDate } from "shared/dates";
 import { getProviderFromEmbeddingModel } from "shared/ai";
 import {
   getExposureQueryIdentifierTypes,
@@ -290,14 +290,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 coverage: initialValue.phases?.[lastPhase]?.coverage ?? 1,
                 dateStarted: getValidDate(
                   initialValue.phases?.[lastPhase]?.dateStarted ?? "",
-                )
-                  .toISOString()
-                  .substring(0, 16),
+                ).toISOString(),
                 dateEnded: getValidDate(
                   initialValue.phases?.[lastPhase]?.dateEnded ?? "",
-                )
-                  .toISOString()
-                  .substring(0, 16),
+                ).toISOString(),
                 name: initialValue.phases?.[lastPhase]?.name || "Main",
                 reason: "",
                 variationWeights:
@@ -313,8 +309,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           : [
               {
                 coverage: 1,
-                dateStarted: new Date().toISOString().substring(0, 16),
-                dateEnded: new Date().toISOString().substring(0, 16),
+                dateStarted: new Date().toISOString(),
+                dateEnded: new Date().toISOString(),
                 name: "Main",
                 reason: "",
                 variationWeights: toEqualWeights(initialExpVariations),
@@ -488,18 +484,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if (data.status !== "stopped" && data.phases?.[0]) {
       data.phases[0].dateEnded = "";
     }
-    // Turn phase dates into proper UTC timestamps
     if (data.phases?.[0]) {
-      if (
-        data.phases[0].dateStarted &&
-        !data.phases[0].dateStarted.match(/Z$/)
-      ) {
-        data.phases[0].dateStarted += ":00Z";
-      }
-      if (data.phases[0].dateEnded && !data.phases[0].dateEnded.match(/Z$/)) {
-        data.phases[0].dateEnded += ":00Z";
-      }
-
       validateSavedGroupTargeting(data.phases[0].savedGroups);
 
       validateAndFixCondition(data.phases[0].condition, (condition) => {
@@ -1267,12 +1252,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 />
                 {status !== "draft" && (
                   <DatePicker
-                    label="Start Time (UTC)"
+                    label="Start time"
+                    timeZone="utc"
                     date={form.watch("phases.0.dateStarted")}
                     setDate={(v) => {
                       form.setValue(
                         "phases.0.dateStarted",
-                        v ? datetime(v) : "",
+                        v ? v.toISOString() : "",
                       );
                     }}
                     scheduleEndDate={form.watch("phases.0.dateEnded")}
@@ -1281,10 +1267,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 )}
                 {status === "stopped" && (
                   <DatePicker
-                    label="End Time (UTC)"
+                    label="End time"
+                    timeZone="utc"
                     date={form.watch("phases.0.dateEnded")}
                     setDate={(v) => {
-                      form.setValue("phases.0.dateEnded", v ? datetime(v) : "");
+                      form.setValue(
+                        "phases.0.dateEnded",
+                        v ? v.toISOString() : "",
+                      );
                     }}
                     scheduleStartDate={form.watch("phases.0.dateStarted")}
                     disableBefore={

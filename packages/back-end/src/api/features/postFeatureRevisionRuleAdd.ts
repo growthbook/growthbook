@@ -59,6 +59,7 @@ import {
   stagedFeature,
   validateRampPlanPatches,
   withTemplatePlan,
+  withStagedSchema,
 } from "./validations";
 import {
   assertRuleVariationsMatchExperiment,
@@ -259,7 +260,9 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Enforce the feature's JSON schema on the new rule's values (no-op for
     // config-backed values). Opt out with ?skipSchemaValidation=true.
-    assertFeatureValuesValid(req.context, feature, { rules: [rule] });
+    assertFeatureValuesValid(req.context, withStagedSchema(feature, revision), {
+      rules: [rule],
+    });
 
     // Validate condition JSON and references before any DB writes.
     validatePrerequisiteConditions(rule.prerequisites ?? []);

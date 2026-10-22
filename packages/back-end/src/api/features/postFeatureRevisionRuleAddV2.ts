@@ -24,6 +24,7 @@ import {
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { holdRoute } from "back-end/src/services/confirmations";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -48,12 +49,14 @@ import {
   resolveOrCreateRevision,
   validateRuleAttributes,
   assertValidRevisionRulePrerequisites,
+  assertScopedRules,
   validatePrerequisiteConditions,
   validateRuleReferences,
   collectRampPlanPatches,
   rampPatchEntries,
   validateRampPlanPatches,
   withTemplatePlan,
+  withStagedSchema,
 } from "./validations";
 import { buildRuleFromInput } from "./postFeatureRevisionRuleAdd";
 import {
@@ -114,6 +117,21 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   // v1 validates its single `environment`; do the same for the v2 list
   // before a draft is created.
   assertValidRuleEnvironments(req.context, [ruleInput]);
+  const scope = ruleInput as {
+    allEnvironments?: boolean;
+    environments?: string[];
+  };
+  assertScopedRules(
+    req.context,
+    [
+      {
+        id: "",
+        ...resolveScopeFromInput(scope.allEnvironments, scope.environments),
+      },
+    ],
+    [],
+  );
+  await holdRoute(req.context, postFeatureRevisionRuleAddV2Validator, req);
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -232,7 +250,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
 
     // Enforce the feature's JSON schema on the new rule's values (no-op for
     // config-backed values). Opt out with ?skipSchemaValidation=true.
-    assertFeatureValuesValid(req.context, feature, {
+    assertFeatureValuesValid(req.context, withStagedSchema(feature, revision), {
       rules: [rule as FeatureRule],
     });
     // Config-backed rule values additionally validate against the backing

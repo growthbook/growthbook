@@ -34,7 +34,9 @@ const rule = (role: string) => ({
   environments: [],
 });
 
-const key = (rules: object) => rules as unknown as ApiKeyWithRole;
+// A User key, which acts as the member it names.
+const key = (rules: object) =>
+  ({ actAs: "user", ...rules }) as unknown as ApiKeyWithRole;
 
 const forRequest = (
   apiKey: ApiKeyWithRole,
@@ -68,10 +70,10 @@ describe("getKeyPermissionsForRequest", () => {
     ).toBeUndefined();
   });
 
-  it("keeps the key's own role when it doesn't assume the member's", () => {
+  it("keeps a System key's own role", () => {
     expect(
       getKeyPermissionsForRequest({
-        apiKey: key({ ...rule("engineer"), requesterPermissions: "key" }),
+        apiKey: key({ ...rule("engineer"), actAs: "system" }),
         requesterId: "u_reader",
         org,
         teams,

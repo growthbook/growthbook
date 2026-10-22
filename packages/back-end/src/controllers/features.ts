@@ -60,7 +60,11 @@ import {
   statusFromStandingVerdicts,
   getHealthSettings,
 } from "shared/enterprise";
-import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
+import {
+  FEATURE_KEY_PATTERN,
+  FEATURE_KEY_PATTERN_ERROR,
+  SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
+} from "shared/constants";
 import {
   getConnectionSDKCapabilities,
   withoutUnsupportedSavedGroupCapabilities,
@@ -265,6 +269,7 @@ import {
 } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
 import { yieldEventLoop } from "back-end/src/util/yield";
+import { sendJsonWithSlicedList } from "back-end/src/util/slicedJson";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   CACHE_CONTROL_MAX_AGE,
@@ -310,6 +315,10 @@ import {
 import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
+import {
+  MAX_IDS_QUERY_LENGTH,
+  parseIdsQuery,
+} from "back-end/src/util/validation";
 import {
   canDisarmFeatureAutoPublishOnApproval,
   canEnableFeatureAutoPublishOnApproval,
@@ -916,7 +925,7 @@ export async function postFeatures(
     context.permissions.throwPermissionError();
   }
 
-  if (!id) {
+  if (typeof id !== "string" || !id) {
     throw new Error("Must specify feature key");
   }
 
@@ -933,10 +942,8 @@ export async function postFeatures(
     throw new Error("Feature missing initial environment toggle settings");
   }
 
-  if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
-    throw new Error(
-      "Feature keys can only include letters, numbers, hyphens, and underscores.",
-    );
+  if (!new RegExp(FEATURE_KEY_PATTERN).test(id)) {
+    throw new Error(FEATURE_KEY_PATTERN_ERROR);
   }
 
   if (org.settings?.requireProjectForFeatures && !otherProps.project) {
@@ -1056,7 +1063,9 @@ export async function postFeatures(
   // A duplicate echoes its source's rules; only what the copy changes is
   // re-checked.
   const source = duplicateOf ? await getFeature(context, duplicateOf) : null;
-  await assertValidFeatureRules(context, feature.rules ?? [], source?.rules);
+  await assertValidFeatureRules(context, feature.rules ?? [], source?.rules, {
+    copiesRules: true,
+  });
   validatePrerequisiteConditions(feature.prerequisites ?? []);
   await assertValidPrerequisiteParents(context, feature, source ?? undefined);
   assertFeatureValuesValid(context, feature, {
@@ -3776,7 +3785,9 @@ export async function postFeatureSync(
     needsNewRevision = true;
   }
 
-  await assertValidFeatureRules(context, nextFlatRules, feature.rules ?? []);
+  await assertValidFeatureRules(context, nextFlatRules, feature.rules ?? [], {
+    copiesRules: true,
+  });
   await assertValidPrerequisiteParents(
     context,
     { ...feature, rules: nextFlatRules },
@@ -6344,20 +6355,30 @@ export async function getFeatures(
   }
   const includeArchived = !!req.query.includeArchived;
 
+  // Every feature in the organization can take a while to load and encode,
+  // so stop as soon as the client gives up
+  const disconnected = new AbortController();
+  res.on("close", () => disconnected.abort());
+
   const features = await getAllFeatures(context, {
     projects: project ? [project] : undefined,
     includeArchived,
+    signal: disconnected.signal,
   });
+  if (disconnected.signal.aborted) return;
 
   const hasArchived = includeArchived
     ? features.some((f) => f.archived)
     : await hasArchivedFeatures(context, project);
+  if (disconnected.signal.aborted) return;
 
-  res.status(200).json({
-    status: 200,
+  await sendJsonWithSlicedList(
+    res,
+    { status: 200, hasArchived },
+    "features",
     features,
-    hasArchived,
-  });
+    disconnected.signal,
+  );
 }
 
 // Code references are only shown on the flag's Stats tab, so they load there
@@ -7714,7 +7735,7 @@ export async function getFeatureMetaInfo(
   const features = await getFeatureMetaInfoById(context, {
     includeDefaultValue: defaultValue === "1",
     project: project || undefined,
-    ids: ids ? ids.split(",").filter(Boolean) : undefined,
+    ids: parseIdsQuery(ids),
   });
 
   res.status(200).json({ status: 200, features });
@@ -7731,9 +7752,7 @@ export async function getFeatureDraftStates(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids);
   const features = await getActiveDraftStates(context.org.id, featureIds);
   res.status(200).json({ status: 200, features });
 }
@@ -7747,9 +7766,7 @@ export async function getFeaturesHealth(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids);
 
   const [
     { features: allFeatures, experiments: allExperiments },
@@ -7894,9 +7911,9 @@ export async function getFeaturesStatus(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids, {
+    max: MAX_IDS_QUERY_LENGTH,
+  });
 
   const raw = await getFeatureEnvStatus(context, featureIds);
 
@@ -7928,9 +7945,7 @@ export async function getFeaturesDependents(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : [];
+  const featureIds = parseIdsQuery(req.query.ids) ?? [];
 
   if (!featureIds.length) {
     return res.status(200).json({ status: 200, dependents: {} });
@@ -8230,9 +8245,9 @@ export async function getFeatureRampStates(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids, {
+    max: MAX_IDS_QUERY_LENGTH,
+  });
 
   const NON_TERMINAL_STATUSES = [
     "pending",

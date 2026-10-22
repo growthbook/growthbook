@@ -1325,7 +1325,9 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - `$inGroup` and `$notInGroup` also read typed `list` entries
   - Saved Groups are passed into prerequisite conditions (`parentConditions`)
   - New `savedGroupReferencesV2` key in the test cases, with `evalCondition`, `feature`, and `run` sub-suites. SDKs that do not support it yet can skip the whole key
-- **v0.10.0** 2026-10-15
+- **v0.10.1** 2026-10-22
+  - Add a `feature` test case for a prerequisite (`parentConditions`) with a malformed condition (`{"$not": null}`). It never matches, so the rule is skipped instead of throwing
+- **v0.11.0** 2026-10-22
   - Condition helpers return `null` when the result depends on an operator or saved group type the SDK doesn't support, including through `$inGroup` and `$notInGroup`. `evalCondition` treats it as failing, so such a condition now fails under `$not` and `$nor` too, where it used to pass
   - `$elemMatch` treats a value that uses `$or`, `$and`, `$nor`, or `$savedGroup` as a condition on each item's fields, rather than as operators
   - `getPath` only reads an object's own keys, so a missing attribute named like a built-in property, such as `constructor`, is missing

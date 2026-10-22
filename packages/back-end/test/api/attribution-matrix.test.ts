@@ -1,8 +1,11 @@
+import omit from "lodash/omit";
 import mongoose from "mongoose";
 import request from "supertest";
 import type { Request } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import type { ApiKeyWithRole } from "shared/types/apikey";
+import { notificationEvents } from "shared/validators";
+import type { ZodType } from "zod";
 import { ReqContextClass } from "back-end/src/services/context";
 import { apiKeyEventUser } from "back-end/src/util/api-key.util";
 import { getKeyPermissionsForRequest } from "back-end/src/util/organization.util";
@@ -19,9 +22,9 @@ import {
 import { setupApp } from "./api.setup";
 
 /**
- * The person behind a request is a personal token's owner, or the member whose
- * role an org key assumes with X-GrowthBook-Requested-By; a key that names no
- * one, or uses its own role, is credited as itself. Checked across callers,
+ * The person behind a request is a personal token's owner, or the member a User
+ * key names with X-GrowthBook-Requested-By; a key that names no one, or a
+ * System key, is credited as itself. Checked across callers,
  * revisioned entities, their lifecycles and schedules, and through the real
  * auth middleware.
  */
@@ -38,6 +41,8 @@ const KEY = {
   role: "admin",
   limitAccessByEnvironment: false,
   environments: [],
+  // A User key, so naming a member acts as them.
+  actAs: "user" as const,
   dateCreated: new Date(),
   dateUpdated: new Date(),
 };
@@ -62,6 +67,15 @@ const org = {
     attributeSchema: [{ property: "userId", datatype: "string" }],
   },
 } as unknown as OrganizationInterface;
+
+// The documented payload schema for an event, to check what was actually sent.
+const payloadSchema = (resource: string, event: string) =>
+  (
+    notificationEvents as unknown as Record<
+      string,
+      Record<string, { schema: ZodType }>
+    >
+  )[resource][event].schema;
 
 type Person = typeof dana;
 const ACTORS = [
@@ -136,7 +150,7 @@ function contextFor(
 ) {
   const key: ApiKeyWithRole =
     actor === "a key naming the member as itself"
-      ? { ...baseKey, requesterPermissions: "key" }
+      ? { ...baseKey, actAs: "system" }
       : baseKey;
   const requester = actor.startsWith("a key naming the member") ? person : null;
   const base = {
@@ -359,8 +373,8 @@ describe("attribution across callers", () => {
         organizationId: ORG_ID,
         event: `${cfg.event}.revision.approved`,
       });
-      // A reference to the revision with who authored and reviewed it, not
-      // the revision itself.
+      // Who authored and reviewed it, its content and its review history,
+      // matching the documented schema.
       const approvedObject = approvedEvent?.data?.data?.object;
       expect(approvedObject).toMatchObject({
         id,
@@ -368,8 +382,18 @@ describe("attribution across callers", () => {
         author: EXPECT[actor].webhookActor,
         [cfg.event]: { id: entity?.id, name: cfg.create().name },
         reviewer: { requestedBy: { id: bob.id }, assumedRole: true },
+        proposedChanges: expect.arrayContaining([
+          expect.objectContaining({ path: `/${cfg.edit[0]}` }),
+        ]),
+        reviews: expect.arrayContaining([
+          expect.objectContaining({ userId: bob.id, decision: "approve" }),
+        ]),
       });
       expect(approvedObject).not.toHaveProperty("activityLog");
+      expect(
+        payloadSchema(cfg.event, "revision.approved").safeParse(approvedObject)
+          .error,
+      ).toBeUndefined();
       expect(approvedEvent?.data?.user?.requestedBy?.id).toBe(bob.id);
 
       // Bob withdraws it with his own token; the history keeps the key as the
@@ -458,6 +482,7 @@ describe("attribution across callers", () => {
         id: "checkout-flow",
         valueType: "boolean",
         defaultValue: "false",
+        rules: [{ type: "force", value: "true", allEnvironments: true }],
         ...(EXPECT[actor].hasPerson ? {} : { owner: dana.id }),
       });
       expect(res.status).toBe(200);
@@ -565,8 +590,18 @@ describe("attribution across callers", () => {
         author: EXPECT[actor].webhookActor,
         feature: { id },
         reviewer: { requestedBy: { id: bob.id }, assumedRole: true },
+        defaultValue: "false",
+        metadata: expect.objectContaining({ description: "Updated" }),
+        rules: {
+          production: [
+            expect.objectContaining({ type: "force", value: "true" }),
+          ],
+        },
       });
-      expect(approvedObject).not.toHaveProperty("rules");
+      expect(
+        payloadSchema("feature", "revision.approved").safeParse(approvedObject)
+          .error,
+      ).toBeUndefined();
 
       const log = await as(actor).get(`${path}/log`);
       const commentEntry = log.body.log.find(
@@ -710,10 +745,7 @@ describe("attribution across callers", () => {
       );
     });
 
-    it.each([
-      ["stops assuming members", { requesterPermissions: "key" }],
-      ["rejects the header", { requesterHeader: "rejected" }],
-    ])(
+    it.each([["stops acting as members", { actAs: "system" }]])(
       "drops a constant publish a key armed for them once the key %s",
       async (_, change) => {
         const { id, version } = await draftConstant();
@@ -1008,7 +1040,7 @@ describe("attribution across callers", () => {
     const OWN_ROLE_KEY = {
       ...READONLY_KEY,
       id: "key_own_role",
-      requesterPermissions: "key" as const,
+      actAs: "system" as const,
     };
     const NAMED = [
       ["an admin key naming the draft's author", dana, KEY, 200],
@@ -1083,29 +1115,82 @@ describe("attribution across callers", () => {
     );
   });
 
+  describe("author rights through a personal token", () => {
+    // Dana loses draft permissions, so only her author rights could let her
+    // own token discard her draft, and a token scoped to read only gets none.
+    it.each([
+      ["an unscoped token", false, 200],
+      ["a token scoped to read only", true, 403],
+    ] as const)(
+      "lets the author discard their constant draft with %s",
+      async (_, scoped, status) => {
+        await as("a personal token").post("/api/v1/constants", {
+          key: "timeout",
+          name: "Timeout",
+          type: "json",
+          value: '{"t":1}',
+        });
+        const draft = await as("a personal token").put(
+          "/api/v1/constants-revisions/timeout/new/value",
+          { value: '{"t":2}' },
+        );
+        const token = {
+          ...KEY,
+          id: "key_dana",
+          userId: dana.id,
+          actAs: undefined,
+          scoped,
+          role: scoped ? "readonly" : "user",
+        };
+        await withRole(dana, "readonly", async () => {
+          const context = new ReqContextClass({
+            org,
+            teams: [],
+            req: { query: {}, headers: {}, body: {} } as unknown as Request,
+            role: "admin",
+            user: { ...dana, superAdmin: false },
+            apiKey: token.id,
+            apiKeyData: token,
+            auditUser: { type: "api_key", apiKey: token.id, ...dana },
+          });
+          context.hasPremiumFeature = () => true;
+          setReqContext(context);
+          const res = await request(app)
+            .post(
+              `/api/v1/constants-revisions/timeout/${draft.body.revision.version}/discard`,
+            )
+            .set("Authorization", "Bearer x");
+          expect(res.status).toBe(status);
+        });
+      },
+    );
+  });
+
   describe("through the auth middleware", () => {
     const MIDDLEWARE =
       "back-end/src/middleware/authenticateApiRequestMiddleware";
     const auth = () => jest.requireMock(MIDDLEWARE).default as jest.Mock;
     const realAuth = jest.requireActual(MIDDLEWARE).default;
     const KEYS = {
-      optional: KEY,
-      required: {
+      system: {
         ...KEY,
-        id: "key_required",
-        key: "secret_required",
-        requesterHeader: "required",
+        id: "key_system",
+        key: "secret_system",
+        actAs: "system",
       },
+      user: KEY,
+      // Saved with settings that have since been retired.
       rejected: {
-        ...KEY,
+        ...omit(KEY, "actAs"),
         id: "key_rejected",
         key: "secret_rejected",
         requesterHeader: "rejected",
       },
-      ownRole: {
-        ...KEY,
-        id: "key_own_role",
-        key: "secret_own_role",
+      requiredOwnRole: {
+        ...omit(KEY, "actAs"),
+        id: "key_required_own_role",
+        key: "secret_required_own_role",
+        requesterHeader: "required",
         requesterPermissions: "key",
       },
       token: { ...KEY, id: "key_pat", key: "secret_pat", userId: dana.id },
@@ -1122,9 +1207,11 @@ describe("attribution across callers", () => {
         ),
       });
       await collection("apikeys").insertMany(
-        [KEYS.required, KEYS.rejected, KEYS.ownRole, KEYS.token].map((k) => ({
-          ...k,
-        })),
+        [KEYS.system, KEYS.rejected, KEYS.requiredOwnRole, KEYS.token].map(
+          (k) => ({
+            ...k,
+          }),
+        ),
       );
     });
     afterEach(() => {
@@ -1145,22 +1232,50 @@ describe("attribution across callers", () => {
     };
 
     it.each([
-      ["an optional key naming no one", 200, "optional", null],
+      ["a System key naming no one", 200, "system", null],
       [
         "a key naming someone outside the org",
         400,
-        "optional",
+        "system",
         "nobody@example.com",
       ],
-      ["a required key naming no one", 400, "required", null],
-      ["a required key naming a member by id", 200, "required", dana.id],
-      ["a rejected key naming a member", 400, "rejected", dana.email],
-      ["a rejected key naming no one", 200, "rejected", null],
+      ["a User key naming no one", 400, "user", null],
+      ["a User key naming a member by id", 200, "user", dana.id],
+      [
+        "a key saved as rejecting the header naming a member",
+        200,
+        "rejected",
+        dana.email,
+      ],
+      [
+        "a key saved as rejecting the header naming no one",
+        200,
+        "rejected",
+        null,
+      ],
+      [
+        "a key saved as required with its own role naming a member who can't create projects",
+        403,
+        "requiredOwnRole",
+        bob.email,
+      ],
+      [
+        "a key saved as required with its own role naming no one",
+        400,
+        "requiredOwnRole",
+        null,
+      ],
       ["a personal token naming a member", 400, "token", bob.email],
       [
-        "a key naming a member who can't create projects",
+        "a System key naming a member who can't create projects",
+        200,
+        "system",
+        bob.email,
+      ],
+      [
+        "a User key naming a member who can't create projects",
         403,
-        "optional",
+        "user",
         bob.email,
       ],
     ] as const)("answers %s with %i", async (_, status, key, header) => {
@@ -1169,11 +1284,9 @@ describe("attribution across callers", () => {
       if (status === 400) expect(res.body.message).toMatch(/Requested-By/);
     });
 
-    it("records the named member, who owns what the key creates only when assumed", async () => {
-      expect((await createProject("optional", dana.email, "Web")).status).toBe(
-        200,
-      );
-      expect((await createProject("ownRole", bob.email, "App")).status).toBe(
+    it("records the named member, who owns what the key creates only for a User key", async () => {
+      expect((await createProject("user", dana.email, "Web")).status).toBe(200);
+      expect((await createProject("system", bob.email, "App")).status).toBe(
         200,
       );
       const audits = await collection("audits")
@@ -1248,7 +1361,7 @@ describe("attribution across callers", () => {
   });
 
   describe("revision webhooks", () => {
-    it("report the version a draft is based on", async () => {
+    it("carry a draft's base version, before, after and patch", async () => {
       const created = await as("a personal token").post(
         "/api/v1/saved-groups",
         {
@@ -1279,6 +1392,9 @@ describe("attribution across callers", () => {
       expect(event?.data?.data?.object).toMatchObject({
         version: second,
         baseVersion: first,
+        baseSavedGroup: { values: ["u2"] },
+        proposedSavedGroup: { values: ["u3"] },
+        proposedChanges: [{ op: "replace", path: "/values", value: ["u3"] }],
       });
     });
   });

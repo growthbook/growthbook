@@ -15,7 +15,10 @@ import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { ExperimentReportVariation } from "shared/types/report";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { VisualChange } from "shared/types/visual-changeset";
+import {
+  VisualChange,
+  VisualChangesetInterface,
+} from "shared/types/visual-changeset";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   SafeRolloutSnapshotAnalysis,
@@ -340,8 +343,28 @@ export function isValidEnvironment(
   return environments.includes(env);
 }
 
+export const visualChangeHasContent = (
+  vc: Pick<VisualChange, "js" | "domMutations"> & { css?: string },
+) => !!vc.css || !!vc.domMutations.length || !!vc.js;
+
 export const hasVisualChanges = (visualChanges: VisualChange[]) =>
-  visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length || !!vc.js);
+  visualChanges.some(visualChangeHasContent);
+
+export type ChangesetOwnerRef =
+  | { kind: "experiment"; id: string }
+  | { kind: "contextual-bandit"; id: string };
+
+export function changesetOwnerRef(
+  changeset: Pick<VisualChangesetInterface, "experiment" | "contextualBandit">,
+): ChangesetOwnerRef | null {
+  if (changeset.contextualBandit) {
+    return { kind: "contextual-bandit", id: changeset.contextualBandit };
+  }
+  if (changeset.experiment) {
+    return { kind: "experiment", id: changeset.experiment };
+  }
+  return null;
+}
 
 export type MatchingRule = {
   environmentId: string;
@@ -463,6 +486,35 @@ export function ruleProjectScope(rule: {
   // project, never "all". Only the legacy state (no scope fields) falls back to all.
   if (rule.allProjects !== false && rule.projects == null) return null;
   return Array.isArray(rule.projects) ? rule.projects : [];
+}
+
+export type FeatureRuleScope = {
+  allEnvironments?: boolean;
+  environments?: string[];
+  allProjects?: boolean;
+  projects?: string[];
+};
+
+// Applies in every environment and every project.
+export function isUnscopedRule(rule: FeatureRuleScope): boolean {
+  if (!rule || typeof rule !== "object") return false;
+  const allEnvironments =
+    !!rule.allEnvironments || rule.environments === undefined;
+  return allEnvironments && ruleProjectScope(rule) === null;
+}
+
+// Unscoped rules a write adds, or ones it widens from a narrower scope.
+export function getNewlyUnscopedRules<
+  T extends FeatureRuleScope & { id: string },
+>(rules: T[], previousRules: T[]): T[] {
+  const previous = new Map(
+    previousRules.filter((rule) => rule.id).map((rule) => [rule.id, rule]),
+  );
+  return rules.filter((rule) => {
+    if (!isUnscopedRule(rule)) return false;
+    const before = previous.get(rule.id);
+    return !before || !isUnscopedRule(before);
+  });
 }
 
 // Effective delivery Projects for a rule. Unlike attribute discovery, an
@@ -897,3 +949,4 @@ export {
   NON_PRODUCTION_ENV_PATTERNS,
   isEnvironmentDevLike,
 } from "./environments";
+export * from "./confirmations";

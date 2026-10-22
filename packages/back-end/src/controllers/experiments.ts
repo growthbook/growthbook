@@ -1,5 +1,6 @@
 import { Response } from "express";
 import uniqid from "uniqid";
+import { z } from "zod";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -19,6 +20,7 @@ import {
   getAllMetricIdsFromExperiment,
   getAllVariations,
   getActivePhase,
+  canEditContextualBanditVisualChanges,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
@@ -46,6 +48,14 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import isEqual from "lodash/isEqual";
+import {
+  ContextualBanditChangesetOwner,
+  ExperimentChangesetOwner,
+  contextualBanditVisualChangesBlocked,
+  ownerNotFoundMessage,
+  resolveChangesetOwner,
+} from "back-end/src/services/changesetOwner";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -152,7 +162,16 @@ import {
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { assumeUtc } from "back-end/src/util/dates";
+import {
+  errorStringFromZodResult,
+  parseArrayIndex,
+} from "back-end/src/util/validation";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import {
+  parseOptionalQueryString,
+  parseSnapshotTypeQuery,
+} from "back-end/src/util/snapshotQueryParams";
 import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
   getFeature,
@@ -1009,7 +1028,7 @@ export async function getSnapshotWithDimension(
 ) {
   const context = getContextFromReq(req);
   const { id, phase, dimension } = req.params;
-  const type = req.query?.type || undefined;
+  const type = parseSnapshotTypeQuery(req.query?.type);
 
   const snapshot = await _getSuccessfulSnapshot({
     context,
@@ -1044,7 +1063,7 @@ export async function getSnapshot(
 ) {
   const context = getContextFromReq(req);
   const { id, phase } = req.params;
-  const type = req.query?.type || undefined;
+  const type = parseSnapshotTypeQuery(req.query?.type);
 
   const snapshot = await _getSuccessfulSnapshot({
     context,
@@ -1073,8 +1092,8 @@ export async function getSnapshotSummary(
 ) {
   const context = getContextFromReq(req);
   const { id, phase } = req.params;
-  const dimension = req.query?.dimension || undefined;
-  const type = req.query?.type || undefined;
+  const dimension = parseOptionalQueryString("dimension", req.query?.dimension);
+  const type = parseSnapshotTypeQuery(req.query?.type);
 
   const experimentObj = await getExperimentById(context, id);
   if (!experimentObj) {
@@ -1490,7 +1509,7 @@ export async function postExperiments(
       );
       for (const visualChangeset of visualChangesets) {
         await createVisualChangeset({
-          experiment,
+          owner: new ExperimentChangesetOwner(context, experiment),
           urlPatterns: visualChangeset.urlPatterns,
           editorUrl: visualChangeset.editorUrl,
           context,
@@ -2118,13 +2137,13 @@ export async function postExperiment(
     const firstPhaseClone = { ...phases[0] };
 
     if (phaseStartDate) {
-      phaseClone.dateStarted = getValidDate(phaseStartDate + ":00Z");
+      phaseClone.dateStarted = getValidDate(assumeUtc(phaseStartDate));
     }
     if (experiment.status === "stopped" && phaseEndDate) {
-      phaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+      phaseClone.dateEnded = getValidDate(assumeUtc(phaseEndDate));
       // update both phases when stopped
       if (experiment.type === "holdout") {
-        firstPhaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
+        firstPhaseClone.dateEnded = getValidDate(assumeUtc(phaseEndDate));
         phases[0] = firstPhaseClone; // update the first phase to the same date ended
       }
     }
@@ -2458,7 +2477,7 @@ export async function postExperimentStatus(
     phases[lastIndex] = {
       ...phases[lastIndex],
       reason,
-      dateEnded: dateEnded ? getValidDate(dateEnded + ":00Z") : new Date(),
+      dateEnded: dateEnded ? getValidDate(assumeUtc(dateEnded)) : new Date(),
     };
     changes.phases = phases;
   }
@@ -2685,7 +2704,9 @@ export async function postExperimentStop(
             : undefined),
         reason: req.body.reason,
         analysis: req.body.analysis,
-        dateEnded: req.body.dateEnded ? `${req.body.dateEnded}:00Z` : undefined,
+        dateEnded: req.body.dateEnded
+          ? assumeUtc(req.body.dateEnded)
+          : undefined,
       },
       allowAlreadyStopped: true,
     });
@@ -2879,10 +2900,10 @@ export async function putExperimentPhase(
   );
 
   phase.dateStarted = phase.dateStarted
-    ? getValidDate(phase.dateStarted + ":00Z")
+    ? getValidDate(assumeUtc(phase.dateStarted))
     : new Date();
   phase.dateEnded = phase.dateEnded
-    ? getValidDate(phase.dateEnded + ":00Z")
+    ? getValidDate(assumeUtc(phase.dateEnded))
     : undefined;
 
   await validateChangedPhaseReferences(
@@ -3182,7 +3203,7 @@ export async function postExperimentPhase(
     experiment.phases.slice(-1),
     context,
   );
-  const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
+  const date = dateStarted ? getValidDate(assumeUtc(dateStarted)) : new Date();
 
   const phases = [...experiment.phases];
   // Already has phases
@@ -3389,7 +3410,8 @@ export async function postSnapshot(
     return;
   }
 
-  if (!experiment.phases[phase]) {
+  const phaseIndex = parseArrayIndex(phase, experiment.phases.length);
+  if (phaseIndex === undefined) {
     res.status(404).json({
       status: 404,
       message: "Phase not found",
@@ -3412,7 +3434,7 @@ export async function postSnapshot(
       datasource,
       dimension,
       organization: context.org.id,
-      phase,
+      phase: phaseIndex,
     });
   }
 
@@ -3438,7 +3460,7 @@ export async function postSnapshot(
     experiment,
     datasource,
     dimension,
-    phase,
+    phase: phaseIndex,
     useCache,
     type: experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
   });
@@ -3450,7 +3472,7 @@ export async function postSnapshot(
       id: experiment.id,
     },
     details: auditDetailsCreate({
-      phase,
+      phase: phaseIndex,
       dimension,
       useCache,
       manual: false,
@@ -3723,7 +3745,7 @@ export async function postSnapshotsWithScaledImpactAnalysis(
 }
 
 export async function deleteScreenshot(
-  req: AuthRequest<{ url: string }, { id: string; variation: number }>,
+  req: AuthRequest<{ url: string }, { id: string; variation: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -3754,7 +3776,11 @@ export async function deleteScreenshot(
     context.permissions.throwPermissionError();
   }
 
-  if (!experiment.variations[variation]) {
+  const variationIndex = parseArrayIndex(
+    variation,
+    experiment.variations.length,
+  );
+  if (variationIndex === undefined) {
     res.status(404).json({
       status: 404,
       message: "Unknown variation " + variation,
@@ -3765,8 +3791,8 @@ export async function deleteScreenshot(
   changes.variations = cloneDeep(experiment.variations);
 
   // TODO: delete from s3 as well?
-  changes.variations[variation].screenshots = changes.variations[
-    variation
+  changes.variations[variationIndex].screenshots = changes.variations[
+    variationIndex
   ].screenshots.filter((s) => s.path !== url);
   await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
@@ -3782,9 +3808,9 @@ export async function deleteScreenshot(
       id: experiment.id,
     },
     details: auditDetailsUpdate(
-      experiment.variations[variation].screenshots,
-      updated?.variations[variation].screenshots,
-      { variation },
+      experiment.variations[variationIndex].screenshots,
+      updated?.variations[variationIndex].screenshots,
+      { variation: variationIndex },
     ),
   });
 
@@ -3798,7 +3824,7 @@ type AddScreenshotRequestBody = {
   description?: string;
 };
 export async function addScreenshot(
-  req: AuthRequest<AddScreenshotRequestBody, { id: string; variation: number }>,
+  req: AuthRequest<AddScreenshotRequestBody, { id: string; variation: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -3829,7 +3855,11 @@ export async function addScreenshot(
     context.permissions.throwPermissionError();
   }
 
-  if (!experiment.variations[variation]) {
+  const variationIndex = parseArrayIndex(
+    variation,
+    experiment.variations.length,
+  );
+  if (variationIndex === undefined) {
     res.status(404).json({
       status: 404,
       message: "Unknown variation " + variation,
@@ -3837,12 +3867,12 @@ export async function addScreenshot(
     return;
   }
 
-  experiment.variations[variation].screenshots =
-    experiment.variations[variation].screenshots || [];
+  experiment.variations[variationIndex].screenshots =
+    experiment.variations[variationIndex].screenshots || [];
 
   changes.variations = cloneDeep(experiment.variations);
 
-  changes.variations[variation].screenshots.push({
+  changes.variations[variationIndex].screenshots.push({
     path: url,
     description: description,
   });
@@ -3861,7 +3891,7 @@ export async function addScreenshot(
       id: experiment.id,
     },
     details: auditDetailsCreate({
-      variation,
+      variation: variationIndex,
       url,
       description,
     }),
@@ -4070,7 +4100,7 @@ export async function postVisualChangeset(
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
   const visualChangeset = await createVisualChangeset({
-    experiment,
+    owner: new ExperimentChangesetOwner(context, experiment),
     urlPatterns: req.body.urlPatterns,
     editorUrl: req.body.editorUrl,
     context,
@@ -4094,12 +4124,36 @@ export async function putVisualChangeset(
     throw new Error("Visual Changeset not found");
   }
 
-  const experiment = await getExperimentById(
-    context,
-    visualChangeset.experiment,
-  );
-  if (!experiment) {
-    throw new Error("Could not find experiment");
+  const owner = await resolveChangesetOwner(context, visualChangeset);
+  if (!owner) {
+    throw new Error(ownerNotFoundMessage(visualChangeset));
+  }
+  if (owner instanceof ContextualBanditChangesetOwner) {
+    if (!canEditContextualBanditVisualChanges(owner.cb)) {
+      throw new Error(contextualBanditVisualChangesBlocked(owner.cb, "edited"));
+    }
+    if (!owner.canUpdateVisualChange()) {
+      context.permissions.throwPermissionError();
+    }
+    if (owner.cb.status === "running") {
+      const envs = getEnvironments(context.org).map((e) => e.id);
+      if (!context.permissions.canRunContextualBandit(owner.cb, envs)) {
+        context.permissions.throwPermissionError();
+      }
+    }
+  } else if (owner instanceof ExperimentChangesetOwner) {
+    const { experiment } = owner;
+    const orgEnvironments = context.org.settings?.environments || [];
+    const linkedFeatureIds = experiment.linkedFeatures || [];
+    const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+    const envs = getAffectedEnvsForExperiment({
+      experiment,
+      linkedFeatures,
+      orgEnvironments,
+    });
+    if (!context.permissions.canRunExperiment(experiment, envs)) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   const updates: Partial<VisualChangesetInterface> = {
@@ -4108,24 +4162,9 @@ export async function putVisualChangeset(
     visualChanges: req.body.visualChanges,
   };
 
-  const linkedFeatureIds = experiment.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = experiment
-    ? getAffectedEnvsForExperiment({
-        experiment,
-        linkedFeatures,
-        orgEnvironments: context.org.settings?.environments || [],
-      })
-    : [];
-  if (!context.permissions.canRunExperiment(experiment, envs)) {
-    context.permissions.throwPermissionError();
-  }
-
   const ret = await updateVisualChangeset({
     visualChangeset,
-    experiment,
+    owner,
     context,
     updates,
   });
@@ -4152,29 +4191,37 @@ export async function deleteVisualChangeset(
     throw new Error("Visual Changeset not found");
   }
 
-  const experiment = await getExperimentById(
-    context,
-    visualChangeset.experiment,
-  );
+  const owner = await resolveChangesetOwner(context, visualChangeset);
+  const orgEnvironments = context.org.settings?.environments || [];
 
-  const linkedFeatureIds = experiment?.linkedFeatures || [];
-
-  const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
-
-  const envs = experiment
-    ? getAffectedEnvsForExperiment({
-        experiment,
-        linkedFeatures,
-        orgEnvironments: context.org.settings?.environments || [],
-      })
-    : [];
-  if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
-    context.permissions.throwPermissionError();
+  if (owner instanceof ContextualBanditChangesetOwner) {
+    const envs = getEnvironments(context.org).map((e) => e.id);
+    if (
+      !owner.canUpdateOwner() ||
+      !context.permissions.canRunContextualBandit(owner.cb, envs)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  } else {
+    const experiment =
+      owner instanceof ExperimentChangesetOwner ? owner.experiment : null;
+    const linkedFeatureIds = experiment?.linkedFeatures || [];
+    const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
+    const envs = experiment
+      ? getAffectedEnvsForExperiment({
+          experiment,
+          linkedFeatures,
+          orgEnvironments,
+        })
+      : [];
+    if (!context.permissions.canRunExperiment(experiment || {}, envs)) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   await deleteVisualChangesetById({
     visualChangeset,
-    experiment,
+    owner,
     context,
   });
 
@@ -4210,21 +4257,33 @@ export async function findOrCreateVisualEditorToken(
   });
 }
 
+const experimentTimeSeriesQuerySchema = z.object({
+  phase: z.string(),
+  metricIds: z.array(z.string()).min(1),
+  dimensions: z
+    .array(z.object({ id: z.string(), value: z.string().optional() }))
+    .max(50)
+    .optional(),
+});
+
 export async function getExperimentTimeSeries(
   req: AuthRequest<
     null,
     { id: string },
-    {
-      phase: string;
-      metricIds: string[];
-      dimensions?: { id: string; value?: string }[];
-    }
+    z.infer<typeof experimentTimeSeriesQuerySchema>
   >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { phase, metricIds, dimensions } = req.query;
+
+  // The query string is qs-parsed, so these can arrive as strings, arrays or
+  // nested objects regardless of what the types above claim.
+  const parsedQuery = experimentTimeSeriesQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) {
+    throw new BadRequestError(errorStringFromZodResult(parsedQuery));
+  }
+  const { phase, metricIds, dimensions } = parsedQuery.data;
   const phaseIndex = parseInt(phase, 10);
 
   const experiment = await getExperimentById(context, id);
@@ -4232,22 +4291,8 @@ export async function getExperimentTimeSeries(
     throw new Error("Experiment not found");
   }
 
-  if (metricIds.length === 0) {
-    throw new Error("metricIds is required");
-  }
-
   if (isNaN(phaseIndex)) {
     throw new Error("Invalid phase");
-  }
-
-  if (!!dimensions && !Array.isArray(dimensions)) {
-    throw new Error(
-      "dimensions must be an array containing id and optionally value objects",
-    );
-  }
-
-  if (!!dimensions && dimensions.length > 50) {
-    throw new Error("dimensions cannot contain more than 50 values");
   }
 
   const timeSeries =
