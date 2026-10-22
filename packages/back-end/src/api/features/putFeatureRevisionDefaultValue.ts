@@ -53,17 +53,18 @@ export async function setRevisionDefaultValue(
     }
 
     // Always normalize; enforce the schema unless ?skipSchemaValidation=true.
+    const schemaFeature = withStagedSchema(feature, revision);
     const defaultValue = validateFeatureValue(
       context.canSkipSchemaValidationFor("feature")
         ? { ...feature, jsonSchema: undefined }
-        : withStagedSchema(feature, revision),
+        : schemaFeature,
       body.defaultValue,
       "Default value",
     );
 
     // Config-backing is determined by the feature's `baseConfig`, not the value.
     assertConfigSchemaCompat({
-      jsonSchemaEnabled: feature.jsonSchema?.enabled,
+      jsonSchemaEnabled: schemaFeature.jsonSchema?.enabled,
       baseConfig: feature.baseConfig,
     });
     // A config-backed default is exactly a config — no inline overrides.
