@@ -4254,11 +4254,7 @@ export async function getExperimentTimeSeries(
   req: AuthRequest<
     null,
     { id: string },
-    {
-      phase: string;
-      metricIds: string[];
-      dimensions?: { id: string; value?: string }[];
-    }
+    z.infer<typeof experimentTimeSeriesQuerySchema>
   >,
   res: Response,
 ) {
