@@ -1,5 +1,6 @@
 import {
   CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
+  isClusterConfigChangeLocked,
   isUnsupportedClusterBanditCombination,
   postExperimentValidator,
   updateExperimentValidator,
@@ -24,6 +25,65 @@ describe("isUnsupportedClusterBanditCombination", () => {
     { type: "standard", isClusterExperiment: false },
   ])("is false for %p", (args) => {
     expect(isUnsupportedClusterBanditCombination(args)).toBe(false);
+  });
+});
+
+describe("isClusterConfigChangeLocked", () => {
+  it.each([
+    {
+      status: "running",
+      isClusterExperiment: false,
+      nextIsClusterExperiment: true,
+    },
+    {
+      status: "stopped",
+      isClusterExperiment: true,
+      nextIsClusterExperiment: false,
+    },
+    {
+      status: "running",
+      isClusterExperiment: true,
+      subUnitIdentifier: "user_id",
+      nextSubUnitIdentifier: "device_id",
+    },
+  ])("locks %p", (args) => {
+    expect(isClusterConfigChangeLocked(args)).toBe(true);
+  });
+
+  it.each([
+    {
+      status: "draft",
+      isClusterExperiment: true,
+      subUnitIdentifier: "user_id",
+      nextSubUnitIdentifier: "device_id",
+    },
+    {
+      status: "running",
+      nextStatus: "draft",
+      isClusterExperiment: true,
+      nextIsClusterExperiment: false,
+    },
+    {
+      status: "running",
+      isClusterExperiment: true,
+      nextIsClusterExperiment: true,
+      subUnitIdentifier: "user_id",
+      nextSubUnitIdentifier: "user_id",
+    },
+    {
+      status: "running",
+      isClusterExperiment: false,
+      subUnitIdentifier: "",
+      nextSubUnitIdentifier: "device_id",
+    },
+    {
+      status: "running",
+      isClusterExperiment: true,
+      nextIsClusterExperiment: undefined,
+      nextSubUnitIdentifier: undefined,
+    },
+  ])("allows %p", (args) => {
+    expect(isClusterConfigChangeLocked(args)).toBe(false);
   });
 });
 

@@ -834,6 +834,7 @@ const AnalysisForm: FC<{
                   setSubUnitIdentifier={(value) =>
                     form.setValue("clusterSubUnitIdentifier", value)
                   }
+                  locked={experiment.status !== "draft"}
                 />
               )}
             {datasource && !isHoldout && (
