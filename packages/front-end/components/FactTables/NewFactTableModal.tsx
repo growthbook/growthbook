@@ -395,6 +395,7 @@ export default function NewFactTableModal({
     sqlColumns,
     otherColumns,
     additionalColumns,
+    partition,
   } = source;
   const factTableSql = source.querySql;
 
@@ -591,7 +592,6 @@ export default function NewFactTableModal({
             key={mode}
             source={source}
             validateRef={validateSql}
-            partitionDescription="Detected from the table's partitioning, so each query skips older data"
             placeholder={"SELECT\n  user_id,\n  timestamp\nFROM\n  events"}
             datasourceHeader={
               <Select
@@ -668,6 +668,33 @@ export default function NewFactTableModal({
                   {mappingTable(
                     isGA4 ? null : (
                       <>
+                        {partition.available ? (
+                          <ColumnMappingRow
+                            kind="partition"
+                            label="Date partition"
+                            value={partition.column}
+                            options={partition.options}
+                            setValue={partition.setColumn}
+                            onRemove={() => partition.setColumn("")}
+                            append={
+                              partition.formats.length ? (
+                                <Select
+                                  size="sm"
+                                  mb="0"
+                                  aria-label="Partition format"
+                                  value={partition.format}
+                                  setValue={partition.setFormat}
+                                >
+                                  {partition.formats.map((f) => (
+                                    <SelectItem key={f} value={f}>
+                                      {f.toUpperCase()}
+                                    </SelectItem>
+                                  ))}
+                                </Select>
+                              ) : null
+                            }
+                          />
+                        ) : null}
                         <AdditionalColumnsRow
                           value={additionalColumns}
                           setValue={(kept) =>

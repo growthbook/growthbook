@@ -51,6 +51,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
+import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -244,7 +245,7 @@ export const ExperimentAssignmentQueryModal = ({
     },
     onColumnsChanged: remapColumns,
   });
-  const { mode, selectedTable, detected, querySql } = source;
+  const { mode, selectedTable, partition, detected, querySql } = source;
   // A general events table is scanned in full unless filtered to exposures
   const eventTypeColumn =
     source.pickerColumns && !source.template && !source.rowFilters.length
@@ -509,7 +510,6 @@ export const ExperimentAssignmentQueryModal = ({
             key={mode}
             source={source}
             validateRef={validateSql}
-            partitionDescription="Detected from the table's partitioning, so each analysis skips older data"
             tableHint={
               eventTypeColumn ? (
                 <Callout status="info" size="sm">
@@ -685,6 +685,35 @@ export const ExperimentAssignmentQueryModal = ({
                     setValue={setVariationNameColumn}
                     onRemove={() => setVariationNameColumn("")}
                   />
+                  {mode === "table" &&
+                  !source.template &&
+                  partition.available ? (
+                    <ColumnMappingRow
+                      kind="partition"
+                      label="Date partition"
+                      value={partition.column}
+                      options={partition.options}
+                      setValue={partition.setColumn}
+                      onRemove={() => partition.setColumn("")}
+                      append={
+                        partition.formats.length ? (
+                          <Select
+                            size="sm"
+                            mb="0"
+                            aria-label="Partition format"
+                            value={partition.format}
+                            setValue={partition.setFormat}
+                          >
+                            {partition.formats.map((f) => (
+                              <SelectItem key={f} value={f}>
+                                {f.toUpperCase()}
+                              </SelectItem>
+                            ))}
+                          </Select>
+                        ) : null
+                      }
+                    />
+                  ) : null}
                 </TableBody>
               </Table>
               {mode === "table" && source.template ? (

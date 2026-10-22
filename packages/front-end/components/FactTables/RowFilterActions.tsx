@@ -13,7 +13,6 @@ export function RowFilterActions({
   onViewSampleRows,
   canViewSampleRows,
   showSqlFilter = true,
-  extraActions,
 }: {
   onAdd: (filter: RowFilter) => void;
   disabled?: boolean;
@@ -21,8 +20,6 @@ export function RowFilterActions({
   onViewSampleRows?: () => void;
   canViewSampleRows?: boolean;
   showSqlFilter?: boolean;
-  // More add buttons, after the built-in ones
-  extraActions?: ReactNode;
 }) {
   return (
     <Flex align="center" justify="between" gap="2" wrap="wrap">
@@ -47,7 +44,6 @@ export function RowFilterActions({
             Add SQL filter
           </Button>
         )}
-        {extraActions}
       </Flex>
       <Flex align="center" gap="2" wrap="wrap">
         {onViewSampleRows && (

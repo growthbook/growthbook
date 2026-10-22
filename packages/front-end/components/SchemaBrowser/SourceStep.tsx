@@ -11,7 +11,6 @@ import {
   PiArrowRight,
   PiDotsThreeVertical,
   PiPlay,
-  PiPlus,
   PiWarningFill,
 } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -52,7 +51,6 @@ import { isRowFilterComplete } from "@/components/FactTables/rowFilterUtils";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import useSqlAutocomplete from "@/components/SchemaBrowser/useSqlAutocomplete";
-import PartitionFilterRow from "@/components/SchemaBrowser/PartitionFilterRow";
 import {
   SAMPLE_ROW_LIMIT,
   SourceTable,
@@ -296,7 +294,6 @@ export default function SourceStep({
   placeholder,
   datasourceHeader,
   tableHint,
-  partitionDescription,
 }: {
   source: SourceTable;
   validateRef: MutableRefObject<(() => Promise<void>) | null>;
@@ -305,8 +302,6 @@ export default function SourceStep({
   datasourceHeader?: ReactNode;
   // Shown under the picked table's filters
   tableHint?: ReactNode;
-  // Explains what the detected partition filter limits
-  partitionDescription: string;
 }) {
   const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
@@ -340,10 +335,6 @@ export default function SourceStep({
     useState<TestQueryResults | null>(null);
   const [testingQuery, setTestingQuery] = useState(false);
   const [sampleRowsOpen, setSampleRowsOpen] = useState(false);
-  // Keyed by table so picking another table drops an empty row
-  const [addingPartitionFor, setAddingPartitionFor] = useState<string | null>(
-    null,
-  );
   const [formatError, setFormatError] = useState<string | null>(null);
   const {
     autoCompletions,
@@ -536,15 +527,6 @@ export default function SourceStep({
     </>
   );
 
-  const partitionAllowed =
-    !!selectedTable && !!columnSource && !source.template;
-  const addingPartition =
-    !!selectedTable && addingPartitionFor === selectedTable.path;
-  const showPartitionRow =
-    partitionAllowed && (!!source.partition.column || addingPartition);
-  const canAddPartition =
-    partitionAllowed && !showPartitionRow && source.partition.available;
-
   if (mode === "table" && datasource) {
     return (
       <Flex direction="column" gap="4" px="2">
@@ -593,20 +575,7 @@ export default function SourceStep({
           </Callout>
         ) : null}
         <Flex direction="column" gap="2">
-          {rowFilters.length || showPartitionRow ? (
-            <Text weight="semibold">Filters</Text>
-          ) : null}
-          {showPartitionRow ? (
-            <PartitionFilterRow
-              partition={source.partition}
-              detectedDescription={partitionDescription}
-              autoFocus={addingPartition}
-              onRemove={() => {
-                source.partition.setColumn("");
-                setAddingPartitionFor(null);
-              }}
-            />
-          ) : null}
+          {rowFilters.length ? <Text weight="semibold">Filters</Text> : null}
           {columnSource ? (
             <RowFilterEditorRows
               value={rowFilters}
@@ -633,20 +602,6 @@ export default function SourceStep({
               }
               canViewSampleRows={
                 !!columnSource && rowFilters.every(isRowFilterComplete)
-              }
-              extraActions={
-                canAddPartition ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon={<PiPlus size={14} />}
-                    onClick={() =>
-                      setAddingPartitionFor(selectedTable?.path ?? null)
-                    }
-                  >
-                    Add partition filter
-                  </Button>
-                ) : null
               }
             />
           )}
