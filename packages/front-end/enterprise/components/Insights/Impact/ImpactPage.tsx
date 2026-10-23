@@ -22,6 +22,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperimentSearch } from "@/services/experiments";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import MetricSelector from "@/components/Experiment/MetricSelector";
+import { isSingleValue } from "@/components/Forms/SelectField";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
@@ -182,6 +183,11 @@ export default function ImpactPage() {
         }),
     [completed, metricGroups, getExperimentMetricById],
   );
+
+  const canContribute = (id: string) => {
+    const m = getExperimentMetricById(id);
+    return !!m && hasScaledImpact(m) && !!metricCounts.get(id);
+  };
 
   const snapshotIds = [
     ...new Set([...contributing, ...previousContributing].map((e) => e.id)),
@@ -359,18 +365,14 @@ export default function ImpactPage() {
                   includeFacts
                   placeholder="Select a metric"
                   containerClassName="mb-0"
-                  filterMetrics={(m) => {
-                    const def = getExperimentMetricById(m.id);
-                    return (
-                      m.id === metricId ||
-                      (!!metricCounts.get(m.id) &&
-                        !!def &&
-                        hasScaledImpact(def))
-                    );
-                  }}
+                  // Grayed out: nothing in this range could contribute impact
+                  isOptionDisabled={(o) =>
+                    isSingleValue(o) && !canContribute(o.value)
+                  }
                   sortMetrics={(a, b) =>
+                    Number(canContribute(b.id)) - Number(canContribute(a.id)) ||
                     (metricCounts.get(b.id) ?? 0) -
-                    (metricCounts.get(a.id) ?? 0)
+                      (metricCounts.get(a.id) ?? 0)
                   }
                 />
               </Box>
