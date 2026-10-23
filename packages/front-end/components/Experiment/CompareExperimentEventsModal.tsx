@@ -236,6 +236,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   lastSnapshotAttempt: false,
   nextSnapshotAttempt: false,
   autoSnapshots: false,
+  autoUpdateFailures: false,
   disableAutoSnapshots: false,
   ideaSource: false,
   hasVisualChangesets: false,
