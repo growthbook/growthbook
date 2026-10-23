@@ -113,7 +113,7 @@ const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 type HashExposureQuery = Pick<
   ExposureQuery,
-  "id" | "userIdType" | "userIdTypes"
+  "id" | "userIdType" | "userIdTypes" | "columnMapping"
 >;
 
 export function getExperimentSettingsHashForIncrementalRefresh(
@@ -133,6 +133,16 @@ export function getExperimentSettingsHashForIncrementalRefresh(
   );
   if (identifierType) {
     settingsForHash.exposureQueryIdentifierType = identifierType;
+  }
+
+  // A new column mapping reads units from different columns, so the stored
+  // units table has to be rebuilt. Queries without a mapping leave the hash
+  // unchanged, so existing pipelines don't trigger a full refresh.
+  const columnMapping = exposureQueries.find(
+    (q) => q.id === snapshotSettings.exposureQueryId,
+  )?.columnMapping;
+  if (columnMapping && Object.keys(columnMapping).length) {
+    settingsForHash.columnMapping = columnMapping;
   }
 
   // Incremental units SQL used to ignore segment and queryFilter before #6711.

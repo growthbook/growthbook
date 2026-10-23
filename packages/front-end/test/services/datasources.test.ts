@@ -15,6 +15,8 @@ import {
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
   getImportIdentifierTypes,
+  getGA4ExposureTemplate,
+  getInitialExposureQuery,
   getInitialSettings,
   getNewExperimentDatasourceDefaults,
   getSelectableIdentifierTypes,
@@ -833,5 +835,71 @@ describe("getNewExperimentDatasourceDefaults", () => {
       exposureQueryId: "exq_same",
       exposureQueryIdentifierType: "anon_id",
     });
+  });
+});
+
+describe("getInitialExposureQuery", () => {
+  const datasource = {
+    type: "postgres",
+    params: { defaultSchema: "analytics" },
+    settings: {
+      userIdTypes: [{ userIdType: "anonymous_id" }, { userIdType: "user_id" }],
+    },
+  } as unknown as DataSourceInterfaceWithParams;
+
+  it("covers the requested identifiers, else every declared one", () => {
+    const requested = getInitialExposureQuery(datasource, ["user_id"]);
+    expect(requested).toContain("user_id as user_id");
+    expect(requested).not.toContain("anonymous_id");
+
+    const all = getInitialExposureQuery(datasource);
+    expect(all).toContain("anonymous_id as anonymous_id");
+    expect(all).toContain("user_id as user_id");
+  });
+
+  it("falls back to user_id when the Data Source declares no identifiers", () => {
+    const sql = getInitialExposureQuery({
+      ...datasource,
+      settings: { userIdTypes: [], schemaFormat: "segment" },
+    } as unknown as DataSourceInterfaceWithParams);
+    expect(sql).toMatch(/^SELECT\n {2}user_id,/);
+    expect(sql).toContain("user_id is not null");
+  });
+
+  it("keeps rows with any of a tracker's identifiers", () => {
+    const sql = getInitialExposureQuery({
+      ...datasource,
+      settings: { ...datasource.settings, schemaFormat: "snowplow" },
+    });
+    expect(sql).toContain("domain_userid as anonymous_id");
+    expect(sql).toContain("(domain_userid is not null OR user_id is not null)");
+  });
+
+  it("reads GA4 experiment and variation ids from either value column", () => {
+    const sql = getInitialExposureQuery({
+      ...datasource,
+      settings: { ...datasource.settings, schemaFormat: "ga4" },
+    });
+    expect(sql).toContain(
+      "COALESCE(variation_id_param.value.string_value, CAST(variation_id_param.value.int_value AS STRING)) AS variation_id",
+    );
+    expect(sql).toContain(
+      "COALESCE(experiment_id_param.value.string_value, CAST(experiment_id_param.value.int_value AS STRING)) AS experiment_id",
+    );
+  });
+});
+
+describe("getGA4ExposureTemplate", () => {
+  it("uses the Data Source's identifiers and the picked table", () => {
+    const template = getGA4ExposureTemplate(["device_id"]);
+    expect(template.columns.map((c) => c.column)).toContain("device_id");
+    const sql = template.getSql(
+      { path: "`proj.analytics_1.events_*`" } as Parameters<
+        typeof template.getSql
+      >[0],
+      "",
+    );
+    expect(sql).toContain("user_pseudo_id as device_id");
+    expect(sql).toContain("FROM\n  `proj.analytics_1.events_*`,");
   });
 });

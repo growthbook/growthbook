@@ -468,6 +468,18 @@ describe("getExperimentSettingsHashForIncrementalRefresh — output hash", () =>
     ).toBe("1c14c7b3c695413e66101563d2b606ab");
   });
 
+  it("changes the hash when the selected query's column mapping changes", () => {
+    const withMapping = (timestampColumn: string) =>
+      getExperimentSettingsHashForIncrementalRefresh(
+        { ...GOLDEN_INPUT, exposureQueryIdentifierType: "user_id" },
+        [{ ...EXPOSURE_QUERIES[0], columnMapping: { timestampColumn } }],
+      );
+    expect(withMapping("received_at")).not.toBe(
+      "1c14c7b3c695413e66101563d2b606ab",
+    );
+    expect(withMapping("received_at")).not.toBe(withMapping("event_time"));
+  });
+
   it("changes the hash when the identifier isn't the query's legacy default", () => {
     expect(
       getExperimentSettingsHashForIncrementalRefresh(

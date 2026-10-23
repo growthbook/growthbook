@@ -11,7 +11,10 @@ import {
 } from "shared/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import { QueryStatistics } from "shared/types/query";
-import type { ExposureQuery } from "shared/types/datasource";
+import type {
+  ExposureQuery,
+  ExposureQueryColumnMapping,
+} from "shared/types/datasource";
 import {
   FactTableMap,
   ColumnInterface,
@@ -590,7 +593,11 @@ type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
  * Deliberately not shaped like `ExposureQuery`, so an unresolved query can't
  * be passed where a resolved one is expected.
  */
-export type ResolvedExposureQuery = { query: string; identifierType: string };
+export type ResolvedExposureQuery = {
+  query: string;
+  identifierType: string;
+  columnMapping?: ExposureQueryColumnMapping;
+};
 
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   metric: MetricInterface;
