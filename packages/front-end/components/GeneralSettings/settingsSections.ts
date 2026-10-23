@@ -112,3 +112,128 @@ export function matchesSettingsQuery(
   const h = haystack.toLowerCase();
   return tokens.every((t) => h.includes(t));
 }
+
+const SECTION_FIELDS: Record<string, string[]> = {
+  experiments: [
+    "pastExperimentsMinLength",
+    "updateSchedule",
+    "runHealthTrafficQuery",
+    "srmThreshold",
+    "multipleExposureMinPercent",
+    "attributionModel",
+    "disablePrecomputedDimensions",
+    "useStickyBucketing",
+    "stickyBucketingOnByDefault",
+    "useFallbackAttributes",
+    "requireExperimentTemplates",
+    "requireUniqueExperimentTrackingKeys",
+    "experimentKeyExample",
+    "experimentKeyRegexValidator",
+    "experimentMinLengthDays",
+    "experimentMaxLengthDays",
+    "decisionFrameworkEnabled",
+    "defaultDecisionCriteriaId",
+  ],
+  statistics: [
+    "statsEngine",
+    "confidenceLevel",
+    "pValueThreshold",
+    "pValueCorrection",
+    "regressionAdjustmentEnabled",
+    "regressionAdjustmentDays",
+    "sequentialTestingEnabled",
+    "sequentialTestingTuningParameter",
+    "postStratificationEnabled",
+    "banditScheduleValue",
+    "banditScheduleUnit",
+    "banditBurnInValue",
+    "banditBurnInUnit",
+    "learningStatuses",
+  ],
+  metrics: [
+    "metricAnalysisDays",
+    "metricDefaults",
+    "disableLegacyMetricCreation",
+    "maxMetricSliceLevels",
+    "defaultDataSource",
+    "testQueryDays",
+    "topValuesLookbackValue",
+    "northStar",
+  ],
+  features: [
+    "featureKeyExample",
+    "featureRegexValidator",
+    "requireProjectForFeatures",
+    "requireScopedFeatureRules",
+    "sparseJSONRulesByDefault",
+    "configsExtensibleByDefault",
+    "configExperimentGuardDefault",
+    "blockPublishOnSchemaError",
+    "maxConcurrentDrafts",
+    "preferredEnvironment",
+    "codeReferencesEnabled",
+    "codeRefsBranchesToFilter",
+    "codeRefsPlatformUrl",
+    "secureAttributeSalt",
+    "killswitchConfirmation",
+  ],
+  approvals: [
+    "requireReviews",
+    "targetingReviewMode",
+    "restApiBypassesReviews",
+    "requireRebaseBeforePublish",
+    "revertsBypassApproval",
+    "approvalFlows",
+  ],
+  sdk: [
+    "requireProjectForSdkConnections",
+    "savedGroupSizeLimit",
+    "enforceSavedGroupProjectScope",
+    "requireRegisteredAttributes",
+  ],
+  ai: [
+    "aiEnabled",
+    "aiAskDataEnabled",
+    "aiAutocompleteEnabled",
+    "aiAutocompleteModel",
+    "disabledAgentSkills",
+    "defaultAIModel",
+    "embeddingModel",
+    "sttModel",
+    "visualEditorAIModel",
+    "visualEditorImageModel",
+    "visualEditorAIContext",
+  ],
+  markdown: [
+    "featureListMarkdown",
+    "featurePageMarkdown",
+    "experimentListMarkdown",
+    "experimentPageMarkdown",
+    "metricListMarkdown",
+    "metricPageMarkdown",
+  ],
+};
+
+const FIELD_SECTION: Record<string, string> = Object.fromEntries(
+  Object.entries(SECTION_FIELDS).flatMap(([section, fields]) =>
+    fields.map((f) => [f, section]),
+  ),
+);
+
+/** Section id that renders a General settings form field, or null if none does. */
+export function sectionForField(field: string): string | null {
+  return FIELD_SECTION[field] ?? null;
+}
+
+/** "2 unsaved changes in AI and Custom markdown", or "… in 3 sections". */
+export function describeUnsavedChanges(
+  count: number,
+  sectionIds: string[],
+): string {
+  const titles = sectionIds
+    .map((id) => SETTINGS_SECTIONS.find((s) => s.id === id)?.title)
+    .filter((t): t is string => !!t);
+  const where =
+    titles.length <= 2 ? titles.join(" and ") : `${titles.length} sections`;
+  return `${count} unsaved change${count === 1 ? "" : "s"}${where ? ` in ${where}` : ""}`;
+}

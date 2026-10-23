@@ -45,3 +45,28 @@
 .spacer {
   height: 45vh;
 }
+
+// Floats above the sections while scrolling; rests in flow once the end is reached.
+.unsavedBar {
+  position: sticky;
+  bottom: 16px;
+  z-index: 30;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--color-panel-solid);
+  border: 1px solid var(--slate-a4);
+  border-radius: 8px;
+  box-shadow: var(--shadow-5);
+}
+
+.unsavedDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber-9);
+  flex-shrink: 0;
+}
+
+.bottomPad {
+  height: 24px;
+}

@@ -322,14 +322,15 @@ export default function AISettings({
 
   useEffect(() => {
     if (data) {
-      const prompts = getPrompts(data);
-      prompts.forEach((prompt) => {
-        promptForm.setValue(prompt.promptType, prompt.promptValue);
-        promptForm.setValue(
-          `${prompt.promptType}-model`,
-          knownTextModel(prompt.overrideModel),
+      // Loaded values become the defaults, so dirty tracking and Discard compare against them.
+      const values: Record<string, string | undefined> = {};
+      getPrompts(data).forEach((prompt) => {
+        values[prompt.promptType] = prompt.promptValue;
+        values[`${prompt.promptType}-model`] = knownTextModel(
+          prompt.overrideModel,
         );
       });
+      promptForm.reset(values);
     }
   }, [data, promptForm]);
 

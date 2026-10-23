@@ -1,6 +1,8 @@
 import {
+  describeUnsavedChanges,
   matchesSettingsQuery,
   resolveSettingsHash,
+  sectionForField,
   SETTINGS_SECTIONS,
   tokenizeSettingsQuery,
 } from "@/components/GeneralSettings/settingsSections";
@@ -51,5 +53,25 @@ describe("settings search matching", () => {
     expect(matchesSettingsQuery(hay, ["sticky", "variation"])).toBe(true);
     expect(matchesSettingsQuery(hay, ["sticky", "warehouse"])).toBe(false);
     expect(matchesSettingsQuery(hay, [])).toBe(true);
+  });
+});
+
+describe("unsaved change tracking", () => {
+  it("maps fields to the section that renders them", () => {
+    expect(sectionForField("statsEngine")).toBe("statistics");
+    expect(sectionForField("featureListMarkdown")).toBe("markdown");
+    expect(sectionForField("not-a-field")).toBeNull();
+  });
+
+  it("describes where the unsaved changes are", () => {
+    expect(describeUnsavedChanges(1, ["sdk"])).toBe(
+      "1 unsaved change in SDK configuration",
+    );
+    expect(describeUnsavedChanges(2, ["ai", "markdown"])).toBe(
+      "2 unsaved changes in AI and Custom markdown",
+    );
+    expect(describeUnsavedChanges(5, ["ai", "markdown", "sdk"])).toBe(
+      "5 unsaved changes in 3 sections",
+    );
   });
 });

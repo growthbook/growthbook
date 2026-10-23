@@ -27,7 +27,7 @@ export default function SettingsSection({
   children: ReactNode;
 }) {
   const def = SETTINGS_SECTIONS.find((s) => s.id === id);
-  const { query, setCount } = useSettingsNav();
+  const { query, setCount, dirtySections } = useSettingsNav();
   const ref = useRef<HTMLElement>(null);
   const [matched, setMatched] = useState<Set<string> | null>(null);
 
@@ -72,6 +72,9 @@ export default function SettingsSection({
             variant="soft"
             label={`${matched.size} match${matched.size === 1 ? "" : "es"}`}
           />
+        )}
+        {dirtySections.includes(id) && (
+          <Badge color="amber" variant="soft" label="Unsaved" />
         )}
       </Flex>
       <p className={styles.description}>{def.description}</p>

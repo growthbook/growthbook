@@ -163,3 +163,11 @@
   font-size: 12px;
   color: var(--gray-11);
 }
+
+.dirtyDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--amber-9);
+  flex-shrink: 0;
+}

@@ -27,7 +27,7 @@ export function scrollToSettingsSection(id: string) {
 
 export default function SettingsNav() {
   const router = useRouter();
-  const { query, setQuery, activeSection, counts, searchRef } =
+  const { query, setQuery, activeSection, counts, dirtySections, searchRef } =
     useSettingsNav();
   const { permissions, superAdmin } = useUser();
   const { project, segments } = useDefinitions();
@@ -146,6 +146,13 @@ export default function SettingsNav() {
                   }
                 >
                   <span className={styles.itemLabel}>{s.title}</span>
+                  {dirtySections.includes(s.id) && (
+                    <span
+                      className={styles.dirtyDot}
+                      role="img"
+                      aria-label="Unsaved changes"
+                    />
+                  )}
                   {hasQuery && (
                     <span className={styles.count}>{counts[s.id]}</span>
                   )}

@@ -54,7 +54,9 @@ import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import LearningSettings from "@/components/GeneralSettings/LearningSettings";
 import AISettings from "@/components/GeneralSettings/AISettings";
 import {
+  describeUnsavedChanges,
   resolveSettingsHash,
+  sectionForField,
   SETTINGS_SECTIONS,
   tokenizeSettingsQuery,
 } from "@/components/GeneralSettings/settingsSections";
@@ -83,15 +85,6 @@ export const ConnectSettingsForm = ({ children }) => {
   return children({ ...methods });
 };
 
-function hasChanges(
-  value: OrganizationSettings,
-  existing: OrganizationSettings,
-) {
-  if (!existing) return true;
-
-  return !isEqual(value, existing);
-}
-
 const GeneralSettingsPage = (): React.ReactElement => {
   const { refreshOrganization, settings, organization, hasCommercialFeature } =
     useUser();
@@ -113,8 +106,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const promptForm = useForm();
 
   const [urlHash] = useURLHash();
-  const { query, setQuery, activeSection, setActiveSection, counts } =
-    useSettingsNav();
+  const {
+    query,
+    setQuery,
+    activeSection,
+    setActiveSection,
+    counts,
+    setDirtySections,
+  } = useSettingsNav();
   const pageRef = useRef<HTMLDivElement>(null);
   const { metricDefaults } = useOrganizationMetricDefaults();
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
@@ -260,68 +259,32 @@ const GeneralSettingsPage = (): React.ReactElement => {
     },
   });
   const { apiCall } = useAuth();
-  const value: OrganizationSettingsWithMetricDefaults = {
-    visualEditorEnabled: form.watch("visualEditorEnabled"),
-    pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),
-    metricAnalysisDays: form.watch("metricAnalysisDays"),
-    metricDefaults: {
-      priorSettings: form.watch("metricDefaults.priorSettings"),
-      minimumSampleSize: form.watch("metricDefaults.minimumSampleSize"),
-      maxPercentageChange: form.watch("metricDefaults.maxPercentageChange"),
-      minPercentageChange: form.watch("metricDefaults.minPercentageChange"),
-      targetMDE: form.watch("metricDefaults.targetMDE"),
-    },
-    northStar: form.watch("northStar"),
-    updateSchedule: form.watch("updateSchedule"),
-    runHealthTrafficQuery: form.watch("runHealthTrafficQuery"),
-    srmThreshold: form.watch("srmThreshold"),
-    multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
-    statsEngine: form.watch("statsEngine"),
-    confidenceLevel: form.watch("confidenceLevel"),
-    pValueThreshold: form.watch("pValueThreshold"),
-    pValueCorrection: form.watch("pValueCorrection"),
-    regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
-    regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
-    sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
-    sequentialTestingTuningParameter: form.watch(
-      "sequentialTestingTuningParameter",
-    ),
-    attributionModel: form.watch("attributionModel"),
-    displayCurrency: form.watch("displayCurrency"),
-    secureAttributeSalt: form.watch("secureAttributeSalt"),
-    killswitchConfirmation: form.watch("killswitchConfirmation"),
-    sparseJSONRulesByDefault: form.watch("sparseJSONRulesByDefault"),
-    defaultDataSource: form.watch("defaultDataSource"),
-    useStickyBucketing: form.watch("useStickyBucketing"),
-    stickyBucketingOnByDefault: form.watch("stickyBucketingOnByDefault"),
-    useFallbackAttributes: form.watch("useFallbackAttributes"),
-    codeReferencesEnabled: form.watch("codeReferencesEnabled"),
-    codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
-    codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
-    aiEnabled: form.watch("aiEnabled"),
-    aiAskDataEnabled: form.watch("aiAskDataEnabled"),
-    aiAutocompleteEnabled: form.watch("aiAutocompleteEnabled"),
-    aiAutocompleteModel: form.watch("aiAutocompleteModel") || undefined,
-    disabledAgentSkills: form.watch("disabledAgentSkills"),
-    defaultAIModel: form.watch("defaultAIModel"),
-    embeddingModel: form.watch("embeddingModel"),
-    sttModel: form.watch("sttModel") || undefined,
-    visualEditorAIModel: form.watch("visualEditorAIModel"),
-    visualEditorImageModel: form.watch("visualEditorImageModel"),
-    visualEditorAIContext: form.watch("visualEditorAIContext") || undefined,
-    disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
-    requireScopedFeatureRules: form.watch("requireScopedFeatureRules"),
-    preferredEnvironment: form.watch("preferredEnvironment") || "",
-    maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
-    topValuesLookbackValue: form.watch("topValuesLookbackValue"),
-    savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
-    enforceSavedGroupProjectScope: form.watch("enforceSavedGroupProjectScope"),
-    approvalFlows: form.watch("approvalFlows"),
-    learningStatuses: form.watch("learningStatuses"),
-    requireRegisteredAttributes: form.watch("requireRegisteredAttributes"),
-  };
+  const values = form.watch();
+  // Compared field by field against the loaded settings: `setValue` without
+  // `shouldDirty` is common here, so react-hook-form's dirty state misses edits.
+  const dirtyFields = Object.keys(originalValue).filter(
+    (k) =>
+      !isEqual(
+        (values as Record<string, unknown>)[k],
+        (originalValue as Record<string, unknown>)[k],
+      ),
+  );
+  const dirtyPromptFields = Object.keys(promptForm.formState.dirtyFields);
+  const dirtyCount = dirtyFields.length + dirtyPromptFields.length;
+  const dirtySectionIds = [
+    ...new Set([
+      ...dirtyFields.map(sectionForField),
+      ...(dirtyPromptFields.length ? ["ai"] : []),
+    ]),
+  ].filter((id): id is string => !!id);
+  const dirtyKey = dirtySectionIds.join(",");
+  useEffect(() => {
+    setDirtySections(dirtyKey ? dirtyKey.split(",") : []);
+  }, [dirtyKey, setDirtySections]);
+  useEffect(() => () => setDirtySections([]), [setDirtySections]);
+
   function updateCronString(cron?: string) {
-    cron = cron || value.updateSchedule?.cron || "";
+    cron = cron || form.getValues("updateSchedule")?.cron || "";
 
     if (!cron) {
       setCronString("");
@@ -508,9 +471,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
     };
   }, [query, counts]);
 
-  // I Don't think this works as intended - the hasChanges(value, originalValue) always seems to return true.
-  const ctaEnabled =
-    hasChanges(value, originalValue) || promptForm.formState.isDirty;
+  const discardChanges = () => {
+    form.reset(originalValue as OrganizationSettingsWithMetricDefaults);
+    promptForm.reset();
+    updateCronString(originalValue.updateSchedule?.cron || "");
+    setCodeRefsBranchesToFilterStr(
+      (originalValue.codeRefsBranchesToFilter ?? []).join(", "),
+    );
+    setSubmitError(null);
+  };
 
   const savePrompts = promptForm.handleSubmit(async (promptValues) => {
     const formattedPrompts = CUSTOMIZABLE_PROMPT_TYPES.map((type) => ({
@@ -802,50 +771,62 @@ const GeneralSettingsPage = (): React.ReactElement => {
           </SettingsSection>
 
           <div className={sectionStyles.spacer} />
+
+          {(dirtyCount > 0 || saveMsg || submitError) && (
+            <Box
+              className={sectionStyles.unsavedBar}
+              role="region"
+              aria-label="Unsaved changes"
+            >
+              <Flex align="center" gap="3" wrap="wrap">
+                {dirtyCount > 0 && (
+                  <span className={sectionStyles.unsavedDot} />
+                )}
+                <Box flexGrow="1" aria-live="polite">
+                  {dirtyCount > 0 && (
+                    <Text weight="medium">
+                      {describeUnsavedChanges(dirtyCount, dirtySectionIds)}
+                    </Text>
+                  )}
+                  {submitError && (
+                    <HelperText status="error">{submitError}</HelperText>
+                  )}
+                  {saveMsg && (
+                    <TempMessage
+                      className="mb-0 py-2"
+                      close={() => setSaveMsg(false)}
+                    >
+                      Settings saved
+                    </TempMessage>
+                  )}
+                </Box>
+                {dirtyCount > 0 && (
+                  <>
+                    <Button variant="ghost" onClick={discardChanges}>
+                      Discard
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        setSubmitError(null);
+                        await saveSettings();
+                        // Only save prompts if the prompt form has changes
+                        if (dirtyPromptFields.length) {
+                          await savePrompts();
+                          promptForm.reset(promptForm.getValues());
+                        }
+                      }}
+                      setError={setSubmitError}
+                    >
+                      Save changes
+                    </Button>
+                  </>
+                )}
+              </Flex>
+            </Box>
+          )}
+          <div className={sectionStyles.bottomPad} />
         </div>
       </SettingsPage>
-
-      <Box
-        className="bg-main-color position-sticky w-100 py-3 border-top"
-        style={{ bottom: 0, height: 70, zIndex: 840 }}
-      >
-        <Box className="container-fluid pagecontents d-flex">
-          <Flex flexGrow="1" gap="3" align="end">
-            {submitError && (
-              <Box>
-                <HelperText status="error">{submitError}</HelperText>
-              </Box>
-            )}
-            {saveMsg && (
-              <TempMessage
-                className="mb-0 py-2"
-                close={() => {
-                  setSaveMsg(false);
-                }}
-              >
-                Settings saved
-              </TempMessage>
-            )}
-          </Flex>
-          <Box style={{ marginRight: "85px" }}>
-            <Button
-              disabled={!ctaEnabled}
-              onClick={async () => {
-                setSubmitError(null);
-                if (!ctaEnabled) return;
-                await saveSettings();
-                // Only save prompts if the prompt form has changes
-                if (promptForm.formState.isDirty) {
-                  await savePrompts();
-                }
-              }}
-              setError={setSubmitError}
-            >
-              Save all
-            </Button>
-          </Box>
-        </Box>
-      </Box>
     </FormProvider>
   );
 };
