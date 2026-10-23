@@ -26,7 +26,7 @@ export function getBanditStatisticsFactMetricCTE(
 ): string {
   return `
     -- One row per variation/dimension with aggregations
-    , __banditPeriodStatistics AS (
+    , __banditPeriodStatistics AS ${dialect.useMaterializedCTEs ? "MATERIALIZED " : ""}(
       SELECT
         m.variation AS variation
         ${dimensionCols.map((d) => `, m.${d.alias} AS ${d.alias}`).join("")}
