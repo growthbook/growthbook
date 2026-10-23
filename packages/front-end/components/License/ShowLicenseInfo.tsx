@@ -15,7 +15,9 @@ import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
 
 const ShowLicenseInfo: FC<{
   showInput?: boolean;
-}> = ({ showInput = true }) => {
+  /** False when the surrounding card already titles the block. */
+  showHeading?: boolean;
+}> = ({ showInput = true, showHeading = true }) => {
   const { accountPlan, license, refreshOrganization, subscription } = useUser();
   const planNotices = useAccountPlanNotices();
   const permissionsUtil = usePermissionsUtil();
@@ -61,13 +63,15 @@ const ShowLicenseInfo: FC<{
         />
       )}
       <Box>
-        <div className="divider border-bottom mb-3 mt-3" />
+        {showHeading && <div className="divider border-bottom mb-3 mt-3" />}
         <Flex justify="start" gap="4">
-          <Box width="220px">
-            <Heading as="h4" size="4">
-              License
-            </Heading>
-          </Box>
+          {showHeading && (
+            <Box width="220px">
+              <Heading as="h4" size="4">
+                License
+              </Heading>
+            </Box>
+          )}
           <Box flexGrow="1">
             <Box>
               <div className="form-group row mb-3">

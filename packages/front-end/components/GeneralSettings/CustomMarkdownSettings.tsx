@@ -1,21 +1,43 @@
 import { useFormContext } from "react-hook-form";
-import { Box, Flex } from "@radix-ui/themes";
-import Heading from "@/ui/Heading";
-import Text from "@/ui/Text";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
-import Frame from "@/ui/Frame";
+import Text from "@/ui/Text";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { DocLink } from "@/components/DocLink";
+import { SettingsField, SettingsGroup } from "./SettingsGroup";
 
-const FIELDS = [
-  ["featureListMarkdown", "Features list"],
-  ["featurePageMarkdown", "Feature page"],
-  ["experimentListMarkdown", "Experiments list"],
-  ["experimentPageMarkdown", "Experiment page"],
-  ["metricListMarkdown", "Metrics list"],
-  ["metricPageMarkdown", "Metric page"],
+const GROUPS = [
+  {
+    id: "md-features",
+    title: "Features",
+    description:
+      "Shown at the top of the features list and on each feature page.",
+    fields: [
+      ["featureListMarkdown", "Features list"],
+      ["featurePageMarkdown", "Feature page"],
+    ],
+  },
+  {
+    id: "md-experiments",
+    title: "Experiments",
+    description:
+      "Shown at the top of the experiments list and on each experiment page.",
+    fields: [
+      ["experimentListMarkdown", "Experiments list"],
+      ["experimentPageMarkdown", "Experiment page"],
+    ],
+  },
+  {
+    id: "md-metrics",
+    title: "Metrics",
+    description:
+      "Shown at the top of the metrics list and on each metric page.",
+    fields: [
+      ["metricListMarkdown", "Metrics list"],
+      ["metricPageMarkdown", "Metric page"],
+    ],
+  },
 ] as const;
 
 export default function CustomMarkdownSettings() {
@@ -24,33 +46,43 @@ export default function CustomMarkdownSettings() {
   const enabled = hasCommercialFeature("custom-markdown");
 
   return (
-    <Frame>
-      <Flex gap="4">
-        <Box width="220px" flexShrink="0">
-          <Heading size="md" as="h4">
-            <PremiumTooltip commercialFeature="custom-markdown">
-              Custom Markdown
-            </PremiumTooltip>
-          </Heading>
-          <Text as="p" size="sm" color="text-mid" mt="2">
-            Shown at the top of each list and detail page.{" "}
-            <DocLink docSection="customMarkdown">View docs</DocLink>
-          </Text>
-        </Box>
-        <Flex direction="column" flexGrow="1" pt="6" gap="4">
+    <>
+      {GROUPS.map((group, i) => (
+        <SettingsGroup
+          key={group.id}
+          id={group.id}
+          title={
+            i === 0 ? (
+              <PremiumTooltip commercialFeature="custom-markdown">
+                {group.title}
+              </PremiumTooltip>
+            ) : (
+              group.title
+            )
+          }
+          description={
+            <>
+              {group.description}
+              {i === 0 && (
+                <>
+                  {" "}
+                  <DocLink docSection="customMarkdown">View docs</DocLink>
+                </>
+              )}
+            </>
+          }
+          keywords="custom markdown guidance documentation help"
+        >
           {enabled ? (
-            FIELDS.map(([key, label]) => (
-              <Box key={key} width="100%">
-                <Text as="label" size="md" weight="semibold">
-                  {label}
-                </Text>
+            group.fields.map(([key, label]) => (
+              <SettingsField key={key} label={label}>
                 <MarkdownInput
                   value={form.watch(key) || ""}
                   setValue={(value) =>
                     form.setValue(key, value, { shouldDirty: true })
                   }
                 />
-              </Box>
+              </SettingsField>
             ))
           ) : (
             <Text color="text-mid">
@@ -58,8 +90,8 @@ export default function CustomMarkdownSettings() {
               pages.
             </Text>
           )}
-        </Flex>
-      </Flex>
-    </Frame>
+        </SettingsGroup>
+      ))}
+    </>
   );
 }

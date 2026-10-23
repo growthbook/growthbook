@@ -855,22 +855,14 @@
       "count": 1
     }
   },
-  "packages/front-end/components/GeneralSettings/AISettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/GeneralSettings/BanditSettings.tsx": {
     "no-restricted-syntax": {
       "count": 4
     }
   },
   "packages/front-end/components/GeneralSettings/DatasourceSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
     "no-restricted-syntax": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField.tsx": {
@@ -886,20 +878,7 @@
       "count": 1
     }
   },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/FrequentistTab.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/PValueThresholdField.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/StatsEngineSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
     "no-restricted-syntax": {
       "count": 1
     }
@@ -910,40 +889,23 @@
     }
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/index.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
     "no-restricted-syntax": {
       "count": 5
     }
   },
   "packages/front-end/components/GeneralSettings/FeatureSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
     "no-restricted-syntax": {
-      "count": 6
+      "count": 4
     }
   },
   "packages/front-end/components/GeneralSettings/MetricsSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
     "no-restricted-syntax": {
-      "count": 7
+      "count": 2
     }
   },
   "packages/front-end/components/GeneralSettings/NorthStarMetricSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/OrganizationAndLicenseSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
     }
   },
   "packages/front-end/components/GeneralSettings/RampScheduleTemplates.tsx": {
@@ -955,9 +917,6 @@
     }
   },
   "packages/front-end/components/GeneralSettings/SavedGroupSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
     "no-restricted-syntax": {
       "count": 1
     }

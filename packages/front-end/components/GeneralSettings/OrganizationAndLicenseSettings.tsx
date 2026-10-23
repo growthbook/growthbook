@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { OrganizationInterface } from "shared/types/organization";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import { isCloud, isMultiOrg } from "@/services/env";
@@ -8,6 +8,8 @@ import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
+import { SettingsField, SettingsGroup } from "./SettingsGroup";
 
 export default function OrganizationAndLicenseSettings({
   org,
@@ -39,63 +41,62 @@ export default function OrganizationAndLicenseSettings({
           mutate={refreshOrg}
         />
       )}
-      <Box className="appbox" p="5">
-        <Flex justify="start" gap="4">
-          <Box width="220px" flexShrink="0">
-            <Heading as="h4" size="4">
-              Organization Settings
-            </Heading>
-          </Box>
-          <Box flexGrow="1">
-            <Flex justify="between" mb="3">
-              <Flex gap="4" direction="column">
-                <Box>
-                  <Text weight="medium">Name: </Text> {org.name}
-                </Box>
-                <Box
-                  title={
-                    !ownerEmailExists
-                      ? "Owner email does not exist in the organization"
-                      : ""
-                  }
-                >
-                  <Text weight="medium">Owner:</Text> {org.ownerEmail}
-                  {!ownerEmailExists && (
-                    <a onClick={() => setEditOpen(true)}>
-                      <Callout status="error" mt="4">
-                        Owner email does not exist in the organization. Click to
-                        edit.
-                      </Callout>
-                    </a>
-                  )}
-                </Box>
-                <Box>
-                  <Text weight="medium">Organization Id: </Text> {org.id}
-                </Box>
-                {showInstallationName && (
-                  <Box>
-                    <Text weight="medium">Installation Name: </Text>{" "}
-                    {installationName}
-                  </Box>
-                )}
-              </Flex>
-              {canEdit && (
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setEditOpen(true);
-                  }}
-                >
-                  Edit
-                </Button>
+      <SettingsGroup
+        id="org-details"
+        title="Organization"
+        description="Shown to members across the app."
+        keywords="organization name owner email id installation support"
+      >
+        <Flex justify="between" align="start" gap="4">
+          <Flex direction="column" gap="4">
+            <SettingsField label="Organization name">
+              <Text>{org.name}</Text>
+            </SettingsField>
+            <SettingsField
+              label="Owner"
+              help="Email of the person who owns this organization."
+            >
+              <Text>{org.ownerEmail}</Text>
+              {!ownerEmailExists && (
+                <a onClick={() => setEditOpen(true)}>
+                  <Callout status="error" mt="2">
+                    Owner email does not exist in the organization. Click to
+                    edit.
+                  </Callout>
+                </a>
               )}
-            </Flex>
-          </Box>
+            </SettingsField>
+            <SettingsField
+              label="Organization ID"
+              help="Use this ID when contacting support or calling the API."
+            >
+              <Text mono>{org.id}</Text>
+            </SettingsField>
+            {showInstallationName && (
+              <SettingsField label="Installation name">
+                <Text>{installationName}</Text>
+              </SettingsField>
+            )}
+          </Flex>
+          {canEdit && (
+            <Box flexShrink="0">
+              <Button variant="ghost" onClick={() => setEditOpen(true)}>
+                Edit
+              </Button>
+            </Box>
+          )}
         </Flex>
-        {(isCloud() || !isMultiOrg()) && (
-          <ShowLicenseInfo showInput={!isCloud()} />
-        )}
-      </Box>
+      </SettingsGroup>
+      {(isCloud() || !isMultiOrg()) && (
+        <SettingsGroup
+          id="org-license"
+          title="License"
+          description="Your current GrowthBook plan."
+          keywords="license plan seats expires key enterprise pro"
+        >
+          <ShowLicenseInfo showInput={!isCloud()} showHeading={false} />
+        </SettingsGroup>
+      )}
     </>
   );
 }

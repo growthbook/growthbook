@@ -3179,6 +3179,7 @@ html {
   // Left-aligned like the design, not centered by Bootstrap's auto margins.
   .container-fluid.pagecontents {
     margin-left: 0;
+    max-width: 1240px;
     padding: 28px 40px;
   }
   .appbox {

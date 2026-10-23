@@ -7,12 +7,12 @@ import {
   ApprovalFlowConfiguration,
   RequireReview,
 } from "shared/types/organization";
-import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Frame from "@/ui/Frame";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
@@ -24,6 +24,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
+import { SettingsGroup } from "./SettingsGroup";
 import {
   ALL_PROJECTS_SCOPE,
   overrideScopes,
@@ -171,232 +172,233 @@ export default function ApprovalFlowSettings() {
     [tabs, projects],
   );
 
+  if (!hasRequireApprovals) {
+    return (
+      <SettingsGroup
+        id="ap-flows"
+        title={
+          <PremiumTooltip commercialFeature="require-approvals">
+            Approval flows
+          </PremiumTooltip>
+        }
+        description="Every change to flags, Configs, Constants, and Saved Groups is saved as a revision. Approval adds a review step before it goes live."
+        keywords="approval review publish"
+      >
+        <Callout status="info">
+          Approval flows are available on the Enterprise plan.
+        </Callout>
+      </SettingsGroup>
+    );
+  }
+
   return (
-    <Frame>
-      <Flex gap="4">
-        <Box width="220px" flexShrink="0">
-          <Heading size="md" as="h4">
-            Approval Flows
-          </Heading>
-        </Box>
-      </Flex>
-
-      <Flex align="start" direction="column" gap="4" mt="7">
-        {hasRequireApprovals && (
-          <Box width="100%">
-            <Text as="p" size="md" mb="3" color="text-low">
-              Approval requirements apply per Project. Everything inside the
-              panel below belongs to the selected Project scope.
-            </Text>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <Flex align="center" justify="between" gap="3" wrap="wrap">
-                <TabsList>
-                  {allTabs.map((tab) => (
-                    <TabsTrigger key={tab.id} value={tab.id}>
-                      <Tooltip
-                        body={scopeName(tab.scope)}
-                        shouldDisplay={!!tab.scope}
+    <>
+      <SettingsGroup
+        id="ap-flows"
+        title="Feature flags, Configs, Constants & Saved Groups"
+        description="Every change is saved as a revision. Approval adds a review step before it goes live. Requirements apply per Project; everything inside the panel belongs to the selected Project scope."
+        keywords="approval review publish reset self-approve one step kill switch metadata saved groups project override"
+      >
+        <Box width="100%">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <Flex align="center" justify="between" gap="3" wrap="wrap">
+              <TabsList>
+                {allTabs.map((tab) => (
+                  <TabsTrigger key={tab.id} value={tab.id}>
+                    <Tooltip
+                      body={scopeName(tab.scope)}
+                      shouldDisplay={!!tab.scope}
+                    >
+                      <span
+                        style={{
+                          display: "block",
+                          maxWidth: "160px",
+                          overflow: "hidden",
+                          whiteSpace: "nowrap",
+                          textOverflow: "ellipsis",
+                        }}
                       >
-                        <span
-                          style={{
-                            display: "block",
-                            maxWidth: "160px",
-                            overflow: "hidden",
-                            whiteSpace: "nowrap",
-                            textOverflow: "ellipsis",
-                          }}
-                        >
-                          {scopeName(tab.scope)}
-                        </span>
-                      </Tooltip>
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-                {availableProjects.length > 0 && (
-                  <DropdownMenu
-                    menuPlacement="end"
-                    trigger={
-                      <Button variant="ghost" size="sm">
-                        <PiPlus /> Project override
-                      </Button>
-                    }
-                  >
-                    <DropdownMenuGroup>
-                      {availableProjects.map((p) => (
-                        <DropdownMenuItem
-                          key={p.id}
-                          onClick={() => addOverride(p.id)}
-                        >
-                          {p.name}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuGroup>
-                  </DropdownMenu>
-                )}
-              </Flex>
-
-              {allTabs.map((tab) => {
-                const scope = tab.scope;
-                return (
-                  <TabsContent key={tab.id} value={tab.id}>
-                    <Frame p="4" mt="3" mb="0">
-                      {scope ? (
-                        <Flex align="start" justify="between" gap="3" mb="4">
-                          <Text size="sm" color="text-low">
-                            These settings override the base settings in the
-                            &quot;All Projects&quot; tab. Each Project belongs
-                            to a single override.
-                          </Text>
-                          <Button
-                            variant="ghost"
-                            color="red"
-                            size="sm"
-                            onClick={() => removeOverride(tab)}
-                          >
-                            <PiTrash /> Remove override
-                          </Button>
-                        </Flex>
-                      ) : null}
-
-                      {!scope && overriddenProjects.length > 0 && (
-                        <Callout status="info" size="sm" mb="4">
-                          These settings are overridden in the following{" "}
-                          {overriddenProjects.length === 1
-                            ? "Project"
-                            : "Projects"}
-                          :{" "}
-                          {overriddenProjects.map((p, i) => (
-                            <span key={p.id}>
-                              {i > 0 && ", "}
-                              <strong>{p.name}</strong>
-                            </span>
-                          ))}
-                        </Callout>
-                      )}
-
-                      {scope ? (
-                        <Box mb="4">
-                          <Text as="label" size="md" weight="semibold">
-                            Projects
-                          </Text>
-                          <MultiSelectField
-                            legacyHeight
-                            id={`approval-scope-projects-${tab.id}`}
-                            containerClassName="mb-0"
-                            value={scopeProjects(scope)}
-                            onChange={(next) => retargetTab(tab, next)}
-                            options={projects
-                              .filter(
-                                (p) =>
-                                  scopeProjects(scope).includes(p.id) ||
-                                  !allTabs.some((other) =>
-                                    scopeProjects(other.scope).includes(p.id),
-                                  ),
-                              )
-                              .map((p) => ({ value: p.id, label: p.name }))}
-                          />
-                        </Box>
-                      ) : null}
-
-                      <ApprovalScopeSections
-                        idPrefix={tab.id}
-                        flagRule={clonedFlagRule(flagRules, scope)}
-                        onFlagChange={(next) => setFlagRule(scope, next)}
-                        onFlagReset={
-                          differsFromBase(
-                            clonedFlagRule(flagRules, scope),
-                            inheritedFlagRule(flagRules, scope),
-                          )
-                            ? () =>
-                                setFlagRule(
-                                  scope,
-                                  clonedFlagRule(
-                                    withoutScope(flagRules, scope),
-                                    scope,
-                                  ),
-                                )
-                            : undefined
-                        }
-                        savedGroupRule={clonedSavedGroupRule(
-                          savedGroupRules,
-                          scope,
-                        )}
-                        onSavedGroupChange={(next) =>
-                          setSavedGroupRule(scope, next)
-                        }
-                        onSavedGroupReset={
-                          differsFromBase(
-                            clonedSavedGroupRule(savedGroupRules, scope),
-                            inheritedSavedGroupRule(savedGroupRules, scope),
-                          )
-                            ? () =>
-                                setSavedGroupRule(
-                                  scope,
-                                  clonedSavedGroupRule(
-                                    withoutScope(savedGroupRules, scope),
-                                    scope,
-                                  ),
-                                )
-                            : undefined
-                        }
-                      />
-                    </Frame>
-                  </TabsContent>
-                );
-              })}
-            </Tabs>
-          </Box>
-        )}
-
-        {hasRequireApprovals && (
-          <Box width="100%">
-            <Frame p="3" mb="0">
-              <Heading as="h4" size="sm" weight="semibold" mb="4">
-                Global
-              </Heading>
-
-              <Text as="p" size="md" mb="4" color="text-low">
-                These settings apply to every approval flow (Feature Flags,
-                Configs, Constants and Saved Groups).
-              </Text>
-
-              <Flex direction="column" gap="3" align="start">
-                <Checkbox
-                  id="toggle-targeting-review-mode"
-                  label="Apply approval requirements from Targeting Projects"
-                  description="When a Feature Flag is delivered into Targeting Projects, its changes must also satisfy those Projects' approval requirements before publishing. Each Targeting Project with approval requirements of its own also needs approval from a reviewer in that Project. When off, only the primary Project's requirements and reviewers apply."
-                  value={targetingStrict(form)}
-                  setValue={(v) => setTargetingMode(form, v)}
-                />
-                <Checkbox
-                  id="toggle-restApiBypassesReviews"
-                  label="REST API always bypasses approval requirements"
-                  description="Applies to Feature Flags, Configs, Constants and Saved Groups. When enabled, all API calls bypass approval requirements. When disabled, API calls are blocked unless the caller's role grants FlagsBypassApprovals — or SavedGroupsBypassApprovals — on that resource's Project."
-                  value={form.watch("restApiBypassesReviews") !== false}
-                  setValue={(v) => form.setValue("restApiBypassesReviews", v)}
-                />
-                <Checkbox
-                  id="toggle-requireRebaseBeforePublish"
-                  label="Require drafts to be rebased with live before publishing"
-                  description="Drafts based on an older version — or with a stale approval — must be rebased with live before they can be published."
-                  value={form.watch("requireRebaseBeforePublish") === true}
-                  setValue={(v) =>
-                    form.setValue("requireRebaseBeforePublish", v)
+                        {scopeName(tab.scope)}
+                      </span>
+                    </Tooltip>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {availableProjects.length > 0 && (
+                <DropdownMenu
+                  menuPlacement="end"
+                  trigger={
+                    <Button variant="ghost" size="sm">
+                      <PiPlus /> Project override
+                    </Button>
                   }
-                />
-                <Checkbox
-                  id="toggle-reverts-bypass-approval"
-                  label="Allow reverts without approval"
-                  description="Anyone with the revert permission can revert to a past revision and publish it immediately, even when approvals are required."
-                  value={!!form.watch("revertsBypassApproval")}
-                  setValue={(v) => form.setValue("revertsBypassApproval", v)}
-                />
-              </Flex>
-            </Frame>
-          </Box>
-        )}
-      </Flex>
-    </Frame>
+                >
+                  <DropdownMenuGroup>
+                    {availableProjects.map((p) => (
+                      <DropdownMenuItem
+                        key={p.id}
+                        onClick={() => addOverride(p.id)}
+                      >
+                        {p.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </DropdownMenu>
+              )}
+            </Flex>
+
+            {allTabs.map((tab) => {
+              const scope = tab.scope;
+              return (
+                <TabsContent key={tab.id} value={tab.id}>
+                  <Frame p="4" mt="3" mb="0">
+                    {scope ? (
+                      <Flex align="start" justify="between" gap="3" mb="4">
+                        <Text size="sm" color="text-low">
+                          These settings override the base settings in the
+                          &quot;All Projects&quot; tab. Each Project belongs to
+                          a single override.
+                        </Text>
+                        <Button
+                          variant="ghost"
+                          color="red"
+                          size="sm"
+                          onClick={() => removeOverride(tab)}
+                        >
+                          <PiTrash /> Remove override
+                        </Button>
+                      </Flex>
+                    ) : null}
+
+                    {!scope && overriddenProjects.length > 0 && (
+                      <Callout status="info" size="sm" mb="4">
+                        These settings are overridden in the following{" "}
+                        {overriddenProjects.length === 1
+                          ? "Project"
+                          : "Projects"}
+                        :{" "}
+                        {overriddenProjects.map((p, i) => (
+                          <span key={p.id}>
+                            {i > 0 && ", "}
+                            <strong>{p.name}</strong>
+                          </span>
+                        ))}
+                      </Callout>
+                    )}
+
+                    {scope ? (
+                      <Box mb="4">
+                        <Text as="label" size="md" weight="semibold">
+                          Projects
+                        </Text>
+                        <MultiSelectField
+                          legacyHeight
+                          id={`approval-scope-projects-${tab.id}`}
+                          containerClassName="mb-0"
+                          value={scopeProjects(scope)}
+                          onChange={(next) => retargetTab(tab, next)}
+                          options={projects
+                            .filter(
+                              (p) =>
+                                scopeProjects(scope).includes(p.id) ||
+                                !allTabs.some((other) =>
+                                  scopeProjects(other.scope).includes(p.id),
+                                ),
+                            )
+                            .map((p) => ({ value: p.id, label: p.name }))}
+                        />
+                      </Box>
+                    ) : null}
+
+                    <ApprovalScopeSections
+                      idPrefix={tab.id}
+                      flagRule={clonedFlagRule(flagRules, scope)}
+                      onFlagChange={(next) => setFlagRule(scope, next)}
+                      onFlagReset={
+                        differsFromBase(
+                          clonedFlagRule(flagRules, scope),
+                          inheritedFlagRule(flagRules, scope),
+                        )
+                          ? () =>
+                              setFlagRule(
+                                scope,
+                                clonedFlagRule(
+                                  withoutScope(flagRules, scope),
+                                  scope,
+                                ),
+                              )
+                          : undefined
+                      }
+                      savedGroupRule={clonedSavedGroupRule(
+                        savedGroupRules,
+                        scope,
+                      )}
+                      onSavedGroupChange={(next) =>
+                        setSavedGroupRule(scope, next)
+                      }
+                      onSavedGroupReset={
+                        differsFromBase(
+                          clonedSavedGroupRule(savedGroupRules, scope),
+                          inheritedSavedGroupRule(savedGroupRules, scope),
+                        )
+                          ? () =>
+                              setSavedGroupRule(
+                                scope,
+                                clonedSavedGroupRule(
+                                  withoutScope(savedGroupRules, scope),
+                                  scope,
+                                ),
+                              )
+                          : undefined
+                      }
+                    />
+                  </Frame>
+                </TabsContent>
+              );
+            })}
+          </Tabs>
+        </Box>
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="ap-global"
+        title="Global"
+        badge="Organization-wide"
+        description="Apply to every approval flow. Projects cannot override these."
+        keywords="targeting projects rest api bypass rebase reverts"
+      >
+        <Flex direction="column" gap="3" align="start">
+          <Checkbox
+            id="toggle-targeting-review-mode"
+            label="Apply approval requirements from Targeting Projects"
+            description="When a Feature Flag is delivered into Targeting Projects, its changes must also satisfy those Projects' approval requirements before publishing. Each Targeting Project with approval requirements of its own also needs approval from a reviewer in that Project. When off, only the primary Project's requirements and reviewers apply."
+            value={targetingStrict(form)}
+            setValue={(v) => setTargetingMode(form, v)}
+          />
+          <Checkbox
+            id="toggle-restApiBypassesReviews"
+            label="REST API always bypasses approval requirements"
+            description="Applies to Feature Flags, Configs, Constants and Saved Groups. When enabled, all API calls bypass approval requirements. When disabled, API calls are blocked unless the caller's role grants FlagsBypassApprovals — or SavedGroupsBypassApprovals — on that resource's Project."
+            value={form.watch("restApiBypassesReviews") !== false}
+            setValue={(v) => form.setValue("restApiBypassesReviews", v)}
+          />
+          <Checkbox
+            id="toggle-requireRebaseBeforePublish"
+            label="Require drafts to be rebased with live before publishing"
+            description="Drafts based on an older version — or with a stale approval — must be rebased with live before they can be published."
+            value={form.watch("requireRebaseBeforePublish") === true}
+            setValue={(v) => form.setValue("requireRebaseBeforePublish", v)}
+          />
+          <Checkbox
+            id="toggle-reverts-bypass-approval"
+            label="Allow reverts without approval"
+            description="Anyone with the revert permission can revert to a past revision and publish it immediately, even when approvals are required."
+            value={!!form.watch("revertsBypassApproval")}
+            setValue={(v) => form.setValue("revertsBypassApproval", v)}
+          />
+        </Flex>
+      </SettingsGroup>
+    </>
   );
 }
 

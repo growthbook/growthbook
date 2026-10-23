@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useFormContext, UseFormReturn } from "react-hook-form";
 import {
   AI_PROMPT_DEFAULTS,
@@ -14,6 +14,7 @@ import {
   getProviderForAIModel,
   resolveDefaultSTTModel,
 } from "shared/ai";
+import Text from "@/ui/Text";
 import {
   EMBEDDING_MODEL_OPTIONS,
   getAvailableAIModelOptions,
@@ -28,7 +29,6 @@ import {
 import { useAuth } from "@/services/auth";
 import { isCloud } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
@@ -39,6 +39,7 @@ import OptInModal from "@/components/License/OptInModal";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
+import { SettingsField, SettingsGroup } from "./SettingsGroup";
 import AIProviderKeys, { useAIProviderKeys } from "./AIProviderKeys";
 import AgentSkillsSettings from "./AgentSkillsSettings";
 
@@ -213,7 +214,7 @@ const modelOptionLabel = (
   return (
     <Flex direction="column" gap="0">
       <Text>{option.label}</Text>
-      <Text size="1" style={{ color: "var(--text-color-muted)" }}>
+      <Text size="sm" color="text-mid">
         {marked.note}
       </Text>
     </Flex>
@@ -335,562 +336,482 @@ export default function AISettings({
   }, [data, promptForm]);
 
   const prompts = data ? getPrompts(data) : [];
+  const PROMPT_GROUPS: {
+    id: string;
+    title: string;
+    description: string;
+    types: string[];
+  }[] = [
+    {
+      id: "pr-exp",
+      title: "Experiment prompts",
+      description:
+        "Prompts used for experiment analysis, Learnings, and hypotheses.",
+      types: [
+        "experiment-analysis",
+        "find-learnings-context",
+        "experiment-hypothesis",
+      ],
+    },
+    {
+      id: "pr-metrics",
+      title: "Metrics & analytics prompts",
+      description:
+        "Prompts for metric descriptions, SQL generation, and the Product Analytics assistant.",
+      types: ["metric-description", "generate-sql-query"],
+    },
+  ];
+  const groupedTypes = new Set(PROMPT_GROUPS.flatMap((g) => g.types));
+  const promptGroups = [
+    ...PROMPT_GROUPS,
+    {
+      id: "pr-other",
+      title: "Other prompts",
+      description: "Prompts used by other AI features.",
+      types: prompts
+        .map((p) => p.promptType)
+        .filter((t) => !groupedTypes.has(t)),
+    },
+  ]
+    .map((g) => ({
+      ...g,
+      prompts: g.types
+        .map((t) => prompts.find((p) => p.promptType === t))
+        .filter((p): p is (typeof prompts)[number] => !!p),
+    }))
+    .filter((g) => g.prompts.length > 0);
+  const aiOn = form.watch("aiEnabled") && aiAgreedTo;
+
+  const renderPrompt = (prompt: (typeof prompts)[number]) => (
+    <SettingsField
+      key={prompt.promptType}
+      htmlFor={`prompt-${prompt.promptType}`}
+      label={prompt.promptName}
+      help={prompt.promptDescription}
+    >
+      {canChooseModels && (
+        <Box mb="2">
+          <SelectField
+            size="medium"
+            id={`${prompt.promptType}-model`}
+            label="Model"
+            disabled={!canEdit}
+            value={promptForm.watch(`${prompt.promptType}-model`) || ""}
+            onChange={(v) =>
+              promptForm.setValue(`${prompt.promptType}-model`, v, {
+                shouldDirty: true,
+              })
+            }
+            sort={false}
+            options={getAvailablePromptModelOptions(
+              availableProviders,
+              promptForm.watch(`${prompt.promptType}-model`) || "",
+            )}
+            formatOptionLabel={(option, { context }) =>
+              modelOptionLabel(option, context, orgDefaultNote)
+            }
+            helpText={prompt?.overrideModelHelpText || ""}
+          />
+          {promptForm.watch(`${prompt.promptType}-model`) ? (
+            <ApiKeyWarning
+              model={promptForm.watch(`${prompt.promptType}-model`) || ""}
+              hasKey={hasKeyForModel}
+            />
+          ) : null}
+        </Box>
+      )}
+      <Field
+        size="md"
+        textarea={true}
+        id={`prompt-${prompt.promptType}`}
+        placeholder=""
+        disabled={!canEdit}
+        containerClassName="mb-0"
+        helpText={prompt.promptHelpText}
+        {...promptForm.register(prompt.promptType)}
+      />
+      {canEdit &&
+        prompt.promptDefaultValue !== promptForm.watch(prompt.promptType) && (
+          <Flex justify="end" mt="1">
+            <a
+              href="#"
+              title="Reset to the default AI prompt"
+              onClick={(e) => {
+                e.preventDefault();
+                promptForm.setValue(
+                  prompt.promptType,
+                  prompt.promptDefaultValue,
+                  { shouldDirty: true },
+                );
+              }}
+            >
+              Reset to default
+            </a>
+          </Flex>
+        )}
+    </SettingsField>
+  );
 
   return (
     <>
-      <Frame>
-        <Flex gap="4">
-          <Box width="220px" flexShrink="0">
-            <Heading size="4" as="h4">
-              <PremiumTooltip commercialFeature="ai-suggestions">
-                AI Settings
-              </PremiumTooltip>
-            </Heading>
-          </Box>
-
-          {!hasAISuggestions ? (
-            <Flex align="start" direction="column" flexGrow="1">
-              <Box mb="6">
-                <span className="text-muted">View AI Settings</span>
-              </Box>
-              {(aiProviderAccess.error ||
-                aiProviderAccess.credentials.length > 0) && (
-                <AIProviderKeys access={aiProviderAccess} />
-              )}
-            </Flex>
-          ) : (
-            <Flex align="start" direction="column" flexGrow="1" pt="6">
-              {/* Same label/description layout as the skills list below. */}
+      <SettingsGroup
+        id="ai-access"
+        title={
+          <PremiumTooltip commercialFeature="ai-suggestions">
+            Access
+          </PremiumTooltip>
+        }
+        description="Turn AI features on or off across GrowthBook."
+        keywords="ai llm enable ask your data natural language autocomplete assistant"
+      >
+        {!hasAISuggestions ? (
+          <Text color="text-mid">AI features are available on paid plans.</Text>
+        ) : (
+          <>
+            <Checkbox
+              id="toggle-aiEnabled"
+              align="start"
+              weight="medium"
+              label="Enable AI features"
+              description="Used to allow various AI features throughout GrowthBook."
+              value={form.watch("aiEnabled") && aiAgreedTo}
+              setValue={(v) => {
+                if (v && !aiAgreedTo) {
+                  setOptInModal(true);
+                  return;
+                }
+                form.setValue("aiEnabled", v);
+              }}
+              disabled={!canEdit}
+            />
+            {!canEdit && (
+              <Callout status="info">
+                You need permission to manage organization settings to change AI
+                settings.
+              </Callout>
+            )}
+            {aiOn && (
               <Checkbox
-                id="toggle-aiEnabled"
+                id="toggle-aiAskDataEnabled"
                 align="start"
                 weight="medium"
-                label="Enable AI features"
-                description="Used to allow various AI features throughout GrowthBook."
-                value={form.watch("aiEnabled") && aiAgreedTo}
-                setValue={(v) => {
-                  if (v && !aiAgreedTo) {
-                    setOptInModal(true);
-                    return;
-                  }
-                  form.setValue("aiEnabled", v);
-                }}
+                label="Ask your data"
+                description="Allow users to ask questions about data in natural language. Schema, queries, and results are sent to the AI provider."
+                value={form.watch("aiAskDataEnabled") ?? false}
+                setValue={(v) => form.setValue("aiAskDataEnabled", v)}
                 disabled={!canEdit}
-                mb="4"
               />
-              {!canEdit && (
-                <Box mb="6" width="100%">
-                  <Callout status="info">
-                    You need permission to manage organization settings to
-                    change AI settings.
-                  </Callout>
-                </Box>
-              )}
-              {form.watch("aiEnabled") && aiAgreedTo && (
-                <Checkbox
-                  id="toggle-aiAskDataEnabled"
-                  align="start"
-                  weight="medium"
-                  label="Ask your data"
-                  description="Allow users to ask questions about data in natural language. Schema, queries, and results are sent to the AI provider."
-                  value={form.watch("aiAskDataEnabled") ?? false}
-                  setValue={(v) => form.setValue("aiAskDataEnabled", v)}
-                  disabled={!canEdit}
-                  mb="4"
-                />
-              )}
-              {form.watch("aiEnabled") && aiAgreedTo && (
-                <Checkbox
-                  id="toggle-aiAutocompleteEnabled"
-                  align="start"
-                  weight="medium"
-                  label="AI Assistant autocomplete"
-                  description="Suggest how to finish a message as users type in the AI Assistant. Each pause in typing is an AI call, so this adds to usage even when suggestions aren't accepted."
-                  value={form.watch("aiAutocompleteEnabled") ?? true}
-                  setValue={(v) => form.setValue("aiAutocompleteEnabled", v)}
-                  disabled={!canEdit}
-                  mb="4"
-                />
-              )}
-              {form.watch("aiEnabled") && aiAgreedTo && (
-                <AgentSkillsSettings canEdit={canEdit} />
-              )}
-
-              <AIProviderKeys
-                access={aiProviderAccess}
-                showPermissionCallout={false}
-                aiEnabled={form.watch("aiEnabled") && aiAgreedTo}
-                onCleared={clearModelSettings}
+            )}
+            {aiOn && (
+              <Checkbox
+                id="toggle-aiAutocompleteEnabled"
+                align="start"
+                weight="medium"
+                label="AI Assistant autocomplete"
+                description="Suggest how to finish a message as users type in the AI Assistant. Each pause in typing is an AI call, so this adds to usage even when suggestions aren't accepted."
+                value={form.watch("aiAutocompleteEnabled") ?? true}
+                setValue={(v) => form.setValue("aiAutocompleteEnabled", v)}
+                disabled={!canEdit}
               />
+            )}
+          </>
+        )}
+      </SettingsGroup>
 
-              {form.watch("aiEnabled") && canChooseModels && (
-                <>
-                  <Box mb="6" width="100%">
-                    <Text
-                      as="label"
-                      htmlFor="defaultAIModel"
-                      size="3"
-                      className="font-weight-semibold"
-                    >
-                      Default AI model
-                    </Text>
-                    <SelectField
-                      size="medium"
-                      id="defaultAIModel"
-                      disabled={!canEdit}
-                      helpText="Used by every AI feature that doesn't override it."
-                      value={form.watch("defaultAIModel") || ""}
-                      onChange={(v) => form.setValue("defaultAIModel", v)}
-                      sort={false}
-                      options={[
-                        ...(isCloud() ? [GROWTHBOOK_DEFAULT_MODEL_OPTION] : []),
-                        ...getAvailableAIModelOptions(
-                          availableProviders,
-                          form.watch("defaultAIModel"),
-                        ),
-                      ]}
-                      formatOptionLabel={(option, { context }) =>
-                        modelOptionLabel(option, context, managedDefaultNote)
-                      }
-                    />
-                    <ApiKeyWarning
-                      model={
-                        form.watch("defaultAIModel") ||
-                        (isCloud() ? "" : "gpt-4o-mini")
-                      }
-                      hasKey={hasKeyForModel}
-                    />
-                  </Box>
-                  <Box mb="6" width="100%">
-                    <Text
-                      as="label"
-                      htmlFor="embeddingModel"
-                      size="3"
-                      className="font-weight-semibold"
-                    >
-                      Embedding model
-                    </Text>
-                    <SelectField
-                      size="medium"
-                      id="embeddingModel"
-                      disabled={!canEdit}
-                      helpText="Used for semantic search across experiments. Supports OpenAI, Mistral, and Google. Default is text-embedding-ada-002."
-                      value={
-                        isCloud()
-                          ? form.watch("embeddingModel") || ""
-                          : form.watch("embeddingModel") ||
-                            "text-embedding-ada-002"
-                      }
-                      onChange={(v) => form.setValue("embeddingModel", v)}
-                      options={
-                        isCloud()
-                          ? getAvailableEmbeddingModelOptions(
-                              availableProviders,
-                              form.watch("embeddingModel") || "",
-                            )
-                          : EMBEDDING_MODEL_OPTIONS
-                      }
-                    />
-                    <EmbeddingKeyWarning
-                      embeddingModel={
-                        form.watch("embeddingModel") || "text-embedding-ada-002"
-                      }
-                      hasKey={hasKeyForProvider}
-                    />
-                  </Box>
-                  <Box mb="6" width="100%">
-                    <Text
-                      as="label"
-                      htmlFor="sttModel"
-                      size="3"
-                      className="font-weight-semibold"
-                    >
-                      Dictation model
-                    </Text>
-                    <SelectField
-                      size="medium"
-                      id="sttModel"
-                      disabled={!canEdit}
-                      helpText="Used for voice dictation in AI chat. Supports OpenAI, xAI, and Mistral."
-                      value={form.watch("sttModel") || ""}
-                      onChange={(v) => form.setValue("sttModel", v)}
-                      options={getAvailableSTTModelOptions(
-                        isCloud() ? availableProviders : undefined,
-                        form.watch("sttModel") || "",
-                      )}
-                      formatOptionLabel={(option, { context }) =>
-                        modelOptionLabel(option, context, sttDefaultNote)
-                      }
-                    />
-                    {/* Only a chosen model can be wrong; the default always resolves to a key or nothing. */}
-                    {form.watch("sttModel") && (
-                      <SttKeyWarning
-                        sttModel={form.watch("sttModel")}
-                        hasKey={hasKeyForProvider}
-                      />
-                    )}
-                  </Box>
-                  {(form.watch("aiAutocompleteEnabled") ?? true) && (
-                    <Box mb="6" width="100%">
-                      <Text
-                        as="label"
-                        htmlFor="aiAutocompleteModel"
-                        size="3"
-                        className="font-weight-semibold"
-                      >
-                        Autocomplete model
-                      </Text>
-                      <SelectField
-                        size="medium"
-                        id="aiAutocompleteModel"
-                        disabled={!canEdit}
-                        helpText="Used for AI Assistant suggestions as users type. A small, fast model keeps them cheap and quick."
-                        value={form.watch("aiAutocompleteModel") || ""}
-                        onChange={(v) =>
-                          form.setValue("aiAutocompleteModel", v)
-                        }
-                        sort={false}
-                        options={[
-                          {
-                            value: "",
-                            label: "Use default autocomplete model",
-                          },
-                          ...getAvailableAIModelOptions(
-                            availableProviders,
-                            form.watch("aiAutocompleteModel"),
-                          ),
-                        ]}
-                        formatOptionLabel={(option, { context }) =>
-                          modelOptionLabel(
-                            option,
-                            context,
-                            autocompleteDefaultNote,
-                          )
-                        }
-                      />
-                      <ApiKeyWarning
-                        model={form.watch("aiAutocompleteModel")}
-                        hasKey={hasKeyForModel}
-                      />
-                    </Box>
-                  )}
-                </>
-              )}
-            </Flex>
+      {hasAISuggestions && (
+        <SettingsGroup
+          id="ai-skills"
+          title="Assistant skills"
+          description="What the AI Assistant can help with."
+          keywords="ai assistant skills analytics experiments feature flags docs"
+        >
+          {aiOn ? (
+            <AgentSkillsSettings canEdit={canEdit} />
+          ) : (
+            <Callout status="info">
+              Turn on AI features in Access to change these.
+            </Callout>
           )}
-        </Flex>
-      </Frame>
+        </SettingsGroup>
+      )}
+
+      {(hasAISuggestions ||
+        aiProviderAccess.error ||
+        aiProviderAccess.credentials.length > 0) && (
+        <SettingsGroup
+          id="ai-providers"
+          title="Providers and models"
+          description="AI features use GrowthBook-managed keys by default. Add your own key to bill your provider directly and choose models. Keys are encrypted at rest."
+          keywords="ai provider api key openai anthropic model embedding dictation autocomplete byok"
+        >
+          <AIProviderKeys
+            access={aiProviderAccess}
+            showPermissionCallout={false}
+            aiEnabled={aiOn}
+            onCleared={clearModelSettings}
+          />
+
+          {hasAISuggestions && form.watch("aiEnabled") && canChooseModels && (
+            <>
+              <SettingsField
+                htmlFor="defaultAIModel"
+                label="Default AI model"
+                help="Used by every AI feature that doesn't override it."
+              >
+                <SelectField
+                  size="medium"
+                  id="defaultAIModel"
+                  containerClassName="mb-0"
+                  disabled={!canEdit}
+                  value={form.watch("defaultAIModel") || ""}
+                  onChange={(v) => form.setValue("defaultAIModel", v)}
+                  sort={false}
+                  options={[
+                    ...(isCloud() ? [GROWTHBOOK_DEFAULT_MODEL_OPTION] : []),
+                    ...getAvailableAIModelOptions(
+                      availableProviders,
+                      form.watch("defaultAIModel"),
+                    ),
+                  ]}
+                  formatOptionLabel={(option, { context }) =>
+                    modelOptionLabel(option, context, managedDefaultNote)
+                  }
+                />
+                <ApiKeyWarning
+                  model={
+                    form.watch("defaultAIModel") ||
+                    (isCloud() ? "" : "gpt-4o-mini")
+                  }
+                  hasKey={hasKeyForModel}
+                />
+              </SettingsField>
+              <SettingsField
+                htmlFor="embeddingModel"
+                label="Embedding model"
+                help="Used for semantic search across experiments. Supports OpenAI, Mistral, and Google. Default is text-embedding-ada-002."
+              >
+                <SelectField
+                  size="medium"
+                  id="embeddingModel"
+                  containerClassName="mb-0"
+                  disabled={!canEdit}
+                  value={
+                    isCloud()
+                      ? form.watch("embeddingModel") || ""
+                      : form.watch("embeddingModel") || "text-embedding-ada-002"
+                  }
+                  onChange={(v) => form.setValue("embeddingModel", v)}
+                  options={
+                    isCloud()
+                      ? getAvailableEmbeddingModelOptions(
+                          availableProviders,
+                          form.watch("embeddingModel") || "",
+                        )
+                      : EMBEDDING_MODEL_OPTIONS
+                  }
+                />
+                <EmbeddingKeyWarning
+                  embeddingModel={
+                    form.watch("embeddingModel") || "text-embedding-ada-002"
+                  }
+                  hasKey={hasKeyForProvider}
+                />
+              </SettingsField>
+              <SettingsField
+                htmlFor="sttModel"
+                label="Dictation model"
+                help="Used for voice dictation in AI chat. Supports OpenAI, xAI, and Mistral."
+              >
+                <SelectField
+                  size="medium"
+                  id="sttModel"
+                  containerClassName="mb-0"
+                  disabled={!canEdit}
+                  value={form.watch("sttModel") || ""}
+                  onChange={(v) => form.setValue("sttModel", v)}
+                  options={getAvailableSTTModelOptions(
+                    isCloud() ? availableProviders : undefined,
+                    form.watch("sttModel") || "",
+                  )}
+                  formatOptionLabel={(option, { context }) =>
+                    modelOptionLabel(option, context, sttDefaultNote)
+                  }
+                />
+                {/* Only a chosen model can be wrong; the default always resolves to a key or nothing. */}
+                {form.watch("sttModel") && (
+                  <SttKeyWarning
+                    sttModel={form.watch("sttModel")}
+                    hasKey={hasKeyForProvider}
+                  />
+                )}
+              </SettingsField>
+              {(form.watch("aiAutocompleteEnabled") ?? true) && (
+                <SettingsField
+                  htmlFor="aiAutocompleteModel"
+                  label="Autocomplete model"
+                  help="Used for AI Assistant suggestions as users type. A small, fast model keeps them cheap and quick."
+                >
+                  <SelectField
+                    size="medium"
+                    id="aiAutocompleteModel"
+                    containerClassName="mb-0"
+                    disabled={!canEdit}
+                    value={form.watch("aiAutocompleteModel") || ""}
+                    onChange={(v) => form.setValue("aiAutocompleteModel", v)}
+                    sort={false}
+                    options={[
+                      {
+                        value: "",
+                        label: "Use default autocomplete model",
+                      },
+                      ...getAvailableAIModelOptions(
+                        availableProviders,
+                        form.watch("aiAutocompleteModel"),
+                      ),
+                    ]}
+                    formatOptionLabel={(option, { context }) =>
+                      modelOptionLabel(option, context, autocompleteDefaultNote)
+                    }
+                  />
+                  <ApiKeyWarning
+                    model={form.watch("aiAutocompleteModel")}
+                    hasKey={hasKeyForModel}
+                  />
+                </SettingsField>
+              )}
+            </>
+          )}
+        </SettingsGroup>
+      )}
 
       {hasAISuggestions && form.watch("aiEnabled") && promptsError && (
-        <Frame>
-          <Callout status="error">
-            Could not load AI prompts. {promptsError.message}
-          </Callout>
-        </Frame>
+        <Callout status="error" mb="3">
+          Could not load AI prompts. {promptsError.message}
+        </Callout>
       )}
       {hasAISuggestions && form.watch("aiEnabled") && data && (
         <>
-          <Frame>
-            <Flex gap="4">
-              <Box width="220px" flexShrink="0">
-                <Heading size="4" as="h4">
-                  Prompts
-                </Heading>
-              </Box>
+          {promptGroups.map((group) => (
+            <SettingsGroup
+              key={group.id}
+              id={group.id}
+              title={group.title}
+              description={group.description}
+              keywords="ai llm prompt"
+            >
+              {group.prompts.map(renderPrompt)}
+            </SettingsGroup>
+          ))}
 
-              <Flex align="start" direction="column" flexGrow="1" pt="6">
-                <>
-                  <Box mb="6" width="100%">
-                    <>
-                      {prompts.map((prompt, index) => (
-                        <Box key={index} mb="6" width="100%">
-                          <Box>
-                            <Text
-                              size="3"
-                              className="font-weight-semibold"
-                              mb="1"
-                            >
-                              {prompt.promptName}
-                            </Text>
-                          </Box>
-                          <Box mb="2">
-                            <Text size="2" mb="2">
-                              {prompt.promptDescription}
-                            </Text>
-                          </Box>
-                          {canChooseModels && (
-                            <Box mb="3">
-                              <Text
-                                as="label"
-                                htmlFor={`${prompt.promptType}-model`}
-                                size="2"
-                                className="font-weight-semibold"
-                              >
-                                Model
-                              </Text>
-                              <SelectField
-                                size="medium"
-                                id={`${prompt.promptType}-model`}
-                                disabled={!canEdit}
-                                value={
-                                  promptForm.watch(
-                                    `${prompt.promptType}-model`,
-                                  ) || ""
-                                }
-                                onChange={(v) =>
-                                  promptForm.setValue(
-                                    `${prompt.promptType}-model`,
-                                    v,
-                                    { shouldDirty: true },
-                                  )
-                                }
-                                sort={false}
-                                options={getAvailablePromptModelOptions(
-                                  availableProviders,
-                                  promptForm.watch(
-                                    `${prompt.promptType}-model`,
-                                  ) || "",
-                                )}
-                                formatOptionLabel={(option, { context }) =>
-                                  modelOptionLabel(
-                                    option,
-                                    context,
-                                    orgDefaultNote,
-                                  )
-                                }
-                                helpText={prompt?.overrideModelHelpText || ""}
-                              />
-                              {(() => {
-                                const modelToCheck =
-                                  promptForm.watch(
-                                    `${prompt.promptType}-model`,
-                                  ) || "";
-                                if (!modelToCheck) {
-                                  return null;
-                                }
-                                return (
-                                  <ApiKeyWarning
-                                    model={modelToCheck}
-                                    hasKey={hasKeyForModel}
-                                  />
-                                );
-                              })()}
-                            </Box>
-                          )}
-                          <Box mb="3">
-                            {canChooseModels && (
-                              <Text
-                                as="label"
-                                htmlFor={`prompt-${prompt.promptType}`}
-                                size="2"
-                                className="font-weight-semibold"
-                              >
-                                Prompt
-                              </Text>
-                            )}
-                            <Field
-                              size="md"
-                              textarea={true}
-                              id={`prompt-${prompt.promptType}`}
-                              placeholder=""
-                              disabled={!canEdit}
-                              helpText={prompt.promptHelpText}
-                              {...promptForm.register(prompt.promptType)}
-                            />
-                          </Box>
-                          {canEdit &&
-                            prompt.promptDefaultValue !==
-                              promptForm.watch(prompt.promptType) && (
-                              <Box style={{ position: "relative" }}>
-                                <Box
-                                  style={{
-                                    position: "absolute",
-                                    right: "0",
-                                    top: prompt.promptHelpText
-                                      ? "-14px"
-                                      : "-1px",
-                                  }}
-                                >
-                                  <a
-                                    href="#"
-                                    title="Reset to the default AI prompt"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      promptForm.setValue(
-                                        prompt.promptType,
-                                        prompt.promptDefaultValue,
-                                        { shouldDirty: true },
-                                      );
-                                    }}
-                                  >
-                                    reset
-                                  </a>
-                                </Box>
-                              </Box>
-                            )}
-                        </Box>
-                      ))}
-                    </>
-                  </Box>
-                </>
-              </Flex>
-            </Flex>
-          </Frame>
-          {/* Visual Editor frame — sits between Prompts and Embeddings.
-              Owns per-surface model overrides + the brand-guidelines
-              context that gets prepended to every visual-editor AI
-              call (text edits + image gen). All fields gated on
-              !isCloud() in the inner UI; the frame itself renders so
-              cloud users at least see the section exists. */}
-          <Frame>
-            <Flex gap="4">
-              <Box width="220px" flexShrink="0">
-                <Heading size="4" as="h4">
-                  Visual Editor
-                </Heading>
-              </Box>
+          {/* Visual Editor: per-surface model overrides + the brand-guidelines
+              context that gets prepended to every visual-editor AI call (text
+              edits + image gen). Brand context works on cloud and self-hosted;
+              model pickers are gated on canChooseModels. */}
+          <SettingsGroup
+            id="pr-visual"
+            title="Visual Editor"
+            description="Context and models for AI in the Visual Editor Chrome extension."
+            keywords="visual editor brand guidelines context image model text model"
+          >
+            <SettingsField
+              htmlFor="visualEditorAIContext"
+              label="Brand guidelines"
+              help="Added to every Visual Editor AI prompt, for text edits and image generation, so the AI follows your brand voice and visual identity."
+            >
+              <Field
+                textarea={true}
+                id="visualEditorAIContext"
+                containerClassName="mb-0"
+                disabled={!canEdit}
+                placeholder={
+                  'e.g. "We\'re a B2B SaaS company. Brand colors: #6E56CF and #1F2D5C. Sentence-case CTAs. Friendly but professional tone."'
+                }
+                {...form.register("visualEditorAIContext")}
+              />
+            </SettingsField>
 
-              <Flex align="start" direction="column" flexGrow="1" pt="6">
-                <Box mb="6" width="100%">
-                  <Text size="2" mb="3" as="div" className="text-muted">
-                    Settings for the GrowthBook Visual Editor Chrome extension.
-                    Per-surface model overrides + a free-text brand context
-                    that&rsquo;s passed to every AI call.
-                  </Text>
-
-                  {/* Brand context / guidelines. Available on both
-                      cloud and self-hosted — it's a pure-text setting
-                      that doesn't depend on local API keys. Prepended
-                      to text-edit AND image-gen prompts on the back
-                      end (see postAIEdit / postAIImageGen). */}
-                  <Box mb="4">
-                    <Text
-                      as="label"
-                      htmlFor="visualEditorAIContext"
-                      size="2"
-                      className="font-weight-semibold"
-                    >
-                      Brand guidelines / additional context
-                    </Text>
-                    <Field
-                      textarea={true}
-                      id="visualEditorAIContext"
-                      disabled={!canEdit}
-                      placeholder={
-                        'e.g. "We\'re a B2B SaaS company. Brand colors: #6E56CF and #1F2D5C. Sentence-case CTAs. Friendly but professional tone."'
-                      }
-                      helpText="Prepended to every Visual Editor AI prompt (text edits + image generation) so the AI follows your brand voice and visual identity."
-                      {...form.register("visualEditorAIContext")}
-                    />
-                  </Box>
-
-                  {canChooseModels && (
-                    <>
-                      <Box mb="4">
-                        <Text
-                          as="label"
-                          htmlFor="visualEditorAIModel"
-                          size="2"
-                          className="font-weight-semibold"
-                        >
-                          Visual Editor text model
-                        </Text>
-                        <SelectField
-                          size="medium"
-                          id="visualEditorAIModel"
-                          disabled={!canEdit}
-                          helpText="Used for AI chat edits and AI suggestions in the extension. Leave blank to use the Default AI model."
-                          value={form.watch("visualEditorAIModel") || ""}
-                          onChange={(v) =>
-                            form.setValue("visualEditorAIModel", v)
-                          }
-                          sort={false}
-                          options={[
-                            USE_DEFAULT_MODEL_OPTION,
-                            ...getAvailableAIModelOptions(
-                              availableProviders,
-                              form.watch("visualEditorAIModel") || "",
-                            ),
-                          ]}
-                        />
-                        {form.watch("visualEditorAIModel") && (
-                          <ApiKeyWarning
-                            model={form.watch("visualEditorAIModel")}
-                            hasKey={hasKeyForModel}
-                          />
-                        )}
-                      </Box>
-                      <Box>
-                        <Text
-                          as="label"
-                          htmlFor="visualEditorImageModel"
-                          size="2"
-                          className="font-weight-semibold"
-                        >
-                          Visual Editor image model
-                        </Text>
-                        <SelectField
-                          size="medium"
-                          id="visualEditorImageModel"
-                          disabled={!canEdit}
-                          helpText="Models that support reference images can use an existing image as visual context (the Visual Editor's “use current image” flow). Text-only models generate from the prompt alone."
-                          value={form.watch("visualEditorImageModel") || ""}
-                          onChange={(v) =>
-                            form.setValue("visualEditorImageModel", v)
-                          }
-                          sort={false}
-                          options={getAvailableImageModelOptions(
-                            isCloud() ? availableProviders : undefined,
-                            form.watch("visualEditorImageModel") || "",
-                          )}
-                        />
-                      </Box>
-                    </>
-                  )}
-                </Box>
-              </Flex>
-            </Flex>
-          </Frame>
-          <Frame>
-            <Flex gap="4">
-              <Box width="220px" flexShrink="0">
-                <Heading size="4" as="h4">
-                  Embeddings
-                </Heading>
-              </Box>
-
-              <Flex align="start" direction="column" flexGrow="1" pt="6">
-                <Box mb="6" width="100%">
-                  <p>
-                    GrowthBook can use AI to analyze your experiments for
-                    semantic meaning. This is used to help you find related
-                    experiments, and to generate summaries of your experiments.
-                  </p>
-                  <p>
-                    These similarity scores are automatically updated, but if
-                    the results seem off, you can regenerate them here.
-                  </p>
-                  <Button
-                    onClick={handleRegenerate}
-                    disabled={loading || !hasEmbeddingKey || !canEdit}
-                    variant="solid"
-                  >
-                    {loading ? "Regenerating..." : "Regenerate all"}
-                  </Button>
-                  <EmbeddingKeyWarning
-                    embeddingModel={embeddingModel}
-                    hasKey={hasKeyForProvider}
+            {canChooseModels && (
+              <>
+                <SettingsField
+                  htmlFor="visualEditorAIModel"
+                  label="Visual Editor text model"
+                  help="Used for AI chat edits and AI suggestions in the extension. Leave blank to use the Default AI model."
+                >
+                  <SelectField
+                    size="medium"
+                    id="visualEditorAIModel"
+                    containerClassName="mb-0"
+                    disabled={!canEdit}
+                    value={form.watch("visualEditorAIModel") || ""}
+                    onChange={(v) => form.setValue("visualEditorAIModel", v)}
+                    sort={false}
+                    options={[
+                      USE_DEFAULT_MODEL_OPTION,
+                      ...getAvailableAIModelOptions(
+                        availableProviders,
+                        form.watch("visualEditorAIModel") || "",
+                      ),
+                    ]}
                   />
-                  {error && (
-                    <Box className="col-auto pt-3">
-                      <Callout status="error">{error}</Callout>
-                    </Box>
+                  {form.watch("visualEditorAIModel") && (
+                    <ApiKeyWarning
+                      model={form.watch("visualEditorAIModel")}
+                      hasKey={hasKeyForModel}
+                    />
                   )}
-                  <Box mt="3">{embeddingMsg}</Box>
-                </Box>
-              </Flex>
-            </Flex>
-          </Frame>
+                </SettingsField>
+                <SettingsField
+                  htmlFor="visualEditorImageModel"
+                  label="Visual Editor image model"
+                  help="Models that support reference images can use an existing image as visual context (the Visual Editor's “use current image” flow). Text-only models generate from the prompt alone."
+                >
+                  <SelectField
+                    size="medium"
+                    id="visualEditorImageModel"
+                    containerClassName="mb-0"
+                    disabled={!canEdit}
+                    value={form.watch("visualEditorImageModel") || ""}
+                    onChange={(v) => form.setValue("visualEditorImageModel", v)}
+                    sort={false}
+                    options={getAvailableImageModelOptions(
+                      isCloud() ? availableProviders : undefined,
+                      form.watch("visualEditorImageModel") || "",
+                    )}
+                  />
+                </SettingsField>
+              </>
+            )}
+          </SettingsGroup>
+
+          <SettingsGroup
+            id="ai-embeddings"
+            title="Embeddings"
+            description="Used to find related experiments and summarize them. Similarity scores update automatically."
+            keywords="embeddings related experiments semantic regenerate"
+          >
+            <SettingsField
+              label="Regenerate embeddings"
+              help="Use this if related experiments look wrong."
+            >
+              <Button
+                onClick={handleRegenerate}
+                disabled={loading || !hasEmbeddingKey || !canEdit}
+                variant="solid"
+              >
+                {loading ? "Regenerating..." : "Regenerate all"}
+              </Button>
+              <EmbeddingKeyWarning
+                embeddingModel={embeddingModel}
+                hasKey={hasKeyForProvider}
+              />
+              {error && (
+                <Callout status="error" mt="3">
+                  {error}
+                </Callout>
+              )}
+              {embeddingMsg && <Box mt="3">{embeddingMsg}</Box>}
+            </SettingsField>
+          </SettingsGroup>
         </>
       )}
       {optInModal && (

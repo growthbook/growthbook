@@ -100,6 +100,7 @@ export function SettingsCard({
   const matched = useContext(SectionMatchContext);
   return (
     <div
+      id={id}
       data-settings-card={id}
       data-keywords={keywords}
       hidden={matched !== null && !matched.has(id)}

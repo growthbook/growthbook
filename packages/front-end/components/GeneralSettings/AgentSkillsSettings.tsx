@@ -4,7 +4,6 @@ import type { OrgSkillSummary } from "shared/ai-chat";
 import useApi from "@/hooks/useApi";
 import Checkbox from "@/ui/Checkbox";
 import Badge from "@/ui/Badge";
-import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import { skillDisplayName } from "@/enterprise/components/AIChat/Composer/extensions/skillCommand";
 
@@ -19,13 +18,7 @@ export default function AgentSkillsSettings({ canEdit }: { canEdit: boolean }) {
   const disabled: string[] = form.watch("disabledAgentSkills") ?? [];
 
   return (
-    <Box mb="6" width="100%">
-      <Text as="div" size="lg" weight="semibold">
-        AI Assistant skills
-      </Text>
-      <Text as="div" mb="3">
-        Choose which skills the AI Assistant can use.
-      </Text>
+    <Box width="100%">
       {error ? (
         <Callout status="error">
           Could not load the AI Assistant skills. {error.message}
