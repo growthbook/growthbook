@@ -184,9 +184,22 @@ export default function ImpactPage() {
     [completed, metricGroups, getExperimentMetricById],
   );
 
-  const canContribute = (id: string) => {
+  const metricNote = (id: string): string | null => {
     const m = getExperimentMetricById(id);
-    return !!m && hasScaledImpact(m) && !!metricCounts.get(id);
+    if (!m) return "Metric not found";
+    if (!hasScaledImpact(m)) {
+      return `${isFactMetric(m) && m.metricType === "quantile" ? "Quantile" : "Ratio"} metrics have no scaled impact`;
+    }
+    if (!metricCounts.get(id))
+      return "No completed experiments in this date range";
+    return null;
+  };
+  // Unused Fact Metrics stay selectable: the chart still shows their trend
+  const isSelectable = (id: string) => {
+    const m = getExperimentMetricById(id);
+    return (
+      !!m && hasScaledImpact(m) && (isFactMetric(m) || !!metricCounts.get(id))
+    );
   };
 
   const snapshotIds = [
@@ -365,12 +378,12 @@ export default function ImpactPage() {
                   includeFacts
                   placeholder="Select a metric"
                   containerClassName="mb-0"
-                  // Grayed out: nothing in this range could contribute impact
+                  optionNote={metricNote}
                   isOptionDisabled={(o) =>
-                    isSingleValue(o) && !canContribute(o.value)
+                    isSingleValue(o) && !isSelectable(o.value)
                   }
                   sortMetrics={(a, b) =>
-                    Number(canContribute(b.id)) - Number(canContribute(a.id)) ||
+                    Number(isSelectable(b.id)) - Number(isSelectable(a.id)) ||
                     (metricCounts.get(b.id) ?? 0) -
                       (metricCounts.get(a.id) ?? 0)
                   }
