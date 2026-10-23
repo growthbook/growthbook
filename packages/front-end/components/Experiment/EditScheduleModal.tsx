@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import isEqual from "lodash/isEqual";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
@@ -31,6 +32,10 @@ import Callout from "@/ui/Callout";
 type ScheduledStopMode = "notify" | "auto-ship" | "force-ship" | "stop";
 type ScheduledStopFallback = "notify" | "force-ship";
 type EndMode = "manual" | "on-date" | "after";
+type ScheduleEnd = {
+  mode: EndMode;
+  after: { value: number; unit: "days" | "hours" };
+};
 
 // Fits a date and time with its time zone, so a field keeps its size whether
 // it's empty or set.
@@ -45,6 +50,18 @@ const DEFAULT_END_AFTER_DAYS = 30;
 // (irrelevant fields are normalized to this on save), so switching into
 // auto-ship later starts from the intended default rather than a stale value.
 const DEFAULT_SCHEDULED_STOP_FALLBACK: ScheduledStopFallback = "force-ship";
+
+// Dates as instants, empty fields dropped.
+const comparableSchedule = (schedule: unknown) =>
+  JSON.parse(
+    JSON.stringify(schedule ?? {}, (key, value) =>
+      value === null
+        ? undefined
+        : (key === "startAt" || key === "stopAt") && value
+          ? new Date(value).getTime()
+          : value,
+    ),
+  );
 
 export default function EditScheduleModal({
   experiment,
@@ -99,26 +116,24 @@ export default function EditScheduleModal({
     ? "Shipping the winning variation requires the Decision Framework (available on Pro and Enterprise plans)"
     : "Enable the Decision Framework in your organization settings to ship the winning variation.";
 
-  const form = useForm({
-    defaultValues: {
-      startAt: experiment.statusUpdateSchedule?.startAt ?? "",
-      stopAt: experiment.statusUpdateSchedule?.stopAt ?? "",
-      mode: (experiment.statusUpdateSchedule?.scheduledStopPlan?.mode ??
-        "notify") as ScheduledStopMode,
-      tiebreakerMetricId:
-        experiment.statusUpdateSchedule?.scheduledStopPlan
-          ?.tiebreakerMetricId ?? "",
-      fallback: (experiment.statusUpdateSchedule?.scheduledStopPlan?.fallback ??
-        DEFAULT_SCHEDULED_STOP_FALLBACK) as ScheduledStopFallback,
-      // Default the fallback target to control (the first variation) so the
-      // picker is never blank.
-      fallbackVariationId:
-        experiment.statusUpdateSchedule?.scheduledStopPlan
-          ?.fallbackVariationId ??
-        experiment.variations[0]?.id ??
-        "",
-    },
-  });
+  const defaultValues = {
+    startAt: experiment.statusUpdateSchedule?.startAt ?? "",
+    stopAt: experiment.statusUpdateSchedule?.stopAt ?? "",
+    mode: (experiment.statusUpdateSchedule?.scheduledStopPlan?.mode ??
+      "notify") as ScheduledStopMode,
+    tiebreakerMetricId:
+      experiment.statusUpdateSchedule?.scheduledStopPlan?.tiebreakerMetricId ??
+      "",
+    fallback: (experiment.statusUpdateSchedule?.scheduledStopPlan?.fallback ??
+      DEFAULT_SCHEDULED_STOP_FALLBACK) as ScheduledStopFallback,
+    // Default the fallback target to control (the first variation) so the
+    // picker is never blank.
+    fallbackVariationId:
+      experiment.statusUpdateSchedule?.scheduledStopPlan?.fallbackVariationId ??
+      experiment.variations[0]?.id ??
+      "",
+  };
+  const form = useForm({ defaultValues });
 
   const { apiCall } = useAuth();
 
@@ -243,15 +258,28 @@ export default function EditScheduleModal({
 
   // "after" stores a relative offset (stopAfter) that the back-end resolves to a
   // concrete stopAt when the experiment actually starts.
-  const [endMode, setEndMode] = useState<EndMode>(
-    stopAt ? "on-date" : initialStopAfter ? "after" : "manual",
-  );
+  const initialEnd: ScheduleEnd = {
+    mode: defaultValues.stopAt
+      ? "on-date"
+      : initialStopAfter
+        ? "after"
+        : "manual",
+    after: {
+      value: initialStopAfter?.value ?? DEFAULT_END_AFTER_DAYS,
+      unit: initialStopAfter?.unit ?? "days",
+    },
+  };
+  const [endMode, setEndMode] = useState<EndMode>(initialEnd.mode);
   const [endAfterValue, setEndAfterValue] = useState<number>(
-    initialStopAfter?.value ?? DEFAULT_END_AFTER_DAYS,
+    initialEnd.after.value,
   );
   const [endAfterUnit, setEndAfterUnit] = useState<"days" | "hours">(
-    initialStopAfter?.unit ?? "days",
+    initialEnd.after.unit,
   );
+  const end: ScheduleEnd = {
+    mode: endMode,
+    after: { value: endAfterValue, unit: endAfterUnit },
+  };
   // Shipping automation is tied to a scheduled end — it never runs on a manual
   // stop — so the "when the experiment ends" controls only apply with an end date.
   const hasEndDate = endMode !== "manual";
@@ -281,6 +309,63 @@ export default function EditScheduleModal({
       value: endAfterValue,
       unit: endAfterUnit,
     }) <= now;
+
+  // What a save sends.
+  const buildSchedule = (data: typeof defaultValues, end: ScheduleEnd) => {
+    const stopAt =
+      end.mode === "on-date" ? data.stopAt || undefined : undefined;
+    const stopAfter = end.mode === "after" ? end.after : undefined;
+    // Shipping automation only fires at a scheduled end, so force
+    // "notify" without an end date. Otherwise persist just the fields
+    // relevant to the chosen mode so a stale value can't resurface when
+    // the user later switches modes.
+    const hasEndDate = !!(stopAt || stopAfter);
+    const scheduledStopPlan = hasEndDate
+      ? {
+          mode: data.mode,
+          // Tiebreaker feeds the EDF verdict for every non-notify mode, but
+          // only when the framework is available (the field is disabled and
+          // shows "None" otherwise — don't silently re-persist a stale id).
+          tiebreakerMetricId:
+            decisionFrameworkAvailable &&
+            data.mode !== "notify" &&
+            data.tiebreakerMetricId
+              ? data.tiebreakerMetricId
+              : undefined,
+          // Fallback only applies to auto-ship; otherwise reset to default.
+          fallback:
+            data.mode === "auto-ship"
+              ? data.fallback
+              : DEFAULT_SCHEDULED_STOP_FALLBACK,
+          // A fallback variation is only needed when force-shipping.
+          fallbackVariationId:
+            data.mode === "force-ship" ||
+            (data.mode === "auto-ship" && data.fallback === "force-ship")
+              ? data.fallbackVariationId
+              : undefined,
+        }
+      : {
+          mode: "notify" as const,
+          fallback: DEFAULT_SCHEDULED_STOP_FALLBACK,
+        };
+    // The stop plan only fires at a scheduled end, so it's attached only
+    // when there is one; a start-only schedule carries no (inert) plan.
+    return data.startAt || stopAt || stopAfter
+      ? {
+          startAt: data.startAt || undefined,
+          stopAt,
+          stopAfter,
+          ...(hasEndDate ? { scheduledStopPlan } : {}),
+        }
+      : null;
+  };
+  // Nothing to update until the form would save something other than what it
+  // opened with. Both go through the save's normalization, so an older stored
+  // shape doesn't read as a change.
+  const scheduleChanged = !isEqual(
+    comparableSchedule(buildSchedule(form.watch(), end)),
+    comparableSchedule(buildSchedule(defaultValues, initialEnd)),
+  );
 
   const modeHelpText = () => {
     switch (mode) {
@@ -333,6 +418,7 @@ export default function EditScheduleModal({
         cta={hasSchedule ? "Update" : "Done"}
         ctaColor="violet"
         ctaEnabled={
+          scheduleChanged &&
           !stopBeforeStart &&
           !startDateMissing &&
           !endDateMissing &&
@@ -354,65 +440,15 @@ export default function EditScheduleModal({
                 close();
               }}
             >
-              Unschedule Experiment
+              Unschedule start
             </Button>
           ) : undefined
         }
         submit={form.handleSubmit(async (data) => {
-          const stopAt =
-            endMode === "on-date" ? data.stopAt || undefined : undefined;
-          const stopAfter =
-            endMode === "after"
-              ? { value: endAfterValue, unit: endAfterUnit }
-              : undefined;
-          // Shipping automation only fires at a scheduled end, so force
-          // "notify" without an end date. Otherwise persist just the fields
-          // relevant to the chosen mode so a stale value can't resurface when
-          // the user later switches modes.
-          const hasEndDate = !!(stopAt || stopAfter);
-          const scheduledStopPlan = hasEndDate
-            ? {
-                mode: data.mode,
-                // Tiebreaker feeds the EDF verdict for every non-notify mode, but
-                // only when the framework is available (the field is disabled and
-                // shows "None" otherwise — don't silently re-persist a stale id).
-                tiebreakerMetricId:
-                  decisionFrameworkAvailable &&
-                  data.mode !== "notify" &&
-                  data.tiebreakerMetricId
-                    ? data.tiebreakerMetricId
-                    : undefined,
-                // Fallback only applies to auto-ship; otherwise reset to default.
-                fallback:
-                  data.mode === "auto-ship"
-                    ? data.fallback
-                    : DEFAULT_SCHEDULED_STOP_FALLBACK,
-                // A fallback variation is only needed when force-shipping.
-                fallbackVariationId:
-                  data.mode === "force-ship" ||
-                  (data.mode === "auto-ship" && data.fallback === "force-ship")
-                    ? data.fallbackVariationId
-                    : undefined,
-              }
-            : {
-                mode: "notify" as const,
-                fallback: DEFAULT_SCHEDULED_STOP_FALLBACK,
-              };
-          // The stop plan only fires at a scheduled end, so it's attached only
-          // when there is one; a start-only schedule carries no (inert) plan.
-          const schedule =
-            data.startAt || stopAt || stopAfter
-              ? {
-                  startAt: data.startAt || undefined,
-                  stopAt,
-                  stopAfter,
-                  ...(hasEndDate ? { scheduledStopPlan } : {}),
-                }
-              : null;
           await apiCall(`/experiment/${experiment.id}`, {
             method: "POST",
             body: JSON.stringify({
-              statusUpdateSchedule: schedule,
+              statusUpdateSchedule: buildSchedule(data, end),
             }),
           });
           mutate();
@@ -543,8 +579,8 @@ export default function EditScheduleModal({
 
           {isApproved && experiment.status === "draft" && (
             <Helpertext status="info">
-              Changing the schedule clears this start&apos;s approval, and it
-              will need approving again.
+              Changing the schedule cancels the scheduled start until it&apos;s
+              approved again.
             </Helpertext>
           )}
           {scheduleIsInThePast && experiment.status === "draft" && (
