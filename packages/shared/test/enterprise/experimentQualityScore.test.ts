@@ -146,7 +146,9 @@ describe("resolveExperimentQualityScoreSettings", () => {
     ] as const) {
       expect(resolved.checks[key].split).toBeCloseTo(1 / 4, 9);
     }
-    expect(resolved.checks.decision.split).toBeCloseTo(1, 9);
+    for (const key of ["decision", "analysis-written"] as const) {
+      expect(resolved.checks[key].split).toBeCloseTo(1 / 2, 9);
+    }
   });
 
   it("redistributes the AI share when aiChecksEnabled is false", () => {
@@ -468,10 +470,10 @@ describe("getExperimentQualityScore", () => {
       releasedVariationId: "",
     });
     const result = score(experiment);
-    // Enabled by default: 5 documentation (screenshots off) + 6 process
-    // (planned-end off) + 2 ai = 13
-    expect(result.totalEnabledCheckCount).toBe(13);
-    // N/A while running: decision and the 6 process checks
+    // Enabled by default: 4 setup + 6 process (planned-end off) + 2
+    // documentation + 2 ai = 14
+    expect(result.totalEnabledCheckCount).toBe(14);
+    // N/A while running: decision, analysis and the 6 process checks
     expect(result.appliedCheckCount).toBe(6);
   });
 
@@ -514,14 +516,9 @@ describe("getExperimentQualityScore", () => {
     });
   });
 
-  it("checks the analysis write-up once stopped, when turned on", () => {
-    const settings = resolveExperimentQualityScoreSettings({
-      checks: { "analysis-written": { enabled: true } },
-    });
-    expect(
-      resolveExperimentQualityScoreSettings().checks["analysis-written"]
-        .enabled,
-    ).toBe(false);
+  it("checks the analysis write-up once stopped", () => {
+    const settings = resolveExperimentQualityScoreSettings();
+    expect(settings.checks["analysis-written"].enabled).toBe(true);
     expect(
       checkByKey(score(baseExperiment(), settings), "analysis-written")?.score,
     ).toBe(1);

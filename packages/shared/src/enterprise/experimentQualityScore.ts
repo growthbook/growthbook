@@ -152,7 +152,7 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     type: "deterministic",
     label: "Analysis written",
     note: "stopped experiments only",
-    defaultEnabled: false,
+    defaultEnabled: true,
   },
   "goal-metrics-locked": {
     section: "process",
