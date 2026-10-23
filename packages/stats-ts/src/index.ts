@@ -14,3 +14,4 @@ export * from "./statistics";
 export * from "./utils";
 export * from "./settings";
 export * from "./results";
+export * from "./interleaving";

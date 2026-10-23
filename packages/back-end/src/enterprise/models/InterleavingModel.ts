@@ -4,10 +4,14 @@ import {
   apiCreateInterleavingBody,
   apiUpdateInterleavingBody,
   ApiInterleavingInterface,
+  getInterleavingResultsEndpoint,
+  getInterleavingSnapshotEndpoint,
   INTERLEAVING_API_UPDATE_FIELDS,
   InterleavingInterface,
   interleavingApiSpec,
   interleavingValidator,
+  listInterleavingSnapshotsEndpoint,
+  refreshInterleavingEndpoint,
   startInterleavingEndpoint,
   stopInterleavingEndpoint,
 } from "shared/validators";
@@ -19,7 +23,6 @@ import {
   parseInterleavingRankerConfig,
 } from "shared/util";
 import { interleavingEnvsForChange } from "shared/permissions";
-import { isFactMetricId } from "shared/experiments";
 import { UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
@@ -44,7 +47,12 @@ import {
   startInterleaving,
   stopInterleaving,
 } from "back-end/src/enterprise/services/interleavingChanges";
-import { toApiInterleaving } from "back-end/src/enterprise/services/interleavingApi";
+import {
+  toApiInterleaving,
+  toApiInterleavingSnapshot,
+} from "back-end/src/enterprise/services/interleavingApi";
+import { runInterleavingSnapshot } from "back-end/src/enterprise/services/interleavingAnalysis";
+import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { PAYLOAD_AFFECTING_INTERLEAVING_FIELDS } from "back-end/src/services/experimentPayloadFields";
 
@@ -146,6 +154,69 @@ const BaseClass = MakeModelClass({
               req.context,
             ),
           };
+        },
+      }),
+      defineCustomApiHandler({
+        ...refreshInterleavingEndpoint,
+        // Existence, plan, and query permissions are checked by the service
+        reqHandler: async (req) => ({
+          snapshot: toApiInterleavingSnapshot(
+            await runInterleavingSnapshot(req.context, req.params.id),
+          ),
+        }),
+      }),
+      defineCustomApiHandler({
+        ...getInterleavingResultsEndpoint,
+        reqHandler: async (req) => {
+          const interleaving = await req.context.models.interleavings.getById(
+            req.params.id,
+          );
+          if (!interleaving) {
+            return req.context.throwNotFoundError(
+              `Interleaving experiment ${req.params.id} not found or not accessible`,
+            );
+          }
+          const snapshot =
+            await req.context.models.interleavingSnapshots.getLatestForInterleaving(
+              interleaving.id,
+            );
+          return {
+            snapshot: snapshot ? toApiInterleavingSnapshot(snapshot) : null,
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...listInterleavingSnapshotsEndpoint,
+        reqHandler: async (req) => {
+          const interleaving = await req.context.models.interleavings.getById(
+            req.params.id,
+          );
+          if (!interleaving) {
+            return req.context.throwNotFoundError(
+              `Interleaving experiment ${req.params.id} not found or not accessible`,
+            );
+          }
+          const snapshots =
+            await req.context.models.interleavingSnapshots.listForInterleaving(
+              interleaving.id,
+              req.query.limit,
+            );
+          return { snapshots: snapshots.map(toApiInterleavingSnapshot) };
+        },
+      }),
+      defineCustomApiHandler({
+        ...getInterleavingSnapshotEndpoint,
+        reqHandler: async (req) => {
+          const snapshot =
+            await req.context.models.interleavingSnapshots.getById(
+              req.params.snapshotId,
+            );
+          if (!snapshot || snapshot.interleavingId !== req.params.id) {
+            return req.context.throwNotFoundError(
+              `Snapshot ${req.params.snapshotId} not found on interleaving experiment ${req.params.id}`,
+            );
+          }
+          return { snapshot: toApiInterleavingSnapshot(snapshot) };
         },
       }),
     ],
@@ -349,39 +420,19 @@ export class InterleavingModel extends BaseClass {
       }
     }
 
-    // Only re-validate metrics when they (or the datasource) change, so an
-    // experiment whose metric was deleted later can still be edited.
+    // Only re-validate metrics when they (or what they're read with) change,
+    // so an experiment whose metric was deleted later can still be edited.
     if (
       !previousDoc ||
       !isEqual(doc.metrics, previousDoc.metrics) ||
-      doc.datasource !== previousDoc.datasource
+      doc.datasource !== previousDoc.datasource ||
+      doc.userIdType !== previousDoc.userIdType
     ) {
-      const ids = doc.metrics.map((m) => m.id);
-      if (new Set(ids).size !== ids.length) {
-        throw new Error("Each metric can only be added once.");
-      }
-      for (const { id } of doc.metrics) {
-        if (!isFactMetricId(id)) {
-          throw new Error(`Interleaving metrics must be fact metrics: ${id}`);
-        }
-        const metric = await this.context.models.factMetrics.getById(id);
-        if (!metric) {
-          throw new Error(`Interleaving metric not found: ${id}`);
-        }
-        if (metric.datasource !== doc.datasource) {
-          throw new Error(
-            `Interleaving metric ${id} must belong to datasource ${doc.datasource}`,
-          );
-        }
-        if (
-          metric.metricType !== "mean" &&
-          metric.metricType !== "proportion"
-        ) {
-          throw new Error(
-            `Interleaving metrics must be mean or proportion metrics: ${id} is a ${metric.metricType} metric`,
-          );
-        }
-      }
+      await resolveInterleavingMetrics(this.context, {
+        datasourceId: doc.datasource,
+        userIdType: doc.userIdType,
+        metrics: doc.metrics,
+      });
     }
 
     if (
@@ -531,9 +582,14 @@ export class InterleavingModel extends BaseClass {
     });
   }
 
-  public getByInterleavingQueryId(
-    interleavingQueryId: string,
+  public getByInterleavingExposureQueryId(
+    interleavingExposureQueryId: string,
   ): Promise<InterleavingInterface[]> {
-    return this._find({ interleavingQueryId });
+    return this._find({ interleavingExposureQueryId });
+  }
+
+  /** Looks up an interleaving by its code-facing key (what `interleave()` receives). */
+  public getByKey(key: string): Promise<InterleavingInterface | null> {
+    return this._findOne({ key });
   }
 }

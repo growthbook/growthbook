@@ -52,7 +52,7 @@ const baseDoc = {
   ],
   jsonSchema: null,
   datasource: "ds_1",
-  interleavingQueryId: "ilq_1",
+  interleavingExposureQueryId: "ileq_1",
   userIdType: "user_id",
   metrics: [{ id: "fact__clicks", analyses: [{ type: "paired" }] }],
   environmentSettings: { production: { enabled: true } },
@@ -88,6 +88,82 @@ describe("interleavingValidator", () => {
         measurementArmPercent: 0.1,
       }).success,
     ).toBe(false);
+  });
+
+  it("rejects the same metric added twice", () => {
+    const metric = { id: "fact__clicks", analyses: [{ type: "paired" }] };
+    expect(
+      interleavingValidator.safeParse({ ...baseDoc, metrics: [metric, metric] })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe("interleaving key", () => {
+  it.each(["featured-products-ranker", "search_v2", "a.b:c|d"])(
+    "accepts %j",
+    (key) => {
+      expect(interleavingValidator.safeParse({ ...baseDoc, key }).success).toBe(
+        true,
+      );
+    },
+  );
+
+  it.each(["", "has space", "slash/key", "emoji🙂"])("rejects %j", (key) => {
+    expect(interleavingValidator.safeParse({ ...baseDoc, key }).success).toBe(
+      false,
+    );
+  });
+
+  it("is required", () => {
+    const { key: _key, ...rest } = baseDoc;
+    expect(interleavingValidator.safeParse(rest).success).toBe(false);
+  });
+});
+
+describe("getInterleavingFeatureDefId", () => {
+  it("prefixes the key", () => {
+    expect(getInterleavingFeatureDefId("search")).toBe("$interleave:search");
+  });
+
+  it("cannot collide with a real feature key", () => {
+    // `$` is outside FEATURE_KEY_REGEX, so no customer feature can claim it.
+    expect(
+      interleavingValidator.safeParse({ ...baseDoc, key: "$interleave:x" })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe("interleaving lifecycle predicates", () => {
+  const cases: [string, boolean, boolean, boolean][] = [
+    // status, archived, inSDKPayload, targetingServes
+    ["draft", false, false, true],
+    ["running", false, true, true],
+    ["stopped", false, false, false],
+    ["draft", true, false, false],
+    ["running", true, false, false],
+    ["stopped", true, false, false],
+  ];
+
+  it.each(cases)(
+    "%s (archived: %s) -> payload %s, targeting %s",
+    (status, archived, inPayload, targeting) => {
+      expect(interleavingInSDKPayload({ status, archived })).toBe(inPayload);
+      expect(interleavingTargetingServes({ status, archived })).toBe(targeting);
+    },
+  );
+
+  it("keeps a draft out of the payload but still holding its references", () => {
+    const draft = { status: "draft", archived: false };
+    expect(interleavingInSDKPayload(draft)).toBe(false);
+    expect(interleavingTargetingServes(draft)).toBe(true);
+  });
+
+  it("drops a stopped interleaving from the payload entirely", () => {
+    const stopped = { status: "stopped", archived: false };
+    expect(interleavingInSDKPayload(stopped)).toBe(false);
+    expect(interleavingTargetingServes(stopped)).toBe(false);
   });
 });
 
@@ -167,22 +243,14 @@ describe("interleavingMetricConfigValidator", () => {
   it.each([
     ["paired only", [{ type: "paired" }]],
     [
-      "one ownership only",
-      [{ type: "ownership", attribution: "exposureCount" }],
-    ],
-    [
-      "both ownership attributions",
-      [
-        { type: "ownership", attribution: "exposureCount" },
-        { type: "ownership", attribution: "engagementSignal" },
-      ],
+      "one preference only",
+      [{ type: "preference", attribution: "exposureCount" }],
     ],
     [
       "every analysis at once",
       [
         { type: "paired" },
-        { type: "ownership", attribution: "exposureCount" },
-        { type: "ownership", attribution: "engagementSignal" },
+        { type: "preference", attribution: "exposureCount" },
       ],
     ],
   ])("accepts %s", (_label, analyses) => {
@@ -197,27 +265,28 @@ describe("interleavingMetricConfigValidator", () => {
     expect(parse([{ type: "paired" }, { type: "paired" }])).toBe(false);
   });
 
-  it("rejects a duplicate ownership attribution", () => {
+  it("rejects a duplicate preference attribution", () => {
     expect(
       parse([
-        { type: "ownership", attribution: "exposureCount" },
-        { type: "ownership", attribution: "exposureCount" },
+        { type: "preference", attribution: "exposureCount" },
+        { type: "preference", attribution: "exposureCount" },
       ]),
     ).toBe(false);
   });
 
-  it("rejects an unknown ownership attribution", () => {
-    expect(parse([{ type: "ownership", attribution: "lastClick" }])).toBe(
-      false,
-    );
-  });
+  it.each(["lastClick", "engagementSignal"])(
+    "rejects the unsupported preference attribution %j",
+    (attribution) => {
+      expect(parse([{ type: "preference", attribution }])).toBe(false);
+    },
+  );
 
   it("rejects an unknown analysis type", () => {
     expect(parse([{ type: "sequential" }])).toBe(false);
   });
 
-  it("rejects an ownership analysis with no attribution", () => {
-    expect(parse([{ type: "ownership" }])).toBe(false);
+  it("rejects an preference analysis with no attribution", () => {
+    expect(parse([{ type: "preference" }])).toBe(false);
   });
 });
 

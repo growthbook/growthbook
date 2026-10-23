@@ -93,6 +93,8 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
 import { ContextualBanditSnapshotModel } from "back-end/src/enterprise/models/ContextualBanditSnapshotModel";
+import { InterleavingExposureQueryModel } from "back-end/src/enterprise/models/InterleavingExposureQueryModel";
+import { InterleavingSnapshotModel } from "back-end/src/enterprise/models/InterleavingSnapshotModel";
 import { InterleavingModel } from "back-end/src/enterprise/models/InterleavingModel";
 import { ContextualBanditEventModel } from "back-end/src/enterprise/models/ContextualBanditEventModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
@@ -182,6 +184,8 @@ export type ModelName =
   | "contextualBandits"
   | "contextualBanditQueries"
   | "contextualBanditSnapshots"
+  | "interleavingExposureQueries"
+  | "interleavingSnapshots"
   | "interleavings"
   | "contextualBanditEvents"
   | "sessionReplays"
@@ -248,6 +252,8 @@ export const modelClasses = {
   contextualBandits: ContextualBanditModel,
   contextualBanditQueries: ContextualBanditQueryModel,
   contextualBanditSnapshots: ContextualBanditSnapshotModel,
+  interleavingExposureQueries: InterleavingExposureQueryModel,
+  interleavingSnapshots: InterleavingSnapshotModel,
   interleavings: InterleavingModel,
   contextualBanditEvents: ContextualBanditEventModel,
   sessionReplays: SessionReplayModel,
@@ -437,6 +443,8 @@ export class ReqContextClass {
       contextualBandits: new ContextualBanditModel(this),
       contextualBanditQueries: new ContextualBanditQueryModel(this),
       contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
+      interleavingExposureQueries: new InterleavingExposureQueryModel(this),
+      interleavingSnapshots: new InterleavingSnapshotModel(this),
       interleavings: new InterleavingModel(this),
       contextualBanditEvents: new ContextualBanditEventModel(this),
       sessionReplays: new SessionReplayModel(this),

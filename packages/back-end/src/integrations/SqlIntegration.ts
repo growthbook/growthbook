@@ -49,6 +49,8 @@ import {
   ExperimentAggregateUnitsQueryParams,
   ContextualBanditSrmQueryParams,
   ContextualBanditSrmQueryResponse,
+  InterleavingMetricQueryParams,
+  InterleavingMetricQueryResponse,
   ExperimentDimension,
   ExternalIdCallback,
   DimensionSlicesQueryResponse,
@@ -168,6 +170,7 @@ import { getDropUnitsTableQuery } from "back-end/src/integrations/sql/queries/dr
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { getExperimentAggregateUnitsQuery as getExperimentAggregateUnitsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-aggregate-units-query";
 import { getContextualBanditSrmQuery as getContextualBanditSrmQueryFromSql } from "back-end/src/integrations/sql/queries/contextual-bandit-srm-query";
+import { getInterleavingMetricQuery as getInterleavingMetricQueryFromSql } from "back-end/src/integrations/sql/queries/interleaving-metric-query";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentFactMetricsQuery as getExperimentFactMetricsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
@@ -295,6 +298,16 @@ function getFunnelPassthroughColumns({
 }
 
 const MAX_LOG_ERROR_LENGTH = 100;
+
+// Parse a single numeric column from a raw query row, omitting absent ones
+function parseFloatField(
+  row: Record<string, unknown>,
+  field: string,
+): Record<string, number> {
+  return row[field] !== undefined
+    ? { [field]: parseFloat(row[field] as string) || 0 }
+    : {};
+}
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface, PipelineIntegration
@@ -709,16 +722,6 @@ export default abstract class SqlIntegration
       queryMetadata,
     );
 
-    // Helper function to parse a single float field
-    const parseFloatField = (
-      row: Record<string, unknown>,
-      field: string,
-    ): Record<string, number> => {
-      return row[field] !== undefined
-        ? { [field]: parseFloat(row[field] as string) || 0 }
-        : {};
-    };
-
     // Helper function to parse non-float fields (cap values)
     const parseNonFloatField = (
       row: Record<string, unknown>,
@@ -827,6 +830,27 @@ export default abstract class SqlIntegration
         };
       }),
       statistics: statistics,
+    };
+  }
+
+  async runInterleavingMetricQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata: RunQueryMetadata,
+  ): Promise<InterleavingMetricQueryResponse> {
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
+    return {
+      rows: rows.map((row) =>
+        Object.keys(row).reduce<Record<string, number>>(
+          (out, field) => Object.assign(out, parseFloatField(row, field)),
+          {},
+        ),
+      ),
+      statistics,
     };
   }
 
@@ -1108,6 +1132,10 @@ export default abstract class SqlIntegration
 
   getContextualBanditSrmQuery(params: ContextualBanditSrmQueryParams): string {
     return getContextualBanditSrmQueryFromSql(this.getSqlDialect(), params);
+  }
+
+  getInterleavingMetricQuery(params: InterleavingMetricQueryParams): string {
+    return getInterleavingMetricQueryFromSql(this.getSqlDialect(), params);
   }
 
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string {

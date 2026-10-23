@@ -9,21 +9,20 @@ import { featurePrerequisite, savedGroupTargeting } from "./shared";
 export const interleavingStatus = ["draft", "running", "stopped"] as const;
 export type InterleavingStatus = (typeof interleavingStatus)[number];
 
-// How ownership analysis decides which ranker owns a conversion. Paired
+// How preference analysis decides which ranker gets credit for a conversion. Paired
 // analysis needs no equivalent — it counts engagement per competitive exposure.
-export const interleavingOwnershipAttribution = [
-  "exposureCount",
-  "engagementSignal",
-] as const;
-export type InterleavingOwnershipAttribution =
-  (typeof interleavingOwnershipAttribution)[number];
+// Only exposure-count attribution for now; engagement-signal attribution
+// (credit decided by a separate signal metric's events) comes later.
+export const interleavingPreferenceAttribution = ["exposureCount"] as const;
+export type InterleavingPreferenceAttribution =
+  (typeof interleavingPreferenceAttribution)[number];
 
 export const interleavingAnalysisValidator = z.discriminatedUnion("type", [
   z.object({ type: z.literal("paired") }).strict(),
   z
     .object({
-      type: z.literal("ownership"),
-      attribution: z.enum(interleavingOwnershipAttribution),
+      type: z.literal("preference"),
+      attribution: z.enum(interleavingPreferenceAttribution),
     })
     .strict(),
 ]);
@@ -31,10 +30,9 @@ export type InterleavingAnalysis = z.infer<
   typeof interleavingAnalysisValidator
 >;
 
-// Identity of an analysis within a metric. Results are keyed by (metric id,
-// analysis key), so this has to stay stable.
+// Identity of an analysis within a metric; used to reject duplicates.
 export function interleavingAnalysisKey(a: InterleavingAnalysis): string {
-  return a.type === "ownership" ? `ownership:${a.attribution}` : a.type;
+  return a.type === "preference" ? `preference:${a.attribution}` : a.type;
 }
 
 export const interleavingMetricConfigValidator = z
@@ -68,6 +66,8 @@ export type InterleavingVariation = z.infer<
   typeof interleavingVariationValidator
 >;
 
+// Interleaving environments only carry an on/off switch — the targeting knobs on
+// featureEnvironment (rules, default value) have no meaning for a ranker.
 const interleavingEnvironment = z.object({ enabled: z.boolean() }).strict();
 
 const interleavingKeyField = z
@@ -113,9 +113,13 @@ export const interleavingValidator = baseSchema
 
     // Analysis inputs.
     datasource: z.string(),
-    interleavingQueryId: z.string(),
+    interleavingExposureQueryId: z.string(),
     userIdType: z.string(),
-    metrics: z.array(interleavingMetricConfigValidator),
+    metrics: z
+      .array(interleavingMetricConfigValidator)
+      .refine((ms) => new Set(ms.map((m) => m.id)).size === ms.length, {
+        message: "Each metric can only be added once.",
+      }),
 
     // Targeting, validated and served like a feature rule's (CB pattern).
     coverage: z.number().min(0).max(1).optional(),
@@ -185,7 +189,7 @@ export const apiInterleavingValidator = namedSchema(
       .nullable(),
 
     datasource: z.string(),
-    interleavingQueryId: z.string(),
+    interleavingExposureQueryId: z.string(),
     userIdType: z.string(),
     metrics: z.array(interleavingMetricConfigValidator),
 
@@ -229,7 +233,7 @@ export const apiCreateInterleavingBody = z.strictObject({
   jsonSchema: apiJSONSchemaDefInput.optional(),
 
   datasource: z.string(),
-  interleavingQueryId: z.string(),
+  interleavingExposureQueryId: z.string(),
   userIdType: z.string(),
   metrics: z.array(interleavingMetricConfigValidator).optional(),
 
@@ -266,7 +270,7 @@ export const apiUpdateInterleavingBody = z.strictObject({
   jsonSchema: apiJSONSchemaDefInput.nullable().optional(),
 
   datasource: z.string().optional(),
-  interleavingQueryId: z.string().optional(),
+  interleavingExposureQueryId: z.string().optional(),
   userIdType: z.string().optional(),
   metrics: z.array(interleavingMetricConfigValidator).optional(),
 
@@ -292,7 +296,7 @@ export const INTERLEAVING_API_UPDATE_FIELDS = [
   "hashAttribute",
   "seed",
   "datasource",
-  "interleavingQueryId",
+  "interleavingExposureQueryId",
   "userIdType",
   "metrics",
   "coverage",

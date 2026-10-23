@@ -46,7 +46,7 @@ function interleaving(
     ],
     jsonSchema: null,
     datasource: "ds_1",
-    interleavingQueryId: "q_1",
+    interleavingExposureQueryId: "q_1",
     userIdType: "user_id",
     metrics: [],
     environmentSettings: { production: { enabled: true } },
