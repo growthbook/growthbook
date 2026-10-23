@@ -991,9 +991,10 @@ function getRollupCountExpr(metric: MinimalMetric, alias: string): string {
 // Generate metric value expression from metric with metadata
 function getMetricData(
   metricWithMetadata: MetricWithMetadata,
-  factTable: MinimalFactTable,
+  factTableGroup: FactTableGroup,
   helpers: SqlDialect,
 ): MetricData {
+  const { factTable, units } = factTableGroup;
   const {
     index: metricIndex,
     metric,
@@ -1091,6 +1092,22 @@ function getMetricData(
         unitAggregationExpr: `CASE WHEN COUNT(${populationAlias}_rows) > 0 THEN ${getUnitAggregationExpr(populationColumn, populationAlias, helpers)} ELSE NULL END`,
       }
     : undefined;
+  let rollupAggregationExpr = getRollupAggregationExpr(
+    metric,
+    columnRef,
+    alias,
+    helpers,
+    !!selectedUnit,
+  );
+  if (populationData) {
+    const unitIndex = selectedUnit ? units.indexOf(selectedUnit) : -1;
+    if (unitIndex === -1) {
+      throw new Error(`Unit ${selectedUnit} not found in fact table group`);
+    }
+    const eligible = `${populationData.alias} = 1 AND unit${unitIndex} IS NOT NULL`;
+    rollupAggregationExpr = `SUM(CASE WHEN ${eligible} AND ${alias} = 1 THEN 1 ELSE 0 END)`;
+    rollupCountExpr = `SUM(CASE WHEN ${eligible} THEN 1 ELSE 0 END)`;
+  }
   const cappingSettings = getCappingSettings(metric);
   const rawPercentileValueExpr = getEventValueExpr(
     columnRef,
@@ -1128,13 +1145,7 @@ function getMetricData(
         ? `CASE WHEN COUNT(${alias}_rows) > 0 THEN ${getUnitAggregationExpr(columnRef, alias, helpers)} ELSE NULL END`
         : getUnitAggregationExpr(columnRef, alias, helpers)
       : null,
-    rollupAggregationExpr: getRollupAggregationExpr(
-      metric,
-      columnRef,
-      alias,
-      helpers,
-      !!selectedUnit,
-    ),
+    rollupAggregationExpr,
     rollupCountExpr,
   };
 }
@@ -1237,7 +1248,7 @@ function generatePercentileCapsCTE(
     const cappingSettings = getCappingSettings(m.metric);
     if (!cappingSettings) return;
 
-    const metricData = getMetricData(m, factTableGroup.factTable, helpers);
+    const metricData = getMetricData(m, factTableGroup, helpers);
     const tails = getCappingTailState(cappingSettings);
 
     if (tails.upperPercentileCapped) {
@@ -1353,7 +1364,7 @@ function generateFactTableRowsCTE(
 
   // Select all metric event values
   factTableGroup.metrics.forEach((m) => {
-    const metricData = getMetricData(m, factTableGroup.factTable, helpers);
+    const metricData = getMetricData(m, factTableGroup, helpers);
     selectCols.push(`${metricData.eventValueExpr} AS ${metricData.alias}`);
     if (factTableGroup.metrics.some((m) => m.population)) {
       selectCols.push(`${metricData.presenceExpr} AS ${metricData.alias}_rows`);
@@ -1451,13 +1462,7 @@ function generateUnitAggregationRollupCTE(
       ? alias
       : `${alias}_numerator`;
 
-    if (metricData?.population) {
-      const eligible = `${metricData.population.alias} = 1 AND unit${unitIndex} IS NOT NULL`;
-      selects.push(
-        `${dialect.castToFloat(`SUM(CASE WHEN ${eligible} AND ${alias} = 1 THEN 1 ELSE 0 END)`)} AS ${valueAlias}`,
-        `${dialect.castToFloat(`SUM(CASE WHEN ${eligible} THEN 1 ELSE 0 END)`)} AS ${alias}_denominator`,
-      );
-    } else if (metricData && metricData.rollupAggregationExpr) {
+    if (metricData && metricData.rollupAggregationExpr) {
       selects.push(
         `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${valueAlias}`,
       );
@@ -2091,7 +2096,7 @@ export function generateProductAnalyticsSQL(
   const orderedMetricIds: string[] = [];
   factTableGroups.forEach((f) => {
     f.metrics.forEach((m) => {
-      const data = getMetricData(m, f.factTable, dialect);
+      const data = getMetricData(m, f, dialect);
       allMetrics.push(data);
       // For ratio metrics, we only need to add the numerator since it's the same metric id
       if (!m.useDenominator) orderedMetricIds[m.index] = m.metric.id;
@@ -2205,7 +2210,7 @@ export function generateProductAnalyticsSQL(
     const unitMetrics: Record<string, MetricData[]> = {};
     const eventMetrics: MetricData[] = [];
     factTableGroup.metrics.forEach((m) => {
-      const metricData = getMetricData(m, factTableGroup.factTable, dialect);
+      const metricData = getMetricData(m, factTableGroup, dialect);
       if (metricData.unit) {
         if (!unitMetrics[metricData.unit]) {
           unitMetrics[metricData.unit] = [];
