@@ -133,11 +133,10 @@ function StartContent({
   const end = scheduledEnd(experiment.statusUpdateSchedule);
   const [error, setError] = useState<string | null>(null);
 
-  const startApproved = experiment.nextScheduledStatusUpdate?.type === "start";
   const dateLabel = gate.scheduledStartAt
     ? scheduledTime(gate.scheduledStartAt)
     : null;
-  const pastSchedule = !startApproved && gate.schedule === "past" && dateLabel;
+  const pastSchedule = gate.schedule === "past" && dateLabel;
   const { checklistItemsRemaining, checklistReady, loadError, summary } =
     usePreLaunchChecklist();
   // Hidden once nothing is left to do or look at.
@@ -193,7 +192,7 @@ function StartContent({
         <SummaryRow
           label="Start"
           action={
-            editSchedule && !startApproved ? (
+            editSchedule ? (
               <Link
                 size="sm"
                 onClick={editSchedule}
@@ -265,50 +264,43 @@ function StartContent({
         </>
       ) : null}
 
-      {startApproved ? (
-        <Text size="sm" color="text-low">
-          Approved to start on the scheduled date. Edit the schedule to start
-          sooner.
-        </Text>
-      ) : (
-        <Flex direction="column" gap="3">
-          {bypassLabel ? (
-            <Checkbox
-              size="sm"
-              labelSize="sm"
-              label={
-                waivesApproval ? (
-                  <span style={{ color: "var(--red-11)" }}>{bypassLabel}</span>
-                ) : (
-                  bypassLabel
-                )
-              }
-              weight="regular"
-              value={gate.bypassed}
-              setValue={(val) => gate.setBypassed(!!val)}
-            />
-          ) : null}
-          {error ? (
-            <Callout status="error" size="sm">
-              {error}
-            </Callout>
-          ) : null}
-          <Flex justify="end" align="center" gap="3">
-            <Tooltip content={blockedReason} enabled={!!blockedReason}>
-              <Button
-                onClick={async () => {
-                  await gate.runPrimary();
-                  close();
-                }}
-                setError={setError}
-                disabled={gate.actions.disabled || !!blockedReason}
-              >
-                {gate.actions.label}
-              </Button>
-            </Tooltip>
-          </Flex>
+      <Flex direction="column" gap="3">
+        {bypassLabel ? (
+          <Checkbox
+            size="sm"
+            labelSize="sm"
+            label={
+              waivesApproval ? (
+                <span style={{ color: "var(--red-11)" }}>{bypassLabel}</span>
+              ) : (
+                bypassLabel
+              )
+            }
+            weight="regular"
+            value={gate.bypassed}
+            setValue={(val) => gate.setBypassed(!!val)}
+          />
+        ) : null}
+        {error ? (
+          <Callout status="error" size="sm">
+            {error}
+          </Callout>
+        ) : null}
+        <Flex justify="end" align="center" gap="3">
+          <Tooltip content={blockedReason} enabled={!!blockedReason}>
+            <Button
+              onClick={async () => {
+                await gate.runPrimary();
+                close();
+              }}
+              setError={setError}
+              disabled={gate.actions.disabled || !!blockedReason}
+            >
+              {gate.actions.label}
+            </Button>
+          </Tooltip>
         </Flex>
-      )}
+      </Flex>
     </Flex>
   );
 }

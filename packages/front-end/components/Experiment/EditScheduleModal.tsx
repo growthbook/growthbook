@@ -541,6 +541,12 @@ export default function EditScheduleModal({
             </ScheduleRow>
           </Flex>
 
+          {isApproved && experiment.status === "draft" && (
+            <Helpertext status="info">
+              Changing the schedule clears this start&apos;s approval, and it
+              will need approving again.
+            </Helpertext>
+          )}
           {scheduleIsInThePast && experiment.status === "draft" && (
             <Helpertext status="warning">Scheduled start has passed</Helpertext>
           )}
