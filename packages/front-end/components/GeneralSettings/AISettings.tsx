@@ -476,28 +476,28 @@ export default function AISettings({
               </Callout>
             )}
             {aiOn && (
-              <Checkbox
-                id="toggle-aiAskDataEnabled"
-                align="start"
-                weight="medium"
-                label="Ask your data"
-                description="Ask questions about data in plain language. Schema, queries, and results are sent to the AI provider."
-                value={form.watch("aiAskDataEnabled") ?? false}
-                setValue={(v) => form.setValue("aiAskDataEnabled", v)}
-                disabled={!canEdit}
-              />
-            )}
-            {aiOn && (
-              <Checkbox
-                id="toggle-aiAutocompleteEnabled"
-                align="start"
-                weight="medium"
-                label="AI Assistant autocomplete"
-                description="Suggest how to finish a message as users type in the AI Assistant. Each pause in typing is an AI call, so this adds to usage even when suggestions aren't accepted."
-                value={form.watch("aiAutocompleteEnabled") ?? true}
-                setValue={(v) => form.setValue("aiAutocompleteEnabled", v)}
-                disabled={!canEdit}
-              />
+              <Flex direction="column" gap="4" pl="5">
+                <Checkbox
+                  id="toggle-aiAskDataEnabled"
+                  align="start"
+                  weight="medium"
+                  label="Ask your data"
+                  description="Ask questions about data in plain language. Schema, queries, and results are sent to the AI provider."
+                  value={form.watch("aiAskDataEnabled") ?? false}
+                  setValue={(v) => form.setValue("aiAskDataEnabled", v)}
+                  disabled={!canEdit}
+                />
+                <Checkbox
+                  id="toggle-aiAutocompleteEnabled"
+                  align="start"
+                  weight="medium"
+                  label="AI Assistant autocomplete"
+                  description="Suggest how to finish a message as users type in the AI Assistant. Each pause in typing is an AI call, so this adds to usage even when suggestions aren't accepted."
+                  value={form.watch("aiAutocompleteEnabled") ?? true}
+                  setValue={(v) => form.setValue("aiAutocompleteEnabled", v)}
+                  disabled={!canEdit}
+                />
+              </Flex>
             )}
           </>
         )}

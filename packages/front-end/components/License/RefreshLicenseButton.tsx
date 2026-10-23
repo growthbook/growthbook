@@ -29,6 +29,7 @@ const RefreshLicenseButton: FC<{ setError?: (e: string) => void }> = ({
     <>
       <Button
         variant="outline"
+        size="sm"
         icon={<PiArrowClockwise />}
         onClick={refresh}
         setError={setError}

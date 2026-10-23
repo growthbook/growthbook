@@ -1,5 +1,6 @@
 import { FC, useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import { Box, Separator } from "@radix-ui/themes";
 import InviteList from "@/components/Settings/Team/InviteList";
 import MemberList from "@/components/Settings/Team/MemberList";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
@@ -7,12 +8,7 @@ import SSOSettings from "@/components/Settings/SSOSettings";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-} from "@/ui/DropdownMenu";
-import { FilterHeading, FilterItem } from "@/components/Search/SearchFilters";
+import { Select, SelectItem } from "@/ui/Select";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import PendingMemberList from "@/components/Settings/Team/PendingMemberList";
 import { isCloud, isMultiOrg } from "@/services/env";
@@ -23,7 +19,11 @@ import PleaseVerifyEmailModal from "@/components/Settings/UpgradeModal/PleaseVer
 import LicenseSuccessModal from "@/components/Settings/UpgradeModal/LicenseSuccessModal";
 import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
+import Frame from "@/ui/Frame";
 import Callout from "@/ui/Callout";
+
+// Radix Select reserves "" for no value.
+const ALL_PROJECTS = "__all__";
 
 export const MembersTabView: FC = () => {
   const {
@@ -37,7 +37,6 @@ export const MembersTabView: FC = () => {
   const { project, projects } = useDefinitions();
 
   const [currentProject, setCurrentProject] = useState(project || "");
-  const [projectFilterOpen, setProjectFilterOpen] = useState(false);
   const [error, setError] = useState("");
 
   const permissions = usePermissions();
@@ -122,10 +121,17 @@ export const MembersTabView: FC = () => {
         />
       )}
       <SSOSettings ssoConnection={ssoConnection || null} />
-      {isMultiOrg() && (
-        <AutoApproveMembersToggle mutate={refreshOrganization} />
+      {(isMultiOrg() || hasCommercialFeature("sso")) && (
+        <Frame px="0" py="0" mb="4" overflow="hidden">
+          {isMultiOrg() && (
+            <AutoApproveMembersToggle mutate={refreshOrganization} />
+          )}
+          {isMultiOrg() && hasCommercialFeature("sso") && (
+            <Separator size="4" />
+          )}
+          {hasCommercialFeature("sso") && <DefaultRoleCard />}
+        </Frame>
       )}
-      {hasCommercialFeature("sso") ? <DefaultRoleCard /> : null}
       <MemberList
         mutate={refreshOrganization}
         project={currentProject}
@@ -134,30 +140,20 @@ export const MembersTabView: FC = () => {
         canInviteMembers={true}
         filters={
           projects.length > 0 ? (
-            <DropdownMenu
-              trigger={FilterHeading({
-                heading:
-                  projects.find((p) => p.id === currentProject)?.name ??
-                  "All Projects",
-                open: projectFilterOpen,
-              })}
-              variant="soft"
-              open={projectFilterOpen}
-              onOpenChange={setProjectFilterOpen}
-            >
-              <DropdownMenuLabel>Show roles for</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => setCurrentProject("")}>
-                <FilterItem item="All Projects" exists={!currentProject} />
-              </DropdownMenuItem>
-              {projects.map((p) => (
-                <DropdownMenuItem
-                  key={p.id}
-                  onClick={() => setCurrentProject(p.id)}
-                >
-                  <FilterItem item={p.name} exists={currentProject === p.id} />
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenu>
+            <Box width="200px" flexShrink="0">
+              <Select
+                aria-label="Show roles for"
+                value={currentProject || ALL_PROJECTS}
+                setValue={(v) => setCurrentProject(v === ALL_PROJECTS ? "" : v)}
+              >
+                <SelectItem value={ALL_PROJECTS}>All Projects</SelectItem>
+                {projects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </Select>
+            </Box>
           ) : null
         }
       />

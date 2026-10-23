@@ -172,7 +172,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       header="Invite Member"
       open={true}
       cta="Invite"
-      size="xl"
+      size="lg"
       closeCta={
         successfulInvites.length || failedInvites.length ? "Close" : "Cancel"
       }
@@ -248,7 +248,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
           <StringArrayField
             legacyHeight
             required
-            label="Email Address"
+            label="Email address"
             placeholder="name@company.com"
             value={form.watch("email")}
             onChange={(emails) => {

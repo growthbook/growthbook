@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import clsx from "clsx";
@@ -31,7 +31,7 @@ export function scrollToSettingsSection(id: string) {
 
 export default function SettingsNav() {
   const router = useRouter();
-  const { query, setQuery, activeSection, counts, searchRef } =
+  const { query, setQuery, activeSection, counts, searchRef, pinSection } =
     useSettingsNav();
   const { dirtySectionIds } = useSettingsForm();
   const { permissions, superAdmin } = useUser();
@@ -79,24 +79,21 @@ export default function SettingsNav() {
     ? "No matches"
     : `${total} match${total === 1 ? "" : "es"} in ${where.join(" and ")}`;
 
-  // "/" jumps to search from anywhere on a settings page.
+  // Cmd/Ctrl+K focuses the search while on a settings page, ahead of the
+  // command palette, which listens for the same keys on document.
+  const [shortcutHint, setShortcutHint] = useState("");
   useEffect(() => {
+    setShortcutHint(/Mac/.test(navigator.platform) ? "⌘K" : "Ctrl K");
     const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement;
-      // Only text entry keeps "/"; a focused checkbox or button still jumps.
-      const typing =
-        el.tagName === "TEXTAREA" ||
-        el.tagName === "SELECT" ||
-        el.isContentEditable ||
-        (el instanceof HTMLInputElement &&
-          !/^(checkbox|radio|button|submit)$/.test(el.type));
-      if (e.key === "/" && !typing && !e.metaKey && !e.ctrlKey) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
+        e.stopImmediatePropagation();
         searchRef.current?.focus();
+        searchRef.current?.select();
       }
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
   }, [searchRef]);
 
   // Leaving settings drops the query so a return starts clean.
@@ -114,7 +111,7 @@ export default function SettingsNav() {
       <TextField
         ref={searchRef}
         type="search"
-        size="sm"
+        size="md"
         mx="3"
         mt="4"
         mb="2"
@@ -123,8 +120,8 @@ export default function SettingsNav() {
         prepend={<PiMagnifyingGlass aria-hidden="true" />}
         append={
           !query ? (
-            <kbd className={styles.kbd} title="Press / to search settings">
-              /
+            <kbd className={styles.kbd} title="Shortcut to search settings">
+              {shortcutHint}
             </kbd>
           ) : undefined
         }
@@ -156,6 +153,7 @@ export default function SettingsNav() {
                       router.push(`/settings#${s.id}`);
                       return;
                     }
+                    pinSection(s.id);
                     scrollToSettingsSection(s.id);
                     // Keeps the hash shareable; scroll: false leaves the smooth scroll alone.
                     router.replace(`/settings#${s.id}`, undefined, {

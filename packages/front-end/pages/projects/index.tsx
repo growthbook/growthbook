@@ -1,8 +1,8 @@
 import React, { useState, FC } from "react";
-import { PiDetective } from "react-icons/pi";
+import { PiDetective, PiMagnifyingGlass } from "react-icons/pi";
 import { ProjectInterface } from "shared/types/project";
 import { ago } from "shared/dates";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import Link from "@/ui/Link";
 import ProjectModal from "@/components/Projects/ProjectModal";
@@ -16,7 +16,8 @@ import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import Field from "@/components/Forms/Field";
+import { TextField } from "@/ui/TextField";
+import Text from "@/ui/Text";
 import Table, {
   TableHeader,
   TableBody,
@@ -64,6 +65,7 @@ const ProjectsPage: FC = () => {
 
   const {
     items,
+    filteredItems,
     searchInputProps,
     isFiltered,
     SortableTableColumnHeader,
@@ -82,6 +84,7 @@ const ProjectsPage: FC = () => {
     ],
     pageSize: 50,
     updateSearchQueryOnChange: true,
+    subtleSortIcons: true,
   });
 
   return (
@@ -95,7 +98,9 @@ const ProjectsPage: FC = () => {
       }
       actions={
         <>
-          <Link onClick={() => setAuditLogOpen(true)}>Audit log</Link>
+          <Button variant="ghost" onClick={() => setAuditLogOpen(true)}>
+            Audit log
+          </Button>
           <Tooltip
             body={
               !canCreateProjects
@@ -149,14 +154,21 @@ const ProjectsPage: FC = () => {
       <Box mb="5">
         {projects.length > 0 ? (
           <>
-            <Box width="250px" mb="3">
-              <Field
-                placeholder="Search..."
-                type="search"
-                containerClassName="mb-0"
-                {...searchInputProps}
-              />
-            </Box>
+            <Flex align="center" gap="3" mb="3">
+              <Box width="280px" maxWidth="100%">
+                <TextField
+                  type="search"
+                  aria-label="Search projects"
+                  placeholder="Search projects"
+                  prepend={<PiMagnifyingGlass aria-hidden="true" />}
+                  {...searchInputProps}
+                />
+              </Box>
+              <Text color="text-mid">
+                {filteredItems.length} project
+                {filteredItems.length === 1 ? "" : "s"}
+              </Text>
+            </Flex>
             <Table variant="surface" layout="fixed">
               <TableHeader>
                 <TableRow>
@@ -164,7 +176,7 @@ const ProjectsPage: FC = () => {
                     field="name"
                     style={{ width: "20%" }}
                   >
-                    Project Name
+                    Project name
                   </SortableTableColumnHeader>
                   <SortableTableColumnHeader
                     field="id"
@@ -183,13 +195,13 @@ const ProjectsPage: FC = () => {
                     field="dateCreated"
                     style={{ width: "15%" }}
                   >
-                    Date Created
+                    Date created
                   </SortableTableColumnHeader>
                   <SortableTableColumnHeader
                     field="dateUpdated"
                     style={{ width: "15%" }}
                   >
-                    Date Updated
+                    Date updated
                   </SortableTableColumnHeader>
                 </TableRow>
               </TableHeader>

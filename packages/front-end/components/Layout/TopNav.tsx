@@ -58,12 +58,14 @@ const TopNav: FC<{
   showLogo?: boolean;
   /** CSS length for the bar's left edge on wide screens; defaults to the sidebar width. */
   leftOffset?: string;
+  mutedBreadcrumb?: boolean;
 }> = ({
   toggleLeftMenu,
   pageTitle,
   showNotices,
   showLogo = true,
   leftOffset,
+  mutedBreadcrumb = false,
 }) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -416,7 +418,7 @@ const TopNav: FC<{
 
     return (
       <div className={styles.pagetitle}>
-        <Breadcrumbs items={breadcrumbItems} />
+        <Breadcrumbs items={breadcrumbItems} muted={mutedBreadcrumb} />
       </div>
     );
   };

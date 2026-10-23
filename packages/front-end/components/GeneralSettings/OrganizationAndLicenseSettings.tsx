@@ -11,6 +11,7 @@ import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import { useSettingsForm } from "./SettingsFormProvider";
 import { SettingsField, SettingsGroup } from "./SettingsGroup";
+import styles from "./SettingsSection.module.scss";
 
 export default function OrganizationAndLicenseSettings({
   org,
@@ -93,7 +94,7 @@ export default function OrganizationAndLicenseSettings({
           label="Organization ID"
           help="Use this ID when contacting support or calling the API."
         >
-          <Box>
+          <Box className={styles.codeChip}>
             <Text mono>{org.id}</Text>
           </Box>
         </SettingsField>

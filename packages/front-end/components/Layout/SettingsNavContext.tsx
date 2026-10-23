@@ -1,5 +1,6 @@
 import {
   createContext,
+  MutableRefObject,
   ReactNode,
   RefObject,
   useCallback,
@@ -14,6 +15,9 @@ type SettingsNavContextValue = {
   setQuery: (query: string) => void;
   activeSection: string;
   setActiveSection: (id: string) => void;
+  /** Section a click is scrolling to; the scroll spy shows only it until the scroll settles. */
+  pinnedSection: MutableRefObject<string | null>;
+  pinSection: (id: string) => void;
   /** Matching cards per General section. Only populated while a query is set. */
   counts: Record<string, number>;
   setCount: (sectionId: string, count: number | null) => void;
@@ -27,6 +31,15 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
   const [activeSection, setActiveSection] = useState("");
   const [counts, setCounts] = useState<Record<string, number>>({});
   const searchRef = useRef<HTMLInputElement>(null);
+  const pinnedSection = useRef<string | null>(null);
+  const pinSection = useCallback((id: string) => {
+    pinnedSection.current = id;
+    setActiveSection(id);
+    // Safety net when the target is already in view and nothing scrolls.
+    window.setTimeout(() => {
+      if (pinnedSection.current === id) pinnedSection.current = null;
+    }, 1500);
+  }, []);
 
   const setCount = useCallback((id: string, count: number | null) => {
     setCounts((prev) => {
@@ -44,11 +57,13 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
       setQuery,
       activeSection,
       setActiveSection,
+      pinnedSection,
+      pinSection,
       counts,
       setCount,
       searchRef,
     }),
-    [query, activeSection, counts, setCount],
+    [query, activeSection, counts, setCount, pinSection],
   );
 
   return (

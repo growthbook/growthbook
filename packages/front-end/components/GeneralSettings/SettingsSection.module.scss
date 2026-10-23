@@ -56,3 +56,14 @@
 .generalContent {
   max-width: 920px;
 }
+
+// Read-only identifier, e.g. the organization id.
+.codeChip {
+  display: inline-block;
+  max-width: 100%;
+  padding: 6px 10px;
+  background: var(--slate-2);
+  border: 1px solid var(--slate-5);
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}

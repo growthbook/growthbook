@@ -43,22 +43,38 @@ export const ConnectSettingsForm = ({ children }) => {
 
 const GeneralSettingsPage = (): React.ReactElement => {
   const [urlHash] = useURLHash();
-  const { query, setQuery, activeSection, setActiveSection, counts } =
-    useSettingsNav();
+  const {
+    query,
+    setQuery,
+    activeSection,
+    setActiveSection,
+    pinnedSection,
+    pinSection,
+    counts,
+  } = useSettingsNav();
   const { settings, organization, refreshOrganization } = useUser();
   const { promptForm, cronString, updateCronString } = useSettingsForm();
   const pageRef = useRef<HTMLDivElement>(null);
+  const mountedAt = useRef(Date.now());
   // `#section` or a legacy `#tab/element` hash scrolls to that element. Cards
   // above it keep loading for a moment, so the scroll is re-applied as the page
-  // grows until the user takes over or 2s pass.
+  // grows until the user takes over or 2s pass. Arriving from another page
+  // jumps straight there; a hash change while on the page scrolls smoothly.
   useEffect(() => {
     const id = resolveSettingsHash(urlHash);
     const root = pageRef.current;
     if (!id || !root) return;
+    const arriving = Date.now() - mountedAt.current < 1000;
+    const section = SETTINGS_SECTIONS.find(
+      (s) => s.id === id || document.getElementById(id)?.closest(`#${s.id}`),
+    );
+    if (section) pinSection(section.id);
     const scrollTo = (behavior: ScrollBehavior) =>
       document.getElementById(id)?.scrollIntoView({ behavior, block: "start" });
-    const frame = window.requestAnimationFrame(() => scrollTo("smooth"));
-    const observer = new ResizeObserver(() => scrollTo("auto"));
+    const frame = window.requestAnimationFrame(() =>
+      scrollTo(arriving ? "instant" : "smooth"),
+    );
+    const observer = new ResizeObserver(() => scrollTo("instant"));
     observer.observe(root);
     const stop = () => observer.disconnect();
     const timer = window.setTimeout(stop, 2000);
@@ -70,13 +86,19 @@ const GeneralSettingsPage = (): React.ReactElement => {
       stop();
       userEvents.forEach((e) => window.removeEventListener(e, stop));
     };
-  }, [urlHash]);
+  }, [urlHash, pinSection]);
 
   // Scroll spy: the last visible section whose top has passed the sticky header is active.
   useEffect(() => {
     let frame = 0;
+    let settle = 0;
     const update = () => {
       frame = 0;
+      // A click-triggered scroll shows only its destination, not every section on the way.
+      if (pinnedSection.current) {
+        setActiveSection(pinnedSection.current);
+        return;
+      }
       const atBottom =
         window.innerHeight + window.scrollY >=
         document.documentElement.scrollHeight - 2;
@@ -90,18 +112,34 @@ const GeneralSettingsPage = (): React.ReactElement => {
       }
       if (active) setActiveSection(active);
     };
+    const unpin = () => {
+      pinnedSection.current = null;
+    };
     const onScroll = () => {
       if (!frame) frame = window.requestAnimationFrame(update);
+      // The pin lifts once the scroll has settled.
+      window.clearTimeout(settle);
+      settle = window.setTimeout(() => {
+        if (!pinnedSection.current) return;
+        unpin();
+        update();
+      }, 150);
     };
+    const userEvents = ["wheel", "touchmove", "keydown"] as const;
     update();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
+    userEvents.forEach((e) =>
+      window.addEventListener(e, unpin, { passive: true }),
+    );
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
+      userEvents.forEach((e) => window.removeEventListener(e, unpin));
       window.cancelAnimationFrame(frame);
+      window.clearTimeout(settle);
     };
-  }, [query, counts, setActiveSection]);
+  }, [query, counts, setActiveSection, pinnedSection]);
 
   // Highlights query tokens inside cards. Progressive: browsers without the Highlight API skip it.
   useEffect(() => {

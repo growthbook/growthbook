@@ -10,6 +10,7 @@ import {
   useRef,
 } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
+import { PiCaretDown, PiCaretUp, PiCaretUpDown } from "react-icons/pi";
 import { useRouter } from "next/router";
 import MiniSearch from "minisearch";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -169,6 +170,8 @@ export interface SearchProps<T extends { id: string }> {
   // than from a user-typed input.
   controlledSearchValue?: string;
   pageSize?: number;
+  // Gray caret sort icons on SortableTableColumnHeader instead of the filled arrows.
+  subtleSortIcons?: boolean;
   // Extra values that `searchTermFilters` closes over but that change
   // asynchronously (e.g. lazily-fetched indexes). Including them here lets the
   // filtered-results memo recompute when that data arrives instead of going
@@ -224,6 +227,7 @@ export function useSearch<T extends { id: string }>({
   disableUrlSearchTerm,
   controlledSearchValue,
   pageSize,
+  subtleSortIcons = false,
   searchTermFilterDeps = [],
 }: SearchProps<T>): SearchReturn<T> {
   const defaultSort = { field: defaultSortField, dir: defaultSortDir || 1 };
@@ -516,27 +520,47 @@ export function useSearch<T extends { id: string }>({
             }}
           >
             {children}{" "}
-            <a
-              href="#"
-              className={showSortDirection ? "activesort" : "inactivesort"}
-            >
-              {showSortDirection ? (
-                sort.dir < 0 ? (
-                  <FaSortDown />
+            {subtleSortIcons ? (
+              <span
+                aria-hidden="true"
+                style={{
+                  color: showSortDirection ? "var(--gray-11)" : "var(--gray-9)",
+                  verticalAlign: "-2px",
+                }}
+              >
+                {showSortDirection ? (
+                  sort.dir < 0 ? (
+                    <PiCaretDown size={14} />
+                  ) : (
+                    <PiCaretUp size={14} />
+                  )
                 ) : (
-                  <FaSortUp />
-                )
-              ) : (
-                <FaSort />
-              )}
-            </a>
+                  <PiCaretUpDown size={14} />
+                )}
+              </span>
+            ) : (
+              <a
+                href="#"
+                className={showSortDirection ? "activesort" : "inactivesort"}
+              >
+                {showSortDirection ? (
+                  sort.dir < 0 ? (
+                    <FaSortDown />
+                  ) : (
+                    <FaSortUp />
+                  )
+                ) : (
+                  <FaSort />
+                )}
+              </a>
+            )}
           </span>
           {endAdornment}
         </TableColumnHeader>
       );
     };
     return Header;
-  }, [sort.dir, sort.field, isRelevanceSortActive]);
+  }, [sort.dir, sort.field, isRelevanceSortActive, subtleSortIcons]);
 
   const clear = useCallback(() => {
     setValue("");

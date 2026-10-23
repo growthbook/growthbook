@@ -1034,11 +1034,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/License/ShowLicenseInfo.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Markdown/MarkdownInput.tsx": {
     "no-restricted-imports": {
       "count": 1

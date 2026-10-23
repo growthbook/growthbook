@@ -257,6 +257,7 @@ const Layout = (): React.ReactElement => {
         showNotices={true}
         toggleLeftMenu={() => setOpen(!open)}
         leftOffset={rail ? "var(--settings-layout-left)" : undefined}
+        mutedBreadcrumb={isSettingsRoute(router.route)}
       />
     </>
   );
