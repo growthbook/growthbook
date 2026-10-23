@@ -92,18 +92,23 @@ export default function StartExperimentPopover({
 function SummaryRow({
   label,
   children,
+  action = null,
 }: {
   label: string;
   children: ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <>
       <Text size="sm" color="text-mid">
         {label}
       </Text>
-      <Text size="sm" color="text-high">
-        {children}
-      </Text>
+      <Flex justify="between" align="baseline" gap="3">
+        <Text size="sm" color="text-high">
+          {children}
+        </Text>
+        {action}
+      </Flex>
     </>
   );
 }
@@ -142,20 +147,9 @@ function StartContent({
 
   return (
     <Flex direction="column" gap="4">
-      <Flex justify="between" align="baseline" gap="3">
-        <Heading as="h4" size="sm" mb="0">
-          {getStartTitle(experiment, new Date())}
-        </Heading>
-        {openSchedule && !startApproved ? (
-          <Link
-            size="sm"
-            onClick={openSchedule}
-            style={{ whiteSpace: "nowrap" }}
-          >
-            {hasStatusSchedule(experiment) ? "Change schedule" : "Add schedule"}
-          </Link>
-        ) : null}
-      </Flex>
+      <Heading as="h4" size="sm" mb="0">
+        {getStartTitle(experiment, new Date())}
+      </Heading>
 
       <StartFailures failures={start.pendingDraftFailures} />
       <StartChecklistFailures items={start.checklistFailures} />
@@ -188,11 +182,28 @@ function StartContent({
 
       <Grid
         columns="max-content minmax(0, 1fr)"
-        gapX="5"
+        gapX="4"
         gapY="2"
         align="start"
       >
-        <SummaryRow label="Start">{dateLabel ?? "Immediately"}</SummaryRow>
+        <SummaryRow
+          label="Start"
+          action={
+            openSchedule && !startApproved ? (
+              <Link
+                size="sm"
+                onClick={openSchedule}
+                style={{ whiteSpace: "nowrap" }}
+              >
+                {hasStatusSchedule(experiment)
+                  ? "Change schedule"
+                  : "Add schedule"}
+              </Link>
+            ) : null
+          }
+        >
+          {dateLabel ?? "Immediately"}
+        </SummaryRow>
         {end ? <SummaryRow label="Ends">{end}</SummaryRow> : null}
       </Grid>
 
