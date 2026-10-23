@@ -5,4 +5,5 @@ export const CUSTOM_FIELD_SECTION_LABELS: Record<CustomFieldSection, string> = {
   feature: "Features",
   experiment: "Experiments",
   attribute: "Attributes",
+  "experiment-idea": "Experiment Ideas",
 };

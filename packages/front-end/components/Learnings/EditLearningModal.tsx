@@ -19,9 +19,18 @@ const EditLearningModal: FC<{
   experiments: ExperimentInterfaceStringDates[];
   /** Default projects to apply when creating from scratch (e.g. current project context). */
   defaultProjects?: string[];
+  /** Prefills create mode, e.g. from an Experiment Idea's concluded experiment. */
+  defaultSupportingExperimentIds?: string[];
   close: () => void;
   onSaved: () => void;
-}> = ({ learning, experiments, defaultProjects, close, onSaved }) => {
+}> = ({
+  learning,
+  experiments,
+  defaultProjects,
+  defaultSupportingExperimentIds,
+  close,
+  onSaved,
+}) => {
   const isNew = !learning;
   const { apiCall } = useAuth();
   const { projects: orgProjects } = useDefinitions();
@@ -37,7 +46,7 @@ const EditLearningModal: FC<{
     learning?.projects || defaultProjects || [],
   );
   const [supportingIds, setSupportingIds] = useState<string[]>(
-    learning?.supportingExperimentIds || [],
+    learning?.supportingExperimentIds || defaultSupportingExperimentIds || [],
   );
   const [contraryIds, setContraryIds] = useState<string[]>(
     learning?.contradictingExperimentIds || [],

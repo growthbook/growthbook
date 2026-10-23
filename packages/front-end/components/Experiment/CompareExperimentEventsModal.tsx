@@ -238,6 +238,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   autoSnapshots: false,
   disableAutoSnapshots: false,
   ideaSource: false,
+  sourceExperimentIdeaId: false,
   hasVisualChangesets: false,
   hasURLRedirects: false,
   linkedFeatures: false,
