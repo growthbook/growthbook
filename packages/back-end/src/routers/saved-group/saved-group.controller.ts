@@ -36,6 +36,7 @@ import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { parseIdsQuery } from "back-end/src/util/validation";
 import {
   isRevisionRequired,
   createOrUpdateRevision,
@@ -1188,6 +1189,8 @@ type SavedGroupReferencesResponse =
         project?: string;
         projects?: string[];
       }[];
+      contextualBandits: { id: string; name: string; project?: string }[];
+      interleavings: { id: string; name: string; project?: string }[];
       savedGroups: { id: string; groupName: string; projects?: string[] }[];
     }
   | { message: string };
@@ -1247,9 +1250,7 @@ export const getSavedGroupDraftStates = async (
   res: Response,
 ) => {
   const context = getContextFromReq(req);
-  const groupIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const groupIds = parseIdsQuery(req.query.ids);
   const groups = await context.models.revisions.getActiveDraftStates(
     "saved-group",
     groupIds,
@@ -1272,7 +1273,7 @@ export const getSavedGroupsMetadata = async (
   }>,
 ) => {
   const context = getContextFromReq(req);
-  const ids = [...new Set(req.query.ids.split(",").filter(Boolean))];
+  const ids = [...new Set(parseIdsQuery(req.query.ids))];
   const savedGroups =
     await context.models.savedGroups.getMetadataWithNested(ids);
   const missingIds = await context.models.savedGroups.getMissingIds([

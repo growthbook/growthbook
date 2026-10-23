@@ -89,6 +89,7 @@ export const contextualBanditEventValidator = baseSchema
   .extend({
     contextualBandit: z.string(),
     snapshotId: z.string(),
+    frozenVariationIds: z.array(z.string()).optional(),
     attributes: z.array(z.string()),
     responses: z.array(contextualBanditResponseValidator),
     leaf_map: z.array(contextualLeafMapEntryValidator).optional(),

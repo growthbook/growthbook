@@ -1,5 +1,26 @@
 import { z } from "zod";
 import { createBaseSchemaWithPrimaryKey } from "./base-model";
+import { projectMemberRole, roleRule } from "./organization";
+import { confirmRulesValidator } from "./confirmations";
+
+/**
+ * What the user allowed on the consent page, applied to every access token the
+ * grant mints. Same fields a personal access token takes: without `scopedRole`
+ * the token acts with the user's own permissions. Null or absent (grants from
+ * before consent asked) means the user's own permissions, with no confirmations.
+ */
+export const oauthTokenPermissionsValidator = z.strictObject({
+  scopedRole: z.string().optional(),
+  limitAccessByEnvironment: z.boolean().optional(),
+  environments: z.array(z.string()).optional(),
+  additionalRoles: z.array(roleRule).optional(),
+  projectRoles: z.array(projectMemberRole).optional(),
+  confirmRules: confirmRulesValidator.nullable().optional(),
+});
+
+export type OAuthTokenPermissions = z.infer<
+  typeof oauthTokenPermissionsValidator
+>;
 
 /**
  * Public OAuth clients registered via DCR (RFC 7591). No org scoping.
@@ -39,6 +60,7 @@ export const oauthAuthCodeValidator = createBaseSchemaWithPrimaryKey({
   codeChallengeMethod: z.literal("S256"),
   scope: z.string().optional(),
   resource: z.string().optional(),
+  permissions: oauthTokenPermissionsValidator.nullable().optional(),
   used: z.boolean(),
   expiresAt: z.date(),
 });
@@ -83,7 +105,11 @@ export const oauthGrantValidator = createBaseSchemaWithPrimaryKey({
   userId: z.string(),
   scope: z.string().optional(),
   resource: z.string().optional(),
+  permissions: oauthTokenPermissionsValidator.nullable().optional(),
   revoked: z.boolean(),
+  // Last revoked, kept through a later consent so work a revoked sign-in
+  // scheduled never runs.
+  revokedAt: z.date().nullable().optional(),
   expiresAt: z.date(),
 });
 

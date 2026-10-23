@@ -1252,7 +1252,7 @@ describe("getEffectiveRolesForProject", () => {
   const roleSources = (
     ...args: Parameters<typeof getEffectiveRolesForProject>
   ) =>
-    getEffectiveRolesForProject(...args).map(
+    getEffectiveRolesForProject(...args).applied.map(
       ({ role, sourceType, sourceName }) => ({ role, sourceType, sourceName }),
     );
 
@@ -1362,16 +1362,20 @@ describe("getEffectiveRolesForProject", () => {
   });
 
   it("drops the member's global role when only a team has an explicit project role", () => {
-    const result = roleSources({ role: "admin", teams: ["team_1"] }, "prj_1", [
-      team("team_1", "Restricted", "readonly", [
-        {
-          project: "prj_1",
-          role: "noaccess",
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-      ]),
-    ]);
+    const result = roleSources(
+      { role: "engineer", teams: ["team_1"] },
+      "prj_1",
+      [
+        team("team_1", "Restricted", "readonly", [
+          {
+            project: "prj_1",
+            role: "noaccess",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ]),
+      ],
+    );
     expect(result).toEqual([
       { role: "noaccess", sourceType: "team", sourceName: "Restricted" },
     ]);
@@ -1392,11 +1396,11 @@ describe("getEffectiveRolesForProject", () => {
         teams: ["team_1"],
       },
       null,
-      [team("team_1", "Admins", "admin")],
+      [team("team_1", "Engineers", "engineer")],
     );
     expect(result).toEqual([
       { role: "readonly", sourceType: "user", sourceName: "user" },
-      { role: "admin", sourceType: "team", sourceName: "Admins" },
+      { role: "engineer", sourceType: "team", sourceName: "Engineers" },
     ]);
   });
 
@@ -1474,7 +1478,7 @@ describe("getEffectiveRolesForProject", () => {
         },
         null,
         [],
-      ),
+      ).applied,
     ).toEqual([
       {
         role: "qa_reviewer",
@@ -1514,7 +1518,7 @@ describe("getEffectiveRolesForProject", () => {
             ],
           },
         ],
-      ),
+      ).applied,
     ).toEqual([
       {
         role: "noaccess",
@@ -1558,7 +1562,7 @@ describe("getEffectiveRolesForProject", () => {
         },
         "prj_1",
         [],
-      ),
+      ).applied,
     ).toEqual([
       {
         role: "engineer",
@@ -1566,6 +1570,7 @@ describe("getEffectiveRolesForProject", () => {
         sourceName: "user",
         limitAccessByEnvironment: true,
         environments: ["staging"],
+        project: "prj_1",
       },
     ]);
   });
