@@ -43,6 +43,13 @@ export type Props = ContentProps & {
   trigger: ReactNode;
 };
 
+// A modal opened from the popover stacks on top of it, so the popover is still
+// there when the modal closes.
+const modalOpen = () =>
+  Array.from(document.querySelectorAll('[role="dialog"]')).some(
+    (el) => !el.closest("[data-radix-popper-content-wrapper]"),
+  );
+
 /** Starting a draft, or approving its scheduled start: the To Do, then the button. */
 export default function StartExperimentPopover({
   open,
@@ -50,13 +57,13 @@ export default function StartExperimentPopover({
   trigger,
   ...props
 }: Props) {
-  // Closed to let a To Do item's action take over: focus stays with whatever
-  // it opened, or a modal it opened would lose focus and close.
+  // Closed to let a To Do item's action take over: focus stays where it went.
   const handedOff = useRef(false);
   return (
     <Popover
       open={open}
       onOpenChange={(next) => {
+        if (!next && modalOpen()) return;
         // A refusal belongs to the attempt it was shown for.
         if (!next) props.start.clearStartFailures();
         setOpen(next);
@@ -136,14 +143,8 @@ function StartContent({
   const blockedReason = editsBlocked ?? start.banditBlockedReason;
   const { bypassLabel, waivesApproval } = gate.actions;
 
-  const openSchedule = editSchedule
-    ? () => {
-        close();
-        editSchedule();
-      }
-    : null;
   const scheduleLink = (text: string) =>
-    openSchedule ? <Link onClick={openSchedule}>{text}</Link> : text;
+    editSchedule ? <Link onClick={editSchedule}>{text}</Link> : text;
 
   return (
     <Flex direction="column" gap="4">
@@ -189,10 +190,10 @@ function StartContent({
         <SummaryRow
           label="Start"
           action={
-            openSchedule && !startApproved ? (
+            editSchedule && !startApproved ? (
               <Link
                 size="sm"
-                onClick={openSchedule}
+                onClick={editSchedule}
                 style={{ whiteSpace: "nowrap" }}
               >
                 {hasStatusSchedule(experiment)
@@ -234,14 +235,18 @@ function StartContent({
             gap="3"
             px="2"
             py="2"
-            // An item's action goes to where it's resolved, so the popover
-            // gets out of the way once the action has run.
+            // An item's action goes to where it's resolved. The popover waits
+            // under a modal it opened, and gets out of the way of anything else.
             onClick={(e) => {
               if (
-                (e.target as HTMLElement).closest("[data-checklist-action]")
+                !(e.target as HTMLElement).closest("[data-checklist-action]")
               ) {
-                handOff();
+                return;
               }
+              // Once the action's render has committed.
+              setTimeout(() => {
+                if (!modalOpen()) handOff();
+              });
             }}
           >
             <PreLaunchChecklistPanel />

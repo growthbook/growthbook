@@ -125,9 +125,7 @@ export function getStartActions({
   const bypassable = !hardBlocked && checklist.remaining > 0;
   return {
     action: futureStart ? "approve-schedule" : "start",
-    label: futureStart
-      ? `Start ${format(futureStart, "MMM d, yyyy 'at' h:mm a")}`
-      : "Start now",
+    label: futureStart ? `Start ${format(futureStart, "MMM d")}` : "Start now",
     bypassLabel: bypassable
       ? bypassLabel({
           review: waivesApproval,

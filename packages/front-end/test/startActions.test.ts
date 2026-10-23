@@ -22,7 +22,7 @@ const startNow = "Bypass remaining To Do items and start now";
 const scheduleStart = "Bypass remaining To Do items and schedule start";
 const reviewAndTodo =
   "Bypass approvals and remaining To Do items and start now";
-const futureLabel = "Start Oct 3, 2026 at 9:00 AM";
+const futureLabel = "Start Oct 3";
 
 describe("getStartSchedule", () => {
   it.each([
