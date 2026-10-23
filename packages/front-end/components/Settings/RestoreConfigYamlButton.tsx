@@ -314,11 +314,10 @@ export default function RestoreConfigYamlButton({
           </Page>
         </PagedModal>
       )}
-      <a
-        href="#"
-        className="btn btn-primary"
-        onClick={(e) => {
-          e.preventDefault();
+      <Button
+        variant="outline"
+        icon={<FaUpload />}
+        onClick={() => {
           form.reset({
             config: "",
           });
@@ -327,8 +326,8 @@ export default function RestoreConfigYamlButton({
           setOpen(true);
         }}
       >
-        <FaUpload /> Import from config.yml
-      </a>
+        Import from config.yml
+      </Button>
     </div>
   );
 }

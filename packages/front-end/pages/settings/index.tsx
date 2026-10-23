@@ -184,10 +184,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
           )}
 
           <SettingsSection id="organization">
-            <OrganizationAndLicenseSettings
-              org={organization}
-              refreshOrg={refreshOrganization}
-            />
+            <OrganizationAndLicenseSettings org={organization} />
           </SettingsSection>
 
           <SettingsSection id="experiments">

@@ -55,9 +55,17 @@ const isAbsent = (v: unknown) =>
 const knownTextModel = <T extends string>(model: T | undefined) =>
   model && getProviderForAIModel("text", model) ? model : undefined;
 
+export type OrgDetailsForm = {
+  name: string;
+  ownerEmail: string;
+  installationName: string;
+};
+
 type SettingsFormContextValue = {
   form: UseFormReturn<OrganizationSettingsWithMetricDefaults>;
   promptForm: UseFormReturn;
+  /** Organization name, owner, and installation name, saved with the settings. */
+  orgForm: UseFormReturn<OrgDetailsForm>;
   cronString: string;
   updateCronString: (cron?: string) => void;
   codeRefsBranchesToFilterStr: string;
@@ -92,7 +100,15 @@ export function useSettingsForm() {
 export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const active = isSettingsRoute(router.route);
-  const { refreshOrganization, settings, hasCommercialFeature } = useUser();
+  const {
+    refreshOrganization,
+    settings,
+    hasCommercialFeature,
+    organization,
+    installationName,
+    users,
+  } = useUser();
+  const { setOrgName } = useAuth();
   // Shares the composer's cache key, so revalidating here updates its `/` menu.
   const { mutate: mutateAgentSkills } = useApi("/agent/skills", {
     shouldRun: () => !!settings.aiEnabled,
@@ -109,6 +125,18 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
   const promptForm = useForm();
+  const orgForm = useForm<OrgDetailsForm>({
+    defaultValues: { name: "", ownerEmail: "", installationName: "" },
+  });
+  const orgDetails: OrgDetailsForm = {
+    name: organization.name || "",
+    ownerEmail: organization.ownerEmail || "",
+    installationName: installationName || "",
+  };
+  const orgKey = JSON.stringify(orgDetails);
+  useEffect(() => {
+    orgForm.reset(JSON.parse(orgKey));
+  }, [orgKey, orgForm]);
 
   const { metricDefaults } = useOrganizationMetricDefaults();
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
@@ -265,9 +293,15 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     return !isEqual(current, original);
   });
   const dirtyPromptFields = Object.keys(promptForm.formState.dirtyFields);
-  const dirtyCount = dirtyFields.length + dirtyPromptFields.length;
+  const orgValues = orgForm.watch();
+  const dirtyOrgFields = (
+    Object.keys(orgDetails) as (keyof OrgDetailsForm)[]
+  ).filter((k) => (orgValues[k] ?? "") !== orgDetails[k]);
+  const dirtyCount =
+    dirtyFields.length + dirtyPromptFields.length + dirtyOrgFields.length;
   const dirtySectionIds = [
     ...new Set([
+      ...(dirtyOrgFields.length ? ["organization"] : []),
       ...dirtyFields.map(sectionForField),
       ...(dirtyPromptFields.length ? ["ai"] : []),
     ]),
@@ -386,6 +420,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const discardChanges = () => {
     form.reset(originalValue as OrganizationSettingsWithMetricDefaults);
     promptForm.reset();
+    orgForm.reset(orgDetails);
     updateCronString(originalValue.updateSchedule?.cron || "");
     setCodeRefsBranchesToFilterStr(
       (originalValue.codeRefsBranchesToFilter ?? []).join(", "),
@@ -477,12 +512,36 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       );
     }
 
+    // Organization details ride along only when edited, since they need their own permission.
+    const org = orgForm.getValues();
+    const orgPatch: Partial<OrgDetailsForm> = {};
+    if (dirtyOrgFields.length) {
+      if (!org.name.trim())
+        throw new Error("Organization name cannot be empty");
+      if (!org.ownerEmail.trim())
+        throw new Error("Owner email cannot be empty");
+      const emails = Array.from(users).map(([, u]) => u.email);
+      if (!emails.includes(org.ownerEmail.trim())) {
+        throw new Error(
+          "This email is not associated with any user in your organization",
+        );
+      }
+      orgPatch.name = org.name.trim();
+      orgPatch.ownerEmail = org.ownerEmail.trim();
+      if (dirtyOrgFields.includes("installationName")) {
+        orgPatch.installationName = org.installationName.trim();
+      }
+    }
+
     await apiCall(`/organization`, {
       method: "PUT",
       body: JSON.stringify({
+        ...orgPatch,
         settings: transformedOrgSettings,
       }),
     });
+    // Update org name in global context (e.g. top nav)
+    if (orgPatch.name && setOrgName) setOrgName(orgPatch.name);
     await Promise.all([refreshOrganization(), mutateAgentSkills()]);
 
     // show the user that the settings have saved:
@@ -510,6 +569,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       value={{
         form,
         promptForm,
+        orgForm,
         cronString,
         updateCronString,
         codeRefsBranchesToFilterStr,

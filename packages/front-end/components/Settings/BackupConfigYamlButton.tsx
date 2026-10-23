@@ -55,8 +55,16 @@ export default function BackupConfigYamlButton({
   if (!href) return null;
 
   return (
-    <a href={href} download="config.yml" className="btn btn-primary">
-      <FaDownload /> Export to config.yml
-    </a>
+    <Button
+      icon={<FaDownload />}
+      onClick={() => {
+        const a = document.createElement("a");
+        a.href = href;
+        a.download = "config.yml";
+        a.click();
+      }}
+    >
+      Export to config.yml
+    </Button>
   );
 }

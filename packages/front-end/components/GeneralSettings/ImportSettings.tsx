@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { OrganizationSettings } from "shared/types/organization";
 import { FaUpload } from "react-icons/fa";
 import { Flex } from "@radix-ui/themes";
@@ -7,6 +6,7 @@ import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton
 import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import LinkButton from "@/ui/LinkButton";
 import { SettingsGroup } from "./SettingsGroup";
 
 export default function ImportSettings({
@@ -75,9 +75,9 @@ export default function ImportSettings({
         keywords="migrate launchdarkly optimizely import"
       >
         <div>
-          <Link href="/importing" className="btn btn-primary">
-            <FaUpload className="mr-1" /> Import from another service
-          </Link>
+          <LinkButton href="/importing" variant="outline" icon={<FaUpload />}>
+            Import from another service
+          </LinkButton>
         </div>
       </SettingsGroup>
     </>

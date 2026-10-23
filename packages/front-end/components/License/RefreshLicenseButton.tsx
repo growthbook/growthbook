@@ -3,7 +3,7 @@ import { BsArrowRepeat } from "react-icons/bs";
 import { LicenseInterface } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Button";
+import Button from "@/ui/Button";
 
 const RefreshLicenseButton: FC = () => {
   const { apiCall } = useAuth();
@@ -25,8 +25,8 @@ const RefreshLicenseButton: FC = () => {
 
   return (
     <>
-      <Button color="outline-primary" className="nowrap" onClick={refresh}>
-        <BsArrowRepeat /> Refresh
+      <Button variant="outline" icon={<BsArrowRepeat />} onClick={refresh}>
+        Refresh
       </Button>
     </>
   );
