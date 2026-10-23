@@ -28,13 +28,21 @@ type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
   dataSource: DataSourceInterfaceWithParams;
   mode: "add" | "edit";
+  defaultIdentifierTypes?: string[];
   onSave: (exposureQuery: ExposureQuery) => void;
   onCancel: () => void;
 };
 
 export const AddEditExperimentAssignmentQueryModal: FC<
   EditExperimentAssignmentQueryProps
-> = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
+> = ({
+  exposureQuery,
+  dataSource,
+  mode,
+  defaultIdentifierTypes,
+  onSave,
+  onCancel,
+}) => {
   const { projects } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
@@ -52,17 +60,24 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       value: userIdType,
     }),
   );
-  const defaultUserId = userIdTypeOptions
-    ? userIdTypeOptions[0]?.value
-    : "user_id";
+  const knownIdentifierTypes = new Set(
+    userIdTypeOptions?.map((option) => option.value) ?? [],
+  );
+  const requestedUserIds = (defaultIdentifierTypes ?? []).filter((id) =>
+    knownIdentifierTypes.has(id),
+  );
+  const defaultUserIds = requestedUserIds.length
+    ? requestedUserIds
+    : [userIdTypeOptions?.[0]?.value || "user_id"];
+  const defaultUserId = defaultUserIds[0];
 
   /** Each selected identifier must come back as a same-named column. */
   const buildDefaultQuery = (userIdTypes: string[]) => {
-    const ids = userIdTypes.length ? userIdTypes : [defaultUserId];
+    const ids = userIdTypes.length ? userIdTypes : defaultUserIds;
     const idColumns = ids.map((id) => `  ${id} as ${id},`).join("\n");
     return `SELECT\n${idColumns}\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`;
   };
-  const defaultQuery = buildDefaultQuery(defaultUserId ? [defaultUserId] : []);
+  const defaultQuery = buildDefaultQuery(defaultUserIds);
 
   const form = useForm<ExposureQuery>({
     defaultValues:
@@ -77,8 +92,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<
             name: "",
             dimensions: [],
             query: defaultQuery,
-            userIdType: defaultUserId ?? "",
-            userIdTypes: defaultUserId ? [defaultUserId] : [],
+            userIdType: defaultUserId,
+            userIdTypes: defaultUserIds,
             projects: [],
           },
   });

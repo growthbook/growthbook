@@ -202,6 +202,7 @@ export default function CloudUsage() {
     cdnRequests: "unlimited",
     cdnBandwidth: "unlimited",
     managedClickhouseEvents: "unlimited",
+    eventForwarderEvents: "unlimited",
   };
 
   const startDate = new Date();
@@ -229,12 +230,14 @@ export default function CloudUsage() {
         requests: Math.floor(Math.random() * 1000000),
         bandwidth: Math.floor(Math.random() * 2000000000),
         managedClickhouseEvents: Math.floor(Math.random() * 1000000),
+        eventForwarderEvents: Math.floor(Math.random() * 100000),
       });
       current.setUTCDate(current.getUTCDate() + 1);
     }
 
     limits.cdnRequests = 1_000_000;
     limits.cdnBandwidth = 5_000_000_000;
+    limits.eventForwarderEvents = 1_000_000;
   }
 
   const connections = sdkData?.connections ?? [];
@@ -305,6 +308,10 @@ export default function CloudUsage() {
     (sum, u) => sum + u.managedClickhouseEvents,
     0,
   );
+  const totalEventForwarderEvents = usage.reduce(
+    (sum, u) => sum + u.eventForwarderEvents,
+    0,
+  );
 
   const monthOptions: { value: string; label: string }[] = [];
   for (let i = 0; i < 12; i++) {
@@ -357,6 +364,7 @@ export default function CloudUsage() {
                     // Raw bytes: full precision, unlike the page's rounded display
                     bandwidth_bytes: u.bandwidth,
                     managed_clickhouse_events: u.managedClickhouseEvents,
+                    event_forwarder_events: u.eventForwarderEvents,
                   })),
                   `cdn-usage-${month}.csv`,
                 );
@@ -419,6 +427,10 @@ export default function CloudUsage() {
         <div>
           <strong>Total managed Clickhouse events: </strong>
           <span>{requestsFormatter.format(totalManagedClickhouseEvents)}</span>
+        </div>
+        <div>
+          <strong>Total Event Forwarder events: </strong>
+          <span>{requestsFormatter.format(totalEventForwarderEvents)}</span>
         </div>
         {isFiltered && (
           <Text color="text-low">
@@ -572,6 +584,31 @@ export default function CloudUsage() {
               limits.managedClickhouseEvents === "unlimited"
                 ? null
                 : limits.managedClickhouseEvents
+            }
+          />
+        </Box>
+      )}
+      {totalEventForwarderEvents > 0 && (
+        <Box mt="5">
+          <Heading as="h3" size="sm" mb="2">
+            Event Forwarder Events
+          </Heading>
+          <DailyGraph
+            data={usage.map((u) => ({
+              ts: new Date(u.date),
+              v: { [TOTAL_KEY]: u.eventForwarderEvents },
+            }))}
+            series={[
+              { key: TOTAL_KEY, label: "Total", color: SINGLE_SERIES_COLOR },
+            ]}
+            formatValue={(v) => requestsFormatter.format(v)}
+            formatTooltipValue={(v) => v.toLocaleString()}
+            start={startDate}
+            end={endDate}
+            limitLine={
+              typeof limits.eventForwarderEvents === "number"
+                ? limits.eventForwarderEvents
+                : null
             }
           />
         </Box>

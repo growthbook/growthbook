@@ -171,12 +171,12 @@ export default function FeatureSettings() {
 
           <Box mb="6" width="100%">
             <Checkbox
-              id="toggle-defaultFeatureRulesInAllEnvs"
-              label="Create rules in all environments by default"
-              description="If enabled, new Feature Flag rules will be created in all environments by default."
-              value={!!form.watch("defaultFeatureRulesInAllEnvs")}
+              id="toggle-requireScopedFeatureRules"
+              label="Require rules to target specific environments or Projects"
+              description="Rules for All Environments and All Projects need an extra confirmation."
+              value={!!form.watch("requireScopedFeatureRules")}
               setValue={(value) =>
-                form.setValue("defaultFeatureRulesInAllEnvs", value, {
+                form.setValue("requireScopedFeatureRules", value, {
                   shouldDirty: true,
                 })
               }

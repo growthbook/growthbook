@@ -5,6 +5,7 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   deleteApiKeyValidator,
   postApiKeyRevealValidator,
+  postApiKeyRotateValidator,
   postInviteAcceptValidator,
   postApiKeyValidator,
   putApiKeyValidator,
@@ -140,6 +141,17 @@ router.put(
     body: putApiKeyDisabledValidator,
   }),
   organizationsController.putApiKeyDisabled,
+);
+router.post(
+  "/keys/:id/rotate",
+  validateRequestMiddleware({
+    body: postApiKeyRotateValidator,
+  }),
+  organizationsController.postApiKeyRotate,
+);
+router.delete(
+  "/keys/:id/previous-key",
+  organizationsController.deleteApiKeyPreviousKey,
 );
 
 // Legacy Webhooks
