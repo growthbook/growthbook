@@ -446,6 +446,7 @@ export default function DatePicker({
                     disabled={disabled}
                     required={required}
                     readOnly={!!fixedSpanMode}
+                    autoComplete="off"
                     // Typing waits for a picked date; read-only would read as disabled.
                     inputMode={showsPlaceholder ? "none" : undefined}
                     style={{
