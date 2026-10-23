@@ -9,7 +9,7 @@ import {
   PiCaretUpDown,
   PiDownloadSimple,
 } from "react-icons/pi";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
 import { useUser } from "@/services/UserContext";
@@ -219,7 +219,7 @@ export const EventsPageContainer = () => {
 
   const filters = (
     <>
-      <div>
+      <Box width="180px" flexShrink="0">
         <MultiSelectField
           size="md"
           value={eventType}
@@ -230,7 +230,7 @@ export const EventsPageContainer = () => {
             setEventType(value as NotificationEventName[]);
           }}
         />
-      </div>
+      </Box>
       <Flex align="center" gap="2">
         <Text as="label" color="text-mid" m="0">
           From
@@ -241,6 +241,8 @@ export const EventsPageContainer = () => {
           setDate={setFromDate}
           scheduleEndDate={toDate}
           precision="date"
+          inputWidth={150}
+          calendarIcon
           containerClassName=""
         />
       </Flex>
@@ -254,6 +256,8 @@ export const EventsPageContainer = () => {
           setDate={setToDate}
           scheduleStartDate={fromDate}
           precision="date"
+          inputWidth={150}
+          calendarIcon
           containerClassName=""
         />
       </Flex>
@@ -273,10 +277,12 @@ export const EventsPageContainer = () => {
         </div>
       )}
       <div className="flex-grow-1"></div>
-      <div>
+      <Box flexShrink="0">
         <SelectField
           size="small"
-          containerClassName="ml-2 d-flex align-items-center mb-0"
+          // A fixed width, so the control doesn't grow when it opens.
+          containerStyles={{ control: (base) => ({ ...base, width: 72 }) }}
+          containerClassName="d-flex align-items-center mb-0"
           labelClassName="mr-2 mb-0"
           label="Show"
           options={[
@@ -308,7 +314,7 @@ export const EventsPageContainer = () => {
             setPerPage(parseInt(v));
           }}
         />
-      </div>
+      </Box>
     </>
   );
 

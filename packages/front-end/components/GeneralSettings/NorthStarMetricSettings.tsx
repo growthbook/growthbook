@@ -15,7 +15,7 @@ export default function NorthStarMetricSettings() {
         >
           <SettingsField label="Metrics">
             <MetricsSelector
-              selected={watch("northStar.metricIds")}
+              selected={watch("northStar.metricIds") ?? []}
               onChange={(metricIds) =>
                 setValue("northStar.metricIds", metricIds)
               }

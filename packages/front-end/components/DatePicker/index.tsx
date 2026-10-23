@@ -1,6 +1,7 @@
 import { DateRange, DayPicker, Matcher } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import * as Popover from "@radix-ui/react-popover";
+import { PiCalendarBlank } from "react-icons/pi";
 import { endOfDay, format, startOfDay, startOfMonth } from "date-fns";
 import { format as formatTimeZone } from "date-fns-tz";
 import React, {
@@ -50,6 +51,8 @@ type Props = {
   scheduleEndDate?: Date | string;
   containerClassName?: string;
   clearButton?: boolean;
+  // Shows a calendar icon at the right edge of the field.
+  calendarIcon?: boolean;
   wrapRangeInputs?: boolean;
   compact?: boolean;
   size?: "md" | "legacy";
@@ -183,6 +186,7 @@ export default function DatePicker({
   scheduleEndDate,
   containerClassName = "form-group",
   clearButton = false,
+  calendarIcon = false,
   wrapRangeInputs = false,
   compact = false,
   size = "legacy",
@@ -433,6 +437,7 @@ export default function DatePicker({
                     minHeight: inputHeight,
                     borderRadius: size === "md" ? "var(--radius-2)" : undefined,
                     overflow: "clip",
+                    position: "relative",
                   }}
                 >
                   <Field
@@ -503,6 +508,19 @@ export default function DatePicker({
                       setOpen(true);
                     }}
                   />
+                  {calendarIcon && (
+                    <PiCalendarBlank
+                      aria-hidden
+                      style={{
+                        position: "absolute",
+                        right: 10,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        color: "var(--gray-11)",
+                        pointerEvents: "none",
+                      }}
+                    />
+                  )}
                 </div>
                 {/* Without a label to suffix, the zone sits after the field. */}
                 {zone && !fieldLabel ? (

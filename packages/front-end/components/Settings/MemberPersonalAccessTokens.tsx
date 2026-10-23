@@ -142,7 +142,7 @@ const MemberPersonalAccessTokens: FC = () => {
   };
 
   return (
-    <Frame mb="4" py="20px" px="24px">
+    <Frame mb="4" py="24px" px="24px">
       <Heading as="h3" size="md" mb="1">
         Member Tokens
       </Heading>
@@ -155,11 +155,11 @@ const MemberPersonalAccessTokens: FC = () => {
       {loadError ? (
         <Callout status="error">{loadError.message}</Callout>
       ) : !data ? (
-        <Text as="p" color="text-mid">
+        <Text as="p" color="text-mid" mb="0">
           <LoadingSpinner /> Loading...
         </Text>
       ) : rows.length === 0 ? (
-        <Text as="p" color="text-mid">
+        <Text as="p" color="text-mid" mb="0">
           No members have created personal access tokens.
         </Text>
       ) : (
