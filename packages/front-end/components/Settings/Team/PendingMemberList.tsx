@@ -7,8 +7,7 @@ import { Box, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import {
   CollapsedRuleRows,
-  projectRuleRows,
-  ruleRows,
+  memberRuleRows,
 } from "@/components/Settings/Team/RoleRuleLabel";
 import { MEMBER_COLUMN_WIDTHS } from "@/components/Settings/Team/memberTableWidths";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -97,10 +96,9 @@ const PendingMemberList: FC<{
         </TableHeader>
         <TableBody>
           {pendingMembers.map((member) => {
-            const roleInfo =
-              (project &&
-                member.projectRoles?.find((r) => r.project === project)) ||
-              member;
+            const rows = memberRuleRows(member, getProjectById, organization, {
+              project,
+            });
             return (
               <TableRow key={member.id}>
                 <TableCell>{member.name}</TableCell>
@@ -115,17 +113,11 @@ const PendingMemberList: FC<{
                   {member.dateCreated && date(member.dateCreated)}
                 </TableCell>
                 <TableCell>
-                  <CollapsedRuleRows rows={ruleRows(roleInfo, organization)} />
+                  <CollapsedRuleRows rows={rows.roles} />
                 </TableCell>
                 {!project && (
                   <TableCell>
-                    <CollapsedRuleRows
-                      rows={projectRuleRows(
-                        member.projectRoles ?? [],
-                        getProjectById,
-                        organization,
-                      )}
-                    />
+                    <CollapsedRuleRows rows={rows.projectRoles} />
                   </TableCell>
                 )}
                 <TableCell>

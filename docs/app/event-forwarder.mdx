@@ -96,9 +96,20 @@ For [Event Forwarder](/app/event-forwarder), you must always allow incoming conn
 
 If you are using our `eu-west-1` ingestor region, you also must allow traffic from `54.74.233.97/32`.
 
+## Usage Limits
+
+Event Forwarder is included on every GrowthBook Cloud plan.
+
+- **Free plans** can forward up to 1,000,000 events per calendar month (UTC). You'll see a notification in GrowthBook when you reach 80% of the limit. Once the limit is exceeded, events stop being forwarded for the remainder of the month and forwarding resumes automatically on the 1st of the next month. Events that arrive while forwarding is stopped are accepted but not delivered.
+- **Pro and Enterprise plans** have no cap. Forwarded events are billed per event; see your plan for rates.
+
+Usage is counted once per event. Month-to-date totals and daily history are on **Settings > Usage**, and the Event Forwarder card on your Data Source shows the current month's progress.
+
 ## Get Started
 
-The event forwarder is an advanced Pro/Enterprise feature and must be enabled for your account. Contact your account manager or reach out to [sales@growthbook.io](mailto:sales@growthbook.io) to learn more and get started.
+Event Forwarder is available to every GrowthBook Cloud organization. Open **Settings > Data Sources**, add or edit a BigQuery, Snowflake or Databricks Data Source, and set up the Event Forwarder from its **Event Forwarder** card. Free plans are subject to the [usage limits](#usage-limits) above; one Event Forwarder is allowed per organization.
+
+If you have questions about higher volumes or Enterprise options, reach out to [sales@growthbook.io](mailto:sales@growthbook.io).
 
 ## Sending Events
 

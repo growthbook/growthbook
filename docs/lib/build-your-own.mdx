@@ -1271,3 +1271,5 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - `$inGroup` and `$notInGroup` also read typed `list` entries
   - Saved Groups are passed into prerequisite conditions (`parentConditions`)
   - New `savedGroupReferencesV2` key in the test cases, with `evalCondition`, `feature`, and `run` sub-suites. SDKs that do not support it yet can skip the whole key
+- **v0.10.1** 2026-10-22
+  - Add a `feature` test case for a prerequisite (`parentConditions`) with a malformed condition (`{"$not": null}`). It never matches, so the rule is skipped instead of throwing

@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { FEATURE_KEY_PATTERN, MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { apiBaseSchema, baseSchema } from "./base-model";
-import {
-  apiJSONSchemaDefInput,
-  featureEnvironment,
-  JSONSchemaDef,
-} from "./features";
+import { apiJSONSchemaDefInput, JSONSchemaDef } from "./features";
 import { namedSchema } from "./openapi-helpers";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { featurePrerequisite, savedGroupTargeting } from "./shared";
@@ -70,6 +66,10 @@ export type InterleavingVariation = z.infer<
   typeof interleavingVariationValidator
 >;
 
+// Interleaving environments only carry an on/off switch — the targeting knobs on
+// featureEnvironment (rules, default value) have no meaning for a ranker.
+const interleavingEnvironment = z.object({ enabled: z.boolean() }).strict();
+
 const interleavingKeyField = z
   .string()
   .regex(
@@ -128,7 +128,7 @@ export const interleavingValidator = baseSchema
     prerequisites: z.array(featurePrerequisite).optional(),
 
     // Per-environment on/off for the generated pseudo flag (holdout pattern).
-    environmentSettings: z.record(z.string(), featureEnvironment),
+    environmentSettings: z.record(z.string(), interleavingEnvironment),
   })
   .strict();
 
@@ -156,7 +156,7 @@ const apiInterleavingVariationInput = z.strictObject({
 const apiInterleavingVariationsInput = z
   .tuple([apiInterleavingVariationInput, apiInterleavingVariationInput])
   .describe(
-    "Exactly two rankers. Users who aren't interleaved get the first ranker's list.",
+    "Exactly two rankers. Users who are not exposed to interleaved rankings get the first ranker's list.",
   );
 
 export const apiInterleavingValidator = namedSchema(
@@ -197,7 +197,7 @@ export const apiInterleavingValidator = namedSchema(
     condition: z.string().optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
-    environmentSettings: z.record(z.string(), featureEnvironment),
+    environmentSettings: z.record(z.string(), interleavingEnvironment),
   }),
 );
 
@@ -222,7 +222,7 @@ export const apiCreateInterleavingBody = z.strictObject({
   tags: z.array(z.string()).optional(),
 
   key: interleavingKeyField.describe(
-    "The key your code passes to `interleave()` as `ranker`. Unique in the organization and can't be changed later.",
+    "The key your code passes to `interleave()` as `ranker`. Can't be changed later. Several experiments may share a key so you can iterate without changing code, but only one of them can be running in a given environment, and each needs its own `trackingKey`.",
   ),
   trackingKey: z
     .string()
@@ -241,7 +241,7 @@ export const apiCreateInterleavingBody = z.strictObject({
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
   prerequisites: z.array(featurePrerequisite).optional(),
-  environmentSettings: z.record(z.string(), featureEnvironment).optional(),
+  environmentSettings: z.record(z.string(), interleavingEnvironment).optional(),
 });
 
 export type ApiCreateInterleavingBody = z.infer<
@@ -278,7 +278,7 @@ export const apiUpdateInterleavingBody = z.strictObject({
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
   prerequisites: z.array(featurePrerequisite).optional(),
-  environmentSettings: z.record(z.string(), featureEnvironment).optional(),
+  environmentSettings: z.record(z.string(), interleavingEnvironment).optional(),
 });
 
 export type ApiUpdateInterleavingBody = z.infer<

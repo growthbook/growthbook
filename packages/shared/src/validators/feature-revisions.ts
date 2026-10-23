@@ -163,6 +163,7 @@ export const postFeatureRevisionValidator = {
   method: "post" as const,
   path: "/features/:id/revisions",
   confirmation: ["feature.draft"] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevision",
   summary: "Create a draft revision",
   description:

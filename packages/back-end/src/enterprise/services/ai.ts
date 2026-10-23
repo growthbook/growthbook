@@ -152,22 +152,36 @@ export const getAIProviderClass = async (
 // the handful of models it recognises and falls back to a forced call of a
 // synthetic json tool for the rest — which the newest models (Opus 5.5)
 // reject with a 400, and which also forbids parallel tool calls.
-function getProviderOptions(model: AIModel): {
+// `lowEffort` keeps reasoning models from spending a small output budget on
+// thinking before they write: Claude 5.x thinks by default and can burn a
+// 30-token cap entirely on it. Low is the floor every current model accepts.
+function getProviderOptions(
+  model: AIModel,
+  { lowEffort = false }: { lowEffort?: boolean } = {},
+): {
   providerOptions?: Parameters<typeof generateText>[0]["providerOptions"];
 } {
-  if (getProviderFromModel(model) === "openai") {
+  const provider = getProviderFromModel(model);
+  if (provider === "openai") {
     return {
       providerOptions: {
         openai: {
           store: false,
           include: ["reasoning.encrypted_content"],
+          ...(lowEffort ? { reasoningEffort: "low" } : {}),
         } satisfies OpenAIResponsesProviderOptions,
       },
     };
   }
-  const structuredOutputMode = anthropicStructuredOutputMode(model);
-  if (structuredOutputMode) {
-    return { providerOptions: { anthropic: { structuredOutputMode } } };
+  if (provider === "anthropic") {
+    const structuredOutputMode = anthropicStructuredOutputMode(model);
+    const anthropic = {
+      ...(structuredOutputMode ? { structuredOutputMode } : {}),
+      ...(lowEffort ? { effort: "low" } : {}),
+    };
+    return Object.keys(anthropic).length
+      ? { providerOptions: { anthropic } }
+      : {};
   }
   return {};
 }
@@ -411,6 +425,8 @@ export const simpleCompletion = async ({
   overrideModel,
   resolvedModel,
   maxOutputTokens,
+  lowEffort,
+  abortSignal,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -428,6 +444,10 @@ export const simpleCompletion = async ({
   resolvedModel?: AIModel;
   /** Hard stop on the reply; latency-sensitive callers keep it small. */
   maxOutputTokens?: number;
+  /** Least reasoning the model allows, so a small budget goes to the reply. */
+  lowEffort?: boolean;
+  /** Cancels the model call, e.g. when the client went away. */
+  abortSignal?: AbortSignal;
 }) => {
   const { defaultAIModel, keySource } = await getAISettingsForOrg(
     context,
@@ -456,73 +476,139 @@ export const simpleCompletion = async ({
   const generateOptions = {
     model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
     messages,
-    ...getProviderOptions(model),
+    ...getProviderOptions(model, { lowEffort }),
     ...(effectiveTemperature != null
       ? { temperature: effectiveTemperature }
       : {}),
     ...((maxOutputTokens ?? null) !== null ? { maxOutputTokens } : {}),
+    ...(abortSignal ? { abortSignal } : {}),
   };
+
+  const recordUsage = usageRecorder({
+    context,
+    model,
+    ownKey,
+    type,
+    isDefaultPrompt,
+    temperature: effectiveTemperature,
+  });
 
   let numTokensUsed: number | undefined;
   let sdkUsage: Parameters<typeof completionUsageFromSdk>[0];
   let result: string;
 
-  if (returnType === "json" && jsonSchema) {
-    const objectResponse = await generateText({
-      ...generateOptions,
-      output: Output.object({
-        schema: jsonSchema,
-      }),
+  try {
+    if (returnType === "json" && jsonSchema) {
+      const objectResponse = await generateText({
+        ...generateOptions,
+        output: Output.object({
+          schema: jsonSchema,
+        }),
+      });
+      numTokensUsed = objectResponse.usage?.totalTokens;
+      result = JSON.stringify(objectResponse.output);
+      sdkUsage = objectResponse.usage;
+    } else {
+      const textResponse = await generateText(generateOptions);
+      numTokensUsed = textResponse.usage?.totalTokens;
+      result = textResponse.text;
+      sdkUsage = textResponse.usage;
+    }
+  } catch (e) {
+    if (!abortSignal?.aborted) throw e;
+    // The provider still processed the prompt, and nothing reports how far
+    // the reply got. Count the prompt as a lower bound, as streaming does
+    // for a cut-off step, so cancelled calls still show up and meter.
+    const usage = { inputTokens: numTokensFromMessages(messages, model) };
+    await recordUsage({
+      usage,
+      totalTokens: usage.inputTokens,
+      spendUsd: estimateAICompletionUsd(model, usage),
+      outcome: "aborted",
     });
-    numTokensUsed = objectResponse.usage?.totalTokens;
-    result = JSON.stringify(objectResponse.output);
-    sdkUsage = objectResponse.usage;
-  } else {
-    const textResponse = await generateText(generateOptions);
-    numTokensUsed = textResponse.usage?.totalTokens;
-    result = textResponse.text;
-    sdkUsage = textResponse.usage;
+    throw e;
   }
 
   const usage = completionUsageFromSdk(sdkUsage);
-  const spendUsd = estimateAICompletionUsd(model, usage);
+  await recordUsage({
+    usage,
+    totalTokens:
+      numTokensUsed ||
+      (IS_CLOUD && !ownKey ? numTokensFromMessages(messages, model) : 0),
+    spendUsd: estimateAICompletionUsd(model, usage),
+    outcome: "success",
+  });
 
-  if (IS_CLOUD) {
-    if (!ownKey) {
-      if (!numTokensUsed) {
-        numTokensUsed = numTokensFromMessages(messages, model);
+  return result;
+};
+
+// One record per AI call for analytics, the managed-key cap and the Cloud
+// usage log. Accounting failures never turn a finished AI response into a 500.
+export function usageRecorder({
+  context,
+  model,
+  ownKey,
+  type,
+  isDefaultPrompt,
+  temperature,
+}: {
+  context: ReqContext | ApiReqContext;
+  model: AIModel;
+  ownKey: boolean;
+  type: AIPromptType;
+  isDefaultPrompt: boolean;
+  temperature?: number;
+}) {
+  return async ({
+    usage,
+    totalTokens,
+    spendUsd,
+    outcome,
+  }: {
+    usage?: ReturnType<typeof completionUsageFromSdk>;
+    totalTokens?: number;
+    spendUsd?: number;
+    outcome: AIUsageOutcome;
+  }) => {
+    const buckets = usage ?? {};
+    trackAIUsage({
+      organizationId: context.org.id,
+      userId: context.userId,
+      type,
+      model,
+      provider: getProviderFromModel(model),
+      numPromptTokensUsed: buckets.inputTokens,
+      numCompletionTokensUsed: buckets.outputTokens,
+      numCacheReadTokens: buckets.cacheReadTokens,
+      numCacheWriteTokens: buckets.cacheWriteTokens,
+      spendUsd,
+      usedDefaultPrompt: isDefaultPrompt,
+      usedOwnKey: ownKey,
+      outcome,
+    });
+
+    if (!IS_CLOUD) return;
+
+    const numTokensUsed = totalTokens ?? 0;
+    if (numTokensUsed && !ownKey) {
+      try {
+        await updateTokenUsage({ numTokensUsed, organization: context.org });
+      } catch (e) {
+        logger.error(e, "could not meter AI token usage");
       }
-      await updateTokenUsage({ numTokensUsed, organization: context.org });
     }
 
     logCloudAIUsage({
       organization: context.org.id,
       type,
       model,
-      numPromptTokensUsed: usage.inputTokens,
-      numCompletionTokensUsed: usage.outputTokens,
-      temperature: effectiveTemperature,
+      numPromptTokensUsed: buckets.inputTokens,
+      numCompletionTokensUsed: buckets.outputTokens,
+      temperature,
       usedDefaultPrompt: isDefaultPrompt,
     });
-  }
-
-  trackAIUsage({
-    organizationId: context.org.id,
-    userId: context.userId,
-    type,
-    model,
-    provider: getProviderFromModel(model),
-    numPromptTokensUsed: usage.inputTokens,
-    numCompletionTokensUsed: usage.outputTokens,
-    numCacheReadTokens: usage.cacheReadTokens,
-    numCacheWriteTokens: usage.cacheWriteTokens,
-    spendUsd,
-    usedDefaultPrompt: isDefaultPrompt,
-    usedOwnKey: ownKey,
-  });
-
-  return result;
-};
+  };
+}
 
 export const streamingChatCompletion = async ({
   context,
@@ -565,56 +651,14 @@ export const streamingChatCompletion = async ({
     ? temperature
     : undefined;
 
-  const recordUsage = async ({
-    usage,
-    totalTokens,
-    spendUsd,
-    outcome,
-  }: {
-    usage?: ReturnType<typeof completionUsageFromSdk>;
-    totalTokens?: number;
-    spendUsd?: number;
-    outcome: AIUsageOutcome;
-  }) => {
-    const buckets = usage ?? {};
-    trackAIUsage({
-      organizationId: context.org.id,
-      userId: context.userId,
-      type,
-      model,
-      provider: getProviderFromModel(model),
-      numPromptTokensUsed: buckets.inputTokens,
-      numCompletionTokensUsed: buckets.outputTokens,
-      numCacheReadTokens: buckets.cacheReadTokens,
-      numCacheWriteTokens: buckets.cacheWriteTokens,
-      spendUsd,
-      usedDefaultPrompt: isDefaultPrompt,
-      usedOwnKey: ownKey,
-      outcome,
-    });
-
-    if (!IS_CLOUD) return;
-
-    const numTokensUsed = totalTokens ?? 0;
-    if (numTokensUsed && !ownKey) {
-      try {
-        await updateTokenUsage({ numTokensUsed, organization: context.org });
-      } catch (e) {
-        // Accounting failures must not turn a completed AI response into a 500.
-        logger.error(e, "streamingChatCompletion: could not meter token usage");
-      }
-    }
-
-    logCloudAIUsage({
-      organization: context.org.id,
-      type,
-      model,
-      numPromptTokensUsed: buckets.inputTokens,
-      numCompletionTokensUsed: buckets.outputTokens,
-      temperature: effectiveTemperature,
-      usedDefaultPrompt: isDefaultPrompt,
-    });
-  };
+  const recordUsage = usageRecorder({
+    context,
+    model,
+    ownKey,
+    type,
+    isDefaultPrompt,
+    temperature: effectiveTemperature,
+  });
 
   type TerminalUsage = {
     usage?: ReturnType<typeof completionUsageFromSdk>;
