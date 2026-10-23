@@ -1,10 +1,11 @@
 import { ReactNode, useMemo, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiChartLine,
   PiFlask,
   PiMagnifyingGlass,
   PiTable,
+  PiXBold,
 } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
@@ -118,7 +119,29 @@ function ResourceSection({
                 aria-label={filterPlaceholder}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape" && query) {
+                    event.preventDefault();
+                    setQuery("");
+                  }
+                }}
                 prepend={<PiMagnifyingGlass />}
+                append={
+                  query ? (
+                    <IconButton
+                      type="button"
+                      size="1"
+                      variant="ghost"
+                      color="gray"
+                      aria-label="Clear filter"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => setQuery("")}
+                      style={{ width: 16, height: 16 }}
+                    >
+                      <PiXBold size={12} />
+                    </IconButton>
+                  ) : null
+                }
               />
             </Box>
           ) : null}

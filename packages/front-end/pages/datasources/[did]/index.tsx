@@ -78,10 +78,12 @@ import useURLHash from "@/hooks/useURLHash";
 export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
 export const CBAQ_ANCHOR_ID = "contextual-bandit-assignment-queries";
 
+// Default when this Data Source has no Event Forwarder tab. Queries is only
+// rendered for SQL sources; non-SQL sources fall back to Usage.
 const DATA_SOURCE_TABS = [
+  "queries",
   "usage",
   "resources",
-  "queries",
   "explore",
   "settings",
 ] as const;
@@ -253,8 +255,8 @@ const DataSourcePage: FC = () => {
     : DATA_SOURCE_TABS;
   const [tab, setTab] = useURLHash();
   // Deep links from before tabs existed point at an anchor inside Queries,
-  // not a tab id, so useURLHash falls back to the first tab and leaves the
-  // anchor stranded in the URL. Open Queries and scroll to it once.
+  // not a tab id, so the anchor is left stranded in the URL. Open Queries
+  // and scroll to it once.
   const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
   useEffect(() => {
     const legacyHash = window.location.hash.slice(1);
@@ -489,9 +491,9 @@ const DataSourcePage: FC = () => {
       ? (tab as DataSourceTab)
       : tabIds[0];
   const activeTab: DataSourceTab =
-    supportsSQL || (hashTab !== "queries" && hashTab !== "explore")
-      ? hashTab
-      : "usage";
+    !supportsSQL && (hashTab === "queries" || hashTab === "explore")
+      ? "usage"
+      : hashTab;
   const exploreFillsViewport = activeTab === "explore" && !showFinishSettingUp;
   const supportsEvents = d.properties?.events || false;
   // The tab is the Event Forwarder surface for the new setup. Orgs still on
@@ -679,14 +681,10 @@ const DataSourcePage: FC = () => {
             {showEventForwarderTab ? (
               <TabsTrigger value="event-forwarder">Event Forwarder</TabsTrigger>
             ) : null}
+            {supportsSQL && <TabsTrigger value="queries">Queries</TabsTrigger>}
             <TabsTrigger value="usage">Usage</TabsTrigger>
             <TabsTrigger value="resources">Connected Resources</TabsTrigger>
-            {supportsSQL && (
-              <>
-                <TabsTrigger value="queries">Queries</TabsTrigger>
-                <TabsTrigger value="explore">Explore</TabsTrigger>
-              </>
-            )}
+            {supportsSQL && <TabsTrigger value="explore">Explore</TabsTrigger>}
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
