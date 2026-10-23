@@ -2047,7 +2047,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
       unhealthyData: {
         clusterAssignment: { rawDecimal: 0.04, mixedClusters: 1 },
       },
-      tooltip: "Cluster assignment",
+      tooltip: "Mixed cluster assignment",
     });
   });
 

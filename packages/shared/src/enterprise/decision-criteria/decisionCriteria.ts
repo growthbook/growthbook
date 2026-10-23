@@ -700,8 +700,8 @@ export function getExperimentResultStatus({
     ...(unhealthyData.multipleExposures ? ["Multiple exposures"] : []),
     ...(unhealthyData.lowPowered ? ["Low powered"] : []),
     ...(unhealthyData.covariateImbalance ? ["Pre-exposure bias"] : []),
-    ...(unhealthyData.clusterAssignment ? ["Cluster assignment"] : []),
-    ...(unhealthyData.clusterMapping ? ["Cluster mapping"] : []),
+    ...(unhealthyData.clusterAssignment ? ["Mixed cluster assignment"] : []),
+    ...(unhealthyData.clusterMapping ? ["Units in multiple clusters"] : []),
   ];
   // 1. Always show unhealthy status if they exist
   if (unhealthyStatuses.length > 0) {
