@@ -632,6 +632,141 @@ export function sqlReferencesColumnAllowingQualified(
   return found;
 }
 
+export function extractTopLevelSelectProjections(
+  sql: string,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+): string {
+  const n = sql.length;
+  const stringQuote = identifierQuote === '"' ? "`" : '"';
+
+  const skipQuoted = (start: number, quote: string): number => {
+    let j = start + 1;
+    while (j < n) {
+      if (sql[j] === quote) {
+        if (sql[j + 1] === quote) {
+          j += 2;
+          continue;
+        }
+        return j + 1;
+      }
+      j++;
+    }
+    return j;
+  };
+
+  const projections: string[] = [];
+  let depth = 0;
+  let capturing = false;
+  let captureStart = 0;
+  let i = 0;
+
+  const stopCapture = (end: number) => {
+    if (capturing) {
+      projections.push(sql.slice(captureStart, end));
+      capturing = false;
+    }
+  };
+
+  while (i < n) {
+    const c = sql[i];
+
+    // Single-quoted string literal.
+    if (c === "'") {
+      i = skipQuoted(i, "'");
+      continue;
+    }
+
+    // Line comment.
+    if (c === "-" && sql[i + 1] === "-") {
+      let j = i + 2;
+      while (j < n && sql[j] !== "\n") j++;
+      i = j;
+      continue;
+    }
+
+    // Block comment.
+    if (c === "/" && sql[i + 1] === "*") {
+      let j = i + 2;
+      while (j < n && !(sql[j] === "*" && sql[j + 1] === "/")) j++;
+      i = Math.min(n, j + 2);
+      continue;
+    }
+
+    // Dollar-quoted string ($tag$...$tag$).
+    if (c === "$") {
+      const open = sql.slice(i).match(/^\$([A-Za-z_][A-Za-z0-9_]*)?\$/);
+      if (open) {
+        const delim = open[0];
+        const close = sql.indexOf(delim, i + delim.length);
+        if (close !== -1) {
+          i = close + delim.length;
+          continue;
+        }
+      }
+      i++;
+      continue;
+    }
+
+    // Quoted-identifier span and opposite-quote string literal: skip either way,
+    // since a keyword inside a quoted span is never a clause keyword.
+    if (c === identifierQuote || c === stringQuote) {
+      i = skipQuoted(i, c);
+      continue;
+    }
+
+    if (c === "(") {
+      depth++;
+      i++;
+      continue;
+    }
+
+    if (c === ")") {
+      if (depth > 0) depth--;
+      i++;
+      continue;
+    }
+
+    // Bare identifier / keyword run.
+    if (isBareIdentifierChar(c)) {
+      let j = i;
+      while (j < n && isBareIdentifierChar(sql[j])) j++;
+      const token = sql.slice(i, j);
+      if (depth === 0) {
+        const upper = token.toUpperCase();
+        if (upper === "SELECT") {
+          // A new top-level projection list begins after this keyword. Any
+          // previous one (e.g. the left side of a set operation with no FROM)
+          // ends here.
+          stopCapture(i);
+          capturing = true;
+          captureStart = j;
+        } else if (upper === "FROM") {
+          stopCapture(i);
+        }
+      }
+      i = j;
+      continue;
+    }
+
+    i++;
+  }
+
+  stopCapture(n);
+  return projections.join("\n");
+}
+
+export function sqlSelectsColumnAllowingQualified(
+  sql: string,
+  column: string,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+): boolean {
+  return sqlReferencesColumnAllowingQualified(
+    extractTopLevelSelectProjections(sql, identifierQuote),
+    column,
+    identifierQuote,
+  );
+}
+
 export function getColumnExpression(
   column: string,
   factTable: Pick<FactTableInterface, "columns">,

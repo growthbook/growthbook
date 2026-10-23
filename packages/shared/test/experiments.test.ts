@@ -17,6 +17,7 @@ import {
   expandVirtualColumnsInSql,
   sqlReferencesColumn,
   sqlReferencesColumnAllowingQualified,
+  sqlSelectsColumnAllowingQualified,
   validateVirtualColumnExpression,
   getSelectedColumnDatatype,
   adjustPValuesBenjaminiHochberg,
@@ -2724,6 +2725,107 @@ describe("Virtual Columns", () => {
           "margin_vc",
         ),
       ).toBe(false);
+    });
+  });
+
+  describe("sqlSelectsColumnAllowingQualified", () => {
+    it("detects a bare column in the SELECT projection", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "SELECT user_id, bandit_version FROM exposures",
+          "bandit_version",
+        ),
+      ).toBe(true);
+    });
+
+    it("detects a qualified column in the SELECT projection", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "SELECT e.user_id, e.bandit_version FROM exposures e",
+          "bandit_version",
+        ),
+      ).toBe(true);
+    });
+
+    it("detects a double-quoted alias in the projection", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          'SELECT src.version AS "bandit_version" FROM exposures src',
+          "bandit_version",
+        ),
+      ).toBe(true);
+    });
+
+    it("does not count a column referenced only in a WHERE filter", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "SELECT user_id FROM exposures WHERE bandit_version >= 2",
+          "bandit_version",
+        ),
+      ).toBe(false);
+    });
+
+    it("does not count a column referenced only in GROUP BY / ORDER BY", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "SELECT user_id FROM exposures GROUP BY user_id, bandit_version ORDER BY bandit_version",
+          "bandit_version",
+        ),
+      ).toBe(false);
+    });
+
+    it("does not count a column selected only inside a non-reprojected subquery", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "SELECT e.user_id FROM (SELECT user_id, bandit_version FROM t) e",
+          "bandit_version",
+        ),
+      ).toBe(false);
+    });
+
+    it("ignores a CTE that selects the column but does not re-project it", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "WITH cte AS (SELECT user_id, bandit_version FROM t) SELECT user_id FROM cte",
+          "bandit_version",
+        ),
+      ).toBe(false);
+    });
+
+    it("detects the column when the outer query re-projects it", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "WITH cte AS (SELECT user_id, bandit_version FROM t) SELECT user_id, bandit_version FROM cte",
+          "bandit_version",
+        ),
+      ).toBe(true);
+    });
+
+    it("detects the column in either branch of a set operation", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "SELECT user_id FROM a WHERE bandit_version > 0 UNION ALL SELECT bandit_version FROM b",
+          "bandit_version",
+        ),
+      ).toBe(true);
+    });
+
+    it("ignores keywords inside string literals and comments", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "SELECT user_id FROM t WHERE note = 'SELECT bandit_version' -- SELECT bandit_version\n",
+          "bandit_version",
+        ),
+      ).toBe(false);
+    });
+
+    it("handles a scalar subquery in the projection", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "SELECT (SELECT MAX(v) FROM versions) AS bandit_version FROM exposures",
+          "bandit_version",
+        ),
+      ).toBe(true);
     });
   });
 
