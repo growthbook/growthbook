@@ -9,18 +9,17 @@ import {
 } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Text from "@/ui/Text";
-import { Select, SelectItem } from "@/ui/Select";
 import {
   getMetricPreviewConfig,
   getMetricPreviewDateRange,
   getMetricPreviewUnits,
-  getMetricPreviewUnitLabel,
 } from "@/components/FactTables/MetricEditor/metricPreview";
 import styles from "@/components/FactTables/MetricEditor/PreviewPanel.module.scss";
 import { ExplorerProvider } from "./ExplorerContext";
 import MetricPreviewChart from "./MainSection/MetricPreviewChart";
 import PreviewEmptyState from "./MainSection/PreviewEmptyState";
 import PreviewShell, { PreviewFooter } from "./MainSection/PreviewShell";
+import PreviewUnitSelect from "./MainSection/PreviewUnitSelect";
 
 const EMPTY_CONFIG: ExplorationConfig = {
   ...DEFAULT_EXPLORE_STATE,
@@ -149,14 +148,17 @@ export default function MetricPerformance({
                 </Flex>
               )}
               {units.numerator.length > 0 && (
-                <Select
+                <PreviewUnitSelect
+                  units={units.numerator}
+                  value={unit}
+                  setValue={setSelectedUnit}
+                  factTable={numeratorFactTable}
                   size={
                     metric?.metricType === "ratio" ||
                     metric?.metricType === "funnel"
                       ? "md"
                       : "sm"
                   }
-                  triggerClassName={styles.unitTrigger}
                   aria-label={
                     metric?.metricType === "ratio"
                       ? "Numerator unit"
@@ -164,31 +166,7 @@ export default function MetricPerformance({
                         ? "Shared unit for all steps"
                         : "Unit"
                   }
-                  value={unit ?? ""}
-                  setValue={setSelectedUnit}
-                >
-                  {units.numerator.map((id) => {
-                    const { label, column } = getMetricPreviewUnitLabel(
-                      id,
-                      numeratorFactTable,
-                    );
-                    return (
-                      <SelectItem
-                        key={id}
-                        value={id}
-                        textValue={label}
-                        className={styles.unitItem}
-                      >
-                        <span className={styles.unitOption}>
-                          <span>{label}</span>
-                          <span className={styles.unitDescriptor}>
-                            {column}
-                          </span>
-                        </span>
-                      </SelectItem>
-                    );
-                  })}
-                </Select>
+                />
               )}
               {metric?.metricType === "funnel" &&
                 units.numerator.length === 0 && (
@@ -214,35 +192,14 @@ export default function MetricPerformance({
                 </>
               )}
               {units.denominator.length > 0 && (
-                <Select
-                  size="md"
-                  triggerClassName={styles.unitTrigger}
-                  aria-label="Denominator unit"
-                  value={denominatorUnit ?? ""}
+                <PreviewUnitSelect
+                  units={units.denominator}
+                  value={denominatorUnit}
                   setValue={setSelectedDenominatorUnit}
-                >
-                  {units.denominator.map((id) => {
-                    const { label, column } = getMetricPreviewUnitLabel(
-                      id,
-                      denominatorFactTable,
-                    );
-                    return (
-                      <SelectItem
-                        key={id}
-                        value={id}
-                        textValue={label}
-                        className={styles.unitItem}
-                      >
-                        <span className={styles.unitOption}>
-                          <span>{label}</span>
-                          <span className={styles.unitDescriptor}>
-                            {column}
-                          </span>
-                        </span>
-                      </SelectItem>
-                    );
-                  })}
-                </Select>
+                  factTable={denominatorFactTable}
+                  size="md"
+                  aria-label="Denominator unit"
+                />
               )}
             </Flex>
           }

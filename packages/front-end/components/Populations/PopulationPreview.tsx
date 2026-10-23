@@ -11,18 +11,16 @@ import { ExplorerProvider } from "@/enterprise/components/ProductAnalytics/Explo
 import DailyBarChart from "@/enterprise/components/ProductAnalytics/MainSection/DailyBarChart";
 import PreviewHeadline from "@/enterprise/components/ProductAnalytics/MainSection/PreviewHeadline";
 import PreviewShell from "@/enterprise/components/ProductAnalytics/MainSection/PreviewShell";
+import PreviewUnitSelect from "@/enterprise/components/ProductAnalytics/MainSection/PreviewUnitSelect";
 import {
   getMetricPreviewDateRange,
-  getMetricPreviewUnitLabel,
   formatPreviewHeadline,
 } from "@/components/FactTables/MetricEditor/metricPreview";
 import { getActivityChart } from "@/components/FactTables/MetricEditor/activityChart";
-import styles from "@/components/FactTables/MetricEditor/PreviewPanel.module.scss";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import { Select, SelectItem } from "@/ui/Select";
 
 // Daily distinct members for one population. Errors are shown by the shell.
 function MembersChart({
@@ -158,33 +156,12 @@ export default function PopulationPreview({
               />
             )}
             controls={
-              <Select
-                size="sm"
-                triggerClassName={styles.unitTrigger}
-                aria-label="Unit"
-                value={unit ?? ""}
+              <PreviewUnitSelect
+                units={population.userIdTypes}
+                value={unit}
                 setValue={setSelectedUnit}
-              >
-                {population.userIdTypes.map((id) => {
-                  const { label, column } = getMetricPreviewUnitLabel(
-                    id,
-                    factTable,
-                  );
-                  return (
-                    <SelectItem
-                      key={id}
-                      value={id}
-                      textValue={label}
-                      className={styles.unitItem}
-                    >
-                      <span className={styles.unitOption}>
-                        <span>{label}</span>
-                        <span className={styles.unitDescriptor}>{column}</span>
-                      </span>
-                    </SelectItem>
-                  );
-                })}
-              </Select>
+                factTable={factTable}
+              />
             }
           />
         </ExplorerProvider>

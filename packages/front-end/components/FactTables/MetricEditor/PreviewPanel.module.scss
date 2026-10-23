@@ -84,30 +84,6 @@
   overflow: auto;
 }
 
-.unitItem[role="option"] {
-  height: auto;
-  min-height: 56px;
-  padding-block: var(--space-2);
-
-  .unitOption {
-    gap: var(--space-1);
-  }
-}
-
-.unitOption {
-  display: inline-flex;
-  flex-direction: column;
-}
-
-.unitDescriptor {
-  color: var(--gray-11);
-  font-size: var(--font-size-1);
-}
-
-.unitTrigger .unitDescriptor {
-  display: none;
-}
-
 .ratioDivider {
   display: flex;
   align-items: center;
