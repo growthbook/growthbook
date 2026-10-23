@@ -1,28 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import EChartsReact from "echarts-for-react";
 import { PiArrowClockwise } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
 import { ApiPopulation, PopulationExplorationConfig } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   ExplorerProvider,
   useExplorerContext,
 } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import {
-  cssColorToHex,
-  getChartThemeColors,
-} from "@/enterprise/components/ProductAnalytics/chart-theme";
+import DailyBarChart from "@/enterprise/components/ProductAnalytics/MainSection/DailyBarChart";
 import {
   getMetricPreviewDateRange,
   formatPreviewHeadline,
 } from "@/components/FactTables/MetricEditor/metricPreview";
-import {
-  getActivityChart,
-  formatUtcWeekday,
-} from "@/components/FactTables/MetricEditor/activityChart";
+import { getActivityChart } from "@/components/FactTables/MetricEditor/activityChart";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -30,6 +22,92 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { Select, SelectItem } from "@/ui/Select";
+
+function Placeholder({ children }: { children: ReactNode }) {
+  return (
+    <Flex
+      direction="column"
+      align="center"
+      justify="center"
+      gap="3"
+      style={{ minHeight: 240 }}
+    >
+      {children}
+    </Flex>
+  );
+}
+
+function MembersChart({
+  chart,
+}: {
+  chart: ReturnType<typeof getActivityChart>;
+}) {
+  return (
+    <>
+      <Box>
+        <Text as="div" color="text-mid">
+          Average members per day
+        </Text>
+        <div
+          style={{
+            fontSize: "3rem",
+            lineHeight: 1.2,
+            fontWeight: 600,
+          }}
+        >
+          {chart.days.length
+            ? formatPreviewHeadline(chart.total / chart.days.length)
+            : "—"}
+        </div>
+        <Text size="sm" color="text-mid">
+          Distinct members meeting the conditions each day. A member can appear
+          on multiple days.
+        </Text>
+      </Box>
+      <DailyBarChart
+        days={chart.days}
+        values={chart.counts}
+        seriesName="Members"
+        integerYAxis
+        height={280}
+      />
+      {chart.total === 0 && (
+        <Text color="text-mid">No members matched during this period.</Text>
+      )}
+    </>
+  );
+}
+
+function PreviewBody({
+  chart,
+  loading,
+  error,
+}: {
+  chart: ReturnType<typeof getActivityChart> | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  if (chart) return <MembersChart chart={chart} />;
+  if (loading) {
+    return (
+      <Placeholder>
+        <LoadingSpinner />
+      </Placeholder>
+    );
+  }
+  // The caller shows the error in place of the chart.
+  if (error) return null;
+  return (
+    <Placeholder>
+      <Text size="lg" weight="semibold" align="center">
+        Preview will appear here
+      </Text>
+      <Text color="text-mid" align="center">
+        Run the query to see daily member counts for the last 7 complete days.
+      </Text>
+    </Placeholder>
+  );
+}
 
 function PreviewResults({ config }: { config: PopulationExplorationConfig }) {
   const {
@@ -43,11 +121,12 @@ function PreviewResults({ config }: { config: PopulationExplorationConfig }) {
     isStale,
     needsFetch,
   } = useExplorerContext();
-  const { theme } = useAppearanceUITheme();
-  const { textColor, tooltipBackgroundColor } = getChartThemeColors(theme);
-  useEffect(() => setDraftExploreState(config), [config, setDraftExploreState]);
+  useEffect(() => {
+    setDraftExploreState(config);
+  }, [config, setDraftExploreState]);
   const outdated = !!exploration && (isStale || needsFetch);
-  const chart = exploration?.result ? getActivityChart(exploration) : null;
+  // A failed run still returns an exploration with empty rows; don't chart it.
+  const chart = exploration && !error ? getActivityChart(exploration) : null;
 
   if (managedWarehouseUnavailable) {
     return (
@@ -65,95 +144,7 @@ function PreviewResults({ config }: { config: PopulationExplorationConfig }) {
         </Callout>
       )}
       {error && !loading && <Callout status="error">{error}</Callout>}
-      {chart ? (
-        <>
-          <Box>
-            <Text as="div" color="text-mid">
-              Average members per day
-            </Text>
-            <Heading as="h3" size="2xl" mb="1">
-              {chart.days.length
-                ? formatPreviewHeadline(chart.total / chart.days.length)
-                : "—"}
-            </Heading>
-            <Text size="sm" color="text-mid">
-              Distinct members meeting the conditions each day. A member can
-              appear on multiple days.
-            </Text>
-          </Box>
-          <EChartsReact
-            key={theme}
-            notMerge
-            option={{
-              grid: { top: 16, right: 8, bottom: 28, left: 50 },
-              tooltip: {
-                trigger: "axis",
-                appendTo: "body",
-                backgroundColor: tooltipBackgroundColor,
-                textStyle: { color: textColor },
-                axisPointer: { type: "shadow" },
-                valueFormatter: (value: number) => value.toLocaleString(),
-              },
-              xAxis: {
-                type: "category",
-                data: chart.days,
-                axisLine: { show: false },
-                axisTick: { show: false },
-                axisLabel: {
-                  color: textColor,
-                  formatter: (day: string) => formatUtcWeekday(day, "short"),
-                },
-              },
-              yAxis: {
-                type: "value",
-                minInterval: 1,
-                axisLabel: { color: textColor },
-                splitLine: {
-                  lineStyle: { color: cssColorToHex("var(--gray-5)") },
-                },
-              },
-              series: [
-                {
-                  name: "Members",
-                  type: "bar",
-                  data: chart.counts,
-                  barCategoryGap: "15%",
-                  itemStyle: {
-                    color: cssColorToHex("var(--violet-9)"),
-                    borderRadius: [3, 3, 0, 0],
-                  },
-                },
-              ],
-            }}
-            style={{ width: "100%", height: 280 }}
-          />
-          {chart.total === 0 && (
-            <Text color="text-mid">No members matched during this period.</Text>
-          )}
-        </>
-      ) : !error || loading ? (
-        <Flex
-          direction="column"
-          align="center"
-          justify="center"
-          gap="3"
-          style={{ minHeight: 240 }}
-        >
-          {loading ? (
-            <LoadingSpinner />
-          ) : (
-            <>
-              <Heading as="h3" size="md" mb="0">
-                Preview Will Appear Here
-              </Heading>
-              <Text color="text-mid" align="center">
-                Run the query to see daily member counts for the last 7 complete
-                days.
-              </Text>
-            </>
-          )}
-        </Flex>
-      ) : null}
+      <PreviewBody chart={chart} loading={loading} error={error} />
       <Flex
         justify="end"
         align="center"
