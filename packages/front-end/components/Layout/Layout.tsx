@@ -73,8 +73,8 @@ const Layout = (): React.ReactElement => {
 
   // hacky:
   const router = useRouter();
-  // Settings collapses the sidebar to an icon rail and adds its own sub nav.
-  // Narrow screens keep the drawer, with the Organization pages as sub-links.
+  // Settings adds its own sub nav beside the sidebar. Narrow screens keep the
+  // drawer, with the Organization pages as sub-links.
   const [wide, setWide] = useState(true);
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1181px)");
@@ -115,7 +115,7 @@ const Layout = (): React.ReactElement => {
   });
 
   const build = getGrowthBookBuild();
-  const rail = isSettingsRoute(router.route) && wide;
+  const showSettingsNav = isSettingsRoute(router.route) && wide;
 
   return (
     <>
@@ -129,7 +129,6 @@ const Layout = (): React.ReactElement => {
       <div
         className={clsx(styles.sidebar, "sidebar mb-5", {
           [styles.sidebaropen]: open,
-          [styles.rail]: rail,
         })}
       >
         <div className="">
@@ -213,7 +212,6 @@ const Layout = (): React.ReactElement => {
                     key={v.href}
                     {...v}
                     hideSubLinks={v.hideSubLinks && wide}
-                    rail={rail}
                   />
                 ))}
               </ul>
@@ -221,7 +219,7 @@ const Layout = (): React.ReactElement => {
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <Flex p="3" direction="column" gap="4" className={styles.hideInRail}>
+        <Flex p="3" direction="column" gap="4">
           {showUpgradeButton && (
             <WhiteButton onClick={() => setUpgradeModal(true)}>
               <>Upgrade</>
@@ -232,7 +230,7 @@ const Layout = (): React.ReactElement => {
           </a>
         </Flex>
         {build.sha && (
-          <div className={clsx("px-3 my-1 text-center", styles.hideInRail)}>
+          <div className="px-3 my-1 text-center">
             <small>
               <span className="text-muted">Build:</span>{" "}
               <a
@@ -251,12 +249,12 @@ const Layout = (): React.ReactElement => {
         )}
       </div>
 
-      {rail && <SettingsNav />}
+      {showSettingsNav && <SettingsNav />}
       <TopNav
         pageTitle={pageTitle}
         showNotices={true}
         toggleLeftMenu={() => setOpen(!open)}
-        leftOffset={rail ? "var(--settings-layout-left)" : undefined}
+        leftOffset={showSettingsNav ? "var(--settings-layout-left)" : undefined}
         mutedBreadcrumb={isSettingsRoute(router.route)}
       />
     </>

@@ -7,7 +7,6 @@ $sidebarwidth: 240px;
   position: fixed;
   top: 0;
   left: var(--topbar-left, #{$sidebarwidth});
-  transition: left 0.2s cubic-bezier(0.685, 0.0473, 0.346, 1);
   right: 0;
   height: 56px;
   z-index: 1010;

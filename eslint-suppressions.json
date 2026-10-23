@@ -184,11 +184,6 @@
       "count": 3
     }
   },
-  "packages/front-end/components/Events/EventsPage/EventsPage.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Events/EventsPage/utils.ts": {
     "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1

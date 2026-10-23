@@ -142,7 +142,7 @@ const MemberPersonalAccessTokens: FC = () => {
   };
 
   return (
-    <Frame mb="4">
+    <Frame mb="4" py="20px" px="24px">
       <Heading as="h3" size="md" mb="1">
         Member Tokens
       </Heading>

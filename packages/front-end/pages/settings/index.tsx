@@ -36,6 +36,9 @@ import TargetingAttributesSettings from "@/components/GeneralSettings/TargetingA
 import ApprovalFlowSettings from "@/components/GeneralSettings/ApprovalFlowSettings";
 import SDKConnectionSettings from "@/components/GeneralSettings/SDKConnectionSettings";
 
+const SEARCH_HIGHLIGHT_CSS =
+  "::highlight(settings-search){background-color:var(--amber-a5)}";
+
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
   return children({ ...methods });
@@ -192,6 +195,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
         ]}
         contentClassName={sectionStyles.generalContent}
       >
+        {/* Injected at runtime: Turbopack's CSS parser rejects ::highlight(). */}
+        <style>{SEARCH_HIGHLIGHT_CSS}</style>
         <div ref={pageRef}>
           {hasQuery && total > 0 && (
             <Flex align="center" gap="3" mt="3" wrap="wrap">

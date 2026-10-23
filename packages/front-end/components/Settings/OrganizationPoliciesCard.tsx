@@ -1,11 +1,11 @@
 import { FC, useState } from "react";
 import { ApiKeyInterface } from "shared/types/apikey";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { hasFileConfig } from "@/services/env";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import HelperText from "@/ui/HelperText";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
@@ -20,86 +20,14 @@ import ApiKeyExpirationPolicy, {
   settingField,
 } from "./ApiKeyExpirationPolicy";
 
-const PoliciesModal: FC<{
-  kind: Kind;
-  canDisable: boolean;
-  canExpire: boolean;
-  close: () => void;
-}> = ({ kind, canDisable, canExpire, close }) => {
-  const { apiCall } = useAuth();
-  const { settings, refreshOrganization } = useUser();
-  const wasDisabled = !!settings?.disablePersonalAccessTokens;
-  const [disable, setDisable] = useState(wasDisabled);
-  const saved = settings?.[settingField(kind)] ?? null;
-  const [lifetime, setLifetime] = useState<string | null>(
-    saved === null ? null : String(saved),
-  );
-  const { value: maxDays, invalid } = parseLifetimeDraft(lifetime);
-
-  return (
-    <ModalStandard
-      open
-      trackingEventModalType=""
-      header="Edit Organization Policies"
-      close={close}
-      cta="Save"
-      ctaEnabled={!invalid}
-      submit={async () => {
-        // Only what this member may change, so the other half isn't rewritten.
-        await apiCall("/organization", {
-          method: "PUT",
-          body: JSON.stringify({
-            settings: {
-              ...(canDisable && { disablePersonalAccessTokens: disable }),
-              ...(canExpire && { [settingField(kind)]: maxDays }),
-            },
-          }),
-        });
-        await refreshOrganization();
-      }}
-    >
-      {kind === "pat" && (
-        <>
-          <Checkbox
-            label="Disable personal access tokens"
-            description="Blocks new personal access tokens and stops existing ones working, including OAuth tokens and the Visual Editor."
-            value={disable}
-            setValue={setDisable}
-            disabled={!canDisable}
-            disabledMessage="Only admins can change this setting"
-          />
-          {disable && !wasDisabled && (
-            <Callout status="error" mt="3">
-              Every token that acts as a user stops working as soon as you save:
-              personal access tokens, OAuth access tokens, and the Visual
-              Editor. Turning this back off restores them.
-            </Callout>
-          )}
-        </>
-      )}
-      {canExpire && (
-        <Flex direction="column" mt={kind === "pat" ? "4" : "0"}>
-          <ExpirationPolicyField
-            kind={kind}
-            draft={lifetime}
-            setDraft={setLifetime}
-          />
-        </Flex>
-      )}
-    </ModalStandard>
-  );
-};
-
-/**
- * Read-only summary with an Edit button that opens every control in one modal,
- * the same shape as a Project's access settings.
- */
+// Read-only summary; Edit swaps it for the controls in place, Done saves.
 const OrganizationPoliciesCard: FC<{
   kind: Kind;
   keys: ApiKeyInterface[];
   mutate: () => void;
 }> = ({ kind, keys, mutate }) => {
-  const { settings } = useUser();
+  const { apiCall } = useAuth();
+  const { settings, refreshOrganization } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const canManageOrgSettings = permissionsUtil.canManageOrgSettings();
   const canDisable = kind === "pat" && canManageOrgSettings;
@@ -110,52 +38,121 @@ const OrganizationPoliciesCard: FC<{
       ? permissionsUtil.canManagePersonalAccessTokens()
       : permissionsUtil.canViewApiKeys();
   const canExpire = canSeeExpiry && canManageOrgSettings;
-  const [editing, setEditing] = useState(false);
   const locked = hasFileConfig();
 
+  const wasDisabled = !!settings?.disablePersonalAccessTokens;
+  const saved = settings?.[settingField(kind)] ?? null;
+  const [editing, setEditing] = useState(false);
+  const [disable, setDisable] = useState(wasDisabled);
+  const [lifetime, setLifetime] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { value: maxDays, invalid } = parseLifetimeDraft(lifetime);
+
+  const startEditing = () => {
+    setDisable(wasDisabled);
+    setLifetime(saved === null ? null : String(saved));
+    setError(null);
+    setEditing(true);
+  };
+
+  const done = async () => {
+    const changed = disable !== wasDisabled || maxDays !== saved;
+    if (changed) {
+      // Only what this member may change, so the other half isn't rewritten.
+      await apiCall("/organization", {
+        method: "PUT",
+        body: JSON.stringify({
+          settings: {
+            ...(canDisable && { disablePersonalAccessTokens: disable }),
+            ...(canExpire && { [settingField(kind)]: maxDays }),
+          },
+        }),
+      });
+      await refreshOrganization();
+    }
+    setEditing(false);
+  };
+
   return (
-    <Frame mb="4">
+    <Frame mb="4" py="20px" px="24px">
       <Flex align="center" justify="between" gap="3" mb="3">
         <Heading as="h3" size="md" mb="0">
           Organization Policies
         </Heading>
-        <Tooltip
-          content={
-            locked
-              ? "Organization settings are managed by your config.yml file"
-              : "Changing these policies requires permission to manage organization settings"
-          }
-          enabled={locked || (!canDisable && !canExpire)}
-        >
-          <span>
-            <Button
-              variant="ghost"
-              disabled={locked || (!canDisable && !canExpire)}
-              onClick={() => setEditing(true)}
-            >
-              Edit
-            </Button>
-          </span>
-        </Tooltip>
-      </Flex>
-      <Flex direction="column" gap="1">
-        {kind === "pat" && (
-          <Metadata
-            label="Disable personal access tokens"
-            value={settings?.disablePersonalAccessTokens ? "On" : "Off"}
-          />
+        {editing ? (
+          <Button
+            variant="ghost"
+            disabled={invalid}
+            setError={setError}
+            onClick={done}
+          >
+            Done
+          </Button>
+        ) : (
+          <Tooltip
+            content={
+              locked
+                ? "Organization settings are managed by your config.yml file"
+                : "Changing these policies requires permission to manage organization settings"
+            }
+            enabled={locked || (!canDisable && !canExpire)}
+          >
+            <span>
+              <Button
+                variant="ghost"
+                disabled={locked || (!canDisable && !canExpire)}
+                onClick={startEditing}
+              >
+                Edit
+              </Button>
+            </span>
+          </Tooltip>
         )}
-        {canSeeExpiry && (
-          <ApiKeyExpirationPolicy kind={kind} keys={keys} mutate={mutate} />
-        )}
       </Flex>
-      {editing && (
-        <PoliciesModal
-          kind={kind}
-          canDisable={canDisable}
-          canExpire={canExpire}
-          close={() => setEditing(false)}
-        />
+      {editing ? (
+        <Flex direction="column" gap="4">
+          {kind === "pat" && (
+            <Box>
+              <Checkbox
+                label="Disable personal access tokens"
+                description="Blocks new personal access tokens and stops existing ones working, including OAuth tokens and the Visual Editor."
+                value={disable}
+                setValue={setDisable}
+                disabled={!canDisable}
+                disabledMessage="Only admins can change this setting"
+              />
+              {disable && !wasDisabled && (
+                <Callout status="error" mt="3">
+                  Every token that acts as a user stops working as soon as you
+                  click Done: personal access tokens, OAuth access tokens, and
+                  the Visual Editor. Turning this back off restores them.
+                </Callout>
+              )}
+            </Box>
+          )}
+          {canExpire && (
+            <Box>
+              <ExpirationPolicyField
+                kind={kind}
+                draft={lifetime}
+                setDraft={setLifetime}
+              />
+            </Box>
+          )}
+          {error && <HelperText status="error">{error}</HelperText>}
+        </Flex>
+      ) : (
+        <Flex direction="column" gap="1">
+          {kind === "pat" && (
+            <Metadata
+              label="Disable personal access tokens"
+              value={wasDisabled ? "On" : "Off"}
+            />
+          )}
+          {canSeeExpiry && (
+            <ApiKeyExpirationPolicy kind={kind} keys={keys} mutate={mutate} />
+          )}
+        </Flex>
       )}
     </Frame>
   );

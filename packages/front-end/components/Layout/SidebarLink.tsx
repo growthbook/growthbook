@@ -66,8 +66,7 @@ export function buildSidebarLinkFilterProps(input: {
   };
 }
 
-// `rail`: icon-only mode, where a group click navigates instead of expanding.
-const SidebarLink: FC<SidebarLinkProps & { rail?: boolean }> = (props) => {
+const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const { permissions, superAdmin } = useUser();
   const { project, segments } = useDefinitions();
 
@@ -137,7 +136,6 @@ const SidebarLink: FC<SidebarLinkProps & { rail?: boolean }> = (props) => {
             "no-close": showSubLinks && !props.autoClose,
           })}
           href={props.href}
-          title={props.rail ? props.name : undefined}
           onClick={(e) => {
             // Allow browser default behavior for modifier keys (cmd/ctrl/shift) or middle mouse button
             if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) {
@@ -147,7 +145,7 @@ const SidebarLink: FC<SidebarLinkProps & { rail?: boolean }> = (props) => {
             e.preventDefault();
             // Land on the first page this user may see, not a forbidden parent href.
             const firstHref = permittedSubLinks[0]?.href ?? props.href;
-            if (props.rail || !showSubLinks) {
+            if (!showSubLinks) {
               router.push(firstHref);
               return;
             }

@@ -3,8 +3,13 @@ import {
   EventInterface,
   NotificationEventName,
 } from "shared/types/events/event";
-import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
-import { PiDownloadSimple } from "react-icons/pi";
+import {
+  PiCaretDown,
+  PiCaretUp,
+  PiCaretUpDown,
+  PiDownloadSimple,
+} from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
 import { useUser } from "@/services/UserContext";
@@ -19,6 +24,7 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
 
@@ -86,12 +92,9 @@ export const EventsPage: FC<EventsPageProps> = ({
         }
       />
 
-      <div
-        className="d-flex justify-content-between flex-row mt-2 align-items-end"
-        style={{ gap: "1.5rem" }}
-      >
+      <Flex justify="between" align="center" gap="4" mt="2">
         {filters}
-      </div>
+      </Flex>
       {error && (
         <Callout status="error" mt="2">
           There was an error loading the events.
@@ -118,22 +121,20 @@ export const EventsPage: FC<EventsPageProps> = ({
                 }}
               >
                 Date{" "}
-                <a
-                  href="#"
-                  className={
-                    sort.field === "dateCreated" ? "activesort" : "inactivesort"
-                  }
+                <span
+                  aria-hidden="true"
+                  style={{ color: "var(--gray-11)", verticalAlign: "-2px" }}
                 >
                   {sort.field === "dateCreated" ? (
                     sort.dir < 0 ? (
-                      <FaSortDown />
+                      <PiCaretDown size={14} />
                     ) : (
-                      <FaSortUp />
+                      <PiCaretUp size={14} />
                     )
                   ) : (
-                    <FaSort />
+                    <PiCaretUpDown size={14} />
                   )}
-                </a>
+                </span>
               </span>
             </th>
             <th>Type</th>
@@ -220,9 +221,9 @@ export const EventsPageContainer = () => {
     <>
       <div>
         <MultiSelectField
-          legacyHeight
+          size="md"
           value={eventType}
-          placeholder="Filter event type"
+          placeholder="All event types"
           sort={false}
           options={eventTypeOptions}
           onChange={(value: string[]) => {
@@ -230,26 +231,32 @@ export const EventsPageContainer = () => {
           }}
         />
       </div>
-      <div className="d-inline-flex align-items-center">
-        <label className="mb-0 mr-2">From</label>
+      <Flex align="center" gap="2">
+        <Text as="label" color="text-mid" m="0">
+          From
+        </Text>
         <DatePicker
+          size="md"
           date={fromDate}
           setDate={setFromDate}
           scheduleEndDate={toDate}
           precision="date"
           containerClassName=""
         />
-      </div>
-      <div className="d-inline-flex align-items-center">
-        <label className="mb-0 mr-2">To</label>
+      </Flex>
+      <Flex align="center" gap="2">
+        <Text as="label" color="text-mid" m="0">
+          To
+        </Text>
         <DatePicker
+          size="md"
           date={toDate}
           setDate={setToDate}
           scheduleStartDate={fromDate}
           precision="date"
           containerClassName=""
         />
-      </div>
+      </Flex>
       {hasFilters && (
         <div>
           <Link
@@ -268,7 +275,7 @@ export const EventsPageContainer = () => {
       <div className="flex-grow-1"></div>
       <div>
         <SelectField
-          size="legacy"
+          size="small"
           containerClassName="ml-2 d-flex align-items-center mb-0"
           labelClassName="mr-2 mb-0"
           label="Show"
