@@ -293,6 +293,52 @@ context = %GrowthBook.Context{
   return null;
 }
 
+// Go is left out: its attributes sit in a JSON string, which can't hold a comment.
+const LINE_COMMENT: Partial<Record<Language, string>> = {
+  javascript: "//",
+  typescript: "//",
+  kotlin: "//",
+  swift: "//",
+  java: "//",
+  csharp: "//",
+  dart: "//",
+  php: "//",
+  python: "#",
+  ruby: "#",
+  elixir: "#",
+};
+
+// Sets only `property`, with a comment standing in for the attributes the app
+// already sets. `highlightLine` is the 1-based line `property` is on.
+export function getAddAttributeCode(
+  language: SDKLanguage,
+  property: string,
+  { version }: { version?: string } = {},
+): { snippet: SetAttributesCodeSnippet; highlightLine: number } | null {
+  const snippet = getSetAttributesCode(
+    language,
+    { [property]: "foo" },
+    { version, onePerLine: true },
+  );
+  if (!snippet) return null;
+
+  const lines = snippet.code.split("\n");
+  const index = lines.findIndex((line) =>
+    line.includes(JSON.stringify(property)),
+  );
+  const comment = LINE_COMMENT[snippet.language];
+  if (index === -1 || !comment) {
+    return { snippet, highlightLine: index + 1 };
+  }
+
+  const indent = lines[index].match(/^\s*/)?.[0] ?? "";
+  lines.splice(index, 0, `${indent}${comment} ...your other attributes`);
+  return {
+    snippet: { ...snippet, code: lines.join("\n") },
+    highlightLine: index + 2,
+  };
+}
+
 export default function TargetingAttributeCodeSnippet({
   language,
   hashSecureAttributes = false,

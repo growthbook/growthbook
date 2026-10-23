@@ -14,7 +14,6 @@ import { PiCode, PiDatabase } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import { useAttributeSchema } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import useProjectOptions from "@/hooks/useProjectOptions";
@@ -33,7 +32,7 @@ import {
 } from "@/ui/Select";
 import Code from "@/components/SyntaxHighlighting/Code";
 import {
-  getExampleAttributes,
+  getAddAttributeCode,
   getSetAttributesCode,
 } from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
@@ -95,10 +94,6 @@ export default function AddIdentifierModal({
   );
   const canCreate = permissionsUtil.canCreateAttribute({ projects });
 
-  const identifiers = useAttributeSchema(false, projects).filter(
-    (a) => a.hashAttribute,
-  );
-
   const inScope = datasources.filter((d) =>
     attributeMatchesDatasourceProjects(
       { property: name, datatype: "string", projects },
@@ -135,25 +130,14 @@ export default function AddIdentifierModal({
   );
   const language = pickedLanguage ?? connectedLanguages[0] ?? "javascript";
 
-  const sdkSnippet = getSetAttributesCode(
-    language,
-    getExampleAttributes({
-      attributeSchema: [
-        ...identifiers.filter((a) => a.property !== newProperty),
-        { property: newProperty, datatype: "string" },
-      ],
-    }),
-    { version: getLatestSDKVersion(language), onePerLine: true },
-  );
-  const sdkHighlightLine =
-    (sdkSnippet?.code
-      .split("\n")
-      .findIndex((line) => line.includes(`"${newProperty}"`)) ?? -1) + 1;
+  const sdkCode = getAddAttributeCode(language, newProperty, {
+    version: getLatestSDKVersion(language),
+  });
   const sqlLines = [
     "SELECT",
+    "  -- ...your other columns",
     ...checkedColumns.map((column) => `  ${column},`),
-    "  timestamp,",
-    "  ...",
+    "  timestamp",
     "FROM ...",
   ];
 
@@ -350,12 +334,12 @@ export default function AddIdentifierModal({
                 </SelectGroup>
               </Select>
             </Flex>
-            {sdkSnippet && (
+            {sdkCode && (
               <Code
-                language={sdkSnippet.language}
-                filename={sdkSnippet.filename}
-                code={sdkSnippet.code}
-                highlightLine={sdkHighlightLine}
+                language={sdkCode.snippet.language}
+                filename={sdkCode.snippet.filename}
+                code={sdkCode.snippet.code}
+                highlightLine={sdkCode.highlightLine}
               />
             )}
           </Flex>
