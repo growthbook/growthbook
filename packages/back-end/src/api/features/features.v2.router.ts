@@ -41,6 +41,8 @@ import { putFeatureRevisionMetadataV2 } from "./putFeatureRevisionMetadataV2";
 import { putFeatureRevisionArchiveV2 } from "./putFeatureRevisionArchiveV2";
 import { putFeatureRevisionHoldoutV2 } from "./putFeatureRevisionHoldoutV2";
 import { listRevisionsV2 } from "./listRevisionsV2";
+import { listRolloutsV2 } from "./listRolloutsV2";
+import { rollbackFeatureV2 } from "./rollbackFeatureV2";
 
 export const featureV2Routes: OpenApiRoute[] = [
   // Feature CRUD
@@ -51,6 +53,8 @@ export const featureV2Routes: OpenApiRoute[] = [
   deleteFeatureByIdV2,
   toggleFeatureV2,
   revertFeatureV2,
+  rollbackFeatureV2,
+  listRolloutsV2,
   getFeatureKeysV2,
   getFeatureStaleV2,
 
