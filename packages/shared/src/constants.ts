@@ -2,6 +2,7 @@ import { FactMetricType } from "shared/types/fact-table";
 import { EntityEvents } from "shared/types/audit";
 import {
   ApprovalFlowConfigurations,
+  ExperimentIdeaStage,
   LearningStatus,
 } from "shared/types/organization";
 
@@ -141,6 +142,27 @@ export const DEFAULT_LEARNING_STATUSES: LearningStatus[] = [
   { id: "rejected", label: "Rejected", color: "red" },
 ];
 
+export const DEFAULT_EXPERIMENT_IDEA_STAGES: ExperimentIdeaStage[] = [
+  {
+    id: "new",
+    label: "New",
+    color: "gray",
+    description: "Captured, not triaged yet.",
+  },
+  {
+    id: "candidate",
+    label: "Candidate",
+    color: "blue",
+    description: "Being developed: hypothesis and metrics forming.",
+  },
+  {
+    id: "ready",
+    label: "Ready",
+    color: "green",
+    description: "Enough detail to convert into an experiment.",
+  },
+];
+
 // Power
 export const DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS = 3;
 export const DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS = undefined; // undefined means no limit
@@ -233,6 +255,7 @@ export const DISCUSSION_PARENT_TYPES = [
   "metric",
   "feature",
   "learning",
+  "experimentIdea",
 ] as const;
 
 // for audits
@@ -346,6 +369,7 @@ export const entityEvents = {
   ],
   rampScheduleTemplate: ["create", "update", "delete"],
   learning: ["create", "update", "delete"],
+  experimentIdea: ["create", "update", "delete"],
   contextualBandit: ["create", "update", "delete", "start", "stop"],
   interleaving: ["create", "update", "delete", "start", "stop"],
   eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],

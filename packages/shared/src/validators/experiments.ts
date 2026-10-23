@@ -521,6 +521,7 @@ export const experimentInterface = z
     autoSnapshots: z.boolean(),
     disableAutoSnapshots: z.boolean().optional(),
     ideaSource: z.string().optional(),
+    sourceExperimentIdeaId: z.string().optional(),
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
     linkedFeatures: z.array(z.string()).optional(),

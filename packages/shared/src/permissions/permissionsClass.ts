@@ -1783,6 +1783,25 @@ export class Permissions {
     );
   };
 
+  public canManageExperimentIdea = (idea: { project?: string }): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: idea.project ? [idea.project] : [] },
+      "manageExperimentIdeas",
+    );
+  };
+
+  public canUpdateExperimentIdea = (
+    existing: { project?: string },
+    updates: { project?: string },
+  ): boolean => {
+    const project = updates.project ?? existing.project;
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      { projects: project ? [project] : [] },
+      "manageExperimentIdeas",
+    );
+  };
+
   public canDeleteLearning = (learning: { projects?: string[] }): boolean => {
     return this.checkProjectFilterPermission(
       { projects: learning.projects || [] },
