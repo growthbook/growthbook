@@ -95,7 +95,6 @@ export default function MetricPerformance({
       <>
         <PreviewEmptyState description="Select a fact table to see live sample data for the last 7 days." />
         <PreviewFooter
-          layout="panel"
           exploration={null}
           outdated={false}
           loading={false}
@@ -118,7 +117,6 @@ export default function MetricPerformance({
       >
         <PreviewShell
           config={config}
-          layout="panel"
           emptyDescription="Run the query to see live sample data for the last 7 days."
           incompleteDescription="Complete the metric definition to see live sample data for the last 7 days."
           warehouseUnavailableText="Metric performance will be available when the warehouse is ready."

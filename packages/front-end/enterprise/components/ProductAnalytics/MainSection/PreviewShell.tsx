@@ -14,15 +14,7 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import PreviewEmptyState from "./PreviewEmptyState";
 import styles from "./PreviewShell.module.scss";
 
-/**
- * "panel": a narrow sticky side panel (metric editor). The footer is centered
- * and the run button spans the full width.
- * "page": a wide detail-page section (Population). The footer is right-aligned.
- */
-export type PreviewLayout = "panel" | "page";
-
 export function PreviewFooter({
-  layout,
   exploration,
   outdated,
   loading,
@@ -30,7 +22,6 @@ export function PreviewFooter({
   onRun,
   onRefresh,
 }: {
-  layout: PreviewLayout;
   exploration: ProductAnalyticsExploration | null;
   outdated: boolean;
   loading: boolean;
@@ -38,12 +29,11 @@ export function PreviewFooter({
   onRun?: () => void;
   onRefresh?: () => void;
 }) {
-  const justify = layout === "panel" ? "center" : "end";
   return (
     <Box className={styles.footer}>
       {exploration && !outdated ? (
         // Once results are current, re-running is a quiet refresh.
-        <Flex justify={justify} align="center" gap="3">
+        <Flex justify="end" align="center" gap="3">
           <Tooltip content={datetime(exploration.dateUpdated)}>
             <Text size="sm" color="text-mid">
               Updated {ago(exploration.dateUpdated)}
@@ -59,12 +49,8 @@ export function PreviewFooter({
           </Button>
         </Flex>
       ) : (
-        <Flex justify={justify}>
-          <Button
-            style={layout === "panel" ? { width: "100%" } : undefined}
-            disabled={loading || disabled}
-            onClick={onRun}
-          >
+        <Flex justify="end">
+          <Button disabled={loading || disabled} onClick={onRun}>
             Run query
           </Button>
         </Flex>
@@ -78,7 +64,6 @@ export function PreviewFooter({
 // ExplorerProvider.
 export default function PreviewShell({
   config,
-  layout,
   controls,
   emptyDescription,
   incompleteDescription,
@@ -87,7 +72,6 @@ export default function PreviewShell({
 }: {
   /** Null while the definition is incomplete; only the footer is interactive. */
   config: ExplorationConfig | null;
-  layout: PreviewLayout;
   /** Rendered in the header row, left of the date range note. */
   controls?: ReactNode;
   emptyDescription: string;
@@ -161,7 +145,6 @@ export default function PreviewShell({
           the chart or empty state. */}
       {error && !loading && <Callout status="error">{error}</Callout>}
       <PreviewFooter
-        layout={layout}
         exploration={exploration}
         outdated={outdated}
         loading={loading}

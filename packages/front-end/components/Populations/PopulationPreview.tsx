@@ -145,7 +145,6 @@ export default function PopulationPreview({
         >
           <PreviewShell
             config={config}
-            layout="page"
             emptyDescription="Run the query to see daily member counts for the last 7 complete days."
             warehouseUnavailableText="The preview will be available when the warehouse is ready."
             renderChart={({ exploration, loading, error }) => (
