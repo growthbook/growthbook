@@ -1,24 +1,26 @@
 import { useRouter } from "next/router";
-import { FC, useCallback, useEffect, useState } from "react";
+import {
+  FC,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
-  isEventForwarderSetupStepComplete,
   isManagedWarehouseAwaitingProvisioning,
   supportsEventForwarder,
 } from "shared/util";
 import { isSampleDatasource } from "shared/demo-datasource";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiInfo, PiLinkBold } from "react-icons/pi";
+import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
-import {
-  getDataRegionLabel,
-  DEFAULT_DATA_REGION,
-} from "@/services/dataRegions";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
 import { DocLink } from "@/components/DocLink";
@@ -32,124 +34,70 @@ import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
-import useURLHash from "@/hooks/useURLHash";
 import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline";
 import AskDataSettings from "@/components/Settings/EditDataSource/AskDataSettings/AskDataSettings";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
+import { dataSourceConnections } from "@/services/eventSchema";
+import {
+  getDataRegionLabel,
+  DEFAULT_DATA_REGION,
+} from "@/services/dataRegions";
 import FinishSettingUp, {
   isDataSourceSetupComplete,
   useExposureQuerySkipped,
 } from "@/components/DataSourceSetup/FinishSettingUp";
-import { EventForwarderDestinationSummary } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
-import EventForwarderTab from "@/components/DataSourceSetup/EventForwarderTab";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import ProjectBadges from "@/components/ProjectBadges";
 import Frame from "@/ui/Frame";
 import ClickhouseManagedWarehouseIdentifiers from "@/components/Settings/EditDataSource/ClickhouseManagedWarehouseIdentifiers";
-import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
 import Heading from "@/ui/Heading";
+import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
-import Tooltip from "@/ui/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBEdit } from "@/components/Icons";
-import DataSourceDescription from "@/components/Settings/EditDataSource/DataSourceDescription";
+import ConnectedResources from "@/components/Settings/EditDataSource/ConnectedResources";
+import DataSourceDescriptionSection from "@/components/Settings/EditDataSource/DataSourceDescriptionSection";
 import LinkButton from "@/ui/LinkButton";
 import Button from "@/ui/Button";
 import Explorer from "@/enterprise/components/ProductAnalytics/Explorer";
-import DataList from "@/ui/DataList";
 import TextField from "@/ui/TextField";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { DataSourceUsage } from "@/pages/datasources/queries/[did]";
+import useURLHash from "@/hooks/useURLHash";
 
-const CONNECTION_DETAIL_FIELDS: { key: string; label: string }[] = [
-  { key: "host", label: "Host" },
-  { key: "server", label: "Server" },
-  { key: "url", label: "URL" },
-  { key: "accessUrl", label: "Access URL" },
-  { key: "account", label: "Account" },
-  { key: "port", label: "Port" },
-  { key: "database", label: "Database" },
-  { key: "user", label: "User" },
-  { key: "username", label: "Username" },
-  { key: "defaultSchema", label: "Schema" },
-  { key: "schema", label: "Schema" },
-  { key: "catalog", label: "Catalog" },
-  { key: "projectId", label: "Project" },
-  { key: "defaultProject", label: "Default project" },
-  { key: "defaultDataset", label: "Default dataset" },
-  { key: "warehouse", label: "Warehouse" },
-  { key: "role", label: "Role" },
-  { key: "region", label: "Region" },
-  { key: "workGroup", label: "Workgroup" },
-  { key: "path", label: "HTTP path" },
-  { key: "viewId", label: "View" },
-  { key: "authType", label: "Authentication" },
-  { key: "authMethod", label: "Authentication" },
-];
+export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
+export const CBAQ_ANCHOR_ID = "contextual-bandit-assignment-queries";
 
-function getConnectionDetails(
-  datasource: DataSourceInterfaceWithParams,
-): { label: string; value: string }[] {
-  const params = datasource.params;
-  if (!params || typeof params !== "object") return [];
-  const record: Record<string, unknown> = Object.fromEntries(
-    Object.entries(params),
-  );
-  return CONNECTION_DETAIL_FIELDS.flatMap(({ key, label }) => {
-    if (!(key in record)) return [];
-    const value = record[key];
-    if (typeof value !== "string" && typeof value !== "number") return [];
-    if (value === "") return [];
-    return [{ label, value: String(value) }];
-  });
-}
+const DATA_SOURCE_TABS = [
+  "usage",
+  "resources",
+  "queries",
+  "explore",
+  "settings",
+] as const;
+
+// Pre-tabs deep links (e.g. the Dimensions page's "Manage via Data Source"
+// link) point at anchors inside the Queries tab, not a DATA_SOURCE_TABS id.
+const LEGACY_ANCHOR_TABS: Record<string, (typeof DATA_SOURCE_TABS)[number]> = {
+  [EAQ_ANCHOR_ID]: "queries",
+  [CBAQ_ANCHOR_ID]: "queries",
+};
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
     return name;
   }
   return JSON.stringify(name);
-}
-
-function ResourceReferenceList({
-  title,
-  items,
-  emptyText,
-}: {
-  title: string;
-  items: { id: string; name: string; href: string }[] | null;
-  emptyText: string;
-}) {
-  return (
-    <Box>
-      <Heading as="h3" size="sm" mb="2">
-        {title}
-      </Heading>
-      {items === null ? (
-        <Text color="text-mid">Loading…</Text>
-      ) : items.length > 0 ? (
-        <Flex direction="column" gap="1">
-          {items.map((item) => (
-            <Link key={item.id} href={item.href}>
-              {item.name}
-            </Link>
-          ))}
-        </Flex>
-      ) : (
-        <Text color="text-mid">{emptyText}</Text>
-      )}
-    </Box>
-  );
 }
 
 function MixpanelTrackingInstructions({
@@ -202,14 +150,53 @@ mixpanel.init('YOUR PROJECT TOKEN', {
   );
 }
 
-export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
-export const CBAQ_ANCHOR_ID = "contextual-bandit-assignment-queries";
+function DataSourceDescriptionPreview({
+  description,
+  onViewFull,
+}: {
+  description: string;
+  onViewFull: () => void;
+}) {
+  const textRef = useRef<HTMLDivElement>(null);
+  const [truncated, setTruncated] = useState(false);
+
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el) return;
+    const check = () => setTruncated(el.scrollWidth > el.clientWidth + 1);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [description]);
+
+  return (
+    <Flex
+      align="center"
+      gap="2"
+      wrap="nowrap"
+      minWidth="0"
+      width="100%"
+      style={{ maxWidth: 640 }}
+    >
+      <Box minWidth="0" flexGrow="1">
+        <Text ref={textRef} as="div" size="sm" color="text-mid" truncate>
+          {description}
+        </Text>
+      </Box>
+      {truncated ? (
+        <Link size="sm" style={{ flexShrink: 0 }} onClick={onViewFull}>
+          View full description
+        </Link>
+      ) : null}
+    </Flex>
+  );
+}
 
 const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
   const newDataSourceOnboarding = useNewDataSourceOnboarding();
   const [editConn, setEditConn] = useState(false);
-  const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [dataSourceName, setDataSourceName] = useState("");
@@ -222,7 +209,33 @@ const DataSourcePage: FC = () => {
     setDeleteBlockedByEventForwarderModalOpen,
   ] = useState(false);
   const router = useRouter();
-  const [urlHash, setUrlHash] = useURLHash();
+  const [tab, setTab] = useURLHash(DATA_SOURCE_TABS);
+  // Deep links from before tabs existed point at an anchor inside Queries,
+  // not a DATA_SOURCE_TABS id, so useURLHash falls back to the first tab and
+  // leaves the anchor stranded in the URL. Open Queries and scroll to it once.
+  const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
+  useEffect(() => {
+    const legacyHash = window.location.hash.slice(1);
+    const legacyTab = LEGACY_ANCHOR_TABS[legacyHash];
+    if (legacyTab) {
+      setPendingAnchor(legacyHash);
+      setTab(legacyTab);
+    }
+    // Only ever relevant for the hash the page loaded with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!pendingAnchor || tab !== "queries") return;
+    const el = document.getElementById(pendingAnchor);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      setPendingAnchor(null);
+    }
+  }, [pendingAnchor, tab]);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const explorerSlotRef = useRef<HTMLDivElement>(null);
+  const [pageHeight, setPageHeight] = useState<number | null>(null);
+  const [explorerHeight, setExplorerHeight] = useState<number | null>(null);
 
   const {
     getDatasourceById,
@@ -250,16 +263,17 @@ const DataSourcePage: FC = () => {
   const factTables = allFactTables.filter((ft) => ft.datasource === did);
   const { data: experimentsData, error: experimentsError } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
-  }>("/experiments?project=&includeArchived=&type=", {
-    shouldRun: () => !!did,
-  });
-  const experiments = experimentsData
-    ? experimentsData.experiments.filter(
-        (experiment) => experiment.datasource === did,
-      )
-    : experimentsError
-      ? []
-      : null;
+  }>(
+    `/experiments?datasourceId=${encodeURIComponent(did || "")}&includeArchived=true`,
+    {
+      shouldRun: () => !!did && tab === "resources",
+    },
+  );
+  const experiments = experimentsData?.experiments ?? null;
+  const experimentsLoadError =
+    !experimentsData && experimentsError
+      ? experimentsError.message || "Could not load experiments."
+      : undefined;
   const { skipped: exposureQuerySkipped, skip: skipExposureQuery } =
     useExposureQuerySkipped(did);
 
@@ -267,6 +281,50 @@ const DataSourcePage: FC = () => {
     setDataSourceName(d?.name ?? "");
     setDataSourceNameError(null);
   }, [d?.name]);
+
+  // Stretch the page to the bottom of the viewport, then give the explorer the
+  // pixel height of the slot that remains under the header and tabs.
+  useLayoutEffect(() => {
+    if (tab !== "explore") return;
+    const page = pageRef.current;
+    const slot = explorerSlotRef.current;
+    if (!page || !slot) return;
+
+    const update = () => {
+      const nextPageHeight = Math.max(
+        480,
+        Math.floor(
+          document.documentElement.clientHeight -
+            page.getBoundingClientRect().top,
+        ),
+      );
+      setPageHeight((current) =>
+        current !== null && Math.abs(current - nextPageHeight) < 2
+          ? current
+          : nextPageHeight,
+      );
+
+      const nextExplorerHeight = Math.floor(
+        slot.getBoundingClientRect().height,
+      );
+      if (nextExplorerHeight < 200) return;
+      setExplorerHeight((current) =>
+        current !== null && Math.abs(current - nextExplorerHeight) < 2
+          ? current
+          : nextExplorerHeight,
+      );
+    };
+
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(page);
+    observer.observe(slot);
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [tab, d?.id, ready]);
 
   const { apiCall, orgId } = useAuth();
   const { hasCommercialFeature, settings: orgSettings } = useUser();
@@ -362,6 +420,18 @@ const DataSourcePage: FC = () => {
     savingDataSourceName,
   ]);
 
+  const saveDataSourceDescription = useCallback(
+    async (description: string) => {
+      if (!d) return;
+      await apiCall(`/datasource/${d.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ description }),
+      });
+      await Promise.all([mutateDefinitions({}), mutateCurrentDataSource()]);
+    },
+    [apiCall, d, mutateCurrentDataSource, mutateDefinitions],
+  );
+
   if (error || currentDataSourceError) {
     return (
       <div className="container pagecontents">
@@ -385,7 +455,13 @@ const DataSourcePage: FC = () => {
   }
 
   const supportsSQL = d.properties?.queryLanguage === "sql";
-  const connectionDetails = getConnectionDetails(d);
+  const dataSourceTypeLabel = isManagedWarehouse
+    ? "Managed Warehouse"
+    : (dataSourceConnections.find((c) => c.type === d.type)?.display ?? d.type);
+  const activeTab =
+    supportsSQL || (tab !== "queries" && tab !== "explore")
+      ? (tab ?? "usage")
+      : "usage";
   const supportsEvents = d.properties?.events || false;
   const datasourceSupportsEventForwarder = supportsEventForwarder(d);
   const showFinishSettingUp =
@@ -394,27 +470,22 @@ const DataSourcePage: FC = () => {
     newDataSourceOnboarding.enabled &&
     !isDataSourceSetupComplete(d, factTables.length, exposureQuerySkipped);
 
-  // Event Forwarder leads when this Data Source has one. Otherwise Queries
-  // is the default, since adjusting assignment queries is the usual reason
-  // to come back. Unknown hashes fall back to the first tab too.
-  const showEventForwarderTab =
-    newDataSourceOnboarding.enabled &&
-    !!d.eventForwarderConfig &&
-    d.eventForwarderConfig.status !== "unconfigured";
-  const refreshDataSource = async () => {
-    await Promise.all([mutateDefinitions({}), mutateCurrentDataSource()]);
-  };
-  const tabIds = [
-    ...(showEventForwarderTab ? ["event-forwarder"] : []),
-    ...(supportsSQL ? ["queries", "explore"] : []),
-    "resources",
-    "usage",
-    "settings",
-  ];
-  const activeTab = urlHash && tabIds.includes(urlHash) ? urlHash : tabIds[0];
-
   return (
-    <div className="container pagecontents">
+    <div
+      ref={pageRef}
+      className="container pagecontents"
+      style={
+        activeTab === "explore"
+          ? {
+              display: "flex",
+              flexDirection: "column",
+              height: pageHeight ?? "calc(100vh - 56px)",
+              overflow: "hidden",
+              boxSizing: "border-box",
+            }
+          : undefined
+      }
+    >
       <PageHead
         breadcrumb={[
           { display: "Data Sources", href: "/datasources" },
@@ -435,45 +506,47 @@ const DataSourcePage: FC = () => {
           <strong>Error Decrypting Data Source Credentials.</strong>
         </Callout>
       )}
-      <Flex align="center" gap="3" wrap="wrap">
-        <Flex align="center" gap="2">
+      <Flex direction="column" gap="1" minWidth="0" width="100%">
+        <Flex align="center" gap="3" wrap="wrap">
           <Heading as="h1" size="xl" overflowWrap="anywhere" mb="0">
             {d.name}
           </Heading>
-          {d.description && (
-            <Tooltip
-              content={
-                <Text as="div" whiteSpace="pre-wrap">
-                  {d.description}
-                </Text>
-              }
-            >
-              <span
-                tabIndex={0}
-                aria-label="Description"
-                style={{ display: "inline-flex", color: "var(--gray-11)" }}
+          <Badge
+            label={
+              <>
+                <PiLinkBold />
+                Connected
+              </>
+            }
+            color="green"
+            variant="solid"
+            radius="full"
+          />
+          <Flex align="center" gap="1">
+            <ProjectBadges
+              resourceType="data source"
+              projectIds={d.projects?.length ? d.projects : undefined}
+              skipMargin
+            />
+            {canUpdateDataSourceSettings && projects.length > 0 && (
+              <Link
+                aria-label="Edit Projects"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setEditProjectsOpen(true);
+                }}
               >
-                <PiInfo size={18} />
-              </span>
-            </Tooltip>
-          )}
+                <GBEdit />
+              </Link>
+            )}
+          </Flex>
         </Flex>
-        <Badge
-          label={
-            <>
-              <PiLinkBold />
-              Connected
-            </>
-          }
-          color="green"
-          variant="solid"
-          radius="full"
-        />
-        <ProjectBadges
-          resourceType="data source"
-          projectIds={d.projects?.length ? d.projects : undefined}
-          skipMargin
-        />
+        {d.description ? (
+          <DataSourceDescriptionPreview
+            description={d.description}
+            onViewFull={() => setTab("settings")}
+          />
+        ) : null}
       </Flex>
       {d.type === "mixpanel" && (
         <Callout status="warning" mt="3">
@@ -485,7 +558,20 @@ const DataSourcePage: FC = () => {
           <DocLink docSection="mixpanel">View migration guide</DocLink>
         </Callout>
       )}
-      <Box mt="4" mb="4">
+      <Box
+        mt="4"
+        mb={activeTab === "explore" ? "0" : "4"}
+        style={
+          activeTab === "explore"
+            ? {
+                flex: 1,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+              }
+            : undefined
+        }
+      >
         {showFinishSettingUp && (
           <Frame px="0" py="0" style={{ overflow: "hidden" }}>
             <FinishSettingUp
@@ -495,7 +581,12 @@ const DataSourcePage: FC = () => {
               onSave={updateDataSourceSettings}
               exposureQuerySkipped={exposureQuerySkipped}
               onSkipExposureQuery={skipExposureQuery}
-              onRefresh={refreshDataSource}
+              onRefresh={async () => {
+                await Promise.all([
+                  mutateDefinitions({}),
+                  mutateCurrentDataSource(),
+                ]);
+              }}
             />
           </Frame>
         )}
@@ -529,79 +620,38 @@ const DataSourcePage: FC = () => {
             </Frame>
           ))}
 
-        <Tabs value={activeTab} onValueChange={setUrlHash}>
-          <TabsList size="lg">
-            {showEventForwarderTab ? (
-              <TabsTrigger value="event-forwarder">Event Forwarder</TabsTrigger>
-            ) : null}
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => {
+            if ((DATA_SOURCE_TABS as readonly string[]).includes(value)) {
+              setTab(value as (typeof DATA_SOURCE_TABS)[number]);
+            }
+          }}
+          style={
+            activeTab === "explore"
+              ? {
+                  flex: 1,
+                  minHeight: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                }
+              : undefined
+          }
+        >
+          <TabsList
+            size="lg"
+            style={activeTab === "explore" ? { flexShrink: 0 } : undefined}
+          >
+            <TabsTrigger value="usage">Usage</TabsTrigger>
+            <TabsTrigger value="resources">Connected Resources</TabsTrigger>
             {supportsSQL && (
               <>
                 <TabsTrigger value="queries">Queries</TabsTrigger>
                 <TabsTrigger value="explore">Explore</TabsTrigger>
               </>
             )}
-            <TabsTrigger value="resources">Connected Resources</TabsTrigger>
-            <TabsTrigger value="usage">Usage</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="resources">
-            <Flex direction="column" gap="2" mt="3">
-              <Frame mb="0">
-                <Flex direction={{ initial: "column", md: "row" }} gap="6">
-                  <Box flexGrow="1" flexBasis="0">
-                    <ResourceReferenceList
-                      title="Fact Tables"
-                      items={factTables.map((factTable) => ({
-                        id: factTable.id,
-                        name: factTable.name,
-                        href: `/fact-tables/${factTable.id}`,
-                      }))}
-                      emptyText="No Fact Tables use this Data Source."
-                    />
-                  </Box>
-                  <Box flexGrow="1" flexBasis="0">
-                    <ResourceReferenceList
-                      title="Metrics"
-                      items={metrics.map((metric) => ({
-                        id: metric.id,
-                        name: metric.name,
-                        href: `/metric/${metric.id}`,
-                      }))}
-                      emptyText="No metrics use this Data Source."
-                    />
-                  </Box>
-                  <Box flexGrow="1" flexBasis="0">
-                    <ResourceReferenceList
-                      title="Experiments"
-                      items={
-                        experiments?.map((experiment) => ({
-                          id: experiment.id,
-                          name: experiment.name,
-                          href: `/experiment/${experiment.id}`,
-                        })) ?? null
-                      }
-                      emptyText="No experiments use this Data Source."
-                    />
-                  </Box>
-                </Flex>
-              </Frame>
-            </Flex>
-          </TabsContent>
-
-          {showEventForwarderTab ? (
-            <TabsContent value="event-forwarder">
-              <Flex direction="column" gap="2" mt="3">
-                <Frame mb="0">
-                  <EventForwarderTab
-                    dataSource={d}
-                    canEdit={canUpdateDataSourceSettings}
-                    onRefresh={refreshDataSource}
-                  />
-                </Frame>
-              </Flex>
-            </TabsContent>
-          ) : null}
 
           <TabsContent value="usage">
             <Flex direction="column" gap="2" mt="3">
@@ -609,6 +659,24 @@ const DataSourcePage: FC = () => {
                 <DataSourceUsage datasource={d} />
               </Frame>
             </Flex>
+          </TabsContent>
+
+          <TabsContent value="resources">
+            <Box mt="3">
+              <ConnectedResources
+                factTables={factTables.map((factTable) => ({
+                  id: factTable.id,
+                  name: factTable.name,
+                  projects: factTable.projects || [],
+                }))}
+                metrics={metrics.map((metric) => ({
+                  id: metric.id,
+                  name: metric.name,
+                }))}
+                experiments={experiments}
+                experimentsError={experimentsLoadError}
+              />
+            </Box>
           </TabsContent>
 
           {supportsSQL && (
@@ -694,23 +762,49 @@ const DataSourcePage: FC = () => {
                 </Flex>
               </TabsContent>
 
-              <TabsContent value="explore">
-                <Flex direction="column" gap="2" mt="3">
+              <TabsContent
+                value="explore"
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                <Flex
+                  direction="column"
+                  gap="3"
+                  style={{ flex: 1, minHeight: 0 }}
+                >
                   {d.properties?.supportsInformationSchema && (
-                    <Callout status="info">
+                    <Callout
+                      status="info"
+                      dismissible
+                      id="datasource-explore-sql-explorer"
+                      style={{ flexShrink: 0 }}
+                    >
                       Want to explore even further? Use the{" "}
-                      <Link onClick={() => setViewSqlExplorer(true)}>
+                      <Link
+                        href={`/product-analytics/explore/sql?datasourceId=${d.id}`}
+                      >
                         SQL Explorer
                       </Link>{" "}
                       for advanced exploration.
                     </Callout>
                   )}
-                  <Explorer
-                    type="data_source"
-                    datasourceId={d.id}
-                    lockDatasource
-                    height="calc(100vh - 280px)"
-                  />
+                  <Box
+                    ref={explorerSlotRef}
+                    style={{ flex: "1 1 0", minHeight: 0, overflow: "hidden" }}
+                  >
+                    <Explorer
+                      type="data_source"
+                      datasourceId={d.id}
+                      lockDatasource
+                      height={
+                        explorerHeight !== null ? `${explorerHeight}px` : "100%"
+                      }
+                    />
+                  </Box>
                 </Flex>
               </TabsContent>
             </>
@@ -719,40 +813,26 @@ const DataSourcePage: FC = () => {
           <TabsContent value="settings">
             <Flex direction="column" gap="2" mt="3">
               <Frame mb="0">
-                <Flex align="center" justify="between" gap="3" mb="3">
-                  <Heading as="h2" size="md" mb="0">
-                    General Settings
-                  </Heading>
-                  {canUpdateConnectionParams &&
-                    (newDataSourceOnboarding.enabled ? (
-                      <LinkButton
-                        href={`/datasources/${d.id}/connect`}
-                        variant="outline"
-                      >
-                        Edit connection
-                      </LinkButton>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        onClick={() => setEditConn(true)}
-                      >
-                        Edit connection
-                      </Button>
-                    ))}
-                </Flex>
-                <Flex direction="column" gap="3" maxWidth="600px">
-                  <Flex align="end" gap="2">
-                    <TextField
-                      label="Name"
-                      value={dataSourceName}
-                      error={dataSourceNameError ?? undefined}
-                      onChange={(event) => {
-                        setDataSourceName(event.target.value);
-                        setDataSourceNameError(null);
-                      }}
-                      disabled={!canUpdateDataSourceSettings}
-                      style={{ flexGrow: 1 }}
-                    />
+                <Flex align="end" justify="between" wrap="wrap" gap="3">
+                  <Flex
+                    align="end"
+                    gap="2"
+                    maxWidth="460px"
+                    style={{ flex: "1 1 320px" }}
+                  >
+                    <Box flexGrow="1" minWidth="0">
+                      <TextField
+                        label="Name"
+                        value={dataSourceName}
+                        error={dataSourceNameError ?? undefined}
+                        onChange={(event) => {
+                          setDataSourceName(event.target.value);
+                          setDataSourceNameError(null);
+                        }}
+                        disabled={!canUpdateDataSourceSettings}
+                        style={{ width: "100%" }}
+                      />
+                    </Box>
                     {canUpdateDataSourceSettings && (
                       <Button
                         loading={savingDataSourceName}
@@ -766,98 +846,68 @@ const DataSourcePage: FC = () => {
                       </Button>
                     )}
                   </Flex>
-                  <Box>
-                    <Text as="div" weight="medium">
-                      Description
-                    </Text>
-                    <DataSourceDescription
-                      value={d.description || ""}
-                      canEdit={canUpdateDataSourceSettings}
-                      save={async (description) => {
-                        await apiCall(`/datasource/${d.id}`, {
-                          method: "PUT",
-                          body: JSON.stringify({ description }),
-                        });
-                        await Promise.all([
-                          mutateDefinitions({}),
-                          mutateCurrentDataSource(),
-                        ]);
-                      }}
+                  <Flex
+                    align="center"
+                    gap="4"
+                    wrap="wrap"
+                    style={{ flexShrink: 0 }}
+                  >
+                    <Metadata
+                      label="Type"
+                      value={dataSourceTypeLabel}
+                      size="sm"
                     />
-                    {!d.description && !canUpdateDataSourceSettings && (
-                      <Text as="div" color="text-mid" mt="2">
-                        None
-                      </Text>
-                    )}
-                  </Box>
-                  <Box>
-                    <Text as="div" weight="medium" mb="2">
-                      Projects
-                    </Text>
-                    <Flex align="center" gap="2">
-                      <ProjectBadges
-                        resourceType="data source"
-                        projectIds={d.projects?.length ? d.projects : undefined}
-                        skipMargin
+                    {isManagedWarehouse ? (
+                      <Metadata
+                        label="Region"
+                        value={getDataRegionLabel(
+                          d.settings.region ?? DEFAULT_DATA_REGION,
+                        )}
+                        size="sm"
                       />
-                      {canUpdateDataSourceSettings && projects.length > 0 && (
-                        <Link
-                          aria-label="Edit Projects"
-                          onClick={() => setEditProjectsOpen(true)}
-                        >
-                          <GBEdit />
-                        </Link>
-                      )}
-                    </Flex>
-                  </Box>
-                  <DataList
-                    data={[
-                      {
-                        label: "Type",
-                        value:
-                          d.type === "growthbook_clickhouse"
-                            ? "Managed Warehouse"
-                            : d.type,
-                      },
-                      ...(isManagedWarehouse
-                        ? [
-                            {
-                              label: "Region",
-                              value: getDataRegionLabel(
-                                d.settings.region ?? DEFAULT_DATA_REGION,
-                              ),
-                            },
-                          ]
-                        : []),
-                      ...connectionDetails,
-                      {
-                        label: "Last updated",
-                        value: datetime(d.dateUpdated ?? ""),
-                      },
-                    ]}
-                  />
-                  {supportsSQL && orgSettings?.aiAskDataEnabled && (
-                    <AskDataSettings
-                      dataSource={d}
-                      onSave={updateDataSourceSettings}
-                      canEdit={canUpdateDataSourceSettings}
+                    ) : null}
+                    <Metadata
+                      label="Last updated"
+                      value={datetime(d.dateUpdated ?? "")}
+                      size="sm"
                     />
-                  )}
+                    {canUpdateConnectionParams &&
+                      (newDataSourceOnboarding.enabled ? (
+                        <LinkButton
+                          href={`/datasources/${d.id}/connect`}
+                          variant="outline"
+                        >
+                          Edit connection
+                        </LinkButton>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          onClick={() => setEditConn(true)}
+                        >
+                          Edit connection
+                        </Button>
+                      ))}
+                  </Flex>
                 </Flex>
+                <DataSourceDescriptionSection
+                  description={d.description || ""}
+                  canEdit={canUpdateDataSourceSettings}
+                  save={saveDataSourceDescription}
+                />
               </Frame>
 
-              {!showFinishSettingUp &&
-                newDataSourceOnboarding.enabled &&
-                d.eventForwarderConfig &&
-                isEventForwarderSetupStepComplete(
-                  d.eventForwarderConfig.status,
-                ) && <EventForwarderDestinationSummary dataSource={d} />}
+              {supportsSQL && orgSettings?.aiAskDataEnabled && (
+                <Frame mb="0">
+                  <AskDataSettings
+                    dataSource={d}
+                    onSave={updateDataSourceSettings}
+                    canEdit={canUpdateDataSourceSettings}
+                  />
+                </Frame>
+              )}
 
               {datasourceSupportsEventForwarder &&
-                eventsForwarderFlag !== "OFF" &&
-                !(
-                  newDataSourceOnboarding.enabled && d.eventForwarderConfig
-                ) && (
+                eventsForwarderFlag !== "OFF" && (
                   <Frame mb="0">
                     <EventForwarder
                       dataSource={d}
@@ -908,17 +958,14 @@ const DataSourcePage: FC = () => {
               )}
 
               <Frame mb="0">
-                <Heading as="h2" size="md" mb="3">
-                  Change Log
-                </Heading>
-                <HistoryTable type="datasource" id={d.id} />
+                <HistoryTable type="datasource" id={d.id} maxHeight="420px" />
               </Frame>
 
               {canDelete && (
                 <Frame mb="0">
                   <Flex align="center" justify="between" gap="3" wrap="wrap">
                     <Box>
-                      <Heading as="h2" size="md" mb="1">
+                      <Heading as="h3" size="md" mb="1">
                         Delete Data Source
                       </Heading>
                       <Text color="text-mid">
@@ -984,17 +1031,6 @@ const DataSourcePage: FC = () => {
           onCancel={() => {
             setEditConn(false);
           }}
-        />
-      )}
-      {viewSqlExplorer && (
-        <SqlExplorerModal
-          initial={{ datasourceId: d.id }}
-          close={() => setViewSqlExplorer(false)}
-          mutate={mutateDefinitions}
-          disableSave={true}
-          header="SQL Explorer"
-          lockDatasource={true}
-          trackingEventModalSource="datasource-id-page"
         />
       )}
       {confirmDelete && (

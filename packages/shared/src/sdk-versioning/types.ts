@@ -17,6 +17,7 @@ export type SDKCapability =
   | "namespacesV2"
   | "contextualBandits"
   | "contextualBanditsAuto"
+  | "interleaving"
   | "trackingPlugin"
   | "savedGroupReferencesV2";
 

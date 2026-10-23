@@ -3,7 +3,7 @@ import { PiXBold } from "react-icons/pi";
 import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import {
+import type {
   DataSourceUsage as DataSourceUsageData,
   QueryInterface,
   QueryLogInterface,
@@ -189,17 +189,24 @@ const DataSourceUsagePage = (): React.ReactElement => {
 
 export default DataSourceUsagePage;
 
+const DRIVER_TABS = [
+  { key: "factTables", label: "Fact tables", column: "Fact table" },
+  { key: "experiments", label: "Experiments", column: "Experiment" },
+  { key: "users", label: "People", column: "Run by" },
+  { key: "queryTypes", label: "Query types", column: "Query type" },
+] as const;
+
+type UsageDriver = (typeof DRIVER_TABS)[number]["key"];
+
 export function DataSourceUsage({
   datasource,
 }: {
   datasource: DataSourceInterfaceWithParams;
 }): React.ReactElement {
+  const [driverTab, setDriverTab] = useState<UsageDriver>("factTables");
   const managedWarehousePending = isManagedWarehouseUnavailable(datasource);
   const { data, error, mutate } = useApi<UsageResponse>(
     `/datasource/${datasource.id}/usage`,
-  );
-  const [driverTab, setDriverTab] = useState<(typeof DRIVER_TABS)[number]>(
-    DRIVER_TABS[0],
   );
 
   if (error) {
@@ -211,6 +218,8 @@ export function DataSourceUsage({
 
   const units = USAGE_UNITS[datasource.type] ?? DEFAULT_USAGE_UNITS;
   const { total } = data.usage;
+  const activeDriver =
+    DRIVER_TABS.find((tab) => tab.key === driverTab) ?? DRIVER_TABS[0];
 
   const summaryCards = (
     <Grid
@@ -260,24 +269,28 @@ export function DataSourceUsage({
         units={units}
       />
 
-      <SegmentedControl.Root
-        aria-label="Group usage by"
-        mb="3"
-        value={driverTab.key}
-        onValueChange={(key) => {
-          const tab = DRIVER_TABS.find((t) => t.key === key);
-          if (tab) setDriverTab(tab);
-        }}
-      >
-        {DRIVER_TABS.map((t) => (
-          <SegmentedControl.Item key={t.key} value={t.key}>
-            {t.label}
-          </SegmentedControl.Item>
-        ))}
-      </SegmentedControl.Root>
+      <Box mb="3">
+        <SegmentedControl.Root
+          style={{ width: "fit-content" }}
+          value={driverTab}
+          onValueChange={(value) => {
+            if (DRIVER_TABS.some((tab) => tab.key === value)) {
+              setDriverTab(value as UsageDriver);
+            }
+          }}
+          aria-label="Usage breakdown"
+        >
+          {DRIVER_TABS.map((tab) => (
+            <SegmentedControl.Item key={tab.key} value={tab.key}>
+              {tab.label}
+            </SegmentedControl.Item>
+          ))}
+        </SegmentedControl.Root>
+      </Box>
       <UsageGroupTable
-        tab={driverTab}
-        groups={data.usage[driverTab.key]}
+        key={activeDriver.key}
+        tab={activeDriver}
+        groups={data.usage[activeDriver.key]}
         total={total}
         units={units}
         data={data}
@@ -340,13 +353,6 @@ function IncrementalRefreshCallout({
     </Callout>
   );
 }
-
-const DRIVER_TABS = [
-  { key: "factTables", label: "Fact tables", column: "Fact table" },
-  { key: "experiments", label: "Experiments", column: "Experiment" },
-  { key: "users", label: "People", column: "Run by" },
-  { key: "queryTypes", label: "Query types", column: "Query type" },
-] as const;
 
 type GroupRow = QueryLogUsage & {
   id: string;

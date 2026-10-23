@@ -76,7 +76,7 @@ const recommended = keyDoc("key_recommended", {
 });
 const assumer = keyDoc("key_assume", {
   role: "admin",
-  requesterPermissions: "assume",
+  actAs: "user",
   confirmRules: [{ actions: ["feature.*"] }],
 });
 
@@ -96,7 +96,7 @@ function asKey(
           name: key.description || "",
           ...(requestedBy && {
             requestedBy,
-            assumedRole: key.requesterPermissions === "assume",
+            assumedRole: key.actAs === "user",
           }),
         },
     ...(key.userId
@@ -425,6 +425,62 @@ describe("confirmations", () => {
     expect(await featureVersion()).toBe(1);
   });
 
+  // A held OAuth request whose token lapses before anyone confirms it.
+  const holdFromOAuth = async (clientId: string) => {
+    await seed("production");
+    await mongoose.connection.collection("oauthgrants").insertOne({
+      id: `oag_${clientId}`,
+      organization: ORG_ID,
+      clientId,
+      userId: "u_torres",
+      permissions: { confirmRules: pat.confirmRules },
+      revoked: false,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      dateCreated: now,
+      dateUpdated: now,
+    });
+    const sent = keyDoc(`key_${clientId}`, {
+      userId: "u_torres",
+      role: "user",
+      oauthClientId: clientId,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      confirmRules: pat.confirmRules,
+    });
+    await mongoose.connection.collection("apikeys").insertOne({ ...sent });
+    setReqContext(asKey(sent));
+    const id = (await publish()).body.confirmation.id;
+    await mongoose.connection.collection("apikeys").deleteOne({ id: sent.id });
+    return id;
+  };
+
+  it("replays an OAuth sign-in's request on its grant once the token is gone", async () => {
+    const id = await holdFromOAuth("client_mcp");
+    expect(
+      await decideConfirmation(asUser("u_torres"), id, "confirm"),
+    ).toMatchObject({ status: "completed", response: { status: 200 } });
+    expect(await featureVersion()).toBe(2);
+  });
+
+  it.each([
+    ["has been revoked", "client_revoked", { revoked: true }],
+    ["was revoked, even after signing in again", "client_back", {}],
+  ])(
+    "runs nothing for an OAuth sign-in that %s",
+    async (_label, clientId, fields) => {
+      const id = await holdFromOAuth(clientId);
+      await mongoose.connection
+        .collection("oauthgrants")
+        .updateOne(
+          { clientId },
+          { $set: { revokedAt: new Date(Date.now() + 1000), ...fields } },
+        );
+      await expect(
+        decideConfirmation(asUser("u_torres"), id, "confirm"),
+      ).rejects.toThrow(/key that made this request is gone/);
+      expect(await featureVersion()).toBe(1);
+    },
+  );
+
   it("reports a run a restart cut off as failed, so the agent can ask again", async () => {
     await seed("production");
     setReqContext(asKey(pat));
@@ -692,11 +748,11 @@ describe("confirmations", () => {
     });
   });
 
-  it("shows what refused the agent's last try when the retry skips it", async () => {
+  it("refuses a draft past the cap first, then shows why when the retry skips it", async () => {
     await seed("production");
     setReqContext(
       asKey(
-        { ...pat, confirmRules: [{ actions: ["override.*"] }] },
+        { ...pat, confirmRules: [{ actions: ["feature.*", "override.*"] }] },
         { maxConcurrentDrafts: 1 },
       ),
     );
@@ -707,18 +763,82 @@ describe("confirmations", () => {
 
     const refused = await createDraft("");
     expect(refused.status).toBe(409);
+    expect(refused.body.message).toContain("?overrideDraftLimit=true");
     const held = await createDraft("?overrideDraftLimit=true");
     expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "feature.draft", environments: [] },
+      { action: "override.draftLimit", environments: [] },
+    ]);
     expect(
       await mongoose.connection
         .collection("confirmations")
         .findOne({ id: held.body.confirmation.id }),
     ).toMatchObject({
       notices: [
-        { severity: "error", messages: [refused.body.message], via: null },
+        {
+          severity: "warning",
+          messages: [
+            refused.body.message.replace(
+              " To create a new one anyway, resend with `?overrideDraftLimit=true`.",
+              "",
+            ),
+          ],
+          via: null,
+        },
       ],
       lastAttemptAt: expect.any(Date),
     });
+  });
+
+  it("holds a rule for all environments and projects once the org requires scoped rules", async () => {
+    await seed("production");
+    const scoped = { requireScopedFeatureRules: true };
+    setReqContext(
+      asKey({ ...pat, confirmRules: [{ actions: ["override.*"] }] }, scoped),
+    );
+    const addRule = (body: object) =>
+      auth(
+        request(app).post(`/api/v2/features/${FLAG}/revisions/2/rules`),
+      ).send({ rule: { type: "force", value: "true" }, ...body });
+
+    const refused = await addRule({});
+    expect(refused.status).toBe(422);
+    expect(refused.body.code).toBe("unscoped_rule");
+    const held = await addRule({ allowUnscopedRules: true });
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "override.unscopedRules", environments: [] },
+    ]);
+    expect(
+      await mongoose.connection
+        .collection("confirmations")
+        .findOne({ id: held.body.confirmation.id }),
+    ).toMatchObject({
+      notices: [
+        {
+          severity: "warning",
+          messages: [
+            "This rule applies to All Environments and All Projects. Your organization requires rules to target specific environments or Projects.",
+          ],
+          via: null,
+        },
+      ],
+    });
+
+    // Refused before a key that holds drafts is asked to confirm one.
+    setReqContext(asKey(bot, scoped));
+    expect((await addRule({})).status).toBe(422);
+
+    setReqContext(asKey(ci, scoped));
+    expect((await addRule({ allowUnscopedRules: true })).status).toBe(200);
+    expect(
+      (
+        await addRule({
+          rule: { type: "force", value: "true", environments: ["dev"] },
+        })
+      ).status,
+    ).toBe(200);
   });
 
   it("lets only the member a request names confirm it, assumed or not", async () => {

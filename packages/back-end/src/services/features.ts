@@ -4,6 +4,9 @@ import { z } from "zod";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
+import uniqBy from "lodash/uniqBy";
+import uniqWith from "lodash/uniqWith";
+import type { Request } from "express";
 import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
@@ -39,6 +42,11 @@ import {
   validateFeatureValue,
   contextualBanditTargetingServes,
   monitoringConfigToApi,
+  getInterleavingFeatureDefId,
+  interleavingInPayloadScope,
+  interleavingPrerequisiteIds,
+  interleavingTargetingServes,
+  parseInterleavingRankerConfig,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -78,6 +86,7 @@ import {
   ContextualBanditDefinitions,
   ExperimentMetadata,
   FeatureDefinition,
+  InterleavingDefinitions,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
 import {
@@ -94,6 +103,7 @@ import {
   eventUserLegacyLabel,
   eventUserToApiEventUser,
   HoldoutInterface,
+  InterleavingInterface,
   resolveSavedGroupsInput,
   eventUserIdentity,
   RevisionRampAction,
@@ -180,6 +190,7 @@ import {
   getHoldoutFeatureDefId,
   mergeConditionAndSavedGroups,
   pairedWeightsToPositional,
+  prerequisiteParentConditions,
   buildPrerequisiteProjectReach,
   expandPayloadKeysForPrerequisites,
   experimentMapForFeatures,
@@ -188,7 +199,6 @@ import {
   getVisualExperimentPrerequisiteDependents,
   getVisualExperimentPrerequisiteIds,
   getReferenceIdsInFeatures,
-  prerequisiteParentConditions,
 } from "back-end/src/util/features";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
@@ -448,6 +458,79 @@ export function generateHoldoutsPayload({
     };
   });
   return holdoutDefs;
+}
+
+export function generateInterleavingsPayload({
+  interleavings,
+  environment,
+  projects,
+  savedGroupStrategy,
+}: {
+  interleavings: InterleavingInterface[];
+  environment: string;
+  projects: string[];
+  savedGroupStrategy: SavedGroupPayloadStrategy;
+}): {
+  features: Record<string, FeatureDefinition>;
+  interleavings?: InterleavingDefinitions;
+} {
+  const features: Record<string, FeatureDefinition> = {};
+  const defs: InterleavingDefinitions = {};
+  interleavings.forEach((il) => {
+    if (!interleavingInPayloadScope(il, environment, projects)) return;
+
+    let variations: InterleavingDefinitions[string]["variations"];
+    try {
+      variations = il.variations.map((v) => ({
+        key: v.key,
+        config: parseInterleavingRankerConfig(v.config),
+      }));
+    } catch (e) {
+      logger.error(
+        { err: e, interleavingId: il.id },
+        "Skipping interleaving with an invalid ranker config",
+      );
+      return;
+    }
+    defs[il.key] = { trackingKey: il.trackingKey, variations };
+
+    const id = getInterleavingFeatureDefId(il.key);
+    const rule: FeatureDefinitionRule = {
+      id,
+      force: { interleave: true },
+      coverage: il.coverage,
+      hashAttribute: il.hashAttribute,
+      seed: il.seed,
+      hashVersion: 2,
+    };
+
+    const condition = mergeConditionAndSavedGroups({
+      savedGroupStrategy,
+      condition: il.condition,
+      savedGroups: il.savedGroups,
+    });
+    if (condition) {
+      savedGroupStrategy.finalizeCondition(condition);
+      rule.condition = condition;
+    }
+    if (il.prerequisites?.length) {
+      rule.parentConditions = prerequisiteParentConditions(
+        il.prerequisites,
+        savedGroupStrategy,
+      );
+      savedGroupStrategy.finalizeCondition(rule.parentConditions);
+    }
+
+    features[id] = {
+      defaultValue: il.variations[0].key,
+      rules: [rule],
+    };
+  });
+
+  return {
+    features,
+    interleavings: Object.keys(defs).length > 0 ? defs : undefined,
+  };
 }
 
 export type VisualExperiment = {
@@ -1064,16 +1147,24 @@ function recordSdkPayloadRefreshMetrics(durationMs: number) {
   }
 }
 
-// This is a synchronous wrapper around refreshSDKPayloadCache
-// We shouldn't need to await the refresh in most cases
-export function queueSDKPayloadRefresh(data: {
+type QueueSDKPayloadRefreshData = {
   context: ReqContext | ApiReqContext;
   payloadKeys: SDKPayloadKey[];
   sdkConnections?: SDKConnectionInterface[];
   skipRefreshForProject?: string;
   treatEmptyProjectAsGlobal?: boolean;
   auditContext?: { event: string; model: string; id?: string };
-}) {
+};
+
+// Keyed by request, not context: getContextFromReq builds a new context per call.
+const pendingRefreshByRequest = new WeakMap<
+  Request,
+  QueueSDKPayloadRefreshData & { stackTrace: string }
+>();
+
+// This is a synchronous wrapper around refreshSDKPayloadCache
+// We shouldn't need to await the refresh in most cases
+export function queueSDKPayloadRefresh(data: QueueSDKPayloadRefreshData) {
   // Bulk-publish side-effect buffer: while a multi-entity commit is applying,
   // collect the affected keys instead of refreshing per write — the publisher
   // flushes one deduped refresh (at most one rebuild per SDK connection) after
@@ -1089,6 +1180,43 @@ export function queueSDKPayloadRefresh(data: {
   // Capture stack trace at the entry point to include the original caller
   const rawStack = new Error().stack || "";
   const stackTrace = rawStack.replace(/^Error.*?\n/, "");
+
+  // Merge every refresh queued during one request into one rebuild when it ends.
+  const req = data.context.req;
+  const res = req?.res;
+  if (
+    req &&
+    res &&
+    !res.headersSent &&
+    !res.destroyed &&
+    !data.skipRefreshForProject
+  ) {
+    const pending = pendingRefreshByRequest.get(req);
+    if (pending) {
+      pending.context = data.context;
+      pending.payloadKeys = uniqWith(
+        [...pending.payloadKeys, ...data.payloadKeys],
+        isEqual,
+      );
+      pending.sdkConnections = uniqBy(
+        [...(pending.sdkConnections ?? []), ...(data.sdkConnections ?? [])],
+        "key",
+      );
+      pending.treatEmptyProjectAsGlobal ||= !!data.treatEmptyProjectAsGlobal;
+      return;
+    }
+    pendingRefreshByRequest.set(req, { ...data, stackTrace });
+    res.once("close", () => {
+      const merged = pendingRefreshByRequest.get(req);
+      pendingRefreshByRequest.delete(req);
+      if (!merged) return;
+      refreshSDKPayloadCache(merged).catch((e) => {
+        logger.error(e, "Error refreshing SDK Payload Cache");
+      });
+    });
+    return;
+  }
+
   refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload Cache");
   });
@@ -1166,16 +1294,41 @@ export async function getContextualBanditsDependingOnAsPrerequisite(
     .map((cb) => cb.id);
 }
 
+export async function getInterleavingsDependingOnAsPrerequisite(
+  context: ReqContext | ApiReqContext,
+  featureId: string,
+): Promise<string[]> {
+  const scanContext =
+    context.scanContextOverride ??
+    getContextForAgendaJobByOrgObject(context.org);
+  const interleavings = await scanContext.models.interleavings.getAll();
+  return interleavings
+    .filter(
+      (il) =>
+        interleavingTargetingServes(il) &&
+        il.prerequisites?.some((p) => p.id === featureId),
+    )
+    .map((il) => il.id);
+}
+
 export async function assertFeatureDeletable(
   context: ReqContext | ApiReqContext,
   featureId: string,
 ): Promise<void> {
-  const [features, experiments, bandits] = await Promise.all([
+  const [features, experiments, bandits, interleavings] = await Promise.all([
     getFeaturesDependingOnAsPrerequisite(context, featureId),
     getExperimentsDependingOnAsPrerequisite(context, featureId),
     getContextualBanditsDependingOnAsPrerequisite(context, featureId),
+    getInterleavingsDependingOnAsPrerequisite(context, featureId),
   ]);
-  if (!features.length && !experiments.length && !bandits.length) return;
+  if (
+    !features.length &&
+    !experiments.length &&
+    !bandits.length &&
+    !interleavings.length
+  ) {
+    return;
+  }
   // Count only — the dependent scan is org-wide (so a dependent in a project
   // the caller can't read still blocks), so naming ids would disclose
   // cross-project resources. Mirrors assertSavedGroupDeletable / assertConstantArchivable.
@@ -1183,6 +1336,7 @@ export async function assertFeatureDeletable(
     [features.length, "live Feature Flag(s)"],
     [experiments.length, "Experiment(s)"],
     [bandits.length, "Contextual Bandit(s)"],
+    [interleavings.length, "Interleaving Experiment(s)"],
   ]
     .filter(([n]) => n)
     .map(([n, label]) => `${n} ${label}`)
@@ -1437,8 +1591,10 @@ export async function refreshSDKPayloadCache({
     allFeatures,
     allCbVisualExperiments,
   );
-  // Holdouts and contextual bandits carry targeting the features and
-  // experiments do not.
+  const interleavings =
+    await context.models.interleavings.getAllPayloadInterleavings();
+  // Holdouts, contextual bandits and interleavings carry targeting the
+  // features and experiments do not.
   const savedGroups = await loadSavedGroupsForDefinitions(context, {
     features: allFeatures,
     experiments: [
@@ -1446,6 +1602,7 @@ export async function refreshSDKPayloadCache({
       ...getPayloadHoldoutExperiments(Object.values(holdoutsMapByEnv)),
     ],
     bandits: cbMap.values(),
+    interleavings,
   });
   const groupMap = await getSavedGroupMap(context, savedGroups);
   const constants = await getResolvableValues(context);
@@ -1466,6 +1623,7 @@ export async function refreshSDKPayloadCache({
     rampMonitoredRuleMap,
     constants,
     cbMap,
+    interleavings,
   };
 
   // Build the constant value map once per environment (parsing each JSON
@@ -1592,6 +1750,7 @@ export type FeatureDefinitionsResponseArgs = {
   savedGroupFormat?: SavedGroupFormat;
   savedGroupStrategy?: SavedGroupPayloadStrategy;
   contextualBandits?: ContextualBanditDefinitions;
+  interleavings?: InterleavingDefinitions;
   organization: OrganizationInterface;
 };
 export async function getFeatureDefinitionsResponse({
@@ -1606,6 +1765,7 @@ export async function getFeatureDefinitionsResponse({
   capabilities,
   usedSavedGroups,
   contextualBandits,
+  interleavings,
   savedGroupFormat,
   savedGroupStrategy: providedSavedGroupStrategy,
   organization,
@@ -1619,6 +1779,8 @@ export async function getFeatureDefinitionsResponse({
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
+  interleavings?: InterleavingDefinitions;
+  encryptedInterleavings?: string;
 }> {
   features = cloneDeep(features);
   let processedExperiments: AutoExperiment[] =
@@ -1703,6 +1865,9 @@ export async function getFeatureDefinitionsResponse({
   const contextualBanditsForPayload = capabilities.includes("contextualBandits")
     ? contextualBandits
     : undefined;
+  const interleavingsForPayload = capabilities.includes("interleaving")
+    ? interleavings
+    : undefined;
 
   if (
     contextualBanditsForPayload &&
@@ -1749,6 +1914,9 @@ export async function getFeatureDefinitionsResponse({
       ...(contextualBanditsForPayload !== undefined && {
         contextualBandits: contextualBanditsForPayload,
       }),
+      ...(interleavingsForPayload !== undefined && {
+        interleavings: interleavingsForPayload,
+      }),
     };
   }
 
@@ -1769,6 +1937,10 @@ export async function getFeatureDefinitionsResponse({
     ? await encrypt(JSON.stringify(contextualBanditsForPayload), encryptionKey)
     : undefined;
 
+  const encryptedInterleavings = interleavingsForPayload
+    ? await encrypt(JSON.stringify(interleavingsForPayload), encryptionKey)
+    : undefined;
+
   return {
     features: {},
     ...(experiments !== undefined && { experiments: [] }),
@@ -1778,6 +1950,9 @@ export async function getFeatureDefinitionsResponse({
     encryptedSavedGroups: encryptedSavedGroups,
     ...(encryptedContextualBandits !== undefined && {
       encryptedContextualBandits,
+    }),
+    ...(encryptedInterleavings !== undefined && {
+      encryptedInterleavings,
     }),
   };
 }
@@ -1824,6 +1999,7 @@ export type SDKPayloadRawData = {
   // Bandits behind contextual-bandit-ref rules and visual changesets, loaded
   // once for every connection a refresh builds.
   cbMap?: Map<string, ContextualBanditInterface>;
+  interleavings?: InterleavingInterface[];
   constants?: ConstantInterface[];
   // Pre-built per-environment constant value map. Hoisted out of
   // generateFeaturesPayload so the bulk refresh builds it once per env (next to
@@ -1960,6 +2136,13 @@ export async function buildSDKPayloadForConnection(
               }),
             ),
             ...getCbVisualPrerequisiteIds(allCbVisualExperiments, capabilities),
+            ...(capabilities.includes("interleaving")
+              ? interleavingPrerequisiteIds(
+                  data.interleavings ?? [],
+                  environment,
+                  projectList,
+                )
+              : []),
           ],
         )
       : { features: scopedFeatures, carried: new Set<string>() };
@@ -2077,9 +2260,19 @@ export async function buildSDKPayloadForConnection(
     featureDefinitions,
   );
 
+  const interleavingsPayload = capabilities.includes("interleaving")
+    ? generateInterleavingsPayload({
+        interleavings: data.interleavings ?? [],
+        environment,
+        projects: projectList,
+        savedGroupStrategy,
+      })
+    : undefined;
+
   const featuresWithHoldouts = {
     ...featureDefinitions,
     ...holdoutsInUse,
+    ...interleavingsPayload?.features,
   };
 
   const usedSavedGroupIds = getUsedSavedGroupIds(
@@ -2120,6 +2313,7 @@ export async function buildSDKPayloadForConnection(
     usedSavedGroups,
     savedGroupStrategy,
     contextualBandits: contextualBanditsInUse,
+    interleavings: interleavingsPayload?.interleavings,
     organization: context.org,
   });
 }
@@ -2134,6 +2328,8 @@ export type FeatureDefinitionSDKPayload = {
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
+  interleavings?: InterleavingDefinitions;
+  encryptedInterleavings?: string;
 };
 
 // Bounds a pathological chain issuing a query per hop.
@@ -2181,11 +2377,17 @@ export async function getFeatureDefinitions(
   let allFeatures = await getAllFeatures(context, {
     projects: projectFilter,
   });
+  const interleavings =
+    await context.models.interleavings.getAllPayloadInterleavings();
   const cbVisualExperiments = args.includeVisualExperiments
     ? await getAllCbVisualExperiments(context)
     : [];
   if (projectFilter && args.includeReferencedPrerequisites) {
-    allFeatures = await loadMissingPrerequisites(context, allFeatures);
+    allFeatures = await loadMissingPrerequisites(
+      context,
+      allFeatures,
+      interleavingPrerequisiteIds(interleavings, environment, projectFilter),
+    );
   }
   let experimentMap = await getAllPayloadExperiments(
     context,
@@ -2240,6 +2442,7 @@ export async function getFeatureDefinitions(
       ...getPayloadHoldoutExperiments([holdoutsMap]),
     ],
     bandits: cbMap.values(),
+    interleavings,
   });
   const groupMap = await getSavedGroupMap(context, allSavedGroups);
   return buildSDKPayloadForConnection({
@@ -2277,6 +2480,7 @@ export async function getFeatureDefinitions(
       cbVisualExperiments,
       constants: await getResolvableValues(context),
       cbMap,
+      interleavings,
     },
   });
 }

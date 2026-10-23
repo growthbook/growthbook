@@ -178,6 +178,20 @@ export async function hasAnyEventForwarderConfig(
   return configs.length > 0;
 }
 
+// One forwarder per org (usage is metered per org); org-wide so forwarders on
+// unreadable Projects count. Lift when per-destination event splitting lands.
+export async function assertNoEventForwarderInOrg(
+  context: ReqContext,
+): Promise<void> {
+  const [other] =
+    await context.models.eventForwarderConfigs.getAllBypassingReadPermissions();
+  if (other) {
+    throw new Error(
+      "This organization already has an Event Forwarder. Only one Event Forwarder is allowed per organization.",
+    );
+  }
+}
+
 // GCP service account key JSON for Confluent BigQuery Storage Sink (not OAuth connector mode).
 function buildBigQueryServiceAccountKey(
   params: BigQueryConnectionParams,
@@ -811,6 +825,7 @@ export async function syncEventForwarderConfigFromDatasource({
   const projects = [...(datasource.projects ?? [])].sort();
 
   if (!existing) {
+    await assertNoEventForwarderInOrg(context);
     return await context.models.eventForwarderConfigs.create({
       datasourceId: datasource.id,
       projects,

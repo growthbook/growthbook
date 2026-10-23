@@ -16,6 +16,7 @@ import {
   extractRevisionMetadata,
   mapV2ApiRuleToFeatureRule,
   resolveScopeFromInput,
+  withPatchedScope,
   validateRulesScheduleRules,
   experimentRefChanged,
 } from "back-end/src/api/features/v2Shared";
@@ -38,6 +39,38 @@ import { BadRequestError } from "back-end/src/util/errors";
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentsByIds: jest.fn(),
 }));
+
+describe("withPatchedScope", () => {
+  const everywhere = { allEnvironments: true };
+  const inDev = { allEnvironments: false, environments: ["dev"] };
+
+  it("leaves the rule alone when the patch has no scope fields", () => {
+    expect(withPatchedScope(inDev, {})).toBe(inDev);
+  });
+
+  it("scopes a rule to the environments the patch lists", () => {
+    expect(withPatchedScope(everywhere, { environments: ["prod"] })).toEqual({
+      allEnvironments: false,
+      environments: ["prod"],
+    });
+  });
+
+  it("keeps the rule's environments when only allEnvironments:false is sent", () => {
+    expect(
+      withPatchedScope(
+        { allEnvironments: true, environments: ["dev"] },
+        { allEnvironments: false },
+      ),
+    ).toEqual({ allEnvironments: false, environments: ["dev"] });
+  });
+
+  it("widens to every environment", () => {
+    expect(withPatchedScope(inDev, { allEnvironments: true })).toEqual({
+      allEnvironments: true,
+      environments: undefined,
+    });
+  });
+});
 
 describe("resolveScopeFromInput", () => {
   it("allEnvironments:true drops environments[]", () => {

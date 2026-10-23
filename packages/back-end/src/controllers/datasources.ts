@@ -57,6 +57,7 @@ import {
   testUnsavedDataSourceConnection,
 } from "back-end/src/services/datasource";
 import {
+  assertNoEventForwarderInOrg,
   createUnconfiguredEventForwarderConfig,
   recordEventForwarderCreateFailure,
   getEventForwarderForDatasource,
@@ -273,6 +274,15 @@ export async function postDataSources(
 
   let datasource;
   try {
+    // Before the save, so a refused forwarder leaves no Data Source behind.
+    // A later failure still keeps the Data Source and records the error.
+    if (
+      eventForwarderConfig ||
+      eventForwarderRegion === "us-east-1" ||
+      eventForwarderRegion === "eu-west-1"
+    ) {
+      await assertNoEventForwarderInOrg(context);
+    }
     datasource = await createDataSource(
       context,
       name,

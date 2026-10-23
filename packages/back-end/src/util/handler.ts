@@ -33,8 +33,10 @@ import {
   BulkPublishCommitError,
   ConfirmationRequiredError,
   CustomHookError,
+  DraftLimitError,
   MergeConflictError,
   SoftWarningError,
+  UnscopedRuleError,
 } from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
 
@@ -279,6 +281,18 @@ export async function runApiHandler(
           '\n\nEither address the warnings or re-send with `"ignoreWarnings": true` in the request body to acknowledge them and proceed.';
       }
     }
+    if (!(req as unknown as ApiRequestLocals).isJwtAuth) {
+      if (e instanceof UnscopedRuleError) {
+        body.message =
+          e.message +
+          ' Set specific `environments`, or resend with `"allowUnscopedRules": true` in the request body.';
+      }
+      if (e instanceof DraftLimitError) {
+        body.message =
+          e.message +
+          " To create a new one anyway, resend with `?overrideDraftLimit=true`.";
+      }
+    }
     const status = e.status || 400;
     return {
       status,
@@ -294,6 +308,9 @@ function refusalNotices(e: Error): ConfirmationNotice[] {
     return [
       { severity: "warning", messages: [e.message, ...e.warnings], via: null },
     ];
+  }
+  if (e instanceof UnscopedRuleError || e instanceof DraftLimitError) {
+    return [{ severity: "warning", messages: [e.message], via: null }];
   }
   if (e instanceof CustomHookError) {
     return [

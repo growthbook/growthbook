@@ -88,6 +88,7 @@ function deriveConfigError(
   urlConfig: ExplorationConfig | null,
   rawParam: string | undefined,
   type: DatasetType,
+  lockedDatasourceId?: string,
 ): string | null {
   if (!rawParam) return null;
 
@@ -102,6 +103,12 @@ function deriveConfigError(
     } explorer, but you're currently viewing the ${
       EXPLORER_TYPE_LABELS[type]
     } explorer.`;
+  }
+
+  // The selector that would reveal a mismatch is hidden here, so a saved
+  // config for another Data Source would otherwise silently win.
+  if (lockedDatasourceId && urlConfig.datasource !== lockedDatasourceId) {
+    return "This link was created from a different Data Source.";
   }
 
   return null;
@@ -439,7 +446,12 @@ function ExplorerInner({
           ? funnelMetricId
           : datasourceId;
 
-  const configError = deriveConfigError(urlConfig, rawParam, type);
+  const configError = deriveConfigError(
+    urlConfig,
+    rawParam,
+    type,
+    lockDatasource ? lockedDatasourceId : undefined,
+  );
 
   const [configErrorModal, setConfigErrorModal] = useState<string | null>(
     () => configError,
@@ -536,7 +548,7 @@ function ExplorerInner({
       } else if (ready) {
         seedError = "Could not find the requested Fact Table.";
       }
-    } else if (type === "data_source" && datasourceId) {
+    } else if ((type === "data_source" || type === "sql") && datasourceId) {
       const datasource = getDatasourceById(datasourceId);
       if (datasource) {
         seededConfig = {
@@ -565,6 +577,10 @@ function ExplorerInner({
     urlConfig && !configError ? urlConfig : (seededConfig ?? defaultDraftState);
   const initialConfig: ExplorerDraftConfig = {
     ...baseConfig,
+    // A rejected config skips seeding
+    ...(lockDatasource && lockedDatasourceId
+      ? { datasource: lockedDatasourceId }
+      : {}),
     ...(urlPreviousTimeFrame
       ? {
           previousTimeFrame: urlPreviousTimeFrame,
