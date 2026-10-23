@@ -54,6 +54,8 @@ body {
 }
 .main {
   padding-left: 240px;
+  // Keeps pace with the sidebar collapsing to the settings rail.
+  transition: padding-left 0.2s cubic-bezier(0.685, 0.0473, 0.346, 1);
   &.settings-layout {
     padding-left: var(--settings-layout-left);
   }
@@ -3171,6 +3173,46 @@ html {
     padding-bottom: 4px;
   }
 }
+// Settings pages: card and table treatment from the design, applied without
+// touching each page's markup.
+.main.settings-layout {
+  .appbox {
+    border-radius: 8px;
+    border-color: var(--slate-a4);
+  }
+  .gbtable {
+    thead th {
+      padding: 10px 12px;
+      font-size: 12px;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--gray-11);
+      background-color: var(--slate-2);
+    }
+    td {
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+    tbody tr:hover {
+      background-color: var(--slate-a2);
+    }
+  }
+  .rt-TableRoot {
+    .rt-TableColumnHeaderCell {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gray-11);
+      background-color: var(--slate-2);
+    }
+    .rt-TableCell {
+      font-size: 13px;
+    }
+    .rt-TableBody .rt-TableRow:hover {
+      background-color: var(--slate-a2);
+    }
+  }
+}
+
 @media (max-width: 1180px) {
   .main,
   .main.settings-layout {

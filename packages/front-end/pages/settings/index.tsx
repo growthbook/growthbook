@@ -63,7 +63,7 @@ import SettingsSection, {
 } from "@/components/GeneralSettings/SettingsSection";
 import CustomMarkdownSettings from "@/components/GeneralSettings/CustomMarkdownSettings";
 import { useSettingsNav } from "@/components/Layout/SettingsNavContext";
-import PageHead from "@/components/Layout/PageHead";
+import SettingsPage from "@/components/Layout/SettingsPage";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import Frame from "@/ui/Frame";
@@ -618,194 +618,192 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   return (
     <FormProvider {...form}>
-      <PageHead
+      <SettingsPage
+        title="General settings"
+        description="Organization-wide defaults. Projects can override some of these."
         breadcrumb={[
           { display: "Settings" },
           { display: "General", href: "/settings" },
           ...(activeTitle ? [{ display: activeTitle }] : []),
         ]}
-      />
-      <Box className="container-fluid pagecontents" mb="4" ref={pageRef}>
-        <h1 className={sectionStyles.pageTitle}>General settings</h1>
-        <p className={sectionStyles.pageSubtitle}>
-          Organization-wide defaults. Projects can override some of these.
-        </p>
-
-        {hasQuery && (
-          <Flex align="center" gap="3" mt="3" wrap="wrap">
-            <Box flexGrow="1" aria-live="polite">
-              <Text size="sm" color="text-mid">
-                {total === 0
-                  ? `No settings match "${query.trim()}".`
-                  : `${total} match${total === 1 ? "" : "es"} for "${query.trim()}" in ${matchedSections} section${matchedSections === 1 ? "" : "s"}.`}
+      >
+        <div ref={pageRef}>
+          {hasQuery && (
+            <Flex align="center" gap="3" mt="3" wrap="wrap">
+              <Box flexGrow="1" aria-live="polite">
+                <Text size="sm" color="text-mid">
+                  {total === 0
+                    ? `No settings match "${query.trim()}".`
+                    : `${total} match${total === 1 ? "" : "es"} for "${query.trim()}" in ${matchedSections} section${matchedSections === 1 ? "" : "s"}.`}
+                </Text>
+              </Box>
+              <Button variant="ghost" onClick={() => setQuery("")}>
+                Clear search
+              </Button>
+            </Flex>
+          )}
+          {hasQuery && total === 0 && (
+            <Box className={sectionStyles.noResults} role="status">
+              <Text as="p" size="lg" weight="semibold" mb="1">
+                No settings match &quot;{query.trim()}&quot;
               </Text>
+              <Text as="p" color="text-mid" mb="3">
+                Search matches setting names, descriptions, and keywords. Try a
+                broader term, like &quot;refresh&quot; or &quot;variance&quot;.
+              </Text>
+              <Button variant="outline" onClick={() => setQuery("")}>
+                Clear search
+              </Button>
             </Box>
-            <Button variant="ghost" onClick={() => setQuery("")}>
-              Clear search
-            </Button>
-          </Flex>
-        )}
-        {hasQuery && total === 0 && (
-          <Box className={sectionStyles.noResults} role="status">
-            <Text as="p" size="lg" weight="semibold" mb="1">
-              No settings match &quot;{query.trim()}&quot;
-            </Text>
-            <Text as="p" color="text-mid" mb="3">
-              Search matches setting names, descriptions, and keywords. Try a
-              broader term, like &quot;refresh&quot; or &quot;variance&quot;.
-            </Text>
-            <Button variant="outline" onClick={() => setQuery("")}>
-              Clear search
-            </Button>
-          </Box>
-        )}
+          )}
 
-        <SettingsSection id="organization">
-          <SettingsCard
-            id="organization"
-            keywords="company name admin owner email license plan seats"
-          >
-            <OrganizationAndLicenseSettings
-              org={organization}
-              refreshOrg={refreshOrganization}
-            />
-          </SettingsCard>
-        </SettingsSection>
+          <SettingsSection id="organization">
+            <SettingsCard
+              id="organization"
+              keywords="company name admin owner email license plan seats"
+            >
+              <OrganizationAndLicenseSettings
+                org={organization}
+                refreshOrg={refreshOrganization}
+              />
+            </SettingsCard>
+          </SettingsSection>
 
-        <SettingsSection id="experiments">
-          <SettingsCard
-            id="experiment-settings"
-            keywords="launch checklist template tracking key regex naming refresh schedule cron sticky bucketing srm health exposure decision framework"
-          >
-            <ExperimentSettings
-              cronString={cronString}
-              updateCronString={updateCronString}
-            />
-          </SettingsCard>
-        </SettingsSection>
+          <SettingsSection id="experiments">
+            <SettingsCard
+              id="experiment-settings"
+              keywords="launch checklist template tracking key regex naming refresh schedule cron sticky bucketing srm health exposure decision framework"
+            >
+              <ExperimentSettings
+                cronString={cronString}
+                updateCronString={updateCronString}
+              />
+            </SettingsCard>
+          </SettingsSection>
 
-        <SettingsSection id="statistics">
-          <SettingsCard
-            id="experiment-analysis"
-            keywords="stats engine bayesian frequentist p-value significance cuped variance reduction sequential testing prior"
-          >
-            <ExperimentAnalysisSettings />
-          </SettingsCard>
-          <SettingsCard
-            id="bandits"
-            keywords="multi-armed bandit cadence burn-in"
-          >
-            <Frame mb="4">
-              <BanditSettings page="org-settings" />
-            </Frame>
-          </SettingsCard>
-          <SettingsCard id="learnings" keywords="learning statuses badges">
-            <Frame mb="4">
-              <LearningSettings />
-            </Frame>
-          </SettingsCard>
-        </SettingsSection>
+          <SettingsSection id="statistics">
+            <SettingsCard
+              id="experiment-analysis"
+              keywords="stats engine bayesian frequentist p-value significance cuped variance reduction sequential testing prior"
+            >
+              <ExperimentAnalysisSettings />
+            </SettingsCard>
+            <SettingsCard
+              id="bandits"
+              keywords="multi-armed bandit cadence burn-in"
+            >
+              <Frame mb="4">
+                <BanditSettings page="org-settings" />
+              </Frame>
+            </SettingsCard>
+            <SettingsCard id="learnings" keywords="learning statuses badges">
+              <Frame mb="4">
+                <LearningSettings />
+              </Frame>
+            </SettingsCard>
+          </SettingsSection>
 
-        <SettingsSection id="metrics">
-          <SettingsCard
-            id="metric-settings"
-            keywords="lookback history threshold sample size outlier mde currency revenue fact tables slices"
-          >
-            <MetricsSettings />
-          </SettingsCard>
-          <SettingsCard
-            id="datasource-settings"
-            keywords="warehouse default data source test query top values"
-          >
-            <DatasourceSettings />
-          </SettingsCard>
-          <SettingsCard
-            id="north-star"
-            keywords="home page kpi goals north star"
-          >
-            <NorthStarMetricSettings />
-          </SettingsCard>
-        </SettingsSection>
+          <SettingsSection id="metrics">
+            <SettingsCard
+              id="metric-settings"
+              keywords="lookback history threshold sample size outlier mde currency revenue fact tables slices"
+            >
+              <MetricsSettings />
+            </SettingsCard>
+            <SettingsCard
+              id="datasource-settings"
+              keywords="warehouse default data source test query top values"
+            >
+              <DatasourceSettings />
+            </SettingsCard>
+            <SettingsCard
+              id="north-star"
+              keywords="home page kpi goals north star"
+            >
+              <NorthStarMetricSettings />
+            </SettingsCard>
+          </SettingsSection>
 
-        <SettingsSection id="features">
-          <SettingsCard
-            id="feature-settings"
-            keywords="feature key naming regex project environment json configs schema drafts code references github gitlab"
-          >
-            <FeatureSettings />
-          </SettingsCard>
-          <SettingsCard
-            id="ramp-schedules"
-            keywords="rollout schedule gradual ramp templates"
-          >
-            <RampScheduleTemplates />
-          </SettingsCard>
-        </SettingsSection>
+          <SettingsSection id="features">
+            <SettingsCard
+              id="feature-settings"
+              keywords="feature key naming regex project environment json configs schema drafts code references github gitlab"
+            >
+              <FeatureSettings />
+            </SettingsCard>
+            <SettingsCard
+              id="ramp-schedules"
+              keywords="rollout schedule gradual ramp templates"
+            >
+              <RampScheduleTemplates />
+            </SettingsCard>
+          </SettingsSection>
 
-        <SettingsSection id="approvals">
-          <SettingsCard
-            id="approval-flows"
-            keywords="review publish approval rest api bypass rebase reverts targeting"
-          >
-            <ApprovalFlowSettings />
-          </SettingsCard>
-        </SettingsSection>
+          <SettingsSection id="approvals">
+            <SettingsCard
+              id="approval-flows"
+              keywords="review publish approval rest api bypass rebase reverts targeting"
+            >
+              <ApprovalFlowSettings />
+            </SettingsCard>
+          </SettingsSection>
 
-        <SettingsSection id="sdk">
-          <SettingsCard
-            id="sdk-connections"
-            keywords="sdk connection project scoping"
-          >
-            <SDKConnectionSettings />
-          </SettingsCard>
-          <SettingsCard
-            id="saved-groups"
-            keywords="saved group project scope payload size limit"
-          >
-            <SavedGroupSettings />
-          </SettingsCard>
-          <SettingsCard
-            id="targeting-attributes"
-            keywords="targeting attribute schema registered"
-          >
-            <TargetingAttributesSettings />
-          </SettingsCard>
-        </SettingsSection>
+          <SettingsSection id="sdk">
+            <SettingsCard
+              id="sdk-connections"
+              keywords="sdk connection project scoping"
+            >
+              <SDKConnectionSettings />
+            </SettingsCard>
+            <SettingsCard
+              id="saved-groups"
+              keywords="saved group project scope payload size limit"
+            >
+              <SavedGroupSettings />
+            </SettingsCard>
+            <SettingsCard
+              id="targeting-attributes"
+              keywords="targeting attribute schema registered"
+            >
+              <TargetingAttributesSettings />
+            </SettingsCard>
+          </SettingsSection>
 
-        <SettingsSection id="ai">
-          <SettingsCard
-            id="ai-settings"
-            keywords="ai llm openai anthropic prompts assistant skills embeddings provider api key"
-          >
-            <AISettings promptForm={promptForm} />
-          </SettingsCard>
-        </SettingsSection>
+          <SettingsSection id="ai">
+            <SettingsCard
+              id="ai-settings"
+              keywords="ai llm openai anthropic prompts assistant skills embeddings provider api key"
+            >
+              <AISettings promptForm={promptForm} />
+            </SettingsCard>
+          </SettingsSection>
 
-        <SettingsSection id="import">
-          <SettingsCard
-            id="import-export"
-            keywords="yaml config export import backup migrate launchdarkly optimizely"
-          >
-            <ImportSettings
-              hasFileConfig={hasFileConfig()}
-              isCloud={isCloud()}
-              settings={settings}
-              refreshOrg={refreshOrganization}
-            />
-          </SettingsCard>
-        </SettingsSection>
+          <SettingsSection id="import">
+            <SettingsCard
+              id="import-export"
+              keywords="yaml config export import backup migrate launchdarkly optimizely"
+            >
+              <ImportSettings
+                hasFileConfig={hasFileConfig()}
+                isCloud={isCloud()}
+                settings={settings}
+                refreshOrg={refreshOrganization}
+              />
+            </SettingsCard>
+          </SettingsSection>
 
-        <SettingsSection id="markdown">
-          <SettingsCard
-            id="custom-markdown"
-            keywords="guidance documentation help markdown"
-          >
-            <CustomMarkdownSettings />
-          </SettingsCard>
-        </SettingsSection>
+          <SettingsSection id="markdown">
+            <SettingsCard
+              id="custom-markdown"
+              keywords="guidance documentation help markdown"
+            >
+              <CustomMarkdownSettings />
+            </SettingsCard>
+          </SettingsSection>
 
-        <div className={sectionStyles.spacer} />
-      </Box>
+          <div className={sectionStyles.spacer} />
+        </div>
+      </SettingsPage>
 
       <Box
         className="bg-main-color position-sticky w-100 py-3 border-top"

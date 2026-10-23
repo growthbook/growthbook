@@ -266,7 +266,7 @@ export const navlinks: SidebarLinkProps[] = [
     Icon: GBSettings,
     path: /^(settings|admin|projects|integrations|events|importing)/,
     autoClose: true,
-    navigateOnExpand: true,
+    hideSubLinks: true,
     subLinks: [
       {
         name: "General",

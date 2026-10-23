@@ -40,6 +40,8 @@ export type SidebarLinkProps = {
   navigateOnExpand?: boolean;
   filter?: (props: SidebarLinkFilterProps) => boolean;
   subLinks?: SidebarLinkProps[];
+  /** Sub-links feed search and the settings nav but are not listed under the item. */
+  hideSubLinks?: boolean;
   beta?: boolean;
 };
 
@@ -108,6 +110,8 @@ const SidebarLink: FC<SidebarLinkProps & { rail?: boolean }> = (props) => {
     return null;
   }
 
+  const showSubLinks = !!props.subLinks && !props.hideSubLinks;
+
   return (
     <>
       {props.divider && (
@@ -124,13 +128,13 @@ const SidebarLink: FC<SidebarLinkProps & { rail?: boolean }> = (props) => {
         className={clsx("sidebarlink", props.className, styles.link, {
           [styles.selected]: selected,
           selected: selected,
-          [styles.submenusection]: selected && props.subLinks,
+          [styles.submenusection]: selected && showSubLinks,
           [styles.expanded]: open,
         })}
       >
         <a
           className={clsx("align-middle", {
-            "no-close": props.subLinks && !props.autoClose,
+            "no-close": showSubLinks && !props.autoClose,
           })}
           href={props.href}
           title={props.rail ? props.name : undefined}
@@ -141,23 +145,18 @@ const SidebarLink: FC<SidebarLinkProps & { rail?: boolean }> = (props) => {
             }
 
             e.preventDefault();
-            if (props.subLinks) {
-              // Land on the first page this user may see, not a forbidden parent href.
-              const firstHref = permittedSubLinks[0]?.href ?? props.href;
-              if (props.rail) {
-                router.push(firstHref);
-                return;
-              }
-              // If it's currently closed and it's set to navigate on expand
-              if (!open && !selected && props.navigateOnExpand && firstHref) {
-                router.push(firstHref);
-              }
-
-              setOpen(!open);
-              e.stopPropagation();
-            } else {
-              router.push(props.href);
+            // Land on the first page this user may see, not a forbidden parent href.
+            const firstHref = permittedSubLinks[0]?.href ?? props.href;
+            if (props.rail || !showSubLinks) {
+              router.push(firstHref);
+              return;
             }
+            // If it's currently closed and it's set to navigate on expand
+            if (!open && !selected && props.navigateOnExpand) {
+              router.push(firstHref);
+            }
+            setOpen(!open);
+            e.stopPropagation();
           }}
         >
           {props.Icon && <props.Icon className={styles.icon} />}
@@ -175,14 +174,14 @@ const SidebarLink: FC<SidebarLinkProps & { rail?: boolean }> = (props) => {
               beta
             </div>
           )}
-          {props.subLinks && (
+          {showSubLinks && (
             <div className={clsx("float-right", styles.chevron)}>
               <FiChevronRight />
             </div>
           )}
         </a>
       </li>
-      {permittedSubLinks.length > 0 ? (
+      {showSubLinks && permittedSubLinks.length > 0 ? (
         <ul
           className={clsx(styles.sublinks, {
             [styles.open]: open || selected,
