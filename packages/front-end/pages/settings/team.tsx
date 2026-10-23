@@ -34,7 +34,7 @@ const TeamPage: FC = () => {
   }
 
   return (
-    <SettingsPage title="Members" hideHeader>
+    <SettingsPage title="Members">
       <Tabs defaultValue="members" persistInURL>
         <Box mb="5">
           <TabsList>
@@ -58,6 +58,7 @@ const TeamPage: FC = () => {
               />
             )}
             <SettingsPageHeader
+              as="h2"
               title={
                 <PremiumTooltip commercialFeature="teams">Teams</PremiumTooltip>
               }
@@ -67,7 +68,7 @@ const TeamPage: FC = () => {
                   disabled={!hasTeamsFeature}
                   onClick={() => setModalOpen({})}
                 >
-                  Create Team
+                  Create team
                 </Button>
               }
             />
@@ -100,6 +101,7 @@ const TeamPage: FC = () => {
         <TabsContent value="roles">
           <>
             <SettingsPageHeader
+              as="h2"
               title={
                 <PremiumTooltip commercialFeature="custom-roles">
                   Roles
@@ -109,7 +111,7 @@ const TeamPage: FC = () => {
               actions={
                 hasCustomRolesFeature ? (
                   <LinkButton href="/settings/role/new">
-                    Create Custom Role
+                    Create custom role
                   </LinkButton>
                 ) : null
               }

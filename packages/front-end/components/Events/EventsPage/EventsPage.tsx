@@ -3,7 +3,8 @@ import {
   EventInterface,
   NotificationEventName,
 } from "shared/types/events/event";
-import { FaDownload, FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
+import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
+import { PiDownloadSimple } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
 import { useUser } from "@/services/UserContext";
@@ -77,9 +78,9 @@ export const EventsPage: FC<EventsPageProps> = ({
             <Button
               onClick={performDownload}
               disabled={isDownloading || !shouldShowExportButton}
-              icon={<FaDownload />}
+              icon={<PiDownloadSimple />}
             >
-              Export All
+              Export all
             </Button>
           </PremiumTooltip>
         }

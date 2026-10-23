@@ -1,4 +1,5 @@
 import React, { FC, useCallback, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -53,7 +54,7 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
             <DocLink docSection="eventWebhooks">View docs</DocLink>
           </>
         }
-        actions={<Button onClick={onCreateModalOpen}>New Event Webhook</Button>}
+        actions={<Button onClick={onCreateModalOpen}>New event webhook</Button>}
       />
 
       {/* Feedback messages */}
@@ -74,16 +75,15 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
               Slack. Apply globally for all features and experiments, or filter
               by environment, project, or tags.
             </p>
-            <div className="d-flex justify-content-center">
+            <Flex justify="center" gap="2">
               <Button
-                mr="2"
                 variant="outline"
                 onClick={() => window.open(docUrl("eventWebhooks"), "_blank")}
               >
-                Setup Instructions
+                Setup instructions
               </Button>
-              <Button onClick={onCreateModalOpen}>New Event Webhook</Button>
-            </div>
+              <Button onClick={onCreateModalOpen}>New event webhook</Button>
+            </Flex>
           </div>
           <div className="col" />
         </div>

@@ -114,7 +114,7 @@ const WebhooksPage: FC = () => {
             </tbody>
           </table>
           <Button variant="solid" onClick={() => setNewSecretOpen(true)}>
-            Add Webhook Secret
+            Add webhook secret
           </Button>
         </div>
       </div>

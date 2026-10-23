@@ -24,7 +24,6 @@ import LicenseSuccessModal from "@/components/Settings/UpgradeModal/LicenseSucce
 import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Callout from "@/ui/Callout";
-import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
 
 export const MembersTabView: FC = () => {
   const {
@@ -123,7 +122,6 @@ export const MembersTabView: FC = () => {
         />
       )}
       <SSOSettings ssoConnection={ssoConnection || null} />
-      <SettingsPageHeader title="Organization members" />
       {isMultiOrg() && (
         <AutoApproveMembersToggle mutate={refreshOrganization} />
       )}

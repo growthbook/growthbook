@@ -5,6 +5,8 @@ import clsx from "clsx";
 import { PiMagnifyingGlass } from "react-icons/pi";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
+import Badge from "@/ui/Badge";
+import { TextField } from "@/ui/TextField";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -15,6 +17,7 @@ import {
   tokenizeSettingsQuery,
 } from "@/components/GeneralSettings/settingsSections";
 import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
+import sectionStyles from "@/components/GeneralSettings/SettingsSection.module.scss";
 import { buildSidebarLinkFilterProps } from "./SidebarLink";
 import { settingsNavLink } from "./sidebarNav";
 import { useSettingsNav } from "./SettingsNavContext";
@@ -64,13 +67,17 @@ export default function SettingsNav() {
         )),
   );
 
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const cardTotal = Object.values(counts).reduce((a, b) => a + b, 0);
   const matchedSections = Object.values(counts).filter((n) => n > 0).length;
+  const total = cardTotal + pages.length;
+  const where = [
+    matchedSections &&
+      `${matchedSections} section${matchedSections === 1 ? "" : "s"}`,
+    pages.length && `${pages.length} page${pages.length === 1 ? "" : "s"}`,
+  ].filter(Boolean);
   const resultText = !total
     ? "No matches"
-    : `${total} match${total === 1 ? "" : "es"} in ${matchedSections} section${
-        matchedSections === 1 ? "" : "s"
-      }`;
+    : `${total} match${total === 1 ? "" : "es"} in ${where.join(" and ")}`;
 
   // "/" jumps to search from anywhere on a settings page.
   useEffect(() => {
@@ -104,26 +111,29 @@ export default function SettingsNav() {
   return (
     <aside className={styles.nav} aria-label="Settings navigation">
       <div className={styles.header}>Settings</div>
-      <div className={styles.searchWrap}>
-        <PiMagnifyingGlass className={styles.searchIcon} aria-hidden="true" />
-        <input
-          ref={searchRef}
-          type="search"
-          className={styles.search}
-          aria-label="Search settings"
-          placeholder="Search settings"
-          value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setQuery("");
-          }}
-        />
-        {!query && (
-          <kbd className={styles.kbd} title="Press / to search settings">
-            /
-          </kbd>
-        )}
-      </div>
+      <TextField
+        ref={searchRef}
+        type="search"
+        size="sm"
+        mx="3"
+        mt="4"
+        mb="2"
+        aria-label="Search settings"
+        placeholder="Search settings"
+        prepend={<PiMagnifyingGlass aria-hidden="true" />}
+        append={
+          !query ? (
+            <kbd className={styles.kbd} title="Press / to search settings">
+              /
+            </kbd>
+          ) : undefined
+        }
+        value={query}
+        onChange={(e) => onQueryChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setQuery("");
+        }}
+      />
       {hasQuery && (
         <div className={styles.resultText} aria-live="polite">
           {resultText}
@@ -141,22 +151,34 @@ export default function SettingsNav() {
                   type="button"
                   className={clsx(styles.item, { [styles.active]: active })}
                   aria-current={active ? "location" : undefined}
-                  onClick={() =>
-                    onGeneral
-                      ? scrollToSettingsSection(s.id)
-                      : router.push(`/settings#${s.id}`)
-                  }
+                  onClick={() => {
+                    if (!onGeneral) {
+                      router.push(`/settings#${s.id}`);
+                      return;
+                    }
+                    scrollToSettingsSection(s.id);
+                    // Keeps the hash shareable; scroll: false leaves the smooth scroll alone.
+                    router.replace(`/settings#${s.id}`, undefined, {
+                      shallow: true,
+                      scroll: false,
+                    });
+                  }}
                 >
                   <span className={styles.itemLabel}>{s.title}</span>
                   {dirtySectionIds.includes(s.id) && (
                     <span
-                      className={styles.dirtyDot}
+                      className={sectionStyles.unsavedDot}
                       role="img"
                       aria-label="Unsaved changes"
                     />
                   )}
                   {hasQuery && (
-                    <span className={styles.count}>{counts[s.id]}</span>
+                    <Badge
+                      color="gray"
+                      variant="soft"
+                      radius="full"
+                      label={String(counts[s.id] ?? 0)}
+                    />
                   )}
                 </button>
               );

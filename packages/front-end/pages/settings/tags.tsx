@@ -65,7 +65,7 @@ const TagsPage: FC = () => {
             disabled={!canCreateAndUpdate}
             onClick={() => setModalOpen({})}
           >
-            Add Tag
+            Add tag
           </Button>
         </Tooltip>
       }

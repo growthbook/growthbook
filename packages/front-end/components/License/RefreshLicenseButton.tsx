@@ -5,7 +5,9 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
 
-const RefreshLicenseButton: FC = () => {
+const RefreshLicenseButton: FC<{ setError?: (e: string) => void }> = ({
+  setError,
+}) => {
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
 
@@ -25,7 +27,12 @@ const RefreshLicenseButton: FC = () => {
 
   return (
     <>
-      <Button variant="outline" icon={<BsArrowRepeat />} onClick={refresh}>
+      <Button
+        variant="outline"
+        icon={<BsArrowRepeat />}
+        onClick={refresh}
+        setError={setError}
+      >
         Refresh
       </Button>
     </>

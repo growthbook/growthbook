@@ -114,7 +114,7 @@ const ProjectsPage: FC = () => {
                 atProjectLimit ? setUpgradeModalOpen(true) : setModalOpen({})
               }
             >
-              Create Project
+              Create project
             </Button>
           </Tooltip>
         </>

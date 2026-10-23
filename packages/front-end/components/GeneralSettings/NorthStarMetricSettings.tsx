@@ -25,8 +25,9 @@ export default function NorthStarMetricSettings() {
               noManual={true}
             />
           </SettingsField>
-          <SettingsField label="Title">
+          <SettingsField htmlFor="settings-northStar-title" label="Title">
             <Field
+              id="settings-northStar-title"
               size="md"
               containerClassName="mb-0"
               value={watch("northStar.title")}

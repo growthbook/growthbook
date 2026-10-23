@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { OrganizationInterface } from "shared/types/organization";
 import { Box } from "@radix-ui/themes";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
@@ -25,6 +25,7 @@ export default function OrganizationAndLicenseSettings({
   const ownerEmail = orgForm.watch("ownerEmail");
   const memberEmails = Array.from(users).map(([, user]) => user.email);
   const ownerEmailExists = memberEmails.includes(ownerEmail);
+  const [ownerTouched, setOwnerTouched] = useState(false);
   const showInstallationName =
     license?.plan === "enterprise" && !isCloud() && isMultiOrg();
 
@@ -67,10 +68,12 @@ export default function OrganizationAndLicenseSettings({
               type="email"
               containerClassName="mb-0"
               disabled={!canEdit}
-              {...orgForm.register("ownerEmail")}
+              {...orgForm.register("ownerEmail", {
+                onBlur: () => setOwnerTouched(true),
+              })}
             />
           )}
-          {!ownerEmailExists && (
+          {ownerTouched && !ownerEmailExists && (
             <HelperText status="error" size="sm" mt="1">
               This email is not associated with any user in your organization.
             </HelperText>

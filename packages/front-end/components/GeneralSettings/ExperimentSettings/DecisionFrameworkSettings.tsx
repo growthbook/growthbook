@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
-import { FaPlusCircle } from "react-icons/fa";
+import { PiPlus } from "react-icons/pi";
 import { DecisionCriteriaData } from "shared/types/experiment";
 import {
   PRESET_DECISION_CRITERIA,
@@ -101,7 +101,7 @@ const DecisionFrameworkSettings = () => {
       </Box>
       <Checkbox
         id="toggle-decisionFrameworkEnabled"
-        label="Enable decision framework"
+        label="Enable Experiment Decision Framework"
         value={
           !hasCommercialFeature("decision-framework")
             ? false
@@ -114,11 +114,13 @@ const DecisionFrameworkSettings = () => {
         form.watch("decisionFrameworkEnabled") && (
           <Flex direction="column" gap="4" pl="5">
             <SettingsField
+              htmlFor="settings-decisionFrameworkEnabled"
               label="Minimum runtime"
               help="Experiments won't get a shipping recommendation before this."
             >
               <Box width="150px">
                 <Field
+                  id="settings-decisionFrameworkEnabled"
                   size="md"
                   type="number"
                   append="days"
@@ -150,11 +152,9 @@ const DecisionFrameworkSettings = () => {
                       selectedCriteria: undefined,
                     });
                   }}
+                  icon={<PiPlus />}
                 >
-                  <Flex align="center" gap="1">
-                    <FaPlusCircle size={12} />
-                    <span>Add custom</span>
-                  </Flex>
+                  Add custom
                 </Button>
               </Flex>
               <DecisionCriteriaTable

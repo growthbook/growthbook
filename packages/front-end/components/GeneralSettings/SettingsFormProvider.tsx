@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { useRouter } from "next/router";
@@ -33,7 +34,12 @@ import {
 } from "shared/settings";
 import { OrganizationSettings } from "shared/types/organization";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
-import { CUSTOMIZABLE_PROMPT_TYPES, getProviderForAIModel } from "shared/ai";
+import {
+  AI_PROMPT_DEFAULTS,
+  AIPromptInterface,
+  CUSTOMIZABLE_PROMPT_TYPES,
+  getProviderForAIModel,
+} from "shared/ai";
 import { getRequireRegisteredAttributesSettings } from "shared/util";
 import { isCloud } from "@/services/env";
 import { useAuth } from "@/services/auth";
@@ -72,6 +78,8 @@ type SettingsFormContextValue = {
   setCodeRefsBranchesToFilterStr: (value: string) => void;
   dirtyCount: number;
   dirtySectionIds: string[];
+  /** Increments on Discard, for local UI state that mirrors the form. */
+  resetKey: number;
   saveMsg: boolean;
   setSaveMsg: (value: boolean) => void;
   submitError: string | null;
@@ -116,6 +124,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const [saveMsg, setSaveMsg] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
+  const originalRef = useRef<OrganizationSettings>({});
   const [cronString, setCronString] = useState("");
   const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
     useState<string>("");
@@ -125,6 +134,24 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
   const promptForm = useForm();
+  // Prompts live here too, so an AI section remount cannot reset a draft.
+  const { data: promptData, mutate: mutatePrompts } = useApi<{
+    prompts: AIPromptInterface[];
+  }>("/ai/prompts");
+  useEffect(() => {
+    if (!promptData) return;
+    const values: Record<string, string | undefined> = {};
+    CUSTOMIZABLE_PROMPT_TYPES.forEach((type) => {
+      const p = promptData.prompts.find((x) => x.type === type);
+      values[type] = p?.prompt || AI_PROMPT_DEFAULTS[type];
+      values[`${type}-model`] = knownTextModel(p?.overrideModel) ?? "";
+    });
+    // Keep edited fields; the rest take the loaded values.
+    const dirty = promptForm.formState.dirtyFields;
+    const current = promptForm.getValues();
+    Object.keys(dirty).forEach((k) => (values[k] = current[k]));
+    promptForm.reset(values, { keepDirtyValues: true });
+  }, [promptData, promptForm]);
   const orgForm = useForm<OrgDetailsForm>({
     defaultValues: { name: "", ownerEmail: "", installationName: "" },
   });
@@ -216,6 +243,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       featureListMarkdown: settings.featureListMarkdown || "",
       featurePageMarkdown: settings.featurePageMarkdown || "",
       experimentListMarkdown: settings.experimentListMarkdown || "",
+      experimentPageMarkdown: settings.experimentPageMarkdown || "",
       metricListMarkdown: settings.metricListMarkdown || "",
       metricPageMarkdown: settings.metricPageMarkdown || "",
       banditScheduleValue: settings.banditScheduleValue ?? 1,
@@ -390,12 +418,22 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
             : false;
         }
       });
+      // A refresh while editing (e.g. after saving a PAT policy) keeps the draft.
+      const current = form.getValues() as Record<string, unknown>;
+      const prev = originalRef.current as Record<string, unknown>;
+      Object.keys(prev).forEach((k) => {
+        if (isAbsent(current[k]) && isAbsent(prev[k])) return;
+        if (!isEqual(current[k], prev[k])) newVal[k] = current[k];
+      });
       form.reset(newVal);
+      originalRef.current = newVal;
       setOriginalValue(newVal);
       updateCronString(newVal.updateSchedule?.cron || "");
-      if (newVal.codeRefsBranchesToFilter) {
+      if (
+        !isEqual(newVal.codeRefsBranchesToFilter, prev.codeRefsBranchesToFilter)
+      ) {
         setCodeRefsBranchesToFilterStr(
-          newVal.codeRefsBranchesToFilter.join(", "),
+          (newVal.codeRefsBranchesToFilter ?? []).join(", "),
         );
       }
     }
@@ -407,17 +445,20 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     updateCronString,
   ]);
 
-  useEffect(() => {
+  const updateCodeRefsBranches = (value: string) => {
+    setCodeRefsBranchesToFilterStr(value);
     form.setValue(
       "codeRefsBranchesToFilter",
-      codeRefsBranchesToFilterStr
+      value
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean),
     );
-  }, [codeRefsBranchesToFilterStr, form]);
+  };
 
+  const [resetKey, setResetKey] = useState(0);
   const discardChanges = () => {
+    setResetKey((k) => k + 1);
     form.reset(originalValue as OrganizationSettingsWithMetricDefaults);
     promptForm.reset();
     orgForm.reset(orgDetails);
@@ -533,15 +574,29 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    await apiCall(`/organization`, {
-      method: "PUT",
-      body: JSON.stringify({
-        ...orgPatch,
-        settings: transformedOrgSettings,
-      }),
-    });
-    // Update org name in global context (e.g. top nav)
-    if (orgPatch.name && setOrgName) setOrgName(orgPatch.name);
+    // Only changed settings are sent, so a role limited to e.g. the North Star
+    // metric is not rejected for untouched fields it may not manage.
+    const changed = Object.fromEntries(
+      Object.entries(transformedOrgSettings).filter(([k]) =>
+        dirtyFields.includes(k),
+      ),
+    );
+    if (Object.keys(changed).length) {
+      await apiCall(`/organization`, {
+        method: "PUT",
+        body: JSON.stringify({ settings: changed }),
+      });
+    }
+    if (Object.keys(orgPatch).length) {
+      await apiCall(`/organization`, {
+        method: "PUT",
+        body: JSON.stringify(orgPatch),
+      });
+      // Update org name in global context (e.g. top nav)
+      if (orgPatch.name && setOrgName) setOrgName(orgPatch.name);
+      // The license is cached by installation name on the server.
+      if (orgPatch.installationName !== undefined) await apiCall(`/license`);
+    }
     await Promise.all([refreshOrganization(), mutateAgentSkills()]);
 
     // show the user that the settings have saved:
@@ -555,6 +610,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     if (dirtyPromptFields.length) {
       await savePrompts();
       promptForm.reset(promptForm.getValues());
+      await mutatePrompts();
     }
   };
 
@@ -563,6 +619,30 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     if (!active && dirtyCount > 0) discardChanges();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
+
+  // Leaving Settings, closing, or reloading with a draft asks first.
+  useEffect(() => {
+    if (!active || !dirtyCount) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    const onRouteChangeStart = (url: string) => {
+      if (isSettingsRoute(new URL(url, window.location.origin).pathname))
+        return;
+      if (window.confirm("Leave Settings? Your unsaved changes will be lost."))
+        return;
+      router.events.emit("routeChangeError", new Error("cancelled"), url);
+      // Next's pages router only cancels a route change when a handler throws.
+      throw "Route change cancelled: unsaved settings";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    router.events.on("routeChangeStart", onRouteChangeStart);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      router.events.off("routeChangeStart", onRouteChangeStart);
+    };
+  }, [active, dirtyCount, router.events]);
 
   return (
     <SettingsFormContext.Provider
@@ -573,9 +653,10 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         cronString,
         updateCronString,
         codeRefsBranchesToFilterStr,
-        setCodeRefsBranchesToFilterStr,
+        setCodeRefsBranchesToFilterStr: updateCodeRefsBranches,
         dirtyCount,
         dirtySectionIds,
+        resetKey,
         saveMsg,
         setSaveMsg,
         submitError,

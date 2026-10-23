@@ -1,5 +1,5 @@
 import { OrganizationSettings } from "shared/types/organization";
-import { FaUpload } from "react-icons/fa";
+import { PiUploadSimple } from "react-icons/pi";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { load, dump } from "js-yaml";
@@ -240,7 +240,7 @@ export default function RestoreConfigYamlButton({
 
   if (!metricsData) {
     return (
-      <Button disabled loading icon={<FaUpload />}>
+      <Button disabled loading icon={<PiUploadSimple />}>
         Import config.yml
       </Button>
     );
@@ -316,7 +316,7 @@ export default function RestoreConfigYamlButton({
       )}
       <Button
         variant="outline"
-        icon={<FaUpload />}
+        icon={<PiUploadSimple />}
         onClick={() => {
           form.reset({
             config: "",

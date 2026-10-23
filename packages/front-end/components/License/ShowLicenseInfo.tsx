@@ -1,7 +1,8 @@
 import React, { FC, useState } from "react";
 import { FaPencilAlt } from "react-icons/fa";
 import { date } from "shared/dates";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
+import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
 import EditLicenseModal from "@/components/Settings/EditLicenseModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -24,6 +25,7 @@ const ShowLicenseInfo: FC<{
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
 
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const [refreshError, setRefreshError] = useState("");
 
   // The accountPlan is the effective plan given possible downgrades.
   // but we want to show the actual plan on the license.
@@ -63,7 +65,7 @@ const ShowLicenseInfo: FC<{
         />
       )}
       <Box>
-        {showHeading && <div className="divider border-bottom mb-3 mt-3" />}
+        {showHeading && <Separator size="4" my="3" />}
         <Flex justify="start" gap="4">
           {showHeading && (
             <Box width="220px">
@@ -178,7 +180,12 @@ const ShowLicenseInfo: FC<{
                     <>
                       {license.id?.startsWith("license") && (
                         <div className="col-2">
-                          <RefreshLicenseButton />
+                          <RefreshLicenseButton setError={setRefreshError} />
+                          {refreshError && (
+                            <HelperText status="error" mt="1">
+                              {refreshError}
+                            </HelperText>
+                          )}
                         </div>
                       )}
 

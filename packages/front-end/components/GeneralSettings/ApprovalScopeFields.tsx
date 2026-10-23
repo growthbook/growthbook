@@ -407,7 +407,7 @@ export function ApprovalScopeSections({
     <>
       <Box>
         <SectionHeading
-          title="Feature flags, Configs & Constants"
+          title="Feature Flags, Configs & Constants"
           onReset={onFlagReset}
         />
         <Text as="p" size="md" mb="4" color="text-low">

@@ -145,7 +145,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   return (
     <>
       <SettingsPage
-        title="General settings"
+        title="General Settings"
         description="Organization-wide defaults. Projects can override some of these."
         breadcrumb={[
           { display: "Settings" },
@@ -155,13 +155,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
         contentClassName={sectionStyles.generalContent}
       >
         <div ref={pageRef}>
-          {hasQuery && (
+          {hasQuery && total > 0 && (
             <Flex align="center" gap="3" mt="3" wrap="wrap">
               <Box flexGrow="1" aria-live="polite">
                 <Text size="sm" color="text-mid">
-                  {total === 0
-                    ? `No settings match "${query.trim()}".`
-                    : `${total} match${total === 1 ? "" : "es"} for "${query.trim()}" in ${matchedSections} section${matchedSections === 1 ? "" : "s"}.`}
+                  {`${total} match${total === 1 ? "" : "es"} for "${query.trim()}" in ${matchedSections} section${matchedSections === 1 ? "" : "s"}.`}
                 </Text>
               </Box>
               <Button variant="ghost" onClick={() => setQuery("")}>
@@ -214,7 +212,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </SettingsGroup>
             <SettingsGroup
               id="an-learnings"
-              title="Learning statuses"
+              title="Learning Statuses"
               description="Statuses available on saved Learnings. Each Learning can have one, shown as a badge. New Learnings start with no status."
               keywords="learnings statuses badges"
             >

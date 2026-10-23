@@ -90,13 +90,17 @@ export default function StatsEngineSettings() {
     <>
       <SettingsGroup
         id="an-engine"
-        title="Stats engine"
+        title="Stats Engine"
         description="The default engine for new experiments. Bayesian is most common."
         keywords="bayesian frequentist statistics engine chance to win priors p-value significance multiple comparisons correction sequential testing"
       >
-        <SettingsField label="Default stats engine">
+        <SettingsField
+          htmlFor="settings-statsEngine"
+          label="Default stats engine"
+        >
           <Box width="240px" maxWidth="100%">
             <SelectField
+              id="settings-statsEngine"
               containerClassName="mb-0"
               sort={false}
               options={[
@@ -111,11 +115,13 @@ export default function StatsEngineSettings() {
 
         <SettingsSubheading>Bayesian</SettingsSubheading>
         <SettingsField
+          htmlFor="settings-confidenceLevel"
           label="Chance to win threshold"
           help={`A variation is a winner above this probability. Default is ${Math.round(DEFAULT_CONFIDENCE_LEVEL * 100)}%.`}
         >
           <Box width="150px">
             <Field
+              id="settings-confidenceLevel"
               size="md"
               type="number"
               step="any"
@@ -151,9 +157,14 @@ export default function StatsEngineSettings() {
           />
           {properPriors && (
             <Flex direction="column" gap="3" pl="5" mt="3">
-              <SettingsField label="Prior mean" help="Default is 0.">
+              <SettingsField
+                htmlFor="settings-metricDefaults-priorSettings-mean"
+                label="Prior mean"
+                help="Default is 0."
+              >
                 <Box width="150px">
                   <Field
+                    id="settings-metricDefaults-priorSettings-mean"
                     size="md"
                     type="number"
                     step="any"
@@ -167,11 +178,13 @@ export default function StatsEngineSettings() {
                 </Box>
               </SettingsField>
               <SettingsField
+                htmlFor="settings-metricDefaults-priorSettings-stddev"
                 label="Prior standard deviation"
                 help={`Default is ${DEFAULT_PROPER_PRIOR_STDDEV}.`}
               >
                 <Box width="150px">
                   <Field
+                    id="settings-metricDefaults-priorSettings-stddev"
                     size="md"
                     type="number"
                     step="any"
@@ -201,23 +214,24 @@ export default function StatsEngineSettings() {
 
         <SettingsSubheading>Frequentist</SettingsSubheading>
         <SettingsField
+          htmlFor="settings-pValueThreshold"
           label="P-value threshold"
           help={`A result is significant below this p-value. Default is ${DEFAULT_P_VALUE_THRESHOLD}.`}
         >
           <Box width="150px">
             <Field
+              id="settings-pValueThreshold"
               size="md"
               type="number"
-              step="0.001"
-              min="0.001"
+              step="any"
+              min="0"
               max="0.5"
               containerClassName="mb-0"
               style={highlight(pValue.highlightColor)}
               disabled={locked}
               {...form.register("pValueThreshold", {
                 valueAsNumber: true,
-                min: 0.001,
-                max: 0.5,
+                validate: (v) => v > 0 && v <= 0.5,
               })}
             />
           </Box>
@@ -228,11 +242,13 @@ export default function StatsEngineSettings() {
           )}
         </SettingsField>
         <SettingsField
+          htmlFor="settings-pValueCorrection"
           label="Multiple comparisons correction"
           help="Applied to experiments with several goal metrics or variations."
         >
           <Box width="400px" maxWidth="100%">
             <SelectField
+              id="settings-pValueCorrection"
               containerClassName="mb-0"
               value={form.watch("pValueCorrection") ?? ""}
               onChange={(value) =>
@@ -278,11 +294,13 @@ export default function StatsEngineSettings() {
           {sequentialEnabled && (
             <Box pl="5" mt="3">
               <SettingsField
+                htmlFor="settings-sequentialTestingTuningParameter"
                 label="Sequential testing tuning parameter"
                 help={`Default is ${DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}.`}
               >
                 <Box width="150px">
                   <Field
+                    id="settings-sequentialTestingTuningParameter"
                     size="md"
                     type="number"
                     containerClassName="mb-0"
@@ -308,7 +326,7 @@ export default function StatsEngineSettings() {
         id="an-variance"
         title={
           <PremiumTooltip commercialFeature="regression-adjustment">
-            Variance reduction
+            Variance Reduction
           </PremiumTooltip>
         }
         description="CUPED and post-stratification reduce noise so experiments reach decisions faster."
@@ -328,11 +346,13 @@ export default function StatsEngineSettings() {
           {form.watch("regressionAdjustmentEnabled") && (
             <Box pl="5" mt="3">
               <SettingsField
+                htmlFor="settings-regressionAdjustmentDays"
                 label="CUPED lookback window"
                 help={`Pre-exposure data used for CUPED. Default is ${DEFAULT_REGRESSION_ADJUSTMENT_DAYS}.`}
               >
                 <Box width="150px">
                   <Field
+                    id="settings-regressionAdjustmentDays"
                     size="md"
                     type="number"
                     style={highlight(regressionAdjustmentDaysHighlightColor)}

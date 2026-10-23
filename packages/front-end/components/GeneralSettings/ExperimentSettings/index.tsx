@@ -53,7 +53,7 @@ export default function ExperimentSettings({
     <>
       <SettingsGroup
         id="exp-launch"
-        title="Launch requirements"
+        title="Launch Requirements"
         description="What experimenters must do before an experiment can launch."
         keywords="pre-launch checklist template tracking key regex naming duplicate"
       >
@@ -140,7 +140,7 @@ export default function ExperimentSettings({
 
       <SettingsGroup
         id="exp-results"
-        title="Results & refresh"
+        title="Results & Refresh"
         description="How often results update and how they're computed."
         keywords="auto-update refresh schedule cron conversion window attribution dimensions slices import past experiments"
       >
@@ -282,11 +282,13 @@ export default function ExperimentSettings({
         />
 
         <SettingsField
+          htmlFor="settings-pastExperimentsMinLength"
           label="Minimum length for imported experiments"
           help="Past experiments from a Data Source that ran for fewer days are skipped on import."
         >
           <Box width="150px">
             <Field
+              id="settings-pastExperimentsMinLength"
               size="md"
               type="number"
               append="days"
@@ -307,7 +309,7 @@ export default function ExperimentSettings({
 
       <SettingsGroup
         id="exp-sticky"
-        title="Sticky bucketing"
+        title="Sticky Bucketing"
         description="Keep users in the variation they first saw."
         keywords="sticky bucketing consistent assignment fallback attributes"
       >
@@ -316,7 +318,7 @@ export default function ExperimentSettings({
 
       <SettingsGroup
         id="exp-health"
-        title="Health checks"
+        title="Health Checks"
         description="Checks that flag problems with traffic and assignment."
         keywords="health traffic query srm sample ratio mismatch multiple exposures"
       >
@@ -329,11 +331,13 @@ export default function ExperimentSettings({
         />
 
         <SettingsField
+          htmlFor="settings-srmThreshold"
           label="SRM p-value threshold"
           help="Flag sample ratio mismatch below this p-value. Default is 0.001."
         >
           <Box width="150px">
             <Field
+              id="settings-srmThreshold"
               size="md"
               type="number"
               step="0.001"
@@ -362,11 +366,13 @@ export default function ExperimentSettings({
         </SettingsField>
 
         <SettingsField
+          htmlFor="settings-multipleExposureMinPercent"
           label="Multiple exposures warning"
           help="Warn when at least this share of users saw more than one variation."
         >
           <Box width="150px">
             <Field
+              id="settings-multipleExposureMinPercent"
               size="md"
               type="number"
               step="1"
@@ -389,7 +395,7 @@ export default function ExperimentSettings({
         id="exp-decision"
         title={
           <PremiumTooltip commercialFeature="decision-framework">
-            Decision framework
+            Experiment Decision Framework
           </PremiumTooltip>
         }
         description="Estimate experiment duration and make shipping recommendations from target minimum detectable effects."

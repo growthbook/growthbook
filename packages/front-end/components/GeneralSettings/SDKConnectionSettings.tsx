@@ -15,7 +15,7 @@ export default function SDKConnectionSettings() {
       {({ watch, setValue }) => (
         <SettingsGroup
           id="sdk-scope"
-          title="Project scoping"
+          title="Project Scoping"
           description="Rules for new SDK Connections."
           keywords="sdk connection require project"
         >

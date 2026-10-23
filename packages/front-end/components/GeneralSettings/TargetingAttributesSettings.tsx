@@ -29,7 +29,7 @@ export default function TargetingAttributesSettings() {
         return (
           <SettingsGroup
             id="sdk-attrs"
-            title="Targeting attributes"
+            title="Targeting Attributes"
             description="Validation for attributes used in rules and experiments."
             keywords="targeting attributes registered schema project match"
           >

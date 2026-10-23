@@ -25,15 +25,15 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
   },
   {
     id: "metrics",
-    title: "Metrics & data",
+    title: "Metrics & Data",
     description:
       "Defaults for new metrics, Data Source lookbacks, and North Star metrics.",
   },
   {
     id: "features",
-    title: "Feature flags",
+    title: "Feature Flags",
     description:
-      "Key naming, defaults for new flags, Configs, publishing checks, code references, and ramp schedules.",
+      "Key naming, defaults for new Feature Flags, Configs, publishing checks, code references, and ramp schedules.",
   },
   {
     id: "approvals",
@@ -43,7 +43,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
   },
   {
     id: "sdk",
-    title: "SDK configuration",
+    title: "SDK Configuration",
     description:
       "Project scoping for SDK Connections, Saved Group limits, and attribute validation.",
   },
@@ -55,13 +55,13 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
   },
   {
     id: "import",
-    title: "Import & export",
+    title: "Import & Export",
     description:
       "Move settings between GrowthBook accounts or bring data in from another service.",
   },
   {
     id: "markdown",
-    title: "Custom markdown",
+    title: "Custom Markdown",
     description:
       "Organization-specific guidance and documentation shown to your team on key pages in GrowthBook.",
   },

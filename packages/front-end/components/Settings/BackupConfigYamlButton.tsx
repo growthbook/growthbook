@@ -2,7 +2,7 @@ import { dump } from "js-yaml";
 import { useMemo } from "react";
 import { OrganizationSettings } from "shared/types/organization";
 import { MetricInterface } from "shared/types/metric";
-import { FaDownload } from "react-icons/fa";
+import { PiDownloadSimple } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useConfigJson } from "@/services/config";
 import useApi from "@/hooks/useApi";
@@ -47,7 +47,7 @@ export default function BackupConfigYamlButton({
 
   if (!metricsData) {
     return (
-      <Button disabled loading icon={<FaDownload />}>
+      <Button disabled loading icon={<PiDownloadSimple />}>
         Export config.yml
       </Button>
     );
@@ -56,7 +56,7 @@ export default function BackupConfigYamlButton({
 
   return (
     <Button
-      icon={<FaDownload />}
+      icon={<PiDownloadSimple />}
       onClick={() => {
         const a = document.createElement("a");
         a.href = href;

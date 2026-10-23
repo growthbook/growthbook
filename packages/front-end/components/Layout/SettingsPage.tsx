@@ -1,26 +1,35 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import type { BreadcrumbItem } from "@/ui/Breadcrumbs";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import UnsavedChangesBar from "@/components/GeneralSettings/UnsavedChangesBar";
-import sectionStyles from "@/components/GeneralSettings/SettingsSection.module.scss";
 import PageHead from "./PageHead";
-import styles from "./SettingsPage.module.scss";
 
-/** Title block for a Settings page. Components that own the page's primary action render this themselves. */
 export function SettingsPageHeader({
   title,
   description,
   actions,
+  as = "h1",
+  mb = "4",
 }: {
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
+  as?: "h1" | "h2";
+  mb?: "0" | "4";
 }) {
   return (
-    <Flex justify="between" align="start" gap="4" wrap="wrap" mb="4">
+    <Flex justify="between" align="start" gap="4" wrap="wrap" mb={mb}>
       <Box>
-        <h1 className={styles.title}>{title}</h1>
-        {description && <p className={styles.description}>{description}</p>}
+        <Heading as={as} size="xl" mb={description ? "1" : "0"}>
+          {title}
+        </Heading>
+        {description && (
+          <Text as="p" color="text-mid" m="0">
+            {description}
+          </Text>
+        )}
       </Box>
       {actions && (
         <Flex gap="2" align="center">
@@ -31,7 +40,6 @@ export function SettingsPageHeader({
   );
 }
 
-/** Shell for Settings pages: breadcrumb, container, and (unless `hideHeader`) the title block. */
 export default function SettingsPage({
   title,
   description,
@@ -44,11 +52,8 @@ export default function SettingsPage({
   title: string;
   description?: ReactNode;
   actions?: ReactNode;
-  /** Defaults to Settings / Organization / title. */
   breadcrumb?: BreadcrumbItem[];
-  /** When a child renders SettingsPageHeader itself. */
   hideHeader?: boolean;
-  /** Wraps the content and the unsaved-changes bar, e.g. to cap their width together. */
   contentClassName?: string;
   children: ReactNode;
 }) {
@@ -71,11 +76,10 @@ export default function SettingsPage({
             actions={actions}
           />
         )}
-        <div className={contentClassName}>
+        <Box className={contentClassName} pb="5">
           {children}
           <UnsavedChangesBar />
-          <div className={sectionStyles.bottomPad} />
-        </div>
+        </Box>
       </Box>
     </>
   );

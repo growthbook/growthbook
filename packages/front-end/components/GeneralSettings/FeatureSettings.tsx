@@ -1,7 +1,5 @@
-import { isEqual } from "lodash";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useFormContext } from "react-hook-form";
-import { FaExclamationCircle } from "react-icons/fa";
 import { Box, Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
@@ -9,15 +7,17 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { useEnvironments, FEATURE_RULES_ALL_ENVS } from "@/services/features";
 import Checkbox from "@/ui/Checkbox";
-import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
+import Frame from "@/ui/Frame";
+import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import { GBInfo } from "@/components/Icons";
+import { useSettingsForm } from "./SettingsFormProvider";
 import { SettingsField, SettingsGroup } from "./SettingsGroup";
-import styles from "./SettingsSection.module.scss";
 
 export default function FeatureSettings() {
-  const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
-    useState<string>("");
+  const { codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr } =
+    useSettingsForm();
 
   const { hasCommercialFeature } = useUser();
   const environments = useEnvironments();
@@ -29,34 +29,16 @@ export default function FeatureSettings() {
 
   const hasCodeReferencesFeature = hasCommercialFeature("code-references");
 
-  useEffect(() => {
-    if (!form) return;
-
-    const branches = codeRefsBranchesToFilterStr
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    if (isEqual(branches, form.watch("codeRefsBranchesToFilter"))) return;
-
-    form.setValue(
-      "codeRefsBranchesToFilter",
-      codeRefsBranchesToFilterStr
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    );
-  }, [form, codeRefsBranchesToFilterStr]);
-
   return (
     <>
       <SettingsGroup
         id="ff-keys"
-        title="Keys & naming"
+        title="Keys & Naming"
         description="Naming rules shown when creating a flag."
         keywords="feature key example regex naming validation salt secure attributes hash"
       >
         <SettingsField
+          htmlFor="settings-secureAttributeSalt"
           label={
             <PremiumTooltip
               commercialFeature="hash-secure-attributes"
@@ -80,13 +62,12 @@ export default function FeatureSettings() {
                     your choosing) to the hashing algorithm, which helps defend
                     against hash lookup vulnerabilities.
                   </p>
-                  <p className="mb-0 text-warning-orange small">
-                    <FaExclamationCircle /> When using an insecure environment,
-                    do not rely exclusively on hashing as a means of securing
-                    highly sensitive data. Hashing is an obfuscation technique
-                    that makes it very difficult, but not impossible, to extract
-                    sensitive data.
-                  </p>
+                  <HelperText status="warning">
+                    When using an insecure environment, do not rely exclusively
+                    on hashing as a means of securing highly sensitive data.
+                    Hashing is an obfuscation technique that makes it very
+                    difficult, but not impossible, to extract sensitive data.
+                  </HelperText>
                 </>
               }
             >
@@ -96,6 +77,7 @@ export default function FeatureSettings() {
           help="Used to hash secure attribute values before they're sent to SDKs."
         >
           <Field
+            id="settings-secureAttributeSalt"
             size="md"
             containerClassName="mb-0"
             disabled={!hasSecureAttributesFeature}
@@ -135,14 +117,14 @@ export default function FeatureSettings() {
 
       <SettingsGroup
         id="ff-defaults"
-        title="Defaults for new flags"
+        title="Defaults for New Feature Flags"
         description="Applied when someone creates a flag or rule."
         keywords="require project environment rules json sparse patch preferred environment"
       >
         {hasCommercialFeature("require-project-for-features-setting") && (
           <Checkbox
             id="toggle-requireProjectForFeatures"
-            label="Require a Project for new flags"
+            label="Require a Project for new Feature Flags"
             description="Users must pick a Project when creating a flag."
             value={!!form.watch("requireProjectForFeatures")}
             setValue={(value) =>
@@ -293,7 +275,7 @@ export default function FeatureSettings() {
 
       <SettingsGroup
         id="configure-code-refs"
-        title="Code references"
+        title="Code References"
         description="Show where each flag is used in your codebase."
         keywords="code references github gitlab bitbucket branches ci action cli"
       >
@@ -310,77 +292,73 @@ export default function FeatureSettings() {
           <>
             <SettingsField label="Setup">
               <Flex direction="column" gap="2">
-                <Flex
-                  justify="between"
-                  align="start"
-                  gap="3"
-                  className={styles.setupCard}
-                >
-                  <Box>
-                    <Text as="p" weight="semibold" mb="1">
-                      GitHub
-                    </Text>
-                    <Text as="p" size="sm" color="text-mid">
-                      Add the GitHub Action to your CI workflow.
-                    </Text>
-                  </Box>
-                  <a
-                    href="https://github.com/marketplace/actions/growthbook-code-references"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <Button variant="ghost">Set up</Button>
-                  </a>
-                </Flex>
-                <Flex
-                  justify="between"
-                  align="start"
-                  gap="3"
-                  className={styles.setupCard}
-                >
-                  <Box>
-                    <Text as="p" weight="semibold" mb="1">
-                      Other code hosts
-                    </Text>
-                    <Text as="p" size="sm" color="text-mid">
-                      Run the CLI to scan your codebase and send the results to
-                      the{" "}
+                <Frame asChild mb="0" p="3">
+                  <Flex justify="between" align="start" gap="3">
+                    <Box>
+                      <Text as="p" weight="semibold" mb="1">
+                        GitHub
+                      </Text>
+                      <Text as="p" size="sm" color="text-mid">
+                        Add the GitHub Action to your CI workflow.
+                      </Text>
+                    </Box>
+                    <LinkButton
+                      variant="ghost"
+                      href="https://github.com/marketplace/actions/growthbook-code-references"
+                      external
+                    >
+                      Set up
+                    </LinkButton>
+                  </Flex>
+                </Frame>
+                <Frame asChild mb="0" p="3">
+                  <Flex justify="between" align="start" gap="3">
+                    <Box>
+                      <Text as="p" weight="semibold" mb="1">
+                        Other code hosts
+                      </Text>
+                      <Text as="p" size="sm" color="text-mid">
+                        Run the CLI to scan your codebase and send the results
+                        to the{" "}
+                        <a
+                          href="https://docs.growthbook.io/api#tag/code-references"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          code references REST endpoint
+                        </a>
+                        .
+                      </Text>
+                    </Box>
+                    <Text whiteSpace="nowrap">
                       <a
-                        href="https://docs.growthbook.io/api#tag/code-references"
+                        href="https://github.com/growthbook/gb-find-code-refs"
                         target="_blank"
                         rel="noreferrer"
                       >
-                        code references REST endpoint
+                        CLI utility
+                      </a>{" "}
+                      |{" "}
+                      <a
+                        href="https://hub.docker.com/r/growthbook/gb-find-code-refs"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Docker image
                       </a>
-                      .
                     </Text>
-                  </Box>
-                  <Text whiteSpace="nowrap">
-                    <a
-                      href="https://github.com/growthbook/gb-find-code-refs"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      CLI utility
-                    </a>{" "}
-                    |{" "}
-                    <a
-                      href="https://hub.docker.com/r/growthbook/gb-find-code-refs"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Docker image
-                    </a>
-                  </Text>
-                </Flex>
+                  </Flex>
+                </Frame>
               </Flex>
             </SettingsField>
 
             <SettingsField
+              htmlFor="settings-branches"
               label="Branches"
               help="Only show references from these branches. Comma-separated."
             >
               <Field
+                id="settings-branches"
                 size="md"
                 type="text"
                 containerClassName="mb-0"
@@ -393,11 +371,13 @@ export default function FeatureSettings() {
             </SettingsField>
 
             <SettingsField
+              htmlFor="settings-codeRefsPlatformUrl"
               label="Code host"
               help="Used to link directly to the source."
             >
               <Box width="320px" maxWidth="100%">
                 <SelectField
+                  id="settings-codeRefsPlatformUrl"
                   containerClassName="mb-0"
                   value={form.watch("codeRefsPlatformUrl") || ""}
                   isClearable

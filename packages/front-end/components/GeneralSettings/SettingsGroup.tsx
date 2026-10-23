@@ -1,13 +1,11 @@
 import { ReactNode } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import Badge from "@/ui/Badge";
+import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import { SettingsCard } from "./SettingsSection";
-import styles from "./SettingsSection.module.scss";
 
-/**
- * One card in a General settings section: title and description on the left,
- * fields on the right. Also the unit that search shows or hides.
- */
 export function SettingsGroup({
   id,
   title,
@@ -25,25 +23,34 @@ export function SettingsGroup({
 }) {
   return (
     <SettingsCard id={id} keywords={keywords}>
-      <div className={styles.group}>
-        <div className={styles.groupIntro}>
-          <Flex align="center" gap="2" wrap="wrap">
-            <h3 className={styles.groupTitle}>{title}</h3>
-            {badge && <Badge label={badge} color="gray" variant="soft" />}
+      <Frame mb="3" p={{ initial: "4", md: "5" }}>
+        <Grid
+          columns={{ initial: "1", md: "220px 1fr" }}
+          gap={{ initial: "3", md: "7" }}
+        >
+          <Flex direction="column" gap="2">
+            <Flex align="center" gap="2" wrap="wrap">
+              <Heading as="h3" size="sm" m="0">
+                {title}
+              </Heading>
+              {badge && <Badge label={badge} color="gray" variant="soft" />}
+            </Flex>
+            {description && (
+              <Text as="p" size="sm" color="text-mid" m="0">
+                {description}
+              </Text>
+            )}
           </Flex>
-          {description && (
-            <p className={styles.groupDescription}>{description}</p>
-          )}
-        </div>
-        <Flex direction="column" gap="4" className={styles.groupFields}>
-          {children}
-        </Flex>
-      </div>
+          <Flex direction="column" gap="4" minWidth="0">
+            {children}
+          </Flex>
+        </Grid>
+      </Frame>
     </SettingsCard>
   );
 }
 
-/** A labelled control inside a group: label, optional help, then the input. */
+// Without `htmlFor` the label is a plain heading, since a <label> needs a control.
 export function SettingsField({
   label,
   help,
@@ -57,16 +64,32 @@ export function SettingsField({
 }) {
   return (
     <Box>
-      <label htmlFor={htmlFor} className={styles.fieldLabel}>
-        {label}
-      </label>
-      {help && <p className={styles.fieldHelp}>{help}</p>}
+      <Box mb="1">
+        <Text as={htmlFor ? "label" : "div"} htmlFor={htmlFor} weight="medium">
+          {label}
+        </Text>
+      </Box>
+      {help && (
+        <Text as="p" size="sm" color="text-mid" mb="2">
+          {help}
+        </Text>
+      )}
       {children}
     </Box>
   );
 }
 
-/** A smaller heading that splits fields within one group, like Bayesian vs Frequentist. */
 export function SettingsSubheading({ children }: { children: ReactNode }) {
-  return <h4 className={styles.subheading}>{children}</h4>;
+  return (
+    <Text
+      as="div"
+      size="sm"
+      weight="semibold"
+      color="text-mid"
+      textTransform="uppercase"
+      mt="1"
+    >
+      {children}
+    </Text>
+  );
 }

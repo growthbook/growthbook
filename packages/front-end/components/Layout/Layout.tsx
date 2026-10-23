@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
 import { BsSearch } from "react-icons/bs";
@@ -73,6 +73,16 @@ const Layout = (): React.ReactElement => {
 
   // hacky:
   const router = useRouter();
+  // Settings collapses the sidebar to an icon rail and adds its own sub nav.
+  // Narrow screens keep the drawer, with the Organization pages as sub-links.
+  const [wide, setWide] = useState(true);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1181px)");
+    const update = () => setWide(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
   const path = router.route.substr(1);
   // don't show the nav for presentations
   if (path.match(/^present\//)) {
@@ -105,8 +115,7 @@ const Layout = (): React.ReactElement => {
   });
 
   const build = getGrowthBookBuild();
-  // Settings collapses the sidebar to an icon rail and adds its own sub nav.
-  const rail = isSettingsRoute(router.route);
+  const rail = isSettingsRoute(router.route) && wide;
 
   return (
     <>
@@ -200,7 +209,12 @@ const Layout = (): React.ReactElement => {
                 </li>
                 <ProjectSelector />
                 {navlinks.map((v) => (
-                  <SidebarLink key={v.href} {...v} rail={rail} />
+                  <SidebarLink
+                    key={v.href}
+                    {...v}
+                    hideSubLinks={v.hideSubLinks && wide}
+                    rail={rail}
+                  />
                 ))}
               </ul>
             </div>

@@ -56,7 +56,7 @@ export default function MetricsSettings() {
     <>
       <SettingsGroup
         id="m-analysis"
-        title="Metric analysis"
+        title="Metric Analysis"
         description="Settings for the metric analysis page."
         keywords="lookback window history"
       >
@@ -75,7 +75,7 @@ export default function MetricsSettings() {
 
       <SettingsGroup
         id="m-defaults"
-        title="Metric behavior defaults"
+        title="Metric Behavior Defaults"
         description="Defaults for new metrics. Each metric can override these."
         keywords="minimum total sample size threshold suspicious outlier draw mde minimum detectable effect currency revenue"
       >
@@ -110,11 +110,13 @@ export default function MetricsSettings() {
           {numberField("metricDefaults.targetMDE", { min: 0, append: "%" })}
         </SettingsField>
         <SettingsField
+          htmlFor="settings-displayCurrency"
           label="Display currency"
           help="Should match the currency stored in your Data Source."
         >
           <Box width="320px">
             <SelectField
+              id="settings-displayCurrency"
               value={form.watch("displayCurrency") || "USD"}
               options={currencyOptions}
               onChange={(v: string) => form.setValue("displayCurrency", v)}
@@ -128,7 +130,7 @@ export default function MetricsSettings() {
 
       <SettingsGroup
         id="m-slices"
-        title="Metric types and slices"
+        title="Metric Types and Slices"
         description="Which metric types can be created, and limits for Auto Slices."
         keywords="fact metrics legacy metric creation auto slice levels dimensions"
       >
@@ -142,6 +144,7 @@ export default function MetricsSettings() {
           }}
         />
         <SettingsField
+          htmlFor="settings-maxMetricSliceLevels"
           label={
             <>
               Max Auto Slice levels
@@ -161,6 +164,7 @@ export default function MetricsSettings() {
         >
           <Box width="200px">
             <Field
+              id="settings-maxMetricSliceLevels"
               size="md"
               type="number"
               min="0"

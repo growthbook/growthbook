@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useFormContext, UseFormReturn } from "react-hook-form";
 import {
@@ -146,10 +146,6 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
     },
   ];
 }
-
-/** Empty when the id was dropped from the registry, so the save falls back to the default. */
-const knownTextModel = (model: string | undefined) =>
-  model && getProviderForAIModel("text", model) ? model : "";
 
 const ApiKeyWarning: React.FC<{
   model?: string;
@@ -320,20 +316,6 @@ export default function AISettings({
   } = useApi<{
     prompts: AIPromptInterface[];
   }>(`/ai/prompts`);
-
-  useEffect(() => {
-    if (data) {
-      // Loaded values become the defaults, so dirty tracking and Discard compare against them.
-      const values: Record<string, string | undefined> = {};
-      getPrompts(data).forEach((prompt) => {
-        values[prompt.promptType] = prompt.promptValue;
-        values[`${prompt.promptType}-model`] = knownTextModel(
-          prompt.overrideModel,
-        );
-      });
-      promptForm.reset(values);
-    }
-  }, [data, promptForm]);
 
   const prompts = data ? getPrompts(data) : [];
   const PROMPT_GROUPS: {
@@ -524,7 +506,7 @@ export default function AISettings({
       {hasAISuggestions && (
         <SettingsGroup
           id="ai-skills"
-          title="Assistant skills"
+          title="Assistant Skills"
           description="What the AI Assistant can help with."
           keywords="ai assistant skills analytics experiments feature flags docs"
         >

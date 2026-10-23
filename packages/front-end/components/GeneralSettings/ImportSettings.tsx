@@ -1,5 +1,5 @@
 import { OrganizationSettings } from "shared/types/organization";
-import { FaUpload } from "react-icons/fa";
+import { PiUploadSimple } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
 import { DocLink } from "@/components/DocLink";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -70,12 +70,16 @@ export default function ImportSettings({
 
       <SettingsGroup
         id="ie-service"
-        title="Import from another service"
+        title="Import from Another Service"
         description="Bring in data from another feature flag or experimentation service."
         keywords="migrate launchdarkly optimizely import"
       >
         <div>
-          <LinkButton href="/importing" variant="outline" icon={<FaUpload />}>
+          <LinkButton
+            href="/importing"
+            variant="outline"
+            icon={<PiUploadSimple />}
+          >
             Import from another service
           </LinkButton>
         </div>

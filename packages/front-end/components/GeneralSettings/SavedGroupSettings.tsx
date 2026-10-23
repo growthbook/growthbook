@@ -28,11 +28,13 @@ export default function SavedGroupSettings() {
             }
           />
           <SettingsField
+            htmlFor="settings-savedGroupSizeLimit"
             label="ID list size limit"
             help="Keeps SDK payloads small. Roles with Saved Groups Bypass Size Limit can exceed it."
           >
             <Box width="200px">
               <Field
+                id="settings-savedGroupSizeLimit"
                 size="md"
                 type="number"
                 min="1"

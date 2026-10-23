@@ -65,10 +65,10 @@ describe("unsaved change tracking", () => {
 
   it("describes where the unsaved changes are", () => {
     expect(describeUnsavedChanges(1, ["sdk"])).toBe(
-      "1 unsaved change in SDK configuration",
+      "1 unsaved change in SDK Configuration",
     );
     expect(describeUnsavedChanges(2, ["ai", "markdown"])).toBe(
-      "2 unsaved changes in AI and Custom markdown",
+      "2 unsaved changes in AI and Custom Markdown",
     );
     expect(describeUnsavedChanges(5, ["ai", "markdown", "sdk"])).toBe(
       "5 unsaved changes in 3 sections",

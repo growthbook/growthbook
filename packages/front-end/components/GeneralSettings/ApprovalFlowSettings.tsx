@@ -16,6 +16,8 @@ import Frame from "@/ui/Frame";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import PremiumCallout from "@/ui/PremiumCallout";
+import { useSettingsNav } from "@/components/Layout/SettingsNavContext";
 import Button from "@/ui/Button";
 import MultiSelectField from "@/ui/MultiSelectField";
 import {
@@ -23,6 +25,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
+import { useSettingsForm } from "./SettingsFormProvider";
 import { SettingsGroup } from "./SettingsGroup";
 import {
   ALL_PROJECTS_SCOPE,
@@ -65,6 +68,12 @@ export default function ApprovalFlowSettings() {
   const [tabs, setTabs] = useState<{ id: string; scope: string }[]>([]);
   const nextTabId = useRef(0);
   const newTabId = () => `override-${nextTabId.current++}`;
+  const { resetKey } = useSettingsForm();
+  const { setQuery } = useSettingsNav();
+  // Discard restores the form; tabs added since then go with it.
+  useEffect(() => {
+    if (resetKey) setTabs([]);
+  }, [resetKey]);
 
   // Deep links (e.g. from a team's Required Approver list) name a Project;
   // open the rule that governs it once its tab exists.
@@ -173,15 +182,19 @@ export default function ApprovalFlowSettings() {
         id="ap-flows"
         title={
           <PremiumTooltip commercialFeature="require-approvals">
-            Approval flows
+            Approval Flows
           </PremiumTooltip>
         }
         description="Every change to flags, Configs, Constants, and Saved Groups is saved as a revision. Approval adds a review step before it goes live."
         keywords="approval review publish"
       >
-        <Callout status="info">
-          Approval flows are available on the Enterprise plan.
-        </Callout>
+        <PremiumCallout
+          commercialFeature="require-approvals"
+          id="settings-approval-flows"
+        >
+          Approval Flows add a review step before changes to flags, Configs,
+          Constants, and Saved Groups go live.
+        </PremiumCallout>
       </SettingsGroup>
     );
   }
@@ -195,7 +208,10 @@ export default function ApprovalFlowSettings() {
           <strong>{p.name}</strong>
         </span>
       ))}
-      . <Link href="#ap-overrides">Manage project overrides</Link>
+      .{" "}
+      <Link href="#ap-overrides" onClick={() => setQuery("")}>
+        Manage Project overrides
+      </Link>
     </Callout>
   );
 
@@ -203,7 +219,7 @@ export default function ApprovalFlowSettings() {
     <>
       <SettingsGroup
         id="ap-flags"
-        title="Feature flags, Configs & Constants"
+        title="Feature Flags, Configs & Constants"
         description="Every change is saved as a revision. Approval adds a review step before it goes live."
         keywords="approval review publish reset self-approve one step kill switch metadata environments teams"
       >
@@ -231,7 +247,7 @@ export default function ApprovalFlowSettings() {
 
       <SettingsGroup
         id="ap-overrides"
-        title="Project overrides"
+        title="Project Overrides"
         description="Projects with their own approval rules instead of the rules above. Each Project belongs to a single override."
         keywords="project override approval"
       >
@@ -323,8 +339,8 @@ export default function ApprovalFlowSettings() {
           <Box>
             <DropdownMenu
               trigger={
-                <Button variant="outline" size="sm">
-                  <PiPlus /> Project override
+                <Button variant="outline" size="sm" icon={<PiPlus />}>
+                  Add Project override
                 </Button>
               }
             >

@@ -20,9 +20,9 @@ const SKILL_COPY: Record<string, { label: string; description: string }> = {
       "Design, launch, analyze, and stop experiments, and record Learnings.",
   },
   "feature-flags": {
-    label: "Feature flags",
+    label: "Feature Flags",
     description:
-      "Create, target, roll out, publish, and clean up feature flags.",
+      "Create, target, roll out, publish, and clean up Feature Flags.",
   },
   "growthbook-docs": {
     label: "GrowthBook docs",

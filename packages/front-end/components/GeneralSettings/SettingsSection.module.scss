@@ -13,21 +13,6 @@
   border-bottom: 1px solid var(--slate-a4);
 }
 
-.title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--color-text-high);
-}
-
-.description {
-  margin: 10px 0 16px;
-  color: var(--gray-11);
-  line-height: 1.5;
-  max-width: 680px;
-}
-
 ::highlight(settings-search) {
   background-color: var(--amber-a5);
 }
@@ -67,83 +52,7 @@
   flex-shrink: 0;
 }
 
-.bottomPad {
-  height: 24px;
-}
-
-// Two-column group card: intro on the left, fields on the right.
-.group {
-  display: grid;
-  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
-  gap: 32px;
-  padding: 24px;
-  margin-bottom: 12px;
-  background: var(--color-panel-solid);
-  border: 1px solid var(--slate-a4);
-  border-radius: 8px;
-
-  @media (max-width: 900px) {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
-    padding: 18px 16px;
-  }
-}
-
-.groupIntro {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.groupTitle {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text-high);
-}
-
-.groupDescription {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--gray-11);
-}
-
-.groupFields {
-  min-width: 0;
-}
-
-.fieldLabel {
-  display: block;
-  margin: 0 0 2px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-high);
-}
-
-.fieldHelp {
-  margin: 0 0 8px;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--gray-11);
-}
-
-.subheading {
-  margin: 4px 0 0;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--gray-11);
-}
-
 // The design keeps General settings narrower than the Organization pages.
 .generalContent {
   max-width: 920px;
-}
-
-.setupCard {
-  padding: 12px 14px;
-  border: 1px solid var(--slate-a4);
-  border-radius: 6px;
 }

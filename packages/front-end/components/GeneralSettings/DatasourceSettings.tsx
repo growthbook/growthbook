@@ -18,16 +18,18 @@ export default function DatasourceSettings() {
   return (
     <SettingsGroup
       id="data-source-settings"
-      title="Data Source defaults"
+      title="Data Source Defaults"
       description="Applied when creating metrics, experiments, and test queries."
       keywords="default data source warehouse test query lookback top values slices"
     >
       <SettingsField
+        htmlFor="settings-defaultDataSource"
         label="Default Data Source"
         help="Preselected when creating metrics and experiments."
       >
         <Box width="400px" maxWidth="100%">
           <SelectField
+            id="settings-defaultDataSource"
             value={form.watch("defaultDataSource") || ""}
             options={datasources.map((d) => ({
               label: d.name,
@@ -41,11 +43,13 @@ export default function DatasourceSettings() {
       </SettingsField>
 
       <SettingsField
+        htmlFor="settings-testQueryDays"
         label="Test query lookback"
         help={`Days of data for test queries with date filters and fact table SQL validation. Default is ${DEFAULT_TEST_QUERY_DAYS}.`}
       >
         <Box width="200px">
           <Field
+            id="settings-testQueryDays"
             size="md"
             type="number"
             min="1"
@@ -60,6 +64,7 @@ export default function DatasourceSettings() {
 
       <Box id="top-values-lookback" style={{ scrollMarginTop: 100 }}>
         <SettingsField
+          htmlFor="settings-topValuesLookbackValue"
           label={
             <>
               Top values lookback
@@ -78,6 +83,7 @@ export default function DatasourceSettings() {
         >
           <Box width="200px">
             <Field
+              id="settings-topValuesLookbackValue"
               type="number"
               append="days"
               min="1"

@@ -14,8 +14,7 @@ import {
 import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
 import { SlackWorkspaceConnectionFrontEndInterface } from "shared/validators";
 import { Box, Flex } from "@radix-ui/themes";
-import { FaSlack } from "react-icons/fa";
-import { PiArrowClockwise } from "react-icons/pi";
+import { PiSlackLogo, PiArrowClockwise } from "react-icons/pi";
 import SlackWorkspacePanel from "@/components/SlackIntegrations/SlackWorkspacePanel";
 import useSlackNavigationGuard from "@/components/SlackIntegrations/useSlackNavigationGuard";
 import useSlackChannels from "@/components/SlackIntegrations/useSlackChannels";
@@ -535,13 +534,14 @@ const SlackWorkspacePage: NextPage = () => {
 
       <Flex direction="column" gap="4">
         <SettingsPageHeader
+          mb="0"
           title="Slack"
           description="Connect Slack channels and choose which GrowthBook events each channel receives."
           actions={
             data?.oauthConfigured &&
             workspaceGroups.length > 0 && (
               <Button
-                icon={<FaSlack />}
+                icon={<PiSlackLogo />}
                 onClick={() => connectToSlack()}
                 loading={connecting}
                 variant="outline"
@@ -600,7 +600,7 @@ const SlackWorkspacePage: NextPage = () => {
               </Text>
               {data?.oauthConfigured && (
                 <Button
-                  icon={<FaSlack />}
+                  icon={<PiSlackLogo />}
                   onClick={() => connectToSlack()}
                   loading={connecting}
                 >

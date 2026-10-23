@@ -1,8 +1,8 @@
 import { useFormContext } from "react-hook-form";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
-import Text from "@/ui/Text";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import PremiumCallout from "@/ui/PremiumCallout";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { DocLink } from "@/components/DocLink";
 import { SettingsField, SettingsGroup } from "./SettingsGroup";
@@ -85,10 +85,12 @@ export default function CustomMarkdownSettings() {
               </SettingsField>
             ))
           ) : (
-            <Text color="text-mid">
-              Upgrade to add organization-specific guidance to your team&apos;s
-              pages.
-            </Text>
+            <PremiumCallout
+              commercialFeature="custom-markdown"
+              id={`settings-${group.id}`}
+            >
+              Add organization-specific guidance to your team&apos;s pages.
+            </PremiumCallout>
           )}
         </SettingsGroup>
       ))}

@@ -38,7 +38,7 @@ export default function UnsavedChangesBar() {
           )}
           {submitError && <HelperText status="error">{submitError}</HelperText>}
           {saveMsg && (
-            <TempMessage className="mb-0 py-2" close={() => setSaveMsg(false)}>
+            <TempMessage close={() => setSaveMsg(false)}>
               Settings saved
             </TempMessage>
           )}

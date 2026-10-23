@@ -6,8 +6,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import Badge from "@/ui/Badge";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import { useSettingsNav } from "@/components/Layout/SettingsNavContext";
 import { useSettingsForm } from "./SettingsFormProvider";
 import {
@@ -41,17 +43,37 @@ export default function SettingsSection({
       setCount(id, null);
       return;
     }
-    const hits = new Set<string>();
-    ref.current
-      ?.querySelectorAll<HTMLElement>("[data-settings-card]")
-      .forEach((el) => {
-        const hay = [el.textContent, el.dataset.keywords, def?.title].join(" ");
-        if (matchesSettingsQuery(hay, tokens))
-          hits.add(el.dataset.settingsCard!);
+    const compute = () => {
+      const hits = new Set<string>();
+      ref.current
+        ?.querySelectorAll<HTMLElement>("[data-settings-card]")
+        .forEach((el) => {
+          const hay = [el.textContent, el.dataset.keywords, def?.title].join(
+            " ",
+          );
+          if (matchesSettingsQuery(hay, tokens))
+            hits.add(el.dataset.settingsCard!);
+        });
+      setMatched((prev) =>
+        prev && prev.size === hits.size && [...hits].every((h) => prev.has(h))
+          ? prev
+          : hits,
+      );
+      setCount(id, hits.size);
+    };
+    compute();
+    // Cards that load later (e.g. AI prompts) re-run the match.
+    const observer = new MutationObserver(compute);
+    if (ref.current)
+      observer.observe(ref.current, {
+        childList: true,
+        characterData: true,
+        subtree: true,
       });
-    setMatched(hits);
-    setCount(id, hits.size);
-    return () => setCount(id, null);
+    return () => {
+      observer.disconnect();
+      setCount(id, null);
+    };
   }, [query, id, def?.title, setCount]);
 
   if (!def) return null;
@@ -65,9 +87,9 @@ export default function SettingsSection({
       hidden={matched !== null && matched.size === 0}
     >
       <Flex align="center" gap="3" wrap="wrap" className={styles.header}>
-        <h2 id={`${id}-heading`} className={styles.title}>
-          {def.title}
-        </h2>
+        <Heading as="h2" size="lg" m="0">
+          <span id={`${id}-heading`}>{def.title}</span>
+        </Heading>
         {matched && matched.size > 0 && (
           <Badge
             color="violet"
@@ -79,7 +101,11 @@ export default function SettingsSection({
           <Badge color="amber" variant="soft" label="Unsaved" />
         )}
       </Flex>
-      <p className={styles.description}>{def.description}</p>
+      <Box maxWidth="680px" mt="2" mb="4">
+        <Text as="p" color="text-mid" m="0">
+          {def.description}
+        </Text>
+      </Box>
       <SectionMatchContext.Provider value={matched}>
         {children}
       </SectionMatchContext.Provider>

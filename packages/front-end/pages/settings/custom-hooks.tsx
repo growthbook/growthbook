@@ -126,7 +126,7 @@ export default function CustomHooksPage() {
           // TODO: add docs page and link to it here
           leftButton={null}
           rightButton={
-            <Button onClick={() => setModalData(true)}>Add Custom Hook</Button>
+            <Button onClick={() => setModalData(true)}>Add custom hook</Button>
           }
         />
       ) : (
