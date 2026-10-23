@@ -173,9 +173,11 @@ export class ExpressCookieStickyBucketService extends StickyBucketServiceSync {
   /**
    * Intended to be used with cookieParser() middleware from npm: 'cookie-parser'.
    * Assumes:
-   *  - reading a cookie is automatically decoded via decodeURIComponent() or similar
-   *  - writing a cookie name & value must be manually encoded via encodeURIComponent() or similar
-   *  - all cookie bodies are JSON encoded strings and are manually encoded/decoded
+   *  - reading a cookie value is automatically decoded via decodeURIComponent() or similar,
+   *    but the cookie name is not
+   *  - writing a cookie value is automatically encoded by res.cookie(), but the name must
+   *    be manually encoded via encodeURIComponent() or similar
+   *  - all cookie bodies are JSON encoded strings
    */
   private req: RequestCompat;
   private res: ResponseCompat;
@@ -202,7 +204,13 @@ export class ExpressCookieStickyBucketService extends StickyBucketServiceSync {
     let doc: StickyAssignmentsDocument | null = null;
     if (!this.req) return doc;
     try {
-      const raw = this.req.cookies[key] || "{}";
+      // We write the name encoded; BrowserCookieStickyBucketService writes it as-is
+      let raw =
+        this.req.cookies[key] ||
+        this.req.cookies[encodeURIComponent(key)] ||
+        "{}";
+      // Older versions encoded the value twice
+      if (raw.startsWith("%")) raw = decodeURIComponent(raw);
       const data = JSON.parse(raw);
       if (data.attributeName && data.attributeValue && data.assignments) {
         doc = data;
@@ -216,11 +224,8 @@ export class ExpressCookieStickyBucketService extends StickyBucketServiceSync {
     const key = this.getKey(doc.attributeName, doc.attributeValue);
     if (!this.res) return;
     const str = JSON.stringify(doc);
-    this.res.cookie(
-      encodeURIComponent(key),
-      encodeURIComponent(str),
-      this.cookieAttributes,
-    );
+    // res.cookie() encodes the value itself
+    this.res.cookie(encodeURIComponent(key), str, this.cookieAttributes);
   }
 }
 

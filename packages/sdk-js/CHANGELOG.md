@@ -9,6 +9,7 @@
 - **Breaking:** `evalCondition(obj, condition, options)` takes an options object, `{ savedGroups, onTypeMismatch }`, instead of positional `savedGroups` and `visited` arguments. Passing saved groups as the third argument no longer works
 - Run visual and URL redirect auto experiments as Contextual Bandits when they carry a `contextualBanditRef`
 - Fix a malformed prerequisite condition (e.g. `{"$not": null}`) throwing from `isOn`/`getFeatureValue`/`run`; it now never matches
+- Fix `ExpressCookieStickyBucketService` not reading back the cookie it writes, which lost sticky bucket assignments on Express. It no longer encodes the cookie value twice, and it still reads cookies written by earlier versions
 
 ## **1.8.0** - Sep 29, 2026
 
