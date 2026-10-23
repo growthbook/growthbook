@@ -14,6 +14,7 @@ import {
   SETTINGS_SECTIONS,
   tokenizeSettingsQuery,
 } from "@/components/GeneralSettings/settingsSections";
+import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import { buildSidebarLinkFilterProps } from "./SidebarLink";
 import { settingsNavLink } from "./sidebarNav";
 import { useSettingsNav } from "./SettingsNavContext";
@@ -27,8 +28,9 @@ export function scrollToSettingsSection(id: string) {
 
 export default function SettingsNav() {
   const router = useRouter();
-  const { query, setQuery, activeSection, counts, dirtySections, searchRef } =
+  const { query, setQuery, activeSection, counts, searchRef } =
     useSettingsNav();
+  const { dirtySectionIds } = useSettingsForm();
   const { permissions, superAdmin } = useUser();
   const { project, segments } = useDefinitions();
   const permissionsUtils = usePermissionsUtil();
@@ -146,7 +148,7 @@ export default function SettingsNav() {
                   }
                 >
                   <span className={styles.itemLabel}>{s.title}</span>
-                  {dirtySections.includes(s.id) && (
+                  {dirtySectionIds.includes(s.id) && (
                     <span
                       className={styles.dirtyDot}
                       role="img"

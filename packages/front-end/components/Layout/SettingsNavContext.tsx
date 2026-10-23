@@ -17,9 +17,6 @@ type SettingsNavContextValue = {
   /** Matching cards per General section. Only populated while a query is set. */
   counts: Record<string, number>;
   setCount: (sectionId: string, count: number | null) => void;
-  /** General sections with unsaved form changes. */
-  dirtySections: string[];
-  setDirtySections: (ids: string[]) => void;
   searchRef: RefObject<HTMLInputElement>;
 };
 
@@ -29,7 +26,6 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState("");
   const [activeSection, setActiveSection] = useState("");
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [dirtySections, setDirtySections] = useState<string[]>([]);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const setCount = useCallback((id: string, count: number | null) => {
@@ -50,11 +46,9 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
       setActiveSection,
       counts,
       setCount,
-      dirtySections,
-      setDirtySections,
       searchRef,
     }),
-    [query, activeSection, counts, setCount, dirtySections],
+    [query, activeSection, counts, setCount],
   );
 
   return (

@@ -1,6 +1,8 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import type { BreadcrumbItem } from "@/ui/Breadcrumbs";
+import UnsavedChangesBar from "@/components/GeneralSettings/UnsavedChangesBar";
+import sectionStyles from "@/components/GeneralSettings/SettingsSection.module.scss";
 import PageHead from "./PageHead";
 import styles from "./SettingsPage.module.scss";
 
@@ -67,6 +69,8 @@ export default function SettingsPage({
           />
         )}
         {children}
+        <UnsavedChangesBar />
+        <div className={sectionStyles.bottomPad} />
       </Box>
     </>
   );

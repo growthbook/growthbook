@@ -43,6 +43,7 @@ import { growthbook } from "@/services/utils";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { SettingsNavProvider } from "@/components/Layout/SettingsNavContext";
+import { SettingsFormProvider } from "@/components/GeneralSettings/SettingsFormProvider";
 import { isSettingsRoute } from "@/components/Layout/sidebarNav";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 import { FeatureHealthStatesProvider } from "@/hooks/useFeatureHealthStates";
@@ -215,32 +216,38 @@ function App({
                                 <DefinitionsProvider>
                                   <FeatureHealthStatesProvider>
                                     <AgentPanelProvider>
-                                      {liteLayout ? <LayoutLite /> : <Layout />}
-                                      <CommandPaletteLauncher />
-                                      <AgentLauncher />
-                                      <main
-                                        className={clsx("main", parts[0], {
-                                          "settings-layout": isSettingsRoute(
-                                            router.route,
-                                          ),
-                                        })}
-                                      >
-                                        <OrgSuspendedBannerContainer />
-                                        <OrganizationMessagesContainer />
-                                        <DemoDataSourceGlobalBannerContainer />
-                                        <NPSSurvey />
-                                        <OrgPageContent>
-                                          <GuidedGetStartedBar />
-                                          <DefinitionsGuard>
-                                            <Component
-                                              {...{
-                                                ...pageProps,
-                                                envReady: ready,
-                                              }}
-                                            />
-                                          </DefinitionsGuard>
-                                        </OrgPageContent>
-                                      </main>
+                                      <SettingsFormProvider>
+                                        {liteLayout ? (
+                                          <LayoutLite />
+                                        ) : (
+                                          <Layout />
+                                        )}
+                                        <CommandPaletteLauncher />
+                                        <AgentLauncher />
+                                        <main
+                                          className={clsx("main", parts[0], {
+                                            "settings-layout": isSettingsRoute(
+                                              router.route,
+                                            ),
+                                          })}
+                                        >
+                                          <OrgSuspendedBannerContainer />
+                                          <OrganizationMessagesContainer />
+                                          <DemoDataSourceGlobalBannerContainer />
+                                          <NPSSurvey />
+                                          <OrgPageContent>
+                                            <GuidedGetStartedBar />
+                                            <DefinitionsGuard>
+                                              <Component
+                                                {...{
+                                                  ...pageProps,
+                                                  envReady: ready,
+                                                }}
+                                              />
+                                            </DefinitionsGuard>
+                                          </OrgPageContent>
+                                        </main>
+                                      </SettingsFormProvider>
                                     </AgentPanelProvider>
                                   </FeatureHealthStatesProvider>
                                 </DefinitionsProvider>

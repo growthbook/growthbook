@@ -9,6 +9,7 @@ import {
 import { Flex } from "@radix-ui/themes";
 import Badge from "@/ui/Badge";
 import { useSettingsNav } from "@/components/Layout/SettingsNavContext";
+import { useSettingsForm } from "./SettingsFormProvider";
 import {
   matchesSettingsQuery,
   SETTINGS_SECTIONS,
@@ -27,7 +28,8 @@ export default function SettingsSection({
   children: ReactNode;
 }) {
   const def = SETTINGS_SECTIONS.find((s) => s.id === id);
-  const { query, setCount, dirtySections } = useSettingsNav();
+  const { query, setCount } = useSettingsNav();
+  const { dirtySectionIds } = useSettingsForm();
   const ref = useRef<HTMLElement>(null);
   const [matched, setMatched] = useState<Set<string> | null>(null);
 
@@ -73,7 +75,7 @@ export default function SettingsSection({
             label={`${matched.size} match${matched.size === 1 ? "" : "es"}`}
           />
         )}
-        {dirtySections.includes(id) && (
+        {dirtySectionIds.includes(id) && (
           <Badge color="amber" variant="soft" label="Unsaved" />
         )}
       </Flex>
