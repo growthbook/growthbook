@@ -164,7 +164,8 @@ export function format(
  * like `";" + "/**\/".repeat(n) + "x"`, and this runs on user-supplied SQL.
  *
  * Everything from the last `;` that is followed only by whitespace, `--` line
- * comments and terminated block comments is removed.
+ * comments and terminated block comments is removed. Quoted text is skipped,
+ * so a `;` or `--` inside a string or quoted identifier is left alone.
  */
 export function stripTrailingSemicolon(sql: string): string {
   // Index of the most recent `;` that has only trivia after it so far.
@@ -177,9 +178,12 @@ export function stripTrailingSemicolon(sql: string): string {
     if (ch === ";") {
       cut = i;
       i++;
-    } else if (cut === -1) {
-      // Not (yet) in a trailing run, so nothing here can be trivia.
-      i++;
+    } else if (ch === "'" || ch === '"' || ch === "`") {
+      // Quoted text is never trivia. A doubled quote (`'it''s'`) closes and
+      // reopens, so jumping to the next matching quote is enough.
+      const close = sql.indexOf(ch, i + 1);
+      cut = -1;
+      i = close === -1 ? sql.length : close + 1;
     } else if (/\s/.test(ch)) {
       i++;
     } else if (ch === "-" && sql[i + 1] === "-") {
@@ -307,8 +311,10 @@ export function assertSafeReadOnlySQL(sql: string): void {
     throw new Error(`Disallowed expression: ${escapeMatch[0].trim()}`);
   }
 
-  // SELECT INTO (but not INTO OUTFILE/DUMPFILE — caught above)
-  if (/\bSELECT\s+.*\bINTO\b/i.test(strippedSql)) {
+  // SELECT INTO (but not INTO OUTFILE/DUMPFILE — caught above). The query
+  // starts with SELECT or WITH and strings and comments are stripped, so any
+  // INTO left is a write, on whichever line it appears.
+  if (/\bINTO\b/i.test(strippedSql)) {
     throw new Error("SELECT INTO is not allowed");
   }
 
