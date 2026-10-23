@@ -189,6 +189,9 @@ export const ReactSelectProps = {
         backgroundColor: "var(--surface-background-color)",
       };
     },
+    placeholder: (styles) => {
+      return { ...styles, color: "var(--gray-a10)" };
+    },
     // react-select's default z-index of 1 lets page content in its own stacking
     // context paint over the portalled menu and swallow its clicks.
     menuPortal: (styles) => {

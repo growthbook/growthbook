@@ -46,6 +46,11 @@ pre {
   padding-left: 8px;
   padding-right: 8px;
 
+  // The placeholder gray every field shares, the Radix fields' own.
+  &::placeholder {
+    color: var(--gray-a10);
+  }
+
   &[readonly],
   &:disabled {
     background-color: var(--surface-background-color-alt);
