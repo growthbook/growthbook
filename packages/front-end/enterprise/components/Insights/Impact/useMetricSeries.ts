@@ -59,7 +59,7 @@ function toSeries(
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
-// Reads the Metric Explorer's cache; only `run` queries the warehouse
+// Reads the Metric Explorer's cache, querying the warehouse when it's empty
 export function useMetricSeries(
   metric: FactMetricInterface | null,
   dateRange: ExplorationDateRange,
@@ -85,6 +85,8 @@ export function useMetricSeries(
     };
   }, [metric, dateRange, getFactTableById]);
   const configKey = config ? JSON.stringify(config) : "";
+  const datasource = metric ? getDatasourceById(metric.datasource) : null;
+  const canRun = !!datasource && permissions.canRunMetricQueries(datasource);
 
   const [state, setState] = useState<{
     key: string;
@@ -101,12 +103,15 @@ export function useMetricSeries(
       if (!config) return;
       const key = JSON.stringify(config);
       setState({ key, pending: true, exploration: null, error: null });
-      const { data, error } = await fetchData(config, { cache });
+      let { data, error } = await fetchData(config, { cache });
+      if (cache === "required" && !data && !error && canRun) {
+        ({ data, error } = await fetchData(config, { cache: "preferred" }));
+      }
       if (latestKey.current === key) {
         setState({ key, pending: false, exploration: data, error });
       }
     },
-    [config, fetchData],
+    [config, fetchData, canRun],
   );
 
   useEffect(() => {
@@ -127,9 +132,6 @@ export function useMetricSeries(
     runningId && polled?.exploration?.id === runningId
       ? polled.exploration
       : (current?.exploration ?? null);
-
-  const datasource = metric ? getDatasourceById(metric.datasource) : null;
-  const canRun = !!datasource && permissions.canRunMetricQueries(datasource);
 
   let status: MetricSeriesStatus;
   if (!config) status = "unsupported";
