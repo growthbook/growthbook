@@ -537,7 +537,8 @@ export function ExplorerProvider({
 
       // A failed automatic preview refresh must keep the last successful graph.
       if (
-        trackingSource === "metric-preview" &&
+        (trackingSource === "metric-preview" ||
+          trackingSource === "population-preview") &&
         cache === "required" &&
         (fetchError || fetchResult?.status === "error")
       ) {
@@ -867,7 +868,10 @@ export function ExplorerProvider({
       !forceFunnelAutoSubmit;
 
     if (needsFetch) {
-      if (trackingSource === "metric-preview") {
+      if (
+        trackingSource === "metric-preview" ||
+        trackingSource === "population-preview"
+      ) {
         // Each submit cancels the in-flight poll, so a draft edit would drop
         // a running "Run query" result. Wait for it; this effect reruns when
         // polling ends and checks the cache for the latest draft.
