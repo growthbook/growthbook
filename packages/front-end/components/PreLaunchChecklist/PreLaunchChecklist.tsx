@@ -6,7 +6,6 @@ import { FeatureInterface } from "shared/types/feature";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { PiArrowSquareOut, PiCheckBold } from "react-icons/pi";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import { format } from "date-fns-tz";
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
 import NextLink from "next/link";
@@ -359,31 +358,13 @@ export function PreLaunchChecklistPanel({
 }: {
   size?: ChecklistSize;
 }) {
-  const {
-    experiment,
-    summary,
-    loading,
-    loadError,
-    toggleManualItem,
-    toggleError,
-  } = usePreLaunchChecklist();
+  const { summary, loading, loadError, toggleManualItem, toggleError } =
+    usePreLaunchChecklist();
   if (loading) return <LoadingSpinner />;
-
-  const scheduledStart =
-    experiment.nextScheduledStatusUpdate?.type === "start" &&
-    experiment.nextScheduledStatusUpdate.date
-      ? new Date(experiment.nextScheduledStatusUpdate.date)
-      : null;
 
   return (
     <>
-      {scheduledStart ? (
-        <Callout status="info" size={size}>
-          Scheduled to start{" "}
-          {format(scheduledStart, "MMM d, yyyy 'at' h:mm a (z)")}. Editing the
-          schedule clears this approval.
-        </Callout>
-      ) : loadError ? (
+      {loadError ? (
         <HelperText status="warning" size={size}>
           Couldn&apos;t load the custom checklist. Built-in items are shown.
         </HelperText>
