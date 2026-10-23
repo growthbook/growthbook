@@ -63,6 +63,11 @@ type Props = {
     candidateRanges?: Array<{ from: Date; to: Date }>;
     onDayPick: (day: Date) => void;
   };
+  /**
+   * Shown while no date is set. Until one is picked, the field opens the
+   * calendar rather than taking typed input.
+   */
+  placeholder?: string;
 };
 
 const modifiersClassNames = {
@@ -190,6 +195,7 @@ export default function DatePicker({
   required,
   timeZone,
   fixedSpanMode,
+  placeholder,
 }: Props) {
   const clock = useMemo(
     () => (timeZone === "utc" ? utcClock(precision) : localClock(precision)),
@@ -287,6 +293,8 @@ export default function DatePicker({
   }
 
   const isRange = !!setDate2 || !!fixedSpanMode;
+  // A native date field can't show placeholder text, so it's plain text until set.
+  const showsPlaceholder = !!placeholder && !isRange && !date;
   const fieldLabel = isRange ? (label ?? label2) : label;
 
   const rangeFieldValue = useMemo(() => {
@@ -436,7 +444,7 @@ export default function DatePicker({
                     size={size}
                     disabled={disabled}
                     required={required}
-                    readOnly={!!fixedSpanMode}
+                    readOnly={!!fixedSpanMode || showsPlaceholder}
                     style={{
                       border: 0,
                       marginRight: -20,
@@ -449,7 +457,7 @@ export default function DatePicker({
                       "text-muted": isRange ? !date || !date2 : !date,
                     })}
                     type={
-                      isRange
+                      isRange || showsPlaceholder
                         ? "text"
                         : precision === "datetime"
                           ? "datetime-local"
@@ -460,7 +468,9 @@ export default function DatePicker({
                         ? precision === "datetime"
                           ? `yyyy-MM-dd'T'HH:mm${RANGE_DISPLAY_SEP}yyyy-MM-dd'T'HH:mm`
                           : `yyyy-MM-dd${RANGE_DISPLAY_SEP}yyyy-MM-dd`
-                        : undefined
+                        : showsPlaceholder
+                          ? placeholder
+                          : undefined
                     }
                     value={isRange ? rangeFieldValue : bufferedDate}
                     onChange={(e) => {

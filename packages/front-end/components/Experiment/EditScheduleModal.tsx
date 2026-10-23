@@ -127,6 +127,10 @@ export default function EditScheduleModal({
   );
   const isApproved = !!experiment.nextScheduledStatusUpdate;
   const startAt = form.watch("startAt");
+  // Its own state, so "On date" can wait for a date rather than assume now.
+  const [startMode, setStartMode] = useState<"immediately" | "on-date">(
+    experiment.statusUpdateSchedule?.startAt ? "on-date" : "immediately",
+  );
   const stopAt = form.watch("stopAt");
   const mode = form.watch("mode");
   const fallback = form.watch("fallback");
@@ -254,6 +258,7 @@ export default function EditScheduleModal({
       (!!startAt || (hasEndDate && mode !== "notify")));
   // "On date" requires an actual date. Block save (rather than silently
   // discarding the shipping config on submit) if the picker was left empty.
+  const startDateMissing = startMode === "on-date" && !startAt;
   const endDateMissing = endMode === "on-date" && !stopAt;
   // The back-end rejects past stops (they'd never be staged for the
   // scheduler); block save up front, including a prefilled end date that has
@@ -325,6 +330,7 @@ export default function EditScheduleModal({
         ctaColor="violet"
         ctaEnabled={
           !stopBeforeStart &&
+          !startDateMissing &&
           !endDateMissing &&
           !stopInThePast &&
           !stopAfterInThePast &&
@@ -413,20 +419,15 @@ export default function EditScheduleModal({
             <ScheduleRow label="Start" labelColor="text-high">
               <SelectField
                 label=""
-                value={startAt ? "on-date" : "immediately"}
+                value={startMode}
                 sort={false}
                 options={[
                   { value: "immediately", label: "Immediately" },
                   { value: "on-date", label: "On date" },
                 ]}
                 onChange={(v) => {
-                  if (v === "immediately") {
-                    form.setValue("startAt", "");
-                  } else {
-                    const d = new Date();
-                    d.setSeconds(0, 0);
-                    form.setValue("startAt", d.toISOString());
-                  }
+                  setStartMode(v === "on-date" ? "on-date" : "immediately");
+                  form.setValue("startAt", "");
                 }}
                 containerStyle={{ width: 150 }}
                 disabled={
@@ -438,9 +439,10 @@ export default function EditScheduleModal({
                     : undefined
                 }
               />
-              {startAt && (
+              {startMode === "on-date" && (
                 <DatePicker
                   label=""
+                  placeholder="Choose a date..."
                   date={startAt || undefined}
                   setDate={(d) =>
                     form.setValue("startAt", d ? d.toISOString() : "")
@@ -543,6 +545,9 @@ export default function EditScheduleModal({
             <Helpertext status="warning">
               End date must be after the start date
             </Helpertext>
+          )}
+          {startDateMissing && (
+            <Helpertext status="warning">Select a start date</Helpertext>
           )}
           {endDateMissing && (
             <Helpertext status="warning">Select an end date</Helpertext>
