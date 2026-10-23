@@ -30967,12 +30967,15 @@ paths:
                   items:
                     $ref: '#/components/schemas/FactTableColumnInput'
                 managedBy:
-                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  description: >-
+                    Set this to "api" (or "dbt" for resources synced from dbt)
+                    to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
+                    - dbt
               required:
                 - name
                 - datasource
@@ -31145,12 +31148,15 @@ paths:
                   items:
                     $ref: '#/components/schemas/FactTableColumnInput'
                 managedBy:
-                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  description: >-
+                    Set this to "api" (or "dbt" for resources synced from dbt)
+                    to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
+                    - dbt
                 archived:
                   type: boolean
               additionalProperties: false
@@ -32472,12 +32478,15 @@ paths:
                   type: number
                   minimum: 0
                 managedBy:
-                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  description: >-
+                    Set this to "api" (or "dbt" for resources synced from dbt)
+                    to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
+                    - dbt
                 metricAutoSlices:
                   description: >-
                     Array of slice column names that will be automatically
@@ -33207,12 +33216,15 @@ paths:
                   type: number
                   minimum: 0
                 managedBy:
-                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  description: >-
+                    Set this to "api" (or "dbt" for resources synced from dbt)
+                    to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
+                    - dbt
                 metricAutoSlices:
                   description: >-
                     Array of slice column names that will be automatically
@@ -33408,13 +33420,15 @@ paths:
                 defaultManagedBy:
                   description: >-
                     Fallback `managedBy` for Fact Tables and Fact Metrics that
-                    omit the field. Defaults to `"api"`. Filters inherit `"api"`
-                    only when the parent Fact Table is api-managed.
+                    omit the field. Defaults to `"api"`; the dbt sync sends
+                    `"dbt"`. Filters inherit `"api"` only when the parent Fact
+                    Table is api-managed.
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
+                    - dbt
                 dryRun:
                   description: Validate with zero writes.
                   type: boolean
@@ -33544,13 +33558,14 @@ paths:
                               $ref: '#/components/schemas/FactTableColumnInput'
                           managedBy:
                             description: >-
-                              Set this to "api" to disable editing in the
-                              GrowthBook UI
+                              Set this to "api" (or "dbt" for resources synced
+                              from dbt) to disable editing in the GrowthBook UI
                             type: string
                             enum:
                               - ''
                               - api
                               - admin
+                              - dbt
                         required:
                           - name
                           - datasource
@@ -34293,13 +34308,14 @@ paths:
                             minimum: 0
                           managedBy:
                             description: >-
-                              Set this to "api" to disable editing in the
-                              GrowthBook UI
+                              Set this to "api" (or "dbt" for resources synced
+                              from dbt) to disable editing in the GrowthBook UI
                             type: string
                             enum:
                               - ''
                               - api
                               - admin
+                              - dbt
                           metricAutoSlices:
                             description: >-
                               Array of slice column names that will be
@@ -74669,6 +74685,7 @@ components:
             - ''
             - api
             - admin
+            - dbt
         dateCreated:
           format: date-time
           type: string
@@ -75814,6 +75831,7 @@ components:
             - ''
             - api
             - admin
+            - dbt
         dateCreated:
           format: date-time
           type: string

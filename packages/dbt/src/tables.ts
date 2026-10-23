@@ -1,0 +1,219 @@
+import { Draft, Join, TranslateContext } from "./metrics";
+import {
+  BulkImportPayload,
+  DbtSemanticModel,
+  FactTableColumn,
+  FactTableData,
+} from "./types";
+import {
+  findDim,
+  gbMeta,
+  isIdent,
+  omit,
+  qualify,
+  tagsOf,
+  Unsupported,
+} from "./util";
+
+interface TableDraft {
+  id: string;
+  model: DbtSemanticModel;
+  timeDim: string;
+  joins: Map<string, Join>;
+  columns: Map<string, FactTableColumn>;
+}
+
+// Places each draft on a fact table, builds that table's SQL, and finalizes the metrics.
+export function planTables(
+  ctx: TranslateContext,
+  drafts: Draft[],
+): Pick<BulkImportPayload, "factTables" | "factMetrics"> {
+  const { opts, warnings } = ctx;
+
+  // One table per (model, time dim, exact join set): a metric's table depends only on itself.
+  const tables = new Map<string, TableDraft>();
+  for (const d of drafts) {
+    for (const { usage: u } of d.refs) {
+      const { model, timeDim } = u;
+      const parts = [model.name];
+      if (timeDim !== model.defaults?.agg_time_dimension) parts.push(timeDim);
+      u.factTableId = [...parts, ...[...u.joins.keys()].sort()].join("__");
+      let t = tables.get(u.factTableId);
+      if (!t) {
+        t = {
+          id: u.factTableId,
+          model,
+          timeDim,
+          joins: new Map(),
+          columns: new Map(),
+        };
+        tables.set(u.factTableId, t);
+      }
+      for (const [entity, j] of u.joins) {
+        const tj = t.joins.get(entity) ?? { ...j, dims: new Set<string>() };
+        j.dims.forEach((dim) => tj.dims.add(dim));
+        t.joins.set(entity, tj);
+      }
+      for (const c of u.columns) {
+        if (!t.columns.has(c.column)) t.columns.set(c.column, c);
+      }
+    }
+  }
+
+  const factTables: BulkImportPayload["factTables"] = [];
+  const failedTables = new Set<string>();
+  for (const t of tables.values()) {
+    const model = t.model;
+    try {
+      const rel = model.node_relation?.relation_name;
+      if (!rel) {
+        throw new Unsupported(
+          `semantic model "${model.name}" has no relation_name (is it materialized?)`,
+        );
+      }
+      const td = findDim(model, t.timeDim);
+      const tsCol = td?.expr ?? t.timeDim;
+      if (!td || td.type !== "time" || !isIdent(tsCol)) {
+        throw new Unsupported(
+          `agg_time_dimension "${t.timeDim}" must be a time dimension on a plain column`,
+        );
+      }
+      // Measure columns carry inferred types; everything else is left for detection.
+      const columns = new Map(t.columns);
+      const declare = (
+        column: string,
+        datatype: FactTableColumn["datatype"],
+      ) => {
+        if (!columns.has(column)) columns.set(column, { column, datatype });
+      };
+      declare(tsCol, "date");
+      const userIdTypes: string[] = [];
+      const userIdColumns: Record<string, string> = {};
+      for (const e of model.entities ?? []) {
+        const idType = opts.entities?.[e.name] ?? e.name;
+        if (opts.idTypes && !opts.idTypes.includes(idType)) continue;
+        const col = e.expr ?? e.name;
+        if (!isIdent(col)) {
+          warnings.push({
+            level: "note",
+            resource: `fact table ${t.id}`,
+            message: `entity "${e.name}" is an expression and cannot be an identifier column`,
+          });
+          continue;
+        }
+        userIdTypes.push(idType);
+        if (col !== idType) userIdColumns[idType] = col;
+        declare(col, "");
+      }
+      if (!userIdTypes.length) {
+        throw new Unsupported(
+          `no entity on "${model.name}" maps to a Data Source identifier type (use --entities)`,
+        );
+      }
+      for (const d of model.dimensions ?? []) {
+        const col = d.expr ?? d.name;
+        if (isIdent(col)) declare(col, "");
+      }
+
+      let sql = `SELECT * FROM ${rel}`;
+      const joined = [...t.joins.keys()].sort();
+      if (joined.length) {
+        const selects = ["t.*"];
+        const joins: string[] = [];
+        for (const entity of joined) {
+          const j = t.joins.get(entity);
+          const rel2 = j?.target.node_relation?.relation_name;
+          if (!j || !rel2) {
+            throw new Unsupported(
+              `semantic model "${j?.target.name}" has no relation_name`,
+            );
+          }
+          // The joined side is a subquery so its expressions can't collide
+          // with same-named base columns, and every exposed column is prefixed.
+          const alias = `j_${entity}`;
+          let key = `${entity}__key`;
+          while (j.dims.has(key.slice(entity.length + 2))) key += "_";
+          const inner = [`${j.pk.expr ?? j.pk.name} AS ${key}`];
+          for (const dim of [...j.dims].sort()) {
+            const d = findDim(j.target, dim);
+            if (!d) continue;
+            const col = `${entity}__${dim}`;
+            inner.push(`${d.expr ?? d.name} AS ${col}`);
+            selects.push(`${alias}.${col}`);
+            declare(col, "");
+          }
+          joins.push(
+            `LEFT JOIN (SELECT ${inner.join(", ")} FROM ${rel2}) ${alias} ON ${qualify("t", j.fk.expr ?? j.fk.name)} = ${alias}.${key}`,
+          );
+        }
+        sql = `SELECT ${selects.join(", ")} FROM ${rel} t ${joins.join(" ")}`;
+      }
+
+      const label = model.label ?? model.name;
+      const data: FactTableData = {
+        name: joined.length ? `${label} + ${joined.join(" + ")}` : label,
+        datasource: opts.datasource,
+        userIdTypes,
+        sql,
+        timestampColumn: tsCol,
+        columns: [...columns.values()],
+      };
+      if (Object.keys(userIdColumns).length) data.userIdColumns = userIdColumns;
+      data.description = model.description ?? "";
+      data.tags = tagsOf(model);
+      Object.assign(data, omit(gbMeta(model), ["enabled"]));
+      factTables.push({ id: t.id, data });
+    } catch (e) {
+      if (!(e instanceof Unsupported)) throw e;
+      failedTables.add(t.id);
+      warnings.push({
+        level: "skipped",
+        resource: `fact table ${t.id}`,
+        message: e.message,
+      });
+    }
+  }
+
+  const factMetrics: BulkImportPayload["factMetrics"] = [];
+  const usedTables = new Set<string>();
+  for (const d of drafts) {
+    const name = d.metric.name;
+    const bad = d.refs.find((r) => failedTables.has(r.usage.factTableId));
+    if (bad) {
+      warnings.push({
+        level: "skipped",
+        resource: `metric ${name}`,
+        message: `depends on fact table "${bad.usage.factTableId}", which was skipped`,
+      });
+      continue;
+    }
+    // First declaration of a column wins; a metric needing a different type
+    // for the same column (sum vs count_distinct) would be rejected by the API.
+    const conflict = d.refs
+      .flatMap((r) =>
+        r.usage.columns.map((c) => ({
+          c,
+          stored: tables.get(r.usage.factTableId)?.columns.get(c.column),
+        })),
+      )
+      .find(({ c, stored }) => stored && stored.datatype !== c.datatype);
+    if (conflict) {
+      warnings.push({
+        level: "skipped",
+        resource: `metric ${name}`,
+        message: `column "${conflict.c.column}" is used as ${conflict.c.datatype} here but ${conflict.stored?.datatype} by another metric on the same fact table`,
+      });
+      continue;
+    }
+    for (const r of d.refs) {
+      r.ref.factTableId = r.usage.factTableId;
+      usedTables.add(r.usage.factTableId);
+    }
+    factMetrics.push({ id: name, data: d.data });
+  }
+
+  return {
+    factTables: factTables.filter((t) => usedTables.has(t.id)),
+    factMetrics,
+  };
+}
