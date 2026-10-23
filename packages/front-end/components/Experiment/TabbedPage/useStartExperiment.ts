@@ -28,6 +28,9 @@ type StartRefusal = {
 
 export type StartExperiment = ReturnType<typeof useStartExperiment>;
 
+export const RUN_PERMISSION_REASON =
+  "Requires permission to start and stop experiments in this experiment's environments.";
+
 /** Starting an experiment or holdout. */
 export default function useStartExperiment({
   experiment,

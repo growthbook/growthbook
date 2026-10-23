@@ -28,6 +28,7 @@ import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/Decisio
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
+import { RUN_PERMISSION_REASON } from "@/components/Experiment/TabbedPage/useStartExperiment";
 
 type ScheduledStopMode = "notify" | "auto-ship" | "force-ship" | "stop";
 type ScheduledStopFallback = "notify" | "force-ship";
@@ -92,8 +93,6 @@ export default function EditScheduleModal({
   const canScheduleStatusChange =
     envs !== undefined &&
     (!envs.length || permissionsUtil.canRunExperiment(experiment, envs));
-  const runPermissionReason =
-    "Requires permission to start and stop experiments in this experiment's environments.";
   const pendingChangeLocked =
     !canScheduleStatusChange &&
     !!experiment.nextScheduledStatusUpdate &&
@@ -475,7 +474,7 @@ export default function EditScheduleModal({
                 }
                 helpText={
                   experiment.status === "draft" && !canScheduleStatusChange
-                    ? runPermissionReason
+                    ? RUN_PERMISSION_REASON
                     : undefined
                 }
               />
@@ -587,7 +586,7 @@ export default function EditScheduleModal({
             <Helpertext status="warning">Scheduled start has passed</Helpertext>
           )}
           {statusChangeLocked && (
-            <Helpertext status="warning">{runPermissionReason}</Helpertext>
+            <Helpertext status="warning">{RUN_PERMISSION_REASON}</Helpertext>
           )}
           {stopBeforeStart && (
             <Helpertext status="warning">
@@ -652,7 +651,7 @@ export default function EditScheduleModal({
                 formatOptionLabel={(o) => {
                   if (o.value !== "notify" && !canScheduleStatusChange) {
                     return (
-                      <Tooltip content={runPermissionReason}>
+                      <Tooltip content={RUN_PERMISSION_REASON}>
                         <Box>
                           <Text color="text-disabled">{o.label}</Text>
                         </Box>

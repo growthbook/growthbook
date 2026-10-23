@@ -83,7 +83,7 @@ import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 import EditExperimentInfoModal from "./EditExperimentInfoModal";
 import { useEditsBlockedReason } from "./ExperimentEdits";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
-import { StartExperiment } from "./useStartExperiment";
+import { RUN_PERMISSION_REASON, StartExperiment } from "./useStartExperiment";
 import StartExperimentPopover from "./StartExperimentPopover";
 import useStartGate from "./useStartGate";
 import { StartBlockers } from "./StartSections";
@@ -543,9 +543,11 @@ export default function ExperimentHeader({
     <Button
       variant={checklistReady ? "solid" : "soft"}
       onClick={isHoldout ? () => setShowStartExperiment(true) : undefined}
-      disabled={!!editsBlocked || startBlocked}
+      disabled={!canRunExperiment || !!editsBlocked || startBlocked}
       // Disabled buttons take no hover, so it reaches the summary around it.
-      style={startBlocked ? { pointerEvents: "none" } : undefined}
+      style={
+        canRunExperiment && startBlocked ? { pointerEvents: "none" } : undefined
+      }
       icon={hasExperimentSchedule ? undefined : <MdRocketLaunch />}
     >
       {hasExperimentSchedule
@@ -979,6 +981,12 @@ export default function ExperimentHeader({
                       )}{" "}
                       {editSchedule && <PiPencilSimple className="ml-1" />}
                     </Button>
+                  </UITooltip>
+                ) : experiment.status === "draft" &&
+                  !experiment.archived &&
+                  !canRunExperiment ? (
+                  <UITooltip content={RUN_PERMISSION_REASON}>
+                    {startButton}
                   </UITooltip>
                 ) : experiment.status === "draft" && canRunExperiment ? (
                   <Tooltip shouldDisplay={!!editsBlocked} body={editsBlocked}>
