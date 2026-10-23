@@ -140,78 +140,80 @@ function MetricDrilldownOverview({
 
   return (
     <Flex direction="column" gap="6">
-      {isClusterLevelMetric && (
-        <Callout status="info">
-          Analyzed per <IdentifierCode>{clusterIdentifier}</IdentifierCode>, not
-          per <IdentifierCode>{subUnitIdentifier}</IdentifierCode>:{" "}
-          {nonRollupAggregation ? (
-            <>
-              <IdentifierCode>{nonRollupAggregation}</IdentifierCode> values
-              can&apos;t be added up across each{" "}
-              <IdentifierCode>{subUnitIdentifier}</IdentifierCode>
-            </>
-          ) : (
-            <>
-              this metric&apos;s fact table has no{" "}
-              <IdentifierCode>{subUnitIdentifier}</IdentifierCode>
-            </>
-          )}
-          , so each <IdentifierCode>{clusterIdentifier}</IdentifierCode> counts
-          as one unit.
-        </Callout>
-      )}
-      <ResultsTable
-        experimentId={experimentId}
-        significanceThresholds={significanceThresholds}
-        dateCreated={reportDate}
-        isLatestPhase={isLatestPhase}
-        phase={phase}
-        startDate={startDate}
-        endDate={endDate}
-        status={experimentStatus}
-        variations={variations}
-        baselineRow={localBaselineRow}
-        setBaselineRow={setLocalBaselineRow}
-        variationFilter={localVariationFilter}
-        setVariationFilter={setLocalVariationFilter}
-        rows={[row]}
-        id={tableId}
-        resultGroup={resultGroup}
-        tableRowAxis="metric"
-        labelHeader={labelHeader}
-        renderLabelColumn={({ label }) => (
-          <Text weight="bold" ml="4">
-            {label}
-          </Text>
+      <Box>
+        {isClusterLevelMetric && (
+          <Callout status="info" mt="3" mb="4">
+            Analyzed per <IdentifierCode>{clusterIdentifier}</IdentifierCode>,
+            not per <IdentifierCode>{subUnitIdentifier}</IdentifierCode>:{" "}
+            {nonRollupAggregation ? (
+              <>
+                <IdentifierCode>{nonRollupAggregation}</IdentifierCode> values
+                can&apos;t be added up across each{" "}
+                <IdentifierCode>{subUnitIdentifier}</IdentifierCode>
+              </>
+            ) : (
+              <>
+                this metric&apos;s fact table has no{" "}
+                <IdentifierCode>{subUnitIdentifier}</IdentifierCode>
+              </>
+            )}
+            , so each <IdentifierCode>{clusterIdentifier}</IdentifierCode>{" "}
+            counts as one unit.
+          </Callout>
         )}
-        statsEngine={statsEngine}
-        pValueCorrection={pValueCorrection}
-        differenceType={localDifferenceType}
-        setDifferenceType={setLocalDifferenceType}
-        sequentialTestingEnabled={sequentialTestingEnabled}
-        isTabActive={true}
-        noStickyHeader={true}
-        noTooltip={false}
-        isBandit={false}
-        isHoldout={false}
-        visibleTimeSeriesRowIds={
-          isAuthenticated ? [`${tableId}-${metric.id}-0`] : []
-        }
-        timeSeriesMessage={timeSeriesMessage}
-        preloadedTimeSeries={preloadedTimeSeries}
-        dimensionId={dimensionInfo?.id}
-        dimensionValue={dimensionInfo?.rawValue}
-        valueColumnWidth={valueColumnWidth}
-        labelMaxWidth={labelMaxWidth}
-        oneSided={oneSided}
-        snapshot={snapshot}
-        analysis={analysis}
-        setAnalysisSettings={setAnalysisSettings}
-        // Forwarded to BaselineChooserColumnLabel, which appends analyses
-        // to the current snapshot in place — need `inPlace: true` so the
-        // heavy fetch refreshes (id-keyed auto-upgrade won't fire here).
-        mutate={() => mutate({ inPlace: true })}
-      />
+        <ResultsTable
+          experimentId={experimentId}
+          significanceThresholds={significanceThresholds}
+          dateCreated={reportDate}
+          isLatestPhase={isLatestPhase}
+          phase={phase}
+          startDate={startDate}
+          endDate={endDate}
+          status={experimentStatus}
+          variations={variations}
+          baselineRow={localBaselineRow}
+          setBaselineRow={setLocalBaselineRow}
+          variationFilter={localVariationFilter}
+          setVariationFilter={setLocalVariationFilter}
+          rows={[row]}
+          id={tableId}
+          resultGroup={resultGroup}
+          tableRowAxis="metric"
+          labelHeader={labelHeader}
+          renderLabelColumn={({ label }) => (
+            <Text weight="bold" ml="4">
+              {label}
+            </Text>
+          )}
+          statsEngine={statsEngine}
+          pValueCorrection={pValueCorrection}
+          differenceType={localDifferenceType}
+          setDifferenceType={setLocalDifferenceType}
+          sequentialTestingEnabled={sequentialTestingEnabled}
+          isTabActive={true}
+          noStickyHeader={true}
+          noTooltip={false}
+          isBandit={false}
+          isHoldout={false}
+          visibleTimeSeriesRowIds={
+            isAuthenticated ? [`${tableId}-${metric.id}-0`] : []
+          }
+          timeSeriesMessage={timeSeriesMessage}
+          preloadedTimeSeries={preloadedTimeSeries}
+          dimensionId={dimensionInfo?.id}
+          dimensionValue={dimensionInfo?.rawValue}
+          valueColumnWidth={valueColumnWidth}
+          labelMaxWidth={labelMaxWidth}
+          oneSided={oneSided}
+          snapshot={snapshot}
+          analysis={analysis}
+          setAnalysisSettings={setAnalysisSettings}
+          // Forwarded to BaselineChooserColumnLabel, which appends analyses
+          // to the current snapshot in place — need `inPlace: true` so the
+          // heavy fetch refreshes (id-keyed auto-upgrade won't fire here).
+          mutate={() => mutate({ inPlace: true })}
+        />
+      </Box>
 
       <Box>
         <Link color="dark" onClick={() => setStatsExpanded(!statsExpanded)}>
