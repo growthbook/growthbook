@@ -132,35 +132,3 @@
     background: var(--gray-a2);
   }
 }
-
-.footer {
-  margin-top: var(--space-1);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--gray-a5);
-}
-
-.placeholderBars {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-2);
-  width: 100%;
-  height: 160px;
-  margin-bottom: var(--space-4);
-
-  span {
-    flex: 1;
-    border: 1px dashed var(--gray-a6);
-    border-radius: var(--radius-2);
-    background: var(--gray-a2);
-  }
-}
-
-.emptyIcon {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-3);
-  background: var(--violet-a3);
-  color: var(--violet-11);
-}

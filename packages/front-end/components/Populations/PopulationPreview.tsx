@@ -1,64 +1,61 @@
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowClockwise } from "react-icons/pi";
-import { ago, datetime } from "shared/dates";
-import { ApiPopulation, PopulationExplorationConfig } from "shared/validators";
+import {
+  ApiPopulation,
+  PopulationExplorationConfig,
+  ProductAnalyticsExploration,
+} from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import {
-  ExplorerProvider,
-  useExplorerContext,
-} from "@/enterprise/components/ProductAnalytics/ExplorerContext";
+import { ExplorerProvider } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DailyBarChart from "@/enterprise/components/ProductAnalytics/MainSection/DailyBarChart";
+import PreviewHeadline from "@/enterprise/components/ProductAnalytics/MainSection/PreviewHeadline";
+import PreviewShell from "@/enterprise/components/ProductAnalytics/MainSection/PreviewShell";
 import {
   getMetricPreviewDateRange,
+  getMetricPreviewUnitLabel,
   formatPreviewHeadline,
 } from "@/components/FactTables/MetricEditor/metricPreview";
 import { getActivityChart } from "@/components/FactTables/MetricEditor/activityChart";
+import styles from "@/components/FactTables/MetricEditor/PreviewPanel.module.scss";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import Tooltip from "@/ui/Tooltip";
 import { Select, SelectItem } from "@/ui/Select";
 
-function Placeholder({ children }: { children: ReactNode }) {
-  return (
-    <Flex
-      direction="column"
-      align="center"
-      justify="center"
-      gap="3"
-      style={{ minHeight: 240 }}
-    >
-      {children}
-    </Flex>
-  );
-}
-
+// Daily distinct members for one population. Errors are shown by the shell.
 function MembersChart({
-  chart,
+  exploration,
+  loading,
+  error,
 }: {
-  chart: ReturnType<typeof getActivityChart>;
+  exploration: ProductAnalyticsExploration | null;
+  loading: boolean;
+  error: string | null;
 }) {
+  if (error && !loading) return null;
+  if (loading && !exploration) {
+    return (
+      <Flex p="4" align="center" justify="center">
+        <LoadingSpinner />
+      </Flex>
+    );
+  }
+  if (!exploration) return null;
+
+  const chart = getActivityChart(exploration);
+  const average = chart.days.length ? chart.total / chart.days.length : null;
   return (
     <>
-      <Box>
+      <Box minWidth="0">
         <Text as="div" color="text-mid">
           Average members per day
         </Text>
-        <div
-          style={{
-            fontSize: "3rem",
-            lineHeight: 1.2,
-            fontWeight: 600,
-          }}
-        >
-          {chart.days.length
-            ? formatPreviewHeadline(chart.total / chart.days.length)
-            : "—"}
-        </div>
+        <PreviewHeadline
+          value={average === null ? "—" : formatPreviewHeadline(average)}
+          title={average?.toLocaleString()}
+        />
         <Text size="sm" color="text-mid">
           Distinct members meeting the conditions each day. A member can appear
           on multiple days.
@@ -78,107 +75,12 @@ function MembersChart({
   );
 }
 
-function PreviewBody({
-  chart,
-  loading,
-  error,
-}: {
-  chart: ReturnType<typeof getActivityChart> | null;
-  loading: boolean;
-  error: string | null;
-}) {
-  if (chart) return <MembersChart chart={chart} />;
-  if (loading) {
-    return (
-      <Placeholder>
-        <LoadingSpinner />
-      </Placeholder>
-    );
-  }
-  // The caller shows the error in place of the chart.
-  if (error) return null;
-  return (
-    <Placeholder>
-      <Text size="lg" weight="semibold" align="center">
-        Preview will appear here
-      </Text>
-      <Text color="text-mid" align="center">
-        Run the query to see daily member counts for the last 7 complete days.
-      </Text>
-    </Placeholder>
-  );
-}
-
-function PreviewResults({ config }: { config: PopulationExplorationConfig }) {
-  const {
-    exploration,
-    loading,
-    error,
-    isSubmittable,
-    managedWarehouseUnavailable,
-    handleSubmit,
-    setDraftExploreState,
-    isStale,
-    needsFetch,
-  } = useExplorerContext();
-  useEffect(() => {
-    setDraftExploreState(config);
-  }, [config, setDraftExploreState]);
-  const outdated = !!exploration && (isStale || needsFetch);
-  // A failed run still returns an exploration with empty rows; don't chart it.
-  const chart = exploration && !error ? getActivityChart(exploration) : null;
-
-  if (managedWarehouseUnavailable) {
-    return (
-      <Text color="text-mid">
-        The preview will be available when the warehouse is ready.
-      </Text>
-    );
-  }
-
-  return (
-    <Flex direction="column" gap="4" aria-busy={loading}>
-      {outdated && (
-        <Callout status="warning" size="sm">
-          Changes not applied. Refresh to update the preview.
-        </Callout>
-      )}
-      {error && !loading && <Callout status="error">{error}</Callout>}
-      <PreviewBody chart={chart} loading={loading} error={error} />
-      <Flex
-        justify="end"
-        align="center"
-        gap="3"
-        wrap="wrap"
-        pt="3"
-        style={{ borderTop: "1px solid var(--gray-5)" }}
-      >
-        {exploration && (
-          <Tooltip content={datetime(exploration.dateUpdated)}>
-            <Text size="sm" color="text-mid">
-              Updated {ago(exploration.dateUpdated)}
-            </Text>
-          </Tooltip>
-        )}
-        <Button
-          variant={exploration ? "ghost" : "solid"}
-          icon={exploration ? <PiArrowClockwise /> : undefined}
-          disabled={loading || !isSubmittable}
-          onClick={() => handleSubmit({ force: !!exploration })}
-        >
-          {loading ? "Loading…" : exploration ? "Refresh" : "Run query"}
-        </Button>
-      </Flex>
-    </Flex>
-  );
-}
-
 export default function PopulationPreview({
   population,
 }: {
   population: ApiPopulation;
 }) {
-  const { getDatasourceById } = useDefinitions();
+  const { getDatasourceById, getFactTableById } = useDefinitions();
   const permissions = usePermissionsUtil();
   const [selectedUnit, setSelectedUnit] = useState<string | null>(null);
   const unit =
@@ -212,6 +114,11 @@ export default function PopulationPreview({
     [population, unit, utcToday],
   );
   const datasource = getDatasourceById(population.datasource);
+  const step = population.steps[0];
+  const factTable =
+    step?.source.type === "factTable"
+      ? getFactTableById(step.source.factTableId)
+      : null;
   const unsupported =
     population.steps.length !== 1 ||
     population.steps.some((step) => step.windowSettings.type !== "");
@@ -233,32 +140,54 @@ export default function PopulationPreview({
           You don’t have permission to run queries on this Data Source.
         </Text>
       ) : (
-        <>
-          <Flex justify="between" align="center" gap="3" wrap="wrap">
-            <Select
-              size="sm"
-              aria-label="Identifier type"
-              value={unit ?? ""}
-              setValue={setSelectedUnit}
-            >
-              {population.userIdTypes.map((id) => (
-                <SelectItem key={id} value={id}>
-                  {id}
-                </SelectItem>
-              ))}
-            </Select>
-            <Text size="sm" color="text-mid">
-              Last 7 complete days (UTC)
-            </Text>
-          </Flex>
-          <ExplorerProvider
-            initialConfig={config}
-            queryEnabled={!!unit}
-            trackingSource="population-preview"
-          >
-            <PreviewResults config={config} />
-          </ExplorerProvider>
-        </>
+        <ExplorerProvider
+          initialConfig={config}
+          queryEnabled={!!unit}
+          trackingSource="population-preview"
+        >
+          <PreviewShell
+            config={config}
+            layout="page"
+            emptyDescription="Run the query to see daily member counts for the last 7 complete days."
+            warehouseUnavailableText="The preview will be available when the warehouse is ready."
+            renderChart={({ exploration, loading, error }) => (
+              <MembersChart
+                exploration={exploration}
+                loading={loading}
+                error={error}
+              />
+            )}
+            controls={
+              <Select
+                size="sm"
+                triggerClassName={styles.unitTrigger}
+                aria-label="Unit"
+                value={unit ?? ""}
+                setValue={setSelectedUnit}
+              >
+                {population.userIdTypes.map((id) => {
+                  const { label, column } = getMetricPreviewUnitLabel(
+                    id,
+                    factTable,
+                  );
+                  return (
+                    <SelectItem
+                      key={id}
+                      value={id}
+                      textValue={label}
+                      className={styles.unitItem}
+                    >
+                      <span className={styles.unitOption}>
+                        <span>{label}</span>
+                        <span className={styles.unitDescriptor}>{column}</span>
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </Select>
+            }
+          />
+        </ExplorerProvider>
       )}
     </Flex>
   );

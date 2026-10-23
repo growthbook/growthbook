@@ -19,6 +19,7 @@ import {
 import { fillDailyBuckets } from "@/components/FactTables/MetricEditor/activityChart";
 import FunnelChart from "./FunnelChart";
 import DailyBarChart from "./DailyBarChart";
+import PreviewHeadline from "./PreviewHeadline";
 
 // The metric editor's preview: a headline value over daily bars for one
 // metric. Errors are shown by the caller.
@@ -109,23 +110,14 @@ export default function MetricPreviewChart({
             </>
           )}
         </Text>
-        <Flex align="start" gap="1" minWidth="0">
-          <div
-            title={summary?.value?.toLocaleString()}
-            style={{
-              fontSize: "3rem",
-              lineHeight: 1.2,
-              fontWeight: 600,
-              minWidth: 0,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {(summary?.value ?? null) === null
+        <PreviewHeadline
+          value={
+            (summary?.value ?? null) === null
               ? "—"
-              : formatPreviewHeadline(summary?.value ?? 0)}
-          </div>
+              : formatPreviewHeadline(summary?.value ?? 0)
+          }
+          title={summary?.value?.toLocaleString()}
+        >
           <Tooltip
             content={
               <Box>
@@ -156,7 +148,7 @@ export default function MetricPreviewChart({
               <PiInfo />
             </Button>
           </Tooltip>
-        </Flex>
+        </PreviewHeadline>
         {parts && summary && summary.denominator !== null && (
           <Text as="div" color="text-mid">
             ={" "}
