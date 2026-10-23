@@ -205,6 +205,17 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     return this._find({}, { bypassReadPermissionChecks: true });
   }
 
+  // Ignores read permissions, so a dependency check can't miss a hidden metric
+  public async dangerousHasAnyForDatasource(
+    datasourceId: string,
+  ): Promise<boolean> {
+    const [metric] = await this._find(
+      { datasource: datasourceId },
+      { bypassReadPermissionChecks: true, limit: 1 },
+    );
+    return !!metric;
+  }
+
   // Cascade from a fact-table column change. Authority is the fact-table write,
   // so this bypasses canUpdate; the guarded write plus re-read means a
   // concurrent edit to the metric is retried against, never clobbered.
