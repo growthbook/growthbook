@@ -14,6 +14,7 @@ import {
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
 import {
+  experimentHasLinkedChanges,
   getExposureQueryIdentifierTypes,
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
@@ -659,13 +660,13 @@ const AnalysisForm: FC<{
                     </Text>
                   </Box>
                 )}
-                {datasource?.properties?.exposureQueries && (
+                {isClusterExperiment && (
                   <Box mb="1">
                     <Text size="sm" color="text-mid">
-                      Experiment Assignment Table:
+                      Subunit Identifier Type:
                     </Text>{" "}
                     <Text size="sm" weight="medium">
-                      {exposureQuery?.name || (
+                      {clusterSubUnitIdentifier || (
                         <Text color="text-mid" fontStyle="italic">
                           Choose...
                         </Text>
@@ -673,13 +674,13 @@ const AnalysisForm: FC<{
                     </Text>
                   </Box>
                 )}
-                {isClusterExperiment && (
+                {datasource?.properties?.exposureQueries && (
                   <Box mb="1">
                     <Text size="sm" color="text-mid">
-                      Cluster Subunit:
+                      Experiment Assignment Table:
                     </Text>{" "}
                     <Text size="sm" weight="medium">
-                      {clusterSubUnitIdentifier || (
+                      {exposureQuery?.name || (
                         <Text color="text-mid" fontStyle="italic">
                           Choose...
                         </Text>
@@ -834,7 +835,10 @@ const AnalysisForm: FC<{
                   setSubUnitIdentifier={(value) =>
                     form.setValue("clusterSubUnitIdentifier", value)
                   }
-                  locked={experiment.status !== "draft"}
+                  locked={
+                    experiment.status !== "draft" &&
+                    experimentHasLinkedChanges(experiment)
+                  }
                 />
               )}
             {datasource && !isHoldout && (
