@@ -166,8 +166,23 @@ export function format(
  * Everything from the last `;` that is followed only by whitespace, `--` line
  * comments and terminated block comments is removed. Quoted text is skipped,
  * so a `;` or `--` inside a string or quoted identifier is left alone.
+ *
+ * The dialect isn't known here, so quotes are read with backslash escapes
+ * (`'it\'s'`) as well as doubled quotes (`'it''s'`). If that leaves a quote
+ * open (e.g. standard SQL's `'C:\'`), quotes are ignored instead.
  */
 export function stripTrailingSemicolon(sql: string): string {
+  const cut =
+    trailingSemicolonIndex(sql, true) ?? trailingSemicolonIndex(sql, false);
+  return (cut === null || cut === -1 ? sql : sql.slice(0, cut)).trim();
+}
+
+// Index of the terminating `;`, or -1 if there is none. With `skipQuotes`,
+// returns null when a quote is never closed.
+function trailingSemicolonIndex(
+  sql: string,
+  skipQuotes: boolean,
+): number | null {
   // Index of the most recent `;` that has only trivia after it so far.
   let cut = -1;
   // Once a `/*` has no closing `*/` anywhere after it, no later one can either.
@@ -178,12 +193,17 @@ export function stripTrailingSemicolon(sql: string): string {
     if (ch === ";") {
       cut = i;
       i++;
-    } else if (ch === "'" || ch === '"' || ch === "`") {
-      // Quoted text is never trivia. A doubled quote (`'it''s'`) closes and
-      // reopens, so jumping to the next matching quote is enough.
-      const close = sql.indexOf(ch, i + 1);
+    } else if (skipQuotes && (ch === "'" || ch === '"' || ch === "`")) {
+      // Quoted text is never trivia. A doubled quote closes and reopens, so
+      // only backslashes need handling.
+      let j = i + 1;
+      while (j < sql.length && sql[j] !== ch) j += sql[j] === "\\" ? 2 : 1;
+      if (j >= sql.length) return null;
       cut = -1;
-      i = close === -1 ? sql.length : close + 1;
+      i = j + 1;
+    } else if (!skipQuotes && cut === -1) {
+      // Not (yet) in a trailing run, so nothing here can be trivia.
+      i++;
     } else if (/\s/.test(ch)) {
       i++;
     } else if (ch === "-" && sql[i + 1] === "-") {
@@ -205,7 +225,7 @@ export function stripTrailingSemicolon(sql: string): string {
       i++;
     }
   }
-  return (cut === -1 ? sql : sql.slice(0, cut)).trim();
+  return cut;
 }
 
 // Any template variable built on startDate, e.g. {{startDate}} or

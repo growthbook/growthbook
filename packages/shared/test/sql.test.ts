@@ -212,7 +212,15 @@ describe("stripTrailingSemicolon", () => {
     ["SELECT 'it''s;--' AS a;", "SELECT 'it''s;--' AS a"],
     ['SELECT 1 AS ";--";', 'SELECT 1 AS ";--"'],
     ["SELECT 1 AS `a;--b`", "SELECT 1 AS `a;--b`"],
-    ["SELECT 'never closed;", "SELECT 'never closed;"],
+    // Backslash-escaped quotes (BigQuery, MySQL, ...)
+    ["SELECT 'it\\'s' AS a;", "SELECT 'it\\'s' AS a"],
+    ["SELECT 'it\\'s;--' AS a;", "SELECT 'it\\'s;--' AS a"],
+    ['SELECT "a\\";--" AS b;', 'SELECT "a\\";--" AS b'],
+    ["SELECT 'a\\\\' AS b;", "SELECT 'a\\\\' AS b"],
+    // A backslash that isn't an escape (standard SQL) leaves a quote open,
+    // so quotes are ignored, as they were before quote handling
+    ["SELECT 'C:\\' AS p;", "SELECT 'C:\\' AS p"],
+    ["SELECT 'never closed;", "SELECT 'never closed"],
     // Quotes inside comments do not start a string
     ["SELECT 1 -- don't\n;", "SELECT 1 -- don't"],
     ["SELECT 1; /* it's */", "SELECT 1"],
@@ -239,6 +247,8 @@ describe("stripTrailingSemicolon", () => {
       ";" + " ".repeat(100000) + "x",
       ";'x'".repeat(100000) + "x",
       "'".repeat(100001) + ";x",
+      "'" + "\\".repeat(200000) + ";x",
+      ";'" + "\\'".repeat(100000) + "x",
     ];
 
     it.each(pathological.map((sql) => ({ label: sql.slice(0, 20), sql })))(
