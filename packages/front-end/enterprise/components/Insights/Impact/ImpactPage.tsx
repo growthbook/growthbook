@@ -76,6 +76,7 @@ export default function ImpactPage() {
   } = useImpactUrlState();
   const { hasCommercialFeature } = useUser();
   const {
+    ready: definitionsReady,
     project,
     metricGroups,
     getExperimentMetricById,
@@ -304,9 +305,11 @@ export default function ImpactPage() {
     }
   };
 
-  if (!ready) return <LoadingSpinner />;
+  if (!ready || !definitionsReady) return <LoadingSpinner />;
 
   const hasMetric = !!metricId && !!metric;
+  // Usually a link from another organization
+  const unknownMetric = !!metricId && !metric;
 
   return (
     <Box className="container-fluid pagecontents" py="4">
@@ -351,7 +354,7 @@ export default function ImpactPage() {
               </Text>
               <Box style={{ minWidth: 300 }}>
                 <MetricSelector
-                  value={metricId}
+                  value={hasMetric ? metricId : ""}
                   onChange={setMetricId}
                   includeFacts
                   placeholder="Select a metric"
@@ -419,15 +422,23 @@ export default function ImpactPage() {
           </Flex>
 
           {!hasMetric ? (
-            <MetricPickerPanel
-              suggestions={suggestions}
-              counts={{
-                completed: completed.length,
-                won: completed.filter((e) => e.results === "won").length,
-                lost: completed.filter((e) => e.results === "lost").length,
-              }}
-              onSelect={setMetricId}
-            />
+            <>
+              {unknownMetric && (
+                <Callout status="warning" mb="4">
+                  The metric in this link isn&apos;t in this organization. Pick
+                  a metric to see its impact.
+                </Callout>
+              )}
+              <MetricPickerPanel
+                suggestions={suggestions}
+                counts={{
+                  completed: completed.length,
+                  won: completed.filter((e) => e.results === "won").length,
+                  lost: completed.filter((e) => e.results === "lost").length,
+                }}
+                onSelect={setMetricId}
+              />
+            </>
           ) : experimentsLoading ||
             (snapshotIds.length > 0 && snapshotsLoading) ? (
             <LoadingSpinner />
