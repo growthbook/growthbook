@@ -50,25 +50,6 @@ export function interleavingPrerequisiteIds(
   ];
 }
 
-// Key of the pseudo feature generated into SDK payloads for an interleaving.
-export function getInterleavingFeatureDefId(key: string): string {
-  return `$interleave:${key}`;
-}
-
-export function interleavingTargetingServes(il: {
-  status: string;
-  archived: boolean;
-}): boolean {
-  return il.status !== "stopped" && !il.archived;
-}
-
-export function interleavingInSDKPayload(il: {
-  status: string;
-  archived: boolean;
-}): boolean {
-  return il.status === "running" && !il.archived;
-}
-
 // `getValidation` turns an unparseable schema into "validation disabled", so an
 // enabled schema that doesn't parse would silently accept every config.
 export function assertUsableRankerSchema(
