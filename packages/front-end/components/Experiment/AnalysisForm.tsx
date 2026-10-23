@@ -659,13 +659,13 @@ const AnalysisForm: FC<{
                     </Text>
                   </Box>
                 )}
-                {datasource?.properties?.exposureQueries && (
+                {isClusterExperiment && (
                   <Box mb="1">
                     <Text size="sm" color="text-mid">
-                      Experiment Assignment Table:
+                      Subunit Identifier Type:
                     </Text>{" "}
                     <Text size="sm" weight="medium">
-                      {exposureQuery?.name || (
+                      {clusterSubUnitIdentifier || (
                         <Text color="text-mid" fontStyle="italic">
                           Choose...
                         </Text>
@@ -673,13 +673,13 @@ const AnalysisForm: FC<{
                     </Text>
                   </Box>
                 )}
-                {isClusterExperiment && (
+                {datasource?.properties?.exposureQueries && (
                   <Box mb="1">
                     <Text size="sm" color="text-mid">
-                      Cluster Subunit:
+                      Experiment Assignment Table:
                     </Text>{" "}
                     <Text size="sm" weight="medium">
-                      {clusterSubUnitIdentifier || (
+                      {exposureQuery?.name || (
                         <Text color="text-mid" fontStyle="italic">
                           Choose...
                         </Text>
