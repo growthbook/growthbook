@@ -410,7 +410,7 @@ export default function ImpactPage() {
           <Flex gap="3" align="center" mb="1" wrap="wrap">
             <Box flexGrow="1" style={{ maxWidth: 520 }}>
               <TextField
-                placeholder="Search experiments..."
+                placeholder="Filter which experiments count toward impact..."
                 type="search"
                 {...searchInputProps}
               />
