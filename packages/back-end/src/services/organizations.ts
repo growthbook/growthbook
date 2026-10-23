@@ -136,7 +136,10 @@ import {
   SECRET_API_KEY_ID,
 } from "back-end/src/util/armingApiKeyId";
 import { oauthTokenScope } from "back-end/src/util/oauth-token.util";
-import { getKeyPermissionsForRequest } from "back-end/src/util/organization.util";
+import {
+  getKeyPermissionsForRequest,
+  normalizeInviteEmail,
+} from "back-end/src/util/organization.util";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
@@ -1151,10 +1154,7 @@ export async function inviteUser({
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
-  email = email
-    .toLowerCase()
-    .replace(/^[\s;,]+/, "")
-    .replace(/[\s;,]+$/, "");
+  email = normalizeInviteEmail(email);
 
   if (!z.string().email().safeParse(email).success) {
     throw new Error(`Invalid email address: ${email}`);
