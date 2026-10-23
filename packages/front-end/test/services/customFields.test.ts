@@ -6,6 +6,7 @@ import {
   filterCustomFieldsForSectionAndProjects,
   getSeededCustomFieldDefaultValue,
   normalizeCustomFieldValues,
+  pickCustomFieldValuesForSection,
   reconcileCustomFieldValues,
 } from "@/services/customFields";
 
@@ -397,5 +398,39 @@ describe("customFieldValuesEqual", () => {
   it("returns false when keys or values differ", () => {
     expect(customFieldValuesEqual({ a: "1" }, { a: "1", b: "2" })).toBe(false);
     expect(customFieldValuesEqual({ a: "1" }, { a: "2" })).toBe(false);
+  });
+});
+
+describe("pickCustomFieldValuesForSection", () => {
+  it("keeps only values whose field is defined for the destination section", () => {
+    const shared = makeField({
+      id: "cf_shared",
+      sections: ["experiment-idea", "experiment"],
+    });
+    const ideaOnly = makeField({
+      id: "cf_idea",
+      sections: ["experiment-idea"],
+    });
+    const inactive = makeField({
+      id: "cf_inactive",
+      sections: ["experiment-idea", "experiment"],
+      active: false,
+    });
+    const result = pickCustomFieldValuesForSection(
+      [shared, ideaOnly, inactive],
+      { cf_shared: true, cf_idea: "x", cf_inactive: "y", cf_unknown: "z" },
+      "experiment",
+    );
+    expect(result).toEqual({ cf_shared: "true" });
+  });
+
+  it("returns an empty map when there are no values", () => {
+    expect(
+      pickCustomFieldValuesForSection(
+        [makeField({ sections: ["experiment"] })],
+        undefined,
+        "experiment",
+      ),
+    ).toEqual({});
   });
 });

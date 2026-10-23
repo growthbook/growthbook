@@ -12,7 +12,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { useExperiments } from "@/hooks/useExperiments";
-import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
+import { pickCustomFieldValuesForSection } from "@/services/customFields";
+import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ConfirmModal from "@/components/ConfirmModal";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -124,13 +125,6 @@ const ExperimentIdeaPage = (): React.ReactElement => {
   const canCreateExperiment = permissionsUtil.canCreateExperiment({
     project: idea.project,
   });
-  const customFields =
-    filterCustomFieldsForSectionAndProject(
-      allCustomFields,
-      "experiment-idea",
-      idea.project || undefined,
-    )?.filter((f) => idea.customFields[f.id] !== undefined) ?? [];
-
   const act = async (fn: () => Promise<unknown>) => {
     setActionError(null);
     try {
@@ -304,6 +298,13 @@ const ExperimentIdeaPage = (): React.ReactElement => {
             </Flex>
           </Box>
 
+          <CustomFieldDisplay
+            section="experiment-idea"
+            target={idea}
+            canEdit={canManage}
+            mutate={mutate}
+          />
+
           <Section title="Related work">
             <Box mb="4">
               <div className={styles.sectionLabel}>Informed by</div>
@@ -409,16 +410,6 @@ const ExperimentIdeaPage = (): React.ReactElement => {
               </Box>
             )}
           </Section>
-
-          {customFields.length > 0 && (
-            <Section title="Custom Fields">
-              {customFields.map((f) => (
-                <RailRow key={f.id} label={f.name}>
-                  <Text>{String(idea.customFields[f.id])}</Text>
-                </RailRow>
-              ))}
-            </Section>
-          )}
 
           <Box mb="4">
             <DiscussionThread
@@ -537,6 +528,11 @@ const ExperimentIdeaPage = (): React.ReactElement => {
             project: idea.project,
             tags: idea.tags,
             sourceExperimentIdeaId: idea.id,
+            customFields: pickCustomFieldValuesForSection(
+              allCustomFields,
+              idea.customFields,
+              "experiment",
+            ),
           }}
           onCreate={(id) => router.push(`/experiment/${id}`)}
         />
