@@ -99,6 +99,7 @@ import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorat
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
 import { LearningModel } from "back-end/src/models/LearningModel";
+import { ExperimentIdeaModel } from "back-end/src/models/ExperimentIdeaModel";
 import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
@@ -179,6 +180,7 @@ export type ModelName =
   | "rampScheduleTemplates"
   | "aiConversations"
   | "learnings"
+  | "experimentIdeas"
   | "contextualBandits"
   | "contextualBanditQueries"
   | "contextualBanditSnapshots"
@@ -245,6 +247,7 @@ export const modelClasses = {
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
   learnings: LearningModel,
+  experimentIdeas: ExperimentIdeaModel,
   contextualBandits: ContextualBanditModel,
   contextualBanditQueries: ContextualBanditQueryModel,
   contextualBanditSnapshots: ContextualBanditSnapshotModel,
@@ -434,6 +437,7 @@ export class ReqContextClass {
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
       learnings: new LearningModel(this),
+      experimentIdeas: new ExperimentIdeaModel(this),
       contextualBandits: new ContextualBanditModel(this),
       contextualBanditQueries: new ContextualBanditQueryModel(this),
       contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),

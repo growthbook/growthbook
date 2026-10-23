@@ -1231,6 +1231,16 @@ export async function postExperiments(
       project: data.project,
     });
 
+    // getById enforces read access, so an inaccessible Idea reads as missing.
+    if (
+      data.sourceExperimentIdeaId &&
+      !(await context.models.experimentIdeas.getById(
+        data.sourceExperimentIdeaId,
+      ))
+    ) {
+      throw new Error("Experiment Idea not found");
+    }
+
     result = await validateExperimentData(context, data);
   } catch (e) {
     res.status(400).json({
@@ -1346,6 +1356,7 @@ export async function postExperiments(
     previewURL: data.previewURL || "",
     targetURLRegex: data.targetURLRegex || "",
     ideaSource: data.ideaSource || "",
+    sourceExperimentIdeaId: data.sourceExperimentIdeaId || undefined,
     // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
     sequentialTestingEnabled:
       experimentType === "multi-armed-bandit"

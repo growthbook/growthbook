@@ -333,6 +333,7 @@ const experimentSchema = new mongoose.Schema({
   autoSnapshots: Boolean,
   disableAutoSnapshots: Boolean,
   ideaSource: String,
+  sourceExperimentIdeaId: String,
   regressionAdjustmentEnabled: Boolean,
   postStratificationEnabled: Boolean,
   hasVisualChangesets: Boolean,
@@ -429,6 +430,10 @@ const experimentSchema = new mongoose.Schema({
 experimentSchema.index({ organization: 1, datasource: 1 });
 experimentSchema.index({ organization: 1, project: 1 });
 experimentSchema.index({ organization: 1, trackingKey: 1 });
+experimentSchema.index(
+  { organization: 1, sourceExperimentIdeaId: 1 },
+  { sparse: true },
+);
 experimentSchema.index(
   { "nextScheduledStatusUpdate.date": 1 },
   { sparse: true },
@@ -1055,6 +1060,17 @@ export async function getExperimentsByMetric(
     id: exp.id,
     name: exp.name,
   }));
+}
+
+export async function getExperimentsBySourceExperimentIdeaIds(
+  context: ReqContext | ApiReqContext,
+  ideaIds: string[],
+): Promise<ExperimentInterface[]> {
+  if (!ideaIds.length) return [];
+  return findExperiments(context, {
+    organization: context.org.id,
+    sourceExperimentIdeaId: { $in: ideaIds },
+  });
 }
 
 export async function getExperimentByIdea(
