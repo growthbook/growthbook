@@ -1,7 +1,5 @@
-import { ReactNode, useEffect, useMemo, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowClockwise, PiChartBar } from "react-icons/pi";
-import { ago, datetime } from "shared/dates";
+import { useMemo, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ExplorationConfig } from "shared/validators";
 import { DEFAULT_EXPLORE_STATE } from "shared/enterprise";
@@ -11,147 +9,23 @@ import {
 } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Text from "@/ui/Text";
-import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
-import { Select, SelectItem } from "@/ui/Select";
-import Tooltip from "@/ui/Tooltip";
 import {
   getMetricPreviewConfig,
   getMetricPreviewDateRange,
   getMetricPreviewUnits,
-  getMetricPreviewUnitLabel,
 } from "@/components/FactTables/MetricEditor/metricPreview";
 import styles from "@/components/FactTables/MetricEditor/PreviewPanel.module.scss";
-import { ExplorerProvider, useExplorerContext } from "./ExplorerContext";
+import { ExplorerProvider } from "./ExplorerContext";
 import MetricPreviewChart from "./MainSection/MetricPreviewChart";
+import PreviewEmptyState from "./MainSection/PreviewEmptyState";
+import PreviewShell, { PreviewFooter } from "./MainSection/PreviewShell";
+import PreviewUnitSelect from "./MainSection/PreviewUnitSelect";
 
 const EMPTY_CONFIG: ExplorationConfig = {
   ...DEFAULT_EXPLORE_STATE,
   type: "metric",
   dataset: { type: "metric", values: [] },
 };
-
-// Relative heights of the placeholder bars, as a percent of the tallest.
-const PLACEHOLDER_BARS = [62, 68, 54, 75, 83, 46, 100];
-
-function PreviewEmptyState({ description }: { description: string }) {
-  return (
-    <Flex direction="column" align="center" gap="3" pb="2">
-      <div className={styles.placeholderBars} aria-hidden="true">
-        {PLACEHOLDER_BARS.map((height, i) => (
-          <span key={i} style={{ height: `${height}%` }} />
-        ))}
-      </div>
-      <span className={styles.emptyIcon} aria-hidden="true">
-        <PiChartBar size={20} />
-      </span>
-      <Text size="lg" weight="semibold" align="center">
-        Preview will appear here
-      </Text>
-      <Text color="text-mid" align="center">
-        {description}
-      </Text>
-    </Flex>
-  );
-}
-
-function PerformanceChart({
-  config,
-  controls,
-}: {
-  config: ExplorationConfig | null;
-  controls: ReactNode;
-}) {
-  const {
-    exploration,
-    submittedExploreState,
-    draftExploreState,
-    loading,
-    error,
-    isSubmittable,
-    managedWarehouseUnavailable,
-    handleSubmit,
-    setDraftExploreState,
-    isStale,
-    needsFetch,
-  } = useExplorerContext();
-  useEffect(() => {
-    if (config) setDraftExploreState(config);
-  }, [config, setDraftExploreState]);
-  const outdated = !!exploration && (!config || isStale || needsFetch);
-  if (managedWarehouseUnavailable)
-    return (
-      <Text color="text-mid">
-        Metric performance will be available when the warehouse is ready.
-      </Text>
-    );
-  return (
-    <Flex direction="column" gap="3" minHeight="0">
-      {outdated && (
-        <Callout status="warning" size="sm">
-          {config
-            ? "Changes not applied. Run the query to refresh."
-            : "Complete the metric definition, then run the query."}
-        </Callout>
-      )}
-      {(config || exploration) && (
-        <Flex align="center" justify="between" gap="2" wrap="wrap">
-          {controls}
-          <Text size="sm" color="text-mid">
-            Last 7 complete days (UTC)
-          </Text>
-        </Flex>
-      )}
-      {exploration || loading ? (
-        <MetricPreviewChart
-          exploration={exploration}
-          submittedExploreState={submittedExploreState ?? draftExploreState}
-          loading={loading}
-          error={error}
-        />
-      ) : error ? null : (
-        <PreviewEmptyState
-          description={
-            config
-              ? "Run the query to see live sample data for the last 7 days."
-              : "Complete the metric definition to see live sample data for the last 7 days."
-          }
-        />
-      )}
-      {/* MetricPreviewChart renders nothing for an error, so show it here
-          in place of the chart or empty state. */}
-      {error && !loading && <Callout status="error">{error}</Callout>}
-      <Box className={styles.footer}>
-        {exploration && !outdated ? (
-          // Once results are current, re-running is a quiet refresh.
-          <Flex justify="center" align="center" gap="3">
-            <Tooltip content={datetime(exploration.dateUpdated)}>
-              <Text size="sm" color="text-mid">
-                Updated {ago(exploration.dateUpdated)}
-              </Text>
-            </Tooltip>
-            <Button
-              variant="ghost"
-              icon={<PiArrowClockwise />}
-              disabled={loading || !isSubmittable}
-              onClick={() => handleSubmit({ force: true })}
-            >
-              {loading ? "Refreshing…" : "Refresh"}
-            </Button>
-          </Flex>
-        ) : (
-          <Button
-            style={{ width: "100%" }}
-            disabled={!config || loading || !isSubmittable}
-            onClick={() => handleSubmit()}
-          >
-            Run query
-          </Button>
-        )}
-      </Box>
-    </Flex>
-  );
-}
 
 export default function MetricPerformance({
   metric,
@@ -220,11 +94,12 @@ export default function MetricPerformance({
     return (
       <>
         <PreviewEmptyState description="Select a fact table to see live sample data for the last 7 days." />
-        <Box className={styles.footer}>
-          <Button style={{ width: "100%" }} disabled>
-            Run query
-          </Button>
-        </Box>
+        <PreviewFooter
+          exploration={null}
+          outdated={false}
+          loading={false}
+          disabled
+        />
       </>
     );
   if (!permissions.canRunMetricQueries(datasource))
@@ -240,8 +115,12 @@ export default function MetricPerformance({
         queryEnabled={config !== null}
         trackingSource="metric-preview"
       >
-        <PerformanceChart
+        <PreviewShell
           config={config}
+          emptyDescription="Run the query to see live sample data for the last 7 days."
+          incompleteDescription="Complete the metric definition to see live sample data for the last 7 days."
+          warehouseUnavailableText="Metric performance will be available when the warehouse is ready."
+          renderChart={(state) => <MetricPreviewChart {...state} />}
           controls={
             <Flex
               direction="column"
@@ -267,14 +146,17 @@ export default function MetricPerformance({
                 </Flex>
               )}
               {units.numerator.length > 0 && (
-                <Select
+                <PreviewUnitSelect
+                  units={units.numerator}
+                  value={unit}
+                  setValue={setSelectedUnit}
+                  factTable={numeratorFactTable}
                   size={
                     metric?.metricType === "ratio" ||
                     metric?.metricType === "funnel"
                       ? "md"
                       : "sm"
                   }
-                  triggerClassName={styles.unitTrigger}
                   aria-label={
                     metric?.metricType === "ratio"
                       ? "Numerator unit"
@@ -282,31 +164,7 @@ export default function MetricPerformance({
                         ? "Shared unit for all steps"
                         : "Unit"
                   }
-                  value={unit ?? ""}
-                  setValue={setSelectedUnit}
-                >
-                  {units.numerator.map((id) => {
-                    const { label, column } = getMetricPreviewUnitLabel(
-                      id,
-                      numeratorFactTable,
-                    );
-                    return (
-                      <SelectItem
-                        key={id}
-                        value={id}
-                        textValue={label}
-                        className={styles.unitItem}
-                      >
-                        <span className={styles.unitOption}>
-                          <span>{label}</span>
-                          <span className={styles.unitDescriptor}>
-                            {column}
-                          </span>
-                        </span>
-                      </SelectItem>
-                    );
-                  })}
-                </Select>
+                />
               )}
               {metric?.metricType === "funnel" &&
                 units.numerator.length === 0 && (
@@ -332,35 +190,14 @@ export default function MetricPerformance({
                 </>
               )}
               {units.denominator.length > 0 && (
-                <Select
-                  size="md"
-                  triggerClassName={styles.unitTrigger}
-                  aria-label="Denominator unit"
-                  value={denominatorUnit ?? ""}
+                <PreviewUnitSelect
+                  units={units.denominator}
+                  value={denominatorUnit}
                   setValue={setSelectedDenominatorUnit}
-                >
-                  {units.denominator.map((id) => {
-                    const { label, column } = getMetricPreviewUnitLabel(
-                      id,
-                      denominatorFactTable,
-                    );
-                    return (
-                      <SelectItem
-                        key={id}
-                        value={id}
-                        textValue={label}
-                        className={styles.unitItem}
-                      >
-                        <span className={styles.unitOption}>
-                          <span>{label}</span>
-                          <span className={styles.unitDescriptor}>
-                            {column}
-                          </span>
-                        </span>
-                      </SelectItem>
-                    );
-                  })}
-                </Select>
+                  factTable={denominatorFactTable}
+                  size="md"
+                  aria-label="Denominator unit"
+                />
               )}
             </Flex>
           }

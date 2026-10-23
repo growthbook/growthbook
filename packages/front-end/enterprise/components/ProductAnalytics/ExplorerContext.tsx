@@ -66,6 +66,13 @@ import { useExploreData, CacheOption } from "./useExploreData";
 
 const MAX_TRACKED_ERROR_LENGTH = 500;
 
+// Passive previews: auto-refresh only reads the cache and a failed refresh
+// keeps the last successful result.
+const PREVIEW_TRACKING_SOURCES = new Set([
+  "metric-preview",
+  "population-preview",
+]);
+
 type SetDraftStateAction =
   | ExplorerDraftConfig
   | ((prevState: ExplorerDraftConfig) => ExplorerDraftConfig);
@@ -200,6 +207,8 @@ export function ExplorerProvider({
     datasources,
     getDatasourceById,
   } = useDefinitions();
+  const isPreviewSource =
+    !!trackingSource && PREVIEW_TRACKING_SOURCES.has(trackingSource);
 
   const [, setDefaultDataSourceId] = useLocalStorage<string>(
     LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
@@ -537,7 +546,7 @@ export function ExplorerProvider({
 
       // A failed automatic preview refresh must keep the last successful graph.
       if (
-        trackingSource === "metric-preview" &&
+        isPreviewSource &&
         cache === "required" &&
         (fetchError || fetchResult?.status === "error")
       ) {
@@ -800,6 +809,7 @@ export function ExplorerProvider({
       isManagedWarehouse,
       managedWarehouseUnavailable,
       trackingSource,
+      isPreviewSource,
       getDatasourceById,
       getFactMetricById,
     ],
@@ -867,7 +877,7 @@ export function ExplorerProvider({
       !forceFunnelAutoSubmit;
 
     if (needsFetch) {
-      if (trackingSource === "metric-preview") {
+      if (isPreviewSource) {
         // Each submit cancels the in-flight poll, so a draft edit would drop
         // a running "Run query" result. Wait for it; this effect reruns when
         // polling ends and checks the cache for the latest draft.
@@ -903,7 +913,7 @@ export function ExplorerProvider({
     }
   }, [
     needsFetch,
-    trackingSource,
+    isPreviewSource,
     polling,
     needsUpdate,
     doSubmit,
