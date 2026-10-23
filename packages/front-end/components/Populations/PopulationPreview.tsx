@@ -117,21 +117,13 @@ export default function PopulationPreview({
     step?.source.type === "factTable"
       ? getFactTableById(step.source.factTableId)
       : null;
-  const unsupported =
-    population.steps.length !== 1 ||
-    population.steps.some((step) => step.windowSettings.type !== "");
 
   return (
     <Flex direction="column" gap="4" minWidth="0">
       <Heading as="h2" size="md" mb="0">
         Population Preview
       </Heading>
-      {unsupported ? (
-        <Callout status="info">
-          Preview is available for single-step Populations without a time
-          window.
-        </Callout>
-      ) : !datasource ? (
+      {!datasource ? (
         <Callout status="error">The Data Source is unavailable.</Callout>
       ) : !permissions.canRunMetricQueries(datasource) ? (
         <Text color="text-mid">
