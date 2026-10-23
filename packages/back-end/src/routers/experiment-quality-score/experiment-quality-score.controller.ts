@@ -6,7 +6,7 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
-import { queueExperimentQualityScoreUpdatesForOrg } from "back-end/src/jobs/updateExperimentQualityScores";
+import { queueExperimentQualityRecheck } from "back-end/src/jobs/experimentQualityScoreQueue";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { ReqContext } from "back-end/types/request";
 
@@ -30,10 +30,11 @@ export async function postRecalculateExperimentQualityScores(
     context.permissions.throwPermissionError();
   }
 
-  const queued = await queueExperimentQualityScoreUpdatesForOrg(
-    context.org.id,
-    { force: true },
-  );
+  await queueExperimentQualityRecheck({
+    organization: context.org.id,
+    force: true,
+  });
+  const queued = await countUnarchivedExperimentsByOrganization(context.org.id);
   return res.status(200).json({ status: 200, queued });
 }
 

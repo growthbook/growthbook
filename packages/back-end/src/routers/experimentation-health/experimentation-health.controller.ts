@@ -6,6 +6,17 @@ import {
 import { countHealthOverrides } from "shared/enterprise";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { ReqContext } from "back-end/types/request";
+import { queueExperimentQualityRecheck } from "back-end/src/jobs/experimentQualityScoreQueue";
+import { logger } from "back-end/src/util/logger";
+
+// Saved settings change what's checked, so the scope's scores are rechecked
+function recheckScope(context: ReqContext, project: string) {
+  queueExperimentQualityRecheck({
+    organization: context.org.id,
+    project: project || undefined,
+  }).catch((e) => logger.error(e, "Failed to queue a quality recheck"));
+}
 
 // Saves one scope's settings (the organization default or a Project), replacing
 // what it customized before. A Project record left with nothing customized
@@ -35,6 +46,7 @@ export async function putExperimentationHealthSettings(
       if (existing) {
         await context.models.experimentationHealthSettings.delete(existing);
       }
+      recheckScope(context, project);
       return res.status(200).json({ status: 200, settings: null });
     }
   }
@@ -43,6 +55,7 @@ export async function putExperimentationHealthSettings(
     await context.models.experimentationHealthSettings.upsertForScope(project, {
       quality,
     });
+  recheckScope(context, project);
   return res.status(200).json({ status: 200, settings });
 }
 
@@ -58,6 +71,7 @@ export async function deleteExperimentationHealthSettings(
     );
   if (existing) {
     await context.models.experimentationHealthSettings.delete(existing);
+    recheckScope(context, req.query.project);
   }
   return res.status(200).json({ status: 200 });
 }

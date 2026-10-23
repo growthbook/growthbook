@@ -418,6 +418,9 @@ export type ProcessExperimentQualityCheckKey =
 export const experimentAIQualityResults = z
   .object({
     inputsHash: z.string(),
+    // EXPERIMENT_QUALITY_PROMPT_VERSION when computed, so a release that
+    // changes the checks can find out-of-date results with a query
+    version: z.number().optional(),
     dateComputed: z.date(),
     checks: z.array(
       z

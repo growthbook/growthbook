@@ -3,10 +3,12 @@ import {
   AIExperimentQualityCheckKey,
   ExperimentAIQualityResults,
   ExperimentInterface,
+  ExperimentationHealthSettingsInterface,
   aiExperimentQualityCheckKeys,
   ORG_DEFAULT_SCOPE,
 } from "shared/validators";
 import {
+  EXPERIMENT_QUALITY_PROMPT_VERSION,
   customQualityCheckKey,
   getAIQualityInputsHash,
   getExperimentDigestForCustomRules,
@@ -67,7 +69,7 @@ const dimensionInstructionByCheckKey: Record<
 
 // The org-wide inputs for AI quality scoring, loaded once for any number
 // of the org's experiments
-async function loadAIQualityInputs(
+export async function loadAIQualityInputs(
   context: ReqContext,
   goalMetricIds: string[],
 ) {
@@ -80,11 +82,13 @@ async function loadAIQualityInputs(
   return { recordsByProject, metricNames };
 }
 
+export type AIQualityInputs = Awaited<ReturnType<typeof loadAIQualityInputs>>;
+
 // The AI checks an experiment needs and their current inputs hash, or null
 // when scoring is off for it or none of its AI checks apply
 function getAIQualityWork(
   experiment: ExperimentInterface,
-  inputs: Awaited<ReturnType<typeof loadAIQualityInputs>>,
+  inputs: AIQualityInputs,
 ) {
   const settings = resolveExperimentQualitySettings({
     orgRecord: inputs.recordsByProject.get(ORG_DEFAULT_SCOPE),
@@ -112,27 +116,31 @@ function getAIQualityWork(
     applicableChecks,
     applicableCustomChecks,
     goalMetricNames,
-    inputsHash: getAIQualityInputsHash(experiment, settings, goalMetricNames),
+    inputsHash: getAIQualityInputsHash(experiment, settings),
   };
 }
 
-// Experiments whose cached AI verdicts are missing or out of date
-export async function getStaleAIQualityExperimentIds(
-  context: ReqContext,
-  experiments: ExperimentInterface[],
-): Promise<string[]> {
-  const inputs = await loadAIQualityInputs(
-    context,
-    experiments.flatMap((e) => e.goalMetrics),
-  );
-  return experiments
-    .filter((experiment) => {
-      const work = getAIQualityWork(experiment, inputs);
-      return (
-        !!work && experiment.aiQualityResults?.inputsHash !== work.inputsHash
-      );
-    })
-    .map((experiment) => experiment.id);
+// Which Projects have quality scoring on, as an experiment query: null when
+// it's on nowhere. Experiments without a Project follow the organization.
+export function getQualityScopeFilter(
+  records: ExperimentationHealthSettingsInterface[],
+): { project?: { $in: string[] } | { $nin: string[] } } | null {
+  const orgOn =
+    records.find((r) => r.project === ORG_DEFAULT_SCOPE)?.quality?.enabled ??
+    false;
+  const projects = (enabled: boolean) =>
+    records
+      .filter(
+        (r) =>
+          r.project !== ORG_DEFAULT_SCOPE && r.quality?.enabled === enabled,
+      )
+      .map((r) => r.project);
+  if (orgOn) {
+    const off = projects(false);
+    return off.length ? { project: { $nin: off } } : {};
+  }
+  const on = projects(true);
+  return on.length ? { project: { $in: on } } : null;
 }
 
 type AIQualityCheckResult = ExperimentAIQualityResults["checks"][number];
@@ -275,38 +283,44 @@ async function judgeWithChatModel({
   ];
 }
 
+export type AIQualityOutcome =
+  // Nothing to do: scoring or AI is off, no checks apply, or it's fresh
+  | { status: "skipped" }
+  | { status: "updated" }
+  | { status: "rate-limited"; retryInSeconds: number }
+  // The error is also stored on the experiment
+  | { status: "failed" };
+
 /**
  * Runs the AI quality checks for an experiment and caches the verdicts on
  * the experiment document (`aiQualityResults`), keyed by an inputs hash so
  * unchanged experiments never trigger another AI call.
- *
- * Returns the updated experiment, or null when nothing was computed
- * (feature/AI disabled, no applicable checks, fresh cache, or rate limited).
  */
 export async function computeAndStoreAIQualityChecks({
   context,
   experiment,
   force = false,
+  inputs,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
   force?: boolean;
-}): Promise<ExperimentInterface | null> {
+  // Loaded once by callers that score many experiments
+  inputs?: AIQualityInputs;
+}): Promise<AIQualityOutcome> {
   if (
     !context.hasPremiumFeature("experiment-quality-score") ||
-    !context.org.settings?.aiEnabled
+    !context.org.settings?.aiEnabled ||
+    !(await getAISettingsForOrg(context)).aiEnabled
   ) {
-    return null;
+    return { status: "skipped" };
   }
 
-  const [inputs, { aiEnabled }] = await Promise.all([
-    loadAIQualityInputs(context, experiment.goalMetrics),
-    getAISettingsForOrg(context),
-  ]);
-  if (!aiEnabled) return null;
-
-  const work = getAIQualityWork(experiment, inputs);
-  if (!work) return null;
+  const work = getAIQualityWork(
+    experiment,
+    inputs ?? (await loadAIQualityInputs(context, experiment.goalMetrics)),
+  );
+  if (!work) return { status: "skipped" };
   const {
     settings,
     applicableChecks,
@@ -315,7 +329,7 @@ export async function computeAndStoreAIQualityChecks({
     inputsHash,
   } = work;
   if (!force && experiment.aiQualityResults?.inputsHash === inputsHash) {
-    return null;
+    return { status: "skipped" };
   }
 
   // Built-in checks go to the decision model when one is configured; custom
@@ -324,9 +338,10 @@ export async function computeAndStoreAIQualityChecks({
   const chatChecks = decisionChecks.length ? [] : applicableChecks;
   const useChatModel = !!chatChecks.length || !!applicableCustomChecks.length;
 
-  // Skip while over the AI usage limit; the sweep job will retry later
-  if (useChatModel && (await secondsUntilAICanBeUsedAgain(context.org)) > 0) {
-    return null;
+  // Wait out the AI usage limit; the caller retries later
+  if (useChatModel) {
+    const retryInSeconds = await secondsUntilAICanBeUsedAgain(context.org);
+    if (retryInSeconds > 0) return { status: "rate-limited", retryInSeconds };
   }
 
   // Hypothesis quality is judged against the same (possibly customized)
@@ -361,6 +376,7 @@ export async function computeAndStoreAIQualityChecks({
     ]);
     aiQualityResults = {
       inputsHash,
+      version: EXPERIMENT_QUALITY_PROMPT_VERSION,
       dateComputed: new Date(),
       checks: checks.flat(),
     };
@@ -369,20 +385,21 @@ export async function computeAndStoreAIQualityChecks({
       e,
       `Failed to compute AI quality checks for experiment ${experiment.id}`,
     );
-    // Store the hash with an error sentinel so the sweep doesn't retry
-    // until the inputs change (or a manual refresh forces it)
+    // Shown on the experiment until a retry succeeds
     aiQualityResults = {
       inputsHash,
+      version: EXPERIMENT_QUALITY_PROMPT_VERSION,
       dateComputed: new Date(),
       checks: [],
       error: e instanceof Error ? e.message : "AI scoring failed",
     };
   }
 
-  return updateExperiment({
+  await updateExperiment({
     context,
     experiment,
     changes: { aiQualityResults },
     bypassWebhooks: true,
   });
+  return { status: aiQualityResults.error ? "failed" : "updated" };
 }

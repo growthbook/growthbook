@@ -41,7 +41,7 @@ export function customQualityCheckKey(id: string): CustomQualityCheckKey {
 
 // Bump when the quality prompt or verdict schema changes so cached AI
 // results are recomputed with the new prompt.
-export const EXPERIMENT_QUALITY_PROMPT_VERSION = 8;
+export const EXPERIMENT_QUALITY_PROMPT_VERSION = 9;
 
 const EPS = 1e-9;
 
@@ -512,12 +512,13 @@ export function haveAIQualityInputsChanged(
 
 export function computeAIQualityInputsHash({
   hypothesis,
-  goalMetricNames,
+  goalMetrics,
   aiCheckContexts,
   experimentDigest = "",
 }: {
   hypothesis?: string;
-  goalMetricNames: string[];
+  // Metric ids, not names, so renaming a metric doesn't re-run the checks
+  goalMetrics: string[];
   aiCheckContexts: Array<[string, string]>;
   experimentDigest?: string;
 }): string {
@@ -525,16 +526,15 @@ export function computeAIQualityInputsHash({
     JSON.stringify([
       EXPERIMENT_QUALITY_PROMPT_VERSION,
       hypothesis ?? "",
-      [...goalMetricNames].sort(),
+      [...goalMetrics].sort(),
       aiCheckContexts,
       experimentDigest,
     ]),
   );
 }
 
-// Goal metric names as the AI judge sees them. Metrics that can't be found
-// are dropped, the same way on the front-end and back-end, so both compute
-// the same inputs hash.
+// Goal metric names as the AI judge sees them; metrics that can't be found
+// are dropped
 export function getGoalMetricNames(
   goalMetricIds: string[],
   getName: (id: string) => string | undefined,
@@ -548,17 +548,16 @@ export function getGoalMetricNames(
 export function getAIQualityInputsHash(
   experiment: ExperimentForQualityScore,
   settings: ResolvedExperimentQualityScoreSettings,
-  goalMetricNames: string[],
 ): string {
   const hasCustomRules = settings.customAiChecks.some((c) => c.enabled);
   return computeAIQualityInputsHash({
     hypothesis: experiment.hypothesis,
-    goalMetricNames,
+    goalMetrics: experiment.goalMetrics,
     aiCheckContexts: getAICheckHashInputs(settings),
     // Custom rules read the whole experiment, so any change to it must
     // invalidate their verdicts
     experimentDigest: hasCustomRules
-      ? getExperimentDigestForCustomRules(experiment, goalMetricNames)
+      ? getExperimentDigestForCustomRules(experiment, experiment.goalMetrics)
       : "",
   });
 }
@@ -816,19 +815,15 @@ export function isAICheckApplicable(
 export function getExperimentQualityScore({
   experiment,
   settings,
-  goalMetricNames,
   now = new Date(),
 }: {
   experiment: ExperimentForQualityScore;
   settings: ResolvedExperimentQualityScoreSettings;
-  // Names of the experiment's goal metrics, used to detect stale cached AI
-  // results (they are part of the AI inputs hash)
-  goalMetricNames: string[];
   now?: Date;
 }): ExperimentQualityScoreResult {
   const aiResults =
     experiment.aiQualityResults?.inputsHash ===
-    getAIQualityInputsHash(experiment, settings, goalMetricNames)
+    getAIQualityInputsHash(experiment, settings)
       ? experiment.aiQualityResults
       : undefined;
 

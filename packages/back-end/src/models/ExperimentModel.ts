@@ -378,6 +378,7 @@ const experimentSchema = new mongoose.Schema({
   aiQualityResults: {
     _id: false,
     inputsHash: String,
+    version: Number,
     dateComputed: Date,
     checks: [
       {
@@ -1244,14 +1245,28 @@ const unarchivedExperimentsFilter = (organization: string) => ({
   archived: { $ne: true },
 });
 
-// Candidates for AI quality scoring, in any status. IDs only — each
-// per-experiment job re-fetches the doc and no-ops when its cached AI
-// results are still fresh.
-export async function getUnarchivedExperimentIdsByOrganization(
+// One page of non-archived experiment IDs, in id order, for the batched
+// quality job. `filter` narrows it, e.g. to the Projects with scoring on.
+export async function getExperimentIdsPage(
   organization: string,
+  {
+    after,
+    limit,
+    filter = {},
+  }: {
+    after: string;
+    limit: number;
+    filter?: FilterQuery<ExperimentInterface>;
+  },
 ): Promise<string[]> {
   const experiments = await getCollection(COLLECTION)
-    .find(unarchivedExperimentsFilter(organization))
+    .find({
+      ...filter,
+      ...unarchivedExperimentsFilter(organization),
+      ...(after ? { id: { $gt: after } } : {}),
+    })
+    .sort({ id: 1 })
+    .limit(limit)
     .project({ id: true })
     .toArray();
 
@@ -2504,6 +2519,29 @@ const hasChangesForSDKPayloadRefresh = (
   return !isEqual(oldChanges, newChanges);
 };
 
+// AI quality checks judge experiments in any status, so they run when an
+// experiment is created and whenever what they read changes. The job
+// re-checks every gate and the cache.
+function queueAIQualityChecks(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+) {
+  if (
+    !context.hasPremiumFeature("experiment-quality-score") ||
+    !context.org.settings?.aiEnabled ||
+    experiment.archived
+  ) {
+    return;
+  }
+  queueExperimentQualityScoreUpdate({
+    experimentId: experiment.id,
+    organization: experiment.organization,
+    delayMs: AI_QUALITY_EDIT_DELAY_MS,
+  }).catch((e) =>
+    logger.error(e, `Failed to queue AI quality checks for ${experiment.id}`),
+  );
+}
+
 const onExperimentCreate = async ({
   context,
   experiment,
@@ -2518,6 +2556,8 @@ const onExperimentCreate = async ({
   notifyExperimentCreated({ context, experiment }).catch((error: unknown) =>
     logger.error(error, "Failed to notify experiment creation"),
   );
+
+  queueAIQualityChecks(context, experiment);
 
   if (context.org.isVercelIntegration)
     await createVercelExperimentationItemFromExperiment({
@@ -2604,24 +2644,11 @@ const onExperimentUpdate = async ({
 
   notifyAlerts();
 
-  // AI quality checks judge experiments in any status, so re-run them when
-  // what they read changes. The job re-checks every gate and the cache.
   if (
-    context.hasPremiumFeature("experiment-quality-score") &&
-    context.org.settings?.aiEnabled &&
-    !newExperiment.archived &&
-    haveAIQualityInputsChanged(oldExperiment, newExperiment)
+    haveAIQualityInputsChanged(oldExperiment, newExperiment) ||
+    (oldExperiment.archived && !newExperiment.archived)
   ) {
-    queueExperimentQualityScoreUpdate({
-      experimentId: newExperiment.id,
-      organization: newExperiment.organization,
-      delayMs: AI_QUALITY_EDIT_DELAY_MS,
-    }).catch((e) =>
-      logger.error(
-        e,
-        `Failed to queue AI quality checks for ${newExperiment.id}`,
-      ),
-    );
+    queueAIQualityChecks(context, newExperiment);
   }
 
   if (context.org.isVercelIntegration)

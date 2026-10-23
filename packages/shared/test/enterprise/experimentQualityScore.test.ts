@@ -4,6 +4,7 @@ import {
   getChecksForSection,
   getAICheckHashInputs,
   getExperimentDigestForCustomRules,
+  getAIQualityInputsHash,
   getExperimentQualityScore,
   getQualityImprovements,
   haveAIQualityInputsChanged,
@@ -72,14 +73,9 @@ function baseExperiment(
 function freshAIResults(
   experiment: ExperimentForQualityScore,
   settings = resolveExperimentQualityScoreSettings(),
-  goalMetricNames = ["Signups"],
 ) {
   return {
-    inputsHash: computeAIQualityInputsHash({
-      hypothesis: experiment.hypothesis,
-      goalMetricNames,
-      aiCheckContexts: getAICheckHashInputs(settings),
-    }),
+    inputsHash: getAIQualityInputsHash(experiment, settings),
     checks: [
       { key: "ai-hypothesis-quality" as const, score: 1, reason: "Clear" },
       {
@@ -94,14 +90,8 @@ function freshAIResults(
 function score(
   experiment: ExperimentForQualityScore,
   settings = resolveExperimentQualityScoreSettings(),
-  goalMetricNames = ["Signups"],
 ) {
-  return getExperimentQualityScore({
-    experiment,
-    settings,
-    goalMetricNames,
-    now: NOW,
-  });
+  return getExperimentQualityScore({ experiment, settings, now: NOW });
 }
 
 function sectionByKey(result: ReturnType<typeof score>, key: string) {
@@ -305,7 +295,7 @@ describe("haveAIQualityInputsChanged", () => {
 describe("computeAIQualityInputsHash", () => {
   const base = {
     hypothesis: "h",
-    goalMetricNames: ["Signups"],
+    goalMetrics: ["met_signups"],
     aiCheckContexts: [] as Array<
       ["ai-hypothesis-quality" | "ai-hypothesis-metric-alignment", string]
     >,
@@ -314,11 +304,11 @@ describe("computeAIQualityInputsHash", () => {
   it("is stable regardless of metric name order", () => {
     const a = computeAIQualityInputsHash({
       ...base,
-      goalMetricNames: ["Revenue", "Signups"],
+      goalMetrics: ["met_revenue", "met_signups"],
     });
     const b = computeAIQualityInputsHash({
       ...base,
-      goalMetricNames: ["Signups", "Revenue"],
+      goalMetrics: ["met_signups", "met_revenue"],
     });
     expect(a).toBe(b);
   });
@@ -808,14 +798,7 @@ describe("custom AI rules", () => {
 
     const withVerdict = baseExperiment();
     withVerdict.aiQualityResults = {
-      inputsHash: computeAIQualityInputsHash({
-        hypothesis: withVerdict.hypothesis,
-        goalMetricNames: ["Signups"],
-        aiCheckContexts: getAICheckHashInputs(customSettings),
-        experimentDigest: getExperimentDigestForCustomRules(withVerdict, [
-          "Signups",
-        ]),
-      }),
+      inputsHash: getAIQualityInputsHash(withVerdict, customSettings),
       checks: [
         ...freshAIResults(withVerdict).checks,
         { key: "custom:rule1", score: 0.8, reason: "Within budget" },
@@ -832,11 +815,12 @@ describe("custom AI rules", () => {
     const experiment = baseExperiment();
     const base = {
       hypothesis: experiment.hypothesis,
-      goalMetricNames: ["Signups"],
+      goalMetrics: experiment.goalMetrics,
       aiCheckContexts: getAICheckHashInputs(customSettings),
-      experimentDigest: getExperimentDigestForCustomRules(experiment, [
-        "Signups",
-      ]),
+      experimentDigest: getExperimentDigestForCustomRules(
+        experiment,
+        experiment.goalMetrics,
+      ),
     };
     const hash = computeAIQualityInputsHash(base);
 

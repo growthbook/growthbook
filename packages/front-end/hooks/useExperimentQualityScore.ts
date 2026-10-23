@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import {
   ExperimentQualityScoreResult,
   getExperimentQualityScore,
-  getGoalMetricNames,
   resolveExperimentQualitySettings,
 } from "shared/enterprise";
 import { ORG_DEFAULT_SCOPE } from "shared/validators";
@@ -20,8 +19,7 @@ export default function useExperimentQualityScore(
 ): ExperimentQualityScoreResult | null {
   const { hasCommercialFeature } = useUser();
   const { aiEnabled } = useAISettings();
-  const { getExperimentMetricById, getHealthSettingsForScope } =
-    useDefinitions();
+  const { getHealthSettingsForScope } = useDefinitions();
   const hasFeature = hasCommercialFeature("experiment-quality-score");
 
   return useMemo(() => {
@@ -35,19 +33,6 @@ export default function useExperimentQualityScore(
     });
     if (!settings) return null;
 
-    return getExperimentQualityScore({
-      experiment,
-      settings,
-      goalMetricNames: getGoalMetricNames(
-        experiment.goalMetrics,
-        (id) => getExperimentMetricById(id)?.name,
-      ),
-    });
-  }, [
-    hasFeature,
-    aiEnabled,
-    experiment,
-    getHealthSettingsForScope,
-    getExperimentMetricById,
-  ]);
+    return getExperimentQualityScore({ experiment, settings });
+  }, [hasFeature, aiEnabled, experiment, getHealthSettingsForScope]);
 }
