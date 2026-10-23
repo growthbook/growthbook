@@ -8,6 +8,7 @@ import {
   RequireReview,
 } from "shared/types/organization";
 import Text from "@/ui/Text";
+import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -17,8 +18,6 @@ import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import MultiSelectField from "@/ui/MultiSelectField";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -40,7 +39,11 @@ import {
   withRuleForScope,
   withoutScope,
 } from "./approvalScopes";
-import { ApprovalScopeSections } from "./ApprovalScopeFields";
+import {
+  ApprovalScopeSections,
+  FlagApprovalFields,
+  SavedGroupApprovalFields,
+} from "./ApprovalScopeFields";
 
 export default function ApprovalFlowSettings() {
   const form = useFormContext<OrganizationSettingsWithMetricDefaults>();
@@ -62,7 +65,6 @@ export default function ApprovalFlowSettings() {
   const [tabs, setTabs] = useState<{ id: string; scope: string }[]>([]);
   const nextTabId = useRef(0);
   const newTabId = () => `override-${nextTabId.current++}`;
-  const [activeTab, setActiveTab] = useState(ALL_PROJECTS_TAB);
 
   // Deep links (e.g. from a team's Required Approver list) name a Project;
   // open the rule that governs it once its tab exists.
@@ -75,7 +77,9 @@ export default function ApprovalFlowSettings() {
       scopeProjects(t.scope).includes(requestedProject),
     );
     if (tab) {
-      setActiveTab(tab.id);
+      document
+        .getElementById(`approval-override-${tab.id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
       requestApplied.current = true;
     }
   }, [tabs, requestedProject]);
@@ -98,13 +102,6 @@ export default function ApprovalFlowSettings() {
     ...tabs,
   ];
 
-  const scopeName = (scope: string) =>
-    scope
-      ? scopeProjects(scope)
-          .map((id) => projects.find((p) => p.id === id)?.name ?? id)
-          .join(" + ")
-      : "All Projects";
-
   const setFlagRule = (scope: string, next: RequireReview) =>
     form.setValue("requireReviews", withRuleForScope(flagRules, scope, next));
 
@@ -117,7 +114,6 @@ export default function ApprovalFlowSettings() {
   const addOverride = (project: string) => {
     const id = newTabId();
     setTabs((prev) => [...prev, { id, scope: project }]);
-    setActiveTab(id);
     setFlagRule(project, clonedFlagRule(flagRules, project));
     setSavedGroupRule(project, clonedSavedGroupRule(savedGroupRules, project));
   };
@@ -155,7 +151,6 @@ export default function ApprovalFlowSettings() {
       withoutScope(savedGroupRules, tab.scope),
     );
     setTabs((prev) => prev.filter((t) => t.id !== tab.id));
-    setActiveTab(ALL_PROJECTS_TAB);
   };
 
   const availableProjects = projects.filter(
@@ -191,173 +186,161 @@ export default function ApprovalFlowSettings() {
     );
   }
 
+  const overrideNote = overriddenProjects.length > 0 && (
+    <Callout status="info" size="sm">
+      Approval settings are overridden in{" "}
+      {overriddenProjects.map((p, i) => (
+        <span key={p.id}>
+          {i > 0 && (i === overriddenProjects.length - 1 ? " and " : ", ")}
+          <strong>{p.name}</strong>
+        </span>
+      ))}
+      . <Link href="#ap-overrides">Manage project overrides</Link>
+    </Callout>
+  );
+
   return (
     <>
       <SettingsGroup
-        id="ap-flows"
-        title="Feature flags, Configs, Constants & Saved Groups"
+        id="ap-flags"
+        title="Feature flags, Configs & Constants"
         description="Every change is saved as a revision. Approval adds a review step before it goes live."
-        keywords="approval review publish reset self-approve one step kill switch metadata saved groups project override"
+        keywords="approval review publish reset self-approve one step kill switch metadata environments teams"
       >
-        <Box width="100%">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <Flex align="center" justify="between" gap="3" wrap="wrap">
-              <TabsList>
-                {allTabs.map((tab) => (
-                  <TabsTrigger key={tab.id} value={tab.id}>
-                    <Tooltip
-                      body={scopeName(tab.scope)}
-                      shouldDisplay={!!tab.scope}
-                    >
-                      <span
-                        style={{
-                          display: "block",
-                          maxWidth: "160px",
-                          overflow: "hidden",
-                          whiteSpace: "nowrap",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {scopeName(tab.scope)}
-                      </span>
-                    </Tooltip>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              {availableProjects.length > 0 && (
-                <DropdownMenu
-                  menuPlacement="end"
-                  trigger={
-                    <Button variant="ghost" size="sm">
-                      <PiPlus /> Project override
-                    </Button>
-                  }
+        {overrideNote}
+        <FlagApprovalFields
+          idPrefix="flags-all-projects"
+          value={clonedFlagRule(flagRules, ALL_PROJECTS_SCOPE)}
+          onChange={(next) => setFlagRule(ALL_PROJECTS_SCOPE, next)}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="ap-groups"
+        title="Saved Groups"
+        description="Every change is saved as a revision. Approval adds a review step before it goes live."
+        keywords="approval review saved groups reset self-approve one step metadata teams"
+      >
+        {overrideNote}
+        <SavedGroupApprovalFields
+          idPrefix="saved-groups-all-projects"
+          value={clonedSavedGroupRule(savedGroupRules, ALL_PROJECTS_SCOPE)}
+          onChange={(next) => setSavedGroupRule(ALL_PROJECTS_SCOPE, next)}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="ap-overrides"
+        title="Project overrides"
+        description="Projects with their own approval rules instead of the rules above. Each Project belongs to a single override."
+        keywords="project override approval"
+      >
+        {tabs.length === 0 && (
+          <Text color="text-mid">
+            No Project overrides. Every Project uses the rules above.
+          </Text>
+        )}
+        {tabs.map((tab) => {
+          const scope = tab.scope;
+          return (
+            <Frame
+              key={tab.id}
+              id={`approval-override-${tab.id}`}
+              p="4"
+              mb="0"
+              style={{ scrollMarginTop: 80 }}
+            >
+              <Flex align="end" justify="between" gap="3" mb="4" wrap="wrap">
+                <Box flexGrow="1" minWidth="240px">
+                  <Text as="label" size="md" weight="semibold">
+                    Projects
+                  </Text>
+                  <MultiSelectField
+                    legacyHeight
+                    id={`approval-scope-projects-${tab.id}`}
+                    containerClassName="mb-0"
+                    value={scopeProjects(scope)}
+                    onChange={(next) => retargetTab(tab, next)}
+                    options={projects
+                      .filter(
+                        (p) =>
+                          scopeProjects(scope).includes(p.id) ||
+                          !allTabs.some((other) =>
+                            scopeProjects(other.scope).includes(p.id),
+                          ),
+                      )
+                      .map((p) => ({ value: p.id, label: p.name }))}
+                  />
+                </Box>
+                <Button
+                  variant="ghost"
+                  color="red"
+                  size="sm"
+                  onClick={() => removeOverride(tab)}
                 >
-                  <DropdownMenuGroup>
-                    {availableProjects.map((p) => (
-                      <DropdownMenuItem
-                        key={p.id}
-                        onClick={() => addOverride(p.id)}
-                      >
-                        {p.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuGroup>
-                </DropdownMenu>
-              )}
-            </Flex>
+                  <PiTrash /> Remove override
+                </Button>
+              </Flex>
 
-            {allTabs.map((tab) => {
-              const scope = tab.scope;
-              return (
-                <TabsContent key={tab.id} value={tab.id}>
-                  <Frame p="4" mt="3" mb="0">
-                    {scope ? (
-                      <Flex align="start" justify="between" gap="3" mb="4">
-                        <Text size="sm" color="text-low">
-                          These settings override the base settings in the
-                          &quot;All Projects&quot; tab. Each Project belongs to
-                          a single override.
-                        </Text>
-                        <Button
-                          variant="ghost"
-                          color="red"
-                          size="sm"
-                          onClick={() => removeOverride(tab)}
-                        >
-                          <PiTrash /> Remove override
-                        </Button>
-                      </Flex>
-                    ) : null}
-
-                    {!scope && overriddenProjects.length > 0 && (
-                      <Callout status="info" size="sm" mb="4">
-                        These settings are overridden in the following{" "}
-                        {overriddenProjects.length === 1
-                          ? "Project"
-                          : "Projects"}
-                        :{" "}
-                        {overriddenProjects.map((p, i) => (
-                          <span key={p.id}>
-                            {i > 0 && ", "}
-                            <strong>{p.name}</strong>
-                          </span>
-                        ))}
-                      </Callout>
-                    )}
-
-                    {scope ? (
-                      <Box mb="4">
-                        <Text as="label" size="md" weight="semibold">
-                          Projects
-                        </Text>
-                        <MultiSelectField
-                          legacyHeight
-                          id={`approval-scope-projects-${tab.id}`}
-                          containerClassName="mb-0"
-                          value={scopeProjects(scope)}
-                          onChange={(next) => retargetTab(tab, next)}
-                          options={projects
-                            .filter(
-                              (p) =>
-                                scopeProjects(scope).includes(p.id) ||
-                                !allTabs.some((other) =>
-                                  scopeProjects(other.scope).includes(p.id),
-                                ),
-                            )
-                            .map((p) => ({ value: p.id, label: p.name }))}
-                        />
-                      </Box>
-                    ) : null}
-
-                    <ApprovalScopeSections
-                      idPrefix={tab.id}
-                      flagRule={clonedFlagRule(flagRules, scope)}
-                      onFlagChange={(next) => setFlagRule(scope, next)}
-                      onFlagReset={
-                        differsFromBase(
-                          clonedFlagRule(flagRules, scope),
-                          inheritedFlagRule(flagRules, scope),
+              <ApprovalScopeSections
+                idPrefix={tab.id}
+                flagRule={clonedFlagRule(flagRules, scope)}
+                onFlagChange={(next) => setFlagRule(scope, next)}
+                onFlagReset={
+                  differsFromBase(
+                    clonedFlagRule(flagRules, scope),
+                    inheritedFlagRule(flagRules, scope),
+                  )
+                    ? () =>
+                        setFlagRule(
+                          scope,
+                          clonedFlagRule(withoutScope(flagRules, scope), scope),
                         )
-                          ? () =>
-                              setFlagRule(
-                                scope,
-                                clonedFlagRule(
-                                  withoutScope(flagRules, scope),
-                                  scope,
-                                ),
-                              )
-                          : undefined
-                      }
-                      savedGroupRule={clonedSavedGroupRule(
-                        savedGroupRules,
-                        scope,
-                      )}
-                      onSavedGroupChange={(next) =>
-                        setSavedGroupRule(scope, next)
-                      }
-                      onSavedGroupReset={
-                        differsFromBase(
-                          clonedSavedGroupRule(savedGroupRules, scope),
-                          inheritedSavedGroupRule(savedGroupRules, scope),
+                    : undefined
+                }
+                savedGroupRule={clonedSavedGroupRule(savedGroupRules, scope)}
+                onSavedGroupChange={(next) => setSavedGroupRule(scope, next)}
+                onSavedGroupReset={
+                  differsFromBase(
+                    clonedSavedGroupRule(savedGroupRules, scope),
+                    inheritedSavedGroupRule(savedGroupRules, scope),
+                  )
+                    ? () =>
+                        setSavedGroupRule(
+                          scope,
+                          clonedSavedGroupRule(
+                            withoutScope(savedGroupRules, scope),
+                            scope,
+                          ),
                         )
-                          ? () =>
-                              setSavedGroupRule(
-                                scope,
-                                clonedSavedGroupRule(
-                                  withoutScope(savedGroupRules, scope),
-                                  scope,
-                                ),
-                              )
-                          : undefined
-                      }
-                    />
-                  </Frame>
-                </TabsContent>
-              );
-            })}
-          </Tabs>
-        </Box>
+                    : undefined
+                }
+              />
+            </Frame>
+          );
+        })}
+        {availableProjects.length > 0 && (
+          <Box>
+            <DropdownMenu
+              trigger={
+                <Button variant="outline" size="sm">
+                  <PiPlus /> Project override
+                </Button>
+              }
+            >
+              <DropdownMenuGroup>
+                {availableProjects.map((p) => (
+                  <DropdownMenuItem
+                    key={p.id}
+                    onClick={() => addOverride(p.id)}
+                  >
+                    {p.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenu>
+          </Box>
+        )}
       </SettingsGroup>
 
       <SettingsGroup
