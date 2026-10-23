@@ -222,6 +222,12 @@ export class AnalyticsExplorationModel extends BaseClass {
         path: dataset.type === "data_source" ? dataset.path : null,
         sql: dataset.type === "sql" ? dataset.sql : null,
         rawTable: config.chartType === "rawTable",
+        // Membership thresholds depend on the selected window; don't reuse
+        // results from an approximately matching but different date range.
+        ...(dataset.type === "metric" &&
+        dataset.values.some((v) => v.population)
+          ? { populationDateRange: config.dateRange }
+          : {}),
         timestampColumn:
           dataset.type === "data_source" || dataset.type === "sql"
             ? dataset.timestampColumn

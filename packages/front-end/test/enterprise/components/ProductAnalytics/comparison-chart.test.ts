@@ -505,7 +505,11 @@ describe("population rate comparisons", () => {
             unit: "user_id",
             denominatorUnit: null,
             rowFilters: [],
-            populationId: "pop",
+            population: {
+              name: "Eligible users",
+              source: { type: "factTable", factTableId: "events" },
+              rowFilters: [],
+            },
           },
         ],
       },

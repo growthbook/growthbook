@@ -107,17 +107,11 @@ export default function MetricTabContent() {
             !p.steps[0].windowSettings.type &&
             p.steps[0].source.factTableId === metric?.numerator?.factTableId &&
             !!v.unit &&
-            p.userIdTypes.includes(v.unit) &&
-            permissionsUtil.canRunMetricQueries(p),
+            p.userIdTypes.includes(v.unit),
         );
         const hasBreakdown = draftExploreState.dimensions.some(
           (d) => d.dimensionType !== "date",
         );
-        const unavailablePopulation =
-          !populationsLoading &&
-          !populationsError &&
-          !!v.populationId &&
-          !compatiblePopulations.some((p) => p.id === v.populationId);
         const lockedClass = getLockedClassForSlot(idx);
         const disabledTooltip = lockedClass ? mixTooltip(lockedClass) : "";
         return (
@@ -148,8 +142,7 @@ export default function MetricTabContent() {
                   const updates = {
                     ...v,
                     metricId: val,
-                    populationId: null,
-                    populationVersion: undefined,
+                    population: null,
                     unit,
                     name: newMetric?.name
                       ? generateUniqueValueName(
@@ -198,34 +191,46 @@ export default function MetricTabContent() {
                 placeholder="Select metric..."
                 forceUndefinedValueToNull
               />
-              {(metric?.metricType === "proportion" || v.populationId) && (
+              {(metric?.metricType === "proportion" || v.population) && (
                 <>
                   <Select
                     mt="3"
                     label="Population"
-                    value={v.populationId || "none"}
+                    value={v.population ? "snapshot" : "none"}
                     disabled={
-                      populationsLoading || (hasBreakdown && !v.populationId)
+                      populationsLoading || (hasBreakdown && !v.population)
                     }
                     error={
                       populationsError
-                        ? "Unable to load populations"
-                        : unavailablePopulation
-                          ? "This population is unavailable or incompatible with the selected metric and unit."
-                          : undefined
+                        ? "Unable to load saved populations"
+                        : undefined
                     }
-                    setValue={(id) =>
+                    setValue={(id) => {
+                      if (id === "snapshot") return;
+                      const selected = compatiblePopulations.find(
+                        (p) => p.id === id,
+                      );
+                      const step = selected?.steps[0];
                       updateValueInDataset(idx, {
                         ...v,
-                        populationId: id === "none" ? null : id,
-                        populationVersion: undefined,
-                      })
-                    }
+                        population:
+                          selected && step
+                            ? {
+                                name: selected.name,
+                                source: step.source,
+                                rowFilters: step.rowFilters,
+                                aggregateFilter: step.aggregateFilter,
+                                aggregateFilterColumn:
+                                  step.aggregateFilterColumn,
+                              }
+                            : null,
+                      });
+                    }}
                   >
                     <SelectItem value="none">None (show total)</SelectItem>
-                    {unavailablePopulation && (
-                      <SelectItem value={v.populationId!} disabled>
-                        Unavailable population
+                    {v.population && (
+                      <SelectItem value="snapshot">
+                        {v.population.name} (snapshot)
                       </SelectItem>
                     )}
                     {compatiblePopulations.map((p) => (
@@ -241,8 +246,8 @@ export default function MetricTabContent() {
                   <Text size="sm" color="text-low">
                     {hasBreakdown
                       ? "Remove non-date breakdowns to select a population."
-                      : v.populationId
-                        ? "Shows the share of population members who qualify for this metric. Membership is evaluated within each date bucket."
+                      : v.population
+                        ? "Uses a snapshot of these rules within each date bucket. Changes to the saved population do not update this exploration; select it again to copy its latest rules."
                         : "Select a population to show a conversion rate instead of a total."}
                   </Text>
                 </>

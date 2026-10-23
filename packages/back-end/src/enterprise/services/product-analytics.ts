@@ -1,4 +1,3 @@
-import md5 from "md5";
 import {
   ExplorationConfig,
   explorationConfigValidator,
@@ -18,7 +17,6 @@ import {
   hasTimestampColumn,
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
-  ExplorationPopulation,
   validateMetricPopulation,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
@@ -130,14 +128,9 @@ export async function runProductAnalyticsExploration(
 
   const metricMap: Map<string, FactMetricInterface> = new Map();
   const factTableMap: Map<string, FactTableInterface> = new Map();
-  const populationMap = new Map<string, ExplorationPopulation>();
   if (dataset.type === "metric") {
-    const populationValues = dataset.values.filter((v) => v.populationId);
+    const populationValues = dataset.values.filter((v) => v.population);
     if (populationValues.length) {
-      const populations = await context.models.populations.getByIds([
-        ...new Set(populationValues.map((v) => v.populationId!)),
-      ]);
-      populations.forEach((p) => populationMap.set(p.id, p));
       const metrics = await context.models.factMetrics.getByIds(
         populationValues.map((v) => v.metricId),
       );
@@ -151,7 +144,7 @@ export async function runProductAnalyticsExploration(
       metrics.forEach((m) => metricMap.set(m.id, m));
       tables.forEach((t) => factTableMap.set(t.id, t));
       for (const value of populationValues) {
-        const population = populations.find((p) => p.id === value.populationId);
+        const population = value.population;
         const metric = metrics.find((m) => m.id === value.metricId);
         const table = tables.find(
           (t) => t.id === metric?.numerator?.factTableId,
@@ -165,27 +158,12 @@ export async function runProductAnalyticsExploration(
           throw new BadRequestError(
             "Population previews require a saved metric",
           );
-        if (!context.permissions.canRunMetricQueries(population)) {
-          context.permissions.throwPermissionError();
-        }
         try {
           validateMetricPopulation(config, value, metric, population, table);
         } catch (e) {
           throw new BadRequestError(e instanceof Error ? e.message : String(e));
         }
-        // Always replace the client's version, including when cache is required.
-        value.populationVersion = md5(
-          JSON.stringify({
-            population,
-            metric,
-            table,
-            dateRange: config.dateRange,
-          }),
-        );
       }
-    }
-    for (const value of dataset.values) {
-      if (!value.populationId) delete value.populationVersion;
     }
   }
 
@@ -533,7 +511,6 @@ export async function runProductAnalyticsExploration(
     await queryRunner.startAnalysis({
       factTableMap,
       factMetricMap: metricMap,
-      populationMap,
     });
     // If results aren't ready within the sync budget, return the in-progress
     // exploration (status "running") instead of blocking the request. The

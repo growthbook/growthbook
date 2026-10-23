@@ -348,7 +348,7 @@ function metricNameForDatasetValue(
     return `Metric ${metricIndex}`;
   const value = config.dataset?.values?.[metricIndex];
   const name = value?.name ?? `Metric ${metricIndex}`;
-  return value?.type === "metric" && value.populationId
+  return value?.type === "metric" && value.population
     ? `${name} (rate, 0–1)`
     : name;
 }

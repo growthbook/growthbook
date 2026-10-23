@@ -41254,13 +41254,81 @@ paths:
                                               anyOf:
                                                 - type: string
                                                 - type: 'null'
-                                            populationId:
+                                            population:
                                               anyOf:
-                                                - type: string
-                                                  minLength: 1
+                                                - type: object
+                                                  properties:
+                                                    source:
+                                                      anyOf:
+                                                        - type: object
+                                                          properties:
+                                                            type:
+                                                              type: string
+                                                              const: factTable
+                                                            factTableId:
+                                                              type: string
+                                                          required:
+                                                            - type
+                                                            - factTableId
+                                                          additionalProperties: false
+                                                    rowFilters:
+                                                      type: array
+                                                      items:
+                                                        type: object
+                                                        properties:
+                                                          operator:
+                                                            type: string
+                                                            enum:
+                                                              - '='
+                                                              - '!='
+                                                              - <
+                                                              - <=
+                                                              - '>'
+                                                              - '>='
+                                                              - between
+                                                              - not_between
+                                                              - in
+                                                              - not_in
+                                                              - contains
+                                                              - not_contains
+                                                              - matches_pattern
+                                                              - not_matches_pattern
+                                                              - starts_with
+                                                              - ends_with
+                                                              - is_null
+                                                              - not_null
+                                                              - is_true
+                                                              - is_false
+                                                              - sql_expr
+                                                              - saved_filter
+                                                          column:
+                                                            type: string
+                                                          values:
+                                                            type: array
+                                                            items:
+                                                              type: string
+                                                        required:
+                                                          - operator
+                                                        additionalProperties: false
+                                                    aggregateFilter:
+                                                      description: >-
+                                                        Conditions on each unit's total within
+                                                        the window, such as ">=3" or ">=3,<10".
+                                                        Requires aggregateFilterColumn
+                                                      type: string
+                                                    aggregateFilterColumn:
+                                                      description: >-
+                                                        Numeric column to total, or "$$count" to
+                                                        count rows. Requires aggregateFilter
+                                                      type: string
+                                                    name:
+                                                      type: string
+                                                  required:
+                                                    - source
+                                                    - rowFilters
+                                                    - name
+                                                  additionalProperties: false
                                                 - type: 'null'
-                                            populationVersion:
-                                              type: string
                                           required:
                                             - name
                                             - rowFilters
@@ -44633,13 +44701,81 @@ paths:
                                               anyOf:
                                                 - type: string
                                                 - type: 'null'
-                                            populationId:
+                                            population:
                                               anyOf:
-                                                - type: string
-                                                  minLength: 1
+                                                - type: object
+                                                  properties:
+                                                    source:
+                                                      anyOf:
+                                                        - type: object
+                                                          properties:
+                                                            type:
+                                                              type: string
+                                                              const: factTable
+                                                            factTableId:
+                                                              type: string
+                                                          required:
+                                                            - type
+                                                            - factTableId
+                                                          additionalProperties: false
+                                                    rowFilters:
+                                                      type: array
+                                                      items:
+                                                        type: object
+                                                        properties:
+                                                          operator:
+                                                            type: string
+                                                            enum:
+                                                              - '='
+                                                              - '!='
+                                                              - <
+                                                              - <=
+                                                              - '>'
+                                                              - '>='
+                                                              - between
+                                                              - not_between
+                                                              - in
+                                                              - not_in
+                                                              - contains
+                                                              - not_contains
+                                                              - matches_pattern
+                                                              - not_matches_pattern
+                                                              - starts_with
+                                                              - ends_with
+                                                              - is_null
+                                                              - not_null
+                                                              - is_true
+                                                              - is_false
+                                                              - sql_expr
+                                                              - saved_filter
+                                                          column:
+                                                            type: string
+                                                          values:
+                                                            type: array
+                                                            items:
+                                                              type: string
+                                                        required:
+                                                          - operator
+                                                        additionalProperties: false
+                                                    aggregateFilter:
+                                                      description: >-
+                                                        Conditions on each unit's total within
+                                                        the window, such as ">=3" or ">=3,<10".
+                                                        Requires aggregateFilterColumn
+                                                      type: string
+                                                    aggregateFilterColumn:
+                                                      description: >-
+                                                        Numeric column to total, or "$$count" to
+                                                        count rows. Requires aggregateFilter
+                                                      type: string
+                                                    name:
+                                                      type: string
+                                                  required:
+                                                    - source
+                                                    - rowFilters
+                                                    - name
+                                                  additionalProperties: false
                                                 - type: 'null'
-                                            populationVersion:
-                                              type: string
                                           required:
                                             - name
                                             - rowFilters
@@ -48209,13 +48345,81 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
-                                        populationId:
+                                        population:
                                           anyOf:
-                                            - type: string
-                                              minLength: 1
+                                            - type: object
+                                              properties:
+                                                source:
+                                                  anyOf:
+                                                    - type: object
+                                                      properties:
+                                                        type:
+                                                          type: string
+                                                          const: factTable
+                                                        factTableId:
+                                                          type: string
+                                                      required:
+                                                        - type
+                                                        - factTableId
+                                                      additionalProperties: false
+                                                rowFilters:
+                                                  type: array
+                                                  items:
+                                                    type: object
+                                                    properties:
+                                                      operator:
+                                                        type: string
+                                                        enum:
+                                                          - '='
+                                                          - '!='
+                                                          - <
+                                                          - <=
+                                                          - '>'
+                                                          - '>='
+                                                          - between
+                                                          - not_between
+                                                          - in
+                                                          - not_in
+                                                          - contains
+                                                          - not_contains
+                                                          - matches_pattern
+                                                          - not_matches_pattern
+                                                          - starts_with
+                                                          - ends_with
+                                                          - is_null
+                                                          - not_null
+                                                          - is_true
+                                                          - is_false
+                                                          - sql_expr
+                                                          - saved_filter
+                                                      column:
+                                                        type: string
+                                                      values:
+                                                        type: array
+                                                        items:
+                                                          type: string
+                                                    required:
+                                                      - operator
+                                                    additionalProperties: false
+                                                aggregateFilter:
+                                                  description: >-
+                                                    Conditions on each unit's total within
+                                                    the window, such as ">=3" or ">=3,<10".
+                                                    Requires aggregateFilterColumn
+                                                  type: string
+                                                aggregateFilterColumn:
+                                                  description: >-
+                                                    Numeric column to total, or "$$count" to
+                                                    count rows. Requires aggregateFilter
+                                                  type: string
+                                                name:
+                                                  type: string
+                                              required:
+                                                - source
+                                                - rowFilters
+                                                - name
+                                              additionalProperties: false
                                             - type: 'null'
-                                        populationVersion:
-                                          type: string
                                       required:
                                         - name
                                         - rowFilters
@@ -51796,13 +52000,81 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
-                                        populationId:
+                                        population:
                                           anyOf:
-                                            - type: string
-                                              minLength: 1
+                                            - type: object
+                                              properties:
+                                                source:
+                                                  anyOf:
+                                                    - type: object
+                                                      properties:
+                                                        type:
+                                                          type: string
+                                                          const: factTable
+                                                        factTableId:
+                                                          type: string
+                                                      required:
+                                                        - type
+                                                        - factTableId
+                                                      additionalProperties: false
+                                                rowFilters:
+                                                  type: array
+                                                  items:
+                                                    type: object
+                                                    properties:
+                                                      operator:
+                                                        type: string
+                                                        enum:
+                                                          - '='
+                                                          - '!='
+                                                          - <
+                                                          - <=
+                                                          - '>'
+                                                          - '>='
+                                                          - between
+                                                          - not_between
+                                                          - in
+                                                          - not_in
+                                                          - contains
+                                                          - not_contains
+                                                          - matches_pattern
+                                                          - not_matches_pattern
+                                                          - starts_with
+                                                          - ends_with
+                                                          - is_null
+                                                          - not_null
+                                                          - is_true
+                                                          - is_false
+                                                          - sql_expr
+                                                          - saved_filter
+                                                      column:
+                                                        type: string
+                                                      values:
+                                                        type: array
+                                                        items:
+                                                          type: string
+                                                    required:
+                                                      - operator
+                                                    additionalProperties: false
+                                                aggregateFilter:
+                                                  description: >-
+                                                    Conditions on each unit's total within
+                                                    the window, such as ">=3" or ">=3,<10".
+                                                    Requires aggregateFilterColumn
+                                                  type: string
+                                                aggregateFilterColumn:
+                                                  description: >-
+                                                    Numeric column to total, or "$$count" to
+                                                    count rows. Requires aggregateFilter
+                                                  type: string
+                                                name:
+                                                  type: string
+                                              required:
+                                                - source
+                                                - rowFilters
+                                                - name
+                                              additionalProperties: false
                                             - type: 'null'
-                                        populationVersion:
-                                          type: string
                                       required:
                                         - name
                                         - rowFilters
@@ -57315,13 +57587,81 @@ paths:
                             anyOf:
                               - type: string
                               - type: 'null'
-                          populationId:
+                          population:
                             anyOf:
-                              - type: string
-                                minLength: 1
+                              - type: object
+                                properties:
+                                  source:
+                                    anyOf:
+                                      - type: object
+                                        properties:
+                                          type:
+                                            type: string
+                                            const: factTable
+                                          factTableId:
+                                            type: string
+                                        required:
+                                          - type
+                                          - factTableId
+                                        additionalProperties: false
+                                  rowFilters:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        operator:
+                                          type: string
+                                          enum:
+                                            - '='
+                                            - '!='
+                                            - <
+                                            - <=
+                                            - '>'
+                                            - '>='
+                                            - between
+                                            - not_between
+                                            - in
+                                            - not_in
+                                            - contains
+                                            - not_contains
+                                            - matches_pattern
+                                            - not_matches_pattern
+                                            - starts_with
+                                            - ends_with
+                                            - is_null
+                                            - not_null
+                                            - is_true
+                                            - is_false
+                                            - sql_expr
+                                            - saved_filter
+                                        column:
+                                          type: string
+                                        values:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - operator
+                                      additionalProperties: false
+                                  aggregateFilter:
+                                    description: >-
+                                      Conditions on each unit's total within the
+                                      window, such as ">=3" or ">=3,<10".
+                                      Requires aggregateFilterColumn
+                                    type: string
+                                  aggregateFilterColumn:
+                                    description: >-
+                                      Numeric column to total, or "$$count" to
+                                      count rows. Requires aggregateFilter
+                                    type: string
+                                  name:
+                                    type: string
+                                required:
+                                  - source
+                                  - rowFilters
+                                  - name
+                                additionalProperties: false
                               - type: 'null'
-                          populationVersion:
-                            type: string
                         required:
                           - name
                           - rowFilters
@@ -57753,13 +58093,81 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
-                                        populationId:
+                                        population:
                                           anyOf:
-                                            - type: string
-                                              minLength: 1
+                                            - type: object
+                                              properties:
+                                                source:
+                                                  anyOf:
+                                                    - type: object
+                                                      properties:
+                                                        type:
+                                                          type: string
+                                                          const: factTable
+                                                        factTableId:
+                                                          type: string
+                                                      required:
+                                                        - type
+                                                        - factTableId
+                                                      additionalProperties: false
+                                                rowFilters:
+                                                  type: array
+                                                  items:
+                                                    type: object
+                                                    properties:
+                                                      operator:
+                                                        type: string
+                                                        enum:
+                                                          - '='
+                                                          - '!='
+                                                          - <
+                                                          - <=
+                                                          - '>'
+                                                          - '>='
+                                                          - between
+                                                          - not_between
+                                                          - in
+                                                          - not_in
+                                                          - contains
+                                                          - not_contains
+                                                          - matches_pattern
+                                                          - not_matches_pattern
+                                                          - starts_with
+                                                          - ends_with
+                                                          - is_null
+                                                          - not_null
+                                                          - is_true
+                                                          - is_false
+                                                          - sql_expr
+                                                          - saved_filter
+                                                      column:
+                                                        type: string
+                                                      values:
+                                                        type: array
+                                                        items:
+                                                          type: string
+                                                    required:
+                                                      - operator
+                                                    additionalProperties: false
+                                                aggregateFilter:
+                                                  description: >-
+                                                    Conditions on each unit's total within
+                                                    the window, such as ">=3" or ">=3,<10".
+                                                    Requires aggregateFilterColumn
+                                                  type: string
+                                                aggregateFilterColumn:
+                                                  description: >-
+                                                    Numeric column to total, or "$$count" to
+                                                    count rows. Requires aggregateFilter
+                                                  type: string
+                                                name:
+                                                  type: string
+                                              required:
+                                                - source
+                                                - rowFilters
+                                                - name
+                                              additionalProperties: false
                                             - type: 'null'
-                                        populationVersion:
-                                          type: string
                                       required:
                                         - name
                                         - rowFilters
@@ -79826,13 +80234,81 @@ components:
                                   anyOf:
                                     - type: string
                                     - type: 'null'
-                                populationId:
+                                population:
                                   anyOf:
-                                    - type: string
-                                      minLength: 1
+                                    - type: object
+                                      properties:
+                                        source:
+                                          anyOf:
+                                            - type: object
+                                              properties:
+                                                type:
+                                                  type: string
+                                                  const: factTable
+                                                factTableId:
+                                                  type: string
+                                              required:
+                                                - type
+                                                - factTableId
+                                              additionalProperties: false
+                                        rowFilters:
+                                          type: array
+                                          items:
+                                            type: object
+                                            properties:
+                                              operator:
+                                                type: string
+                                                enum:
+                                                  - '='
+                                                  - '!='
+                                                  - <
+                                                  - <=
+                                                  - '>'
+                                                  - '>='
+                                                  - between
+                                                  - not_between
+                                                  - in
+                                                  - not_in
+                                                  - contains
+                                                  - not_contains
+                                                  - matches_pattern
+                                                  - not_matches_pattern
+                                                  - starts_with
+                                                  - ends_with
+                                                  - is_null
+                                                  - not_null
+                                                  - is_true
+                                                  - is_false
+                                                  - sql_expr
+                                                  - saved_filter
+                                              column:
+                                                type: string
+                                              values:
+                                                type: array
+                                                items:
+                                                  type: string
+                                            required:
+                                              - operator
+                                            additionalProperties: false
+                                        aggregateFilter:
+                                          description: >-
+                                            Conditions on each unit's total within
+                                            the window, such as ">=3" or ">=3,<10".
+                                            Requires aggregateFilterColumn
+                                          type: string
+                                        aggregateFilterColumn:
+                                          description: >-
+                                            Numeric column to total, or "$$count" to
+                                            count rows. Requires aggregateFilter
+                                          type: string
+                                        name:
+                                          type: string
+                                      required:
+                                        - source
+                                        - rowFilters
+                                        - name
+                                      additionalProperties: false
                                     - type: 'null'
-                                populationVersion:
-                                  type: string
                               required:
                                 - name
                                 - rowFilters
@@ -83004,13 +83480,81 @@ components:
                             anyOf:
                               - type: string
                               - type: 'null'
-                          populationId:
+                          population:
                             anyOf:
-                              - type: string
-                                minLength: 1
+                              - type: object
+                                properties:
+                                  source:
+                                    anyOf:
+                                      - type: object
+                                        properties:
+                                          type:
+                                            type: string
+                                            const: factTable
+                                          factTableId:
+                                            type: string
+                                        required:
+                                          - type
+                                          - factTableId
+                                        additionalProperties: false
+                                  rowFilters:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        operator:
+                                          type: string
+                                          enum:
+                                            - '='
+                                            - '!='
+                                            - <
+                                            - <=
+                                            - '>'
+                                            - '>='
+                                            - between
+                                            - not_between
+                                            - in
+                                            - not_in
+                                            - contains
+                                            - not_contains
+                                            - matches_pattern
+                                            - not_matches_pattern
+                                            - starts_with
+                                            - ends_with
+                                            - is_null
+                                            - not_null
+                                            - is_true
+                                            - is_false
+                                            - sql_expr
+                                            - saved_filter
+                                        column:
+                                          type: string
+                                        values:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - operator
+                                      additionalProperties: false
+                                  aggregateFilter:
+                                    description: >-
+                                      Conditions on each unit's total within the
+                                      window, such as ">=3" or ">=3,<10".
+                                      Requires aggregateFilterColumn
+                                    type: string
+                                  aggregateFilterColumn:
+                                    description: >-
+                                      Numeric column to total, or "$$count" to
+                                      count rows. Requires aggregateFilter
+                                    type: string
+                                  name:
+                                    type: string
+                                required:
+                                  - source
+                                  - rowFilters
+                                  - name
+                                additionalProperties: false
                               - type: 'null'
-                          populationVersion:
-                            type: string
                         required:
                           - name
                           - rowFilters

@@ -7,11 +7,12 @@ import {
   encodeExplorationConfig,
   decodeExplorationConfigJson,
   validateMetricPopulation,
-  ExplorationPopulation,
 } from "shared/enterprise";
 import { createLikeStringMatchFn } from "shared/sql";
 import {
   MetricExplorationConfig,
+  MetricPopulation,
+  metricPopulationValidator,
   explorationConfigValidator,
 } from "shared/validators";
 import {
@@ -49,25 +50,12 @@ const metric = {
   cappingSettings: { type: "", value: 0 },
   quantileSettings: null,
 } as FactMetricInterface;
-const population: ExplorationPopulation = {
-  id: "mobile",
-  datasource: "ds",
-  userIdTypes: ["user_id"],
-  steps: [
-    {
-      source: { type: "factTable", factTableId: "events" },
-      rowFilters: [{ column: "mobile", operator: "=", values: ["1"] }],
-      aggregateFilter: ">10",
-      aggregateFilterColumn: "revenue",
-      windowSettings: {
-        type: "",
-        delayValue: 0,
-        delayUnit: "days",
-        windowValue: 0,
-        windowUnit: "days",
-      },
-    },
-  ],
+const population: MetricPopulation = {
+  name: "Mobile users",
+  source: { type: "factTable", factTableId: "events" },
+  rowFilters: [{ column: "mobile", operator: "=", values: ["1"] }],
+  aggregateFilter: ">10",
+  aggregateFilterColumn: "revenue",
 };
 const config: MetricExplorationConfig = {
   type: "metric",
@@ -90,7 +78,7 @@ const config: MetricExplorationConfig = {
         unit: "user_id",
         denominatorUnit: null,
         rowFilters: [],
-        populationId: population.id,
+        population,
       },
     ],
   },
@@ -129,23 +117,28 @@ function query(
   c = config,
   p = population,
   m = metric,
-  otherPopulations: ExplorationPopulation[] = [],
   otherMetrics: FactMetricInterface[] = [],
 ) {
   return generateProductAnalyticsSQL(
-    c,
+    {
+      ...c,
+      dataset: {
+        ...c.dataset,
+        values: c.dataset.values.map((v, i) =>
+          i === 0 && v.population ? { ...v, population: p } : v,
+        ),
+      },
+    },
     new Map([[table.id, table]]),
     new Map([m, ...otherMetrics].map((m) => [m.id, m])),
     dialect,
     {},
-    new Map([p, ...otherPopulations].map((p) => [p.id, p])),
   );
 }
 function execute(
   c = config,
   p = population,
   m = metric,
-  otherPopulations: ExplorationPopulation[] = [],
   otherMetrics: FactMetricInterface[] = [],
 ) {
   const db = new DatabaseSync(":memory:");
@@ -162,13 +155,7 @@ function execute(
         ('b', '2026-09-02', 20, 1, 0),
         ('e', '2026-09-03', 0, 1, 0),
         ('c', '2026-09-03', 0, 0, 1);`);
-    const { sql, orderedMetricIds } = query(
-      c,
-      p,
-      m,
-      otherPopulations,
-      otherMetrics,
-    );
+    const { sql, orderedMetricIds } = query(c, p, m, otherMetrics);
     return transformProductAnalyticsRowsToResult(
       c,
       db.prepare(sql).all(),
@@ -224,7 +211,7 @@ describe("population-backed proportions", () => {
         type: "metric",
         values: [
           config.dataset.values[0],
-          { ...config.dataset.values[0], populationId: null },
+          { ...config.dataset.values[0], population: null },
         ],
       },
     };
@@ -257,25 +244,25 @@ describe("population-backed proportions", () => {
           {
             ...config.dataset.values[0],
             metricId: other.id,
-            populationId: null,
+            population: null,
           },
         ],
       },
     };
     expect(
-      execute(c, population, metric, [], [other])[0].values?.[1],
+      execute(c, population, metric, [other])[0].values?.[1],
     ).toMatchObject({ numerator: 4, denominator: 4 });
   });
   it("does not qualify metric-only rows for population conditions accepting zero", () => {
     const p = structuredClone(population);
-    p.steps[0].aggregateFilter = "<=0";
+    p.aggregateFilter = "<=0";
     const rows = execute(config, p);
     expect(rows[2].values?.[0]).toMatchObject({ numerator: 0, denominator: 1 });
   });
   it("supports population row filters without an aggregate condition", () => {
     const p = structuredClone(population);
-    delete p.steps[0].aggregateFilter;
-    delete p.steps[0].aggregateFilterColumn;
+    delete p.aggregateFilter;
+    delete p.aggregateFilterColumn;
     expect(execute(config, p)[0].values?.[0]).toMatchObject({
       numerator: 2,
       denominator: 3,
@@ -283,8 +270,8 @@ describe("population-backed proportions", () => {
   });
   it("supports count thresholds and metric aggregate conditions without counting absent activity", () => {
     const p = structuredClone(population);
-    p.steps[0].aggregateFilter = ">=2";
-    p.steps[0].aggregateFilterColumn = "$$count";
+    p.aggregateFilter = ">=2";
+    p.aggregateFilterColumn = "$$count";
     expect(execute(config, p)[0].values?.[0]).toMatchObject({
       numerator: 1,
       denominator: 1,
@@ -316,17 +303,17 @@ describe("population-backed proportions", () => {
   });
   it("keeps two population selections independent in the same scan", () => {
     const other = structuredClone(population);
-    other.id = "everyone";
-    other.steps[0].rowFilters = [];
-    delete other.steps[0].aggregateFilter;
-    delete other.steps[0].aggregateFilterColumn;
+    other.name = "Everyone";
+    other.rowFilters = [];
+    delete other.aggregateFilter;
+    delete other.aggregateFilterColumn;
     const c = {
       ...config,
       dataset: {
         ...config.dataset,
         values: [
           config.dataset.values[0],
-          { ...config.dataset.values[0], populationId: other.id },
+          { ...config.dataset.values[0], population: other },
         ],
       },
     };
@@ -336,16 +323,12 @@ describe("population-backed proportions", () => {
       new Map([[metric.id, metric]]),
       dialect,
       {},
-      new Map([
-        [population.id, population],
-        [other.id, other],
-      ]),
     );
     expect(orderedMetricIds).toEqual([metric.id, metric.id]);
     expect(sql).toContain("pop0");
     expect(sql).toContain("pop1");
     expect(sql).not.toContain("JOIN");
-    const rows = execute(c, population, metric, [other]);
+    const rows = execute(c);
     expect(rows[0].values?.map((v) => [v.numerator, v.denominator])).toEqual([
       [1, 2],
       [3, 4],
@@ -360,16 +343,7 @@ describe("population-backed proportions", () => {
       "Conversion Rate (0–1)",
     );
   });
-  it("rejects unresolved populations and unsupported configurations", () => {
-    expect(() =>
-      generateProductAnalyticsSQL(
-        config,
-        new Map([[table.id, table]]),
-        new Map([[metric.id, metric]]),
-        dialect,
-        {},
-      ),
-    ).toThrow("Population not found");
+  it("rejects unsupported inline population configurations", () => {
     const validate = (
       c = config,
       p = population,
@@ -392,23 +366,18 @@ describe("population-backed proportions", () => {
     expect(() => validate(config, population, metric, null)).toThrow(
       "identifier",
     );
-    expect(() =>
-      validate(config, { ...population, datasource: "other" }),
-    ).toThrow("same Fact Table");
-    expect(() => validate(config, { ...population, steps: [] })).toThrow(
-      "single-step",
-    );
     const p = structuredClone(population);
-    p.steps[0].source.factTableId = "other";
+    p.source.factTableId = "other";
     expect(() => validate(config, p)).toThrow("same Fact Table");
-    p.steps[0] = {
-      ...population.steps[0],
-      windowSettings: {
-        ...population.steps[0].windowSettings,
-        type: "lookback",
-      },
-    };
-    expect(() => validate(config, p)).toThrow("time window");
+    expect(() =>
+      metricPopulationValidator.parse({
+        ...population,
+        windowSettings: { type: "lookback" },
+      }),
+    ).toThrow();
+    expect(() =>
+      metricPopulationValidator.parse({ ...population, steps: [] }),
+    ).toThrow();
     expect(() =>
       validate({
         ...config,
@@ -417,10 +386,11 @@ describe("population-backed proportions", () => {
         ],
       }),
     ).toThrow("grouped by date");
+    expect(() => validate(config, population, metric, "other")).toThrow(
+      "identifier",
+    );
     expect(() =>
-      validate(config, { ...population, userIdTypes: ["other"] }),
-    ).toThrow("identifier");
-    p.steps[0] = { ...population.steps[0], aggregateFilter: "invalid" };
-    expect(() => validate(config, p)).toThrow("Invalid aggregate filter");
+      validate(config, { ...population, aggregateFilter: "invalid" }),
+    ).toThrow("Invalid aggregate filter");
   });
 });

@@ -40,6 +40,7 @@ import {
   ProductAnalyticsResultRow,
   FunnelDataset,
   PopulationDataset,
+  MetricPopulation,
   dateGranularity,
 } from "../../validators/product-analytics";
 import {
@@ -55,7 +56,7 @@ import { hasTimestampColumn } from "./utils";
 import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
 import { factTableHasResolvableColumn } from "./columns";
 
-import { ExplorationPopulation, validateMetricPopulation } from "./populations";
+import { validateMetricPopulation } from "./populations";
 
 // Internal Type definitions
 type MinimalFactTable = Pick<
@@ -136,7 +137,7 @@ interface MetricWithMetadata {
   unit?: string;
   index: number;
   useDenominator?: boolean;
-  population?: ExplorationPopulation;
+  population?: MetricPopulation;
 }
 interface FactTableGroup {
   index: number;
@@ -275,13 +276,11 @@ function getFactTableGroups({
   factTableMap,
   metricMap,
   datasource,
-  populationMap,
 }: {
   config: ExplorationConfig;
   factTableMap: FactTableMap;
   metricMap: Map<string, FactMetricInterface>;
   datasource: MinimalDatasourceInterface;
-  populationMap: Map<string, ExplorationPopulation>;
 }): FactTableGroup[] {
   if (!config.dataset) {
     throw new Error("Dataset is required");
@@ -407,11 +406,8 @@ function getFactTableGroups({
               units: [],
             };
           }
-          const population = value.populationId
-            ? populationMap.get(value.populationId)
-            : undefined;
-          if (value.populationId) {
-            if (!population) throw new Error("Population not found");
+          const population = value.population ?? undefined;
+          if (population) {
             validateMetricPopulation(
               config,
               value,
@@ -1062,7 +1058,7 @@ function getMetricData(
 
   const population = metricWithMetadata.population;
   const populationAlias = `pop${metricIndex}`;
-  const step = population?.steps[0];
+  const step = population;
   const populationColumn: ColumnRef | null = step
     ? {
         factTableId: step.source.factTableId,
@@ -1293,11 +1289,7 @@ function generateFactTableCTE(
     allMetricFilters.push(filterParts);
     if (m.population) {
       allMetricFilters.push(
-        generateRowFilterSQL(
-          m.population.steps[0].rowFilters,
-          factTable,
-          helpers,
-        ),
+        generateRowFilterSQL(m.population.rowFilters, factTable, helpers),
       );
     }
   });
@@ -2060,7 +2052,6 @@ export function generateProductAnalyticsSQL(
   metricMap: Map<string, FactMetricInterface>,
   dialect: SqlDialect,
   datasource: MinimalDatasourceInterface,
-  populationMap: Map<string, ExplorationPopulation> = new Map(),
 ): {
   sql: string;
   orderedMetricIds: string[];
@@ -2093,7 +2084,6 @@ export function generateProductAnalyticsSQL(
     factTableMap,
     metricMap,
     datasource,
-    populationMap,
   });
 
   // Get all metric aliases
@@ -2380,7 +2370,7 @@ export function transformProductAnalyticsRowsToResult(
       resultRow.values?.push({
         metricId,
         ...(config.dataset.type === "metric" &&
-        config.dataset.values[index]?.populationId
+        config.dataset.values[index]?.population
           ? { populationRate: true }
           : {}),
         numerator: parseNumberValue(row[aliases.numerator]),

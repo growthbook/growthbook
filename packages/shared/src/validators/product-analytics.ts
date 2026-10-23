@@ -24,14 +24,18 @@ export const draftExplorationMetricValidator = factMetricValidator.omit({
   dateUpdated: true,
 });
 
+export const metricPopulationValidator = populationStepValidator
+  .omit({ windowSettings: true })
+  .extend({ name: z.string() })
+  .strict();
+export type MetricPopulation = z.infer<typeof metricPopulationValidator>;
+
 const metricValueValidator = baseValueValidator.extend({
   type: z.literal("metric"),
   metricId: z.string(),
   unit: z.string().nullable(),
   denominatorUnit: z.string().nullable(),
-  populationId: z.string().min(1).nullable().optional(),
-  // Resolved by the server before cache lookup; never trusted from the client.
-  populationVersion: z.string().optional(),
+  population: metricPopulationValidator.nullable().optional(),
 });
 // Internal only (metric editor live preview): an unsaved metric definition to
 // run in place of a saved one. Kept out of the public validators so the REST
@@ -225,14 +229,9 @@ export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;
 
 // Populations: one single-step population definition per value. Step windows
 // aren't supported, so they're not part of the value.
-const populationValueValidator = baseValueValidator.extend({
+const populationValueValidator = metricPopulationValidator.extend({
   type: z.literal("population"),
   unit: z.string().nullable(),
-  ...populationStepValidator.pick({
-    source: true,
-    aggregateFilter: true,
-    aggregateFilterColumn: true,
-  }).shape,
 });
 export type PopulationValue = z.infer<typeof populationValueValidator>;
 

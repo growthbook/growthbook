@@ -272,9 +272,7 @@ export default function GroupBySection() {
             variant="ghost"
             disabled={
               (draftExploreState.dataset.type === "metric" &&
-                draftExploreState.dataset.values.some(
-                  (v) => !!v.populationId,
-                )) ||
+                draftExploreState.dataset.values.some((v) => !!v.population)) ||
               getMaxDimensions(draftExploreState.dataset) <=
                 draftExploreState.dimensions.length ||
               availableColumns.length === 0 ||

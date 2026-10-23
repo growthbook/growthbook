@@ -721,7 +721,7 @@ function buildZeroValueRow(
       numerator: 0,
       denominator: isRatio ? 0 : null,
       ...(config.dataset.type === "metric" &&
-      config.dataset.values[i]?.populationId
+      config.dataset.values[i]?.population
         ? { populationRate: true, denominator: 0 }
         : {}),
     };

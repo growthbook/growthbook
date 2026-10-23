@@ -596,7 +596,7 @@ export function buildExplorationColumns(
     }
 
     let singleLabel = name;
-    if ("populationId" in v && v.populationId) {
+    if ("population" in v && v.population) {
       singleLabel = `${name} Rate (0–1)`;
     } else if (effectiveShowAs === "per_unit") {
       const unit =
