@@ -52,7 +52,8 @@ import {
   useOrganizationMetricDefaults,
 } from "@/hooks/useOrganizationMetricDefaults";
 import { isSettingsRoute } from "@/components/Layout/sidebarNav";
-import { sectionForField } from "./settingsSections";
+import ConfirmDialog from "@/ui/ConfirmDialog";
+import { describeUnsavedChanges, sectionForField } from "./settingsSections";
 
 const isAbsent = (v: unknown) =>
   v === undefined || v === null || v === "" || Number.isNaN(v);
@@ -78,8 +79,6 @@ type SettingsFormContextValue = {
   setCodeRefsBranchesToFilterStr: (value: string) => void;
   dirtyCount: number;
   dirtySectionIds: string[];
-  /** Increments on Discard, for local UI state that mirrors the form. */
-  resetKey: number;
   saveMsg: boolean;
   setSaveMsg: (value: boolean) => void;
   submitError: string | null;
@@ -146,10 +145,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       values[type] = p?.prompt || AI_PROMPT_DEFAULTS[type];
       values[`${type}-model`] = knownTextModel(p?.overrideModel) ?? "";
     });
-    // Keep edited fields; the rest take the loaded values.
-    const dirty = promptForm.formState.dirtyFields;
-    const current = promptForm.getValues();
-    Object.keys(dirty).forEach((k) => (values[k] = current[k]));
+    // Saved values become the defaults; edited fields keep their draft.
     promptForm.reset(values, { keepDirtyValues: true });
   }, [promptData, promptForm]);
   const orgForm = useForm<OrgDetailsForm>({
@@ -418,14 +414,16 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
             : false;
         }
       });
-      // A refresh while editing (e.g. after saving a PAT policy) keeps the draft.
+      // A refresh while editing (e.g. after saving a PAT policy) keeps the
+      // draft, while Discard still returns to the saved values.
       const current = form.getValues() as Record<string, unknown>;
       const prev = originalRef.current as Record<string, unknown>;
+      const draft = { ...newVal } as Record<string, unknown>;
       Object.keys(prev).forEach((k) => {
         if (isAbsent(current[k]) && isAbsent(prev[k])) return;
-        if (!isEqual(current[k], prev[k])) newVal[k] = current[k];
+        if (!isEqual(current[k], prev[k])) draft[k] = current[k];
       });
-      form.reset(newVal);
+      form.reset(draft as OrganizationSettingsWithMetricDefaults);
       originalRef.current = newVal;
       setOriginalValue(newVal);
       updateCronString(newVal.updateSchedule?.cron || "");
@@ -456,9 +454,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const [resetKey, setResetKey] = useState(0);
   const discardChanges = () => {
-    setResetKey((k) => k + 1);
     form.reset(originalValue as OrganizationSettingsWithMetricDefaults);
     promptForm.reset();
     orgForm.reset(orgDetails);
@@ -595,7 +591,10 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       // Update org name in global context (e.g. top nav)
       if (orgPatch.name && setOrgName) setOrgName(orgPatch.name);
       // The license is cached by installation name on the server.
-      if (orgPatch.installationName !== undefined) await apiCall(`/license`);
+      // Optional and needs billing access, so a failure must not fail the save.
+      if (orgPatch.installationName !== undefined) {
+        await apiCall(`/license`).catch(() => undefined);
+      }
     }
     await Promise.all([refreshOrganization(), mutateAgentSkills()]);
 
@@ -621,6 +620,8 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   }, [active]);
 
   // Leaving Settings, closing, or reloading with a draft asks first.
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const leaving = useRef(false);
   useEffect(() => {
     if (!active || !dirtyCount) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -628,10 +629,10 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       e.returnValue = "";
     };
     const onRouteChangeStart = (url: string) => {
+      if (leaving.current) return;
       if (isSettingsRoute(new URL(url, window.location.origin).pathname))
         return;
-      if (window.confirm("Leave Settings? Your unsaved changes will be lost."))
-        return;
+      setPendingHref(url);
       router.events.emit("routeChangeError", new Error("cancelled"), url);
       // Next's pages router only cancels a route change when a handler throws.
       throw "Route change cancelled: unsaved settings";
@@ -656,7 +657,6 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         setCodeRefsBranchesToFilterStr: updateCodeRefsBranches,
         dirtyCount,
         dirtySectionIds,
-        resetKey,
         saveMsg,
         setSaveMsg,
         submitError,
@@ -666,6 +666,25 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       }}
     >
       <FormProvider {...form}>{children}</FormProvider>
+      {pendingHref && (
+        <ConfirmDialog
+          title="Leave without saving?"
+          content={`You have ${describeUnsavedChanges(dirtyCount, dirtySectionIds)}. Leaving Settings discards them.`}
+          yesText="Discard and leave"
+          noText="Keep editing"
+          color="red"
+          onConfirm={async () => {
+            leaving.current = true;
+            setPendingHref(null);
+            try {
+              await router.push(pendingHref);
+            } finally {
+              leaving.current = false;
+            }
+          }}
+          onCancel={() => setPendingHref(null)}
+        />
+      )}
     </SettingsFormContext.Provider>
   );
 }

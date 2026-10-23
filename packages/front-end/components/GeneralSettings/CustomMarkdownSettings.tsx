@@ -84,14 +84,14 @@ export default function CustomMarkdownSettings() {
                 />
               </SettingsField>
             ))
-          ) : (
+          ) : i === 0 ? (
             <PremiumCallout
               commercialFeature="custom-markdown"
-              id={`settings-${group.id}`}
+              id="settings-custom-markdown"
             >
               Add organization-specific guidance to your team&apos;s pages.
             </PremiumCallout>
-          )}
+          ) : null}
         </SettingsGroup>
       ))}
     </>

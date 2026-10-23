@@ -22,7 +22,11 @@ export function SettingsPageHeader({
   return (
     <Flex justify="between" align="start" gap="4" wrap="wrap" mb={mb}>
       <Box>
-        <Heading as={as} size="xl" mb={description ? "1" : "0"}>
+        <Heading
+          as={as}
+          size={as === "h1" ? "xl" : "lg"}
+          mb={description ? "1" : "0"}
+        >
           {title}
         </Heading>
         {description && (

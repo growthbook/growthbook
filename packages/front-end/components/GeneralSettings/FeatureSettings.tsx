@@ -7,6 +7,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { useEnvironments, FEATURE_RULES_ALL_ENVS } from "@/services/features";
 import Checkbox from "@/ui/Checkbox";
+import Link from "@/ui/Link";
 import LinkButton from "@/ui/LinkButton";
 import Frame from "@/ui/Frame";
 import HelperText from "@/ui/HelperText";
@@ -320,33 +321,29 @@ export default function FeatureSettings() {
                       <Text as="p" size="sm" color="text-mid">
                         Run the CLI to scan your codebase and send the results
                         to the{" "}
-                        <a
+                        <Link
                           href="https://docs.growthbook.io/api#tag/code-references"
-                          target="_blank"
-                          rel="noreferrer"
+                          external
                         >
                           code references REST endpoint
-                        </a>
+                        </Link>
                         .
                       </Text>
                     </Box>
-                    <Text whiteSpace="nowrap">
-                      <a
+                    <Flex gap="2" wrap="nowrap">
+                      <Link
                         href="https://github.com/growthbook/gb-find-code-refs"
-                        target="_blank"
-                        rel="noreferrer"
+                        external
                       >
                         CLI utility
-                      </a>{" "}
-                      |{" "}
-                      <a
+                      </Link>
+                      <Link
                         href="https://hub.docker.com/r/growthbook/gb-find-code-refs"
-                        target="_blank"
-                        rel="noreferrer"
+                        external
                       >
                         Docker image
-                      </a>
-                    </Text>
+                      </Link>
+                    </Flex>
                   </Flex>
                 </Frame>
               </Flex>

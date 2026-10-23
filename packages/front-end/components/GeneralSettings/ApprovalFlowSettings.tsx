@@ -25,7 +25,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
-import { useSettingsForm } from "./SettingsFormProvider";
 import { SettingsGroup } from "./SettingsGroup";
 import {
   ALL_PROJECTS_SCOPE,
@@ -68,12 +67,7 @@ export default function ApprovalFlowSettings() {
   const [tabs, setTabs] = useState<{ id: string; scope: string }[]>([]);
   const nextTabId = useRef(0);
   const newTabId = () => `override-${nextTabId.current++}`;
-  const { resetKey } = useSettingsForm();
   const { setQuery } = useSettingsNav();
-  // Discard restores the form; tabs added since then go with it.
-  useEffect(() => {
-    if (resetKey) setTabs([]);
-  }, [resetKey]);
 
   // Deep links (e.g. from a team's Required Approver list) name a Project;
   // open the rule that governs it once its tab exists.
@@ -93,16 +87,18 @@ export default function ApprovalFlowSettings() {
     }
   }, [tabs, requestedProject]);
 
-  // Settings load after mount, so stored overrides get a tab when they arrive.
+  // Tabs mirror the rules in the form: settings load after mount, and Discard
+  // drops rules added since the last save.
   const storedScopeKey = overrideScopes([flagRules, savedGroupRules]).join("|");
   useEffect(() => {
     const stored = storedScopeKey ? storedScopeKey.split("|") : [];
     setTabs((prev) => {
-      const known = new Set(prev.map((t) => t.scope));
+      const kept = prev.filter((t) => stored.includes(t.scope));
+      const known = new Set(kept.map((t) => t.scope));
       const missing = stored.filter((scope) => !known.has(scope));
-      return missing.length
-        ? [...prev, ...missing.map((scope) => ({ id: newTabId(), scope }))]
-        : prev;
+      return kept.length === prev.length && !missing.length
+        ? prev
+        : [...kept, ...missing.map((scope) => ({ id: newTabId(), scope }))];
     });
   }, [storedScopeKey]);
 
@@ -217,13 +213,13 @@ export default function ApprovalFlowSettings() {
 
   return (
     <>
+      {overrideNote && <Box mb="3">{overrideNote}</Box>}
       <SettingsGroup
         id="ap-flags"
         title="Feature Flags, Configs & Constants"
         description="Every change is saved as a revision. Approval adds a review step before it goes live."
         keywords="approval review publish reset self-approve one step kill switch metadata environments teams"
       >
-        {overrideNote}
         <FlagApprovalFields
           idPrefix="flags-all-projects"
           value={clonedFlagRule(flagRules, ALL_PROJECTS_SCOPE)}
@@ -237,7 +233,6 @@ export default function ApprovalFlowSettings() {
         description="Every change is saved as a revision. Approval adds a review step before it goes live."
         keywords="approval review saved groups reset self-approve one step metadata teams"
       >
-        {overrideNote}
         <SavedGroupApprovalFields
           idPrefix="saved-groups-all-projects"
           value={clonedSavedGroupRule(savedGroupRules, ALL_PROJECTS_SCOPE)}

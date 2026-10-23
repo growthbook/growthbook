@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { BsArrowRepeat } from "react-icons/bs";
+import { PiArrowClockwise } from "react-icons/pi";
 import { LicenseInterface } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -29,7 +29,7 @@ const RefreshLicenseButton: FC<{ setError?: (e: string) => void }> = ({
     <>
       <Button
         variant="outline"
-        icon={<BsArrowRepeat />}
+        icon={<PiArrowClockwise />}
         onClick={refresh}
         setError={setError}
       >
