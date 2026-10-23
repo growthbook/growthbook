@@ -487,6 +487,7 @@ export default function ImpactPage() {
                 </>
               ) : (
                 <SeriesState
+                  metric={metric}
                   status={metricSeries.status}
                   error={metricSeries.error}
                   canRun={metricSeries.canRun}
@@ -528,12 +529,18 @@ export default function ImpactPage() {
   );
 }
 
+const FACT_METRIC_TYPE_LABELS: Record<string, string> = {
+  dailyParticipation: "daily participation",
+};
+
 function SeriesState({
+  metric,
   status,
   error,
   canRun,
   onRun,
 }: {
+  metric: ExperimentMetricDefinition;
   status: ReturnType<typeof useMetricSeries>["status"];
   error: string | null;
   canRun: boolean;
@@ -542,8 +549,13 @@ function SeriesState({
   if (status === "unsupported") {
     return (
       <Callout status="info" mb="4">
-        The impact chart needs a Fact Metric of type mean or proportion. The
-        totals and experiments below still apply.
+        <strong>{metric.name}</strong>{" "}
+        {isFactMetric(metric)
+          ? `is a ${
+              FACT_METRIC_TYPE_LABELS[metric.metricType] ?? metric.metricType
+            } Fact Metric, and the impact chart only supports mean and proportion Fact Metrics.`
+          : "is a legacy metric, and the impact chart only supports Fact Metrics."}{" "}
+        The totals and experiments below still apply.
       </Callout>
     );
   }
