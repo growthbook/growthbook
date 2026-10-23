@@ -104,6 +104,13 @@ export const apiSettingsValidator = namedSchema(
           type: z.enum(["cron", "never", "stale"]).optional(),
           cron: z.string().nullable().optional(),
           hours: z.coerce.number().nullable().optional(),
+          analysisEndDate: z.enum(["runTime", "lag", "fixedTime"]).optional(),
+          analysisEndLagHours: z.coerce.number().nullable().optional(),
+          analysisEndTime: z
+            .string()
+            .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+            .nullable()
+            .optional(),
         })
         .nullable(),
       multipleExposureMinPercent: z.coerce.number(),

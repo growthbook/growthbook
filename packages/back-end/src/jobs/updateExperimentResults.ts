@@ -10,11 +10,14 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   createSnapshot,
+  determineNextDate,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
+  getScheduledAnalysisEndDate,
   getSettingsForSnapshotMetrics,
   updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
+import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   ConcurrentIncrementalRefreshError,
   UnrecoverableSnapshotError,
@@ -138,6 +141,42 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     return;
   }
 
+  // A newer update (e.g. a manual one) may already cover a lagged cutoff;
+  // re-running would replace fresher results with older ones.
+  const phaseIndex = experiment.phases.length - 1;
+  const phase = experiment.phases[phaseIndex];
+  if (experiment.type !== "multi-armed-bandit" && phase && !phase.dateEnded) {
+    const updateSchedule = organization.settings?.updateSchedule ?? null;
+    const cutoff = getScheduledAnalysisEndDate(
+      updateSchedule,
+      phase.dateStarted,
+    );
+    const latest = await getLatestSuccessfulSnapshot({
+      context,
+      experiment: experiment.id,
+      phase: phaseIndex,
+      type: "standard",
+      metricIds: [],
+    });
+    if (
+      latest &&
+      new Date(latest.settings.endDate).getTime() >= cutoff.getTime()
+    ) {
+      logger.info(
+        `Skipping scheduled update for experiment ${experimentId}: latest snapshot ${latest.id} already covers ${cutoff.toISOString()}`,
+      );
+      const nextUpdate = determineNextDate(updateSchedule);
+      if (nextUpdate) {
+        await updateExperiment({
+          context,
+          experiment,
+          changes: { nextSnapshotAttempt: nextUpdate },
+        });
+      }
+      return;
+    }
+  }
+
   try {
     logger.info("Start Refreshing Results for experiment " + experimentId);
     const datasource = await getDataSourceById(
@@ -186,7 +225,7 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     const queryRunner = await createSnapshot({
       experiment,
       context,
-      phaseIndex: experiment.phases.length - 1,
+      phaseIndex,
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings:
         getAdditionalExperimentAnalysisSettings(analysisSettings),

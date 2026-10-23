@@ -76173,6 +76173,21 @@ components:
                   anyOf:
                     - type: number
                     - type: 'null'
+                analysisEndDate:
+                  type: string
+                  enum:
+                    - runTime
+                    - lag
+                    - fixedTime
+                analysisEndLagHours:
+                  anyOf:
+                    - type: number
+                    - type: 'null'
+                analysisEndTime:
+                  anyOf:
+                    - type: string
+                      pattern: ^([01]\d|2[0-3]):[0-5]\d$
+                    - type: 'null'
               additionalProperties: false
             - type: 'null'
         multipleExposureMinPercent:

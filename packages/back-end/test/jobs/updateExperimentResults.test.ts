@@ -128,6 +128,93 @@ describe("scheduled experiment updates", () => {
     await updateSingleExperiment(jobFor("exp_disabled"));
     expect(getDataSourceById).not.toHaveBeenCalled();
   });
+
+  it("skips when the latest snapshot already covers the lagged cutoff", async () => {
+    const organizations = mongoose.connection.collection("organizations");
+    const snapshots = mongoose.connection.collection("experimentsnapshots");
+    await organizations.updateOne(
+      { id: ORG_ID },
+      {
+        $set: {
+          settings: {
+            updateSchedule: {
+              type: "stale",
+              hours: 6,
+              analysisEndDate: "lag",
+              analysisEndLagHours: 3,
+            },
+          },
+        },
+      },
+    );
+    const phases = [
+      {
+        dateStarted: new Date(Date.now() - 48 * HOUR),
+        variationWeights: [0.5, 0.5],
+      },
+    ];
+    const dates = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      variations: running.variations.map((v) => ({ ...v, screenshots: [] })),
+    };
+    await experiments().insertMany([
+      {
+        ...running,
+        ...dates,
+        phases,
+        id: "exp_fresh",
+        nextSnapshotAttempt: new Date(),
+      },
+      {
+        ...running,
+        ...dates,
+        phases,
+        id: "exp_stale",
+        nextSnapshotAttempt: new Date(),
+      },
+    ]);
+    const snapshot = {
+      organization: ORG_ID,
+      phase: 0,
+      dimension: null,
+      type: "standard",
+      status: "success",
+      dateCreated: new Date(),
+    };
+    await snapshots.insertMany([
+      {
+        ...snapshot,
+        id: "snp_fresh",
+        experiment: "exp_fresh",
+        settings: { metricSettings: [], endDate: new Date(Date.now() - HOUR) },
+      },
+      {
+        ...snapshot,
+        id: "snp_stale",
+        experiment: "exp_stale",
+        settings: {
+          metricSettings: [],
+          endDate: new Date(Date.now() - 5 * HOUR),
+        },
+      },
+    ]);
+
+    try {
+      await updateSingleExperiment(jobFor("exp_fresh"));
+      expect(getDataSourceById).not.toHaveBeenCalled();
+      const fresh = await experiments().findOne({ id: "exp_fresh" });
+      expect(fresh?.nextSnapshotAttempt.getTime()).toBeGreaterThan(
+        Date.now() + 5 * HOUR,
+      );
+
+      await updateSingleExperiment(jobFor("exp_stale"));
+      expect(getDataSourceById).toHaveBeenCalledTimes(1);
+    } finally {
+      await snapshots.deleteMany({});
+      await organizations.updateOne({ id: ORG_ID }, { $set: { settings: {} } });
+    }
+  });
 });
 
 describe("failing scheduled updates", () => {

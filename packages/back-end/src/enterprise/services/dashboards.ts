@@ -211,6 +211,7 @@ export async function updateExperimentDashboards({
       useCache: true,
       type: "exploratory",
       triggeredBy: "update-dashboards",
+      endDate: mainSnapshot.settings.endDate,
     });
     await queryRunner.waitForResults();
   }
