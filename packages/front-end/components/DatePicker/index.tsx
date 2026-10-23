@@ -207,11 +207,12 @@ export default function DatePicker({
   const zoneId = `${fieldId}-zone`;
 
   const fixedHeight = compact || size === "md";
-  const inputHeight = fixedHeight ? 32 : 38;
+  // Legacy matches the other legacy fields and selects.
+  const inputHeight = fixedHeight ? 32 : 36;
+  // The field sits inside the bordered box, so it gets the height within it.
+  const fieldHeight = inputHeight - 2;
   const compactFieldStyle: React.CSSProperties = compact
     ? {
-        height: 32,
-        minHeight: 32,
         boxSizing: "border-box",
         padding: "0 8px",
         lineHeight: 1.25,
@@ -451,7 +452,8 @@ export default function DatePicker({
                       border: 0,
                       marginRight: -20,
                       width: "calc(100% + 30px)",
-                      minHeight: inputHeight,
+                      height: fieldHeight,
+                      minHeight: fieldHeight,
                       cursor: "pointer",
                       ...compactFieldStyle,
                     }}

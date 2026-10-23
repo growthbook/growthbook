@@ -32,6 +32,10 @@ type ScheduledStopMode = "notify" | "auto-ship" | "force-ship" | "stop";
 type ScheduledStopFallback = "notify" | "force-ship";
 type EndMode = "manual" | "on-date" | "after";
 
+// Fits a date and time with its time zone, so a field keeps its size whether
+// it's empty or set.
+const DATE_FIELD_WIDTH = 250;
+
 // Default end offset, shared by the "After N days" relative preset and the
 // "On date" picker (which prepopulates now + this many days) so they match.
 const DEFAULT_END_AFTER_DAYS = 30;
@@ -449,6 +453,7 @@ export default function EditScheduleModal({
                   }
                   precision="datetime"
                   timeZone="local"
+                  inputWidth={DATE_FIELD_WIDTH}
                   scheduleEndDate={stopAt || undefined}
                   disableBefore={now}
                   disabled={experiment.status !== "draft"}
@@ -493,6 +498,7 @@ export default function EditScheduleModal({
                   }
                   precision="datetime"
                   timeZone="local"
+                  inputWidth={DATE_FIELD_WIDTH}
                   scheduleStartDate={startAt || undefined}
                   disableBefore={startAt ? new Date(startAt) : now}
                 />
