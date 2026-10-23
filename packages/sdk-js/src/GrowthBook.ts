@@ -569,6 +569,15 @@ export class GrowthBook<
     return () => this._customEventSubs.delete(cb);
   }
 
+  // Internal — first-party plugin use only.
+  // The two gates runExperiment applies (core.ts): `enabled: false` turns
+  // experiments off, qaMode keeps QA users out of them and out of tracking.
+  // A forced feature rule never reaches runExperiment, so a plugin that assigns
+  // and tracks on its own has to apply them itself.
+  public _experimentsDisabled(): boolean {
+    return this._options.enabled === false || !!this._options.qaMode;
+  }
+
   private async _refreshForRemoteEval() {
     if (!this._options.remoteEval) return;
     if (!this._initialized) return;

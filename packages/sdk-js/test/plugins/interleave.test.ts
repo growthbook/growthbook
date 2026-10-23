@@ -482,11 +482,159 @@ describe("interleave", () => {
     expect(scopedExposure.mock.calls[0][0].hashValue).toBe("override");
     client.destroy();
   });
+
+  it("emits the exposure shape the analysis layer reads", async () => {
+    const { gb, onExposure } = setup();
+    await interleave(gb, {
+      ranker: "search",
+      getList,
+      fallbackConfig,
+      rankingId: "r1",
+    });
+
+    const exposure: InterleaveExposure = onExposure.mock.calls[0][0];
+    expect(Object.keys(exposure).sort()).toEqual([
+      "experimentId",
+      "hashAttribute",
+      "hashValue",
+      "items",
+      "rankingId",
+      "timestamp",
+    ]);
+    // experiment_id is matched against the interleaving's trackingKey
+    expect(exposure.experimentId).toBe("search-tk");
+    expect(exposure.rankingId).toBe("r1");
+
+    for (const item of exposure.items) {
+      expect(Object.keys(item).sort()).toEqual([
+        "competitive",
+        "itemId",
+        "position",
+        "variation",
+      ]);
+      expect(typeof item.itemId).toBe("string");
+      // Matched against the ranker's key, not its id or index
+      expect(["popular", "buyers-pick"]).toContain(item.variation);
+      // Rendered as the text 'true'/'false' by every dialect's fieldText
+      expect(typeof item.competitive).toBe("boolean");
+    }
+
+    // Analysis collapses with MAX(team) over (user, ranking, item), so an item
+    // must never appear twice in one draft
+    const ids = exposure.items.map((i) => i.itemId);
+    expect(new Set(ids).size).toBe(ids.length);
+
+    // "a" tops both lists, so it is a tie and must not be credited
+    expect(exposure.items.find((i) => i.itemId === "a")?.competitive).toBe(
+      false,
+    );
+
+    // Each ranker gets the same number of competitive items, which is what
+    // makes the paired denominator a fair comparison
+    const competitive = exposure.items.filter((i) => i.competitive);
+    expect(competitive.length).toBeGreaterThan(0);
+    expect(competitive.filter((i) => i.variation === "popular").length).toBe(
+      competitive.filter((i) => i.variation === "buyers-pick").length,
+    );
+    gb.destroy();
+  });
+
+  // qaMode and `enabled: false` gate runExperiment, which the pseudo flag's
+  // forced rule never reaches — a QA user drafted here would emit a real
+  // exposure and be counted in the analysis denominators.
+  it.each([
+    ["qaMode", { qaMode: true }],
+    ["enabled false", { enabled: false }],
+  ])("does not interleave or track under %s", async (_label, opts) => {
+    const onExposure = jest.fn();
+    const eventLogger = jest.fn();
+    const gb = new GrowthBook({
+      attributes: { id: "u1" },
+      eventLogger,
+      plugins: [interleavePlugin({ onExposure })],
+      ...opts,
+    });
+    gb.initSync({ payload: payload() });
+
+    const res = await interleave(gb, {
+      ranker: "search",
+      getList,
+      fallbackConfig,
+    });
+
+    expect(res).toMatchObject({
+      result: rankedLists.popular,
+      inExperiment: false,
+      variation: "popular",
+      trackingProps: {},
+    });
+    expect(onExposure).not.toHaveBeenCalled();
+    expect(eventLogger).not.toHaveBeenCalled();
+    gb.destroy();
+  });
+
+  it.each([
+    ["the client", { qaMode: true }, {}],
+    ["the user context", {}, { qaMode: true }],
+  ])(
+    "does not interleave when %s sets qaMode on a scoped instance",
+    async (_label, clientOpts, userOpts) => {
+      const onExposure = jest.fn();
+      const client = new GrowthBookClient({
+        plugins: [interleavePlugin({ onExposure })],
+        ...clientOpts,
+      });
+      client.initSync({ payload: payload() });
+      const user = client.createScopedInstance({
+        attributes: { id: "u2" },
+        ...userOpts,
+      });
+
+      const res = await interleave(user, {
+        ranker: "search",
+        getList,
+        fallbackConfig,
+      });
+
+      expect(res.inExperiment).toBe(false);
+      expect(onExposure).not.toHaveBeenCalled();
+      client.destroy();
+    },
+  );
+
+  it("keeps one impression across pages when rankingId is reused", async () => {
+    const { gb, onExposure } = setup();
+    const page = (maxItems: number) =>
+      interleave(gb, {
+        ranker: "search",
+        getList,
+        fallbackConfig,
+        rankingId: "r-page",
+        maxItems,
+      });
+
+    const first = await page(3);
+    const second = await page(6);
+
+    // The draft is extended, not re-rolled
+    expect(second.result.slice(0, first.result.length)).toEqual(first.result);
+    // Both exposures carry the same id, which is what lets analysis collapse
+    // them into a single impression rather than counting two
+    expect(onExposure).toHaveBeenCalledTimes(2);
+    expect(
+      onExposure.mock.calls.map((c) => (c[0] as InterleaveExposure).rankingId),
+    ).toEqual(["r-page", "r-page"]);
+    gb.destroy();
+  });
 });
 
 describe("decryptPayload", () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (global as any).TextDecoder = TextDecoder;
+  // jsdom provides no TextDecoder, which decryptPayload needs
+  Object.defineProperty(globalThis, "TextDecoder", {
+    value: TextDecoder,
+    writable: true,
+    configurable: true,
+  });
 
   it("decrypts encryptedInterleavings", async () => {
     const key = "Ns04T5n9+59rl2x3SlNHtQ==";

@@ -193,7 +193,9 @@ export async function interleave<T>(
     };
   };
 
-  if (options.enabled === false) return notInterleaved(variations[0]?.key);
+  if (options.enabled === false || gb._experimentsDisabled()) {
+    return notInterleaved(variations[0]?.key);
+  }
 
   if (!definition || variations.length !== 2) return notInterleaved();
 

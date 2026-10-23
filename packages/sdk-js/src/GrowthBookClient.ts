@@ -223,6 +223,18 @@ export class GrowthBookClient<
     this._options.globalAttributes = attributes;
   }
 
+  // Internal — first-party plugin use only.
+  // Both halves of each gate runExperiment applies (core.ts), since either the
+  // client or the user context can set them.
+  public _experimentsDisabled(userContext: UserContext): boolean {
+    return (
+      this._options.enabled === false ||
+      userContext.enabled === false ||
+      !!this._options.qaMode ||
+      !!userContext.qaMode
+    );
+  }
+
   public destroy(options?: DestroyOptions) {
     options = options || {};
     this._destroyed = true;
@@ -491,6 +503,12 @@ export class UserScopedGrowthBook<
       ...this._userContext.attributes,
       ...this._userContext.attributeOverrides,
     };
+  }
+  // Internal — first-party plugin use only.
+  // See GrowthBook._experimentsDisabled; this merges the client's settings with
+  // this user's.
+  public _experimentsDisabled(): boolean {
+    return this._gb._experimentsDisabled(this._userContext);
   }
   public getApiInfo(): [ApiHost, ClientKey] {
     return this._gb.getApiInfo();
