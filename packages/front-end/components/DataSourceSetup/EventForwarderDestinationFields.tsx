@@ -25,9 +25,11 @@ export function eventDestinationEntryHint(
   type: DataSourceType | undefined,
   action: "continue" | "test",
 ): string {
+  if (type === "databricks") {
+    return `Enter a schema, table prefix, and Zerobus endpoint to ${action}.`;
+  }
   const location = type === "bigquery" ? "dataset" : "schema";
-  const zerobus = type === "databricks" ? ", and a Zerobus endpoint" : "";
-  return `Enter a ${location} and table prefix${zerobus} to ${action}.`;
+  return `Enter a ${location} and table prefix to ${action}.`;
 }
 
 export function defaultEventForwarderDestination(

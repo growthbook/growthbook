@@ -1069,14 +1069,19 @@ export default function ConnectDataSourceLayout({
                     </Flex>
                     <Text as="p" size="sm" color="text-mid" mb="2">
                       {detectedWarehouseRegionId && manualWarehouseRegionId
-                        ? "We detected your warehouse region. Confirm it below or choose a different region."
+                        ? "We detected your warehouse region. Confirm it below or choose a different region. "
                         : detectedWarehouseRegionId
-                          ? `We detected ${detectedWarehouseRegionId}, but its mapped ingestor is not enabled. If this detection is incorrect, choose a different region.`
-                          : "We could not detect your warehouse region. Choose it below so GrowthBook can route events to the closest ingestor."}
+                          ? `We detected ${detectedWarehouseRegionId}, but its mapped ingestor is not enabled. If this detection is incorrect, choose a different region. `
+                          : "We could not detect your warehouse region. Choose it below so GrowthBook can route events to the closest ingestor. "}
+                      <Text
+                        as="span"
+                        size="sm"
+                        color="text-mid"
+                        fontStyle="italic"
+                      >
+                        This can&apos;t be changed later.
+                      </Text>
                     </Text>
-                    <Callout status="warning" mb="2">
-                      This cannot be changed later.
-                    </Callout>
                     <Box maxWidth="360px">
                       <SelectField
                         aria-label="Warehouse region"

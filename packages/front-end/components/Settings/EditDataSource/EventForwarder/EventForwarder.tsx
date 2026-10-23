@@ -84,7 +84,7 @@ const statusLabels: Record<EventForwarderStatus, string> = {
   ready: "Ready",
   paused: "Paused",
   error: "Error",
-  schema_update_error: "Schema Update Error",
+  schema_update_error: "Schema update error",
 };
 
 const statusColors: Record<
