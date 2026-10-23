@@ -138,7 +138,10 @@ function StartContent({
     ? scheduledTime(gate.scheduledStartAt)
     : null;
   const pastSchedule = !startApproved && gate.schedule === "past" && dateLabel;
-  const { checklistItemsRemaining } = usePreLaunchChecklist();
+  const { checklistItemsRemaining, checklistReady, loadError, summary } =
+    usePreLaunchChecklist();
+  // Hidden once nothing is left to do or look at.
+  const showTodo = !checklistReady || loadError || summary.flagged.length > 0;
   // Starting publishes what's stored, not what's staged.
   const blockedReason = editsBlocked ?? start.banditBlockedReason;
   const { bypassLabel, waivesApproval } = gate.actions;
@@ -210,51 +213,57 @@ function StartContent({
 
       <Separator size="4" />
 
-      <Flex direction="column" gap="3">
-        {/* Headed as on the details rail. */}
-        <Text
-          size="sm"
-          weight="medium"
-          color="text-low"
-          textTransform="uppercase"
-        >
-          {checklistItemsRemaining
-            ? `To do (${checklistItemsRemaining})`
-            : "To do"}
-        </Text>
-        {/* Bled out by the rows' hover tint, so the scroll box doesn't clip it. */}
-        <ScrollArea
-          gutter
-          style={{
-            maxHeight: 250,
-            marginInline: "calc(-1 * var(--space-2))",
-          }}
-        >
-          <Flex
-            direction="column"
-            gap="3"
-            px="2"
-            py="2"
-            // An item's action goes to where it's resolved. The popover waits
-            // under a modal it opened, and gets out of the way of anything else.
-            onClick={(e) => {
-              if (
-                !(e.target as HTMLElement).closest("[data-checklist-action]")
-              ) {
-                return;
-              }
-              // Once the action's render has committed.
-              setTimeout(() => {
-                if (!modalOpen()) handOff();
-              });
-            }}
-          >
-            <PreLaunchChecklistPanel />
+      {showTodo ? (
+        <>
+          <Flex direction="column" gap="3">
+            {/* Headed as on the details rail. */}
+            <Text
+              size="sm"
+              weight="medium"
+              color="text-low"
+              textTransform="uppercase"
+            >
+              {checklistItemsRemaining
+                ? `To do (${checklistItemsRemaining})`
+                : "To do"}
+            </Text>
+            {/* Bled out by the rows' hover tint, so the scroll box doesn't clip it. */}
+            <ScrollArea
+              gutter
+              style={{
+                maxHeight: 250,
+                marginInline: "calc(-1 * var(--space-2))",
+              }}
+            >
+              <Flex
+                direction="column"
+                gap="3"
+                px="2"
+                py="2"
+                // An item's action goes to where it's resolved. The popover waits
+                // under a modal it opened, and gets out of the way of anything else.
+                onClick={(e) => {
+                  if (
+                    !(e.target as HTMLElement).closest(
+                      "[data-checklist-action]",
+                    )
+                  ) {
+                    return;
+                  }
+                  // Once the action's render has committed.
+                  setTimeout(() => {
+                    if (!modalOpen()) handOff();
+                  });
+                }}
+              >
+                <PreLaunchChecklistPanel />
+              </Flex>
+            </ScrollArea>
           </Flex>
-        </ScrollArea>
-      </Flex>
 
-      <Separator size="4" />
+          <Separator size="4" />
+        </>
+      ) : null}
 
       {startApproved ? (
         <Text size="sm" color="text-low">
