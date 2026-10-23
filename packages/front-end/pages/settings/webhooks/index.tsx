@@ -10,6 +10,8 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
 import Callout from "@/ui/Callout";
+import SettingsPage from "@/components/Layout/SettingsPage";
+import Heading from "@/ui/Heading";
 
 const WebhooksPage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
@@ -41,12 +43,14 @@ const WebhooksPage: FC = () => {
   }
 
   return (
-    <div className="container-fluid pagecontents">
-      <div className="pagecontents">
+    <SettingsPage title="Webhooks" hideHeader>
+      <div>
         <EventWebHookListContainer />
 
         <div className="mt-5">
-          <h2>Webhook Secrets</h2>
+          <Heading as="h2" size="md" mb="2">
+            Webhook secrets
+          </Heading>
           <p>
             Define secret variables that can be used within your webhook
             endpoints or headers. Simply reference them using Handlebars syntax.
@@ -129,7 +133,7 @@ const WebhooksPage: FC = () => {
           }}
         />
       )}
-    </div>
+    </SettingsPage>
   );
 };
 export default WebhooksPage;

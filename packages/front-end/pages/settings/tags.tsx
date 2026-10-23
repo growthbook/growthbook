@@ -12,6 +12,7 @@ import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagRowMenu from "@/components/Tags/TagRowMenu";
 import Callout from "@/ui/Callout";
+import SettingsPage from "@/components/Layout/SettingsPage";
 
 const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();
@@ -47,7 +48,28 @@ const TagsPage: FC = () => {
   }
 
   return (
-    <div className="container-fluid pagecontents">
+    <SettingsPage
+      title="Tags"
+      description={
+        <>
+          Organize features, experiments, metrics, and more with{" "}
+          <strong>tags</strong>.
+        </>
+      }
+      actions={
+        <Tooltip
+          body="You don't have permission to add tags"
+          shouldDisplay={!canCreateAndUpdate}
+        >
+          <Button
+            disabled={!canCreateAndUpdate}
+            onClick={() => setModalOpen({})}
+          >
+            Add Tag
+          </Button>
+        </Tooltip>
+      }
+    >
       {modalOpen && (
         <TagsModal
           existing={modalOpen}
@@ -56,31 +78,7 @@ const TagsPage: FC = () => {
         />
       )}
 
-      <Box mt="4" mb="5">
-        <div className="row align-items-center mb-1">
-          <div className="col-auto">
-            <h2 className="mb-0">Tags</h2>
-          </div>
-          <div className="flex-1" />
-          <div className="col-auto">
-            <Tooltip
-              body="You don't have permission to add tags"
-              shouldDisplay={!canCreateAndUpdate}
-            >
-              <Button
-                disabled={!canCreateAndUpdate}
-                onClick={() => setModalOpen({})}
-              >
-                Add Tag
-              </Button>
-            </Tooltip>
-          </div>
-        </div>
-        <p className="text-gray mb-4">
-          Organize features, experiments, metrics, and more with{" "}
-          <strong>tags</strong>.
-        </p>
-
+      <Box mb="5">
         {tags && tags.length > 0 ? (
           <>
             <Box className="relative" width="40%" mb="4">
@@ -165,7 +163,7 @@ const TagsPage: FC = () => {
           </p>
         )}
       </Box>
-    </div>
+    </SettingsPage>
   );
 };
 export default TagsPage;

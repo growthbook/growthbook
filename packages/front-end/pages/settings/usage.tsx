@@ -3,6 +3,7 @@ import CloudUsage from "@/components/Settings/Usage/CloudUsage";
 import { useUser } from "@/services/UserContext";
 import OrbPortal from "@/enterprise/components/Billing/OrbPortal";
 import Callout from "@/ui/Callout";
+import SettingsPage from "@/components/Layout/SettingsPage";
 
 export default function UsagePage() {
   const permissionsUtil = usePermissionsUtil();
@@ -31,8 +32,11 @@ export default function UsagePage() {
   }
 
   return (
-    <div className="container-fluid pagecontents">
+    <SettingsPage
+      title="Usage"
+      description="CDN requests, managed warehouse usage, and seats."
+    >
       {subscription?.billingPlatform === "orb" ? <OrbPortal /> : <CloudUsage />}
-    </div>
+    </SettingsPage>
   );
 }

@@ -1,5 +1,4 @@
 import React, { FC, ReactNode, useCallback, useMemo, useState } from "react";
-import { Flex } from "@radix-ui/themes";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { useAuth } from "@/services/auth";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
@@ -9,6 +8,7 @@ import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import HistoryTable from "@/components/HistoryTable";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
 import ApiKeysModal from "./ApiKeysModal";
 
 // `children` renders between the intro and the key list, for controls that
@@ -138,16 +138,20 @@ const SecretApiKeys: FC<{
       )}
 
       <div>
-        <Flex align="center" justify="between">
-          <h1>Secret API Keys</h1>
-          {canViewAuditLog && (
-            <Link onClick={() => setAuditLog({})}>Audit logs</Link>
-          )}
-        </Flex>
-        <p className="text-gray">
-          Secret keys have access to your organization. They{" "}
-          <strong>must not be exposed to users</strong>.
-        </p>
+        <SettingsPageHeader
+          title="Secret API keys"
+          description={
+            <>
+              Secret keys have access to your organization. They{" "}
+              <strong>must not be exposed to users</strong>.
+            </>
+          }
+          actions={
+            canViewAuditLog && (
+              <Link onClick={() => setAuditLog({})}>Audit logs</Link>
+            )
+          }
+        />
         {children}
         {organizationSecretKeys.length > 0 && (
           <ApiKeysTable

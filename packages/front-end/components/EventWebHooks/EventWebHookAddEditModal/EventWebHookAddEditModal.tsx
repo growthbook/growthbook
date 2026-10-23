@@ -199,11 +199,11 @@ const EventWebHookAddEditSettings = ({
         placeholder="Choose payload type"
         disabled={form.watch("payloadType") === "raw"}
         formatOptionLabel={({ label }) => (
-          <span>
+          <span className="d-inline-flex align-items-center">
             <WebhookIcon
               type={label as EventWebHookPayloadType}
-              className="mr-3"
-              style={{ height: "2rem", width: "2rem" }}
+              className="mr-2"
+              style={{ height: "1.5em", width: "1.5em" }}
             />
             {eventWebHookPayloadValues[label]}
           </span>

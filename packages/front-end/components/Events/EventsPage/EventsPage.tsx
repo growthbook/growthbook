@@ -19,6 +19,7 @@ import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
 
 type EventsPageProps = {
   filterURLParams: string;
@@ -64,13 +65,11 @@ export const EventsPage: FC<EventsPageProps> = ({
   }
 
   return (
-    <div className="container py-4">
-      <div className="row">
-        <div className="col">
-          <h1>Events</h1>
-        </div>
-
-        <div className="col-auto text-right align-items-end">
+    <div>
+      <SettingsPageHeader
+        title="Logs"
+        description="Every change made in your organization."
+        actions={
           <PremiumTooltip
             commercialFeature="audit-logging"
             premiumText="Exporting events is available to Enterprise customers"
@@ -78,14 +77,13 @@ export const EventsPage: FC<EventsPageProps> = ({
             <Button
               onClick={performDownload}
               disabled={isDownloading || !shouldShowExportButton}
-              ml="3"
               icon={<FaDownload />}
             >
               Export All
             </Button>
           </PremiumTooltip>
-        </div>
-      </div>
+        }
+      />
 
       <div
         className="d-flex justify-content-between flex-row mt-2 align-items-end"

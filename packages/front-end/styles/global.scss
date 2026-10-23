@@ -3176,6 +3176,11 @@ html {
 // Settings pages: card and table treatment from the design, applied without
 // touching each page's markup.
 .main.settings-layout {
+  // Left-aligned like the design, not centered by Bootstrap's auto margins.
+  .container-fluid.pagecontents {
+    margin-left: 0;
+    padding: 28px 40px;
+  }
   .appbox {
     border-radius: 8px;
     border-color: var(--slate-a4);

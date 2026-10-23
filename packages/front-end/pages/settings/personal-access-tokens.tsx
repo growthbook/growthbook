@@ -4,8 +4,7 @@ import MemberPersonalAccessTokens from "@/components/Settings/MemberPersonalAcce
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
-import Text from "@/ui/Text";
-import Heading from "@/ui/Heading";
+import SettingsPage from "@/components/Layout/SettingsPage";
 
 const ManagePersonalAccessTokensPage: FC = () => {
   const permissionsUtils = usePermissionsUtil();
@@ -23,16 +22,10 @@ const ManagePersonalAccessTokensPage: FC = () => {
   }
 
   return (
-    <div className="container-fluid pagecontents">
-      <Heading as="h1" size="xl" mb="2">
-        Manage PATs
-      </Heading>
-      <Text as="p" color="text-mid" mb="4">
-        Personal access tokens act as the member who created them and carry
-        their full permissions. Manage who can create them and how long they
-        last, and disable any that are compromised.
-      </Text>
-
+    <SettingsPage
+      title="Manage PATs"
+      description="Personal access tokens act as the member who created them and carry their full permissions. Manage who can create them and how long they last, and disable any that are compromised."
+    >
       <PersonalAccessTokenSettings />
       <MemberPersonalAccessTokens />
 
@@ -44,7 +37,7 @@ const ManagePersonalAccessTokensPage: FC = () => {
         page, or manage organization-wide keys under{" "}
         <Link href="/settings/keys">API Keys</Link>.
       </Callout>
-    </div>
+    </SettingsPage>
   );
 };
 export default ManagePersonalAccessTokensPage;

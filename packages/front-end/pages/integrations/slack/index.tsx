@@ -34,6 +34,9 @@ import Heading from "@/ui/Heading";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
+import SettingsPage, {
+  SettingsPageHeader,
+} from "@/components/Layout/SettingsPage";
 
 type SlackConnectionsResponse = {
   slackConnections: SlackWorkspaceConnectionFrontEndInterface[];
@@ -498,7 +501,7 @@ const SlackWorkspacePage: NextPage = () => {
   }
 
   return (
-    <Box p="5">
+    <SettingsPage title="Slack" hideHeader>
       {navigationGuard.pendingHref && (
         <ConfirmDialog
           title="Leave without saving?"
@@ -531,33 +534,24 @@ const SlackWorkspacePage: NextPage = () => {
       )}
 
       <Flex direction="column" gap="4">
-        <Flex
-          direction={{ initial: "column", sm: "row" }}
-          justify="between"
-          align="start"
-          gap="4"
-        >
-          <Box>
-            <Heading as="h1" size="lg" mb="2">
-              Slack
-            </Heading>
-            <Text as="p" color="text-mid" mb="0">
-              Connect Slack channels and choose which GrowthBook events each
-              channel receives.
-            </Text>
-          </Box>
-          {data?.oauthConfigured && workspaceGroups.length > 0 && (
-            <Button
-              icon={<FaSlack />}
-              onClick={() => connectToSlack()}
-              loading={connecting}
-              variant="outline"
-              style={{ whiteSpace: "nowrap" }}
-            >
-              Connect another workspace
-            </Button>
-          )}
-        </Flex>
+        <SettingsPageHeader
+          title="Slack"
+          description="Connect Slack channels and choose which GrowthBook events each channel receives."
+          actions={
+            data?.oauthConfigured &&
+            workspaceGroups.length > 0 && (
+              <Button
+                icon={<FaSlack />}
+                onClick={() => connectToSlack()}
+                loading={connecting}
+                variant="outline"
+                style={{ whiteSpace: "nowrap" }}
+              >
+                Connect another workspace
+              </Button>
+            )
+          }
+        />
 
         {connectedMessage && (
           <Callout status="success">{connectedMessage}</Callout>
@@ -679,7 +673,7 @@ const SlackWorkspacePage: NextPage = () => {
         )}
         <SlackIntegrationsListViewContainer key={orgId} />
       </Flex>
-    </Box>
+    </SettingsPage>
   );
 };
 

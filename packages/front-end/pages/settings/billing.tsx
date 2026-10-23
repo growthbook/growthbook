@@ -11,6 +11,8 @@ import OrbPortal from "@/enterprise/components/Billing/OrbPortal";
 import { isCloud } from "@/services/env";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import SettingsPage from "@/components/Layout/SettingsPage";
+import Heading from "@/ui/Heading";
 
 const BillingPage: FC = () => {
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -90,7 +92,10 @@ const BillingPage: FC = () => {
   }
 
   return (
-    <div className="container-fluid pagecontents">
+    <SettingsPage
+      title="Billing"
+      description="Manage your plan, payment method, and invoices."
+    >
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
@@ -98,7 +103,9 @@ const BillingPage: FC = () => {
           commercialFeature={null}
         />
       )}
-      <h1>Plan Info</h1>
+      <Heading as="h2" size="md" mb="2">
+        Plan info
+      </Heading>
       <div className="appbox p-3 border">
         {subscription?.status ? (
           <SubscriptionInfo />
@@ -138,7 +145,7 @@ const BillingPage: FC = () => {
           ) : null}
         </>
       ) : null}
-    </div>
+    </SettingsPage>
   );
 };
 export default BillingPage;

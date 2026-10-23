@@ -74,8 +74,13 @@ export default function SettingsNav() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
+      // Only text entry keeps "/"; a focused checkbox or button still jumps.
       const typing =
-        /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable;
+        el.tagName === "TEXTAREA" ||
+        el.tagName === "SELECT" ||
+        el.isContentEditable ||
+        (el instanceof HTMLInputElement &&
+          !/^(checkbox|radio|button|submit)$/.test(el.type));
       if (e.key === "/" && !typing && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         searchRef.current?.focus();

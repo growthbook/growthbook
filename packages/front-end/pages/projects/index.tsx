@@ -28,6 +28,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import CopyableCode from "@/components/Settings/CopyableCode";
 import HistoryTable from "@/components/HistoryTable";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import SettingsPage from "@/components/Layout/SettingsPage";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
@@ -84,7 +85,41 @@ const ProjectsPage: FC = () => {
   });
 
   return (
-    <div className="container-fluid pagecontents">
+    <SettingsPage
+      title="Projects"
+      description={
+        <>
+          Group your ideas and experiments into <strong>Projects</strong> to
+          keep things organized and easy to manage.
+        </>
+      }
+      actions={
+        <>
+          <Link onClick={() => setAuditLogOpen(true)}>Audit log</Link>
+          <Tooltip
+            body={
+              !canCreateProjects
+                ? "You don't have permission to create projects"
+                : atProjectLimit
+                  ? `Your plan only supports ${maxProjects} project${
+                      maxProjects === 1 ? "" : "s"
+                    }. Upgrade your plan to create more.`
+                  : undefined
+            }
+            shouldDisplay={!canCreateProjects || atProjectLimit}
+          >
+            <Button
+              disabled={!canCreateProjects}
+              onClick={() =>
+                atProjectLimit ? setUpgradeModalOpen(true) : setModalOpen({})
+              }
+            >
+              Create Project
+            </Button>
+          </Tooltip>
+        </>
+      }
+    >
       {modalOpen && (
         <ProjectModal
           existing={modalOpen}
@@ -111,44 +146,7 @@ const ProjectsPage: FC = () => {
         </ModalStandard>
       )}
 
-      <Box mt="4" mb="5">
-        <div className="row align-items-center mb-1">
-          <div className="col-auto">
-            <h2 className="mb-0">Projects</h2>
-          </div>
-          <div className="flex-1" />
-          <div className="col-auto">
-            <Link onClick={() => setAuditLogOpen(true)}>Audit log</Link>
-          </div>
-          <div className="col-auto">
-            <Tooltip
-              body={
-                !canCreateProjects
-                  ? "You don't have permission to create projects"
-                  : atProjectLimit
-                    ? `Your plan only supports ${maxProjects} project${
-                        maxProjects === 1 ? "" : "s"
-                      }. Upgrade your plan to create more.`
-                    : undefined
-              }
-              shouldDisplay={!canCreateProjects || atProjectLimit}
-            >
-              <Button
-                disabled={!canCreateProjects}
-                onClick={() =>
-                  atProjectLimit ? setUpgradeModalOpen(true) : setModalOpen({})
-                }
-              >
-                Create Project
-              </Button>
-            </Tooltip>
-          </div>
-        </div>
-        <p className="text-gray mb-4">
-          Group your ideas and experiments into <strong>Projects</strong> to
-          keep things organized and easy to manage.
-        </p>
-
+      <Box mb="5">
         {projects.length > 0 ? (
           <>
             <Box width="250px" mb="3">
@@ -260,7 +258,7 @@ const ProjectsPage: FC = () => {
           <p>Click the button above to create your first project!</p>
         )}
       </Box>
-    </div>
+    </SettingsPage>
   );
 };
 export default ProjectsPage;

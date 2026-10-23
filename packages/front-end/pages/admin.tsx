@@ -46,6 +46,7 @@ import {
   DataRegion,
   useDataRegionOptions,
 } from "@/services/dataRegions";
+import SettingsPage from "@/components/Layout/SettingsPage";
 
 interface memberOrgProps {
   id: string;
@@ -683,7 +684,10 @@ const Admin: FC = () => {
   }
 
   return (
-    <div className="container-fluid p-3 pagecontents">
+    <SettingsPage
+      title="Admin"
+      description="Manage organizations and members on this GrowthBook instance."
+    >
       {orgModalOpen && (
         <CreateOrganization
           showExternalId={!isCloud()}
@@ -693,7 +697,6 @@ const Admin: FC = () => {
           close={() => setOrgModalOpen(false)}
         />
       )}
-      <h1>GrowthBook Admin</h1>
       {!isCloud() && (
         <>
           <div className="appbox p-3">
@@ -905,7 +908,7 @@ const Admin: FC = () => {
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+    </SettingsPage>
   );
 };
 

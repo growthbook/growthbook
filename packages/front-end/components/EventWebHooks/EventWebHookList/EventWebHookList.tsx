@@ -8,6 +8,7 @@ import { docUrl, DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
 
 type EventWebHookListProps = {
@@ -44,22 +45,16 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
         />
       ) : null}
 
-      <div className="mb-4">
-        <div className="d-flex align-items-center">
-          <h2>Event Webhooks</h2>
-          <div className="ml-auto">
-            <Button onClick={onCreateModalOpen}>New Event Webhook</Button>
-          </div>
-        </div>
-        <p>
-          Monitor specific events globally across features and experiments.
-          <span className="ml-2">
-            <DocLink useRadix={false} docSection={"eventWebhooks"}>
-              View Documentation &gt;
-            </DocLink>
-          </span>
-        </p>
-      </div>
+      <SettingsPageHeader
+        title="Webhooks"
+        description={
+          <>
+            Monitor specific events globally across features and experiments.{" "}
+            <DocLink docSection="eventWebhooks">View docs</DocLink>
+          </>
+        }
+        actions={<Button onClick={onCreateModalOpen}>New Event Webhook</Button>}
+      />
 
       {/* Feedback messages */}
       {errorMessage && (
@@ -79,7 +74,7 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
               Slack. Apply globally for all features and experiments, or filter
               by environment, project, or tags.
             </p>
-            <div className="d-flex">
+            <div className="d-flex justify-content-center">
               <Button
                 mr="2"
                 variant="outline"
