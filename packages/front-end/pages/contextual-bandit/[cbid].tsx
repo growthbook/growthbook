@@ -19,6 +19,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import ContextualBanditDetailPage from "@/components/ContextualBandit/ContextualBanditDetailPage";
+import ContextualBanditSnapshotProvider from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
 import ContextualBanditDescriptionModal from "@/components/ContextualBandit/ContextualBanditDescriptionModal";
 import ContextualBanditOverviewModal from "@/components/ContextualBandit/ContextualBanditOverviewModal";
 import ContextualBanditAnalysisMetricsModal from "@/components/ContextualBandit/ContextualBanditAnalysisMetricsModal";
@@ -105,33 +106,37 @@ const ContextualBanditPage = (): ReactElement => {
       />
 
       <div className="contents container-fluid pagecontents">
-        <ContextualBanditDetailPage
-          cb={cb}
-          mutate={mutate}
-          canRun={canRun}
-          editOverview={canEdit ? () => setOverviewModalOpen(true) : undefined}
-          editAnalysisMetrics={
-            canEdit ? () => setAnalysisMetricsModalOpen(true) : undefined
-          }
-          editVariations={
-            canEditVariations ? () => setVariationsModalOpen(true) : undefined
-          }
-          editTrafficTargeting={
-            canEdit ? () => setTrafficTargetingModalOpen(true) : undefined
-          }
-          editTags={canEdit ? () => setTagsModalOpen(true) : undefined}
-          editProject={canEdit ? () => setProjectModalOpen(true) : undefined}
-          editDescription={
-            canEdit ? () => setDescriptionModalOpen(true) : undefined
-          }
-          duplicate={canEdit ? () => setDuplicateModalOpen(true) : undefined}
-          linkedFeatures={linkedFeatures}
-          linkedFeaturesMutate={mutateLinkedFeatures}
-          canAddFeature={canEdit}
-          setFeatureModal={
-            canEdit ? (open) => setFeatureModalOpen(open) : undefined
-          }
-        />
+        <ContextualBanditSnapshotProvider cbId={cb.id}>
+          <ContextualBanditDetailPage
+            cb={cb}
+            mutate={mutate}
+            canRun={canRun}
+            editOverview={
+              canEdit ? () => setOverviewModalOpen(true) : undefined
+            }
+            editAnalysisMetrics={
+              canEdit ? () => setAnalysisMetricsModalOpen(true) : undefined
+            }
+            editVariations={
+              canEditVariations ? () => setVariationsModalOpen(true) : undefined
+            }
+            editTrafficTargeting={
+              canEdit ? () => setTrafficTargetingModalOpen(true) : undefined
+            }
+            editTags={canEdit ? () => setTagsModalOpen(true) : undefined}
+            editProject={canEdit ? () => setProjectModalOpen(true) : undefined}
+            editDescription={
+              canEdit ? () => setDescriptionModalOpen(true) : undefined
+            }
+            duplicate={canEdit ? () => setDuplicateModalOpen(true) : undefined}
+            linkedFeatures={linkedFeatures}
+            linkedFeaturesMutate={mutateLinkedFeatures}
+            canAddFeature={canEdit}
+            setFeatureModal={
+              canEdit ? (open) => setFeatureModalOpen(open) : undefined
+            }
+          />
+        </ContextualBanditSnapshotProvider>
       </div>
 
       {overviewModalOpen && (
