@@ -142,7 +142,7 @@ export default function EventForwarderModal({
           Choose Your Warehouse
         </Heading>
         <RadioCards
-          columns="2"
+          columns="3"
           width="100%"
           align="center"
           labelSize="md"

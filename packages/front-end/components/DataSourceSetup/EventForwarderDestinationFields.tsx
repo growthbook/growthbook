@@ -21,6 +21,15 @@ export type EventForwarderDestination = {
   zerobusEndpoint: string;
 };
 
+export function eventDestinationEntryHint(
+  type: DataSourceType | undefined,
+  action: "continue" | "test",
+): string {
+  const location = type === "bigquery" ? "dataset" : "schema";
+  const zerobus = type === "databricks" ? ", and a Zerobus endpoint" : "";
+  return `Enter a ${location} and table prefix${zerobus} to ${action}.`;
+}
+
 export function defaultEventForwarderDestination(
   type: DataSourceType,
 ): EventForwarderDestination {
@@ -115,7 +124,11 @@ export default function EventForwarderDestinationFields({
           placeholder={
             type === "snowflake" ? "GROWTHBOOK_EVENTS" : "growthbook_events"
           }
-          helpText={`The ${locationLabel.toLowerCase()} where your forwarded events to be written to.`}
+          helpText={
+            isBigQuery
+              ? "The dataset GrowthBook writes forwarded events to."
+              : "The schema GrowthBook writes forwarded events to."
+          }
         />
         <TextField
           label="Table prefix"

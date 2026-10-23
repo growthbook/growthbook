@@ -28,7 +28,7 @@ export function BigQueryAdvancedSettings({
         <TextField
           mb="3"
           name="defaultProject"
-          label="BigQuery Project ID"
+          label="BigQuery project ID"
           value={params.defaultProject || ""}
           onChange={onParamChange}
           helpText="Filled from the key file. Change this only if GrowthBook should query a different project than the service account's project."
@@ -294,7 +294,7 @@ const BigQueryForm: FC<{
         <div
           className={`form-group ${connectionOnly ? "col-md-12" : "col-md-6"}`}
         >
-          <label>BigQuery Project ID</label>
+          <label>BigQuery project ID</label>
           <Field
             size="legacy"
             type="text"

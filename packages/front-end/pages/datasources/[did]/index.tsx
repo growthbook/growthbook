@@ -9,7 +9,10 @@ import {
 } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import {
+  isManagedWarehouseAwaitingProvisioning,
+  supportsEventForwarder,
+} from "shared/util";
 import { isSampleDatasource } from "shared/demo-datasource";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiLinkBold } from "react-icons/pi";
@@ -59,7 +62,7 @@ import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
-import EventForwarderTab from "@/components/DataSourceSetup/EventForwarderTab";
+import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBEdit } from "@/components/Icons";
 import ConnectedResources from "@/components/Settings/EditDataSource/ConnectedResources";
@@ -354,6 +357,10 @@ const DataSourcePage: FC = () => {
   const { hasCommercialFeature, settings: orgSettings } = useUser();
   // Default ON; the remote flag only turns this off for specific orgs.
   const contextualBanditsEnabled = useFeatureValue("contextual-bandits", true);
+  const eventsForwarderFlag = useFeatureValue(
+    "events-forwarder-multi-step",
+    "OFF",
+  );
 
   // Only the never-provisioned state replaces the settings UI with the onboarding
   // callout. A transient migration must NOT blank the config page — query sub-surfaces
@@ -487,6 +494,15 @@ const DataSourcePage: FC = () => {
       : "usage";
   const exploreFillsViewport = activeTab === "explore" && !showFinishSettingUp;
   const supportsEvents = d.properties?.events || false;
+  // The tab is the Event Forwarder surface for the new setup. Orgs still on
+  // the older flag, and unconfigured forwarders, keep the card in Settings.
+  const showEventForwarderSettings =
+    !showEventForwarderTab &&
+    supportsEventForwarder(d) &&
+    eventsForwarderFlag !== "OFF";
+  const refreshDataSource = async () => {
+    await Promise.all([mutateDefinitions({}), mutateCurrentDataSource()]);
+  };
 
   return (
     <div
@@ -678,15 +694,10 @@ const DataSourcePage: FC = () => {
             <TabsContent value="event-forwarder">
               <Flex direction="column" gap="2" mt="3">
                 <Frame mb="0">
-                  <EventForwarderTab
+                  <EventForwarder
                     dataSource={d}
                     canEdit={canUpdateDataSourceSettings}
-                    onRefresh={async () => {
-                      await Promise.all([
-                        mutateDefinitions({}),
-                        mutateCurrentDataSource(),
-                      ]);
-                    }}
+                    onRefresh={refreshDataSource}
                   />
                 </Frame>
               </Flex>
@@ -960,6 +971,16 @@ const DataSourcePage: FC = () => {
                   />
                 </Frame>
               )}
+
+              {showEventForwarderSettings ? (
+                <Frame mb="0">
+                  <EventForwarder
+                    dataSource={d}
+                    canEdit={canUpdateDataSourceSettings}
+                    onRefresh={refreshDataSource}
+                  />
+                </Frame>
+              ) : null}
 
               {supportsEvents && (
                 <Frame mb="0">

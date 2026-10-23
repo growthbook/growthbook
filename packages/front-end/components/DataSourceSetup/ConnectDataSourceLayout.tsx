@@ -60,6 +60,7 @@ import DataSourceConnectInstructions, {
 } from "./DataSourceConnectInstructions";
 import EventForwarderDestinationFields, {
   defaultEventForwarderDestination,
+  eventDestinationEntryHint,
 } from "./EventForwarderDestinationFields";
 import {
   generateSnowflakeKeyPair,
@@ -506,17 +507,23 @@ export default function ConnectDataSourceLayout({
     !!datasource.type &&
     isTestableDataSourceType(datasource.type) &&
     !isSampleData;
-  const connectionInputsReady =
-    hasConnectionTestInputs(
-      datasource.type,
-      datasource.params,
-      existing && !datasource.decryptionError,
-    ) &&
-    (!checksWrite ||
-      (!!eventDestination.location.trim() &&
-        !!eventDestination.tablePrefix.trim() &&
-        (datasource.type !== "databricks" ||
-          !!eventDestination.zerobusEndpoint.trim())));
+  const connectionDetailsReady = hasConnectionTestInputs(
+    datasource.type,
+    datasource.params,
+    existing && !datasource.decryptionError,
+  );
+  const destinationReady =
+    !checksWrite ||
+    (!!eventDestination.location.trim() &&
+      !!eventDestination.tablePrefix.trim() &&
+      (datasource.type !== "databricks" ||
+        !!eventDestination.zerobusEndpoint.trim()));
+  const connectionInputsReady = connectionDetailsReady && destinationReady;
+  const missingTestInputsHint = !connectionDetailsReady
+    ? "Enter the connection details to test."
+    : !destinationReady
+      ? eventDestinationEntryHint(datasource.type, "test")
+      : "";
   const eventForwarderDraft =
     checksWrite && datasource.type
       ? buildEventForwarderConnectDraft({
@@ -706,7 +713,7 @@ export default function ConnectDataSourceLayout({
       return "The EU ingestor is not enabled for this organization";
     }
     if (needsSuccessfulTest && !connectionInputsReady) {
-      return "Enter the connection details to continue";
+      return missingTestInputsHint;
     }
     if (needsSuccessfulTest && testStatus === "idle") {
       return "Test the connection to continue";
@@ -991,9 +998,11 @@ export default function ConnectDataSourceLayout({
             </Flex>
             {readStatus === "idle" || readStatus === "running" ? (
               <Text as="p" size="sm" color="text-mid" mb="0">
-                {checksWrite
-                  ? "Checks that GrowthBook can read your data and create tables in the event destination."
-                  : "Checks that GrowthBook can connect and read your data."}
+                {!connectionInputsReady
+                  ? missingTestInputsHint
+                  : checksWrite
+                    ? "Checks that GrowthBook can read your data and create tables in the event destination."
+                    : "Checks that GrowthBook can connect and read your data."}
               </Text>
             ) : (
               <Flex direction="column" gap="3" mt="3">
@@ -1063,9 +1072,11 @@ export default function ConnectDataSourceLayout({
                         ? "We detected your warehouse region. Confirm it below or choose a different region."
                         : detectedWarehouseRegionId
                           ? `We detected ${detectedWarehouseRegionId}, but its mapped ingestor is not enabled. If this detection is incorrect, choose a different region.`
-                          : "We could not detect your warehouse region. Choose it below so GrowthBook can route events to the closest ingestor."}{" "}
-                      This cannot be changed later.
+                          : "We could not detect your warehouse region. Choose it below so GrowthBook can route events to the closest ingestor."}
                     </Text>
+                    <Callout status="warning" mb="2">
+                      This cannot be changed later.
+                    </Callout>
                     <Box maxWidth="360px">
                       <SelectField
                         aria-label="Warehouse region"
@@ -1089,8 +1100,10 @@ export default function ConnectDataSourceLayout({
                 {checksWrite && writeStatus === "passed" && resolvedRegion ? (
                   <Text as="p" size="sm" color="text-mid" mb="0">
                     Events will be routed to GrowthBook&apos;s{" "}
-                    <code>{ingestorForRegion(resolvedRegion)}</code>, then
-                    written to your warehouse.
+                    <Text as="span" size="sm" weight="medium">
+                      {ingestorForRegion(resolvedRegion)}
+                    </Text>
+                    , then written to your warehouse.
                   </Text>
                 ) : null}
               </Flex>

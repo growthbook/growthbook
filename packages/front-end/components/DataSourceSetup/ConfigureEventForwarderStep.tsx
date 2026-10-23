@@ -6,9 +6,11 @@ import { useAuth } from "@/services/auth";
 import { DEFAULT_DATA_REGION } from "@/services/dataRegions";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import { buildEventForwarderConnectDraft } from "./buildEventForwarderConnectDraft";
 import EventForwarderDestinationFields, {
   defaultEventForwarderDestination,
+  eventDestinationEntryHint,
   eventForwarderDestinationFromDatasource,
 } from "./EventForwarderDestinationFields";
 
@@ -58,7 +60,6 @@ export default function ConfigureEventForwarderStep({
       : null;
   const shownError = error ?? persistedError;
 
-  const locationLabel = dataSource.type === "bigquery" ? "dataset" : "schema";
   const missingDestination =
     !destination.location.trim() ||
     !destination.tablePrefix.trim() ||
@@ -113,7 +114,7 @@ export default function ConfigureEventForwarderStep({
           <Callout status="error">{shownError}</Callout>
         </Box>
       ) : null}
-      <Flex mt="3" align="center" gap="3">
+      <Flex mt="3" align="center" gap="3" wrap="wrap">
         <Button
           onClick={configure}
           disabled={!canEdit || missingDestination || phase !== "idle"}
@@ -125,16 +126,12 @@ export default function ConfigureEventForwarderStep({
               ? "Configuring"
               : "Configure Event Forwarder"}
         </Button>
+        {missingDestination ? (
+          <Text size="sm" color="text-mid">
+            {eventDestinationEntryHint(dataSource.type, "continue")}
+          </Text>
+        ) : null}
       </Flex>
-      {missingDestination ? (
-        <Box mt="2">
-          <Callout status="info">
-            {`Enter a ${locationLabel}, table prefix${
-              dataSource.type === "databricks" ? ", and Zerobus endpoint" : ""
-            } to continue.`}
-          </Callout>
-        </Box>
-      ) : null}
     </Box>
   );
 }
