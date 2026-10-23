@@ -14,6 +14,7 @@ import type {
   FeatureRule,
 } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { SqlIdentifierQuote } from "shared/types/sql";
 import {
   ContextualBanditEventInterface,
   ContextualBanditInterface,
@@ -2114,6 +2115,7 @@ export function buildContextualBanditSnapshotSettings(
 /** Translates `ContextualBanditSnapshotSettings` into the `ExperimentSnapshotSettings` shape used by `SqlIntegration.getSnapshotMetricQuery`. */
 export function buildSnapshotSettingsForCb(
   cbSnapshotSettings: ContextualBanditSnapshotSettings,
+  identifierQuote: SqlIdentifierQuote,
 ): ExperimentSnapshotSettings {
   const decisionMetric = cbSnapshotSettings.decisionMetric;
   return {
@@ -2152,7 +2154,10 @@ export function buildSnapshotSettingsForCb(
       historicalWeights: [],
       periodWeighting:
         cbSnapshotSettings.periodWeighting !== false &&
-        queryHasContextualBanditVersionColumn(cbSnapshotSettings.query),
+        queryHasContextualBanditVersionColumn(
+          cbSnapshotSettings.query,
+          identifierQuote,
+        ),
     },
   };
 }

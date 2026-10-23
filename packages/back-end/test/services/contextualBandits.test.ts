@@ -258,7 +258,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
       schema("country", "device"),
     );
 
-    expect(buildSnapshotSettingsForCb(cbSettings).experimentId).toBe(
+    expect(buildSnapshotSettingsForCb(cbSettings, '"').experimentId).toBe(
       "first_contextual_bandit",
     );
   });
@@ -308,6 +308,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
           schema("country", "device"),
           true,
         ),
+        '"',
       ).banditSettings?.periodWeighting,
     ).toBe(false);
   });
@@ -329,6 +330,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
           schema("country", "device"),
           true,
         ),
+        '"',
       ).banditSettings?.periodWeighting,
     ).toBe(true);
 
@@ -341,6 +343,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
           schema("country", "device"),
           true,
         ),
+        '"',
       ).banditSettings?.periodWeighting,
     ).toBe(false);
 
@@ -353,7 +356,36 @@ describe("buildContextualBanditSnapshotSettings", () => {
           schema("country", "device"),
           false,
         ),
+        '"',
       ).banditSettings?.periodWeighting,
+    ).toBe(false);
+  });
+
+  // Regression: a BigQuery source quotes identifiers with backticks. The
+  // period-weighting check must use the source's quote style, otherwise a
+  // backtick-quoted `bandit_version` is misread as a string literal and
+  // weighting is silently disabled despite the column being present.
+  it("honors the data source quote style when detecting bandit_version", () => {
+    const backtickQuoted = makeExposureQuery({
+      query: "SELECT user_id, timestamp, `bandit_version` FROM cb_assignments",
+    });
+    const cbSettings = buildContextualBanditSnapshotSettings(
+      makeCb(),
+      backtickQuoted,
+      schema("country", "device"),
+      true,
+    );
+
+    // BigQuery (backtick) quote => column recognized => weighting enabled
+    expect(
+      buildSnapshotSettingsForCb(cbSettings, "`").banditSettings
+        ?.periodWeighting,
+    ).toBe(true);
+
+    // Double-quote source => backtick-quoted token is a string => disabled
+    expect(
+      buildSnapshotSettingsForCb(cbSettings, '"').banditSettings
+        ?.periodWeighting,
     ).toBe(false);
   });
 
