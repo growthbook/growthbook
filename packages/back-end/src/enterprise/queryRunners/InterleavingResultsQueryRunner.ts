@@ -200,7 +200,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
       this.model.id,
     );
     if (!obj) {
-      throw new Error(`Could not load interleaving snapshot: ${this.model.id}`);
+      throw new Error(`Could not load snapshot model: ${this.model.id}`);
     }
     return obj;
   }
