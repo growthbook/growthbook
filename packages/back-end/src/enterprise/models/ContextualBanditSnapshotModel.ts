@@ -37,6 +37,12 @@ export class ContextualBanditSnapshotModel extends BaseClass {
     return true;
   }
 
+  // `bypassReadPermissionChecks` grants no extra access here: `canRead()` above
+  // already returns true for every snapshot, and `_find` still scopes the query
+  // to the caller's organization. It is set because `_find` only pushes `limit`
+  // down to Mongo when the per-document read filter is bypassed — without it
+  // every snapshot for the bandit is loaded just to keep the newest one.
+  // Callers remain responsible for authorizing access to the parent bandit.
   public async getLatestForContextualBandit(
     contextualBandit: string,
   ): Promise<ContextualBanditSnapshotInterface | null> {
@@ -51,6 +57,8 @@ export class ContextualBanditSnapshotModel extends BaseClass {
     return results[0] ?? null;
   }
 
+  // As above, plus a projection: the status poll needs only the run metadata,
+  // so the large result fields are left in the database.
   public async getLatestStatusForContextualBandit(
     contextualBandit: string,
   ): Promise<ContextualBanditSnapshotInterface | null> {
