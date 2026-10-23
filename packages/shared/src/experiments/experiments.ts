@@ -1406,7 +1406,9 @@ const CLUSTER_SUBUNIT_ROLLUP_AGGREGATIONS = [
   "hll merge",
 ] as const;
 
-function getNonRollupAggregation(metric: FactMetricInterface): string | null {
+export function getNonRollupAggregation(
+  metric: FactMetricInterface,
+): string | null {
   for (const ref of getFactMetricColumnRefs(metric)) {
     if (
       ref.aggregation &&

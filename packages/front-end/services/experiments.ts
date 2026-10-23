@@ -1,4 +1,7 @@
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotSettings,
+  SnapshotMetric,
+} from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
 import {
   ExperimentReportVariation,
@@ -26,7 +29,7 @@ import {
   pValueFormatter,
 } from "shared/util";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
-import { isNil, omit } from "lodash";
+import { isNil, omit, startCase } from "lodash";
 import {
   FactTableDefinition,
   FactMetricInterface,
@@ -1524,4 +1527,35 @@ export function getAvailableSliceTags({
     // Fallback to ID comparison
     return a.id.localeCompare(b.id);
   });
+}
+
+// Converts an identifier type to a display name (e.g. "user_id" -> "User Ids")
+export function getUnitDisplayName(identifierType: string | undefined) {
+  return identifierType
+    ? startCase(identifierType.split("_").join(" ")) + "s"
+    : "Units";
+}
+
+/**
+ * Cluster experiment results count clusters, not sub-units, so their unit
+ * counts are labeled with the cluster identifier.
+ */
+export function getClusterUnitsLabel(
+  settings:
+    | Pick<
+        ExperimentSnapshotSettings,
+        | "isClusterExperiment"
+        | "clusterSubUnitIdentifier"
+        | "exposureQueryIdentifierType"
+      >
+    | undefined,
+): string | undefined {
+  if (
+    !settings?.isClusterExperiment ||
+    !settings.clusterSubUnitIdentifier ||
+    !settings.exposureQueryIdentifierType
+  ) {
+    return undefined;
+  }
+  return getUnitDisplayName(settings.exposureQueryIdentifierType);
 }

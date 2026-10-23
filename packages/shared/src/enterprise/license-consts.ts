@@ -88,7 +88,8 @@ export type CommercialFeature =
   | "feature-configs"
   | "releases"
   | "contextual-bandits"
-  | "interleaving";
+  | "interleaving"
+  | "cluster-experiments";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -245,6 +246,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "saveSqlExplorerQueries",
   "precomputed-dimensions",
   "product-analytics-dashboards",
+  "cluster-experiments",
 ];
 
 const commercialFeaturesProSso: CommercialFeature[] = [

@@ -5,6 +5,8 @@ import {
 } from "shared/util";
 import {
   ExperimentMetricDefinition,
+  getClusterMetricAnalysisLevel,
+  getClusterSubUnit,
   getFactMetricFactTableIds,
   isFactMetric,
   isFactMetricJoinable,
@@ -24,6 +26,7 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
+import { IdentifierCode } from "@/components/Experiment/AssignmentQueryFields";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
 import Link from "@/ui/Link";
@@ -42,6 +45,7 @@ type MetricOption = {
   managedBy?: string;
   disabled?: boolean;
   disabledReason?: string;
+  clusterLevel?: boolean;
 };
 
 type MetricsSelectorTooltipProps = {
@@ -178,15 +182,12 @@ const MetricsSelector: FC<{
   const assignmentIdType = exposureQuery
     ? resolveAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
     : undefined;
-  const userIdType =
-    exposureQuery && isClusterExperiment && clusterSubUnitIdentifier
-      ? clusterSubUnitIdentifier
-      : assignmentIdType;
+  const clusterSubUnit = exposureQuery
+    ? getClusterSubUnit({ isClusterExperiment, clusterSubUnitIdentifier })
+    : null;
+  const userIdType = clusterSubUnit ?? assignmentIdType;
   // Fact metrics that can't reach the sub-unit are analyzed per cluster.
-  const clusterIdType =
-    isClusterExperiment && clusterSubUnitIdentifier
-      ? assignmentIdType
-      : undefined;
+  const clusterIdType = clusterSubUnit ? assignmentIdType : undefined;
 
   const filteredOptions = useMemo(() => {
     const options: MetricOption[] = [
@@ -275,6 +276,15 @@ const MetricsSelector: FC<{
                 isGroup: false,
                 disabled: disabledInfo.disabled,
                 disabledReason: disabledInfo.reason,
+                clusterLevel:
+                  !!clusterIdType &&
+                  !!clusterSubUnit &&
+                  getClusterMetricAnalysisLevel(m, {
+                    clusterIdentifier: clusterIdType,
+                    clusterSubUnitIdentifier: clusterSubUnit,
+                    getFactTable: getFactTableById,
+                    datasourceSettings,
+                  }) === "cluster",
               };
             })
         : []),
@@ -318,6 +328,7 @@ const MetricsSelector: FC<{
     datasourceSettings,
     userIdType,
     clusterIdType,
+    clusterSubUnit,
     project,
     noLegacyMetrics,
     noManual,
@@ -427,6 +438,31 @@ const MetricsSelector: FC<{
   ]);
 
   const multiSelectOptions = useMemo(() => {
+    if (groupOptions && clusterIdType && userIdType) {
+      const toSingleValue = (option: MetricOption): SingleValue => ({
+        value: option.id,
+        label: option.name,
+        tooltip:
+          option.disabled && option.disabledReason
+            ? option.disabledReason
+            : option.description,
+      });
+      // Official metrics first within each analysis level, then by name.
+      const byLevel = (clusterLevel: boolean) =>
+        filteredOptions
+          .filter((option) => !!option.clusterLevel === clusterLevel)
+          .sort(
+            (a, b) =>
+              Number(!a.managedBy) - Number(!b.managedBy) ||
+              a.name.localeCompare(b.name),
+          )
+          .map(toSingleValue);
+      // Labels are the identifiers; formatClusterGroupLabel renders the heading.
+      return [
+        { label: userIdType, options: byLevel(false) },
+        { label: clusterIdType, options: byLevel(true) },
+      ].filter((group) => group.options.length > 0);
+    }
     if (groupOptions) {
       const groupedOptions: GroupedValue[] = [];
       const managedMetrics: SingleValue[] = [];
@@ -485,7 +521,16 @@ const MetricsSelector: FC<{
         tooltip: tooltipText,
       };
     });
-  }, [filteredOptions, groupOptions]);
+  }, [filteredOptions, groupOptions, clusterIdType, userIdType]);
+
+  const formatClusterGroupLabel = useCallback(
+    ({ label }: GroupedValue) => (
+      <>
+        Analyzed per <IdentifierCode>{label}</IdentifierCode>
+      </>
+    ),
+    [],
+  );
 
   const multiFormatOptionLabel = useCallback(
     ({ value, label }: SingleValue, { context }: { context: string }) => {
@@ -554,6 +599,13 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={multiFormatOptionLabel}
+      formatGroupLabel={
+        groupOptions && clusterIdType && userIdType
+          ? formatClusterGroupLabel
+          : undefined
+      }
+      // The analysis-level groups are already ordered, sub-unit first.
+      sortOptions={!(groupOptions && clusterIdType && userIdType)}
       disabled={selectorDisabled}
       helpText={
         <>

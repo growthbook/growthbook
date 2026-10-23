@@ -10,13 +10,22 @@ import {
 import { ExperimentStatus, LookbackOverride } from "shared/types/experiment";
 import { ExperimentReportVariation } from "shared/types/report";
 import { MetricTimeSeries } from "shared/validators";
-import { isRatioMetric } from "shared/experiments";
+import {
+  getNonRollupAggregation,
+  isFactMetric,
+  isRatioMetric,
+} from "shared/experiments";
 import ResultsTable from "@/components/Experiment/ResultsTable";
-import { ExperimentTableRow } from "@/services/experiments";
+import {
+  ExperimentTableRow,
+  getClusterUnitsLabel,
+} from "@/services/experiments";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import VariationStatsTable from "@/ui/VariationStatsTable";
+import { IdentifierCode } from "@/components/Experiment/AssignmentQueryFields";
 import { MetricDrilldownMetadata } from "./MetricDrilldownMetadata";
 import MetricDrilldownMetricCard from "./MetricDrilldownMetricCard";
 import { type DrilldownDimensionInfo } from "./useMetricDrilldownContext";
@@ -107,6 +116,21 @@ function MetricDrilldownOverview({
         ? "Secondary Metric"
         : "Guardrail Metric";
 
+  const settings = snapshot?.settings;
+  const clusterIdentifier = settings?.exposureQueryIdentifierType;
+  const subUnitIdentifier = settings?.clusterSubUnitIdentifier;
+  const isClusterLevelMetric =
+    !!settings?.isClusterExperiment &&
+    !!clusterIdentifier &&
+    !!subUnitIdentifier &&
+    !!settings.clusterLevelMetricIds?.includes(metric.id);
+  // Cluster-level metrics either can't join the sub-unit, or use an
+  // aggregation (e.g. max) that can't be summed across sub-units.
+  const nonRollupAggregation =
+    isClusterLevelMetric && isFactMetric(metric)
+      ? getNonRollupAggregation(metric)
+      : null;
+
   const statsTableRows = variations.map((variation, i) => ({
     variationIndex: i,
     variationName: variation.name,
@@ -116,58 +140,80 @@ function MetricDrilldownOverview({
 
   return (
     <Flex direction="column" gap="6">
-      <ResultsTable
-        experimentId={experimentId}
-        significanceThresholds={significanceThresholds}
-        dateCreated={reportDate}
-        isLatestPhase={isLatestPhase}
-        phase={phase}
-        startDate={startDate}
-        endDate={endDate}
-        status={experimentStatus}
-        variations={variations}
-        baselineRow={localBaselineRow}
-        setBaselineRow={setLocalBaselineRow}
-        variationFilter={localVariationFilter}
-        setVariationFilter={setLocalVariationFilter}
-        rows={[row]}
-        id={tableId}
-        resultGroup={resultGroup}
-        tableRowAxis="metric"
-        labelHeader={labelHeader}
-        renderLabelColumn={({ label }) => (
-          <Text weight="bold" ml="4">
-            {label}
-          </Text>
+      <Box>
+        {isClusterLevelMetric && (
+          <Callout status="info" mt="3" mb="4">
+            Analyzed per <IdentifierCode>{clusterIdentifier}</IdentifierCode>,
+            not per <IdentifierCode>{subUnitIdentifier}</IdentifierCode>:{" "}
+            {nonRollupAggregation ? (
+              <>
+                <IdentifierCode>{nonRollupAggregation}</IdentifierCode> values
+                can&apos;t be added up across each{" "}
+                <IdentifierCode>{subUnitIdentifier}</IdentifierCode>
+              </>
+            ) : (
+              <>
+                this metric&apos;s fact table has no{" "}
+                <IdentifierCode>{subUnitIdentifier}</IdentifierCode>
+              </>
+            )}
+            , so each <IdentifierCode>{clusterIdentifier}</IdentifierCode>{" "}
+            counts as one unit.
+          </Callout>
         )}
-        statsEngine={statsEngine}
-        pValueCorrection={pValueCorrection}
-        differenceType={localDifferenceType}
-        setDifferenceType={setLocalDifferenceType}
-        sequentialTestingEnabled={sequentialTestingEnabled}
-        isTabActive={true}
-        noStickyHeader={true}
-        noTooltip={false}
-        isBandit={false}
-        isHoldout={false}
-        visibleTimeSeriesRowIds={
-          isAuthenticated ? [`${tableId}-${metric.id}-0`] : []
-        }
-        timeSeriesMessage={timeSeriesMessage}
-        preloadedTimeSeries={preloadedTimeSeries}
-        dimensionId={dimensionInfo?.id}
-        dimensionValue={dimensionInfo?.rawValue}
-        valueColumnWidth={valueColumnWidth}
-        labelMaxWidth={labelMaxWidth}
-        oneSided={oneSided}
-        snapshot={snapshot}
-        analysis={analysis}
-        setAnalysisSettings={setAnalysisSettings}
-        // Forwarded to BaselineChooserColumnLabel, which appends analyses
-        // to the current snapshot in place — need `inPlace: true` so the
-        // heavy fetch refreshes (id-keyed auto-upgrade won't fire here).
-        mutate={() => mutate({ inPlace: true })}
-      />
+        <ResultsTable
+          experimentId={experimentId}
+          significanceThresholds={significanceThresholds}
+          dateCreated={reportDate}
+          isLatestPhase={isLatestPhase}
+          phase={phase}
+          startDate={startDate}
+          endDate={endDate}
+          status={experimentStatus}
+          variations={variations}
+          baselineRow={localBaselineRow}
+          setBaselineRow={setLocalBaselineRow}
+          variationFilter={localVariationFilter}
+          setVariationFilter={setLocalVariationFilter}
+          rows={[row]}
+          id={tableId}
+          resultGroup={resultGroup}
+          tableRowAxis="metric"
+          labelHeader={labelHeader}
+          renderLabelColumn={({ label }) => (
+            <Text weight="bold" ml="4">
+              {label}
+            </Text>
+          )}
+          statsEngine={statsEngine}
+          pValueCorrection={pValueCorrection}
+          differenceType={localDifferenceType}
+          setDifferenceType={setLocalDifferenceType}
+          sequentialTestingEnabled={sequentialTestingEnabled}
+          isTabActive={true}
+          noStickyHeader={true}
+          noTooltip={false}
+          isBandit={false}
+          isHoldout={false}
+          visibleTimeSeriesRowIds={
+            isAuthenticated ? [`${tableId}-${metric.id}-0`] : []
+          }
+          timeSeriesMessage={timeSeriesMessage}
+          preloadedTimeSeries={preloadedTimeSeries}
+          dimensionId={dimensionInfo?.id}
+          dimensionValue={dimensionInfo?.rawValue}
+          valueColumnWidth={valueColumnWidth}
+          labelMaxWidth={labelMaxWidth}
+          oneSided={oneSided}
+          snapshot={snapshot}
+          analysis={analysis}
+          setAnalysisSettings={setAnalysisSettings}
+          // Forwarded to BaselineChooserColumnLabel, which appends analyses
+          // to the current snapshot in place — need `inPlace: true` so the
+          // heavy fetch refreshes (id-keyed auto-upgrade won't fire here).
+          mutate={() => mutate({ inPlace: true })}
+        />
+      </Box>
 
       <Box>
         <Link color="dark" onClick={() => setStatsExpanded(!statsExpanded)}>
@@ -189,7 +235,11 @@ function MetricDrilldownOverview({
 
         {statsExpanded && (
           <Box mt="3" maxWidth="500px">
-            <VariationStatsTable metric={metric} rows={statsTableRows} />
+            <VariationStatsTable
+              metric={metric}
+              rows={statsTableRows}
+              unitsLabel={getClusterUnitsLabel(snapshot?.settings)}
+            />
           </Box>
         )}
       </Box>

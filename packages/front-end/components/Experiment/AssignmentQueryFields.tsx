@@ -1,5 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
+import { CLUSTER_CONFIG_LOCKED_MESSAGE } from "shared/validators";
+import { Box } from "@radix-ui/themes";
+import {
+  DataSourceInterfaceWithParams,
+  ExposureQuery,
+} from "shared/types/datasource";
 import { getExposureQueryIdentifierTypes } from "shared/util";
 import { PiInfo, PiWarningFill } from "react-icons/pi";
 import {
@@ -18,6 +23,9 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
 
 type Selection = {
   exposureQueryId: string | undefined;
@@ -288,6 +296,13 @@ function getDriftNotice({
 }
 
 /** Why no identifier type can be chosen. */
+// Monospace like code, in the surrounding text color.
+export function IdentifierCode({ children }: { children: ReactNode }) {
+  return (
+    <code style={{ color: "inherit", textTransform: "none" }}>{children}</code>
+  );
+}
+
 export function getNoAssignmentQueriesMessage({
   hasExposureQueries,
   holdoutProjects,
@@ -416,5 +431,105 @@ export default function AssignmentQueryFields({
         options={exposureQueryOptions}
       />
     </>
+  );
+}
+
+export function ClusterExperimentFields({
+  exposureQuery,
+  identifierType,
+  isClusterExperiment,
+  subUnitIdentifier,
+  setIsClusterExperiment,
+  setSubUnitIdentifier,
+  disabled,
+  locked,
+}: {
+  exposureQuery: ExposureQuery | undefined;
+  identifierType: string | undefined;
+  isClusterExperiment: boolean;
+  subUnitIdentifier: string;
+  setIsClusterExperiment: (value: boolean) => void;
+  setSubUnitIdentifier: (value: string) => void;
+  disabled?: boolean;
+  // Neither cluster mode nor the sub-unit can change after launch.
+  locked?: boolean;
+}) {
+  const { hasCommercialFeature } = useUser();
+  const subUnitOptions = exposureQuery
+    ? getExposureQueryIdentifierTypes(exposureQuery).filter(
+        (type) => type !== identifierType,
+      )
+    : [];
+  // Kept visible on a cluster experiment so it can still be turned off after
+  // its query stops declaring a second identifier.
+  if (!subUnitOptions.length && !isClusterExperiment) return null;
+
+  return (
+    <Box mb="4">
+      <Checkbox
+        label={
+          <PremiumTooltip commercialFeature="cluster-experiments">
+            Cluster experiment
+          </PremiumTooltip>
+        }
+        description={
+          <>
+            Every unit in a <IdentifierCode>{identifierType}</IdentifierCode>{" "}
+            gets the same variation, and metrics are analyzed on a smaller unit
+            inside it.
+          </>
+        }
+        value={isClusterExperiment}
+        setValue={(value) => {
+          setIsClusterExperiment(value);
+          if (value && !subUnitOptions.includes(subUnitIdentifier)) {
+            setSubUnitIdentifier(subUnitOptions[0] ?? "");
+          }
+        }}
+        disabled={
+          disabled ||
+          locked ||
+          (!isClusterExperiment && !hasCommercialFeature("cluster-experiments"))
+        }
+        disabledMessage={locked ? CLUSTER_CONFIG_LOCKED_MESSAGE : undefined}
+      />
+      {isClusterExperiment && (
+        <Box ml="5" mt="3">
+          <SelectField
+            label={
+              <>
+                Subunit Identifier Type{" "}
+                <Tooltip body="The smaller unit inside each cluster that metrics are analyzed on." />
+              </>
+            }
+            labelClassName="font-weight-bold"
+            value={subUnitIdentifier}
+            onChange={setSubUnitIdentifier}
+            placeholder="Choose..."
+            required
+            disabled={disabled || locked}
+            sort={false}
+            options={subUnitOptions.map((type) => ({
+              label: type,
+              value: type,
+            }))}
+            helpText={
+              locked ? (
+                CLUSTER_CONFIG_LOCKED_MESSAGE
+              ) : subUnitOptions.length ? (
+                <>
+                  Lists the other identifier types in {exposureQuery?.name}.
+                  Metrics are analyzed per{" "}
+                  <IdentifierCode>{subUnitIdentifier}</IdentifierCode> wherever
+                  they can be.
+                </>
+              ) : (
+                `${exposureQuery?.name ?? "This assignment query"} doesn't declare another identifier type to analyze on.`
+              )
+            }
+          />
+        </Box>
+      )}
+    </Box>
   );
 }

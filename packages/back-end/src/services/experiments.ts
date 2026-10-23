@@ -245,6 +245,7 @@ import {
   ConcurrentIncrementalRefreshError,
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   InvalidTrackingKeyError,
+  PlanDoesNotAllowError,
 } from "back-end/src/util/errors";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
@@ -4833,6 +4834,14 @@ export type PostExperimentApiPayload = z.infer<
    */
   assignmentQueryIdentifierType?: string;
 };
+
+export function assertCanEnableClusterExperiment(context: ReqContext) {
+  if (!context.hasPremiumFeature("cluster-experiments")) {
+    throw new PlanDoesNotAllowError(
+      "Cluster experiments require a Pro plan or higher.",
+    );
+  }
+}
 
 export function assertClusterExperimentMetricsSupported({
   goalMetrics,

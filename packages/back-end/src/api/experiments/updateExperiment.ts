@@ -1,12 +1,15 @@
 import { omit } from "lodash";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
+  experimentHasLinkedChanges,
   parseAssignmentQueryInput,
   resolveAssignmentQuerySelectionChange,
 } from "shared/util";
 import {
   CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
+  CLUSTER_CONFIG_LOCKED_MESSAGE,
   ExperimentInterfaceExcludingHoldouts,
+  isClusterConfigChangeLocked,
   isUnsupportedClusterBanditCombination,
   updateExperimentValidator,
 } from "shared/validators";
@@ -102,6 +105,8 @@ export const updateExperiment = createApiRequestHandler(
     decisionFrameworkSettings: payload.decisionFrameworkSettings,
     metricOverrides: payload.metricOverrides,
     defaultDashboardId: payload.defaultDashboardId,
+    isClusterExperiment:
+      payload.isClusterExperiment && !experiment.isClusterExperiment,
   });
 
   // validate datasource only if updating
@@ -163,6 +168,19 @@ export const updateExperiment = createApiRequestHandler(
   const identifierTypeChanged =
     exposureQueryIdentifierType !== experiment.exposureQueryIdentifierType;
 
+  if (
+    isClusterConfigChangeLocked({
+      status: experiment.status,
+      hasLinkedChanges: experimentHasLinkedChanges(experiment),
+      nextStatus: payload.status,
+      isClusterExperiment: experiment.isClusterExperiment,
+      nextIsClusterExperiment: payload.isClusterExperiment,
+      subUnitIdentifier: experiment.clusterSubUnitIdentifier,
+      nextSubUnitIdentifier: payload.clusterSubUnitIdentifier,
+    })
+  ) {
+    throw new Error(CLUSTER_CONFIG_LOCKED_MESSAGE);
+  }
   const effectiveIsClusterExperiment =
     payload.isClusterExperiment ?? experiment.isClusterExperiment;
   const effectiveType = payload.type ?? experiment.type ?? "standard";
