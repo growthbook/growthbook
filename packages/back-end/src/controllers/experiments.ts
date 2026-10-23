@@ -222,6 +222,7 @@ export async function getExperiments(
       project?: string;
       includeArchived?: boolean;
       type?: ExperimentType;
+      datasourceId?: string;
       // Only the list pages need the served-temp-rollout ids; it costs a
       // feature query, so callers opt in.
       includeTempRollouts?: boolean;
@@ -234,6 +235,8 @@ export async function getExperiments(
   if (typeof req.query?.project === "string") {
     project = req.query.project;
   }
+  const datasourceId =
+    typeof req.query?.datasourceId === "string" ? req.query.datasourceId : "";
 
   const includeArchived = !!req.query?.includeArchived;
   const includeTempRollouts = !!req.query?.includeTempRollouts;
@@ -243,6 +246,7 @@ export async function getExperiments(
     project,
     includeArchived,
     type,
+    ...(datasourceId ? { datasourceId } : {}),
   });
 
   const [holdouts, tempRolloutExperimentIds] = await Promise.all([
