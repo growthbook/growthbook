@@ -33,9 +33,17 @@ export function addAttributeToUserIdTypes(
   userIdTypes: UserIdType[],
   column: string,
   attribute: string,
+  description?: string,
 ): UserIdType[] {
   if (!userIdTypes.some((type) => type.userIdType === column)) {
-    return [...userIdTypes, { userIdType: column, attributes: [attribute] }];
+    return [
+      ...userIdTypes,
+      {
+        userIdType: column,
+        ...(description && { description }),
+        attributes: [attribute],
+      },
+    ];
   }
   return userIdTypes.map((type) =>
     type.userIdType !== column || type.attributes?.includes(attribute)

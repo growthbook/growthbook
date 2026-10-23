@@ -70,6 +70,18 @@ describe("addAttributeToUserIdTypes", () => {
     ]);
   });
 
+  it("gives a new identifier type the attribute's description", () => {
+    expect(
+      addAttributeToUserIdTypes([], "team_id", "teamId", "Team of the user"),
+    ).toEqual([
+      {
+        userIdType: "team_id",
+        description: "Team of the user",
+        attributes: ["teamId"],
+      },
+    ]);
+  });
+
   it("links the attribute to an existing type with that column", () => {
     expect(
       addAttributeToUserIdTypes(

@@ -110,20 +110,29 @@ export const postAttribute = async (
 };
 
 export const postIdentifier = async (
-  req: AuthRequest<{
-    property: string;
-    projects: string[];
-    datasources: { id: string; column: string }[];
-  }>,
+  req: AuthRequest<
+    Pick<
+      SDKAttribute,
+      | "property"
+      | "datatype"
+      | "description"
+      | "tags"
+      | "customFields"
+      | "projects"
+    > & {
+      datasources: { id: string; column: string }[];
+    }
+  >,
   res: Response<{ status: number; failedDatasources: string[] }>,
 ) => {
-  const { property, projects, datasources: mappings } = req.body;
+  const { datasources: mappings, customFields, ...attributeFields } = req.body;
+  const { property, description } = attributeFields;
   const context = getContextFromReq(req);
 
+  // Always set, so required custom fields are validated even when none were sent.
   const attribute: SDKAttribute = {
-    property,
-    projects,
-    datatype: "string",
+    ...attributeFields,
+    customFields: customFields ?? {},
     hashAttribute: true,
   };
   if (!context.permissions.canCreateAttribute(attribute)) {
@@ -183,6 +192,7 @@ export const postIdentifier = async (
             datasource.settings?.userIdTypes ?? [],
             column,
             property,
+            description,
           ),
         },
       });

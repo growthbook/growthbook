@@ -313,11 +313,11 @@ const LINE_COMMENT: Partial<Record<Language, string>> = {
 export function getAddAttributeCode(
   language: SDKLanguage,
   property: string,
-  { version }: { version?: string } = {},
+  { version, value = "foo" }: { version?: string; value?: unknown } = {},
 ): { snippet: SetAttributesCodeSnippet; highlightLine: number } | null {
   const snippet = getSetAttributesCode(
     language,
-    { [property]: "foo" },
+    { [property]: value },
     { version, onePerLine: true },
   );
   if (!snippet) return null;
