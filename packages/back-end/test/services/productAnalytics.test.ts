@@ -313,3 +313,87 @@ describe("draft metric explorations", () => {
     ).toEqual(draftMetric);
   });
 });
+
+describe("inline population validation before exploration cache lookup", () => {
+  const population = {
+    name: "Eligible users",
+    source: { type: "factTable" as const, factTableId: "ft_1" },
+    rowFilters: [],
+  };
+  const metric = {
+    id: "fact_1",
+    datasource: "ds_1",
+    metricType: "proportion",
+    numerator: { factTableId: "ft_1", column: "$$distinctUsers" },
+  };
+  const config: ExplorationConfig = {
+    ...makeConfig(),
+    type: "metric",
+    chartType: "bigNumber",
+    dataset: {
+      type: "metric",
+      values: [
+        {
+          type: "metric",
+          metricId: "fact_1",
+          name: "Converted",
+          rowFilters: [],
+          unit: "user_id",
+          denominatorUnit: null,
+          population,
+        },
+      ],
+    },
+  };
+  const findLatestByConfig = jest.fn();
+  const permissions = makePermissions();
+  const context = {
+    permissions,
+    models: {
+      factMetrics: { getByIds: jest.fn(async () => [metric]) },
+      analyticsExplorations: { findLatestByConfig },
+    },
+  } as unknown as ReqContext;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    permissions.canRunProductAnalyticsExplorationQueries.mockReturnValue(true);
+    getDataSourceByIdMock.mockResolvedValue({ id: "ds_1", type: "postgres" });
+    getFactTablesByIdsMock.mockResolvedValue([
+      { ...makeFactTable("ft_1"), columns: [] },
+    ]);
+    findLatestByConfig.mockResolvedValue(null);
+  });
+  const run = (c = config) =>
+    runProductAnalyticsExploration(context, c, { cache: "required" });
+  it("passes the inline snapshot through to cache lookup without loading a saved population", async () => {
+    await expect(run()).resolves.toBeNull();
+    expect(findLatestByConfig.mock.calls[0][0]).toEqual(config);
+    const changed = structuredClone(config);
+    if (changed.dataset.type !== "metric")
+      throw new Error("Expected metric dataset");
+    changed.dataset.values[0].population = {
+      ...population,
+      aggregateFilter: ">2",
+      aggregateFilterColumn: "$$count",
+    };
+    await run(changed);
+    expect(findLatestByConfig.mock.calls[1][0]).toEqual(changed);
+    expect(findLatestByConfig.mock.calls[0][0]).toEqual(config);
+  });
+  it("rejects an incompatible fact table before reading the cache", async () => {
+    const changed = structuredClone(config);
+    if (changed.dataset.type !== "metric")
+      throw new Error("Expected metric dataset");
+    changed.dataset.values[0].population = {
+      ...population,
+      source: { type: "factTable", factTableId: "other" },
+    };
+    await expect(run(changed)).rejects.toThrow("same Fact Table");
+    expect(findLatestByConfig).not.toHaveBeenCalled();
+  });
+  it("checks datasource query permission even for cache-only requests", async () => {
+    permissions.canRunProductAnalyticsExplorationQueries.mockReturnValue(false);
+    await expect(run()).rejects.toThrow("permission denied");
+    expect(findLatestByConfig).not.toHaveBeenCalled();
+  });
+});
