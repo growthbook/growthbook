@@ -427,7 +427,8 @@ export default function DatePicker({
               ) : null}
               <Flex align="center" gap="2">
                 <div
-                  className={clsx("form-control p-0", {
+                  className={clsx("form-control p-0", styles.field, {
+                    [styles.open]: open,
                     "form-control--error": !!error,
                   })}
                   style={{
