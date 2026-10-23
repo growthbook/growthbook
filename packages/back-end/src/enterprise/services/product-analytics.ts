@@ -1,3 +1,4 @@
+import md5 from "md5";
 import {
   ExplorationConfig,
   explorationConfigValidator,
@@ -17,6 +18,8 @@ import {
   hasTimestampColumn,
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
+  ExplorationPopulation,
+  validateMetricPopulation,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
 import {
@@ -125,6 +128,67 @@ export async function runProductAnalyticsExploration(
     context.permissions.throwPermissionError();
   }
 
+  const metricMap: Map<string, FactMetricInterface> = new Map();
+  const factTableMap: Map<string, FactTableInterface> = new Map();
+  const populationMap = new Map<string, ExplorationPopulation>();
+  if (dataset.type === "metric") {
+    const populationValues = dataset.values.filter((v) => v.populationId);
+    if (populationValues.length) {
+      const populations = await context.models.populations.getByIds([
+        ...new Set(populationValues.map((v) => v.populationId!)),
+      ]);
+      populations.forEach((p) => populationMap.set(p.id, p));
+      const metrics = await context.models.factMetrics.getByIds(
+        populationValues.map((v) => v.metricId),
+      );
+      const tables = await getFactTablesByIds(context, [
+        ...new Set(
+          metrics.flatMap((m) =>
+            m.numerator ? [m.numerator.factTableId] : [],
+          ),
+        ),
+      ]);
+      metrics.forEach((m) => metricMap.set(m.id, m));
+      tables.forEach((t) => factTableMap.set(t.id, t));
+      for (const value of populationValues) {
+        const population = populations.find((p) => p.id === value.populationId);
+        const metric = metrics.find((m) => m.id === value.metricId);
+        const table = tables.find(
+          (t) => t.id === metric?.numerator?.factTableId,
+        );
+        if (!population || !metric || !table) {
+          throw new NotFoundError(
+            "Population, metric, or Fact Table not found",
+          );
+        }
+        if (value.draftMetric)
+          throw new BadRequestError(
+            "Population previews require a saved metric",
+          );
+        if (!context.permissions.canRunMetricQueries(population)) {
+          context.permissions.throwPermissionError();
+        }
+        try {
+          validateMetricPopulation(config, value, metric, population, table);
+        } catch (e) {
+          throw new BadRequestError(e instanceof Error ? e.message : String(e));
+        }
+        // Always replace the client's version, including when cache is required.
+        value.populationVersion = md5(
+          JSON.stringify({
+            population,
+            metric,
+            table,
+            dateRange: config.dateRange,
+          }),
+        );
+      }
+    }
+    for (const value of dataset.values) {
+      if (!value.populationId) delete value.populationVersion;
+    }
+  }
+
   if (options.cache !== "never") {
     const existing =
       await context.models.analyticsExplorations.findLatestByConfig(config, {
@@ -146,8 +210,6 @@ export async function runProductAnalyticsExploration(
   }
 
   // If no existing exploration, create a new one
-  const metricMap: Map<string, FactMetricInterface> = new Map();
-  const factTableMap: Map<string, FactTableInterface> = new Map();
 
   if (dataset.type === "fact_table") {
     if (!dataset.factTableId) {
@@ -178,11 +240,16 @@ export async function runProductAnalyticsExploration(
         "A draft preview must contain only fact__preview",
       );
     }
-    const factMetrics = await context.models.factMetrics.getByIds(
-      dataset.values
-        .filter((value) => !value.draftMetric)
-        .map((value) => value.metricId),
-    );
+    const factMetrics = [
+      ...metricMap.values(),
+      ...(await context.models.factMetrics.getByIds(
+        dataset.values
+          .filter(
+            (value) => !value.draftMetric && !metricMap.has(value.metricId),
+          )
+          .map((value) => value.metricId),
+      )),
+    ];
     for (const value of dataset.values) {
       if (!value.draftMetric) continue;
       factMetrics.push(
@@ -216,7 +283,7 @@ export async function runProductAnalyticsExploration(
     });
     const factTables = await getFactTablesByIds(
       context,
-      Array.from(factTableIds),
+      Array.from(factTableIds).filter((id) => !factTableMap.has(id)),
     );
     factTables.forEach((ft) => factTableMap.set(ft.id, ft));
 
@@ -466,6 +533,7 @@ export async function runProductAnalyticsExploration(
     await queryRunner.startAnalysis({
       factTableMap,
       factMetricMap: metricMap,
+      populationMap,
     });
     // If results aren't ready within the sync budget, return the in-progress
     // exploration (status "running") instead of blocking the request. The

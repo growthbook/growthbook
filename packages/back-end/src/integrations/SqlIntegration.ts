@@ -15,6 +15,7 @@ import {
 } from "shared/constants";
 import {
   generateProductAnalyticsSQL,
+  ExplorationPopulation,
   calculateProductAnalyticsDateRange,
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
 } from "shared/enterprise";
@@ -3434,9 +3435,11 @@ export default abstract class SqlIntegration
     {
       factTableMap,
       metricMap,
+      populationMap,
     }: {
       factTableMap: FactTableMap;
       metricMap: Map<string, FactMetricInterface>;
+      populationMap?: Map<string, ExplorationPopulation>;
     },
   ): {
     sql: string;
@@ -3477,6 +3480,7 @@ export default abstract class SqlIntegration
       metricMap,
       dialect,
       this.datasource,
+      populationMap,
     );
 
     return {

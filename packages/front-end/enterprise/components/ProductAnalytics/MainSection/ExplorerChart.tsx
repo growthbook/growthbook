@@ -265,6 +265,7 @@ export default function ExplorerChart({
         : 0;
       return {
         value,
+        populationRate: !!cell?.populationRate,
         label: v.name?.trim() ? v.name : `Metric ${metricIndex + 1}`,
       };
     });
@@ -331,8 +332,8 @@ export default function ExplorerChart({
     // 2. Compute cumulative totals for sorting
     const seriesTotals: Record<string, number> = {};
     for (const [seriesKey, seriesData] of Object.entries(dataMap)) {
-      seriesTotals[seriesKey] = Object.values(seriesData).reduce(
-        (sum, v) => sum + v,
+      seriesTotals[seriesKey] = Object.values(seriesData).reduce<number>(
+        (sum, v) => sum + (v ?? 0),
         0,
       );
     }
@@ -1020,7 +1021,11 @@ export default function ExplorerChart({
                 >
                   <BigValueChart
                     value={card.value}
-                    formatter={formatNumber}
+                    formatter={
+                      card.populationRate
+                        ? (v) => `${formatNumber(v * 100)}%`
+                        : formatNumber
+                    }
                     label={card.label}
                     fillContainer
                     compareSlot={

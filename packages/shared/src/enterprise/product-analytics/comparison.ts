@@ -712,6 +712,7 @@ function orderedMetricIdsForDensify(
 function buildZeroValueRow(
   metricIds: string[],
   isRatioByIndex: boolean[],
+  config: ExplorationConfig,
 ): ProductAnalyticsResultRow["values"] {
   return metricIds.map((metricId, i) => {
     const isRatio = isRatioByIndex[i] ?? false;
@@ -719,6 +720,10 @@ function buildZeroValueRow(
       metricId,
       numerator: 0,
       denominator: isRatio ? 0 : null,
+      ...(config.dataset.type === "metric" &&
+      config.dataset.values[i]?.populationId
+        ? { populationRate: true, denominator: 0 }
+        : {}),
     };
   });
 }
@@ -801,7 +806,11 @@ export function densifyComparisonExplorationTimeseries(params: {
   const isRatioByIndex = getIsRatioByIndex(submittedConfig, getFactMetricById);
   // buildZeroValueRow always returns an array; the `| undefined` comes from
   // the union type on ProductAnalyticsResultRow["values"] (funnel rows omit it).
-  const zeroValues = buildZeroValueRow(metricIds, isRatioByIndex)!;
+  const zeroValues = buildZeroValueRow(
+    metricIds,
+    isRatioByIndex,
+    submittedConfig,
+  )!;
   const comparisonRows = comparison.result?.rows ?? [];
 
   if (!isGrouped) {
@@ -992,7 +1001,11 @@ export function computeExplorationComparisonPayload(
       isRatio,
     });
 
-    if (previousValue === 0) {
+    if (
+      currentValue === null ||
+      previousValue === null ||
+      previousValue === 0
+    ) {
       return null;
     }
 

@@ -1,0 +1,426 @@
+import { DatabaseSync } from "node:sqlite";
+import {
+  generateProductAnalyticsSQL,
+  transformProductAnalyticsRowsToResult,
+  getEffectiveMetricValue,
+  buildExplorationColumns,
+  encodeExplorationConfig,
+  decodeExplorationConfigJson,
+  validateMetricPopulation,
+  ExplorationPopulation,
+} from "shared/enterprise";
+import { createLikeStringMatchFn } from "shared/sql";
+import {
+  MetricExplorationConfig,
+  explorationConfigValidator,
+} from "shared/validators";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "shared/types/fact-table";
+import { SqlDialect } from "shared/types/sql";
+
+const table = {
+  id: "events",
+  datasource: "ds",
+  sql: "SELECT * FROM events",
+  userIdTypes: ["user_id"],
+  filters: [],
+  columns: ["revenue", "mobile", "converted", "timestamp", "user_id"].map(
+    (column) => ({
+      column,
+      datatype: ["revenue", "mobile", "converted"].includes(column)
+        ? "number"
+        : "string",
+    }),
+  ),
+} as FactTableInterface;
+const metric = {
+  id: "conversion",
+  datasource: "ds",
+  name: "Converted",
+  metricType: "proportion",
+  numerator: {
+    factTableId: "events",
+    column: "$$distinctUsers",
+    rowFilters: [{ column: "converted", operator: "=", values: ["1"] }],
+  },
+  denominator: null,
+  cappingSettings: { type: "", value: 0 },
+  quantileSettings: null,
+} as FactMetricInterface;
+const population: ExplorationPopulation = {
+  id: "mobile",
+  datasource: "ds",
+  userIdTypes: ["user_id"],
+  steps: [
+    {
+      source: { type: "factTable", factTableId: "events" },
+      rowFilters: [{ column: "mobile", operator: "=", values: ["1"] }],
+      aggregateFilter: ">10",
+      aggregateFilterColumn: "revenue",
+      windowSettings: {
+        type: "",
+        delayValue: 0,
+        delayUnit: "days",
+        windowValue: 0,
+        windowUnit: "days",
+      },
+    },
+  ],
+};
+const config: MetricExplorationConfig = {
+  type: "metric",
+  datasource: "ds",
+  chartType: "line",
+  showAs: "total",
+  dateRange: {
+    predefined: "customDateRange",
+    startDate: "2026-09-01",
+    endDate: "2026-09-03",
+  },
+  dimensions: [{ dimensionType: "date", column: null, dateGranularity: "day" }],
+  dataset: {
+    type: "metric",
+    values: [
+      {
+        type: "metric",
+        metricId: metric.id,
+        name: "Conversion",
+        unit: "user_id",
+        denominatorUnit: null,
+        rowFilters: [],
+        populationId: population.id,
+      },
+    ],
+  },
+};
+const dialect: SqlDialect = {
+  escapeStringLiteral: (v) => v.replace(/'/g, "''"),
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: (v) => v,
+    emitEscapeClause: false,
+  }),
+  jsonExtract: (col) => col,
+  evalBoolean: (col, value) => `${col} = ${value ? 1 : 0}`,
+  dateTrunc: (col) => `date(${col})`,
+  concatStrings: (parts) => parts.join(" || "),
+  percentileApprox: () => {
+    throw new Error("Not supported");
+  },
+  hllReaggregate: () => {
+    throw new Error("Not supported");
+  },
+  hllCardinality: () => {
+    throw new Error("Not supported");
+  },
+  quantileSketchMergePartial: () => {
+    throw new Error("Not supported");
+  },
+  quantileSketchExtractPoint: () => {
+    throw new Error("Not supported");
+  },
+  toTimestamp: (d) => `'${d.toISOString().slice(0, 10)}'`,
+  formatDialect: "sqlite",
+  castToFloat: (col) => `CAST(${col} AS REAL)`,
+  castToString: (col) => `CAST(${col} AS TEXT)`,
+};
+function query(
+  c = config,
+  p = population,
+  m = metric,
+  otherPopulations: ExplorationPopulation[] = [],
+  otherMetrics: FactMetricInterface[] = [],
+) {
+  return generateProductAnalyticsSQL(
+    c,
+    new Map([[table.id, table]]),
+    new Map([m, ...otherMetrics].map((m) => [m.id, m])),
+    dialect,
+    {},
+    new Map([p, ...otherPopulations].map((p) => [p.id, p])),
+  );
+}
+function execute(
+  c = config,
+  p = population,
+  m = metric,
+  otherPopulations: ExplorationPopulation[] = [],
+  otherMetrics: FactMetricInterface[] = [],
+) {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(`CREATE TABLE events(user_id TEXT, timestamp TEXT, revenue REAL, mobile INTEGER, converted INTEGER);
+      INSERT INTO events VALUES
+        ('a', '2026-09-01', 6, 1, 0), ('a', '2026-09-01', 6, 1, 0),
+        ('a', '2026-09-01', 0, 0, 1), ('a', '2026-09-01', 0, 0, 1),
+        ('b', '2026-09-01', 20, 1, 0),
+        ('c', '2026-09-01', 0, 0, 1),
+        ('d', '2026-09-01', 5, 1, 1),
+        (NULL, '2026-09-01', 99, 1, 1),
+        ('a', '2026-09-02', 5, 1, 1),
+        ('b', '2026-09-02', 20, 1, 0),
+        ('e', '2026-09-03', 0, 1, 0),
+        ('c', '2026-09-03', 0, 0, 1);`);
+    const { sql, orderedMetricIds } = query(
+      c,
+      p,
+      m,
+      otherPopulations,
+      otherMetrics,
+    );
+    return transformProductAnalyticsRowsToResult(
+      c,
+      db.prepare(sql).all(),
+      orderedMetricIds,
+    ).rows.sort((a, b) =>
+      String(a.dimensions[0]).localeCompare(String(b.dimensions[0])),
+    );
+  } finally {
+    db.close();
+  }
+}
+
+describe("population-backed proportions", () => {
+  it("counts eligible units once, includes non-converters, and excludes outsiders and null identifiers", () => {
+    const rows = execute();
+    expect(rows.map((r) => r.values?.[0])).toEqual([
+      {
+        metricId: metric.id,
+        numerator: 1,
+        denominator: 2,
+        populationRate: true,
+      },
+      {
+        metricId: metric.id,
+        numerator: 0,
+        denominator: 1,
+        populationRate: true,
+      },
+      {
+        metricId: metric.id,
+        numerator: 0,
+        denominator: 0,
+        populationRate: true,
+      },
+    ]);
+    expect(
+      rows.map((r) =>
+        getEffectiveMetricValue(r.values![0], {
+          showAs: "total",
+          isRatio: false,
+        }),
+      ),
+    ).toEqual([0.5, 0, null]);
+  });
+  it("evaluates membership across the selected range for an overall total", () => {
+    const rows = execute({ ...config, dimensions: [], chartType: "bigNumber" });
+    expect(rows[0].values?.[0]).toMatchObject({ numerator: 1, denominator: 2 });
+  });
+  it("keeps ordinary and population-backed series independent", () => {
+    const c: MetricExplorationConfig = {
+      ...config,
+      dataset: {
+        type: "metric",
+        values: [
+          config.dataset.values[0],
+          { ...config.dataset.values[0], populationId: null },
+        ],
+      },
+    };
+    const rows = execute(c);
+    expect(rows[0].values?.[0]).toMatchObject({ numerator: 1, denominator: 2 });
+    // The existing no-population SQL includes the null-identifier group; do not change it here.
+    expect(rows[0].values?.[1]).toEqual({
+      metricId: metric.id,
+      numerator: 4,
+      denominator: 4,
+    });
+  });
+  it("does not add population-only users to a neighboring distinct-count mean", () => {
+    const other: FactMetricInterface = {
+      ...metric,
+      id: "distinct",
+      metricType: "mean",
+      numerator: {
+        ...metric.numerator!,
+        column: "revenue",
+        aggregation: "count distinct",
+      },
+    } as FactMetricInterface;
+    const c: MetricExplorationConfig = {
+      ...config,
+      dataset: {
+        type: "metric",
+        values: [
+          config.dataset.values[0],
+          {
+            ...config.dataset.values[0],
+            metricId: other.id,
+            populationId: null,
+          },
+        ],
+      },
+    };
+    expect(
+      execute(c, population, metric, [], [other])[0].values?.[1],
+    ).toMatchObject({ numerator: 4, denominator: 4 });
+  });
+  it("does not qualify metric-only rows for population conditions accepting zero", () => {
+    const p = structuredClone(population);
+    p.steps[0].aggregateFilter = "<=0";
+    const rows = execute(config, p);
+    expect(rows[2].values?.[0]).toMatchObject({ numerator: 0, denominator: 1 });
+  });
+  it("supports population row filters without an aggregate condition", () => {
+    const p = structuredClone(population);
+    delete p.steps[0].aggregateFilter;
+    delete p.steps[0].aggregateFilterColumn;
+    expect(execute(config, p)[0].values?.[0]).toMatchObject({
+      numerator: 2,
+      denominator: 3,
+    });
+  });
+  it("supports count thresholds and metric aggregate conditions without counting absent activity", () => {
+    const p = structuredClone(population);
+    p.steps[0].aggregateFilter = ">=2";
+    p.steps[0].aggregateFilterColumn = "$$count";
+    expect(execute(config, p)[0].values?.[0]).toMatchObject({
+      numerator: 1,
+      denominator: 1,
+    });
+    const m = structuredClone(metric);
+    if (!m.numerator) throw new Error("Missing numerator");
+    m.numerator.aggregateFilter = ">=2";
+    m.numerator.aggregateFilterColumn = "$$count";
+    expect(execute(config, population, m)[0].values?.[0]).toMatchObject({
+      numerator: 1,
+      denominator: 2,
+    });
+  });
+  it("returns no rate for an empty source and does not expose population aliases as metrics", () => {
+    const c = {
+      ...config,
+      dimensions: [],
+      dateRange: {
+        predefined: "customDateRange" as const,
+        startDate: "2025-01-01",
+        endDate: "2025-01-02",
+      },
+    };
+    const cell = execute(c)[0].values![0];
+    expect(
+      getEffectiveMetricValue(cell, { showAs: "per_unit", isRatio: false }),
+    ).toBeNull();
+    expect(query().orderedMetricIds).toEqual([metric.id]);
+  });
+  it("keeps two population selections independent in the same scan", () => {
+    const other = structuredClone(population);
+    other.id = "everyone";
+    other.steps[0].rowFilters = [];
+    delete other.steps[0].aggregateFilter;
+    delete other.steps[0].aggregateFilterColumn;
+    const c = {
+      ...config,
+      dataset: {
+        ...config.dataset,
+        values: [
+          config.dataset.values[0],
+          { ...config.dataset.values[0], populationId: other.id },
+        ],
+      },
+    };
+    const { sql, orderedMetricIds } = generateProductAnalyticsSQL(
+      c,
+      new Map([[table.id, table]]),
+      new Map([[metric.id, metric]]),
+      dialect,
+      {},
+      new Map([
+        [population.id, population],
+        [other.id, other],
+      ]),
+    );
+    expect(orderedMetricIds).toEqual([metric.id, metric.id]);
+    expect(sql).toContain("pop0");
+    expect(sql).toContain("pop1");
+    expect(sql).not.toContain("JOIN");
+    const rows = execute(c, population, metric, [other]);
+    expect(rows[0].values?.map((v) => [v.numerator, v.denominator])).toEqual([
+      [1, 2],
+      [3, 4],
+    ]);
+  });
+  it("preserves the population in serialized URLs and config schemas", () => {
+    const parsed = explorationConfigValidator.parse(
+      decodeExplorationConfigJson(encodeExplorationConfig(config)),
+    );
+    expect(parsed).toEqual(config);
+    expect(buildExplorationColumns(parsed, () => metric)[1].label).toBe(
+      "Conversion Rate (0–1)",
+    );
+  });
+  it("rejects unresolved populations and unsupported configurations", () => {
+    expect(() =>
+      generateProductAnalyticsSQL(
+        config,
+        new Map([[table.id, table]]),
+        new Map([[metric.id, metric]]),
+        dialect,
+        {},
+      ),
+    ).toThrow("Population not found");
+    const validate = (
+      c = config,
+      p = population,
+      m = metric,
+      unit: string | null = "user_id",
+    ) =>
+      validateMetricPopulation(
+        c,
+        { ...c.dataset.values[0], unit },
+        m,
+        p,
+        table,
+      );
+    expect(() =>
+      validate(config, population, {
+        ...metric,
+        metricType: "mean",
+      } as FactMetricInterface),
+    ).toThrow("proportion");
+    expect(() => validate(config, population, metric, null)).toThrow(
+      "identifier",
+    );
+    expect(() =>
+      validate(config, { ...population, datasource: "other" }),
+    ).toThrow("same Fact Table");
+    expect(() => validate(config, { ...population, steps: [] })).toThrow(
+      "single-step",
+    );
+    const p = structuredClone(population);
+    p.steps[0].source.factTableId = "other";
+    expect(() => validate(config, p)).toThrow("same Fact Table");
+    p.steps[0] = {
+      ...population.steps[0],
+      windowSettings: {
+        ...population.steps[0].windowSettings,
+        type: "lookback",
+      },
+    };
+    expect(() => validate(config, p)).toThrow("time window");
+    expect(() =>
+      validate({
+        ...config,
+        dimensions: [
+          { dimensionType: "dynamic", column: "mobile", maxValues: 5 },
+        ],
+      }),
+    ).toThrow("grouped by date");
+    expect(() =>
+      validate(config, { ...population, userIdTypes: ["other"] }),
+    ).toThrow("identifier");
+    p.steps[0] = { ...population.steps[0], aggregateFilter: "invalid" };
+    expect(() => validate(config, p)).toThrow("Invalid aggregate filter");
+  });
+});

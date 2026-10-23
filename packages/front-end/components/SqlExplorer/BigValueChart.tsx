@@ -5,7 +5,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { formatCurrency } from "@/services/metrics";
 
 type Props = {
-  value: number;
+  value: number | null;
   format?: BigValueFormat;
   formatter?: (value: number) => string;
   label?: string;

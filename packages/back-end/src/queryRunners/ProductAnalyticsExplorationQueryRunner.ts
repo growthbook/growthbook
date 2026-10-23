@@ -5,7 +5,10 @@ import {
 } from "shared/validators";
 import { FactMetricInterface, FactTableMap } from "shared/types/fact-table";
 import { Queries, QueryStatus } from "shared/types/query";
-import { transformProductAnalyticsRowsToResult } from "shared/enterprise";
+import {
+  ExplorationPopulation,
+  transformProductAnalyticsRowsToResult,
+} from "shared/enterprise";
 import { UpdateProps } from "shared/types/base-model";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
@@ -16,6 +19,7 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
   ProductAnalyticsExplorationParams,
   ProductAnalyticsResult
 > {
+  private populationMap?: Map<string, ExplorationPopulation>;
   private factTableMap?: FactTableMap;
   private factMetricMap?: Map<string, FactMetricInterface>;
 
@@ -31,6 +35,7 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
   async startQueries(
     params: ProductAnalyticsExplorationParams,
   ): Promise<Queries> {
+    this.populationMap = params.populationMap;
     this.factTableMap = params.factTableMap;
     this.factMetricMap = params.factMetricMap;
 
@@ -41,6 +46,7 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
     const { sql } = this.integration.getProductAnalyticsQuery(
       this.model.config,
       {
+        populationMap: this.populationMap,
         factTableMap: this.factTableMap,
         metricMap: this.factMetricMap,
       },
@@ -80,6 +86,7 @@ export class ProductAnalyticsExplorationQueryRunner extends QueryRunner<
     const { orderedMetricIds } = (
       this.integration as SqlIntegration
     ).getProductAnalyticsQuery(this.model.config, {
+      populationMap: this.populationMap,
       factTableMap: this.factTableMap as FactTableMap,
       metricMap: this.factMetricMap as Map<string, FactMetricInterface>,
     });

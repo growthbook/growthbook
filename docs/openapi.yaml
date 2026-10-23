@@ -41254,6 +41254,13 @@ paths:
                                               anyOf:
                                                 - type: string
                                                 - type: 'null'
+                                            populationId:
+                                              anyOf:
+                                                - type: string
+                                                  minLength: 1
+                                                - type: 'null'
+                                            populationVersion:
+                                              type: string
                                           required:
                                             - name
                                             - rowFilters
@@ -44626,6 +44633,13 @@ paths:
                                               anyOf:
                                                 - type: string
                                                 - type: 'null'
+                                            populationId:
+                                              anyOf:
+                                                - type: string
+                                                  minLength: 1
+                                                - type: 'null'
+                                            populationVersion:
+                                              type: string
                                           required:
                                             - name
                                             - rowFilters
@@ -48195,6 +48209,13 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
+                                        populationId:
+                                          anyOf:
+                                            - type: string
+                                              minLength: 1
+                                            - type: 'null'
+                                        populationVersion:
+                                          type: string
                                       required:
                                         - name
                                         - rowFilters
@@ -51775,6 +51796,13 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
+                                        populationId:
+                                          anyOf:
+                                            - type: string
+                                              minLength: 1
+                                            - type: 'null'
+                                        populationVersion:
+                                          type: string
                                       required:
                                         - name
                                         - rowFilters
@@ -57287,6 +57315,13 @@ paths:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          populationId:
+                            anyOf:
+                              - type: string
+                                minLength: 1
+                              - type: 'null'
+                          populationVersion:
+                            type: string
                         required:
                           - name
                           - rowFilters
@@ -57372,6 +57407,8 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
+                                          populationRate:
+                                            type: boolean
                                         required:
                                           - metricId
                                           - numerator
@@ -57716,6 +57753,13 @@ paths:
                                           anyOf:
                                             - type: string
                                             - type: 'null'
+                                        populationId:
+                                          anyOf:
+                                            - type: string
+                                              minLength: 1
+                                            - type: 'null'
+                                        populationVersion:
+                                          type: string
                                       required:
                                         - name
                                         - rowFilters
@@ -58137,6 +58181,8 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
+                                          populationRate:
+                                            type: boolean
                                         required:
                                           - metricId
                                           - numerator
@@ -58928,6 +58974,8 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
+                                          populationRate:
+                                            type: boolean
                                         required:
                                           - metricId
                                           - numerator
@@ -59739,6 +59787,8 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
+                                          populationRate:
+                                            type: boolean
                                         required:
                                           - metricId
                                           - numerator
@@ -60546,6 +60596,8 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
+                                          populationRate:
+                                            type: boolean
                                         required:
                                           - metricId
                                           - numerator
@@ -61368,6 +61420,8 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
+                                          populationRate:
+                                            type: boolean
                                         required:
                                           - metricId
                                           - numerator
@@ -79772,6 +79826,13 @@ components:
                                   anyOf:
                                     - type: string
                                     - type: 'null'
+                                populationId:
+                                  anyOf:
+                                    - type: string
+                                      minLength: 1
+                                    - type: 'null'
+                                populationVersion:
+                                  type: string
                               required:
                                 - name
                                 - rowFilters
@@ -82596,6 +82657,8 @@ components:
                           anyOf:
                             - type: number
                             - type: 'null'
+                        populationRate:
+                          type: boolean
                       required:
                         - metricId
                         - numerator
@@ -82941,6 +83004,13 @@ components:
                             anyOf:
                               - type: string
                               - type: 'null'
+                          populationId:
+                            anyOf:
+                              - type: string
+                                minLength: 1
+                              - type: 'null'
+                          populationVersion:
+                            type: string
                         required:
                           - name
                           - rowFilters

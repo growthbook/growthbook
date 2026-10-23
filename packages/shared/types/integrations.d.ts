@@ -672,6 +672,10 @@ export type MetricAnalysisParams = {
 export type ProductAnalyticsExplorationParams = {
   factTableMap: FactTableMap;
   factMetricMap: Map<string, FactMetricInterface>;
+  populationMap?: Map<
+    string,
+    import("shared/enterprise").ExplorationPopulation
+  >;
 };
 
 export type DimensionColumnData = {

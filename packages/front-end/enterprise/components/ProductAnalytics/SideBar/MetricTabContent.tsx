@@ -20,6 +20,8 @@ import { useExplorerContext } from "@/enterprise/components/ProductAnalytics/Exp
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
+import { usePopulations } from "@/hooks/usePopulations";
+import { Select, SelectItem } from "@/ui/Select";
 import ValueCard from "./ValueCard";
 import styles from "./ValueCard.module.scss";
 
@@ -29,6 +31,11 @@ export default function MetricTabContent() {
   const { factMetrics, getFactTableById, getFactMetricById, project } =
     useDefinitions();
   const { permissionsUtil } = useUser();
+  const {
+    populations,
+    loading: populationsLoading,
+    error: populationsError,
+  } = usePopulations(project);
 
   const values: MetricValue[] =
     draftExploreState.dataset?.type === "metric"
@@ -92,6 +99,25 @@ export default function MetricTabContent() {
       )}
 
       {values.map((v, idx) => {
+        const metric = getFactMetricById(v.metricId);
+        const compatiblePopulations = populations.filter(
+          (p) =>
+            p.datasource === draftExploreState.datasource &&
+            p.steps.length === 1 &&
+            !p.steps[0].windowSettings.type &&
+            p.steps[0].source.factTableId === metric?.numerator?.factTableId &&
+            !!v.unit &&
+            p.userIdTypes.includes(v.unit) &&
+            permissionsUtil.canRunMetricQueries(p),
+        );
+        const hasBreakdown = draftExploreState.dimensions.some(
+          (d) => d.dimensionType !== "date",
+        );
+        const unavailablePopulation =
+          !populationsLoading &&
+          !populationsError &&
+          !!v.populationId &&
+          !compatiblePopulations.some((p) => p.id === v.populationId);
         const lockedClass = getLockedClassForSlot(idx);
         const disabledTooltip = lockedClass ? mixTooltip(lockedClass) : "";
         return (
@@ -122,6 +148,8 @@ export default function MetricTabContent() {
                   const updates = {
                     ...v,
                     metricId: val,
+                    populationId: null,
+                    populationVersion: undefined,
                     unit,
                     name: newMetric?.name
                       ? generateUniqueValueName(
@@ -170,6 +198,55 @@ export default function MetricTabContent() {
                 placeholder="Select metric..."
                 forceUndefinedValueToNull
               />
+              {(metric?.metricType === "proportion" || v.populationId) && (
+                <>
+                  <Select
+                    mt="3"
+                    label="Population"
+                    value={v.populationId || "none"}
+                    disabled={
+                      populationsLoading || (hasBreakdown && !v.populationId)
+                    }
+                    error={
+                      populationsError
+                        ? "Unable to load populations"
+                        : unavailablePopulation
+                          ? "This population is unavailable or incompatible with the selected metric and unit."
+                          : undefined
+                    }
+                    setValue={(id) =>
+                      updateValueInDataset(idx, {
+                        ...v,
+                        populationId: id === "none" ? null : id,
+                        populationVersion: undefined,
+                      })
+                    }
+                  >
+                    <SelectItem value="none">None (show total)</SelectItem>
+                    {unavailablePopulation && (
+                      <SelectItem value={v.populationId!} disabled>
+                        Unavailable population
+                      </SelectItem>
+                    )}
+                    {compatiblePopulations.map((p) => (
+                      <SelectItem
+                        key={p.id}
+                        value={p.id}
+                        disabled={hasBreakdown}
+                      >
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                  <Text size="sm" color="text-low">
+                    {hasBreakdown
+                      ? "Remove non-date breakdowns to select a population."
+                      : v.populationId
+                        ? "Shows the share of population members who qualify for this metric. Membership is evaluated within each date bucket."
+                        : "Select a population to show a conversion rate instead of a total."}
+                  </Text>
+                </>
+              )}
             </Flex>
           </ValueCard>
         );

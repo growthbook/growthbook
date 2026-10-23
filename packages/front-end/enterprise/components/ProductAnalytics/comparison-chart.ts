@@ -296,13 +296,13 @@ export function getAlignedComparisonDimensionKeyForTooltip(
  */
 export function alignComparisonOverlayToCategories(
   sortedXValues: string[],
-  comparisonDataMap: Record<string, Record<string, number>>,
+  comparisonDataMap: Record<string, Record<string, number | null>>,
   sortedSeriesKeys: string[],
   comparisonXValues: string[],
   firstDimensionIsDate: boolean,
   strategy?: ComparisonAlignmentStrategy,
-): Record<string, Record<string, number>> {
-  const aligned: Record<string, Record<string, number>> = {};
+): Record<string, Record<string, number | null>> {
+  const aligned: Record<string, Record<string, number | null>> = {};
   const resolveComparisonKey = createComparisonAlignmentResolver(
     sortedXValues,
     comparisonXValues,
@@ -317,7 +317,12 @@ export function alignComparisonOverlayToCategories(
       const compKey = resolveComparisonKey(x);
       // Buckets past the end of a shorter comparison window read as zero, same
       // as a matched bucket the comparison simply had no rows in.
-      aligned[seriesKey][x] = compKey !== undefined ? (src[compKey] ?? 0) : 0;
+      aligned[seriesKey][x] =
+        compKey !== undefined
+          ? src[compKey] === undefined
+            ? 0
+            : src[compKey]
+          : 0;
     }
   }
   return aligned;
@@ -341,7 +346,11 @@ function metricNameForDatasetValue(
 ): string {
   if (config.dataset?.type === "funnel" || config.dataset?.type === "journey")
     return `Metric ${metricIndex}`;
-  return config.dataset?.values?.[metricIndex]?.name ?? `Metric ${metricIndex}`;
+  const value = config.dataset?.values?.[metricIndex];
+  const name = value?.name ?? `Metric ${metricIndex}`;
+  return value?.type === "metric" && value.populationId
+    ? `${name} (rate, 0–1)`
+    : name;
 }
 
 /**
@@ -353,11 +362,11 @@ export function buildComparisonOverlaySeriesMaps(
   renderOpts: RenderOpts,
 ): {
   uniqueXValues: Set<string>;
-  dataMap: Record<string, Record<string, number>>;
+  dataMap: Record<string, Record<string, number | null>>;
   seriesMeta: Record<string, { metricId: string; name: string }>;
 } {
   const uniqueXValues = new Set<string>();
-  const dataMap: Record<string, Record<string, number>> = {};
+  const dataMap: Record<string, Record<string, number | null>> = {};
   const seriesMeta: Record<string, { metricId: string; name: string }> = {};
 
   const numMetrics =
@@ -366,10 +375,11 @@ export function buildComparisonOverlaySeriesMaps(
       : 0;
   const numDimensions = config.dimensions?.length ?? 0;
 
-  const bump = (seriesKey: string, x: string, y: number) => {
+  const bump = (seriesKey: string, x: string, y: number | null) => {
     uniqueXValues.add(x);
     if (!dataMap[seriesKey]) dataMap[seriesKey] = {};
-    dataMap[seriesKey][x] = (dataMap[seriesKey][x] ?? 0) + y;
+    dataMap[seriesKey][x] =
+      y === null ? null : (dataMap[seriesKey][x] ?? 0) + y;
   };
 
   for (const row of rows) {
@@ -512,7 +522,7 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
   firstDimensionIsDate: boolean;
   comparisonAlignment?: ComparisonAlignmentStrategy;
 }): {
-  alignedMap: Record<string, Record<string, number>>;
+  alignedMap: Record<string, Record<string, number | null>>;
   comparisonXValues: string[];
 } | null {
   if (!args.comparisonRows.length) return null;
@@ -549,8 +559,8 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
   sourceSortedXValues: string[];
   sourceSeriesKeys: string[];
   sourceSeriesMeta: Record<string, ExplorerChartCompareSeriesMeta>;
-  currentDataMap: Record<string, Record<string, number>>;
-  previousDataMap: Record<string, Record<string, number>>;
+  currentDataMap: Record<string, Record<string, number | null>>;
+  previousDataMap: Record<string, Record<string, number | null>>;
   comparisonPeriodLabels: {
     currentLabel: string;
     previousLabel: string;
@@ -624,8 +634,12 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
       const slotKi = j % K;
       const x = sourceSortedXValues[xi]!;
       if (slotKi === ki) {
-        currData.push(currentDataMap[sk]?.[x] ?? 0);
-        prevData.push(previousDataMap[sk]?.[x] ?? 0);
+        currData.push(
+          currentDataMap[sk]?.[x] === undefined ? 0 : currentDataMap[sk][x],
+        );
+        prevData.push(
+          previousDataMap[sk]?.[x] === undefined ? 0 : previousDataMap[sk][x],
+        );
       } else {
         currData.push(null);
         prevData.push(null);
@@ -681,7 +695,7 @@ export function buildExplorerCompareSparseFlatBarSeries(args: {
  */
 export function buildExplorerChartComparisonSeriesList(params: {
   chartType: ExplorationConfig["chartType"];
-  sourceDataMap: Record<string, Record<string, number>>;
+  sourceDataMap: Record<string, Record<string, number | null>>;
   sourceSeriesMeta: Record<string, ExplorerChartCompareSeriesMeta>;
   sourceSeriesKeys: string[];
   sourceSortedXValues: string[];
@@ -744,7 +758,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
       if (isPrevious && chartType === "line") {
         const data = sourceSortedXValues.map((x) => [
           parseWarehouseDate(x).getTime(),
-          seriesDataMap[x] ?? 0,
+          seriesDataMap[x] === undefined ? 0 : seriesDataMap[x],
         ]);
 
         return {
@@ -771,13 +785,15 @@ export function buildExplorerChartComparisonSeriesList(params: {
           !compareOverlayActive
         ) {
           const data = sourceSortedXValues.map((x, i) => ({
-            value: seriesDataMap[x] ?? 0,
+            value: seriesDataMap[x] === undefined ? 0 : seriesDataMap[x],
             itemStyle: { color: seriesColor(i) },
           }));
           return { name: displayName, data, type: "bar" as const };
         }
 
-        const data = sourceSortedXValues.map((x) => seriesDataMap[x] ?? 0);
+        const data = sourceSortedXValues.map((x) =>
+          seriesDataMap[x] === undefined ? 0 : seriesDataMap[x],
+        );
         if (compareOverlayActive) {
           return {
             name: displayName,
@@ -832,7 +848,7 @@ export function buildExplorerChartComparisonSeriesList(params: {
       if (chartType === "line" || chartType === "area") {
         const data = sourceSortedXValues.map((x) => [
           parseWarehouseDate(x).getTime(),
-          seriesDataMap[x] ?? 0,
+          seriesDataMap[x] === undefined ? 0 : seriesDataMap[x],
         ]);
 
         if (chartType === "area" && isPrevious && compareOverlayActive) {
@@ -933,6 +949,7 @@ export function computeBigNumberComparisonTrendForMetricIndex(
     isRatio,
   });
 
+  if (currentValue === null || previousValue === null) return null;
   if (previousValue === 0) {
     return { currentValue, previousValue, pctChange: 0 };
   }

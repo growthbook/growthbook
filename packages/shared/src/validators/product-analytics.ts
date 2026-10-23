@@ -29,6 +29,9 @@ const metricValueValidator = baseValueValidator.extend({
   metricId: z.string(),
   unit: z.string().nullable(),
   denominatorUnit: z.string().nullable(),
+  populationId: z.string().min(1).nullable().optional(),
+  // Resolved by the server before cache lookup; never trusted from the client.
+  populationVersion: z.string().optional(),
 });
 // Internal only (metric editor live preview): an unsaved metric definition to
 // run in place of a saved one. Kept out of the public validators so the REST
@@ -527,6 +530,7 @@ export const productAnalyticsResultRowValidator = z.object({
         metricId: z.string(),
         numerator: z.number().nullable(),
         denominator: z.number().nullable(),
+        populationRate: z.boolean().optional(),
       }),
     )
     .optional(),

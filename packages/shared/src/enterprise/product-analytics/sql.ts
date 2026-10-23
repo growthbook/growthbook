@@ -55,6 +55,8 @@ import { hasTimestampColumn } from "./utils";
 import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
 import { factTableHasResolvableColumn } from "./columns";
 
+import { ExplorationPopulation, validateMetricPopulation } from "./populations";
+
 // Internal Type definitions
 type MinimalFactTable = Pick<
   FactTableInterface,
@@ -134,6 +136,7 @@ interface MetricWithMetadata {
   unit?: string;
   index: number;
   useDenominator?: boolean;
+  population?: ExplorationPopulation;
 }
 interface FactTableGroup {
   index: number;
@@ -151,6 +154,13 @@ interface MetricData {
   unitAggregationExpr: string | null;
   rollupAggregationExpr: string;
   rollupCountExpr: string | null;
+  population?: {
+    alias: string;
+    eventValueExpr: string;
+    presenceExpr: string;
+    unitAggregationExpr: string;
+  };
+  presenceExpr?: string;
 }
 interface DimensionData {
   alias: string;
@@ -265,11 +275,13 @@ function getFactTableGroups({
   factTableMap,
   metricMap,
   datasource,
+  populationMap,
 }: {
   config: ExplorationConfig;
   factTableMap: FactTableMap;
   metricMap: Map<string, FactMetricInterface>;
   datasource: MinimalDatasourceInterface;
+  populationMap: Map<string, ExplorationPopulation>;
 }): FactTableGroup[] {
   if (!config.dataset) {
     throw new Error("Dataset is required");
@@ -395,8 +407,22 @@ function getFactTableGroups({
               units: [],
             };
           }
+          const population = value.populationId
+            ? populationMap.get(value.populationId)
+            : undefined;
+          if (value.populationId) {
+            if (!population) throw new Error("Population not found");
+            validateMetricPopulation(
+              config,
+              value,
+              originalMetric,
+              population,
+              factTable,
+            );
+          }
           const group = groups[factTable.id];
           group.metrics.push({
+            population,
             index: metricIndex,
             metric,
             unit: value.unit || undefined,
@@ -1034,6 +1060,41 @@ function getMetricData(
     rollupCountExpr = getRollupCountExpr(metric, alias);
   }
 
+  const population = metricWithMetadata.population;
+  const populationAlias = `pop${metricIndex}`;
+  const step = population?.steps[0];
+  const populationColumn: ColumnRef | null = step
+    ? {
+        factTableId: step.source.factTableId,
+        column: "$$distinctUsers",
+        rowFilters: step.rowFilters,
+        aggregateFilter: step.aggregateFilter,
+        aggregateFilterColumn: step.aggregateFilterColumn,
+      }
+    : null;
+  const presenceColumn = { ...columnRef, column: "$$count" };
+  const populationData = populationColumn
+    ? {
+        alias: populationAlias,
+        eventValueExpr: getEventValueExpr(
+          populationColumn,
+          factTable,
+          helpers,
+          populationAlias,
+          null,
+        ),
+        presenceExpr: getEventValueExpr(
+          { ...populationColumn, column: "$$count" },
+          factTable,
+          helpers,
+          populationAlias,
+          null,
+        ),
+        // Presence matters for conditions such as <= 0: rows belonging only to
+        // another metric must never qualify as population members.
+        unitAggregationExpr: `CASE WHEN COUNT(${populationAlias}_rows) > 0 THEN ${getUnitAggregationExpr(populationColumn, populationAlias, helpers)} ELSE NULL END`,
+      }
+    : undefined;
   const cappingSettings = getCappingSettings(metric);
   const rawPercentileValueExpr = getEventValueExpr(
     columnRef,
@@ -1058,8 +1119,18 @@ function getMetricData(
       alias,
       cappingSettings,
     ),
+    population: populationData,
+    presenceExpr: getEventValueExpr(
+      presenceColumn,
+      factTable,
+      helpers,
+      alias,
+      null,
+    ),
     unitAggregationExpr: selectedUnit
-      ? getUnitAggregationExpr(columnRef, alias, helpers)
+      ? populationData
+        ? `CASE WHEN COUNT(${alias}_rows) > 0 THEN ${getUnitAggregationExpr(columnRef, alias, helpers)} ELSE NULL END`
+        : getUnitAggregationExpr(columnRef, alias, helpers)
       : null,
     rollupAggregationExpr: getRollupAggregationExpr(
       metric,
@@ -1220,6 +1291,15 @@ function generateFactTableCTE(
     );
 
     allMetricFilters.push(filterParts);
+    if (m.population) {
+      allMetricFilters.push(
+        generateRowFilterSQL(
+          m.population.steps[0].rowFilters,
+          factTable,
+          helpers,
+        ),
+      );
+    }
   });
 
   const whereClauses: string[] = [];
@@ -1283,6 +1363,16 @@ function generateFactTableRowsCTE(
   factTableGroup.metrics.forEach((m) => {
     const metricData = getMetricData(m, factTableGroup.factTable, helpers);
     selectCols.push(`${metricData.eventValueExpr} AS ${metricData.alias}`);
+    if (factTableGroup.metrics.some((m) => m.population)) {
+      selectCols.push(`${metricData.presenceExpr} AS ${metricData.alias}_rows`);
+    }
+    if (metricData.population) {
+      const p = metricData.population;
+      selectCols.push(
+        `${p.eventValueExpr} AS ${p.alias}`,
+        `${p.presenceExpr} AS ${p.alias}_rows`,
+      );
+    }
   });
 
   return {
@@ -1317,9 +1407,19 @@ function generateUnitAggregationCTE(
 
   // Add metrics
   includedMetrics.forEach((metricData) => {
-    selects.push(
-      `${metricData.unitAggregationExpr || "NULL"} AS ${metricData.alias}`,
-    );
+    const expr = metricData.unitAggregationExpr || "NULL";
+    // Population rows broaden the shared scan. They must not turn absent
+    // activity into zero-valued contributors for neighboring series.
+    const guardedExpr =
+      !metricData.population && factTableGroup.metrics.some((m) => m.population)
+        ? `CASE WHEN COUNT(${metricData.alias}_rows) > 0 THEN ${expr} ELSE NULL END`
+        : expr;
+    selects.push(`${guardedExpr} AS ${metricData.alias}`);
+    if (metricData.population) {
+      selects.push(
+        `${metricData.population.unitAggregationExpr} AS ${metricData.population.alias}`,
+      );
+    }
   });
 
   return {
@@ -1359,7 +1459,13 @@ function generateUnitAggregationRollupCTE(
       ? alias
       : `${alias}_numerator`;
 
-    if (metricData && metricData.rollupAggregationExpr) {
+    if (metricData?.population) {
+      const eligible = `${metricData.population.alias} = 1 AND unit${unitIndex} IS NOT NULL`;
+      selects.push(
+        `${dialect.castToFloat(`SUM(CASE WHEN ${eligible} AND ${alias} = 1 THEN 1 ELSE 0 END)`)} AS ${valueAlias}`,
+        `${dialect.castToFloat(`SUM(CASE WHEN ${eligible} THEN 1 ELSE 0 END)`)} AS ${alias}_denominator`,
+      );
+    } else if (metricData && metricData.rollupAggregationExpr) {
       selects.push(
         `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${valueAlias}`,
       );
@@ -1954,6 +2060,7 @@ export function generateProductAnalyticsSQL(
   metricMap: Map<string, FactMetricInterface>,
   dialect: SqlDialect,
   datasource: MinimalDatasourceInterface,
+  populationMap: Map<string, ExplorationPopulation> = new Map(),
 ): {
   sql: string;
   orderedMetricIds: string[];
@@ -1986,6 +2093,7 @@ export function generateProductAnalyticsSQL(
     factTableMap,
     metricMap,
     datasource,
+    populationMap,
   });
 
   // Get all metric aliases
@@ -2271,6 +2379,10 @@ export function transformProductAnalyticsRowsToResult(
       const aliases = getMetricAliases(index);
       resultRow.values?.push({
         metricId,
+        ...(config.dataset.type === "metric" &&
+        config.dataset.values[index]?.populationId
+          ? { populationRate: true }
+          : {}),
         numerator: parseNumberValue(row[aliases.numerator]),
         denominator: parseNumberValue(row[aliases.denominator]),
       });
