@@ -45,6 +45,7 @@ import {
   getInitialInlineFilters,
   getRelevantFactTableIds,
   hasUnsatisfiedInlineFilters,
+  getQueryTimeoutErrorMessage,
   isTimelessSqlExploration,
   isTimeSeriesChart,
   isSubmittableConfig,
@@ -731,7 +732,9 @@ export function ExplorerProvider({
                 finalize(
                   null,
                   latestPrimaryQuery,
-                  "This query is taking longer than expected. Try a shorter date range or fewer steps, then run again.",
+                  getQueryTimeoutErrorMessage(
+                    configToSubmit.dataset.type === "funnel",
+                  ),
                   null,
                   latestComparisonQuery,
                   null,
