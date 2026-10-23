@@ -127,6 +127,7 @@ export default forwardRef<
         <Box className={styles.firstLineSlot}>
           <Tooltip content="Dismiss">
             <IconButton
+              type="button"
               variant="ghost"
               color="gray"
               size="1"

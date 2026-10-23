@@ -1352,6 +1352,7 @@ export default function ConfigDetailPage(): React.ReactElement {
               variant="soft"
               trigger={
                 <IconButton
+                  type="button"
                   variant="ghost"
                   color="gray"
                   radius="full"
@@ -1629,6 +1630,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                 <DropdownMenu
                   trigger={
                     <IconButton
+                      type="button"
                       variant="ghost"
                       color="gray"
                       radius="full"

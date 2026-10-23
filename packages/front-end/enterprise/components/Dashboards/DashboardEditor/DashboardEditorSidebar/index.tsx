@@ -337,7 +337,7 @@ export default function DashboardEditorSidebar({
 
                     <DropdownMenu
                       trigger={
-                        <IconButton variant="ghost" size="1">
+                        <IconButton type="button" variant="ghost" size="1">
                           <PiDotsThreeVertical />
                         </IconButton>
                       }

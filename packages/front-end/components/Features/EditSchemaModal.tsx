@@ -207,6 +207,7 @@ function EditSimpleSchema({
                 </div>
                 <div>
                   <button
+                    type="button"
                     className="btn btn-link text-danger ml-auto"
                     title="Delete Property"
                     onClick={(e) => {

@@ -208,6 +208,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         secondaryCTA={
           <>
             <button
+              type="button"
               className={`btn btn-link`}
               onClick={() => setStep(lastStep)}
             >
@@ -291,6 +292,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         <>
           {healthTabOnboardingPurpose === "setup" ? (
             <button
+              type="button"
               className={`btn btn-link`}
               onClick={() => {
                 setStep(2);
@@ -341,6 +343,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
       secondaryCTA: (
         <>
           <button
+            type="button"
             className={`btn btn-link`}
             onClick={() => setStep(showDimensionsPage ? 1 : 0)}
           >

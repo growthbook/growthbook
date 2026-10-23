@@ -388,6 +388,7 @@ const ProjectTeams: FC<{ project: string }> = ({ project }) => {
                     <DropdownMenu
                       trigger={
                         <IconButton
+                          type="button"
                           variant="ghost"
                           color="gray"
                           radius="full"

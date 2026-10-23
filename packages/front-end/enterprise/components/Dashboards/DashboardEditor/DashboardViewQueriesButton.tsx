@@ -38,6 +38,7 @@ export default function DashboardViewQueriesButton({
           <Tooltip body={buttonLabel} tipPosition="top">
             <span>
               <IconButton
+                type="button"
                 disabled={count === 0}
                 onClick={onClick}
                 className={className}

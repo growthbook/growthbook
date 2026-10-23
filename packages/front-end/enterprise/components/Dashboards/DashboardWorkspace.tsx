@@ -712,6 +712,7 @@ export default function DashboardWorkspace({
             >
               {stagedInsert || isDefined(editingBlockIndex) ? (
                 <IconButton
+                  type="button"
                   mb="1"
                   onClick={clearEditingState}
                   variant="outline"
@@ -720,6 +721,7 @@ export default function DashboardWorkspace({
                 </IconButton>
               ) : (
                 <IconButton
+                  type="button"
                   mb="1"
                   onClick={() => setEditSidebarExpanded(!editSidebarExpanded)}
                   variant="outline"

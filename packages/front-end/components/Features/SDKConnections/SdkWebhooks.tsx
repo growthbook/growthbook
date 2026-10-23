@@ -185,6 +185,7 @@ export default function SdkWebhooks({
               <MoreMenu useRadix={false}>
                 {canUpdateWebhook ? (
                   <button
+                    type="button"
                     className="dropdown-item"
                     onClick={(e) => {
                       e.preventDefault();

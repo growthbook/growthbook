@@ -206,6 +206,7 @@ export default function RoleRulesTable({
             {!fromTeam && !rule.isPrimary && (
               <Tooltip content="Remove rule">
                 <IconButton
+                  type="button"
                   variant="ghost"
                   color="red"
                   radius="full"

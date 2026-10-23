@@ -404,6 +404,7 @@ const SidebarExperimentFilters: FC<Props> = ({
             {label}
           </Text>
           <IconButton
+            type="button"
             size="1"
             variant="ghost"
             color="gray"

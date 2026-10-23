@@ -92,6 +92,7 @@ export default function InlineForm({
             {saving && <LoadingSpinner />} Save Changes
           </button>
           <button
+            type="button"
             className="btn btn-link "
             onClick={(e) => {
               e.preventDefault();

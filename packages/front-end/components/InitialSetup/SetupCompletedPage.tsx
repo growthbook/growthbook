@@ -36,7 +36,9 @@ const SetupCompletedPage: FC<SetupCompletedPageProps> = ({
       </Grid>
 
       <Link className="float-right mt-auto" href={exitHref}>
-        <button className="btn btn-primary">Exit Setup</button>
+        <button type="button" className="btn btn-primary">
+          Exit Setup
+        </button>
       </Link>
     </div>
   );

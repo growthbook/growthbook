@@ -203,6 +203,7 @@ const EditOrganization: FC<{
           <div className="flex-grow-1">
             {currentOrg.disabled ? (
               <button
+                type="button"
                 className="btn btn-info"
                 onClick={async (e) => {
                   e.preventDefault();
@@ -221,6 +222,7 @@ const EditOrganization: FC<{
               </button>
             ) : (
               <button
+                type="button"
                 className="btn btn-danger"
                 onClick={async (e) => {
                   e.preventDefault();

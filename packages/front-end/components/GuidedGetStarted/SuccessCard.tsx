@@ -33,6 +33,7 @@ export default function SuccessCard({
       </div>
       <div className="d-flex flex-column justify-content-center align-content-center">
         <button
+          type="button"
           className="btn btn-primary align-self-center m-2"
           onClick={onClick}
         >

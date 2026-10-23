@@ -37,6 +37,7 @@ export default function ApiKeyRowMenu({
     <DropdownMenu
       trigger={
         <IconButton
+          type="button"
           variant="ghost"
           color="gray"
           radius="full"

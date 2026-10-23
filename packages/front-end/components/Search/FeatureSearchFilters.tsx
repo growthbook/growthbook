@@ -534,6 +534,7 @@ const FeatureSearchFilters: FC<
                     </Text>
                   </Button>
                   <IconButton
+                    type="button"
                     size="2"
                     variant="ghost"
                     color="gray"

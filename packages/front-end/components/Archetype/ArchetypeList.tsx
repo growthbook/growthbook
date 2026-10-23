@@ -192,6 +192,7 @@ export const ArchetypeList: FC<{
                       <MoreMenu useRadix={false}>
                         {canEdit ? (
                           <button
+                            type="button"
                             className="dropdown-item"
                             onClick={() => {
                               setEditArchetype(archetype);

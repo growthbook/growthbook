@@ -63,6 +63,7 @@ const CopyToClipboard: FC<{
               </div>
             )}
             <button
+              type="button"
               className="btn btn-secondary"
               onClick={(e) => {
                 ref.current?.select();

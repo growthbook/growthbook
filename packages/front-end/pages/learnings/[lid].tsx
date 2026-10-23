@@ -124,6 +124,7 @@ const LearningPage = (): React.ReactElement => {
           <DropdownMenu
             trigger={
               <IconButton
+                type="button"
                 variant="ghost"
                 color="gray"
                 radius="full"

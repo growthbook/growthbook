@@ -54,6 +54,7 @@ export default function ReportResultMoreMenu({
     <MoreMenu autoCloseOnClick={false} className="ml-2">
       {setNameModalOpen ? (
         <button
+          type="button"
           className="dropdown-item py-2"
           onClick={() => setNameModalOpen(true)}
         >
@@ -73,6 +74,7 @@ export default function ReportResultMoreMenu({
         body="To download results as a Jupyter notebook, you must set up a Jupyter Notebook query runner. View our docs for more info."
       >
         <button
+          type="button"
           className="dropdown-item py-2"
           disabled={!canDownloadJupyterNotebook}
           onClick={async () => {

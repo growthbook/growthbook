@@ -189,6 +189,7 @@ const VerifyConnectionPage = ({
             {organization.demographicData?.ownerJobTitle !== "engineer" && (
               <div className="ml-auto">
                 <button
+                  type="button"
                   className="btn btn-link"
                   onClick={(e) => {
                     e.preventDefault();

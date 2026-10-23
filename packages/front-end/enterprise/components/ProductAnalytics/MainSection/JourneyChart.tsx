@@ -192,6 +192,7 @@ export default function JourneyChart({
                     <Flex align="center" gap="2">
                       <TruncateMiddleWithTooltip text={label} maxChars={30} />
                       <IconButton
+                        type="button"
                         size="1"
                         variant="ghost"
                         radius="full"

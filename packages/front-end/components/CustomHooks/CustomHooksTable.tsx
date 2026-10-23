@@ -155,6 +155,7 @@ export default function CustomHooksTable({
                     variant="soft"
                     trigger={
                       <IconButton
+                        type="button"
                         variant="ghost"
                         color="gray"
                         radius="full"

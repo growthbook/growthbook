@@ -79,6 +79,7 @@ const EditLicenseModal: FC<{
               *******************************************
             </div>
             <button
+              type="button"
               className="btn btn-md btn-primary"
               onClick={() => {
                 setEditField(true);

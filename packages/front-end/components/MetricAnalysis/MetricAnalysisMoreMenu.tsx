@@ -24,6 +24,7 @@ export default function MetricAnalysisMoreMenu({
       )}
       {forceRefresh && canRunMetricQuery && (
         <button
+          type="button"
           className="btn dropdown-item py-2"
           onClick={(e) => {
             e.preventDefault();

@@ -553,6 +553,7 @@ export default function FinishSettingUp({
                       // Only types created from this page are editable here.
                       row.isNew && row.attribute !== null ? (
                         <IconButton
+                          type="button"
                           variant="ghost"
                           color="gray"
                           size="1"

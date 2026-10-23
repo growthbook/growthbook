@@ -179,6 +179,7 @@ const Layout = (): React.ReactElement => {
                 </li>
                 <li>
                   <button
+                    type="button"
                     className={styles.searchTrigger}
                     onClick={() => {
                       document.dispatchEvent(new Event("open-command-palette"));

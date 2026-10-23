@@ -84,6 +84,7 @@ export default function DashboardsTabMoreMenu({
       <DropdownMenu
         trigger={
           <IconButton
+            type="button"
             variant="ghost"
             color="gray"
             radius="full"

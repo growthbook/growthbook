@@ -132,6 +132,7 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
               <DropdownMenu
                 trigger={
                   <IconButton
+                    type="button"
                     variant="ghost"
                     color="gray"
                     radius="full"

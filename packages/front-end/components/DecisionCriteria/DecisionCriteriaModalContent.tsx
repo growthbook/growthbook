@@ -169,6 +169,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
             </Text>
             {ruleIndex > 0 && editable && (
               <IconButton
+                type="button"
                 variant="ghost"
                 color="red"
                 size="1"
@@ -268,6 +269,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
                 <Box width="40px" style={{ textAlign: "right" }}>
                   {conditionIndex > 0 && editable && (
                     <IconButton
+                      type="button"
                       variant="ghost"
                       color="red"
                       size="1"

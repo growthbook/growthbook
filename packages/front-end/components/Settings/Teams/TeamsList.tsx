@@ -125,6 +125,7 @@ const TeamsList: FC<{ onDuplicate?: (team: Team) => void }> = ({
                       <DropdownMenu
                         trigger={
                           <IconButton
+                            type="button"
                             variant="ghost"
                             color="gray"
                             radius="full"
