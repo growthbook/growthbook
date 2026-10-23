@@ -192,8 +192,7 @@ export default function MetricWorkspace({
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ block: "nearest" });
   }, [error]);
-  // Same event as the old modal, so both arms of the new-metric-creation-flow
-  // experiment report views identically.
+  // Same event as the modal, so both report views identically.
   useEffect(() => {
     if (!existing)
       track("Viewed Create Fact Metric Modal", { source, flow: "page" });

@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/router";
-import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -29,7 +28,6 @@ type FactMetricCreationTarget = {
 };
 
 type ModalTarget = FactMetricCreationTarget & {
-  edit?: FactMetricInterface;
   source: string;
 };
 
@@ -40,17 +38,9 @@ export default function useFactMetricFlow(
     embedded = false,
   }: { onInlineEdit?: (source: string) => void; embedded?: boolean } = {},
 ) {
-  const newFlow = useFeatureIsOn("new-metric-creation-flow");
-  const flagReady = !!useGrowthBook()?.ready;
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
-  const {
-    factTables,
-    project,
-    projects,
-    ready: definitionsReady,
-  } = useDefinitions();
-  const ready = flagReady && definitionsReady;
+  const { factTables, project, projects, ready } = useDefinitions();
   const [modalTarget, setModalTarget] = useState<ModalTarget | null>(null);
   const [tableTarget, setTableTarget] = useState<ModalTarget | null>(null);
   const [createdTable, setCreatedTable] = useState<FactTableInterface | null>(
@@ -76,7 +66,7 @@ export default function useFactMetricFlow(
         : (!target.datasource || table.datasource === target.datasource) &&
           isProjectListValidForProject(table.projects, targetProject),
     );
-    const mode = resolveFactMetricCreation(ready, newFlow, !!table, embedded);
+    const mode = resolveFactMetricCreation(ready, !!table, embedded);
     const canCreate =
       mode === "fact-table"
         ? permissionsUtil.canViewCreateFactTableModal(targetProject, projects)
@@ -138,21 +128,17 @@ export default function useFactMetricFlow(
   const edit = useCallback(
     (metric: FactMetricInterface, editSource = source) => {
       if (!ready) return false;
-      if (newFlow) {
-        if (onInlineEdit) onInlineEdit(editSource);
-        else {
-          const params = new URLSearchParams({
-            edit: "true",
-            source: editSource,
-          });
-          void router.push(`/fact-metrics/${metric.id}?${params}`);
-        }
-      } else {
-        setModalTarget({ edit: metric, source: editSource });
+      if (onInlineEdit) onInlineEdit(editSource);
+      else {
+        const params = new URLSearchParams({
+          edit: "true",
+          source: editSource,
+        });
+        void router.push(`/fact-metrics/${metric.id}?${params}`);
       }
       return true;
     },
-    [ready, newFlow, onInlineEdit, router, source],
+    [ready, onInlineEdit, router, source],
   );
 
   const createButton = (
@@ -270,13 +256,12 @@ export default function useFactMetricFlow(
       initialFactTable={modalTarget.factTable}
       datasource={modalTarget.datasource}
       existing={
-        modalTarget.edit ??
-        (duplicate
+        duplicate
           ? duplicateFactMetric(
               duplicate,
               permissionsUtil.canCreateOfficialResources(duplicate),
             )
-          : undefined)
+          : undefined
       }
       duplicate={!!duplicate}
       source={modalTarget.source}

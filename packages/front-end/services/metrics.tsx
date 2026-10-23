@@ -44,14 +44,13 @@ import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
 
 export function resolveFactMetricCreation(
   ready: boolean,
-  newFlow: boolean,
   hasFactTable: boolean,
   embedded = false,
 ) {
   if (!ready) return "pending";
-  if (newFlow && !embedded) return "page";
+  if (!embedded) return "page";
   if (!hasFactTable) return "fact-table";
-  return newFlow ? "inline" : "modal";
+  return "inline";
 }
 
 export function duplicateFactMetric(
@@ -336,8 +335,7 @@ export function fromFactMetricFormValues(
 }
 
 // Anonymized telemetry props for creating or editing a fact metric - which
-// settings people use. Shared by the old modal and the full-page editor so
-// the new-metric-creation-flow experiment compares like with like.
+// settings people use. Shared by the modal and the full-page editor.
 export function getFactMetricTrackProps(
   values: {
     metricType: FactMetricInterface["metricType"];
