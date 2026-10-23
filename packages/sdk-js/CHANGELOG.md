@@ -8,6 +8,7 @@
 - In debug mode, log every type mismatch seen while evaluating a condition
 - **Breaking:** `evalCondition(obj, condition, options)` takes an options object, `{ savedGroups, onTypeMismatch }`, instead of positional `savedGroups` and `visited` arguments. Passing saved groups as the third argument no longer works
 - Run visual and URL redirect auto experiments as Contextual Bandits when they carry a `contextualBanditRef`
+- Add remote saved groups, whose IDs are looked up outside the payload: the `remoteGroupIds` option, `setRemoteGroupIds`, `GrowthBookClient.addRemoteSavedGroups`, `redisResolver`, and the `savedGroupReferencesRemote` capability
 - Fix a malformed prerequisite condition (e.g. `{"$not": null}`) throwing from `isOn`/`getFeatureValue`/`run`; it now never matches
 
 ## **1.8.0** - Sep 29, 2026
