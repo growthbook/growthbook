@@ -69,6 +69,7 @@ export * from "./feature-revisions";
 export * from "./feature-revisions-v2";
 export * from "./holdout";
 export * from "./learnings";
+export * from "./experiment-ideas";
 export * from "./namespaces";
 export * from "./projects";
 export * from "./safe-rollout-notifications";

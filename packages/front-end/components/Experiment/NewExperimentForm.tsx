@@ -320,6 +320,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       ],
       status: !isImport ? "draft" : initialValue?.status || "running",
       ideaSource: idea || "",
+      sourceExperimentIdeaId: initialValue?.sourceExperimentIdeaId,
       customFields: initialValue?.customFields,
       regressionAdjustmentEnabled:
         scopedSettings.regressionAdjustmentEnabled.value,

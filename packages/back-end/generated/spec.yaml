@@ -55374,6 +55374,7 @@ paths:
                       - feature
                       - experiment
                       - attribute
+                      - experiment-idea
               required:
                 - id
                 - name
@@ -55572,6 +55573,7 @@ paths:
                       - feature
                       - experiment
                       - attribute
+                      - experiment-idea
                 active:
                   type: boolean
               additionalProperties: false
@@ -82184,6 +82186,7 @@ components:
               - feature
               - experiment
               - attribute
+              - experiment-idea
         active:
           type: boolean
       required:
