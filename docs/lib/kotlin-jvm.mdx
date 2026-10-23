@@ -221,7 +221,7 @@ val growthBook = GBSDKBuilder(
         // Your analytics tracking
         analyticsService.track("experiment_viewed", mapOf(
             "experiment_id" to experiment.key,
-            "variation_id" to result.variationId,
+            "variation_id" to result.key,
             "user_id" to userAttributes["id"]
         ))
     },
@@ -350,7 +350,7 @@ val growthBook = GBSDKBuilder(
         // Send to your analytics platform
         analytics.track("experiment_viewed", mapOf(
             "experiment_id" to experiment.key,
-            "variation_id" to result.variationId,
+            "variation_id" to result.key,
             "variation_value" to result.value,
             "user_id" to attributes["id"],
             "in_experiment" to result.inExperiment
