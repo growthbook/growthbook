@@ -251,6 +251,10 @@ describe("assertScheduledStartNotHardBlocked", () => {
 
     await expect(
       assertScheduledStartNotHardBlocked(context, draft),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "sdkConnection", status: "incomplete" }),
+      ]),
+    );
   });
 });

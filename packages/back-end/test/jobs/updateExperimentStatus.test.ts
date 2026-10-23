@@ -41,6 +41,7 @@ jest.mock("back-end/src/services/experimentScheduling", () => ({
 jest.mock(
   "back-end/src/services/experimentChanges/changeExperimentStatus",
   () => ({
+    armedStartBypassStands: jest.fn(async () => false),
     assertScheduledStartNotHardBlocked: jest.fn(),
     executeExperimentStart: jest.fn(async (_ctx, experiment) => ({
       updated: { ...experiment, status: "running" },
@@ -95,8 +96,9 @@ describe("updateSingleExperimentStatus", () => {
     expect(assertScheduledStartNotHardBlocked).toHaveBeenCalledWith(
       armer,
       draft,
+      false,
     );
-    expect(executeExperimentStart).toHaveBeenCalledWith(armer, draft);
+    expect(executeExperimentStart).toHaveBeenCalledWith(armer, draft, false);
     expect(armer.auditLog).toHaveBeenCalled();
     expect(notifyScheduledStatusUpdateFailed).not.toHaveBeenCalled();
   });

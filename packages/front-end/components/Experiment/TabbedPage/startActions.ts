@@ -95,8 +95,8 @@ function bypassLabel({
 /**
  * The start button and its bypass. Anyone who can start may go ahead without
  * a soft item; an admin who may bypass flag approvals also without approval,
- * but never on a scheduled start. Nothing gets past any
- * other hard blocker, and loading never counts as done.
+ * now or on a scheduled start, which carries the bypass to when it fires.
+ * Nothing gets past any other hard blocker, and loading never counts as done.
  */
 export function getStartActions({
   scheduledStartAt,
@@ -117,8 +117,7 @@ export function getStartActions({
     getStartSchedule(scheduledStartAt, now) === "future"
       ? scheduledStartAt
       : null;
-  const waivesApproval =
-    !futureStart && canBypassApproval && checklist.approval > 0;
+  const waivesApproval = canBypassApproval && checklist.approval > 0;
   const hardBlocked =
     checklist.loading ||
     needsUpgrade ||

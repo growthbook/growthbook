@@ -1925,7 +1925,10 @@ export async function postExperimentStatus(
 }
 
 export async function postApproveScheduledExperimentStart(
-  req: AuthRequest<{ skipChecklist?: boolean } | null, { id: string }>,
+  req: AuthRequest<
+    { skipChecklist?: boolean; bypassApproval?: boolean } | null,
+    { id: string }
+  >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -1933,11 +1936,12 @@ export async function postApproveScheduledExperimentStart(
   const skipChecklist = req.body?.skipChecklist === true;
 
   try {
-    const { experiment, updated, checklistItems } =
+    const { experiment, updated, checklistItems, bypassApproval } =
       await approveScheduledExperimentStart({
         context,
         experimentId: id,
         skipChecklist,
+        bypassApproval: req.body?.bypassApproval === true,
       });
 
     await req.audit({
@@ -1952,7 +1956,7 @@ export async function postApproveScheduledExperimentStart(
         getStartAcknowledgment({
           checklistItems,
           skipChecklist,
-          bypassLockdown: false,
+          bypassLockdown: bypassApproval,
         }),
       ),
     });

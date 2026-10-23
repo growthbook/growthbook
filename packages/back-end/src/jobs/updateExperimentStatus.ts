@@ -9,6 +9,7 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
+  armedStartBypassStands,
   assertScheduledStartNotHardBlocked,
   executeExperimentStart,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
@@ -173,14 +174,23 @@ export const updateSingleExperimentStatus = async (
           return;
         }
 
+        const bypass = await armedStartBypassStands(armer, experiment);
         // Transient, not terminal: retried to the cap, then given up with a notice.
-        await assertScheduledStartNotHardBlocked(armer, experiment);
+        await assertScheduledStartNotHardBlocked(armer, experiment, bypass);
 
-        const { updated } = await executeExperimentStart(armer, experiment);
+        const { updated } = await executeExperimentStart(
+          armer,
+          experiment,
+          bypass,
+        );
         await armer.auditLog({
           event: "experiment.status",
           entity: { object: "experiment", id: experiment.id },
-          details: auditDetailsUpdate(experiment, updated),
+          details: auditDetailsUpdate(
+            experiment,
+            updated,
+            bypass ? { bypassLockdown: true } : {},
+          ),
         });
         await notifyScheduledStatusUpdateApplied({
           context,

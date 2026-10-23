@@ -1391,6 +1391,25 @@ function changeResetsApproval(
 
 // An edit is judged on its own, against the draft as approved. A draft that
 // predates full snapshots reads its absent fields from live on both sides.
+// An armed draft that gains a draft experiment's rule can't land it: its publish
+// would leave the experiment unstarted. The edit disarms it instead.
+async function editMakesArmedDraftLaunch(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  proposed: FeatureRevisionInterface,
+  changes: RevisionChanges,
+): Promise<boolean> {
+  if (!revision.autoPublishOnApproval || !("rules" in changes)) return false;
+  // Imported late: the armed-publish module imports this one.
+  const { draftExperimentsLaunchedBy } = await import(
+    "back-end/src/api/features/autoPublishOnApproval"
+  );
+  return (
+    (await draftExperimentsLaunchedBy(context, feature, proposed)).length > 0
+  );
+}
+
 function editResetsApproval(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1660,7 +1679,23 @@ export async function updateRevision(
     revision: proposedRevision,
     original: revision,
   });
-  const disarm = editDisarmsFeatureDraft(context, proposedRevision);
+  const disarm =
+    editDisarmsFeatureDraft(context, proposedRevision) ||
+    (await editMakesArmedDraftLaunch(
+      context,
+      feature,
+      revision,
+      proposedRevision,
+      normalizedChanges,
+    ));
+  // The bypass was given for the draft as it was armed; a gated edit since
+  // takes it back, leaving the publish to wait on approval like any other.
+  const dropsBypass =
+    !disarm &&
+    !!revision.scheduledPublishBypassApproval &&
+    !rebase &&
+    REVISION_CONTENT_FIELDS.some((f) => f in normalizedChanges) &&
+    editResetsApproval(context, feature, revision, normalizedChanges);
 
   // Track contributors by identity, and the key behind an edit in either mode,
   // via atomic $addToSet.
@@ -1673,6 +1708,7 @@ export async function updateRevision(
   const unset = {
     ...(clearRevertedFrom ? { revertedFrom: 1 } : {}),
     ...(disarm ? { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 } : {}),
+    ...(dropsBypass ? { scheduledPublishBypassApproval: 1 } : {}),
   };
 
   // `status` rides the FILTER: the `status` being written was COMPUTED from the

@@ -151,13 +151,17 @@ export default function useStartExperiment({
 
   async function approveScheduledExperimentStart(opts?: {
     skipChecklist?: boolean;
+    bypassApproval?: boolean;
   }) {
     clearStartFailures();
     await apiCall(
       `/experiment/${experiment.id}/approve-scheduled-start`,
       {
         method: "POST",
-        body: JSON.stringify({ skipChecklist: !!opts?.skipChecklist }),
+        body: JSON.stringify({
+          skipChecklist: !!opts?.skipChecklist,
+          bypassApproval: !!opts?.bypassApproval,
+        }),
       },
       keepStartFailures,
     );

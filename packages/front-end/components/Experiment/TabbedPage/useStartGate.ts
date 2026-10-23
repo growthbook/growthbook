@@ -98,12 +98,10 @@ export default function useStartGate({
   );
   const runPrimary = () => {
     const skipChecklist = bypassed && checklist.remaining > 0;
+    const bypassApproval = bypassed && actions.waivesApproval;
     return actions.action === "approve-schedule"
-      ? start.approveScheduledExperimentStart({ skipChecklist })
-      : start.startExperiment({
-          bypassApproval: bypassed && actions.waivesApproval,
-          skipChecklist,
-        });
+      ? start.approveScheduledExperimentStart({ skipChecklist, bypassApproval })
+      : start.startExperiment({ bypassApproval, skipChecklist });
   };
 
   return {

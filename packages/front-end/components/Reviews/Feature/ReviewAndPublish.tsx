@@ -16,7 +16,14 @@ import {
   withStagedTargeting,
 } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
-import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import {
+  Fragment,
+  useState,
+  useMemo,
+  useRef,
+  useCallback,
+  useEffect,
+} from "react";
 import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
@@ -142,6 +149,7 @@ import { useApprovalCoverage } from "@/components/Reviews/useApprovalCoverage";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 import NoticeBanner from "@/components/Reviews/NoticeBanner";
 import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
 import PermissionBlocker from "@/ui/PermissionBlocker";
 import Metadata from "@/ui/Metadata";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
@@ -977,10 +985,28 @@ export default function ReviewAndPublish({
       proposed: withStagedTargeting(feature, revision?.metadata),
     });
 
+  const experimentsMap = useMemo<
+    Map<string, ExperimentInterfaceStringDates>
+  >(() => {
+    if (!experimentsList) return new Map();
+    return new Map(experimentsList.map((exp) => [exp.id, exp]));
+  }, [experimentsList]);
+
+  const { experiments, immediateStartExperiments, scheduledExperiments } =
+    useFeatureExperimentChecklists({
+      feature,
+      revision: revision ?? undefined,
+      experimentsMap,
+    });
+
+  // An armed publish can't start the draft experiments this draft takes live,
+  // so a draft that carries them is armed by scheduling their start instead.
+  const launchesExperiments = experiments.length > 0;
   const hasScheduledRevisions = hasCommercialFeature("scheduled-revisions");
   // Arming on a draft rides request-review, so it needs draft authority too.
   const canArmSchedule =
     holdsSchedulePublish &&
+    !launchesExperiments &&
     (revision?.status !== "draft" ||
       permissionsUtil.canEditFeatureDrafts(feature));
   // Only while an approval is still needed; once it can publish, Publish does that.
@@ -1153,20 +1179,6 @@ export default function ReviewAndPublish({
         r.version <= feature.version,
     ).length;
   }, [revisionList, revision, feature.version]);
-
-  const experimentsMap = useMemo<
-    Map<string, ExperimentInterfaceStringDates>
-  >(() => {
-    if (!experimentsList) return new Map();
-    return new Map(experimentsList.map((exp) => [exp.id, exp]));
-  }, [experimentsList]);
-
-  const { experiments, immediateStartExperiments, scheduledExperiments } =
-    useFeatureExperimentChecklists({
-      feature,
-      revision: revision ?? undefined,
-      experimentsMap,
-    });
 
   const [selectedExperiments, setSelectedExperiments] = useState<Set<string>>(
     new Set(),
@@ -3047,21 +3059,6 @@ export default function ReviewAndPublish({
                               />
                             </Box>
                           )}
-                          {experiments.length > 0 && (
-                            <Callout status="warning" mt="2">
-                              This draft would start{" "}
-                              {experiments.length === 1
-                                ? "a linked draft experiment"
-                                : `${experiments.length} linked draft experiments`}
-                              . A scheduled publish won&apos;t start{" "}
-                              {experiments.length === 1 ? "it" : "them"} — it
-                              will be held at the scheduled time until{" "}
-                              {experiments.length === 1 ? "it is" : "they are"}{" "}
-                              started (or removed from this draft). Start{" "}
-                              {experiments.length === 1 ? "it" : "them"} before
-                              the scheduled time to avoid a stuck publish.
-                            </Callout>
-                          )}
                         </>
                       ) : (
                         <PremiumTooltip commercialFeature="scheduled-revisions">
@@ -3101,6 +3098,19 @@ export default function ReviewAndPublish({
                       }
                     : {},
                 )
+              ) : launchesExperiments && holdsSchedulePublish ? (
+                <HelperText status="info" size="sm" mb="5">
+                  <span>
+                    To publish this draft later, schedule the start of{" "}
+                    {experiments.map((exp, i) => (
+                      <Fragment key={exp.id}>
+                        {i > 0 ? ", " : null}
+                        <Link href={`/experiment/${exp.id}`}>{exp.name}</Link>
+                      </Fragment>
+                    ))}
+                    . Starting it publishes this draft.
+                  </span>
+                </HelperText>
               ) : null;
 
               return (

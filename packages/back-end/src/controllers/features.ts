@@ -317,6 +317,7 @@ import { UnrecoverableApiError } from "back-end/src/util/errors";
 import {
   canDisarmFeatureAutoPublishOnApproval,
   canEnableFeatureAutoPublishOnApproval,
+  assertArmDoesNotLaunchExperiments,
   canPublishFeatureRevision,
   canScheduleFeaturePublish,
   maybeAutoPublishFeatureRevision,
@@ -1281,6 +1282,7 @@ export async function postFeatureScheduledPublish(
   if (!allowed) {
     context.permissions.throwPermissionError();
   }
+  if (date) await assertArmDoesNotLaunchExperiments(context, feature, revision);
 
   // Committing a schedule on a draft is the no-approval path (fires without a
   // review cycle), so only allow it when the change doesn't require review (or
@@ -1395,6 +1397,9 @@ export async function postFeatureRequestReview(
     !(await canScheduleFeaturePublish(context, feature, revision))
   ) {
     context.permissions.throwPermissionError();
+  }
+  if (enableAutoPublish || scheduledDate !== null) {
+    await assertArmDoesNotLaunchExperiments(context, feature, revision);
   }
 
   await markRevisionAsReviewRequested(
@@ -1993,6 +1998,9 @@ export async function postFeatureToggleAutoPublish(
     : await canDisarmFeatureAutoPublishOnApproval(context, feature, revision);
   if (!mayToggle) {
     context.permissions.throwPermissionError();
+  }
+  if (enabled) {
+    await assertArmDoesNotLaunchExperiments(context, feature, revision);
   }
 
   await setAutoPublishOnApproval(revision, !!enabled, context.userId || null);

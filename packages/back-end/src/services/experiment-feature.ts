@@ -783,6 +783,30 @@ type ReadyDraft = ResolvedDraft & {
   mergeResult: AutoMergeResult;
 };
 
+/** The one draft per linked flag that starting the experiment publishes. */
+export async function getLaunchDrafts(
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<ExperimentInterface, "id" | "pendingFeatureDrafts">,
+): Promise<{ featureId: string; revisionVersion: number }[]> {
+  const launches: { featureId: string; revisionVersion: number }[] = [];
+  const featureIds = new Set(
+    (experiment.pendingFeatureDrafts ?? []).map((d) => d.featureId),
+  );
+  for (const featureId of featureIds) {
+    const { openDrafts, liveRevision } = await getLinkageSyncRevisionSummaries(
+      context.org.id,
+      featureId,
+    );
+    const launch = getLaunchDraftVersion(
+      experiment.id,
+      openDrafts,
+      liveRevision,
+    );
+    if (launch !== null) launches.push({ featureId, revisionVersion: launch });
+  }
+  return launches;
+}
+
 // Publishes one draft per linked feature on experiment start, halting on the
 // first merge conflict or publish error so the caller can abort the start.
 export async function publishPendingFeatureDraftsForExperiment(
@@ -796,29 +820,20 @@ export async function publishPendingFeatureDraftsForExperiment(
   if (!queued.length) return { published: [], failed: [] };
 
   // ── Phase 0: exactly one draft per feature ────────────────────────────────
-  const drafts: { featureId: string; revisionVersion: number }[] = [];
-  for (const featureId of new Set(queued.map((d) => d.featureId))) {
-    const { openDrafts, liveRevision } = await getLinkageSyncRevisionSummaries(
-      context.org.id,
-      featureId,
+  const drafts = await getLaunchDrafts(context, experiment);
+  for (const entry of queued) {
+    const launches = drafts.some(
+      (d) =>
+        d.featureId === entry.featureId &&
+        d.revisionVersion === entry.revisionVersion,
     );
-    const launch = getLaunchDraftVersion(
+    if (launches) continue;
+    await removePendingFeatureDraftFromExperiment(
+      context,
       experiment.id,
-      openDrafts,
-      liveRevision,
+      entry.featureId,
+      entry.revisionVersion,
     );
-    for (const entry of queued) {
-      if (entry.featureId !== featureId || entry.revisionVersion === launch) {
-        continue;
-      }
-      await removePendingFeatureDraftFromExperiment(
-        context,
-        experiment.id,
-        featureId,
-        entry.revisionVersion,
-      );
-    }
-    if (launch !== null) drafts.push({ featureId, revisionVersion: launch });
   }
   if (!drafts.length) return { published: [], failed: [] };
 

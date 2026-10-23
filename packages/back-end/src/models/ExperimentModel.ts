@@ -242,6 +242,19 @@ const experimentSchema = new mongoose.Schema({
     failedAttempts: Number,
     scheduledBy: String,
     scheduledByApiKey: String,
+    bypassApproval: Boolean,
+    // No default, or every experiment would carry an empty pointer.
+    pinnedDrafts: {
+      type: [
+        {
+          _id: false,
+          featureId: String,
+          revisionVersion: Number,
+          dateUpdated: Date,
+        },
+      ],
+      default: undefined,
+    },
   },
   results: String,
   analysis: String,

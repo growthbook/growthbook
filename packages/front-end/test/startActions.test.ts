@@ -142,10 +142,24 @@ describe("getStartActions", () => {
       },
     },
     {
-      name: "never lets a scheduled start bypass approval",
+      name: "lets an admin arm a scheduled start past approval",
       scheduledStartAt: future,
       checklist: approval,
       canBypassApproval: true,
+      bypassed: true,
+      expected: {
+        action: "approve-schedule",
+        label: futureLabel,
+        bypassLabel:
+          "Bypass approvals and remaining To Do items and schedule start",
+        waivesApproval: true,
+        disabled: false,
+      },
+    },
+    {
+      name: "holds a scheduled start on approval without bypass permission",
+      scheduledStartAt: future,
+      checklist: approval,
       bypassed: true,
       expected: {
         action: "approve-schedule",

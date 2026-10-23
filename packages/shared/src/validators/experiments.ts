@@ -495,6 +495,18 @@ export const nextScheduledStatusUpdateValidator = z.object({
   // Who armed it, a user or an org API key; the job fires and audits as them.
   scheduledBy: z.string().optional(),
   scheduledByApiKey: z.string().optional(),
+  // A start armed past its flag drafts' approvals. The job honors it only while
+  // the armer may still bypass, and only for the drafts pinned here.
+  bypassApproval: z.boolean().optional(),
+  pinnedDrafts: z
+    .array(
+      z.object({
+        featureId: z.string(),
+        revisionVersion: z.number().int(),
+        dateUpdated: z.date(),
+      }),
+    )
+    .optional(),
 });
 
 export const experimentInterface = z
@@ -2254,10 +2266,11 @@ export const postExperimentStartValidator = {
     .strict(),
   summary: "Start/Stage an experiment",
   description:
-    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment. Starting publishes any pending Feature Flag drafts linked to the experiment; when those still need approval the start fails with `pending_draft_publish_failed`, unless the caller has Bypass draft approvals access or the organization enables the REST API approval bypass, in which case approval is bypassed automatically.",
+    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment. Starting publishes any pending Feature Flag drafts linked to the experiment; when those still need approval the start fails with `pending_draft_publish_failed`, unless the caller has Bypass draft approvals access or the organization enables the REST API approval bypass, in which case approval is bypassed automatically. A staged start carries the caller's Bypass draft approvals access to when it runs, for the drafts as they were when it was staged: if one has changed since, or the caller has lost that access, it needs approval like any other. The organization's REST API approval bypass doesn't carry to a staged start.",
   confirmation: [
     "experiment.start",
     "override.skipChecklist",
+    "override.bypassApproval",
     ...FEATURE_LANDING_ACTIONS,
   ] as const,
   confirmationInHandler: true,

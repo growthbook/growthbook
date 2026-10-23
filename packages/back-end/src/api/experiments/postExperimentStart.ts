@@ -9,6 +9,7 @@ import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypa
 import { ReqContext } from "back-end/types/request";
 import {
   approveScheduledExperimentStart,
+  startApprovalsWaivedBy,
   startExperiment,
   validateExperimentChange,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
@@ -51,8 +52,21 @@ export const postExperimentStart = createApiRequestHandler(
 
   // Staging a scheduled start is held too: it starts later with no one present.
   const queued = await queuedDraftsHold(context, existing.pendingFeatureDrafts);
+  // A key's authority waives the drafts' open approvals unasked, so the hold
+  // names that bypass whenever there's one to waive.
+  const waivesApproval =
+    (await startApprovalsWaivedBy(context, existing)).size > 0;
   await requireConfirmation(context, {
     actions: ["experiment.start", ...queued.actions],
+    bypassing: waivesApproval
+      ? [
+          {
+            type: "approval-required",
+            outcome: "bypassed",
+            via: "bypassApprovalPermission",
+          },
+        ]
+      : [],
     project: existing.project,
     summary: `Start ${existing.name}`,
     links: [
@@ -83,6 +97,8 @@ export const postExperimentStart = createApiRequestHandler(
       context,
       experimentId: req.params.id,
       skipChecklist: req.body?.skipChecklist,
+      // By authority, as starting now is; the job asks again when it fires.
+      bypassApproval: true,
     });
 
     await req.audit({

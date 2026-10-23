@@ -14430,6 +14430,11 @@ paths:
         this draft while the schedule is pending, and
         `scheduledPublishLockOthers` to block publishing other drafts of this
         feature in the meantime.
+
+
+        Neither can be set on a draft whose rules would take a draft experiment
+        live, since an automatic publish doesn't start the experiment. Schedule
+        the experiment's start instead; starting it publishes the draft.
       tags:
         - feature-revisions-v2
       parameters:
@@ -14503,7 +14508,14 @@ paths:
         checked again when the schedule runs. A caller with Bypass draft
         approvals access can schedule an unapproved draft by sending
         `bypassApproval: true`. That schedule must be canceled and recreated
-        before it can be changed.
+        before it can be changed, and a later edit that would reset an approval
+        also drops the bypass.
+
+
+        A draft whose rules would take a draft experiment live can't be
+        scheduled, since a scheduled publish doesn't start the experiment.
+        Schedule the experiment's start instead; starting it publishes the
+        draft.
       tags:
         - feature-revisions-v2
       parameters:
@@ -17604,7 +17616,11 @@ paths:
         need approval the start fails with `pending_draft_publish_failed`,
         unless the caller has Bypass draft approvals access or the organization
         enables the REST API approval bypass, in which case approval is bypassed
-        automatically.
+        automatically. A staged start carries the caller's Bypass draft
+        approvals access to when it runs, for the drafts as they were when it
+        was staged: if one has changed since, or the caller has lost that
+        access, it needs approval like any other. The organization's REST API
+        approval bypass doesn't carry to a staged start.
       tags:
         - experiments
       parameters:

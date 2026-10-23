@@ -39,9 +39,12 @@ import {
 } from "back-end/src/services/experiments";
 import {
   formatPendingDraftFailureMessage,
+  getLaunchDrafts,
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import {
   BadRequestError,
   ChecklistIncompleteError,
@@ -597,14 +600,137 @@ function assertNoIncompleteHardBlockers(
   }
 }
 
+// The open approval rows this principal may waive, each judged on its own flag
+// as publishing that flag's draft at the start judges it.
+async function waivableApprovals(
+  context: ReqContext | ApiReqContext,
+  checklistItems: StartChecklistItemStatus[],
+): Promise<Set<string>> {
+  const open = checklistItems.filter(
+    (item) =>
+      item.status === "incomplete" &&
+      item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX),
+  );
+  if (!open.length) return new Set();
+  const features = await getFeaturesByIds(
+    context,
+    open.map((item) => item.key.slice(PENDING_APPROVAL_ITEM_PREFIX.length)),
+  );
+  return new Set(
+    features
+      .filter((feature) =>
+        context.permissions.canBypassFlagApprovalChecks(feature, "feature"),
+      )
+      .map((feature) => `${PENDING_APPROVAL_ITEM_PREFIX}${feature.id}`),
+  );
+}
+
+// The drafts a start would publish, as they stand now.
+async function pinLaunchDrafts(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+) {
+  const pins: {
+    featureId: string;
+    revisionVersion: number;
+    dateUpdated: Date;
+  }[] = [];
+  for (const { featureId, revisionVersion } of await getLaunchDrafts(
+    context,
+    experiment,
+  )) {
+    const revision = await getRevision({
+      context,
+      organization: context.org.id,
+      featureId,
+      feature: undefined,
+      version: revisionVersion,
+    });
+    if (revision) {
+      pins.push({
+        featureId,
+        revisionVersion,
+        dateUpdated: revision.dateUpdated,
+      });
+    }
+  }
+  return pins;
+}
+
+/**
+ * Whether an armed start still carries the approval bypass it was armed with:
+ * the armer may still bypass, and each draft it would publish is the one pinned
+ * then. A draft that changed since needs approving like any other.
+ */
+export async function armedStartBypassStands(
+  armer: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<boolean> {
+  const staged = experiment.nextScheduledStatusUpdate;
+  if (staged?.type !== "start" || !staged.bypassApproval) return false;
+  if (!armer.permissions.canBypassFlagApprovalChecks(experiment, "feature")) {
+    return false;
+  }
+  const pins = staged.pinnedDrafts ?? [];
+  for (const { featureId, revisionVersion } of await getLaunchDrafts(
+    armer,
+    experiment,
+  )) {
+    const pin = pins.find(
+      (p) => p.featureId === featureId && p.revisionVersion === revisionVersion,
+    );
+    if (!pin) return false;
+    const revision = await getRevision({
+      context: armer,
+      organization: armer.org.id,
+      featureId,
+      feature: undefined,
+      version: revisionVersion,
+    });
+    if (
+      !revision ||
+      new Date(revision.dateUpdated).getTime() !==
+        new Date(pin.dateUpdated).getTime()
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** The open flag approvals a start by this principal would waive. */
+export async function startApprovalsWaivedBy(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<Set<string>> {
+  if (!context.permissions.canBypassFlagApprovalChecks(experiment, "feature")) {
+    return new Set();
+  }
+  return waivableApprovals(
+    context,
+    await getExperimentStartChecklistStatus(context, experiment, {
+      arming: true,
+    }),
+  );
+}
+
 // Run when a scheduled start fires. The approver already acknowledged the soft items.
 export async function assertScheduledStartNotHardBlocked(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
-): Promise<void> {
-  assertNoIncompleteHardBlockers(
-    await getExperimentStartChecklistStatus(context, experiment),
+  bypassApproval = false,
+): Promise<StartChecklistItemStatus[]> {
+  const checklistItems = await getExperimentStartChecklistStatus(
+    context,
+    experiment,
   );
+  const waived = bypassApproval
+    ? await waivableApprovals(context, checklistItems)
+    : new Set<string>();
+  assertNoIncompleteHardBlockers(
+    checklistItems.filter((item) => !waived.has(item.key)),
+  );
+  return checklistItems;
 }
 
 // Once a start goes ahead, every item still open was skipped or waived by the bypass.
@@ -711,10 +837,13 @@ export async function approveScheduledExperimentStart({
   context,
   experimentId,
   skipChecklist = false,
+  bypassApproval = false,
 }: {
   context: ReqContext;
   experimentId: string;
   skipChecklist?: boolean;
+  // Arms the start past its flag drafts' approvals, where the armer may bypass.
+  bypassApproval?: boolean;
 }) {
   const experiment = await loadAndValidateExperimentForStatusChange(
     context,
@@ -745,10 +874,17 @@ export async function approveScheduledExperimentStart({
     { arming: true },
   );
 
-  assertNoIncompleteHardBlockers(checklistItems);
+  const bypass =
+    bypassApproval &&
+    context.permissions.canBypassFlagApprovalChecks(experiment, "feature");
+  const waived = bypass
+    ? await waivableApprovals(context, checklistItems)
+    : new Set<string>();
+  const remainingItems = checklistItems.filter((item) => !waived.has(item.key));
+  assertNoIncompleteHardBlockers(remainingItems);
 
   if (!skipChecklist) {
-    const incompleteRequired = checklistItems.filter(
+    const incompleteRequired = remainingItems.filter(
       (item) => item.required && item.status === "incomplete",
     );
     if (incompleteRequired.length > 0) {
@@ -767,7 +903,16 @@ export async function approveScheduledExperimentStart({
   }
   const changes: Changeset = {
     nextScheduledStatusUpdate: withScheduledBy(
-      { type: "start" as const, date: startAt },
+      {
+        type: "start" as const,
+        date: startAt,
+        ...(bypass
+          ? {
+              bypassApproval: true,
+              pinnedDrafts: await pinLaunchDrafts(context, experiment),
+            }
+          : {}),
+      },
       context.armer,
     ),
   };
@@ -778,7 +923,7 @@ export async function approveScheduledExperimentStart({
     changes,
   });
 
-  return { experiment, updated, checklistItems };
+  return { experiment, updated, checklistItems, bypassApproval: bypass };
 }
 
 /**
