@@ -5,12 +5,12 @@ import { PiInfo } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 
 export default function BanditSettings({
   page = "org-settings",
@@ -219,7 +219,7 @@ export default function BanditSettings({
                       }}
                       style={{ display: "inline-flex" }}
                     >
-                      <Tooltip body="Each update period is weighted proportionally to traffic received. This reduces bias, but adds variance.">
+                      <Tooltip content="Each update period is weighted proportionally to traffic received. This reduces bias, but adds variance.">
                         <PiInfo color="var(--color-text-low)" />
                       </Tooltip>
                     </span>
@@ -234,7 +234,7 @@ export default function BanditSettings({
                     </span>
                   </Flex>
                 }
-                description="Reduce bias in Contextual Bandit decision metric estimates due to changing traffic over time."
+                description="Reduce bias in Contextual Bandit decision metric estimates due to changing traffic over time. This applies to every Contextual Bandit in the organization and cannot be changed per experiment."
                 value={form.watch("banditPeriodWeighting") ?? true}
                 setValue={(value) =>
                   form.setValue("banditPeriodWeighting", value, {
