@@ -1,4 +1,5 @@
 import {
+  addAttributeToUserIdTypes,
   attributeToUserIdTypeName,
   isValidUserIdTypeName,
 } from "../../src/util/user-id-types";
@@ -53,4 +54,60 @@ describe("attributeToUserIdTypeName", () => {
       );
     },
   );
+});
+
+describe("addAttributeToUserIdTypes", () => {
+  it("adds a new identifier type for an unknown column", () => {
+    expect(
+      addAttributeToUserIdTypes(
+        [{ userIdType: "user_id", attributes: ["id"] }],
+        "team_id",
+        "teamId",
+      ),
+    ).toEqual([
+      { userIdType: "user_id", attributes: ["id"] },
+      { userIdType: "team_id", attributes: ["teamId"] },
+    ]);
+  });
+
+  it("gives a new identifier type the attribute's description", () => {
+    expect(
+      addAttributeToUserIdTypes([], "team_id", "teamId", "Team of the user"),
+    ).toEqual([
+      {
+        userIdType: "team_id",
+        description: "Team of the user",
+        attributes: ["teamId"],
+      },
+    ]);
+  });
+
+  it("links the attribute to an existing type with that column", () => {
+    expect(
+      addAttributeToUserIdTypes(
+        [
+          {
+            userIdType: "workspace_id",
+            description: "Workspaces",
+            attributes: ["workspaceId"],
+          },
+        ],
+        "workspace_id",
+        "team_id",
+      ),
+    ).toEqual([
+      {
+        userIdType: "workspace_id",
+        description: "Workspaces",
+        attributes: ["workspaceId", "team_id"],
+      },
+    ]);
+  });
+
+  it("does not duplicate an attribute already linked", () => {
+    const types = [{ userIdType: "team_id", attributes: ["team_id"] }];
+    expect(addAttributeToUserIdTypes(types, "team_id", "team_id")).toEqual(
+      types,
+    );
+  });
 });

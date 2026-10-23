@@ -6,6 +6,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import RadixTooltip from "@/ui/Tooltip";
 import { useAttributeSchema } from "@/services/features";
 import AttributeModal from "@/components/Features/AttributeModal";
+import AddIdentifierModal from "@/components/Features/AddIdentifierModal";
 import AttributeRowMenu from "@/components/Features/AttributeRowMenu";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -130,6 +131,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
   );
 
   const [modalData, setModalData] = useState<null | string>(null);
+  const [addIdentifierOpen, setAddIdentifierOpen] = useState(false);
 
   // Column ids are namespaced `custom:<fieldId>`. Those ids are org-unique, so a
   // saved layout carried into another org just resolves away instead of breaking.
@@ -534,7 +536,17 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 Targeting Attributes
               </Heading>
               {canCreateAttributes && (
-                <Button onClick={() => setModalData("")}>Add Attribute</Button>
+                <Flex gap="3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setAddIdentifierOpen(true)}
+                  >
+                    Add Identifier
+                  </Button>
+                  <Button onClick={() => setModalData("")}>
+                    Add Attribute
+                  </Button>
+                </Flex>
               )}
             </Flex>
             <Text as="p" color="text-low">
@@ -661,6 +673,12 @@ const FeatureAttributesPage = (): React.ReactElement => {
         <AttributeModal
           close={() => setModalData(null)}
           attribute={modalData}
+        />
+      )}
+      {addIdentifierOpen && (
+        <AddIdentifierModal
+          source="attributes-page"
+          close={() => setAddIdentifierOpen(false)}
         />
       )}
     </>
