@@ -51,7 +51,7 @@ export default function CustomMarkdownSettings() {
         id="md-locked"
         title={
           <PremiumTooltip commercialFeature="custom-markdown">
-            Custom Markdown
+            Features, Experiments & Metrics
           </PremiumTooltip>
         }
         description={
