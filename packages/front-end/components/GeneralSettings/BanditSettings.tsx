@@ -41,7 +41,7 @@ export default function BanditSettings({
                 Exploratory stage
               </Text>
               <Text size="sm" color="text-mid" mb="2" as="p">
-                Period before variation weights update:
+                Time before variation weights start updating.
               </Text>
               <Flex direction="row" align="center" gap="3">
                 <Box>
@@ -108,7 +108,7 @@ export default function BanditSettings({
                 Update cadence
               </Text>
               <Text size="sm" color="text-mid" mb="2" as="p">
-                Update variation weights every:
+                How often variation weights update.
               </Text>
               <Flex direction="row" align="center" gap="3">
                 <Box>

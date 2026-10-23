@@ -36,7 +36,7 @@ export default function TargetingAttributesSettings() {
             <Checkbox
               id="toggle-requireRegisteredAttributes"
               label="Require registered attributes"
-              description="Block feature rules and experiments that use attribute keys not listed under Targeting Attributes."
+              description="Block rules and experiments that use attribute keys not listed under Targeting attributes."
               value={isOn}
               setValue={(value) =>
                 update({ isOn: !!value, requireProjectScoping })

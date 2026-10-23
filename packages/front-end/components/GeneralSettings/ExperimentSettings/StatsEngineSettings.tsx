@@ -4,14 +4,13 @@ import {
   DEFAULT_CONFIDENCE_LEVEL,
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_POST_STRATIFICATION_ENABLED,
+  DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
 import { StatsEngine, PValueCorrection } from "shared/types/stats";
 import { MetricDefaults } from "shared/types/organization";
-import { Box } from "@radix-ui/themes";
-import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
-import BayesianPriorSettings from "@/components/Settings/BayesianPriorSettings";
+import { Box, Flex } from "@radix-ui/themes";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
@@ -21,15 +20,15 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
-import Switch from "@/ui/Switch";
+import Text from "@/ui/Text";
 import { GBSequential } from "@/components/Icons";
 import {
   SettingsField,
   SettingsGroup,
   SettingsSubheading,
 } from "@/components/GeneralSettings/SettingsGroup";
-import ChanceToWinThresholdField from "./ChanceToWinThresholdField";
-import PValueThresholdField from "./PValueThresholdField";
+import { getConfidenceLevelHighlight } from "./ChanceToWinThresholdField";
+import { getPValueThresholdHighlight } from "./PValueThresholdField";
 
 interface FormValues {
   decisionFrameworkEnabled: boolean;
@@ -47,10 +46,19 @@ interface FormValues {
 
 export type StatsEngineSettingsForm = UseFormReturn<FormValues>;
 
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
+
 /** Stats engine and variance reduction groups of the Statistics section. */
 export default function StatsEngineSettings() {
   const form = useFormContext<FormValues>();
   const { hasCommercialFeature } = useUser();
+  const locked = hasFileConfig();
+
+  const confidence = getConfidenceLevelHighlight(form.watch("confidenceLevel"));
+  const pValue = getPValueThresholdHighlight(form.watch("pValueThreshold"));
 
   const regressionAdjustmentDays = form.watch("regressionAdjustmentDays");
   const regressionAdjustmentDaysHighlightColor =
@@ -69,6 +77,14 @@ export default function StatsEngineSettings() {
       : "";
 
   const sequentialEnabled = form.watch("sequentialTestingEnabled");
+  const properPriors = form.watch("metricDefaults.priorSettings.proper");
+  const priorMean = form.watch("metricDefaults.priorSettings.mean");
+  const priorStdDev = form.watch("metricDefaults.priorSettings.stddev");
+
+  const highlight = (color: string) => ({
+    borderColor: color,
+    backgroundColor: color ? color + "15" : "",
+  });
 
   return (
     <>
@@ -78,89 +94,180 @@ export default function StatsEngineSettings() {
         description="The default engine for new experiments. Bayesian is most common."
         keywords="bayesian frequentist statistics engine chance to win priors p-value significance multiple comparisons correction sequential testing"
       >
-        <StatsEngineSelect
-          label="Default stats engine"
-          allowUndefined={false}
-          value={form.watch("statsEngine")}
-          onChange={(value) => {
-            form.setValue("statsEngine", value);
-          }}
-        />
+        <SettingsField label="Default stats engine">
+          <Box width="240px" maxWidth="100%">
+            <SelectField
+              containerClassName="mb-0"
+              sort={false}
+              options={[
+                { label: "Bayesian", value: "bayesian" },
+                { label: "Frequentist", value: "frequentist" },
+              ]}
+              value={form.watch("statsEngine")}
+              onChange={(v) => form.setValue("statsEngine", v as StatsEngine)}
+            />
+          </Box>
+        </SettingsField>
 
         <SettingsSubheading>Bayesian</SettingsSubheading>
-        <ChanceToWinThresholdField
-          form={form}
-          name="confidenceLevel"
-          value={form.watch("confidenceLevel")}
-          defaultValue={Math.round(DEFAULT_CONFIDENCE_LEVEL * 100)}
-          disabled={hasFileConfig()}
-          helpTextAppend={
-            <span className="ml-2">
-              Default is {Math.round(DEFAULT_CONFIDENCE_LEVEL * 100)}%.
-            </span>
-          }
-          rules={{ valueAsNumber: true }}
-        />
-        <BayesianPriorSettings />
+        <SettingsField
+          label="Chance to win threshold"
+          help={`A variation is a winner above this probability. Default is ${Math.round(DEFAULT_CONFIDENCE_LEVEL * 100)}%.`}
+        >
+          <Box width="150px">
+            <Field
+              size="md"
+              type="number"
+              step="any"
+              min="70"
+              max="99.9999"
+              append="%"
+              containerClassName="mb-0"
+              style={highlight(confidence.highlightColor)}
+              disabled={locked}
+              {...form.register("confidenceLevel", {
+                valueAsNumber: true,
+                min: 70,
+                max: 99.9999,
+              })}
+            />
+          </Box>
+          {confidence.warningMsg && (
+            <HelperText status="warning" size="sm" mt="1">
+              {confidence.warningMsg}
+            </HelperText>
+          )}
+        </SettingsField>
+        <Box>
+          <Checkbox
+            id="toggle-properPrior"
+            label="Use proper priors"
+            description="Can be overridden per metric."
+            disabled={locked}
+            value={!!properPriors}
+            setValue={(v) =>
+              form.setValue("metricDefaults.priorSettings.proper", v)
+            }
+          />
+          {properPriors && (
+            <Flex direction="column" gap="3" pl="5" mt="3">
+              <SettingsField label="Prior mean" help="Default is 0.">
+                <Box width="150px">
+                  <Field
+                    size="md"
+                    type="number"
+                    step="any"
+                    containerClassName="mb-0"
+                    disabled={locked}
+                    required
+                    {...form.register("metricDefaults.priorSettings.mean", {
+                      valueAsNumber: true,
+                    })}
+                  />
+                </Box>
+              </SettingsField>
+              <SettingsField
+                label="Prior standard deviation"
+                help={`Default is ${DEFAULT_PROPER_PRIOR_STDDEV}.`}
+              >
+                <Box width="150px">
+                  <Field
+                    size="md"
+                    type="number"
+                    step="any"
+                    min="0"
+                    containerClassName="mb-0"
+                    disabled={locked}
+                    required
+                    {...form.register("metricDefaults.priorSettings.stddev", {
+                      valueAsNumber: true,
+                      validate: (v) => {
+                        return !(v <= 0);
+                      },
+                    })}
+                  />
+                </Box>
+              </SettingsField>
+              <Text size="sm" color="text-mid">
+                {`Your prior distribution specifies that the average lift is ${percentFormatter.format(
+                  priorMean,
+                )}, and that ~68% of experiment lifts lie between ${percentFormatter.format(
+                  -1 * priorStdDev + priorMean,
+                )} and ${percentFormatter.format(priorStdDev + priorMean)}.`}
+              </Text>
+            </Flex>
+          )}
+        </Box>
 
         <SettingsSubheading>Frequentist</SettingsSubheading>
-        <PValueThresholdField
-          form={form}
-          name="pValueThreshold"
-          value={form.watch("pValueThreshold")}
-          defaultValue={DEFAULT_P_VALUE_THRESHOLD}
-          disabled={hasFileConfig()}
-          helpTextAppend={
-            <span className="ml-2">
-              Default is {DEFAULT_P_VALUE_THRESHOLD}.
-            </span>
-          }
-          rules={{ valueAsNumber: true }}
-        />
+        <SettingsField
+          label="P-value threshold"
+          help={`A result is significant below this p-value. Default is ${DEFAULT_P_VALUE_THRESHOLD}.`}
+        >
+          <Box width="150px">
+            <Field
+              size="md"
+              type="number"
+              step="0.001"
+              min="0.001"
+              max="0.5"
+              containerClassName="mb-0"
+              style={highlight(pValue.highlightColor)}
+              disabled={locked}
+              {...form.register("pValueThreshold", {
+                valueAsNumber: true,
+                min: 0.001,
+                max: 0.5,
+              })}
+            />
+          </Box>
+          {pValue.warningMsg && (
+            <HelperText status="warning" size="sm" mt="1">
+              {pValue.warningMsg}
+            </HelperText>
+          )}
+        </SettingsField>
         <SettingsField
           label="Multiple comparisons correction"
           help="Applied to experiments with several goal metrics or variations."
         >
-          <SelectField
-            value={form.watch("pValueCorrection") ?? ""}
-            onChange={(value) =>
-              form.setValue("pValueCorrection", value as PValueCorrection)
-            }
-            sort={false}
-            options={[
-              { label: "None", value: "" },
-              {
-                label: "Holm-Bonferroni (Control FWER)",
-                value: "holm-bonferroni",
-              },
-              {
-                label: "Benjamini-Hochberg (Control FDR)",
-                value: "benjamini-hochberg",
-              },
-            ]}
-          />
+          <Box width="400px" maxWidth="100%">
+            <SelectField
+              containerClassName="mb-0"
+              value={form.watch("pValueCorrection") ?? ""}
+              onChange={(value) =>
+                form.setValue("pValueCorrection", value as PValueCorrection)
+              }
+              sort={false}
+              options={[
+                { label: "None", value: "" },
+                {
+                  label: "Holm-Bonferroni (control family-wise error rate)",
+                  value: "holm-bonferroni",
+                },
+                {
+                  label: "Benjamini-Hochberg (control false discovery rate)",
+                  value: "benjamini-hochberg",
+                },
+              ]}
+            />
+          </Box>
         </SettingsField>
         <Box>
-          <Switch
+          <Checkbox
             id="toggle-sequentialTestingEnabled"
-            value={sequentialEnabled}
             label={
               <PremiumTooltip commercialFeature="sequential-testing">
                 <GBSequential /> Use sequential testing by default
               </PremiumTooltip>
             }
-            onChange={(value) => {
+            description="Check results while an experiment runs without raising the false positive rate."
+            value={!!sequentialEnabled}
+            setValue={(value) => {
               form.setValue("sequentialTestingEnabled", value);
             }}
-            disabled={
-              !hasCommercialFeature("sequential-testing") || hasFileConfig()
-            }
-            mb="1"
+            disabled={!hasCommercialFeature("sequential-testing") || locked}
           />
-          <HelperText status="info" size="sm">
-            Check results while an experiment runs without raising the false
-            positive rate.
-          </HelperText>
           {sequentialEnabled && form.watch("statsEngine") === "bayesian" && (
             <HelperText status="warning" size="sm" mt="1">
               Your organization uses Bayesian statistics by default and
@@ -168,28 +275,33 @@ export default function StatsEngineSettings() {
               engine.
             </HelperText>
           )}
+          {sequentialEnabled && (
+            <Box pl="5" mt="3">
+              <SettingsField
+                label="Sequential testing tuning parameter"
+                help={`Default is ${DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}.`}
+              >
+                <Box width="150px">
+                  <Field
+                    size="md"
+                    type="number"
+                    containerClassName="mb-0"
+                    min="0"
+                    disabled={
+                      !hasCommercialFeature("sequential-testing") || locked
+                    }
+                    {...form.register("sequentialTestingTuningParameter", {
+                      valueAsNumber: true,
+                      validate: (v) => {
+                        return !(v <= 0);
+                      },
+                    })}
+                  />
+                </Box>
+              </SettingsField>
+            </Box>
+          )}
         </Box>
-        <SettingsField
-          label="Sequential testing tuning parameter"
-          help={`Default is ${DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}.`}
-        >
-          <Box width="150px" style={{ opacity: sequentialEnabled ? 1 : 0.5 }}>
-            <Field
-              type="number"
-              containerClassName="mb-0"
-              min="0"
-              disabled={
-                !hasCommercialFeature("sequential-testing") || hasFileConfig()
-              }
-              {...form.register("sequentialTestingTuningParameter", {
-                valueAsNumber: true,
-                validate: (v) => {
-                  return !(v <= 0);
-                },
-              })}
-            />
-          </Box>
-        </SettingsField>
       </SettingsGroup>
 
       <SettingsGroup
@@ -202,52 +314,51 @@ export default function StatsEngineSettings() {
         description="CUPED and post-stratification reduce noise so experiments reach decisions faster."
         keywords="cuped variance reduction regression adjustment lookback post-stratification"
       >
-        <Checkbox
-          id="toggle-regressionAdjustmentEnabled"
-          label="Use CUPED by default"
-          description="Applies to all new experiments."
-          value={form.watch("regressionAdjustmentEnabled")}
-          setValue={(v) => {
-            form.setValue("regressionAdjustmentEnabled", v);
-          }}
-          disabled={
-            !hasCommercialFeature("regression-adjustment") || hasFileConfig()
-          }
-        />
-        <SettingsField
-          label="CUPED lookback window"
-          help={`Pre-exposure data used for CUPED. Default is ${DEFAULT_REGRESSION_ADJUSTMENT_DAYS}.`}
-        >
-          <Box width="150px">
-            <Field
-              type="number"
-              style={{
-                borderColor: regressionAdjustmentDaysHighlightColor,
-                backgroundColor: regressionAdjustmentDaysHighlightColor
-                  ? regressionAdjustmentDaysHighlightColor + "15"
-                  : "",
-              }}
-              containerClassName="mb-0"
-              append="days"
-              min="0"
-              disabled={
-                !hasCommercialFeature("regression-adjustment") ||
-                hasFileConfig()
-              }
-              {...form.register("regressionAdjustmentDays", {
-                valueAsNumber: true,
-                validate: (v) => {
-                  return v === undefined || v > 0;
-                },
-              })}
-            />
-          </Box>
-          {regressionAdjustmentDaysWarningMsg && (
-            <Callout status="warning" mt="2">
-              {regressionAdjustmentDaysWarningMsg}
-            </Callout>
+        <Box>
+          <Checkbox
+            id="toggle-regressionAdjustmentEnabled"
+            label="Use CUPED by default"
+            description="Applies to all new experiments."
+            value={form.watch("regressionAdjustmentEnabled")}
+            setValue={(v) => {
+              form.setValue("regressionAdjustmentEnabled", v);
+            }}
+            disabled={!hasCommercialFeature("regression-adjustment") || locked}
+          />
+          {form.watch("regressionAdjustmentEnabled") && (
+            <Box pl="5" mt="3">
+              <SettingsField
+                label="CUPED lookback window"
+                help={`Pre-exposure data used for CUPED. Default is ${DEFAULT_REGRESSION_ADJUSTMENT_DAYS}.`}
+              >
+                <Box width="150px">
+                  <Field
+                    size="md"
+                    type="number"
+                    style={highlight(regressionAdjustmentDaysHighlightColor)}
+                    containerClassName="mb-0"
+                    append="days"
+                    min="0"
+                    disabled={
+                      !hasCommercialFeature("regression-adjustment") || locked
+                    }
+                    {...form.register("regressionAdjustmentDays", {
+                      valueAsNumber: true,
+                      validate: (v) => {
+                        return v === undefined || v > 0;
+                      },
+                    })}
+                  />
+                </Box>
+                {regressionAdjustmentDaysWarningMsg && (
+                  <Callout status="warning" mt="2">
+                    {regressionAdjustmentDaysWarningMsg}
+                  </Callout>
+                )}
+              </SettingsField>
+            </Box>
           )}
-        </SettingsField>
+        </Box>
         <Checkbox
           id="toggle-postStratification"
           label="Use post-stratification by default"
@@ -265,7 +376,7 @@ export default function StatsEngineSettings() {
           setValue={(v) => {
             form.setValue("postStratificationEnabled", v);
           }}
-          disabled={hasFileConfig()}
+          disabled={locked}
         />
       </SettingsGroup>
     </>

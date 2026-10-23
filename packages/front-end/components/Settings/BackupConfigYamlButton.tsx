@@ -48,7 +48,7 @@ export default function BackupConfigYamlButton({
   if (!metricsData) {
     return (
       <Button disabled loading icon={<FaDownload />}>
-        Export to config.yml
+        Export config.yml
       </Button>
     );
   }
@@ -64,7 +64,7 @@ export default function BackupConfigYamlButton({
         a.click();
       }}
     >
-      Export to config.yml
+      Export config.yml
     </Button>
   );
 }

@@ -46,7 +46,7 @@ export default function DatasourceSettings() {
       >
         <Box width="200px">
           <Field
-            size="legacy"
+            size="md"
             type="number"
             min="1"
             append="days"

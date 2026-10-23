@@ -9,8 +9,8 @@ export default function NorthStarMetricSettings() {
       {({ watch, setValue }) => (
         <SettingsGroup
           id="north-star"
-          title="North Star metrics"
-          description="Metrics your team is focused on improving. Shown on the home page alongside experiments that use these metrics as goals."
+          title="North Star"
+          description="Shown on the home page alongside experiments that use these metrics as goals."
           keywords="north star home page kpi goals"
         >
           <SettingsField label="Metrics">
@@ -27,7 +27,7 @@ export default function NorthStarMetricSettings() {
           </SettingsField>
           <SettingsField label="Title">
             <Field
-              size="legacy"
+              size="md"
               containerClassName="mb-0"
               value={watch("northStar.title")}
               onChange={(e) => {

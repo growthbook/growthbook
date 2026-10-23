@@ -241,7 +241,7 @@ export default function RestoreConfigYamlButton({
   if (!metricsData) {
     return (
       <Button disabled loading icon={<FaUpload />}>
-        Import from config.yml
+        Import config.yml
       </Button>
     );
   }
@@ -326,7 +326,7 @@ export default function RestoreConfigYamlButton({
           setOpen(true);
         }}
       >
-        Import from config.yml
+        Import config.yml
       </Button>
     </div>
   );

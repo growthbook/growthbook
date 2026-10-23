@@ -38,6 +38,7 @@ export default function SettingsPage({
   actions,
   breadcrumb,
   hideHeader,
+  contentClassName,
   children,
 }: {
   title: string;
@@ -47,6 +48,8 @@ export default function SettingsPage({
   breadcrumb?: BreadcrumbItem[];
   /** When a child renders SettingsPageHeader itself. */
   hideHeader?: boolean;
+  /** Wraps the content and the unsaved-changes bar, e.g. to cap their width together. */
+  contentClassName?: string;
   children: ReactNode;
 }) {
   return (
@@ -68,9 +71,11 @@ export default function SettingsPage({
             actions={actions}
           />
         )}
-        {children}
-        <UnsavedChangesBar />
-        <div className={sectionStyles.bottomPad} />
+        <div className={contentClassName}>
+          {children}
+          <UnsavedChangesBar />
+          <div className={sectionStyles.bottomPad} />
+        </div>
       </Box>
     </>
   );

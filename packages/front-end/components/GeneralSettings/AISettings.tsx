@@ -56,9 +56,9 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   return [
     {
       promptType: "experiment-analysis",
-      promptName: "Experiment Analysis",
+      promptName: "Experiment analysis",
       promptDescription:
-        "When an experiment is stopped, this prompt creates an analysis of the results.",
+        "Writes an analysis of results when an experiment stops. Describe the format you want.",
       promptValue:
         data.prompts.find((p) => p.type === "experiment-analysis")?.prompt ||
         AI_PROMPT_DEFAULTS["experiment-analysis"],
@@ -70,9 +70,9 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
     },
     {
       promptType: "find-learnings-context",
-      promptName: "Find Learnings Context",
+      promptName: "Find Learnings context",
       promptDescription:
-        "Appended to the AI prompt when finding cross-experiment learnings (saved learnings). GrowthBook still provides the experiments and instructions automatically; use this field to add organization-specific context about your product, audience, brand voice, recurring patterns to watch for, or what counts as a meaningful insight.",
+        "Optional. Added to the prompt for finding cross-experiment Learnings: your product, audience, or what counts as a meaningful insight.",
       promptValue:
         data.prompts.find((p) => p.type === "find-learnings-context")?.prompt ||
         AI_PROMPT_DEFAULTS["find-learnings-context"],
@@ -85,9 +85,9 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
     },
     {
       promptType: "experiment-hypothesis",
-      promptName: "Hypothesis Format",
+      promptName: "Hypothesis format",
       promptDescription:
-        "Specify a style for your hypothesis so that it is consistent across experiments.",
+        "A style for hypotheses so they're consistent across experiments.",
       promptValue:
         data.prompts.find((p) => p.type === "experiment-hypothesis")?.prompt ||
         AI_PROMPT_DEFAULTS["experiment-hypothesis"],
@@ -99,9 +99,9 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
     },
     {
       promptType: "metric-description",
-      promptName: "Metric Description",
+      promptName: "Metric description",
       promptDescription:
-        "When a metric is created, this prompt creates a description of the metric.",
+        "Writes a description when a metric is created. Describe the format you want.",
       promptValue:
         data.prompts.find((p) => p.type === "metric-description")?.prompt ||
         AI_PROMPT_DEFAULTS["metric-description"],
@@ -113,9 +113,9 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
     },
     {
       promptType: "generate-sql-query",
-      promptName: "Text to SQL Generation",
+      promptName: "Text to SQL",
       promptDescription:
-        "The prompt field below adds additional context when generating this SQL. Databases type, name and table structures are included automatically.",
+        "Extra guidance for generated SQL. Database type, names, and table structures are included automatically.",
       promptValue:
         data.prompts.find((p) => p.type === "generate-sql-query")?.prompt ||
         AI_PROMPT_DEFAULTS["generate-sql-query"],
@@ -129,9 +129,9 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
     },
     {
       promptType: "product-analytics-chat",
-      promptName: "Product Analytics AI Analyst",
+      promptName: "Product Analytics AI analyst",
       promptDescription:
-        "Used by the product analytics explorer AI assistant. GrowthBook still provides Data Source context, metrics and fact tables, exploration schema, and tool behavior automatically; the field below adds organization-specific guidance (tone, naming, policies, how to explain charts, etc.).",
+        "Optional. Your tone, naming, and policies for the Product Analytics assistant. Data Source context is included automatically.",
       promptValue:
         data.prompts.find((p) => p.type === "product-analytics-chat")?.prompt ||
         AI_PROMPT_DEFAULTS["product-analytics-chat"],
@@ -358,7 +358,11 @@ export default function AISettings({
       title: "Metrics & analytics prompts",
       description:
         "Prompts for metric descriptions, SQL generation, and the Product Analytics assistant.",
-      types: ["metric-description", "generate-sql-query"],
+      types: [
+        "metric-description",
+        "generate-sql-query",
+        "product-analytics-chat",
+      ],
     },
   ];
   const groupedTypes = new Set(PROMPT_GROUPS.flatMap((g) => g.types));
@@ -473,7 +477,6 @@ export default function AISettings({
               align="start"
               weight="medium"
               label="Enable AI features"
-              description="Used to allow various AI features throughout GrowthBook."
               value={form.watch("aiEnabled") && aiAgreedTo}
               setValue={(v) => {
                 if (v && !aiAgreedTo) {
@@ -496,7 +499,7 @@ export default function AISettings({
                 align="start"
                 weight="medium"
                 label="Ask your data"
-                description="Allow users to ask questions about data in natural language. Schema, queries, and results are sent to the AI provider."
+                description="Ask questions about data in plain language. Schema, queries, and results are sent to the AI provider."
                 value={form.watch("aiAskDataEnabled") ?? false}
                 setValue={(v) => form.setValue("aiAskDataEnabled", v)}
                 disabled={!canEdit}
@@ -540,7 +543,7 @@ export default function AISettings({
         aiProviderAccess.credentials.length > 0) && (
         <SettingsGroup
           id="ai-providers"
-          title="Providers and models"
+          title="Providers"
           description="AI features use GrowthBook-managed keys by default. Add your own key to bill your provider directly and choose models. Keys are encrypted at rest."
           keywords="ai provider api key openai anthropic model embedding dictation autocomplete byok"
         >
@@ -710,13 +713,13 @@ export default function AISettings({
           <SettingsGroup
             id="pr-visual"
             title="Visual Editor"
-            description="Context and models for AI in the Visual Editor Chrome extension."
+            description="Context for AI in the Visual Editor Chrome extension."
             keywords="visual editor brand guidelines context image model text model"
           >
             <SettingsField
               htmlFor="visualEditorAIContext"
               label="Brand guidelines"
-              help="Added to every Visual Editor AI prompt, for text edits and image generation, so the AI follows your brand voice and visual identity."
+              help="Added to every Visual Editor AI prompt, for text edits and image generation."
             >
               <Field
                 textarea={true}
@@ -796,7 +799,7 @@ export default function AISettings({
               <Button
                 onClick={handleRegenerate}
                 disabled={loading || !hasEmbeddingKey || !canEdit}
-                variant="solid"
+                variant="soft"
               >
                 {loading ? "Regenerating..." : "Regenerate all"}
               </Button>

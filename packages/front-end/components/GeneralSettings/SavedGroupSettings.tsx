@@ -18,7 +18,7 @@ export default function SavedGroupSettings() {
           <Checkbox
             id="enforceSavedGroupProjectScope"
             label="Enforce Saved Group Project scope"
-            description="Validate new Saved Group references and additional targeting Projects, including nested groups. Existing references keep working through edits and publication. Blocks group changes that introduce scope violations. Off by default."
+            description="Block new references, including nested groups, that fall outside a group's Projects. Existing references keep working."
             disabled={hasFileConfig()}
             value={watch("enforceSavedGroupProjectScope") ?? false}
             setValue={(value) =>
@@ -29,20 +29,15 @@ export default function SavedGroupSettings() {
           />
           <SettingsField
             label="ID list size limit"
-            help={
-              <>
-                Keeps SDK payloads small. Admins and users with the{" "}
-                <i>Saved Groups Bypass Size Limit</i> policy can exceed it
-                manually.
-              </>
-            }
+            help="Keeps SDK payloads small. Roles with Saved Groups Bypass Size Limit can exceed it."
           >
             <Box width="200px">
               <Field
-                size="legacy"
+                size="md"
                 type="number"
                 min="1"
                 step="1"
+                append="items"
                 placeholder="No limit"
                 containerClassName="mb-0"
                 disabled={hasFileConfig()}

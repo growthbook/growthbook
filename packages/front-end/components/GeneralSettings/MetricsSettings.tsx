@@ -35,7 +35,7 @@ export default function MetricsSettings() {
   ) => (
     <Box width="200px">
       <Field
-        size="legacy"
+        size="md"
         type="number"
         containerClassName="mb-0"
         append={options.append}
@@ -105,13 +105,13 @@ export default function MetricsSettings() {
         </SettingsField>
         <SettingsField
           label="Target minimum detectable effect"
-          help='The change you want to reliably detect before ending an experiment. Used to estimate "Days Left" for running experiments. Lower values need more data.'
+          help="The change you want to reliably detect. Used to estimate days left. Lower values need more data."
         >
           {numberField("metricDefaults.targetMDE", { min: 0, append: "%" })}
         </SettingsField>
         <SettingsField
           label="Display currency"
-          help="Should match the currency stored in your Data Source. Controls which currency symbol is shown."
+          help="Should match the currency stored in your Data Source."
         >
           <Box width="320px">
             <SelectField
@@ -119,6 +119,7 @@ export default function MetricsSettings() {
               options={currencyOptions}
               onChange={(v: string) => form.setValue("displayCurrency", v)}
               required
+              markRequired
               placeholder="Select a currency..."
             />
           </Box>
@@ -134,7 +135,7 @@ export default function MetricsSettings() {
         <Checkbox
           id="toggle-disableLegacyMetricCreation"
           label="Require Fact Metrics"
-          description="Turns off legacy metric creation. Users can only create Fact Metrics."
+          description="Turns off legacy metric creation."
           value={!!form.watch("disableLegacyMetricCreation")}
           setValue={(value) => {
             form.setValue("disableLegacyMetricCreation", value);
@@ -160,11 +161,12 @@ export default function MetricsSettings() {
         >
           <Box width="200px">
             <Field
-              size="legacy"
+              size="md"
               type="number"
               min="0"
               max="200"
               step="1"
+              append="levels"
               containerClassName="mb-0"
               disabled={
                 hasFileConfig() || !hasCommercialFeature("metric-slices")

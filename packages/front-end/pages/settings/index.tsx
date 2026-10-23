@@ -152,8 +152,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
           { display: "General", href: "/settings" },
           ...(activeTitle ? [{ display: activeTitle }] : []),
         ]}
+        contentClassName={sectionStyles.generalContent}
       >
-        <div ref={pageRef} className={sectionStyles.generalContent}>
+        <div ref={pageRef}>
           {hasQuery && (
             <Flex align="center" gap="3" mt="3" wrap="wrap">
               <Box flexGrow="1" aria-live="polite">

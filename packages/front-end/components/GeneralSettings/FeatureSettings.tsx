@@ -53,7 +53,7 @@ export default function FeatureSettings() {
       <SettingsGroup
         id="ff-keys"
         title="Keys & naming"
-        description="Naming rules shown when creating a flag, and hashing for secure attributes."
+        description="Naming rules shown when creating a flag."
         keywords="feature key example regex naming validation salt secure attributes hash"
       >
         <SettingsField
@@ -96,7 +96,7 @@ export default function FeatureSettings() {
           help="Used to hash secure attribute values before they're sent to SDKs."
         >
           <Field
-            size="legacy"
+            size="md"
             containerClassName="mb-0"
             disabled={!hasSecureAttributesFeature}
             type="string"
@@ -110,7 +110,7 @@ export default function FeatureSettings() {
           help="Shown when creating a flag. Letters, numbers, and _ - . : | only. No spaces."
         >
           <Field
-            size="legacy"
+            size="md"
             id="featureKeyExample"
             containerClassName="mb-0"
             {...form.register("featureKeyExample")}
@@ -124,7 +124,7 @@ export default function FeatureSettings() {
           help="Checked when creating a flag in the app. Doesn't block flags created through the API."
         >
           <Field
-            size="legacy"
+            size="md"
             id="featureRegexValidator"
             containerClassName="mb-0"
             {...form.register("featureRegexValidator")}
@@ -168,7 +168,7 @@ export default function FeatureSettings() {
         <Checkbox
           id="toggle-sparseJSONRulesByDefault"
           label="Default JSON rules to sparse patch mode"
-          description="New rules on object-valued JSON flags open in sparse mode, where you edit only the keys that differ from the default."
+          description="New rules on JSON flags only edit the keys that differ from the default value."
           value={!!form.watch("sparseJSONRulesByDefault")}
           setValue={(value) =>
             form.setValue("sparseJSONRulesByDefault", value, {
@@ -222,7 +222,7 @@ export default function FeatureSettings() {
         <Checkbox
           id="toggle-configsExtensibleByDefault"
           label="Allow Configs to be extended"
-          description="New base Configs permit child Configs and Feature Flag rules to add keys beyond the declared schema."
+          description="Child Configs and flag rules can add keys beyond the declared schema."
           value={!!form.watch("configsExtensibleByDefault")}
           setValue={(value) =>
             form.setValue("configsExtensibleByDefault", value, {
@@ -233,7 +233,7 @@ export default function FeatureSettings() {
         <Checkbox
           id="toggle-configExperimentGuardDefault"
           label="Guard Configs used by running experiments"
-          description="New Configs enable the experiment guard: publishing a change served to a running experiment soft-blocks until acknowledged."
+          description="Publishing a change served to a running experiment is blocked until someone acknowledges it."
           value={!!form.watch("configExperimentGuardDefault")}
           setValue={(value) =>
             form.setValue("configExperimentGuardDefault", value, {
@@ -252,7 +252,7 @@ export default function FeatureSettings() {
         <Checkbox
           id="toggle-blockPublishOnSchemaError"
           label="Block publishing on JSON schema errors"
-          description={`Re-validate flag and Config values on publish and block the publish if they don't match. When off, errors show as a warning that can be bypassed. API edits are always validated unless the request body passes "skipSchemaValidation": true.`}
+          description="Re-validate flag and Config values on publish. When off, errors show as a warning that can be bypassed. API edits are always validated unless skipSchemaValidation is true."
           value={form.watch("blockPublishOnSchemaError") ?? true}
           setValue={(value) =>
             form.setValue("blockPublishOnSchemaError", value, {
@@ -266,7 +266,7 @@ export default function FeatureSettings() {
           <Checkbox
             id="toggle-maxConcurrentDrafts"
             label="Cap drafts per flag"
-            description="A soft limit to reduce clutter. Users are warned and asked to confirm before creating drafts past the cap. REST API calls can override it and automated processes are exempt."
+            description="Warn and ask for confirmation before creating drafts past the cap. API calls and automated processes are exempt."
             value={(form.watch("maxConcurrentDrafts") ?? 0) !== 0}
             setValue={(value) =>
               form.setValue("maxConcurrentDrafts", value ? 3 : 0, {
@@ -318,11 +318,10 @@ export default function FeatureSettings() {
                 >
                   <Box>
                     <Text as="p" weight="semibold" mb="1">
-                      For GitHub users
+                      GitHub
                     </Text>
                     <Text as="p" size="sm" color="text-mid">
-                      Use our all-in-one GitHub Action to integrate GrowthBook
-                      into your CI workflow.
+                      Add the GitHub Action to your CI workflow.
                     </Text>
                   </Box>
                   <a
@@ -330,7 +329,7 @@ export default function FeatureSettings() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    <Button variant="ghost">Setup</Button>
+                    <Button variant="ghost">Set up</Button>
                   </a>
                 </Flex>
                 <Flex
@@ -341,18 +340,17 @@ export default function FeatureSettings() {
                 >
                   <Box>
                     <Text as="p" weight="semibold" mb="1">
-                      For non-GitHub users
+                      Other code hosts
                     </Text>
                     <Text as="p" size="sm" color="text-mid">
-                      Use our CLI utility that takes in a list of feature keys
-                      and scans your codebase to provide a JSON output of code
-                      references, which you can supply to our code references{" "}
+                      Run the CLI to scan your codebase and send the results to
+                      the{" "}
                       <a
                         href="https://docs.growthbook.io/api#tag/code-references"
                         target="_blank"
                         rel="noreferrer"
                       >
-                        REST API endpoint
+                        code references REST endpoint
                       </a>
                       .
                     </Text>
@@ -363,7 +361,7 @@ export default function FeatureSettings() {
                       target="_blank"
                       rel="noreferrer"
                     >
-                      CLI Utility
+                      CLI utility
                     </a>{" "}
                     |{" "}
                     <a
@@ -371,7 +369,7 @@ export default function FeatureSettings() {
                       target="_blank"
                       rel="noreferrer"
                     >
-                      Docker Image
+                      Docker image
                     </a>
                   </Text>
                 </Flex>
@@ -383,7 +381,7 @@ export default function FeatureSettings() {
               help="Only show references from these branches. Comma-separated."
             >
               <Field
-                size="legacy"
+                size="md"
                 type="text"
                 containerClassName="mb-0"
                 placeholder="main, qa, dev"

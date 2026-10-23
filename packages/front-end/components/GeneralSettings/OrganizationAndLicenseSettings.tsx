@@ -51,18 +51,16 @@ export default function OrganizationAndLicenseSettings({
         >
           {/* Large orgs get a plain email field; a dropdown of every member would be unwieldy. */}
           {memberEmails.length < 100 ? (
-            <Box width="400px" maxWidth="100%">
-              <SelectField
-                id="org-owner"
-                containerClassName="mb-0"
-                value={ownerEmail}
-                options={memberEmails.map((e) => ({ value: e, label: e }))}
-                disabled={!canEdit}
-                onChange={(value) =>
-                  orgForm.setValue("ownerEmail", value, { shouldDirty: true })
-                }
-              />
-            </Box>
+            <SelectField
+              id="org-owner"
+              containerClassName="mb-0"
+              value={ownerEmail}
+              options={memberEmails.map((e) => ({ value: e, label: e }))}
+              disabled={!canEdit}
+              onChange={(value) =>
+                orgForm.setValue("ownerEmail", value, { shouldDirty: true })
+              }
+            />
           ) : (
             <Field
               id="org-owner"

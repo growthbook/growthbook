@@ -152,21 +152,26 @@ export default function ExperimentSettings({
                 label: "Refresh results after a specified duration",
                 value: "stale",
                 description: (
-                  <Field
-                    size="legacy"
-                    label="Refresh when"
-                    append="hours old"
-                    type="number"
-                    style={{ width: "180px" }}
-                    step={1}
-                    min={1}
-                    max={168}
-                    disabled={
-                      hasFileConfig() ||
-                      form.watch("updateSchedule.type") !== "stale"
-                    }
-                    {...form.register("updateSchedule.hours")}
-                  />
+                  <>
+                    <Text as="p" mb="2">
+                      Results refresh once they reach this age.
+                    </Text>
+                    <Field
+                      size="md"
+                      label="Refresh when"
+                      append="hours old"
+                      type="number"
+                      style={{ width: "180px" }}
+                      step={1}
+                      min={1}
+                      max={168}
+                      disabled={
+                        hasFileConfig() ||
+                        form.watch("updateSchedule.type") !== "stale"
+                      }
+                      {...form.register("updateSchedule.hours")}
+                    />
+                  </>
                 ),
               },
               {
@@ -175,11 +180,11 @@ export default function ExperimentSettings({
                 description: (
                   <>
                     <Text as="p" mb="2">
-                      Enter a cron string to set the frequency. Runs in UTC.
-                      Minimum once an hour.
+                      Enter a cron string to set the frequency. Minimum once an
+                      hour.
                     </Text>
                     <Field
-                      size="legacy"
+                      size="md"
                       disabled={
                         hasFileConfig() ||
                         form.watch("updateSchedule.type") !== "cron"
@@ -227,13 +232,13 @@ export default function ExperimentSettings({
                 label: "Respect conversion windows",
                 value: "firstExposure",
                 description:
-                  "For metrics with conversion windows, build a single conversion window off of each user's first exposure.",
+                  "Count each user's metric values within the window after their first exposure.",
               },
               {
                 label: "Ignore conversion windows",
                 value: "experimentDuration",
                 description:
-                  "Count all metric values from user's first exposure to the end of the experiment.",
+                  "Count all metric values from first exposure until the experiment ends.",
               },
             ]}
             value={form.watch("attributionModel")}
@@ -267,7 +272,7 @@ export default function ExperimentSettings({
               Pre-compute dimension breakdowns <GBInfo />
             </PremiumTooltip>
           }
-          description="Compute dimension slices from dimension columns in your exposure queries for faster breakdowns without extra queries or joins. Costs more aggregation in each analysis query. Doesn't apply to standalone unit dimensions. Configure the slices on your Data Source page."
+          description="Compute dimension slices in the main analysis query for faster breakdowns. Costs more aggregation in each query. Doesn't apply to standalone unit dimensions."
           disabled={!hasCommercialFeature("precomputed-dimensions")}
           value={
             hasCommercialFeature("precomputed-dimensions") &&
@@ -282,7 +287,7 @@ export default function ExperimentSettings({
         >
           <Box width="150px">
             <Field
-              size="legacy"
+              size="md"
               type="number"
               append="days"
               step="1"
@@ -329,7 +334,7 @@ export default function ExperimentSettings({
         >
           <Box width="150px">
             <Field
-              size="legacy"
+              size="md"
               type="number"
               step="0.001"
               style={{
@@ -358,11 +363,11 @@ export default function ExperimentSettings({
 
         <SettingsField
           label="Multiple exposures warning"
-          help="Warn when at least this percent of experiment users are in multiple variations."
+          help="Warn when at least this share of users saw more than one variation."
         >
           <Box width="150px">
             <Field
-              size="legacy"
+              size="md"
               type="number"
               step="1"
               min="0"

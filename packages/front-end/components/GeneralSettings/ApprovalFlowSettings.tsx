@@ -196,7 +196,7 @@ export default function ApprovalFlowSettings() {
       <SettingsGroup
         id="ap-flows"
         title="Feature flags, Configs, Constants & Saved Groups"
-        description="Every change is saved as a revision. Approval adds a review step before it goes live. Requirements apply per Project; everything inside the panel belongs to the selected Project scope."
+        description="Every change is saved as a revision. Approval adds a review step before it goes live."
         keywords="approval review publish reset self-approve one step kill switch metadata saved groups project override"
       >
         <Box width="100%">
@@ -370,29 +370,29 @@ export default function ApprovalFlowSettings() {
         <Flex direction="column" gap="3" align="start">
           <Checkbox
             id="toggle-targeting-review-mode"
-            label="Apply approval requirements from Targeting Projects"
-            description="When a Feature Flag is delivered into Targeting Projects, its changes must also satisfy those Projects' approval requirements before publishing. Each Targeting Project with approval requirements of its own also needs approval from a reviewer in that Project. When off, only the primary Project's requirements and reviewers apply."
+            label="Apply approval rules from Targeting Projects"
+            description="Flags delivered into Targeting Projects must also meet those Projects' approval rules, with approval from a reviewer in each. When off, only the primary Project's rules apply."
             value={targetingStrict(form)}
             setValue={(v) => setTargetingMode(form, v)}
           />
           <Checkbox
             id="toggle-restApiBypassesReviews"
-            label="REST API always bypasses approval requirements"
-            description="Applies to Feature Flags, Configs, Constants and Saved Groups. When enabled, all API calls bypass approval requirements. When disabled, API calls are blocked unless the caller's role grants FlagsBypassApprovals — or SavedGroupsBypassApprovals — on that resource's Project."
+            label="REST API bypasses approvals"
+            description="Applies to Feature Flags, Configs, Constants, and Saved Groups. When off, API calls are blocked unless the caller's role grants FlagsBypassApprovals or SavedGroupsBypassApprovals in that Project."
             value={form.watch("restApiBypassesReviews") !== false}
             setValue={(v) => form.setValue("restApiBypassesReviews", v)}
           />
           <Checkbox
             id="toggle-requireRebaseBeforePublish"
-            label="Require drafts to be rebased with live before publishing"
-            description="Drafts based on an older version — or with a stale approval — must be rebased with live before they can be published."
+            label="Require drafts to be rebased before publishing"
+            description="Drafts based on an older version, or with a stale approval, must be rebased on the live version first."
             value={form.watch("requireRebaseBeforePublish") === true}
             setValue={(v) => form.setValue("requireRebaseBeforePublish", v)}
           />
           <Checkbox
             id="toggle-reverts-bypass-approval"
             label="Allow reverts without approval"
-            description="Anyone with the revert permission can revert to a past revision and publish it immediately, even when approvals are required."
+            description="People with revert permission can restore and publish a past revision immediately, even when approvals are required."
             value={!!form.watch("revertsBypassApproval")}
             setValue={(v) => form.setValue("revertsBypassApproval", v)}
           />
