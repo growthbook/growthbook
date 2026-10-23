@@ -45,6 +45,35 @@ export default function CustomMarkdownSettings() {
   const { hasCommercialFeature } = useUser();
   const enabled = hasCommercialFeature("custom-markdown");
 
+  if (!enabled) {
+    return (
+      <SettingsGroup
+        id="md-locked"
+        title={
+          <PremiumTooltip commercialFeature="custom-markdown">
+            Custom Markdown
+          </PremiumTooltip>
+        }
+        description={
+          <>
+            Guidance shown at the top of the Feature Flag, experiment, and
+            metric lists and pages.{" "}
+            <DocLink docSection="customMarkdown">View docs</DocLink>
+          </>
+        }
+        keywords="custom markdown guidance documentation help features experiments metrics"
+      >
+        <PremiumCallout
+          commercialFeature="custom-markdown"
+          id="settings-custom-markdown"
+        >
+          Add organization-specific guidance to your team&apos;s Feature Flag,
+          experiment, and metric pages.
+        </PremiumCallout>
+      </SettingsGroup>
+    );
+  }
+
   return (
     <>
       {GROUPS.map((group, i) => (
@@ -73,25 +102,16 @@ export default function CustomMarkdownSettings() {
           }
           keywords="custom markdown guidance documentation help"
         >
-          {enabled ? (
-            group.fields.map(([key, label]) => (
-              <SettingsField key={key} label={label}>
-                <MarkdownInput
-                  value={form.watch(key) || ""}
-                  setValue={(value) =>
-                    form.setValue(key, value, { shouldDirty: true })
-                  }
-                />
-              </SettingsField>
-            ))
-          ) : i === 0 ? (
-            <PremiumCallout
-              commercialFeature="custom-markdown"
-              id="settings-custom-markdown"
-            >
-              Add organization-specific guidance to your team&apos;s pages.
-            </PremiumCallout>
-          ) : null}
+          {group.fields.map(([key, label]) => (
+            <SettingsField key={key} label={label}>
+              <MarkdownInput
+                value={form.watch(key) || ""}
+                setValue={(value) =>
+                  form.setValue(key, value, { shouldDirty: true })
+                }
+              />
+            </SettingsField>
+          ))}
         </SettingsGroup>
       ))}
     </>

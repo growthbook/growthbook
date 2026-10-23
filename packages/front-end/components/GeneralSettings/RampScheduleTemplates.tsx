@@ -494,7 +494,7 @@ export default function RampScheduleTemplates() {
       id="ff-ramp"
       title={
         <PremiumTooltip commercialFeature="ramp-schedules">
-          Ramp schedule templates
+          Ramp Schedule Templates
         </PremiumTooltip>
       }
       description="Reusable rollout schedules for flag rules."

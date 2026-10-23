@@ -49,7 +49,7 @@ const WebhooksPage: FC = () => {
 
         <div className="mt-5">
           <Heading as="h2" size="md" mb="2">
-            Webhook secrets
+            Webhook Secrets
           </Heading>
           <p>
             Define secret variables that can be used within your webhook

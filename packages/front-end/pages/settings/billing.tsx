@@ -104,7 +104,7 @@ const BillingPage: FC = () => {
         />
       )}
       <Heading as="h2" size="md" mb="2">
-        Plan info
+        Plan Info
       </Heading>
       <div className="appbox p-3 border">
         {subscription?.status ? (

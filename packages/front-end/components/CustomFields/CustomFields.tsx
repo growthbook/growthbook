@@ -265,7 +265,7 @@ const CustomFields: FC = () => {
     <>
       <Box mb="5">
         <SettingsPageHeader
-          title="Custom fields"
+          title="Custom Fields"
           description="Add custom metadata to feature flags, experiments, and targeting attributes. Choose which of those each field applies to."
           actions={
             canManage && (
