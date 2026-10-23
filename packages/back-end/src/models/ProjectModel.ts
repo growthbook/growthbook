@@ -1,5 +1,8 @@
 import { isEqual } from "lodash";
-import { pruneApprovalRuleReferences } from "shared/util";
+import {
+  isProjectListValidForProject,
+  pruneApprovalRuleReferences,
+} from "shared/util";
 import { TeamInterface } from "shared/types/team";
 import {
   OAuthGrantInterface,
@@ -102,6 +105,40 @@ export class ProjectModel extends BaseClass {
 
   protected canUpdate(doc: ProjectInterface) {
     return this.context.permissions.canUpdateProject(doc.id);
+  }
+
+  public async setDefaultDashboard(
+    project: ProjectInterface,
+    dashboardId: string | null,
+  ) {
+    if (dashboardId !== null) {
+      const dashboard =
+        await this.context.models.dashboards.getById(dashboardId);
+      if (
+        !dashboard ||
+        !!dashboard.experimentId ||
+        // Other members can't read a private dashboard, so it can't be their default.
+        dashboard.shareLevel === "private" ||
+        !isProjectListValidForProject(dashboard.projects, project.id)
+      ) {
+        this.context.throwBadRequestError(
+          "Dashboard is not available for this Project",
+        );
+      }
+    }
+    // CAS on settings preserves a concurrent save of other Project settings.
+    const updated = await this.updateWithCas(
+      project.id,
+      ["settings"],
+      (current) => ({
+        settings: {
+          ...current.settings,
+          defaultDashboardId: dashboardId ?? undefined,
+        },
+      }),
+    );
+    if (!updated) throw new Error("Could not find project");
+    return updated;
   }
 
   protected canDelete(doc: ProjectInterface) {
