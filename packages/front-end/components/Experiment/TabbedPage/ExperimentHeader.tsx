@@ -21,6 +21,7 @@ import Collapsible from "react-collapsible";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   PiCheck,
+  PiClockFill,
   PiEye,
   PiLink,
   PiPencilSimple,
@@ -87,7 +88,8 @@ import { RUN_PERMISSION_REASON, StartExperiment } from "./useStartExperiment";
 import StartExperimentPopover from "./StartExperimentPopover";
 import useStartGate from "./useStartGate";
 import { StartBlockers } from "./StartSections";
-import { hasStatusSchedule } from "./RunningScheduleLink";
+import { hasStatusSchedule, scheduledTime } from "./RunningScheduleLink";
+import { getStartTitle } from "./startActions";
 import { ExperimentTab } from ".";
 
 export interface Props {
@@ -524,7 +526,6 @@ export default function ExperimentHeader({
   const showForceStatus = experiment.status !== "draft" || hasResults;
   const showHoldoutActions =
     isHoldout && canRunExperiment && (showHoldoutOverride || showForceStatus);
-  const hasExperimentSchedule = !!experiment.statusUpdateSchedule?.startAt;
   const hasAnySchedule = isHoldout
     ? holdoutHasSchedule
     : hasStatusSchedule(experiment);
@@ -538,6 +539,8 @@ export default function ExperimentHeader({
   // says what's left instead of opening.
   const startBlocked =
     !isHoldout && !startGate.checklistLoading && startGate.actions.hardBlocked;
+  // A future start reads as its date, as the popover's button does.
+  const futureStart = startGate.schedule === "future";
   // A holdout starts from its modal; anything else, from the start popover.
   const startButton = (
     <Button
@@ -548,11 +551,13 @@ export default function ExperimentHeader({
       style={
         canRunExperiment && startBlocked ? { pointerEvents: "none" } : undefined
       }
-      icon={hasExperimentSchedule ? undefined : <MdRocketLaunch />}
+      icon={futureStart ? <PiClockFill /> : <MdRocketLaunch />}
     >
-      {hasExperimentSchedule
-        ? "Approve for Scheduled Start"
-        : `Start ${isHoldout ? "Holdout" : "Experiment"}`}
+      {futureStart
+        ? startGate.actions.label
+        : isHoldout
+          ? "Start Holdout"
+          : getStartTitle(experiment, new Date())}
     </Button>
   );
 
@@ -968,17 +973,20 @@ export default function ExperimentHeader({
                     holdoutStage={holdoutStage}
                   />
                 ) : experiment.status === "draft" && nextScheduledStartDate ? (
-                  <UITooltip content={editsBlocked} enabled={!!editsBlocked}>
+                  <UITooltip
+                    content={
+                      editsBlocked ??
+                      (canRunExperiment
+                        ? scheduledTime(nextScheduledStartDate)
+                        : `${scheduledTime(nextScheduledStartDate)}. ${RUN_PERMISSION_REASON}`)
+                    }
+                  >
                     <Button
                       variant="ghost"
                       disabled={!canRunExperiment || !!editsBlocked}
                       onClick={() => editSchedule?.()}
                     >
-                      Starts{" "}
-                      {format(
-                        nextScheduledStartDate,
-                        "MMM d, yyyy 'at' h:mm a (z)",
-                      )}{" "}
+                      Starts {format(nextScheduledStartDate, "MMM d")}{" "}
                       {editSchedule && <PiPencilSimple className="ml-1" />}
                     </Button>
                   </UITooltip>
