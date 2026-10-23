@@ -622,6 +622,7 @@ export interface ExperimentAggregateUnitsQueryParams
   extends Omit<ExperimentBaseQueryParams, "dimensions"> {
   dimensions: ExperimentDimensionWithSpecifiedSlices[];
   useUnitsTable: boolean;
+  clusterGrain?: boolean;
 }
 
 export type DimensionSlicesQueryParams = {
@@ -851,6 +852,8 @@ export type ExperimentFactMetricsQueryResponseRows = {
   variation: string;
   users: number;
   count: number;
+  // Cluster experiments also emit a shared `sub_count` (distinct sub-units
+  // behind the clusters), covered by the index signature below.
   [key: string]: number | string;
 }[];
 
@@ -859,6 +862,20 @@ export type ExperimentAggregateUnitsQueryResponseRows = {
   dimension_value: string;
   dimension_name: string;
   units: number;
+}[];
+
+export type ExperimentClusterHealthQueryResponseRows = {
+  // Row discriminator: "reliability" | "assignment" | "mapping".
+  kind: string;
+  // Only meaningful for reliability rows ("" for summary rows).
+  cluster_id: string;
+  variation: string;
+  // Payload columns; meaning depends on `kind`:
+  //  - reliability: metric_a = sub-unit count, metric_b = share (0..1)
+  //  - assignment:  metric_a = total clusters, metric_b = mixed clusters
+  //  - mapping:     metric_a = total sub-units, metric_b = multi-cluster sub-units
+  metric_a: number;
+  metric_b: number;
 }[];
 
 export type DimensionSlicesQueryResponseRows = {
@@ -927,6 +944,8 @@ export type ExperimentFactMetricsQueryResponse =
 export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse =
   QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
+export type ExperimentClusterHealthQueryResponse =
+  QueryResponse<ExperimentClusterHealthQueryResponseRows>;
 export type DimensionSlicesQueryResponse =
   QueryResponse<DimensionSlicesQueryResponseRows>;
 export type ContextualBanditSrmQueryResponse =

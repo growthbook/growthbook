@@ -1,4 +1,8 @@
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotClusterUnits,
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotTraffic,
+} from "shared/types/experiment-snapshot";
 import { SafeRolloutSnapshotInterface } from "../validators/safe-rollout-snapshot";
 
 type MultipleExposureHealthStatus =
@@ -61,6 +65,93 @@ export function getMultipleExposureHealthData({
 }
 
 /**
+ * Health status for a cluster experiment check that removes some clusters or
+ * sub-units from results (mixed assignment, sub-units in several clusters).
+ */
+export function getClusterIssueHealthData({
+  affectedCount,
+  totalCount,
+  minPercentThreshold,
+}: {
+  affectedCount: number;
+  totalCount: number;
+  minPercentThreshold: number;
+}): MultipleExposureHealthData {
+  if (totalCount <= 0) {
+    return { status: "not-enough-traffic", rawDecimal: 0 };
+  }
+  const rawDecimal = affectedCount / totalCount;
+  return {
+    status:
+      affectedCount > 0 && rawDecimal >= minPercentThreshold
+        ? "unhealthy"
+        : "healthy",
+    rawDecimal,
+  };
+}
+
+/**
+ * Reliability of a cluster experiment's results: every variation needs enough
+ * clusters, and no single cluster should hold too large a share of units.
+ */
+export function getClusterReliabilityHealthData({
+  clusterTraffic,
+  clusterUnits,
+  minClustersPerVariation,
+  maxClusterShare,
+}: {
+  clusterTraffic?: ExperimentSnapshotTraffic;
+  clusterUnits?: ExperimentSnapshotClusterUnits;
+  minClustersPerVariation: number;
+  maxClusterShare: number;
+}): {
+  status: "not-enough-traffic" | "healthy" | "unhealthy";
+  countChecked: boolean;
+  sizeChecked: boolean;
+  tooFewClusters: { variationIndex: number; count: number } | null;
+  oversizedCluster: { id: string; pct: number } | null;
+} {
+  const clustersPerVariation = clusterTraffic?.error
+    ? []
+    : (clusterTraffic?.overall?.variationUnits ?? []);
+  const totalClusters = clustersPerVariation.reduce((sum, n) => sum + n, 0);
+  const countChecked = totalClusters > 0;
+  const smallestCount = countChecked ? Math.min(...clustersPerVariation) : 0;
+  const tooFewClusters =
+    countChecked && smallestCount < minClustersPerVariation
+      ? {
+          variationIndex: clustersPerVariation.indexOf(smallestCount),
+          count: smallestCount,
+        }
+      : null;
+
+  const clusters = clusterUnits?.error ? [] : (clusterUnits?.clusters ?? []);
+  const largest = clusters.length
+    ? clusters.reduce((a, b) => (b.pct > a.pct ? b : a))
+    : null;
+  // With 1 / share clusters or fewer, one always reaches the share.
+  const sizeChecked =
+    !!largest && totalClusters > Math.floor(1 / maxClusterShare);
+  const oversizedCluster =
+    sizeChecked && largest && largest.pct >= maxClusterShare
+      ? { id: largest.id, pct: largest.pct }
+      : null;
+
+  return {
+    status:
+      tooFewClusters || oversizedCluster
+        ? "unhealthy"
+        : countChecked || sizeChecked
+          ? "healthy"
+          : "not-enough-traffic",
+    countChecked,
+    sizeChecked,
+    tooFewClusters,
+    oversizedCluster,
+  };
+}
+
+/**
  * Returns the health status for Sample Ratio Mismatch (SRM) in an experiment
  *
  * @param srm - The SRM p-value calculated for the experiment
@@ -118,6 +209,22 @@ function getStandardOverallResultForHealthFallback(
     : undefined;
 }
 
+// Cluster experiments randomize on the cluster, so SRM is tested on cluster
+// counts rather than the sub-unit counts in `traffic`.
+export function getExperimentSRMTraffic(
+  snapshot: Pick<ExperimentSnapshotInterface, "settings" | "health">,
+) {
+  const clusterTraffic = snapshot.health?.clusterTraffic;
+  if (
+    snapshot.settings?.isClusterExperiment &&
+    clusterTraffic &&
+    !clusterTraffic.error
+  ) {
+    return clusterTraffic;
+  }
+  return snapshot.health?.traffic;
+}
+
 /**
  * SRM lookup for standard or holdout experiments. Requires the full
  * snapshot because the fallback path reads `analyses[0].results[0].srm`
@@ -128,7 +235,7 @@ function getStandardOverallResultForHealthFallback(
 export function getExperimentSRMValue(
   snapshot: ExperimentSnapshotInterface,
 ): number | undefined {
-  const healthQuerySRM = snapshot.health?.traffic?.overall?.srm;
+  const healthQuerySRM = getExperimentSRMTraffic(snapshot)?.overall?.srm;
   if (healthQuerySRM !== undefined) {
     return healthQuerySRM;
   }
@@ -150,6 +257,17 @@ export function getExperimentVariationUnitsFromHealth(
   return getStandardOverallResultForHealthFallback(snapshot)?.variations?.map(
     (v) => v.users,
   );
+}
+
+// Per-variation unit counts the SRM p-value was computed on.
+export function getExperimentSRMVariationUnits(
+  snapshot: ExperimentSnapshotInterface,
+): number[] | undefined {
+  const units = getExperimentSRMTraffic(snapshot)?.overall?.variationUnits;
+  if (units?.length) {
+    return units;
+  }
+  return getExperimentVariationUnitsFromHealth(snapshot);
 }
 
 // Units exposed across all variations, per the snapshot's health data;

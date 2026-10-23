@@ -8,6 +8,7 @@ import type { ExperimentUnitsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
+import { MULTIPLE_CLUSTER_SENTINEL } from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
 import { getConversionWindowClause } from "back-end/src/integrations/sql/clauses/conversion-window-clause";
 import { getDimensionCTE } from "back-end/src/integrations/sql/ctes/dimension-cte";
 import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metrics/dimension-in-statement";
@@ -253,7 +254,11 @@ export function getExperimentUnitsQuery(
         , MIN(${timestampColumn}) AS first_exposure_timestamp
         ${
           clusterIdColumn
-            ? `, MAX(e.${clusterIdColumn}) AS ${clusterIdColumn}`
+            ? `, ${dialect.ifElse(
+                `count(distinct e.${clusterIdColumn}) > 1`,
+                `'${MULTIPLE_CLUSTER_SENTINEL}'`,
+                `max(e.${clusterIdColumn})`,
+              )} AS ${clusterIdColumn}`
             : ""
         }
         ${unitDimensions

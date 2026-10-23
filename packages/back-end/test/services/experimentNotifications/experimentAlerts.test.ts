@@ -399,6 +399,7 @@ describe("experiment alert producers", () => {
     const healthSettings = {
       srmThreshold: 0.001,
       multipleExposureMinPercent: 0.01,
+      clusterIssueMinPercent: 0.01,
     };
     await notifySrm({
       context,

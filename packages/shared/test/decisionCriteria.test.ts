@@ -63,6 +63,7 @@ describe("getSafeRolloutResultStatus with errored guardrails", () => {
     experimentMinLengthDays: 7,
     srmThreshold: 0.001,
     multipleExposureMinPercent: 0.01,
+    clusterIssueMinPercent: 0.01,
   };
 
   function makeSafeRollout(
@@ -1892,6 +1893,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     decisionFrameworkEnabled: true,
     srmThreshold: 0.001,
     multipleExposureMinPercent: 0.01,
+    clusterIssueMinPercent: 0.01,
     experimentMinLengthDays: 7,
   };
 
@@ -2015,6 +2017,38 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     });
 
     expect(result?.status).toBe("unhealthy");
+  });
+
+  it("flags cluster assignment and mapping issues at the cluster threshold", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.5,
+            multipleExposures: 0,
+            totalUsers: 50_000,
+            clusterAssignment: { totalClusters: 25, mixedClusters: 1 },
+            clusterSubUnitMapping: {
+              totalUnits: 50_000,
+              multiClusterUnits: 400,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    // 1 of 25 clusters (4%) is over 1%; 400 of 50,000 units (0.8%) is not.
+    expect(result).toEqual({
+      status: "unhealthy",
+      unhealthyData: {
+        clusterAssignment: { rawDecimal: 0.04, mixedClusters: 1 },
+      },
+      tooltip: "Mixed cluster assignment",
+    });
   });
 
   it("uses the scheduled end date for days-left even when power reports a different estimate", () => {

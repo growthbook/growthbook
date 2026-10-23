@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { Separator } from "@radix-ui/themes";
 import { StatusBadge, StatusBadgeHealth } from "./StatusBadge";
 
 export interface Props {
@@ -23,7 +24,7 @@ export default function HealthCard({
         {status !== "healthy" && <StatusBadge status={status} />}
         <span className="text-muted float-right">{helpText}</span>
       </div>
-      <hr className="mt-0"></hr>
+      <Separator size="4" mt="0" mb="3" />
       <div>{children}</div>
     </div>
   );

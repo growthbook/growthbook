@@ -66,6 +66,9 @@ export function processExperimentFactMetricsQueryRows(
       ...attributeData,
       users: parseIntWithDefault(row.users, 0),
       count: parseIntWithDefault(row.users, 0),
+      ...(row.sub_count !== undefined
+        ? { sub_count: parseIntWithDefault(row.sub_count, 0) }
+        : {}),
       ...metricData,
     };
   });

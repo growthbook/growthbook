@@ -26,6 +26,7 @@ import { hoursBetween } from "shared/dates";
 import chunk from "lodash/chunk";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentClusterHealthQueryResponseRows,
   ExperimentFactMetricsQueryResponseRows,
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
@@ -50,6 +51,10 @@ import {
   ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotClusterAssignment,
+  ExperimentSnapshotClusterSubUnitMapping,
+  ExperimentSnapshotClusterUnit,
+  ExperimentSnapshotClusterUnits,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
@@ -73,6 +78,11 @@ import {
   MAX_METRICS_PER_QUERY,
   MAX_ROWS_UNIT_AGGREGATE_QUERY,
 } from "back-end/src/services/experimentQueries/constants";
+import {
+  CLUSTER_HEALTH_KIND_ASSIGNMENT,
+  CLUSTER_HEALTH_KIND_MAPPING,
+  CLUSTER_HEALTH_KIND_RELIABILITY,
+} from "back-end/src/integrations/sql/queries/experiment-cluster-health-query";
 import { splitFunnelMetricBlock } from "back-end/src/services/experimentQueries/funnelMetricBlock";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { statsServerPool } from "back-end/src/services/python";
@@ -942,4 +952,68 @@ export function analyzeExperimentTraffic({
     }
   }
   return trafficResults;
+}
+
+export function analyzeExperimentClusterHealth({
+  rows,
+  error,
+  variations,
+}: {
+  rows: ExperimentClusterHealthQueryResponseRows;
+  error?: string;
+  variations: SnapshotSettingsVariation[];
+}): {
+  clusterUnits: ExperimentSnapshotClusterUnits;
+  clusterAssignment: ExperimentSnapshotClusterAssignment;
+  clusterSubUnitMapping: ExperimentSnapshotClusterSubUnitMapping;
+} {
+  if (error) {
+    return {
+      clusterUnits: { clusters: [], error },
+      clusterAssignment: { totalClusters: 0, mixedClusters: 0, error },
+      clusterSubUnitMapping: { totalUnits: 0, multiClusterUnits: 0, error },
+    };
+  }
+
+  const variationIdMap: { [key: string]: number } = {};
+  variations.forEach((v, i) => {
+    variationIdMap[v.id] = i;
+  });
+
+  const clusters: ExperimentSnapshotClusterUnit[] = [];
+  const clusterAssignment: ExperimentSnapshotClusterAssignment = {
+    totalClusters: 0,
+    mixedClusters: 0,
+  };
+  const clusterSubUnitMapping: ExperimentSnapshotClusterSubUnitMapping = {
+    totalUnits: 0,
+    multiClusterUnits: 0,
+  };
+
+  (rows ?? []).forEach((r) => {
+    switch (r.kind) {
+      case CLUSTER_HEALTH_KIND_RELIABILITY:
+        clusters.push({
+          id: r.cluster_id,
+          variation: variationIdMap[r.variation] ?? -1,
+          units: r.metric_a,
+          pct: r.metric_b,
+        });
+        break;
+      case CLUSTER_HEALTH_KIND_ASSIGNMENT:
+        clusterAssignment.totalClusters = r.metric_a;
+        clusterAssignment.mixedClusters = r.metric_b;
+        break;
+      case CLUSTER_HEALTH_KIND_MAPPING:
+        clusterSubUnitMapping.totalUnits = r.metric_a;
+        clusterSubUnitMapping.multiClusterUnits = r.metric_b;
+        break;
+    }
+  });
+
+  return {
+    clusterUnits: { clusters },
+    clusterAssignment,
+    clusterSubUnitMapping,
+  };
 }

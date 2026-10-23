@@ -38,6 +38,7 @@ export function getClusterRollupCTE({
         m.variation AS variation
         ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
         , m.${clusterIdColumn} AS ${clusterIdColumn}
+        , COUNT(DISTINCT m.${baseIdType}) AS sub_count
         ${metricData
           .map((data) => {
             const rollupDenominator = (

@@ -367,6 +367,9 @@ export const experimentAnalysisSummaryHealth = z.object({
   srm: z.number(),
   multipleExposures: z.number(),
   totalUsers: z.number().nullable(),
+  // Units the SRM p-value was computed on: clusters for cluster experiments,
+  // otherwise the same as totalUsers.
+  srmTotalUnits: z.number().nullable().optional(),
   power: z
     .discriminatedUnion("type", [
       z.object({
@@ -383,6 +386,19 @@ export const experimentAnalysisSummaryHealth = z.object({
   covariateImbalance: z
     .object({
       isImbalanced: z.boolean(),
+    })
+    .optional(),
+  // Cluster experiments only
+  clusterAssignment: z
+    .object({
+      totalClusters: z.number(),
+      mixedClusters: z.number(),
+    })
+    .optional(),
+  clusterSubUnitMapping: z
+    .object({
+      totalUnits: z.number(),
+      multiClusterUnits: z.number(),
     })
     .optional(),
 });

@@ -51,6 +51,7 @@ import styles from "./CompactResults.module.scss";
 import { ExperimentTab } from "./TabbedPage";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import DataQualityWarning from "./DataQualityWarning";
+import ClusterReliabilityWarning from "./ClusterReliabilityWarning";
 
 const CompactResults: FC<{
   experimentId: string;
@@ -359,6 +360,10 @@ const CompactResults: FC<{
               totalUsers={totalUsers}
               multipleExposures={multipleExposures}
               experimentType={experimentType}
+            />
+            <ClusterReliabilityWarning
+              snapshot={snapshot}
+              variations={variations}
             />
           </Flex>
         </>

@@ -1,6 +1,12 @@
-import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotTraffic,
+} from "shared/types/experiment-snapshot";
+import {
+  getClusterReliabilityHealthData,
+  getClusterIssueHealthData,
   getExperimentSRMValue,
+  getExperimentSRMVariationUnits,
   getExperimentVariationUnitsFromHealth,
 } from "../src/health/health";
 
@@ -98,5 +104,118 @@ describe("getExperimentSRMValue", () => {
         snapshot({ type: "holdout", analyses: standardAnalyses }),
       ),
     ).toBeUndefined();
+  });
+});
+
+describe("cluster experiment SRM", () => {
+  const clusterSnapshot = (clusterTrafficError?: string) =>
+    snapshot({
+      settings: { isClusterExperiment: true },
+      health: {
+        traffic: { overall: { srm: 0.0001, variationUnits: [6200, 3800] } },
+        clusterTraffic: {
+          overall: { srm: 0.6, variationUnits: [13, 12] },
+          ...(clusterTrafficError ? { error: clusterTrafficError } : {}),
+        },
+      },
+    } as unknown as Partial<ExperimentSnapshotInterface>);
+
+  it("tests SRM on cluster counts", () => {
+    expect(getExperimentSRMValue(clusterSnapshot())).toBe(0.6);
+    expect(getExperimentSRMVariationUnits(clusterSnapshot())).toEqual([13, 12]);
+  });
+
+  it("falls back to sub-unit traffic when the cluster query errored", () => {
+    expect(getExperimentSRMValue(clusterSnapshot("boom"))).toBe(0.0001);
+    expect(getExperimentSRMVariationUnits(clusterSnapshot("boom"))).toEqual([
+      6200, 3800,
+    ]);
+  });
+});
+
+describe("getClusterIssueHealthData", () => {
+  it("warns once the affected share reaches the threshold", () => {
+    expect(
+      getClusterIssueHealthData({
+        affectedCount: 1,
+        totalCount: 100,
+        minPercentThreshold: 0.01,
+      }),
+    ).toEqual({ status: "unhealthy", rawDecimal: 0.01 });
+    expect(
+      getClusterIssueHealthData({
+        affectedCount: 1,
+        totalCount: 101,
+        minPercentThreshold: 0.01,
+      }).status,
+    ).toBe("healthy");
+  });
+
+  it("stays healthy with nothing removed, even at a 0% threshold", () => {
+    expect(
+      getClusterIssueHealthData({
+        affectedCount: 0,
+        totalCount: 25,
+        minPercentThreshold: 0,
+      }).status,
+    ).toBe("healthy");
+  });
+
+  it("has no verdict without any clusters or units", () => {
+    expect(
+      getClusterIssueHealthData({
+        affectedCount: 0,
+        totalCount: 0,
+        minPercentThreshold: 0.01,
+      }).status,
+    ).toBe("not-enough-traffic");
+  });
+});
+
+describe("getClusterReliabilityHealthData", () => {
+  const traffic = (variationUnits: number[]) =>
+    ({ overall: { variationUnits } }) as unknown as ExperimentSnapshotTraffic;
+  const units = (pcts: number[]) => ({
+    clusters: pcts.map((pct, i) => ({
+      id: `c${i}`,
+      variation: 0,
+      units: 1,
+      pct,
+    })),
+  });
+  const check = (variationUnits: number[], pcts: number[]) =>
+    getClusterReliabilityHealthData({
+      clusterTraffic: traffic(variationUnits),
+      clusterUnits: units(pcts),
+      minClustersPerVariation: 20,
+      maxClusterShare: 0.2,
+    });
+
+  it("flags the variation with the fewest clusters below the minimum", () => {
+    expect(check([25, 19], [0.05]).tooFewClusters).toEqual({
+      variationIndex: 1,
+      count: 19,
+    });
+    expect(check([20, 20], [0.05]).status).toBe("healthy");
+  });
+
+  it("flags a cluster holding at least the maximum share", () => {
+    const result = check([20, 20], [0.1, 0.2]);
+    expect(result.status).toBe("unhealthy");
+    expect(result.oversizedCluster).toEqual({ id: "c1", pct: 0.2 });
+  });
+
+  it("skips the size check when a large share is unavoidable", () => {
+    const result = check([3, 2], [0.4]);
+    expect(result.sizeChecked).toBe(false);
+    expect(result.oversizedCluster).toBeNull();
+    expect(check([3, 3], [0.4]).oversizedCluster).toEqual({
+      id: "c0",
+      pct: 0.4,
+    });
+  });
+
+  it("has no verdict before any clusters are exposed", () => {
+    expect(check([0, 0], []).status).toBe("not-enough-traffic");
   });
 });

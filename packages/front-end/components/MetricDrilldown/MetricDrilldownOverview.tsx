@@ -18,6 +18,7 @@ import {
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import {
   ExperimentTableRow,
+  getClusterSubUnitsLabel,
   getClusterUnitsLabel,
 } from "@/services/experiments";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -131,6 +132,9 @@ function MetricDrilldownOverview({
       ? getNonRollupAggregation(metric)
       : null;
 
+  const clusterUnitsLabel = getClusterUnitsLabel(settings);
+  const subUnitsLabel = getClusterSubUnitsLabel(settings, metric.id);
+
   const statsTableRows = variations.map((variation, i) => ({
     variationIndex: i,
     variationName: variation.name,
@@ -238,7 +242,8 @@ function MetricDrilldownOverview({
             <VariationStatsTable
               metric={metric}
               rows={statsTableRows}
-              unitsLabel={getClusterUnitsLabel(snapshot?.settings)}
+              unitsLabel={clusterUnitsLabel}
+              subUnitsLabel={subUnitsLabel}
             />
           </Box>
         )}

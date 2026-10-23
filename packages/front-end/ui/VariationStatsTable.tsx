@@ -40,6 +40,7 @@ interface VariationStatsTableProps {
   isBandit?: boolean;
   ssrPolyfills?: SSRPolyfills;
   unitsLabel?: string;
+  subUnitsLabel?: string;
 }
 
 export default function VariationStatsTable({
@@ -48,6 +49,7 @@ export default function VariationStatsTable({
   isBandit,
   ssrPolyfills,
   unitsLabel,
+  subUnitsLabel,
 }: VariationStatsTableProps) {
   const _currency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _currency;
@@ -86,6 +88,9 @@ export default function VariationStatsTable({
             {quantileMetric && quantileIgnoreZeros ? "Non-zero " : ""}
             {quantileMetric === "event" ? "Events" : (unitsLabel ?? "Units")}
           </TableColumnHeader>
+          {subUnitsLabel ? (
+            <TableColumnHeader justify="end">{subUnitsLabel}</TableColumnHeader>
+          ) : null}
           {!quantileMetric ? (
             <TableColumnHeader justify="end">
               Numerator
@@ -121,6 +126,11 @@ export default function VariationStatsTable({
             : quantileMetric && stats.stats
               ? numberFormatter.format(stats.stats.count)
               : numberFormatter.format(stats.users);
+          // The stats engine reports 0 when the query didn't count sub-units.
+          const subUnitCount = stats?.stats?.sub_count;
+          const subUnitsDisplay = subUnitCount
+            ? numberFormatter.format(subUnitCount)
+            : missingStatsPlaceholder;
           const numeratorDisplay = !hasStats
             ? missingStatsPlaceholder
             : isFactMetric(metric)
@@ -189,6 +199,10 @@ export default function VariationStatsTable({
               </TableCell>
 
               <TableCell justify="end">{sampleSizeDisplay}</TableCell>
+
+              {subUnitsLabel ? (
+                <TableCell justify="end">{subUnitsDisplay}</TableCell>
+              ) : null}
 
               {!quantileMetric ? (
                 <TableCell justify="end">{numeratorDisplay}</TableCell>

@@ -47,6 +47,7 @@ import {
   TrackedEventResponseRow,
   ExperimentUnitsQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
+  ExperimentClusterHealthQueryResponse,
   ExperimentAggregateUnitsQueryParams,
   ContextualBanditSrmQueryParams,
   ContextualBanditSrmQueryResponse,
@@ -169,6 +170,12 @@ import { getDropOldIncrementalUnitsQuery } from "back-end/src/integrations/sql/q
 import { getDropUnitsTableQuery } from "back-end/src/integrations/sql/queries/drop-units-table-query";
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { getExperimentAggregateUnitsQuery as getExperimentAggregateUnitsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-aggregate-units-query";
+import { getExperimentClusterHealthQuery as getExperimentClusterHealthQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-cluster-health-query";
+import {
+  getConsistentClusterCondition,
+  getSingleClusterPerUnitCondition,
+  MULTIPLE_CLUSTER_SENTINEL,
+} from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
 import { getContextualBanditSrmQuery as getContextualBanditSrmQueryFromSql } from "back-end/src/integrations/sql/queries/contextual-bandit-srm-query";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
@@ -833,6 +840,30 @@ export default abstract class SqlIntegration
     };
   }
 
+  async runExperimentClusterHealthQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata: RunQueryMetadata,
+  ): Promise<ExperimentClusterHealthQueryResponse> {
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
+    return {
+      rows: rows.map((row) => {
+        return {
+          kind: row.kind ?? "",
+          cluster_id: row.cluster_id ?? "",
+          variation: row.variation ?? "",
+          metric_a: parseFloat(row.metric_a) || 0,
+          metric_b: parseFloat(row.metric_b) || 0,
+        };
+      }),
+      statistics: statistics,
+    };
+  }
+
   async runContextualBanditSrmQuery(
     query: string,
     setExternalId: ExternalIdCallback,
@@ -1095,6 +1126,16 @@ export default abstract class SqlIntegration
     params: ExperimentAggregateUnitsQueryParams,
   ): string {
     return getExperimentAggregateUnitsQueryFromSql(
+      this.getSqlDialect(),
+      this.datasource,
+      params,
+    );
+  }
+
+  getExperimentClusterHealthQuery(
+    params: ExperimentAggregateUnitsQueryParams,
+  ): string {
+    return getExperimentClusterHealthQueryFromSql(
       this.getSqlDialect(),
       this.datasource,
       params,
@@ -1988,7 +2029,11 @@ export default abstract class SqlIntegration
             e.${baseIdType} AS ${baseIdType}
             ${
               clusterIdColumn
-                ? `, MAX(e.${clusterIdColumn}) AS ${clusterIdColumn}`
+                ? `, ${this.getSqlDialect().ifElse(
+                    `COUNT(DISTINCT e.${clusterIdColumn}) > 1`,
+                    `'${MULTIPLE_CLUSTER_SENTINEL}'`,
+                    `MAX(e.${clusterIdColumn})`,
+                  )} AS ${clusterIdColumn}`
                 : ""
             }
             , ${this.getSqlDialect().ifElse(
@@ -2774,8 +2819,34 @@ export default abstract class SqlIntegration
       maxHoursToConvert,
       params.asOf,
     );
-    const unitsWhere = params.settings.skipPartialData
-      ? `WHERE e.first_exposure_timestamp <= ${this.getSqlDialect().toTimestamp(unitsEndDate)}`
+    const unitsWhereConditions: string[] = [];
+    if (params.settings.skipPartialData) {
+      unitsWhereConditions.push(
+        `e.first_exposure_timestamp <= ${this.getSqlDialect().toTimestamp(unitsEndDate)}`,
+      );
+    }
+    // Drop sub-units that map to more than one cluster (marked '__multiple__' at units build).
+    const clusterColumnForDrop = isClusterLevelQuery
+      ? exposureQuery.identifierType
+      : clusterIdColumn;
+    if (clusterColumnForDrop) {
+      unitsWhereConditions.push(
+        getSingleClusterPerUnitCondition({
+          clusterIdColumn: clusterColumnForDrop,
+        }),
+      );
+    }
+    // Sub-unit metrics additionally drop clusters with mixed assignment.
+    if (clusterIdColumn) {
+      unitsWhereConditions.push(
+        getConsistentClusterCondition({
+          sourceTable: params.unitsSourceTableFullName,
+          clusterIdColumn,
+        }),
+      );
+    }
+    const unitsWhere = unitsWhereConditions.length
+      ? `WHERE ${unitsWhereConditions.join(" AND ")}`
       : "";
 
     // Every FT that hosts at least one side of an RA metric must also have
