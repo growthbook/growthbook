@@ -49,3 +49,18 @@ export type ApiEndpointSpec<
   /** The handler holds the request itself, once it knows what changes. */
   confirmationInHandler?: boolean;
 };
+
+type EndpointOnlyKey = Exclude<
+  keyof ApiEndpointSpec<unknown, unknown, unknown, unknown>,
+  keyof RequestSchemas<unknown, unknown, unknown>
+>;
+
+/**
+ * Forbids endpoint fields on request schemas that get embedded in a route
+ * built elsewhere (a custom endpoint's `validator`, a CRUD override). That
+ * route sets its own path, method, and operationId, so copies here would be
+ * dead, and passing the object to the REST hooks would call the wrong URL.
+ */
+export type NoEndpointFields<Allowed extends EndpointOnlyKey = never> = {
+  [K in Exclude<EndpointOnlyKey, Allowed>]?: never;
+};

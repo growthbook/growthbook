@@ -4,7 +4,7 @@ import type { apiBaseSchema } from "./validators/base-model";
 import type { ApiErrorCode } from "./validators/api-errors";
 import type { ConfirmAction } from "./validators/confirmations";
 import { capitalizeFirstCharacter } from "./util";
-import { HttpVerb, RequestSchemas } from "./api-spec";
+import { HttpVerb, NoEndpointFields, RequestSchemas } from "./api-spec";
 
 export const crudActions = [
   "get",
@@ -69,7 +69,7 @@ export type CrudValidatorOverrides = Partial<
     CrudAction,
     RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny> & {
       responseSchema?: z.ZodType;
-    }
+    } & NoEndpointFields<"responseSchema">
   >
 >;
 
@@ -81,7 +81,8 @@ export type OpenApiEndpointSpec = {
   pathFragment: string;
   verb: HttpVerb;
   operationId: string;
-  validator: RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny>;
+  validator: RequestSchemas<z.ZodTypeAny, z.ZodTypeAny, z.ZodTypeAny> &
+    NoEndpointFields;
   zodReturnObject: z.ZodTypeAny;
   summary: string;
   description?: string;
@@ -296,7 +297,12 @@ export function crudEndpoint<
   } as CrudEndpoint<S, A>;
 }
 
-export type CustomEndpoint<E extends OpenApiEndpointSpec> = E["validator"] & {
+// Pick only the request schemas the validator declares; a key it omits must
+// stay absent rather than become a required `unknown`.
+export type CustomEndpoint<E extends OpenApiEndpointSpec> = Pick<
+  E["validator"],
+  Extract<keyof E["validator"], keyof RequestSchemas<unknown, unknown, unknown>>
+> & {
   responseSchema: E["zodReturnObject"];
   method: E["verb"];
   path: string;
@@ -315,6 +321,8 @@ export function customEndpoint<E extends OpenApiEndpointSpec>(
   spec: OpenApiModelSpec,
   endpoint: E,
 ): CustomEndpoint<E> {
+  // TS can't relate the spread of a generic validator to the keys
+  // CustomEndpoint picks from it, so the cast carries them.
   return {
     ...endpoint.validator,
     responseSchema: endpoint.zodReturnObject,
@@ -328,7 +336,7 @@ export function customEndpoint<E extends OpenApiEndpointSpec>(
     version: endpoint.version,
     confirmation: endpoint.confirmation,
     confirmationInHandler: endpoint.confirmationInHandler,
-  };
+  } as CustomEndpoint<E>;
 }
 
 function getCrudValidator(
