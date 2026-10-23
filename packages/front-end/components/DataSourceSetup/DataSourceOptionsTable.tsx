@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { CSSProperties, ReactNode, useState } from "react";
 import { useRouter } from "next/router";
 import { Flex } from "@radix-ui/themes";
 import {
@@ -88,6 +88,7 @@ const OPTION_HEADS: Record<
 };
 
 const OPTION_COLUMN_STYLE = { borderLeft: "1px solid var(--gray-a5)" };
+const ACTION_ROW_PADDING = "16px 20px";
 
 type OptionAction = {
   label: string;
@@ -300,6 +301,7 @@ export default function DataSourceOptionsTable() {
       >
         <Button
           variant={variant}
+          size="lg"
           icon={icon ?? null}
           iconPosition="right"
           disabled={!!reason}
@@ -357,7 +359,13 @@ export default function DataSourceOptionsTable() {
       <Table
         variant="surface"
         layout="fixed"
-        style={{ minWidth: 820, maxWidth: 1200 }}
+        style={
+          {
+            minWidth: 820,
+            maxWidth: 1200,
+            "--table-cell-padding": "14px 20px",
+          } as CSSProperties
+        }
       >
         <TableHeader>
           <TableRow align="start">
@@ -416,9 +424,12 @@ export default function DataSourceOptionsTable() {
             </TableRow>
           ) : null}
           <TableRow align="start">
-            <TableRowHeaderCell />
+            <TableRowHeaderCell style={{ padding: ACTION_ROW_PADDING }} />
             {OPTION_KEYS.map((option) => (
-              <TableCell key={option} style={OPTION_COLUMN_STYLE}>
+              <TableCell
+                key={option}
+                style={{ ...OPTION_COLUMN_STYLE, padding: ACTION_ROW_PADDING }}
+              >
                 {renderAction(option)}
               </TableCell>
             ))}
