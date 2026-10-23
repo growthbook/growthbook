@@ -42,6 +42,7 @@ import {
   assertExposureQueryDeclaresIdentifierType,
   toApiAssignmentQueryRef,
   resolveAnalysisIdentifierType,
+  validateClusterExperimentIdentifiers,
 } from "shared/util";
 import {
   getBanditSRMValue,
@@ -53,6 +54,10 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getClusterExperimentMetricEligibility,
+  getClusterSubUnit,
+  getClusterMetricAnalysisLevel,
+  ClusterMetricAnalysisLevel,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandDerivedMetricsInMap,
@@ -507,8 +512,11 @@ export function getDefaultExperimentAnalysisSettings({
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
+    // The stats engine doesn't post-stratify cluster experiments.
     postStratificationEnabled:
-      hasPostStratificationFeature && postStratificationEnabled,
+      hasPostStratificationFeature &&
+      postStratificationEnabled &&
+      !getClusterSubUnit(experiment),
     sequentialTesting:
       hasSequentialTestingFeature &&
       statsEngine === "frequentist" &&
@@ -600,6 +608,113 @@ export function isJoinableMetric({
   );
 }
 
+export type SnapshotMetricEligibility = {
+  allowed: boolean;
+  reason?: string;
+  clusterLevel: ClusterMetricAnalysisLevel | null;
+};
+
+/**
+ * Metric eligibility must be re-checked every time a snapshot is built, not
+ * only when the experiment/report is saved: a metric group can be edited, a
+ * metric's type can change to quantile, a fact table can drop a column, or a
+ * report's metrics can change through an endpoint with no cluster check.
+ */
+export function getSnapshotMetricEligibility({
+  metricId,
+  metricMap,
+  factTableMap,
+  datasource,
+  exposureQueryIdentifierType,
+  clusterSubUnitIdentifier,
+}: {
+  metricId: string;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+  datasource?: DataSourceInterface;
+  exposureQueryIdentifierType?: string;
+  clusterSubUnitIdentifier?: string | null;
+}): SnapshotMetricEligibility {
+  if (!clusterSubUnitIdentifier) {
+    return {
+      allowed: isJoinableMetric({
+        metricId,
+        metricMap,
+        factTableMap,
+        identifierType: exposureQueryIdentifierType,
+        datasource,
+      }),
+      clusterLevel: null,
+    };
+  }
+
+  const metric = metricMap.get(metricId);
+  if (!metric) {
+    // Be lenient and let unknown metrics through; the query builder surfaces
+    // missing metrics.
+    return { allowed: true, clusterLevel: null };
+  }
+
+  const getFactTable = (factTableId: string) => factTableMap.get(factTableId);
+
+  const eligibility = getClusterExperimentMetricEligibility(metric, {
+    clusterIdentifier: exposureQueryIdentifierType,
+    clusterSubUnitIdentifier,
+    getFactTable,
+    datasourceSettings: datasource?.settings,
+  });
+  if (!eligibility.allowed) {
+    return { allowed: false, reason: eligibility.reason, clusterLevel: null };
+  }
+
+  // Eligibility already guarantees a fact metric with a resolvable level, but
+  // resolve it explicitly so callers can build clusterLevelMetricIds in the
+  // same pass.
+  const clusterLevel = isFactMetric(metric)
+    ? getClusterMetricAnalysisLevel(metric, {
+        clusterIdentifier: exposureQueryIdentifierType,
+        clusterSubUnitIdentifier,
+        getFactTable,
+        datasourceSettings: datasource?.settings,
+      })
+    : null;
+  if (!clusterLevel) {
+    return {
+      allowed: false,
+      reason: "this metric has no valid cluster analysis level.",
+      clusterLevel: null,
+    };
+  }
+
+  return { allowed: true, clusterLevel };
+}
+
+export function createMetricEligibilityResolver(params: {
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+  datasource?: DataSourceInterface;
+  exposureQueryIdentifierType?: string;
+  clusterSubUnitIdentifier?: string | null;
+}): {
+  getMetricEligibility: (metricId: string) => SnapshotMetricEligibility;
+  isEligible: (metricId: string) => boolean;
+} {
+  const cache = new Map<string, SnapshotMetricEligibility>();
+  const getMetricEligibility = (
+    metricId: string,
+  ): SnapshotMetricEligibility => {
+    const cached = cache.get(metricId);
+    if (cached) return cached;
+    const eligibility = getSnapshotMetricEligibility({ metricId, ...params });
+    cache.set(metricId, eligibility);
+    return eligibility;
+  };
+  return {
+    getMetricEligibility,
+    isEligible: (metricId: string) => getMetricEligibility(metricId).allowed,
+  };
+}
+
 export function getSnapshotSettings({
   experiment,
   phaseIndex,
@@ -664,6 +779,18 @@ export function getSnapshotSettings({
     experiment.exposureQueryIdentifierType,
   );
 
+  const clusterSubUnitIdentifier = experiment.isClusterExperiment
+    ? experiment.clusterSubUnitIdentifier
+    : undefined;
+
+  const { getMetricEligibility, isEligible } = createMetricEligibilityResolver({
+    metricMap,
+    factTableMap,
+    datasource,
+    exposureQueryIdentifierType,
+    clusterSubUnitIdentifier,
+  });
+
   // get dimensions for standard analysis
   // TODO(dimensions): customize which dimensions to use at experiment level
 
@@ -705,43 +832,19 @@ export function getSnapshotSettings({
       ? eligiblePrecomputedUnitDimensionIds
       : [];
 
-  // expand metric groups and scrub unjoinable metrics
+  // expand metric groups and scrub metrics that can't be analyzed
   let goalMetrics = expandMetricGroups(
     experiment.goalMetrics,
     metricGroups,
-  ).filter((m) =>
-    isJoinableMetric({
-      metricId: m,
-      metricMap,
-      factTableMap,
-      identifierType: exposureQueryIdentifierType,
-      datasource,
-    }),
-  );
+  ).filter(isEligible);
   let secondaryMetrics = expandMetricGroups(
     experiment.secondaryMetrics,
     metricGroups,
-  ).filter((m) =>
-    isJoinableMetric({
-      metricId: m,
-      metricMap,
-      factTableMap,
-      identifierType: exposureQueryIdentifierType,
-      datasource,
-    }),
-  );
+  ).filter(isEligible);
   let guardrailMetrics = expandMetricGroups(
     experiment.guardrailMetrics,
     metricGroups,
-  ).filter((m) =>
-    isJoinableMetric({
-      metricId: m,
-      metricMap,
-      factTableMap,
-      identifierType: exposureQueryIdentifierType,
-      datasource,
-    }),
-  );
+  ).filter(isEligible);
 
   // filter invalid metrics (holdouts)
   if (experiment.type === "holdout") {
@@ -826,6 +929,12 @@ export function getSnapshotSettings({
       }),
     )
     .filter(isDefined);
+
+  const clusterLevelMetricIds = clusterSubUnitIdentifier
+    ? metricSettings
+        .map((m) => m.id)
+        .filter((id) => getMetricEligibility(id).clusterLevel === "cluster")
+    : [];
 
   // JIT initialize banditEvents in memory if missing
   if (
@@ -916,6 +1025,9 @@ export function getSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
     exposureQueryIdentifierType,
+    isClusterExperiment: !!clusterSubUnitIdentifier,
+    clusterSubUnitIdentifier: clusterSubUnitIdentifier ?? undefined,
+    ...(clusterLevelMetricIds.length ? { clusterLevelMetricIds } : {}),
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
       id: v.key || i + "",
@@ -3443,6 +3555,12 @@ export async function toExperimentApiInterface(
         await getExposureQueriesForDatasource(context, experiment.datasource),
       ),
       assignmentQueryId: experiment.exposureQueryId || "",
+      ...(experiment.isClusterExperiment !== undefined
+        ? { isClusterExperiment: experiment.isClusterExperiment }
+        : {}),
+      ...(experiment.clusterSubUnitIdentifier
+        ? { clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier }
+        : {}),
       experimentId: experiment.trackingKey,
       segmentId: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
@@ -4716,6 +4834,176 @@ export type PostExperimentApiPayload = z.infer<
   assignmentQueryIdentifierType?: string;
 };
 
+export function assertClusterExperimentMetricsSupported({
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  metricMap,
+  metricGroups,
+  clusterIdentifier,
+  clusterSubUnitIdentifier,
+  factTableMap,
+  datasource,
+}: {
+  goalMetrics?: string[];
+  secondaryMetrics?: string[];
+  guardrailMetrics?: string[];
+  metricMap: Map<string, ExperimentMetricInterface>;
+  metricGroups: MetricGroupInterface[];
+  clusterIdentifier?: string | null;
+  clusterSubUnitIdentifier?: string | null;
+  factTableMap: FactTableMap;
+  datasource: DataSourceInterface;
+}): void {
+  const metricIds = getAllMetricIdsFromExperiment(
+    { goalMetrics, secondaryMetrics, guardrailMetrics },
+    false,
+    metricGroups,
+  );
+  for (const id of metricIds) {
+    const metric = metricMap.get(id);
+    // Existence/datasource are validated separately; only check known metrics.
+    if (!metric) continue;
+    const eligibility = getClusterExperimentMetricEligibility(metric, {
+      clusterIdentifier,
+      clusterSubUnitIdentifier,
+      getFactTable: (factTableId) => factTableMap.get(factTableId),
+      datasourceSettings: datasource.settings,
+    });
+    if (!eligibility.allowed) {
+      throw new Error(
+        `Metric "${metric.name || id}" cannot be used in a cluster experiment. ${eligibility.reason}`,
+      );
+    }
+  }
+}
+
+export type ClusterExperimentConfigFields = {
+  isClusterExperiment?: boolean | null;
+  exposureQueryId?: string;
+  exposureQueryIdentifierType?: string;
+  clusterSubUnitIdentifier?: string | null;
+  goalMetrics?: string[];
+  secondaryMetrics?: string[];
+  guardrailMetrics?: string[];
+};
+
+function clusterMetricListChanged(a?: string[], b?: string[]): boolean {
+  const sortedA = [...(a ?? [])].sort();
+  const sortedB = [...(b ?? [])].sort();
+  if (sortedA.length !== sortedB.length) return true;
+  return sortedA.some((value, i) => value !== sortedB[i]);
+}
+
+function clusterConfigRequiresRevalidation(
+  current: ClusterExperimentConfigFields,
+  previous: ClusterExperimentConfigFields,
+  currentIdentifier: string | undefined,
+  previousIdentifier: string | undefined,
+): boolean {
+  return (
+    !!current.isClusterExperiment !== !!previous.isClusterExperiment ||
+    (current.clusterSubUnitIdentifier ?? null) !==
+      (previous.clusterSubUnitIdentifier ?? null) ||
+    (current.exposureQueryId ?? null) !== (previous.exposureQueryId ?? null) ||
+    (currentIdentifier ?? null) !== (previousIdentifier ?? null) ||
+    clusterMetricListChanged(current.goalMetrics, previous.goalMetrics) ||
+    clusterMetricListChanged(
+      current.secondaryMetrics,
+      previous.secondaryMetrics,
+    ) ||
+    clusterMetricListChanged(
+      current.guardrailMetrics,
+      previous.guardrailMetrics,
+    )
+  );
+}
+
+export async function assertValidClusterExperimentConfig({
+  context,
+  datasource,
+  current,
+  previous,
+  metricMap,
+  metricGroups,
+  factTableMap,
+  wrapIdentifierError,
+}: {
+  context: ReqContext | ApiReqContext;
+  datasource: DataSourceInterface | null;
+  current: ClusterExperimentConfigFields;
+  previous?: ClusterExperimentConfigFields;
+  metricMap?: Map<string, ExperimentMetricInterface>;
+  metricGroups?: MetricGroupInterface[];
+  factTableMap?: FactTableMap;
+  wrapIdentifierError?: (message: string) => string;
+}): Promise<void> {
+  if (!current.isClusterExperiment) return;
+
+  const exposureQueries = datasource?.settings.queries?.exposure ?? [];
+  const currentQuery = exposureQueries.find(
+    (q) => q.id === current.exposureQueryId,
+  );
+  const clusterIdentifier = resolveAnalysisIdentifierType(
+    currentQuery,
+    current.exposureQueryIdentifierType,
+  );
+
+  if (previous) {
+    const previousQuery = exposureQueries.find(
+      (q) => q.id === previous.exposureQueryId,
+    );
+    const previousIdentifier = resolveAnalysisIdentifierType(
+      previousQuery,
+      previous.exposureQueryIdentifierType,
+    );
+    if (
+      !clusterConfigRequiresRevalidation(
+        current,
+        previous,
+        clusterIdentifier,
+        previousIdentifier,
+      )
+    ) {
+      return;
+    }
+  }
+
+  if (!datasource) {
+    throw new Error("Datasource not found.");
+  }
+
+  const identifierValidation = validateClusterExperimentIdentifiers(
+    currentQuery,
+    clusterIdentifier,
+    current.clusterSubUnitIdentifier ?? undefined,
+  );
+  if (!identifierValidation.ok) {
+    throw new Error(
+      wrapIdentifierError
+        ? wrapIdentifierError(identifierValidation.error)
+        : identifierValidation.error,
+    );
+  }
+
+  const resolvedMetricMap = metricMap ?? (await getMetricMap(context));
+  const resolvedMetricGroups =
+    metricGroups ?? (await context.models.metricGroups.getAll());
+  const resolvedFactTableMap = factTableMap ?? (await getFactTableMap(context));
+
+  assertClusterExperimentMetricsSupported({
+    goalMetrics: current.goalMetrics,
+    secondaryMetrics: current.secondaryMetrics,
+    guardrailMetrics: current.guardrailMetrics,
+    metricMap: resolvedMetricMap,
+    metricGroups: resolvedMetricGroups,
+    clusterIdentifier,
+    clusterSubUnitIdentifier: current.clusterSubUnitIdentifier,
+    factTableMap: resolvedFactTableMap,
+    datasource,
+  });
+}
+
 export function postExperimentApiPayloadToInterface(
   payload: PostExperimentApiPayload,
   organization: OrganizationInterface,
@@ -4772,7 +5060,6 @@ export function postExperimentApiPayloadToInterface(
       },
     },
   ];
-
   const obj: Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> = {
     organization: organization.id,
     datasource: datasource?.id ?? "",
@@ -4807,6 +5094,12 @@ export function postExperimentApiPayloadToInterface(
       "",
     /** Parsed by the caller, which has the data source's queries. */
     exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
+    ...(payload.isClusterExperiment !== undefined
+      ? { isClusterExperiment: payload.isClusterExperiment }
+      : {}),
+    ...(payload.clusterSubUnitIdentifier !== undefined
+      ? { clusterSubUnitIdentifier: payload.clusterSubUnitIdentifier }
+      : {}),
     name: payload.name || "",
     type: payload.type || "standard",
     phases,
@@ -5118,6 +5411,8 @@ export function updateExperimentApiPayloadToInterface(
     owner,
     datasourceId,
     assignmentQueryId,
+    isClusterExperiment,
+    clusterSubUnitIdentifier,
     hashAttribute,
     hashVersion,
     disableStickyBucketing,
@@ -5172,6 +5467,10 @@ export function updateExperimentApiPayloadToInterface(
     ...(owner !== undefined ? { owner } : {}),
     ...(datasourceId ? { datasource: datasourceId } : {}),
     ...(assignmentQueryId ? { exposureQueryId: assignmentQueryId } : {}),
+    ...(isClusterExperiment !== undefined ? { isClusterExperiment } : {}),
+    ...(clusterSubUnitIdentifier !== undefined
+      ? { clusterSubUnitIdentifier }
+      : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
     ...(payload.attributeScopeAllProjects !== undefined

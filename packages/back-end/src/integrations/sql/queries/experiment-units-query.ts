@@ -1,4 +1,8 @@
-import { getDelayWindowHours, getUserIdTypes } from "shared/experiments";
+import {
+  getClusterSubUnit,
+  getDelayWindowHours,
+  getUserIdTypes,
+} from "shared/experiments";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentUnitsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
@@ -57,19 +61,23 @@ export function getExperimentUnitsQuery(
 
   const exposureQuery = unitsSettings.exposureQuery;
 
+  const clusterSubUnit = getClusterSubUnit(unitsSettings);
+  const clusterIdColumn = clusterSubUnit ? exposureQuery.identifierType : null;
+  const effectiveBaseIdType = clusterSubUnit ?? exposureQuery.identifierType;
+
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
     {
       objects: [
-        [exposureQuery.identifierType],
+        [effectiveBaseIdType],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
         ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
       ],
       from: unitsSettings.startDate,
       to: unitsSettings.endDate,
-      forcedBaseIdType: exposureQuery.identifierType,
+      forcedBaseIdType: effectiveBaseIdType,
       experimentId: unitsSettings.experimentId,
     },
   );
@@ -159,6 +167,7 @@ export function getExperimentUnitsQuery(
         e.${baseIdType} as ${baseIdType}
         , ${dialect.castToString("e.variation_id")} as variation
         , ${timestampDateTimeColumn} as timestamp
+        ${clusterIdColumn ? `, e.${clusterIdColumn} as ${clusterIdColumn}` : ""}
         ${contextualExposureSelectCols}
         ${experimentDimensions
           .map((d) => {
@@ -246,6 +255,11 @@ export function getExperimentUnitsQuery(
         e.${baseIdType} AS ${baseIdType}
         , ${variationValuePerUnit} AS variation
         , MIN(${timestampColumn}) AS first_exposure_timestamp
+        ${
+          clusterIdColumn
+            ? `, MAX(e.${clusterIdColumn}) AS ${clusterIdColumn}`
+            : ""
+        }
         ${unitDimensions
           .map(
             (d) => `

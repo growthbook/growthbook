@@ -614,6 +614,54 @@ describe("getIncrementalFullRefreshReasons", () => {
     ).toEqual(["Experiment assignment identifier type changed"]);
   });
 
+  it("returns a reason when isClusterExperiment toggled on", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: "user_id",
+        }),
+        makeComparable({ isClusterExperiment: false }),
+      ),
+    ).toEqual([
+      "Cluster analysis setting changed",
+      "Cluster sub-unit identifier changed",
+    ]);
+  });
+
+  it("treats isClusterExperiment false vs undefined as equal", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ isClusterExperiment: false }),
+        makeComparable({ isClusterExperiment: undefined }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("returns a reason when clusterSubUnitIdentifier changed within a cluster experiment", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: "device_id",
+        }),
+        makeComparable({
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: "user_id",
+        }),
+      ),
+    ).toEqual(["Cluster sub-unit identifier changed"]);
+  });
+
+  it("treats clusterSubUnitIdentifier empty vs undefined as equal", () => {
+    expect(
+      getIncrementalFullRefreshReasons(
+        makeComparable({ clusterSubUnitIdentifier: "" }),
+        makeComparable({ clusterSubUnitIdentifier: undefined }),
+      ),
+    ).toEqual([]);
+  });
+
   it("returns a reason when startDate changed", () => {
     expect(
       getIncrementalFullRefreshReasons(

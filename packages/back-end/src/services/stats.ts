@@ -18,6 +18,7 @@ import {
   isFactFunnelMetric,
   isRatioMetric,
   isRegressionAdjusted,
+  isSubUnitClusterMetric,
   parseDimensionId,
   quantileMetricType,
 } from "shared/experiments";
@@ -85,6 +86,7 @@ export function getAnalysisSettingsForStatsEngine(
   variations: ExperimentReportVariation[],
   coverage: number,
   phaseLengthDays: number,
+  isClusterExperiment: boolean = false,
 ): AnalysisSettingsForStatsEngine {
   const sortedVariations = putBaselineVariationFirst(
     variations,
@@ -124,7 +126,8 @@ export function getAnalysisSettingsForStatsEngine(
     num_guardrail_metrics: settings.numGuardrailMetrics ?? 0,
     one_sided_intervals: !!settings.oneSidedIntervals,
     use_covariate_as_response: !!settings.useCovariateAsResponse,
-    post_stratification_enabled: !!settings.postStratificationEnabled,
+    post_stratification_enabled:
+      !isClusterExperiment && !!settings.postStratificationEnabled,
   };
 
   return analysisData;
@@ -229,6 +232,7 @@ function createStatsEngineData(
         variations,
         coverage,
         phaseLengthDays,
+        !!params.isClusterExperiment,
       ),
     ),
     bandit_settings: banditSettings
@@ -314,20 +318,31 @@ export function getMetricSettingsForStatsEngine(
     applyMetricOverrides(denominator, settings);
   }
 
-  const ratioMetric = isRatioMetric(metric, denominator);
+  // Cluster-level metrics are a standard analysis with the cluster as the unit.
+  const isClusterMetric = isSubUnitClusterMetric(metric, settings);
+
+  const createRatioStatistic =
+    isClusterMetric || isRatioMetric(metric, denominator);
   const quantileMetric = quantileMetricType(metric);
   const regressionAdjusted =
     settings.regressionAdjustmentEnabled &&
     isRegressionAdjusted(metric, denominator) &&
-    // block RA for ratio metrics from non-optimized fact metrics
-    (!isRatioMetric(metric, denominator) || optimizedFactMetric);
-  const mainMetricType = quantileMetric
-    ? "quantile"
-    : isBinomialMetric(metric)
-      ? "binomial"
-      : "count";
-  // Fact ratio metrics contain denominator
-  if (isFactMetric(metric) && ratioMetric) {
+    (isClusterMetric ||
+      !isRatioMetric(metric, denominator) ||
+      optimizedFactMetric);
+  let mainMetricType: "count" | "quantile" | "binomial";
+  if (isClusterMetric) {
+    mainMetricType = "count";
+  } else if (quantileMetric) {
+    mainMetricType = "quantile";
+  } else if (isBinomialMetric(metric)) {
+    mainMetricType = "binomial";
+  } else {
+    mainMetricType = "count";
+  }
+  // Fact ratio metrics (and every cluster metric) carry the denominator on the
+  // metric row itself.
+  if (isClusterMetric || (isFactMetric(metric) && createRatioStatistic)) {
     denominator = metric;
   }
 
@@ -340,18 +355,19 @@ export function getMetricSettingsForStatsEngine(
         ? "quantile_unit"
         : quantileMetric === "event"
           ? "quantile_event"
-          : ratioMetric && regressionAdjusted
+          : createRatioStatistic && regressionAdjusted
             ? "ratio_ra"
-            : ratioMetric && !regressionAdjusted
+            : createRatioStatistic && !regressionAdjusted
               ? "ratio"
               : regressionAdjusted
                 ? "mean_ra"
                 : "mean",
     main_metric_type: mainMetricType,
     ...(denominator && {
-      denominator_metric_type: isBinomialMetric(denominator)
-        ? "binomial"
-        : "count",
+      denominator_metric_type:
+        isClusterMetric || !isBinomialMetric(denominator)
+          ? "count"
+          : "binomial",
     }),
     ...(regressionAdjusted && {
       covariate_metric_type: mainMetricType,
@@ -780,6 +796,7 @@ export async function analyzeExperimentResults({
   const params: ExperimentMetricAnalysisParams = {
     id: snapshotSettings.experimentId,
     coverage: snapshotSettings.coverage ?? 1,
+    isClusterExperiment: !!snapshotSettings.isClusterExperiment,
     phaseLengthHours: Math.max(
       hoursBetween(snapshotSettings.startDate, snapshotSettings.endDate),
       1,

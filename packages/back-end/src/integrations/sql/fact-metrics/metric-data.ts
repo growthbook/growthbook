@@ -1,4 +1,5 @@
 import {
+  isSubUnitClusterMetric,
   eligibleForUncappedMetric,
   ExperimentMetricInterface,
   getFactMetricPrimaryFactTableId,
@@ -51,7 +52,12 @@ export function getMetricData(
   metricWithIndex: { metric: FactMetricInterface; index: number },
   settings: Pick<
     ExperimentSnapshotSettings,
-    "attributionModel" | "regressionAdjustmentEnabled" | "startDate"
+    | "attributionModel"
+    | "regressionAdjustmentEnabled"
+    | "startDate"
+    | "isClusterExperiment"
+    | "clusterSubUnitIdentifier"
+    | "clusterLevelMetricIds"
   > & { endDate?: Date },
   activationMetric: ExperimentMetricInterface | null,
   factTablesWithIndices: { factTable: FactTableInterface; index: number }[],
@@ -64,6 +70,10 @@ export function getMetricData(
   flattenSources: boolean = false,
 ): FactMetricData {
   const { metric, index: metricIndex } = metricWithIndex;
+  const isClusterMetric = isSubUnitClusterMetric(metric, settings);
+  const isClusterRatioConversion =
+    isClusterMetric &&
+    ["mean", "proportion", "retention"].includes(metric.metricType);
   const ratioMetric = isRatioMetric(metric);
   const funnelMetric = isFactFunnelMetric(metric);
   const quantileMetric = funnelMetric ? "" : quantileMetricType(metric);
@@ -150,6 +160,10 @@ export function getMetricData(
     },
     lowerCappingSettings: null,
   };
+  // Per-unit uncapped expressions (the value with no cap applied), used by Metric
+  // Drilldowns. Same consumption pattern as the capped expressions above: read
+  // directly in a standard experiment, summed into __clusterRollup for a cluster
+  // experiment.
   const uncappedCoalesceMetric = capCoalesceValue(dialect, {
     valueCol: `m${numeratorValueAlias}.${alias}_value`,
     metric: uncappedMetric,
@@ -259,6 +273,7 @@ export function getMetricData(
     metric,
     metricIndex,
     ratioMetric,
+    isClusterRatioConversion,
     funnelMetric,
     quantileMetric,
     metricQuantileSettings,

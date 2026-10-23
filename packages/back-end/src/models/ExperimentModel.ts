@@ -150,6 +150,8 @@ const experimentSchema = new mongoose.Schema({
   userIdType: String,
   exposureQueryId: String,
   exposureQueryIdentifierType: String,
+  isClusterExperiment: Boolean,
+  clusterSubUnitIdentifier: String,
   hashAttribute: String,
   fallbackAttribute: String,
   hashVersion: Number,

@@ -528,6 +528,99 @@ describe("snapshot planning", () => {
     expectOnlyJoinableMetricsAnalyzed(snapshotSettings, metricMap);
   });
 
+  it("report settings analyze cluster-level metrics at the cluster grain", () => {
+    // Cluster experiment: randomize on region_id (the cluster), analyze the
+    // nested user_id sub-unit. A metric on a user-grain fact table is analyzed
+    // per sub-unit and rolled up; a metric on a region-only fact table can only
+    // be reached at the cluster grain, so it joins on region_id directly.
+    const datasource = makeDatasource({
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "exposure_region",
+              name: "Regions",
+              userIdType: "region_id",
+              userIdTypes: ["region_id", "user_id"],
+              query: "SELECT * FROM exposures",
+              dimensions: [],
+            },
+          ],
+        },
+      } as unknown as DataSourceInterface["settings"],
+    });
+    const subUnitTable = factTableFactory.build({
+      id: "ft_subunit",
+      userIdTypes: ["user_id"],
+    });
+    const clusterTable = factTableFactory.build({
+      id: "ft_cluster",
+      userIdTypes: ["region_id"],
+    });
+    const factTableMap = new Map([
+      [subUnitTable.id, subUnitTable],
+      [clusterTable.id, clusterTable],
+    ]) as FactTableMap;
+    const subUnitMetric = factMetricFactory.build({
+      id: "m_subunit",
+      numerator: { factTableId: "ft_subunit" },
+    });
+    const clusterMetric = factMetricFactory.build({
+      id: "m_cluster",
+      numerator: { factTableId: "ft_cluster" },
+    });
+    const metricMap = new Map<string, ExperimentMetricInterface>([
+      [subUnitMetric.id, subUnitMetric],
+      [clusterMetric.id, clusterMetric],
+    ]);
+    const settingsForSnapshotMetrics = [subUnitMetric, clusterMetric].map(
+      (metric) =>
+        getMetricSnapshotSettings({
+          metric,
+          denominatorMetrics: [],
+          experimentRegressionAdjustmentEnabled: false,
+        }).metricSnapshotSettings,
+    );
+
+    const experimentAnalysisSettings = {
+      exposureQueryId: "exposure_region",
+      exposureQueryIdentifierType: "region_id",
+      isClusterExperiment: true,
+      clusterSubUnitIdentifier: "user_id",
+      goalMetrics: ["m_subunit", "m_cluster"],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      metricOverrides: [],
+    };
+
+    const snapshotSettings = getReportSnapshotSettings({
+      report: {
+        experimentAnalysisSettings,
+        experimentMetadata: {
+          phases: [{ variationWeights: [0.5, 0.5] }],
+          variations: [{ key: "0" }, { key: "1" }],
+        },
+      } as unknown as ExperimentSnapshotReportInterface,
+      analysisSettings: makeAnalysisSettings(),
+      phaseIndex: 0,
+      orgPriorSettings: undefined,
+      settingsForSnapshotMetrics,
+      metricMap,
+      factTableMap,
+      metricGroups: [],
+      datasource,
+    });
+
+    // Per-metric scrub: the sub-unit metric joins on user_id, the cluster-level
+    // metric on region_id. Before this fix the blanket sub-unit scrub dropped
+    // the region-only metric.
+    expect(snapshotSettings.goalMetrics).toEqual(["m_subunit", "m_cluster"]);
+    // Only the region-only metric is analyzed with the cluster as the unit.
+    expect(snapshotSettings.clusterLevelMetricIds).toEqual(["m_cluster"]);
+    expect(snapshotSettings.isClusterExperiment).toBe(true);
+    expect(snapshotSettings.clusterSubUnitIdentifier).toBe("user_id");
+  });
+
   it("expands legacy report metric groups consistently", () => {
     const metricGroups = [
       { id: "mg_goal", metrics: ["m_goal_a", "m_goal_b"] },
@@ -594,6 +687,46 @@ describe("snapshot planning", () => {
     ]);
     expect(analysisSettings.numGoalMetrics).toBe(2);
     expect(analysisSettings.numGuardrailMetrics).toBe(2);
+  });
+
+  it("never enables cluster analysis for legacy reports, even for a cluster experiment", () => {
+    const metric = factMetricFactory.build({ id: "m_goal" });
+    const metricMap = new Map<string, ExperimentMetricInterface>([
+      [metric.id, metric],
+    ]);
+    const args: LegacyExperimentReportArgs = {
+      trackingKey: "experiment",
+      datasource: "ds_123",
+      exposureQueryId: "exposure",
+      exposureQueryIdentifierType: "region_id",
+      startDate: new Date(),
+      variations: [
+        { id: "0", index: 0, name: "Control", weight: 0.5 },
+        { id: "1", index: 1, name: "Treatment", weight: 0.5 },
+      ],
+      goalMetrics: ["m_goal"],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      decisionFrameworkSettings: {},
+    };
+
+    // Even if the live experiment is cluster-randomized, legacy reports must
+    // not enable cluster analysis (they can't compute clusterLevelMetricIds).
+    const clusterExperiment = makeExperiment({
+      isClusterExperiment: true,
+      clusterSubUnitIdentifier: "user_id",
+    });
+
+    const { snapshotSettings } = getSnapshotSettingsFromReportArgs(
+      args,
+      metricMap,
+      undefined,
+      clusterExperiment,
+    );
+
+    expect(snapshotSettings.isClusterExperiment).toBe(false);
+    expect(snapshotSettings.clusterSubUnitIdentifier).toBeUndefined();
+    expect(snapshotSettings.clusterLevelMetricIds).toBeUndefined();
   });
 
   it("rejects a snapshot for an experiment with no metrics without persisting a record", async () => {

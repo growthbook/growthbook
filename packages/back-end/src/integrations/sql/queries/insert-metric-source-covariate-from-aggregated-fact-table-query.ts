@@ -13,6 +13,7 @@ import type { SqlDialect } from "shared/types/sql";
 import { snapToUtcDayStart } from "shared/dates";
 import { parseExperimentFactMetricsParams } from "back-end/src/integrations/sql/fact-metrics/parse-experiment-fact-metrics-params";
 import { getMetricSourceCovariateTableColumns } from "back-end/src/integrations/sql/fact-metrics/metric-source-covariate-table-schema";
+import { resolveClusterMetricGrain } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { capCoalesceValue } from "back-end/src/integrations/sql/primitives/cap-coalesce-value";
@@ -26,9 +27,6 @@ export function getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
   dialect: SqlDialect,
   params: InsertMetricSourceCovariateFromAggregatedFactTableQueryParams,
 ): string {
-  // Aggregated table is keyed on the exposure id type, so no identity join.
-  const baseIdType = params.exposureQuery.identifierType;
-
   // Capping is applied later in the statistics query.
   const sortedMetrics = cloneDeep(params.metrics)
     .map((m) => ({
@@ -37,6 +35,12 @@ export function getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
       lowerCappingSettings: null,
     }))
     .sort((a, b) => a.id.localeCompare(b.id));
+
+  const { baseIdType, isClusterLevelGroup } = resolveClusterMetricGrain({
+    settings: params.settings,
+    metrics: sortedMetrics,
+    exposureIdentifierType: params.exposureQuery.identifierType,
+  });
   const paramsMetricsSorted: {
     metrics: FactMetricInterface[];
     activationMetric: ExperimentMetricInterface | null;
@@ -137,7 +141,12 @@ export function getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
               .join("\n")}
           FROM ${params.aggregatedTableFullName} p
           INNER JOIN (
-            SELECT ${baseIdType}
+            SELECT ${
+              // Units cache is sub-unit-grained; DISTINCT collapses to one row
+              // per cluster so the join doesn't fan out cluster-level covariate
+              // rows.
+              isClusterLevelGroup ? "DISTINCT " : ""
+            }${baseIdType}
             FROM ${params.unitsSourceTableFullName}
             ${
               params.lastCovariateSuccessfulMaxTimestamp

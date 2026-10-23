@@ -134,6 +134,7 @@ export type FactMetricData = {
   metric: FactMetricInterface;
   metricIndex: number;
   ratioMetric: boolean;
+  isClusterRatioConversion: boolean;
   funnelMetric: boolean;
   quantileMetric: "" | MetricQuantileSettings["type"];
   metricQuantileSettings: MetricQuantileSettings;
@@ -351,6 +352,8 @@ export type ColumnTopValuesResponseRow = {
 export interface ExperimentUnitsQuerySettings {
   experimentId: string;
   exposureQuery: ResolvedExposureQuery;
+  isClusterExperiment?: boolean;
+  clusterSubUnitIdentifier?: string;
   startDate: Date;
   endDate: Date;
   skipPartialData: boolean;
