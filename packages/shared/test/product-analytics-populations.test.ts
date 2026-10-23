@@ -2,6 +2,8 @@ import { DatabaseSync } from "node:sqlite";
 import {
   generateProductAnalyticsSQL,
   transformProductAnalyticsRowsToResult,
+  getEffectiveMetricValue,
+  buildExplorationColumns,
   encodeExplorationConfig,
   decodeExplorationConfigJson,
   validateMetricPopulation,
@@ -189,6 +191,14 @@ describe("population-backed proportions", () => {
         populationRate: true,
       },
     ]);
+    expect(
+      rows.map((r) =>
+        getEffectiveMetricValue(r.values![0], {
+          showAs: "total",
+          isRatio: false,
+        }),
+      ),
+    ).toEqual([0.5, 0, null]);
   });
   it("evaluates membership across the selected range for an overall total", () => {
     const rows = execute({ ...config, dimensions: [], chartType: "bigNumber" });
@@ -286,8 +296,9 @@ describe("population-backed proportions", () => {
       },
     };
     const cell = execute(c)[0].values![0];
-    expect(cell.denominator ?? 0).toBe(0);
-    expect(cell.populationRate).toBe(true);
+    expect(
+      getEffectiveMetricValue(cell, { showAs: "per_unit", isRatio: false }),
+    ).toBeNull();
     expect(query().orderedMetricIds).toEqual([metric.id]);
   });
   it("keeps two population selections independent in the same scan", () => {
@@ -328,6 +339,9 @@ describe("population-backed proportions", () => {
       decodeExplorationConfigJson(encodeExplorationConfig(config)),
     );
     expect(parsed).toEqual(config);
+    expect(buildExplorationColumns(parsed, () => metric)[1].label).toBe(
+      "Conversion Rate (0–1)",
+    );
   });
   it("rejects unsupported inline population configurations", () => {
     const validate = (

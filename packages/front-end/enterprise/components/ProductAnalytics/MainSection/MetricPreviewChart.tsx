@@ -200,7 +200,7 @@ export default function MetricPreviewChart({
               const cell = cellsByDay.get(day);
               const lines = [
                 `<strong>${date(new Date(`${day.slice(0, 10)}T00:00:00Z`), "UTC")}</strong>`,
-                `Value: ${formatPreviewHeadline(dailyValue(day))}`,
+                `Value: ${formatPreviewHeadline(dailyValue(day) ?? 0)}`,
               ];
               if (parts) {
                 lines.push(

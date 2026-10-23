@@ -447,9 +447,18 @@ export function getDefaultValueAxisName(
  * always render as N/D regardless of showAs.
  */
 export function getEffectiveMetricValue(
-  v: { numerator: number | null; denominator: number | null },
+  v: {
+    numerator: number | null;
+    denominator: number | null;
+    populationRate?: boolean;
+  },
   opts: { showAs: ShowAs; isRatio: boolean },
-): number {
+): number | null {
+  if (v.populationRate) {
+    return v.numerator !== null && v.denominator !== null && v.denominator > 0
+      ? v.numerator / v.denominator
+      : null;
+  }
   const num = v.numerator ?? 0;
   if (opts.isRatio) {
     return v.denominator ? num / v.denominator : num;
@@ -587,7 +596,9 @@ export function buildExplorationColumns(
     }
 
     let singleLabel = name;
-    if (effectiveShowAs === "per_unit") {
+    if ("population" in v && v.population) {
+      singleLabel = `${name} Rate (0–1)`;
+    } else if (effectiveShowAs === "per_unit") {
       const unit =
         ("unit" in v && typeof v.unit === "string" ? v.unit : null) ||
         sharedUnit ||
@@ -619,7 +630,11 @@ export function getExplorationCellValue(
     // Optional because funnel rows carry `steps` instead of `values`. The
     // shared schema for funnels is dimension-only (no metric columns), so
     // values is always undefined for funnel callers and treated as empty.
-    values?: { numerator: number | null; denominator: number | null }[];
+    values?: {
+      numerator: number | null;
+      denominator: number | null;
+      populationRate?: boolean;
+    }[];
   },
   col: ExplorationColumn,
   renderOpts: ExplorationRenderOpts,
@@ -655,10 +670,10 @@ function getRowTotal(
   return (row.values ?? []).reduce(
     (sum, v, i) =>
       sum +
-      getEffectiveMetricValue(v, {
+      (getEffectiveMetricValue(v, {
         showAs: opts.showAs,
         isRatio: opts.isRatioByIndex[i] ?? false,
-      }),
+      }) ?? 0),
     0,
   );
 }

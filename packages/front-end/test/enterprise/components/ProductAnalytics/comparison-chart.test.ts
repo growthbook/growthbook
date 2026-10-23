@@ -4,6 +4,7 @@ import type {
 } from "shared/validators";
 import {
   alignComparisonOverlayToCategories,
+  buildComparisonOverlaySeriesMaps,
   computeBigNumberComparisonTrendForMetricIndex,
   buildCompareChartLegendModel,
   computeBigNumberComparisonTrends,
@@ -351,7 +352,7 @@ function cell(numerator: number, denominator: number | null = null) {
 }
 
 function explorationFromValues(
-  values: ReturnType<typeof cell>[],
+  values: (ReturnType<typeof cell> & { populationRate?: boolean })[],
 ): ProductAnalyticsExploration {
   return {
     result: { rows: [{ dimensions: [], values }] },
@@ -483,5 +484,104 @@ describe("computeBigNumberComparisonTrends", () => {
     expect(trends).toHaveLength(2);
     expect(trends[0]?.pctChange).toBe(0.25);
     expect(trends[1]?.pctChange).toBe(0.25);
+  });
+});
+
+describe("population rate comparisons", () => {
+  it("preserves undefined rates as gaps and distinguishes zero conversions", () => {
+    const config: ExplorationConfig = {
+      type: "metric",
+      datasource: "ds",
+      chartType: "line",
+      dimensions: [],
+      dateRange: { predefined: "last7Days" },
+      dataset: {
+        type: "metric",
+        values: [
+          {
+            type: "metric",
+            metricId: "m",
+            name: "Conversion",
+            unit: "user_id",
+            denominatorUnit: null,
+            rowFilters: [],
+            population: {
+              name: "Eligible users",
+              source: { type: "factTable", factTableId: "events" },
+              rowFilters: [],
+            },
+          },
+        ],
+      },
+    };
+    const { dataMap } = buildComparisonOverlaySeriesMaps(
+      [
+        {
+          dimensions: ["empty"],
+          values: [
+            {
+              metricId: "m",
+              numerator: 0,
+              denominator: 0,
+              populationRate: true,
+            },
+          ],
+        },
+        {
+          dimensions: ["zero"],
+          values: [
+            {
+              metricId: "m",
+              numerator: 0,
+              denominator: 10,
+              populationRate: true,
+            },
+          ],
+        },
+        {
+          dimensions: ["converted"],
+          values: [
+            {
+              metricId: "m",
+              numerator: 2,
+              denominator: 10,
+              populationRate: true,
+            },
+          ],
+        },
+      ],
+      config,
+      { showAs: "total", isRatioByIndex: [false] },
+    );
+    expect(dataMap.__single__).toEqual({
+      empty: null,
+      zero: 0,
+      converted: 0.2,
+    });
+    const aligned = alignComparisonOverlayToCategories(
+      ["empty", "zero"],
+      dataMap,
+      ["__single__"],
+      ["empty", "zero"],
+      false,
+    );
+    expect(aligned.__single__).toEqual({ empty: null, zero: 0 });
+  });
+  it("does not invent a trend when either population is empty", () => {
+    const current = explorationFromValues([
+      { ...cell(0, 0), populationRate: true },
+    ]);
+    const previous = explorationFromValues([
+      { ...cell(2, 10), populationRate: true },
+    ]);
+    expect(
+      computeBigNumberComparisonTrendForMetricIndex(
+        current,
+        previous,
+        submittedExploreStateFixture,
+        getFactMetricById,
+        0,
+      ),
+    ).toBeNull();
   });
 });
