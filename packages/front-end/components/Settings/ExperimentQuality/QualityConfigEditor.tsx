@@ -57,7 +57,8 @@ function CheckRow({
 }) {
   const isOn = enabled && !disabled;
   return (
-    <Box py="2" style={{ opacity: isOn ? 1 : 0.5 }}>
+    // Only fade rows that can't be changed; an unchecked check can be turned on
+    <Box py="2" style={{ opacity: disabled ? 0.5 : 1 }}>
       <div className={styles.checkRow}>
         <Checkbox
           mb="0"
@@ -419,7 +420,7 @@ export default function QualityConfigEditor({
                             )}
                             placeholder="Name this check"
                             value={custom.name}
-                            disabled={!custom.enabled || !included}
+                            disabled={!included}
                             aria-label="Custom check name"
                             onChange={(e) =>
                               setDraft(
