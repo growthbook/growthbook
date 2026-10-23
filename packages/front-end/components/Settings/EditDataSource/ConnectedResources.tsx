@@ -1,11 +1,10 @@
 import { ReactNode, useMemo, useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   PiChartLine,
   PiFlask,
   PiMagnifyingGlass,
   PiTable,
-  PiXBold,
 } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
@@ -115,33 +114,12 @@ function ResourceSection({
             <Box style={{ width: 220 }}>
               <TextField
                 size="sm"
+                type="search"
                 placeholder={filterPlaceholder}
                 aria-label={filterPlaceholder}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape" && query) {
-                    event.preventDefault();
-                    setQuery("");
-                  }
-                }}
                 prepend={<PiMagnifyingGlass />}
-                append={
-                  query ? (
-                    <IconButton
-                      type="button"
-                      size="1"
-                      variant="ghost"
-                      color="gray"
-                      aria-label="Clear filter"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => setQuery("")}
-                      style={{ width: 16, height: 16 }}
-                    >
-                      <PiXBold size={12} />
-                    </IconButton>
-                  ) : null
-                }
               />
             </Box>
           ) : null}
@@ -156,7 +134,12 @@ function ResourceSection({
       ) : total === 0 ? (
         <Text color="text-mid">{emptyText}</Text>
       ) : filtered.length === 0 ? (
-        <Text color="text-mid">No matches.</Text>
+        <Text as="div" color="text-mid">
+          No matching results.{" "}
+          <Button variant="ghost" size="sm" onClick={() => setQuery("")}>
+            Clear search
+          </Button>
+        </Text>
       ) : (
         <Table
           variant="list"
