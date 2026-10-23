@@ -15,6 +15,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useApi from "@/hooks/useApi";
+import { isCloud } from "@/services/env";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
@@ -47,7 +48,9 @@ export default function SavedGroupsPage() {
   };
 
   const { refreshOrganization } = useUser();
-  const remoteGroupsEnabled = useFeatureIsOn("remote-saved-groups");
+  // The flag only applies on Cloud
+  const remoteGroupsFlagOn = useFeatureIsOn("remote-saved-groups");
+  const remoteGroupsEnabled = !isCloud() || remoteGroupsFlagOn;
 
   // Initialize activeTab from URL hash, default to conditionGroups
   const getInitialTab = () => {

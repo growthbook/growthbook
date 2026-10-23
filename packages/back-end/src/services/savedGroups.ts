@@ -31,7 +31,7 @@ import {
   BadRequestError,
   PlanDoesNotAllowError,
 } from "back-end/src/util/errors";
-import { UPLOAD_METHOD } from "back-end/src/util/secrets";
+import { IS_CLOUD, UPLOAD_METHOD } from "back-end/src/util/secrets";
 import {
   getBackendFeatureValue,
   getTrustedOrgAttributes,
@@ -403,9 +403,11 @@ export async function assertSavedGroupDeletable(
   );
 }
 
+/** The flag only applies on Cloud; self-hosted is gated by the license alone. */
 export function isRemoteSavedGroupsEnabled(
   org: ReqContext["org"] | ApiReqContext["org"],
 ): boolean {
+  if (!IS_CLOUD) return true;
   return getBackendFeatureValue(
     "remote-saved-groups",
     false,
