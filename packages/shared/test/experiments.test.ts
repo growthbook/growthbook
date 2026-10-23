@@ -2827,6 +2827,44 @@ describe("Virtual Columns", () => {
         ),
       ).toBe(true);
     });
+
+    it("detects the column exposed through a wildcard over a CTE", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "WITH q AS (SELECT user_id, bandit_version FROM assignments) SELECT * FROM q",
+          "bandit_version",
+        ),
+      ).toBe(true);
+    });
+
+    it("detects the column exposed through a qualified wildcard", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "WITH q AS (SELECT user_id, bandit_version FROM assignments) SELECT q.* FROM q",
+          "bandit_version",
+        ),
+      ).toBe(true);
+    });
+
+    it("does not treat multiplication in the projection as a wildcard", () => {
+      // The `*` here is multiplication, not a wildcard, so the strict
+      // projection check applies and a WHERE-only reference must not count.
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "SELECT user_id, price * quantity AS total FROM t WHERE bandit_version >= 2",
+          "bandit_version",
+        ),
+      ).toBe(false);
+    });
+
+    it("does not treat COUNT(*) as a wildcard", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "SELECT user_id, COUNT(*) AS n FROM t WHERE bandit_version >= 2 GROUP BY user_id",
+          "bandit_version",
+        ),
+      ).toBe(false);
+    });
   });
 
   describe("validateVirtualColumnExpression", () => {

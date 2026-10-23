@@ -755,13 +755,107 @@ export function extractTopLevelSelectProjections(
   return projections.join("\n");
 }
 
+function selectProjectionsIncludeWildcard(
+  projections: string,
+  identifierQuote: SqlIdentifierQuote,
+): boolean {
+  const n = projections.length;
+  const stringQuote = identifierQuote === '"' ? "`" : '"';
+
+  const skipQuoted = (start: number, quote: string): number => {
+    let j = start + 1;
+    while (j < n) {
+      if (projections[j] === quote) {
+        if (projections[j + 1] === quote) {
+          j += 2;
+          continue;
+        }
+        return j + 1;
+      }
+      j++;
+    }
+    return j;
+  };
+
+  let i = 0;
+  let depth = 0;
+  // Last significant (non-whitespace, outside quotes/comments) character seen.
+  let prevSignificant = "";
+
+  while (i < n) {
+    const c = projections[i];
+
+    if (c === "'") {
+      i = skipQuoted(i, "'");
+      prevSignificant = "'";
+      continue;
+    }
+
+    // Line comment.
+    if (c === "-" && projections[i + 1] === "-") {
+      let j = i + 2;
+      while (j < n && projections[j] !== "\n") j++;
+      i = j;
+      continue;
+    }
+
+    // Block comment.
+    if (c === "/" && projections[i + 1] === "*") {
+      let j = i + 2;
+      while (j < n && !(projections[j] === "*" && projections[j + 1] === "/"))
+        j++;
+      i = Math.min(n, j + 2);
+      continue;
+    }
+
+    if (c === identifierQuote || c === stringQuote) {
+      i = skipQuoted(i, c);
+      prevSignificant = c;
+      continue;
+    }
+
+    if (c === "(") {
+      depth++;
+      prevSignificant = "(";
+      i++;
+      continue;
+    }
+
+    if (c === ")") {
+      if (depth > 0) depth--;
+      prevSignificant = ")";
+      i++;
+      continue;
+    }
+
+    if (
+      c === "*" &&
+      depth === 0 &&
+      (prevSignificant === "" ||
+        prevSignificant === "," ||
+        prevSignificant === ".")
+    ) {
+      return true;
+    }
+
+    if (!/\s/.test(c)) prevSignificant = c;
+    i++;
+  }
+
+  return false;
+}
+
 export function sqlSelectsColumnAllowingQualified(
   sql: string,
   column: string,
   identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
 ): boolean {
+  const projections = extractTopLevelSelectProjections(sql, identifierQuote);
+  if (selectProjectionsIncludeWildcard(projections, identifierQuote)) {
+    return sqlReferencesColumnAllowingQualified(sql, column, identifierQuote);
+  }
   return sqlReferencesColumnAllowingQualified(
-    extractTopLevelSelectProjections(sql, identifierQuote),
+    projections,
     column,
     identifierQuote,
   );
