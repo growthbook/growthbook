@@ -526,7 +526,7 @@ export default function FactTableDetailsPage() {
             <TabLabel label="Sample rows" />
           </TabsTrigger>
           <TabsTrigger value="filters">
-            <TabLabel label="Saved filters" count={factTable.filters.length} />
+            <TabLabel label="Saved Filters" count={factTable.filters.length} />
           </TabsTrigger>
           <TabsTrigger value="metrics">
             <TabLabel label="Metrics" count={metrics.length} />

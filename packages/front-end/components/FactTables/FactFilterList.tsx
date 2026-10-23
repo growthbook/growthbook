@@ -77,10 +77,10 @@ function FactFilterRowMenu({
             <DropdownMenuItem
               color="red"
               confirmation={{
-                confirmationTitle: "Delete Filter",
+                confirmationTitle: "Delete Saved Filter",
                 cta: "Delete",
                 getConfirmationContent: async () =>
-                  "This will remove the filter from all metrics that are using it.",
+                  "This will remove the Saved Filter from all metrics that are using it.",
                 submit: async () => {
                   await apiCall(
                     `/fact-tables/${factTableId}/filter/${filter.id}`,
@@ -215,7 +215,7 @@ export default function FactFilterList({
               }}
               disabled={!canAddAndEdit}
             >
-              Add Filter
+              Add Saved Filter
             </Button>
           </Tooltip>
         </div>

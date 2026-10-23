@@ -103,7 +103,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
       close={close}
       cta={"Save"}
       size="lg"
-      header={existing ? "Edit Filter" : "Add Filter"}
+      header={existing ? "Edit Saved Filter" : "Add Saved Filter"}
       submit={form.handleSubmit(async (value) => {
         // If they added their own "WHERE" to the start, remove it
         value.value = value.value.replace(/^\s*where\s*/i, "").trim();
