@@ -192,13 +192,20 @@ export default function MetricWorkspace({
   useEffect(() => {
     if (error) errorRef.current?.scrollIntoView({ block: "nearest" });
   }, [error]);
-  // Same event as the old modal, so both arms of the new-metric-creation-flow
-  // experiment report views identically.
+  const existingId = existing?.id;
+  const existingType = existing?.metricType;
   useEffect(() => {
-    if (!existing)
+    if (!isEditing) return;
+    if (existingId) {
+      track("Viewed Edit Fact Metric Modal", {
+        type: existingType,
+        source,
+        flow: "page",
+      });
+    } else {
       track("Viewed Create Fact Metric Modal", { source, flow: "page" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    }
+  }, [existingId, existingType, isEditing, source]);
   // Definition-can't-be-represented is a rare edge case (existing metrics
   // with a legacy sketch aggregation, mostly) - true is the correct default
   // for the overwhelmingly common case (a fresh create, or an ordinary

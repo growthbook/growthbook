@@ -195,7 +195,6 @@ export interface MetricTableItem {
 
 export function useCombinedMetrics({
   setMetricModalProps,
-  enableRowActions,
   onDuplicateFactMetric,
   onEditFactMetric,
   afterArchive,
@@ -204,9 +203,6 @@ export function useCombinedMetrics({
   // the modal state) - not a stand-in for "does this caller want row
   // actions" anymore now that fact metrics navigate instead of using it.
   setMetricModalProps?: (props: MetricModalState) => void;
-  // The real "did this caller opt into row actions" signal, explicit rather
-  // than inferred from setMetricModalProps's presence.
-  enableRowActions?: boolean;
   // Open the caller's fact metric flow (useFactMetricFlow).
   onDuplicateFactMetric?: (metric: FactMetricInterface) => void;
   onEditFactMetric?: (metric: FactMetricInterface) => void;
@@ -363,13 +359,11 @@ export function useCombinedMetrics({
             }
           : undefined,
         onDuplicate:
-          canDuplicate && enableRowActions && onDuplicateFactMetric
+          canDuplicate && onDuplicateFactMetric
             ? () => onDuplicateFactMetric(m)
             : undefined,
         onEdit:
-          canEdit && enableRowActions && onEditFactMetric
-            ? () => onEditFactMetric(m)
-            : undefined,
+          canEdit && onEditFactMetric ? () => onEditFactMetric(m) : undefined,
         onDelete: canDelete
           ? async () => {
               await apiCall(`/fact-metrics/${m.id}`, {
@@ -415,7 +409,6 @@ const MetricsList = (): React.ReactElement => {
   const factMetricFlow = useFactMetricFlow("blank-state");
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
-    enableRowActions: true,
     onDuplicateFactMetric: (m) => factMetricFlow.open({ duplicate: m }),
     onEditFactMetric: (m) => factMetricFlow.edit(m),
   });

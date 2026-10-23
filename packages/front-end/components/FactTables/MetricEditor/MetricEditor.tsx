@@ -168,7 +168,7 @@ export default function MetricEditor({
     }
   }, [isNew, datasourceOptions, datasourceId, form]);
   const sameDatasourceFactTables = factTables.filter(
-    (ft) => !datasourceId || ft.datasource === datasourceId,
+    (ft) => ft.datasource === datasourceId,
   );
 
   const previewSql = (() => {
