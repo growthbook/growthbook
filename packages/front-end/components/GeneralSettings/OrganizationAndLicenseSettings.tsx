@@ -3,6 +3,7 @@ import { OrganizationInterface } from "shared/types/organization";
 import { Box } from "@radix-ui/themes";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
@@ -22,9 +23,8 @@ export default function OrganizationAndLicenseSettings({
   // this check isn't strictly necessary, as we check permissions accessing the settings page, but it's a good to be safe
   const canEdit = permissions.check("organizationSettings");
   const ownerEmail = orgForm.watch("ownerEmail");
-  const ownerEmailExists = !!Array.from(users).find(
-    (e) => e[1].email === ownerEmail,
-  );
+  const memberEmails = Array.from(users).map(([, user]) => user.email);
+  const ownerEmailExists = memberEmails.includes(ownerEmail);
   const showInstallationName =
     license?.plan === "enterprise" && !isCloud() && isMultiOrg();
 
@@ -49,13 +49,29 @@ export default function OrganizationAndLicenseSettings({
           label="Owner"
           help="Email of the person who owns this organization."
         >
-          <Field
-            id="org-owner"
-            type="email"
-            containerClassName="mb-0"
-            disabled={!canEdit}
-            {...orgForm.register("ownerEmail")}
-          />
+          {/* Large orgs get a plain email field; a dropdown of every member would be unwieldy. */}
+          {memberEmails.length < 100 ? (
+            <Box width="400px" maxWidth="100%">
+              <SelectField
+                id="org-owner"
+                containerClassName="mb-0"
+                value={ownerEmail}
+                options={memberEmails.map((e) => ({ value: e, label: e }))}
+                disabled={!canEdit}
+                onChange={(value) =>
+                  orgForm.setValue("ownerEmail", value, { shouldDirty: true })
+                }
+              />
+            </Box>
+          ) : (
+            <Field
+              id="org-owner"
+              type="email"
+              containerClassName="mb-0"
+              disabled={!canEdit}
+              {...orgForm.register("ownerEmail")}
+            />
+          )}
           {!ownerEmailExists && (
             <HelperText status="error" size="sm" mt="1">
               This email is not associated with any user in your organization.
