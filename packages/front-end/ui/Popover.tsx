@@ -48,6 +48,10 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   onOpenAutoFocus?: React.ComponentProps<
     typeof RadixPopover.Content
   >["onOpenAutoFocus"];
+  /** Called when the content closes and would refocus the trigger — call e.preventDefault() to leave focus where it went (e.g. a modal it opened). */
+  onCloseAutoFocus?: React.ComponentProps<
+    typeof RadixPopover.Content
+  >["onCloseAutoFocus"];
   // False pins the popover to `side` instead of flipping it when space runs out.
   avoidCollisions?: boolean;
   // Open on hover of the trigger (and stay open while hovering the content)
@@ -73,6 +77,7 @@ export function Popover({
   onFocusOutside,
   onInteractOutside,
   onOpenAutoFocus,
+  onCloseAutoFocus,
   openOnHover = false,
   avoidCollisions,
   ...props
@@ -167,6 +172,7 @@ export function Popover({
               onOpenAutoFocus={
                 openOnHover ? (e) => e.preventDefault() : onOpenAutoFocus
               }
+              onCloseAutoFocus={onCloseAutoFocus}
               onEscapeKeyDown={
                 disableDismiss ? (e) => e.preventDefault() : undefined
               }

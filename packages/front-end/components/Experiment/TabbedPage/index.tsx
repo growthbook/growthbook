@@ -623,7 +623,6 @@ function TabbedPageContents({
       <ExperimentHeader
         experiment={experiment}
         holdout={holdout}
-        envs={envs}
         tab={tab}
         setTab={setTabAndScroll}
         mutate={mutate}

@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useRef, useState } from "react";
 import { Flex, Grid, Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
@@ -12,10 +12,8 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
-import {
-  ChecklistCountBadge,
-  PreLaunchChecklistPanel,
-} from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import ScrollArea from "@/ui/ScrollArea";
+import { PreLaunchChecklistPanel } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import { StartExperiment } from "./useStartExperiment";
 import useStartGate from "./useStartGate";
@@ -32,13 +30,9 @@ import {
 } from "./RunningScheduleLink";
 import { useEditsBlockedReason } from "./ExperimentEdits";
 
-// getAffectedEnvsForExperiment's answer for "every environment".
-const ALL_ENVIRONMENTS = "__ALL__";
-
 type ContentProps = {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
-  envs: string[];
   start: StartExperiment;
   editSchedule: (() => void) | null;
 };
@@ -56,6 +50,9 @@ export default function StartExperimentPopover({
   trigger,
   ...props
 }: Props) {
+  // Closed to let a To Do item's action take over: focus stays with whatever
+  // it opened, or a modal it opened would lose focus and close.
+  const handedOff = useRef(false);
   return (
     <Popover
       open={open}
@@ -64,13 +61,26 @@ export default function StartExperimentPopover({
         if (!next) props.start.clearStartFailures();
         setOpen(next);
       }}
+      onCloseAutoFocus={(e) => {
+        if (handedOff.current) e.preventDefault();
+        handedOff.current = false;
+      }}
       trigger={trigger}
-      content={<StartContent {...props} close={() => setOpen(false)} />}
+      content={
+        <StartContent
+          {...props}
+          close={() => setOpen(false)}
+          handOff={() => {
+            handedOff.current = true;
+            setOpen(false);
+          }}
+        />
+      }
       side="bottom"
       align="end"
       contentStyle={{
         padding: 20,
-        width: 480,
+        width: 380,
         maxWidth: "calc(100vw - 32px)",
         maxHeight: "calc(100vh - 140px)",
         overflowY: "auto",
@@ -78,31 +88,6 @@ export default function StartExperimentPopover({
     />
   );
 }
-
-type Row = { key: string; label: string; value: ReactNode };
-
-// What starting sets going: where it serves and when it ends. The setup it
-// starts with is on the page already.
-function useSummaryRows(
-  experiment: ExperimentInterfaceStringDates,
-  envs: string[],
-): Row[] {
-  const rows: Row[] = [];
-  // Visual Editor changes and redirects serve everywhere.
-  const allEnvs = envs.includes(ALL_ENVIRONMENTS);
-  if (envs.length > 0) {
-    rows.push({
-      key: "environments",
-      label: envs.length === 1 && !allEnvs ? "Environment" : "Environments",
-      value: allEnvs ? "All environments" : envs.join(", "),
-    });
-  }
-  const end = scheduledEnd(experiment.statusUpdateSchedule);
-  if (end) rows.push({ key: "end", label: "Ends", value: end });
-  return rows;
-}
-
-const ROW_HEIGHT = "32px";
 
 function SummaryRow({
   label,
@@ -113,12 +98,12 @@ function SummaryRow({
 }) {
   return (
     <>
-      <Flex align="center" minHeight={ROW_HEIGHT}>
-        <Text color="text-mid">{label}</Text>
-      </Flex>
-      <Flex align="center" minHeight={ROW_HEIGHT} minWidth="0">
+      <Text size="sm" color="text-mid">
+        {label}
+      </Text>
+      <Text size="sm" color="text-high">
         {children}
-      </Flex>
+      </Text>
     </>
   );
 }
@@ -126,14 +111,14 @@ function SummaryRow({
 function StartContent({
   experiment,
   linkedFeatures,
-  envs,
   start,
   editSchedule,
   close,
-}: ContentProps & { close: () => void }) {
+  handOff,
+}: ContentProps & { close: () => void; handOff: () => void }) {
   const gate = useStartGate({ experiment, linkedFeatures, start });
   const editsBlocked = useEditsBlockedReason();
-  const rows = useSummaryRows(experiment, envs);
+  const end = scheduledEnd(experiment.statusUpdateSchedule);
   const [error, setError] = useState<string | null>(null);
 
   const startApproved = experiment.nextScheduledStatusUpdate?.type === "start";
@@ -141,7 +126,7 @@ function StartContent({
     ? scheduledTime(gate.scheduledStartAt)
     : null;
   const pastSchedule = !startApproved && gate.schedule === "past" && dateLabel;
-  const { summary } = usePreLaunchChecklist();
+  const { checklistItemsRemaining } = usePreLaunchChecklist();
   // Starting publishes what's stored, not what's staged.
   const blockedReason = editsBlocked ?? start.banditBlockedReason;
   const { bypassLabel, waivesApproval } = gate.actions;
@@ -157,15 +142,29 @@ function StartContent({
 
   return (
     <Flex direction="column" gap="4">
-      <Heading as="h4" size="sm" mb="0">
-        {getStartTitle(experiment, new Date())}
-      </Heading>
+      <Flex justify="between" align="baseline" gap="3">
+        <Heading as="h4" size="sm" mb="0">
+          {getStartTitle(experiment, new Date())}
+        </Heading>
+        {openSchedule && !startApproved ? (
+          <Link
+            size="sm"
+            onClick={openSchedule}
+            style={{ whiteSpace: "nowrap" }}
+          >
+            {hasStatusSchedule(experiment) ? "Change schedule" : "Add schedule"}
+          </Link>
+        ) : null}
+      </Flex>
 
       <StartFailures failures={start.pendingDraftFailures} />
       <StartChecklistFailures items={start.checklistFailures} />
       {pastSchedule ? (
         <Callout status="warning" size="sm">
-          The scheduled start date <Text weight="semibold">{dateLabel}</Text>{" "}
+          The scheduled start date{" "}
+          <Text size="sm" weight="semibold">
+            {dateLabel}
+          </Text>{" "}
           has passed.{" "}
           {gate.checklistLoading || gate.upgrade ? (
             <>{scheduleLink("Update the schedule")}.</>
@@ -175,8 +174,11 @@ function StartContent({
             </>
           ) : (
             <>
-              Click <Text weight="semibold">{gate.actions.label}</Text> to start
-              the experiment immediately, or{" "}
+              Click{" "}
+              <Text size="sm" weight="semibold">
+                {gate.actions.label}
+              </Text>{" "}
+              to start the experiment immediately, or{" "}
               {scheduleLink("update the schedule")}.
             </>
           )}
@@ -184,58 +186,62 @@ function StartContent({
       ) : null}
       <StartUpgradeCallout upgrade={gate.upgrade} />
 
-      {/* Every row a control's height, so values and fields line up. */}
-      <Grid columns="max-content minmax(0, 1fr)" gapX="5" gapY="1">
-        <SummaryRow label="Start">
-          <Flex align="center" gap="3" wrap="wrap">
-            <Text color="text-high">{dateLabel ?? "Immediately"}</Text>
-            {openSchedule && !startApproved ? (
-              <Link onClick={openSchedule}>
-                {hasStatusSchedule(experiment)
-                  ? "Change schedule"
-                  : "Add schedule"}
-              </Link>
-            ) : null}
-          </Flex>
-        </SummaryRow>
-        {rows.map((row) => (
-          <SummaryRow key={row.key} label={row.label}>
-            <Text color="text-high">{row.value}</Text>
-          </SummaryRow>
-        ))}
+      <Grid
+        columns="max-content minmax(0, 1fr)"
+        gapX="5"
+        gapY="2"
+        align="start"
+      >
+        <SummaryRow label="Start">{dateLabel ?? "Immediately"}</SummaryRow>
+        {end ? <SummaryRow label="Ends">{end}</SummaryRow> : null}
       </Grid>
 
       <Separator size="4" />
 
       <Flex direction="column" gap="3">
-        <Flex align="center" gap="2">
-          <Text weight="semibold" color="text-high">
-            To Do
-          </Text>
-          <ChecklistCountBadge
-            remaining={gate.checklistLoading ? null : summary.remaining}
-            blocking={summary.blocking > 0}
-          />
-        </Flex>
-        <Flex
-          direction="column"
-          gap="3"
-          // An item's link goes to where it's resolved, so the popover gets
-          // out of the way; folding the completed ones stays here.
-          onClickCapture={(e) => {
-            if ((e.target as HTMLElement).closest("a:not([aria-expanded])")) {
-              close();
-            }
+        {/* Headed as on the details rail. */}
+        <Text
+          size="sm"
+          weight="medium"
+          color="text-low"
+          textTransform="uppercase"
+        >
+          {checklistItemsRemaining
+            ? `To do (${checklistItemsRemaining})`
+            : "To do"}
+        </Text>
+        {/* Bled out by the rows' hover tint, so the scroll box doesn't clip it. */}
+        <ScrollArea
+          gutter
+          style={{
+            maxHeight: 250,
+            marginInline: "calc(-1 * var(--space-2))",
           }}
         >
-          <PreLaunchChecklistPanel size="md" />
-        </Flex>
+          <Flex
+            direction="column"
+            gap="3"
+            px="2"
+            py="2"
+            // An item's action goes to where it's resolved, so the popover
+            // gets out of the way once the action has run.
+            onClick={(e) => {
+              if (
+                (e.target as HTMLElement).closest("[data-checklist-action]")
+              ) {
+                handOff();
+              }
+            }}
+          >
+            <PreLaunchChecklistPanel />
+          </Flex>
+        </ScrollArea>
       </Flex>
 
       <Separator size="4" />
 
       {startApproved ? (
-        <Text color="text-low">
+        <Text size="sm" color="text-low">
           Approved to start on the scheduled date. Edit the schedule to start
           sooner.
         </Text>
@@ -243,6 +249,8 @@ function StartContent({
         <Flex direction="column" gap="3">
           {bypassLabel ? (
             <Checkbox
+              size="sm"
+              labelSize="sm"
               label={
                 waivesApproval ? (
                   <span style={{ color: "var(--red-11)" }}>{bypassLabel}</span>

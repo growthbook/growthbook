@@ -61,7 +61,9 @@ export function StartFailures({
               href={`/features/${failure.featureId}?v=${failure.revisionVersion}`}
               target="_blank"
             >
-              <Text weight="semibold">{failure.featureId}</Text>
+              <Text size="sm" weight="semibold">
+                {failure.featureId}
+              </Text>
               <PiArrowSquareOut className="ml-1" />
             </Link>
             <Text size="sm" color="text-mid">
@@ -232,7 +234,11 @@ export function StartUpgradeCallout({
 }) {
   if (!upgrade) return null;
   return (
-    <PremiumCallout commercialFeature={upgrade} id="start-experiment-modal">
+    <PremiumCallout
+      commercialFeature={upgrade}
+      id="start-experiment-modal"
+      size="sm"
+    >
       {UPGRADE_REASONS[upgrade]}
     </PremiumCallout>
   );

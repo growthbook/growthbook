@@ -66,6 +66,7 @@ function ChecklistRowAction({
       <button
         type="button"
         className={styles.rowAction}
+        data-checklist-action=""
         onClick={action.onClick}
       >
         {children}
@@ -74,7 +75,11 @@ function ChecklistRowAction({
   }
   if (!action.external) {
     return (
-      <NextLink href={action.href} className={styles.rowAction}>
+      <NextLink
+        href={action.href}
+        className={styles.rowAction}
+        data-checklist-action=""
+      >
         {children}
       </NextLink>
     );
@@ -85,6 +90,7 @@ function ChecklistRowAction({
       target="_blank"
       rel="noopener noreferrer"
       className={styles.rowAction}
+      data-checklist-action=""
     >
       {children}
       <PiArrowSquareOut className={styles.externalIcon} />

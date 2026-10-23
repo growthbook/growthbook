@@ -96,7 +96,6 @@ export interface Props {
   detailsOpen?: boolean;
   setDetailsOpen?: (open: boolean) => void;
   experiment: ExperimentInterfaceStringDates;
-  envs: string[];
   mutate: () => void;
   duplicate?: (() => void) | null;
   setStatusModal: (open: boolean) => void;
@@ -182,7 +181,6 @@ export default function ExperimentHeader({
   detailsOpen,
   setDetailsOpen,
   experiment,
-  envs,
   mutate,
   duplicate,
   setCompareModal,
@@ -560,7 +558,6 @@ export default function ExperimentHeader({
     <StartExperimentPopover
       experiment={experiment}
       linkedFeatures={linkedFeatures}
-      envs={envs}
       start={start}
       editSchedule={editSchedule ?? null}
       open={startOpen}
