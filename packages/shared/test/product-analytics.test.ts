@@ -1,6 +1,7 @@
 import {
   calculateProductAnalyticsDateRange,
   generateProductAnalyticsSQL,
+  transformProductAnalyticsRowsToResult,
 } from "shared/enterprise";
 import { format, createLikeStringMatchFn } from "shared/sql";
 import {
@@ -1790,6 +1791,44 @@ describe("productAnalytics", () => {
       expect(sql).toMatch(
         /SELECT\s+unit1,\s+dimension0,\s+CASE\s+WHEN \(SUM\(m1\) >= 3\) THEN 1\s+ELSE NULL\s+END AS m1\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit1,\s+dimension0/,
       );
+    });
+
+    it("preserves population labels with interleaved fact tables", () => {
+      const orders = factTableMap.get("orders")!;
+      const tables = new Map(factTableMap);
+      tables.set("other_orders", { ...orders, id: "other_orders" });
+      const config = populationConfig([
+        populationValue(),
+        populationValue({
+          source: { type: "factTable", factTableId: "other_orders" },
+        }),
+        populationValue(),
+      ]);
+      const { orderedMetricIds } = generateProductAnalyticsSQL(
+        config,
+        tables,
+        metricMap,
+        helpers,
+        datasource,
+      );
+      const result = transformProductAnalyticsRowsToResult(
+        config,
+        [
+          {
+            dimension0: "2026-10-22",
+            m0_numerator: 10,
+            m1_numerator: 20,
+            m2_numerator: 30,
+          },
+        ],
+        orderedMetricIds,
+      );
+
+      expect(result.rows[0].values).toEqual([
+        expect.objectContaining({ metricId: "population_0", numerator: 10 }),
+        expect.objectContaining({ metricId: "population_1", numerator: 20 }),
+        expect.objectContaining({ metricId: "population_2", numerator: 30 }),
+      ]);
     });
 
     it("requires a unit on every value", () => {

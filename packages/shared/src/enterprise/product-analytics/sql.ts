@@ -1996,7 +1996,7 @@ export function generateProductAnalyticsSQL(
       const data = getMetricData(m, f.factTable, dialect);
       allMetrics.push(data);
       // For ratio metrics, we only need to add the numerator since it's the same metric id
-      if (!m.useDenominator) orderedMetricIds.push(m.metric.id);
+      if (!m.useDenominator) orderedMetricIds[m.index] = m.metric.id;
     });
   });
 
