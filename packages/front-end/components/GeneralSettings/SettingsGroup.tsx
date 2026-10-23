@@ -64,8 +64,14 @@ export function SettingsField({
 }) {
   return (
     <Box>
-      <Box mb="1">
-        <Text as={htmlFor ? "label" : "div"} htmlFor={htmlFor} weight="medium">
+      {/* Bootstrap gives labels a 0.5rem bottom margin; the design wants 2px. */}
+      <Box mb="2px">
+        <Text
+          as={htmlFor ? "label" : "div"}
+          htmlFor={htmlFor}
+          weight="medium"
+          m="0"
+        >
           {label}
         </Text>
       </Box>
