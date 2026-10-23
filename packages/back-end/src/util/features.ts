@@ -24,6 +24,7 @@ import {
   namespacesToMap,
   parsePlainJSONObject,
   recursiveWalk,
+  ruleAppliesToEnv,
   ruleFootprint,
   ruleProjectScope,
   ruleServedToConnection,
@@ -707,18 +708,30 @@ export function experimentMapForFeatures(
 
 // Gates live in three places — the feature, its rules, and the phases of any
 // experiment those rules reference — and all three become `parentConditions`.
+// With an `environment`, only gates a payload for that environment can render count.
 export function getPrerequisiteIdsInFeatures(
   features: FeatureInterface[],
   experimentMap?: Map<string, ExperimentInterface>,
+  environment?: string,
 ): string[] {
   const ids = new Set<string>();
 
   features.forEach((feature) => {
+    if (
+      environment !== undefined &&
+      !feature.environmentSettings?.[environment]?.enabled
+    ) {
+      return;
+    }
+
     (feature.prerequisites ?? []).forEach((p) => p?.id && ids.add(p.id));
 
     (feature.rules ?? []).forEach((rule) => {
       if (!rule || typeof rule !== "object") return;
       if (rule.enabled === false) return;
+      if (environment !== undefined && !ruleAppliesToEnv(rule, environment)) {
+        return;
+      }
 
       (rule.prerequisites ?? []).forEach((p) => p?.id && ids.add(p.id));
 
@@ -790,13 +803,14 @@ export function featuresWithPrerequisiteClosure(
   featuresMap: Map<string, FeatureInterface>,
   experimentMap?: Map<string, ExperimentInterface>,
   seedIds: string[] = [],
+  environment?: string,
 ): { features: FeatureInterface[]; carried: Set<string> } {
   const carried = new Set<string>();
   const present = new Set(features.map((f) => f.id));
 
   let wanted = [
     ...seedIds,
-    ...getPrerequisiteIdsInFeatures(features, experimentMap),
+    ...getPrerequisiteIdsInFeatures(features, experimentMap, environment),
   ];
   while (wanted.length) {
     const next: FeatureInterface[] = [];
@@ -808,7 +822,7 @@ export function featuresWithPrerequisiteClosure(
       carried.add(id);
       next.push(parent);
     }
-    wanted = getPrerequisiteIdsInFeatures(next, experimentMap);
+    wanted = getPrerequisiteIdsInFeatures(next, experimentMap, environment);
   }
 
   return {
