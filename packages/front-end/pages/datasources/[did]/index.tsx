@@ -78,10 +78,12 @@ import useURLHash from "@/hooks/useURLHash";
 export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
 export const CBAQ_ANCHOR_ID = "contextual-bandit-assignment-queries";
 
+// First id is the tab opened when the URL has no tab hash. Queries is only
+// rendered for SQL sources; non-SQL sources fall back to Usage.
 const DATA_SOURCE_TABS = [
+  "queries",
   "usage",
   "resources",
-  "queries",
   "explore",
   "settings",
 ] as const;
@@ -211,8 +213,8 @@ const DataSourcePage: FC = () => {
   const router = useRouter();
   const [tab, setTab] = useURLHash(DATA_SOURCE_TABS);
   // Deep links from before tabs existed point at an anchor inside Queries,
-  // not a DATA_SOURCE_TABS id, so useURLHash falls back to the first tab and
-  // leaves the anchor stranded in the URL. Open Queries and scroll to it once.
+  // not a DATA_SOURCE_TABS id, so useURLHash leaves the anchor stranded in
+  // the URL. Open Queries and scroll to it once.
   const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
   useEffect(() => {
     const legacyHash = window.location.hash.slice(1);
@@ -458,10 +460,11 @@ const DataSourcePage: FC = () => {
   const dataSourceTypeLabel = isManagedWarehouse
     ? "Managed Warehouse"
     : (dataSourceConnections.find((c) => c.type === d.type)?.display ?? d.type);
+  const requestedTab = tab ?? "queries";
   const activeTab =
-    supportsSQL || (tab !== "queries" && tab !== "explore")
-      ? (tab ?? "usage")
-      : "usage";
+    !supportsSQL && (requestedTab === "queries" || requestedTab === "explore")
+      ? "usage"
+      : requestedTab;
   const supportsEvents = d.properties?.events || false;
   const datasourceSupportsEventForwarder = supportsEventForwarder(d);
   const showFinishSettingUp =
@@ -636,14 +639,10 @@ const DataSourcePage: FC = () => {
             size="lg"
             style={activeTab === "explore" ? { flexShrink: 0 } : undefined}
           >
+            {supportsSQL && <TabsTrigger value="queries">Queries</TabsTrigger>}
             <TabsTrigger value="usage">Usage</TabsTrigger>
             <TabsTrigger value="resources">Connected Resources</TabsTrigger>
-            {supportsSQL && (
-              <>
-                <TabsTrigger value="queries">Queries</TabsTrigger>
-                <TabsTrigger value="explore">Explore</TabsTrigger>
-              </>
-            )}
+            {supportsSQL && <TabsTrigger value="explore">Explore</TabsTrigger>}
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
