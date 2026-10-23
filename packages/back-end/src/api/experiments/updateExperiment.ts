@@ -1,6 +1,7 @@
 import { omit } from "lodash";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import {
+  experimentHasLinkedChanges,
   parseAssignmentQueryInput,
   resolveAssignmentQuerySelectionChange,
 } from "shared/util";
@@ -170,6 +171,7 @@ export const updateExperiment = createApiRequestHandler(
   if (
     isClusterConfigChangeLocked({
       status: experiment.status,
+      hasLinkedChanges: experimentHasLinkedChanges(experiment),
       nextStatus: payload.status,
       isClusterExperiment: experiment.isClusterExperiment,
       nextIsClusterExperiment: payload.isClusterExperiment,

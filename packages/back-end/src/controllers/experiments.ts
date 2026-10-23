@@ -2106,6 +2106,7 @@ export async function postExperiment(
   if (
     isClusterConfigChangeLocked({
       status: experiment.status,
+      hasLinkedChanges: !!experimentHasLinkedChanges,
       nextStatus: changes.status,
       isClusterExperiment: experiment.isClusterExperiment,
       nextIsClusterExperiment: changes.isClusterExperiment,

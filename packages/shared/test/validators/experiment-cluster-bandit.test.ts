@@ -29,19 +29,18 @@ describe("isUnsupportedClusterBanditCombination", () => {
 });
 
 describe("isClusterConfigChangeLocked", () => {
+  const launched = { status: "running", hasLinkedChanges: true };
+
   it.each([
+    { ...launched, isClusterExperiment: false, nextIsClusterExperiment: true },
     {
-      status: "running",
-      isClusterExperiment: false,
-      nextIsClusterExperiment: true,
-    },
-    {
+      ...launched,
       status: "stopped",
       isClusterExperiment: true,
       nextIsClusterExperiment: false,
     },
     {
-      status: "running",
+      ...launched,
       isClusterExperiment: true,
       subUnitIdentifier: "user_id",
       nextSubUnitIdentifier: "device_id",
@@ -51,36 +50,38 @@ describe("isClusterConfigChangeLocked", () => {
   });
 
   it.each([
+    // Assigned outside GrowthBook, e.g. an imported experiment.
     {
+      ...launched,
+      hasLinkedChanges: false,
+      isClusterExperiment: false,
+      nextIsClusterExperiment: true,
+    },
+    {
+      ...launched,
       status: "draft",
       isClusterExperiment: true,
       subUnitIdentifier: "user_id",
       nextSubUnitIdentifier: "device_id",
     },
     {
-      status: "running",
+      ...launched,
       nextStatus: "draft",
       isClusterExperiment: true,
       nextIsClusterExperiment: false,
     },
     {
-      status: "running",
+      ...launched,
       isClusterExperiment: true,
       nextIsClusterExperiment: true,
       subUnitIdentifier: "user_id",
       nextSubUnitIdentifier: "user_id",
     },
     {
-      status: "running",
+      ...launched,
       isClusterExperiment: false,
       subUnitIdentifier: "",
       nextSubUnitIdentifier: "device_id",
-    },
-    {
-      status: "running",
-      isClusterExperiment: true,
-      nextIsClusterExperiment: undefined,
-      nextSubUnitIdentifier: undefined,
     },
   ])("allows %p", (args) => {
     expect(isClusterConfigChangeLocked(args)).toBe(false);

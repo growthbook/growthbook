@@ -242,13 +242,15 @@ export function isUnsupportedClusterBanditCombination({
 }
 
 export const CLUSTER_CONFIG_LOCKED_MESSAGE =
-  "Cluster randomization and its sub-unit can only be changed while the experiment is a draft.";
+  "Cluster randomization and its sub-unit can't be changed once GrowthBook is assigning this experiment's traffic. Move it back to draft first.";
 
-// The SDK randomizes on the cluster (or not) from launch, and results so far
-// were analyzed per that sub-unit, so neither can change once it has run.
+// Once GrowthBook launches an experiment through linked changes, its SDK has
+// randomized on the cluster (or not), so neither setting can change. Experiments
+// assigned outside GrowthBook (e.g. imported ones) only describe that setup.
 export function isClusterConfigChangeLocked({
   status,
   nextStatus,
+  hasLinkedChanges,
   isClusterExperiment,
   nextIsClusterExperiment,
   subUnitIdentifier,
@@ -256,6 +258,7 @@ export function isClusterConfigChangeLocked({
 }: {
   status: string;
   nextStatus?: string;
+  hasLinkedChanges: boolean;
   isClusterExperiment?: boolean | null;
   nextIsClusterExperiment?: boolean | null;
   subUnitIdentifier?: string | null;
@@ -270,7 +273,7 @@ export function isClusterConfigChangeLocked({
     staysCluster &&
     nextSubUnitIdentifier !== undefined &&
     (nextSubUnitIdentifier || null) !== (subUnitIdentifier || null);
-  if (!modeChanged && !subUnitChanged) return false;
+  if (!hasLinkedChanges || (!modeChanged && !subUnitChanged)) return false;
   return status !== "draft" && nextStatus !== "draft";
 }
 
