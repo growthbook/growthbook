@@ -1837,7 +1837,7 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 11
+      "count": 9
     }
   },
   "packages/front-end/pages/attributes.tsx": {

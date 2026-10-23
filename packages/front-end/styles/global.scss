@@ -48,8 +48,10 @@ body {
 :root {
   --settings-sidebar-width: 240px;
   --settings-nav-width: 256px;
+  --settings-nav-inset: 12px;
   --settings-layout-left: calc(
-    var(--settings-sidebar-width) + var(--settings-nav-width)
+    var(--settings-sidebar-width) + var(--settings-nav-width) +
+      var(--settings-nav-inset)
   );
 }
 .main {

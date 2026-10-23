@@ -56,15 +56,12 @@ const TopNav: FC<{
   pageTitle: string;
   showNotices?: boolean;
   showLogo?: boolean;
-  /** CSS length for the bar's left edge on wide screens; defaults to the sidebar width. */
-  leftOffset?: string;
   mutedBreadcrumb?: boolean;
 }> = ({
   toggleLeftMenu,
   pageTitle,
   showNotices,
   showLogo = true,
-  leftOffset,
   mutedBreadcrumb = false,
 }) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
@@ -467,7 +464,6 @@ const TopNav: FC<{
         className={`navbar ${styles.topbar} mb-2 position-fixed`}
         style={{
           left: toggleLeftMenu ? undefined : 0,
-          ["--topbar-left" as string]: leftOffset,
         }}
       >
         <div className={styles.navbar}>

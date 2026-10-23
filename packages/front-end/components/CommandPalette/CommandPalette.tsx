@@ -23,6 +23,10 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useDashboards } from "@/hooks/useDashboards";
 import { buildSidebarLinkFilterProps } from "@/components/Layout/SidebarLink";
 import { flattenNavItems, navlinks } from "@/components/Layout/sidebarNav";
+import {
+  ORG_PAGE_KEYWORDS,
+  SETTINGS_SECTIONS,
+} from "@/components/GeneralSettings/settingsSections";
 import { getDocSectionsForCommandPalette } from "@/components/DocLink";
 import {
   buildCommandPaletteIndex,
@@ -213,8 +217,23 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
       name: row.parentName ? `${row.parentName} → ${row.name}` : row.name,
       description: row.parentName ? row.name : "",
       url: row.href,
-      tags: row.parentName ? `${row.parentName} ${row.name}` : row.name,
+      tags: [row.parentName, row.name, ORG_PAGE_KEYWORDS[row.href]]
+        .filter(Boolean)
+        .join(" "),
     }));
+    // General settings is one page of sections, so each section gets a row.
+    if (flatNav.some((row) => row.href === "/settings")) {
+      for (const s of SETTINGS_SECTIONS) {
+        result.push({
+          id: `nav::/settings#${s.id}`,
+          type: "navigation",
+          name: `Settings → ${s.title}`,
+          description: s.description,
+          url: `/settings#${s.id}`,
+          tags: `Settings General ${s.title}`,
+        });
+      }
+    }
 
     for (const f of features) {
       if (f.archived) continue;

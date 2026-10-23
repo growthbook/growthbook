@@ -1,13 +1,17 @@
+// A card floating beside the sidebar and below the top bar.
 .nav {
   position: fixed;
-  top: 0;
-  left: var(--settings-sidebar-width);
+  top: calc(56px + var(--settings-nav-inset));
+  bottom: var(--settings-nav-inset);
+  left: calc(var(--settings-sidebar-width) + var(--settings-nav-inset));
   width: var(--settings-nav-width);
-  height: 100vh;
   display: flex;
   flex-direction: column;
   background: var(--color-panel-solid);
-  border-right: 1px solid var(--slate-a4);
+  border: 1px solid var(--slate-a4);
+  border-radius: var(--radius-4);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
   z-index: 999;
   font-size: 13px;
 
@@ -16,21 +20,12 @@
   }
 }
 
-.header {
-  height: 56px;
-  flex-shrink: 0;
-  padding: 0 20px;
-  display: flex;
-  align-items: center;
-  border-bottom: 1px solid var(--slate-a4);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text-high);
-}
-
 .kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   line-height: 1;
-  padding: 3px 5px;
+  padding: 2px 4px;
   font-family: inherit;
   font-size: 11px;
   font-weight: 600;

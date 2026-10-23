@@ -6,7 +6,7 @@ $sidebarwidth: 240px;
   justify-content: space-between;
   position: fixed;
   top: 0;
-  left: var(--topbar-left, #{$sidebarwidth});
+  left: $sidebarwidth;
   right: 0;
   height: 56px;
   z-index: 1010;

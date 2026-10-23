@@ -79,21 +79,20 @@ export default function SettingsNav() {
     ? "No matches"
     : `${total} match${total === 1 ? "" : "es"} in ${where.join(" and ")}`;
 
-  // Cmd/Ctrl+K focuses the search while on a settings page, ahead of the
-  // command palette, which listens for the same keys on document.
+  // Cmd/Ctrl+/ focuses the search on a settings page; Cmd/Ctrl+K stays on the
+  // global command palette.
   const [shortcutHint, setShortcutHint] = useState("");
   useEffect(() => {
-    setShortcutHint(/Mac/.test(navigator.platform) ? "⌘K" : "Ctrl K");
+    setShortcutHint(/Mac/.test(navigator.platform) ? "⌘" : "Ctrl");
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.key === "/") {
         e.preventDefault();
-        e.stopImmediatePropagation();
         searchRef.current?.focus();
         searchRef.current?.select();
       }
     };
-    document.addEventListener("keydown", onKey, true);
-    return () => document.removeEventListener("keydown", onKey, true);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, [searchRef]);
 
   // Leaving settings drops the query so a return starts clean.
@@ -107,7 +106,6 @@ export default function SettingsNav() {
 
   return (
     <aside className={styles.nav} aria-label="Settings navigation">
-      <div className={styles.header}>Settings</div>
       <TextField
         ref={searchRef}
         type="search"
@@ -120,8 +118,13 @@ export default function SettingsNav() {
         prepend={<PiMagnifyingGlass aria-hidden="true" />}
         append={
           !query ? (
-            <kbd className={styles.kbd} title="Shortcut to search settings">
-              {shortcutHint}
+            <kbd
+              className={styles.kbd}
+              title={`${shortcutHint} / to search settings`}
+              aria-label={`${shortcutHint} slash`}
+            >
+              <span>{shortcutHint}</span>
+              <span>/</span>
             </kbd>
           ) : undefined
         }

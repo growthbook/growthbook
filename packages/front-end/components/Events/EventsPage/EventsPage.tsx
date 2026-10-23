@@ -106,7 +106,7 @@ export const EventsPage: FC<EventsPageProps> = ({
         </Callout>
       )}
 
-      <table className="mt-3 table gbtable appbox--align-top table-hover appbox">
+      <table className="mt-3 table gbtable table-hover appbox">
         <thead>
           <tr>
             <th style={{ width: 200 }}>
