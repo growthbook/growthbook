@@ -45,8 +45,18 @@ body {
   z-index: 990;
 }
 
+:root {
+  --settings-rail-width: 56px;
+  --settings-nav-width: 256px;
+  --settings-layout-left: calc(
+    var(--settings-rail-width) + var(--settings-nav-width)
+  );
+}
 .main {
   padding-left: 240px;
+  &.settings-layout {
+    padding-left: var(--settings-layout-left);
+  }
   &.product-analytics-explore-landing {
     display: flex;
     flex-direction: column;
@@ -3162,7 +3172,8 @@ html {
   }
 }
 @media (max-width: 1180px) {
-  .main {
+  .main,
+  .main.settings-layout {
     padding-left: 0;
     padding-top: 60px;
   }

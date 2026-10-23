@@ -12,11 +12,12 @@ import { WhiteButton } from "@/ui/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
-import { navlinks } from "./sidebarNav";
+import { isSettingsRoute, navlinks } from "./sidebarNav";
 import TopNav from "./TopNav";
 import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
 import { useSidebarOpen } from "./SidebarOpenProvider";
+import SettingsNav from "./SettingsNav";
 
 const breadcrumbLinks = [
   ...navlinks,
@@ -104,6 +105,8 @@ const Layout = (): React.ReactElement => {
   });
 
   const build = getGrowthBookBuild();
+  // Settings collapses the sidebar to an icon rail and adds its own sub nav.
+  const rail = isSettingsRoute(router.route);
 
   return (
     <>
@@ -117,6 +120,7 @@ const Layout = (): React.ReactElement => {
       <div
         className={clsx(styles.sidebar, "sidebar mb-5", {
           [styles.sidebaropen]: open,
+          [styles.rail]: rail,
         })}
       >
         <div className="">
@@ -196,14 +200,14 @@ const Layout = (): React.ReactElement => {
                 </li>
                 <ProjectSelector />
                 {navlinks.map((v) => (
-                  <SidebarLink key={v.href} {...v} />
+                  <SidebarLink key={v.href} {...v} rail={rail} />
                 ))}
               </ul>
             </div>
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <Flex p="3" direction="column" gap="4">
+        <Flex p="3" direction="column" gap="4" className={styles.hideInRail}>
           {showUpgradeButton && (
             <WhiteButton onClick={() => setUpgradeModal(true)}>
               <>Upgrade</>
@@ -214,7 +218,7 @@ const Layout = (): React.ReactElement => {
           </a>
         </Flex>
         {build.sha && (
-          <div className="px-3 my-1 text-center">
+          <div className={clsx("px-3 my-1 text-center", styles.hideInRail)}>
             <small>
               <span className="text-muted">Build:</span>{" "}
               <a
@@ -233,10 +237,12 @@ const Layout = (): React.ReactElement => {
         )}
       </div>
 
+      {rail && <SettingsNav />}
       <TopNav
         pageTitle={pageTitle}
         showNotices={true}
         toggleLeftMenu={() => setOpen(!open)}
+        leftOffset={rail ? "var(--settings-layout-left)" : undefined}
       />
     </>
   );

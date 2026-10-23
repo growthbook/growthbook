@@ -264,8 +264,9 @@ export const navlinks: SidebarLinkProps[] = [
     name: "Settings",
     href: "/settings",
     Icon: GBSettings,
-    path: /^(settings|admin|projects|integrations)/,
+    path: /^(settings|admin|projects|integrations|events|importing)/,
     autoClose: true,
+    navigateOnExpand: true,
     subLinks: [
       {
         name: "General",
@@ -299,11 +300,6 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Custom Fields",
         href: "/settings/customfields",
         path: /^settings\/customfields/,
-      },
-      {
-        name: "Custom Markdown",
-        href: "/settings/custom-markdown",
-        path: /^settings\/custom-markdown/,
       },
       {
         name: "API Keys",
@@ -340,18 +336,6 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canManageIntegrations(),
       },
       {
-        name: "Import your data",
-        href: "/importing",
-        path: /^importing/,
-        filter: ({ permissionsUtils }) =>
-          permissionsUtils.canViewFeatureModal() &&
-          permissionsUtils.canCreateEnvironment({
-            projects: [],
-            id: "",
-          }) &&
-          permissionsUtils.canCreateProjects(),
-      },
-      {
         name: "Usage",
         href: "/settings/usage",
         path: /^settings\/usage/,
@@ -381,6 +365,13 @@ export const navlinks: SidebarLinkProps[] = [
     ],
   },
 ];
+
+export const settingsNavLink = navlinks.find((l) => l.name === "Settings")!;
+
+/** Routes that show the icon rail plus the settings sub nav instead of the full sidebar. */
+export function isSettingsRoute(route: string): boolean {
+  return settingsNavLink.path.test(route.replace(/^\//, ""));
+}
 
 export type FlatNavItem = {
   name: string;

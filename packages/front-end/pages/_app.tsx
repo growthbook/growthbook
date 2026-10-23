@@ -6,6 +6,7 @@ import "@/styles/global.scss";
 
 import { AppProps } from "next/app";
 import Head from "next/head";
+import clsx from "clsx";
 import React, { useEffect, useState } from "react";
 import { GrowthBookProvider } from "@growthbook/growthbook-react";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
@@ -41,6 +42,8 @@ import LayoutLite from "@/components/Layout/LayoutLite";
 import { growthbook } from "@/services/utils";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
+import { SettingsNavProvider } from "@/components/Layout/SettingsNavContext";
+import { isSettingsRoute } from "@/components/Layout/sidebarNav";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 import { FeatureHealthStatesProvider } from "@/hooks/useFeatureHealthStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
@@ -196,60 +199,68 @@ function App({
           {ready || noLoadingOverlay ? (
             <HoverTooltipProvider>
               <SidebarOpenProvider>
-                <GrowthBookProvider growthbook={growthbook}>
-                  <div id="portal-root" />
-                  {preAuth || progressiveAuth ? (
-                    renderPreAuth()
-                  ) : (
-                    <PageHeadProvider>
-                      <AuthProvider>
-                        <ProtectedPage
-                          organizationRequired={organizationRequired}
-                        >
-                          {organizationRequired ? (
-                            <GetStartedProvider>
-                              <DefinitionsProvider>
-                                <FeatureHealthStatesProvider>
-                                  <AgentPanelProvider>
-                                    {liteLayout ? <LayoutLite /> : <Layout />}
-                                    <CommandPaletteLauncher />
-                                    <AgentLauncher />
-                                    <main className={`main ${parts[0]}`}>
-                                      <OrgSuspendedBannerContainer />
-                                      <OrganizationMessagesContainer />
-                                      <DemoDataSourceGlobalBannerContainer />
-                                      <NPSSurvey />
-                                      <OrgPageContent>
-                                        <GuidedGetStartedBar />
-                                        <DefinitionsGuard>
-                                          <Component
-                                            {...{
-                                              ...pageProps,
-                                              envReady: ready,
-                                            }}
-                                          />
-                                        </DefinitionsGuard>
-                                      </OrgPageContent>
-                                    </main>
-                                  </AgentPanelProvider>
-                                </FeatureHealthStatesProvider>
-                              </DefinitionsProvider>
-                            </GetStartedProvider>
-                          ) : (
-                            <div>
-                              <TopNavLite />
-                              <main className="container">
-                                <Component
-                                  {...{ ...pageProps, envReady: ready }}
-                                />
-                              </main>
-                            </div>
-                          )}
-                        </ProtectedPage>
-                      </AuthProvider>
-                    </PageHeadProvider>
-                  )}
-                </GrowthBookProvider>
+                <SettingsNavProvider>
+                  <GrowthBookProvider growthbook={growthbook}>
+                    <div id="portal-root" />
+                    {preAuth || progressiveAuth ? (
+                      renderPreAuth()
+                    ) : (
+                      <PageHeadProvider>
+                        <AuthProvider>
+                          <ProtectedPage
+                            organizationRequired={organizationRequired}
+                          >
+                            {organizationRequired ? (
+                              <GetStartedProvider>
+                                <DefinitionsProvider>
+                                  <FeatureHealthStatesProvider>
+                                    <AgentPanelProvider>
+                                      {liteLayout ? <LayoutLite /> : <Layout />}
+                                      <CommandPaletteLauncher />
+                                      <AgentLauncher />
+                                      <main
+                                        className={clsx("main", parts[0], {
+                                          "settings-layout": isSettingsRoute(
+                                            router.route,
+                                          ),
+                                        })}
+                                      >
+                                        <OrgSuspendedBannerContainer />
+                                        <OrganizationMessagesContainer />
+                                        <DemoDataSourceGlobalBannerContainer />
+                                        <NPSSurvey />
+                                        <OrgPageContent>
+                                          <GuidedGetStartedBar />
+                                          <DefinitionsGuard>
+                                            <Component
+                                              {...{
+                                                ...pageProps,
+                                                envReady: ready,
+                                              }}
+                                            />
+                                          </DefinitionsGuard>
+                                        </OrgPageContent>
+                                      </main>
+                                    </AgentPanelProvider>
+                                  </FeatureHealthStatesProvider>
+                                </DefinitionsProvider>
+                              </GetStartedProvider>
+                            ) : (
+                              <div>
+                                <TopNavLite />
+                                <main className="container">
+                                  <Component
+                                    {...{ ...pageProps, envReady: ready }}
+                                  />
+                                </main>
+                              </div>
+                            )}
+                          </ProtectedPage>
+                        </AuthProvider>
+                      </PageHeadProvider>
+                    )}
+                  </GrowthBookProvider>
+                </SettingsNavProvider>
               </SidebarOpenProvider>
             </HoverTooltipProvider>
           ) : error ? (

@@ -56,7 +56,15 @@ const TopNav: FC<{
   pageTitle: string;
   showNotices?: boolean;
   showLogo?: boolean;
-}> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
+  /** CSS length for the bar's left edge on wide screens; defaults to the sidebar width. */
+  leftOffset?: string;
+}> = ({
+  toggleLeftMenu,
+  pageTitle,
+  showNotices,
+  showLogo = true,
+  leftOffset,
+}) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [enableCelebrations, setEnableCelebrations] =
@@ -457,6 +465,7 @@ const TopNav: FC<{
         className={`navbar ${styles.topbar} mb-2 position-fixed`}
         style={{
           left: toggleLeftMenu ? undefined : 0,
+          ["--topbar-left" as string]: leftOffset,
         }}
       >
         <div className={styles.navbar}>

@@ -2067,16 +2067,6 @@
       "count": 2
     }
   },
-  "packages/front-end/pages/settings/custom-markdown.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/settings/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/settings/tags.tsx": {
     "no-restricted-syntax": {
       "count": 1

@@ -115,3 +115,44 @@
     }
   }
 }
+
+// Icon-only rail shown beside the settings sub nav. Narrow screens keep the drawer.
+@media (min-width: 1181px) {
+  .rail {
+    width: var(--settings-rail-width);
+
+    .sidebarlogo {
+      width: var(--settings-rail-width);
+      padding: 8px 0;
+      text-align: center;
+    }
+    .logotext,
+    .hideInRail {
+      display: none !important;
+    }
+    .mainmenu {
+      padding: 10px 8px;
+
+      > ul > :not(:global(.sidebarlink)) {
+        display: none !important;
+      }
+      :global(.sidebarlink) a {
+        // Collapses the label text; the icon size is restored below.
+        font-size: 0;
+        line-height: 36px;
+        padding: 0;
+        text-align: center;
+
+        svg {
+          font-size: 20px;
+          width: auto;
+          margin: 0;
+        }
+        :global(.badge),
+        :global(.float-right) {
+          display: none;
+        }
+      }
+    }
+  }
+}
