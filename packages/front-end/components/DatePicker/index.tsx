@@ -65,7 +65,7 @@ type Props = {
   };
   /**
    * Shown while no date is set. Until one is picked, the field opens the
-   * calendar rather than taking typed input.
+   * calendar and ignores typing.
    */
   placeholder?: string;
 };
@@ -444,7 +444,9 @@ export default function DatePicker({
                     size={size}
                     disabled={disabled}
                     required={required}
-                    readOnly={!!fixedSpanMode || showsPlaceholder}
+                    readOnly={!!fixedSpanMode}
+                    // Typing waits for a picked date; read-only would read as disabled.
+                    inputMode={showsPlaceholder ? "none" : undefined}
                     style={{
                       border: 0,
                       marginRight: -20,
@@ -474,7 +476,7 @@ export default function DatePicker({
                     }
                     value={isRange ? rangeFieldValue : bufferedDate}
                     onChange={(e) => {
-                      if (fixedSpanMode) return;
+                      if (fixedSpanMode || showsPlaceholder) return;
                       if (isRange) {
                         const v = e.target.value;
                         const [startPart, endPart] = splitRangeFieldInput(v);
