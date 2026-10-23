@@ -157,6 +157,15 @@ export function useRestApiCall() {
   );
 }
 
+/** The SWR key `useRestApi` reads from, for refreshing it after a write. */
+export function getRestApiCacheKey<T extends AnyEndpointSpec>(
+  orgId: string | null | undefined,
+  spec: T,
+  args: ArgsFor<T>,
+): string {
+  return `${orgId}::${getRestApiUrl(spec, args as RequestArgs)}`;
+}
+
 /**
  * SWR wrapper around `useRestApiCall` for GET endpoints: the read counterpart
  * of `useApi` for the public REST API. Pass `null` as `args` to skip fetching.
@@ -172,10 +181,7 @@ export function useRestApi<
   const { orgId } = useAuth();
   const restApiCall = useRestApiCall();
 
-  const key =
-    args === null
-      ? null
-      : `${orgId}::${getRestApiUrl(spec, args as RequestArgs)}`;
+  const key = args === null ? null : getRestApiCacheKey(orgId, spec, args);
 
   return useSWR<z.infer<ResponseSchema>, Error>(
     key,

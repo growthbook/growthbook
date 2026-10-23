@@ -65372,7 +65372,7 @@ paths:
         content:
           application/json:
             schema:
-              description: Create a population
+              description: Create a Population
               type: object
               properties:
                 name:
@@ -65400,7 +65400,7 @@ paths:
                   type: string
                 userIdTypes:
                   description: >-
-                    Identifier types the population can be joined on. Every
+                    Identifier types the Population can be joined on. Every
                     step's fact table must support all of them
                   minItems: 1
                   type: array
@@ -65594,7 +65594,7 @@ paths:
         content:
           application/json:
             schema:
-              description: Update a population
+              description: Update a Population
               type: object
               properties:
                 name:
@@ -65608,7 +65608,7 @@ paths:
                     type: string
                 userIdTypes:
                   description: >-
-                    Identifier types the population can be joined on. Every
+                    Identifier types the Population can be joined on. Every
                     step's fact table must support all of them
                   minItems: 1
                   type: array

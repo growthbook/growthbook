@@ -23,6 +23,7 @@ export const UNLIMITED_USAGE: OrganizationUsage = {
     requests: "unlimited",
     bandwidth: "unlimited",
     managedClickhouseEvents: "unlimited",
+    eventForwarderEvents: "unlimited",
   },
   cdn: {
     lastUpdated: new Date(),
@@ -31,6 +32,11 @@ export const UNLIMITED_USAGE: OrganizationUsage = {
   managedClickhouse: {
     lastUpdated: new Date(),
     status: "under",
+  },
+  eventForwarder: {
+    lastUpdated: new Date(),
+    status: "under",
+    blocked: false,
   },
 };
 

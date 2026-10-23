@@ -291,6 +291,23 @@ describe("getPopulationRuleViolations", () => {
       ]);
     });
 
+    it("rejects JSON sub-fields when the fact table has no jsonFields", () => {
+      const slimEvents: PopulationRuleFactTable = {
+        ...events,
+        columns: events.columns.map((c) => ({ ...c, jsonFields: undefined })),
+      };
+      expect(
+        getPopulationRuleViolations({
+          datasource: "ds_main",
+          userIdTypes: ["user_id"],
+          steps: [withAggregate("props.quantity")],
+          factTables: [slimEvents],
+        }),
+      ).toEqual([
+        `Aggregate filter column 'props.quantity' must be a numeric column or "$$count" (step 1).`,
+      ]);
+    });
+
     it("leaves a missing fact table to the existence check", () => {
       expect(
         getPopulationRuleViolations({
