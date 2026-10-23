@@ -21,6 +21,7 @@ import {
   attributeToUserIdTypeName,
   getExposureQueryIdentifierTypes,
   isEventForwarderManaged,
+  isEventForwarderSetupStepComplete,
 } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -36,8 +37,9 @@ import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
+import ConfigureEventForwarderStep from "./ConfigureEventForwarderStep";
 
-type StepId = "connect" | "identifiers" | "queries" | "factTable";
+type StepId = "connect" | "forwarder" | "identifiers" | "queries" | "factTable";
 
 type IdentifierMode = "view" | "edit";
 
@@ -70,7 +72,7 @@ type QueryModal =
   | { index: null; identifierTypes: string[] }
   | null;
 
-const EXPANDABLE_STEPS: StepId[] = ["identifiers", "queries"];
+const EXPANDABLE_STEPS: StepId[] = ["forwarder", "identifiers", "queries"];
 
 // Status icon or checkbox, identifier type, description, row actions.
 const IDENTIFIER_COLUMNS = "24px minmax(0, 1fr) minmax(0, 2fr) 56px";
@@ -126,18 +128,24 @@ function getCompletion(
   dataSource: DataSourceInterfaceWithParams,
   factTableCount: number,
   exposureQuerySkipped: boolean,
-): Record<StepId, boolean> {
+): Partial<Record<StepId, boolean>> {
   const identifierTypes = dataSource.settings?.userIdTypes ?? [];
   const exposureQueries = dataSource.settings?.queries?.exposure ?? [];
-  return {
+  const steps: Partial<Record<StepId, boolean>> = {
     connect: true,
-    identifiers: identifierTypes.length > 0,
-    // One exposure query is enough. Identifier types are also used for joins
-    // and metrics, so they don't each need to appear in an exposure query.
-    // Skipping is enough too, for orgs that do not run experiments.
-    queries: exposureQueries.length > 0 || exposureQuerySkipped,
-    factTable: factTableCount > 0,
   };
+  if (dataSource.eventForwarderConfig) {
+    steps.forwarder = isEventForwarderSetupStepComplete(
+      dataSource.eventForwarderConfig.status,
+    );
+  }
+  steps.identifiers = identifierTypes.length > 0;
+  // One exposure query is enough. Identifier types are also used for joins
+  // and metrics, so they don't each need to appear in an exposure query.
+  // Skipping is enough too, for orgs that do not run experiments.
+  steps.queries = exposureQueries.length > 0 || exposureQuerySkipped;
+  steps.factTable = factTableCount > 0;
+  return steps;
 }
 
 // On a Data Source that already has identifiers, attributes it never mapped
@@ -174,6 +182,7 @@ export default function FinishSettingUp({
   onSave,
   exposureQuerySkipped,
   onSkipExposureQuery,
+  onRefresh,
 }: {
   dataSource: DataSourceInterfaceWithParams;
   factTableCount: number;
@@ -181,12 +190,15 @@ export default function FinishSettingUp({
   onSave: (dataSource: DataSourceInterfaceWithParams) => Promise<void>;
   exposureQuerySkipped: boolean;
   onSkipExposureQuery: () => void;
+  onRefresh: () => Promise<void>;
 }) {
+  const hasEventForwarder = Boolean(dataSource.eventForwarderConfig);
   const completion = useMemo(
     () => getCompletion(dataSource, factTableCount, exposureQuerySkipped),
     [dataSource, factTableCount, exposureQuerySkipped],
   );
   const stepIds = Object.keys(completion) as StepId[];
+  const stepNumber = (id: StepId) => stepIds.indexOf(id) + 1;
   const completed = stepIds.filter((id) => completion[id]).length;
   const currentStep = stepIds.find((id) => !completion[id]) ?? null;
 
@@ -213,7 +225,11 @@ export default function FinishSettingUp({
   });
 
   const [expandedStep, setExpandedStep] = useState<StepId | null>(() =>
-    currentStep && EXPANDABLE_STEPS.includes(currentStep) ? currentStep : null,
+    currentStep &&
+    EXPANDABLE_STEPS.includes(currentStep) &&
+    !(hasEventForwarder && !completion.forwarder && currentStep === "queries")
+      ? currentStep
+      : null,
   );
   // localStorage is read after mount. Close a step that was only open because
   // the skipped exposure query had not loaded yet.
@@ -443,8 +459,9 @@ export default function FinishSettingUp({
             Finish Setting Up
           </Heading>
           <Text as="p" color="text-mid" mb="0">
-            Tell GrowthBook how you identify your users and where events are
-            stored in your warehouse.
+            {hasEventForwarder
+              ? "Configure the Event Forwarder. GrowthBook then creates identifier types, an exposure query, and an Events fact table from the forwarded events."
+              : "Tell GrowthBook how you identify your users and where events are stored in your warehouse."}
           </Text>
         </Box>
         <Flex direction="column" align="end" gap="1" flexShrink="0">
@@ -462,7 +479,7 @@ export default function FinishSettingUp({
       </Flex>
 
       <SetupStepRow
-        number={1}
+        number={stepNumber("connect")}
         complete
         current={false}
         expanded={false}
@@ -471,9 +488,46 @@ export default function FinishSettingUp({
         actions={doneActions()}
       />
 
+      {hasEventForwarder && completion.forwarder !== undefined ? (
+        <SetupStepRow
+          number={stepNumber("forwarder")}
+          complete={!!completion.forwarder}
+          current={currentStep === "forwarder"}
+          expanded={expandedStep === "forwarder"}
+          title="Configure Event Forwarder"
+          description={
+            dataSource.eventForwarderConfig?.status === "error"
+              ? "The Event Forwarder was not set up."
+              : "Define where GrowthBook should write forwarded events in your warehouse."
+          }
+          actions={
+            expandedStep === "forwarder" || completion.forwarder
+              ? null
+              : stepCta(
+                  "forwarder",
+                  "Configure Event Forwarder",
+                  () => setExpandedStep("forwarder"),
+                  false,
+                )
+          }
+        >
+          {expandedStep === "forwarder" && !completion.forwarder ? (
+            <ConfigureEventForwarderStep
+              dataSource={dataSource}
+              canEdit={canEdit}
+              onRefresh={onRefresh}
+              onConfigured={async () => {
+                await onRefresh();
+                setExpandedStep(null);
+              }}
+            />
+          ) : null}
+        </SetupStepRow>
+      ) : null}
+
       <SetupStepRow
-        number={2}
-        complete={completion.identifiers}
+        number={stepNumber("identifiers")}
+        complete={!!completion.identifiers}
         current={currentStep === "identifiers"}
         expanded={expandedStep === "identifiers"}
         title="Identifier types"
@@ -678,155 +732,174 @@ export default function FinishSettingUp({
       </SetupStepRow>
 
       <SetupStepRow
-        number={3}
-        complete={completion.queries}
+        number={stepNumber("queries")}
+        complete={!!completion.queries}
         current={currentStep === "queries"}
         expanded={expandedStep === "queries"}
         title="Add exposure queries"
-        description="SQL that tells GrowthBook who saw which variation of an experiment, and when. One query is enough to continue. Add another if identifier types live in different tables."
+        description={
+          hasEventForwarder && !completion.queries && completion.forwarder
+            ? "A managed exposure query was not created. Add one to continue."
+            : hasEventForwarder
+              ? "GrowthBook creates a managed exposure query from your identifier types after the Event Forwarder is configured."
+              : "SQL that tells GrowthBook who saw which variation of an experiment, and when. One query is enough to continue. Add another if identifier types live in different tables."
+        }
         actions={
           expandedStep === "queries"
             ? null
             : completion.queries
               ? doneActions(() => setExpandedStep("queries"))
-              : stepCta(
-                  "queries",
-                  "Set up queries",
-                  () => setExpandedStep("queries"),
-                  true,
-                )
+              : hasEventForwarder && !completion.forwarder
+                ? null
+                : stepCta(
+                    "queries",
+                    "Set up queries",
+                    () => setExpandedStep("queries"),
+                    true,
+                  )
         }
       >
-        {expandedStep === "queries" && (
-          <Box mt="3">
-            <Box
-              style={{
-                border: "1px solid var(--gray-a5)",
-                borderRadius: "var(--radius-3)",
-                overflow: "hidden",
-              }}
-            >
-              {exposureQueries.length === 0 && (
-                <Box px="4" py="3">
-                  <Text as="p" color="text-mid" mb="0">
-                    No exposure queries yet. Write a query to start running
-                    experiments.
-                  </Text>
-                </Box>
-              )}
-              {exposureQueries.map((query, index) => (
-                <Flex
-                  key={query.id}
-                  align="center"
-                  justify="between"
-                  gap="3"
-                  px="4"
-                  py="3"
-                  style={index > 0 ? IDENTIFIER_ROW_BORDER : undefined}
-                >
-                  <Flex align="center" gap="2" wrap="wrap" minWidth="0">
-                    <Text weight="medium">{query.name}</Text>
-                    {isEventForwarderManaged(query) && (
-                      <EventForwarderManagedBadge type="assignment query" />
-                    )}
-                    {getExposureQueryIdentifierTypes(query).map(
-                      (userIdType) => (
-                        <Badge
-                          key={userIdType}
-                          label={<Text mono>{userIdType}</Text>}
-                          color="gray"
-                        />
-                      ),
+        {expandedStep === "queries" &&
+          (!hasEventForwarder ||
+            completion.forwarder ||
+            completion.queries) && (
+            <Box mt="3">
+              <Box
+                style={{
+                  border: "1px solid var(--gray-a5)",
+                  borderRadius: "var(--radius-3)",
+                  overflow: "hidden",
+                }}
+              >
+                {exposureQueries.length === 0 && (
+                  <Box px="4" py="3">
+                    <Text as="p" color="text-mid" mb="0">
+                      No exposure queries yet. Write a query to start running
+                      experiments.
+                    </Text>
+                  </Box>
+                )}
+                {exposureQueries.map((query, index) => (
+                  <Flex
+                    key={query.id}
+                    align="center"
+                    justify="between"
+                    gap="3"
+                    px="4"
+                    py="3"
+                    style={index > 0 ? IDENTIFIER_ROW_BORDER : undefined}
+                  >
+                    <Flex align="center" gap="2" wrap="wrap" minWidth="0">
+                      <Text weight="medium">{query.name}</Text>
+                      {isEventForwarderManaged(query) && (
+                        <EventForwarderManagedBadge type="assignment query" />
+                      )}
+                      {getExposureQueryIdentifierTypes(query).map(
+                        (userIdType) => (
+                          <Badge
+                            key={userIdType}
+                            label={<Text mono>{userIdType}</Text>}
+                            color="gray"
+                          />
+                        ),
+                      )}
+                    </Flex>
+                    {canEdit && !isEventForwarderManaged(query) && (
+                      <Button
+                        variant="outline"
+                        onClick={() => setQueryModal({ index })}
+                      >
+                        Edit query
+                      </Button>
                     )}
                   </Flex>
-                  {canEdit && !isEventForwarderManaged(query) && (
-                    <Button
-                      variant="outline"
-                      onClick={() => setQueryModal({ index })}
-                    >
-                      Edit query
-                    </Button>
-                  )}
-                </Flex>
-              ))}
-            </Box>
-            {canEdit && (
-              <Box mt="2">
-                <Button
-                  variant="ghost"
-                  icon={<PiPlus />}
-                  onClick={() =>
-                    setQueryModal({
-                      index: null,
-                      identifierTypes: uncoveredIdentifierTypes.length
-                        ? uncoveredIdentifierTypes
-                        : identifierTypes.map((t) => t.userIdType),
-                    })
-                  }
-                >
-                  {exposureQueries.length ? "Add query" : "Write query"}
-                </Button>
+                ))}
               </Box>
-            )}
-            <Flex align="center" justify="between" gap="3" mt="3">
-              <Flex align="center" gap="3" flexShrink="0">
-                <Button
-                  disabled={exposureQueries.length === 0}
-                  onClick={() => setExpandedStep(null)}
-                >
-                  Continue
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    onSkipExposureQuery();
-                    setExpandedStep(null);
-                  }}
-                >
-                  Skip for now
-                </Button>
+              {canEdit && (
+                <Box mt="2">
+                  <Button
+                    variant="ghost"
+                    icon={<PiPlus />}
+                    onClick={() =>
+                      setQueryModal({
+                        index: null,
+                        identifierTypes: uncoveredIdentifierTypes.length
+                          ? uncoveredIdentifierTypes
+                          : identifierTypes.map((t) => t.userIdType),
+                      })
+                    }
+                  >
+                    {exposureQueries.length ? "Add query" : "Write query"}
+                  </Button>
+                </Box>
+              )}
+              <Flex align="center" justify="between" gap="3" mt="3">
+                <Flex align="center" gap="3" flexShrink="0">
+                  <Button
+                    disabled={exposureQueries.length === 0}
+                    onClick={() => setExpandedStep(null)}
+                  >
+                    Continue
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      onSkipExposureQuery();
+                      setExpandedStep(null);
+                    }}
+                  >
+                    Skip for now
+                  </Button>
+                </Flex>
+                {exposureQueries.length > 0 &&
+                  uncoveredIdentifierTypes.length > 0 && (
+                    <HelperText status="warning" icon={null}>
+                      No query returns{" "}
+                      {uncoveredIdentifierTypes.map((userIdType, i) => (
+                        <span key={userIdType}>
+                          {i > 0 && ", "}
+                          <Text mono>{userIdType}</Text>
+                        </span>
+                      ))}{" "}
+                      yet. Add{" "}
+                      {uncoveredIdentifierTypes.length === 1 ? "it" : "them"} to
+                      an existing query or write a new one.
+                    </HelperText>
+                  )}
               </Flex>
-              {exposureQueries.length > 0 &&
-                uncoveredIdentifierTypes.length > 0 && (
-                  <HelperText status="warning" icon={null}>
-                    No query returns{" "}
-                    {uncoveredIdentifierTypes.map((userIdType, i) => (
-                      <span key={userIdType}>
-                        {i > 0 && ", "}
-                        <Text mono>{userIdType}</Text>
-                      </span>
-                    ))}{" "}
-                    yet. Add{" "}
-                    {uncoveredIdentifierTypes.length === 1 ? "it" : "them"} to
-                    an existing query or write a new one.
-                  </HelperText>
-                )}
-            </Flex>
-          </Box>
-        )}
+            </Box>
+          )}
       </SetupStepRow>
 
       <SetupStepRow
-        number={4}
-        complete={completion.factTable}
+        number={stepNumber("factTable")}
+        complete={!!completion.factTable}
         current={currentStep === "factTable"}
         expanded={false}
         title="Add a fact table"
-        description="A fact table is the first step to creating metrics. Tell us where and how your events (like an order, a page view, etc) are stored. This will be the basis for your metrics."
+        description={
+          hasEventForwarder && !completion.factTable && completion.forwarder
+            ? "An Events fact table was not created. Add one to continue."
+            : hasEventForwarder
+              ? "GrowthBook creates an Events fact table from the forwarded events once the Event Forwarder is configured and identifier types exist."
+              : "A fact table is the first step to creating metrics. Tell us where and how your events (like an order, a page view, etc) are stored. This will be the basis for your metrics."
+        }
         actions={
           completion.factTable
             ? doneActions()
-            : stepCta(
-                "factTable",
-                "Add fact table",
-                () => setFactTableOpen(true),
-                true,
-                {
-                  allowed: canCreateFactTable,
-                  deniedMessage:
-                    "You don't have permission to add a fact table",
-                },
-              )
+            : hasEventForwarder && !completion.forwarder
+              ? null
+              : stepCta(
+                  "factTable",
+                  "Add fact table",
+                  () => setFactTableOpen(true),
+                  true,
+                  {
+                    allowed: canCreateFactTable,
+                    deniedMessage:
+                      "You don't have permission to add a fact table",
+                  },
+                )
         }
       />
 
@@ -856,7 +929,12 @@ export default function FinishSettingUp({
           attribute={attributeModal.attribute ?? undefined}
           defaultHashAttribute
           defaultProjects={dataSource.projects ?? []}
-          close={() => setAttributeModal(null)}
+          close={() => {
+            setAttributeModal(null);
+            if (hasEventForwarder) {
+              void onRefresh();
+            }
+          }}
         />
       )}
     </>

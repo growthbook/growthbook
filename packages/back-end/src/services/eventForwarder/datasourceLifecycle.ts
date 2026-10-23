@@ -291,6 +291,13 @@ export async function syncEventForwarderAfterDatasourceUpdate({
     return;
   }
 
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
+  // Destination is chosen later. Refreshing credentials would validate an
+  // empty sink and try to update a connector that does not exist yet.
+  if (!existing || existing.status === "unconfigured") {
+    return;
+  }
+
   const refreshedConfig = await refreshEventForwarderConfigCredentials(
     context,
     datasource,

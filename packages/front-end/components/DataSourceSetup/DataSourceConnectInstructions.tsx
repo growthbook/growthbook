@@ -158,7 +158,7 @@ export default function DataSourceConnectInstructions({
   existing?: boolean;
   /** The saved connection's params when editing, so the SQL can alter the existing user and repeat only the grants that changed. */
   savedParams?: Partial<DataSourceParams> | null;
-  /** The saved Event Forwarder region. Null until the user picks one in the Event Forwarder setup. */
+  /** Null until the warehouse region is detected or chosen. Edit mode passes the saved region. */
   eventForwarderRegion?: DataRegion | null;
   /** Key pair GrowthBook generated for Snowflake, if the user asked for one. */
   snowflakeKeyPair?: SnowflakeKeyPair | null;
