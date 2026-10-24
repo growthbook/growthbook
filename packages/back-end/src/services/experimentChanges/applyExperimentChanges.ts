@@ -145,6 +145,7 @@ const PLAN_INPUT_FIELDS: (keyof ExperimentInterface)[] = [
   "datasource",
   "variations",
   "linkedFeatures",
+  "nextScheduledStatusUpdate",
 ];
 
 function latestWeights(experiment: Pick<ExperimentInterface, "phases">) {

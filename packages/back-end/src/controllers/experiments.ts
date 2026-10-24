@@ -190,6 +190,7 @@ import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/ho
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
 import { unlinkFlagFromExperiment } from "back-end/src/services/experiment-feature";
+import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -3606,6 +3607,7 @@ export async function deleteExperimentLinkedFeature(
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
     context.permissions.throwPermissionError();
   }
+  assertScheduledStartAllows(experiment, "linked Feature Flags");
 
   await unlinkFlagFromExperiment(context, id, featureId);
 

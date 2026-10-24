@@ -253,6 +253,7 @@ import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   InvalidTrackingKeyError,
 } from "back-end/src/util/errors";
+import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   legacyDocDescribesPhase,
@@ -2642,15 +2643,20 @@ export function auditVisualChangeEditAfterStart(
   );
 }
 
-// Visual Editor changes stay editable once the experiment starts or stops.
+// Visual Editor changes stay editable once the experiment starts or stops,
+// but not while its start is scheduled.
 export function assertVisualChangesEditable(
-  experiment: Pick<ExperimentInterface, "archived">,
+  experiment: Pick<
+    ExperimentInterface,
+    "archived" | "status" | "nextScheduledStatusUpdate"
+  >,
 ): void {
   if (experiment.archived) {
     throw new BadRequestError(
       "Unarchive the experiment to change its Visual Editor changes.",
     );
   }
+  assertScheduledStartAllows(experiment, "Visual Editor changes");
 }
 
 type ReleasedVariationFields = Pick<

@@ -54,6 +54,7 @@ import {
 import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 import { trackEventForContext } from "back-end/src/services/growthbook";
 import { isArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
+import { assertScheduledStartAllowsChange } from "back-end/src/services/experimentChanges/scheduledStartLock";
 
 export type StartChecklistItemStatus = {
   key: string;
@@ -80,6 +81,7 @@ export async function validateExperimentChange({
   experiment: ExperimentInterface;
   changes: Changeset;
 }): Promise<void> {
+  assertScheduledStartAllowsChange(experiment, changes);
   if (!customHooksActive(context) || experiment.type === "holdout") return;
 
   const merged = { ...experiment, ...changes };

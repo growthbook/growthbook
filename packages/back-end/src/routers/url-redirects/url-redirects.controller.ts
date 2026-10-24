@@ -6,6 +6,24 @@ import {
 } from "shared/types/url-redirect";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { ReqContext } from "back-end/types/request";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
+
+async function assertRedirectsChangeable(
+  context: ReqContext,
+  experimentId: string,
+) {
+  const experiment = await getExperimentById(context, experimentId);
+  if (experiment) assertScheduledStartAllows(experiment, "URL Redirects");
+}
+
+async function assertRedirectChangeable(context: ReqContext, id: string) {
+  const urlRedirect = await context.models.urlRedirects.getById(id);
+  if (urlRedirect) {
+    await assertRedirectsChangeable(context, urlRedirect.experiment);
+  }
+}
 
 export const postURLRedirect = async (
   req: AuthRequest<
@@ -17,6 +35,7 @@ export const postURLRedirect = async (
 ) => {
   const context = getContextFromReq(req);
   const { circularDependencyCheck } = req.query;
+  await assertRedirectsChangeable(context, req.body.experiment);
 
   const urlRedirect = await context.models.urlRedirects.create(req.body, {
     checkCircularDependencies: circularDependencyCheck === "true",
@@ -38,6 +57,7 @@ export const putURLRedirect = async (
 ) => {
   const context = getContextFromReq(req);
   const { circularDependencyCheck } = req.query;
+  await assertRedirectChangeable(context, req.params.id);
 
   const urlRedirect = await context.models.urlRedirects.updateById(
     req.params.id,
@@ -56,6 +76,7 @@ export const deleteURLRedirect = async (
   res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
+  await assertRedirectChangeable(context, req.params.id);
 
   await context.models.urlRedirects.deleteById(req.params.id);
 

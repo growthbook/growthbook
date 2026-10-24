@@ -29,6 +29,10 @@ import {
   auditVisualChangeEditAfterStart,
 } from "back-end/src/services/experiments";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  assertScheduledStartAllows,
+  isScheduledToStart,
+} from "back-end/src/services/experimentChanges/scheduledStartLock";
 import { asJson, changedSinceLoaded, isoOrNull } from "./loadedBase";
 import type { ExperimentUpdatePlan } from "./planExperimentUpdate";
 
@@ -164,7 +168,7 @@ export async function planLinkedChanges(
 
   const changes = experimentPlan?.changes ?? {};
   if (touchesRedirects) {
-    if (experiment.status !== "draft" || experiment.nextScheduledStatusUpdate) {
+    if (experiment.status !== "draft" || isScheduledToStart(experiment)) {
       throw new BadRequestError(
         "URL Redirects can only change while the experiment is a draft with no scheduled start.",
       );
@@ -227,6 +231,7 @@ export async function planLinkedChanges(
   }
 
   if (touchesVisual) {
+    assertScheduledStartAllows(experiment, "Visual Editor changes");
     const stored = await findVisualChangesetsByExperiment(
       experiment.id,
       context.org.id,

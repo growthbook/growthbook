@@ -81,6 +81,7 @@ import {
   getLiveRevisionForFeature,
 } from "back-end/src/services/features";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
+import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 
 export type ExperimentFeatureLinkResult = {
   version: number;
@@ -156,6 +157,7 @@ export async function linkFeatureToExperiment({
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
+  assertScheduledStartAllows(experiment, "linked Feature Flags");
 
   // allEnvironments strips any stale environments[].
   let scopedRule: FeatureRule;
@@ -1400,6 +1402,7 @@ export async function assertFlagRemovable(
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
+  assertScheduledStartAllows(experiment, "linked Feature Flags");
   const refersToExperiment = experimentRuleFor(experiment.id);
   await assertDraftsWithRuleEditable(context, feature, refersToExperiment);
   if (experiment.status !== "running") return;

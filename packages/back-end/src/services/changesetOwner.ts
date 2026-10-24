@@ -44,6 +44,7 @@ import { validateExperimentChange } from "back-end/src/services/experimentChange
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { BadRequestError } from "back-end/src/util/errors";
 import { confirmationLink } from "back-end/src/services/confirmations";
+import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 
 export type ChangesetOwnerKind = "experiment" | "contextual-bandit";
 
@@ -158,7 +159,9 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
   canUpdateOwner(): boolean {
     return this.context.permissions.canUpdateExperiment(this.experiment, {});
   }
-  assertCanCreateChangeset(): void {}
+  assertCanCreateChangeset(): void {
+    assertScheduledStartAllows(this.experiment, "Visual Editor changes");
+  }
   canCreateChangeset(): boolean {
     return (
       this.context.permissions.canUpdateExperiment(this.experiment, {}) &&
@@ -725,9 +728,13 @@ function renormalizeWeights(weights: number[]): number[] {
 
 function requireDraftExperiment(
   context: Ctx,
-  experiment: { status: string; archived: boolean },
+  experiment: Pick<
+    ExperimentInterface,
+    "status" | "archived" | "nextScheduledStatusUpdate"
+  >,
   { allowRunning = false }: { allowRunning?: boolean } = {},
 ): void {
+  assertScheduledStartAllows(experiment, "Visual Editor changes");
   if (allowRunning && !experiment.archived && experiment.status === "running") {
     return;
   }

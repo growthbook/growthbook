@@ -9,7 +9,10 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 import { maybePublishScheduledRevision } from "back-end/src/api/features/autoPublishOnApproval";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
-import { postApproveScheduledExperimentStart } from "back-end/src/controllers/experiments";
+import {
+  postApproveScheduledExperimentStart,
+  postExperiment,
+} from "back-end/src/controllers/experiments";
 import {
   postFeatureScheduledPublish,
   postFeatureToggleAutoPublish,
@@ -547,6 +550,68 @@ describe("a REST scheduled start past a flag draft's approval", () => {
 
     expect((await start()).status).toBe(200);
     expect(await staged()).toMatchObject({ scheduledByApiKey: "key_held" });
+  });
+});
+
+describe("a scheduled start's experiment", () => {
+  const armed = async () => {
+    await seed();
+    setReqContext(asKey(adminKey));
+    await auth(request(app).post(`/api/v1/experiments/${EXP}/start`)).send({
+      skipChecklist: true,
+    });
+    expect(await staged()).toMatchObject({ type: "start" });
+  };
+  const update = (body: object) =>
+    auth(request(app).post(`/api/v1/experiments/${EXP}`)).send(body);
+
+  it("refuses a REST change to what it launches, and stays scheduled", async () => {
+    await armed();
+
+    const refused = await update({ hashAttribute: "deviceId" });
+
+    expect(refused.status).toBe(400);
+    expect(refused.body.message).toMatch(/hashAttribute.*start is scheduled/);
+    expect((await experiments().findOne({ id: EXP }))?.hashAttribute).toBe(
+      "id",
+    );
+    expect(await staged()).toMatchObject({ type: "start" });
+  });
+
+  it("takes a REST change to its metadata", async () => {
+    await armed();
+
+    expect((await update({ description: "Why it matters" })).status).toBe(200);
+    expect(await staged()).toMatchObject({ type: "start" });
+  });
+
+  it("refuses new Visual Editor changes from REST", async () => {
+    await armed();
+
+    const refused = await auth(
+      request(app).post(`/api/v1/experiments/${EXP}/visual-changesets`),
+    ).send({
+      editorUrl: "https://example.com/",
+      urlPatterns: [{ type: "simple", pattern: "/", include: true }],
+    });
+
+    expect(refused.status).toBe(400);
+    expect(refused.body.message).toMatch(/Visual Editor changes/);
+  });
+
+  it("refuses a dashboard coverage change", async () => {
+    await armed();
+    type UpdateReq = Parameters<typeof postExperiment>[0];
+
+    await expect(
+      postExperiment(
+        dashboardReq<UpdateReq>("u_owner", { coverage: 0.5 }),
+        resSpy().res,
+      ),
+    ).rejects.toThrow(/coverage.*start is scheduled/);
+    expect((await experiments().findOne({ id: EXP }))?.phases[0].coverage).toBe(
+      1,
+    );
   });
 });
 
