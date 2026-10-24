@@ -26,7 +26,7 @@ export function getStartTitle(
     !startApproved &&
     getStartSchedule(startAt ? new Date(startAt) : null, now) === "future"
   ) {
-    return "Approve scheduled start";
+    return "Confirm scheduled start";
   }
   // Bandit is a named resource; experiment is a common noun.
   return experiment.type === "multi-armed-bandit"
@@ -125,12 +125,14 @@ export function getStartActions({
   const bypassable = !hardBlocked && checklist.remaining > 0;
   return {
     action: futureStart ? "approve-schedule" : "start",
-    label: futureStart ? `Start ${format(futureStart, "MMM d")}` : "Start now",
+    label: futureStart
+      ? `Confirm ${format(futureStart, "MMM d")} start`
+      : "Start now",
     bypassLabel: bypassable
       ? bypassLabel({
           review: waivesApproval,
           todo: checklist.remaining > checklist.blocking,
-          then: futureStart ? "schedule start" : "start now",
+          then: futureStart ? "confirm start" : "start now",
         })
       : null,
     waivesApproval,
