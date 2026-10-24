@@ -25,3 +25,11 @@
 .dragHandle:active::before {
   opacity: 1;
 }
+
+// Above the page's positioned content, which would otherwise cover it, and
+// above a floating panel, so its shadow falls across the panel's bottom edge.
+.footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1003;
+}

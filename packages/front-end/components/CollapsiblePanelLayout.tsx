@@ -23,7 +23,10 @@ export interface Props {
   children: ReactNode;
   /** The right column. */
   panel: ReactNode;
-  /** Sticks to the bottom of the content column, not under the panel. */
+  /**
+   * Sticks to the bottom of the content column, not under the panel. A
+   * floating panel ends above it.
+   */
   footer?: ReactNode;
   open: boolean;
   /** Viewport offset the panel sticks to, below any fixed page header. */
@@ -58,16 +61,25 @@ export default function CollapsiblePanelLayout({
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const layout = useRef<HTMLDivElement>(null);
   const panelBox = useRef<HTMLDivElement>(null);
+  const footerBox = useRef<HTMLDivElement>(null);
   const [layoutWidth, setLayoutWidth] = useState(0);
+  const [footerHeight, setFooterHeight] = useState(0);
   useEffect(() => {
     const el = layout.current;
-    if (!el) return;
-    const observer = new ResizeObserver(([entry]) =>
-      setLayoutWidth(entry.contentRect.width),
-    );
+    const footerEl = footerBox.current;
+    if (!el || !footerEl) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === el) setLayoutWidth(entry.contentRect.width);
+        else setFooterHeight(entry.contentRect.height);
+      }
+    });
     observer.observe(el);
+    observer.observe(footerEl);
     return () => observer.disconnect();
   }, []);
+  // Floating, the panel ends where the footer starts, so the footer stays whole.
+  const footerClearance = overlay ? footerHeight : 0;
   const [previewCollapsed, setPreviewCollapsed] = useState(false);
   // Clamped at render rather than stored, so widening the window restores the
   // dragged width.
@@ -116,7 +128,7 @@ export default function CollapsiblePanelLayout({
     if (!el) return;
     const fit = () => {
       const offset = Math.max(el.getBoundingClientRect().top, 0);
-      el.style.height = `${Math.max(0, window.innerHeight - offset)}px`;
+      el.style.height = `${Math.max(0, window.innerHeight - offset - footerClearance)}px`;
     };
     fit();
     window.addEventListener("scroll", fit, { passive: true });
@@ -168,7 +180,9 @@ export default function CollapsiblePanelLayout({
     ? {
         // Tracks the animated width so the right edge stays put mid-slide.
         marginLeft: -currentWidth,
-        // Over the content's footer too, since it floats over that content.
+        // Keeps the content column reaching the bottom of the screen, where
+        // the footer sits under the shortened panel.
+        marginBottom: footerClearance,
         zIndex: 1002,
         // The pinned header's shadow, facing left. The negative spread keeps it
         // from bleeding above the panel.
@@ -194,7 +208,9 @@ export default function CollapsiblePanelLayout({
         style={{ minWidth: 0, alignSelf: "stretch" }}
       >
         <Box flexGrow="1">{children}</Box>
-        {footer}
+        <div ref={footerBox} className={styles.footer}>
+          {footer}
+        </div>
       </Flex>
       {mounted ? (
         <Box
@@ -205,7 +221,7 @@ export default function CollapsiblePanelLayout({
           style={{
             top,
             // Until `fit` measures it.
-            height: `calc(100vh - ${top}px)`,
+            height: `calc(100vh - ${top + footerClearance}px)`,
             background: "var(--color-panel-solid)",
             // Matches the tab row's underline.
             borderLeft: expanded ? "1px solid var(--gray-a5)" : "none",
