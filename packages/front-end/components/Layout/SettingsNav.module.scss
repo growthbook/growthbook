@@ -15,7 +15,8 @@
   z-index: 999;
   font-size: 13px;
 
-  @media (max-width: 1180px) {
+  // Below this, pages beside it get too narrow; the sidebar lists the pages instead.
+  @media (max-width: 1399px) {
     display: none;
   }
 }

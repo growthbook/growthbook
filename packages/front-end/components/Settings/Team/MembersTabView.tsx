@@ -1,6 +1,6 @@
 import { FC, useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { Box, Separator } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import InviteList from "@/components/Settings/Team/InviteList";
 import MemberList from "@/components/Settings/Team/MemberList";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
@@ -21,6 +21,7 @@ import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Frame from "@/ui/Frame";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 
 // Radix Select reserves "" for no value.
 const ALL_PROJECTS = "__all__";
@@ -138,20 +139,25 @@ export const MembersTabView: FC = () => {
         canInviteMembers={true}
         filters={
           projects.length > 0 ? (
-            <Box width="200px" flexShrink="0">
-              <Select
-                aria-label="Show roles for"
-                value={currentProject || ALL_PROJECTS}
-                setValue={(v) => setCurrentProject(v === ALL_PROJECTS ? "" : v)}
-              >
-                <SelectItem value={ALL_PROJECTS}>All Projects</SelectItem>
-                {projects.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </Select>
-            </Box>
+            <Flex align="center" gap="2" flexShrink="0">
+              <Text color="text-mid">Show roles for</Text>
+              <Box width="200px">
+                <Select
+                  aria-label="Show roles for"
+                  value={currentProject || ALL_PROJECTS}
+                  setValue={(v) =>
+                    setCurrentProject(v === ALL_PROJECTS ? "" : v)
+                  }
+                >
+                  <SelectItem value={ALL_PROJECTS}>All Projects</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </Box>
+            </Flex>
           ) : null
         }
       />

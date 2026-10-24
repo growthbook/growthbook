@@ -1,7 +1,15 @@
-import React, { FC, ReactNode, useState } from "react";
+import React, { FC, useState } from "react";
 import { date } from "shared/dates";
-import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import Badge from "@/ui/Badge";
+import DataList, { DataListItem } from "@/ui/DataList";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
@@ -57,6 +65,58 @@ const ShowLicenseInfo: FC<{
         ? "gold"
         : "gray";
 
+  const statusActive = ["active", "trialing"].includes(
+    subscription?.status || "",
+  );
+  const licenseDetails: DataListItem[] = [
+    ...(showInput
+      ? [
+          {
+            label: "License key",
+            value: (
+              <Flex align="center" gap="2">
+                <Text color="text-mid">
+                  {license ? "***************" : "(none)"}
+                </Text>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditLicenseOpen(true)}
+                >
+                  Edit
+                </Button>
+              </Flex>
+            ),
+          },
+        ]
+      : []),
+    // A license might not have a plan if a stripe pro form is not filled out
+    ...(license?.plan
+      ? [
+          ...(["pro", "pro_sso"].includes(license.plan) && subscription?.status
+            ? [
+                {
+                  label: "Status",
+                  value: (
+                    <Badge
+                      label={subscription.status}
+                      color={statusActive ? "green" : "red"}
+                      variant="soft"
+                    />
+                  ),
+                },
+              ]
+            : []),
+          { label: "Issued", value: date(license.dateCreated || "") },
+          { label: "Expires", value: date(license.dateExpires || "") },
+          { label: "Seats", value: String(license.seats) },
+          ...(license.id?.startsWith("license") && showSeatUsage
+            ? [{ label: "Seats in use", value: String(license.seatsInUse) }]
+            : []),
+        ]
+      : []),
+  ];
+
   return (
     <Box>
       {upgradeModal && (
@@ -84,7 +144,7 @@ const ShowLicenseInfo: FC<{
           )}
           <Flex direction="column" gap="4" flexGrow="1" minWidth="0">
             <Box>
-              <Text as="div" weight="medium" mb="2px">
+              <Text as="div" weight="semibold" mb="2">
                 Plan type
               </Text>
               <Flex align="center" gap="3" wrap="wrap">
@@ -95,7 +155,11 @@ const ShowLicenseInfo: FC<{
                   radius="full"
                 />
                 {showUpgradeButton && (
-                  <Button variant="ghost" onClick={() => setUpgradeModal(true)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setUpgradeModal(true)}
+                  >
                     Upgrade
                   </Button>
                 )}
@@ -112,63 +176,7 @@ const ShowLicenseInfo: FC<{
             <NoticeStack notices={planNotices} />
             {permissionsUtil.canManageBilling() && (
               <>
-                <Grid columns="repeat(auto-fit, minmax(120px, 1fr))" gap="4">
-                  {showInput && (
-                    <Detail label="License key">
-                      <Flex align="center" gap="2">
-                        <Text color="text-mid">
-                          {license ? "***************" : "(none)"}
-                        </Text>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditLicenseOpen(true)}
-                        >
-                          Edit
-                        </Button>
-                      </Flex>
-                    </Detail>
-                  )}
-                  {/* A license might not have a plan if a stripe pro form is not filled out */}
-                  {license?.plan && (
-                    <>
-                      {["pro", "pro_sso"].includes(license.plan) &&
-                        subscription?.status && (
-                          <Detail label="Status">
-                            {["active", "trialing"].includes(
-                              subscription.status,
-                            ) ? (
-                              <Text color="text-mid">
-                                {subscription.status}
-                              </Text>
-                            ) : (
-                              <HelperText status="error">
-                                {subscription.status}
-                              </HelperText>
-                            )}
-                          </Detail>
-                        )}
-                      <Detail label="Issued">
-                        <Text color="text-mid">
-                          {date(license.dateCreated || "")}
-                        </Text>
-                      </Detail>
-                      <Detail label="Expires">
-                        <Text color="text-mid">
-                          {date(license.dateExpires || "")}
-                        </Text>
-                      </Detail>
-                      <Detail label="Seats">
-                        <Text color="text-mid">{license.seats}</Text>
-                      </Detail>
-                      {license.id?.startsWith("license") && showSeatUsage && (
-                        <Detail label="Seats in use">
-                          <Text color="text-mid">{license.seatsInUse}</Text>
-                        </Detail>
-                      )}
-                    </>
-                  )}
-                </Grid>
+                <DataList data={licenseDetails} maxColumns={5} />
                 {license && !license.id?.startsWith("license") && (
                   <Box>
                     <DownloadLicenseUsageButton />
@@ -181,28 +189,34 @@ const ShowLicenseInfo: FC<{
                 <Text as="div" weight="medium" mb="2">
                   Seats in use
                 </Text>
-                <table className="table gbtable appbox table-sm">
-                  <thead>
-                    <tr>
-                      <th>Installation</th>
-                      <th>Seats Used</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table variant="surface">
+                  <TableHeader>
+                    <TableRow>
+                      <TableColumnHeader>Installation</TableColumnHeader>
+                      <TableColumnHeader>Seats used</TableColumnHeader>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {Object.entries(license?.installationUsers || {}).map(
                       ([id, { installationName, userHashes }]) => (
-                        <tr key={id}>
-                          <td>{installationName || id}</td>
-                          <td>{userHashes.length}</td>
-                        </tr>
+                        <TableRow key={id}>
+                          <TableCell>{installationName || id}</TableCell>
+                          <TableCell>{userHashes.length}</TableCell>
+                        </TableRow>
                       ),
                     )}
-                    <tr key="total" className="font-weight-bold">
-                      <td>Total Distinct Users</td>
-                      <td>{license?.seatsInUse || 0}</td>
-                    </tr>
-                  </tbody>
-                </table>
+                    <TableRow key="total">
+                      <TableCell>
+                        <Text weight="semibold">Total distinct users</Text>
+                      </TableCell>
+                      <TableCell>
+                        <Text weight="semibold">
+                          {license?.seatsInUse || 0}
+                        </Text>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
               </Box>
             )}
           </Flex>
@@ -211,16 +225,5 @@ const ShowLicenseInfo: FC<{
     </Box>
   );
 };
-
-function Detail({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <Box>
-      <Text as="div" weight="medium" mb="2px">
-        {label}
-      </Text>
-      {children}
-    </Box>
-  );
-}
 
 export default ShowLicenseInfo;

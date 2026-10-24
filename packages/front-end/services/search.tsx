@@ -211,6 +211,72 @@ export interface SearchReturn<T> {
   pagination: ReactNode;
 }
 
+export function ariaSort(
+  active: boolean,
+  dir: number,
+): "ascending" | "descending" | "none" {
+  if (!active) return "none";
+  return dir < 0 ? "descending" : "ascending";
+}
+
+// A sortable column label: a real button, so sorting works from the keyboard.
+export function SortButton({
+  active,
+  dir,
+  subtle = false,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  dir: number;
+  // Gray Pi carets instead of the filled arrows.
+  subtle?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        all: "unset",
+        cursor: "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+      }}
+    >
+      {children}
+      {subtle ? (
+        <span
+          aria-hidden="true"
+          style={{
+            display: "inline-flex",
+            color: active ? "var(--gray-11)" : "var(--gray-9)",
+          }}
+        >
+          {active ? (
+            dir < 0 ? (
+              <PiCaretDown size={14} />
+            ) : (
+              <PiCaretUp size={14} />
+            )
+          ) : (
+            <PiCaretUpDown size={14} />
+          )}
+        </span>
+      ) : (
+        <span
+          aria-hidden="true"
+          className={active ? "activesort" : "inactivesort"}
+        >
+          {active ? dir < 0 ? <FaSortDown /> : <FaSortUp /> : <FaSort />}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export function useSearch<T extends { id: string }>({
   items,
   searchFields,
@@ -507,11 +573,16 @@ export function useSearch<T extends { id: string }>({
       const showSortDirection = !isRelevanceSortActive && sort.field === field;
 
       return (
-        <TableColumnHeader className={className} style={style}>
-          <span
-            className="cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
+        <TableColumnHeader
+          className={className}
+          style={style}
+          aria-sort={ariaSort(showSortDirection, sort.dir)}
+        >
+          <SortButton
+            active={showSortDirection}
+            dir={sort.dir}
+            subtle={subtleSortIcons}
+            onClick={() => {
               setDisableRelevanceSort(true);
               setSort({
                 field,
@@ -519,42 +590,8 @@ export function useSearch<T extends { id: string }>({
               });
             }}
           >
-            {children}{" "}
-            {subtleSortIcons ? (
-              <span
-                aria-hidden="true"
-                style={{
-                  color: showSortDirection ? "var(--gray-11)" : "var(--gray-9)",
-                  verticalAlign: "-2px",
-                }}
-              >
-                {showSortDirection ? (
-                  sort.dir < 0 ? (
-                    <PiCaretDown size={14} />
-                  ) : (
-                    <PiCaretUp size={14} />
-                  )
-                ) : (
-                  <PiCaretUpDown size={14} />
-                )}
-              </span>
-            ) : (
-              <a
-                href="#"
-                className={showSortDirection ? "activesort" : "inactivesort"}
-              >
-                {showSortDirection ? (
-                  sort.dir < 0 ? (
-                    <FaSortDown />
-                  ) : (
-                    <FaSortUp />
-                  )
-                ) : (
-                  <FaSort />
-                )}
-              </a>
-            )}
-          </span>
+            {children}
+          </SortButton>
           {endAdornment}
         </TableColumnHeader>
       );

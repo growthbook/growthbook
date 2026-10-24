@@ -51,7 +51,7 @@ export default function RoleRulesTable({
   teams?: TeamRuleSource[];
   // An API key's project rules stay binding even over All Projects admin.
   forApiKey?: boolean;
-  // Shares the bottom row with "Add project override", e.g. Cancel and Save.
+  // Shares the bottom row with "Add Project override", e.g. Cancel and Save.
   footerEnd?: ReactNode;
 }) {
   const { organization, hasCommercialFeature } = useUser();
@@ -306,19 +306,17 @@ export default function RoleRulesTable({
   return (
     <Box>
       {groups.map(renderGroup)}
-      <Flex justify="between" align="center" gap="3">
-        {unusedProjects.length > 0 && hasAdvancedPermissions ? (
+      <Flex align="center" gap="3">
+        {unusedProjects.length > 0 && hasAdvancedPermissions && (
           <Button
             variant="soft"
             icon={<PiPlus />}
             onClick={() => addRule(unusedProjects[0].id)}
           >
-            Add project override
+            Add Project override
           </Button>
-        ) : (
-          <span />
         )}
-        {footerEnd}
+        {footerEnd && <Box ml="auto">{footerEnd}</Box>}
       </Flex>
     </Box>
   );

@@ -8,6 +8,7 @@ import { hasFileConfig } from "@/services/env";
 import HelperText from "@/ui/HelperText";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
@@ -20,7 +21,7 @@ import ApiKeyExpirationPolicy, {
   settingField,
 } from "./ApiKeyExpirationPolicy";
 
-// Read-only summary; Edit swaps it for the controls in place, Done saves.
+// Read-only summary; Edit swaps it for the controls in place, with Cancel and Save.
 const OrganizationPoliciesCard: FC<{
   kind: Kind;
   keys: ApiKeyInterface[];
@@ -46,6 +47,7 @@ const OrganizationPoliciesCard: FC<{
   const [disable, setDisable] = useState(wasDisabled);
   const [lifetime, setLifetime] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDisable, setConfirmDisable] = useState(false);
   const { value: maxDays, invalid } = parseLifetimeDraft(lifetime);
 
   const startEditing = () => {
@@ -55,7 +57,7 @@ const OrganizationPoliciesCard: FC<{
     setEditing(true);
   };
 
-  const done = async () => {
+  const save = async () => {
     const changed = disable !== wasDisabled || maxDays !== saved;
     if (changed) {
       // Only what this member may change, so the other half isn't rewritten.
@@ -74,20 +76,31 @@ const OrganizationPoliciesCard: FC<{
   };
 
   return (
-    <Frame mb="4" py="20px" px="24px">
+    <Frame mb="4" py="5" px="5">
       <Flex align="center" justify="between" gap="3" mb="3">
         <Heading as="h3" size="md" mb="0">
           Organization Policies
         </Heading>
         {editing ? (
-          <Button
-            variant="ghost"
-            disabled={invalid}
-            setError={setError}
-            onClick={done}
-          >
-            Done
-          </Button>
+          <Flex gap="3" align="center">
+            <Button variant="ghost" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={invalid}
+              setError={setError}
+              onClick={async () => {
+                // Turning tokens off revokes them, so it asks first.
+                if (disable && !wasDisabled) {
+                  setConfirmDisable(true);
+                  return;
+                }
+                await save();
+              }}
+            >
+              Save
+            </Button>
+          </Flex>
         ) : (
           <Tooltip
             content={
@@ -124,8 +137,8 @@ const OrganizationPoliciesCard: FC<{
               {disable && !wasDisabled && (
                 <Callout status="error" mt="3">
                   Every token that acts as a user stops working as soon as you
-                  click Done: personal access tokens, OAuth access tokens, and
-                  the Visual Editor. Turning this back off restores them.
+                  save: personal access tokens, OAuth access tokens, and the
+                  Visual Editor. Turning this back off restores them.
                 </Callout>
               )}
             </Box>
@@ -153,6 +166,19 @@ const OrganizationPoliciesCard: FC<{
             <ApiKeyExpirationPolicy kind={kind} keys={keys} mutate={mutate} />
           )}
         </Flex>
+      )}
+      {confirmDisable && (
+        <ConfirmDialog
+          title="Disable personal access tokens?"
+          content="Every token that acts as a user stops working: personal access tokens, OAuth access tokens, and the Visual Editor. Turning this back off restores them."
+          yesText="Disable tokens"
+          color="red"
+          onConfirm={async () => {
+            await save();
+            setConfirmDisable(false);
+          }}
+          onCancel={() => setConfirmDisable(false)}
+        />
       )}
     </Frame>
   );

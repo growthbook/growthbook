@@ -54,6 +54,12 @@ body {
       var(--settings-nav-inset)
   );
 }
+// Matches the sub nav's breakpoint: without it, content only clears the sidebar.
+@media (max-width: 1399px) {
+  :root {
+    --settings-layout-left: var(--settings-sidebar-width);
+  }
+}
 .main {
   padding-left: 240px;
   &.settings-layout {

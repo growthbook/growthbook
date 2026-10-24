@@ -20,6 +20,15 @@ export default function BreadcrumbsStories() {
           { display: "Page 5", href: "/page-5" },
         ]}
       />
+      {/* Muted: used on Settings pages, where the sub nav already shows the hierarchy. */}
+      <Breadcrumbs
+        muted
+        items={[
+          { display: "Settings" },
+          { display: "Organization" },
+          { display: "Projects" },
+        ]}
+      />
     </Flex>
   );
 }

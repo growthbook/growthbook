@@ -73,11 +73,11 @@ const Layout = (): React.ReactElement => {
 
   // hacky:
   const router = useRouter();
-  // Settings adds its own sub nav beside the sidebar. Narrow screens keep the
-  // drawer, with the Organization pages as sub-links.
+  // Settings adds its own sub nav beside the sidebar from 1400px. Below that
+  // the sidebar lists the Organization pages as sub-links instead.
   const [wide, setWide] = useState(true);
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1181px)");
+    const mq = window.matchMedia("(min-width: 1400px)");
     const update = () => setWide(mq.matches);
     update();
     mq.addEventListener("change", update);

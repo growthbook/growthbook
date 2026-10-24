@@ -3,13 +3,7 @@ import {
   EventInterface,
   NotificationEventName,
 } from "shared/types/events/event";
-import {
-  PiCalendarBlank,
-  PiCaretDown,
-  PiCaretUp,
-  PiCaretUpDown,
-  PiDownloadSimple,
-} from "react-icons/pi";
+import { PiCalendarBlank, PiCaretDown, PiDownloadSimple } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
@@ -32,6 +26,7 @@ import RadioGroup from "@/ui/RadioGroup";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Callout from "@/ui/Callout";
 import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
+import { ariaSort, SortButton } from "@/services/search";
 
 type EventsPageProps = {
   filterURLParams: string;
@@ -117,33 +112,23 @@ export const EventsPage: FC<EventsPageProps> = ({
       <table className="mt-3 table gbtable table-hover appbox">
         <thead>
           <tr>
-            <th style={{ width: 200 }}>
-              <span
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
+            <th
+              style={{ width: 200 }}
+              aria-sort={ariaSort(sort.field === "dateCreated", sort.dir)}
+            >
+              <SortButton
+                active={sort.field === "dateCreated"}
+                dir={sort.dir}
+                subtle
+                onClick={() =>
                   setSort({
                     field: "dateCreated",
                     dir: sort.dir * -1,
-                  });
-                }}
+                  })
+                }
               >
-                Date{" "}
-                <span
-                  aria-hidden="true"
-                  style={{ color: "var(--gray-11)", verticalAlign: "-2px" }}
-                >
-                  {sort.field === "dateCreated" ? (
-                    sort.dir < 0 ? (
-                      <PiCaretDown size={14} />
-                    ) : (
-                      <PiCaretUp size={14} />
-                    )
-                  ) : (
-                    <PiCaretUpDown size={14} />
-                  )}
-                </span>
-              </span>
+                Date
+              </SortButton>
             </th>
             <th>Type</th>
             <th>By</th>
@@ -289,10 +274,17 @@ function DateRangeFilter({
           </Text>
           <Flex gap="2">
             <Box flexGrow="1">
-              <Text as="div" size="sm" color="text-mid" mb="1">
+              <Text
+                as="label"
+                htmlFor="events-from"
+                size="sm"
+                color="text-mid"
+                mb="1"
+              >
                 From
               </Text>
               <DatePicker
+                id="events-from"
                 size="md"
                 date={preset === "custom" ? fromDate : undefined}
                 setDate={(d) => {
@@ -305,10 +297,17 @@ function DateRangeFilter({
               />
             </Box>
             <Box flexGrow="1">
-              <Text as="div" size="sm" color="text-mid" mb="1">
+              <Text
+                as="label"
+                htmlFor="events-to"
+                size="sm"
+                color="text-mid"
+                mb="1"
+              >
                 To
               </Text>
               <DatePicker
+                id="events-to"
                 size="md"
                 date={toDate}
                 setDate={(d) => {
