@@ -70,7 +70,7 @@ export default function FactTableEventsTab({
           <TextField
             size="sm"
             type="search"
-            placeholder="Search events"
+            placeholder={`Search ${rows.length} events`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />

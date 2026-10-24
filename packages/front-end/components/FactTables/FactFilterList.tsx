@@ -102,11 +102,15 @@ function FactFilterRowMenu({
 
 export interface Props {
   factTable: FactTableInterface;
+  hideSearch?: boolean;
 }
 
 const FILTER_PAGE_SIZE = 10;
 
-export default function FactFilterList({ factTable }: Props) {
+export default function FactFilterList({
+  factTable,
+  hideSearch = false,
+}: Props) {
   const router = useRouter();
   const requestedFilterId =
     typeof router.query.filter === "string" ? router.query.filter : "";
@@ -186,7 +190,7 @@ export default function FactFilterList({ factTable }: Props) {
       )}
 
       <div className="row align-items-center">
-        {factTable.filters.length > 0 && (
+        {factTable.filters.length > 0 && !hideSearch && (
           <div className="col-auto mr-auto">
             <Field
               size="legacy"

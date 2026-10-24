@@ -161,11 +161,14 @@ function FactMetricRowMenu({
 export interface Props {
   factTable: FactTableInterface;
   metrics?: FactMetricInterface[];
+  // Hides the text input; the filter dropdowns stay (e.g. to show archived)
+  hideSearch?: boolean;
 }
 
 export default function FactMetricList({
   factTable,
   metrics: providedMetrics,
+  hideSearch = false,
 }: Props) {
   const [showArchived, setShowArchived] = useState(false);
 
@@ -334,13 +337,15 @@ export default function FactMetricList({
       <Flex align="center" gap="3" wrap="wrap">
         {metrics.length > 0 && (
           <>
-            <Box width={{ initial: "100%", sm: "auto" }}>
-              <Field
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
-              />
-            </Box>
+            {!hideSearch && (
+              <Box width={{ initial: "100%", sm: "auto" }}>
+                <Field
+                  placeholder="Search..."
+                  type="search"
+                  {...searchInputProps}
+                />
+              </Box>
+            )}
             <FactMetricSearchFilters
               factMetrics={metrics}
               searchInputProps={searchInputProps}

@@ -2,6 +2,7 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiCaretRightBold } from "react-icons/pi";
 import { FactTableInterface } from "shared/types/fact-table";
 import { hasStartDateFilter } from "shared/sql";
 import { getFactMetricFactTableIds } from "shared/experiments";
@@ -23,7 +24,7 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import { getEventColumns, getSqlSummary } from "@/services/factTables";
+import { getEventColumns, getSqlSummaryTokens } from "@/services/factTables";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useColumnValueCounts from "@/hooks/useColumnValueCounts";
@@ -49,6 +50,30 @@ import FactMetricList from "./FactMetricList";
 import AggregatedFactTablesCard from "./AggregatedFactTablesCard";
 import FactTableEventsTab from "./FactTableEventsTab";
 import FactTableSampleRows from "./FactTableSampleRows";
+import styles from "./FactTableDetailsPage.module.scss";
+
+// One line of SQL from the top-level FROM, colored like the full SQL view
+function SqlSummary({ sql }: { sql: string }) {
+  const { hasSelect, tokens } = getSqlSummaryTokens(sql);
+  return (
+    <span className={styles.sqlLine}>
+      {hasSelect && (
+        <>
+          <span className={styles.keyword}>SELECT</span>
+          <span className={styles.muted}> … </span>
+        </>
+      )}
+      {tokens.map((t, i) => (
+        <span
+          key={i}
+          className={t.kind === "other" ? undefined : styles[t.kind]}
+        >
+          {(t.spaceBefore ? " " : "") + t.text}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 function TabLabel({ label, count }: { label: string; count?: number }) {
   return (
@@ -402,26 +427,30 @@ export default function FactTableDetailsPage() {
         ) : null}
       </Flex>
 
-      <Frame px="4" py="3" mb="4">
-        <Flex align="center" justify="between" gap="3">
-          <Link onClick={() => setShowSql(!showSql)}>
-            {showSql ? "Hide SQL" : "Show SQL"}
-          </Link>
-          {!showSql && (
-            <Box
-              flexGrow="1"
-              style={{
-                fontFamily: "var(--code-font-family)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              <Text color="text-mid">{getSqlSummary(factTable.sql)}</Text>
-            </Box>
-          )}
+      <Frame px="3" py="2" mb="4">
+        <Flex align="center" gap="3">
+          <button
+            type="button"
+            className={styles.sqlBar}
+            onClick={() => setShowSql(!showSql)}
+            aria-expanded={showSql}
+            aria-label={showSql ? "Collapse SQL" : "Expand SQL"}
+          >
+            <PiCaretRightBold
+              className={styles.caret}
+              style={{ transform: showSql ? "rotate(90deg)" : undefined }}
+            />
+            <SqlSummary sql={factTable.sql} />
+          </button>
           {canEdit && (
-            <Link onClick={() => setEditSQLOpen(true)}>Edit SQL</Link>
+            <Button
+              variant="outline"
+              size="sm"
+              style={{ flexShrink: 0, whiteSpace: "nowrap" }}
+              onClick={() => setEditSQLOpen(true)}
+            >
+              Edit SQL
+            </Button>
           )}
         </Flex>
         {showSql && (
@@ -488,6 +517,7 @@ export default function FactTableDetailsPage() {
             <ColumnList
               factTable={factTable}
               canEdit={canEditColumns}
+              hideSearch
               renderValues={(col) => (
                 <ColumnValues
                   column={col}
@@ -513,11 +543,15 @@ export default function FactTableDetailsPage() {
           </TabsContent>
 
           <TabsContent value="filters">
-            <FactFilterList factTable={factTable} />
+            <FactFilterList factTable={factTable} hideSearch />
           </TabsContent>
 
           <TabsContent value="metrics">
-            <FactMetricList factTable={factTable} metrics={metrics} />
+            <FactMetricList
+              factTable={factTable}
+              metrics={metrics}
+              hideSearch
+            />
           </TabsContent>
         </Box>
       </Tabs>

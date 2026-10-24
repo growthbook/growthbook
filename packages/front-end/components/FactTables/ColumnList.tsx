@@ -28,6 +28,7 @@ export interface Props {
   canEdit?: boolean;
   // Adds a Values column, rendered per non-JSON-field column
   renderValues?: (column: ColumnInterface) => ReactNode;
+  hideSearch?: boolean;
 }
 
 const POLL_INTERVAL_MS = 3000; // Poll every 3 seconds
@@ -37,6 +38,7 @@ export default function ColumnList({
   factTable,
   canEdit = false,
   renderValues,
+  hideSearch = false,
 }: Props) {
   const [editOpen, setEditOpen] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -141,7 +143,7 @@ export default function ColumnList({
       )}
 
       <Flex align="center" gap="4">
-        {columns.length > 0 && (
+        {columns.length > 0 && !hideSearch && (
           <Box mr="auto">
             <Field
               size="legacy"

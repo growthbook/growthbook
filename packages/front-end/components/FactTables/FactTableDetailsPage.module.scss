@@ -1,0 +1,56 @@
+.sqlBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-2);
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--gray-a3);
+  }
+}
+
+.caret {
+  flex: none;
+  color: var(--gray-11);
+  transition: transform 0.1s;
+}
+
+.sqlLine {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--code-font-family);
+  font-size: var(--font-size-1);
+  color: var(--gray-12);
+}
+
+.keyword {
+  color: var(--violet-11);
+  font-weight: 600;
+}
+
+.string {
+  color: var(--green-11);
+}
+
+.variable {
+  color: var(--orange-11);
+}
+
+.cast {
+  color: var(--blue-11);
+}
+
+.muted {
+  color: var(--gray-11);
+}

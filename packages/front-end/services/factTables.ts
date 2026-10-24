@@ -452,19 +452,37 @@ export function getEventColumns(
   );
 }
 
+const SQL_KEYWORDS = new Set(
+  (
+    "SELECT FROM WHERE AND OR NOT AS ON IN IS NULL BETWEEN LIKE ILIKE JOIN " +
+    "LEFT RIGHT INNER OUTER FULL CROSS GROUP BY ORDER HAVING LIMIT OFFSET " +
+    "UNION ALL DISTINCT WITH CASE WHEN THEN ELSE END QUALIFY OVER PARTITION " +
+    "ASC DESC CAST TRUE FALSE"
+  ).split(" "),
+);
+
+export type SqlSummaryToken = {
+  text: string;
+  kind: "keyword" | "string" | "variable" | "cast" | "other";
+  spaceBefore: boolean;
+};
+
 /**
- * One-line summary of a SQL query: everything from its first top-level FROM,
- * with comments dropped and whitespace collapsed. Falls back to the whole
- * query when there is no top-level FROM.
+ * One-line summary of a SQL query as tokens: everything from its first
+ * top-level FROM, with comments dropped and whitespace collapsed. Falls back
+ * to the whole query when there is no top-level FROM.
  */
-export function getSqlSummary(sql: string): string {
-  const tokens: { text: string; spaceBefore: boolean }[] = [];
+export function getSqlSummaryTokens(sql: string): {
+  hasSelect: boolean;
+  tokens: SqlSummaryToken[];
+} {
+  const tokens: SqlSummaryToken[] = [];
   let fromIndex = -1;
   let depth = 0;
   let space = false;
   let i = 0;
-  const push = (text: string) => {
-    tokens.push({ text, spaceBefore: space && tokens.length > 0 });
+  const push = (text: string, kind: SqlSummaryToken["kind"] = "other") => {
+    tokens.push({ text, kind, spaceBefore: space && tokens.length > 0 });
     space = false;
   };
   const skipTo = (end: string, from: number) => {
@@ -484,7 +502,12 @@ export function getSqlSummary(sql: string): string {
       i = skipTo("*/", i + 2);
     } else if (sql.startsWith("{{", i)) {
       const j = skipTo("}}", i + 2);
-      push(sql.slice(i, j));
+      push(sql.slice(i, j), "variable");
+      i = j;
+    } else if (sql.startsWith("::", i) && /[A-Za-z_]/.test(sql[i + 2] || "")) {
+      let j = i + 3;
+      while (j < sql.length && /\w/.test(sql[j])) j++;
+      push(sql.slice(i, j), "cast");
       i = j;
     } else if (c === "'" || c === '"' || c === "`") {
       // Quotes are escaped by doubling, so a doubled quote just continues
@@ -494,16 +517,18 @@ export function getSqlSummary(sql: string): string {
         else if (sql[j] === c) break;
         else j++;
       }
-      push(sql.slice(i, j + 1));
+      // A quoted string may hold a {{variable}}; keep it one string token
+      push(sql.slice(i, j + 1), c === "'" ? "string" : "other");
       i = j + 1;
     } else if (/[\w$]/.test(c)) {
       let j = i + 1;
       while (j < sql.length && /[\w$]/.test(sql[j])) j++;
       const word = sql.slice(i, j);
-      if (fromIndex < 0 && depth === 0 && word.toUpperCase() === "FROM") {
+      const upper = word.toUpperCase();
+      if (fromIndex < 0 && depth === 0 && upper === "FROM") {
         fromIndex = tokens.length;
       }
-      push(word);
+      push(word, SQL_KEYWORDS.has(upper) ? "keyword" : "other");
       i = j;
     } else {
       if (c === "(") depth++;
@@ -512,9 +537,15 @@ export function getSqlSummary(sql: string): string {
       i++;
     }
   }
-  return tokens
-    .slice(Math.max(fromIndex, 0))
-    .map((t, k) => (k > 0 && t.spaceBefore ? " " : "") + t.text)
+  const summary = tokens.slice(Math.max(fromIndex, 0));
+  if (summary.length) summary[0] = { ...summary[0], spaceBefore: false };
+  return { hasSelect: fromIndex > 0, tokens: summary };
+}
+
+/** The summary from getSqlSummaryTokens as plain text */
+export function getSqlSummary(sql: string): string {
+  return getSqlSummaryTokens(sql)
+    .tokens.map((t) => (t.spaceBefore ? " " : "") + t.text)
     .join("");
 }
 

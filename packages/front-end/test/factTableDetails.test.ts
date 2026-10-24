@@ -7,6 +7,7 @@ import {
   getEventColumns,
   getMetricsForEvent,
   getSqlSummary,
+  getSqlSummaryTokens,
 } from "@/services/factTables";
 
 describe("getSqlSummary", () => {
@@ -100,5 +101,28 @@ describe("getMetricsForEvent", () => {
     expect(
       getMetricsForEvent(metrics, "ft", "event", "purchase").map((m) => m.id),
     ).toEqual(["num", "den", "funnel"]);
+  });
+});
+
+describe("getSqlSummaryTokens", () => {
+  it("labels keywords, strings, template variables, and casts", () => {
+    const { hasSelect, tokens } = getSqlSummaryTokens(
+      "SELECT a FROM t WHERE ts >= {{startDate}} AND x::float > 1 AND e = 'buy'",
+    );
+    expect(hasSelect).toBe(true);
+    const kinds = Object.fromEntries(tokens.map((t) => [t.text, t.kind]));
+    expect(kinds).toMatchObject({
+      FROM: "keyword",
+      WHERE: "keyword",
+      AND: "keyword",
+      "{{startDate}}": "variable",
+      "::float": "cast",
+      "'buy'": "string",
+      t: "other",
+    });
+  });
+
+  it("reports no SELECT when the query has no top-level FROM", () => {
+    expect(getSqlSummaryTokens("SELECT 1").hasSelect).toBe(false);
   });
 });
