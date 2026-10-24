@@ -5,6 +5,7 @@ import {
   WIN_RATE_HEALTHY_RANGE,
   getHealthBand,
 } from "shared/enterprise";
+import { useSearch } from "@/services/search";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -17,6 +18,22 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import { BAND_COLORS } from "./HealthHeadline";
+
+const NO_PROJECT_KEY = "__no_project__";
+
+// Flat fields to sort on; undefined sorts last
+type SortItem = {
+  id: string;
+  name: string;
+  score?: number;
+  winRate?: number;
+  velocity: number;
+  quality?: number;
+  gap: string;
+  row: ProjectHealthRow;
+};
+// About ten rows, then the table scrolls under its header
+const MAX_TABLE_HEIGHT = 480;
 
 export type ProjectHealthRow = {
   id: string;
@@ -133,25 +150,58 @@ export default function HealthByProject({
   // Inactive Projects are collapsed so busy orgs stay readable
   const shown = rows.filter((r) => r.active || showInactive);
   const showTrend = shown.some((r) => r.trend !== null);
+  const items = shown.map(
+    (r): SortItem => ({
+      id: r.id || NO_PROJECT_KEY,
+      name: r.name,
+      score: r.health.score ?? undefined,
+      winRate: r.health.winRate ?? undefined,
+      velocity: r.health.startRate,
+      quality: r.health.quality ?? undefined,
+      gap: r.biggestGap,
+      row: r,
+    }),
+  );
+  const { items: sorted, SortableTableColumnHeader } = useSearch({
+    items,
+    searchFields: ["name"],
+    localStorageKey: "insights-health-projects",
+    defaultSortField: "score",
+    defaultSortDir: -1,
+    undefinedLast: true,
+    // Sort only; there's no search box here
+    controlledSearchValue: "",
+  });
+  const header = (field: keyof SortItem, label: string) => (
+    <SortableTableColumnHeader field={field} style={{ whiteSpace: "nowrap" }}>
+      {label}
+    </SortableTableColumnHeader>
+  );
   return (
     <Box className="appbox" mb="5" p="4">
       <Heading as="h3" size="sm" mb="2">
         Health by Project
       </Heading>
-      <Table variant="ghost">
+      <Table
+        variant="ghost"
+        scrollX
+        stickyHeader
+        stickyTopOffset={0}
+        maxHeight={MAX_TABLE_HEIGHT}
+      >
         <TableHeader>
           <TableRow>
-            <TableColumnHeader>Project</TableColumnHeader>
-            <TableColumnHeader>Score</TableColumnHeader>
+            {header("name", "Project")}
+            {header("score", "Score")}
             {showTrend && <TableColumnHeader>Trend</TableColumnHeader>}
-            <TableColumnHeader>Win rate</TableColumnHeader>
-            <TableColumnHeader>Velocity</TableColumnHeader>
-            <TableColumnHeader>Quality</TableColumnHeader>
-            <TableColumnHeader>Biggest gap</TableColumnHeader>
+            {header("winRate", "Win rate")}
+            {header("velocity", "Velocity")}
+            {header("quality", "Quality")}
+            {header("gap", "Biggest gap")}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {shown.map((r) => (
+          {sorted.map(({ row: r }) => (
             <TableRow key={r.id}>
               <TableCell>
                 {r.id ? (
