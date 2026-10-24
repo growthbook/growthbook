@@ -2,11 +2,13 @@ import React from "react";
 import { NextPage } from "next";
 import { useRouter } from "next/router";
 import { EventWebHookInterface } from "shared/types/event-webhook";
+import { Box } from "@radix-ui/themes";
 import { EventWebHookDetailContainer } from "@/components/EventWebHooks/EventWebHookDetail/EventWebHookDetail";
 import { EventWebHookLogsContainer } from "@/components/EventWebHooks/EventWebHookLogs/EventWebHookLogs";
 import useApi from "@/hooks/useApi";
-import PageHead from "@/components/Layout/PageHead";
+import SettingsPage from "@/components/Layout/SettingsPage";
 import Callout from "@/ui/Callout";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 const EventWebHookDetailPage: NextPage = () => {
   const router = useRouter();
@@ -20,39 +22,39 @@ const EventWebHookDetailPage: NextPage = () => {
     eventWebHook: EventWebHookInterface;
   }>(`/event-webhooks/${eventWebHookId}`);
 
-  if (error)
-    return (
-      <Callout status="error">
-        Unable to fetch event web hook {eventWebHookId}
-      </Callout>
-    );
-
-  if (!data) return null;
-
-  const { eventWebHook } = data;
+  const eventWebHook = data?.eventWebHook;
+  const title = eventWebHook?.name ?? "Webhook";
 
   return (
-    <>
-      <PageHead
-        breadcrumb={[
-          {
-            display: "Webhooks",
-            href: `/settings/webhooks`,
-          },
-          { display: eventWebHook.name },
-        ]}
-      />
-      <div className="container pagecontents">
-        <EventWebHookDetailContainer
-          eventWebHook={eventWebHook}
-          mutateEventWebHook={mutateEventWebHook}
-        />
-
-        <div className="mt-4">
-          <EventWebHookLogsContainer />
-        </div>
-      </div>
-    </>
+    <SettingsPage
+      title={title}
+      // The webhook renders its own header; the page title only covers errors.
+      hideHeader={!error}
+      breadcrumb={[
+        { display: "Settings" },
+        { display: "Organization" },
+        { display: "Webhooks", href: "/settings/webhooks" },
+        { display: title },
+      ]}
+    >
+      {error ? (
+        <Callout status="error">
+          Unable to fetch event web hook {eventWebHookId}
+        </Callout>
+      ) : eventWebHook ? (
+        <>
+          <EventWebHookDetailContainer
+            eventWebHook={eventWebHook}
+            mutateEventWebHook={mutateEventWebHook}
+          />
+          <Box mt="4">
+            <EventWebHookLogsContainer />
+          </Box>
+        </>
+      ) : (
+        <LoadingSpinner />
+      )}
+    </SettingsPage>
   );
 };
 

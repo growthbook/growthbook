@@ -184,11 +184,6 @@
       "count": 3
     }
   },
-  "packages/front-end/components/Events/EventsPage/EventsPage.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Events/EventsPage/utils.ts": {
     "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
@@ -855,22 +850,9 @@
       "count": 1
     }
   },
-  "packages/front-end/components/GeneralSettings/AISettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/GeneralSettings/BanditSettings.tsx": {
     "no-restricted-syntax": {
       "count": 4
-    }
-  },
-  "packages/front-end/components/GeneralSettings/DatasourceSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField.tsx": {
@@ -880,15 +862,7 @@
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/DecisionFrameworkSettings.tsx": {
     "no-restricted-imports": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/FrequentistTab.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/PValueThresholdField.tsx": {
@@ -896,67 +870,9 @@
       "count": 1
     }
   },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/StatsEngineSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/StickyBucketingSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/index.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    }
-  },
-  "packages/front-end/components/GeneralSettings/FeatureSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 6
-    }
-  },
-  "packages/front-end/components/GeneralSettings/MetricsSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    }
-  },
-  "packages/front-end/components/GeneralSettings/NorthStarMetricSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/OrganizationAndLicenseSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/GeneralSettings/RampScheduleTemplates.tsx": {
     "no-restricted-imports": {
       "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/SavedGroupSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
     },
     "no-restricted-syntax": {
       "count": 1
@@ -1109,11 +1025,6 @@
     }
   },
   "packages/front-end/components/License/OptInModal.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/License/ShowLicenseInfo.tsx": {
     "no-restricted-imports": {
       "count": 2
     }
@@ -1452,11 +1363,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Settings/BayesianPriorSettings.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Settings/BigQueryForm.tsx": {
     "no-restricted-syntax": {
       "count": 5
@@ -1560,11 +1466,6 @@
     },
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/EditOrganizationModal.tsx": {
-    "no-restricted-syntax": {
-      "count": 4
     }
   },
   "packages/front-end/components/Settings/EnvironmentModal.tsx": {
@@ -1675,11 +1576,6 @@
   "packages/front-end/components/Settings/UpgradeModal/index.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Settings/Usage/CloudUsage.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "packages/front-end/components/Settings/WebhooksModal.tsx": {
@@ -1936,7 +1832,7 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 11
+      "count": 9
     }
   },
   "packages/front-end/pages/attributes.tsx": {
@@ -2065,16 +1961,6 @@
   "packages/front-end/pages/saved-groups/index.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/pages/settings/custom-markdown.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/settings/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/pages/settings/tags.tsx": {

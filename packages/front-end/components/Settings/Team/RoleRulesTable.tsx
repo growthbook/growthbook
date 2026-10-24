@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, ReactNode } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { getRoleDisplayName, holdsGlobalAdmin } from "shared/permissions";
@@ -44,12 +44,15 @@ export default function RoleRulesTable({
   setValue,
   teams = [],
   forApiKey = false,
+  footerEnd,
 }: {
   value: MemberRoleWithProjects;
   setValue: (value: MemberRoleWithProjects) => void;
   teams?: TeamRuleSource[];
   // An API key's project rules stay binding even over All Projects admin.
   forApiKey?: boolean;
+  // Shares the bottom row with "Add Project override", e.g. Cancel and Save.
+  footerEnd?: ReactNode;
 }) {
   const { organization, hasCommercialFeature } = useUser();
   const hasAdvancedPermissions = hasCommercialFeature("advanced-permissions");
@@ -303,11 +306,18 @@ export default function RoleRulesTable({
   return (
     <Box>
       {groups.map(renderGroup)}
-      {unusedProjects.length > 0 && hasAdvancedPermissions && (
-        <Button variant="soft" onClick={() => addRule(unusedProjects[0].id)}>
-          <PiPlus /> Add project override
-        </Button>
-      )}
+      <Flex align="center" gap="3">
+        {unusedProjects.length > 0 && hasAdvancedPermissions && (
+          <Button
+            variant="soft"
+            icon={<PiPlus />}
+            onClick={() => addRule(unusedProjects[0].id)}
+          >
+            Add Project override
+          </Button>
+        )}
+        {footerEnd && <Box ml="auto">{footerEnd}</Box>}
+      </Flex>
     </Box>
   );
 }

@@ -1,0 +1,112 @@
+// A card floating beside the sidebar and below the top bar.
+.nav {
+  position: fixed;
+  top: calc(56px + var(--settings-nav-inset));
+  bottom: var(--settings-nav-inset);
+  left: calc(var(--settings-sidebar-width) + var(--settings-nav-inset));
+  width: var(--settings-nav-width);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-panel-solid);
+  border: 1px solid var(--slate-a4);
+  border-radius: var(--radius-4);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+  z-index: 999;
+  font-size: 13px;
+
+  // Below this, pages beside it get too narrow; the sidebar lists the pages instead.
+  @media (max-width: 1399px) {
+    display: none;
+  }
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  line-height: 1;
+  padding: 2px 4px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--slate-a5);
+  border-radius: 3px;
+  // Bootstrap gives kbd a dark fill.
+  background: transparent;
+  color: var(--gray-11);
+}
+
+.resultText {
+  padding: 0 14px 8px;
+  font-size: 12px;
+  color: var(--gray-11);
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 12px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.groupLabel {
+  padding: 0 8px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gray-10);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-high);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--violet-3);
+    color: var(--color-text-high);
+    text-decoration: none;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--violet-9);
+    outline-offset: -2px;
+  }
+}
+
+.active,
+.active:hover {
+  background: var(--violet-3);
+  color: var(--violet-11);
+  font-weight: 600;
+}
+
+.itemLabel {
+  flex: 1;
+  min-width: 0;
+}
+
+.empty {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--gray-11);
+}

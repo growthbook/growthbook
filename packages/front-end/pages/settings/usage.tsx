@@ -3,6 +3,7 @@ import CloudUsage from "@/components/Settings/Usage/CloudUsage";
 import { useUser } from "@/services/UserContext";
 import OrbPortal from "@/enterprise/components/Billing/OrbPortal";
 import Callout from "@/ui/Callout";
+import SettingsPage from "@/components/Layout/SettingsPage";
 
 export default function UsagePage() {
   const permissionsUtil = usePermissionsUtil();
@@ -10,29 +11,34 @@ export default function UsagePage() {
 
   if (!permissionsUtil.canViewUsage()) {
     return (
-      <div className="container pagecontents">
+      <SettingsPage title="Usage">
         <Callout status="error">
           You do not have access to view this page.
         </Callout>
-      </div>
+      </SettingsPage>
     );
   }
 
   if (subscription?.isVercelIntegration) {
     return (
-      <div className="container pagecontents">
+      <SettingsPage title="Usage">
         <Callout status="info">
           This page is not available for organizations whose plan is managed by
           Vercel. Please go to your Vercel Integration Dashboard to view your
           usage and billing information.
         </Callout>
-      </div>
+      </SettingsPage>
     );
   }
 
   return (
-    <div className="container-fluid pagecontents">
+    // The CDN usage view renders its own header; the Orb portal keeps the page's.
+    <SettingsPage
+      title="Usage"
+      description="Invoices, payments, and plan usage."
+      hideHeader={subscription?.billingPlatform !== "orb"}
+    >
       {subscription?.billingPlatform === "orb" ? <OrbPortal /> : <CloudUsage />}
-    </div>
+    </SettingsPage>
   );
 }

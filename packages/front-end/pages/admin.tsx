@@ -4,15 +4,14 @@ import {
   OrganizationInterface,
 } from "shared/types/organization";
 import clsx from "clsx";
-import { Box, useThemeContext } from "@radix-ui/themes";
+import { Box, Flex, useThemeContext } from "@radix-ui/themes";
 import {
-  FaAngleDown,
-  FaAngleRight,
-  FaPencilAlt,
-  FaPlus,
-  FaSearch,
-  FaSpinner,
-} from "react-icons/fa";
+  PiCaretDown,
+  PiCaretRight,
+  PiMagnifyingGlass,
+  PiPencilSimple,
+  PiPlus,
+} from "react-icons/pi";
 import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import Collapsible from "react-collapsible";
@@ -41,11 +40,16 @@ import SelectField from "@/components/Forms/SelectField";
 import StringArrayField from "@/ui/StringArrayField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import { TextField } from "@/ui/TextField";
 import {
   DEFAULT_DATA_REGION,
   DataRegion,
   useDataRegionOptions,
 } from "@/services/dataRegions";
+import SettingsPage from "@/components/Layout/SettingsPage";
 
 interface memberOrgProps {
   id: string;
@@ -206,16 +210,9 @@ function OrganizationRow({
         })}
       >
         <td>
-          <a
-            className={clsx("mb-1 h5")}
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              switchTo(organization);
-            }}
-          >
+          <Link onClick={() => switchTo(organization)}>
             {organization.name}
-          </a>
+          </Link>
         </td>
         <td>{organization.ownerEmail}</td>
         <td>{date(organization.dateCreated)}</td>
@@ -243,7 +240,7 @@ function OrganizationRow({
             }}
             style={{ lineHeight: "40px" }}
           >
-            <FaPencilAlt />
+            <PiPencilSimple />
           </a>
         </td>
         <td style={{ width: 40 }} className="p-0 text-center">
@@ -256,7 +253,7 @@ function OrganizationRow({
             }}
             style={{ fontSize: "1.2em", lineHeight: "40px" }}
           >
-            {expanded ? <FaAngleDown /> : <FaAngleRight />}
+            {expanded ? <PiCaretDown /> : <PiCaretRight />}
           </a>
         </td>
       </tr>
@@ -410,7 +407,7 @@ function OrganizationRow({
               <Collapsible
                 trigger={
                   <h3>
-                    Other Attributes <FaAngleRight className="chevron" />
+                    Other Attributes <PiCaretRight className="chevron" />
                   </h3>
                 }
                 transitionTime={150}
@@ -422,7 +419,7 @@ function OrganizationRow({
               <Collapsible
                 trigger={
                   <h3>
-                    Settings <FaAngleRight className="chevron" />
+                    Settings <PiCaretRight className="chevron" />
                   </h3>
                 }
                 transitionTime={150}
@@ -433,7 +430,7 @@ function OrganizationRow({
             <Collapsible
               trigger={
                 <h3>
-                  Members <FaAngleRight className="chevron" />
+                  Members <PiCaretRight className="chevron" />
                 </h3>
               }
               transitionTime={150}
@@ -457,12 +454,12 @@ function OrganizationRow({
                 <Collapsible
                   trigger={
                     <h3>
-                      License <FaAngleRight className="chevron" />
+                      License <PiCaretRight className="chevron" />
                     </h3>
                   }
                   transitionTime={150}
                 >
-                  {licenseLoading && <FaSpinner />}
+                  {licenseLoading && <LoadingSpinner />}
                   {(license && (
                     <Code language="json" code={stringify(license)} />
                   )) ||
@@ -523,7 +520,7 @@ function MemberRow({
             }}
             style={{ lineHeight: "40px" }}
           >
-            <FaPencilAlt />
+            <PiPencilSimple />
           </a>
         </td>
         <td style={{ width: 40 }} className="p-0 text-center">
@@ -536,7 +533,7 @@ function MemberRow({
             }}
             style={{ fontSize: "1.2em", lineHeight: "40px" }}
           >
-            {expanded ? <FaAngleDown /> : <FaAngleRight />}
+            {expanded ? <PiCaretDown /> : <PiCaretRight />}
           </a>
         </td>
       </tr>
@@ -683,7 +680,10 @@ const Admin: FC = () => {
   }
 
   return (
-    <div className="container-fluid p-3 pagecontents">
+    <SettingsPage
+      title="Admin"
+      description="Manage organizations and members on this GrowthBook instance."
+    >
       {orgModalOpen && (
         <CreateOrganization
           showExternalId={!isCloud()}
@@ -693,7 +693,6 @@ const Admin: FC = () => {
           close={() => setOrgModalOpen(false)}
         />
       )}
-      <h1>GrowthBook Admin</h1>
       {!isCloud() && (
         <>
           <div className="appbox p-3">
@@ -711,51 +710,47 @@ const Admin: FC = () => {
         </Box>
 
         <TabsContent value="organizations">
-          <button
-            className="btn btn-primary float-right"
-            onClick={(e) => {
-              e.preventDefault();
-              setOrgModalOpen(true);
-            }}
-          >
-            <FaPlus /> New Organization
-          </button>
-          <div className="mb-2 row align-items-center">
-            <div className="col-auto">
+          <Flex align="center" justify="between" gap="3" wrap="wrap" mb="3">
+            <Flex align="center" gap="3" wrap="wrap">
               <form
-                className="d-flex form form-inline"
                 onSubmit={(e) => {
                   e.preventDefault();
                   setPage(1);
                   loadOrgs(1, search);
                 }}
               >
-                <Field
-                  size="legacy"
-                  label="Search:"
-                  labelClassName="mr-2"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  type="search"
-                />
-                <div>
-                  <button type="submit" className="btn btn-primary ml-2">
-                    <FaSearch />
-                  </button>
-                </div>
+                <Flex align="center" gap="2">
+                  <Box width="280px">
+                    <TextField
+                      type="search"
+                      aria-label="Search organizations"
+                      placeholder="Search organizations"
+                      prepend={<PiMagnifyingGlass aria-hidden />}
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </Box>
+                  <Button type="submit" variant="outline">
+                    Search
+                  </Button>
+                </Flex>
               </form>
-            </div>
-            <div className="col-auto">
-              <span className="text-muted">
+              <Text color="text-mid">
                 {numberFormatter.format(total)} matching organization
                 {total === 1 ? "" : "s"}
-              </span>
-            </div>
-          </div>
+              </Text>
+            </Flex>
+            <Button icon={<PiPlus />} onClick={() => setOrgModalOpen(true)}>
+              New organization
+            </Button>
+          </Flex>
           {error && <Callout status="error">{error}</Callout>}
           <div className="position-relative">
             {loading && <LoadingOverlay />}
-            <table className="table appbox" style={{ tableLayout: "fixed" }}>
+            <table
+              className="table gbtable appbox"
+              style={{ tableLayout: "fixed" }}
+            >
               <thead>
                 <tr>
                   <th>Name</th>
@@ -830,43 +825,43 @@ const Admin: FC = () => {
         </TabsContent>
 
         <TabsContent value="members">
-          <div className="mb-2 row align-items-center">
-            <div className="col-auto">
-              <form
-                className="d-flex form form-inline"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setMemberPage(1);
-                  loadMembers(1, memberSearch);
-                }}
-              >
-                <Field
-                  size="legacy"
-                  label="Search:"
-                  labelClassName="mr-2"
-                  value={memberSearch}
-                  onChange={(e) => setMemberSearch(e.target.value)}
-                  type="search"
-                />
-                <div>
-                  <button type="submit" className="btn btn-primary ml-2">
-                    <FaSearch />
-                  </button>
-                </div>
-              </form>
-            </div>
-            <div className="col-auto">
-              <span className="text-muted">
-                {numberFormatter.format(totalMembers)}{" "}
-                {memberSearch ? "matching" : ""} member
-                {totalMembers === 1 ? "" : "s"}
-              </span>
-            </div>
-          </div>
+          <Flex align="center" gap="3" wrap="wrap" mb="3">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setMemberPage(1);
+                loadMembers(1, memberSearch);
+              }}
+            >
+              <Flex align="center" gap="2">
+                <Box width="280px">
+                  <TextField
+                    type="search"
+                    aria-label="Search members"
+                    placeholder="Search members"
+                    prepend={<PiMagnifyingGlass aria-hidden />}
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                  />
+                </Box>
+                <Button type="submit" variant="outline">
+                  Search
+                </Button>
+              </Flex>
+            </form>
+            <Text color="text-mid">
+              {numberFormatter.format(totalMembers)}{" "}
+              {memberSearch ? "matching" : ""} member
+              {totalMembers === 1 ? "" : "s"}
+            </Text>
+          </Flex>
           {memberError && <Callout status="error">{memberError}</Callout>}
           <div className="position-relative">
             {memberLoading && <LoadingOverlay />}
-            <table className="table appbox" style={{ tableLayout: "fixed" }}>
+            <table
+              className="table gbtable appbox"
+              style={{ tableLayout: "fixed" }}
+            >
               <thead>
                 <tr>
                   <th>Name</th>
@@ -905,7 +900,7 @@ const Admin: FC = () => {
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+    </SettingsPage>
   );
 };
 

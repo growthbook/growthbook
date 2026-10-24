@@ -1,57 +1,77 @@
 import {
-  isSettingsSectionId,
-  parseSettingsHash,
+  describeUnsavedChanges,
+  matchesSettingsQuery,
+  resolveSettingsHash,
+  sectionForField,
+  SETTINGS_SECTIONS,
+  tokenizeSettingsQuery,
 } from "@/components/GeneralSettings/settingsSections";
 
-describe("parseSettingsHash", () => {
-  it("parses a tab and section from a composite hash", () => {
-    expect(parseSettingsHash("metrics/data-source-settings")).toEqual({
-      tab: "metrics",
-      section: "data-source-settings",
-    });
+describe("resolveSettingsHash", () => {
+  it("returns null for no hash", () => {
+    expect(resolveSettingsHash(undefined)).toBeNull();
+    expect(resolveSettingsHash("")).toBeNull();
   });
 
-  it("derives the metrics tab from the top-values-lookback section", () => {
-    expect(parseSettingsHash("metrics/top-values-lookback")).toEqual({
-      tab: "metrics",
-      section: "top-values-lookback",
-    });
+  it("maps legacy tab hashes onto section ids", () => {
+    expect(resolveSettingsHash("experiment")).toBe("experiments");
+    expect(resolveSettingsHash("feature")).toBe("features");
+    expect(resolveSettingsHash("approval-flow")).toBe("approvals");
+    expect(resolveSettingsHash("custom")).toBe("markdown");
   });
 
-  it("parses a tab-only hash", () => {
-    expect(parseSettingsHash("feature")).toEqual({
-      tab: "feature",
-      section: null,
-    });
+  it("keeps section ids and element ids as they are", () => {
+    expect(resolveSettingsHash("metrics")).toBe("metrics");
+    expect(resolveSettingsHash("configure-code-refs")).toBe(
+      "configure-code-refs",
+    );
   });
 
-  it("falls back to the default tab for an empty or unknown hash", () => {
-    expect(parseSettingsHash(undefined)).toEqual({
-      tab: "experiment",
-      section: null,
-    });
-    expect(parseSettingsHash("")).toEqual({ tab: "experiment", section: null });
-    expect(parseSettingsHash("not-a-tab")).toEqual({
-      tab: "experiment",
-      section: null,
-    });
+  it("targets the nested element of a legacy tab/section hash", () => {
+    expect(resolveSettingsHash("metrics/data-source-settings")).toBe(
+      "data-source-settings",
+    );
   });
 
-  it("ignores an unknown section segment", () => {
-    expect(parseSettingsHash("metrics/not-a-section")).toEqual({
-      tab: "metrics",
-      section: null,
-    });
+  it("has unique section ids", () => {
+    const ids = SETTINGS_SECTIONS.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });
 
-describe("isSettingsSectionId", () => {
-  it("accepts registered section ids", () => {
-    expect(isSettingsSectionId("data-source-settings")).toBe(true);
+describe("settings search matching", () => {
+  it("tokenizes on whitespace, lowercased", () => {
+    expect(tokenizeSettingsQuery("  Sticky   Bucketing ")).toEqual([
+      "sticky",
+      "bucketing",
+    ]);
+    expect(tokenizeSettingsQuery("   ")).toEqual([]);
   });
 
-  it("rejects unregistered values", () => {
-    expect(isSettingsSectionId("not-a-section")).toBe(false);
-    expect(isSettingsSectionId("")).toBe(false);
+  it("requires every token to appear", () => {
+    const hay = "Sticky bucketing keeps users in their variation";
+    expect(matchesSettingsQuery(hay, ["sticky", "variation"])).toBe(true);
+    expect(matchesSettingsQuery(hay, ["sticky", "warehouse"])).toBe(false);
+    expect(matchesSettingsQuery(hay, [])).toBe(true);
+  });
+});
+
+describe("unsaved change tracking", () => {
+  it("maps fields to the section that renders them", () => {
+    expect(sectionForField("statsEngine")).toBe("statistics");
+    expect(sectionForField("featureListMarkdown")).toBe("markdown");
+    expect(sectionForField("not-a-field")).toBeNull();
+  });
+
+  it("describes where the unsaved changes are", () => {
+    expect(describeUnsavedChanges(1, ["sdk"])).toBe(
+      "1 unsaved change in SDK Configuration",
+    );
+    expect(describeUnsavedChanges(2, ["ai", "markdown"])).toBe(
+      "2 unsaved changes in AI and Custom Markdown",
+    );
+    expect(describeUnsavedChanges(5, ["ai", "markdown", "sdk"])).toBe(
+      "5 unsaved changes in 3 sections",
+    );
   });
 });

@@ -1,0 +1,54 @@
+.section {
+  padding-top: 28px;
+  // Clears the fixed top nav when scrolled to.
+  scroll-margin-top: 64px;
+}
+
+.header {
+  position: sticky;
+  top: 56px;
+  z-index: 6;
+  background: var(--color-background);
+  padding: 12px 0 6px;
+  border-bottom: 1px solid var(--slate-a4);
+}
+
+.noResults {
+  margin-top: 16px;
+  padding: 40px 24px;
+  background: var(--color-panel-solid);
+  border: 1px solid var(--slate-a4);
+  border-radius: 8px;
+  text-align: center;
+}
+
+// Lets the last section reach the top of the viewport so scroll spy can select it.
+.spacer {
+  height: 45vh;
+}
+
+// Floats above the sections while scrolling; rests in flow once the end is reached.
+.unsavedBar {
+  position: sticky;
+  bottom: 16px;
+  z-index: 30;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--color-panel-solid);
+  border: 1px solid var(--slate-a4);
+  border-radius: 8px;
+  box-shadow: var(--shadow-5);
+}
+
+.unsavedDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber-9);
+  flex-shrink: 0;
+}
+
+// The design keeps General settings narrower than the Organization pages.
+.generalContent {
+  max-width: 920px;
+}

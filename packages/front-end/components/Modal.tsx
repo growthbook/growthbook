@@ -53,6 +53,8 @@ type ModalProps = {
   errorDetails?: string | null;
   loading?: boolean;
   size?: "md" | "lg" | "xl" | "max" | "fill";
+  // Caps the dialog width in px, for designs between the preset sizes.
+  maxWidth?: number;
   sizeY?: "max" | "fill";
   inline?: boolean;
   overflowAuto?: boolean;
@@ -103,6 +105,7 @@ const Modal: FC<ModalProps> = ({
   disabledMessage,
   inline = false,
   size = "md",
+  maxWidth,
   sizeY,
   docSection,
   className = "",
@@ -444,15 +447,16 @@ const Modal: FC<ModalProps> = ({
     >
       <div
         className={`modal-dialog modal-${size}`}
-        style={
-          size === "max"
+        style={{
+          ...(size === "max"
             ? { width: "95vw", maxWidth: 1400, margin: "2vh auto" }
             : size === "xl"
               ? { width: "95vw", maxWidth: 1100 }
               : size === "fill"
                 ? { width: "100%", maxWidth: "100%" }
-                : {}
-        }
+                : {}),
+          ...(maxWidth ? { maxWidth } : {}),
+        }}
       >
         {submit && !isSuccess ? (
           <form
