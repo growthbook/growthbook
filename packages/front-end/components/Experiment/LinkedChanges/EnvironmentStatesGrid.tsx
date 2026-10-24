@@ -65,17 +65,35 @@ export function stageEnvironmentInputs(
   );
 }
 
-/** A scope as the environments modal edits it. */
+/**
+ * A scope as the environments modal edits it. `allEnvironments` is the stored
+ * rule's; only when it's unknown does covering every environment read as all.
+ */
 export function scopeFromStates(
   states: Record<string, LinkedFeatureEnvState>,
   orgEnvironments: string[],
+  allEnvironments: boolean | null = null,
 ): ExperimentRuleEnvironments {
   const covered = Object.entries(states)
     .filter(([, state]) => state !== "missing")
     .map(([env]) => env);
-  return orgEnvironments.every((e) => covered.includes(e))
+  return (allEnvironments ?? orgEnvironments.every((e) => covered.includes(e)))
     ? { allEnvironments: true, environments: [] }
     : { allEnvironments: false, environments: covered };
+}
+
+/** Whether two scopes are the same setting, ignoring environment order. */
+export function sameScope(
+  a: ExperimentRuleEnvironments,
+  b: ExperimentRuleEnvironments,
+): boolean {
+  if (a.allEnvironments || b.allEnvironments) {
+    return a.allEnvironments === b.allEnvironments;
+  }
+  return (
+    a.environments.length === b.environments.length &&
+    a.environments.every((e) => b.environments.includes(e))
+  );
 }
 
 const ENVIRONMENT_STATE_LABELS: Record<LinkedFeatureEnvState, string> = {

@@ -12,13 +12,17 @@ import HelperText from "@/ui/HelperText";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
 import { useEnvironments } from "@/services/features";
 import LinkedFeatureLabel from "@/components/Experiment/LinkedFeatureLabel";
-import { scopeFromStates } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
+import {
+  sameScope,
+  scopeFromStates,
+} from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 
 /** Picks where the experiment's rule applies, from the environments its flag's project allows. */
 export default function EditExperimentEnvironmentsModal({
   info,
   stagedScope,
   environmentStates,
+  storedAllEnvironments,
   environmentInputs,
   showFlag,
   close,
@@ -26,24 +30,27 @@ export default function EditExperimentEnvironmentsModal({
 }: {
   info: LinkedFeatureInfo;
   stagedScope: ExperimentRuleEnvironments | null;
-  // Where the rule runs now, to start from when nothing is staged.
+  // Where the rule the save writes to runs now, to start from when nothing is staged.
   environmentStates: { env: string; state: LinkedFeatureEnvState }[];
+  // That rule's own setting, so a list naming every environment stays a list.
+  storedAllEnvironments: boolean | null;
   // The settings the scope lands on, to say where it switches the flag on.
   environmentInputs?: Record<string, LinkedFeatureEnvInputs>;
   showFlag: boolean;
   close: () => void;
-  apply: (scope: ExperimentRuleEnvironments) => void;
+  /** Null when the choice is what's stored, which unstages any scope. */
+  apply: (scope: ExperimentRuleEnvironments | null) => void;
 }) {
   const environments = filterEnvironmentsByFeature(
     useEnvironments(),
     info.feature,
   );
-  const scope =
-    stagedScope ??
-    scopeFromStates(
-      Object.fromEntries(environmentStates.map((e) => [e.env, e.state])),
-      environments.map((e) => e.id),
-    );
+  const stored = scopeFromStates(
+    Object.fromEntries(environmentStates.map((e) => [e.env, e.state])),
+    environments.map((e) => e.id),
+    storedAllEnvironments,
+  );
+  const scope = stagedScope ?? stored;
   const [allEnvironments, setAllEnvironments] = useState(scope.allEnvironments);
   const [selectedEnvironments, setSelectedEnvironments] = useState(
     scope.environments,
@@ -62,12 +69,13 @@ export default function EditExperimentEnvironmentsModal({
       close={close}
       // No environment is a valid choice; the field warns what it means.
       cta="Apply"
-      submit={() =>
-        apply({
+      submit={() => {
+        const next = {
           allEnvironments,
           environments: allEnvironments ? [] : selectedEnvironments,
-        })
-      }
+        };
+        apply(sameScope(next, stored) ? null : next);
+      }}
     >
       {showFlag ? (
         <Box mb="4">

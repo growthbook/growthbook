@@ -174,9 +174,12 @@ export default function SparseTabbedEditor({
         <TabsContent value="preview">
           {/* In the Edit box's frame, so the tabs read as one view. */}
           <Box
-            className="border rounded"
             px="1"
-            style={{ background: "var(--color-panel-solid)" }}
+            style={{
+              background: "var(--color-panel-solid)",
+              border: "1px solid var(--border-color-200)",
+              borderRadius: "0.25rem",
+            }}
           >
             <ValueDisplay
               value={value}

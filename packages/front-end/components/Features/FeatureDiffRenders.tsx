@@ -64,20 +64,26 @@ function ExperimentLink({
   );
 }
 
-// Number chip plus the linked experiment's name, falling back to the index.
+// Number chip plus the linked experiment's name for the rule's variation id,
+// by position only when there's no id. Falls back to the rule index.
 function VariationValueLabel({
   experimentId,
+  variationId,
   index,
 }: {
   experimentId?: string;
+  variationId?: string;
   index: number;
 }) {
   const { experimentsMap } = useExperiments();
-  const name = experimentId
-    ? experimentsMap.get(experimentId)?.variations?.[index]?.name
-    : undefined;
+  const variations =
+    (experimentId && experimentsMap.get(experimentId)?.variations) || [];
+  const position = variationId
+    ? variations.findIndex((v) => v.id === variationId)
+    : index;
+  const name = variations[position]?.name;
   if (!name) return <>{`Variation ${index} value`}</>;
-  return <VariationLabel number={index} name={name} size="sm" />;
+  return <VariationLabel number={position} name={name} size="sm" />;
 }
 
 // Uses ChangeField for single-line values (booleans, numbers, short strings)
@@ -781,6 +787,7 @@ function RuleFieldDiffs({
           label={
             <VariationValueLabel
               experimentId={(post as { experimentId?: string }).experimentId}
+              variationId={(nv ?? pv)?.variationId}
               index={i}
             />
           }
@@ -973,7 +980,11 @@ function NewRuleDetails({
         <ValueChangedField
           key={`var-${i}`}
           label={
-            <VariationValueLabel experimentId={rule.experimentId} index={i} />
+            <VariationValueLabel
+              experimentId={rule.experimentId}
+              variationId={v.variationId}
+              index={i}
+            />
           }
           pre={null}
           post={formatValue(v.value)}
@@ -1947,7 +1958,7 @@ export function renderEnvironmentToggles(
           </Box>
           <Flex align="center" gap="2">
             <EnvEnabledIndicator enabled={from} tone="muted" />
-            <span className="font-weight-bold text-success">→</span>
+            <span className={styles.toggleArrow}>→</span>
             <EnvEnabledIndicator enabled={to} />
           </Flex>
         </Box>

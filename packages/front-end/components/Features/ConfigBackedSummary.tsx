@@ -150,8 +150,9 @@ export default function ConfigBackedSummary({
     }
     // The fields this value sets on top of the config — its own patch, NOT
     // whatever happens to differ from the feature default. Read from the raw
-    // patch, before its own references are resolved.
-    const overrideFields = Object.keys(patch);
+    // patch, before its own references are resolved. `$` keys like `$extends`
+    // are directives, not fields.
+    const overrideFields = Object.keys(patch).filter((k) => !k.startsWith("$"));
     // Resolve the patch's own `@const:` refs too, so the preview matches what
     // the SDK ships (the config base above is already resolved).
     const resolvedPatch =

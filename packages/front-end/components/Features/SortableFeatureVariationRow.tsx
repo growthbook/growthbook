@@ -28,6 +28,7 @@ import {
 import Text from "@/ui/Text";
 import useSortableItem from "@/hooks/useSortableItem";
 import FeatureValueField from "./FeatureValueField";
+import { reorderVariations } from "./SortableVariationsList";
 import styles from "./VariationsInput.module.scss";
 
 /** The one column template the header row and every variation row share. */
@@ -81,6 +82,8 @@ interface SortableProps {
   customSplit: boolean;
   hideSplit: boolean;
   valueAsId: boolean;
+  // Renumber keys to their new positions on reorder, as a drag does.
+  renumberKeysOnReorder?: boolean;
   feature?: FeatureInterface;
   showDescription?: boolean;
   showDragHandle?: boolean;
@@ -106,6 +109,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
       variation,
       handle,
       valueAsId,
+      renumberKeysOnReorder = false,
       setVariations,
       valueType,
       hideVariationIds,
@@ -156,13 +160,10 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
       setVariations?.(newVariations);
     };
 
-    const move = (to: number) => {
-      if (!setVariations) return;
-      const newValues = [...variations];
-      const [row] = newValues.splice(i, 1);
-      newValues.splice(to, 0, row);
-      setVariations(newValues);
-    };
+    const move = (to: number) =>
+      setVariations?.(
+        reorderVariations(variations, i, to, renumberKeysOnReorder),
+      );
 
     return (
       <Box

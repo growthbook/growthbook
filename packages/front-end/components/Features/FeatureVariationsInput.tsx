@@ -145,6 +145,9 @@ export default function FeatureVariationsInput({
   // it is probably safe to renormalize variation keys on sort
   const forceRenormalizeVariationKeysOnSort =
     !valueAsId && !editingIds && !onlySafeToEditVariationMetadata;
+  // Drag and the row menu both reorder, so both renumber the same way.
+  const renumberKeysOnReorder =
+    !!idsMatchIndexes || forceRenormalizeVariationKeysOnSort;
 
   const setEqualWeights = () => {
     if (!variations || !setWeight) return;
@@ -240,7 +243,10 @@ export default function FeatureVariationsInput({
                 disableCoverage && !!onlySafeToEditVariationMetadata
               }
             >
-              {showPreview && coverage !== undefined && variations ? (
+              {showPreview &&
+              !hideVariations &&
+              coverage !== undefined &&
+              variations ? (
                 <Box pb="4">
                   <ExperimentSplitVisual
                     coverage={coverage}
@@ -381,10 +387,7 @@ export default function FeatureVariationsInput({
               {variations && (
                 <ValueDiffProvider>
                   <SortableVariationsList
-                    valuesAsIds={idsMatchIndexes}
-                    forceRenormalizeVariationKeysOnSort={
-                      forceRenormalizeVariationKeysOnSort
-                    }
+                    forceRenormalizeVariationKeysOnSort={renumberKeysOnReorder}
                     variations={variations}
                     setVariations={
                       !disableVariations ? setVariations : undefined
@@ -406,6 +409,7 @@ export default function FeatureVariationsInput({
                         customSplit={editingSplits}
                         valueType={valueType}
                         valueAsId={valueAsId}
+                        renumberKeysOnReorder={renumberKeysOnReorder}
                         hideVariationIds={hideVariationIds}
                         hideValueField={!editingIds}
                         hideSplit={hideSplits}

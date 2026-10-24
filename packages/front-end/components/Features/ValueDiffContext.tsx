@@ -27,33 +27,53 @@ const ValueDiffContext = createContext<{
   differingKeys: Set<string> | null;
 } | null>(null);
 
+// The top-level fields where the values differ: null when there's nothing to
+// compare.
+function getDifferingKeys(values: Record<string, Shown>): Set<string> | null {
+  const all = Object.values(values);
+  if (all.length < 2) return null;
+  const shown = all.filter((v): v is ShownObject => v !== TOO_LARGE);
+  if (shown.length < all.length) return null;
+  const keys = new Set(shown.flatMap((v) => Object.keys(v)));
+  const differing = new Set(
+    [...keys].filter((k) => shown.some((v) => !isEqual(v[k], shown[0][k]))),
+  );
+  // Marking every field says nothing when none is the same in every value.
+  return differing.size === keys.size ? new Set<string>() : differing;
+}
+
+const sameKeys = (a: Set<string> | null, b: Set<string> | null) =>
+  a === b || (!!a && !!b && a.size === b.size && [...a].every((k) => b.has(k)));
+
 // Wraps values shown side by side, like an experiment's variations, so each
 // can mark the top-level fields where they differ.
 export function ValueDiffProvider({ children }: { children: ReactNode }) {
-  const [values, setValues] = useState<Record<string, Shown>>({});
+  const [{ differingKeys }, setState] = useState<{
+    values: Record<string, Shown>;
+    differingKeys: Set<string> | null;
+  }>({ values: {}, differingKeys: null });
   const report = useCallback((id: string, value: Shown | null) => {
-    setValues((prev) => {
+    setState((prev) => {
+      let values = prev.values;
       if (value === null) {
-        if (!(id in prev)) return prev;
-        const next = { ...prev };
-        delete next[id];
-        return next;
+        if (!(id in values)) return prev;
+        values = { ...values };
+        delete values[id];
+      } else {
+        if (values[id] === value) return prev;
+        values = { ...values, [id]: value };
       }
-      return prev[id] === value ? prev : { ...prev, [id]: value };
+      const next = getDifferingKeys(values);
+      // Same fields, same Set: a keystroke that moves no field re-renders
+      // nothing that reads the context.
+      return {
+        values,
+        differingKeys: sameKeys(prev.differingKeys, next)
+          ? prev.differingKeys
+          : next,
+      };
     });
   }, []);
-  const differingKeys = useMemo(() => {
-    const all = Object.values(values);
-    if (all.length < 2) return null;
-    const shown = all.filter((v): v is ShownObject => v !== TOO_LARGE);
-    if (shown.length < all.length) return null;
-    const keys = new Set(shown.flatMap((v) => Object.keys(v)));
-    const differing = new Set(
-      [...keys].filter((k) => shown.some((v) => !isEqual(v[k], shown[0][k]))),
-    );
-    // Marking every field says nothing when none is the same in every value.
-    return differing.size === keys.size ? new Set<string>() : differing;
-  }, [values]);
   const context = useMemo(
     () => ({ report, differingKeys }),
     [report, differingKeys],
@@ -87,12 +107,15 @@ export function useReportedJsonValue(
   text: string | null,
   sparseBase: string | null,
 ): Set<string> | null {
+  // Nothing compares outside a provider, so skip the parse.
+  const comparing = useContext(ValueDiffContext) !== null;
   const shown = useMemo((): Shown | null => {
-    if (text !== null && text.length > MAX_COMPARED_LENGTH) return TOO_LARGE;
-    const value = text === null ? null : parsePlainJSONObject(text);
+    if (!comparing || text === null) return null;
+    if (text.length > MAX_COMPARED_LENGTH) return TOO_LARGE;
+    const value = parsePlainJSONObject(text);
     if (!value || sparseBase === null) return value;
     return { ...(parsePlainJSONObject(sparseBase) ?? {}), ...value };
-  }, [text, sparseBase]);
+  }, [comparing, text, sparseBase]);
   return useValueDiff(shown);
 }
 

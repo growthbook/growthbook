@@ -179,13 +179,14 @@ export default function FeatureValueField({
   // Constant-picker wiring. Only offered in a feature context (where `@const:`
   // references get resolved at payload build time) — not for standalone
   // experiment values. `pickerProject` scopes which constants are offered.
-  const showConstantPicker = (!!feature || !!constantContext) && !disabled;
+  const constantsResolve = !!feature || !!constantContext;
+  const showConstantPicker = constantsResolve && !disabled;
   const pickerProject = constantContext?.project ?? project ?? feature?.project;
   const pickerExcludeKeys = constantContext?.excludeKeys;
-  // Tags for the constants the value references, shown under the field; none
-  // at all without a reference, so no empty help text.
+  // Tags for the constants the value references, shown under the field even
+  // when it's read-only; none at all without a reference.
   const usedConstantTags =
-    showConstantPicker &&
+    constantsResolve &&
     (valueType === "string" || valueType === "json") &&
     new RegExp(CONSTANT_REF_PATTERN).test(value) ? (
       <UsedConstantTags
