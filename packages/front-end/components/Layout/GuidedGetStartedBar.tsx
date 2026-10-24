@@ -7,6 +7,7 @@ import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import styles from "./TopNav.module.scss";
+import { usePinnedBar } from "./pageTopOffset";
 
 const manualSteps = ["attributes", "environments"];
 
@@ -16,6 +17,7 @@ const GuidedGetStartedBar = () => {
   const { currentStep, getReturnUrl, clearStep, stepKey } = useGetStarted();
   const { apiCall } = useAuth();
   const router = useRouter();
+  const barRef = usePinnedBar<HTMLDivElement>();
 
   if (!currentStep) {
     return null;
@@ -23,6 +25,7 @@ const GuidedGetStartedBar = () => {
 
   return (
     <div
+      ref={barRef}
       className={`navbar ${styles.guidedstepbar}`}
       style={{
         background: "#7B45EA",

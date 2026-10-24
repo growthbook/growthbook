@@ -1459,9 +1459,9 @@ export default function ConfigDetailPage(): React.ReactElement {
               position: "sticky",
               // Stick at the column's natural top (below the top nav + page
               // inset) so it doesn't jump a few px on scroll before sticking.
-              top: "calc(var(--header-height) + 24px)",
+              top: "calc(var(--page-top-offset) + 24px)",
               alignSelf: "flex-start",
-              maxHeight: "calc(100vh - var(--header-height) - 24px - 1rem)",
+              maxHeight: "calc(100vh - var(--page-top-offset) - 24px - 1rem)",
               overflowY: "auto",
             }}
           >
@@ -1995,7 +1995,7 @@ export default function ConfigDetailPage(): React.ReactElement {
                               // screens; the class drops it to static once
                               // x-scroll turns on (an overflow-x ancestor breaks
                               // document-sticky). `top` is inert when static.
-                              top: "var(--header-height)",
+                              top: "var(--page-top-offset)",
                               zIndex: 2,
                               background: "var(--color-panel-solid)",
                             }}

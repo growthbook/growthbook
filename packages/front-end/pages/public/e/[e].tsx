@@ -1,26 +1,28 @@
-import {
-  ExperimentReportSSRData,
-} from "shared/types/report";
+import { ExperimentReportSSRData } from "shared/types/report";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import Head from "next/head";
-import {ExperimentInterfaceStringDates, ExperimentPhaseStringDates, LinkedFeatureInfo} from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentPhaseStringDates,
+  LinkedFeatureInfo,
+} from "shared/types/experiment";
 import { truncateString } from "shared/util";
-import {date, daysBetween} from "shared/dates";
-import React, {useEffect, useRef, useState} from "react";
+import { date, daysBetween } from "shared/dates";
+import React, { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import {VisualChangesetInterface} from "shared/types/visual-changeset";
-import {URLRedirectInterface} from "shared/types/url-redirect";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import PageHead from "@/components/Layout/PageHead";
 import { useUser } from "@/services/UserContext";
 import useSSRPolyfills from "@/hooks/useSSRPolyfills";
 import PublicExperimentMetaInfo from "@/components/Experiment/Public/PublicExperimentMetaInfo";
-import {Tabs, TabsList, TabsTrigger} from "@/ui/Tabs";
-import {useLocalStorage} from "@/hooks/useLocalStorage";
-import {ExperimentTab} from "@/components/Experiment/TabbedPage";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { ExperimentTab } from "@/components/Experiment/TabbedPage";
 import PublicExperimentOverview from "@/components/Experiment/Public/PublicExperimentOverview";
 import PublicExperimentResults from "@/components/Experiment/Public/PublicExperimentResults";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
-import { useHeaderHeight } from "@/components/Layout/headerHeight";
+import { usePageTopOffset } from "@/components/Layout/pageTopOffset";
 
 export async function getServerSideProps(context) {
   const { e } = context.params;
@@ -69,24 +71,25 @@ interface PublicExperimentPageProps {
 }
 
 export default function PublicExperimentPage(props: PublicExperimentPageProps) {
-  const { userId, organization: userOrganization, superAdmin} = useUser();
+  const { userId, organization: userOrganization, superAdmin } = useUser();
   const {
     experiment,
     snapshot,
     visualChangesets,
     urlRedirects,
     linkedFeatures,
-    ssrData
+    ssrData,
   } = props;
 
   const isOrgMember =
-    (!!userId && experiment?.organization === userOrganization.id) || !!superAdmin;
+    (!!userId && experiment?.organization === userOrganization.id) ||
+    !!superAdmin;
 
   const ssrPolyfills = useSSRPolyfills(ssrData);
 
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__public__${experiment?.id}`,
-    "overview"
+    "overview",
   );
   const tabsPinSentinelRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
@@ -106,18 +109,17 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
         : "now"
       : date(new Date());
   const dateRangeLabel = startDate
-    ? `${startDate} — ${
-      endDate ? endDate : "now"
-    }`
+    ? `${startDate} — ${endDate ? endDate : "now"}`
     : "";
 
   const analysis = snapshot?.analyses?.[0];
   const hasResults = !!analysis?.results?.[0];
-  const shouldHideTabs = !experiment ||
+  const shouldHideTabs =
+    !experiment ||
     (experiment?.status === "draft" && !hasResults && phases.length === 1);
 
-  // Where the tabs pin: 1px under the header, so they cover its edge.
-  const tabsTop = useHeaderHeight() - 1;
+  // Pinned 1px under the header, covering its edge.
+  const stickyTabsTop = usePageTopOffset() - 1;
   useEffect(() => {
     if (shouldHideTabs) return;
     const el = tabsPinSentinelRef.current;
@@ -129,23 +131,31 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
       },
       {
         root: null,
-        rootMargin: `-${tabsTop}px 0px 0px 0px`,
+        rootMargin: `-${stickyTabsTop}px 0px 0px 0px`,
         threshold: 0,
       },
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [shouldHideTabs, tabsTop]);
+  }, [shouldHideTabs, stickyTabsTop]);
 
   const isBandit = experiment?.type === "multi-armed-bandit";
 
   return (
     <div className={`public pb-2 ${isBandit ? "bandit" : "experiment"}`}>
       <Head>
-        <title>{experiment?.name ? `${experiment.name} | GrowthBook` : "Experiment not found | GrowthBook"}</title>
+        <title>
+          {experiment?.name
+            ? `${experiment.name} | GrowthBook`
+            : "Experiment not found | GrowthBook"}
+        </title>
         <meta
           property="og:title"
-          content={experiment?.name ? (`${isBandit ? "Bandit" : "Experiment"}: ${experiment?.name} | GrowthBook`) : "Experiment not found | GrowthBook"}
+          content={
+            experiment?.name
+              ? `${isBandit ? "Bandit" : "Experiment"}: ${experiment?.name} | GrowthBook`
+              : "Experiment not found | GrowthBook"
+          }
         />
         <meta
           property="og:description"
@@ -165,7 +175,8 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
           },
           {
             display:
-              experiment?.name ?? (experiment ? "(no title)" : "(experiment not found)"),
+              experiment?.name ??
+              (experiment ? "(no title)" : "(experiment not found)"),
           },
         ]}
       />
@@ -196,33 +207,33 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
           >
             <div className="container-fluid pagecontents position-relative">
               <div className="row header-tabs position-relative">
-              <Tabs
-                value={tab}
-                onValueChange={(t: ExperimentTab) => setTab(t)}
-                style={{ width: "100%" }}
-              >
-                <TabsList size="lg" className="px-3">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="results">Results</TabsTrigger>
-                  {isBandit ? (
-                    <TabsTrigger value="explore">Explore</TabsTrigger>
-                  ) : null}
-                </TabsList>
-              </Tabs>
+                <Tabs
+                  value={tab}
+                  onValueChange={(t: ExperimentTab) => setTab(t)}
+                  style={{ width: "100%" }}
+                >
+                  <TabsList size="lg" className="px-3">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="results">Results</TabsTrigger>
+                    {isBandit ? (
+                      <TabsTrigger value="explore">Explore</TabsTrigger>
+                    ) : null}
+                  </TabsList>
+                </Tabs>
 
-              <div className="col-auto experiment-date-range pr-3">
-                {startDate && (
-                  <span>
-                    {startDate} — {endDate}{" "}
-                    <span className="text-muted">
-                      ({daysBetween(startDate, endDate)} days)
+                <div className="col-auto experiment-date-range pr-3">
+                  {startDate && (
+                    <span>
+                      {startDate} — {endDate}{" "}
+                      <span className="text-muted">
+                        ({daysBetween(startDate, endDate)} days)
+                      </span>
                     </span>
-                  </span>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
         </>
       )}
 
@@ -231,7 +242,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
           <div
             className={clsx(
               "pt-3",
-              tab === "overview" ? "d-block" : "d-none d-print-block"
+              tab === "overview" ? "d-block" : "d-none d-print-block",
             )}
           >
             <PublicExperimentOverview
@@ -246,7 +257,9 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
           {isBandit ? (
             <div
               className={
-                isBandit && tab === "results" ? "d-block mt-4" : "d-none d-print-block"
+                isBandit && tab === "results"
+                  ? "d-block mt-4"
+                  : "d-none d-print-block"
               }
             >
               <BanditSummaryResultsTab
@@ -261,7 +274,8 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
 
           <div
             className={
-              (!isBandit && tab === "results") || (isBandit && tab === "explore")
+              (!isBandit && tab === "results") ||
+              (isBandit && tab === "explore")
                 ? "d-block pt-2"
                 : "d-none d-print-block"
             }
@@ -279,12 +293,14 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
                       : undefined
               }
               ssrPolyfills={ssrPolyfills}
-              isTabActive={(!isBandit && tab === "results") || (isBandit && tab === "explore")}
+              isTabActive={
+                (!isBandit && tab === "results") ||
+                (isBandit && tab === "explore")
+              }
             />
           </div>
         </div>
-      ): null}
-
+      ) : null}
     </div>
   );
 }

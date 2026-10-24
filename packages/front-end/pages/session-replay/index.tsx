@@ -546,7 +546,7 @@ export default function SessionReplayPage() {
         display: "flex",
         flexDirection: "row",
         alignItems: "stretch",
-        height: "calc(100vh - var(--header-height) - 16px)",
+        height: "calc(100vh - var(--page-top-offset) - 16px)",
         minHeight: 520,
         overflow: "hidden",
       }}

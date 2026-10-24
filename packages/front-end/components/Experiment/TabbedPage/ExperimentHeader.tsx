@@ -72,7 +72,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RemoveFromHoldoutModal from "@/components/Experiment/holdout/RemoveFromHoldoutModal";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import { datasourcesWithoutHealthData } from "@/components/HealthTab/constants";
-import { useHeaderHeight } from "@/components/Layout/headerHeight";
+import { usePageTopOffset } from "@/components/Layout/pageTopOffset";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
@@ -289,8 +289,8 @@ export default function ExperimentHeader({
     (experiment.status === "draft" && !hasResults && phases.length === 1) ||
     showDashboardView;
 
-  // Where the tabs pin: 1px under the header, so they cover its edge.
-  const tabsTop = useHeaderHeight() - 1;
+  // Pinned 1px under the header and any bar under it, covering its edge.
+  const stickyTabsTop = usePageTopOffset() - 1;
   useEffect(() => {
     if (shouldHideTabs) return;
     const el = tabsPinSentinelRef.current;
@@ -302,13 +302,13 @@ export default function ExperimentHeader({
       },
       {
         root: null,
-        rootMargin: `-${tabsTop}px 0px 0px 0px`,
+        rootMargin: `-${stickyTabsTop}px 0px 0px 0px`,
         threshold: 0,
       },
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [shouldHideTabs, tabsTop]);
+  }, [shouldHideTabs, stickyTabsTop]);
 
   // When the tab strip is hidden (e.g. an unstarted draft), the only
   // reachable view is the overview, so force the active tab there. Once `tab`

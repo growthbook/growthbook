@@ -14,6 +14,10 @@
 // HEADER_HEIGHT_PX in components/Layout/headerHeight.ts.
 :root {
   --header-height: 44px;
+  // The header plus any bar pinned under it (--pinned-bar-height,
+  // pageTopOffset.ts): where sticky bars pin and what full-window pages
+  // leave room for.
+  --page-top-offset: calc(var(--header-height) + var(--pinned-bar-height, 0px));
   // The docked GrowthBot panel's slide, and everything that moves with it:
   // the page, the header's and bars' edges, the header button, the side nav.
   // Keep in sync with AGENT_DOCK_MOTION_MS (AgentPanelContext.tsx).
@@ -726,9 +730,9 @@ pre {
   }
   .experiment-tabs {
     background-color: var(--color-background);
-    // NB: Keep top property in sync with the tabs' pin (useHeaderHeight)
+    // NB: Keep top property in sync with the tabs' pin (usePageTopOffset)
     // also, make sure shared reports & shared experiments look good
-    top: calc(var(--header-height) - 1px);
+    top: calc(var(--page-top-offset) - 1px);
     height: 40px;
     transition: 150ms all;
     .header-tabs {
@@ -809,8 +813,8 @@ pre {
 }
 .feature-tabs {
   background-color: var(--color-background);
-  // NB: Keep top property in sync with the tabs' pin (useHeaderHeight)
-  top: calc(var(--header-height) - 1px);
+  // NB: Keep top property in sync with the tabs' pin (usePageTopOffset)
+  top: calc(var(--page-top-offset) - 1px);
   height: 40px;
   transition: 150ms all;
 
@@ -1069,7 +1073,7 @@ pre {
 main.main {
   &.report {
     .experiment-results th.axis-col {
-      top: calc(var(--header-height) - 1px);
+      top: calc(var(--page-top-offset) - 1px);
     }
   }
   &.public.experiment {

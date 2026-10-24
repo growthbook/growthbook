@@ -2,7 +2,7 @@ import React, { forwardRef, useEffect, useRef, useState } from "react";
 import { Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
 import { radixSize, Size } from "@/ui/sizes";
-import { useHeaderHeight } from "@/components/Layout/headerHeight";
+import { usePageTopOffset } from "@/components/Layout/pageTopOffset";
 import styles from "./Table.module.scss";
 
 export type TableProps = Omit<
@@ -61,6 +61,7 @@ export default function Table({
     (variant === "list" && stickyHeader !== false) || stickyHeader === true;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const pageTopOffset = usePageTopOffset();
   const [overflowX, setOverflowX] = useState(false);
 
   // Only once too wide: a scroll box can't let the header stick to the
@@ -98,7 +99,6 @@ export default function Table({
     return () => observer.disconnect();
   }, [scrollX, stickyLastColumn]);
 
-  const headerHeight = useHeaderHeight();
   useEffect(() => {
     if (!isListVariant || !useStickyHeader) return;
     const wrapper = wrapperRef.current;
@@ -117,8 +117,9 @@ export default function Table({
     const header = wrapper.querySelector(".rt-TableHeader");
     if (!header) return;
 
-    // Without an offset, the header sticks under the app header.
-    const topOffset = stickyTopOffset ?? headerHeight;
+    // Without an offset, the header sticks under the app header and any bar
+    // under it.
+    const topOffset = stickyTopOffset ?? pageTopOffset;
 
     const check = () => {
       const top = (header as HTMLElement).getBoundingClientRect().top;
@@ -137,9 +138,9 @@ export default function Table({
     isListVariant,
     useStickyHeader,
     stickyTopOffset,
+    pageTopOffset,
     scrollX,
     autoScroll,
-    headerHeight,
   ]);
 
   const radixVariant = variant === "list" ? "surface" : variant;
@@ -178,7 +179,7 @@ export default function Table({
             "--table-sticky-top":
               stickyTopOffset !== undefined
                 ? `${stickyTopOffset}px`
-                : "var(--header-height)",
+                : "var(--page-top-offset)",
           }),
           ...(minTableWidth && { "--table-min-width": `${minTableWidth}px` }),
           ...(maxHeight !== undefined && {
