@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiCheckCircleFill } from "react-icons/pi";
 import { ResolvedQualityScope } from "shared/enterprise";
 import { ExperimentationHealthQualitySettings } from "shared/validators";
 import Button from "@/ui/Button";
@@ -49,6 +48,11 @@ export default function QualityScoreTab({
 }) {
   const { apiCall } = useAuth();
   const [recalculateStatus, setRecalculateStatus] = useState("");
+  const recalculateBlocked = anyDirty
+    ? "Save your changes first. Recalculating uses the saved settings."
+    : !effective.enabled
+      ? "Turn on quality scoring to recalculate AI verdicts."
+      : "";
 
   return (
     <Box>
@@ -135,14 +139,7 @@ export default function QualityScoreTab({
                 </Text>
                 <Button
                   variant="outline"
-                  disabled={anyDirty || !effective.enabled}
-                  title={
-                    anyDirty
-                      ? "Save your changes first — recalculation uses the saved settings"
-                      : !effective.enabled
-                        ? "Turn on quality scoring to recalculate AI verdicts"
-                        : undefined
-                  }
+                  disabled={!!recalculateBlocked}
                   onClick={async () => {
                     setRecalculateStatus("");
                     const res = await apiCall<{ queued: number }>(
@@ -157,10 +154,16 @@ export default function QualityScoreTab({
                   Recalculate AI verdicts
                 </Button>
               </Flex>
-              {recalculateStatus && (
-                <HelperText status="success" size="sm" mt="2">
-                  {recalculateStatus}
+              {recalculateBlocked ? (
+                <HelperText status="info" size="sm" mt="2">
+                  {recalculateBlocked}
                 </HelperText>
+              ) : (
+                recalculateStatus && (
+                  <HelperText status="success" size="sm" mt="2">
+                    {recalculateStatus}
+                  </HelperText>
+                )
               )}
             </Box>
           )
@@ -168,23 +171,10 @@ export default function QualityScoreTab({
       />
 
       {effective.enabled && (
-        <Flex
-          align="center"
-          gap="2"
-          px="3"
-          py="2"
-          style={{
-            borderRadius: 6,
-            background: "var(--slate-2)",
-            border: "1px solid var(--border-color-100)",
-          }}
-        >
-          <PiCheckCircleFill size={14} color="var(--green-9)" />
-          <Text size="sm" color="text-mid">
-            Changes to the quality checks and weights will re-score all
-            non-archived experiments
-          </Text>
-        </Flex>
+        <Callout status="info" size="sm">
+          Saving changes to the checks or weights re-scores every non-archived
+          experiment in this scope.
+        </Callout>
       )}
     </Box>
   );

@@ -1,7 +1,7 @@
 import React, { ReactNode, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import clsx from "clsx";
-import { PiCaretRightBold, PiTrash } from "react-icons/pi";
+import { PiCaretRightBold, PiPlus, PiTrash } from "react-icons/pi";
 import {
   EXPERIMENT_QUALITY_CHECKS,
   EXPERIMENT_QUALITY_SECTIONS,
@@ -13,11 +13,13 @@ import {
   experimentQualitySectionKeys,
 } from "shared/validators";
 import Badge from "@/ui/Badge";
+import Frame from "@/ui/Frame";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Switch from "@/ui/Switch";
 import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
+import { TextField } from "@/ui/TextField";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
 import { SECTION_COLORS } from "@/components/Experiment/Quality/qualityDisplay";
@@ -95,9 +97,10 @@ function ParamInput({
   onChange: (v: number) => void;
 }) {
   return (
-    <input
+    <TextField
       type="number"
-      className={styles.paramInput}
+      size="sm"
+      style={{ width: 64 }}
       min={min}
       value={value}
       disabled={disabled}
@@ -276,7 +279,7 @@ export default function QualityConfigEditor({
         const enabledCount = countEnabledChecks(draft, sectionKey);
 
         return (
-          <div key={sectionKey} className={styles.sectionPanel}>
+          <Frame key={sectionKey} px="4" pt="3" pb="2" mb="3">
             <div
               className={clsx(
                 styles.sectionHeader,
@@ -413,12 +416,9 @@ export default function QualityConfigEditor({
                       disabled={!included}
                       label={
                         <>
-                          <input
-                            type="text"
-                            className={clsx(
-                              styles.paramInput,
-                              styles.nameInput,
-                            )}
+                          <TextField
+                            size="sm"
+                            style={{ width: 220 }}
                             placeholder="Name this check"
                             value={custom.name}
                             disabled={!included}
@@ -475,7 +475,10 @@ export default function QualityConfigEditor({
                     {draft.customAiChecks.length < MAX_CUSTOM_QUALITY_CHECKS ? (
                       <>
                         <Link onClick={() => setDraft(addCustomCheck(draft))}>
-                          + Add custom check
+                          <Flex align="center" gap="1" display="inline-flex">
+                            <PiPlus />
+                            Add custom check
+                          </Flex>
                         </Link>{" "}
                         <Text size="sm" color="text-low">
                           Name it and describe what to evaluate — it counts the
@@ -493,7 +496,7 @@ export default function QualityConfigEditor({
                 {isAI && aiSectionFooter}
               </>
             )}
-          </div>
+          </Frame>
         );
       })}
     </Box>

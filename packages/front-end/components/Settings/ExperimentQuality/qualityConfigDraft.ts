@@ -43,9 +43,9 @@ type CustomCheck = QualityConfigDraft["customAiChecks"][number];
 
 function normalizeSections(draft: QualityConfigDraft): QualityConfigDraft {
   const enabled = getEnabledSectionKeys(draft);
-  const weights = roundToTotal(
-    enabled.map((k) => draft.sections[k].weight ?? 1),
-  );
+  const raw = enabled.map((k) => draft.sections[k].weight ?? 1);
+  // All at zero splits equally, as the score does
+  const weights = roundToTotal(raw.some((w) => w > 0) ? raw : raw.map(() => 1));
   const sections = { ...draft.sections };
   enabled.forEach((k, i) => {
     sections[k] = { weight: weights[i] };

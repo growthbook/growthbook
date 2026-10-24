@@ -39,6 +39,22 @@ describe("qualityConfigDraft", () => {
     expect(reloaded.sections.documentation.weight).toBe(0);
   });
 
+  it("splits equally when every remaining section is at 0%", () => {
+    let draft = reflowSectionWeights(configToDraft(null), "ai", 100);
+    draft = updateCheck(draft, "ai-hypothesis-quality", { enabled: false });
+    draft = updateCheck(draft, "ai-hypothesis-metric-alignment", {
+      enabled: false,
+    });
+    const enabled = getEnabledSectionKeys(draft);
+    expect(enabled).not.toContain("ai");
+    for (const key of enabled) {
+      expect(
+        Math.abs(draft.sections[key].weight - 100 / enabled.length),
+      ).toBeLessThanOrEqual(1);
+    }
+    expect(sectionTotal(draft)).toBe(100);
+  });
+
   it("drops a section from the split when its last check is turned off", () => {
     let draft = configToDraft(null);
     for (const key of getChecksForSection("documentation")) {

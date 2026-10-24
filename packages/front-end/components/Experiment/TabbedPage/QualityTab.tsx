@@ -9,9 +9,15 @@ import {
 } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date } from "shared/dates";
-import { PiPencilSimpleFill } from "react-icons/pi";
+import {
+  PiCheckCircleFill,
+  PiPencilSimpleFill,
+  PiXCircleFill,
+} from "react-icons/pi";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import Frame from "@/ui/Frame";
+import HelperText from "@/ui/HelperText";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -145,15 +151,7 @@ const ImprovementsCard: FC<{
   const improvements = getQualityImprovements(result).slice(0, 5);
   if (!improvements.length) return null;
   return (
-    <Box
-      p="4"
-      mb="4"
-      style={{
-        border: "1px solid var(--border-color-200)",
-        borderRadius: 8,
-        background: "var(--color-panel)",
-      }}
-    >
+    <Frame p="4" mb="4">
       <Text size="md" weight="semibold">
         How to improve this score
       </Text>
@@ -168,7 +166,7 @@ const ImprovementsCard: FC<{
                   minWidth: 32,
                   color: scaleColors("green").text,
                   fontVariantNumeric: "tabular-nums",
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: 600,
                 }}
               >
@@ -188,7 +186,7 @@ const ImprovementsCard: FC<{
           );
         })}
       </Flex>
-    </Box>
+    </Frame>
   );
 };
 
@@ -220,7 +218,7 @@ const CheckResultCell: FC<{
         style={{
           color: scaleColors(getScoreTier(check.score * 100)).text,
           fontVariantNumeric: "tabular-nums",
-          fontSize: 13,
+          fontSize: 12,
         }}
       >
         {check.score.toFixed(1)}
@@ -238,13 +236,23 @@ const CheckResultCell: FC<{
 
   if (check.score >= QUALITY_CHECK_PASS_THRESHOLD) {
     return (
-      <span style={{ color: scaleColors("green").text, fontSize: 13 }}>✓</span>
+      <PiCheckCircleFill
+        color="var(--green-9)"
+        role="img"
+        aria-label="Passed"
+      />
     );
   }
 
   return (
-    <span style={{ color: scaleColors("red").text, fontSize: 13 }}>
-      ✕{check.reason ? ` ${check.reason}` : ""}
+    <span style={{ color: scaleColors("red").text, fontSize: 12 }}>
+      <PiXCircleFill
+        color="var(--red-9)"
+        role="img"
+        aria-label="Failed"
+        style={{ verticalAlign: "-2px" }}
+      />
+      {check.reason ? ` ${check.reason}` : ""}
       {check.evidence?.user ? ` by ${check.evidence.user}` : ""}
       {check.evidence?.date ? ` on ${date(check.evidence.date)}` : ""}
       {fix ? (
@@ -266,24 +274,16 @@ const SectionCard: FC<{
 }> = ({ section, editMetrics, setTabAndScroll, notApplicableLabel }) => {
   const color = SECTION_COLORS[section.key];
   return (
-    <Box
-      p="4"
-      style={{
-        border: "1px solid var(--border-color-200)",
-        borderRadius: 8,
-        background: "var(--color-panel)",
-        opacity: section.applicable ? 1 : 0.55,
-      }}
-    >
+    <Frame p="4" mb="0" style={{ opacity: section.applicable ? 1 : 0.55 }}>
       <Flex justify="between" align="center">
-        <span style={{ color: color.text, fontSize: 13.5, fontWeight: 600 }}>
+        <span style={{ color: color.text, fontSize: 14, fontWeight: 600 }}>
           {section.label}
         </span>
         {section.applicable ? (
           <span
             style={{
               fontVariantNumeric: "tabular-nums",
-              fontSize: 13.5,
+              fontSize: 14,
               fontWeight: 600,
             }}
           >
@@ -340,7 +340,7 @@ const SectionCard: FC<{
           </Text>
         </Box>
       )}
-    </Box>
+    </Frame>
   );
 };
 
@@ -354,9 +354,11 @@ const QualityTab: FC<{
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
   const [overrideModalOpen, setOverrideModalOpen] = useState(false);
-  const [overrideScore, setOverrideScore] = useState<number>(
-    result?.score ?? 50,
+  // Kept as typed, so clearing the field to retype works; checked on submit
+  const [overrideScore, setOverrideScore] = useState(
+    String(result?.score ?? 50),
   );
+  const [removeError, setRemoveError] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
 
   if (!result) return null;
@@ -395,7 +397,16 @@ const QualityTab: FC<{
           cta="Set score"
           close={() => setOverrideModalOpen(false)}
           submit={async () => {
-            await submitOverride(overrideScore, overrideReason);
+            const score = Number(overrideScore);
+            if (
+              overrideScore.trim() === "" ||
+              !Number.isInteger(score) ||
+              score < 0 ||
+              score > 100
+            ) {
+              throw new Error("Enter a whole number from 0 to 100.");
+            }
+            await submitOverride(score, overrideReason);
             setOverrideModalOpen(false);
           }}
         >
@@ -405,11 +416,7 @@ const QualityTab: FC<{
             min={0}
             max={100}
             value={overrideScore}
-            onChange={(e) =>
-              setOverrideScore(
-                Math.min(100, Math.max(0, parseInt(e.target.value) || 0)),
-              )
-            }
+            onChange={(e) => setOverrideScore(e.target.value)}
           />
           <Field
             label="Reason (optional)"
@@ -441,7 +448,7 @@ const QualityTab: FC<{
               variant="outline"
               size="sm"
               onClick={() => {
-                setOverrideScore(result.score ?? 50);
+                setOverrideScore(String(result.score ?? 50));
                 setOverrideModalOpen(true);
               }}
             >
@@ -452,97 +459,107 @@ const QualityTab: FC<{
       </Flex>
 
       {/* Summary card */}
-      <Flex
-        gap="4"
-        align="center"
-        p="4"
-        mb="4"
-        style={{
-          border: "1px solid var(--border-color-200)",
-          borderRadius: 8,
-          background: "var(--color-panel)",
-        }}
-      >
-        {displayScore !== null ? (
-          <ScoreRing
-            score={displayScore}
-            color={scaleColors(getScoreTier(displayScore)).bar}
-          />
-        ) : (
-          <ScoreRing score={0} color="var(--slate-8)" />
-        )}
-        <Box flexGrow="1">
-          <Flex align="center" gap="2">
-            <Text size="md" weight="semibold">
-              {displayScore !== null
-                ? `${displayScore} out of 100`
-                : "Not scored yet"}
-            </Text>
-            {result.override && (
-              <Badge
-                label={
-                  <Flex align="center" gap="1" display="inline-flex">
-                    <PiPencilSimpleFill size={10} />
-                    <span>Manually set</span>
-                  </Flex>
-                }
-                color="violet"
-                variant="soft"
-                radius="full"
-                size="xs"
-              />
-            )}
-          </Flex>
-          {result.override ? (
-            <Text size="sm" color="text-mid" as="p" mb="0">
-              Set to {result.override.score}
-              {result.override.userName
-                ? ` by ${result.override.userName}`
-                : ""}
-              {result.override.dateOverridden
-                ? ` on ${date(result.override.dateOverridden)}`
-                : ""}
-              {result.override.reason ? ` · ${result.override.reason}` : ""}
-              {result.computedScore !== null
-                ? ` · Computed: ${result.computedScore}`
-                : ""}{" "}
-              {canOverride && (
-                <Link onClick={() => submitOverride(null)}>
-                  Remove override
-                </Link>
-              )}
-            </Text>
+      <Frame p="4" mb="4">
+        <Flex gap="4" align="center">
+          {displayScore !== null ? (
+            <ScoreRing
+              score={displayScore}
+              color={scaleColors(getScoreTier(displayScore)).bar}
+            />
           ) : (
-            <Text size="sm" color="text-mid" as="p" mb="0">
-              {result.appliedCheckCount} of {result.totalEnabledCheckCount}{" "}
-              checks apply while this experiment is {statusLabel}.
-              {resultsJoinNote}
-              {result.pending ? " AI checks are still pending." : ""}
-            </Text>
+            <ScoreRing score={0} color="var(--slate-8)" />
           )}
-        </Box>
-        <Flex gap="3" flexShrink="0" wrap="wrap">
-          {result.sections
-            .filter((s) => s.enabled && s.applicable)
-            .map((s) => (
-              <Flex key={s.key} align="center" gap="1">
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: 8,
-                    height: 8,
-                    borderRadius: 2,
-                    background: SECTION_COLORS[s.key].bar,
-                  }}
+          <Box flexGrow="1">
+            <Flex align="center" gap="2">
+              <Text size="md" weight="semibold">
+                {displayScore !== null
+                  ? `${displayScore} out of 100`
+                  : "Not scored yet"}
+              </Text>
+              {result.override && (
+                <Badge
+                  label={
+                    <Flex align="center" gap="1" display="inline-flex">
+                      <PiPencilSimpleFill size={10} />
+                      <span>Manually set</span>
+                    </Flex>
+                  }
+                  color="violet"
+                  variant="soft"
+                  radius="full"
+                  size="xs"
                 />
-                <Text size="sm" color="text-mid">
-                  {s.label} {Math.round(s.earnedPoints)}/
-                  {Math.round(s.possiblePoints)}
-                </Text>
-              </Flex>
-            ))}
+              )}
+            </Flex>
+            {result.override ? (
+              <Text size="sm" color="text-mid" as="p" mb="0">
+                Set to {result.override.score}
+                {result.override.userName
+                  ? ` by ${result.override.userName}`
+                  : ""}
+                {result.override.dateOverridden
+                  ? ` on ${date(result.override.dateOverridden)}`
+                  : ""}
+                {result.override.reason ? ` · ${result.override.reason}` : ""}
+                {result.computedScore !== null
+                  ? ` · Computed: ${result.computedScore}`
+                  : ""}{" "}
+                {canOverride && (
+                  <Link
+                    onClick={async () => {
+                      setRemoveError("");
+                      try {
+                        await submitOverride(null);
+                      } catch (e) {
+                        setRemoveError(
+                          e instanceof Error
+                            ? e.message
+                            : "Couldn't remove the override.",
+                        );
+                      }
+                    }}
+                  >
+                    Remove override
+                  </Link>
+                )}
+                {removeError && (
+                  <HelperText status="error" size="sm" mt="1">
+                    {removeError}
+                  </HelperText>
+                )}
+              </Text>
+            ) : (
+              <Text size="sm" color="text-mid" as="p" mb="0">
+                {result.appliedCheckCount} of {result.totalEnabledCheckCount}{" "}
+                checks apply while this experiment is {statusLabel}.
+                {resultsJoinNote}
+                {result.pending ? " AI checks are still pending." : ""}
+              </Text>
+            )}
+          </Box>
+          <Flex gap="3" flexShrink="0" wrap="wrap">
+            {result.sections
+              .filter((s) => s.enabled && s.applicable)
+              .map((s) => (
+                <Flex key={s.key} align="center" gap="1">
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 8,
+                      height: 8,
+                      borderRadius: 2,
+                      background: SECTION_COLORS[s.key].bar,
+                    }}
+                  />
+                  <Text size="sm" color="text-mid">
+                    {s.label} {Math.round(s.earnedPoints)}/
+                    {Math.round(s.possiblePoints)}
+                  </Text>
+                </Flex>
+              ))}
+          </Flex>
         </Flex>
-      </Flex>
+      </Frame>
 
       {!result.override && (
         <ImprovementsCard
