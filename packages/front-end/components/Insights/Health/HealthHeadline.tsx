@@ -9,21 +9,34 @@ import {
   WIN_RATE_HEALTHY_RANGE,
   getHealthBand,
 } from "shared/enterprise";
+import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
+import { RadixColor } from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 import Link from "@/ui/Link";
 
-export const BAND_COLORS: Record<HealthBand, string> = {
+export const BAND_COLORS: Record<HealthBand, RadixColor> = {
   strong: "green",
   healthy: "violet",
   "needs-attention": "amber",
   "at-risk": "red",
 };
 
-export function InfoTip({ content }: { content: string }) {
+export function InfoTip({
+  label,
+  content,
+}: {
+  label: string;
+  content: string;
+}) {
   return (
     <Tooltip content={content}>
-      <span style={{ display: "inline-flex", color: "var(--gray-10)" }}>
+      {/* Focusable, so keyboard users can open the definition too */}
+      <span
+        tabIndex={0}
+        aria-label={`${label} definition`}
+        style={{ display: "inline-flex", color: "var(--gray-10)" }}
+      >
         <PiInfo size={13} />
       </span>
     </Tooltip>
@@ -44,23 +57,24 @@ export function Change({
   // Rounds to zero at the shown precision
   const flat = format(Math.abs(value)) === format(0);
   return (
-    <span style={{ textAlign: "right", lineHeight: 1.2 }}>
-      <span
-        style={{
-          display: "block",
-          fontSize: 11,
-          fontWeight: 600,
-          color: flat
-            ? "var(--gray-11)"
-            : up
-              ? "var(--green-11)"
-              : "var(--red-11)",
-        }}
-      >
-        {flat ? "No change" : `${up ? "▲" : "▼"} ${format(Math.abs(value))}`}
-      </span>
-      <span style={{ fontSize: 10, color: "var(--gray-10)" }}>{label}</span>
-    </span>
+    <Flex direction="column" align="end">
+      <Text size="sm" weight="semibold">
+        <span
+          style={{
+            color: flat
+              ? "var(--gray-11)"
+              : up
+                ? "var(--green-11)"
+                : "var(--red-11)",
+          }}
+        >
+          {flat ? "No change" : `${up ? "▲" : "▼"} ${format(Math.abs(value))}`}
+        </span>
+      </Text>
+      <Text size="sm" color="text-low">
+        {label}
+      </Text>
+    </Flex>
   );
 }
 
@@ -116,6 +130,8 @@ function Tile({
         px="4"
         pt="4"
         pb="3"
+        // Focusable, so keyboard users can open the definition too
+        tabIndex={0}
         style={{
           minWidth: 0,
           borderLeft: "1px solid var(--gray-a5)",
@@ -136,25 +152,20 @@ function Tile({
           </span>
         </Flex>
         <Flex justify="between" align="end" mt="1" gap="2">
-          <span style={{ whiteSpace: "nowrap" }}>
-            <span
-              style={{ fontSize: 24, fontWeight: 700, color: "var(--gray-12)" }}
-            >
-              {value}
-            </span>
+          <Text
+            size="xl"
+            weight="semibold"
+            color="text-high"
+            whiteSpace="nowrap"
+          >
+            {value}
             {unit && (
-              <span
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: "var(--gray-11)",
-                }}
-              >
+              <Text size="sm" weight="medium" color="text-mid">
                 {" "}
                 {unit}
-              </span>
+              </Text>
             )}
-          </span>
+          </Text>
           {change}
         </Flex>
         {bar}
@@ -191,7 +202,7 @@ export default function HealthHeadline({
   const [low, high] = WIN_RATE_HEALTHY_RANGE;
 
   return (
-    <Box className="appbox" mb="2" style={{ overflow: "hidden" }}>
+    <Frame mb="2" py="0" px="0" style={{ overflow: "hidden" }}>
       <Flex
         px="5"
         py="4"
@@ -209,7 +220,8 @@ export default function HealthHeadline({
               height: 76,
               borderRadius: 8,
               background: `var(--${color}-9)`,
-              color: "white",
+              // Dark on amber, white on the others
+              color: `var(--${color}-contrast)`,
               fontSize: score === null ? 22 : 38,
               fontWeight: 700,
             }}
@@ -218,16 +230,11 @@ export default function HealthHeadline({
           </Flex>
           <Box>
             <Flex align="center" gap="1">
-              <span
-                style={{
-                  fontSize: 18,
-                  fontWeight: 600,
-                  color: "var(--gray-12)",
-                }}
-              >
+              <Text size="lg" weight="semibold" color="text-high">
                 Health score
-              </span>
+              </Text>
               <InfoTip
+                label="Health score"
                 content={`Average of the quality score of completed experiments and the healthy rate, or the healthy rate alone when quality scoring is off. No score when nothing started in the period or fewer than 5 experiments completed. Velocity and win rate are tracked but not scored.`}
               />
             </Flex>
@@ -266,20 +273,14 @@ export default function HealthHeadline({
               borderLeft: "1px solid var(--gray-a5)",
             }}
           >
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-                color: "var(--violet-11)",
-              }}
-            >
-              Areas of improvement
-            </span>
-            <Box mt="1" style={{ fontSize: 13, lineHeight: 1.5 }}>
+            <Text size="sm" weight="semibold" textTransform="uppercase">
+              <span style={{ color: "var(--violet-11)" }}>
+                Areas of improvement
+              </span>
+            </Text>
+            <Text as="div" size="sm" mt="1">
               {improvement}
-            </Box>
+            </Text>
           </Box>
         )}
       </Flex>
@@ -388,7 +389,7 @@ export default function HealthHeadline({
           }
         />
       </Grid>
-    </Box>
+    </Frame>
   );
 }
 

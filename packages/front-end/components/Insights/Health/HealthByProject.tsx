@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import {
   ScopeHealth,
   WIN_RATE_HEALTHY_RANGE,
@@ -7,6 +7,8 @@ import {
   getNoScoreReason,
 } from "shared/enterprise";
 import { useSearch } from "@/services/search";
+import Frame from "@/ui/Frame";
+import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -90,7 +92,9 @@ function ScoreTile({
   if (score === null) {
     return (
       <Tooltip content={getNoScoreReason(health) ?? ""}>
-        <Text color="text-low">–</Text>
+        <span tabIndex={0}>
+          <Text color="text-low">–</Text>
+        </span>
       </Tooltip>
     );
   }
@@ -101,20 +105,10 @@ function ScoreTile({
       : ` · ${score >= previous ? "▲" : "▼"} ${Math.abs(score - previous)} vs previous period`;
   return (
     <Tooltip content={`${score} / 100${change}`}>
-      <Flex
-        align="center"
-        justify="center"
-        style={{
-          width: 34,
-          height: 34,
-          borderRadius: 6,
-          fontWeight: 700,
-          background: `var(--${color}-3)`,
-          color: `var(--${color}-11)`,
-        }}
-      >
-        {score}
-      </Flex>
+      {/* Focusable, so keyboard users can open the score details too */}
+      <span tabIndex={0}>
+        <Badge label={String(score)} color={color} variant="soft" size="md" />
+      </span>
     </Tooltip>
   );
 }
@@ -122,20 +116,12 @@ function ScoreTile({
 function WinRatePill({ value }: { value: number | null }) {
   if (value === null) return <Text color="text-low">–</Text>;
   const [low, high] = WIN_RATE_HEALTHY_RANGE;
-  const inRange = value >= low && value <= high;
   return (
-    <span
-      style={{
-        padding: "2px 6px",
-        borderRadius: 3,
-        fontSize: 12,
-        fontWeight: 600,
-        background: inRange ? "var(--green-a3)" : "var(--amber-a3)",
-        color: inRange ? "var(--green-11)" : "var(--amber-11)",
-      }}
-    >
-      {Math.round(value * 100)}%
-    </span>
+    <Badge
+      label={`${Math.round(value * 100)}%`}
+      color={value >= low && value <= high ? "green" : "amber"}
+      variant="soft"
+    />
   );
 }
 
@@ -180,7 +166,7 @@ export default function HealthByProject({
     </SortableTableColumnHeader>
   );
   return (
-    <Box className="appbox" mb="5" p="4">
+    <Frame mb="5" py="4" px="4">
       <Heading as="h3" size="sm" mb="2">
         Health by Project
       </Heading>
@@ -262,6 +248,6 @@ export default function HealthByProject({
           </Link>
         </Box>
       )}
-    </Box>
+    </Frame>
   );
 }

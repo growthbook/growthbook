@@ -2,7 +2,10 @@ import { ReactNode } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { format } from "date-fns";
 import { HealthDetails, HealthRatio } from "shared/enterprise";
+import Frame from "@/ui/Frame";
+import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
+import { RadixColor } from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
@@ -19,12 +22,12 @@ function Card({
   children: ReactNode;
 }) {
   return (
-    <Box className="appbox" mb="0" p="4" id={id} style={{ height: "100%" }}>
+    <Frame mb="0" py="4" px="4" id={id} style={{ height: "100%" }}>
       <Heading as="h3" size="sm" mb="3">
         {title}
       </Heading>
       {children}
-    </Box>
+    </Frame>
   );
 }
 
@@ -37,9 +40,9 @@ function Stats({
     <Grid columns={String(items.length)} gap="3" mt="4">
       {items.map((s) => (
         <Box key={s.label}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: s.color }}>
-            {s.value}
-          </div>
+          <Text as="div" size="lg" weight="semibold">
+            <span style={{ color: s.color }}>{s.value}</span>
+          </Text>
           <Text size="sm" color="text-low">
             {s.label}
           </Text>
@@ -49,22 +52,8 @@ function Stats({
   );
 }
 
-function Pill({ label, color }: { label: string; color: string }) {
-  return (
-    <span
-      style={{
-        padding: "2px 6px",
-        borderRadius: 3,
-        fontSize: 11,
-        fontWeight: 600,
-        whiteSpace: "nowrap",
-        background: `var(--${color}-a3)`,
-        color: `var(--${color}-11)`,
-      }}
-    >
-      {label}
-    </span>
-  );
+function Pill({ label, color }: { label: string; color: RadixColor }) {
+  return <Badge label={label} color={color} variant="soft" />;
 }
 
 function Columns({
@@ -240,9 +229,9 @@ export function RunStabilityCard({
           <Grid columns="3" gap="3" mt="3">
             {parts.map((p) => (
               <Box key={p.label}>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>
+                <Text as="div" size="lg" weight="semibold">
                   {Math.round((p.value / total) * 100)}%
-                </div>
+                </Text>
                 <Text size="sm" color="text-low">
                   {p.label} · {p.value}
                 </Text>
@@ -366,7 +355,7 @@ export function QualityDiagnosticsCard({
 
 const ATTENTION_COLORS: Record<
   HealthDetails["attention"][number]["type"],
-  string
+  RadixColor
 > = {
   SRM: "red",
   Power: "amber",

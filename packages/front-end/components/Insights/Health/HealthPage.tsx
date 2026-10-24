@@ -99,6 +99,8 @@ export default function HealthPage() {
     projects,
     getProjectById,
     ready: definitionsReady,
+    error: definitionsError,
+    mutateDefinitions,
   } = useDefinitions();
   const settings = useOrgSettings();
   const { getQuality, hasFeature } = useQualityScorer();
@@ -194,24 +196,30 @@ export default function HealthPage() {
     return values.length >= MIN_TREND_POINTS ? values : null;
   };
 
-  if (!ready || !definitionsReady || loading) return <LoadingSpinner />;
-
-  if (experimentsError) {
+  if (experimentsError || definitionsError) {
     return (
       <Box className="pagecontents" p="5">
         <Callout
           status="error"
           action={
-            <Button color="inherit" onClick={() => mutateExperiments()}>
+            <Button
+              color="inherit"
+              onClick={() => {
+                mutateExperiments();
+                mutateDefinitions();
+              }}
+            >
               Retry
             </Button>
           }
         >
-          Couldn&apos;t load experiments, so Health can&apos;t be shown.
+          Couldn&apos;t load this organization&apos;s experiments, so Health
+          can&apos;t be shown.
         </Callout>
       </Box>
     );
   }
+  if (!ready || !definitionsReady || loading) return <LoadingSpinner />;
 
   if (!experiments.some((e) => !e.id.match(/^exp_sample/))) {
     return (
@@ -341,6 +349,7 @@ export default function HealthPage() {
         </Box>
         <Flex gap="3" align="center">
           <Select
+            aria-label="Project"
             value={project || ALL_PROJECTS}
             setValue={(v) => setProject(v === ALL_PROJECTS ? "" : v)}
             size="md"
