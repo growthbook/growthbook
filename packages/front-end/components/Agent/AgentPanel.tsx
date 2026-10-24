@@ -427,8 +427,12 @@ export default function AgentPanel({
     }
     const last = messages[messages.length - 1];
     if (last?.role !== "assistant" || last.isError) return undefined;
-    const text = suggestedReplyFromOptions(getMessageText(last));
-    return text ? { key: last.id, text } : undefined;
+    // No options: an empty text still carries the key, so the composer can
+    // ask the model for a reply to this message.
+    return {
+      key: last.id,
+      text: suggestedReplyFromOptions(getMessageText(last)) ?? "",
+    };
   }, [askPrompt, messages, loading]);
 
   // Panel stays mounted while closed; listeners need the container to exist.

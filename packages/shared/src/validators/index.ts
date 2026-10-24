@@ -54,6 +54,7 @@ export * from "./feature-webhook-schemas";
 // Having watch (and apikey) loaded first ensures they're available when the cycle is hit.
 export * from "./watch";
 export * from "./apikey";
+export * from "./confirmations";
 export * from "./figma-connection";
 export * from "./slack-workspace-connection";
 export * from "./ai-credential";
@@ -107,6 +108,7 @@ export * from "./contextual-bandit-query.spec";
 export * from "./contextual-bandit-snapshot";
 export * from "./contextual-bandit-event";
 export * from "./interleaving";
+export * from "./interleaving.spec";
 export * from "./api-errors";
 export * from "./experiment-alerts";
 export * from "./holdout-notifications";

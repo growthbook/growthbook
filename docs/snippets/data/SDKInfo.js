@@ -403,7 +403,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "3.2.1",
+    version: "3.2.2",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -590,7 +590,7 @@ export default {
   },
   java: {
     name: "Java SDK",
-    version: "0.11.1",
+    version: "0.11.3",
     github: "https://github.com/growthbook/growthbook-sdk-java",
     examples: [
       {
@@ -824,7 +824,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.3.1",
+    version: "1.3.4",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -1240,7 +1240,7 @@ export default {
   },
   flutter: {
     name: "Flutter SDK",
-    version: "4.4.0",
+    version: "4.5.0",
     github: "https://github.com/growthbook/growthbook-flutter",
     examples: [],
     packageRepos: [

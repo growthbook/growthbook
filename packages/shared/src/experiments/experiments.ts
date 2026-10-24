@@ -35,6 +35,7 @@ import {
 } from "shared/types/organization";
 import {
   AttributionModel,
+  CustomMetricSlice,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   LookbackOverride,
@@ -253,6 +254,9 @@ function replaceSqlIdentifiers(
   names: string[],
   replacer: (name: string, quoted: boolean) => string,
   identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+  // When `matchQualified` is true, identifiers preceded by `.` (e.g. `e.price`)
+  // are matched too.
+  { matchQualified = false }: { matchQualified?: boolean } = {},
 ): string {
   if (!names.length) return sql;
   const nameSet = new Set(names);
@@ -349,7 +353,11 @@ function replaceSqlIdentifiers(
     // Quoted identifier in the dialect's identifier quote.
     if (c === identifierQuote) {
       const { end, inner, closed } = readQuoted(identifierQuote);
-      if (closed && !isAlreadyQualified() && nameSet.has(inner)) {
+      if (
+        closed &&
+        (matchQualified || !isAlreadyQualified()) &&
+        nameSet.has(inner)
+      ) {
         out += replacer(inner, true);
       } else {
         out += sql.slice(i, end);
@@ -373,7 +381,11 @@ function replaceSqlIdentifiers(
       const token = sql.slice(i, j);
       // A run starting with a digit is a numeric literal, not an identifier.
       const startsWithDigit = c >= "0" && c <= "9";
-      if (!startsWithDigit && !isAlreadyQualified() && nameSet.has(token)) {
+      if (
+        !startsWithDigit &&
+        (matchQualified || !isAlreadyQualified()) &&
+        nameSet.has(token)
+      ) {
         out += replacer(token, false);
       } else {
         out += token;
@@ -593,6 +605,29 @@ export function sqlReferencesColumn(
       return name;
     },
     identifierQuote,
+  );
+  return found;
+}
+
+// Like `sqlReferencesColumn`, but also matches qualified references such as
+// `e.bandit_version`. Use this when detecting whether a SELECT exposes an
+// output column (which is typically table-aliased), rather than when deciding
+// whether a bare column from the current table is depended upon.
+export function sqlReferencesColumnAllowingQualified(
+  sql: string,
+  column: string,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+): boolean {
+  let found = false;
+  replaceSqlIdentifiers(
+    sql,
+    [column],
+    (name) => {
+      found = true;
+      return name;
+    },
+    identifierQuote,
+    { matchQualified: true },
   );
   return found;
 }
@@ -2580,7 +2615,7 @@ export function createCustomSliceDataForMetric({
 }: {
   metricId: string;
   metricName: string;
-  customMetricSlices?: { slices: { column: string; levels: string[] }[] }[];
+  customMetricSlices?: CustomMetricSlice[];
   factTable?: FactTableDefinition | null;
 }): SliceDataForMetric[] {
   // Sanity checks

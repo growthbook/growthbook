@@ -24,12 +24,16 @@ describe("loadSavedGroupReferences", () => {
     savedGroups: [],
     ...fields,
   });
-  const context = (bandits: ReturnType<typeof bandit>[]) =>
+  const context = (
+    bandits: ReturnType<typeof bandit>[],
+    interleavings: ReturnType<typeof bandit>[] = [],
+  ) =>
     ({
       org: { id: "org", settings: { environments: [{ id: "production" }] } },
       models: {
         savedGroups: { getAllWithoutValues: async () => [group] },
         contextualBandits: { getAll: async () => bandits },
+        interleavings: { getAll: async () => interleavings },
       },
     }) as unknown as ReqContext;
 
@@ -112,6 +116,33 @@ describe("loadSavedGroupReferences", () => {
     expect(refs?.contextualBandits.map((cb) => cb.id)).toEqual([
       "cb_cond",
       "cb_groups",
+    ]);
+  });
+
+  it("counts interleavings that name the group, not stopped or archived ones", async () => {
+    const groups = [{ match: "any", ids: ["sg_1"] }];
+    const refs = await loadSavedGroupReferences(
+      context(
+        [],
+        [
+          bandit("il_draft", { status: "draft", savedGroups: groups }),
+          bandit("il_running", {
+            status: "running",
+            condition: '{"id":{"$inGroup":"sg_1"}}',
+          }),
+          bandit("il_stopped", { status: "stopped", savedGroups: groups }),
+          bandit("il_archived", {
+            status: "running",
+            archived: true,
+            savedGroups: groups,
+          }),
+        ],
+      ),
+      "sg_1",
+    );
+    expect(refs?.interleavings.map((il) => il.id)).toEqual([
+      "il_draft",
+      "il_running",
     ]);
   });
 });

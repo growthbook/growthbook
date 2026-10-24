@@ -311,6 +311,7 @@ export class GrowthBookClient<
       features: this._features,
       experiments: this._experiments,
       log: this.log,
+      debug: this.debug,
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,

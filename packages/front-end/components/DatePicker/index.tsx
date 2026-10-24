@@ -1,17 +1,19 @@
 import { DateRange, DayPicker, Matcher } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import * as Popover from "@radix-ui/react-popover";
-import { endOfDay, format, startOfDay } from "date-fns";
+import { endOfDay, format, startOfDay, startOfMonth } from "date-fns";
+import { format as formatTimeZone } from "date-fns-tz";
 import React, {
   ReactNode,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { getValidDate, getValidDateOffsetByUTC } from "shared/dates";
-import { Flex } from "@radix-ui/themes";
+import { Flex, VisuallyHidden } from "@radix-ui/themes";
 import clsx from "clsx";
 import { debounce } from "lodash";
 import Field from "@/components/Forms/Field";
@@ -19,6 +21,7 @@ import { RadixTheme } from "@/services/RadixTheme";
 import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
+import { localAsUtc, utcAsLocal } from "@/utils/date";
 import styles from "./DatePicker.module.scss";
 
 type Props = {
@@ -52,6 +55,8 @@ type Props = {
   size?: "md" | "legacy";
   disabled?: boolean;
   required?: boolean;
+  /** Timezone the user picks in, shown beside the field. With "utc", the field shows and edits the UTC date and time. */
+  timeZone?: "utc" | "local";
   fixedSpanMode?: {
     phase: "committed" | "choosing";
     anchorDate?: Date;
@@ -105,6 +110,59 @@ export function formatCompactDateRange(startDate: Date, endDate: Date): string {
   return `${format(startDate, "MMMM d, yyyy")} - ${format(endDate, "MMMM d, yyyy")}`;
 }
 
+/** Converts between the values callers pass in and what the user sees and types. */
+type Clock = {
+  /** Caller value → its exact date and time, for clamping to bounds. */
+  toDate: (value: Date | string) => Date;
+  /** Caller value → the day the calendar shows (the calendar only renders local time). */
+  toCalendar: (value: Date | string) => Date;
+  /** Calendar day → value handed back to the caller. */
+  fromCalendar: (day: Date) => Date;
+  toText: (value: Date | string) => string;
+  fromText: (text: string) => Date;
+};
+
+function localClock(precision: "datetime" | "date"): Clock {
+  // `new Date("yyyy-MM-dd")` is UTC midnight, so a date-only string shifts to local midnight; a Date is already local.
+  const parse = (value: Date | string) =>
+    precision === "datetime" || value instanceof Date
+      ? getValidDate(value)
+      : getValidDateOffsetByUTC(value);
+  const textFormat =
+    precision === "datetime" ? "yyyy-MM-dd'T'HH:mm" : "yyyy-MM-dd";
+  return {
+    toDate: parse,
+    toCalendar: parse,
+    fromCalendar: (day) => day,
+    toText: (value) => format(parse(value), textFormat),
+    fromText: parse,
+  };
+}
+
+function utcClock(precision: "datetime" | "date"): Clock {
+  const textLength = precision === "datetime" ? 16 : 10;
+  return {
+    toDate: (value) => getValidDate(value),
+    toCalendar: (value) => utcAsLocal(getValidDate(value)),
+    fromCalendar: localAsUtc,
+    // Text never passes through a local Date, which can't hold a UTC time in the viewer's DST gap.
+    toText: (value) => getValidDate(value).toISOString().slice(0, textLength),
+    fromText: (text) =>
+      getValidDate(precision === "datetime" ? `${text}Z` : text),
+  };
+}
+
+// Abbreviations can be ambiguous ("IST"), so the full name goes to the tooltip and screen readers.
+function zoneLabel(timeZone: Props["timeZone"], at: Date) {
+  if (timeZone === "utc") {
+    return { abbr: "UTC", name: "Coordinated Universal Time" };
+  }
+  if (timeZone === "local") {
+    return { abbr: formatTimeZone(at, "z"), name: formatTimeZone(at, "zzzz") };
+  }
+  return null;
+}
+
 export default function DatePicker({
   id,
   date,
@@ -130,8 +188,18 @@ export default function DatePicker({
   size = "legacy",
   disabled,
   required,
+  timeZone,
   fixedSpanMode,
 }: Props) {
+  const clock = useMemo(
+    () => (timeZone === "utc" ? utcClock(precision) : localClock(precision)),
+    [timeZone, precision],
+  );
+  const zone = zoneLabel(timeZone, date ? clock.toDate(date) : new Date());
+  const autoId = useId();
+  const fieldId = id || autoId;
+  const zoneId = `${fieldId}-zone`;
+
   const fixedHeight = compact || size === "md";
   const inputHeight = fixedHeight ? 32 : 38;
   const compactFieldStyle: React.CSSProperties = compact
@@ -143,62 +211,31 @@ export default function DatePicker({
         lineHeight: 1.25,
       }
     : {};
-  const dateFormat =
-    precision === "datetime" ? "yyyy-MM-dd'T'HH:mm" : "yyyy-MM-dd";
-  // Parses a date prop / bound in the same frame as the user's typed input.
-  // For `date` precision, `new Date("yyyy-MM-dd")` lands on UTC midnight, so we
-  // shift to local midnight via `getValidDateOffsetByUTC`. For `datetime`,
-  // `new Date("yyyy-MM-ddTHH:mm")` already parses as local time.
-  //
-  // Only a *string* needs that shift — it's undoing a parse rule, not converting
-  // a timezone. A `Date` already carries the intended day in its local fields
-  // (most `date`-precision callers hand us `getValidDateOffsetByUTC(...)`
-  // directly), so shifting it again moved it off that day. This must stay
-  // idempotent for a `Date`: it's applied to the same value on paths that render
-  // the text field and on paths that select the calendar day, and when the two
-  // disagreed the field read a day earlier than the calendar highlighted for
-  // every user east of UTC.
-  const parseDateInput = useCallback(
-    (value: Date | string): Date =>
-      precision === "datetime" || value instanceof Date
-        ? getValidDate(value)
-        : getValidDateOffsetByUTC(value),
-    [precision],
-  );
   const [bufferedDate, setBufferedDate] = useState(
-    date ? format(parseDateInput(date), dateFormat) : "",
+    date ? clock.toText(date) : "",
   );
   const [bufferedDate2, setBufferedDate2] = useState(
-    date2 ? format(parseDateInput(date2), dateFormat) : "",
+    date2 ? clock.toText(date2) : "",
   );
 
-  const [calendarMonth, setCalendarMonth] = useState(() => {
-    const anchor = date ? parseDateInput(date) : new Date();
-    return new Date(anchor.getFullYear(), anchor.getMonth());
-  });
+  const [calendarMonth, setCalendarMonth] = useState(() =>
+    startOfMonth(date ? clock.toCalendar(date) : new Date()),
+  );
   const [open, setOpen] = useState(false);
   const [rangeFieldFocused, setRangeFieldFocused] = useState(false);
   const fieldClickedTime = useRef(new Date());
 
   useEffect(() => {
-    if (date) {
-      setBufferedDate(format(parseDateInput(date), dateFormat));
-    } else {
-      setBufferedDate("");
-    }
-    if (date2) {
-      setBufferedDate2(format(parseDateInput(date2), dateFormat));
-    } else {
-      setBufferedDate2("");
-    }
-  }, [date, date2, dateFormat, parseDateInput]);
+    setBufferedDate(date ? clock.toText(date) : "");
+    setBufferedDate2(date2 ? clock.toText(date2) : "");
+  }, [date, date2, clock]);
 
   const disabledMatchers: Matcher[] = [];
   if (disableBefore) {
-    disabledMatchers.push({ before: parseDateInput(disableBefore) });
+    disabledMatchers.push({ before: clock.toCalendar(disableBefore) });
   }
   if (disableAfter) {
-    disabledMatchers.push({ after: parseDateInput(disableAfter) });
+    disabledMatchers.push({ after: clock.toCalendar(disableAfter) });
   }
 
   if (
@@ -214,23 +251,20 @@ export default function DatePicker({
   }
 
   const markedDays: Record<string, Matcher | Matcher[] | undefined> = {};
-  // Markers land on calendar days, so they go through `parseDateInput` for the
-  // same reason `selected` does — a `yyyy-MM-dd` string would otherwise mark the
-  // previous day for anyone west of UTC.
   if (date) {
-    markedDays.originalDate = parseDateInput(date);
+    markedDays.originalDate = clock.toCalendar(date);
   }
   if (date2) {
-    markedDays.originalDate2 = parseDateInput(date2);
+    markedDays.originalDate2 = clock.toCalendar(date2);
   }
   if (activeDates?.length) {
-    markedDays.activeDates = activeDates.map((d) => parseDateInput(d));
+    markedDays.activeDates = activeDates.map((d) => clock.toCalendar(d));
   }
   if (scheduleStartDate) {
-    markedDays.scheduleStartDate = parseDateInput(scheduleStartDate);
+    markedDays.scheduleStartDate = clock.toCalendar(scheduleStartDate);
   }
   if (scheduleEndDate) {
-    markedDays.scheduleEndDate = parseDateInput(scheduleEndDate);
+    markedDays.scheduleEndDate = clock.toCalendar(scheduleEndDate);
   }
 
   if (fixedSpanMode?.phase === "choosing" && fixedSpanMode.candidateRanges) {
@@ -253,6 +287,7 @@ export default function DatePicker({
   }
 
   const isRange = !!setDate2 || !!fixedSpanMode;
+  const fieldLabel = isRange ? (label ?? label2) : label;
 
   const rangeFieldValue = useMemo(() => {
     if (
@@ -263,8 +298,8 @@ export default function DatePicker({
       date2
     ) {
       return formatCompactDateRange(
-        parseDateInput(date),
-        parseDateInput(date2),
+        clock.toCalendar(date),
+        clock.toCalendar(date2),
       );
     }
     const a = bufferedDate;
@@ -278,7 +313,7 @@ export default function DatePicker({
     date,
     date2,
     isRange,
-    parseDateInput,
+    clock,
     precision,
     rangeFieldFocused,
   ]);
@@ -286,44 +321,42 @@ export default function DatePicker({
   const clampParsedDate = useCallback(
     (parsedDate: Date) => {
       let finalDate = parsedDate;
-      if (disableBefore && parsedDate < parseDateInput(disableBefore)) {
-        finalDate = parseDateInput(disableBefore);
-      } else if (disableAfter && parsedDate > parseDateInput(disableAfter)) {
-        finalDate = parseDateInput(disableAfter);
+      if (disableBefore && parsedDate < clock.toDate(disableBefore)) {
+        finalDate = clock.toDate(disableBefore);
+      } else if (disableAfter && parsedDate > clock.toDate(disableAfter)) {
+        finalDate = clock.toDate(disableAfter);
       }
       return finalDate;
     },
-    [disableBefore, disableAfter, parseDateInput],
+    [disableBefore, disableAfter, clock],
   );
 
   const debouncedSetDate = useMemo(() => {
     return debounce((value: string) => {
-      const parsedDate = parseDateInput(value);
+      if (!value.trim()) {
+        setDate(undefined);
+        setBufferedDate("");
+        return;
+      }
+      const parsedDate = clock.fromText(value);
       const finalDate = clampInput ? clampParsedDate(parsedDate) : parsedDate;
       setDate(finalDate);
-      setBufferedDate(format(finalDate, dateFormat));
-      setCalendarMonth(new Date(finalDate.getFullYear(), finalDate.getMonth()));
+      setBufferedDate(clock.toText(finalDate));
+      setCalendarMonth(startOfMonth(clock.toCalendar(finalDate)));
     }, 500);
-  }, [
-    clampInput,
-    clampParsedDate,
-    setDate,
-    setCalendarMonth,
-    dateFormat,
-    parseDateInput,
-  ]);
+  }, [clampInput, clampParsedDate, setDate, setCalendarMonth, clock]);
 
   const debouncedApplyRange = useMemo(() => {
     return debounce((startStr: string, endStr: string) => {
       const startTrim = startStr.trim();
       const endTrim = endStr.trim();
-      let anchor = date ? parseDateInput(date) : new Date();
+      let anchor = date ? clock.toDate(date) : new Date();
 
       if (startTrim) {
-        const parsedDate = parseDateInput(startTrim);
+        const parsedDate = clock.fromText(startTrim);
         const finalDate = clampParsedDate(parsedDate);
         setDate(finalDate);
-        setBufferedDate(format(finalDate, dateFormat));
+        setBufferedDate(clock.toText(finalDate));
         anchor = finalDate;
       } else {
         setDate(undefined);
@@ -331,27 +364,19 @@ export default function DatePicker({
       }
 
       if (endTrim) {
-        const parsedDate2 = parseDateInput(endTrim);
+        const parsedDate2 = clock.fromText(endTrim);
         const finalDate2 = clampParsedDate(parsedDate2);
         setDate2?.(finalDate2);
-        setBufferedDate2(format(finalDate2, dateFormat));
+        setBufferedDate2(clock.toText(finalDate2));
         anchor = finalDate2;
       } else {
         setDate2?.(undefined);
         setBufferedDate2("");
       }
 
-      setCalendarMonth(new Date(anchor.getFullYear(), anchor.getMonth()));
+      setCalendarMonth(startOfMonth(clock.toCalendar(anchor)));
     }, 500);
-  }, [
-    clampParsedDate,
-    date,
-    dateFormat,
-    parseDateInput,
-    setCalendarMonth,
-    setDate,
-    setDate2,
-  ]);
+  }, [clampParsedDate, date, clock, setCalendarMonth, setDate, setDate2]);
 
   return (
     <div className={clsx(containerClassName, { "mb-0": !label && !label2 })}>
@@ -387,24 +412,16 @@ export default function DatePicker({
                 flex: wrapRangeInputs && isRange ? "1 1 220px" : undefined,
               }}
             >
-              {(isRange ? (label ?? label2) : label) ? (
-                // Associated with the input when the caller supplies an `id`;
-                // without it the label is visible but has no accessible name.
-                <Text as="label" htmlFor={id || undefined} weight="semibold">
-                  {isRange ? (label ?? label2) : label}
+              {fieldLabel ? (
+                <Text as="label" htmlFor={fieldId} weight="semibold">
+                  {fieldLabel}
+                  {zone ? <span title={zone.name}> ({zone.abbr})</span> : null}
                 </Text>
               ) : null}
-              <div
-                style={
-                  clearButton && !isRange
-                    ? {
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                      }
-                    : {}
-                }
-              >
+              {zone ? (
+                <VisuallyHidden id={zoneId}>{zone.name}</VisuallyHidden>
+              ) : null}
+              <Flex align="center" gap="2">
                 <div
                   className={clsx("form-control p-0", {
                     "form-control--error": !!error,
@@ -419,7 +436,8 @@ export default function DatePicker({
                   }}
                 >
                   <Field
-                    id={id ?? ""}
+                    id={fieldId}
+                    aria-describedby={zone ? zoneId : undefined}
                     size={size}
                     disabled={disabled}
                     required={required}
@@ -467,12 +485,8 @@ export default function DatePicker({
                       if (!isRange) return;
                       setRangeFieldFocused(true);
                       if (date && date2) {
-                        setBufferedDate(
-                          format(parseDateInput(date), dateFormat),
-                        );
-                        setBufferedDate2(
-                          format(parseDateInput(date2), dateFormat),
-                        );
+                        setBufferedDate(clock.toText(date));
+                        setBufferedDate2(clock.toText(date2));
                       }
                     }}
                     onBlur={() => {
@@ -490,6 +504,12 @@ export default function DatePicker({
                     }}
                   />
                 </div>
+                {/* Without a label to suffix, the zone sits after the field. */}
+                {zone && !fieldLabel ? (
+                  <Text whiteSpace="nowrap" title={zone.name}>
+                    ({zone.abbr})
+                  </Text>
+                ) : null}
                 {/* TODO: Support clearing date ranges as well. Clear button is meant to be a stop gap until we can add a clear button within the field itself */}
                 {clearButton && !isRange && (
                   <Button
@@ -505,7 +525,7 @@ export default function DatePicker({
                     Clear
                   </Button>
                 )}
-              </div>
+              </Flex>
             </div>
           </Flex>
         </Popover.Trigger>
@@ -522,8 +542,8 @@ export default function DatePicker({
                   selected={
                     fixedSpanMode.phase === "committed" && date && date2
                       ? {
-                          from: parseDateInput(date),
-                          to: parseDateInput(date2),
+                          from: clock.toCalendar(date),
+                          to: clock.toCalendar(date2),
                         }
                       : undefined
                   }
@@ -548,27 +568,20 @@ export default function DatePicker({
                     // start→today. Nothing selected when there is no start yet.
                     date
                       ? {
-                          from: parseDateInput(date),
-                          to: date2 ? parseDateInput(date2) : undefined,
+                          from: clock.toCalendar(date),
+                          to: date2 ? clock.toCalendar(date2) : undefined,
                         }
                       : undefined
                   }
                   onSelect={(daterange: DateRange | undefined) => {
                     if (!daterange) return;
-                    const from = daterange.from;
-                    const to = daterange.to;
+                    const from =
+                      daterange.from && clock.fromCalendar(daterange.from);
+                    const to = daterange.to && clock.fromCalendar(daterange.to);
                     setDate(from);
                     setDate2?.(to);
-                    if (from) {
-                      setBufferedDate(format(from, dateFormat));
-                    } else {
-                      setBufferedDate("");
-                    }
-                    if (to) {
-                      setBufferedDate2(format(to, dateFormat));
-                    } else {
-                      setBufferedDate2("");
-                    }
+                    setBufferedDate(from ? clock.toText(from) : "");
+                    setBufferedDate2(to ? clock.toText(to) : "");
                   }}
                   disabled={disabledMatchers}
                   modifiers={markedDays}
@@ -587,10 +600,11 @@ export default function DatePicker({
                   // Nothing is selected when there is no date, rather than
                   // `getValidDate`'s "today" fallback highlighting a day the
                   // caller never set (the range branch above already does this).
-                  selected={date ? parseDateInput(date) : undefined}
-                  onSelect={(selectedDate: Date) => {
+                  selected={date ? clock.toCalendar(date) : undefined}
+                  onSelect={(day: Date) => {
+                    const selectedDate = clock.fromCalendar(day);
                     setDate(selectedDate);
-                    setBufferedDate(format(selectedDate, dateFormat));
+                    setBufferedDate(clock.toText(selectedDate));
                     // A day is the whole choice at date precision; datetime
                     // still needs the time typed into the field.
                     if (precision === "date") setOpen(false);

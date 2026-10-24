@@ -13,6 +13,7 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { toApiRevision } from "back-end/src/services/features";
 import { logger } from "back-end/src/util/logger";
 import {
   featureRevisionReference,
@@ -30,7 +31,7 @@ type FeatureRevisionEvent = Extract<
 >;
 
 // Callers supply the event-specific fields; the dispatcher fills in the
-// revision reference.
+// revision's reference and content.
 type RevisionBaseKeys = keyof FeatureRevisionWebhookPayload;
 
 type ExtraPayload<T extends FeatureRevisionEvent> = Omit<
@@ -94,9 +95,23 @@ export async function dispatchFeatureRevisionEvent<
       opts.environments,
     );
 
+    const {
+      defaultValue,
+      rules,
+      environmentsEnabled,
+      prerequisites,
+      metadata,
+      rampActions,
+    } = toApiRevision(revision, ctx, feature);
     const object: FeatureRevisionWebhookPayload = {
       ...featureRevisionReference(revision),
       feature: { id: feature.id },
+      defaultValue,
+      rules,
+      environmentsEnabled,
+      prerequisites,
+      metadata,
+      rampActions,
     };
 
     await createEvent({

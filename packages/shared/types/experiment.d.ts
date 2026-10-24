@@ -23,6 +23,7 @@ export {
   ExperimentType,
   ExperimentPhase,
   BanditStageType,
+  CustomMetricSlice,
   ExperimentDecisionFrameworkSettings,
   DecisionFrameworkMetricOverrides,
   ExperimentAnalysisSettings,

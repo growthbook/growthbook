@@ -44,6 +44,13 @@ export type ContextualBanditDefinitions = Record<
   ContextualBanditDefinition
 >;
 
+export type InterleavingDefinition = {
+  trackingKey: string;
+  variations: { key: string; config: Record<string, unknown> }[];
+};
+
+export type InterleavingDefinitions = Record<string, InterleavingDefinition>;
+
 export type AutoExperimentWithMetadata = AutoExperiment & {
   metadata?: ExperimentMetadata;
 };

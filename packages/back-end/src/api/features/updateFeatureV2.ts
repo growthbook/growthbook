@@ -55,6 +55,7 @@ import {
   getPublishedRevisionForEvents,
 } from "back-end/src/services/featureRevisionEvents";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
+import { holdFeatureUpdate } from "back-end/src/services/confirmations";
 import { validateEnvKeys } from "./postFeature";
 import {
   assertValidFeatureRules,
@@ -466,10 +467,10 @@ export const updateFeatureV2 = createApiRequestHandler(
   const defaultValueChanged =
     updates.defaultValue !== undefined &&
     updates.defaultValue !== feature.defaultValue;
-  const hasRuleChanges =
-    defaultValueChanged ||
-    (inboundFlatRules != null &&
-      !rulesEqualIgnoringScopeEncoding(inboundFlatRules, feature.rules ?? []));
+  const rulesChanged =
+    inboundFlatRules !== null &&
+    !rulesEqualIgnoringScopeEncoding(inboundFlatRules, feature.rules ?? []);
+  const hasRuleChanges = defaultValueChanged || rulesChanged;
   const hasEnvEnabledChanges = Object.keys(changedEnvEnabled).length > 0;
   const hasMetadataChanges = Object.keys(metadataChanges).length > 0;
   const hasPrereqChanges = newPrerequisites !== null;
@@ -501,6 +502,15 @@ export const updateFeatureV2 = createApiRequestHandler(
         metadataChanges,
       );
     }
+    // `canBypass` ORs the two sources, so it cannot name which one applied.
+    // Ask the org setting directly; the permission is what remains.
+    const approvalGate: BypassedGate = {
+      type: "approval-required",
+      outcome: "bypassed",
+      via: canUseRestApiBypassSetting(req)
+        ? "restApiBypassesReviews"
+        : "bypassApprovalPermission",
+    };
     const revisionChanges: Partial<FeatureRevisionInterface> = {
       ...(hasEnvEnabledChanges
         ? { environmentsEnabled: changedEnvEnabled }
@@ -531,6 +541,21 @@ export const updateFeatureV2 = createApiRequestHandler(
       changes: revisionChanges,
       comment: req.body.comment ?? "Created via REST API",
       canBypassApprovalChecks: canBypass,
+      beforeLanding: ({ bypassesApproval }) =>
+        holdFeatureUpdate(
+          req.context,
+          feature,
+          {
+            archived: newArchived,
+            envEnabled: changedEnvEnabled,
+            defaultValue: defaultValueChanged,
+            rules: rulesChanged,
+            metadata: Object.keys(metadataChanges),
+            prerequisites: hasPrereqChanges,
+            holdout: hasHoldoutChange,
+          },
+          bypassesApproval ? [approvalGate] : [],
+        ),
     });
 
     updatedFeature = updatedFeatureFromRevision;
@@ -558,17 +583,7 @@ export const updateFeatureV2 = createApiRequestHandler(
         `Failed to dispatch revision.published for feature ${feature.id}`,
       );
     }
-    if (bypassedApproval) {
-      bypassedGates.push({
-        type: "approval-required",
-        outcome: "bypassed",
-        // `canBypass` ORs the two sources, so it cannot name which one applied.
-        // Ask the org setting directly; the permission is what remains.
-        via: canUseRestApiBypassSetting(req)
-          ? "restApiBypassesReviews"
-          : "bypassApprovalPermission",
-      });
-    }
+    if (bypassedApproval) bypassedGates.push(approvalGate);
 
     // Ensure linkedFeatures is set on any experiments referenced by the
     // newly-live rules. Fire-and-forget; clearPendingFeatureDraftsForRevision

@@ -3814,6 +3814,7 @@ export default function RampScheduleSection({
         date={state.cutoffDate}
         setDate={(d) => patchState({ cutoffDate: d ? d.toISOString() : "" })}
         precision="datetime"
+        timeZone="local"
         disableBefore={new Date().toISOString()}
       />
       <IconButton
@@ -3934,6 +3935,7 @@ export default function RampScheduleSection({
           date={state.startDate || undefined}
           setDate={(d) => patchState({ startDate: d ? d.toISOString() : "" })}
           precision="datetime"
+          timeZone="local"
         />
       )}
     </Flex>

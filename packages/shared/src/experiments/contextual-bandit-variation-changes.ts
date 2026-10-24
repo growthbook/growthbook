@@ -2,6 +2,8 @@ import {
   ContextualBanditVariationStatus,
   VariationWeightPair,
 } from "shared/validators";
+import type { VisualChange } from "shared/types/visual-changeset";
+import { visualChangeHasContent } from "../util";
 import { getEqualWeights } from "./experiments";
 
 export const MIN_CONTEXTUAL_BANDIT_VARIATIONS = 2;
@@ -35,6 +37,33 @@ export function getActiveVariations<T extends VariationWithStatus>(
   variations: T[],
 ): T[] {
   return variations.filter(isActiveVariation);
+}
+
+export function canEditContextualBanditVisualChanges(cb: {
+  archived?: boolean;
+  status: string;
+}): boolean {
+  return !cb.archived && cb.status !== "stopped";
+}
+
+type ServableVisualChange = Pick<
+  VisualChange,
+  "variation" | "js" | "domMutations"
+> & { css?: string };
+
+export function contextualBanditHasServableVisualChanges(
+  cb: { variations: VariationWithStatus[] },
+  changesets: { visualChanges: ServableVisualChange[] }[],
+): boolean {
+  const activeIds = new Set(
+    getActiveVariations(cb.variations).map((v) => v.id),
+  );
+  return changesets.some((changeset) =>
+    changeset.visualChanges.some(
+      (change) =>
+        activeIds.has(change.variation) && visualChangeHasContent(change),
+    ),
+  );
 }
 type VariationDiff = {
   addedIds: string[];
