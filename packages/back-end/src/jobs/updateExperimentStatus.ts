@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { isEqual } from "lodash";
 import { isPermissionError } from "shared/util";
 import type { ExperimentInterface } from "shared/types/experiment";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
@@ -45,7 +46,7 @@ const UPDATE_SINGLE_EXPERIMENT_STATUS = "updateSingleExperimentStatus";
 const SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS = 5;
 
 // Only the exact update a job processed may be cleared or marked failed, not
-// the same action re-staged by someone else meanwhile.
+// the same action re-staged meanwhile, by someone else or with fresh pins.
 type StagedUpdate = NonNullable<
   ExperimentInterface["nextScheduledStatusUpdate"]
 >;
@@ -57,7 +58,9 @@ const sameStagedUpdate = (
   a.type === b.type &&
   a.date.getTime() === b.date.getTime() &&
   (a.scheduledBy ?? null) === (b.scheduledBy ?? null) &&
-  (a.scheduledByApiKey ?? null) === (b.scheduledByApiKey ?? null);
+  (a.scheduledByApiKey ?? null) === (b.scheduledByApiKey ?? null) &&
+  !!a.bypassApproval === !!b.bypassApproval &&
+  isEqual(a.pinnedDrafts ?? null, b.pinnedDrafts ?? null);
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_STATUS_UPDATES, async () => {

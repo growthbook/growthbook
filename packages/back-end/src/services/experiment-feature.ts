@@ -83,6 +83,7 @@ import {
 } from "back-end/src/services/features";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
+import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 
 type ExperimentFeatureLinkResult = {
   version: number;
@@ -104,23 +105,38 @@ type ExperimentFeatureLinkOptions = {
   forceNewDraft?: boolean;
 };
 
-// Stage (or land) an experiment-ref rule. Mirrors `linkFeatureToContextualBandit`.
-export async function linkFeatureToExperiment({
+type ExperimentFeatureLinkCheck = Pick<
+  ExperimentFeatureLinkOptions,
+  | "context"
+  | "experiment"
+  | "feature"
+  | "rule"
+  | "autoPublish"
+  | "draftVersion"
+  | "forceNewDraft"
+>;
+
+/**
+ * Every check a link makes before it writes. `experiment` may be the state a
+ * save leaves it in, such as with a variation the same save adds.
+ */
+export async function assertFlagLinkable({
   context,
   experiment,
   feature,
   rule,
-  eventAudit,
-  audit,
   autoPublish,
   draftVersion,
   forceNewDraft,
-}: ExperimentFeatureLinkOptions): Promise<ExperimentFeatureLinkResult> {
+}: ExperimentFeatureLinkCheck): Promise<{
+  scopedRule: FeatureRule;
+  ruleEnvFootprint: string[];
+}> {
   const { environments } = context;
 
   if (
     rule.type !== "experiment-ref" ||
-    !rule.experimentId ||
+    rule.experimentId !== experiment.id ||
     !rule.variations ||
     !rule.variations.length
   ) {
@@ -138,6 +154,23 @@ export async function linkFeatureToExperiment({
   }
   assertScheduledStartAllows(experiment, "linked Feature Flags");
 
+  const targetVersion = resolveLinkTargetVersion(feature, {
+    autoPublish,
+    draftVersion,
+    forceNewDraft,
+  });
+  // Null when the rule lands on a new draft cut from live.
+  const target =
+    targetVersion === feature.version
+      ? null
+      : await getRevision({
+          context,
+          organization: context.org.id,
+          featureId: feature.id,
+          feature,
+          version: targetVersion,
+        });
+
   const scopedRule = scopeLinkedRefRule(
     { ...rule, id: generateRuleId() } as FeatureRule,
     environments,
@@ -145,19 +178,10 @@ export async function linkFeatureToExperiment({
 
   await assertValidRuleWrite(
     context,
-    withStagedSchema(
-      feature,
-      draftVersion
-        ? await getRevision({
-            context,
-            organization: context.org.id,
-            featureId: feature.id,
-            feature,
-            version: draftVersion,
-          })
-        : null,
-    ),
+    withStagedSchema(feature, target),
     scopedRule,
+    undefined,
+    [experiment],
   );
   const ruleEnvFootprint = scopedRule.allEnvironments
     ? environments
@@ -176,6 +200,40 @@ export async function linkFeatureToExperiment({
     rules: [scopedRule],
   });
 
+  // A draft cut from live carries live's holdout.
+  await resolveHoldoutExperimentToLink({
+    context,
+    feature,
+    experiment,
+    effectiveHoldout: getEffectiveRevisionHoldout(target ?? {}, feature),
+  });
+
+  return { scopedRule, ruleEnvFootprint };
+}
+
+// Stage (or land) an experiment-ref rule. Mirrors `linkFeatureToContextualBandit`.
+export async function linkFeatureToExperiment({
+  context,
+  experiment,
+  feature,
+  rule,
+  eventAudit,
+  audit,
+  autoPublish,
+  draftVersion,
+  forceNewDraft,
+}: ExperimentFeatureLinkOptions): Promise<ExperimentFeatureLinkResult> {
+  const { environments } = context;
+  const { scopedRule, ruleEnvFootprint } = await assertFlagLinkable({
+    context,
+    experiment,
+    feature,
+    rule,
+    autoPublish,
+    draftVersion,
+    forceNewDraft,
+  });
+
   const revision = await getDraftRevision(
     context,
     feature,
@@ -185,17 +243,6 @@ export async function linkFeatureToExperiment({
       forceNewDraft,
     }),
   );
-
-  // If posting to a different revision, use the holdout from that revision
-  // to check compatibility
-  const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
-
-  await resolveHoldoutExperimentToLink({
-    context,
-    feature,
-    experiment,
-    effectiveHoldout,
-  });
 
   const environmentsEnabled = enableFootprintEnvironments(
     feature,
@@ -625,6 +672,7 @@ type ReadyDraft = ResolvedDraft & {
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
   mergeResult: AutoMergeResult;
+  bypassLockdown: boolean;
 };
 
 /** The one draft per linked flag that starting the experiment publishes. */
@@ -742,6 +790,11 @@ export async function publishPendingFeatureDraftsForExperiment(
       restApiBypassesReviews ||
       (bypassLockdown &&
         context.permissions.canBypassFlagApprovalChecks(feature, "feature"));
+    const bypassFlagLockdown = bypassLockdown && bypassApproval;
+    // Refused before anything publishes rather than partway through.
+    if (!bypassFlagLockdown) {
+      await assertFeatureNotLockedByRamp(context, featureId);
+    }
     // The same question the publish button and the REST endpoint ask, so an
     // autostart can never land a draft either of those would refuse.
     const approval = await assessRevisionApprovalForAutoPublish(
@@ -778,7 +831,14 @@ export async function publishPendingFeatureDraftsForExperiment(
       failed.push({ featureId, revisionVersion, reason: "needs-rebase" });
       continue;
     }
-    ready.push({ featureId, revisionVersion, feature, revision, mergeResult });
+    ready.push({
+      featureId,
+      revisionVersion,
+      feature,
+      revision,
+      mergeResult,
+      bypassLockdown: bypassFlagLockdown,
+    });
   }
 
   if (failed.length > 0) {
@@ -803,8 +863,14 @@ export async function publishPendingFeatureDraftsForExperiment(
   const published: ResolvedDraft[] = [];
 
   for (const entry of ready) {
-    const { featureId, revisionVersion, feature, revision, mergeResult } =
-      entry;
+    const {
+      featureId,
+      revisionVersion,
+      feature,
+      revision,
+      mergeResult,
+      bypassLockdown: bypassFlagLockdown,
+    } = entry;
 
     if (!mergeResult.success) {
       logger.warn(
@@ -856,7 +922,7 @@ export async function publishPendingFeatureDraftsForExperiment(
         revision,
         result: mergeResult.result,
         comment: `Experiment "${experiment.name}" started`,
-        bypassLockdown,
+        bypassLockdown: bypassFlagLockdown,
       });
       // Belt-and-suspenders: publishRevision's sweep keys off the revision's
       // own experiment-ref rules and would miss entries if those were deleted
@@ -1265,7 +1331,10 @@ export async function assertFlagRemovable(
   }
 }
 
-/** Refuses keeping a flag whose drafts the undo can't write. */
+/**
+ * Refuses keeping a flag that isn't pending removal, since keeping restores the
+ * rule in every draft taking it out, or one whose drafts the undo can't write.
+ */
 export async function assertFlagKeepable(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -1273,6 +1342,11 @@ export async function assertFlagKeepable(
 ): Promise<void> {
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
+  }
+  if (!experiment.pendingFeatureUnlinks?.includes(feature.id)) {
+    throw new BadRequestError(
+      `Feature Flag "${feature.id}" is not being removed from this experiment, so there is nothing to keep.`,
+    );
   }
   assertDraftsEditable(
     await draftsTakingRuleOut(

@@ -2224,7 +2224,7 @@ const experimentChangesFields = experimentAnalysisSettingsDraft
     variations: z.array(variation),
     variationWeights: z.array(z.number()),
     coverage: z.number().min(0).max(1),
-    // "" leaves the current holdout.
+    // "" clears the holdout.
     holdoutId: z.string(),
   })
   .partial()

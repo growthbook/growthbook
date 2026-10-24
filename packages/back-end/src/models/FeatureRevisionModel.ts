@@ -3410,6 +3410,27 @@ export async function getFeatureRevisionsByFeatureIds(
   return revisionsByFeatureId;
 }
 
+// Matches both stored rule shapes: the flat list and the legacy per-environment map.
+export async function getNewestDiscardedRevisionWithExperimentRule(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  experimentId: string,
+): Promise<FeatureRevisionInterface | null> {
+  const ruleMatch = { $elemMatch: { type: "experiment-ref", experimentId } };
+  const doc = await FeatureRevisionModel.findOne({
+    organization: context.org.id,
+    featureId: feature.id,
+    status: "discarded",
+    $or: [
+      { rules: ruleMatch },
+      ...context.environments.map((env) => ({ [`rules.${env}`]: ruleMatch })),
+    ],
+  })
+    .select("-log")
+    .sort({ version: -1 });
+  return doc ? toInterface(doc, context, feature) : null;
+}
+
 // Staged targeting metadata for every active draft of the given features.
 // Lean and uncapped, unlike getFeatureRevisionsByFeatureIds.
 export async function getActiveDraftMetadataByFeatureIds(

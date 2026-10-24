@@ -53,12 +53,29 @@ export const postExperimentStart = createApiRequestHandler(
     throw new Error("Holdouts are not supported via this API");
   }
 
+  // Bandits manage their own update cadence; they don't use statusUpdateSchedule.
+  const isBandit = existing.type === "multi-armed-bandit";
+  const startAt =
+    !isBandit && existing.statusUpdateSchedule?.startAt
+      ? getValidDate(existing.statusUpdateSchedule.startAt)
+      : null;
+  const hasFutureSchedule = startAt && startAt > new Date();
+  const alreadyStaged = !isBandit && !!existing.nextScheduledStatusUpdate;
+  // Only a start now honors the org setting; an armed start fires on the
+  // armer's own authority.
+  const restApiBypassesReviews =
+    !hasFutureSchedule && canUseRestApiBypassSetting(req);
+
   // Staging a scheduled start is held too: it starts later with no one present.
   const queued = await queuedDraftsHold(context, existing.pendingFeatureDrafts);
-  // A key's authority waives the drafts' open approvals unasked, so the hold
-  // names that bypass whenever there's one to waive.
+  // Authority or the org setting waives the drafts' open approvals unasked, so
+  // the hold names that bypass whenever there's one to waive.
   const waivesApproval =
-    (await startApprovalsWaivedBy(context, existing)).size > 0;
+    (
+      await startApprovalsWaivedBy(context, existing, {
+        restApiBypassesReviews,
+      })
+    ).size > 0;
   await requireConfirmation(context, {
     actions: ["experiment.start", ...queued.actions],
     bypassing: waivesApproval
@@ -66,7 +83,9 @@ export const postExperimentStart = createApiRequestHandler(
           {
             type: "approval-required",
             outcome: "bypassed",
-            via: "bypassApprovalPermission",
+            via: restApiBypassesReviews
+              ? "restApiBypassesReviews"
+              : "bypassApprovalPermission",
           },
         ]
       : [],
@@ -79,15 +98,6 @@ export const postExperimentStart = createApiRequestHandler(
     // A changed schedule changes when, or whether, this start happens.
     pin: [existing.status, existing.statusUpdateSchedule ?? null, queued.pin],
   });
-
-  // Bandits manage their own update cadence; they don't use statusUpdateSchedule.
-  const isBandit = existing.type === "multi-armed-bandit";
-  const startAt =
-    !isBandit && existing.statusUpdateSchedule?.startAt
-      ? getValidDate(existing.statusUpdateSchedule.startAt)
-      : null;
-  const hasFutureSchedule = startAt && startAt > new Date();
-  const alreadyStaged = !isBandit && !!existing.nextScheduledStatusUpdate;
 
   if (hasFutureSchedule && alreadyStaged) {
     throw new Error(
@@ -139,7 +149,7 @@ export const postExperimentStart = createApiRequestHandler(
     // Like a Feature Revision publish: approval is bypassed by authority, not
     // by asking. `bypassApproval` in the body is accepted and ignored.
     bypassLockdown: canBypassReviewChecks(req, existing),
-    restApiBypassesReviews: canUseRestApiBypassSetting(req),
+    restApiBypassesReviews,
   });
 
   await req.audit({

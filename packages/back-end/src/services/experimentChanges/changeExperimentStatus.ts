@@ -21,6 +21,7 @@ import {
 import {
   experimentHasLiveLinkedChanges,
   hasPendingScheduledStart,
+  linkedDraftApproved,
 } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
@@ -357,10 +358,7 @@ export async function getExperimentStartChecklistStatus(
       items.push({
         key: `${PENDING_APPROVAL_ITEM_PREFIX}${f.feature.id}`,
         required: true,
-        status:
-          (f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved")
-            ? "complete"
-            : "incomplete",
+        status: linkedDraftApproved(f) ? "complete" : "incomplete",
         manual: false,
         hardBlock: true,
         reason: `Approve the draft revision for linked feature ${f.feature.id} before starting.`,
@@ -610,6 +608,7 @@ function assertNoIncompleteHardBlockers(
 async function waivableApprovals(
   context: ReqContext | ApiReqContext,
   checklistItems: StartChecklistItemStatus[],
+  { restApiBypassesReviews = false }: { restApiBypassesReviews?: boolean } = {},
 ): Promise<Set<string>> {
   const open = checklistItems.filter(
     (item) =>
@@ -617,6 +616,8 @@ async function waivableApprovals(
       item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX),
   );
   if (!open.length) return new Set();
+  // The org setting waives every flag's approval, as the publish does.
+  if (restApiBypassesReviews) return new Set(open.map((item) => item.key));
   const features = await getFeaturesByIds(
     context,
     open.map((item) => item.key.slice(PENDING_APPROVAL_ITEM_PREFIX.length)),
@@ -713,8 +714,12 @@ export async function armedStartBypassStands(
 export async function startApprovalsWaivedBy(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
+  { restApiBypassesReviews = false }: { restApiBypassesReviews?: boolean } = {},
 ): Promise<Set<string>> {
-  if (!context.permissions.canBypassFlagApprovalChecks(experiment, "feature")) {
+  if (
+    !restApiBypassesReviews &&
+    !context.permissions.canBypassFlagApprovalChecks(experiment, "feature")
+  ) {
     return new Set();
   }
   return waivableApprovals(
@@ -722,6 +727,7 @@ export async function startApprovalsWaivedBy(
     await getExperimentStartChecklistStatus(context, experiment, {
       arming: true,
     }),
+    { restApiBypassesReviews },
   );
 }
 
@@ -772,10 +778,10 @@ export async function startExperiment({
   /** A REST call in an org that lets the REST API skip approval. */
   restApiBypassesReviews?: boolean;
   /**
-   * When true, skip ramp-schedule lockdown enforcement on linked features and
-   * forward the bypass through to pending feature-draft publishing, which
-   * re-checks bypass authority per feature. Caller must verify admin-bypass
-   * permissions before passing true.
+   * When true, skip ramp-schedule lockdown on each linked flag the caller may
+   * bypass on, and forward the bypass to pending feature-draft publishing,
+   * which re-checks it per flag. Caller must verify admin-bypass permissions
+   * before passing true.
    */
   bypassLockdown?: boolean;
 }) {
@@ -817,10 +823,20 @@ export async function startExperiment({
     );
   }
 
-  if (!bypassLockdown) {
-    for (const fid of experiment.linkedFeatures ?? []) {
-      await assertFeatureNotLockedByRamp(context, fid);
-    }
+  // The bypass holds per flag, on what the caller may skip there.
+  const linkedIds = experiment.linkedFeatures ?? [];
+  const linked = bypassLockdown
+    ? new Map(
+        (await getFeaturesByIds(context, linkedIds)).map((f) => [f.id, f]),
+      )
+    : null;
+  for (const fid of linkedIds) {
+    const feature = linked?.get(fid);
+    const bypass =
+      !!feature &&
+      (restApiBypassesReviews ||
+        context.permissions.canBypassFlagApprovalChecks(feature, "feature"));
+    if (!bypass) await assertFeatureNotLockedByRamp(context, fid);
   }
 
   const { updated } = await executeExperimentStart(

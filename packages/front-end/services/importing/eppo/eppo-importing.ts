@@ -2400,9 +2400,13 @@ export async function runEppoImport({
             current.status !== experiment.status &&
             !(current.status === "running" && experiment.status === "stopped")
           ) {
+            // Records a start Eppo already made, so no start checklist.
             await apiCall(`/experiment/${id}/status`, {
               method: "POST",
-              body: JSON.stringify({ status: experiment.status }),
+              body: JSON.stringify({
+                status: experiment.status,
+                ...(experiment.status === "running" && { skipChecklist: true }),
+              }),
             });
             current = { ...current, status: experiment.status };
           }

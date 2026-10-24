@@ -230,12 +230,16 @@ import {
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   getRevision,
-  getRevisionsByVersions,
   getActiveDraftMetadataByFeatureIds,
   getFeatureRevisionsByFeatureIds,
+  getLinkageSyncRevisionSummaries,
+  getNewestDiscardedRevisionWithExperimentRule,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
-import { draftTakesRuleOut } from "back-end/src/util/featureExperimentSync";
+import {
+  draftTakesRuleOut,
+  getRuleChangingDraftVersions,
+} from "back-end/src/util/featureExperimentSync";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
@@ -5398,6 +5402,7 @@ export async function getRefLinkedFeatureInfo({
   pendingUnlinks = [],
   includeOtherPendingDrafts = false,
   includeValueGroups = false,
+  relinkExperimentId,
   publisher = context,
 }: {
   context: ReqContext | ApiReqContext;
@@ -5411,6 +5416,8 @@ export async function getRefLinkedFeatureInfo({
   includeOtherPendingDrafts?: boolean;
   // Only the Setup page shows disagreeing rules as separate groups.
   includeValueGroups?: boolean;
+  // Only the Setup page links a removed flag again, from this experiment's rule.
+  relinkExperimentId?: string;
   // Who a start would publish each draft as; null when nobody can be resolved.
   publisher?: ReqContext | ApiReqContext | null;
 }): Promise<LinkedFeatureInfo[]> {
@@ -5450,70 +5457,48 @@ export async function getRefLinkedFeatureInfo({
       const liveMatches = getMatchingRules(feature, matchRule, environments);
       const liveRefRules = refRulesForEntity(feature.rules);
 
-      // Walk draft revisions newest-first and pick:
-      //   1. (preferred) a draft that changes this experiment's rule: its
-      //      slice differs from live, and from the revision it was cut from.
-      //      Used to flip state to "draft" even when live already has a
-      //      matching rule.
-      //   2. (fallback) while live has the rule, the first draft with any
-      //      match, even one that only carries it along. Over an empty live,
-      //      a draft that only carries an old copy adds nothing.
       const activeDrafts = revisions
         .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
         .sort((a, b) => b.version - a.version);
-
+      const withMatches = (revision: (typeof revisions)[0]) => ({
+        revision,
+        matches: getMatchingRules(feature, matchRule, environments, revision),
+      });
       const draftsWithMatches = activeDrafts
-        .map((r) => ({
-          revision: r,
-          matches: getMatchingRules(feature, matchRule, environments, r),
-        }))
+        .map(withMatches)
         .filter(({ matches }) => matches.length > 0);
-      const otherDraftCount = Math.max(0, draftsWithMatches.length - 1);
-
-      const changesRefFrom = (
-        revision: (typeof revisions)[0],
-        rules: FeatureRule[],
-      ) => !isEqual(refRulesForEntity(revision.rules), rules);
-      const differsFromLive = draftsWithMatches.filter(({ revision }) =>
-        changesRefFrom(revision, liveRefRules),
+      const otherDraftCount = Math.max(
+        0,
+        activeDrafts.filter((r) => refRulesForEntity(r.rules).length > 0)
+          .length - 1,
       );
+
+      // The drafts that change the rule, newest first, judged on what a start
+      // reads so the page offers exactly the draft that launches.
+      const { openDrafts, liveRevision } =
+        await getLinkageSyncRevisionSummaries(context.org.id, feature.id);
+      const differingDrafts = getRuleChangingDraftVersions(
+        matchRule,
+        openDrafts,
+        liveRevision,
+      ).flatMap((version) => {
+        const revision = activeDrafts.find((r) => r.version === version);
+        return revision ? [withMatches(revision)] : [];
+      });
       // Drafts without the rule while live has it, for a removal in progress.
       const withoutRule =
         pendingUnlinks.includes(feature.id) && liveRefRules.length > 0
           ? activeDrafts.filter((r) => !refRulesForEntity(r.rules).length)
           : [];
-      // A draft cut before live last changed the rule still holds the old
-      // copy; it only changes the rule if it also differs from its own base.
-      const staleBaseVersions = [
-        ...new Set(
-          [...differsFromLive.map(({ revision }) => revision), ...withoutRule]
-            .map((revision) => revision.baseVersion)
-            .filter((v) => v !== feature.version),
-        ),
-      ];
-      const basesByVersion = new Map(
-        (staleBaseVersions.length
-          ? await getRevisionsByVersions({
-              context,
-              organization: context.org.id,
-              featureId: feature.id,
-              feature,
-              versions: staleBaseVersions,
-            })
-          : []
-        ).map((base) => [base.version, base]),
-      );
       const removalDraft = withoutRule.find((revision) =>
         draftTakesRuleOut(
           (rules) => refRulesForEntity(rules).length > 0,
           revision,
-          basesByVersion.get(revision.baseVersion),
+          openDrafts.find((d) => d.version === revision.version)?.base,
         ),
       );
-      const differingDrafts = differsFromLive.filter(({ revision }) => {
-        const base = basesByVersion.get(revision.baseVersion);
-        return !base || changesRefFrom(revision, refRulesForEntity(base.rules));
-      });
+      // Without a changing draft, while live has the rule: the newest draft
+      // carrying it. Over an empty live, an old copy adds nothing.
       const chosenDraft =
         differingDrafts[0] ??
         (liveRefRules.length > 0 ? draftsWithMatches[0] : undefined);
@@ -5537,23 +5522,16 @@ export async function getRefLinkedFeatureInfo({
         matches = draftMatches;
       }
 
-      // Rare, so looked up only here: the newest discarded draft that still
-      // holds this rule, to link the flag again as it was.
+      // The newest discarded draft that still holds this rule, to link the
+      // flag again as it was.
       let relinkFrom: LinkedFeatureInfo["relinkFrom"];
-      if (state === "discarded") {
-        const discarded =
-          (
-            await getFeatureRevisionsByFeatureIds(
-              context,
-              context.org.id,
-              [feature.id],
-              { [feature.id]: feature },
-              ["discarded"],
-            )
-          )[feature.id] ?? [];
-        const rule = discarded
-          .map((r) => getMatchingRules(feature, matchRule, environments, r))
-          .find((m) => m.length > 0)?.[0]?.rule;
+      if (state === "discarded" && relinkExperimentId) {
+        const discarded = await getNewestDiscardedRevisionWithExperimentRule(
+          context,
+          feature,
+          relinkExperimentId,
+        );
+        const rule = refRulesForEntity(discarded?.rules)[0];
         if (rule?.type === "experiment-ref") {
           relinkFrom = {
             values: rule.variations,
@@ -5702,35 +5680,49 @@ export async function getRefLinkedFeatureInfo({
         draftMetadataByFeatureId[feature.id] || [],
       );
 
+      // A draft whose rule runs in no environment still launches it.
+      const ruleShown = (
+        from: MatchingRule[],
+        revision: FeatureRevisionInterface | undefined,
+      ) =>
+        from[0]?.rule ??
+        (revision && !withMatches(revision).matches.length
+          ? refRulesForEntity(revision.rules)[0]
+          : undefined);
+
       // What the page shows and saves against for one open draft of the rule.
       const pendingDraftFor = (
         revision: (typeof revisions)[0],
         revisionMatches: MatchingRule[],
         draftFactsOf: DraftFacts,
-      ): LinkedFeaturePendingDraft => ({
-        version: revision.version,
-        dateUpdated: isoOrNull(revision.dateUpdated),
-        lockedBySchedule: isRevisionEditLockedBySchedule(revision),
-        status: revision.status,
-        values: refRuleValues(revisionMatches[0]?.rule),
-        sparse: !!(revisionMatches[0]?.rule as ExperimentRefRule)?.sparse,
-        allEnvironments: !!(revisionMatches[0]?.rule as ExperimentRefRule)
-          ?.allEnvironments,
-        title: revision.title,
-        otherDraftCount,
-        pendingApproval: reviewRequired,
-        defaultValue: revision.defaultValue,
-        ...(draftFactsOf.approval && {
-          approval: { satisfied: draftFactsOf.approval.satisfied },
-        }),
-        hasChanges: draftFactsOf.hasChanges,
-        hasMergeConflict: draftFactsOf.hasMergeConflict,
-        hasUnrelatedDraftChanges: draftFactsOf.hasUnrelatedDraftChanges,
-        rebaseRequired: draftFactsOf.rebaseRequired,
-        // From the draft's matches: where the unpublished edit would run.
-        environmentStates: buildEnvironmentStates(revisionMatches, revision),
-        environmentInputs: buildEnvironmentInputs(revisionMatches, revision),
-      });
+      ): LinkedFeaturePendingDraft => {
+        const rule = ruleShown(revisionMatches, revision) as
+          | ExperimentRefRule
+          | undefined;
+        return {
+          version: revision.version,
+          dateUpdated: isoOrNull(revision.dateUpdated),
+          lockedBySchedule: isRevisionEditLockedBySchedule(revision),
+          status: revision.status,
+          values: refRuleValues(rule),
+          sparse: !!rule?.sparse,
+          allEnvironments: !!rule?.allEnvironments,
+          title: revision.title,
+          otherDraftCount,
+          pendingApproval: reviewRequired,
+          defaultValue: revision.defaultValue,
+          ...(draftFactsOf.approval && {
+            approval: { satisfied: draftFactsOf.approval.satisfied },
+          }),
+          hasChanges: draftFactsOf.hasChanges,
+          hasMergeConflict: draftFactsOf.hasMergeConflict,
+          hasUnrelatedDraftChanges: draftFactsOf.hasUnrelatedDraftChanges,
+          rebaseRequired: draftFactsOf.rebaseRequired,
+          // From the draft's matches: where the unpublished edit would run.
+          environmentStates: buildEnvironmentStates(revisionMatches, revision),
+          environmentInputs: buildEnvironmentInputs(revisionMatches, revision),
+        };
+      };
       // Each one costs a merge, so read once for every group below.
       const otherDrafts =
         includeOtherPendingDrafts &&
@@ -5752,6 +5744,7 @@ export async function getRefLinkedFeatureInfo({
         keep: (match: MatchingRule) => boolean,
       ): Omit<LinkedFeatureInfo, "feature"> => {
         const scoped = matches.filter(keep);
+        const shownRule = ruleShown(scoped, statesRevision);
         const scopedLive = liveMatches.filter(keep);
         const uniqueValues = new Set(scoped.map((m) => valuesKey(m.rule)));
         const environmentStates = buildEnvironmentStates(
@@ -5774,7 +5767,9 @@ export async function getRefLinkedFeatureInfo({
             ? differingDrafts.map((d) => ({
                 version: d.revision.version,
                 status: d.revision.status,
-                values: refRuleValues(d.matches.filter(keep)[0]?.rule),
+                values: refRuleValues(
+                  ruleShown(d.matches.filter(keep), d.revision),
+                ),
               }))
             : [];
         // The first staged draft is the chosen one, so its facts are in hand.
@@ -5826,8 +5821,8 @@ export async function getRefLinkedFeatureInfo({
           environmentStates,
           environmentInputs: buildEnvironmentInputs(scoped, statesRevision),
           attributeScopeProjects,
-          values: refRuleValues(scoped[0]?.rule),
-          sparse: !!(scoped[0]?.rule as ExperimentRefRule)?.sparse,
+          values: refRuleValues(shownRule),
+          sparse: !!(shownRule as ExperimentRefRule | undefined)?.sparse,
           valuesFrom: scoped[0]?.environmentId || "",
           ...(relinkFrom && { relinkFrom }),
           rulesAbove: scoped.some((m) => m.i > 0),
@@ -5903,10 +5898,12 @@ export async function getLinkedFeatureInfo(
   {
     includeOtherPendingDrafts = false,
     includeValueGroups = false,
+    includeRelinkFrom = false,
     publisher,
   }: {
     includeOtherPendingDrafts?: boolean;
     includeValueGroups?: boolean;
+    includeRelinkFrom?: boolean;
     publisher?: ReqContext | ApiReqContext;
   } = {},
 ) {
@@ -5927,6 +5924,7 @@ export async function getLinkedFeatureInfo(
     pendingUnlinks: experiment.pendingFeatureUnlinks,
     includeOtherPendingDrafts,
     includeValueGroups,
+    ...(includeRelinkFrom && { relinkExperimentId: experiment.id }),
     publisher: judgedAs,
   });
 }

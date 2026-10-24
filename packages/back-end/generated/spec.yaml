@@ -86560,6 +86560,21 @@ components:
         - pattern
         - example
       additionalProperties: false
+    ApiErrorChangesConflictDetails:
+      type: object
+      properties:
+        fields:
+          type: array
+          items:
+            type: string
+        featureIds:
+          type: array
+          items:
+            type: string
+      required:
+        - fields
+        - featureIds
+      additionalProperties: false
     ApiErrorUnscopedRuleDetails:
       type: object
       properties:

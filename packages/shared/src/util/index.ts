@@ -301,6 +301,16 @@ export function linkedFeatureEnvStates(
   );
 }
 
+/** Whether a linked Feature Flag's draft clears approval: the publish gate's answer when there is one, else its status. */
+export function linkedDraftApproved(
+  info: Pick<
+    LinkedFeatureInfo,
+    "draftApprovalSatisfied" | "draftRevisionStatus"
+  >,
+): boolean {
+  return info.draftApprovalSatisfied ?? info.draftRevisionStatus === "approved";
+}
+
 export function experimentHasLiveLinkedChanges(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
   linkedFeatures: LinkedFeatureInfo[],

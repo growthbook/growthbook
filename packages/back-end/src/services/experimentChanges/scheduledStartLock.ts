@@ -4,6 +4,7 @@ import { isScheduledToStart } from "shared/util";
 import { BadRequestError } from "back-end/src/util/errors";
 
 const LOCKED_KEYS = [
+  "trackingKey",
   "hashAttribute",
   "fallbackAttribute",
   "hashVersion",

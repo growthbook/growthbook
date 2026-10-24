@@ -19,6 +19,7 @@ const phase = {
 const experiment = (armed: boolean) =>
   ({
     status: "draft",
+    trackingKey: "checkout",
     hashAttribute: "id",
     hashVersion: 2,
     variations: [
@@ -66,6 +67,11 @@ describe("scheduledStartLockedFields", () => {
         ),
       },
       expected: ["variations"],
+    },
+    {
+      name: "the tracking key, which seeds hashing without a phase seed",
+      changes: { trackingKey: "checkout-v2" },
+      expected: ["trackingKey"],
     },
     {
       name: "the hash attribute and the holdout",

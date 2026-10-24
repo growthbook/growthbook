@@ -8,6 +8,7 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 import { maybePublishScheduledRevision } from "back-end/src/api/features/autoPublishOnApproval";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import { logger } from "back-end/src/util/logger";
 import { postApproveScheduledExperimentStart } from "back-end/src/controllers/experiments";
 import {
   postFeatureScheduledPublish,
@@ -145,6 +146,27 @@ const refusedOnApproval = {
     ]),
   },
 };
+// Fires the armed start and expects it held back for a retry on featureId's approval.
+async function fireRefusedOnApproval(featureId: string) {
+  const errors = jest.spyOn(logger, "error").mockImplementation();
+
+  await fire();
+
+  expect(await status()).toBe("draft");
+  expect((await draft())?.status).toBe("pending-review");
+  expect(await staged()).toMatchObject({ type: "start", failedAttempts: 1 });
+  expect(errors).toHaveBeenCalledWith(
+    expect.objectContaining({
+      code: "checklist_incomplete",
+      details: {
+        remainingChecklistItems: expect.arrayContaining([
+          expect.objectContaining({ key: `pendingApproval:${featureId}` }),
+        ]),
+      },
+    }),
+    expect.stringContaining("Failed to update experiment status"),
+  );
+}
 
 const { app, isReady, setReqContext } = setupApp();
 const auth = (req: request.Test) => req.set("Authorization", "Bearer foo");
@@ -224,11 +246,7 @@ describe("a dashboard scheduled start armed past its flag draft's approval", () 
     await approve("u_owner", { skipChecklist: true, bypassApproval: true });
     await updateDraft({ dateUpdated: new Date(Date.now() + 1000) });
 
-    await fire();
-
-    expect(await status()).toBe("draft");
-    expect((await draft())?.status).toBe("pending-review");
-    expect(await staged()).toMatchObject({ type: "start", failedAttempts: 1 });
+    await fireRefusedOnApproval(FLAG);
   });
 
   it("needs the approval after all for a draft queued after it was armed", async () => {
@@ -242,10 +260,7 @@ describe("a dashboard scheduled start armed past its flag draft's approval", () 
       },
     } as object);
 
-    await fire();
-
-    expect(await status()).toBe("draft");
-    expect((await draft())?.status).toBe("pending-review");
+    await fireRefusedOnApproval("flag_later");
   });
 
   it("needs the approval after all once the armer can't bypass on the experiment", async () => {
@@ -270,10 +285,7 @@ describe("a dashboard scheduled start armed past its flag draft's approval", () 
       },
     );
 
-    await fire();
-
-    expect(await status()).toBe("draft");
-    expect((await draft())?.status).toBe("pending-review");
+    await fireRefusedOnApproval(FLAG);
   });
 });
 

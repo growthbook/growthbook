@@ -40,6 +40,10 @@ jest.mock("back-end/src/services/featurePublishGates", () => ({
   assessRevisionApproval: jest.fn(),
 }));
 
+jest.mock("back-end/src/services/rampSchedule", () => ({
+  assertFeatureNotLockedByRamp: jest.fn(),
+}));
+
 import {
   formatPendingDraftFailureMessage,
   publishPendingFeatureDraftsForExperiment,
@@ -57,6 +61,7 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { removePendingFeatureDraftFromExperiment } from "back-end/src/models/ExperimentModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
+import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 
 const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
 const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
@@ -84,6 +89,9 @@ const mockGetLiveAndBase =
 const mockAutoMerge = autoMerge as jest.MockedFunction<typeof autoMerge>;
 const mockAssessRevisionApproval =
   assessRevisionApproval as jest.MockedFunction<typeof assessRevisionApproval>;
+const mockAssertNotLocked = assertFeatureNotLockedByRamp as jest.MockedFunction<
+  typeof assertFeatureNotLockedByRamp
+>;
 
 // The shared approval answer; tests override it to simulate a blocked draft.
 const approvalSatisfied = {
@@ -418,6 +426,69 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
       { featureId: "j2-test", revisionVersion: 6 },
     ]);
     expect(result.failed).toEqual([]);
+  });
+});
+
+describe("publishPendingFeatureDraftsForExperiment lockdown bypass", () => {
+  // The caller may bypass in p_admin only.
+  const bypassCtx = {
+    ...ctx,
+    permissions: {
+      canBypassFlagApprovalChecks: (resource: { project?: string }) =>
+        resource.project === "p_admin",
+    },
+  } as unknown as ReqContext;
+
+  beforeEach(() => {
+    mockGetFeature.mockImplementation(
+      async (_context, id) =>
+        ({
+          id,
+          organization: "org_1",
+          project: id === "feat_admin" ? "p_admin" : "p_other",
+        }) as never,
+    );
+    mockGetRevision.mockImplementation(
+      async ({ version }) => ({ version, status: "draft", rules: [] }) as never,
+    );
+  });
+
+  const experiment = () =>
+    makeExperiment([
+      { featureId: "feat_admin", revisionVersion: 5 },
+      { featureId: "feat_other", revisionVersion: 6 },
+    ]);
+
+  it("bypasses a flag's ramp and scheduled-publish locks only where the caller may bypass that flag", async () => {
+    await publishPendingFeatureDraftsForExperiment(
+      bypassCtx,
+      experiment(),
+      true,
+    );
+
+    expect(
+      mockPublishRevision.mock.calls.map(([args]) => [
+        args.feature.id,
+        args.bypassLockdown,
+      ]),
+    ).toEqual([
+      ["feat_admin", true],
+      ["feat_other", false],
+    ]);
+    expect(mockAssertNotLocked.mock.calls.map(([, id]) => id)).toEqual([
+      "feat_other",
+    ]);
+  });
+
+  it("refuses a locked flag the caller may not bypass before publishing anything", async () => {
+    mockAssertNotLocked.mockImplementationOnce(async (_context, id) => {
+      if (id === "feat_other") throw new Error("Locked by a ramp");
+    });
+
+    await expect(
+      publishPendingFeatureDraftsForExperiment(bypassCtx, experiment(), true),
+    ).rejects.toThrow("Locked by a ramp");
+    expect(mockPublishRevision).not.toHaveBeenCalled();
   });
 });
 

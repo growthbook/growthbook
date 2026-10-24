@@ -828,6 +828,18 @@ export async function getExperimentsByIds(
   });
 }
 
+// For guards that must see every experiment, whatever the caller may read.
+export async function dangerouslyGetExperimentsByIdsBypassPermission(
+  organization: string,
+  ids: string[],
+): Promise<ExperimentInterface[]> {
+  if (!ids.length) return [];
+  const docs = await getCollection(COLLECTION)
+    .find({ organization, id: { $in: ids } })
+    .toArray();
+  return docs.map(toInterface);
+}
+
 export async function getExperimentsByTrackingKeys(
   context: ReqContext | ApiReqContext,
   trackingKeys: string[],

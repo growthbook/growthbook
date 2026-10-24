@@ -28,7 +28,7 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getContextForArmedPublisherInOrg } from "back-end/src/services/organizations";
-import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
+import { dangerouslyGetExperimentsByIdsBypassPermission } from "back-end/src/models/ExperimentModel";
 import {
   recordScheduledPublishFailure,
   parkScheduledPublish,
@@ -216,7 +216,10 @@ export async function canScheduleFeaturePublish(
   );
 }
 
-/** Draft experiments whose rules this revision would take live. */
+/**
+ * Draft experiments whose rules this revision would take live, including ones
+ * the caller can't read: a guard that missed them would let the rule land.
+ */
 export async function draftExperimentsLaunchedBy(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -237,7 +240,10 @@ export async function draftExperimentsLaunchedBy(
   ];
   if (experimentIds.length === 0) return [];
 
-  const experiments = await getExperimentsByIds(context, experimentIds);
+  const experiments = await dangerouslyGetExperimentsByIdsBypassPermission(
+    context.org.id,
+    experimentIds,
+  );
   const experimentsMap = new Map<string, ExperimentInterfaceStringDates>(
     experiments.map((exp) => [
       exp.id,
@@ -252,9 +258,17 @@ export async function draftExperimentsLaunchedBy(
   });
 }
 
-const launchRefusal = (experiments: ExperimentInterfaceStringDates[]) => {
-  const names = experiments.map((exp) => `"${exp.name}"`).join(", ");
-  return `This draft's rules belong to draft experiment ${names}, which a scheduled or auto publish can't start. Schedule the experiment's start instead; starting it publishes this draft.`;
+// Names the experiments only when the caller can read every one.
+const launchRefusal = (
+  context: ReqContext | ApiReqContext,
+  experiments: ExperimentInterfaceStringDates[],
+) => {
+  const subject = experiments.every((exp) =>
+    context.permissions.canReadSingleProjectResource(exp.project),
+  )
+    ? `draft experiment ${experiments.map((exp) => `"${exp.name}"`).join(", ")}`
+    : "a draft experiment";
+  return `This draft's rules belong to ${subject}, which a scheduled or auto publish can't start. Schedule the experiment's start instead, which publishes its launch draft.`;
 };
 
 /**
@@ -272,7 +286,9 @@ export async function assertArmDoesNotLaunchExperiments(
     feature,
     revision,
   );
-  if (experiments.length) throw new BadRequestError(launchRefusal(experiments));
+  if (experiments.length) {
+    throw new BadRequestError(launchRefusal(context, experiments));
+  }
 }
 
 // The dashboard user id an armed publish will run as: the explicit arming user
@@ -318,17 +334,16 @@ async function publishArmedRevision(
   revision: FeatureRevisionInterface,
   mayForceMerge: boolean,
 ): Promise<FeatureRevisionInterface> {
-  // Use the armer's context, not the caller's: a reviewer scoped out of a linked
-  // experiment's project would see no experiments and miss them. Arming refuses
-  // such a draft, so one here gained the rule after; no bypass lands it, since
-  // the experiment would be left unstarted.
+  // Arming refuses a draft that launches a draft experiment, so one here gained
+  // the rule after; no bypass lands it, since the experiment would be left
+  // unstarted.
   const launches = await draftExperimentsLaunchedBy(
     enablerContext,
     feature,
     revision,
   );
   if (launches.length) {
-    throw new TerminalPublishError(launchRefusal(launches));
+    throw new TerminalPublishError(launchRefusal(enablerContext, launches));
   }
 
   // Concurrency note: this shared path can be entered by the poller, by
