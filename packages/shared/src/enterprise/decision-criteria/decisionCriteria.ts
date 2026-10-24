@@ -520,7 +520,7 @@ function getDaysLeftStatus({
   }
 }
 
-function computeSrmAndMultipleExposuresUnhealthyData({
+export function computeSrmAndMultipleExposuresUnhealthyData({
   srm,
   multipleExposures,
   totalUsers,

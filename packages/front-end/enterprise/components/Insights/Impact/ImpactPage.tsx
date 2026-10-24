@@ -4,6 +4,7 @@ import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   calculateProductAnalyticsDateRange,
+  filterCompletedExperiments,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import {
@@ -26,7 +27,6 @@ import { isSingleValue } from "@/components/Forms/SelectField";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
-import { filterCompletedExperiments } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlock/completedExperimentsData";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
@@ -38,13 +38,13 @@ import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
+import { useInsightsUrlState } from "@/components/Insights/useInsightsUrlState";
 import {
   buildCounterfactual,
   computeExperimentImpacts,
   sumValueByProject,
   summarizeImpact,
 } from "./impactData";
-import { useImpactUrlState } from "./useImpactUrlState";
 import { useMetricSeries } from "./useMetricSeries";
 import ImpactKpis from "./ImpactKpis";
 import ImpactChart, { ImpactLane } from "./ImpactChart";
@@ -77,7 +77,7 @@ export default function ImpactPage() {
     setDateRange,
     project: urlProject,
     getShareUrl,
-  } = useImpactUrlState();
+  } = useInsightsUrlState();
   const { hasCommercialFeature } = useUser();
   const {
     ready: definitionsReady,
@@ -355,7 +355,8 @@ export default function ImpactPage() {
           </Heading>
           <Text color="text-mid">
             What experimentation earned: scaled impact, annualized and
-            de-biased.
+            de-biased. For process metrics, see{" "}
+            <Link href="/insights/health">Health</Link>.
           </Text>
         </Box>
         <ShareUrlPopover

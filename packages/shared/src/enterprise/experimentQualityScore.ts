@@ -84,6 +84,8 @@ export interface ExperimentQualityCheckDefinition {
   section: ExperimentQualitySectionKey;
   type: ExperimentQualityCheckType;
   label: string;
+  // What to do when it fails, in the imperative
+  action: string;
   // When the check applies, shown next to its label
   note?: string;
   defaultEnabled: boolean;
@@ -98,18 +100,21 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "setup",
     type: "deterministic",
     label: "Has a hypothesis",
+    action: "Write a hypothesis",
     defaultEnabled: true,
   },
   description: {
     section: "setup",
     type: "deterministic",
     label: "Has a description",
+    action: "Add a description",
     defaultEnabled: true,
   },
   "goal-metrics": {
     section: "setup",
     type: "deterministic",
     label: "Has goal metrics",
+    action: "Set goal metrics",
     defaultEnabled: true,
     defaultParams: { maxGoalMetrics: 3 },
   },
@@ -117,12 +122,14 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "setup",
     type: "deterministic",
     label: "Has guardrail metrics",
+    action: "Add guardrail metrics",
     defaultEnabled: true,
   },
   "max-variations": {
     section: "setup",
     type: "deterministic",
     label: "Not too many variations",
+    action: "Test fewer variations",
     note: "all except bandits",
     defaultEnabled: false,
     defaultParams: { maxVariations: 4 },
@@ -131,6 +138,7 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "documentation",
     type: "deterministic",
     label: "Has screenshots",
+    action: "Add screenshots of each variation",
     note: "all except Holdouts",
     defaultEnabled: false,
   },
@@ -138,12 +146,14 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "documentation",
     type: "deterministic",
     label: "Organized with tags or a Project",
+    action: "Add tags or a Project",
     defaultEnabled: false,
   },
   decision: {
     section: "documentation",
     type: "deterministic",
     label: "Decision recorded",
+    action: "Record the decision",
     note: "stopped experiments only",
     defaultEnabled: true,
   },
@@ -151,6 +161,7 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "documentation",
     type: "deterministic",
     label: "Analysis written",
+    action: "Write up the analysis",
     note: "stopped experiments only",
     defaultEnabled: true,
   },
@@ -158,30 +169,35 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "process",
     type: "process",
     label: "Goal metrics set before the start and unchanged",
+    action: "Set goal metrics before the start and keep them",
     defaultEnabled: true,
   },
   "hypothesis-locked": {
     section: "process",
     type: "process",
     label: "Hypothesis written before the start and unchanged",
+    action: "Write the hypothesis before the start and keep it",
     defaultEnabled: true,
   },
   "stable-assignment": {
     section: "process",
     type: "process",
     label: "Traffic split and targeting unchanged within a phase",
+    action: "Keep traffic and targeting fixed within a phase",
     defaultEnabled: true,
   },
   "stable-analysis": {
     section: "process",
     type: "process",
     label: "Analysis settings unchanged while running",
+    action: "Keep analysis settings fixed while running",
     defaultEnabled: true,
   },
   "no-early-stop": {
     section: "process",
     type: "process",
     label: "Not stopped early",
+    action: "Run experiments to their planned length",
     defaultEnabled: true,
     defaultParams: { minRuntimeDays: 14 },
   },
@@ -189,12 +205,14 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "process",
     type: "process",
     label: "New phases re-randomized users",
+    action: "Re-randomize users when starting a new phase",
     defaultEnabled: true,
   },
   "planned-end": {
     section: "process",
     type: "process",
     label: "End date scheduled before the start",
+    action: "Schedule an end date before the start",
     note: "any end action, including notify only",
     defaultEnabled: false,
   },
@@ -202,12 +220,14 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     section: "ai",
     type: "ai",
     label: "Hypothesis quality",
+    action: "Sharpen the hypothesis",
     defaultEnabled: true,
   },
   "ai-hypothesis-metric-alignment": {
     section: "ai",
     type: "ai",
     label: "Metrics align with hypothesis",
+    action: "Choose goal metrics that test the hypothesis",
     defaultEnabled: true,
   },
 };
