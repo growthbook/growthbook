@@ -71,7 +71,7 @@
     "@types/handlebars": "^4.1.0",
     "@types/presto-client": "^1.0.2",
     "agenda": "^5.0.0",
-    "ai": "^6.0.6",
+    "ai": "^6.0.280",
     "asn1.js": "^5.4.1",
     "async": "^3.1.0",
     "async-lock": "^1.4.0",
