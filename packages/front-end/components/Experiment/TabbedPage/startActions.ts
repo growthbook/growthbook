@@ -73,6 +73,9 @@ export type StartActions = {
   waivesApproval: boolean;
   // Left even after the bypass.
   hardBlocked: boolean;
+  // Every must-resolve item is done, without anyone's bypass: the start reads
+  // as the next step.
+  ready: boolean;
   disabled: boolean;
 };
 
@@ -137,6 +140,7 @@ export function getStartActions({
       : null,
     waivesApproval,
     hardBlocked,
+    ready: !hardBlocked && checklist.blocking === 0,
     disabled: hardBlocked || (checklist.remaining > 0 && !bypassed),
   };
 }

@@ -40,7 +40,7 @@ describe("getStartActions", () => {
     {
       name: "starts at once when everything is done",
       checklist: done,
-      expected: { bypassLabel: null, disabled: false },
+      expected: { bypassLabel: null, ready: true, disabled: false },
     },
     {
       name: "never treats a loading checklist as done",
@@ -51,13 +51,13 @@ describe("getStartActions", () => {
     {
       name: "offers the bypass for a soft item",
       checklist: soft,
-      expected: { bypassLabel: startNow, disabled: true },
+      expected: { bypassLabel: startNow, ready: true, disabled: true },
     },
     {
       name: "starts once the soft item is bypassed",
       checklist: soft,
       bypassed: true,
-      expected: { bypassLabel: startNow, disabled: false },
+      expected: { bypassLabel: startNow, ready: true, disabled: false },
     },
     {
       name: "offers no bypass past a hard blocker, even to an admin",
@@ -116,7 +116,7 @@ describe("getStartActions", () => {
       name: "starts at once when the schedule has passed",
       scheduledStartAt: past,
       checklist: done,
-      expected: { bypassLabel: null, disabled: false },
+      expected: { bypassLabel: null, ready: true, disabled: false },
     },
     {
       name: "approves a future schedule once everything is done",
@@ -126,6 +126,7 @@ describe("getStartActions", () => {
         action: "approve-schedule",
         label: futureLabel,
         bypassLabel: null,
+        ready: true,
         disabled: false,
       },
     },
@@ -138,6 +139,7 @@ describe("getStartActions", () => {
         action: "approve-schedule",
         label: futureLabel,
         bypassLabel: scheduleStart,
+        ready: true,
         disabled: false,
       },
     },
@@ -201,6 +203,7 @@ describe("getStartActions", () => {
         label: "Start now",
         waivesApproval: false,
         hardBlocked: false,
+        ready: false,
         ...expected,
       });
     },

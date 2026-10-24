@@ -544,9 +544,8 @@ export default function ExperimentHeader({
   // A holdout starts from its modal; anything else, from the start popover.
   const startButton = (
     <Button
-      // Primary once only what this viewer can bypass is left.
       variant={
-        (isHoldout ? checklistReady : !startGate.actions.hardBlocked)
+        (isHoldout ? checklistReady : startGate.actions.ready)
           ? "solid"
           : "soft"
       }
