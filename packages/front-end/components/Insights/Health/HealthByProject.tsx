@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   ScopeHealth,
@@ -19,6 +20,8 @@ import { BAND_COLORS } from "./HealthHeadline";
 
 export type ProjectHealthRow = {
   id: string;
+  // Started or completed an experiment in the period
+  active: boolean;
   name: string;
   health: ScopeHealth;
   previousScore: number | null;
@@ -124,7 +127,12 @@ export default function HealthByProject({
   rows: ProjectHealthRow[];
   onSelectProject: (id: string) => void;
 }) {
-  const showTrend = rows.some((r) => r.trend !== null);
+  const [showInactive, setShowInactive] = useState(false);
+  const activeCount = rows.filter((r) => r.active).length;
+  const inactiveCount = rows.length - activeCount;
+  // Inactive Projects are collapsed so busy orgs stay readable
+  const shown = rows.filter((r) => r.active || showInactive);
+  const showTrend = shown.some((r) => r.trend !== null);
   return (
     <Box className="appbox" mb="5" p="4">
       <Heading as="h3" size="sm" mb="2">
@@ -143,7 +151,7 @@ export default function HealthByProject({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((r) => (
+          {shown.map((r) => (
             <TableRow key={r.id}>
               <TableCell>
                 {r.id ? (
@@ -188,6 +196,20 @@ export default function HealthByProject({
           ))}
         </TableBody>
       </Table>
+      {activeCount === 0 && !showInactive && (
+        <Text as="div" color="text-mid" mt="2">
+          No Project started or finished an experiment in this period.
+        </Text>
+      )}
+      {inactiveCount > 0 && (
+        <Box mt="2">
+          <Link onClick={() => setShowInactive(!showInactive)} size="sm">
+            {showInactive
+              ? "Hide Projects with no activity"
+              : `Show ${inactiveCount} Project${inactiveCount === 1 ? "" : "s"} with no activity in this period`}
+          </Link>
+        </Box>
+      )}
     </Box>
   );
 }

@@ -112,9 +112,16 @@ export default function HealthPage() {
       ? experiments.filter((e) => e.project === project)
       : experiments;
     const input = { healthSettings, getQuality };
+    const empty = computeScopeHealth({ experiments: [], window, ...input });
     const byProject: ProjectHealth[] = project
       ? []
       : computeHealthByProject({ experiments, window, ...input });
+    // List every Project, including ones without experiments
+    projects.forEach((p) => {
+      if (!project && !byProject.some((r) => r.project === p.id)) {
+        byProject.push({ project: p.id, health: empty });
+      }
+    });
     const previousByProject: ProjectHealth[] = project
       ? []
       : computeHealthByProject({
@@ -143,7 +150,15 @@ export default function HealthPage() {
         : combineProjectScores(previousByProject),
       details: computeHealthDetails({ experiments: scoped, window, ...input }),
     };
-  }, [experiments, project, window, previousWindow, settings, getQuality]);
+  }, [
+    experiments,
+    projects,
+    project,
+    window,
+    previousWindow,
+    settings,
+    getQuality,
+  ]);
 
   const trendFor = (id: string): number[] | null => {
     const values = (trendData?.scores ?? [])
@@ -229,10 +244,9 @@ export default function HealthPage() {
   }
 
   const projectRows: ProjectHealthRow[] = computed.byProject
-    // Projects with no activity in the period are noise here
-    .filter(({ health: h }) => h.started > 0 || h.completed > 0)
     .map(({ project: id, health: h }) => ({
       id,
+      active: h.started > 0 || h.completed > 0,
       name: id ? (getProjectById(id)?.name ?? id) : "No Project",
       health: h,
       previousScore:
@@ -243,6 +257,7 @@ export default function HealthPage() {
     }))
     .sort(
       (a, b) =>
+        Number(b.active) - Number(a.active) ||
         (b.health.score ?? -1) - (a.health.score ?? -1) ||
         b.health.completed - a.health.completed,
     );
@@ -321,7 +336,7 @@ export default function HealthPage() {
       />
       <HeadlineLegend />
 
-      {!project && projectRows.length > 1 && (
+      {!project && projectRows.length > 0 && (
         <HealthByProject rows={projectRows} onSelectProject={setProject} />
       )}
 
