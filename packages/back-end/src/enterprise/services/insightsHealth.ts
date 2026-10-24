@@ -59,11 +59,11 @@ async function getQualityScorer(
 export async function recordWeeklyHealthScores(
   context: ReqContext | ApiReqContext,
 ) {
-  const weekStart = startOfUTCWeek(new Date());
-  if (await context.models.insightsHealthScores.hasWeek(weekStart)) return;
-
-  // Scores cover every experiment, not just the ones this user can read
+  // Every experiment and the week marker, whatever this user can read
   const system = getContextForAgendaJobByOrgObject(context.org);
+  const weekStart = startOfUTCWeek(new Date());
+  if (await system.models.insightsHealthScores.hasWeek(weekStart)) return;
+
   const experiments = await getAllExperiments(system, {
     includeArchived: true,
   });
