@@ -68,6 +68,7 @@ import ChatComposer, {
 import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
+import { useSidebarOpen } from "@/components/Layout/SidebarOpenProvider";
 import AgentChatHistory from "./AgentChatHistory";
 import {
   AGENT_PANEL_PORTAL_Z_INDEX,
@@ -85,6 +86,9 @@ import AskUserCard, { type AskUserOption } from "./AskUserCard";
 import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
 import { resolveAgentInternalHref } from "./agentLinkUtils";
+import styles from "./AgentPanel.module.scss";
+import GrowthBotStateNotice from "./GrowthBotStateNotice";
+import { useGrowthBotState } from "./useGrowthBotState";
 
 // Scoped per org and user below: conversation ids are unique across the whole
 // collection but only readable by their owner, so a stale id from another org
@@ -217,6 +221,10 @@ export default function AgentPanel({
   onToggleExpanded,
 }: AgentPanelProps) {
   const composerRef = useRef<ChatComposerHandle>(null);
+  // At the limit, past conversations stay readable; nothing new can be sent.
+  const { state: growthBotState, resetsAt, refreshUsage } = useGrowthBotState();
+  const limitReached = growthBotState === "limit";
+  const { setOpen: setNavDrawerOpen } = useSidebarOpen();
   const { userId, organization } = useUser();
   // Preserves each tool-detail disclosure's open/closed state across the
   // active-turn → persisted-message remount so it doesn't snap shut mid-turn.
@@ -388,7 +396,9 @@ export default function AgentPanel({
     onSSEEvent: handleAgentSSEEvent,
     onConversationLoaded: handleConversationLoaded,
     conversationStorageKey: `${STORAGE_KEY}:${organization.id}:${userId}`,
+    // Each answer adds to the usage, and a failed send may be the limit (429).
     onMessageComplete: (info) => {
+      refreshUsage();
       track("AI Assistant Response Completed", {
         model: defaultAIModel,
         durationMs: info.durationMs,
@@ -402,6 +412,7 @@ export default function AgentPanel({
       });
     },
     onMessageError: (info) => {
+      refreshUsage();
       track("AI Assistant Error", {
         errorType: info.errorType,
         httpStatus: info.httpStatus,
@@ -502,7 +513,7 @@ export default function AgentPanel({
       },
     ) => {
       const text = submission.text.trim();
-      if (!text || loading) return;
+      if (!text || loading || limitReached) return;
       stepsExpandedRef.current = false;
       pendingSubmissionRef.current = submission;
       resolveOnUserMessage();
@@ -516,6 +527,7 @@ export default function AgentPanel({
     [
       input,
       loading,
+      limitReached,
       sendMessage,
       resolveOnUserMessage,
       resumeAutoScroll,
@@ -643,6 +655,9 @@ export default function AgentPanel({
   const interactionPending =
     (askPrompt !== null && !askPrompt.resolved) || confirmationPending;
 
+  const limitEmptyState =
+    limitReached && messages.length === 0 && !isLoadingConversation;
+
   const panel = (
     <Box
       role="dialog"
@@ -659,7 +674,9 @@ export default function AgentPanel({
         // animates between the two states.
         left: "auto",
         width: expanded
-          ? `calc((100vw - ${sidebarCollapsed ? 0 : 240}px) * 0.9)`
+          ? `calc((100vw - ${
+              sidebarCollapsed ? "0px" : "var(--app-rail-width, 240px)"
+            }) * 0.9)`
           : "min(400px, 100vw)",
         background: "var(--color-background)",
         borderLeft: "1px solid var(--gray-a3)",
@@ -670,6 +687,13 @@ export default function AgentPanel({
         transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
+      {/* The panel sits above the app's own layer, out of the drawer veil's reach,
+        so it draws its own. */}
+      <div
+        className={styles.navDrawerVeil}
+        aria-hidden="true"
+        onClick={() => setNavDrawerOpen(false)}
+      />
       {/* Header */}
       <Flex
         align="center"
@@ -708,6 +732,7 @@ export default function AgentPanel({
             variant="ghost"
             size="1"
             onClick={handleNewChat}
+            disabled={limitReached}
             title="Start new conversation"
             aria-label="Start new conversation"
           >
@@ -749,8 +774,25 @@ export default function AgentPanel({
         onScroll={handleScroll}
         style={{ flex: 1, overflowY: "auto", padding: "20px" }}
       >
+        {limitEmptyState ? (
+          <Flex
+            align="center"
+            justify="center"
+            style={{ height: "100%" }}
+            role="status"
+          >
+            <Box style={{ width: "min(320px, 100%)" }}>
+              <GrowthBotStateNotice
+                state="limit"
+                resetsAt={resetsAt}
+                centered
+              />
+            </Box>
+          </Flex>
+        ) : null}
         <Flex direction="column" gap="3">
           {messages.length === 0 &&
+            !limitReached &&
             !loading &&
             !isLoadingConversation &&
             !error && (
@@ -919,28 +961,43 @@ export default function AgentPanel({
         </Flex>
       </Box>
 
-      {/* Input */}
-      <ChatComposer
-        variant="compact"
-        ref={composerRef}
-        autoFocus
-        mentionItems={mentionItems}
-        mentionItemsReady={mentionItemsReady}
-        skillItems={skillItems}
-        autocomplete={aiAutocompleteEnabled}
-        suggestedReply={suggestedReply}
-        quickSuggestions={
-          messages.length === 0 ? STARTER_PROMPT_TEXTS : undefined
-        }
-        conversationId={conversationId}
-        value={input}
-        onChange={setInput}
-        onSend={handleSend}
-        onCancel={cancelGeneration}
-        loading={loading}
-        isLocalStream={isLocalStream}
-        placeholder="Ask GrowthBook anything…"
-      />
+      {/* Stop stays while an answer streams: the limit can be reached mid-answer,
+        by anyone in the org. */}
+      {limitEmptyState ? null : limitReached && !isLocalStream ? (
+        <Box
+          role="status"
+          px="4"
+          py="4"
+          style={{
+            borderTop: "1px solid var(--gray-a3)",
+            background: "var(--color-panel-solid)",
+          }}
+        >
+          <GrowthBotStateNotice state="limit" resetsAt={resetsAt} />
+        </Box>
+      ) : (
+        <ChatComposer
+          variant="compact"
+          ref={composerRef}
+          autoFocus
+          mentionItems={mentionItems}
+          mentionItemsReady={mentionItemsReady}
+          skillItems={skillItems}
+          autocomplete={aiAutocompleteEnabled}
+          suggestedReply={suggestedReply}
+          quickSuggestions={
+            messages.length === 0 ? STARTER_PROMPT_TEXTS : undefined
+          }
+          conversationId={conversationId}
+          value={input}
+          onChange={setInput}
+          onSend={handleSend}
+          onCancel={cancelGeneration}
+          loading={loading}
+          isLocalStream={isLocalStream}
+          placeholder="Ask GrowthBook anything…"
+        />
+      )}
     </Box>
   );
 

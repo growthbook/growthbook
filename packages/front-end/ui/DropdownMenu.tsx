@@ -57,6 +57,8 @@ type DropdownProps = {
   onCloseAutoFocus?: React.ComponentProps<
     typeof RadixDropdownMenu.Content
   >["onCloseAutoFocus"];
+  // The menu's distance from its trigger, as Radix's sideOffset.
+  menuSideOffset?: number;
 } & MarginProps;
 
 export function DropdownMenu({
@@ -76,6 +78,7 @@ export function DropdownMenu({
   onOpenChange,
   modal = false,
   onCloseAutoFocus,
+  menuSideOffset,
   ...props
 }: DropdownProps) {
   const triggerComponent =
@@ -165,6 +168,7 @@ export function DropdownMenu({
         </RadixDropdownMenu.Trigger>
         <RadixDropdownMenu.Content
           side={menuSide}
+          sideOffset={menuSideOffset}
           ref={contentRef}
           align={menuPlacement}
           color={color}

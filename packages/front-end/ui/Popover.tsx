@@ -46,6 +46,10 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   onOpenAutoFocus?: React.ComponentProps<
     typeof RadixPopover.Content
   >["onOpenAutoFocus"];
+  /** Called when the content closes and would return focus to the trigger — call e.preventDefault() to leave focus alone. */
+  onCloseAutoFocus?: React.ComponentProps<
+    typeof RadixPopover.Content
+  >["onCloseAutoFocus"];
   // Open on hover of the trigger (and stay open while hovering the content)
   // instead of on click. The content does not steal focus — suitable for
   // read-only previews, including inside menus.
@@ -68,6 +72,7 @@ export function Popover({
   onFocusOutside,
   onInteractOutside,
   onOpenAutoFocus,
+  onCloseAutoFocus,
   openOnHover = false,
   ...props
 }: PopoverProps) {
@@ -169,6 +174,7 @@ export function Popover({
                 disableDismiss ? (e) => e.preventDefault() : onInteractOutside
               }
               onFocusOutside={onFocusOutside}
+              onCloseAutoFocus={onCloseAutoFocus}
             >
               {showCloseButton && (
                 <RadixPopover.Close

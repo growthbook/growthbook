@@ -72,6 +72,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RemoveFromHoldoutModal from "@/components/Experiment/holdout/RemoveFromHoldoutModal";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import { datasourcesWithoutHealthData } from "@/components/HealthTab/constants";
+import { STICKY_TABS_TOP_PX } from "@/components/Layout/headerHeight";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
@@ -133,9 +134,6 @@ const DisabledHealthTabTooltip = ({
     </Tooltip>
   );
 };
-
-// NB: Keep in sync with .experiment-tabs top property in global.scss
-const TABS_HEADER_HEIGHT_PX = 55;
 
 type ShareLevel = "public" | "organization";
 const SAVE_SETTING_TIMEOUT_MS = 3000;
@@ -302,7 +300,7 @@ export default function ExperimentHeader({
       },
       {
         root: null,
-        rootMargin: `-${TABS_HEADER_HEIGHT_PX}px 0px 0px 0px`,
+        rootMargin: `-${STICKY_TABS_TOP_PX}px 0px 0px 0px`,
         threshold: 0,
       },
     );

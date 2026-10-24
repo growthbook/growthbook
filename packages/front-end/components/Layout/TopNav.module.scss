@@ -1,6 +1,7 @@
 @use "../../styles/colors.scss";
 
-$sidebarwidth: 240px;
+// Beside the side nav (AppRail.tsx), following its width.
+$sidebarwidth: var(--app-rail-width, 240px);
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -8,21 +9,26 @@ $sidebarwidth: 240px;
   top: 0;
   left: $sidebarwidth;
   right: 0;
-  height: 56px;
+  height: var(--header-height);
   z-index: 1010;
-  background-color: var(--color-surface-solid);
-  box-shadow: 0px 0px 1px 0px var(--border-color-200);
-  padding: 0 16px;
+  // Always solid, so nothing shows through as the page scrolls under it.
+  background-color: var(--color-background);
+  // 32px on the right, in line with the page content.
+  padding: 0 var(--space-6) 0 var(--space-5);
+  transition: left 200ms ease;
   @media (max-width: 520px) {
     padding: 0 8px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
   @media (max-width: 1180px) {
     left: 0;
     .pagetitle {
-      padding-left: 10px;
+      padding-left: var(--space-2);
     }
-    .mobilemenu {
-      display: block;
+    .mobilemenu.mobilemenu {
+      display: inline-flex;
     }
   }
 }
@@ -33,7 +39,7 @@ $sidebarwidth: 240px;
   top: 0;
   left: 0;
   right: 0;
-  height: 56px;
+  height: var(--header-height);
   z-index: 1010;
   background-color: var(--color-surface-solid);
   border-bottom: 1px solid var(--slate-a3);
@@ -46,7 +52,7 @@ $sidebarwidth: 240px;
   display: flex;
   justify-content: space-between;
   position: fixed;
-  top: 56px;
+  top: var(--header-height);
   left: $sidebarwidth;
   right: 0;
   height: 56px;
@@ -68,10 +74,11 @@ $sidebarwidth: 240px;
   );
   mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
 }
-.mobilemenu {
+.mobilemenu.mobilemenu {
   display: none;
-  font-size: 24px;
-  line-height: 24px;
+  flex-shrink: 0;
+  margin: 0;
+  color: color-mix(in srgb, var(--slate-12) 75%, var(--slate-11));
 }
 
 .navbar {
@@ -94,40 +101,5 @@ $sidebarwidth: 240px;
   }
   svg {
     color: var(--text-color-muted);
-  }
-}
-
-.agentTrigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: var(--text-color-main);
-  padding: 6px 8px;
-  margin-right: 4px;
-  border-radius: 6px;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
-
-  &:hover {
-    background-color: var(--gray-a3);
-    color: var(--violet-11);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--violet-8);
-    outline-offset: 2px;
-  }
-}
-
-.agentTriggerActive {
-  background-color: var(--violet-a3);
-  color: var(--violet-11);
-
-  &:hover {
-    background-color: var(--violet-a4);
   }
 }

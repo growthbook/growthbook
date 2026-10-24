@@ -109,7 +109,7 @@ function deriveConfigError(
 }
 
 export function ExplorerContent({
-  height = "calc(100vh - 72px)",
+  height = "calc(100vh - var(--header-height) - 16px)",
   hideDataSourceSelector = false,
   hideSidebarHeaderActions = false,
   sidebarHeaderActions,
@@ -581,7 +581,10 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         trackingSource="manual-explorer"
       >
         {datasources.length === 0 ? (
-          <Flex direction="column" height="calc(100vh - 72px)">
+          <Flex
+            direction="column"
+            height="calc(100vh - var(--header-height) - 16px)"
+          >
             <EmptyState />
           </Flex>
         ) : (

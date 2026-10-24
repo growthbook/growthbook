@@ -45,6 +45,7 @@ import VariationLabelStories from "@/ui/VariationLabel.stories";
 import VariationNumberStories from "@/ui/VariationNumber.stories";
 import VariationStatsTableStories from "@/ui/VariationStatsTable.stories";
 import ModalStories from "@/ui/Modal/Modal.stories";
+import { HEADER_HEIGHT_PX } from "@/components/Layout/headerHeight";
 
 type StoryEntry = {
   name: string;
@@ -52,10 +53,9 @@ type StoryEntry = {
   Stories: () => React.ReactNode;
 };
 
-const TOP_NAV_HEIGHT = 56;
 const PAGE_TOP_PADDING = 24;
 const PAGE_BOTTOM_PADDING = 16;
-const SIDEBAR_TOP_OFFSET = TOP_NAV_HEIGHT + PAGE_TOP_PADDING;
+const SIDEBAR_TOP_OFFSET = HEADER_HEIGHT_PX + PAGE_TOP_PADDING;
 const SIDEBAR_MAX_HEIGHT = `calc(100vh - ${
   SIDEBAR_TOP_OFFSET + PAGE_BOTTOM_PADDING
 }px)`;

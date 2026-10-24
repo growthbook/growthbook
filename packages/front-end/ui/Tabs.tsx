@@ -143,19 +143,25 @@ type StickyTabsListProps = { pinnedClass?: string } & TabsListProps;
 
 export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
   function StickyTabsList({ pinnedClass = "pinned", ...props }, ref) {
-    // NB: Keep in sync with .experiment-tabs top property in global.scss
-    const TABS_HEADER_HEIGHT_PX = 55;
     const tabsRef = useRef<HTMLDivElement>(null);
     const [headerPinned, setHeaderPinned] = useState(false);
 
     useEffect(() => {
+      // Pinned 1px under the app header, whose height is --header-height
+      // (global.scss).
+      const headerHeight = parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--header-height",
+        ),
+      );
+      const pinnedTopPx = Number.isFinite(headerHeight) ? headerHeight - 1 : 0;
       const observer = new IntersectionObserver(
         ([entry]) => {
           setHeaderPinned(entry.intersectionRatio < 1);
         },
         {
           root: null, // Use the viewport as the root
-          rootMargin: `-${TABS_HEADER_HEIGHT_PX}px`,
+          rootMargin: `-${pinnedTopPx}px`,
           threshold: 0.01, // Trigger when first pixel leaves
         },
       );
@@ -168,7 +174,7 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
     return (
       <Box
         className={`${headerPinned ? pinnedClass || "" : ""} tabwrap sticky`}
-        style={{ top: TABS_HEADER_HEIGHT_PX + "px" }}
+        style={{ top: "calc(var(--header-height) - 1px)" }}
       >
         {/* This is needed as for some reason the intersection observer doesn't work on the position:sticky element-even with the right margin offsets. */}
         <Box

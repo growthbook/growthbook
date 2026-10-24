@@ -10,8 +10,14 @@
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
 
+// The app header's height (TopNav, TopNavLite). Keep in sync with
+// HEADER_HEIGHT_PX in components/Layout/headerHeight.ts.
+:root {
+  --header-height: 44px;
+}
+
 main {
-  padding-top: 56px;
+  padding-top: var(--header-height);
 }
 
 body {
@@ -45,8 +51,30 @@ body {
   z-index: 990;
 }
 
+// 240px expanded, 48px collapsed; below 1180px the side nav is a drawer.
+:root {
+  --app-rail-width: 240px;
+}
+html.app-rail-collapsed {
+  --app-rail-width: 48px;
+}
+@media (max-width: 1180px) {
+  html.app-rail-collapsed {
+    --app-rail-width: 240px;
+  }
+}
+// While the side nav's drawer is open, the page behind it doesn't scroll.
+html.app-drawer-open,
+html.app-drawer-open body {
+  overflow: hidden;
+}
+
 .main {
-  padding-left: 240px;
+  padding-left: var(--app-rail-width);
+  transition: padding-left 200ms ease;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
   &.product-analytics-explore-landing {
     display: flex;
     flex-direction: column;
@@ -533,9 +561,9 @@ pre {
   }
   .experiment-tabs {
     background-color: var(--color-background);
-    // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx
+    // NB: Keep top property in sync with STICKY_TABS_TOP_PX (headerHeight.ts)
     // also, make sure shared reports & shared experiments look good
-    top: 55px;
+    top: calc(var(--header-height) - 1px);
     height: 40px;
     transition: 150ms all;
     .header-tabs {
@@ -616,8 +644,8 @@ pre {
 }
 .feature-tabs {
   background-color: var(--color-background);
-  // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in FeaturesHeader.tsx
-  top: 55px;
+  // NB: Keep top property in sync with STICKY_TABS_TOP_PX (headerHeight.ts)
+  top: calc(var(--header-height) - 1px);
   height: 40px;
   transition: 150ms all;
 
@@ -876,12 +904,13 @@ pre {
 main.main {
   &.report {
     .experiment-results th.axis-col {
-      top: 55px;
+      top: calc(var(--header-height) - 1px);
     }
   }
   &.public.experiment {
     .experiment-results th.axis-col {
-      top: 95px;
+      // Under the 40px sticky tabs.
+      top: calc(var(--header-height) + 39px);
     }
   }
   .select-dropdown-underline {
@@ -3164,7 +3193,7 @@ html {
 @media (max-width: 1180px) {
   .main {
     padding-left: 0;
-    padding-top: 60px;
+    padding-top: var(--header-height);
   }
   .sidebar.open {
     left: 0;
@@ -3909,12 +3938,12 @@ input:disabled {
 
 // For absolute or fixed containers that should position themselves after the sidebar
 .sidebarLeft {
-  left: variables.$sidebarwidth;
+  left: var(--app-rail-width, 240px);
 }
 // Conditionally add these classes based on the SidebarOpenProvider
 @media (max-width: 1180px) {
   .sidebarLeftOpen {
-    left: variables.$sidebarwidth !important;
+    left: var(--app-rail-width, 240px) !important;
   }
   .sidebarLeftClosed {
     left: 0 !important;

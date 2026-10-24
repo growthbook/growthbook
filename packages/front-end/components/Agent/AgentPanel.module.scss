@@ -1,0 +1,26 @@
+.navDrawerVeil {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  background: var(--color-overlay);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 300ms ease,
+    visibility 0s linear 300ms;
+
+  :global(html.app-drawer-open) & {
+    opacity: 1;
+    visibility: visible;
+    transition:
+      opacity 300ms ease,
+      visibility 0s linear 0s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    :global(html.app-drawer-open) & {
+      transition: none;
+    }
+  }
+}
