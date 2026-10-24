@@ -12,6 +12,7 @@ import {
   experimentHasLiveLinkedChanges,
   hasPendingScheduledStart,
   hasVisualChanges,
+  linkedDraftApproved,
 } from "shared/util";
 import {
   BuiltInChecklistItemKey,
@@ -315,10 +316,7 @@ export function getChecklistItems({
           key: `${PENDING_APPROVAL_ITEM_PREFIX}${f.feature.id}`,
           featureId: f.feature.id,
           status:
-            bypassed ||
-            (f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved")
-              ? "complete"
-              : "incomplete",
+            bypassed || linkedDraftApproved(f) ? "complete" : "incomplete",
           type: "auto",
           required: true,
           hardBlock: true,

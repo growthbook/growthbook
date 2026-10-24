@@ -8,6 +8,7 @@ import {
 } from "react-icons/pi";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { LinkedFeatureInfo } from "shared/types/experiment";
+import { linkedDraftApproved } from "shared/util";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 import Button from "@/ui/Button";
@@ -74,7 +75,7 @@ function getChecklistItems(
       (f) =>
         f.pendingApproval &&
         !f.hasUnrelatedDraftChanges &&
-        !(f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved"),
+        !linkedDraftApproved(f),
     )
     .forEach((f) => {
       items.push(

@@ -18,6 +18,10 @@ import {
   renderFeatureArchived,
 } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
+import {
+  diffRefId,
+  type DiffCommentRef,
+} from "@/components/Reviews/diffCommentRefs";
 import { useEnvironments } from "@/services/features";
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 
@@ -151,8 +155,7 @@ export type FeatureRevisionDiffInput = Pick<
 export type FeatureRevisionDiff = {
   title: string;
   // Stable machine identity for this section, independent of the display
-  // title. Uses the same vocabulary as granular merge-conflict keys
-  // (`rules`, `defaultValue`, `environmentsEnabled.<env>`, ...) plus
+  // title (`rules`, `defaultValue`, `environmentsEnabled`, ...) plus
   // `rampAction.<id>` / `rampSchedule.<id>` for supplemental entities.
   // Used by diff comment references (see diffCommentRefs.ts).
   key?: string;
@@ -174,6 +177,40 @@ export type FeatureRevisionDiff = {
   entityName?: string;
   entityType?: string;
 };
+
+export const ENVIRONMENT_TOGGLES_KEY = "environmentsEnabled";
+
+/**
+ * Toggles used to diff as a section per environment, keyed
+ * `environmentsEnabled.<env>` with a one-line body, and stored comments still
+ * reference that form. Maps each such ref id onto its line in the merged
+ * section whose sides are `a` and `b`.
+ */
+export function legacyEnvironmentRefs(
+  a: string,
+  b: string,
+): Map<string, DiffCommentRef> {
+  const refs = new Map<string, DiffCommentRef>();
+  const sides = [
+    ["L", a],
+    ["R", b],
+  ] as const;
+  for (const [side, json] of sides) {
+    json.split("\n").forEach((text, i) => {
+      const env = /^\s*"([^"]+)":/.exec(text)?.[1];
+      if (!env) return;
+      refs.set(
+        diffRefId({
+          sectionKey: `${ENVIRONMENT_TOGGLES_KEY}.${env}`,
+          side,
+          line: 1,
+        }),
+        { sectionKey: ENVIRONMENT_TOGGLES_KEY, side, line: i + 1 },
+      );
+    });
+  }
+  return refs;
+}
 
 // Mirrors backend `applyEnvironmentInheritance`: fill missing env entries by
 // walking each env's parent chain. Avoids phantom toggle diffs on inheriting
@@ -323,7 +360,7 @@ export function useFeatureRevisionDiff({
       const asMap = (side: "from" | "to") =>
         Object.fromEntries(toggled.map((t) => [t.envId, t[side]]));
       diffs.push({
-        key: "environmentsEnabled",
+        key: ENVIRONMENT_TOGGLES_KEY,
         title: toggled.length === 1 ? "Environment" : "Environments",
         a: JSON.stringify(asMap("from"), null, 2),
         b: JSON.stringify(asMap("to"), null, 2),

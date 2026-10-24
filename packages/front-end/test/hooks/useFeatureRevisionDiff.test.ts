@@ -2,6 +2,7 @@ import * as React from "react";
 import { render, renderHook } from "@testing-library/react";
 import {
   FeatureRevisionDiffInput,
+  legacyEnvironmentRefs,
   useFeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
 
@@ -296,5 +297,24 @@ describe("useFeatureRevisionDiff", () => {
       "Toggled production on",
       "Toggled staging off",
     ]);
+  });
+
+  it("points per-environment comment refs at their line in the merged section", () => {
+    const a = JSON.stringify({ production: false, staging: true }, null, 2);
+    const b = JSON.stringify({ production: true, staging: false }, null, 2);
+
+    const refs = legacyEnvironmentRefs(a, b);
+
+    expect(refs.get("environmentsEnabled.production:R1")).toEqual({
+      sectionKey: "environmentsEnabled",
+      side: "R",
+      line: 2,
+    });
+    expect(refs.get("environmentsEnabled.staging:L1")).toEqual({
+      sectionKey: "environmentsEnabled",
+      side: "L",
+      line: 3,
+    });
+    expect(refs.has("environmentsEnabled.dev:R1")).toBe(false);
   });
 });

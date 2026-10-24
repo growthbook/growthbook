@@ -5,7 +5,14 @@ import {
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import { createContext, ReactNode, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import useApi from "@/hooks/useApi";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -115,29 +122,73 @@ export function PreLaunchChecklistProvider({
 
   const [showSdkForm, setShowSdkForm] = useState(false);
 
+  // Read at click time, so a parent's inline handlers don't rebuild the list.
+  const handlers = useRef<
+    Pick<
+      PreLaunchChecklistProviderProps,
+      | "openAnalysisSettings"
+      | "openImplementation"
+      | "editTargeting"
+      | "editSchedule"
+    >
+  >({});
+  handlers.current = {
+    openAnalysisSettings,
+    openImplementation,
+    editTargeting,
+    editSchedule,
+  };
+  // The Bandit card edits only with the targeting editor's permission.
+  const canOpenAnalysis =
+    canEdit && !!openAnalysisSettings && (!isBandit || !!editTargeting);
+  const canOpenImplementation = canEdit && !!openImplementation;
+  const canEditTargeting = !!editTargeting;
+  const canEditSchedule = canEdit && !!editSchedule;
+
   // Merge the GB checklist items with org's custom checklist items
-  const summary = summarizeChecklist(
-    isActive
-      ? getChecklistItems({
-          experiment,
-          linkedFeatures,
-          visualChangesets,
-          urlRedirects,
-          checklist,
-          connections,
-          // The Bandit card edits only with the targeting editor's permission.
-          openAnalysisSettings:
-            canEdit && (!isBandit || editTargeting)
-              ? openAnalysisSettings
-              : null,
-          openImplementation: canEdit ? openImplementation : null,
-          editTargeting,
-          editSchedule: canEdit ? editSchedule : null,
-          createSdkConnection: canCreateSdkConnection
-            ? () => setShowSdkForm(true)
-            : null,
-        })
-      : [],
+  const summary = useMemo(
+    () =>
+      summarizeChecklist(
+        isActive
+          ? getChecklistItems({
+              experiment,
+              linkedFeatures,
+              visualChangesets,
+              urlRedirects,
+              checklist,
+              connections,
+              openAnalysisSettings: canOpenAnalysis
+                ? (focus) => handlers.current.openAnalysisSettings?.(focus)
+                : null,
+              openImplementation: canOpenImplementation
+                ? () => handlers.current.openImplementation?.()
+                : null,
+              editTargeting: canEditTargeting
+                ? () => handlers.current.editTargeting?.()
+                : null,
+              editSchedule: canEditSchedule
+                ? () => handlers.current.editSchedule?.()
+                : null,
+              createSdkConnection: canCreateSdkConnection
+                ? () => setShowSdkForm(true)
+                : null,
+            })
+          : [],
+      ),
+    [
+      isActive,
+      experiment,
+      linkedFeatures,
+      visualChangesets,
+      urlRedirects,
+      checklist,
+      connections,
+      canOpenAnalysis,
+      canOpenImplementation,
+      canEditTargeting,
+      canEditSchedule,
+      canCreateSdkConnection,
+    ],
   );
 
   const { toggle, error: toggleError } = useManualChecklistToggle(
@@ -145,15 +196,18 @@ export function PreLaunchChecklistProvider({
     mutateExperiment,
   );
 
-  const value: PreLaunchChecklistContextValue = {
-    active: isActive,
-    summary,
-    loading,
-    loadError,
-    checklistItemsRemaining: loading ? null : summary.remaining,
-    toggleManualItem: canEdit ? toggle : null,
-    toggleError,
-  };
+  const value = useMemo<PreLaunchChecklistContextValue>(
+    () => ({
+      active: isActive,
+      summary,
+      loading,
+      loadError,
+      checklistItemsRemaining: loading ? null : summary.remaining,
+      toggleManualItem: canEdit ? toggle : null,
+      toggleError,
+    }),
+    [isActive, summary, loading, loadError, canEdit, toggle, toggleError],
+  );
 
   return (
     <PreLaunchChecklistContext.Provider value={value}>

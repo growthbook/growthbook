@@ -2,6 +2,7 @@ import { contextualBanditEndpoints } from "shared/api-endpoints";
 import React, { useState } from "react";
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import { ApiContextualBanditInterface } from "shared/validators";
+import { linkedDraftApproved } from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiGitMerge, PiXBold } from "react-icons/pi";
 import { useRestApiCall } from "@/services/restApi";
@@ -143,10 +144,9 @@ export default function ContextualBanditLinkedFeatureFlag({
     info.state !== "archived";
 
   const cbNotStarted = cb.status === "draft";
-  const awaitingApproval =
-    !!info.pendingApproval && info.draftRevisionStatus !== "approved";
+  const awaitingApproval = !!info.pendingApproval && !linkedDraftApproved(info);
   const approvedNotPublished =
-    !!info.pendingApproval && info.draftRevisionStatus === "approved";
+    !!info.pendingApproval && linkedDraftApproved(info);
 
   const draftRevisionHref = `/features/${info.feature?.id}${
     info.draftRevisionVersion != null ? `?v=${info.draftRevisionVersion}` : ""

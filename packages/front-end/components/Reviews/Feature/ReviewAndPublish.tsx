@@ -166,6 +166,7 @@ import {
 } from "@/ui/DropdownMenu";
 import RevertModal from "@/components/Reviews/Feature/RevertModal";
 import {
+  checklistReadiness,
   getReviewAndPublishState,
   scheduleToStartLabel,
 } from "@/components/Reviews/reviewAndPublishState";
@@ -553,6 +554,10 @@ export default function ReviewAndPublish({
   const [afterApproval, setAfterApproval] = useState<
     "checklist" | "publish" | null
   >(null);
+  // Why an approval that should have fired the armed publish left it a draft.
+  const [armedPublishMissed, setArmedPublishMissed] = useState<string | null>(
+    null,
+  );
   const doSubmitRef = useRef<() => void>(() => {});
   const revisionLogRef = useRef<MutateLog>(null);
 
@@ -640,6 +645,7 @@ export default function ReviewAndPublish({
     setResolveConflicts(false);
     setExperimentsStep(false);
     setAfterApproval(null);
+    setArmedPublishMissed(null);
     setSubmitError(null);
     setRevertOpen(false);
     setConfirmReopen(false);
@@ -1014,9 +1020,13 @@ export default function ReviewAndPublish({
     canArmSchedule &&
     (revision?.status !== "approved" || !approvalsCoverFootprint);
   const canArmOnDate = canArmSchedule;
+  // A persisted "when approved" arm shows as itself, even where it can't be re-armed.
+  const armedWhenApproved = revisionAutoPublishArmed && !scheduledPending;
   const effectivePublishMode: "approve" | "date" = canArmWhenApproved
     ? publishMode
-    : "date";
+    : armedWhenApproved
+      ? "approve"
+      : "date";
 
   // A schedule armed by an admin via the bypass-approval override is locked:
   // nobody (not even the arming admin) can edit it inline — it can only be
@@ -1213,37 +1223,32 @@ export default function ReviewAndPublish({
     (e) => !selectedExperiments.has(e.id),
   );
 
-  const openChecklistStep = useCallback(() => {
-    checklistStateRef.current.clear();
-    setChecklistIncomplete(false);
-    setChecklistBlocked(false);
+  const [checklistStatuses, setChecklistStatuses] = useState<
+    Record<string, ChecklistReadyStatus>
+  >({});
+  const resetChecklists = useCallback(() => {
+    setChecklistStatuses({});
     setChecklistAcknowledged(false);
-    setExperimentsStep(true);
   }, []);
-
-  const checklistStateRef = useRef<Map<string, ChecklistReadyStatus>>(
-    new Map(),
-  );
-  const [checklistIncomplete, setChecklistIncomplete] = useState(false);
-  const [checklistBlocked, setChecklistBlocked] = useState(false);
+  const openChecklistStep = useCallback(() => {
+    resetChecklists();
+    setExperimentsStep(true);
+  }, [resetChecklists]);
   useEffect(() => {
-    checklistStateRef.current.clear();
-    setChecklistIncomplete(false);
-    setChecklistBlocked(false);
-    setChecklistAcknowledged(false);
-  }, [version]);
+    resetChecklists();
+  }, [version, resetChecklists]);
   const handleChecklistReady = useCallback(
     (expId: string, status: ChecklistReadyStatus) => {
       setChecklistAcknowledged(false);
-      checklistStateRef.current.set(expId, status);
-      const all = [...checklistStateRef.current.values()];
-      setChecklistIncomplete(
-        all.some((v) => v.hasHardBlockers || v.hasSoftBlockers || v.loading),
-      );
-      setChecklistBlocked(all.some((v) => v.hasHardBlockers || v.loading));
+      setChecklistStatuses((prev) => ({ ...prev, [expId]: status }));
     },
     [],
   );
+  const {
+    loading: checklistLoading,
+    blocked: checklistBlocked,
+    incomplete: checklistIncomplete,
+  } = checklistReadiness(selectedExperiments, checklistStatuses);
 
   const currentRevisionData = liveBaseInput;
   // Three modes, picked by what's available:
@@ -1934,7 +1939,8 @@ export default function ReviewAndPublish({
     featureLockedByRamp,
     featureLockedBySchedule,
     checklistIncomplete,
-    checklistBlocked,
+    // Publish waits on loading checklists, though they show no blocker yet.
+    checklistBlocked: checklistBlocked || checklistLoading,
     checklistAcknowledged,
     governanceCanPublish: governance ? governance.canPublish : true,
   });
@@ -1958,7 +1964,9 @@ export default function ReviewAndPublish({
               mergeResultSerialized: JSON.stringify(mergeResult),
               comment,
               autoPublishOnApproval:
-                autoPublishArmed && effectivePublishMode === "approve",
+                autoPublishArmed &&
+                canArmWhenApproved &&
+                effectivePublishMode === "approve",
               scheduledPublishAt: dateArmed ? scheduleDate : null,
               scheduledPublishLockEdits: scheduleLockEdits,
               scheduledPublishLockOthers: scheduleLockOthers,
@@ -1995,6 +2003,37 @@ export default function ReviewAndPublish({
     }
   };
   doSubmitRef.current = doSubmit;
+
+  const experimentNames = experiments.map((e) => e.name).join(", ");
+  // The server refuses an armed publish that would leave these unstarted.
+  const armedLaunchWarning =
+    armedWhenApproved && launchesExperiments ? (
+      <HelperText status="warning" size="sm" mt="2">
+        An automatic publish can&apos;t start {experimentNames}, so this draft
+        won&apos;t publish on its own.
+      </HelperText>
+    ) : null;
+
+  // The approval answers 200 even when the server refuses the armed publish, so
+  // ask what landed.
+  const confirmArmedPublish = async () => {
+    // On a failed read, the refreshed page still shows the revision's status.
+    const status = await apiCall<{ revisions: FeatureRevisionInterface[] }>(
+      `/feature/${feature.id}/revisions?versions=${revision.version}`,
+    ).then(
+      (res) => res.revisions?.[0]?.status ?? null,
+      () => null,
+    );
+    if (status === "published") {
+      onPublish?.();
+    } else if (status === "approved") {
+      setArmedPublishMissed(
+        launchesExperiments
+          ? `An automatic publish can't start ${experimentNames}; publish this draft directly instead.`
+          : "The automatic publish didn't run.",
+      );
+    }
+  };
 
   // Persist (or, for drafts, stage) the "publish when approved" arming.
   const doToggleAutoPublish = async (enabled: boolean) => {
@@ -2225,6 +2264,24 @@ export default function ReviewAndPublish({
     }
   };
 
+  // A start publishes one draft per Feature Flag, the one queued on the experiment.
+  const startsThisDraft = experiments.filter((exp) =>
+    exp.pendingFeatureDrafts?.some(
+      (d) =>
+        d.featureId === feature.id && d.revisionVersion === revision.version,
+    ),
+  );
+  const startsOtherDraft = experiments.filter(
+    (exp) => !startsThisDraft.includes(exp),
+  );
+  const experimentLinks = (group: ExperimentInterfaceStringDates[]) =>
+    group.map((exp, i) => (
+      <Fragment key={exp.id}>
+        {i > 0 ? ", " : null}
+        <Link href={`/experiment/${exp.id}`}>{exp.name}</Link>
+      </Fragment>
+    ));
+
   const renderExperimentGroup = (
     title: string,
     group: ExperimentInterfaceStringDates[],
@@ -2423,6 +2480,10 @@ export default function ReviewAndPublish({
       Are you sure you want to discard this draft? This action cannot be undone.
     </ModalStandard>
   ) : null;
+
+  // Only while the draft still sits approved.
+  const armedPublishNotice =
+    revision.status === "approved" ? armedPublishMissed : null;
 
   // Hoisted out of the footer render so the read-only schedule card (shown to
   // reviewers/non-managers) can tell whether the arming control will already
@@ -2807,7 +2868,8 @@ export default function ReviewAndPublish({
           isStepAction ||
           showPublishSection ||
           !!submitError ||
-          !!secondaryError) && (
+          !!secondaryError ||
+          !!armedPublishNotice) && (
           <Box mt={showApprovalBand ? "0" : "6"}>
             {/* The poller gave up on this draft's scheduled publish (cleared on
               cancel/re-arm). Shown to every viewer — matches the generic
@@ -2841,13 +2903,16 @@ export default function ReviewAndPublish({
                 )
               ) : (
                 // "When approved" is just a toggle — show a disabled checkbox.
-                <Checkbox
-                  label="Automatically publish when approved"
-                  weight="regular"
-                  disabled
-                  value={true}
-                  setValue={() => {}}
-                />
+                <>
+                  <Checkbox
+                    label="Automatically publish when approved"
+                    weight="regular"
+                    disabled
+                    value={true}
+                    setValue={() => {}}
+                  />
+                  {armedLaunchWarning}
+                </>
               ))}
 
             {/* Submit review — reviewer action, opens the comment/decision popover */}
@@ -2875,21 +2940,20 @@ export default function ReviewAndPublish({
                   }
                   isBlockedContributor={!!isBlockedContributor}
                   onSuccess={async (opts) => {
-                    let publishedViaArming = false;
+                    setArmedPublishMissed(null);
+                    let armedPublish = false;
                     if (opts?.publish) {
                       if (hasChecklistStep) {
                         setAfterApproval("checklist");
                       } else if (!revisionAutoPublishArmed) {
                         setAfterApproval("publish");
                       } else {
-                        publishedViaArming = true;
+                        armedPublish = true;
                       }
                     }
                     await mutate();
                     await revisionLogRef?.current?.mutateLog();
-                    if (publishedViaArming) {
-                      onPublish && onPublish();
-                    }
+                    if (armedPublish) await confirmArmedPublish();
                   }}
                   trigger={
                     <Button
@@ -3011,11 +3075,16 @@ export default function ReviewAndPublish({
                         }
                       />
                     ) : (
-                      // Approved revisions can only defer to a date — "when
-                      // approved" would just publish now, so show it as text.
-                      <Text size="md">on a specific date</Text>
+                      // One mode is open: the persisted "when approved" arm,
+                      // or a date ("when approved" would just publish now).
+                      <Text size="md">
+                        {effectivePublishMode === "approve"
+                          ? "when approved"
+                          : "on a specific date"}
+                      </Text>
                     )}
                   </Flex>
+                  {armedLaunchWarning}
                   {autoPublishArmed && effectivePublishMode === "date" && (
                     <Box mt="2" ml="4">
                       {hasScheduledRevisions ? (
@@ -3116,14 +3185,23 @@ export default function ReviewAndPublish({
                 !experimentsStep ? (
                 <HelperText status="info" size="sm" mb="5">
                   <span>
-                    To publish this draft later, schedule the start of{" "}
-                    {experiments.map((exp, i) => (
-                      <Fragment key={exp.id}>
-                        {i > 0 ? ", " : null}
-                        <Link href={`/experiment/${exp.id}`}>{exp.name}</Link>
-                      </Fragment>
-                    ))}
-                    . Starting it publishes this draft.
+                    {startsThisDraft.length > 0 && (
+                      <>
+                        To publish this draft later, schedule the start of{" "}
+                        {experimentLinks(startsThisDraft)}. Starting{" "}
+                        {startsThisDraft.length === 1 ? "it" : "any of them"}{" "}
+                        publishes this draft.
+                      </>
+                    )}
+                    {startsThisDraft.length > 0 &&
+                      startsOtherDraft.length > 0 &&
+                      " "}
+                    {startsOtherDraft.length > 0 && (
+                      <>
+                        Starting {experimentLinks(startsOtherDraft)} won&apos;t
+                        publish this draft.
+                      </>
+                    )}
                   </span>
                 </HelperText>
               ) : null;
@@ -3232,10 +3310,7 @@ export default function ReviewAndPublish({
                               setValue={(val) => {
                                 setAdminPublish(!!val);
                                 if (!val) {
-                                  checklistStateRef.current.clear();
-                                  setChecklistIncomplete(false);
-                                  setChecklistBlocked(false);
-                                  setChecklistAcknowledged(false);
+                                  resetChecklists();
                                   setExperimentsStep(false);
                                 }
                               }}
@@ -3348,10 +3423,7 @@ export default function ReviewAndPublish({
                           <LinkButton
                             color="link"
                             onClick={() => {
-                              checklistStateRef.current.clear();
-                              setChecklistIncomplete(false);
-                              setChecklistBlocked(false);
-                              setChecklistAcknowledged(false);
+                              resetChecklists();
                               setExperimentsStep(false);
                             }}
                           >
@@ -3364,8 +3436,13 @@ export default function ReviewAndPublish({
 
                   {/* Errors render outside the publish section so request-review
                   failures stay visible even when that section is hidden. */}
-                  {(submitError || secondaryError) && (
+                  {(submitError || secondaryError || armedPublishNotice) && (
                     <Flex direction="column" gap="2" mt="3">
+                      {armedPublishNotice && (
+                        <Callout status="warning" size="sm">
+                          Approved, but not published. {armedPublishNotice}
+                        </Callout>
+                      )}
                       {submitError && (
                         <ErrorDisplay
                           error={submitError}

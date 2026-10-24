@@ -1,8 +1,35 @@
 import type { RevisionStatus } from "shared/validators";
+import type { ChecklistReadyStatus } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 
 export type RnPMode = "fix-conflicts" | "main";
 
-/** The publish gate's answer when there is one; "approved" can still be short of a team or an environment. */
+/**
+ * What the checklists of the experiments starting with a publish add up to.
+ * One that hasn't reported yet is loading, and a loading one has no blockers
+ * to show yet.
+ */
+export function checklistReadiness(
+  selectedIds: Iterable<string>,
+  reports: Record<string, ChecklistReadyStatus>,
+): { loading: boolean; blocked: boolean; incomplete: boolean } {
+  const shown = [...selectedIds].map((id) => reports[id] ?? null);
+  const loading = shown.some((r) => !r || r.loading);
+  const loaded = shown.filter(
+    (r): r is ChecklistReadyStatus => !!r && !r.loading,
+  );
+  const blocked = loaded.some((r) => r.hasHardBlockers);
+  return {
+    loading,
+    blocked,
+    incomplete: loading || blocked || loaded.some((r) => r.hasSoftBlockers),
+  };
+}
+
+/**
+ * A pending draft's (LinkedFeaturePendingDraft) publish gate answer when there
+ * is one; "approved" can still be short of a team or an environment. For
+ * LinkedFeatureInfo's own fields, use `linkedDraftApproved` from shared/util.
+ */
 export function draftApprovalSatisfied(draft: {
   approval?: { satisfied: boolean } | null;
   status: string;
