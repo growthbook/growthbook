@@ -20,11 +20,12 @@ function readString(value: string | string[] | undefined): string | null {
 }
 
 // Page state lives in the URL, so a copied link reproduces the view
-export function useImpactUrlState() {
+export function useInsightsUrlState() {
   const router = useRouter();
   const { query } = router;
 
   const metricId = readString(query.metric) ?? "";
+  const project = readString(query.project);
   const debias = query.debias !== "0";
   const dateRange = useMemo<ExplorationDateRange>(() => {
     const lookback = Number(readString(query.lookback));
@@ -63,6 +64,10 @@ export function useImpactUrlState() {
     (id: string) => update({ metric: id }),
     [update],
   );
+  const setProject = useCallback(
+    (id: string) => update({ project: id }),
+    [update],
+  );
   const setDebias = useCallback(
     (on: boolean) => update({ debias: on ? null : "0" }),
     [update],
@@ -83,6 +88,9 @@ export function useImpactUrlState() {
     ready: router.isReady,
     metricId,
     setMetricId,
+    // Null until chosen, so the page can default to the global Project
+    project,
+    setProject,
     debias,
     setDebias,
     dateRange,
