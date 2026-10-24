@@ -198,14 +198,6 @@ describe("getChecklistItems", () => {
       clicks: false,
     },
     {
-      name: "an approved scheduled start",
-      callbacks: { editTargeting: onClick, openAnalysisSettings: onClick },
-      over: {
-        nextScheduledStatusUpdate: { type: "start", date: "2026-10-01" },
-      },
-      clicks: false,
-    },
-    {
       name: "the experiment page",
       callbacks: { editTargeting: onClick, openAnalysisSettings: onClick },
       over: {},
@@ -229,6 +221,25 @@ describe("getChecklistItems", () => {
     expect(find(items, "mergeConflict:f1")?.action).toEqual({
       href: "/features/f1?v=3",
       external: true,
+    });
+  });
+
+  it("with an approved scheduled start, opens analysis settings but not targeting", () => {
+    const items = getChecklistItems({
+      experiment: experiment({
+        nextScheduledStatusUpdate: { type: "start", date: "2026-10-01" },
+        datasource: "",
+        phases: [],
+      } as Partial<ExperimentInterfaceStringDates>),
+      linkedFeatures: [],
+      visualChangesets: [],
+      connections: [],
+      editTargeting: onClick,
+      openAnalysisSettings: onClick,
+    });
+    expect(find(items, "targeting")?.action).toBeUndefined();
+    expect(find(items, "datasource")?.action).toEqual({
+      onClick: expect.any(Function),
     });
   });
 

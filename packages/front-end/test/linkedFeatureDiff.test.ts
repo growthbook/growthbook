@@ -1,13 +1,13 @@
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import {
   environmentStatesDiffer,
-  getVariationValueChanges,
+  hasUnpublishedChanges,
 } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 
 type PendingDraft = NonNullable<LinkedFeatureInfo["pendingDraft"]>;
 type DiffInfo = Pick<
   LinkedFeatureInfo,
-  "values" | "liveValues" | "pendingDraft"
+  "liveValues" | "pendingDraft" | "liveEnvironmentStates"
 >;
 type EnvInfo = Pick<
   LinkedFeatureInfo,
@@ -23,74 +23,70 @@ const draft = (overrides: Partial<PendingDraft>): PendingDraft =>
     ...overrides,
   }) as PendingDraft;
 
-describe("getVariationValueChanges", () => {
-  it("diffs the draft against live per variation", () => {
+describe("hasUnpublishedChanges", () => {
+  const live = [
+    { variationId: "a", value: "1" },
+    { variationId: "b", value: "2" },
+  ];
+
+  it("is false without a draft", () => {
     const info: DiffInfo = {
-      values: [],
-      liveValues: [
-        { variationId: "a", value: "1" },
-        { variationId: "b", value: "2" },
-      ],
+      liveValues: live,
+      liveEnvironmentStates: { prod: "active" },
+      pendingDraft: undefined,
+    };
+    expect(hasUnpublishedChanges(info)).toBe(false);
+  });
+
+  it("is false for a draft that moves no value or environment", () => {
+    const info: DiffInfo = {
+      liveValues: live,
+      liveEnvironmentStates: { prod: "active" },
+      pendingDraft: draft({
+        values: live,
+        environmentStates: { prod: "active" },
+      }),
+    };
+    expect(hasUnpublishedChanges(info)).toBe(false);
+  });
+
+  it("is true when a draft value moves against live", () => {
+    const info: DiffInfo = {
+      liveValues: live,
+      liveEnvironmentStates: { prod: "active" },
       pendingDraft: draft({
         values: [
           { variationId: "a", value: "1" },
           { variationId: "b", value: "3" },
         ],
+        environmentStates: { prod: "active" },
       }),
     };
-    expect(getVariationValueChanges(info, ["a", "b"])).toEqual([
-      {
-        variationId: "a",
-        before: "1",
-        after: "1",
-        changed: false,
-        unpublished: false,
-      },
-      {
-        variationId: "b",
-        before: "2",
-        after: "3",
-        changed: true,
-        unpublished: true,
-      },
-    ]);
+    expect(hasUnpublishedChanges(info)).toBe(true);
   });
 
-  it("marks values unpublished when nothing is live yet", () => {
+  it("is true when nothing is live yet", () => {
     const info: DiffInfo = {
-      values: [{ variationId: "a", value: "x" }],
       liveValues: undefined,
-      pendingDraft: undefined,
+      liveEnvironmentStates: { prod: "active" },
+      pendingDraft: draft({
+        values: [{ variationId: "a", value: "x" }],
+        environmentStates: { prod: "active" },
+      }),
     };
-    expect(getVariationValueChanges(info, ["a", "missing"])).toEqual([
-      {
-        variationId: "a",
-        before: undefined,
-        after: "x",
-        changed: false,
-        unpublished: true,
-      },
-      {
-        variationId: "missing",
-        before: undefined,
-        after: "",
-        changed: false,
-        unpublished: true,
-      },
-    ]);
+    expect(hasUnpublishedChanges(info)).toBe(true);
   });
 
-  it("reads the rule's own values when there is no draft", () => {
+  it("is true when only the environments move", () => {
     const info: DiffInfo = {
-      values: [{ variationId: "a", value: "live" }],
-      liveValues: [{ variationId: "a", value: "live" }],
-      pendingDraft: undefined,
+      liveValues: live,
+      liveEnvironmentStates: { prod: "active" },
+      pendingDraft: draft({
+        values: live,
+        environmentStates: { prod: "disabled-env" },
+      }),
     };
-    expect(getVariationValueChanges(info, ["a"])[0]).toMatchObject({
-      after: "live",
-      changed: false,
-      unpublished: false,
-    });
+    expect(hasUnpublishedChanges(info)).toBe(true);
   });
 });
 

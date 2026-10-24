@@ -21,15 +21,12 @@ export const ICON_PROPERTIES = {
 export const LINKED_CHANGE_CONTAINER_PROPERTIES = {
   "feature-flag": {
     header: "Linked Features",
-    addButtonCopy: "Add Feature Flag",
   },
   "visual-editor": {
     header: "AI Visual Editor Changes",
-    addButtonCopy: "Add AI Visual Editor Change",
   },
   redirects: {
     header: "URL Redirects",
-    addButtonCopy: "Add URL Redirect",
   },
 };
 

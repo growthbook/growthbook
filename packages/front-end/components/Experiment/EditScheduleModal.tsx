@@ -465,7 +465,9 @@ export default function EditScheduleModal({
                   { value: "on-date", label: "On date" },
                 ]}
                 onChange={(v) => {
-                  setStartMode(v === "on-date" ? "on-date" : "immediately");
+                  const next = v === "on-date" ? "on-date" : "immediately";
+                  if (next === startMode) return;
+                  setStartMode(next);
                   form.setValue("startAt", "");
                 }}
                 containerStyle={{ width: 150 }}

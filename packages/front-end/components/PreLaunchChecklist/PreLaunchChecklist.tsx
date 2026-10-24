@@ -5,14 +5,12 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { PiArrowSquareOut, PiCheckBold } from "react-icons/pi";
-import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import clsx from "clsx";
 import { Flex, Separator } from "@radix-ui/themes";
 import NextLink from "next/link";
 import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import Callout from "@/ui/Callout";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
@@ -21,7 +19,10 @@ import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import styles from "./PreLaunchChecklist.module.scss";
-import { usePreLaunchChecklist } from "./PreLaunchChecklistProvider";
+import {
+  useLaunchChecklistData,
+  usePreLaunchChecklist,
+} from "./PreLaunchChecklistProvider";
 import {
   ChecklistAction,
   CheckListItem,
@@ -50,6 +51,12 @@ const TIER_TITLES: Record<ChecklistTier, string> = {
   recommended: "Recommended",
   optional: "Optional",
 };
+
+const loadErrorNotice = (
+  <HelperText status="warning" size="sm">
+    Couldn&apos;t load the custom checklist. Built-in items are shown.
+  </HelperText>
+);
 
 // Stretched over its row, so the whole row takes the action.
 function ChecklistRowAction({
@@ -212,20 +219,14 @@ function useFadingCompletions(
 }
 
 /** Checklist rows to read, not act on. */
-export function ReadOnlyChecklistRows({
-  items,
-  size,
-}: {
-  items: CheckListItem[];
-  size: ChecklistSize;
-}) {
+export function ReadOnlyChecklistRows({ items }: { items: CheckListItem[] }) {
   return (
     <Flex direction="column" gap="2">
       {items.map((item) => (
         <ChecklistRow
           key={item.key}
           item={item}
-          size={size}
+          size="sm"
           onToggleManual={null}
           readOnly
         />
@@ -345,11 +346,7 @@ export function ChecklistTodoHeading({
 }
 
 /** The details rail's To Do tab, or the start popover's To Do. */
-export function PreLaunchChecklistPanel({
-  size = "sm",
-}: {
-  size?: ChecklistSize;
-}) {
+export function PreLaunchChecklistPanel() {
   const { summary, loading, loadError, toggleManualItem, toggleError } =
     usePreLaunchChecklist();
   if (loading) return <LoadingSpinner />;
@@ -357,9 +354,7 @@ export function PreLaunchChecklistPanel({
   return (
     <>
       {loadError ? (
-        <HelperText status="warning" size={size}>
-          Couldn&apos;t load the custom checklist. Built-in items are shown.
-        </HelperText>
+        loadErrorNotice
       ) : summary.remaining === 0 ? (
         <Callout status="success" size="sm" icon={<PiCheckBold />}>
           All items are complete.
@@ -367,12 +362,12 @@ export function PreLaunchChecklistPanel({
       ) : null}
       <ChecklistItems
         summary={summary}
-        size={size}
+        size="sm"
         showCompleted
         onToggleManual={toggleManualItem}
       />
       {toggleError ? (
-        <HelperText status="error" size={size}>
+        <HelperText status="error" size="sm">
           {toggleError}
         </HelperText>
       ) : null}
@@ -385,55 +380,45 @@ export function PreLaunchChecklistForDraftFeature({
   feature,
   mutateExperiment,
   onReady,
-  details = null,
+  details,
 }: {
   experiment: ExperimentInterfaceStringDates;
   feature: FeatureInterface;
   mutateExperiment: () => unknown | Promise<unknown>;
   onReady?: (status: ChecklistReadyStatus) => void;
   // Under the name, as the start popover has its schedule.
-  details?: ReactNode;
+  details: ReactNode;
 }) {
-  const { data: checklistData, error: checklistError } = useApi<{
-    checklist: ExperimentLaunchChecklistInterface;
-  }>(`/experiment/${experiment.id}/launch-checklist`);
+  const {
+    checklist: customChecklist,
+    connections,
+    loading: checklistLoading,
+    loadError,
+  } = useLaunchChecklistData(experiment);
 
   const { data: experimentData, error: experimentError } = useApi<{
     linkedFeatures: LinkedFeatureInfo[];
   }>(`/experiment/${experiment.id}`);
 
-  const { data: sdkConnectionsData, error: sdkError } = useSDKConnections();
-  const connections = useMemo(
+  const isLoading = checklistLoading || (!experimentData && !experimentError);
+
+  const summary = useMemo(
     () =>
-      (sdkConnectionsData?.connections ?? []).filter(
-        (c) =>
-          !c.projects.length || c.projects.includes(experiment.project || ""),
+      summarizeChecklist(
+        getChecklistItems({
+          experiment,
+          linkedFeatures: experimentData?.linkedFeatures ?? [],
+          visualChangesets: [],
+          checklist: customChecklist,
+          connections,
+          publishingFeatureId: feature.id,
+        }),
       ),
-    [sdkConnectionsData, experiment.project],
+    [experiment, experimentData, customChecklist, connections, feature.id],
   );
-
-  const isLoading =
-    (!checklistData && !checklistError) ||
-    (!experimentData && !experimentError) ||
-    (!sdkConnectionsData && !sdkError);
-
-  const checklist = useMemo(
-    () =>
-      getChecklistItems({
-        experiment,
-        linkedFeatures: experimentData?.linkedFeatures ?? [],
-        visualChangesets: [],
-        checklist: checklistData?.checklist,
-        connections,
-        publishingFeatureId: feature.id,
-      }),
-    [experiment, experimentData, checklistData, connections, feature.id],
-  );
-  const summary = useMemo(() => summarizeChecklist(checklist), [checklist]);
 
   const hasHardBlockers = summary.blocking > 0;
-  // Optional items don't hold the publish back here.
-  const hasSoftBlockers = summary.incomplete.recommended.length > 0;
+  const hasSoftBlockers = summary.remaining > summary.blocking;
 
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
@@ -458,7 +443,7 @@ export function PreLaunchChecklistForDraftFeature({
   // Laid out as the start popover: hidden once nothing is left.
   const showTodo =
     experiment.status === "draft" &&
-    (summary.remaining > 0 || summary.flagged.length > 0);
+    (summary.remaining > 0 || loadError || summary.flagged.length > 0);
 
   return (
     <Flex direction="column" gap="3">
@@ -472,6 +457,7 @@ export function PreLaunchChecklistForDraftFeature({
         <>
           <Separator size="4" />
           <ChecklistTodoHeading remaining={summary.remaining} />
+          {loadError ? loadErrorNotice : null}
           <ChecklistItems
             summary={summary}
             size="sm"

@@ -58,27 +58,27 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editNamespace?: (() => void) | null;
   /** Offers the + that appends a variation and evens out the split. */
-  canAddVariation?: boolean;
+  canAddVariation: boolean;
   /** Stages a new set of variations for the page's Save. */
-  stageVariations?: (variations: Variation[]) => void;
+  stageVariations: (variations: Variation[]) => void;
   /** Environment scopes staged per flag. */
-  flagEnvironments?: FlagEnvironmentsDraft;
+  flagEnvironments: FlagEnvironmentsDraft;
   /** The page's staged holdout. */
   holdoutDraft?: HoldoutDraft;
   /** Whether the experiment can leave its holdout here. */
-  canStageHoldout?: boolean;
+  canStageHoldout: boolean;
   /** Whether it can join or switch holdouts here, which needs the feature. */
-  canJoinHoldout?: boolean;
+  canJoinHoldout: boolean;
   /** Why the holdout is fixed, shown on its disabled pencil. */
-  holdoutLockedReason?: string | null;
-  editVariationKeys?: () => void;
+  holdoutLockedReason: string | null;
+  editVariationKeys: () => void;
   /** Every linked Feature Flag, one value row each under the variations. */
-  linkedFeatures?: LinkedFeatureInfo[];
+  linkedFeatures: LinkedFeatureInfo[];
   /** Whether the value rows can be edited in place. */
-  canEditFlagValues?: boolean;
-  implementationColumns?: ImplementationColumn[];
-  addImplementation?: ReactNode;
-  canEditExperiment?: boolean;
+  canEditFlagValues: boolean;
+  implementationColumns: ImplementationColumn[];
+  addImplementation: ReactNode;
+  canEditExperiment: boolean;
   safeToEdit: boolean;
   /**
    * The targeting the page has confirmed but not yet written, and the way to
@@ -212,20 +212,20 @@ export default function TrafficAllocationFunnel({
   experiment,
   editTargeting,
   editNamespace,
-  canAddVariation = false,
+  canAddVariation,
   stageVariations,
   flagEnvironments,
   holdoutDraft,
-  canStageHoldout = false,
-  canJoinHoldout = false,
-  holdoutLockedReason = null,
+  canStageHoldout,
+  canJoinHoldout,
+  holdoutLockedReason,
   editVariationKeys,
-  linkedFeatures = [],
-  canEditFlagValues = false,
-  implementationColumns = [],
-  addImplementation = null,
-  canEditExperiment = false,
-  safeToEdit = false,
+  linkedFeatures,
+  canEditFlagValues,
+  implementationColumns,
+  addImplementation,
+  canEditExperiment,
+  safeToEdit,
   targetingDraft,
 }: Props) {
   const { namespaces } = useOrgSettings();
@@ -286,7 +286,7 @@ export default function TrafficAllocationFunnel({
     variations: Variation[],
     weights = getEqualWeights(variations.length, 4),
   ) => {
-    stageVariations?.(variations);
+    stageVariations(variations);
     // Targeting writes the phase's variations too, so it must carry them.
     stagePatch({
       variations: variations.map(({ id }) => ({ id, status: "active" })),
@@ -362,16 +362,14 @@ export default function TrafficAllocationFunnel({
     }),
     [draftPickValue, setDraftPicks],
   );
-  const pickedFeatures = useMemo(
+  const draftsDiffer = useMemo(
     () =>
-      linkedFeatures.map((info) =>
-        withPickedDraft(info, draftPickValue[info.feature.id]),
+      linkedFeatures.some((info) =>
+        hasUnpublishedChanges(
+          withPickedDraft(info, draftPickValue[info.feature.id]),
+        ),
       ),
     [linkedFeatures, draftPickValue],
-  );
-  const draftsDiffer = useMemo(
-    () => pickedFeatures.some(hasUnpublishedChanges),
-    [pickedFeatures],
   );
   const canViewLive =
     experiment.status !== "draft" && linkedFeatures.length > 0;
@@ -393,10 +391,7 @@ export default function TrafficAllocationFunnel({
   // Coverage and split edit in place only while delivery can.
   const editDeliveryInline = editInline && safeToEdit;
   const canStageVariations =
-    canEditExperiment &&
-    !variationsLocked &&
-    !!stageVariations &&
-    !!targetingDraft;
+    canEditExperiment && !variationsLocked && !!targetingDraft;
   // Bucketing follows the variation list, so its shape is fixed once it starts.
   const canRestructure = canStageVariations && experiment.status === "draft";
   const canAddNamespace =
@@ -417,7 +412,6 @@ export default function TrafficAllocationFunnel({
   // Only when the picker would have something to offer.
   const canAddHoldout =
     canJoinHoldout &&
-    !isHoldout &&
     !holdoutId &&
     selectableHoldouts(holdouts, experimentsMap, experiment.project).length > 0;
   // Leaving a holdout only just staged is undoing it.
@@ -464,7 +458,7 @@ export default function TrafficAllocationFunnel({
         ) : null}
         <Flex direction="column">
           <Flex align="center" direction="column">
-            {!isHoldout && holdoutId ? (
+            {holdoutId ? (
               <>
                 <FunnelCard
                   title="Holdout"
@@ -583,13 +577,11 @@ export default function TrafficAllocationFunnel({
             )}
 
             <FunnelCard
-              title={isHoldout ? "Traffic" : "Population"}
+              title="Population"
               onEdit={
-                isHoldout
-                  ? null
-                  : editDeliveryInline
-                    ? () => setEditingTraffic(true)
-                    : editTargeting
+                editDeliveryInline
+                  ? () => setEditingTraffic(true)
+                  : editTargeting
               }
               disabled={!safeToEdit}
             >

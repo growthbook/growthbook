@@ -13,7 +13,6 @@ import RuleEnvironmentScopeField from "@/components/Features/RuleModal/Environme
 import { useEnvironments } from "@/services/features";
 import LinkedFeatureLabel from "@/components/Experiment/LinkedFeatureLabel";
 import { scopeFromStates } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
-import { joinAnd } from "@/services/utils";
 
 /** Picks where the experiment's rule applies, from the environments its flag's project allows. */
 export default function EditExperimentEnvironmentsModal({
@@ -85,7 +84,9 @@ export default function EditExperimentEnvironmentsModal({
       />
       {switchedOn.length ? (
         <HelperText status="warning" size="sm" mt="2">
-          {`${joinAnd(switchedOn)} ${
+          {`${new Intl.ListFormat("en-GB", { type: "conjunction" }).format(
+            switchedOn,
+          )} ${
             switchedOn.length === 1 ? "is" : "are"
           } off for this Feature Flag. Applying turns ${
             switchedOn.length === 1 ? "it on there" : "them on"

@@ -1,4 +1,5 @@
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import type { ExperimentChangesBody } from "shared/validators";
 import {
   DestinationURL,
@@ -80,12 +81,6 @@ export type ShownVisualChangeset = {
   staged: Exclude<StagedMark, "added">;
 };
 
-function without<T>(record: Record<string, T>, key: string) {
-  const next = { ...record };
-  delete next[key];
-  return next;
-}
-
 const fieldsOf = (r: RedirectFields): RedirectFields => ({
   urlPattern: r.urlPattern,
   destinationURLs: r.destinationURLs,
@@ -139,7 +134,7 @@ export function editRedirect(
   return {
     ...draft,
     editedRedirects: sameRedirect(fields, stored)
-      ? without(draft.editedRedirects, stored.id)
+      ? omit(draft.editedRedirects, stored.id)
       : {
           ...draft.editedRedirects,
           [stored.id]: {
@@ -159,7 +154,7 @@ export function undoRedirect(
   return {
     ...draft,
     addedRedirects: draft.addedRedirects.filter((a) => a.key !== key),
-    editedRedirects: without(draft.editedRedirects, key),
+    editedRedirects: omit(draft.editedRedirects, key),
     removedRedirects: draft.removedRedirects.filter((id) => id !== key),
   };
 }
@@ -199,7 +194,7 @@ function withVisualEdit(
     editedVisual:
       edit.targeting || Object.keys(edit.changes).length
         ? { ...draft.editedVisual, [id]: edit }
-        : without(draft.editedVisual, id),
+        : omit(draft.editedVisual, id),
   };
 }
 
@@ -233,7 +228,7 @@ export function stageVisualChange(
   return withVisualEdit(draft, stored.id, {
     ...edit,
     changes: isEqual(value, base)
-      ? without(changes, change.id)
+      ? omit(changes, change.id)
       : {
           ...changes,
           [change.id]: { variation: storedChange.variation, value, base },
@@ -255,7 +250,7 @@ export function undoVisual(
 ): LinkedChangesDraft {
   return {
     ...draft,
-    editedVisual: without(draft.editedVisual, id),
+    editedVisual: omit(draft.editedVisual, id),
     removedVisual: draft.removedVisual.filter((v) => v !== id),
   };
 }

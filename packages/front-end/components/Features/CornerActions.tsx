@@ -13,15 +13,10 @@ export type ActionsOverlay = {
 /** A value with its action buttons pinned over one corner. */
 export default function CornerActions({
   overlay,
-  position,
-  gap,
   actions,
   children,
 }: {
   overlay?: ActionsOverlay;
-  // Where the actions sit unless the overlay moves them.
-  position: CSSProperties;
-  gap: "2" | "3";
   actions?: ReactNode;
   children: ReactNode;
 }) {
@@ -35,9 +30,14 @@ export default function CornerActions({
       {actions ? (
         <Flex
           align="center"
-          gap={gap}
+          gap="3"
           className={reveal ? styles.actions : undefined}
-          style={{ position: "absolute", ...position, ...overlay?.style }}
+          style={{
+            position: "absolute",
+            bottom: -4,
+            right: 16,
+            ...overlay?.style,
+          }}
         >
           {actions}
         </Flex>

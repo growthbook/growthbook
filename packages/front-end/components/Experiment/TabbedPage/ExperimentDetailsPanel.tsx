@@ -8,18 +8,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ScrollArea from "@/ui/ScrollArea";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import ProjectTagBar, {
+  ExperimentDataFields,
   QuickEditField,
 } from "@/components/Experiment/TabbedPage/ProjectTagBar";
 import EditExperimentInfoModal, {
   InfoSection,
+  SECTION_HEADERS,
 } from "@/components/Experiment/TabbedPage/EditExperimentInfoModal";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
 import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
+import Metadata from "@/ui/Metadata";
+import Markdown from "@/components/Markdown/Markdown";
 import EditHoldoutInfoModal from "@/components/Experiment/TabbedPage/EditHoldoutInfoModal";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
-import InlineMarkdownField from "@/components/Experiment/TabbedPage/InlineMarkdownField";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
@@ -60,7 +63,7 @@ export default function ExperimentDetailsPanel({
   // the controls that would open one say why instead.
   const editsBlocked = useEditsBlockedReason();
   const { canEdit } = useExperimentEditing(experiment, disableEditing);
-  const [infoSection, setInfoSection] = useState<InfoSection>("all");
+  const [infoSection, setInfoSection] = useState<InfoSection | null>(null);
   const [customFieldId, setCustomFieldId] = useState<string | null>(null);
   const editSection = (section: InfoSection, fieldId: string | null = null) => {
     setInfoSection(section);
@@ -90,9 +93,7 @@ export default function ExperimentDetailsPanel({
   // The key only changes while nothing is serving it, or about to.
   const fieldAction = (field: QuickEditField) => {
     if (field === "schedule") {
-      return editSchedule
-        ? pencil(QUICK_FIELD_LABELS.schedule, editSchedule)
-        : null;
+      return editSchedule ? pencil("Edit schedule", editSchedule) : null;
     }
     if (
       field === "trackingKey" &&
@@ -100,18 +101,10 @@ export default function ExperimentDetailsPanel({
     ) {
       return null;
     }
-    return pencil(QUICK_FIELD_LABELS[field], () => editSection(field));
+    return pencil(SECTION_HEADERS[field], () => editSection(field));
   };
   const isHoldout = experiment.type === "holdout";
-  const tagBar = (panel: "about" | "details") => (
-    <ProjectTagBar
-      panel={panel}
-      fieldAction={isHoldout ? undefined : fieldAction}
-      experiment={experiment}
-      holdout={holdout}
-      stagedHoldoutId={stagedHoldoutId}
-    />
-  );
+  const rowAction = isHoldout ? null : fieldAction;
   const { active: checklistActive, checklistItemsRemaining } =
     usePreLaunchChecklist();
   // Once it starts, a draft's to-do list is gone.
@@ -136,7 +129,7 @@ export default function ExperimentDetailsPanel({
 
   return (
     <>
-      {showEditInfoModal && !isHoldout ? (
+      {showEditInfoModal && !isHoldout && infoSection ? (
         <EditExperimentInfoModal
           experiment={experiment}
           setShowEditInfoModal={setShowEditInfoModal}
@@ -213,24 +206,55 @@ export default function ExperimentDetailsPanel({
               >
                 <Flex direction="column" gap="3">
                   {!isHoldout && (
-                    <InlineMarkdownField
-                      label="Description"
-                      field="description"
+                    <Metadata
+                      size="sm"
                       stacked
-                      experiment={experiment}
-                      editable={false}
-                      labelAction={pencil("Edit description", () =>
+                      label="Description"
+                      action={pencil("Edit description", () =>
                         editSection("description"),
                       )}
+                      value={
+                        <Box width="100%">
+                          {experiment.description ? (
+                            // Beside the page rather than on it, so it reads at
+                            // the column's size, and a long one doesn't push
+                            // the rest of the column away.
+                            <ExpandableBlock>
+                              <Box style={{ fontSize: "var(--font-size-1)" }}>
+                                <Markdown>{experiment.description}</Markdown>
+                              </Box>
+                            </ExpandableBlock>
+                          ) : (
+                            <Text
+                              weight="regular"
+                              color="text-mid"
+                              size="sm"
+                              fontStyle="italic"
+                            >
+                              None
+                            </Text>
+                          )}
+                        </Box>
+                      }
                     />
                   )}
-                  {tagBar("about")}
+                  <ProjectTagBar
+                    experiment={experiment}
+                    holdout={holdout}
+                    fieldAction={rowAction}
+                  />
                   <ExperimentHealthBadges experiment={experiment} />
                   {customFieldRows}
                 </Flex>
               </PanelSection>
               <Separator size="4" />
-              <PanelSection title="Data">{tagBar("details")}</PanelSection>
+              <PanelSection title="Data">
+                <ExperimentDataFields
+                  experiment={experiment}
+                  stagedHoldoutId={stagedHoldoutId}
+                  fieldAction={rowAction}
+                />
+              </PanelSection>
             </Flex>
           </TabsContent>
           <TabsContent
@@ -256,14 +280,6 @@ export default function ExperimentDetailsPanel({
     </>
   );
 }
-
-const QUICK_FIELD_LABELS: Record<QuickEditField, string> = {
-  project: "Edit project",
-  trackingKey: "Edit experiment key",
-  owner: "Edit owner",
-  tags: "Edit tags",
-  schedule: "Edit schedule",
-};
 
 /** A titled block of the panel, which its heading shows and hides. */
 function PanelSection({

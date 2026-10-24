@@ -30,6 +30,7 @@ import {
   ColumnHeader,
   ColumnLayout,
   HeaderText,
+  ShownVariation,
   StagedNote,
 } from "@/components/Experiment/TabbedPage/ImplementationColumn";
 import {
@@ -297,43 +298,37 @@ function ChangeRow({
   );
 }
 
-type ShownVariation = ReturnType<typeof getLatestPhaseVariations>[number];
-
 type ChangeListRow = {
   key: string;
   humanized: Humanized;
   onDelete?: () => void;
 };
 
-type ChangeHandlers = {
-  onDeleteDomMutation: (args: {
-    shown: ShownVisualChangeset;
-    change: VisualChange;
-    mutationIndex: number;
-  }) => void;
-  onClearGlobal: (args: {
-    shown: ShownVisualChangeset;
-    change: VisualChange;
-    kind: "css" | "js";
-  }) => void;
-};
+// Stages the change with one row removed; `kind` names what was removed.
+type StageRemoval = (
+  next: VisualChange,
+  kind: "mutation" | "globalCss" | "globalJs",
+) => void;
 
-// One row per DOM mutation, then the global CSS and JS.
+// One row per DOM mutation, then the global CSS and JS. Read-only without
+// `stage`.
 function changeRowsFor(
-  shown: ShownVisualChangeset,
-  variationId: string,
-  canEdit: boolean,
-  { onDeleteDomMutation, onClearGlobal }: ChangeHandlers,
+  change: VisualChange | undefined,
+  stage: StageRemoval | null,
 ): ChangeListRow[] {
-  const change = shown.changeset.visualChanges.find(
-    (c) => c.variation === variationId,
-  );
   if (!change) return [];
   const rows: ChangeListRow[] = (change.domMutations || []).map((m, i) => ({
     key: `mut:${m.selector}|${m.attribute}|${m.action}|${i}`,
     humanized: humanizeMutation(m),
-    onDelete: canEdit
-      ? () => onDeleteDomMutation({ shown, change, mutationIndex: i })
+    onDelete: stage
+      ? () =>
+          stage(
+            {
+              ...change,
+              domMutations: change.domMutations.filter((_, j) => j !== i),
+            },
+            "mutation",
+          )
       : undefined,
   }));
   (["css", "js"] as const).forEach((kind) => {
@@ -342,8 +337,12 @@ function changeRowsFor(
     rows.push({
       key: `global:${kind}`,
       humanized: humanizeGlobalBlock({ kind, value }),
-      onDelete: canEdit
-        ? () => onClearGlobal({ shown, change, kind })
+      onDelete: stage
+        ? () =>
+            stage(
+              { ...change, [kind]: "" },
+              kind === "css" ? "globalCss" : "globalJs",
+            )
         : undefined,
     });
   });
@@ -533,40 +532,23 @@ export default function VisualChangesetColumn({
   const [editingVisualChange, setEditingVisualChange] =
     useState<VisualChange | null>(null);
 
-  const handlers: ChangeHandlers = useMemo(
-    () => ({
-      onDeleteDomMutation: ({ shown, change, mutationIndex }) => {
-        onStageChange(shown.stored, {
-          ...change,
-          domMutations: change.domMutations.filter(
-            (_, i) => i !== mutationIndex,
-          ),
-        });
-        track("Delete visual change", {
-          source: "visual-editor-ui",
-          kind: "mutation",
-        });
-      },
-      onClearGlobal: ({ shown, change, kind }) => {
-        onStageChange(shown.stored, { ...change, [kind]: "" });
-        track("Delete visual change", {
-          source: "visual-editor-ui",
-          kind: kind === "css" ? "globalCss" : "globalJs",
-        });
-      },
-    }),
-    [onStageChange],
-  );
-  const rowsByVariation = useMemo(
-    () =>
-      new Map(
-        variations.map((v) => [
-          v.id,
-          changeRowsFor(shown, v.id, canChange, handlers),
-        ]),
-      ),
-    [variations, shown, canChange, handlers],
-  );
+  const rowsByVariation = useMemo(() => {
+    const stage: StageRemoval | null = canChange
+      ? (next, kind) => {
+          onStageChange(shown.stored, next);
+          track("Delete visual change", { source: "visual-editor-ui", kind });
+        }
+      : null;
+    return new Map(
+      variations.map((v) => [
+        v.id,
+        changeRowsFor(
+          shown.changeset.visualChanges.find((c) => c.variation === v.id),
+          stage,
+        ),
+      ]),
+    );
+  }, [variations, shown, canChange, onStageChange]);
   const hasChanges = vc.visualChanges.some((c) => visualChangeCount(c) > 0);
   const viewed = variations.find((v) => v.id === viewing);
   const releasing =

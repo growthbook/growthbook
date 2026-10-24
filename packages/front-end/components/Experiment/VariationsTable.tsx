@@ -4,10 +4,9 @@ import {
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { FC, useState, useRef, useCallback } from "react";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
-import { PiCameraLight, PiCameraPlusLight, PiPlusCircle } from "react-icons/pi";
+import { Box, Flex, Grid } from "@radix-ui/themes";
+import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";
 import clsx from "clsx";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
@@ -18,7 +17,6 @@ import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselM
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Metadata from "@/ui/Metadata";
 import VariationLabel from "@/ui/VariationLabel";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import QuickEditButton, {
   revealsQuickEdit,
 } from "@/components/Experiment/TabbedPage/QuickEditButton";
@@ -36,7 +34,7 @@ const VARIATION_GRID_COLUMNS = `repeat(auto-fit, minmax(min(100%, ${MIN_VARIATIO
 
 const imageCache = {};
 
-export const ScreenshotCarousel: FC<{
+const ScreenshotCarousel: FC<{
   variation: Variation;
   maxChildHeight?: number;
   onClick?: (i: number) => void;
@@ -132,29 +130,8 @@ interface Props {
   shareUid?: string;
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
-  onAddVariation?: () => void;
-  onRemoveVariation?: (variationIndex: number) => void;
-  onEditKey?: (variationIndex: number) => void;
-  onReorder?: () => void;
   // When true, the cards fill the grid's own width, wrapping as it narrows.
   fill?: boolean;
-}
-
-function AddVariationButton({ onClick }: { onClick: () => void }) {
-  return (
-    <Tooltip content="Add variation" side="top">
-      <IconButton
-        variant="ghost"
-        color="violet"
-        radius="full"
-        size="2"
-        onClick={() => onClick()}
-        aria-label="Add variation"
-      >
-        <PiPlusCircle size="16" />
-      </IconButton>
-    </Tooltip>
-  );
 }
 
 function NoImageBox({ canEdit }: { canEdit?: boolean }) {
@@ -212,9 +189,6 @@ export function VariationBox({
   shareUid,
   shareType = "experiment",
   onEditMetadata,
-  onRemoveVariation,
-  onEditKey,
-  onReorder,
 }: {
   i: number;
   v: Variation;
@@ -234,9 +208,6 @@ export function VariationBox({
   shareUid?: string;
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
-  onRemoveVariation?: (variationIndex: number) => void;
-  onEditKey?: (variationIndex: number) => void;
-  onReorder?: () => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -274,51 +245,13 @@ export function VariationBox({
               <VariationLabel number={i} name={v.name} size="lg" />
             </Box>
             {/* Radix ghost buttons carry a negative margin. */}
-            <Flex align="center" gap="1" flexShrink="0" mr="-1">
+            <Flex align="center" flexShrink="0" mr="-1">
               {canEdit && onEditMetadata ? (
                 <QuickEditButton
                   size="2"
                   label="Edit variation"
                   onClick={() => onEditMetadata(i)}
                 />
-              ) : null}
-              {canEdit && (onRemoveVariation || onEditKey || onReorder) ? (
-                <DropdownMenu
-                  trigger={
-                    <IconButton
-                      variant="ghost"
-                      color="gray"
-                      radius="full"
-                      size="2"
-                      highContrast
-                      style={{ margin: 0 }}
-                      aria-label={`${v.name} actions`}
-                    >
-                      <BsThreeDotsVertical size={16} />
-                    </IconButton>
-                  }
-                  menuPlacement="end"
-                  variant="soft"
-                >
-                  {onReorder ? (
-                    <DropdownMenuItem onClick={onReorder}>
-                      Reorder variations
-                    </DropdownMenuItem>
-                  ) : null}
-                  {onEditKey ? (
-                    <DropdownMenuItem onClick={() => onEditKey(i)}>
-                      Change variation ID
-                    </DropdownMenuItem>
-                  ) : null}
-                  {onRemoveVariation ? (
-                    <DropdownMenuItem
-                      color="red"
-                      onClick={() => onRemoveVariation(i)}
-                    >
-                      Remove variation
-                    </DropdownMenuItem>
-                  ) : null}
-                </DropdownMenu>
               ) : null}
             </Flex>
           </Flex>
@@ -404,10 +337,6 @@ const VariationsTable: FC<Props> = ({
   shareUid,
   shareType = "experiment",
   onEditMetadata,
-  onAddVariation,
-  onRemoveVariation,
-  onEditKey,
-  onReorder,
   fill = false,
 }) => {
   const variations = getLatestPhaseVariations(experiment);
@@ -430,8 +359,6 @@ const VariationsTable: FC<Props> = ({
   const cols = variations.length > 4 ? 4 : variations.length;
   const gap = "4";
 
-  const lastIndex = variations.length - 1;
-
   return (
     <Box mx={noMargin ? "0" : "4"}>
       <Grid
@@ -450,58 +377,32 @@ const VariationsTable: FC<Props> = ({
       >
         {variations.map((v, i) => {
           if (variationsList && !variationsList.includes(v.id)) return null;
-          const box = (
-            <VariationBox
-              i={v.index}
-              v={v}
-              experiment={experiment}
-              showIds={hasUniqueIDs}
-              height={MAX_IMAGE_HEIGHT}
-              canEdit={canEditExperiment}
-              allowImages={allowImages}
-              openCarousel={(variationId, index) => {
-                setOpenCarousel({ variationId, index });
-              }}
-              mutate={mutate}
-              percent={percentages?.[i]}
-              showSplit={showSplit}
-              isPublic={isPublic}
-              shareUid={shareUid}
-              shareType={shareType}
-              onEditMetadata={onEditMetadata}
-              onRemoveVariation={onRemoveVariation}
-              onEditKey={onEditKey}
-              onReorder={onReorder}
-              showNoImage={
-                experiment.status === "draft" ||
-                canEditExperiment ||
-                someVariationHasImage
-              }
-            />
-          );
-
-          if (onAddVariation && i === lastIndex) {
-            return (
-              <Box key={v.id} height="100%" style={{ position: "relative" }}>
-                {box}
-                <Box
-                  style={{
-                    position: "absolute",
-                    // Tighter than the grid gap, so it stays inside the frame.
-                    left: "calc(100% + var(--space-2))",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                  }}
-                >
-                  <AddVariationButton onClick={onAddVariation} />
-                </Box>
-              </Box>
-            );
-          }
-
           return (
             <Box key={v.id} height="100%">
-              {box}
+              <VariationBox
+                i={v.index}
+                v={v}
+                experiment={experiment}
+                showIds={hasUniqueIDs}
+                height={MAX_IMAGE_HEIGHT}
+                canEdit={canEditExperiment}
+                allowImages={allowImages}
+                openCarousel={(variationId, index) => {
+                  setOpenCarousel({ variationId, index });
+                }}
+                mutate={mutate}
+                percent={percentages?.[i]}
+                showSplit={showSplit}
+                isPublic={isPublic}
+                shareUid={shareUid}
+                shareType={shareType}
+                onEditMetadata={onEditMetadata}
+                showNoImage={
+                  experiment.status === "draft" ||
+                  canEditExperiment ||
+                  someVariationHasImage
+                }
+              />
             </Box>
           );
         })}

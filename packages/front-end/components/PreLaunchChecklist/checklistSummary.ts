@@ -58,8 +58,6 @@ export function summarizeChecklist(items: CheckListItem[]): ChecklistSummary {
   };
 }
 
-export const MERGE_CONFLICT_ITEM_PREFIX = "mergeConflict:";
-
 /** What an admin's start bypass waives: the server skips the check with it. */
 export function isBypassableStartItem(item: Pick<CheckListItem, "key">) {
   return item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX);

@@ -183,11 +183,7 @@ export default function BanditSummaryTable({
   const shrinkRows = variations.length > 8;
   const rowHeight = !shrinkRows ? ROW_HEIGHT : ROW_HEIGHT_CONDENSED;
 
-  useEffect(() => {
-    window.addEventListener("resize", onResize, false);
-    return () => window.removeEventListener("resize", onResize, false);
-  }, []);
-  // The container resizes without the window too, as the details panel opens.
+  // The container resizes with the window and as the details panel opens.
   useEffect(() => {
     if (!tableContainerRef.current) return;
     const resizeObserver = new ResizeObserver(() => onResize());

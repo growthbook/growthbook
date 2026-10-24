@@ -68,7 +68,6 @@ import {
   addJsonConstantExtends,
   buildStringRefInsertion,
 } from "@/components/Constants/jsonConstantInsert";
-import CornerActions, { ActionsOverlay } from "./CornerActions";
 import { ConfigEnvironmentsBadge } from "./ConfigValueBadges";
 import { useEditorDiffLines } from "./ValueDiffContext";
 
@@ -94,17 +93,13 @@ export interface Props {
   showFullscreenButton?: boolean;
   codeInputDefaultHeight?: number;
   hideCopyButton?: boolean;
-  // String only: copy overlaid on the field instead of under it.
-  actionsOverlay?: ActionsOverlay;
   // Boolean, string and number: the field's border state, with no message.
   outlineStyle?: "default" | "error" | "warning";
   /** Number fields fill their container rather than sitting at a fixed width. */
   fullWidth?: boolean;
   // Renders the "Insert constant" picker as a compact square IconButton beside
-  // the field instead of on a label row above it, and hides the copy button
-  // unless `actionsOverlay` places it.
+  // the field instead of on a label row above it, and hides the copy button.
   inlineConstantButton?: boolean;
-  inlineConstantButtonSize?: "1" | "2";
   multilineTextField?: boolean;
   /** Size for the inner text fields; defaults to `Field`'s. */
   size?: ComponentProps<typeof Field>["size"];
@@ -151,11 +146,9 @@ export default function FeatureValueField({
   showFullscreenButton = false,
   codeInputDefaultHeight,
   hideCopyButton = false,
-  actionsOverlay,
   outlineStyle,
   fullWidth = false,
   inlineConstantButton = false,
-  inlineConstantButtonSize,
   multilineTextField = false,
   size,
   sparse,
@@ -169,9 +162,8 @@ export default function FeatureValueField({
   emptyStringConfirmed = false,
   setEmptyStringConfirmed,
 }: Props) {
-  // Inline mode has no room under the field, unless copy is overlaid on it.
-  const copyHidden =
-    hideCopyButton || (inlineConstantButton && !actionsOverlay);
+  // Inline mode also suppresses the copy button.
+  const copyHidden = hideCopyButton || inlineConstantButton;
   const { hasCommercialFeature } = useUser();
   const { configs } = useDefinitions();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -633,7 +625,6 @@ export default function FeatureValueField({
         project={pickerProject}
         excludeKeys={pickerExcludeKeys}
         onInsert={insertJsonConstant}
-        disabled={disabled}
       />
     ) : null;
 
@@ -669,7 +660,6 @@ export default function FeatureValueField({
               );
               setSparse?.(checked);
             }}
-            disabled={disabled}
           />
         </Flex>
       </Flex>
@@ -860,7 +850,7 @@ export default function FeatureValueField({
   );
 
   const stringTextField = multilineTextField && valueType === "string";
-  const copyUnderField = !copyHidden && !actionsOverlay && !stringTextField;
+  const copyUnderField = !copyHidden && !stringTextField;
   const combinedHelpTextForString =
     valueType === "string" &&
     (helpText || usedConstantTags || copyUnderField) ? (
@@ -886,12 +876,8 @@ export default function FeatureValueField({
       project={pickerProject}
       excludeKeys={pickerExcludeKeys}
       onInsert={insertStringConstant}
-      disabled={disabled}
       iconOnly={compactConstant}
-      iconSize={inlineConstantButtonSize}
       indicator={stringTextField}
-      // Inline has no label above to offset from.
-      iconMt={compactConstant ? "0" : undefined}
     />
   ) : null;
   const stringLabelRow =
@@ -985,32 +971,11 @@ export default function FeatureValueField({
     />
   );
 
-  const overlaidField =
-    valueType === "string" &&
-    !stringTextField &&
-    actionsOverlay &&
-    !copyHidden ? (
-      <CornerActions
-        overlay={actionsOverlay}
-        position={{ bottom: 0, right: 0 }}
-        gap="2"
-        actions={copyButton}
-      >
-        {field}
-      </CornerActions>
-    ) : (
-      field
-    );
-
   if (inlineConstantButton && stringInsertButton) {
     return (
       <>
-        <Flex
-          align="center"
-          gap={inlineConstantButtonSize === "1" ? "1" : "2"}
-          width="100%"
-        >
-          <Box style={{ flex: 1, minWidth: 0 }}>{overlaidField}</Box>
+        <Flex align="center" gap="2" width="100%">
+          <Box style={{ flex: 1, minWidth: 0 }}>{field}</Box>
           <Box style={{ flexShrink: 0 }}>{stringInsertButton}</Box>
         </Flex>
         {emptyStringConfirmField}
@@ -1021,7 +986,7 @@ export default function FeatureValueField({
   return (
     <>
       {stringLabelRow}
-      {overlaidField}
+      {field}
       {emptyStringConfirmField}
     </>
   );

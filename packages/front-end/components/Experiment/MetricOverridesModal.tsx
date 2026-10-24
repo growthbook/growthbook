@@ -13,7 +13,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
-import { toPercentField } from "@/services/metricOverrides";
+import { decimalToPercent } from "@/services/utils";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import {
   EditMetricsFormInterface,
@@ -104,7 +104,7 @@ export default function MetricOverridesModal({
         settings,
       ),
       targetMDEs: Object.fromEntries(
-        goalTargetMDEs.map((o) => [o.id, toPercentField(o.targetMDE)]),
+        goalTargetMDEs.map((o) => [o.id, decimalToPercent(o.targetMDE, 11)]),
       ),
     },
   });

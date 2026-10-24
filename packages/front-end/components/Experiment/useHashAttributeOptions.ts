@@ -26,16 +26,12 @@ export default function useHashAttributeOptions(
     .map(toAttributeOption);
 
   if (current && !options.find((o) => o.value === current)) {
-    const full = allAttributeSchema.find((s) => s.property === current);
-    options.push({
-      label: current,
-      value: current,
-      description: full?.description,
-      tags: full?.tags,
-      datatype: full?.datatype,
-      hashAttribute: full?.hashAttribute,
-      projects: full?.projects,
-    });
+    options.push(
+      toAttributeOption({
+        ...allAttributeSchema.find((s) => s.property === current),
+        property: current,
+      }),
+    );
   }
 
   return options;

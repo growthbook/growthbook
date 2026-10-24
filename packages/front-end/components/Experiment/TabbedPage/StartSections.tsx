@@ -7,10 +7,7 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
-import {
-  formatTrafficSplit,
-  getHoldoutTrafficBreakdown,
-} from "@/services/utils";
+import { getHoldoutTrafficBreakdown } from "@/services/utils";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
@@ -133,122 +130,75 @@ export function StartChecklistFailures({
   );
 }
 
-export type StartSummaryRow = {
-  key: string;
+function HoldoutSummaryRow({
+  label,
+  inline = false,
+  children,
+}: {
   label: string;
-  value: ReactNode;
   // Short enough to sit beside its label.
-  inline: boolean;
-};
-
-/** Traffic and targeting as they will start. Empty before the first phase. */
-export function useStartSummaryRows(
-  experiment: ExperimentInterfaceStringDates,
-): StartSummaryRow[] {
-  const { namespaces } = useOrgSettings();
-  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
-  const { coverage: namespaceCoverage, name: namespaceName } =
-    getNamespaceDisplayData(latestPhase?.namespace, namespaces);
-  if (!latestPhase) return [];
-
-  const isHoldout = experiment.type === "holdout";
-  const isBandit = experiment.type === "multi-armed-bandit";
-  const holdoutTraffic = getHoldoutTrafficBreakdown(latestPhase);
-  const rows: StartSummaryRow[] = [];
-  if (latestPhase.namespace?.enabled) {
-    rows.push({
-      key: "namespace",
-      label: "Namespace",
-      inline: true,
-      value: (
-        <Text>
-          {percentFormatter.format(namespaceCoverage)} of {namespaceName}
-        </Text>
-      ),
-    });
-  }
-  rows.push({
-    key: "traffic",
-    label: "Traffic",
-    inline: !isHoldout,
-    value: isHoldout ? (
-      <Flex direction="column" gap="1">
-        <Text>{holdoutTraffic.inHoldoutPercent}% in holdout</Text>
-        <Text>
-          {holdoutTraffic.forMeasurementPercent}% not in holdout (for
-          measurement)
-        </Text>
-        <Text>
-          {holdoutTraffic.notForMeasurementPercent}% not in holdout (not for
-          measurement)
-        </Text>
-      </Flex>
-    ) : (
-      <Text>
-        {Math.floor(latestPhase.coverage * 100)}% included
-        {!isBandit && (
-          <>
-            ,{" "}
-            {formatTrafficSplit(latestPhase.variationWeights, 2, {
-              trim: true,
-            })}{" "}
-            split
-          </>
-        )}
+  inline?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Flex
+      direction={inline ? "row" : "column"}
+      gap={inline ? "2" : "1"}
+      align={inline ? "baseline" : "stretch"}
+    >
+      <Text size="md" weight="semibold" color="text-high">
+        {label}:
       </Text>
-    ),
-  });
-  if (hasAttributeCondition(latestPhase.condition)) {
-    rows.push({
-      key: "attributeTargeting",
-      label: "Attribute targeting",
-      inline: false,
-      value: <ConditionDisplay condition={latestPhase.condition} />,
-    });
-  }
-  if (latestPhase.savedGroups?.length) {
-    rows.push({
-      key: "savedGroupTargeting",
-      label: "Saved Group targeting",
-      inline: false,
-      value: (
-        <SavedGroupTargetingDisplay savedGroups={latestPhase.savedGroups} />
-      ),
-    });
-  }
-  if (latestPhase.prerequisites?.length && !isHoldout) {
-    rows.push({
-      key: "prerequisites",
-      label: "Prerequisites",
-      inline: false,
-      value: <ConditionDisplay prerequisites={latestPhase.prerequisites} />,
-    });
-  }
-  return rows;
+      <Box>{children}</Box>
+    </Flex>
+  );
 }
 
+/** A holdout's traffic and targeting as it will start. */
 export function StartSummary({
   experiment,
 }: {
   experiment: ExperimentInterfaceStringDates;
 }) {
-  const rows = useStartSummaryRows(experiment);
-  if (!rows.length) return null;
+  const { namespaces } = useOrgSettings();
+  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
+  const { coverage: namespaceCoverage, name: namespaceName } =
+    getNamespaceDisplayData(latestPhase?.namespace, namespaces);
+  if (!latestPhase) return null;
+
+  const holdoutTraffic = getHoldoutTrafficBreakdown(latestPhase);
   return (
     <Flex direction="column" gap="4">
-      {rows.map((row) => (
-        <Flex
-          key={row.key}
-          direction={row.inline ? "row" : "column"}
-          gap={row.inline ? "2" : "1"}
-          align={row.inline ? "baseline" : "stretch"}
-        >
-          <Text size="md" weight="semibold" color="text-high">
-            {row.label}:
+      {latestPhase.namespace?.enabled ? (
+        <HoldoutSummaryRow label="Namespace" inline>
+          <Text>
+            {percentFormatter.format(namespaceCoverage)} of {namespaceName}
           </Text>
-          <Box>{row.value}</Box>
+        </HoldoutSummaryRow>
+      ) : null}
+      <HoldoutSummaryRow label="Traffic">
+        <Flex direction="column" gap="1">
+          <Text>{holdoutTraffic.inHoldoutPercent}% in holdout</Text>
+          <Text>
+            {holdoutTraffic.forMeasurementPercent}% not in holdout (for
+            measurement)
+          </Text>
+          <Text>
+            {holdoutTraffic.notForMeasurementPercent}% not in holdout (not for
+            measurement)
+          </Text>
         </Flex>
-      ))}
+      </HoldoutSummaryRow>
+      {hasAttributeCondition(latestPhase.condition) ? (
+        <HoldoutSummaryRow label="Attribute targeting">
+          <ConditionDisplay condition={latestPhase.condition} />
+        </HoldoutSummaryRow>
+      ) : null}
+      {latestPhase.savedGroups?.length ? (
+        <HoldoutSummaryRow label="Saved Group targeting">
+          <SavedGroupTargetingDisplay savedGroups={latestPhase.savedGroups} />
+        </HoldoutSummaryRow>
+      ) : null}
     </Flex>
   );
 }
@@ -295,7 +245,7 @@ export function StartBlockers({
           {UPGRADE_REASONS[upgrade]}
         </Text>
       ) : null}
-      <ReadOnlyChecklistRows items={items} size="sm" />
+      <ReadOnlyChecklistRows items={items} />
     </Flex>
   );
 }

@@ -82,24 +82,26 @@ export default function StagedChanges() {
   // The check runs when the list opens or changes, not when the page renders.
   const checkAll = useRef(edits?.checkAll);
   checkAll.current = edits?.checkAll;
-  const latestCheck = useRef(0);
   useEffect(() => {
     if (!open || !checkAll.current) return;
-    const run = ++latestCheck.current;
+    let current = true;
     setCheck(null);
     checkAll
       .current()
       .then(() => {
-        if (run === latestCheck.current) setCheck({ status: "ready" });
+        if (current) setCheck({ status: "ready" });
       })
       .catch((e) => {
-        if (run === latestCheck.current) {
+        if (current) {
           setCheck({
             status: "refused",
             reason: e.message || "The save would be refused.",
           });
         }
       });
+    return () => {
+      current = false;
+    };
   }, [open, staged]);
 
   if (!edits || !staged) return null;

@@ -1,7 +1,6 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getLatestPhaseVariations } from "shared/experiments";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { FaExclamationCircle } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
@@ -20,6 +19,7 @@ import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { RedirectFields } from "@/components/Experiment/TabbedPage/linkedChangesDraft";
+import { ShownVariation } from "@/components/Experiment/TabbedPage/ImplementationColumn";
 
 function validateUrl(urlString: string): {
   isValid: boolean;
@@ -48,8 +48,6 @@ function validateUrl(urlString: string): {
     return { isValid: false, message: "Invalid URL" };
   }
 }
-
-type ShownVariation = ReturnType<typeof getLatestPhaseVariations>[number];
 
 const UrlRedirectModal: FC<{
   mode: "add" | "edit";

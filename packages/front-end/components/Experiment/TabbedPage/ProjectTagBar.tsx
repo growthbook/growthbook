@@ -23,6 +23,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import { getHealthStateFromDetailedStatus } from "@/services/experiments";
 import ProjectBadges from "@/components/ProjectBadges";
+import { getStartSchedule } from "./startActions";
 
 export type QuickEditField =
   | "project"
@@ -31,19 +32,8 @@ export type QuickEditField =
   | "tags"
   | "schedule";
 
-export interface Props {
-  /** A staged holdout ("" to leave), shown in place of the stored one. */
-  stagedHoldoutId?: string | null;
-  experiment: ExperimentInterfaceStringDates;
-  holdout?: HoldoutInterfaceStringDates;
-  /**
-   * Which of the side panel's blocks to render: who and what the experiment
-   * is and when it ran, or how it is set up.
-   */
-  panel: "about" | "details";
-  /** The quick-edit button for one field's row, where that field is editable. */
-  fieldAction?: (field: QuickEditField) => ReactNode;
-}
+/** The quick-edit button for one field's row, where that field is editable. */
+type FieldAction = ((field: QuickEditField) => ReactNode) | null;
 
 const toUTCDate = (dateValue: string | Date) => date(dateValue, "UTC");
 
@@ -53,13 +43,80 @@ const empty = () => (
   </Text>
 );
 
+/** How the experiment is set up: its key, holdout and assignment. */
+export function ExperimentDataFields({
+  experiment,
+  stagedHoldoutId = null,
+  fieldAction = null,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  /** A staged holdout ("" to leave), shown in place of the stored one. */
+  stagedHoldoutId?: string | null;
+  fieldAction?: FieldAction;
+}) {
+  const holdoutId = stagedHoldoutId ?? experiment.holdoutId ?? "";
+  // Only needed to name the holdout this experiment belongs to.
+  const { holdoutsMap } = useHoldouts(undefined, false, {
+    enabled: !!holdoutId,
+  });
+  const { useStickyBucketing } = useOrgSettings();
+  const isHoldout = experiment.type === "holdout";
+
+  return (
+    <Flex direction="column" gap="3">
+      {!isHoldout && (
+        <Metadata
+          size="sm"
+          stacked
+          label="Experiment Key"
+          action={fieldAction?.("trackingKey")}
+          value={experiment.trackingKey || empty()}
+        />
+      )}
+      {holdoutId && (
+        <Metadata
+          size="sm"
+          stacked
+          label="Holdout"
+          value={
+            <Link href={`/holdout/${holdoutId}`}>
+              {holdoutsMap.get(holdoutId)?.name}
+            </Link>
+          }
+        />
+      )}
+      <Metadata
+        size="sm"
+        stacked
+        label="Assignment attribute"
+        value={
+          experiment.fallbackAttribute
+            ? `${experiment.hashAttribute}, falling back to ${experiment.fallbackAttribute}`
+            : experiment.hashAttribute || "id"
+        }
+      />
+      {!isHoldout && useStickyBucketing ? (
+        <Metadata
+          size="sm"
+          stacked
+          label="Sticky bucketing"
+          value={experiment.disableStickyBucketing ? "Disabled" : "Enabled"}
+        />
+      ) : null}
+    </Flex>
+  );
+}
+
+/** Who and what the experiment is, and when it ran. */
 export default function ProjectTagBar({
   experiment,
   holdout,
-  stagedHoldoutId = null,
-  panel,
-  fieldAction,
-}: Props) {
+  fieldAction = null,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  holdout?: HoldoutInterfaceStringDates;
+  fieldAction?: FieldAction;
+}) {
   const {
     projects,
     project: currentProject,
@@ -70,14 +127,7 @@ export default function ProjectTagBar({
   const projectName = getProjectById(experiment.project || "")?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
 
-  const holdoutId = stagedHoldoutId ?? experiment.holdoutId ?? "";
-  // Only needed to name the holdout this experiment belongs to.
-  const { holdoutsMap } = useHoldouts(undefined, false, {
-    enabled: !!holdoutId,
-  });
-
   const statusIndicator = useExperimentStatusIndicator()(experiment);
-  const { useStickyBucketing } = useOrgSettings();
   // A data problem shows as a health badge below, so the status leaves it out.
   const statusDetail = getHealthStateFromDetailedStatus(
     statusIndicator.detailedStatus,
@@ -85,52 +135,6 @@ export default function ProjectTagBar({
     ? null
     : statusIndicator.detailedStatus;
   const isHoldout = experiment.type === "holdout";
-
-  if (panel === "details") {
-    return (
-      <Flex direction="column" gap="3">
-        {!isHoldout && (
-          <Metadata
-            size="sm"
-            stacked
-            label="Experiment Key"
-            action={fieldAction?.("trackingKey")}
-            value={experiment.trackingKey || empty()}
-          />
-        )}
-        {holdoutId && (
-          <Metadata
-            size="sm"
-            stacked
-            label="Holdout"
-            value={
-              <Link href={`/holdout/${holdoutId}`}>
-                {holdoutsMap.get(holdoutId)?.name}
-              </Link>
-            }
-          />
-        )}
-        <Metadata
-          size="sm"
-          stacked
-          label="Assignment attribute"
-          value={
-            experiment.fallbackAttribute
-              ? `${experiment.hashAttribute}, falling back to ${experiment.fallbackAttribute}`
-              : experiment.hashAttribute || "id"
-          }
-        />
-        {!isHoldout && useStickyBucketing ? (
-          <Metadata
-            size="sm"
-            stacked
-            label="Sticky bucketing"
-            value={experiment.disableStickyBucketing ? "Disabled" : "Enabled"}
-          />
-        ) : null}
-      </Flex>
-    );
-  }
 
   const projectValue = projectIsDeReferenced ? (
     <Tooltip
@@ -258,6 +262,28 @@ export default function ProjectTagBar({
   );
 }
 
+/** A scheduled date that has gone by, with a warning saying so. */
+function PassedDate({
+  warning,
+  children,
+}: {
+  warning: string;
+  children: ReactNode;
+}) {
+  return (
+    <Flex align="center" gap="1">
+      <UITooltip content={warning}>
+        <span style={{ display: "inline-flex" }}>
+          <PiWarningFill color="var(--warning)" />
+        </span>
+      </UITooltip>
+      <Text size="sm" color="text-high">
+        {children}
+      </Text>
+    </Flex>
+  );
+}
+
 /** A draft's scheduled start and end; each row edits the schedule. */
 function DraftSchedule({
   experiment,
@@ -268,7 +294,10 @@ function DraftSchedule({
 }) {
   const schedule = experiment.statusUpdateSchedule;
   const startPassed =
-    !!schedule?.startAt && new Date(schedule.startAt) < new Date();
+    getStartSchedule(
+      schedule?.startAt ? new Date(schedule.startAt) : null,
+      new Date(),
+    ) === "past";
   const end = scheduledEnd(schedule);
   if (!hasStatusSchedule(experiment)) {
     return action ? (
@@ -290,18 +319,13 @@ function DraftSchedule({
           label="Scheduled start"
           action={action}
           value={
-            <Flex align="center" gap="1">
-              {startPassed ? (
-                <UITooltip content="This start time has passed. Edit the schedule to set a new one.">
-                  <span style={{ display: "inline-flex" }}>
-                    <PiWarningFill color="var(--warning)" />
-                  </span>
-                </UITooltip>
-              ) : null}
-              <Text size="sm" color="text-high">
+            startPassed ? (
+              <PassedDate warning="This start time has passed. Edit the schedule to set a new one.">
                 {scheduledTime(schedule.startAt)}
-              </Text>
-            </Flex>
+              </PassedDate>
+            ) : (
+              scheduledTime(schedule.startAt)
+            )
           }
         />
       ) : null}
@@ -345,16 +369,9 @@ function RunningSchedule({
         !end ? (
           empty()
         ) : endPassed ? (
-          <Flex align="center" gap="1">
-            <UITooltip content="This end has passed, and the experiment kept running. Edit the schedule to set a new one.">
-              <span style={{ display: "inline-flex" }}>
-                <PiWarningFill color="var(--warning)" />
-              </span>
-            </UITooltip>
-            <Text size="sm" color="text-high">
-              {end}
-            </Text>
-          </Flex>
+          <PassedDate warning="This end has passed, and the experiment kept running. Edit the schedule to set a new one.">
+            {end}
+          </PassedDate>
         ) : (
           end
         )

@@ -28,6 +28,15 @@ export function canStartSeparateDraft(info: LinkedFeatureInfo): boolean {
   );
 }
 
+/** A flag's open drafts, newest first. Only the newest publishes at start. */
+export function flagDrafts(
+  info: Pick<LinkedFeatureInfo, "pendingDraft" | "otherPendingDrafts">,
+): LinkedFeaturePendingDraft[] {
+  return info.pendingDraft
+    ? [info.pendingDraft, ...(info.otherPendingDrafts ?? [])]
+    : [];
+}
+
 /**
  * The drafts a flag's row chooses among, newest first, and the one it's on. A
  * picked draft holds while it's open; "New draft" holds until a newer draft
@@ -37,9 +46,7 @@ export function resolveDraftPick(
   info: LinkedFeatureInfo,
   pick: DraftPick | undefined,
 ) {
-  const drafts = info.pendingDraft
-    ? [info.pendingDraft, ...(info.otherPendingDrafts ?? [])]
-    : [];
+  const drafts = flagDrafts(info);
   const picked = pick?.target;
   const startsNew =
     picked === "new" &&
@@ -69,7 +76,6 @@ export function withPickedDraft(
   return pendingDraft === info.pendingDraft ? info : { ...info, pendingDraft };
 }
 
-/** Whether the draft still needs approval, or its review is underway. */
 /**
  * Whether a confirmed start publishes this draft past its approval: the start
  * was scheduled with the bypass, and the draft is the one pinned then,
@@ -89,13 +95,6 @@ export function startBypassCovers(
       pin.featureId === featureId &&
       pin.revisionVersion === draft.version &&
       new Date(pin.dateUpdated).getTime() === new Date(dateUpdated).getTime(),
-  );
-}
-
-export function draftInReview(draft: LinkedFeaturePendingDraft): boolean {
-  return (
-    (draft.pendingApproval && !draftApprovalSatisfied(draft)) ||
-    ["pending-review", "approved", "changes-requested"].includes(draft.status)
   );
 }
 

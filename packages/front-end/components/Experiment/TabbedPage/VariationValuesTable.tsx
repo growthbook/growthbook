@@ -15,6 +15,7 @@ import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import {
   getConfigSubtree,
   getFeatureBaseConfigKey,
+  linkedFeatureEnvStates,
   parsePlainJSONObject,
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -27,10 +28,8 @@ import {
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   EnvironmentInputsPopover,
-  environmentStateTense,
   getEnvironmentStates,
   stageEnvironmentInputs,
-  statesFromInputs,
 } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import EditExperimentEnvironmentsModal from "@/components/Experiment/EditExperimentEnvironmentsModal";
 import RevisionLabel, {
@@ -87,8 +86,8 @@ import {
 } from "./ExperimentEdits";
 import {
   canStartSeparateDraft,
-  draftInReview,
   draftReviewHref,
+  draftReviewState,
   FlagDraftPicks,
   resolveDraftPick,
   startBypassCovers,
@@ -143,19 +142,19 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
   canEditFlagValues: boolean;
-  flagEnvironments?: FlagEnvironmentsDraft;
+  flagEnvironments: FlagEnvironmentsDraft;
   draftPicks: FlagDraftPicks;
   flagView: FlagView;
-  onChangeFlagView?: ((view: FlagView) => void) | null;
+  onChangeFlagView: ((view: FlagView) => void) | null;
   split: number[];
-  onChangeSplit?: ((split: number[]) => void) | null;
-  splitNote?: string | null;
+  onChangeSplit: ((split: number[]) => void) | null;
+  splitNote: string | null;
   onEditKeys?: () => void;
   onRemoveVariation?: (variationIndex: number) => void;
   onReorder?: () => void;
   onAddVariation?: () => void;
-  implementationColumns?: ImplementationColumn[];
-  addImplementation?: ReactNode;
+  implementationColumns: ImplementationColumn[];
+  addImplementation: ReactNode;
 }
 
 export default function VariationValuesTable({
@@ -165,29 +164,28 @@ export default function VariationValuesTable({
   flagEnvironments,
   draftPicks,
   flagView,
-  onChangeFlagView = null,
+  onChangeFlagView,
   split,
-  onChangeSplit = null,
-  splitNote = null,
+  onChangeSplit,
+  splitNote,
   onEditKeys,
   onRemoveVariation,
   onReorder,
   onAddVariation,
-  implementationColumns = [],
-  addImplementation = null,
+  implementationColumns,
+  addImplementation,
 }: Props) {
   const variations = getLatestPhaseVariations(experiment);
   const hasMenu = !!(onEditKeys || onRemoveVariation || onReorder);
   const flagColumns = linkedFeatures.flatMap((info): FlagColumnSource[] =>
     info.valueGroups?.length
-      ? info.valueGroups.map((group, index, groups) => ({
+      ? info.valueGroups.map((group, index) => ({
           key: `${info.feature.id}:${group.ruleIds.join(",")}`,
           info: { ...group, feature: info.feature },
           group: {
             ruleIds: group.ruleIds,
             environments: group.environments,
             first: index === 0,
-            count: groups.length,
           },
         }))
       : [{ key: info.feature.id, info, group: null }],
@@ -349,11 +347,7 @@ export default function VariationValuesTable({
             </div>
 
             <SplitColumn
-              column={2}
-              last={!columnCount}
-              firstValueRow={firstValueRow}
-              detailsRow={detailsRow}
-              variations={variations}
+              layout={{ ...layoutFor(0), column: 2, last: !columnCount }}
               split={split}
               onChange={onChangeSplit}
               note={splitNote}
@@ -390,41 +384,30 @@ export default function VariationValuesTable({
 }
 
 function SplitColumn({
-  column,
-  last,
-  firstValueRow,
-  detailsRow,
-  variations,
+  layout,
   split,
   onChange,
   note,
 }: {
-  column: number;
-  last: boolean;
-  firstValueRow: number;
-  detailsRow: number;
-  variations: ReturnType<typeof getLatestPhaseVariations>;
+  layout: ColumnLayout;
   split: number[];
   onChange: ((split: number[]) => void) | null;
   note: string | null;
 }) {
+  const { variations } = layout;
   const equal = isEqualSplit(split);
   return (
     <>
       <div
-        className={clsx(styles.headerCell, last && styles.lastColumn)}
-        style={{ gridRow: 1, gridColumn: column }}
+        className={clsx(styles.headerCell, layout.last && styles.lastColumn)}
+        style={{ gridRow: 1, gridColumn: layout.column }}
       >
         <Text weight="medium" color="text-high">
           Split
         </Text>
       </div>
       {variations.map((v, i) => (
-        <div
-          key={v.id}
-          className={clsx(styles.cell, last && styles.lastColumn)}
-          style={{ gridRow: firstValueRow + i, gridColumn: column }}
-        >
+        <ColumnCell key={v.id} layout={layout} row={i}>
           <div className={clsx(styles.fieldLine, styles.splitField)}>
             {onChange ? (
               <PercentField
@@ -439,11 +422,12 @@ function SplitColumn({
               <Text>{decimalToPercent(split[i] ?? 0)}%</Text>
             )}
           </div>
-        </div>
+        </ColumnCell>
       ))}
+      {/* Not a ColumnFooter: with nothing to say it stays :empty, and flat. */}
       <div
-        className={clsx(styles.detailsCell, last && styles.lastColumn)}
-        style={{ gridRow: detailsRow, gridColumn: column }}
+        className={clsx(styles.detailsCell, layout.last && styles.lastColumn)}
+        style={{ gridRow: layout.detailsRow, gridColumn: layout.column }}
       >
         {note ? (
           <div className={styles.footerLine}>
@@ -470,7 +454,6 @@ type ValueGroup = {
   ruleIds: string[];
   environments: string[];
   first: boolean;
-  count: number;
 };
 
 type FlagColumnSource = {
@@ -493,7 +476,7 @@ function FlagColumn({
   info: LinkedFeatureInfo;
   group: ValueGroup | null;
   canEdit: boolean;
-  flagEnvironments?: FlagEnvironmentsDraft;
+  flagEnvironments: FlagEnvironmentsDraft;
   draftPicks: FlagDraftPicks;
 }) {
   const permissionsUtil = usePermissionsUtil();
@@ -542,9 +525,12 @@ function FlagColumn({
     ? pendingDraft.defaultValue
     : feature.defaultValue;
 
+  const valuesEditId = `flag:${feature.id}${
+    group ? `:${group.ruleIds.join(",")}` : ""
+  }`;
   const [stagedFor, setStaged] = useStagedState<
     (Staged & { for: number | "new" }) | null
-  >(`flag:${feature.id}${group ? `:${group.ruleIds.join(",")}` : ""}`, null);
+  >(valuesEditId, null);
   const staged = stagedFor?.for === workingOn ? stagedFor : null;
   const pinTarget = (next: number | "new") =>
     draftPicks.set(feature.id, {
@@ -557,10 +543,10 @@ function FlagColumn({
   };
   const stagedScope = group
     ? null
-    : (flagEnvironments?.value[feature.id] ?? null);
+    : (flagEnvironments.value[feature.id] ?? null);
   const clearStaged = () => {
     setStaged(null);
-    if (!group) flagEnvironments?.set(feature.id, null);
+    if (!group) flagEnvironments.set(feature.id, null);
   };
   const [editingValues, setEditingValues] = useState<string | null>(null);
   const storedValue = (variationId: string) =>
@@ -585,13 +571,11 @@ function FlagColumn({
   );
   const lockedBySchedule = fromDraft && pendingDraft.lockedBySchedule;
   const onFlag = info.state === "live" || info.state === "draft";
+  const canEditFlagLinks =
+    canEdit && permissionsUtil.canEditFeatureDrafts(feature);
+  const canEditFlag = canEditFlagLinks && !pendingRemoval;
   const editable =
-    canEdit &&
-    !pendingRemoval &&
-    !lockedBySchedule &&
-    permissionsUtil.canEditFeatureDrafts(feature) &&
-    (onFlag || relinking) &&
-    !removing;
+    canEditFlag && !lockedBySchedule && (onFlag || relinking) && !removing;
 
   const stage = (patch: Partial<Staged>) => {
     if (typeof workingOn === "number" && pick?.target !== workingOn) {
@@ -655,45 +639,41 @@ function FlagColumn({
     return checked;
   };
 
-  useRegisterExperimentEdit(
-    `flag:${feature.id}${group ? `:${group.ruleIds.join(",")}` : ""}`,
-    dirty && !linkAction,
-    {
-      label: `${feature.id} values${
-        group ? ` (${group.environments.join(", ") || "no environments"})` : ""
-      }`,
-      review: () => ({
-        before: {
-          values: reviewValues(storedValue),
-          ...(sparse !== storedSparse && { sparse: storedSparse }),
-        },
-        after: {
-          values: reviewValues(valueFor),
+  useRegisterExperimentEdit(valuesEditId, dirty && !linkAction, {
+    label: `${feature.id} values${
+      group ? ` (${group.environments.join(", ") || "no environments"})` : ""
+    }`,
+    review: () => ({
+      before: {
+        values: reviewValues(storedValue),
+        ...(sparse !== storedSparse && { sparse: storedSparse }),
+      },
+      after: {
+        values: reviewValues(valueFor),
+        ...(sparse !== storedSparse && { sparse }),
+        ...(stagedScope && { environments: stagedScope }),
+      },
+    }),
+    changes: (options) => ({
+      flagValues: [
+        {
+          featureId: feature.id,
+          variations: checkedValues(options),
           ...(sparse !== storedSparse && { sparse }),
           ...(stagedScope && { environments: stagedScope }),
+          ...(group && { ruleIds: group.ruleIds }),
+          revision: fromDraft
+            ? {
+                version: pendingDraft.version,
+                dateUpdated: pendingDraft.dateUpdated,
+              }
+            : { version: feature.version, dateUpdated: null },
         },
-      }),
-      changes: (options) => ({
-        flagValues: [
-          {
-            featureId: feature.id,
-            variations: checkedValues(options),
-            ...(sparse !== storedSparse && { sparse }),
-            ...(stagedScope && { environments: stagedScope }),
-            ...(group && { ruleIds: group.ruleIds }),
-            revision: fromDraft
-              ? {
-                  version: pendingDraft.version,
-                  dateUpdated: pendingDraft.dateUpdated,
-                }
-              : { version: feature.version, dateUpdated: null },
-          },
-        ],
-      }),
-      onSaved: clearStaged,
-      discard: clearStaged,
-    },
-  );
+      ],
+    }),
+    onSaved: clearStaged,
+    discard: clearStaged,
+  });
 
   const clearLinkAction = () => {
     setLinkAction(null);
@@ -746,10 +726,6 @@ function FlagColumn({
   );
   const canStartNew = canStartSeparateDraft(info) && canEdit;
   const canChooseTarget = !!pendingDraft && (drafts.length > 1 || canStartNew);
-  const canEditFlag =
-    canEdit && !pendingRemoval && permissionsUtil.canEditFeatureDrafts(feature);
-  const canEditFlagLinks =
-    canEdit && permissionsUtil.canEditFeatureDrafts(feature);
   const launches = experiment.status === "draft";
   const removeBlocked = experiment.status === "running";
   const launchDraft = drafts[0];
@@ -896,20 +872,13 @@ function FlagColumn({
     shownInputs && stageEnvironmentInputs(shownInputs, shownScope);
   const environmentStates = getEnvironmentStates(
     shownScope && environmentInputs
-      ? { environmentStates: statesFromInputs(environmentInputs) }
+      ? { environmentStates: linkedFeatureEnvStates(environmentInputs) }
       : showsDraft
         ? pendingDraft
         : {
             environmentStates:
               info.liveEnvironmentStates ?? info.environmentStates,
           },
-    {
-      future: environmentStateTense({
-        status: experiment.status,
-        unpublished: showsDraft || !!shownScope,
-        launches: isLaunchDraft,
-      }),
-    },
   );
   const liveInput = (env: string) =>
     info.liveEnvironmentInputs?.[env] ?? {
@@ -985,7 +954,7 @@ function FlagColumn({
   const revisionNotes = showsDraft
     ? draftNotes
     : ["Saving starts a new draft of this Feature Flag."];
-  const inReview = !!shownDraft && draftInReview(shownDraft);
+  const inReview = !!shownDraft && draftReviewState(shownDraft) !== "ready";
   const revisionDot = <StatusDot color={draftStatusDotColor(revisionStatus)} />;
   const revisionPicker =
     canChooseTarget && !showingLive ? (
@@ -1144,7 +1113,6 @@ function FlagColumn({
           )}
           initialSparse={sparse}
           sparseEligible={sparseEligible}
-          baseDefault={sparseBase}
           configBackingOptionKeys={configBackingOptionKeys}
           close={() => setEditingValues(null)}
           focusVariationId={editingValues}
@@ -1163,7 +1131,7 @@ function FlagColumn({
           showFlag={false}
           close={() => setEditEnvironments(false)}
           apply={(scope) => {
-            flagEnvironments?.set(feature.id, scope);
+            flagEnvironments.set(feature.id, scope);
             setEditEnvironments(false);
           }}
         />

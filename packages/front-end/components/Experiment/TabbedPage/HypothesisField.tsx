@@ -1,4 +1,5 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   AISuggestionType,
@@ -9,23 +10,68 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import InlineMarkdownField from "@/components/Experiment/TabbedPage/InlineMarkdownField";
+import Markdown from "@/components/Markdown/Markdown";
+import AIRichTextField from "@/components/Markdown/AIRichTextField";
+import Text from "@/ui/Text";
+import {
+  experimentFieldChanges,
+  useRegisterExperimentEdit,
+  useStagedState,
+} from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
+import QuickEditButton, {
+  revealsQuickEdit,
+} from "@/components/Experiment/TabbedPage/QuickEditButton";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  /** Show the editor rather than the rendered markdown. */
   editable: boolean;
   /** Past draft, the hypothesis still opens for editing from its pencil. */
   canEdit: boolean;
 }
 
+/**
+ * The hypothesis, edited in place on the page and written by its Save bar, or
+ * read back as markdown where it isn't editable.
+ */
 export default function HypothesisField({
   experiment,
-  editable,
+  editable: editableHere,
   canEdit,
 }: Props) {
   const { apiCall } = useAuth();
   const gb = useGrowthBook<AppFeatures>();
   const aiSuggestion = useRef<string | null>(null);
+
+  const savedValue = experiment.hypothesis || "";
+  const [value, setValue] = useStagedState("inline:hypothesis", savedValue);
+  const [editingOnDemand, setEditingOnDemand] = useState(
+    () => value.trim() !== savedValue.trim(),
+  );
+  const editable = editableHere || editingOnDemand;
+
+  const dirty = editable && value.trim() !== savedValue.trim();
+  useRegisterExperimentEdit("inline:hypothesis", dirty, {
+    label: "Hypothesis",
+    changes: () =>
+      experimentFieldChanges(experiment, { hypothesis: value.trim() }),
+    onSaved: () => {
+      if (aiSuggestion.current) {
+        track("experiment-hypothesis-saved-after-ai-suggestion", {
+          aiUsageData: computeAIUsageData({
+            value: value.trim(),
+            aiSuggestionText: aiSuggestion.current,
+          }),
+        });
+      }
+      setEditingOnDemand(false);
+    },
+    discard: () => {
+      setValue(savedValue);
+      setEditingOnDemand(false);
+    },
+  });
 
   // Throws on failure: the field shows the error, and owns the opt-in and
   // premium gates.
@@ -55,32 +101,50 @@ export default function HypothesisField({
     return res?.data?.output ?? "";
   };
 
-  return (
-    <InlineMarkdownField
-      label="Hypothesis"
-      experiment={experiment}
-      field="hypothesis"
+  const body = editable ? (
+    <AIRichTextField
+      value={value}
+      onChange={setValue}
       placeholder="What do you expect to happen, and why?"
-      editable={editable}
-      editOnDemand={canEdit}
-      emptyLabel="No hypothesis"
-      collapsibleToolbar
-      onSaved={(hypothesis) => {
-        if (aiSuggestion.current) {
-          track("experiment-hypothesis-saved-after-ai-suggestion", {
-            aiUsageData: computeAIUsageData({
-              value: hypothesis,
-              aiSuggestionText: aiSuggestion.current,
-            }),
-          });
-        }
-      }}
       aiSuggestFunction={suggestHypothesis}
       aiButtonText="Check Hypothesis"
       onAISuggestionReceived={(result) => {
         aiSuggestion.current = result;
       }}
       trackingSource="experiment-setup-tab"
+      collapsibleToolbar
     />
+  ) : savedValue ? (
+    <Markdown>{savedValue}</Markdown>
+  ) : (
+    <Text weight="regular" color="text-mid" size="md" fontStyle="italic">
+      No hypothesis
+    </Text>
+  );
+
+  return (
+    <SetupFieldRow
+      label="Hypothesis"
+      labelSize="lg"
+      content={editable ? "control" : "text"}
+      // One line with its pencil, so the label centres on it.
+      labelAlign={!editable && !savedValue ? "center" : "top"}
+    >
+      {!editable && canEdit ? (
+        <Flex
+          align={savedValue ? "start" : "center"}
+          gap="2"
+          className={revealsQuickEdit}
+        >
+          <Box minWidth="0">{body}</Box>
+          <QuickEditButton
+            label="Edit hypothesis"
+            onClick={() => setEditingOnDemand(true)}
+          />
+        </Flex>
+      ) : (
+        body
+      )}
+    </SetupFieldRow>
   );
 }

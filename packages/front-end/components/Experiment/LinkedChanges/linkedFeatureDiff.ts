@@ -1,44 +1,5 @@
 import isEqual from "lodash/isEqual";
 import { LinkedFeatureInfo } from "shared/types/experiment";
-import { ExperimentRefVariation } from "shared/types/feature";
-
-export type VariationValueChange = {
-  variationId: string;
-  before?: string;
-  after: string;
-  // Moved against a live value. False without one: there is nothing to diff.
-  changed: boolean;
-  // Not yet serving — `changed`, or a rule that has never published at all.
-  unpublished: boolean;
-};
-
-const valueFor = (
-  values: ExperimentRefVariation[] | undefined,
-  variationId: string,
-) => values?.find((v) => v.variationId === variationId)?.value;
-
-/**
- * The draft's values against live, per variation. A draft can change its rule
- * without moving a value, so ask here rather than trusting that a draft exists.
- */
-export function getVariationValueChanges(
-  info: Pick<LinkedFeatureInfo, "values" | "liveValues" | "pendingDraft">,
-  variationIds: string[],
-): VariationValueChange[] {
-  const draft = info.pendingDraft?.values ?? info.values;
-  return variationIds.map((variationId) => {
-    const after = valueFor(draft, variationId) ?? "";
-    const before = valueFor(info.liveValues, variationId);
-    const changed = before !== undefined && before !== after;
-    return {
-      variationId,
-      before,
-      after,
-      changed,
-      unpublished: changed || before === undefined,
-    };
-  });
-}
 
 /** Whether the draft would move where the experiment runs. */
 export function environmentStatesDiffer(
@@ -52,18 +13,22 @@ export function environmentStatesDiffer(
   );
 }
 
-/** Whether the flag's draft moves anything the experiment page shows. */
+/**
+ * Whether the flag's draft moves anything the experiment page shows. A draft
+ * can change its rule without moving a value, so a draft alone isn't enough.
+ */
 export function hasUnpublishedChanges(
   info: Pick<
     LinkedFeatureInfo,
-    "values" | "liveValues" | "pendingDraft" | "liveEnvironmentStates"
+    "liveValues" | "pendingDraft" | "liveEnvironmentStates"
   >,
 ): boolean {
   if (!info.pendingDraft) return false;
   return (
-    getVariationValueChanges(
-      info,
-      (info.pendingDraft.values ?? []).map((v) => v.variationId),
-    ).some((c) => c.unpublished) || environmentStatesDiffer(info)
+    (info.pendingDraft.values ?? []).some(
+      (v) =>
+        info.liveValues?.find((l) => l.variationId === v.variationId)?.value !==
+        v.value,
+    ) || environmentStatesDiffer(info)
   );
 }

@@ -24,29 +24,7 @@ import SplitButton from "@/ui/SplitButton";
 import Tooltip from "@/ui/Tooltip";
 import { ICON_PROPERTIES } from "./constants";
 
-// What adding each no-code kind needs: an SDK that applies it, and the plan
-// feature that lets the experiment start. A Feature Flag needs neither.
-const ADD_GATES = {
-  visual: {
-    header: "AI Visual Editor",
-    commercialFeature: "visual-editor",
-    sdkCapabilityKey: "visualEditor",
-  },
-  urlredirect: {
-    header: "URL Redirects",
-    commercialFeature: "redirects",
-    sdkCapabilityKey: "redirects",
-  },
-} as const satisfies Record<
-  string,
-  {
-    header: string;
-    commercialFeature: CommercialFeature;
-    sdkCapabilityKey: SDKCapability;
-  }
->;
-
-export type AddableKind = "feature" | keyof typeof ADD_GATES;
+export type AddableKind = "feature" | "visual" | "urlredirect";
 export const ADDABLE_KINDS: AddableKind[] = [
   "feature",
   "visual",
@@ -58,32 +36,57 @@ const ADD_OPTIONS: Record<
   {
     header: string;
     description: string;
+    addLabel: string;
     icon: ReactElement;
     color: AvatarProps["color"];
+    // What adding a no-code kind needs: an SDK that applies it, and the plan
+    // feature that lets the experiment start. A Feature Flag needs neither.
+    gate: {
+      name: string;
+      commercialFeature: CommercialFeature;
+      sdkCapabilityKey: SDKCapability;
+    } | null;
   }
 > = {
   feature: {
     header: "Feature Flag",
     description: "Make code changes in your app",
+    addLabel: "Add Feature Flag",
     icon: <PiFlag />,
     color: ICON_PROPERTIES["feature-flag"].radixColor,
+    gate: null,
   },
   visual: {
     header: "AI Visual Editor",
     description: "No-code browser extension",
+    addLabel: "Add AI Visual Editor changes",
     icon: <PiDesktop />,
     color: ICON_PROPERTIES["visual-editor"].radixColor,
+    gate: {
+      name: "AI Visual Editor",
+      commercialFeature: "visual-editor",
+      sdkCapabilityKey: "visualEditor",
+    },
   },
   urlredirect: {
     header: "URL Redirect",
     description: "A/B test URL redirects",
+    addLabel: "Add URL redirect",
     icon: <PiLink />,
     color: ICON_PROPERTIES.redirects.radixColor,
+    gate: {
+      name: "URL Redirects",
+      commercialFeature: "redirects",
+      sdkCapabilityKey: "redirects",
+    },
   },
 };
 
+const PREMIUM_BODY =
+  "You can add this to your draft, but you will not be able to start the experiment until upgrading.";
+
 /** Why this kind can't be added yet, and the plan feature starting it needs. */
-export function useLinkedChangeAddGate(
+function useLinkedChangeAddGate(
   type: AddableKind,
   experiment: ExperimentInterfaceStringDates,
 ): {
@@ -91,19 +94,19 @@ export function useLinkedChangeAddGate(
   commercialFeature: CommercialFeature | null;
 } {
   const { data: sdkConnectionsData } = useSDKConnections();
-  if (type === "feature") {
+  const { gate } = ADD_OPTIONS[type];
+  if (!gate) {
     return { unsupportedReason: null, commercialFeature: null };
   }
-  const { header, commercialFeature, sdkCapabilityKey } = ADD_GATES[type];
   const hasSDKWithFeature = getConnectionsSDKCapabilities({
     connections: sdkConnectionsData?.connections ?? [],
     project: experiment.project ?? "",
-  }).includes(sdkCapabilityKey);
+  }).includes(gate.sdkCapabilityKey);
   return {
     unsupportedReason: hasSDKWithFeature
       ? null
-      : `The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`,
-    commercialFeature,
+      : `The SDKs in this project don't support ${gate.name}. Upgrade your SDK(s) or add a supported SDK.`,
+    commercialFeature: gate.commercialFeature,
   };
 }
 
@@ -152,7 +155,7 @@ function AddImplementationItem({
       ) : commercialFeature && !hasCommercialFeature(commercialFeature) ? (
         <PremiumTooltip
           commercialFeature={commercialFeature}
-          body="You can add this to your draft, but you will not be able to start the experiment until upgrading."
+          body={PREMIUM_BODY}
           tipPosition="left"
         >
           {content}
@@ -161,37 +164,6 @@ function AddImplementationItem({
         content
       )}
     </DropdownMenuItem>
-  );
-}
-
-const ADD_LABELS: Record<AddableKind, string> = {
-  feature: "Add Feature Flag",
-  visual: "Add AI Visual Editor changes",
-  urlredirect: "Add URL redirect",
-};
-
-function AddAnotherButton({
-  type,
-  experiment,
-  onClick,
-  blockedReason,
-}: {
-  type: AddableKind;
-  experiment: ExperimentInterfaceStringDates;
-  onClick: () => void;
-  blockedReason?: string | null;
-}) {
-  const { unsupportedReason, commercialFeature } = useLinkedChangeAddGate(
-    type,
-    experiment,
-  );
-  return (
-    <AddImplementationButton
-      label={ADD_LABELS[type]}
-      onClick={onClick}
-      disabledReason={blockedReason ?? unsupportedReason}
-      commercialFeature={commercialFeature}
-    />
   );
 }
 
@@ -255,7 +227,7 @@ export function AddImplementationMenu({
         </DropdownMenu>
       }
     >
-      <AddAnotherButton
+      <AddImplementationButton
         type={primary}
         experiment={experiment}
         onClick={onAdd[primary]}
@@ -270,17 +242,22 @@ export function AddImplementationMenu({
  * draft, which then can't start.
  */
 function AddImplementationButton({
-  label,
+  type,
+  experiment,
   onClick,
-  disabledReason = null,
-  commercialFeature = null,
+  blockedReason,
 }: {
-  label: string;
+  type: AddableKind;
+  experiment: ExperimentInterfaceStringDates;
   onClick: () => void;
-  disabledReason?: string | null;
-  commercialFeature?: CommercialFeature | null;
+  blockedReason?: string | null;
 }) {
   const { hasCommercialFeature } = useUser();
+  const { unsupportedReason, commercialFeature } = useLinkedChangeAddGate(
+    type,
+    experiment,
+  );
+  const disabledReason = blockedReason ?? unsupportedReason;
   const button = (
     <Button
       variant="outline"
@@ -288,7 +265,7 @@ function AddImplementationButton({
       onClick={onClick}
       disabled={!!disabledReason}
     >
-      {label}
+      {ADD_OPTIONS[type].addLabel}
     </Button>
   );
   if (disabledReason) {
@@ -298,7 +275,7 @@ function AddImplementationButton({
     return (
       <PremiumTooltip
         commercialFeature={commercialFeature}
-        body="You can add this to your draft, but you will not be able to start the experiment until upgrading."
+        body={PREMIUM_BODY}
         usePortal
       >
         {button}

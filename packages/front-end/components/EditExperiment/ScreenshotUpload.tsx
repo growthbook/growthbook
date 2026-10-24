@@ -20,7 +20,6 @@ type props = {
   variation: number;
   onSuccess: (variation: number, screenshot: Screenshot) => void;
   children?: ReactNode;
-  noDrag?: boolean;
   /** Appended to the drop target, for callers that size it themselves. */
   className?: string;
   /** Appended to the drag prompt, for callers with room to place it. */
@@ -34,7 +33,6 @@ const ScreenshotUpload = ({
   variation,
   onSuccess,
   children,
-  noDrag,
   className,
   messageClassName,
   message = "Drop",
@@ -100,7 +98,6 @@ const ScreenshotUpload = ({
   };
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    noDrag,
   });
 
   // getRootProps assumes generic HTMLElement, but we're using HTMLDivElement
@@ -114,7 +111,7 @@ const ScreenshotUpload = ({
     <>
       <div
         {...typedRootProps}
-        onPaste={noDrag ? undefined : onPaste}
+        onPaste={onPaste}
         tabIndex={0}
         className={clsx(styles.droparea, className, {
           [styles.dragging]: isDragActive,
@@ -124,11 +121,7 @@ const ScreenshotUpload = ({
       >
         {loading > 0 ? <LoadingOverlay /> : ""}
         <input {...getInputProps()} />
-        {!noDrag && (
-          <div className={clsx(styles.message, messageClassName)}>
-            {message}
-          </div>
-        )}
+        <div className={clsx(styles.message, messageClassName)}>{message}</div>
         {children}
       </div>
     </>

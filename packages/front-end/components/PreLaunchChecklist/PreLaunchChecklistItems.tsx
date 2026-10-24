@@ -21,7 +21,6 @@ import {
 import track from "@/services/track";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import { startBypassCovers } from "@/components/Experiment/TabbedPage/draftPicks";
-import { MERGE_CONFLICT_ITEM_PREFIX } from "./checklistSummary";
 
 export type ChecklistAction =
   | { onClick: () => void }
@@ -60,6 +59,50 @@ export function linkedFeatureAction(
     href: `/features/${f.feature.id}${version !== null ? `?v=${version}` : ""}`,
     external: true,
   };
+}
+
+// The rows below are raised by a linked flag wherever it goes live: an
+// experiment's start or a Contextual Bandit's.
+export function mergeConflictRows(
+  linkedFeatures: LinkedFeatureInfo[],
+): CheckListItem[] {
+  return linkedFeatures
+    .filter((f) => f.state === "draft" && f.hasMergeConflict)
+    .map(
+      (f): CheckListItem => ({
+        key: `mergeConflict:${f.feature.id}`,
+        status: "incomplete",
+        type: "auto",
+        required: true,
+        hardBlock: true,
+        display: `Resolve the merge conflict in ${f.feature.id}`,
+        action: linkedFeatureAction(f),
+      }),
+    );
+}
+
+export function missingVariationValueRows(
+  linkedFeatures: LinkedFeatureInfo[],
+  variations: { id: string }[],
+): CheckListItem[] {
+  return linkedFeatures
+    .filter((f) => {
+      if (f.state === "discarded" || f.state === "archived") return false;
+      const configuredVariationIds = new Set(
+        f.values.map((v) => v.variationId),
+      );
+      return variations.some((v) => !configuredVariationIds.has(v.id));
+    })
+    .map(
+      (f): CheckListItem => ({
+        key: `missingVariationValues:${f.feature.id}`,
+        status: "incomplete",
+        type: "auto",
+        required: true,
+        display: `Fill in missing variation values for ${f.feature.id}`,
+        action: linkedFeatureAction(f, false),
+      }),
+    );
 }
 
 export function getChecklistItems({
@@ -232,19 +275,7 @@ export function getChecklistItems({
     // hard blockers — auto-publish would reject or silently push unreviewed
     // edits. Surfaced as separate items so multiple issues on one draft
     // aren't hidden behind a single row.
-    linkedFeatures
-      .filter((f) => f.state === "draft" && f.hasMergeConflict)
-      .forEach((f) => {
-        items.push({
-          key: `${MERGE_CONFLICT_ITEM_PREFIX}${f.feature.id}`,
-          status: "incomplete",
-          type: "auto",
-          required: true,
-          hardBlock: true,
-          display: `Resolve the merge conflict in ${f.feature.id}`,
-          action: linkedFeatureAction(f),
-        });
-      });
+    items.push(...mergeConflictRows(linkedFeatures));
 
     linkedFeatures
       .filter((f) => f.state === "draft" && f.cannotPublish)
@@ -320,39 +351,24 @@ export function getChecklistItems({
         });
       });
 
-    const latestVariations = getLatestPhaseVariations(experiment);
-    linkedFeatures
-      .filter((f) => f.state !== "discarded" && f.state !== "archived")
-      .forEach((f) => {
-        const configuredVariationIds = new Set(
-          f.values.map((v) => v.variationId),
-        );
-        const hasMissingValues = latestVariations.some(
-          (v) => !configuredVariationIds.has(v.id),
-        );
-        if (hasMissingValues) {
-          items.push({
-            key: `missingVariationValues:${f.feature.id}`,
-            status: "incomplete",
-            type: "auto",
-            required: true,
-            display: `Fill in missing variation values for ${f.feature.id}`,
-            action: linkedFeatureAction(f, false),
-          });
-        }
-      });
+    items.push(
+      ...missingVariationValueRows(
+        linkedFeatures,
+        getLatestPhaseVariations(experiment),
+      ),
+    );
   }
 
+  const hasAnyVisualChanges = visualChangesets.some((vc) =>
+    hasVisualChanges(vc.visualChanges),
+  );
   // No empty visual changesets
   if (visualChangesets.length > 0) {
-    const hasSomeVisualChanges = visualChangesets.some((vc) =>
-      hasVisualChanges(vc.visualChanges),
-    );
     items.push({
       key: "visualEditorChanges",
       display: "Add changes in the AI Visual Editor",
       action: onClick(openImplementation),
-      status: hasSomeVisualChanges ? "complete" : "incomplete",
+      status: hasAnyVisualChanges ? "complete" : "incomplete",
       type: "auto",
       // An A/A test is a valid experiment that doesn't have changes, so don't make this required
       required: false,
@@ -397,9 +413,6 @@ export function getChecklistItems({
         : undefined,
   });
 
-  const hasAnyVisualChanges = visualChangesets.some((vc) =>
-    hasVisualChanges(vc.visualChanges),
-  );
   if (hasAnyVisualChanges) {
     items.push({
       type: "auto",

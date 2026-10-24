@@ -5,37 +5,35 @@ import {
 
 const shown = (from: string, to: string) => {
   const parts = redirectDestinationParts(from, to);
-  return parts
-    ? `${parts.elided ? "…" : ""}${parts.kept}[${parts.changed}]`
-    : null;
+  return parts ? `${parts.elided ? "…" : ""}${parts.path}` : null;
 };
 
 describe("redirectDestinationParts", () => {
-  it("shows what changes from the last shared segment, in whole words", () => {
+  it("shows the path from the last shared segment", () => {
     expect(
       shown(
         "https://shop.example.com/checkout",
         "https://shop.example.com/checkout?layout=single-page",
       ),
-    ).toBe("/checkout[?layout=single-page]");
+    ).toBe("/checkout?layout=single-page");
     expect(
       shown(
         "https://shop.example.com/a/pricing",
         "https://shop.example.com/a/products/experiments",
       ),
-    ).toBe("…/[products/experiments]");
+    ).toBe("…/products/experiments");
   });
 
   it("keeps the host out of it", () => {
     expect(
       shown("https://www.example.com", "https://www.example.com/landing"),
-    ).toBe("/[landing]");
+    ).toBe("/landing");
   });
 
   it("shows the whole path of a destination up a level", () => {
     expect(
       shown("https://www.example.com/pricing", "https://www.example.com/"),
-    ).toBe("[/]");
+    ).toBe("/");
   });
 
   it("leaves another host or an unparseable URL to show in full", () => {

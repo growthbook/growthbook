@@ -18,10 +18,10 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import {
   DraftReviewState,
-  draftInReview,
   draftNextStep,
   draftReviewHref,
   draftReviewState,
+  flagDrafts,
   revisionHref,
   startBypassCovers,
 } from "./draftPicks";
@@ -111,23 +111,17 @@ export default function DraftReviewCallouts({
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
 }) {
-  const inReview = linkedFeatures.flatMap(
-    ({ feature, pendingDraft, otherPendingDrafts }): DraftInReview[] => {
-      const drafts = pendingDraft
-        ? [pendingDraft, ...(otherPendingDrafts ?? [])]
+  const inReview = linkedFeatures.flatMap((info): DraftInReview[] =>
+    flagDrafts(info).flatMap((draft, i) => {
+      const publishesAtStart = experiment.status === "draft" && i === 0;
+      const waiting =
+        !startBypassCovers(experiment, info.feature.id, draft) &&
+        (draftReviewState(draft) !== "ready" ||
+          (draft.hasChanges && !publishesAtStart));
+      return waiting
+        ? [{ featureId: info.feature.id, draft, publishesAtStart }]
         : [];
-      return drafts.flatMap((draft) => {
-        // Only the newest draft that changes the rule publishes at start.
-        const publishesAtStart =
-          experiment.status === "draft" && draft.version === drafts[0].version;
-        const waiting =
-          !startBypassCovers(experiment, feature.id, draft) &&
-          (draftInReview(draft) || (draft.hasChanges && !publishesAtStart));
-        return waiting
-          ? [{ featureId: feature.id, draft, publishesAtStart }]
-          : [];
-      });
-    },
+    }),
   );
   if (!inReview.length) return null;
 

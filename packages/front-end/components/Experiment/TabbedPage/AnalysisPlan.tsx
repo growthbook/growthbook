@@ -92,28 +92,24 @@ export default function AnalysisPlan({
       null,
     );
 
-  const metricOverrides =
-    (advanced && "metricOverrides" in advanced
-      ? advanced.metricOverrides
-      : experiment.metricOverrides) ?? [];
-  const decisionFrameworkSettings =
-    advanced && "decisionFrameworkSettings" in advanced
-      ? advanced.decisionFrameworkSettings
-      : experiment.decisionFrameworkSettings;
+  // The experiment as the staged settings leave it.
+  const effective = useMemo(
+    () => ({ ...experiment, ...advanced }),
+    [experiment, advanced],
+  );
+  const metricOverrides = effective.metricOverrides ?? [];
+  const decisionFrameworkSettings = effective.decisionFrameworkSettings;
   const targetMDEOverrides = useDecisionFrameworkApplies(experiment)
     ? (decisionFrameworkSettings?.decisionFrameworkMetricOverrides ?? [])
     : undefined;
   const statsEngine = getScopedSettings({
     organization,
     project: getProjectById(experiment.project || "") ?? undefined,
-    experiment:
-      advanced && "statsEngine" in advanced
-        ? { ...experiment, statsEngine: advanced.statsEngine }
-        : experiment,
+    experiment: effective,
   }).settings.statsEngine.value;
   const settingsScope = useMemo(
-    () => ({ experiment: { ...experiment, ...advanced }, statsEngine }),
-    [experiment, advanced, statsEngine],
+    () => ({ experiment: effective, statsEngine }),
+    [effective, statsEngine],
   );
   const [overridesFor, setOverridesFor] = useState<string[] | null>(null);
 
@@ -314,12 +310,7 @@ export default function AnalysisPlan({
     touch,
   ]);
 
-  const activationMetric =
-    advanced && "activationMetric" in advanced
-      ? advanced.activationMetric
-      : experiment.activationMetric;
-  const segment =
-    advanced && "segment" in advanced ? advanced.segment : experiment.segment;
+  const { activationMetric, segment } = effective;
 
   const metricRow = (
     label: string,
@@ -397,7 +388,7 @@ export default function AnalysisPlan({
         <AnalysisForm
           cancel={() => setSettingsOpen(false)}
           // Opens on the page's draft, so confirming hands back what it shows.
-          experiment={{ ...settingsScope.experiment, ...current }}
+          experiment={{ ...effective, ...current }}
           mutate={mutate}
           phase={experiment.phases.length - 1}
           // Dates are a phase edit, not an analysis setting: they have no place

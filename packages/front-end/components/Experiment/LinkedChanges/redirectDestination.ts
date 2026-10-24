@@ -1,5 +1,3 @@
-const URL_BREAKS = "/?&=#-_.";
-
 export function withoutProtocol(url: string): string {
   return url.replace(/^https?:\/\//i, "");
 }
@@ -10,13 +8,13 @@ function pathAfterHost(url: URL): string {
 
 /**
  * How a redirect's destination reads beside its origin on the same host: the
- * path from the last segment the two share, then what differs in whole words.
- * Null for another host or an unparseable URL, which show in full.
+ * path from the last segment the two share. Null for another host or an
+ * unparseable URL, which show in full.
  */
 export function redirectDestinationParts(
   from: string,
   to: string,
-): { elided: boolean; kept: string; changed: string } | null {
+): { elided: boolean; path: string } | null {
   let fromPath: string;
   let toPath: string;
   try {
@@ -28,25 +26,12 @@ export function redirectDestinationParts(
   } catch {
     return null;
   }
-  let changed = 0;
-  while (changed < fromPath.length && fromPath[changed] === toPath[changed]) {
-    changed++;
-  }
-  while (
-    changed > 0 &&
-    !URL_BREAKS.includes(toPath[changed - 1]) &&
-    !URL_BREAKS.includes(toPath[changed] ?? "/")
-  ) {
-    changed--;
+  let shared = 0;
+  while (shared < fromPath.length && fromPath[shared] === toPath[shared]) {
+    shared++;
   }
   // Up a level, as to the homepage: nothing is added, so the path says it.
-  if (changed >= toPath.length) {
-    return { elided: false, kept: "", changed: toPath };
-  }
-  const cut = Math.max(toPath.lastIndexOf("/", changed - 1), 0);
-  return {
-    elided: cut > 0,
-    kept: toPath.slice(cut, changed),
-    changed: toPath.slice(changed),
-  };
+  if (shared >= toPath.length) return { elided: false, path: toPath };
+  const cut = Math.max(toPath.lastIndexOf("/", shared - 1), 0);
+  return { elided: cut > 0, path: toPath.slice(cut) };
 }

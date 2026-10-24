@@ -21,14 +21,11 @@ import {
   reconcileCustomFieldValues,
 } from "@/services/customFields";
 
-export type FocusSelector = "project" | "tags" | "name" | "projects";
-
 /**
  * Which of the experiment's details the modal edits. One field makes a quick,
  * narrow editor; custom fields are edited as a block.
  */
 export type InfoSection =
-  | "all"
   | "name"
   | "trackingKey"
   | "owner"
@@ -37,8 +34,7 @@ export type InfoSection =
   | "description"
   | "customFields";
 
-const SECTION_HEADERS: Record<InfoSection, string> = {
-  all: "Edit Info",
+export const SECTION_HEADERS: Record<InfoSection, string> = {
   name: "Edit Name",
   trackingKey: "Edit Experiment Key",
   owner: "Edit Owner",
@@ -52,8 +48,7 @@ interface Props {
   experiment: ExperimentInterfaceStringDates;
   setShowEditInfoModal: (value: boolean) => void;
   mutate: () => void;
-  focusSelector?: FocusSelector;
-  section?: InfoSection;
+  section: InfoSection;
   /** With the customFields section, just this one field. */
   customFieldId?: string | null;
 }
@@ -62,14 +57,9 @@ export default function EditExperimentInfoModal({
   experiment,
   setShowEditInfoModal,
   mutate,
-  focusSelector = "name",
-  section = "all",
+  section,
   customFieldId,
 }: Props) {
-  const shows = (part: Exclude<InfoSection, "all">) =>
-    section === "all" || section === part;
-  const focus: InfoSection | FocusSelector =
-    section === "all" ? focusSelector : section;
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const canUpdateExperimentProject = (project) =>
@@ -118,7 +108,7 @@ export default function EditExperimentInfoModal({
       open={true}
       close={() => setShowEditInfoModal(false)}
       trackingEventModalType="edit-experiment-info"
-      size={section === "all" || section === "description" ? "lg" : "md"}
+      size={section === "description" ? "lg" : "md"}
       trackingEventModalSource="experiment-more-menu"
       header={
         customFieldId && shownCustomFields.length
@@ -128,31 +118,26 @@ export default function EditExperimentInfoModal({
       submit={form.handleSubmit(async (data) => {
         // Only what this section shows: custom fields are rewritten whole, so
         // an unrelated save would drop values outside the project's scope.
-        const shown = (Object.keys(data) as (keyof typeof data)[]).filter(
-          (part) => shows(part),
-        );
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
-          body: JSON.stringify(
-            Object.fromEntries(shown.map((part) => [part, data[part]])),
-          ),
+          body: JSON.stringify({ [section]: data[section] }),
         });
         mutate();
       })}
     >
-      {shows("name") ? (
+      {section === "name" ? (
         <Field
           size="legacy"
-          autoFocus={focus === "name"}
+          autoFocus
           label="Experiment Name"
           {...form.register("name")}
           required
         />
       ) : null}
-      {shows("trackingKey") ? (
+      {section === "trackingKey" ? (
         <Field
           size="legacy"
-          autoFocus={focus === "trackingKey"}
+          autoFocus
           disabled={experiment.status !== "draft"}
           label="Experiment Key"
           {...form.register("trackingKey")}
@@ -160,25 +145,25 @@ export default function EditExperimentInfoModal({
           {...trackingKeyFormatProps}
         />
       ) : null}
-      {shows("owner") ? (
+      {section === "owner" ? (
         <SelectOwner
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
         />
       ) : null}
-      {shows("tags") ? (
+      {section === "tags" ? (
         <div className="form-group">
           <Box mb="2">
             <Text weight="semibold">Tags</Text>
           </Box>
           <TagsInput
-            autoFocus={focus === "tags"}
+            autoFocus
             value={form.watch("tags") ?? []}
             onChange={(tags) => form.setValue("tags", tags)}
           />
         </div>
       ) : null}
-      {shows("project") ? (
+      {section === "project" ? (
         <>
           <SelectField
             size="legacy"
@@ -193,7 +178,7 @@ export default function EditExperimentInfoModal({
                 />
               </>
             }
-            autoFocus={focus === "project"}
+            autoFocus
             value={form.watch("project")}
             onChange={(v) => form.setValue("project", v)}
             options={projectOptions}
@@ -208,8 +193,8 @@ export default function EditExperimentInfoModal({
           ) : null}
         </>
       ) : null}
-      {shows("description") ? (
-        <Box mt={section === "description" ? "0" : "4"}>
+      {section === "description" ? (
+        <Box>
           <Box mb="2">
             <Text weight="semibold">Description</Text>
           </Box>
@@ -223,8 +208,8 @@ export default function EditExperimentInfoModal({
           />
         </Box>
       ) : null}
-      {shows("customFields") && shownCustomFields.length > 0 ? (
-        <Box mt={section === "customFields" ? "0" : "4"}>
+      {section === "customFields" && shownCustomFields.length > 0 ? (
+        <Box>
           <CustomFieldInput
             fields={shownCustomFields}
             value={form.watch("customFields")}

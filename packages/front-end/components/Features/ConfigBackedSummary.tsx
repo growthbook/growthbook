@@ -92,8 +92,6 @@ export default function ConfigBackedSummary({
   isDefault = false,
   environment,
   label = "SERVE",
-  showCopyButton = true,
-  fontSize,
   lineHeight,
   actionsOverlay,
 }: {
@@ -108,8 +106,6 @@ export default function ConfigBackedSummary({
   // The environment this value is being previewed for, so the config resolves
   // with its matching env flavor (scopedOverrides). Absent = the base value.
   environment?: string;
-  showCopyButton?: boolean;
-  fontSize?: string;
   lineHeight?: number;
   actionsOverlay?: ActionsOverlay;
 }) {
@@ -286,9 +282,7 @@ export default function ConfigBackedSummary({
               sparse
               defaultValue={JSON.stringify(resolved.merged)}
               showFullscreenButton={true}
-              showCopyButton={showCopyButton}
               fullStyle={fullStyle}
-              fontSize={fontSize}
               lineHeight={lineHeight}
               actionsOverlay={actionsOverlay}
             />
@@ -297,9 +291,7 @@ export default function ConfigBackedSummary({
               value={JSON.stringify(resolved.merged, null, 2)}
               type="json"
               showFullscreenButton={true}
-              showCopyButton={showCopyButton}
               fullStyle={fullStyle}
-              fontSize={fontSize}
               lineHeight={lineHeight}
               actionsOverlay={actionsOverlay}
             />

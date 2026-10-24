@@ -15,10 +15,8 @@ export default function ForceSummary({
   isDefault = false,
   environment,
   label = "SERVE",
-  fontSize,
   lineHeight,
   actionsOverlay,
-  showCopyButton = true,
   monochrome,
 }: {
   value: string;
@@ -27,8 +25,7 @@ export default function ForceSummary({
   sparse?: boolean;
   // null for surfaces that already label the value.
   label?: string | null;
-  // Denser type for a cramped surface; defaults are ValueDisplay's own.
-  fontSize?: string;
+  // Denser type for a cramped surface; the default is ValueDisplay's own.
   lineHeight?: number;
   actionsOverlay?: ActionsOverlay;
   // The feature's default value (vs a rule). A config-backed default is a pure
@@ -37,7 +34,6 @@ export default function ForceSummary({
   // Environment this value is shown for, so a config-backed value previews its
   // matching env flavor. Absent (e.g. all-environments view) = the base value.
   environment?: string;
-  showCopyButton?: boolean;
   monochrome?: boolean;
 }) {
   // Mirror the SDK compiler: a value resolves a config ONLY when the feature is
@@ -59,8 +55,6 @@ export default function ForceSummary({
         isDefault={isDefault}
         environment={environment}
         label={label}
-        showCopyButton={showCopyButton}
-        fontSize={fontSize}
         lineHeight={lineHeight}
         actionsOverlay={actionsOverlay}
       />
@@ -76,10 +70,8 @@ export default function ForceSummary({
             value={value}
             type={feature.valueType}
             showFullscreenButton={true}
-            showCopyButton={showCopyButton}
             sparse={sparse}
             defaultValue={feature.defaultValue}
-            fontSize={fontSize}
             lineHeight={lineHeight}
             monochrome={monochrome}
             actionsOverlay={actionsOverlay}

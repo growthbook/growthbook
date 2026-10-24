@@ -1,6 +1,6 @@
 import { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import { Box, Flex, Grid, IconButton, Slider } from "@radix-ui/themes";
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { getEqualWeights } from "shared/experiments";
 import {
   PiArrowsClockwise,
@@ -10,11 +10,10 @@ import {
 import {
   capTypedPercent,
   COVERAGE_DECIMALS,
-  coverageFromPercent,
-  coverageToPercent,
   decimalToPercent,
   distributeWeights,
   isEqualSplit,
+  percentToDecimal,
   percentToDecimalForNumber,
 } from "@/services/utils";
 import {
@@ -195,69 +194,14 @@ export default function FeatureVariationsInput({
       {simple ? (
         <>
           {!hideCoverage ? (
-            <Box px="4" pt="4" mb="6" className="bg-highlight rounded">
-              <Text as="label" mb="0">
-                {coverageLabel}{" "}
-                <Tooltip content={coverageTooltip} side="top">
-                  <Box
-                    as="span"
-                    display="inline-block"
-                    tabIndex={0}
-                    aria-label={`More information about ${coverageLabel}`}
-                  >
-                    <GBInfo />
-                  </Box>
-                </Tooltip>
-              </Text>
-              <Flex align="center" pb="4" gap="3">
-                <Box flexGrow="1">
-                  <Slider
-                    value={
-                      isNaN(coverage ?? 0)
-                        ? [0]
-                        : [decimalToPercent(coverage ?? 0)]
-                    }
-                    min={0}
-                    max={100}
-                    step={1}
-                    disabled={!!disableCoverage}
-                    onValueChange={(e) => {
-                      let decimal = percentToDecimalForNumber(e[0]);
-                      if (decimal > 1) decimal = 1;
-                      if (decimal < 0) decimal = 0;
-                      setCoverage?.(decimal);
-                    }}
-                  />
-                </Box>
-                <Box>
-                  <Box position="relative" className={styles.percentInputWrap}>
-                    <Field
-                      size="legacy"
-                      style={{ width: 95 }}
-                      value={
-                        isNaN(coverage ?? 0)
-                          ? ""
-                          : coverageToPercent(coverage ?? 0)
-                      }
-                      onChange={(e) => {
-                        let decimal = coverageFromPercent(
-                          capTypedPercent(e.target.value, COVERAGE_DECIMALS),
-                        );
-                        if (decimal > 1) decimal = 1;
-                        if (decimal < 0) decimal = 0;
-                        setCoverage?.(decimal);
-                      }}
-                      type="number"
-                      min={0}
-                      max={100}
-                      step="1"
-                      disabled={!!disableCoverage}
-                    />
-                    <Text as="span">%</Text>
-                  </Box>
-                </Box>
-              </Flex>
-            </Box>
+            <CoverageField
+              coverage={coverage}
+              setCoverage={setCoverage}
+              label={coverageLabel}
+              tooltip={coverageTooltip}
+              disabled={disableCoverage}
+              inputDisabled={disableCoverage}
+            />
           ) : null}
           <Field
             size="legacy"
@@ -286,70 +230,16 @@ export default function FeatureVariationsInput({
       ) : (
         <>
           {!hideCoverage ? (
-            <Box px="4" pt="4" mb="6" className="bg-highlight rounded">
-              <Text as="label" mb="0">
-                {coverageLabel}{" "}
-                <Tooltip content={coverageTooltip} side="top">
-                  <Box
-                    as="span"
-                    display="inline-block"
-                    tabIndex={0}
-                    aria-label={`More information about ${coverageLabel}`}
-                  >
-                    <GBInfo />
-                  </Box>
-                </Tooltip>
-              </Text>
-              <Flex align="center" pb="4" gap="3">
-                <Box flexGrow="1">
-                  <Slider
-                    value={
-                      isNaN(coverage ?? 0)
-                        ? [0]
-                        : [decimalToPercent(coverage ?? 0)]
-                    }
-                    min={0}
-                    max={100}
-                    step={1}
-                    disabled={!!disableCoverage}
-                    onValueChange={(e) => {
-                      let decimal = percentToDecimalForNumber(e[0]);
-                      if (decimal > 1) decimal = 1;
-                      if (decimal < 0) decimal = 0;
-                      setCoverage?.(decimal);
-                    }}
-                  />
-                </Box>
-                <Box>
-                  <Box position="relative" className={styles.percentInputWrap}>
-                    <Field
-                      size="legacy"
-                      style={{ width: 95 }}
-                      value={
-                        isNaN(coverage ?? 0)
-                          ? ""
-                          : coverageToPercent(coverage ?? 0)
-                      }
-                      onChange={(e) => {
-                        let decimal = coverageFromPercent(
-                          capTypedPercent(e.target.value, COVERAGE_DECIMALS),
-                        );
-                        if (decimal > 1) decimal = 1;
-                        if (decimal < 0) decimal = 0;
-                        setCoverage?.(decimal);
-                      }}
-                      type="number"
-                      min={0}
-                      max={100}
-                      step="1"
-                      disabled={
-                        !!disableCoverage && onlySafeToEditVariationMetadata
-                      }
-                    />
-                    <Text as="span">%</Text>
-                  </Box>
-                </Box>
-              </Flex>
+            <CoverageField
+              coverage={coverage}
+              setCoverage={setCoverage}
+              label={coverageLabel}
+              tooltip={coverageTooltip}
+              disabled={disableCoverage}
+              inputDisabled={
+                disableCoverage && !!onlySafeToEditVariationMetadata
+              }
+            >
               {showPreview && coverage !== undefined && variations ? (
                 <Box pb="4">
                   <ExperimentSplitVisual
@@ -359,7 +249,7 @@ export default function FeatureVariationsInput({
                   />
                 </Box>
               ) : null}
-            </Box>
+            </CoverageField>
           ) : null}
 
           {canToggleAdvanced &&
@@ -516,7 +406,6 @@ export default function FeatureVariationsInput({
                         customSplit={editingSplits}
                         valueType={valueType}
                         valueAsId={valueAsId}
-                        valueIsKey={valueIsKey}
                         hideVariationIds={hideVariationIds}
                         hideValueField={!editingIds}
                         hideSplit={hideSplits}
@@ -562,6 +451,86 @@ export default function FeatureVariationsInput({
           )}
         </>
       )}
+    </Box>
+  );
+}
+
+// The included-traffic slider and its typed percentage.
+function CoverageField({
+  coverage,
+  setCoverage,
+  label,
+  tooltip,
+  disabled,
+  inputDisabled,
+  children,
+}: {
+  coverage?: number;
+  setCoverage?: (coverage: number) => void;
+  label: string;
+  tooltip: string;
+  disabled: boolean;
+  inputDisabled: boolean;
+  children?: ReactNode;
+}) {
+  const unset = isNaN(coverage ?? 0);
+  const set = (decimal: number) =>
+    setCoverage?.(Math.min(Math.max(decimal, 0), 1));
+  return (
+    <Box px="4" pt="4" mb="6" className="bg-highlight rounded">
+      <Text as="label" mb="0">
+        {label}{" "}
+        <Tooltip content={tooltip} side="top">
+          <Box
+            as="span"
+            display="inline-block"
+            tabIndex={0}
+            aria-label={`More information about ${label}`}
+          >
+            <GBInfo />
+          </Box>
+        </Tooltip>
+      </Text>
+      <Flex align="center" pb="4" gap="3">
+        <Box flexGrow="1">
+          <Slider
+            value={unset ? [0] : [decimalToPercent(coverage ?? 0)]}
+            min={0}
+            max={100}
+            step={1}
+            disabled={disabled}
+            onValueChange={(e) => set(percentToDecimalForNumber(e[0]))}
+          />
+        </Box>
+        <Box>
+          <Box position="relative" className={styles.percentInputWrap}>
+            <Field
+              size="legacy"
+              style={{ width: 95 }}
+              value={
+                unset
+                  ? ""
+                  : decimalToPercent(coverage ?? 0, COVERAGE_DECIMALS + 2)
+              }
+              onChange={(e) =>
+                set(
+                  percentToDecimal(
+                    capTypedPercent(e.target.value, COVERAGE_DECIMALS),
+                    COVERAGE_DECIMALS + 2,
+                  ),
+                )
+              }
+              type="number"
+              min={0}
+              max={100}
+              step="1"
+              disabled={inputDisabled}
+            />
+            <Text as="span">%</Text>
+          </Box>
+        </Box>
+      </Flex>
+      {children}
     </Box>
   );
 }

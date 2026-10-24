@@ -1,7 +1,7 @@
 import { ReactNode, ReactElement, useRef } from "react";
 import { DiffMethod } from "react-diff-viewer-continued";
 import isEqual from "lodash/isEqual";
-import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Box, Flex, Grid, VisuallyHidden } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import {
@@ -29,7 +29,6 @@ import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 import { useExperiments } from "@/hooks/useExperiments";
 import VariationLabel from "@/ui/VariationLabel";
-import VisuallyHidden from "@/ui/VisuallyHidden";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import { useEnvironments } from "@/services/features";

@@ -24,18 +24,17 @@ export default function FlagValuesModal({
   initialValues,
   initialSparse,
   sparseEligible,
-  baseDefault,
   configBackingOptionKeys,
   focusVariationId,
   close,
   apply,
 }: {
+  /** Its default value is the base a sparse value patches. */
   feature: FeatureInterface;
   variations: { id: string; name: string; index: number }[];
   initialValues: Record<string, string>;
   initialSparse: boolean;
   sparseEligible: boolean;
-  baseDefault: string;
   configBackingOptionKeys?: string[];
   focusVariationId: string;
   close: () => void;
@@ -70,7 +69,6 @@ export default function FlagValuesModal({
     return () => clearTimeout(timer);
   }, [focusVariationId]);
 
-  const displayFeature = { ...feature, defaultValue: baseDefault };
   const configBacked = !!configBackingOptionKeys;
 
   // Rewrites every value, like the rule editors.
@@ -80,8 +78,8 @@ export default function FlagValuesModal({
         Object.entries(prev).map(([id, v]) => [
           id,
           checked
-            ? stripDefaultsForSparse(v, baseDefault)
-            : expandSparseToFull(v, baseDefault),
+            ? stripDefaultsForSparse(v, feature.defaultValue)
+            : expandSparseToFull(v, feature.defaultValue),
         ]),
       ),
     );
@@ -147,7 +145,7 @@ export default function FlagValuesModal({
                   setValues((prev) => ({ ...prev, [v.id]: next }))
                 }
                 valueType={feature.valueType}
-                feature={displayFeature}
+                feature={feature}
                 renderJSONInline
                 showFullscreenButton
                 codeInputDefaultHeight={FIVE_LINES_HEIGHT}

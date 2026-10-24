@@ -77,8 +77,7 @@ interface ExperimentEditsValue {
     acknowledged: boolean;
     acknowledge: (acknowledged: boolean) => void;
   } | null;
-  /** Resolves with why the save failed, or null once it's written. */
-  saveAll: () => Promise<string | null>;
+  saveAll: () => Promise<void>;
   discardAll: () => void;
   /** The staged edits, in the order they were made. */
   staged: { id: string; label: string }[];
@@ -275,7 +274,6 @@ export function ExperimentEditsProvider({
       }
       setUnscopedRefusal(null);
       setAllowUnscopedRules(false);
-      return null;
     } catch (e) {
       const message = e.message || "Could not save your changes";
       if (e instanceof ApiCallError && e.code === "unscoped_rule") {
@@ -283,7 +281,6 @@ export function ExperimentEditsProvider({
       } else {
         setError(message);
       }
-      return message;
     } finally {
       setSaving(false);
       if (wrote) mutate();
@@ -415,11 +412,6 @@ export function useExperimentEdits() {
   return useContext(ExperimentEditsContext);
 }
 
-/** Null outside the page's provider, where there's no save to check. */
-export function useCheckExperimentChanges(): CheckChanges | null {
-  return useContext(ExperimentEditsContext)?.checkChanges ?? null;
-}
-
 /**
  * Hands the page a field's pending change. Pass `dirty` false once it matches
  * what is stored, and the field drops out of the pending set.
@@ -444,23 +436,22 @@ export function useRegisterExperimentEdit(
       : undefined;
     ctx.register(
       id,
-      !dirty
-        ? null
-        : inChangeset
-          ? {
-              label,
-              review,
-              changes: (options) => latest.current.changes?.(options) ?? {},
-              discard,
-              onSaved,
-            }
-          : {
-              label,
-              review,
-              save: () => latest.current.save?.() ?? Promise.resolve(),
-              discard,
-              onSaved,
-            },
+      dirty
+        ? {
+            label,
+            review,
+            discard,
+            onSaved,
+            ...(inChangeset
+              ? {
+                  changes: (options: { dryRun: boolean }) =>
+                    latest.current.changes?.(options) ?? {},
+                }
+              : {
+                  save: () => latest.current.save?.() ?? Promise.resolve(),
+                }),
+          }
+        : null,
     );
   }, [ctx, id, dirty, inChangeset, label]);
 

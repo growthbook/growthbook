@@ -20,15 +20,9 @@ import {
 
 function RedirectDestination({ from, to }: { from: string; to: string }) {
   const parts = redirectDestinationParts(from, to);
-  const shown = parts ? (
-    <>
-      {parts.elided ? "…" : null}
-      {parts.kept}
-      {parts.changed}
-    </>
-  ) : (
-    withoutProtocol(to)
-  );
+  const shown = parts
+    ? `${parts.elided ? "…" : ""}${parts.path}`
+    : withoutProtocol(to);
   return (
     <Tooltip content={to} enabled={!!parts?.elided}>
       <Link href={to} external style={{ overflowWrap: "anywhere" }}>

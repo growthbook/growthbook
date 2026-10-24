@@ -21,13 +21,14 @@ import {
   getActivePhaseIndex,
   getLatestPhaseVariations,
 } from "shared/experiments";
-import { Flex, Separator } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import UrlRedirectColumn from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
 import {
   ADDABLE_KINDS,
   AddImplementationMenu,
 } from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import VisualChangesetColumn from "@/components/Experiment/VisualChangesetTable";
+import VariationsTable from "@/components/Experiment/VariationsTable";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import {
   ColumnLayout,
@@ -59,12 +60,11 @@ import Frame from "@/ui/Frame";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import HoldoutEnvironments from "./HoldoutEnvironments";
-import VariationDetails from "./VariationDetails";
 import {
   experimentFieldChanges,
   FlagEnvironmentsDraft,
   HoldoutDraft,
-  useCheckExperimentChanges,
+  useExperimentEdits,
   useRegisterExperimentEdit,
   useStagedState,
 } from "./ExperimentEdits";
@@ -251,7 +251,7 @@ export default function Implementation({
       setLinkedDraft((d) => stageVisualChange(d, stored, change)),
     [setLinkedDraft],
   );
-  const checkChanges = useCheckExperimentChanges();
+  const checkChanges = useExperimentEdits()?.checkChanges;
   const [redirectModal, setRedirectModal] = useState<{
     // Null to add one.
     target: ShownRedirect | null;
@@ -297,9 +297,7 @@ export default function Implementation({
   useEffect(() => {
     if (!holdoutEditable && stagedHoldout !== null) setStagedHoldout?.(null);
   }, [holdoutEditable, stagedHoldout, setStagedHoldout]);
-  const canEditExperiment =
-    !experiment.archived &&
-    permissionsUtil.canViewExperimentModal(experiment.project);
+  const { canEdit: canEditExperiment } = useExperimentEditing(experiment);
 
   const hasVisualEditorPermission =
     canEditExperiment && permissionsUtil.canRunExperiment(experiment, []);
@@ -507,12 +505,20 @@ export default function Implementation({
               implementationColumns={implementationColumns}
               addImplementation={addImplementation}
             />
-            <VariationDetails
-              experiment={stagedExperiment}
-              canEdit={canEditExperiment}
-              onEdit={setEditMetadataIndex}
-              mutate={mutate}
-            />
+            <Box mt="5" mb="4">
+              <Heading as="h4" size="sm" color="text-high" mb="3">
+                Variation Summary
+              </Heading>
+              <VariationsTable
+                experiment={stagedExperiment}
+                canEditExperiment={canEditExperiment}
+                onEditMetadata={setEditMetadataIndex}
+                mutate={mutate}
+                showSplit={false}
+                noMargin
+                fill
+              />
+            </Box>
           </>
         ) : (
           <TrafficAndTargeting

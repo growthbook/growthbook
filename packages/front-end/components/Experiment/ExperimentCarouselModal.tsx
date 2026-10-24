@@ -1,14 +1,13 @@
 import { FC, useState, useCallback, useEffect, useMemo } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, Text, VisuallyHidden } from "@radix-ui/themes";
 import { MdArrowBackIosNew, MdArrowForwardIos } from "react-icons/md";
 import { PiCameraSlashLight } from "react-icons/pi";
 import Modal from "@/ui/Modal";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import Button from "@/ui/Button";
 import VariationLabel from "@/ui/VariationLabel";
-import VisuallyHidden from "@/ui/VisuallyHidden";
 import styles from "./ExperimentCarouselModal.module.scss";
 
 // Wide enough for the Close button; reserved on both sides so the thumbnail

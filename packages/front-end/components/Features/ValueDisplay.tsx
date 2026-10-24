@@ -242,8 +242,6 @@ export default function ValueDisplay({
     <>
       <CornerActions
         overlay={actionsOverlay}
-        position={{ bottom: -4, right: 16 }}
-        gap="3"
         actions={
           isFullscreen ? null : (
             <>

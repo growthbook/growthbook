@@ -1,4 +1,4 @@
-import { ReactNode, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { Flex, Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
@@ -109,7 +109,12 @@ function StartContent({
   close,
   handOff,
 }: ContentProps & { close: () => void; handOff: () => void }) {
-  const gate = useStartGate({ experiment, linkedFeatures, start });
+  const [bypassed, setBypassed] = useState(false);
+  // A refusal's items need their own acknowledgment, not an earlier tick.
+  useEffect(() => {
+    if (start.checklistFailures.length) setBypassed(false);
+  }, [start.checklistFailures]);
+  const gate = useStartGate({ experiment, linkedFeatures, start, bypassed });
   const editsBlocked = useEditsBlockedReason();
   const end = scheduledEnd(experiment.statusUpdateSchedule);
   const [error, setError] = useState<string | null>(null);
@@ -118,10 +123,11 @@ function StartContent({
     ? scheduledTime(gate.scheduledStartAt)
     : null;
   const pastSchedule = gate.schedule === "past" && dateLabel;
-  const { checklistItemsRemaining, checklistReady, loadError, summary } =
+  const { checklistItemsRemaining, loadError, summary } =
     usePreLaunchChecklist();
   // Hidden once nothing is left to do or look at.
-  const showTodo = !checklistReady || loadError || summary.flagged.length > 0;
+  const showTodo =
+    checklistItemsRemaining !== 0 || loadError || summary.flagged.length > 0;
   // Starting publishes what's stored, not what's staged.
   const blockedReason = editsBlocked ?? start.banditBlockedReason;
   const { bypassLabel, waivesApproval } = gate.actions;
@@ -243,8 +249,8 @@ function StartContent({
               )
             }
             weight="regular"
-            value={gate.bypassed}
-            setValue={(val) => gate.setBypassed(!!val)}
+            value={bypassed}
+            setValue={(val) => setBypassed(!!val)}
           />
         ) : null}
         {error ? (

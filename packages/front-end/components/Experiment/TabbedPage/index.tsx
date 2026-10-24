@@ -635,7 +635,7 @@ function TabbedPageContents({
         editResult={editResult || undefined}
         editTargeting={editTargeting}
         detailsOpen={detailsShown}
-        setDetailsOpen={showDetailsPanel ? toggleDetailsPanel : undefined}
+        setDetailsOpen={toggleDetailsPanel}
         start={start}
         startOpen={startOpen}
         setStartOpen={setStartOpen}

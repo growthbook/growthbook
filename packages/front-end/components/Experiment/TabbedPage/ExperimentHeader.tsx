@@ -73,7 +73,6 @@ import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import ScheduledEndPassedBanner from "@/components/Experiment/TabbedPage/ScheduledEndPassedBanner";
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
-import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -95,8 +94,8 @@ import { ExperimentTab } from ".";
 export interface Props {
   tab: ExperimentTab;
   setTab: (tab: ExperimentTab, scrollToId?: string) => void;
-  detailsOpen?: boolean;
-  setDetailsOpen?: (open: boolean) => void;
+  detailsOpen: boolean;
+  setDetailsOpen: (open: boolean) => void;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   duplicate?: (() => void) | null;
@@ -212,7 +211,6 @@ export default function ExperimentHeader({
   const { getDatasourceById } = useDefinitions();
   const dataSource = getDatasourceById(experiment.datasource);
   const { snapshot, phase, analysis } = useSnapshot();
-  const { checklistReady } = usePreLaunchChecklist();
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteAcknowledged, setDeleteAcknowledged] = useState(false);
@@ -352,16 +350,13 @@ export default function ExperimentHeader({
     "multi-armed-bandits",
   );
 
-  const hasUpdatePermissions = !holdout
-    ? permissionsUtil.canUpdateExperiment(experiment, {})
-    : permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects });
+  const { hasUpdatePermissions, canRunExperiment } = start;
   const canDeleteExperiment = !holdout
     ? permissionsUtil.canDeleteExperiment(experiment)
     : permissionsUtil.canDeleteHoldout(holdout);
   const canEditExperiment = !experiment.archived && hasUpdatePermissions;
   const [editingName, setEditingName] = useState(false);
   const editsBlocked = useEditsBlockedReason();
-  const { canRunExperiment } = start;
   const canCreateTemplate =
     permissionsUtil.canViewExperimentTemplateModal(experiment.project) &&
     hasCommercialFeature("templates");
@@ -386,10 +381,9 @@ export default function ExperimentHeader({
   );
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
-  const shouldHideTabs = showDashboardView;
 
   useEffect(() => {
-    if (shouldHideTabs) return;
+    if (showDashboardView) return;
     const el = tabsPinSentinelRef.current;
     if (!el) return;
 
@@ -405,16 +399,16 @@ export default function ExperimentHeader({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [shouldHideTabs]);
+  }, [showDashboardView]);
 
   // When the tab strip is hidden, the only reachable view is the overview, so
   // force the active tab there. Once `tab` is already "overview" this is a
   // no-op, so Back exits cleanly.
   useEffect(() => {
-    if (shouldHideTabs && tab !== "overview") {
+    if (showDashboardView && tab !== "overview") {
       setTab("overview");
     }
-  }, [shouldHideTabs, tab, setTab]);
+  }, [showDashboardView, tab, setTab]);
 
   async function handleWatchUpdates(watch: boolean) {
     await apiCall(
@@ -500,11 +494,6 @@ export default function ExperimentHeader({
 
   const showSaveAsTemplateButton = canCreateTemplate && !isBandit;
 
-  const holdoutHasSchedule =
-    isHoldout &&
-    Object.values(holdout?.statusUpdateSchedule ?? {}).some(
-      (value) => value !== null,
-    );
   const showEditStatus =
     canRunExperiment &&
     !isBandit &&
@@ -527,14 +516,19 @@ export default function ExperimentHeader({
   const showHoldoutActions =
     isHoldout && canRunExperiment && (showHoldoutOverride || showForceStatus);
   const hasAnySchedule = isHoldout
-    ? holdoutHasSchedule
+    ? !!holdout && hasStatusSchedule(holdout)
     : hasStatusSchedule(experiment);
   const nextScheduledStartDate =
     experiment.nextScheduledStatusUpdate?.type === "start" &&
     experiment.nextScheduledStatusUpdate?.date
       ? new Date(experiment.nextScheduledStatusUpdate.date)
       : null;
-  const startGate = useStartGate({ experiment, linkedFeatures, start });
+  const startGate = useStartGate({
+    experiment,
+    linkedFeatures,
+    start,
+    bypassed: false,
+  });
   // Nothing this viewer can do from the popover would start it, so the button
   // says what's left instead of opening.
   const startBlocked =
@@ -544,11 +538,7 @@ export default function ExperimentHeader({
   // A holdout starts from its modal; anything else, from the start popover.
   const startButton = (
     <Button
-      variant={
-        (isHoldout ? checklistReady : startGate.actions.ready)
-          ? "solid"
-          : "soft"
-      }
+      variant={isHoldout || startGate.actions.ready ? "solid" : "soft"}
       onClick={isHoldout ? () => setShowStartExperiment(true) : undefined}
       disabled={!canRunExperiment || !!editsBlocked || startBlocked}
       // Disabled buttons take no hover, so it reaches the summary around it.
@@ -1341,7 +1331,7 @@ export default function ExperimentHeader({
         ) : null}
       </div>
 
-      {shouldHideTabs ? null : (
+      {showDashboardView ? null : (
         <>
           <div
             ref={tabsPinSentinelRef}
@@ -1415,32 +1405,30 @@ export default function ExperimentHeader({
                     </Flex>
                   </TabsList>
                 </Tabs>
-                {setDetailsOpen ? (
-                  <UITooltip content={detailsToggleLabel}>
-                    <IconButton
-                      size="1"
-                      variant="ghost"
-                      color={detailsOpen ? undefined : "gray"}
-                      style={{
-                        // Ghost sizes itself from its padding; pin the box so
-                        // the toggle does not shift as it flips.
-                        margin: 0,
-                        marginLeft: "var(--space-3)",
-                        padding: 0,
-                        width: "var(--space-5)",
-                        height: "var(--space-5)",
-                      }}
-                      aria-label={detailsToggleLabel}
-                      onClick={() => setDetailsOpen(!detailsOpen)}
-                    >
-                      {/* Flipped so the small bar sits on the right, like the panel. */}
-                      <DetailsToggleIcon
-                        size={16}
-                        style={{ transform: "scaleX(-1)" }}
-                      />
-                    </IconButton>
-                  </UITooltip>
-                ) : null}
+                <UITooltip content={detailsToggleLabel}>
+                  <IconButton
+                    size="1"
+                    variant="ghost"
+                    color={detailsOpen ? undefined : "gray"}
+                    style={{
+                      // Ghost sizes itself from its padding; pin the box so
+                      // the toggle does not shift as it flips.
+                      margin: 0,
+                      marginLeft: "var(--space-3)",
+                      padding: 0,
+                      width: "var(--space-5)",
+                      height: "var(--space-5)",
+                    }}
+                    aria-label={detailsToggleLabel}
+                    onClick={() => setDetailsOpen(!detailsOpen)}
+                  >
+                    {/* Flipped so the small bar sits on the right, like the panel. */}
+                    <DetailsToggleIcon
+                      size={16}
+                      style={{ transform: "scaleX(-1)" }}
+                    />
+                  </IconButton>
+                </UITooltip>
               </div>
             </div>
           </div>

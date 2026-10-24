@@ -177,6 +177,7 @@ export default function useStartExperiment({
   }
 
   return {
+    hasUpdatePermissions,
     canRunExperiment,
     banditBlockedReason,
     pendingDraftFailures,

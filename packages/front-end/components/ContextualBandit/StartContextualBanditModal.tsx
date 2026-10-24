@@ -30,6 +30,8 @@ import StartModalSection from "@/components/Experiment/StartModalSection";
 import { ChecklistItems } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import {
   linkedFeatureAction,
+  mergeConflictRows,
+  missingVariationValueRows,
   type CheckListItem,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
 import { summarizeChecklist } from "@/components/PreLaunchChecklist/checklistSummary";
@@ -65,24 +67,14 @@ function getChecklistItems(
     );
   }
 
-  linkedFeatures
-    .filter((f) => f.state === "draft" && f.hasMergeConflict)
-    .forEach((f) => {
-      items.push(
-        blocker({
-          key: `merge-${f.feature.id}`,
-          display: `Resolve the merge conflict in ${f.feature.id}`,
-          action: linkedFeatureAction(f),
-        }),
-      );
-    });
+  items.push(...mergeConflictRows(linkedFeatures));
 
   linkedFeatures
     .filter(
       (f) =>
         f.pendingApproval &&
         !f.hasUnrelatedDraftChanges &&
-        f.draftRevisionStatus !== "approved",
+        !(f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved"),
     )
     .forEach((f) => {
       items.push(
@@ -118,26 +110,7 @@ function getChecklistItems(
       );
     });
 
-  linkedFeatures
-    .filter((f) => f.state !== "discarded" && f.state !== "archived")
-    .forEach((f) => {
-      const configuredVariationIds = new Set(
-        f.values.map((v) => v.variationId),
-      );
-      const hasMissingValues = cb.variations.some(
-        (v) => !configuredVariationIds.has(v.id),
-      );
-      if (hasMissingValues) {
-        items.push({
-          key: `values-${f.feature.id}`,
-          status: "incomplete",
-          type: "auto",
-          required: true,
-          display: `Fill in missing variation values for ${f.feature.id}`,
-          action: linkedFeatureAction(f, false),
-        });
-      }
-    });
+  items.push(...missingVariationValueRows(linkedFeatures, cb.variations));
 
   return items;
 }

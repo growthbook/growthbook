@@ -144,7 +144,7 @@ function auditVerb(action: string): string {
 }
 
 /** A verdict's colour; null for anything that isn't one. */
-export function verdictColor(action: string): "green" | "red" | null {
+function verdictColor(action: string): "green" | "red" | null {
   return action === "Approved"
     ? "green"
     : action === "Requested Changes"
@@ -153,7 +153,7 @@ export function verdictColor(action: string): "green" | "red" | null {
 }
 
 /** The comment a log entry carries, if its value is JSON with one. */
-export function logComment(log: { value: string }): string | undefined {
+function logComment(log: { value: string }): string | undefined {
   try {
     return JSON.parse(log.value)?.comment;
   } catch {
@@ -162,7 +162,7 @@ export function logComment(log: { value: string }): string | undefined {
 }
 
 /** Oldest first. */
-export function sortRevisionLog<T extends { timestamp: unknown }>(log: T[]) {
+function sortRevisionLog<T extends { timestamp: unknown }>(log: T[]) {
   return [...log].sort((a, b) =>
     String(a.timestamp).localeCompare(String(b.timestamp)),
   );
@@ -170,7 +170,7 @@ export function sortRevisionLog<T extends { timestamp: unknown }>(log: T[]) {
 
 // Icons and colors mirror RevisionStatusBadge so the timeline and the
 // actions-column header speak the same visual language.
-export function rowVisual(action: string): RowVisual {
+function rowVisual(action: string): RowVisual {
   switch (action) {
     case "Comment":
       return {
@@ -305,7 +305,7 @@ export type VerdictRetraction = {
 
 // Verdict tags: why an approval doesn't count, and whether it was retracted.
 // One row so they never crowd the header line.
-export function VerdictTags({
+function VerdictTags({
   uncoveredReason,
   retraction,
   mb,
@@ -602,7 +602,7 @@ type TimelineBlock =
  * user's own newer verdict (superseded, no badge). A later `Review Requested`
  * starts a fresh cycle.
  */
-export function scanVerdictRetractions(
+function scanVerdictRetractions(
   sorted: RevisionLog[],
   userId?: string | null,
 ): WeakMap<RevisionLog, VerdictRetraction> {
@@ -650,7 +650,7 @@ export function scanVerdictRetractions(
  * The current user's standing verdict — the only one `undo-review` can act on,
  * so it is the only row that should offer to retract.
  */
-export function findActiveVerdict(
+function findActiveVerdict(
   sorted: RevisionLog[],
   userId: string | null | undefined,
   retractions: WeakMap<RevisionLog, VerdictRetraction>,

@@ -2,7 +2,6 @@ import React from "react";
 import { Flex } from "@radix-ui/themes";
 import { Revision, RevisionStatus } from "shared/enterprise";
 import Badge from "@/ui/Badge";
-import Tooltip from "@/ui/Tooltip";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import {
   revisionStatusColor,
@@ -108,26 +107,4 @@ export function buildConfigRevisionUrl(
   if (revision && revision.version !== undefined)
     return `${base}?v=${revision.version}`;
   return base;
-}
-
-export function RevisionStatusDot({
-  hasOpenRevisions,
-}: {
-  hasOpenRevisions?: boolean;
-}) {
-  if (!hasOpenRevisions) return null;
-  return (
-    <Tooltip content={revisionStatusLabel("pending-review")}>
-      <span
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          backgroundColor: `var(--${revisionStatusColor("pending-review")}-9)`,
-          display: "inline-block",
-          flexShrink: 0,
-        }}
-      />
-    </Tooltip>
-  );
 }

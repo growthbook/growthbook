@@ -5,7 +5,7 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 
 /** Width of the label column. Every setup field shares it, so they line up. */
-export const LABEL_WIDTH = "180px";
+const LABEL_WIDTH = "180px";
 
 /** Below this a control has no usable room, and the row stacks instead. */
 const MIN_FIELD_WIDTH = "260px";
@@ -25,7 +25,6 @@ export default function SetupFieldRow({
   tooltip,
   content = "control",
   labelAlign = "top",
-  fieldMaxWidth,
   children,
 }: {
   label: string;
@@ -36,11 +35,6 @@ export default function SetupFieldRow({
   content?: "control" | "text";
   /** `center` for a row whose control is a single line, such as a select. */
   labelAlign?: "top" | "center";
-  /**
-   * The width a control keeps, for one that has no business filling the row.
-   * It is also the point the row wraps at, in place of the usual threshold.
-   */
-  fieldMaxWidth?: string;
   children: ReactNode;
 }) {
   return (
@@ -84,13 +78,7 @@ export default function SetupFieldRow({
           ) : null}
         </Flex>
       </Box>
-      <Box
-        flexGrow="1"
-        style={{
-          minWidth: `min(100%, ${fieldMaxWidth ?? MIN_FIELD_WIDTH})`,
-          maxWidth: fieldMaxWidth,
-        }}
-      >
+      <Box flexGrow="1" style={{ minWidth: `min(100%, ${MIN_FIELD_WIDTH})` }}>
         {children}
       </Box>
     </Flex>

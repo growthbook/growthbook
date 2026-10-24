@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -16,26 +15,12 @@ import { StartExperiment } from "./useStartExperiment";
 
 export type StartUpgrade = "visual-editor" | "redirects";
 
-function useStartUpgrade(
-  experiment: Pick<
-    ExperimentInterfaceStringDates,
-    "hasVisualChangesets" | "hasURLRedirects"
-  >,
-): StartUpgrade | null {
-  const { hasCommercialFeature } = useUser();
-  return experiment.hasVisualChangesets &&
-    !hasCommercialFeature("visual-editor")
-    ? "visual-editor"
-    : experiment.hasURLRedirects && !hasCommercialFeature("redirects")
-      ? "redirects"
-      : null;
-}
-
 /** What stands between the viewer and starting: checklist, bypass, button. */
 export default function useStartGate({
   experiment,
   linkedFeatures,
   start,
+  bypassed,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
@@ -43,15 +28,18 @@ export default function useStartGate({
     StartExperiment,
     "startExperiment" | "approveScheduledExperimentStart" | "checklistFailures"
   >;
+  /** Whether the viewer ticked the bypass beside the button. */
+  bypassed: boolean;
 }) {
   const permissionsUtil = usePermissionsUtil();
+  const { hasCommercialFeature } = useUser();
   const { summary, checklistItemsRemaining } = usePreLaunchChecklist();
-  const [bypassed, setBypassed] = useState(false);
-  // A refusal's items need their own acknowledgment, not an earlier tick.
-  useEffect(() => {
-    if (start.checklistFailures.length) setBypassed(false);
-  }, [start.checklistFailures]);
-  const upgrade = useStartUpgrade(experiment);
+  const upgrade: StartUpgrade | null =
+    experiment.hasVisualChangesets && !hasCommercialFeature("visual-editor")
+      ? "visual-editor"
+      : experiment.hasURLRedirects && !hasCommercialFeature("redirects")
+        ? "redirects"
+        : null;
 
   const now = new Date();
   const scheduledStartAt = experiment.statusUpdateSchedule?.startAt
@@ -109,8 +97,6 @@ export default function useStartGate({
     scheduledStartAt,
     schedule,
     upgrade,
-    bypassed,
-    setBypassed,
     actions,
     blockers,
     runPrimary,

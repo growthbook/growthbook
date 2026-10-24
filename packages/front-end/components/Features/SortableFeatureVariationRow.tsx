@@ -81,8 +81,6 @@ interface SortableProps {
   customSplit: boolean;
   hideSplit: boolean;
   valueAsId: boolean;
-  /** The value column holds the variation's key, not a value to force. */
-  valueIsKey?: boolean;
   feature?: FeatureInterface;
   showDescription?: boolean;
   showDragHandle?: boolean;
@@ -108,7 +106,6 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
       variation,
       handle,
       valueAsId,
-      valueIsKey,
       setVariations,
       valueType,
       hideVariationIds,
@@ -149,6 +146,14 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
           setWeight(j, w);
         }
       });
+    };
+
+    // A feature rule forces values; everywhere else the column holds the key.
+    const valueIsKey = valueAsId || !hideVariationIds;
+    const update = (patch: Partial<SortableVariation>) => {
+      const newVariations = [...variations];
+      newVariations[i] = { ...variation, ...patch };
+      setVariations?.(newVariations);
     };
 
     const move = (to: number) => {
@@ -211,11 +216,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   id={`value_${i}`}
                   value={variation.value}
                   placeholder={valueAsId ? i + "" : ""}
-                  onChange={(e) => {
-                    const newVariations = [...variations];
-                    newVariations[i] = { ...variation, value: e.target.value };
-                    setVariations(newVariations);
-                  }}
+                  onChange={(e) => update({ value: e.target.value })}
                 />
               ) : (
                 <div className={styles.tightValueCell}>
@@ -224,14 +225,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                     id={`value_${i}`}
                     value={variation.value}
                     placeholder={valueAsId ? i + "" : ""}
-                    setValue={(value) => {
-                      const newVariations = [...variations];
-                      newVariations[i] = {
-                        ...variation,
-                        value,
-                      };
-                      setVariations(newVariations);
-                    }}
+                    setValue={(value) => update({ value })}
                     valueType={valueType}
                     feature={feature}
                     renderJSONInline={false}
@@ -254,11 +248,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                 valueType ?? "string",
               )}`}
               value={variation.name || ""}
-              onChange={(e) => {
-                const newVariations = [...variations];
-                newVariations[i] = { ...variation, name: e.target.value };
-                setVariations(newVariations);
-              }}
+              onChange={(e) => update({ name: e.target.value })}
             />
           ) : (
             <strong>{variation.name || ""}</strong>
@@ -270,14 +260,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                 <Field
                   size="md"
                   value={variation.description || ""}
-                  onChange={(e) => {
-                    const newVariations = [...variations];
-                    newVariations[i] = {
-                      ...variation,
-                      description: e.target.value,
-                    };
-                    setVariations(newVariations);
-                  }}
+                  onChange={(e) => update({ description: e.target.value })}
                   textarea
                   minRows={1}
                 />
