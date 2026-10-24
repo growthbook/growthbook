@@ -109,7 +109,8 @@ function deriveConfigError(
 }
 
 export function ExplorerContent({
-  height = "calc(100vh - var(--header-height) - 16px)",
+  // Less the page's own padding above and below it (--explorer-frame-y).
+  height = "calc(100vh - var(--header-height) - var(--explorer-frame-y, 16px))",
   hideDataSourceSelector = false,
   hideSidebarHeaderActions = false,
   sidebarHeaderActions,
@@ -583,7 +584,7 @@ function ExplorerInner({ type }: { type: DatasetType }) {
         {datasources.length === 0 ? (
           <Flex
             direction="column"
-            height="calc(100vh - var(--header-height) - 16px)"
+            height="calc(100vh - var(--header-height) - var(--explorer-frame-y, 16px))"
           >
             <EmptyState />
           </Flex>

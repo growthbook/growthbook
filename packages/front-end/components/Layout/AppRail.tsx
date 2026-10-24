@@ -665,6 +665,9 @@ export default function AppRail() {
   const userToggled = useRef(false);
   const toggleAnimated = () => {
     userToggled.current = true;
+    // Before the width changes, so the page's padding moves with it
+    // (global.scss); cleared once the rail stops (below).
+    document.documentElement.classList.add("app-rail-motion");
     // Collapsed for the GrowthBot panel: expanding keeps your saved choice.
     if (autoCollapsed) setAutoCollapsed(false);
     else toggleCollapsed();
@@ -688,6 +691,15 @@ export default function AppRail() {
   // While the rail's width moves, the section rows' chevrons hide, so they
   // never slide over the icons as the rows resize (AppRail.module.scss).
   const [resizing, setResizing] = useState(false);
+  // The page's side padding follows the rail on its timing while it moves,
+  // and switches at once otherwise (global.scss).
+  useIsomorphicLayoutEffect(() => {
+    document.documentElement.classList.toggle("app-rail-motion", resizing);
+  }, [resizing]);
+  useEffect(
+    () => () => document.documentElement.classList.remove("app-rail-motion"),
+    [],
+  );
   useIsomorphicLayoutEffect(() => {
     const animate = userToggled.current;
     userToggled.current = false;

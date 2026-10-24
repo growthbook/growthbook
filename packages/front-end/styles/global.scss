@@ -130,6 +130,128 @@ html.app-drawer-open body {
     padding: 15px;
   }
 }
+
+// The page's side padding steps with the window's width, so the docked panel
+// and the side nav never change it; past a 1680px page (between the side nav
+// and the panel) the content centers. Computed, not a container query:
+// containment would trap the fixed overlays inside. Classic scrollbars count
+// toward the widths.
+:root {
+  --page-nav-width: var(--app-rail-width);
+  --page-area-width: calc(
+    100vw - var(--page-nav-width) - var(--agent-rail-width, 0px)
+  );
+  // 16px, then 24px from a 768px and 32px from a 1180px window.
+  --page-padding-step: calc(
+    16px + clamp(0px, (100vw - 767px) * 1000, 8px) +
+      clamp(0px, (100vw - 1179px) * 1000, 8px)
+  );
+  // Content stops at 1616px, a 1680px page with its 32px sides, so a 1728px
+  // window (a 16" MacBook) never centers, side nav collapsed or not; past that
+  // the padding grows and centers it.
+  --page-padding: max(
+    var(--page-padding-step),
+    (var(--page-area-width) - 1616px) / 2
+  );
+}
+@media (max-width: 1180px) {
+  :root {
+    --page-nav-width: 0px;
+  }
+}
+
+// The page's side padding moves only with the side nav and the docked
+// GrowthBot panel (html.app-rail-motion, AppRail.tsx; html.agent-dock-motion,
+// AgentPanel.tsx), so resizing the window switches it at once.
+@mixin page-padding-motion($props...) {
+  html.app-rail-motion & {
+    transition-property: $props;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
+  }
+  html.agent-dock-motion & {
+    transition-property: $props;
+    transition-duration: var(--agent-dock-duration);
+    transition-timing-function: var(--agent-dock-easing);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html.app-rail-motion &,
+    html.agent-dock-motion & {
+      transition: none;
+    }
+  }
+}
+
+// Wraps every page but the full-window ones (noPageWrapper, _app.tsx), and
+// owns the page's frame: the side padding, 24px from the header to the page's
+// first item and 32px at the bottom, over the page's own spacing there. A
+// page whose content runs to the window's bottom (a rail beside the content,
+// say) drops the bottom padding with noPageBottomPadding (_app.tsx).
+.page-wrapper {
+  padding: var(--space-5) var(--page-padding) var(--space-6);
+  @include page-padding-motion(padding-left, padding-right);
+
+  &.page-wrapper-flush-bottom {
+    padding-bottom: 0;
+  }
+
+  // The page's own wrappers keep none of the frame, nor a width cap.
+  $own: ":is(.container, .container-fluid, .pagecontents, .contents)";
+  & > #{$own} {
+    padding: 0;
+    max-width: none;
+  }
+  // A page wrapper nested inside the page's (Settings' sections, Webhooks,
+  // Power Calculator): no width cap or side padding of its own either. Only
+  // .pagecontents: a nested Bootstrap container keeps the padding its rows'
+  // negative margins expect.
+  & .pagecontents {
+    max-width: none;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  // Its padding classes too, but a card's or a full-width band's.
+  $card: ":not(.appbox, .card, .box, .rt-Card, .page-bleed)";
+  & > :is(.p-2, .p-3, .p-4, .p-5)#{$card},
+  & > :is(.px-2, .px-3, .px-4, .px-5)#{$card},
+  & > :is(.py-2, .py-3, .py-4, .py-5)#{$card},
+  & > :is(.pt-2, .pt-3, .pt-4, .pt-5)#{$card},
+  & > :is(.pb-2, .pb-3, .pb-4, .pb-5)#{$card},
+  & > :is([class*="rt-r-p-"], [class*="rt-r-px-"], [class*="rt-r-py-"])#{$card},
+  & > :is([class*="rt-r-pt-"], [class*="rt-r-pb-"])#{$card} {
+    padding: 0 !important;
+  }
+
+  // Nor do the first items' top margins or the last items' bottom ones,
+  // which pass straight through a wrapper with no padding of its own: the
+  // first item, and the first inside that, two deep; the last, five deep.
+  // In a set of tabs every tab's content stays on the page, the closed ones
+  // hidden, so the trail follows the open tab.
+  $start: ":is(:first-child, style:first-child + *)";
+  & > #{$start},
+  & > #{$start} > #{$start},
+  & > #{$start} > #{$start} > #{$start} {
+    margin-top: 0 !important;
+  }
+  $end: ':is(:last-child, .rt-TabsContent[data-state="active"])';
+  $chain: "> #{$end}";
+  @for $depth from 1 through 5 {
+    & #{$chain} {
+      margin-bottom: 0 !important;
+    }
+    $chain: $chain + " > #{$end}";
+  }
+}
+
+// The wrapper's side padding for a full-window page without it
+// (noPageWrapper), less what its own layout already has inside
+// (--page-sides-inset).
+.page-sides {
+  padding-left: calc(var(--page-padding) - var(--page-sides-inset, 0px));
+  padding-right: calc(var(--page-padding) - var(--page-sides-inset, 0px));
+  @include page-padding-motion(padding-left, padding-right);
+}
+
 .contents {
   padding: 15px;
 }

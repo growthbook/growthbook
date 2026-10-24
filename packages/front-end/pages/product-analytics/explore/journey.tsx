@@ -5,7 +5,20 @@ import PageHead from "@/components/Layout/PageHead";
 
 export default function JourneyExplorePage() {
   return (
-    <Box position="relative" style={{ padding: "8px" }}>
+    <Box
+      className="position-relative page-sides"
+      // The page's side padding, less the explorer's own 8px inside, and its
+      // 24px from the header to the explorer's first row (with the
+      // explorer's own 8px), as on pages in the wrapper.
+      style={{
+        paddingTop: "16px",
+        paddingBottom: "8px",
+        ...({
+          "--page-sides-inset": "var(--space-2)",
+          "--explorer-frame-y": "24px",
+        } as React.CSSProperties),
+      }}
+    >
       <PageHead
         breadcrumb={[
           {
@@ -19,3 +32,5 @@ export default function JourneyExplorePage() {
     </Box>
   );
 }
+
+JourneyExplorePage.noPageWrapper = true;

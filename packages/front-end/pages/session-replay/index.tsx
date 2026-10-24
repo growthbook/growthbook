@@ -1093,3 +1093,5 @@ export default function SessionReplayPage() {
     </div>
   );
 }
+
+SessionReplayPage.noPageWrapper = true;
