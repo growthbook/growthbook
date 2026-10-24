@@ -88,6 +88,11 @@ export default function ExperimentDetailsPanel({
 
   // The key only changes while nothing is serving it.
   const fieldAction = (field: QuickEditField) => {
+    if (field === "schedule") {
+      return editSchedule
+        ? pencil(QUICK_FIELD_LABELS.schedule, editSchedule)
+        : null;
+    }
     if (field === "trackingKey" && experiment.status !== "draft") return null;
     return pencil(QUICK_FIELD_LABELS[field], () => editSection(field));
   };
@@ -99,7 +104,6 @@ export default function ExperimentDetailsPanel({
       experiment={experiment}
       holdout={holdout}
       stagedHoldoutId={stagedHoldoutId}
-      editSchedule={canEdit ? editSchedule : null}
     />
   );
   const { active: checklistActive, checklistItemsRemaining } =
@@ -252,6 +256,7 @@ const QUICK_FIELD_LABELS: Record<QuickEditField, string> = {
   trackingKey: "Edit experiment key",
   owner: "Edit owner",
   tags: "Edit tags",
+  schedule: "Edit schedule",
 };
 
 /** A titled block of the panel, which its heading shows and hides. */

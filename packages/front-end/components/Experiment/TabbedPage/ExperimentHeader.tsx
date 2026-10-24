@@ -88,7 +88,7 @@ import { RUN_PERMISSION_REASON, StartExperiment } from "./useStartExperiment";
 import StartExperimentPopover from "./StartExperimentPopover";
 import useStartGate from "./useStartGate";
 import { StartBlockers } from "./StartSections";
-import { hasStatusSchedule, scheduledTime } from "./RunningScheduleLink";
+import { hasStatusSchedule, scheduledTime } from "./statusSchedule";
 import { getStartTitle } from "./startActions";
 import { ExperimentTab } from ".";
 

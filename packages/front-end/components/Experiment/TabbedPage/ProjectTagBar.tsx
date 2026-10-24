@@ -1,13 +1,8 @@
 import { ReactNode } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
-import {
-  PiPencilSimple,
-  PiPlus,
-  PiWarning,
-  PiWarningFill,
-} from "react-icons/pi";
+import { PiWarning, PiWarningFill } from "react-icons/pi";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import Text from "@/ui/Text";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -16,11 +11,11 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
-import RunningScheduleLink, {
+import {
   hasStatusSchedule,
   scheduledEnd,
   scheduledTime,
-} from "@/components/Experiment/TabbedPage/RunningScheduleLink";
+} from "@/components/Experiment/TabbedPage/statusSchedule";
 import Link from "@/ui/Link";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -28,13 +23,16 @@ import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicat
 import { getHealthStateFromDetailedStatus } from "@/services/experiments";
 import ProjectBadges from "@/components/ProjectBadges";
 
-export type QuickEditField = "project" | "trackingKey" | "owner" | "tags";
+export type QuickEditField =
+  | "project"
+  | "trackingKey"
+  | "owner"
+  | "tags"
+  | "schedule";
 
 export interface Props {
   /** A staged holdout ("" to leave), shown in place of the stored one. */
   stagedHoldoutId?: string | null;
-  /** Opens the schedule editor, where the schedule can change. */
-  editSchedule?: (() => void) | null;
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterfaceStringDates;
   /**
@@ -58,7 +56,6 @@ export default function ProjectTagBar({
   experiment,
   holdout,
   stagedHoldoutId = null,
-  editSchedule = null,
   panel,
   fieldAction,
 }: Props) {
@@ -236,51 +233,56 @@ export default function ProjectTagBar({
           </Text>
         }
       />
-      {/* Spaced like the rail's other items; a schedule link sits close
-          under the date it edits. */}
       <Flex direction="column" gap="3">
         <ExperimentDates experiment={experiment} />
         {experiment.status === "draft" && !isHoldout ? (
           <DraftSchedule
             experiment={experiment}
             // Once the start is confirmed, it changes from the header.
-            editSchedule={
+            action={
               experiment.nextScheduledStatusUpdate || experiment.archived
                 ? null
-                : editSchedule
+                : (fieldAction?.("schedule") ?? null)
             }
           />
         ) : null}
-        {editSchedule &&
-        experiment.status === "running" &&
+        {experiment.status === "running" &&
         !isHoldout &&
         experiment.type !== "multi-armed-bandit" &&
         !experiment.archived ? (
-          <Box mt="-2">
-            <RunningScheduleLink
-              experiment={experiment}
-              editSchedule={editSchedule}
-            />
-          </Box>
+          <RunningSchedule
+            experiment={experiment}
+            action={fieldAction?.("schedule") ?? null}
+          />
         ) : null}
       </Flex>
     </Flex>
   );
 }
 
-/** A draft's scheduled start and end, with the way to set them. */
+/** A draft's scheduled start and end; each row edits the schedule. */
 function DraftSchedule({
   experiment,
-  editSchedule,
+  action,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  editSchedule: (() => void) | null;
+  action: ReactNode;
 }) {
   const schedule = experiment.statusUpdateSchedule;
-  const hasSchedule = hasStatusSchedule(experiment);
   const startPassed =
     !!schedule?.startAt && new Date(schedule.startAt) < new Date();
   const end = scheduledEnd(schedule);
+  if (!hasStatusSchedule(experiment)) {
+    return action ? (
+      <Metadata
+        size="sm"
+        stacked
+        label="Schedule"
+        value={empty()}
+        action={action}
+      />
+    ) : null;
+  }
   return (
     <>
       {schedule?.startAt ? (
@@ -288,6 +290,7 @@ function DraftSchedule({
           size="sm"
           stacked
           label="Scheduled start"
+          action={action}
           value={
             <Flex align="center" gap="1">
               {startPassed ? (
@@ -303,20 +306,56 @@ function DraftSchedule({
         />
       ) : null}
       {end ? (
-        <Metadata size="sm" stacked label="Scheduled end" value={end} />
-      ) : null}
-      {editSchedule ? (
-        <Link onClick={editSchedule} mt="-2">
-          <Flex align="center" gap="1">
-            {!hasSchedule && <PiPlus size="12" />}
-            <Text size="sm">
-              {hasSchedule ? "Edit Schedule" : "Add Schedule"}
-            </Text>
-            {hasSchedule && <PiPencilSimple size="12" />}
-          </Flex>
-        </Link>
+        <Metadata
+          size="sm"
+          stacked
+          label="Scheduled end"
+          action={action}
+          value={end}
+        />
       ) : null}
     </>
+  );
+}
+
+/**
+ * A running experiment's scheduled end. The start is already past, and any
+ * relative stopAfter resolved to a stopAt when it began.
+ */
+function RunningSchedule({
+  experiment,
+  action,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  action: ReactNode;
+}) {
+  const end = scheduledEnd(experiment.statusUpdateSchedule);
+  if (!end && !action) return null;
+  // A passed end means a notify-mode end already fired and deliberately kept
+  // the experiment running, so it says so rather than implying a future stop.
+  const stopAt = experiment.statusUpdateSchedule?.stopAt;
+  const endPassed = !!stopAt && new Date(stopAt) <= new Date();
+  return (
+    <Metadata
+      size="sm"
+      stacked
+      label="Scheduled end"
+      action={action}
+      value={
+        !end ? (
+          empty()
+        ) : endPassed ? (
+          <Flex align="center" gap="1">
+            <PiWarningFill color="var(--warning)" />
+            <Text size="sm" color="text-high">
+              {end} — kept running
+            </Text>
+          </Flex>
+        ) : (
+          end
+        )
+      }
+    />
   );
 }
 

@@ -32,7 +32,7 @@ import {
   hasStatusSchedule,
   scheduledEnd,
   scheduledTime,
-} from "./RunningScheduleLink";
+} from "./statusSchedule";
 import { useEditsBlockedReason } from "./ExperimentEdits";
 
 type ContentProps = {

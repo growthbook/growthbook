@@ -87,7 +87,7 @@ import {
   SummaryGrid,
   SummaryRow,
 } from "@/components/Experiment/TabbedPage/StartSections";
-import { scheduledTime } from "@/components/Experiment/TabbedPage/RunningScheduleLink";
+import { scheduledTime } from "@/components/Experiment/TabbedPage/statusSchedule";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import LinkButton from "@/components/Button";
