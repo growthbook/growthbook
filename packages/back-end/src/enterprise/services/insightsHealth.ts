@@ -14,6 +14,7 @@ import {
   getContextForAgendaJobByOrgObject,
 } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -28,7 +29,9 @@ export function startOfUTCWeek(date: Date): Date {
   return day;
 }
 
-async function getQualityScorer(context: ReqContext): Promise<GetQuality> {
+async function getQualityScorer(
+  context: ReqContext | ApiReqContext,
+): Promise<GetQuality> {
   if (!context.hasPremiumFeature("experiment-quality-score")) return () => null;
   const [records, aiSettings] = await Promise.all([
     context.models.experimentationHealthSettings.getAll(),
@@ -51,7 +54,9 @@ async function getQualityScorer(context: ReqContext): Promise<GetQuality> {
 }
 
 // Stores this week's scores the first time anyone opens Health that week
-export async function recordWeeklyHealthScores(context: ReqContext) {
+export async function recordWeeklyHealthScores(
+  context: ReqContext | ApiReqContext,
+) {
   const weekStart = startOfUTCWeek(new Date());
   if (await context.models.insightsHealthScores.hasWeek(weekStart)) return;
 

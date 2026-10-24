@@ -634,6 +634,16 @@ export async function getAllExperiments(
   return await findExperiments(context, query, limit, sortBy);
 }
 
+// Cross-org, for background jobs; uses the status index
+export async function getOrganizationsWithRunningExperiments(): Promise<
+  string[]
+> {
+  return getCollection(COLLECTION).distinct("organization", {
+    status: "running",
+    archived: { $ne: true },
+  });
+}
+
 // What `countActiveExperimentsUsingNamespace` reads: the projected fields
 // `experimentAllocatesTrafficInNamespace` needs, plus the ones it filters on.
 // Typed on `getCollection` so neither the filter nor the result needs a cast.

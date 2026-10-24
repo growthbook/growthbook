@@ -4,9 +4,11 @@ import {
 } from "shared/validators";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 
+export const INSIGHTS_HEALTH_SCORES_COLLECTION = "insightshealthscores";
+
 const BaseClass = MakeModelClass({
   schema: insightsHealthScoreValidator,
-  collectionName: "insightshealthscores",
+  collectionName: INSIGHTS_HEALTH_SCORES_COLLECTION,
   idPrefix: "ihs_",
   readonlyFields: ["project", "weekStart"],
   globallyUniquePrimaryKeys: false,
