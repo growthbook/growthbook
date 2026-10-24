@@ -2111,6 +2111,7 @@ export async function deleteExperimentPhase(
       status: 400,
       message: "Cannot delete the only phase",
     });
+    return;
   }
 
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
