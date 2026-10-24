@@ -11,6 +11,7 @@ import {
   generateTrackingKey,
   getLatestPhaseVariations,
 } from "shared/experiments";
+import { haveAIQualityInputsChanged } from "shared/enterprise";
 import { v4 as uuidv4 } from "uuid";
 import {
   VisualChange,
@@ -86,6 +87,7 @@ import {
   notifyExperimentStatusTransition,
   notifyExperimentBanditWeightsTransition,
 } from "back-end/src/services/experimentNotifications";
+import { queueExperimentQualityScoreUpdate } from "back-end/src/jobs/experimentQualityScoreQueue";
 import { CasConflictError } from "./BaseModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -97,6 +99,9 @@ import {
 import { getFeaturesByIds } from "./FeatureModel";
 
 const COLLECTION = "experiments";
+
+// Lets a burst of edits finish before the AI quality checks re-run
+const AI_QUALITY_EDIT_DELAY_MS = 60 * 1000;
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -370,6 +375,44 @@ const experimentSchema = new mongoose.Schema({
   customFields: {},
   templateId: String,
   shareLevel: String,
+  aiQualityResults: {
+    _id: false,
+    inputsHash: String,
+    version: Number,
+    dateComputed: Date,
+    checks: [
+      {
+        _id: false,
+        key: String,
+        score: Number,
+        reason: String,
+      },
+    ],
+    error: String,
+  },
+  qualityScoreOverride: {
+    _id: false,
+    score: Number,
+    userId: String,
+    userName: String,
+    dateOverridden: Date,
+    reason: String,
+  },
+  processResults: {
+    _id: false,
+    version: Number,
+    dateComputed: Date,
+    rules: [
+      {
+        _id: false,
+        key: String,
+        result: String,
+        detail: String,
+        date: Date,
+        user: String,
+      },
+    ],
+  },
   analysisSummary: {
     _id: false,
     snapshotId: String,
@@ -1195,6 +1238,66 @@ export async function getExperimentsWithScheduledStatusUpdate(): Promise<
     id: exp.id,
     organization: exp.organization,
   }));
+}
+
+const unarchivedExperimentsFilter = (organization: string) => ({
+  organization,
+  archived: { $ne: true },
+});
+
+// One page of non-archived experiment IDs, in id order, for the batched
+// quality job. `filter` narrows it, e.g. to the Projects with scoring on.
+export async function getExperimentIdsPage(
+  organization: string,
+  {
+    after,
+    limit,
+    filter = {},
+  }: {
+    after: string;
+    limit: number;
+    filter?: FilterQuery<ExperimentInterface>;
+  },
+): Promise<string[]> {
+  const experiments = await getCollection(COLLECTION)
+    .find({
+      ...filter,
+      ...unarchivedExperimentsFilter(organization),
+      ...(after ? { id: { $gt: after } } : {}),
+    })
+    .sort({ id: 1 })
+    .limit(limit)
+    .project({ id: true })
+    .toArray();
+
+  return experiments.map((exp) => exp.id);
+}
+
+// Stopped standard experiments whose process results are missing or out of
+// date. IDs only, for the process backfill job.
+export async function getExperimentIdsNeedingProcessResults(
+  organization: string,
+  version: number,
+): Promise<string[]> {
+  const experiments = await getCollection(COLLECTION)
+    .find({
+      ...unarchivedExperimentsFilter(organization),
+      status: "stopped",
+      type: { $nin: ["multi-armed-bandit", "holdout"] },
+      "processResults.version": { $ne: version },
+    })
+    .project({ id: true })
+    .toArray();
+
+  return experiments.map((exp) => exp.id);
+}
+
+export function countUnarchivedExperimentsByOrganization(
+  organization: string,
+): Promise<number> {
+  return getCollection(COLLECTION).countDocuments(
+    unarchivedExperimentsFilter(organization),
+  );
 }
 
 /**
@@ -2416,6 +2519,29 @@ const hasChangesForSDKPayloadRefresh = (
   return !isEqual(oldChanges, newChanges);
 };
 
+// AI quality checks judge experiments in any status, so they run when an
+// experiment is created and whenever what they read changes. The job
+// re-checks every gate and the cache.
+function queueAIQualityChecks(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+) {
+  if (
+    !context.hasPremiumFeature("experiment-quality-score") ||
+    !context.org.settings?.aiEnabled ||
+    experiment.archived
+  ) {
+    return;
+  }
+  queueExperimentQualityScoreUpdate({
+    experimentId: experiment.id,
+    organization: experiment.organization,
+    delayMs: AI_QUALITY_EDIT_DELAY_MS,
+  }).catch((e) =>
+    logger.error(e, `Failed to queue AI quality checks for ${experiment.id}`),
+  );
+}
+
 const onExperimentCreate = async ({
   context,
   experiment,
@@ -2430,6 +2556,8 @@ const onExperimentCreate = async ({
   notifyExperimentCreated({ context, experiment }).catch((error: unknown) =>
     logger.error(error, "Failed to notify experiment creation"),
   );
+
+  queueAIQualityChecks(context, experiment);
 
   if (context.org.isVercelIntegration)
     await createVercelExperimentationItemFromExperiment({
@@ -2515,6 +2643,13 @@ const onExperimentUpdate = async ({
   }
 
   notifyAlerts();
+
+  if (
+    haveAIQualityInputsChanged(oldExperiment, newExperiment) ||
+    (oldExperiment.archived && !newExperiment.archived)
+  ) {
+    queueAIQualityChecks(context, newExperiment);
+  }
 
   if (context.org.isVercelIntegration)
     await updateVercelExperimentationItemFromExperiment({

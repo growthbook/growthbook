@@ -390,6 +390,95 @@ export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
 >;
 
+export const aiExperimentQualityCheckKeys = [
+  "ai-hypothesis-quality",
+  "ai-hypothesis-metric-alignment",
+] as const;
+export type AIExperimentQualityCheckKey =
+  (typeof aiExperimentQualityCheckKeys)[number];
+
+// Process checks: judged from the experiment's change history once it stops,
+// and cached on `processResults`
+export const processExperimentQualityCheckKeys = [
+  "goal-metrics-locked",
+  "hypothesis-locked",
+  "stable-assignment",
+  "stable-analysis",
+  "no-early-stop",
+  "clean-restarts",
+  "planned-end",
+] as const;
+export type ProcessExperimentQualityCheckKey =
+  (typeof processExperimentQualityCheckKeys)[number];
+
+// Cached AI verdicts for experiment quality scoring. Invalidated by
+// inputsHash — a hash of the fields the AI judged (hypothesis, goal metric
+// names, analysis text, org AI context, prompt version). Stale results are
+// ignored by the scoring function and recomputed by a background job.
+export const experimentAIQualityResults = z
+  .object({
+    inputsHash: z.string(),
+    // EXPERIMENT_QUALITY_PROMPT_VERSION when computed, so a release that
+    // changes the checks can find out-of-date results with a query
+    version: z.number().optional(),
+    dateComputed: z.date(),
+    checks: z.array(
+      z
+        .object({
+          // A built-in AI check key, or `custom:<id>` for custom AI rules
+          key: z.string(),
+          score: z.number().min(0).max(1),
+          reason: z.string(),
+        })
+        .strict(),
+    ),
+    // Set when the AI call failed; prevents retrying every sweep until the
+    // inputs change or a manual refresh forces recompute.
+    error: z.string().optional(),
+  })
+  .strict();
+export type ExperimentAIQualityResults = z.infer<
+  typeof experimentAIQualityResults
+>;
+
+// Manual quality-score override, set from the experiment's Quality tab by
+// users with experiment-update permission. When present, it replaces the
+// computed score everywhere the score is displayed.
+export const experimentQualityScoreOverride = z
+  .object({
+    score: z.number().min(0).max(100),
+    userId: z.string(),
+    userName: z.string().optional(),
+    dateOverridden: z.date(),
+    reason: z.string().max(1000).optional(),
+  })
+  .strict();
+export type ExperimentQualityScoreOverride = z.infer<
+  typeof experimentQualityScoreOverride
+>;
+
+// Cached process-rule results, computed from the experiment's change
+// history when it stops. Recomputed when `version` falls behind the rules.
+export const experimentProcessResults = z
+  .object({
+    version: z.number(),
+    dateComputed: z.date(),
+    rules: z.array(
+      z
+        .object({
+          key: z.string(),
+          result: z.enum(["pass", "fail", "na"]),
+          // The change that failed the rule
+          detail: z.string().optional(),
+          date: z.date().optional(),
+          user: z.string().optional(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+export type ExperimentProcessResults = z.infer<typeof experimentProcessResults>;
+
 // Also imported by the Mongoose experiment schema so the two can't drift.
 export const SCHEDULE_STOP_AFTER_UNITS = ["hours", "days"] as const;
 export const SCHEDULED_STATUS_UPDATE_TYPES = ["start", "stop"] as const;
@@ -552,6 +641,9 @@ export const experimentInterface = z
     templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),
     analysisSummary: experimentAnalysisSummary.optional(),
+    aiQualityResults: experimentAIQualityResults.optional(),
+    qualityScoreOverride: experimentQualityScoreOverride.optional().nullable(),
+    processResults: experimentProcessResults.optional(),
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),

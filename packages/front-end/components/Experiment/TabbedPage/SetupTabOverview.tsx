@@ -303,7 +303,7 @@ export default function SetupTabOverview({
         ) : null}
 
         {!isBandit && !isHoldout && (
-          <Frame>
+          <Frame id="hypothesis" style={{ scrollMarginTop: "100px" }}>
             <Flex align="start" justify="between">
               <Heading color="text-high" as="h4" size="sm" mb="0">
                 Hypothesis
@@ -384,7 +384,7 @@ export default function SetupTabOverview({
         )}
 
         {experiment.description || isHoldout ? (
-          <Frame>
+          <Frame id="description" style={{ scrollMarginTop: "100px" }}>
             <Collapsible
               open={!!experiment.description && expandDescription}
               transitionTime={100}

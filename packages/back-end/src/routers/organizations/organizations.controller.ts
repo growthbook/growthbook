@@ -175,6 +175,7 @@ import {
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
+import { queueExperimentQualityRecheck } from "back-end/src/jobs/experimentQualityScoreQueue";
 import { validatePriorSettings } from "back-end/src/util/priors";
 import {
   getInstallation,
@@ -1816,6 +1817,17 @@ export async function putOrganization(
     }
 
     await updateOrganization(org.id, updates);
+
+    // Turning AI on starts the AI quality checks for existing experiments
+    if (
+      !org.settings?.aiEnabled &&
+      updates.settings?.aiEnabled &&
+      context.hasPremiumFeature("experiment-quality-score")
+    ) {
+      queueExperimentQualityRecheck({ organization: org.id }).catch((e) =>
+        logger.error(e, "Failed to queue a quality recheck"),
+      );
+    }
 
     await req.audit({
       event: "organization.update",

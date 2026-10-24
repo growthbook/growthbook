@@ -1,0 +1,92 @@
+// Share bars (Radix Slider) restyled per the design: rounded track in
+// slate-4, colored range, white thumb with a 2px ring in the bar color.
+// The bar color is passed via the --share-bar-color custom property.
+.shareBar {
+  width: 100%;
+
+  :global(.rt-SliderTrack) {
+    height: 16px;
+    background-color: var(--slate-4);
+    border-radius: 9999px;
+  }
+
+  :global(.rt-SliderRange) {
+    background-color: var(--share-bar-color);
+    border-radius: 9999px;
+  }
+
+  :global(.rt-SliderThumb)::after {
+    width: 14px;
+    height: 14px;
+    background-color: #fff;
+    box-shadow: inset 0 0 0 2px var(--share-bar-color);
+  }
+}
+
+.chevron {
+  transition: transform 200ms cubic-bezier(0.685, 0.0473, 0.346, 1);
+  color: var(--color-text-mid);
+
+  &.open {
+    transform: rotate(90deg);
+  }
+}
+
+.sectionHeader {
+  display: grid;
+  grid-template-columns: 1fr 240px 52px;
+  gap: 12px;
+  align-items: center;
+  padding-bottom: 8px;
+
+  &.withBorder {
+    border-bottom: 1px solid var(--border-color-100);
+  }
+}
+
+.sectionToggle {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.checkRow {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.distributionStrip {
+  display: flex;
+  height: 10px;
+  border-radius: 9999px;
+  overflow: hidden;
+  gap: 2px;
+}
+
+.sectionLabel {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sectionShare {
+  display: block;
+  text-align: right;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-high);
+
+  &.off {
+    color: var(--color-text-low);
+  }
+}
+
+.addCustomRow {
+  border-top: 1px dashed var(--border-color-100);
+}

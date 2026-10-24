@@ -188,24 +188,26 @@ export default function Implementation({
         )}
         {!isHoldout &&
         (!showTrafficFunnel || hasLinkedChanges || canAddLinkedChanges) ? (
-          <LinkedChanges
-            linkedFeatures={linkedFeatures}
-            experiment={experiment}
-            canAddChanges={canAddLinkedChanges}
-            visualChangesets={visualChangesets}
-            urlRedirects={urlRedirects}
-            mutate={mutate}
-            canEditVisualChangesets={hasVisualEditorPermission}
-            visualChangesetEnvStates={visualChangesetEnvStates}
-            urlRedirectEnvStates={urlRedirectEnvStates}
-            setVisualEditorModal={setVisualEditorModal}
-            setFeatureModal={setFeatureModal}
-            setUrlRedirectModal={setUrlRedirectModal}
-            onAddVariation={editVariations ?? undefined}
-            canEditExperiment={canEditExperiment}
-            setEditVariationIndex={setEditMetadataIndex}
-            hideVariations={showTrafficFunnel}
-          />
+          <div id="variations" style={{ scrollMarginTop: "100px" }}>
+            <LinkedChanges
+              linkedFeatures={linkedFeatures}
+              experiment={experiment}
+              canAddChanges={canAddLinkedChanges}
+              visualChangesets={visualChangesets}
+              urlRedirects={urlRedirects}
+              mutate={mutate}
+              canEditVisualChangesets={hasVisualEditorPermission}
+              visualChangesetEnvStates={visualChangesetEnvStates}
+              urlRedirectEnvStates={urlRedirectEnvStates}
+              setVisualEditorModal={setVisualEditorModal}
+              setFeatureModal={setFeatureModal}
+              setUrlRedirectModal={setUrlRedirectModal}
+              onAddVariation={editVariations ?? undefined}
+              canEditExperiment={canEditExperiment}
+              setEditVariationIndex={setEditMetadataIndex}
+              hideVariations={showTrafficFunnel}
+            />
+          </div>
         ) : null}
 
         {isHoldout && holdout ? (

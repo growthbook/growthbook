@@ -1,0 +1,182 @@
+[
+  {
+    "id": "progress-bar",
+    "hypothesis": "Showing a progress bar during checkout will reduce checkout abandonment, because users can see how few steps remain.",
+    "goalMetrics": ["Checkout abandonment rate"],
+    "labels": { "hypothesis": 1, "alignment": 1 }
+  },
+  {
+    "id": "reviews",
+    "hypothesis": "Adding customer reviews to product pages will increase add-to-cart rate, because shoppers trust other buyers' experiences.",
+    "goalMetrics": ["Add to cart rate"],
+    "labels": { "hypothesis": 1, "alignment": 1 }
+  },
+  {
+    "id": "trial-reminder",
+    "hypothesis": "Sending a reminder email 24 hours after a trial starts will increase trial-to-paid conversion, because users who haven't set up yet get a nudge to finish onboarding.",
+    "goalMetrics": ["Trial to paid conversion"],
+    "labels": { "hypothesis": 1, "alignment": 1 }
+  },
+  {
+    "id": "prefill-address",
+    "hypothesis": "Pre-filling the shipping address from the user's last order will increase completed orders, since retyping the address is where most users drop off.",
+    "goalMetrics": ["Orders completed"],
+    "labels": { "hypothesis": 1, "alignment": 1 }
+  },
+  {
+    "id": "progress-bar-wrong-metric",
+    "hypothesis": "Showing a progress bar during checkout will reduce checkout abandonment, because users can see how few steps remain.",
+    "goalMetrics": ["Page views"],
+    "labels": { "hypothesis": 1, "alignment": 0 }
+  },
+  {
+    "id": "shorter-trial",
+    "hypothesis": "Reducing the free trial from 30 to 14 days will increase paid conversions, because users decide while the product is fresh in their minds.",
+    "goalMetrics": ["Revenue per visitor"],
+    "labels": { "hypothesis": 1, "alignment": 0.5 }
+  },
+  {
+    "id": "mobile-search",
+    "hypothesis": "Moving the search bar to the top of the mobile home page will increase searches per session, because it is currently hidden below the fold.",
+    "goalMetrics": ["Searches per session", "Purchases"],
+    "labels": { "hypothesis": 1, "alignment": 1 }
+  },
+  {
+    "id": "annual-discount",
+    "hypothesis": "Showing a 20% annual billing discount on the pricing page will increase the share of customers choosing annual plans, because the savings are visible up front.",
+    "goalMetrics": ["Annual plan share"],
+    "labels": { "hypothesis": 1, "alignment": 1 }
+  },
+  {
+    "id": "redesign-homepage",
+    "hypothesis": "Redesigning the homepage will increase signups.",
+    "goalMetrics": ["Signups"],
+    "labels": { "hypothesis": 0.5, "alignment": 1 }
+  },
+  {
+    "id": "onboarding-engagement",
+    "hypothesis": "The new onboarding flow will improve engagement.",
+    "goalMetrics": ["Day 7 retention"],
+    "labels": { "hypothesis": 0.5, "alignment": 0.5 }
+  },
+  {
+    "id": "cleaner-checkout",
+    "hypothesis": "Users will like the new checkout better because it is cleaner.",
+    "goalMetrics": ["Checkout conversion"],
+    "labels": { "hypothesis": 0.5, "alignment": 0.5 }
+  },
+  {
+    "id": "green-button",
+    "hypothesis": "Changing the button color to green should increase clicks.",
+    "goalMetrics": ["Button clicks"],
+    "labels": { "hypothesis": 0.5, "alignment": 1 }
+  },
+  {
+    "id": "simpler-pricing",
+    "hypothesis": "Simplifying the pricing page will help conversions because it is less confusing.",
+    "goalMetrics": ["Conversion rate"],
+    "labels": { "hypothesis": 0.5, "alignment": 1 }
+  },
+  {
+    "id": "personalized-recs",
+    "hypothesis": "Personalized recommendations will increase revenue.",
+    "goalMetrics": ["Revenue per user"],
+    "labels": { "hypothesis": 0.5, "alignment": 1 }
+  },
+  {
+    "id": "help-chatbot",
+    "hypothesis": "Adding a chatbot to the help center will reduce support tickets.",
+    "goalMetrics": ["Support tickets per user"],
+    "labels": { "hypothesis": 0.5, "alignment": 1 }
+  },
+  {
+    "id": "shorter-form",
+    "hypothesis": "A shorter signup form will be better for users.",
+    "goalMetrics": ["Signups"],
+    "labels": { "hypothesis": 0.5, "alignment": 0.5 }
+  },
+  {
+    "id": "test-homepage",
+    "hypothesis": "Test new homepage.",
+    "goalMetrics": ["Signups"],
+    "labels": { "hypothesis": 0, "alignment": 0 }
+  },
+  {
+    "id": "good-idea",
+    "hypothesis": "We think this is a good idea.",
+    "goalMetrics": ["Revenue"],
+    "labels": { "hypothesis": 0, "alignment": 0 }
+  },
+  {
+    "id": "q3-marketing",
+    "hypothesis": "Q3 experiment for the marketing team.",
+    "goalMetrics": ["Clicks"],
+    "labels": { "hypothesis": 0, "alignment": 0 }
+  },
+  {
+    "id": "variant-b",
+    "hypothesis": "Variant B",
+    "goalMetrics": ["Conversion"],
+    "labels": { "hypothesis": 0, "alignment": 0 }
+  },
+  {
+    "id": "jira-link",
+    "hypothesis": "See the Jira ticket GROWTH-1234 for details.",
+    "goalMetrics": ["Signups"],
+    "labels": { "hypothesis": 0, "alignment": 0 }
+  },
+  {
+    "id": "ceo-header",
+    "hypothesis": "The CEO wants to try the blue header.",
+    "goalMetrics": ["Revenue"],
+    "labels": { "hypothesis": 0, "alignment": 0 }
+  },
+  {
+    "id": "back-in-stock-wrong-metric",
+    "hypothesis": "Adding a back-in-stock email alert will increase repeat purchases, because customers who wanted an out-of-stock item are told when it returns.",
+    "goalMetrics": ["Email unsubscribe rate"],
+    "labels": { "hypothesis": 1, "alignment": 0 }
+  },
+  {
+    "id": "delivery-dates-wrong-metric",
+    "hypothesis": "Showing estimated delivery dates on product pages will increase add-to-cart rate, because uncertainty about delivery time makes shoppers hesitate.",
+    "goalMetrics": ["Customer support tickets"],
+    "labels": { "hypothesis": 1, "alignment": 0 }
+  },
+  {
+    "id": "plan-limit",
+    "hypothesis": "Making the free plan limit visible in the app will increase upgrades, because users realize sooner that they need more.",
+    "goalMetrics": ["Upgrade rate", "Page load time"],
+    "labels": { "hypothesis": 1, "alignment": 1 }
+  },
+  {
+    "id": "social-proof-indirect",
+    "hypothesis": "Adding '10,000 teams use us' to the signup page will increase signups, because visitors trust what others already use.",
+    "goalMetrics": ["Time on page"],
+    "labels": { "hypothesis": 1, "alignment": 0.5 }
+  },
+  {
+    "id": "question-form",
+    "hypothesis": "Will moving the call to action above the fold increase clicks?",
+    "goalMetrics": ["CTA clicks"],
+    "labels": { "hypothesis": 0.5, "alignment": 1 }
+  },
+  {
+    "id": "quantified",
+    "hypothesis": "If we cut onboarding from 7 steps to 4, activation (finishing a first project within 7 days) will rise by at least 5%, because session recordings show most users quit at step 5.",
+    "goalMetrics": ["Activation rate"],
+    "labels": { "hypothesis": 1, "alignment": 1 }
+  },
+  {
+    "id": "no-harm",
+    "hypothesis": "Removing the promotional banner will not reduce revenue, because few users click it and it slows the page down.",
+    "goalMetrics": ["Revenue per visitor", "Page load time"],
+    "labels": { "hypothesis": 1, "alignment": 1 }
+  },
+  {
+    "id": "spanish",
+    "hypothesis": "Mostrar reseñas de clientes en la página del producto aumentará la tasa de añadir al carrito, porque los compradores confían en la experiencia de otros compradores.",
+    "goalMetrics": ["Add to cart rate"],
+    "labels": { "hypothesis": 1, "alignment": 1 }
+  }
+]

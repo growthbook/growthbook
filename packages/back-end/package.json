@@ -70,6 +70,7 @@
     "@stdlib/stats": "^0.1.1",
     "@types/handlebars": "^4.1.0",
     "@types/presto-client": "^1.0.2",
+    "@typesafe-ai/sdk": "0.7.0",
     "agenda": "^5.0.0",
     "ai": "^6.0.6",
     "asn1.js": "^5.4.1",

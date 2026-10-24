@@ -27,6 +27,8 @@ import {
   getExperimentById,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
+import { queueExperimentProcessScoreUpdate } from "back-end/src/jobs/updateExperimentProcessScores";
+import { logger } from "back-end/src/util/logger";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -903,6 +905,17 @@ export async function stopExperiment({
       source: context.auditUser?.type ?? "agenda-job",
       result: updated.results,
     });
+  }
+
+  // How it was run is settled once it stops
+  if (isEnding && context.hasPremiumFeature("experiment-quality-score")) {
+    queueExperimentProcessScoreUpdate(updated.organization, updated.id).catch(
+      (e) =>
+        logger.error(
+          e,
+          `Failed to queue process score update for experiment ${updated.id}`,
+        ),
+    );
   }
 
   return { experiment, updated, isEnding };

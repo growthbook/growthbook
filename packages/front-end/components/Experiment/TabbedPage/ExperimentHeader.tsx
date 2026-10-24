@@ -26,10 +26,13 @@ import {
 } from "shared/types/report";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { format } from "date-fns-tz";
+import { ExperimentQualityScoreResult } from "shared/enterprise";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";
+import Badge from "@/ui/Badge";
+import { getScoreTier } from "@/components/Experiment/Quality/qualityDisplay";
 import Modal from "@/components/Modal";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -83,6 +86,7 @@ import { ExperimentTab } from ".";
 
 export interface Props {
   tab: ExperimentTab;
+  qualityScore: ExperimentQualityScoreResult | null;
   setTab: (tab: ExperimentTab, scrollToId?: string) => void;
   experiment: ExperimentInterfaceStringDates;
   envs: string[];
@@ -142,6 +146,7 @@ const SAVE_SETTING_TIMEOUT_MS = 3000;
 
 export default function ExperimentHeader({
   tab,
+  qualityScore,
   setTab,
   experiment,
   envs,
@@ -1328,6 +1333,23 @@ export default function ExperimentHeader({
                               {healthNotificationCount}
                             </Avatar>
                           ) : null}
+                        </TabsTrigger>
+                      )}
+                      {qualityScore && (
+                        <TabsTrigger value="quality">
+                          Quality
+                          <Badge
+                            ml="2"
+                            size="xs"
+                            radius="full"
+                            variant="soft"
+                            color={
+                              qualityScore.score === null
+                                ? "gray"
+                                : getScoreTier(qualityScore.score)
+                            }
+                            label={String(qualityScore.score ?? "—")}
+                          />
                         </TabsTrigger>
                       )}
                       {hasMultiplePhases ? (
