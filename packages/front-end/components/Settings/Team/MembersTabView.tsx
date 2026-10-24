@@ -102,7 +102,7 @@ export const MembersTabView: FC = () => {
   };
 
   return (
-    <div className="pagecontents">
+    <>
       <VerifyingEmailModal />
       {justSubscribedForPro && !isCloud() && !license?.emailVerified && (
         <PleaseVerifyEmailModal
@@ -198,6 +198,6 @@ export const MembersTabView: FC = () => {
           numUsersInAccount={organization.members?.length || 0}
         />
       )}
-    </div>
+    </>
   );
 };

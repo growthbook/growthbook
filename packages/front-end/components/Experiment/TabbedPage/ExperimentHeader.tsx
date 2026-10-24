@@ -944,6 +944,9 @@ export default function ExperimentHeader({
                   size="3"
                   highContrast
                   ml="2"
+                  // Its hover area stays within the title row, which starts
+                  // 24px under the header (the page wrapper, global.scss).
+                  style={{ marginTop: 0, marginBottom: 0 }}
                 >
                   <BsThreeDotsVertical size={18} />
                 </IconButton>

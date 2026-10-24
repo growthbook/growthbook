@@ -1,14 +1,6 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { useState, useEffect, useMemo } from "react";
-import {
-  Box,
-  Card,
-  Container,
-  Flex,
-  Grid,
-  Separator,
-  Text,
-} from "@radix-ui/themes";
+import { Box, Card, Flex, Grid, Separator, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCaretDownFill } from "react-icons/pi";
 import { CommercialFeature } from "shared/enterprise";
 import router from "next/router";
@@ -240,10 +232,7 @@ const GetStartedAndHomePage = ({
         />
       )}
 
-      <Container
-        px={{ initial: "2", xs: "4", sm: "7" }}
-        py={{ initial: "1", xs: "3", sm: "6" }}
-      >
+      <Box py={{ initial: "1", xs: "3", sm: "6" }}>
         {showMarketingBanner && <HomeMarketingBanner />}
         <Grid columns={`minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`}>
           <Text size="7" weight="regular" mb="5" as="div">
@@ -449,7 +438,7 @@ const GetStartedAndHomePage = ({
             />
           </Box>
         </Grid>
-      </Container>
+      </Box>
     </>
   );
 };

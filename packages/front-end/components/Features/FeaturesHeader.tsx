@@ -484,7 +484,7 @@ export default function FeaturesHeader({
       <Box className="features-header contents container-fluid pagecontents pb-0">
         <Box>
           <Flex align="start" justify="between" gap="2">
-            <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
+            <Flex align="center" mb="2" gap="3">
               <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
                 {feature.id}
               </Heading>

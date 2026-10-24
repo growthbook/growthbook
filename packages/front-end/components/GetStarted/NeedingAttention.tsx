@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Container, Flex, Grid, Text } from "@radix-ui/themes";
+import { Box, Flex, Grid, Text } from "@radix-ui/themes";
 import {
   PiFlag,
   PiFlagBold,
@@ -312,7 +312,7 @@ const NeedingAttention = (): React.ReactElement | null => {
     );
 
     return recentFeatures.length > 0 ? (
-      <Container className="recent-items-container">
+      <Box className="recent-items-container">
         <Text size="4" weight="medium" as="div">
           Recent
         </Text>
@@ -350,7 +350,7 @@ const NeedingAttention = (): React.ReactElement | null => {
             </Link>
           ))}
         </Grid>
-      </Container>
+      </Box>
     ) : null;
   };
   const displayExperimentsRequiringAttention = () => {
@@ -363,7 +363,7 @@ const NeedingAttention = (): React.ReactElement | null => {
     );
 
     return (
-      <Container className="mt-5">
+      <Box className="mt-5">
         <Flex direction="row" align="center">
           <Text size="4" weight="medium">
             Experiments requiring attention
@@ -422,7 +422,7 @@ const NeedingAttention = (): React.ReactElement | null => {
             </tbody>
           </table>
         ) : (
-          <Container mt="3" width="100%">
+          <Box mt="3" width="100%">
             <Flex direction="column">
               <Text>No experiments requiring attention</Text>
               <div>
@@ -431,7 +431,7 @@ const NeedingAttention = (): React.ReactElement | null => {
                 </LinkButton>
               </div>
             </Flex>
-          </Container>
+          </Box>
         )}
         {experimentsNeedingAttention.length > ITEMS_PER_PAGE && (
           <Flex justify="start" mt="1">
@@ -443,7 +443,7 @@ const NeedingAttention = (): React.ReactElement | null => {
             />
           </Flex>
         )}
-      </Container>
+      </Box>
     );
   };
   const renderStatusCopy = (revision: FeatureRevisionInterface) => {
@@ -486,7 +486,7 @@ const NeedingAttention = (): React.ReactElement | null => {
       endIndex,
     );
     return (
-      <Container mt="6">
+      <Box mt="6">
         <Flex direction="row" align="center">
           <Text size="4" weight="medium">
             Feature flags requiring attention
@@ -547,7 +547,7 @@ const NeedingAttention = (): React.ReactElement | null => {
             </tbody>
           </table>
         ) : (
-          <Container mt="3" width="100%">
+          <Box mt="3" width="100%">
             <Flex direction="column">
               <Text>No feature flags requiring attention</Text>
               <div>
@@ -556,7 +556,7 @@ const NeedingAttention = (): React.ReactElement | null => {
                 </LinkButton>
               </div>
             </Flex>
-          </Container>
+          </Box>
         )}
         {featureFlagsNeedingAttention.length > ITEMS_PER_PAGE && (
           <Flex justify="start" mt="1">
@@ -568,7 +568,7 @@ const NeedingAttention = (): React.ReactElement | null => {
             />
           </Flex>
         )}
-      </Container>
+      </Box>
     );
   };
 

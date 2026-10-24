@@ -23,7 +23,7 @@ export default function SlackAccountPage() {
     organizationId: string;
   } | null>(null);
   return (
-    <Box p="4" style={{ maxWidth: 800, margin: "0 auto" }}>
+    <Box py="4" style={{ maxWidth: 800, margin: "0 auto" }}>
       <Flex direction="column" gap="4">
         <Heading as="h1" size="lg">
           My Slack Links

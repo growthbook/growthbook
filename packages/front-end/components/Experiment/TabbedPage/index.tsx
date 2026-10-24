@@ -746,8 +746,9 @@ export default function TabbedPage({
       </div>
 
       {tab !== "dashboards" && !showDashboardView && (
-        <div className="mt-4 border-top pb-3 page-bleed">
-          <div className="pt-4 pb-5">
+        // Ends the page: the page wrapper's 32px is the space below it.
+        <div className="mt-4 border-top page-bleed">
+          <div className="pt-4">
             <div className="h3 mb-4">Comments</div>
             <DiscussionThread
               type="experiment"

@@ -20,7 +20,7 @@ const NewDataSourcePage: FC = () => {
   }
 
   return (
-    <Box p="15px" mx="auto" maxWidth="1340px">
+    <Box py="15px">
       <PageHead
         breadcrumb={[
           { display: "Data Sources", href: "/datasources" },

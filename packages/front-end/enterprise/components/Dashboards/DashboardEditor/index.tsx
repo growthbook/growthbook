@@ -437,7 +437,13 @@ function DashboardEditor({
         dashboardId={id}
       />
       <Box mt={isEditing ? "1" : undefined} mb="3">
-        <Flex align="center" height={DASHBOARD_TOPBAR_HEIGHT} gap="1">
+        {/* Viewing, as tall as what's in it, so it starts 24px under the
+          header like other pages' title rows; editing, the editor's 40px. */}
+        <Flex
+          align="center"
+          height={isEditing ? DASHBOARD_TOPBAR_HEIGHT : undefined}
+          gap="1"
+        >
           {switchToExperimentView ? (
             <Button variant="ghost" size="sm" onClick={switchToExperimentView}>
               View Regular Experiment View
@@ -498,6 +504,8 @@ function DashboardEditor({
                     radius="full"
                     size="3"
                     highContrast
+                    // Its hover area stays within the title row.
+                    style={{ marginTop: 0, marginBottom: 0 }}
                   >
                     <BsThreeDotsVertical size={18} />
                   </IconButton>
