@@ -1578,11 +1578,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Settings/Usage/CloudUsage.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/WebhooksModal.tsx": {
     "no-restricted-imports": {
       "count": 1
