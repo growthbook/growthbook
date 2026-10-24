@@ -6,6 +6,7 @@ import {
   getHealthBand,
   getNoScoreReason,
   getQualityIssues,
+  startOfUTCWeek,
 } from "../../src/enterprise/insights/programHealth";
 import { ExperimentQualityScoreResult } from "../../src/enterprise/experimentQualityScore";
 
@@ -183,7 +184,7 @@ describe("computeHealthDetails", () => {
     expect(details.stability.mostRestarted[0].restarts).toBe(2);
     expect(details.cycle.stuckDrafts).toBe(1);
     expect(details.attention.map((a) => a.type)).toEqual(["Stale", "Draft"]);
-    expect(details.diagnostics.endedEarly).toEqual({ count: 1, total: 3 });
+    expect(details.diagnostics.didNotFinish).toEqual({ count: 1, total: 3 });
     // A one-month run lands in the fifth 7-day bin
     expect(details.cycle.medianBin).toBe(4);
   });
@@ -219,5 +220,32 @@ describe("getQualityIssues", () => {
       ["description", 2, 10],
     ]);
     expect(issues[0].action).toBe("Write a hypothesis");
+  });
+});
+
+describe("startOfUTCWeek", () => {
+  it("returns the Monday that starts the UTC week", () => {
+    const monday = new Date("2026-10-19T00:00:00Z");
+    expect(startOfUTCWeek(new Date("2026-10-19T00:00:00Z"))).toEqual(monday);
+    expect(startOfUTCWeek(new Date("2026-10-21T15:30:00Z"))).toEqual(monday);
+    expect(startOfUTCWeek(new Date("2026-10-25T23:59:59Z"))).toEqual(monday);
+  });
+
+  it("crosses month and year boundaries", () => {
+    expect(startOfUTCWeek(new Date("2027-01-01T12:00:00Z"))).toEqual(
+      new Date("2026-12-28T00:00:00Z"),
+    );
+  });
+});
+
+describe("countStarts via computeScopeHealth", () => {
+  it("doesn't count drafts as starts", () => {
+    const health = computeScopeHealth({
+      experiments: [exp(), exp({ status: "draft" })],
+      window: WINDOW,
+      healthSettings: HEALTH_SETTINGS,
+      getQuality: noQuality,
+    });
+    expect(health.started).toBe(1);
   });
 });

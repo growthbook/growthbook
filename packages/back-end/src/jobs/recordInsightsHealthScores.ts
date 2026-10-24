@@ -1,36 +1,33 @@
 import Agenda, { Job } from "agenda";
+import { HEALTH_SCORE_ALL_PROJECTS } from "shared/validators";
+import { startOfUTCWeek } from "shared/enterprise";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getOrganizationsWithRunningExperiments } from "back-end/src/models/ExperimentModel";
 import { INSIGHTS_HEALTH_SCORES_COLLECTION } from "back-end/src/enterprise/models/InsightsHealthScoreModel";
-import {
-  recordWeeklyHealthScores,
-  startOfUTCWeek,
-} from "back-end/src/enterprise/services/insightsHealth";
+import { recordWeeklyHealthScores } from "back-end/src/enterprise/services/insightsHealth";
 
 const QUEUE_HEALTH_SCORES = "queueInsightsHealthScores";
 const RECORD_HEALTH_SCORES = "recordInsightsHealthScores";
-// Orgs that opened Health this recently keep an unbroken trend
-const RECENT_VISIT_DAYS = 90;
 
 type RecordHealthScoresJob = Job<{ organization: string }>;
 
+// Orgs with a running experiment get a score every week; visiting Health
+// records the week for any other org
 export default async function addInsightsHealthScoresJob(agenda: Agenda) {
   // Runs daily so a missed run catches up; each org still records once a week
   agenda.define(QUEUE_HEALTH_SCORES, async () => {
     const weekStart = startOfUTCWeek(new Date());
-    const since = new Date(
-      weekStart.getTime() - RECENT_VISIT_DAYS * 24 * 60 * 60 * 1000,
-    );
-    // Cross-org, so it reads the collection directly
-    const scores = getCollection(INSIGHTS_HEALTH_SCORES_COLLECTION);
-    const [running, visited, recorded] = await Promise.all([
+    const [running, recorded] = await Promise.all([
       getOrganizationsWithRunningExperiments(),
-      scores.distinct("organization", { weekStart: { $gte: since } }),
-      scores.distinct("organization", { project: "", weekStart }),
+      // Cross-org, so it reads the collection directly
+      getCollection(INSIGHTS_HEALTH_SCORES_COLLECTION).distinct(
+        "organization",
+        { scope: HEALTH_SCORE_ALL_PROJECTS, weekStart },
+      ),
     ]);
     const done = new Set<string>(recorded);
-    for (const organization of new Set<string>([...running, ...visited])) {
+    for (const organization of running) {
       if (done.has(organization)) continue;
       const job = agenda.create(RECORD_HEALTH_SCORES, {
         organization,

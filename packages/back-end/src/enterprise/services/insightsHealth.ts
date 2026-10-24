@@ -1,4 +1,8 @@
-import { ORG_DEFAULT_SCOPE } from "shared/validators";
+import {
+  AGREEMENT_TYPE_AI,
+  HEALTH_SCORE_ALL_PROJECTS,
+  ORG_DEFAULT_SCOPE,
+} from "shared/validators";
 import {
   GetQuality,
   combineProjectScores,
@@ -7,6 +11,7 @@ import {
   getExperimentQualityScore,
   getHealthSettings,
   resolveExperimentQualitySettings,
+  startOfUTCWeek,
 } from "shared/enterprise";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import {
@@ -16,29 +21,26 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { isDuplicateKeyError } from "back-end/src/util/mongo.util";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // The trend always scores the trailing 90 days, whatever range the page shows
 const TREND_WINDOW_DAYS = 90;
 
-export function startOfUTCWeek(date: Date): Date {
-  const day = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-  );
-  day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7));
-  return day;
-}
-
 async function getQualityScorer(
   context: ReqContext | ApiReqContext,
 ): Promise<GetQuality> {
   if (!context.hasPremiumFeature("experiment-quality-score")) return () => null;
-  const [records, aiSettings] = await Promise.all([
+  const [records, aiSettings, aiAgreement] = await Promise.all([
     context.models.experimentationHealthSettings.getAll(),
     getAISettingsForOrg(context),
+    IS_CLOUD
+      ? context.models.agreements.getAgreementForOrg(AGREEMENT_TYPE_AI)
+      : null,
   ]);
   const byProject = new Map(records.map((r) => [r.project, r]));
-  const aiEnabled = !!context.org.settings?.aiEnabled && aiSettings.aiEnabled;
+  // Matches the page's useAISettings: Cloud also needs the AI agreement
+  const aiEnabled = aiSettings.aiEnabled && (!IS_CLOUD || !!aiAgreement);
   return (experiment) => {
     const settings = resolveExperimentQualitySettings({
       orgRecord: byProject.get(ORG_DEFAULT_SCOPE),
@@ -80,13 +82,16 @@ export async function recordWeeklyHealthScores(
   const rows = [
     ...projects,
     // Written last, so a partial run is retried by the next visit
-    { project: "", health: { ...org, score: combineProjectScores(projects) } },
+    {
+      project: HEALTH_SCORE_ALL_PROJECTS,
+      health: { ...org, score: combineProjectScores(projects) },
+    },
   ];
 
   for (const { project, health } of rows) {
     try {
       await system.models.insightsHealthScores.record({
-        project,
+        scope: project,
         weekStart,
         score: health.score,
         quality: health.quality,

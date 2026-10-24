@@ -1,4 +1,5 @@
 import {
+  HEALTH_SCORE_ALL_PROJECTS,
   InsightsHealthScoreInterface,
   insightsHealthScoreValidator,
 } from "shared/validators";
@@ -10,13 +11,15 @@ const BaseClass = MakeModelClass({
   schema: insightsHealthScoreValidator,
   collectionName: INSIGHTS_HEALTH_SCORES_COLLECTION,
   idPrefix: "ihs_",
-  readonlyFields: ["project", "weekStart"],
+  readonlyFields: ["scope", "weekStart"],
   globallyUniquePrimaryKeys: false,
   additionalIndexes: [
     {
-      fields: { organization: 1, project: 1, weekStart: 1 },
+      fields: { organization: 1, scope: 1, weekStart: 1 },
       unique: true,
     },
+    // The daily job's cross-org lookup by week
+    { fields: { weekStart: 1, scope: 1 } },
   ],
 });
 
@@ -24,7 +27,9 @@ const BaseClass = MakeModelClass({
 export class InsightsHealthScoreModel extends BaseClass {
   protected canRead(doc: InsightsHealthScoreInterface): boolean {
     // "" checks organization-level read access, since that row spans every Project
-    return this.context.permissions.canReadSingleProjectResource(doc.project);
+    return this.context.permissions.canReadSingleProjectResource(
+      doc.scope === HEALTH_SCORE_ALL_PROJECTS ? "" : doc.scope,
+    );
   }
   protected canCreate(doc: InsightsHealthScoreInterface): boolean {
     return this.canRead(doc);
@@ -41,7 +46,10 @@ export class InsightsHealthScoreModel extends BaseClass {
   }
 
   public hasWeek(weekStart: Date): Promise<boolean> {
-    return this._findOne({ project: "", weekStart }).then((doc) => !!doc);
+    return this._findOne({
+      scope: HEALTH_SCORE_ALL_PROJECTS,
+      weekStart,
+    }).then((doc) => !!doc);
   }
 
   public record(

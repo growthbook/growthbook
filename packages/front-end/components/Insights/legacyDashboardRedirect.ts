@@ -16,7 +16,8 @@ export function getLegacyDashboardRedirect(
   const range = get("dateRange");
   const start = get("startDate");
   const end = get("endDate");
-  if (range === "custom" && start && end) {
+  // The old page saved explicit dates with every preset, so keep them
+  if (start && end) {
     params.set("range", "customDateRange");
     params.set("start", start);
     params.set("end", end);

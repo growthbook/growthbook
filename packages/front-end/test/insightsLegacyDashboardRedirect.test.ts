@@ -25,6 +25,18 @@ describe("getLegacyDashboardRedirect", () => {
     );
   });
 
+  it("keeps saved dates even with a preset range", () => {
+    expect(
+      getLegacyDashboardRedirect({
+        dateRange: "90",
+        startDate: "2025-01-01",
+        endDate: "2025-04-01",
+      }),
+    ).toBe(
+      "/insights/health?range=customDateRange&start=2025-01-01&end=2025-04-01",
+    );
+  });
+
   it("turns other day counts into a custom lookback", () => {
     expect(getLegacyDashboardRedirect({ dateRange: "180" })).toBe(
       "/insights/health?range=customLookback&lookback=180&unit=day",

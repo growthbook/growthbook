@@ -129,7 +129,10 @@ export function VelocityCard({
       <Columns
         values={monthlyStarts.map((m) => m.count)}
         highlight={(i) => i >= monthlyStarts.length - 3}
-        labels={monthlyStarts.map((m) => format(m.month, "MMM"))}
+        // Months start at midnight UTC, so format in UTC to keep the label
+        labels={monthlyStarts.map((m) =>
+          m.month.toLocaleString("en-US", { month: "short", timeZone: "UTC" }),
+        )}
       />
       <Stats
         items={[
@@ -313,7 +316,8 @@ export function QualityDiagnosticsCard({
       total: diagnostics.srm.total,
     },
     {
-      label: "Reached target power",
+      // isLowPowered is a forecast warning, not a check against the target
+      label: "No low-power warning",
       ...ratioStatus(diagnostics.power, { good: 0.8, watch: 0.6 }),
       total: diagnostics.power.total,
     },
@@ -323,13 +327,13 @@ export function QualityDiagnosticsCard({
       total: diagnostics.hypothesis.total,
     },
     {
-      label: "Ended early / did not finish",
-      ...ratioStatus(diagnostics.endedEarly, {
+      label: "Did not finish",
+      ...ratioStatus(diagnostics.didNotFinish, {
         good: 0.9,
         watch: 0.8,
         lowerIsBetter: true,
       }),
-      total: diagnostics.endedEarly.total,
+      total: diagnostics.didNotFinish.total,
     },
   ];
   return (
@@ -374,9 +378,10 @@ const ATTENTION_CONTEXT: Record<
   HealthDetails["attention"][number]["type"],
   string
 > = {
-  SRM: "Sample ratio mismatch since",
-  Power: "Underpowered since",
-  Stale: "No results update since",
+  SRM: "Sample ratio mismatch · phase started",
+  Power: "Low-power warning · phase started",
+  // lastSnapshotAttempt records attempts, successful or not
+  Stale: "No results refresh attempted since",
   Draft: "Draft since",
 };
 

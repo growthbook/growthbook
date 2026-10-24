@@ -366,7 +366,7 @@ export default function HealthHeadline({
         />
         <Tile
           label="Healthy rate"
-          info="Share of completed experiments with no health errors (SRM or multiple exposures) and no missed power target. Experiments without a power target count as healthy."
+          info="Share of completed experiments with no health errors: SRM, multiple exposures or a low-power warning. Experiments without a power estimate count as healthy."
           value={pct(health.healthyRate)}
           change={
             <Change

@@ -22,6 +22,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ExperimentsGetStarted from "@/components/HomePage/ExperimentsGetStarted";
 import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import ShareUrlPopover from "@/ui/ShareUrlPopover";
@@ -91,6 +92,7 @@ export default function HealthPage() {
     setProject,
     dateRange,
     setDateRange,
+    getShareUrl,
   } = useInsightsUrlState();
   const {
     project: globalProject,
@@ -100,7 +102,12 @@ export default function HealthPage() {
   } = useDefinitions();
   const settings = useOrgSettings();
   const { getQuality, hasFeature } = useQualityScorer();
-  const { experiments, loading } = useExperiments("", true);
+  const {
+    experiments,
+    loading,
+    error: experimentsError,
+    mutateExperiments,
+  } = useExperiments("", true);
   const { data: trendData } = useApi<{
     scores: InsightsHealthScoreInterface[];
   }>("/insights/health/scores");
@@ -178,7 +185,7 @@ export default function HealthPage() {
 
   const trendFor = (id: string): number[] | null => {
     const values = (trendData?.scores ?? [])
-      .filter((s) => s.project === id && s.score !== null)
+      .filter((s) => s.scope === id && s.score !== null)
       .sort(
         (a, b) =>
           new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime(),
@@ -189,11 +196,28 @@ export default function HealthPage() {
 
   if (!ready || !definitionsReady || loading) return <LoadingSpinner />;
 
+  if (experimentsError) {
+    return (
+      <Box className="pagecontents" p="5">
+        <Callout
+          status="error"
+          action={
+            <Button color="inherit" onClick={() => mutateExperiments()}>
+              Retry
+            </Button>
+          }
+        >
+          Couldn&apos;t load experiments, so Health can&apos;t be shown.
+        </Callout>
+      </Box>
+    );
+  }
+
   if (!experiments.some((e) => !e.id.match(/^exp_sample/))) {
     return (
-      <div className="container pagecontents getstarted">
+      <Box className="pagecontents getstarted" p="5">
         <ExperimentsGetStarted />
-      </div>
+      </Box>
     );
   }
 
@@ -250,7 +274,7 @@ export default function HealthPage() {
             health.healthErrors.multipleExposures &&
               `${health.healthErrors.multipleExposures} with multiple exposures`,
             health.healthErrors.lowPowered &&
-              `${health.healthErrors.lowPowered} missed their power target`,
+              `${health.healthErrors.lowPowered} with a low-power warning`,
           ]
             .filter(Boolean)
             .join(", ")}
@@ -304,7 +328,7 @@ export default function HealthPage() {
           } as const);
 
   return (
-    <Box className="container-fluid pagecontents" py="4">
+    <Box className="pagecontents" px="5" py="4">
       <Flex justify="between" align="start" mb="4" gap="4" wrap="wrap">
         <Box>
           <Heading as="h1" size="lg" mb="1">
@@ -336,6 +360,7 @@ export default function HealthPage() {
             onChange={(next) => setDateRange(next.dateRange)}
           />
           <ShareUrlPopover
+            url={getShareUrl(project)}
             title="Share this view"
             description="Anyone with access to this organization sees the same Project and dates."
             trigger={<Button variant="outline">Share report</Button>}

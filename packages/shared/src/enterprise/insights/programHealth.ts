@@ -198,8 +198,10 @@ function countStarts(
   experiments: InsightsExperiment[],
   window: InsightsWindow,
 ) {
-  return experiments.filter((e) => inWindow(getFirstStartDate(e), window))
-    .length;
+  // New drafts get a phase start date too, so only launched ones count
+  return experiments.filter(
+    (e) => e.status !== "draft" && inWindow(getFirstStartDate(e), window),
+  ).length;
 }
 
 function months({ startDate, endDate }: InsightsWindow) {
@@ -277,6 +279,15 @@ export function computeScopeHealth({
   };
 }
 
+// Weekly scores are keyed by the Monday (UTC) that starts the week
+export function startOfUTCWeek(date: Date): Date {
+  const day = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
+  day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7));
+  return day;
+}
+
 export function getNoScoreReason(
   health: Pick<ScopeHealth, "started" | "completed">,
 ): string | null {
@@ -296,7 +307,9 @@ export function computeHealthByProject({
   const byProject = new Map<string, InsightsExperiment[]>();
   experiments.forEach((e) => {
     const project = e.project ?? "";
-    byProject.set(project, [...(byProject.get(project) ?? []), e]);
+    const group = byProject.get(project);
+    if (group) group.push(e);
+    else byProject.set(project, [e]);
   });
   return [...byProject.entries()].map(([project, exps]) => ({
     project,
@@ -349,7 +362,7 @@ export type HealthDetails = {
     srm: HealthRatio;
     power: HealthRatio;
     hypothesis: HealthRatio;
-    endedEarly: HealthRatio;
+    didNotFinish: HealthRatio;
   };
   attention: AttentionItem[];
   qualityIssues: QualityIssue[];
@@ -388,7 +401,7 @@ export function computeHealthDetails({
       month,
       count: countStarts(standard, {
         startDate: month,
-        endDate: new Date(next.getTime() - 1),
+        endDate: new Date(Math.min(next.getTime() - 1, end.getTime())),
       }),
     };
   });
@@ -495,7 +508,7 @@ export function computeHealthDetails({
         (e) => flags.get(e.id)?.lowPowered === false,
       ),
       hypothesis: ratio(completed, (e) => !!e.hypothesis?.trim()),
-      endedEarly: ratio(completed, (e) => e.results === "dnf"),
+      didNotFinish: ratio(completed, (e) => e.results === "dnf"),
     },
     attention: attention.slice(0, MAX_ATTENTION_ITEMS),
     qualityIssues: getQualityIssues(completed, getQuality),
