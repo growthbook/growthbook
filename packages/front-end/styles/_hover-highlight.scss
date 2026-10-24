@@ -12,13 +12,14 @@
 }
 
 // A row that clicks one of its controls wherever it's clicked. Whatever else
-// in it is clickable stays above that, with its own click.
+// in it is clickable, or has a tooltip, stays above that.
 @mixin click-row {
   position: relative;
 
   :global(a),
   :global(button),
-  :global([role="button"]) {
+  :global([role="button"]),
+  :global([data-state]) {
     position: relative;
     z-index: 1;
   }

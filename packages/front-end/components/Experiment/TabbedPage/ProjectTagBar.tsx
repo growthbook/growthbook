@@ -8,6 +8,7 @@ import Text from "@/ui/Text";
 import SortedTags from "@/components/Tags/SortedTags";
 import { tagLinkProps } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
@@ -294,9 +295,11 @@ function DraftSchedule({
           value={
             <Flex align="center" gap="1">
               {startPassed ? (
-                <Tooltip body="This start time has passed. Edit the schedule to set a new one.">
-                  <PiWarningFill color="var(--warning)" />
-                </Tooltip>
+                <UITooltip content="This start time has passed. Edit the schedule to set a new one.">
+                  <span style={{ display: "inline-flex" }}>
+                    <PiWarningFill color="var(--warning)" />
+                  </span>
+                </UITooltip>
               ) : null}
               <Text size="sm" color="text-high">
                 {scheduledTime(schedule.startAt)}
@@ -346,9 +349,13 @@ function RunningSchedule({
           empty()
         ) : endPassed ? (
           <Flex align="center" gap="1">
-            <PiWarningFill color="var(--warning)" />
+            <UITooltip content="This end has passed, and the experiment kept running. Edit the schedule to set a new one.">
+              <span style={{ display: "inline-flex" }}>
+                <PiWarningFill color="var(--warning)" />
+              </span>
+            </UITooltip>
             <Text size="sm" color="text-high">
-              {end} — kept running
+              {end}
             </Text>
           </Flex>
         ) : (
