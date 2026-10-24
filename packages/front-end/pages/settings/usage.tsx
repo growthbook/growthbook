@@ -35,7 +35,7 @@ export default function UsagePage() {
     // The CDN usage view renders its own header; the Orb portal keeps the page's.
     <SettingsPage
       title="Usage"
-      description="CDN requests, managed warehouse usage, and seats."
+      description="Invoices, payments, and plan usage."
       hideHeader={subscription?.billingPlatform !== "orb"}
     >
       {subscription?.billingPlatform === "orb" ? <OrbPortal /> : <CloudUsage />}

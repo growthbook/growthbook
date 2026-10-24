@@ -22,6 +22,12 @@
   &:focus-visible {
     background-color: var(--gray-a3);
   }
+
+  // The popover trigger resets the browser outline, so the ring is drawn here.
+  &:focus-visible {
+    outline: 2px solid var(--violet-8);
+    outline-offset: 2px;
+  }
 }
 
 .code,

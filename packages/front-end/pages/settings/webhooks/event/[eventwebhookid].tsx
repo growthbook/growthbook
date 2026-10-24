@@ -8,7 +8,7 @@ import { EventWebHookLogsContainer } from "@/components/EventWebHooks/EventWebHo
 import useApi from "@/hooks/useApi";
 import SettingsPage from "@/components/Layout/SettingsPage";
 import Callout from "@/ui/Callout";
-import LoadingOverlay from "@/components/LoadingOverlay";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 const EventWebHookDetailPage: NextPage = () => {
   const router = useRouter();
@@ -52,7 +52,7 @@ const EventWebHookDetailPage: NextPage = () => {
           </Box>
         </>
       ) : (
-        <LoadingOverlay />
+        <LoadingSpinner />
       )}
     </SettingsPage>
   );

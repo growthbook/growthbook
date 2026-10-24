@@ -231,7 +231,7 @@ function DateRangeFilter({
       align="end"
       panelWidth={324}
     >
-      <Box p="3">
+      <Box p="3" style={{ minHeight: 0, overflowY: "auto" }}>
         <RadioGroup
           options={DATE_PRESETS.map((p) => ({
             value: p.value,
@@ -400,7 +400,7 @@ export const EventsPageContainer = () => {
         <Text weight="semibold">Show</Text>
         <SelectField
           size="small"
-          aria-label="Events per page"
+          aria-label="Show events per page"
           // A fixed width, so the control doesn't grow when it opens.
           containerStyles={{ control: (base) => ({ ...base, width: 72 }) }}
           containerClassName="mb-0"
