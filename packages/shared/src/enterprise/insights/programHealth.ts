@@ -15,8 +15,6 @@ import {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DAYS_PER_MONTH = 30.44;
-// The team's own norm: the six months before the period
-const BASELINE_DAYS = 182;
 const STALE_DAYS = 14;
 const STUCK_DRAFT_DAYS = 30;
 const DURATION_BIN_DAYS = 7;
@@ -26,6 +24,8 @@ const MAX_ATTENTION_ITEMS = 20;
 // Below this many completed experiments a score is too noisy to show
 export const HEALTH_MIN_COMPLETED = 5;
 export const WIN_RATE_HEALTHY_RANGE: [number, number] = [0.2, 0.3];
+// A program that started nothing in the period can't score above "At risk"
+export const NO_STARTS_SCORE_CAP = 59;
 
 export type GetQuality = (
   experiment: InsightsExperiment,
@@ -149,12 +149,12 @@ export type ScopeHealth = {
   started: number;
   // Experiments started per month
   startRate: number;
-  baselineStartRate: number;
   winRate: number | null;
   // Average quality score of completed experiments; null when none are scored
   quality: number | null;
   healthyRate: number | null;
-  velocityScore: number;
+  // Completed experiments with each kind of health error
+  healthErrors: { srm: number; multipleExposures: number; lowPowered: number };
   // Null below HEALTH_MIN_COMPLETED completed experiments
   score: number | null;
   openSrmAlerts: number;
@@ -173,7 +173,7 @@ function months({ startDate, endDate }: InsightsWindow) {
   return Math.max(daysBetween(startDate, endDate) / DAYS_PER_MONTH, 1 / 30);
 }
 
-// Score: mean of velocity (vs. the prior 6 months, capped) and quality, or velocity alone
+// Score: mean of quality and healthy rate (healthy rate alone without quality scores)
 export function computeScopeHealth({
   experiments,
   window,
@@ -190,20 +190,7 @@ export function computeScopeHealth({
     ...window,
     projects: [],
   });
-  const baselineWindow = {
-    startDate: new Date(window.startDate.getTime() - BASELINE_DAYS * DAY_MS),
-    endDate: new Date(window.startDate.getTime() - 1),
-  };
   const started = countStarts(standard, window);
-  const startRate = started / months(window);
-  const baselineStartRate =
-    countStarts(standard, baselineWindow) / months(baselineWindow);
-  const velocityScore =
-    baselineStartRate > 0
-      ? Math.min(100, (startRate / baselineStartRate) * 100)
-      : started > 0
-        ? 100
-        : 0;
 
   const qualityScores = completed.flatMap((e) => {
     const score = getQuality(e)?.score;
@@ -214,27 +201,37 @@ export function computeScopeHealth({
     : null;
 
   const won = completed.filter((e) => e.results === "won").length;
+  const healthErrors = { srm: 0, multipleExposures: 0, lowPowered: 0 };
   const healthy = completed.filter((e) => {
     const flags = getHealthFlags(e, healthSettings);
+    if (flags.srm) healthErrors.srm += 1;
+    if (flags.multipleExposures) healthErrors.multipleExposures += 1;
     // Most experiments have no power target, so only a known miss counts
+    if (flags.lowPowered === true) healthErrors.lowPowered += 1;
     return !flags.srm && !flags.multipleExposures && flags.lowPowered !== true;
   }).length;
+  const healthyRate = completed.length ? healthy / completed.length : null;
+  const blended =
+    healthyRate === null
+      ? null
+      : quality === null
+        ? healthyRate * 100
+        : (quality + healthyRate * 100) / 2;
 
   return {
     completed: completed.length,
     won,
     started,
-    startRate,
-    baselineStartRate,
+    startRate: started / months(window),
     winRate: completed.length ? won / completed.length : null,
     quality,
-    healthyRate: completed.length ? healthy / completed.length : null,
-    velocityScore,
+    healthyRate,
+    healthErrors,
     score:
-      completed.length < HEALTH_MIN_COMPLETED
+      completed.length < HEALTH_MIN_COMPLETED || blended === null
         ? null
         : Math.round(
-            quality === null ? velocityScore : (velocityScore + quality) / 2,
+            started > 0 ? blended : Math.min(blended, NO_STARTS_SCORE_CAP),
           ),
     openSrmAlerts: standard.filter(
       (e) =>

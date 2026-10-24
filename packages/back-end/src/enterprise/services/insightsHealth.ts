@@ -89,8 +89,8 @@ export async function recordWeeklyHealthScores(
         project,
         weekStart,
         score: health.score,
-        velocityScore: health.velocityScore,
         quality: health.quality,
+        healthyRate: health.healthyRate,
         completed: health.completed,
       });
     } catch (e) {

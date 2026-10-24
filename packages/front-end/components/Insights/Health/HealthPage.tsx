@@ -9,6 +9,7 @@ import {
   computeHealthDetails,
   computeScopeHealth,
   getHealthSettings,
+  NO_STARTS_SCORE_CAP,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import { InsightsHealthScoreInterface } from "shared/validators";
@@ -49,19 +50,29 @@ const MIN_TREND_POINTS = 4;
 // The weaker area is called out until it reaches this score
 const IMPROVEMENT_THRESHOLD = 90;
 
+function countUnhealthy(health: ScopeHealth): number {
+  return (
+    health.completed - Math.round((health.healthyRate ?? 1) * health.completed)
+  );
+}
+
 function biggestGap(health: ScopeHealth): string {
   if (health.score === null) return "Fewer than 5 completed experiments";
+  if (health.started === 0) return "No experiments started";
   if (health.openSrmAlerts) {
     return `${health.openSrmAlerts} SRM alert${health.openSrmAlerts === 1 ? "" : "s"} open`;
   }
   if (
     health.quality !== null &&
-    health.quality < health.velocityScore &&
+    health.quality < (health.healthyRate ?? 1) * 100 &&
     health.topQualityIssue
   ) {
     return `Often missing: ${health.topQualityIssue}`;
   }
-  return `Starting at ${Math.round(health.velocityScore)}% of its usual pace`;
+  const unhealthy = countUnhealthy(health);
+  return unhealthy
+    ? `${plural(unhealthy, "experiment")} with health issues`
+    : "No major gaps";
 }
 
 function plural(n: number, word: string) {
@@ -185,11 +196,33 @@ export default function HealthPage() {
 
   let improvement: ReactNode = null;
   if (score !== null) {
+    const healthyScore = (health.healthyRate ?? 1) * 100;
     const qualityWeaker =
-      health.quality !== null && health.quality < health.velocityScore;
-    const weakest = qualityWeaker ? health.quality : health.velocityScore;
-    if ((weakest ?? 100) < IMPROVEMENT_THRESHOLD) {
-      const [first, second] = details.qualityIssues;
+      health.quality !== null && health.quality < healthyScore;
+    const weakest = qualityWeaker ? (health.quality ?? 100) : healthyScore;
+    const unhealthy = countUnhealthy(health);
+    const [first, second] = details.qualityIssues;
+    const srmAlerts =
+      health.openSrmAlerts > 0 &&
+      `${plural(health.openSrmAlerts, "running experiment")} ${
+        health.openSrmAlerts === 1 ? "has" : "have"
+      } an open SRM alert.`;
+    const attentionLink = details.attention.length
+      ? [{ label: "See what needs attention", href: "#needs-attention" }]
+      : [];
+    if (health.started === 0) {
+      improvement = (
+        <>
+          <strong>Velocity: no experiments started in this period.</strong> The
+          score is capped at {NO_STARTS_SCORE_CAP} until one starts.{" "}
+          {details.cycle.stuckDrafts > 0 &&
+            `${plural(details.cycle.stuckDrafts, "draft")} ${
+              details.cycle.stuckDrafts === 1 ? "has" : "have"
+            } waited more than 30 days to launch.`}
+          <ImprovementLinks links={attentionLink} />
+        </>
+      );
+    } else if (weakest < IMPROVEMENT_THRESHOLD) {
       improvement = qualityWeaker ? (
         <>
           <strong>
@@ -200,44 +233,34 @@ export default function HealthPage() {
             `The most common gap is "${first.label}" (${plural(first.count, "experiment")})${
               second ? `, then "${second.label}"` : ""
             }. `}
-          {health.openSrmAlerts > 0 &&
-            `${plural(health.openSrmAlerts, "running experiment")} ${
-              health.openSrmAlerts === 1 ? "has" : "have"
-            } an open SRM alert.`}
+          {srmAlerts}
           <ImprovementLinks
             links={[
               {
                 label: "Review quality checks",
                 href: "/settings/experimentation-health",
               },
-              ...(details.attention.length
-                ? [
-                    {
-                      label: "See what needs attention",
-                      href: "#needs-attention",
-                    },
-                  ]
-                : []),
+              ...attentionLink,
             ]}
           />
         </>
       ) : (
         <>
           <strong>
-            Velocity: {health.startRate.toFixed(1)} experiments started per
-            month,
+            Healthy rate: {unhealthy} of {health.completed} completed
+            experiments had a health issue.
           </strong>{" "}
-          against your own 6-month average of{" "}
-          {health.baselineStartRate.toFixed(1)}.{" "}
-          {details.cycle.stuckDrafts > 0 &&
-            `${plural(details.cycle.stuckDrafts, "draft")} ${
-              details.cycle.stuckDrafts === 1 ? "has" : "have"
-            } waited more than 30 days to launch.`}
-          {details.cycle.stuckDrafts > 0 && (
-            <ImprovementLinks
-              links={[{ label: "Review drafts", href: "#needs-attention" }]}
-            />
-          )}
+          {[
+            health.healthErrors.srm && `${health.healthErrors.srm} with SRM`,
+            health.healthErrors.multipleExposures &&
+              `${health.healthErrors.multipleExposures} with multiple exposures`,
+            health.healthErrors.lowPowered &&
+              `${health.healthErrors.lowPowered} missed their power target`,
+          ]
+            .filter(Boolean)
+            .join(", ")}
+          . {srmAlerts}
+          <ImprovementLinks links={attentionLink} />
         </>
       );
     }
@@ -293,8 +316,8 @@ export default function HealthPage() {
             Experimentation Health
           </Heading>
           <Text color="text-mid">
-            How well the program is running: velocity and quality. For results,
-            see <Link href="/insights/impact">Impact</Link>.
+            How well the program is running: quality, health and velocity. For
+            results, see <Link href="/insights/impact">Impact</Link>.
           </Text>
         </Box>
         <Flex gap="3" align="center">

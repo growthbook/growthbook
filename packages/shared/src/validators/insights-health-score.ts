@@ -8,8 +8,8 @@ export const insightsHealthScoreValidator = baseSchema
     project: z.string(),
     weekStart: z.date(),
     score: z.number().nullable(),
-    velocityScore: z.number(),
     quality: z.number().nullable(),
+    healthyRate: z.number().nullable(),
     completed: z.number(),
   })
   .strict();

@@ -4,6 +4,7 @@ import {
   computeHealthDetails,
   computeScopeHealth,
   getHealthBand,
+  NO_STARTS_SCORE_CAP,
 } from "../../src/enterprise/insights/programHealth";
 import { ExperimentQualityScoreResult } from "../../src/enterprise/experimentQualityScore";
 
@@ -81,31 +82,31 @@ describe("computeScopeHealth", () => {
     expect(health.score).toBeNull();
   });
 
-  it("averages velocity against the prior six months with quality", () => {
-    // 6 starts in the prior six months is 1 per month; 5 this period beats it
-    const baseline = Array.from({ length: 6 }, () =>
-      exp({ started: "2026-03-01", ended: "2026-04-01" }),
-    );
-    const experiments = [
-      ...baseline,
-      ...completed(3),
-      exp({ ended: "2026-09-01", results: "lost" } as never),
-      exp({ ended: "2026-09-01", results: "inconclusive" } as never),
-    ];
+  it("averages quality with the healthy rate", () => {
+    const srm = {
+      analysisSummary: {
+        health: { srm: 0, multipleExposures: 0, totalUsers: 10000 },
+      },
+    };
     const health = computeScopeHealth({
-      experiments,
+      experiments: [
+        ...completed(3),
+        exp({ ended: "2026-09-01", results: "lost", ...srm } as never),
+        exp({ ended: "2026-09-01", results: "inconclusive" } as never),
+      ],
       window: WINDOW,
       healthSettings: HEALTH_SETTINGS,
       getQuality: qualityOf(60),
     });
     expect(health.completed).toBe(5);
     expect(health.winRate).toBeCloseTo(3 / 5);
-    expect(health.quality).toBe(60);
-    expect(health.velocityScore).toBe(100);
-    expect(health.score).toBe(80);
+    expect(health.healthyRate).toBeCloseTo(4 / 5);
+    expect(health.healthErrors.srm).toBe(1);
+    // (60 + 80) / 2
+    expect(health.score).toBe(70);
   });
 
-  it("uses velocity alone when quality scoring is off", () => {
+  it("uses the healthy rate alone when quality scoring is off", () => {
     const health = computeScopeHealth({
       experiments: completed(5),
       window: WINDOW,
@@ -113,7 +114,20 @@ describe("computeScopeHealth", () => {
       getQuality: noQuality,
     });
     expect(health.quality).toBeNull();
-    expect(health.score).toBe(Math.round(health.velocityScore));
+    expect(health.score).toBe(100);
+  });
+
+  it("caps the score when nothing started in the period", () => {
+    const health = computeScopeHealth({
+      experiments: Array.from({ length: 5 }, () =>
+        exp({ started: "2026-05-01", ended: "2026-09-01" }),
+      ),
+      window: WINDOW,
+      healthSettings: HEALTH_SETTINGS,
+      getQuality: noQuality,
+    });
+    expect(health.started).toBe(0);
+    expect(health.score).toBe(NO_STARTS_SCORE_CAP);
   });
 
   it("counts SRM as a health error but not a missing power target", () => {
