@@ -5,9 +5,11 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
+import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import LabelWithHelp from "@/ui/LabelWithHelp";
 
 export default function BanditSettings({
   page = "org-settings",
@@ -21,6 +23,7 @@ export default function BanditSettings({
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
   const hasBandits = hasCommercialFeature("multi-armed-bandits");
+  const hasContextualBandits = hasCommercialFeature("contextual-bandits");
 
   const scheduleHours =
     parseFloat(form.watch("banditScheduleValue") ?? "0") *
@@ -198,6 +201,33 @@ export default function BanditSettings({
               ) : null}
             </Box>
           </Grid>
+
+          {page === "org-settings" && (
+            <Box mt="4">
+              <Checkbox
+                id="toggle-banditPeriodWeighting"
+                align="start"
+                weight="medium"
+                label={
+                  <LabelWithHelp
+                    label="Weight results across update periods"
+                    help="Each update period is weighted proportionally to traffic received. This reduces bias, but adds variance."
+                    adornment={
+                      <PremiumTooltip commercialFeature="contextual-bandits" />
+                    }
+                  />
+                }
+                description="Reduce bias in Contextual Bandit decision metric estimates due to changing traffic over time. This applies to every Contextual Bandit in the organization and cannot be changed per experiment."
+                value={form.watch("banditPeriodWeighting") ?? true}
+                setValue={(value) =>
+                  form.setValue("banditPeriodWeighting", value, {
+                    shouldDirty: true,
+                  })
+                }
+                disabled={!hasContextualBandits}
+              />
+            </Box>
+          )}
         </Box>
       </Flex>
     </Box>

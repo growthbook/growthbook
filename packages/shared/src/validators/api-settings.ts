@@ -146,6 +146,7 @@ export const apiSettingsValidator = namedSchema(
       banditScheduleUnit: z.enum(["hours", "days"]),
       banditBurnInValue: z.coerce.number(),
       banditBurnInUnit: z.enum(["hours", "days"]),
+      banditPeriodWeighting: z.boolean().optional(),
       experimentMinLengthDays: z.coerce.number(),
       experimentMaxLengthDays: z.coerce.number().nullable().optional(),
       preferredEnvironment: z.string().nullable().optional(),

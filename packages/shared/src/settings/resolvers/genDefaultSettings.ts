@@ -50,6 +50,7 @@ export const DEFAULT_BANDIT_SCHEDULE_VALUE = 1;
 export const DEFAULT_BANDIT_SCHEDULE_UNIT = "days";
 export const DEFAULT_BANDIT_BURN_IN_VALUE = 1;
 export const DEFAULT_BANDIT_BURN_IN_UNIT = "days";
+export const DEFAULT_BANDIT_PERIOD_WEIGHTING = true;
 
 export const DEFAULT_METRIC_DEFAULTS: MetricDefaults = {
   maxPercentageChange: 0.5,
@@ -105,6 +106,7 @@ export default function genDefaultSettings(): Settings {
     banditScheduleValue: DEFAULT_BANDIT_SCHEDULE_VALUE,
     banditScheduleUnit: DEFAULT_BANDIT_SCHEDULE_UNIT,
     banditBurnInValue: DEFAULT_BANDIT_BURN_IN_VALUE,
+    banditPeriodWeighting: DEFAULT_BANDIT_PERIOD_WEIGHTING,
     banditBurnInUnit: DEFAULT_BANDIT_BURN_IN_UNIT,
     experimentMinLengthDays: DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
     experimentMaxLengthDays: DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,

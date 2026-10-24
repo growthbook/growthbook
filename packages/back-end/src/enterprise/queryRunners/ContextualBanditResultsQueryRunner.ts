@@ -101,12 +101,16 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
 
     const cb = await this.loadCbDoc();
 
+    const identifierQuote = getIntegrationIdentifierQuote(this.integration);
+
     // TODO(query-runner): remove need for snapshotSettings
     const expSnapshotSettings = buildSnapshotSettingsForCb(
       this.snapshotSettings,
+      identifierQuote,
     );
     const cbUnitsSettings = buildUnitsQuerySettingsFromCb(
       this.snapshotSettings,
+      identifierQuote,
     );
 
     if (!hasUsableContextualBanditTargeting(cbUnitsSettings)) {
@@ -206,7 +210,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
 
     const canComputeSrm = queryHasContextualBanditSrmColumns(
       cbUnitsSettings.exposureQuery.query,
-      getIntegrationIdentifierQuote(this.integration),
+      identifierQuote,
     );
     if (!canComputeSrm) {
       logger.info(
@@ -297,6 +301,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
 
     const expSnapshotSettings = buildSnapshotSettingsForCb(
       this.snapshotSettings,
+      getIntegrationIdentifierQuote(this.integration),
     );
 
     // Traffic rows are tagged with the variation key (emitted by the assignment query),

@@ -27,16 +27,20 @@ const metric = factMetricFactory.build({
 });
 
 const cbExposureQuery =
-  "SELECT user_id, timestamp, experiment_id, variation_id, leaf_id, bandit_version, variation_weights FROM cb_assignments";
+  "SELECT user_id, timestamp, experiment_id, variation_id, country, leaf_id, bandit_version, variation_weights FROM cb_assignments";
 const nonBanditExposureQuery =
   "SELECT user_id, timestamp, experiment_id, variation_id FROM assignments";
 
 function buildSql({
   contextualBandit,
   query,
+  periodWeighting = false,
+  targetingAttributeColumns = ["country"],
 }: {
   contextualBandit: boolean;
   query: string;
+  periodWeighting?: boolean;
+  targetingAttributeColumns?: string[];
 }): string {
   const settings = {
     manual: false,
@@ -66,7 +70,15 @@ function buildSql({
       { id: "0", weight: 0.5 },
       { id: "1", weight: 0.5 },
     ],
-    ...(contextualBandit ? { banditSettings: { contextualBandit: true } } : {}),
+    ...(contextualBandit
+      ? {
+          banditSettings: {
+            contextualBandit: true,
+            targetingAttributeColumns,
+            ...(periodWeighting ? { periodWeighting: true } : {}),
+          },
+        }
+      : {}),
   };
 
   return getExperimentFactMetricsQuery(postgresDialect, datasource, {
@@ -120,5 +132,41 @@ describe("getExperimentFactMetricsQuery contextual bandit first-exposure attribu
     expect(c).not.toContain("version_window_end");
     expect(c).not.toContain("d.bandit_versionASbandit_version");
     expect(c).not.toContain("umj.bandit_version");
+  });
+});
+
+describe("getExperimentFactMetricsQuery contextual bandit period weighting", () => {
+  it("period-weights by bandit_version when enabled", () => {
+    const c = compact(
+      buildSql({
+        contextualBandit: true,
+        query: cbExposureQuery,
+        periodWeighting: true,
+      }),
+    );
+
+    // Per-unit first-exposure bandit_version is captured and used as the period.
+    expect(c).toContain("__cb_bandit_version");
+    expect(c).toContain("__cb_bandit_versionASbandit_period");
+    // The shared period-folding CTE is emitted.
+    expect(c).toContain("__banditPeriodStatistics");
+    expect(c).toContain("__banditPeriodWeights");
+    // Context attribute remains a real dimension column (no dummy 'All').
+    expect(c).toContain("attr_cb_country");
+    expect(c).not.toContain("'All'ASdimension");
+  });
+
+  it("does not period-weight when the toggle is off", () => {
+    const c = compact(
+      buildSql({
+        contextualBandit: true,
+        query: cbExposureQuery,
+        periodWeighting: false,
+      }),
+    );
+
+    expect(c).not.toContain("__cb_bandit_version");
+    expect(c).not.toContain("__banditPeriodWeights");
+    expect(c).toContain("attr_cb_country");
   });
 });
