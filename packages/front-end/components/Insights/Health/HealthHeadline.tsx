@@ -109,43 +109,56 @@ function Tile({
   bar?: ReactNode;
 }) {
   return (
-    <Box
-      px="4"
-      pt="4"
-      pb="3"
-      style={{ minWidth: 0, borderLeft: "1px solid var(--gray-a5)" }}
-    >
-      <Flex align="center" gap="1">
-        <Text
-          size="sm"
-          weight="semibold"
-          color="text-mid"
-          textTransform="uppercase"
-        >
-          {label}
-        </Text>
-        <InfoTip content={info} />
-      </Flex>
-      <Flex justify="between" align="end" mt="1" gap="2">
-        <span style={{ whiteSpace: "nowrap" }}>
-          <span
-            style={{ fontSize: 24, fontWeight: 700, color: "var(--gray-12)" }}
+    // The whole tile shows the definition, not just the icon
+    <Tooltip content={info}>
+      <Box
+        px="4"
+        pt="4"
+        pb="3"
+        style={{
+          minWidth: 0,
+          borderLeft: "1px solid var(--gray-a5)",
+          cursor: "help",
+        }}
+      >
+        <Flex align="center" gap="1">
+          <Text
+            size="sm"
+            weight="semibold"
+            color="text-mid"
+            textTransform="uppercase"
           >
-            {value}
+            {label}
+          </Text>
+          <span style={{ display: "inline-flex", color: "var(--gray-10)" }}>
+            <PiInfo size={13} />
           </span>
-          {unit && (
+        </Flex>
+        <Flex justify="between" align="end" mt="1" gap="2">
+          <span style={{ whiteSpace: "nowrap" }}>
             <span
-              style={{ fontSize: 13, fontWeight: 500, color: "var(--gray-11)" }}
+              style={{ fontSize: 24, fontWeight: 700, color: "var(--gray-12)" }}
             >
-              {" "}
-              {unit}
+              {value}
             </span>
-          )}
-        </span>
-        {change}
-      </Flex>
-      {bar}
-    </Box>
+            {unit && (
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "var(--gray-11)",
+                }}
+              >
+                {" "}
+                {unit}
+              </span>
+            )}
+          </span>
+          {change}
+        </Flex>
+        {bar}
+      </Box>
+    </Tooltip>
   );
 }
 
