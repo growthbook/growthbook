@@ -628,6 +628,16 @@ async function waivableApprovals(
   );
 }
 
+async function withoutWaivedApprovals(
+  context: ReqContext | ApiReqContext,
+  checklistItems: StartChecklistItemStatus[],
+  bypass: boolean,
+): Promise<StartChecklistItemStatus[]> {
+  if (!bypass) return checklistItems;
+  const waived = await waivableApprovals(context, checklistItems);
+  return checklistItems.filter((item) => !waived.has(item.key));
+}
+
 // The drafts a start would publish, each with its revision as it stands now.
 async function launchDraftRevisions(
   context: ReqContext | ApiReqContext,
@@ -723,11 +733,8 @@ export async function assertScheduledStartNotHardBlocked(
     context,
     experiment,
   );
-  const waived = bypassApproval
-    ? await waivableApprovals(context, checklistItems)
-    : new Set<string>();
   assertNoIncompleteHardBlockers(
-    checklistItems.filter((item) => !waived.has(item.key)),
+    await withoutWaivedApprovals(context, checklistItems, bypassApproval),
   );
   return checklistItems;
 }
@@ -876,10 +883,11 @@ export async function approveScheduledExperimentStart({
   const bypass =
     bypassApproval &&
     context.permissions.canBypassFlagApprovalChecks(experiment, "feature");
-  const waived = bypass
-    ? await waivableApprovals(context, checklistItems)
-    : new Set<string>();
-  const remainingItems = checklistItems.filter((item) => !waived.has(item.key));
+  const remainingItems = await withoutWaivedApprovals(
+    context,
+    checklistItems,
+    bypass,
+  );
   assertNoIncompleteHardBlockers(remainingItems);
 
   if (!skipChecklist) {

@@ -271,12 +271,14 @@ export default function Implementation({
     setLinkedDraft(change);
   };
   const { canEdit } = useExperimentEditing(experiment, disableEditing);
+  const { canEdit: canEditExperiment } = useExperimentEditing(experiment);
   const { hasCommercialFeature } = useUser();
+  const unscheduledDraft =
+    experiment.status === "draft" && !experiment.nextScheduledStatusUpdate;
   // Mirrors the server: a holdout changes only on a draft with nothing linked.
   const holdoutEditable =
     experiment.type !== "holdout" &&
-    experiment.status === "draft" &&
-    !experiment.nextScheduledStatusUpdate &&
+    unscheduledDraft &&
     !experimentHasLinkedChanges(experiment);
   const holdoutInReach = !!holdoutDraft && canEdit;
   // Leaving needs nothing more; joining or switching needs the feature.
@@ -297,7 +299,6 @@ export default function Implementation({
   useEffect(() => {
     if (!holdoutEditable && stagedHoldout !== null) setStagedHoldout?.(null);
   }, [holdoutEditable, stagedHoldout, setStagedHoldout]);
-  const { canEdit: canEditExperiment } = useExperimentEditing(experiment);
 
   const hasVisualEditorPermission =
     canEditExperiment && permissionsUtil.canRunExperiment(experiment, []);
@@ -309,17 +310,14 @@ export default function Implementation({
       : null;
   const stagesLinkedChanges = !disableEditing;
 
-  const canAddLinkedChanges =
-    hasVisualEditorPermission &&
-    experiment.status === "draft" &&
-    !experiment.nextScheduledStatusUpdate;
+  const canAddLinkedChanges = hasVisualEditorPermission && unscheduledDraft;
 
   const hasLinkedChanges =
     experiment.hasVisualChangesets ||
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
 
-  const canAddAny = canAddLinkedChanges && !disableEditing;
+  const canAddAny = canAddLinkedChanges && stagesLinkedChanges;
   // Linking a Feature Flag writes at once, which would strand it: a holdout
   // changes only with nothing linked.
   const addBlockedReason =
@@ -365,10 +363,7 @@ export default function Implementation({
           experiment={experiment}
           canEdit={hasVisualEditorPermission && stagesLinkedChanges}
           lockedReason={linkedChangesLockedReason}
-          canLaunch={
-            experiment.status === "draft" &&
-            !experiment.nextScheduledStatusUpdate
-          }
+          canLaunch={unscheduledDraft}
           environmentStates={visualChangesetEnvStates}
           onStageTargeting={onStageVisualTargeting}
           onStageChange={onStageVisualChange}

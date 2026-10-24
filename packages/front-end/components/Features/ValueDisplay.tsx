@@ -173,10 +173,10 @@ export default function ValueDisplay({
 
   // The first emphasized line can sit far down a tall object that's clipped by
   // the fixed-height scroll box. When it's out of view, scroll it near the top
-  // (with a line of padding above). The content is a
-  // lazily-loaded syntax highlighter, so poll on animation frames until it has
-  // rendered enough to be scrollable, scroll once, then stop (bounded so a
-  // short, non-scrollable value doesn't poll forever).
+  // (with a line of padding above). The content is a lazily-loaded syntax
+  // highlighter, so poll on animation frames until it has rendered enough to be
+  // scrollable, scroll once, then stop (bounded so a short, non-scrollable value
+  // doesn't poll forever).
   const scrollBoxRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!emphasizedLines.length) return;

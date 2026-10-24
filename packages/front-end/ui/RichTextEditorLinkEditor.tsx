@@ -25,8 +25,10 @@ export interface LinkTarget {
   url: string;
   /** The link being edited, if there already is one. */
   node: LinkNode | null;
-  /** What was selected when the card opened. Focus moves to the fields, so the
-   *  live selection is no longer the one the link should replace. */
+  /**
+   * What was selected when the card opened. Focus moves to the fields, so the
+   * live selection is no longer the one the link should replace.
+   */
   selection: RangeSelection | null;
   /** Hovering shows the address; editing shows the fields. */
   mode: "preview" | "edit";
@@ -139,7 +141,7 @@ export default function RichTextEditorLinkEditor({
       const selection = $getSelection();
       if (!$isRangeSelection(selection)) return;
       // Insert the title as text, then link it: inserting a built link node
-      // duplicated its text.
+      // would duplicate its text.
       selection.insertText(nextTitle);
       const caret = selection.anchor;
       selection.anchor.set(

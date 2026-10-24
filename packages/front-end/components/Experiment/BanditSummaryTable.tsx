@@ -292,11 +292,11 @@ export default function BanditSummaryTable({
                   className="axis-col graph-cell"
                   style={{
                     width:
-                      (tableContainerRef?.current?.clientWidth ?? 900) < 900
+                      (tableContainerRef.current?.clientWidth ?? 900) < 900
                         ? graphCellWidth
                         : undefined,
                     minWidth:
-                      (tableContainerRef?.current?.clientWidth ?? 900) >= 900
+                      (tableContainerRef.current?.clientWidth ?? 900) >= 900
                         ? graphCellWidth
                         : undefined,
                   }}

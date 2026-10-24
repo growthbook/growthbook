@@ -10,7 +10,7 @@ import { ReqContext } from "back-end/types/request";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 
-async function assertRedirectsChangeable(
+async function assertExperimentRedirectsChangeable(
   context: ReqContext,
   experimentId: string,
 ) {
@@ -21,7 +21,7 @@ async function assertRedirectsChangeable(
 async function assertRedirectChangeable(context: ReqContext, id: string) {
   const urlRedirect = await context.models.urlRedirects.getById(id);
   if (urlRedirect) {
-    await assertRedirectsChangeable(context, urlRedirect.experiment);
+    await assertExperimentRedirectsChangeable(context, urlRedirect.experiment);
   }
 }
 
@@ -35,7 +35,7 @@ export const postURLRedirect = async (
 ) => {
   const context = getContextFromReq(req);
   const { circularDependencyCheck } = req.query;
-  await assertRedirectsChangeable(context, req.body.experiment);
+  await assertExperimentRedirectsChangeable(context, req.body.experiment);
 
   const urlRedirect = await context.models.urlRedirects.create(req.body, {
     checkCircularDependencies: circularDependencyCheck === "true",

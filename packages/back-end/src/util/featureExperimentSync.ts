@@ -41,8 +41,8 @@ function experimentRefRules(
 /**
  * The one draft an experiment launches for a flag: the newest open draft whose
  * rule for the experiment differs from live and from the revision it was cut
- * from. A draft that carries the rule unchanged, or an old
- * copy of it, is someone else's work and never launches with it.
+ * from. A draft that carries the rule unchanged, or an old copy of it, is
+ * someone else's work and never launches with it.
  */
 export function getLaunchDraftVersion(
   experimentId: string,

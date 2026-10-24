@@ -145,9 +145,9 @@ export default function EditScheduleModal({
   );
   const isApproved = !!experiment.nextScheduledStatusUpdate;
   const startAt = form.watch("startAt");
-  // Its own state, so "On date" can wait for a date rather than assume now.
+  // Its own state, so "On date" can be picked before a date is.
   const [startMode, setStartMode] = useState<"immediately" | "on-date">(
-    experiment.statusUpdateSchedule?.startAt ? "on-date" : "immediately",
+    defaultValues.startAt ? "on-date" : "immediately",
   );
   const stopAt = form.watch("stopAt");
   const mode = form.watch("mode");
@@ -304,59 +304,50 @@ export default function EditScheduleModal({
     endMode === "after" &&
     experiment.status === "running" &&
     !!lastPhaseStart &&
-    resolveScheduleStopAfter(getValidDate(lastPhaseStart), {
-      value: endAfterValue,
-      unit: endAfterUnit,
-    }) <= now;
+    resolveScheduleStopAfter(getValidDate(lastPhaseStart), end.after) <= now;
 
-  // What a save sends.
+  // What a save sends. Only the fields the chosen mode uses persist, so a stale
+  // value can't resurface when the user later switches modes.
   const buildSchedule = (data: typeof defaultValues, end: ScheduleEnd) => {
     const stopAt =
       end.mode === "on-date" ? data.stopAt || undefined : undefined;
     const stopAfter = end.mode === "after" ? end.after : undefined;
-    // Shipping automation only fires at a scheduled end, so force
-    // "notify" without an end date. Otherwise persist just the fields
-    // relevant to the chosen mode so a stale value can't resurface when
-    // the user later switches modes.
     const hasEndDate = !!(stopAt || stopAfter);
-    const scheduledStopPlan = hasEndDate
-      ? {
-          mode: data.mode,
-          // Tiebreaker feeds the EDF verdict for every non-notify mode, but
-          // only when the framework is available (the field is disabled and
-          // shows "None" otherwise — don't silently re-persist a stale id).
-          tiebreakerMetricId:
-            decisionFrameworkAvailable &&
-            data.mode !== "notify" &&
-            data.tiebreakerMetricId
-              ? data.tiebreakerMetricId
-              : undefined,
-          // Fallback only applies to auto-ship; otherwise reset to default.
-          fallback:
-            data.mode === "auto-ship"
-              ? data.fallback
-              : DEFAULT_SCHEDULED_STOP_FALLBACK,
-          // A fallback variation is only needed when force-shipping.
-          fallbackVariationId:
-            data.mode === "force-ship" ||
-            (data.mode === "auto-ship" && data.fallback === "force-ship")
-              ? data.fallbackVariationId
-              : undefined,
-        }
-      : {
-          mode: "notify" as const,
-          fallback: DEFAULT_SCHEDULED_STOP_FALLBACK,
-        };
-    // The stop plan only fires at a scheduled end, so it's attached only
-    // when there is one; a start-only schedule carries no (inert) plan.
-    return data.startAt || stopAt || stopAfter
-      ? {
-          startAt: data.startAt || undefined,
-          stopAt,
-          stopAfter,
-          ...(hasEndDate ? { scheduledStopPlan } : {}),
-        }
-      : null;
+    if (!data.startAt && !hasEndDate) return null;
+    return {
+      startAt: data.startAt || undefined,
+      stopAt,
+      stopAfter,
+      // The stop plan only fires at a scheduled end, so a start-only schedule
+      // carries none.
+      ...(hasEndDate
+        ? {
+            scheduledStopPlan: {
+              mode: data.mode,
+              // Tiebreaker feeds the EDF verdict for every non-notify mode, but
+              // only when the framework is available (the field is disabled and
+              // shows "None" otherwise — don't silently re-persist a stale id).
+              tiebreakerMetricId:
+                decisionFrameworkAvailable &&
+                data.mode !== "notify" &&
+                data.tiebreakerMetricId
+                  ? data.tiebreakerMetricId
+                  : undefined,
+              // Fallback only applies to auto-ship; otherwise reset to default.
+              fallback:
+                data.mode === "auto-ship"
+                  ? data.fallback
+                  : DEFAULT_SCHEDULED_STOP_FALLBACK,
+              // A fallback variation is only needed when force-shipping.
+              fallbackVariationId:
+                data.mode === "force-ship" ||
+                (data.mode === "auto-ship" && data.fallback === "force-ship")
+                  ? data.fallbackVariationId
+                  : undefined,
+            },
+          }
+        : {}),
+    };
   };
   // Nothing to update until the form would save something other than what it
   // opened with. Both go through the save's normalization, so an older stored

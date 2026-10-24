@@ -14,6 +14,7 @@ import {
 import {
   asKey,
   asUser,
+  auditContext,
   dashboardReq,
   EXP_ID,
   experiments,
@@ -417,9 +418,6 @@ describe("dashboard starts honor the starter's acknowledgment", () => {
   type StatusReq = Parameters<typeof postExperimentStatus>[0];
   type ApproveReq = Parameters<typeof postApproveScheduledExperimentStart>[0];
   type PhaseReq = Parameters<typeof postExperimentPhase>[0];
-
-  const auditContext = (req: { audit: unknown }) =>
-    JSON.parse((req.audit as jest.Mock).mock.calls[0][0].details).context;
 
   const refusedOnSoftItem = {
     code: "checklist_incomplete",

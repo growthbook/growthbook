@@ -424,7 +424,7 @@ function SplitColumn({
           </div>
         </ColumnCell>
       ))}
-      {/* Not a ColumnFooter: with nothing to say it stays :empty, and flat. */}
+      {/* Not a ColumnFooter, which is never :empty, so an empty row collapses. */}
       <div
         className={clsx(styles.detailsCell, layout.last && styles.lastColumn)}
         style={{ gridRow: layout.detailsRow, gridColumn: layout.column }}
@@ -528,6 +528,9 @@ function FlagColumn({
   const valuesEditId = `flag:${feature.id}${
     group ? `:${group.ruleIds.join(",")}` : ""
   }`;
+  const groupEnvironments = group
+    ? group.environments.join(", ") || "no environments"
+    : null;
   const [stagedFor, setStaged] = useStagedState<
     (Staged & { for: number | "new" }) | null
   >(valuesEditId, null);
@@ -640,9 +643,7 @@ function FlagColumn({
   };
 
   useRegisterExperimentEdit(valuesEditId, dirty && !linkAction, {
-    label: `${feature.id} values${
-      group ? ` (${group.environments.join(", ") || "no environments"})` : ""
-    }`,
+    label: `${feature.id} values${groupEnvironments ? ` (${groupEnvironments})` : ""}`,
     review: () => ({
       before: {
         values: reviewValues(storedValue),
@@ -1147,13 +1148,13 @@ function FlagColumn({
                 {feature.id}
               </Link>
             </HeaderText>
-            {group ? (
+            {groupEnvironments ? (
               <Flex minWidth="0">
                 <HeaderText muted small>
                   (
                 </HeaderText>
                 <HeaderText muted small truncate>
-                  {group.environments.join(", ") || "no environments"}
+                  {groupEnvironments}
                 </HeaderText>
                 <HeaderText muted small>
                   )

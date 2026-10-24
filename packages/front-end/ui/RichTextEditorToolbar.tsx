@@ -185,10 +185,11 @@ export default function RichTextEditorToolbar({
   // Hovering a link shows its address; clicking follows it. Editing is one
   // step further in, from the card.
   useEffect(() => {
-    const anchorUnder = (node: EventTarget | null) => {
-      const anchor = (node as HTMLElement | null)?.closest?.("a");
-      const root = editor.getRootElement();
-      return anchor && root?.contains(anchor) ? (anchor as HTMLElement) : null;
+    const anchorUnder = (target: EventTarget | null) => {
+      const anchor = target instanceof Element ? target.closest("a") : null;
+      return anchor && editor.getRootElement()?.contains(anchor)
+        ? anchor
+        : null;
     };
 
     const onClick = (e: MouseEvent) => {
@@ -215,7 +216,8 @@ export default function RichTextEditorToolbar({
       // The card is portalled, so match its Radix wrapper as well as our own
       // marker: the padding around the content belongs to the wrapper.
       if (
-        (e.target as HTMLElement | null)?.closest?.(
+        e.target instanceof Element &&
+        e.target.closest(
           "[data-link-card], [data-radix-popper-content-wrapper]",
         )
       ) {

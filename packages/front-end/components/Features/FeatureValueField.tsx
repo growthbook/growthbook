@@ -7,6 +7,7 @@ import {
 } from "shared/types/feature";
 import {
   ComponentProps,
+  MouseEvent,
   ReactElement,
   ReactNode,
   useEffect,
@@ -181,8 +182,8 @@ export default function FeatureValueField({
   const showConstantPicker = (!!feature || !!constantContext) && !disabled;
   const pickerProject = constantContext?.project ?? project ?? feature?.project;
   const pickerExcludeKeys = constantContext?.excludeKeys;
-  // Tags for the constants the value references, below the editor's CTA row;
-  // none at all without a reference, so no empty help text.
+  // Tags for the constants the value references, shown under the field; none
+  // at all without a reference, so no empty help text.
   const usedConstantTags =
     showConstantPicker &&
     (valueType === "string" || valueType === "json") &&
@@ -832,17 +833,18 @@ export default function FeatureValueField({
     }
   }
 
+  const copyValue = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!copySuccess) performCopy(value);
+  };
   const copyButton = (
     <Tooltip body={copySuccess ? "Copied" : "Copy to clipboard"}>
       <IconButton
         type="button"
         radius="full"
         variant="ghost"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (!copySuccess) performCopy(value);
-        }}
+        onClick={copyValue}
       >
         <CopyIcon copied={copySuccess} size={12} />
       </IconButton>
@@ -900,11 +902,7 @@ export default function FeatureValueField({
         type="button"
         className="gb-field-indicator gb-field-indicator--reveal"
         aria-label="Copy to clipboard"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (!copySuccess) performCopy(value);
-        }}
+        onClick={copyValue}
       >
         <CopyIcon copied={copySuccess} />
       </button>

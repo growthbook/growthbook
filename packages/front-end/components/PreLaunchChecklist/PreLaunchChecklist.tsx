@@ -119,7 +119,7 @@ function ChecklistRow({
   readOnly?: boolean;
 }) {
   const complete = item.status === "complete";
-  const manualKey = item.type === "manual" ? item.manualKey : undefined;
+  const manualKey = item.manualKey;
   const toggle =
     manualKey && onToggleManual && !readOnly
       ? (checked: boolean) => onToggleManual(manualKey, checked)
@@ -332,6 +332,9 @@ export function ChecklistItems({
   );
 }
 
+export const todoTitle = (remaining: number | null) =>
+  remaining ? `To do (${remaining})` : "To do";
+
 /** Headed as on the details rail. */
 export function ChecklistTodoHeading({
   remaining,
@@ -340,7 +343,7 @@ export function ChecklistTodoHeading({
 }) {
   return (
     <Text size="sm" weight="medium" color="text-low" textTransform="uppercase">
-      {remaining ? `To do (${remaining})` : "To do"}
+      {todoTitle(remaining)}
     </Text>
   );
 }

@@ -26,7 +26,10 @@ import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
-import { PreLaunchChecklistPanel } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import {
+  PreLaunchChecklistPanel,
+  todoTitle,
+} from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 import ExpandableBlock from "./ExpandableBlock";
 import ExperimentHealthBadges from "./ExperimentHealthBadges";
@@ -39,7 +42,6 @@ export interface Props {
   holdout?: HoldoutInterfaceStringDates;
   /** A staged holdout ("" to leave), shown in place of the stored one. */
   stagedHoldoutId?: string | null;
-  /** Opens the schedule editor. */
   editSchedule?: (() => void) | null;
   mutate: () => void;
   disableEditing?: boolean;
@@ -47,7 +49,7 @@ export interface Props {
   setTab: (tab: DetailsPanelTab) => void;
 }
 
-/** The experiment's metadata and discussion, beside the page rather than above it. */
+/** The experiment's metadata and discussion, in a rail beside the page. */
 export default function ExperimentDetailsPanel({
   experiment,
   holdout,
@@ -179,13 +181,7 @@ export default function ExperimentDetailsPanel({
             <Flex px="5" py="4" direction="column" gap="4">
               {showTodo ? (
                 <>
-                  <PanelSection
-                    title={
-                      checklistItemsRemaining
-                        ? `To do (${checklistItemsRemaining})`
-                        : "To do"
-                    }
-                  >
+                  <PanelSection title={todoTitle(checklistItemsRemaining)}>
                     <PreLaunchChecklistPanel />
                   </PanelSection>
                   {/* Runs edge to edge, past the rail's padding. */}

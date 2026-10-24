@@ -145,10 +145,6 @@ const PLAN_INPUT_FIELDS: (keyof ExperimentInterface)[] = [
   "nextScheduledStatusUpdate",
 ];
 
-function latestWeights(experiment: Pick<ExperimentInterface, "phases">) {
-  return experiment.phases[experiment.phases.length - 1]?.variationWeights;
-}
-
 function assertExperimentBaseMatches(
   experiment: ExperimentInterface,
   { changes, base }: NonNullable<ExperimentChangesBody["experiment"]>,
@@ -195,7 +191,8 @@ async function planFlagValues(
   const byId = new Map(features.map((f) => [f.id, f]));
 
   const nextExperiment = { ...experiment, ...experimentPlan?.changes };
-  const nextWeights = latestWeights(nextExperiment);
+  const nextWeights =
+    nextExperiment.phases[nextExperiment.phases.length - 1]?.variationWeights;
   if (!nextWeights) {
     throw new BadRequestError("Experiment must have at least one phase");
   }
@@ -591,13 +588,9 @@ export async function applyExperimentChanges({
 function linkRuleScope(
   link: NonNullable<ExperimentChangesBody["linkFeatures"]>[number],
 ) {
-  const scope = link.environments ?? {
-    allEnvironments: true,
-    environments: [],
-  };
-  return scope.allEnvironments
-    ? { allEnvironments: true }
-    : { allEnvironments: false, environments: scope.environments };
+  return link.environments && !link.environments.allEnvironments
+    ? { allEnvironments: false, environments: link.environments.environments }
+    : { allEnvironments: true };
 }
 
 // Once the values and experiment have landed: flags linked again or unlinked,

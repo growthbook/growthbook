@@ -551,6 +551,9 @@ export default function VisualChangesetColumn({
   }, [variations, shown, canChange, onStageChange]);
   const hasChanges = vc.visualChanges.some((c) => visualChangeCount(c) > 0);
   const viewed = variations.find((v) => v.id === viewing);
+  const viewedChange = viewed
+    ? (vc.visualChanges.find((c) => c.variation === viewed.id) ?? null)
+    : null;
   const releasing =
     experiment.status === "stopped" &&
     !!experiment.releasedVariationId &&
@@ -634,13 +637,10 @@ export default function VisualChangesetColumn({
           variation={viewed}
           rows={rowsByVariation.get(viewed.id) ?? []}
           onEdit={
-            canChange && vc.visualChanges.some((c) => c.variation === viewed.id)
+            canChange && viewedChange
               ? () => {
                   setViewing(null);
-                  setEditingVisualChange(
-                    vc.visualChanges.find((c) => c.variation === viewed.id) ??
-                      null,
-                  );
+                  setEditingVisualChange(viewedChange);
                 }
               : null
           }

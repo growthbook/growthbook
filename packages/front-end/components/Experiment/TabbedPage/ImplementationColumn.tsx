@@ -30,7 +30,7 @@ export type ImplementationColumn = {
   render: (layout: ColumnLayout) => ReactNode;
 };
 
-export function CardHeaderDivider() {
+function CardHeaderDivider() {
   return (
     <Box
       style={{ width: 1, alignSelf: "stretch", background: "var(--gray-a5)" }}

@@ -28,7 +28,7 @@ export function canStartSeparateDraft(info: LinkedFeatureInfo): boolean {
   );
 }
 
-/** A flag's open drafts, newest first. Only the newest publishes at start. */
+/** A flag's open drafts, newest first. */
 export function flagDrafts(
   info: Pick<LinkedFeatureInfo, "pendingDraft" | "otherPendingDrafts">,
 ): LinkedFeaturePendingDraft[] {

@@ -249,7 +249,7 @@ export function experimentHasLinkedChanges(
   return false;
 }
 
-/** A draft whose start is confirmed for a scheduled date. */
+/** Whether a start is confirmed for a scheduled date. */
 export function hasPendingScheduledStart(exp: {
   nextScheduledStatusUpdate?: { type: string } | null;
 }): boolean {

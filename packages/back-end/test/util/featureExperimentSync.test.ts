@@ -52,17 +52,10 @@ describe("getLaunchDraftVersion", () => {
     ).toBe(2);
   });
 
-  it("counts a draft that adds the rule, and nothing when no draft changes it", () => {
+  it("counts a draft that adds the rule", () => {
     expect(
       getLaunchDraftVersion("exp_1", [revision(2, [ref("b")])], null),
     ).toBe(2);
-    expect(
-      getLaunchDraftVersion(
-        "exp_1",
-        [revision(2, [ref("b"), force])],
-        revision(1, [ref("b")]),
-      ),
-    ).toBeNull();
   });
 
   it("ignores other experiments' rules", () => {

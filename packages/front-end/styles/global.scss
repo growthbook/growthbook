@@ -73,8 +73,8 @@ body {
   padding: 15px;
 }
 :root {
-  // Otherwise things look odd when very wide. Also read from TS by anything
-  // that frames page content.
+  // Page content looks odd when very wide. Components that frame page content
+  // read this too.
   --page-content-max-width: 1340px;
 }
 .pagecontents {

@@ -125,7 +125,7 @@ type RootProps = TrackingEventModalProps & {
   size?: Size;
   padding?: Padding;
   dismissible?: boolean;
-  // Radix's corner close, for a composition with no other way out.
+  /** Radix's corner close, for a composition with no other way out. */
   showCloseButton?: boolean;
   hasDescription?: boolean;
   /** For a modal that places focus itself: call `e.preventDefault()`. */

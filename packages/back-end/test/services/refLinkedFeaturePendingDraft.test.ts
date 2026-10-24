@@ -1,5 +1,6 @@
 import type { FeatureInterface, FeatureRule } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ReqContext } from "back-end/types/request";
 import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import {
@@ -42,8 +43,7 @@ const refRule = (value: string, id = "fr_1"): FeatureRule =>
       { variationId: "var_0", value: "control" },
       { variationId: "var_1", value },
     ],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }) as any;
+  }) as FeatureRule;
 
 const makeFeature = (liveRules: FeatureRule[]): FeatureInterface =>
   ({
@@ -59,8 +59,7 @@ const makeFeature = (liveRules: FeatureRule[]): FeatureInterface =>
     dateUpdated: new Date(),
     environmentSettings: { production: { enabled: true, rules: [] } },
     rules: liveRules,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }) as any;
+  }) as FeatureInterface;
 
 const makeDraft = (
   version: number,
@@ -78,15 +77,16 @@ const makeDraft = (
     environmentsEnabled: { production: true },
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }) as any;
+  }) as FeatureRevisionInterface;
 
 const context = {
-  org: { id: "org_1", settings: { environments: [{ id: "production" }] } },
+  org: {
+    id: "org_1",
+    settings: { environments: [{ id: "production" }], requireReviews: true },
+  },
   hasPremiumFeature: () => true,
   permissions: { canPublishFeature: () => true },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-} as any;
+} as unknown as ReqContext;
 
 const run = (refIsDraft: boolean) =>
   getRefLinkedFeatureInfo({
@@ -100,7 +100,6 @@ const run = (refIsDraft: boolean) =>
 
 beforeEach(() => {
   jest.clearAllMocks();
-  context.org.settings.requireReviews = true;
   mockLiveAndBase.mockImplementation(async ({ feature }) => ({
     live: { ...makeDraft(3, feature.rules), status: "published" },
     base: { ...makeDraft(3, feature.rules), status: "published" },
@@ -116,13 +115,11 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
 
     const [info] = await run(false);
 
-    // `state` stays live-first so every existing consumer is unaffected...
     expect(info.state).toBe("live");
     expect(info.values).toEqual([
       { variationId: "var_0", value: "control" },
       { variationId: "var_1", value: "live-value" },
     ]);
-    // ...and the pending edit is only visible through pendingDraft.
     expect(info.pendingDraft?.version).toBe(4);
     expect(info.pendingDraft?.status).toBe("pending-review");
     expect(info.pendingDraft?.values).toEqual([
@@ -156,7 +153,7 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
     expect(info.state).toBe("draft");
     expect(info.pendingDraft?.version).toBe(4);
     expect(info.liveValues).toBeUndefined();
-    // On a draft experiment the sibling fields ARE populated, as before.
+    // On a draft experiment the sibling fields are populated.
     expect(info.draftRevisionVersion).toBe(4);
     expect(info.pendingApproval).toBe(true);
   });

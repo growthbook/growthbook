@@ -1389,8 +1389,6 @@ function changeResetsApproval(
   );
 }
 
-// An edit is judged on its own, against the draft as approved. A draft that
-// predates full snapshots reads its absent fields from live on both sides.
 // An armed draft that gains a draft experiment's rule can't land it: its publish
 // would leave the experiment unstarted. The edit disarms it instead.
 async function editMakesArmedDraftLaunch(
@@ -1410,6 +1408,8 @@ async function editMakesArmedDraftLaunch(
   );
 }
 
+// An edit is judged on its own, against the draft as approved. A draft that
+// predates full snapshots reads its absent fields from live on both sides.
 function editResetsApproval(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,

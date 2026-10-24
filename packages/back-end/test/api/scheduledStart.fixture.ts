@@ -243,6 +243,10 @@ export function dashboardReq<T>(
   } as unknown as T;
 }
 
+// The context the controller recorded on its first audit.
+export const auditContext = (req: { audit: unknown }) =>
+  JSON.parse((req.audit as jest.Mock).mock.calls[0][0].details).context;
+
 export function resSpy() {
   const captured: { status?: number; body?: unknown } = {};
   const res = {

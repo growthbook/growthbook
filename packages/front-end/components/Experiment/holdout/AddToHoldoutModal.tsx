@@ -69,7 +69,7 @@ const AddToHoldoutModal = ({
       {showHoldoutSelect && (
         <HoldoutSelect
           selectedProject={experiment.project}
-          setHoldout={(id) => setSelected(id ?? "")}
+          setHoldout={setSelected}
           selectedHoldoutId={selected}
           keepSelection
           formType="experiment"

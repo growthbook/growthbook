@@ -1616,7 +1616,12 @@ async function resolveRulesForExperiment({
           cleanupDraft,
           eventAudit,
           feature.version,
-        ).catch(() => undefined);
+        ).catch((err) =>
+          logger.error(
+            { err, featureId: feature.id },
+            "Failed to discard an experiment cleanup draft",
+          ),
+        );
       }
       throw refuse(feature, e instanceof Error ? e.message : String(e));
     }

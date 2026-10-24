@@ -61,8 +61,8 @@ export function linkedFeatureAction(
   };
 }
 
-// The rows below are raised by a linked flag wherever it goes live: an
-// experiment's start or a Contextual Bandit's.
+// Rows a linked flag raises wherever it goes live: an experiment's start or a
+// Contextual Bandit's.
 export function mergeConflictRows(
   linkedFeatures: LinkedFeatureInfo[],
 ): CheckListItem[] {

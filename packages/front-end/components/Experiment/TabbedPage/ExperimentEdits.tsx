@@ -62,6 +62,15 @@ function reviewFromChanges(body: ExperimentChangesBody): StagedReview {
   };
 }
 
+// One that can't build its share yet is the save's to report.
+function dryRunShare(edit: PendingEdit): ExperimentChangesBody | null {
+  try {
+    return edit.changes?.({ dryRun: true }) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 interface ExperimentEditsValue {
   scope: string;
   /** Anything on the page edited but not yet written. */
@@ -302,13 +311,8 @@ export function ExperimentEditsProvider({
     const edit = edits.current.get(id);
     if (!edit) return null;
     if (edit.review) return edit.review();
-    if (!edit.changes) return null;
-    // One that can't build its share yet is the save's to report.
-    try {
-      return reviewFromChanges(edit.changes({ dryRun: true }));
-    } catch {
-      return null;
-    }
+    const share = dryRunShare(edit);
+    return share && reviewFromChanges(share);
   }, []);
 
   // `except`'s share is left out, for a caller standing in its own.
@@ -316,13 +320,8 @@ export function ExperimentEditsProvider({
     async (except: string | null, extra: ExperimentChangesBody[]) => {
       const parts: ExperimentChangesBody[] = [];
       for (const [editId, edit] of edits.current) {
-        if (editId === except || !edit.changes) continue;
-        // One that can't build its share yet is the save's to report.
-        try {
-          parts.push(edit.changes({ dryRun: true }));
-        } catch {
-          continue;
-        }
+        const share = editId === except ? null : dryRunShare(edit);
+        if (share) parts.push(share);
       }
       await apiCall(`/experiment/${experimentId}/changes`, {
         method: "POST",

@@ -43,7 +43,6 @@ export default function SparseTabbedEditor({
   // Tighter layout for embedded contexts like ramp step editors: smaller tabs
   // and a shorter default editor height.
   condensed?: boolean;
-  // Code font size for both tabs.
   // Rendered on the tab row, either side of the tabs.
   headerLeft?: ReactNode;
   headerRight?: ReactNode;

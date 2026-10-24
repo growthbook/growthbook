@@ -136,7 +136,7 @@ export default function MetricOverridesModal({
       ctaEnabled={canOverride}
       size="lg"
       submit={form.handleSubmit(async (value) => {
-        const next = value.metricOverrides ?? [];
+        const next = value.metricOverrides;
         fixMetricOverridesBeforeSaving(next);
         stageChanges(
           next,
@@ -145,7 +145,7 @@ export default function MetricOverridesModal({
                 // A metric that's no longer a goal keeps what it had.
                 ...targetMDEOverrides.filter((o) => !goalIds.includes(o.id)),
                 ...goalIds.flatMap((id) => {
-                  const percent = value.targetMDEs?.[id];
+                  const percent = value.targetMDEs[id];
                   return percent === undefined || Number.isNaN(percent)
                     ? []
                     : [{ id, targetMDE: percent / 100 }];

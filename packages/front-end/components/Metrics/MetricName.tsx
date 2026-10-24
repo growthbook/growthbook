@@ -182,7 +182,7 @@ export default function MetricName({
       }));
     const allJoinable = groupMetrics.every((m) => m.joinable);
     const allNonConversionWindow = groupMetrics.every(
-      (m) => m?.metric?.windowSettings?.type !== "conversion",
+      (m) => m.metric?.windowSettings?.type !== "conversion",
     );
 
     const conversionWarning =
@@ -238,7 +238,7 @@ export default function MetricName({
                             "text-danger": !m.joinable,
                             "text-warning":
                               filterConversionWindowMetrics &&
-                              m?.metric?.windowSettings?.type === "conversion",
+                              m.metric?.windowSettings?.type === "conversion",
                           })}
                         >
                           {m.metric?.name}

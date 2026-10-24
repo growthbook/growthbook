@@ -32,11 +32,33 @@ const cuped = (enabled?: boolean, days?: number) =>
 const prior = (proper?: boolean, mean?: number, stddev?: number) =>
   proper ? `Proper (mean ${mean ?? 0}, sd ${stddev ?? 1})` : "Improper";
 
-const targetMDERow = (targetMDE: number): OverrideRow => ({
-  key: "targetMDE",
-  label: "Target MDE",
-  value: percent(targetMDE),
-});
+const LABELS: Record<Exclude<MetricSettingKey, "window">, string> = {
+  targetMDE: "Target MDE",
+  delay: "Metric delay",
+  winRisk: "Win risk",
+  loseRisk: "Lose risk",
+  cuped: "CUPED",
+  prior: "Prior",
+};
+
+const row = (
+  key: Exclude<MetricSettingKey, "window">,
+  value: string,
+): OverrideRow => ({ key, label: LABELS[key], value });
+
+// A metric with no window reads "None", whatever its hours.
+const windowRow = (
+  windowType: MetricSettingsInput["windowType"],
+  value: string,
+): OverrideRow =>
+  windowType
+    ? {
+        key: "window",
+        label:
+          windowType === "conversion" ? "Conversion window" : "Lookback window",
+        value,
+      }
+    : { key: "window", label: "Metric window", value: "None" };
 
 /**
  * A field left unset keeps the metric's own setting, so it isn't listed. A goal
@@ -49,55 +71,33 @@ export function describeMetricOverride(
 ): OverrideRow[] {
   const rows: OverrideRow[] = [];
 
-  if (targetMDE !== undefined) rows.push(targetMDERow(targetMDE));
+  if (targetMDE !== undefined) rows.push(row("targetMDE", percent(targetMDE)));
   if (o.windowType !== undefined) {
-    if (o.windowType === "") {
-      rows.push({ key: "window", label: "Metric window", value: "None" });
-    } else {
-      rows.push({
-        key: "window",
-        label:
-          o.windowType === "conversion"
-            ? "Conversion window"
-            : "Lookback window",
-        value: o.windowHours !== undefined ? hours(o.windowHours) : "Default",
-      });
-    }
+    rows.push(
+      windowRow(
+        o.windowType,
+        o.windowHours !== undefined ? hours(o.windowHours) : "Default",
+      ),
+    );
   }
-  if (o.delayHours !== undefined) {
-    rows.push({
-      key: "delay",
-      label: "Metric delay",
-      value: hours(o.delayHours),
-    });
-  }
-  if (o.winRisk !== undefined) {
-    rows.push({ key: "winRisk", label: "Win risk", value: percent(o.winRisk) });
-  }
-  if (o.loseRisk !== undefined) {
-    rows.push({
-      key: "loseRisk",
-      label: "Lose risk",
-      value: percent(o.loseRisk),
-    });
-  }
+  if (o.delayHours !== undefined) rows.push(row("delay", hours(o.delayHours)));
+  if (o.winRisk !== undefined) rows.push(row("winRisk", percent(o.winRisk)));
+  if (o.loseRisk !== undefined) rows.push(row("loseRisk", percent(o.loseRisk)));
   if (o.regressionAdjustmentOverride) {
-    rows.push({
-      key: "cuped",
-      label: "CUPED",
-      value: cuped(o.regressionAdjustmentEnabled, o.regressionAdjustmentDays),
-    });
+    rows.push(
+      row(
+        "cuped",
+        cuped(o.regressionAdjustmentEnabled, o.regressionAdjustmentDays),
+      ),
+    );
   }
   if (o.properPriorOverride) {
-    rows.push({
-      key: "prior",
-      label: "Prior",
-      value: prior(
-        o.properPriorEnabled,
-        o.properPriorMean,
-        o.properPriorStdDev,
+    rows.push(
+      row(
+        "prior",
+        prior(o.properPriorEnabled, o.properPriorMean, o.properPriorStdDev),
       ),
-    });
+    );
   }
 
   return rows;
@@ -131,47 +131,28 @@ export function describeMetricSettings(
 ): OverrideRow[] {
   const bayesian = statsEngine === "bayesian";
   const rows: OverrideRow[] = [
-    ...(s.targetMDE !== undefined ? [targetMDERow(s.targetMDE)] : []),
-    s.windowType
-      ? {
-          key: "window",
-          label:
-            s.windowType === "conversion"
-              ? "Conversion window"
-              : "Lookback window",
-          value:
-            s.windowType === "conversion" && s.conversionWindowsIgnored
-              ? "Ignored by this experiment"
-              : hours(s.windowHours),
-        }
-      : { key: "window", label: "Metric window", value: "None" },
+    ...(s.targetMDE !== undefined
+      ? [row("targetMDE", percent(s.targetMDE))]
+      : []),
+    windowRow(
+      s.windowType,
+      s.windowType === "conversion" && s.conversionWindowsIgnored
+        ? "Ignored by this experiment"
+        : hours(s.windowHours),
+    ),
   ];
-  if (s.delayHours) {
-    rows.push({
-      key: "delay",
-      label: "Metric delay",
-      value: hours(s.delayHours),
-    });
-  }
+  if (s.delayHours) rows.push(row("delay", hours(s.delayHours)));
   if (bayesian) {
     rows.push(
-      { key: "winRisk", label: "Win risk", value: percent(s.winRisk) },
-      { key: "loseRisk", label: "Lose risk", value: percent(s.loseRisk) },
+      row("winRisk", percent(s.winRisk)),
+      row("loseRisk", percent(s.loseRisk)),
     );
   }
-  if (s.cuped) {
-    rows.push({
-      key: "cuped",
-      label: "CUPED",
-      value: cuped(s.cuped.enabled, s.cuped.days),
-    });
-  }
+  if (s.cuped) rows.push(row("cuped", cuped(s.cuped.enabled, s.cuped.days)));
   if (bayesian) {
-    rows.push({
-      key: "prior",
-      label: "Prior",
-      value: prior(s.prior.proper, s.prior.mean, s.prior.stddev),
-    });
+    rows.push(
+      row("prior", prior(s.prior.proper, s.prior.mean, s.prior.stddev)),
+    );
   }
 
   const overridden = new Set(

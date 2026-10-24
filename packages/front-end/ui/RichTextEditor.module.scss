@@ -48,7 +48,7 @@
   transform: translateY(-50%);
   border: 1px solid var(--gray-a6);
   border-radius: var(--radius-1);
-  // Opaque: the surface token is translucent, and the seam showed through.
+  // Opaque: the surface token is translucent, so the seam would show through.
   background-color: var(--color-panel-solid);
 }
 

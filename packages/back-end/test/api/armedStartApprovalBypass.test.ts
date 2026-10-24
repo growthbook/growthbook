@@ -16,6 +16,7 @@ import {
 import {
   asKey,
   asUser,
+  auditContext,
   dashboardReq,
   EXP_ID,
   experiments,
@@ -116,8 +117,18 @@ async function seed({
   });
 }
 
-const draft = async () =>
-  revisions().findOne({ organization: ORG_ID, featureId: FLAG, version: 2 });
+const draftQuery = { organization: ORG_ID, featureId: FLAG, version: 2 };
+const draft = async () => revisions().findOne(draftQuery);
+const updateDraft = (fields: Record<string, unknown>) =>
+  revisions().updateOne(draftQuery, { $set: fields });
+// Arms the draft to publish at `at`, as its owner did.
+const armDraft = (at: Date, fields: Record<string, unknown> = {}) =>
+  updateDraft({
+    autoPublishOnApproval: true,
+    autoPublishEnabledBy: "u_owner",
+    scheduledPublishAt: at,
+    ...fields,
+  });
 
 type ApproveReq = Parameters<typeof postApproveScheduledExperimentStart>[0];
 const approve = async (userId: string, body: Record<string, unknown>) => {
@@ -200,14 +211,7 @@ describe("a dashboard scheduled start armed past its flag draft's approval", () 
         { featureId: FLAG, revisionVersion: 2, dateUpdated: pinned },
       ],
     });
-    const audited = JSON.parse(
-      (
-        (req as unknown as { audit: jest.Mock }).audit.mock.calls[0][0] as {
-          details: string;
-        }
-      ).details,
-    ).context;
-    expect(audited).toMatchObject({ bypassLockdown: true });
+    expect(auditContext(req)).toMatchObject({ bypassLockdown: true });
 
     await fire();
 
@@ -218,10 +222,7 @@ describe("a dashboard scheduled start armed past its flag draft's approval", () 
   it("needs the approval after all once the pinned draft changes", async () => {
     await seed();
     await approve("u_owner", { skipChecklist: true, bypassApproval: true });
-    await revisions().updateOne(
-      { organization: ORG_ID, featureId: FLAG, version: 2 },
-      { $set: { dateUpdated: new Date(Date.now() + 1000) } },
-    );
+    await updateDraft({ dateUpdated: new Date(Date.now() + 1000) });
 
     await fire();
 
@@ -395,16 +396,7 @@ describe("a flag draft that would take a draft experiment live", () => {
 
   it("disarms an armed draft when an edit adds the experiment's rule", async () => {
     await seed({ draftStatus: "draft", draftRules: [] });
-    await revisions().updateOne(
-      { organization: ORG_ID, featureId: FLAG, version: 2 },
-      {
-        $set: {
-          autoPublishOnApproval: true,
-          autoPublishEnabledBy: "u_owner",
-          scheduledPublishAt: new Date(Date.now() + HOUR),
-        },
-      },
-    );
+    await armDraft(new Date(Date.now() + HOUR));
     setReqContext(asUser("u_owner", reviewOrg));
 
     const added = await auth(
@@ -426,17 +418,9 @@ describe("a flag draft that would take a draft experiment live", () => {
 
   it("fails an armed publish for good when it fires, even with the admin bypass", async () => {
     await seed({ draftStatus: "draft" });
-    await revisions().updateOne(
-      { organization: ORG_ID, featureId: FLAG, version: 2 },
-      {
-        $set: {
-          autoPublishOnApproval: true,
-          autoPublishEnabledBy: "u_owner",
-          scheduledPublishAt: new Date(Date.now() - 1000),
-          scheduledPublishBypassApproval: true,
-        },
-      },
-    );
+    await armDraft(new Date(Date.now() - 1000), {
+      scheduledPublishBypassApproval: true,
+    });
     const context = await getContextForAgendaJobByOrgId(ORG_ID);
     const feature = await getFeature(context, FLAG);
     const revision = await getRevision({
@@ -461,17 +445,7 @@ describe("a gated edit to a flag draft armed with the admin bypass", () => {
   it("drops the bypass and keeps the schedule", async () => {
     await seed({ draftStatus: "draft", draftRules: [] });
     const at = new Date(Date.now() + HOUR);
-    await revisions().updateOne(
-      { organization: ORG_ID, featureId: FLAG, version: 2 },
-      {
-        $set: {
-          autoPublishOnApproval: true,
-          autoPublishEnabledBy: "u_owner",
-          scheduledPublishAt: at,
-          scheduledPublishBypassApproval: true,
-        },
-      },
-    );
+    await armDraft(at, { scheduledPublishBypassApproval: true });
     setReqContext(asUser("u_owner", reviewOrg));
 
     const added = await auth(

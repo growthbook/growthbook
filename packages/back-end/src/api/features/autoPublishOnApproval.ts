@@ -252,12 +252,10 @@ export async function draftExperimentsLaunchedBy(
   });
 }
 
-const launchRefusal = (experiments: ExperimentInterfaceStringDates[]) =>
-  `This draft's rules belong to draft experiment ${experiments
-    .map((exp) => `"${exp.name}"`)
-    .join(
-      ", ",
-    )}, which a scheduled or auto publish can't start. Schedule the experiment's start instead; starting it publishes this draft.`;
+const launchRefusal = (experiments: ExperimentInterfaceStringDates[]) => {
+  const names = experiments.map((exp) => `"${exp.name}"`).join(", ");
+  return `This draft's rules belong to draft experiment ${names}, which a scheduled or auto publish can't start. Schedule the experiment's start instead; starting it publishes this draft.`;
+};
 
 /**
  * An armed publish lands the flag but never starts the experiments its rules

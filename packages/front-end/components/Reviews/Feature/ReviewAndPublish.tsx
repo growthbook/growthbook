@@ -2225,53 +2225,50 @@ export default function ReviewAndPublish({
     }
   };
 
+  const renderExperimentGroup = (
+    title: string,
+    group: ExperimentInterfaceStringDates[],
+  ) => (
+    <>
+      <Flex align="center" gap="1" mb="2">
+        <PiFlaskBold />
+        <Text>{title}</Text>
+      </Flex>
+      {group.map((experiment) => (
+        <Box key={experiment.id}>
+          <Checkbox
+            value={selectedExperiments.has(experiment.id)}
+            setValue={(e) => {
+              const newValue = new Set(selectedExperiments);
+              if (e === true) newValue.add(experiment.id);
+              else newValue.delete(experiment.id);
+              setSelectedExperiments(newValue);
+            }}
+            label={experiment.name}
+            weight="regular"
+          />
+        </Box>
+      ))}
+    </>
+  );
+
   const renderExperimentSelection = () =>
     experiments.length > 0 ? (
       <Box mb="3">
         {immediateStartExperiments.length > 0 && (
           <Box mb={scheduledExperiments.length > 0 ? "3" : "0"}>
-            <Flex align="center" gap="1" mb="2">
-              <PiFlaskBold />
-              <Text>Start running experiments upon publishing:</Text>
-            </Flex>
-            {immediateStartExperiments.map((experiment) => (
-              <Box key={experiment.id}>
-                <Checkbox
-                  value={selectedExperiments.has(experiment.id)}
-                  setValue={(e) => {
-                    const newValue = new Set(selectedExperiments);
-                    if (e === true) newValue.add(experiment.id);
-                    else newValue.delete(experiment.id);
-                    setSelectedExperiments(newValue);
-                  }}
-                  label={experiment.name}
-                  weight="regular"
-                />
-              </Box>
-            ))}
+            {renderExperimentGroup(
+              "Start running experiments upon publishing:",
+              immediateStartExperiments,
+            )}
           </Box>
         )}
         {scheduledExperiments.length > 0 && (
           <Box>
-            <Flex align="center" gap="1" mb="2">
-              <PiFlaskBold />
-              <Text>Approve scheduled start for experiments:</Text>
-            </Flex>
-            {scheduledExperiments.map((experiment) => (
-              <Box key={experiment.id}>
-                <Checkbox
-                  value={selectedExperiments.has(experiment.id)}
-                  setValue={(e) => {
-                    const newValue = new Set(selectedExperiments);
-                    if (e === true) newValue.add(experiment.id);
-                    else newValue.delete(experiment.id);
-                    setSelectedExperiments(newValue);
-                  }}
-                  label={experiment.name}
-                  weight="regular"
-                />
-              </Box>
-            ))}
+            {renderExperimentGroup(
+              "Approve scheduled start for experiments:",
+              scheduledExperiments,
+            )}
           </Box>
         )}
       </Box>

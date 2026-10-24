@@ -9,7 +9,10 @@ import {
   updateExperimentValidator,
 } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import {
+  canBypassReviewChecks,
+  canUseRestApiBypassSetting,
+} from "back-end/src/api/features/reviewBypass";
 import {
   updateExperiment as updateExperimentToDb,
   getExperimentById,
@@ -520,12 +523,7 @@ export const updateExperiment = createApiRequestHandler(
       experimentId: experiment.id,
       // behavior for patch endpoint is to skip pre-launch checklist
       skipChecklist: true,
-      bypassLockdown:
-        canUseRestApiBypassSetting(req) ||
-        req.context.permissions.canBypassFlagApprovalChecks(
-          experiment,
-          "feature",
-        ),
+      bypassLockdown: canBypassReviewChecks(req, experiment),
       restApiBypassesReviews: canUseRestApiBypassSetting(req),
     });
     experimentForUpdate = updated;

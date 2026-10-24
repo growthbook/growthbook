@@ -6,12 +6,8 @@
     display: block;
     resize: none;
     text-indent: 0;
-    padding-left: var(--text-field-padding);
-    padding-right: var(--text-field-padding);
-    padding-top: calc(
-      (var(--text-field-height) - 2 * var(--text-field-border-width) - 1lh) / 2
-    );
-    padding-bottom: calc(
+    padding-inline: var(--text-field-padding);
+    padding-block: calc(
       (var(--text-field-height) - 2 * var(--text-field-border-width) - 1lh) / 2
     );
 

@@ -5,7 +5,10 @@ import {
 import { getValidDate } from "shared/dates";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import {
+  canBypassReviewChecks,
+  canUseRestApiBypassSetting,
+} from "back-end/src/api/features/reviewBypass";
 import { ReqContext } from "back-end/types/request";
 import {
   approveScheduledExperimentStart,
@@ -135,9 +138,7 @@ export const postExperimentStart = createApiRequestHandler(
     skipChecklist: req.body?.skipChecklist,
     // Like a Feature Revision publish: approval is bypassed by authority, not
     // by asking. `bypassApproval` in the body is accepted and ignored.
-    bypassLockdown:
-      canUseRestApiBypassSetting(req) ||
-      context.permissions.canBypassFlagApprovalChecks(existing, "feature"),
+    bypassLockdown: canBypassReviewChecks(req, existing),
     restApiBypassesReviews: canUseRestApiBypassSetting(req),
   });
 

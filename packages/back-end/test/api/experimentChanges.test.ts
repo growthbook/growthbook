@@ -149,12 +149,11 @@ function revisionDoc(version: number, date: Date) {
 
 const LOADED = "2026-01-01T00:00:00.000Z";
 
+const storedRevision = (version: number) =>
+  collection("featurerevisions").findOne({ featureId: FLAG, version });
+
 async function revisionRules(version: number) {
-  const doc = await collection("featurerevisions").findOne({
-    featureId: FLAG,
-    version,
-  });
-  return doc?.rules?.[0]?.variations ?? null;
+  return (await storedRevision(version))?.rules?.[0]?.variations ?? null;
 }
 
 async function refRules(status: string) {
@@ -260,10 +259,7 @@ describe("applyExperimentChanges", () => {
         },
       ],
     });
-    const draft = await collection("featurerevisions").findOne({
-      featureId: FLAG,
-      version: 2,
-    });
+    const draft = await storedRevision(2);
     expect(draft?.rules?.[0]).toMatchObject({
       allEnvironments: false,
       environments: ["staging"],
@@ -333,10 +329,7 @@ describe("applyExperimentChanges", () => {
         },
       ],
     });
-    const draft = await collection("featurerevisions").findOne({
-      featureId: FLAG,
-      version: 2,
-    });
+    const draft = await storedRevision(2);
     expect(draft?.rules[0]).toMatchObject({
       sparse: true,
       variations: arms("a", "draft"),
@@ -412,12 +405,8 @@ describe("applyExperimentChanges", () => {
         ],
       }),
     ).rejects.toThrow("lost race");
-    const draft = await collection("featurerevisions").findOne({
-      featureId: FLAG,
-      version: 2,
-    });
-    expect(draft?.rules[0].variations).toEqual(arms("a", "draft"));
-    expect(draft?.dateUpdated).toEqual(new Date(LOADED));
+    expect(await revisionRules(2)).toEqual(arms("a", "draft"));
+    expect((await storedRevision(2))?.dateUpdated).toEqual(new Date(LOADED));
   });
 
   it("deletes a draft it created, and reports a draft someone else edited meanwhile", async () => {
@@ -648,14 +637,7 @@ describe("applyExperimentChanges", () => {
 
       const result = await run({ keepFeatures: [FLAG] });
       expect(result.experiment.pendingFeatureUnlinks).toEqual([]);
-      expect(
-        (
-          await collection("featurerevisions").findOne({
-            featureId: FLAG,
-            version: 2,
-          })
-        )?.status,
-      ).toBe("discarded");
+      expect((await storedRevision(2))?.status).toBe("discarded");
     });
 
     it("refuses while the experiment runs", async () => {

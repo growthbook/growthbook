@@ -5833,10 +5833,10 @@ export async function getRefLinkedFeatureInfo({
           inconsistentValues: uniqueValues.size > 1,
           liveHasMatchingRule: scopedLive.length > 0,
           ...(scopedLive.length > 0 && {
-            liveValues: refRuleValues(scopedLive[0]?.rule),
-            liveSparse: !!(scopedLive[0]?.rule as ExperimentRefRule)?.sparse,
-            liveAllEnvironments: !!(scopedLive[0]?.rule as ExperimentRefRule)
-              ?.allEnvironments,
+            liveValues: refRuleValues(scopedLive[0].rule),
+            liveSparse: !!(scopedLive[0].rule as ExperimentRefRule).sparse,
+            liveAllEnvironments: !!(scopedLive[0].rule as ExperimentRefRule)
+              .allEnvironments,
             liveEnvironmentStates: buildEnvironmentStates(scopedLive),
             liveEnvironmentInputs: buildEnvironmentInputs(scopedLive),
           }),

@@ -14,7 +14,6 @@ export const scheduledEnd = (
       ? `${schedule.stopAfter.value} ${schedule.stopAfter.unit} after start`
       : null;
 
-/** An experiment's or a holdout's. */
 export const hasStatusSchedule = (target: {
   statusUpdateSchedule?: object | null;
 }) =>

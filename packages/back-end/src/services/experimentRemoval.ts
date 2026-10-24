@@ -149,17 +149,10 @@ export async function archiveExperimentWithCleanup(
   args: Args,
 ): Promise<ExperimentInterface> {
   const { context, experiment } = args;
-  await validateExperimentChange({
-    context,
-    experiment,
-    changes: { archived: true },
-  });
+  const changes = { archived: true };
+  await validateExperimentChange({ context, experiment, changes });
   await resolveLinkedChanges(args, "archive");
-  return updateExperiment({
-    context,
-    experiment,
-    changes: { archived: true },
-  });
+  return updateExperiment({ context, experiment, changes });
 }
 
 export async function unarchiveExperimentWithCleanup({

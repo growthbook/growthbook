@@ -442,243 +442,233 @@ export default function TrafficAllocationFunnel({
   const coverage = phase.coverage ?? 1;
 
   return (
-    <>
-      <Frame
-        px="4"
-        noBackground
-        style={{ backgroundColor: "var(--gray-a2)", border: "none" }}
-      >
-        {choosingHoldout ? (
-          <AddToHoldoutModal
-            experiment={experiment}
-            holdoutId={holdoutId}
-            stage={stageHoldout}
-            close={() => setChoosingHoldout(false)}
-          />
-        ) : null}
-        <Flex direction="column">
-          <Flex align="center" direction="column">
-            {holdoutId ? (
-              <>
-                <FunnelCard
-                  title="Holdout"
-                  onEdit={
-                    canJoinHoldout || holdoutLockedReason
-                      ? () => setChoosingHoldout(true)
-                      : null
-                  }
-                  editBlockedReason={holdoutLockedReason}
-                  menu={
-                    canStageHoldout ? (
-                      <DropdownMenuItem color="red" onClick={leaveHoldout}>
-                        Remove from holdout
-                      </DropdownMenuItem>
-                    ) : null
-                  }
-                >
-                  <SetupFieldRow label="Name" content="text">
-                    <Link href={`/holdout/${holdoutId}`} external>
-                      {holdoutsMap.get(holdoutId)?.name ?? holdoutId}
-                    </Link>
-                  </SetupFieldRow>
-                  <SetupFieldRow label="ID" content="text">
-                    <Text color="text-mid">{holdoutId}</Text>
-                  </SetupFieldRow>
-                </FunnelCard>
-                <FunnelConnector />
-              </>
-            ) : null}
-
-            <FunnelCard
-              title="Targeting"
-              grow
-              onEdit={editTargeting}
-              disabled={!safeToEdit}
-              menu={
-                canAddHoldout ? (
-                  <DropdownMenuItem onClick={() => setChoosingHoldout(true)}>
-                    Add to holdout
-                  </DropdownMenuItem>
-                ) : null
-              }
-            >
-              {targetsEveryone ? (
-                <FunnelRow label="Audience">
-                  <Text color="text-high">Everyone</Text>
-                </FunnelRow>
-              ) : (
-                <>
-                  <FunnelRow label="Audience" />
-                  <Box pl="4" mb="2">
-                    <ConditionDisplay
-                      variant="rows"
-                      condition={hasCondition ? phase.condition : undefined}
-                      savedGroups={
-                        hasSavedGroups ? phase.savedGroups : undefined
-                      }
-                      prerequisites={
-                        hasPrerequisites ? phase.prerequisites : undefined
-                      }
-                    />
-                  </Box>
-                </>
-              )}
-              <AssignmentAttribute
-                hashAttribute={hashAttribute}
-                fallbackAttribute={fallbackAttribute}
-              />
-            </FunnelCard>
-
-            {!isHoldout && hasNamespace ? (
-              <>
-                <FunnelConnector />
-                <FunnelCard
-                  title="Namespace"
-                  onEdit={editNamespace}
-                  disabled={!safeToEdit}
-                >
-                  <FunnelRow label="Name">
-                    {namespaceDeleted ? (
-                      <Tooltip content="This namespace no longer exists. The experiment still splits traffic by it, but it can't be chosen again.">
-                        <Flex align="center" gap="1">
-                          <PiWarningFill
-                            style={{ color: "var(--amber-11)", flexShrink: 0 }}
-                          />
-                          <Text color="text-high">{namespaceName}</Text>
-                        </Flex>
-                      </Tooltip>
-                    ) : (
-                      <Text color="text-high">{namespaceName}</Text>
-                    )}
-                  </FunnelRow>
-                  {namespaceCoverage ? (
-                    <FunnelRow label="Namespace percentage">
-                      <Text color="text-high">
-                        {percentFormatter.format(namespaceCoverage)}
-                      </Text>
-                    </FunnelRow>
-                  ) : null}
-                </FunnelCard>
-                <FunnelConnector />
-              </>
-            ) : canAddNamespace ? (
-              <Flex direction="column" align="center">
-                <Box className={styles.connectorLine} height="12px" />
-                <Link color="gray" onClick={() => editNamespace?.()}>
-                  <Flex align="center" gap="1">
-                    <PiPlus />
-                    Namespace
-                  </Flex>
-                </Link>
-                <Box className={styles.connectorLine} height="12px" />
-              </Flex>
-            ) : (
-              <FunnelConnector />
-            )}
-
-            <FunnelCard
-              title="Population"
-              onEdit={
-                editDeliveryInline
-                  ? () => setEditingTraffic(true)
-                  : editTargeting
-              }
-              disabled={!safeToEdit}
-            >
-              {!isHoldout ? (
-                <FunnelRow label="Rollout percentage">
-                  {editDeliveryInline ? (
-                    <PercentField
-                      value={coverage}
-                      onChange={(next) => stagePatch({ coverage: next })}
-                      ariaLabel="Rollout percentage"
-                    />
-                  ) : (
-                    <Text color="text-high">{Math.round(coverage * 100)}%</Text>
-                  )}
-                </FunnelRow>
-              ) : (
-                <Flex direction="column" gap="1">
-                  <Text color="text-mid">
-                    {holdoutTraffic.inHoldoutPercent}% in holdout
-                  </Text>
-                  <Text color="text-mid">
-                    {holdoutTraffic.forMeasurementPercent}% not in holdout (for
-                    measurement)
-                  </Text>
-                  <Text color="text-mid">
-                    {holdoutTraffic.notForMeasurementPercent}% not in holdout
-                    (not for measurement)
-                  </Text>
-                </Flex>
-              )}
-            </FunnelCard>
-          </Flex>
-          {!isHoldout && (
+    <Frame
+      px="4"
+      noBackground
+      style={{ backgroundColor: "var(--gray-a2)", border: "none" }}
+    >
+      {choosingHoldout ? (
+        <AddToHoldoutModal
+          experiment={experiment}
+          holdoutId={holdoutId}
+          stage={stageHoldout}
+          close={() => setChoosingHoldout(false)}
+        />
+      ) : null}
+      <Flex direction="column">
+        <Flex align="center" direction="column">
+          {holdoutId ? (
             <>
-              {editingTraffic ? (
-                <EditTrafficModal
-                  experiment={experiment}
-                  coverage={coverage}
-                  weights={variationWeights}
-                  close={() => setEditingTraffic(false)}
-                  stage={(traffic) => {
-                    stagePatch(traffic);
-                    setEditingTraffic(false);
-                  }}
-                />
-              ) : null}
-
-              {reordering ? (
-                <ReorderVariationsModal
-                  experiment={experiment}
-                  weights={variationWeights}
-                  close={() => setReordering(false)}
-                  stage={stageVariationList}
-                />
-              ) : null}
-
-              <VariationValuesTable
-                experiment={experiment}
-                linkedFeatures={linkedFeatures}
-                canEditFlagValues={canEditFlagValues}
-                flagEnvironments={flagEnvironments}
-                draftPicks={draftPicks}
-                flagView={flagView}
-                onChangeFlagView={canViewLive ? setFlagView : null}
-                split={variationWeights}
-                onChangeSplit={
-                  editDeliveryInline && !isBandit
-                    ? (weights) => stagePatch({ variationWeights: weights })
+              <FunnelCard
+                title="Holdout"
+                onEdit={
+                  canJoinHoldout || holdoutLockedReason
+                    ? () => setChoosingHoldout(true)
                     : null
                 }
-                splitNote={isBandit ? "Managed by bandit" : null}
-                onEditKeys={
-                  canEditExperiment && !variationsLocked
-                    ? editVariationKeys
-                    : undefined
+                editBlockedReason={holdoutLockedReason}
+                menu={
+                  canStageHoldout ? (
+                    <DropdownMenuItem color="red" onClick={leaveHoldout}>
+                      Remove from holdout
+                    </DropdownMenuItem>
+                  ) : null
                 }
-                onRemoveVariation={
-                  canRestructure && numVariations > 2
-                    ? removeVariation
-                    : undefined
-                }
-                onReorder={
-                  canRestructure ? () => setReordering(true) : undefined
-                }
-                onAddVariation={
-                  canStageVariations && canAddVariation
-                    ? addVariation
-                    : undefined
-                }
-                implementationColumns={implementationColumns}
-                addImplementation={addImplementation}
-              />
+              >
+                <SetupFieldRow label="Name" content="text">
+                  <Link href={`/holdout/${holdoutId}`} external>
+                    {holdoutsMap.get(holdoutId)?.name ?? holdoutId}
+                  </Link>
+                </SetupFieldRow>
+                <SetupFieldRow label="ID" content="text">
+                  <Text color="text-mid">{holdoutId}</Text>
+                </SetupFieldRow>
+              </FunnelCard>
+              <FunnelConnector />
             </>
+          ) : null}
+
+          <FunnelCard
+            title="Targeting"
+            grow
+            onEdit={editTargeting}
+            disabled={!safeToEdit}
+            menu={
+              canAddHoldout ? (
+                <DropdownMenuItem onClick={() => setChoosingHoldout(true)}>
+                  Add to holdout
+                </DropdownMenuItem>
+              ) : null
+            }
+          >
+            {targetsEveryone ? (
+              <FunnelRow label="Audience">
+                <Text color="text-high">Everyone</Text>
+              </FunnelRow>
+            ) : (
+              <>
+                <FunnelRow label="Audience" />
+                <Box pl="4" mb="2">
+                  <ConditionDisplay
+                    variant="rows"
+                    condition={hasCondition ? phase.condition : undefined}
+                    savedGroups={hasSavedGroups ? phase.savedGroups : undefined}
+                    prerequisites={
+                      hasPrerequisites ? phase.prerequisites : undefined
+                    }
+                  />
+                </Box>
+              </>
+            )}
+            <AssignmentAttribute
+              hashAttribute={hashAttribute}
+              fallbackAttribute={fallbackAttribute}
+            />
+          </FunnelCard>
+
+          {!isHoldout && hasNamespace ? (
+            <>
+              <FunnelConnector />
+              <FunnelCard
+                title="Namespace"
+                onEdit={editNamespace}
+                disabled={!safeToEdit}
+              >
+                <FunnelRow label="Name">
+                  {namespaceDeleted ? (
+                    <Tooltip content="This namespace no longer exists. The experiment still splits traffic by it, but it can't be chosen again.">
+                      <Flex align="center" gap="1">
+                        <PiWarningFill
+                          style={{ color: "var(--amber-11)", flexShrink: 0 }}
+                        />
+                        <Text color="text-high">{namespaceName}</Text>
+                      </Flex>
+                    </Tooltip>
+                  ) : (
+                    <Text color="text-high">{namespaceName}</Text>
+                  )}
+                </FunnelRow>
+                {namespaceCoverage ? (
+                  <FunnelRow label="Namespace percentage">
+                    <Text color="text-high">
+                      {percentFormatter.format(namespaceCoverage)}
+                    </Text>
+                  </FunnelRow>
+                ) : null}
+              </FunnelCard>
+              <FunnelConnector />
+            </>
+          ) : canAddNamespace ? (
+            <Flex direction="column" align="center">
+              <Box className={styles.connectorLine} height="12px" />
+              <Link color="gray" onClick={() => editNamespace?.()}>
+                <Flex align="center" gap="1">
+                  <PiPlus />
+                  Namespace
+                </Flex>
+              </Link>
+              <Box className={styles.connectorLine} height="12px" />
+            </Flex>
+          ) : (
+            <FunnelConnector />
           )}
+
+          <FunnelCard
+            title="Population"
+            onEdit={
+              editDeliveryInline ? () => setEditingTraffic(true) : editTargeting
+            }
+            disabled={!safeToEdit}
+          >
+            {!isHoldout ? (
+              <FunnelRow label="Rollout percentage">
+                {editDeliveryInline ? (
+                  <PercentField
+                    value={coverage}
+                    onChange={(next) => stagePatch({ coverage: next })}
+                    ariaLabel="Rollout percentage"
+                  />
+                ) : (
+                  <Text color="text-high">{Math.round(coverage * 100)}%</Text>
+                )}
+              </FunnelRow>
+            ) : (
+              <Flex direction="column" gap="1">
+                <Text color="text-mid">
+                  {holdoutTraffic.inHoldoutPercent}% in holdout
+                </Text>
+                <Text color="text-mid">
+                  {holdoutTraffic.forMeasurementPercent}% not in holdout (for
+                  measurement)
+                </Text>
+                <Text color="text-mid">
+                  {holdoutTraffic.notForMeasurementPercent}% not in holdout (not
+                  for measurement)
+                </Text>
+              </Flex>
+            )}
+          </FunnelCard>
         </Flex>
-      </Frame>
-    </>
+        {!isHoldout && (
+          <>
+            {editingTraffic ? (
+              <EditTrafficModal
+                experiment={experiment}
+                coverage={coverage}
+                weights={variationWeights}
+                close={() => setEditingTraffic(false)}
+                stage={(traffic) => {
+                  stagePatch(traffic);
+                  setEditingTraffic(false);
+                }}
+              />
+            ) : null}
+
+            {reordering ? (
+              <ReorderVariationsModal
+                experiment={experiment}
+                weights={variationWeights}
+                close={() => setReordering(false)}
+                stage={stageVariationList}
+              />
+            ) : null}
+
+            <VariationValuesTable
+              experiment={experiment}
+              linkedFeatures={linkedFeatures}
+              canEditFlagValues={canEditFlagValues}
+              flagEnvironments={flagEnvironments}
+              draftPicks={draftPicks}
+              flagView={flagView}
+              onChangeFlagView={canViewLive ? setFlagView : null}
+              split={variationWeights}
+              onChangeSplit={
+                editDeliveryInline && !isBandit
+                  ? (weights) => stagePatch({ variationWeights: weights })
+                  : null
+              }
+              splitNote={isBandit ? "Managed by bandit" : null}
+              onEditKeys={
+                canEditExperiment && !variationsLocked
+                  ? editVariationKeys
+                  : undefined
+              }
+              onRemoveVariation={
+                canRestructure && numVariations > 2
+                  ? removeVariation
+                  : undefined
+              }
+              onReorder={canRestructure ? () => setReordering(true) : undefined}
+              onAddVariation={
+                canStageVariations && canAddVariation ? addVariation : undefined
+              }
+              implementationColumns={implementationColumns}
+              addImplementation={addImplementation}
+            />
+          </>
+        )}
+      </Flex>
+    </Frame>
   );
 }
 

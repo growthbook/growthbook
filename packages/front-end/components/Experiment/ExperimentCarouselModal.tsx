@@ -149,15 +149,11 @@ const ExperimentCarouselModal: FC<{
   }, [nextScreenshot, variantId]);
 
   useEffect(() => {
-    if (!open) return;
-
     const handleKeyDown = (event) => {
       if (event.key === "ArrowLeft") {
         goToPrevious();
       } else if (event.key === "ArrowRight") {
         goToNext();
-      } else if (event.key === "Escape") {
-        close();
       }
     };
 
@@ -166,7 +162,7 @@ const ExperimentCarouselModal: FC<{
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [prevScreenshot, nextScreenshot, goToPrevious, goToNext, close]);
+  }, [prevScreenshot, nextScreenshot, goToPrevious, goToNext]);
 
   if (!variant || !screenshot) return null;
 
