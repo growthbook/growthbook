@@ -47,6 +47,7 @@ import {
   experimentFieldChanges,
   FlagEnvironmentsDraft,
   HoldoutDraft,
+  useExperimentEdits,
   useRegisterExperimentEdit,
   useStagedState,
 } from "./ExperimentEdits";
@@ -230,6 +231,7 @@ export default function TrafficAllocationFunnel({
 }: Props) {
   const { namespaces } = useOrgSettings();
   const { apiCall } = useAuth();
+  const edits = useExperimentEdits();
   const { editInline } = useExperimentEditing(experiment);
 
   const targetingDefaults = useTargetingDefaults(experiment);
@@ -587,6 +589,7 @@ export default function TrafficAllocationFunnel({
                     value={coverage}
                     onChange={(next) => stagePatch({ coverage: next })}
                     ariaLabel="Rollout percentage"
+                    form={edits?.formId}
                   />
                 ) : (
                   <Text color="text-high">{Math.round(coverage * 100)}%</Text>

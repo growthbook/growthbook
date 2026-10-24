@@ -81,6 +81,7 @@ import {
 } from "./ImplementationColumn";
 import {
   FlagEnvironmentsDraft,
+  useExperimentEdits,
   useRegisterExperimentEdit,
   useStagedState,
 } from "./ExperimentEdits";
@@ -396,6 +397,7 @@ function SplitColumn({
 }) {
   const { variations } = layout;
   const equal = isEqualSplit(split);
+  const edits = useExperimentEdits();
   return (
     <>
       <div
@@ -413,10 +415,10 @@ function SplitColumn({
               <PercentField
                 value={split[i] ?? 0}
                 commitOn="blur"
-                step="any"
                 decimals={VARIATION_WEIGHT_DECIMALS}
                 onChange={(weight) => onChange(rebalance(split, i, weight))}
                 ariaLabel={`${variationLabel(v)} split`}
+                form={edits?.formId}
               />
             ) : (
               <Text>{decimalToPercent(split[i] ?? 0)}%</Text>

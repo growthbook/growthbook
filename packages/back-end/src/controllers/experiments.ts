@@ -2314,6 +2314,15 @@ export async function postExperimentTargeting(
     reseed,
   } = req.body;
 
+  const isShare = (value: unknown) =>
+    typeof value === "number" && value >= 0 && value <= 1;
+  // A holdout's targeting carries no split.
+  if (!isShare(coverage) || !(variationWeights ?? []).every(isShare)) {
+    throw new BadRequestError(
+      "Coverage and each variation's split must be between 0% and 100%.",
+    );
+  }
+
   const changes: Changeset = {};
 
   const experiment = await getExperimentById(context, id);

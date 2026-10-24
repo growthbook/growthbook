@@ -22,9 +22,9 @@ export interface Props {
    * change moves the other fields around it. "change" reports every keystroke.
    */
   commitOn?: "change" | "blur";
-  /** Whole percentages by default; "any" takes fractions. */
-  step?: number | "any";
   decimals?: number;
+  /** The form whose check refuses it empty, when that isn't the one it's in. */
+  form?: string;
 }
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
@@ -36,8 +36,8 @@ export function PercentField({
   disabled,
   ariaLabel,
   commitOn = "change",
-  step = 1,
   decimals = COVERAGE_DECIMALS,
+  form,
 }: Props) {
   const percent = isNaN(value) ? "" : decimalToPercent(value, decimals + 2);
   // What's typed but not yet committed, with commitOn="blur".
@@ -72,9 +72,13 @@ export function PercentField({
             : undefined
         }
         type="number"
+        required
+        form={form}
         min={0}
         max={100}
-        step={step}
+        // Fractions are allowed, so a stored one is never refused; the arrows
+        // still step by 1.
+        step="any"
         aria-label={ariaLabel}
       />
       <Text as="span">%</Text>

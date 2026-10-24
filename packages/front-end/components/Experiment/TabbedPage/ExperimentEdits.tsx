@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -87,6 +88,11 @@ interface ExperimentEditsValue {
     acknowledge: (acknowledged: boolean) => void;
   } | null;
   saveAll: () => Promise<void>;
+  /**
+   * The form a staged field joins through its `form` attribute, so a value its
+   * own constraints refuse stops the save.
+   */
+  formId: string;
   discardAll: () => void;
   /** The staged edits, in the order they were made. */
   staged: { id: string; label: string }[];
@@ -106,6 +112,8 @@ interface ExperimentEditsValue {
 type CheckChanges = (id: string, part: ExperimentChangesBody) => Promise<void>;
 
 const ExperimentEditsContext = createContext<ExperimentEditsValue | null>(null);
+
+const INVALID_FIELDS = "Fill in the highlighted fields to save.";
 
 /**
  * An experiment-field edit, with the value each field held when loaded so a
@@ -233,6 +241,8 @@ export function ExperimentEditsProvider({
   const [error, setError] = useState<string | null>(null);
   const [unscopedRefusal, setUnscopedRefusal] = useState<string | null>(null);
   const [allowUnscopedRules, setAllowUnscopedRules] = useState(false);
+  const formId = useId();
+  const form = useRef<HTMLFormElement>(null);
 
   const register = useCallback((id: string, edit: PendingEdit | null) => {
     if (edit) edits.current.set(id, edit);
@@ -250,6 +260,11 @@ export function ExperimentEditsProvider({
   }, []);
 
   const saveAll = useCallback(async () => {
+    // The browser says which field and why, and takes the writer there.
+    if (form.current && !form.current.reportValidity()) {
+      setError(INVALID_FIELDS);
+      return;
+    }
     setSaving(true);
     setError(null);
     const pending = [...edits.current.values()];
@@ -296,6 +311,19 @@ export function ExperimentEditsProvider({
     }
   }, [apiCall, experimentId, mutate, allowUnscopedRules]);
 
+  // Its fields' input doesn't bubble to it, since they aren't inside it.
+  useEffect(() => {
+    const onInput = (e: Event) => {
+      const el = form.current;
+      if (!el || (e.target as HTMLInputElement).form !== el) return;
+      if (el.checkValidity()) {
+        setError((prev) => (prev === INVALID_FIELDS ? null : prev));
+      }
+    };
+    document.addEventListener("input", onInput);
+    return () => document.removeEventListener("input", onInput);
+  }, []);
+
   const discardAll = useCallback(() => {
     [...edits.current.values()].forEach((edit) => edit.discard());
     setError(null);
@@ -318,6 +346,9 @@ export function ExperimentEditsProvider({
   // `except`'s share is left out, for a caller standing in its own.
   const dryRun = useCallback(
     async (except: string | null, extra: ExperimentChangesBody[]) => {
+      if (form.current && !form.current.checkValidity()) {
+        throw new Error(INVALID_FIELDS);
+      }
       const parts: ExperimentChangesBody[] = [];
       for (const [editId, edit] of edits.current) {
         const share = editId === except ? null : dryRunShare(edit);
@@ -364,6 +395,7 @@ export function ExperimentEditsProvider({
       error,
       unscopedRule,
       saveAll,
+      formId,
       discardAll,
       staged,
       discard,
@@ -380,6 +412,7 @@ export function ExperimentEditsProvider({
       error,
       unscopedRule,
       saveAll,
+      formId,
       discardAll,
       discard,
       review,
@@ -393,6 +426,11 @@ export function ExperimentEditsProvider({
   return (
     <ExperimentEditsContext.Provider value={value}>
       {children}
+      {/* Never submitted: Save checks it. The disabled default button keeps
+          Enter in a field from submitting it. */}
+      <form id={formId} ref={form} hidden>
+        <button type="submit" disabled />
+      </form>
       {navigationGuard.pendingHref ? (
         <ConfirmDialog
           title="Leave without saving?"
