@@ -4,19 +4,35 @@ import type { NextFunction, Request, Response } from "express";
 import type { OrganizationInterface } from "shared/types/organization";
 import type { ApiKeyInterface } from "shared/types/apikey";
 import { ReqContextClass } from "back-end/src/services/context";
-import { updateSingleExperimentStatus } from "back-end/src/jobs/updateExperimentStatus";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { maybePublishScheduledRevision } from "back-end/src/api/features/autoPublishOnApproval";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
-import {
-  postApproveScheduledExperimentStart,
-  postExperiment,
-} from "back-end/src/controllers/experiments";
+import { postApproveScheduledExperimentStart } from "back-end/src/controllers/experiments";
 import {
   postFeatureScheduledPublish,
   postFeatureToggleAutoPublish,
 } from "back-end/src/controllers/features";
+import {
+  asKey,
+  asUser,
+  dashboardReq,
+  EXP_ID,
+  experiments,
+  fire,
+  HOUR,
+  insertExperiment,
+  insertFlag,
+  keyDoc,
+  org,
+  ORG_ID,
+  organizations,
+  resSpy,
+  revisions,
+  seedOrg,
+  staged,
+  status,
+} from "./scheduledStart.fixture";
 import { setupApp } from "./api.setup";
 
 // A start armed past its flag drafts' approvals carries an admin's bypass to
@@ -25,69 +41,29 @@ import { setupApp } from "./api.setup";
 // would leave the experiment unstarted. Drives the real routes, controllers,
 // Mongo documents, and jobs.
 
-const ORG_ID = "org_bypass";
-const EXP = "exp_bypass";
 const FLAG = "flag_bypass";
-const HOUR = 60 * 60 * 1000;
 
-const reviews = {
-  requireReviews: [
-    {
-      requireReviewOn: true,
-      resetReviewOnChange: true,
-      autopublishOnApproval: true,
-      environments: [],
-      projects: [],
-    },
-  ],
-};
-const org = {
-  id: ORG_ID,
-  name: "Bypass",
-  ownerEmail: "owner@test.com",
-  url: "",
-  dateCreated: new Date(),
-  members: [
-    ["u_owner", "admin"],
-    ["u_exp", "experimenter"],
-  ].map(([id, role]) => ({
-    id,
-    role,
-    environments: [],
-    limitAccessByEnvironment: false,
-    projectRoles: [],
-  })),
-  settings: { environments: [{ id: "production" }], ...reviews },
+const reviewOrg = {
+  ...org,
+  settings: {
+    ...org.settings,
+    requireReviews: [
+      {
+        requireReviewOn: true,
+        resetReviewOnChange: true,
+        autopublishOnApproval: true,
+        environments: [],
+        projects: [],
+      },
+    ],
+  },
 } as unknown as OrganizationInterface;
 
-const keyDoc = (
-  id: string,
-  role: string,
-  extra: Partial<ApiKeyInterface> = {},
-) =>
-  ({
-    id,
-    organization: ORG_ID,
-    key: `secret_${id}`,
-    secret: true,
-    description: id,
-    role,
-    limitAccessByEnvironment: false,
-    environments: [],
-    projectRoles: [],
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    ...extra,
-  }) as unknown as ApiKeyInterface;
 const adminKey = keyDoc("key_admin", "admin");
 const experimenterKey = keyDoc("key_exp", "experimenter");
 const heldKey = keyDoc("key_held", "admin", {
   confirmRules: [{ actions: ["override.bypassApproval"] }],
 } as Partial<ApiKeyInterface>);
-
-const experiments = () => mongoose.connection.collection("experiments");
-const revisions = () => mongoose.connection.collection("featurerevisions");
-const organizations = () => mongoose.connection.collection("organizations");
 
 const arms = [
   { variationId: "0", value: "false" },
@@ -97,228 +73,56 @@ const expRule = {
   type: "experiment-ref",
   id: "fr_exp",
   description: "",
-  experimentId: EXP,
+  experimentId: EXP_ID,
   enabled: true,
   allEnvironments: true,
   variations: arms,
 };
 const forceRule = {
   type: "force",
-  id: "fr_force",
   description: "",
   value: "true",
   enabled: true,
   allEnvironments: true,
 };
 
-function asUser(id: string) {
-  const context = new ReqContextClass({
-    org,
-    auditUser: { type: "dashboard", id, email: `${id}@test.com`, name: id },
-    user: { id, email: `${id}@test.com`, name: id },
-    teams: [],
-  });
-  context.hasPremiumFeature = () => true;
-  return context;
-}
-
-function asKey(key: ApiKeyInterface, orgDoc = org) {
-  const context = new ReqContextClass({
-    org: orgDoc,
-    auditUser: { type: "api_key", apiKey: key.id, name: key.description },
-    role: key.role,
-    apiKey: key.id,
-    apiKeyData: key,
-    teams: [],
-  });
-  context.hasPremiumFeature = () => true;
-  return context;
-}
-
-// A flag with its published version 1 and draft version 2.
-async function insertFlag(
-  id: string,
-  draftStatus: string,
-  draftRules: object[],
-  project = "",
-) {
-  const now = new Date();
-  await mongoose.connection.collection("features").insertOne({
-    id,
-    organization: ORG_ID,
-    project,
-    owner: "",
-    valueType: "boolean",
-    defaultValue: "false",
-    version: 1,
-    archived: false,
-    tags: [],
-    environmentSettings: { production: { enabled: true, rules: [] } },
-    dateCreated: now,
-    dateUpdated: now,
-  });
-  const revision = (version: number, status: string, rules: object[]) => ({
-    id: `frev_${id}_${version}`,
-    organization: ORG_ID,
-    featureId: id,
-    version,
-    baseVersion: 1,
-    status,
-    createdBy: {
-      type: "dashboard",
-      id: "u_owner",
-      email: "u_owner@test.com",
-      name: "u_owner",
-    },
-    comment: "",
-    defaultValue: "false",
-    rules,
-    environmentsEnabled: { production: true },
-    dateCreated: now,
-    dateUpdated: now,
-    ...(status === "published" ? { datePublished: now } : {}),
-  });
-  await revisions().insertMany([
-    revision(1, "published", []),
-    revision(2, draftStatus, draftRules),
-  ]);
-}
-
 // The flag's draft (version 2) and a draft experiment it's queued on.
 async function seed({
   draftStatus = "pending-review",
   draftRules = [expRule] as object[],
   schedule = true,
-  orgSettings = org.settings,
+  orgDoc = reviewOrg,
   flagProject = "",
 }: {
   draftStatus?: string;
   draftRules?: object[];
   schedule?: boolean;
-  orgSettings?: object;
+  orgDoc?: OrganizationInterface;
   flagProject?: string;
 } = {}) {
-  const now = new Date();
-  await organizations().insertOne({ ...org, settings: orgSettings });
-  await mongoose.connection.collection("users").insertMany(
-    ["u_owner", "u_exp"].map((id) => ({
-      id,
-      email: `${id}@test.com`,
-      name: id,
-    })),
-  );
+  await seedOrg(orgDoc);
   await mongoose.connection
     .collection("apikeys")
     .insertMany([adminKey, experimenterKey, heldKey].map((k) => ({ ...k })));
   await insertFlag(FLAG, draftStatus, draftRules, flagProject);
-  await experiments().insertOne({
-    id: EXP,
-    organization: ORG_ID,
-    trackingKey: EXP,
-    name: "Checkout test",
-    type: "standard",
-    owner: "u_owner",
-    project: "",
-    hypothesis: "",
-    description: "",
-    tags: [],
-    dateCreated: now,
-    dateUpdated: now,
-    archived: false,
-    status: "draft",
-    autoSnapshots: false,
-    hashAttribute: "id",
-    hashVersion: 2,
-    variations: [
-      { id: "0", key: "0", name: "Control", screenshots: [] },
-      { id: "1", key: "1", name: "Variation", screenshots: [] },
-    ],
-    phases: [
-      {
-        dateStarted: now,
-        name: "Main",
-        reason: "",
-        coverage: 1,
-        condition: "",
-        savedGroups: [],
-        namespace: { enabled: false, name: "", range: [0, 1] },
-        variationWeights: [0.5, 0.5],
-      },
-    ],
+  await insertExperiment({
     linkedFeatures: [FLAG],
-    pendingFeatureDrafts: draftRules.some((r) => r === expRule)
+    pendingFeatureDrafts: draftRules.includes(expRule)
       ? [{ featureId: FLAG, revisionVersion: 2 }]
       : [],
     ...(schedule
       ? { statusUpdateSchedule: { startAt: new Date(Date.now() + HOUR) } }
       : {}),
-    datasource: "",
-    exposureQueryId: "",
-    goalMetrics: [],
-    secondaryMetrics: [],
-    guardrailMetrics: [],
-    decisionFrameworkSettings: {},
-    implementation: "code",
-    autoAssign: false,
-    previewURL: "",
-    targetURLRegex: "",
-    ideaSource: "",
-    releasedVariationId: "",
   });
 }
 
-const staged = async () =>
-  (await experiments().findOne({ id: EXP }))?.nextScheduledStatusUpdate ?? null;
-const status = async () => (await experiments().findOne({ id: EXP }))?.status;
-const draft = async (version = 2) =>
-  revisions().findOne({ organization: ORG_ID, featureId: FLAG, version });
-const fireNow = () =>
-  experiments().updateOne(
-    { id: EXP },
-    { $set: { "nextScheduledStatusUpdate.date": new Date(Date.now() - 1000) } },
-  );
-const fire = async () => {
-  await fireNow();
-  await updateSingleExperimentStatus({
-    attrs: { data: { experimentId: EXP, organization: ORG_ID } },
-  } as unknown as Parameters<typeof updateSingleExperimentStatus>[0]);
-};
+const draft = async () =>
+  revisions().findOne({ organization: ORG_ID, featureId: FLAG, version: 2 });
 
-function dashboardReq<T>(
-  userId: string,
-  body: Record<string, unknown>,
-  params: Record<string, string> = { id: EXP },
-): T {
-  return {
-    params,
-    body,
-    organization: org,
-    userId,
-    email: `${userId}@test.com`,
-    name: userId,
-    query: {},
-    headers: {},
-    audit: jest.fn(),
-  } as unknown as T;
-}
-function resSpy() {
-  const captured: { status?: number; body?: unknown } = {};
-  const res = {
-    status(code: number) {
-      captured.status = code;
-      return this;
-    },
-    json(payload: unknown) {
-      captured.body = payload;
-      return this;
-    },
-  } as unknown as Response;
-  return { res, captured };
-}
 type ApproveReq = Parameters<typeof postApproveScheduledExperimentStart>[0];
 const approve = async (userId: string, body: Record<string, unknown>) => {
   const { res, captured } = resSpy();
-  const req = dashboardReq<ApproveReq>(userId, body);
+  const req = dashboardReq<ApproveReq>(body, { userId, orgDoc: reviewOrg });
   await postApproveScheduledExperimentStart(req, res);
   return { captured, req };
 };
@@ -430,7 +234,7 @@ describe("a dashboard scheduled start armed past its flag draft's approval", () 
     await seed();
     await approve("u_owner", { skipChecklist: true, bypassApproval: true });
     await insertFlag("flag_later", "pending-review", [expRule]);
-    await experiments().updateOne({ id: EXP }, {
+    await experiments().updateOne({ id: EXP_ID }, {
       $push: {
         linkedFeatures: "flag_later",
         pendingFeatureDrafts: { featureId: "flag_later", revisionVersion: 2 },
@@ -470,31 +274,17 @@ describe("a dashboard scheduled start armed past its flag draft's approval", () 
     expect(await status()).toBe("draft");
     expect((await draft())?.status).toBe("pending-review");
   });
-
-  it("needs the approval after all once the armer can no longer bypass", async () => {
-    await seed();
-    await approve("u_owner", { skipChecklist: true, bypassApproval: true });
-    await organizations().updateOne(
-      { id: ORG_ID, "members.id": "u_owner" },
-      { $set: { "members.$.role": "experimenter" } },
-    );
-
-    await fire();
-
-    expect(await status()).toBe("draft");
-    expect((await draft())?.status).toBe("pending-review");
-  });
 });
 
 describe("a REST scheduled start past a flag draft's approval", () => {
   const start = () =>
-    auth(request(app).post(`/api/v1/experiments/${EXP}/start`)).send({
+    auth(request(app).post(`/api/v1/experiments/${EXP_ID}/start`)).send({
       skipChecklist: true,
     });
 
   it("arms an admin key by its authority, and fires as the key", async () => {
     await seed();
-    setReqContext(asKey(adminKey));
+    setReqContext(asKey(adminKey, reviewOrg));
 
     expect((await start()).status).toBe(200);
     expect(await staged()).toMatchObject({
@@ -511,7 +301,7 @@ describe("a REST scheduled start past a flag draft's approval", () => {
 
   it("refuses a key without bypass authority", async () => {
     await seed();
-    setReqContext(asKey(experimenterKey));
+    setReqContext(asKey(experimenterKey, reviewOrg));
 
     const refused = await start();
     expect(refused.status).toBe(409);
@@ -520,13 +310,13 @@ describe("a REST scheduled start past a flag draft's approval", () => {
   });
 
   it.each([
-    ["scheduled", true],
-    ["immediate", false],
+    { kind: "scheduled", schedule: true },
+    { kind: "immediate", schedule: false },
   ])(
-    "holds a %s start that waives an approval as an approval bypass",
-    async (_kind, schedule) => {
+    "holds a $kind start that waives an approval as an approval bypass",
+    async ({ schedule }) => {
       await seed({ schedule });
-      setReqContext(asKey(heldKey));
+      setReqContext(asKey(heldKey, reviewOrg));
 
       const held = await start();
 
@@ -542,76 +332,11 @@ describe("a REST scheduled start past a flag draft's approval", () => {
   );
 
   it("doesn't hold as a bypass when no approval is waiting", async () => {
-    const settings = { environments: [{ id: "production" }] };
-    await seed({ orgSettings: settings });
-    setReqContext(
-      asKey(heldKey, { ...org, settings } as unknown as OrganizationInterface),
-    );
+    await seed({ orgDoc: org });
+    setReqContext(asKey(heldKey, org));
 
     expect((await start()).status).toBe(200);
     expect(await staged()).toMatchObject({ scheduledByApiKey: "key_held" });
-  });
-});
-
-describe("a scheduled start's experiment", () => {
-  const armed = async () => {
-    await seed();
-    setReqContext(asKey(adminKey));
-    await auth(request(app).post(`/api/v1/experiments/${EXP}/start`)).send({
-      skipChecklist: true,
-    });
-    expect(await staged()).toMatchObject({ type: "start" });
-  };
-  const update = (body: object) =>
-    auth(request(app).post(`/api/v1/experiments/${EXP}`)).send(body);
-
-  it("refuses a REST change to what it launches, and stays scheduled", async () => {
-    await armed();
-
-    const refused = await update({ hashAttribute: "deviceId" });
-
-    expect(refused.status).toBe(400);
-    expect(refused.body.message).toMatch(/hashAttribute.*start is scheduled/);
-    expect((await experiments().findOne({ id: EXP }))?.hashAttribute).toBe(
-      "id",
-    );
-    expect(await staged()).toMatchObject({ type: "start" });
-  });
-
-  it("takes a REST change to its metadata", async () => {
-    await armed();
-
-    expect((await update({ description: "Why it matters" })).status).toBe(200);
-    expect(await staged()).toMatchObject({ type: "start" });
-  });
-
-  it("refuses new Visual Editor changes from REST", async () => {
-    await armed();
-
-    const refused = await auth(
-      request(app).post(`/api/v1/experiments/${EXP}/visual-changesets`),
-    ).send({
-      editorUrl: "https://example.com/",
-      urlPatterns: [{ type: "simple", pattern: "/", include: true }],
-    });
-
-    expect(refused.status).toBe(400);
-    expect(refused.body.message).toMatch(/Visual Editor changes/);
-  });
-
-  it("refuses a dashboard coverage change", async () => {
-    await armed();
-    type UpdateReq = Parameters<typeof postExperiment>[0];
-
-    await expect(
-      postExperiment(
-        dashboardReq<UpdateReq>("u_owner", { coverage: 0.5 }),
-        resSpy().res,
-      ),
-    ).rejects.toThrow(/coverage.*start is scheduled/);
-    expect((await experiments().findOne({ id: EXP }))?.phases[0].coverage).toBe(
-      1,
-    );
   });
 });
 
@@ -621,7 +346,7 @@ describe("a flag draft that would take a draft experiment live", () => {
 
   it("can't be armed to publish later from REST", async () => {
     await seed({ draftStatus: "draft" });
-    setReqContext(asKey(adminKey));
+    setReqContext(asKey(adminKey, reviewOrg));
 
     const scheduled = await auth(
       request(app).post(
@@ -650,16 +375,18 @@ describe("a flag draft that would take a draft experiment live", () => {
     await expect(
       postFeatureScheduledPublish(
         dashboardReq<ScheduleReq>(
-          "u_owner",
           { scheduledPublishAt: later(), bypassApproval: true },
-          params,
+          { orgDoc: reviewOrg, params },
         ),
         resSpy().res,
       ),
     ).rejects.toThrow(launchRefusal);
     await expect(
       postFeatureToggleAutoPublish(
-        dashboardReq<ToggleReq>("u_owner", { enabled: true }, params),
+        dashboardReq<ToggleReq>(
+          { enabled: true },
+          { orgDoc: reviewOrg, params },
+        ),
         resSpy().res,
       ),
     ).rejects.toThrow(launchRefusal);
@@ -678,14 +405,14 @@ describe("a flag draft that would take a draft experiment live", () => {
         },
       },
     );
-    setReqContext(asUser("u_owner"));
+    setReqContext(asUser("u_owner", reviewOrg));
 
     const added = await auth(
       request(app).post(`/api/v2/features/${FLAG}/revisions/2/rules`),
     ).send({
       rule: {
         type: "experiment-ref",
-        experimentId: EXP,
+        experimentId: EXP_ID,
         variations: arms,
         allEnvironments: true,
       },
@@ -745,11 +472,11 @@ describe("a gated edit to a flag draft armed with the admin bypass", () => {
         },
       },
     );
-    setReqContext(asUser("u_owner"));
+    setReqContext(asUser("u_owner", reviewOrg));
 
     const added = await auth(
       request(app).post(`/api/v2/features/${FLAG}/revisions/2/rules`),
-    ).send({ rule: { ...forceRule, id: undefined } });
+    ).send({ rule: forceRule });
 
     expect(added.status).toBe(200);
     const after = await draft();

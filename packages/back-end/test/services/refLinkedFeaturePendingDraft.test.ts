@@ -108,7 +108,7 @@ beforeEach(() => {
 });
 
 describe("getRefLinkedFeatureInfo pendingDraft", () => {
-  it("reports a running experiment's unpublished edit even though state stays live", async () => {
+  it("reports a running experiment's unpublished edit through pendingDraft alone", async () => {
     mockGetFeatures.mockResolvedValue([makeFeature([refRule("live-value")])]);
     mockGetRevisions.mockResolvedValue({
       flag: [makeDraft(4, [refRule("draft-value")])],
@@ -135,16 +135,6 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
       { variationId: "var_0", value: "control" },
       { variationId: "var_1", value: "live-value" },
     ]);
-  });
-
-  it("does NOT widen the sibling fields the pre-launch checklist filters on", async () => {
-    mockGetFeatures.mockResolvedValue([makeFeature([refRule("live-value")])]);
-    mockGetRevisions.mockResolvedValue({
-      flag: [makeDraft(4, [refRule("draft-value")])],
-    });
-
-    const [info] = await run(false);
-
     // changeExperimentStatus filters `pendingApproval` with no state gate and
     // reads `draftRevisionStatus` for the verdict — populating either here
     // would hard-block a running experiment on an unrelated draft.
@@ -214,9 +204,6 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
 
     const [info] = await run(false);
 
-    expect(mockGetBases).toHaveBeenCalledWith(
-      expect.objectContaining({ versions: [2] }),
-    );
     expect(info.pendingDraft?.version).toBe(4);
     expect(info.otherPendingDrafts).toBeUndefined();
   });

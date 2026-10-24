@@ -191,15 +191,31 @@ describe("applyExperimentChanges", () => {
     base: { hypothesis: base },
   });
 
+  const makeContext = ({
+    settings = {},
+    role = "admin",
+    apiKeyData,
+    body = {},
+  }: {
+    settings?: OrganizationInterface["settings"];
+    role?: string;
+    apiKeyData?: ApiKeyInterface;
+    body?: Record<string, unknown>;
+  } = {}) => {
+    const made = new ReqContextClass({
+      org: { ...org, settings: { ...org.settings, ...settings } },
+      auditUser: { type: "api_key", apiKey: "key" },
+      role,
+      apiKeyData,
+      req: { query: {}, headers: {}, body } as unknown as Request,
+    });
+    made.hasPremiumFeature = () => true;
+    return made;
+  };
+
   beforeEach(async () => {
     await isReady;
-    context = new ReqContextClass({
-      org,
-      auditUser: { type: "api_key", apiKey: "key" },
-      role: "admin",
-      req: { query: {}, headers: {}, body: {} } as unknown as Request,
-    });
-    context.hasPremiumFeature = () => true;
+    context = makeContext();
   });
 
   afterEach(() => {
@@ -256,37 +272,38 @@ describe("applyExperimentChanges", () => {
   });
 
   it.each([
-    ["a bandit's values save", "multi-armed-bandit", null],
-    [
-      "a standard experiment's are refused",
-      "standard",
-      "variations and variationWeights must be the same length.",
-    ],
-  ])(
-    "%s though its phase has no weights",
-    async (description, type, refusal) => {
-      await seed({ withDraft: true });
-      await collection("experiments").updateOne(
-        { id: EXP },
-        { $set: { type, "phases.0.variationWeights": [] } },
-      );
-      const save = run({
-        flagValues: [
-          {
-            featureId: FLAG,
-            variations: arms("a", "new"),
-            revision: { version: 2, dateUpdated: LOADED },
-          },
-        ],
-      });
-      if (refusal) {
-        await expect(save).rejects.toThrow(refusal);
-      } else {
-        await save;
-        expect(await revisionRules(2)).toEqual(arms("a", "new"));
-      }
+    {
+      name: "a bandit's values save",
+      type: "multi-armed-bandit",
+      refusal: null,
     },
-  );
+    {
+      name: "a standard experiment's are refused",
+      type: "standard",
+      refusal: "variations and variationWeights must be the same length.",
+    },
+  ])("$name though its phase has no weights", async ({ type, refusal }) => {
+    await seed({ withDraft: true });
+    await collection("experiments").updateOne(
+      { id: EXP },
+      { $set: { type, "phases.0.variationWeights": [] } },
+    );
+    const save = run({
+      flagValues: [
+        {
+          featureId: FLAG,
+          variations: arms("a", "new"),
+          revision: { version: 2, dateUpdated: LOADED },
+        },
+      ],
+    });
+    if (refusal) {
+      await expect(save).rejects.toThrow(refusal);
+    } else {
+      await save;
+      expect(await revisionRules(2)).toEqual(arms("a", "new"));
+    }
+  });
 
   it("starts a new draft when the values were loaded from live", async () => {
     await seed({ withDraft: false });
@@ -352,15 +369,13 @@ describe("applyExperimentChanges", () => {
   });
 
   it.each([
-    [
-      "an experiment field",
-      {
-        experiment: hypothesisChange("something else"),
-      },
-    ],
-    [
-      "a flag draft",
-      {
+    {
+      name: "an experiment field",
+      body: { experiment: hypothesisChange("something else") },
+    },
+    {
+      name: "a flag draft",
+      body: {
         flagValues: [
           {
             featureId: FLAG,
@@ -369,10 +384,10 @@ describe("applyExperimentChanges", () => {
           },
         ],
       },
-    ],
+    },
   ])(
-    "refuses with 409 and writes nothing when %s moved since it was loaded",
-    async (_label, body) => {
+    "refuses with 409 and writes nothing when $name moved since it was loaded",
+    async ({ body }) => {
       await seed({ withDraft: true });
       await expect(run(body)).rejects.toMatchObject({ status: 409 });
       expect(await revisionRules(2)).toEqual(arms("a", "draft"));
@@ -458,16 +473,10 @@ describe("applyExperimentChanges", () => {
 
   describe("when the organization requires scoped rules", () => {
     const requireScoped = (body: Record<string, unknown> = {}) => {
-      context = new ReqContextClass({
-        org: {
-          ...org,
-          settings: { ...org.settings, requireScopedFeatureRules: true },
-        },
-        auditUser: { type: "api_key", apiKey: "key" },
-        role: "admin",
-        req: { query: {}, headers: {}, body } as unknown as Request,
+      context = makeContext({
+        settings: { requireScopedFeatureRules: true },
+        body,
       });
-      context.hasPremiumFeature = () => true;
     };
 
     it("refuses widening a rule to every environment unless the save allows it", async () => {
@@ -861,18 +870,14 @@ describe("applyExperimentChanges", () => {
 
     // Not admin: an admin role ignores an environment limit.
     const limitedTo = (environments: string[]) => {
-      context = new ReqContextClass({
-        org,
-        auditUser: { type: "api_key", apiKey: "key" },
+      context = makeContext({
         role: "experimenter",
         apiKeyData: {
           role: "experimenter",
           limitAccessByEnvironment: true,
           environments,
         } as ApiKeyInterface,
-        req: { query: {}, headers: {}, body: {} } as unknown as Request,
       });
-      context.hasPremiumFeature = () => true;
     };
 
     it("adds a first URL Redirect for someone who can run the experiment in every environment", async () => {
@@ -946,10 +951,10 @@ describe("applyExperimentChanges", () => {
     });
 
     it.each([
-      [
-        "a URL Redirect edited since it was loaded",
-        () => seedRedirect("url_a", A),
-        {
+      {
+        name: "a URL Redirect edited since it was loaded",
+        setup: () => seedRedirect("url_a", A),
+        body: {
           editUrlRedirects: [
             {
               ...staged(A),
@@ -958,12 +963,15 @@ describe("applyExperimentChanges", () => {
             },
           ],
         },
-        { status: 409, message: `The URL Redirect from ${A} changed since` },
-      ],
-      [
-        "two staged URL Redirects that chain",
-        async () => undefined,
-        {
+        refusal: {
+          status: 409,
+          message: `The URL Redirect from ${A} changed since`,
+        },
+      },
+      {
+        name: "two staged URL Redirects that chain",
+        setup: async () => undefined,
+        body: {
           addUrlRedirects: [
             staged(A, {
               destinationURLs: [
@@ -975,36 +983,42 @@ describe("applyExperimentChanges", () => {
             staged(B),
           ],
         },
-        {
+        refusal: {
           status: 400,
           message: `A destination of the URL Redirect from ${A} matches the origin of the one from ${B}.`,
         },
-      ],
-      [
-        "a URL Redirect missing a variation's destination",
-        async () => undefined,
-        {
+      },
+      {
+        name: "a URL Redirect missing a variation's destination",
+        setup: async () => undefined,
+        body: {
           addUrlRedirects: [
             staged(A, { destinationURLs: destinations(A, ["v0"]) }),
           ],
         },
-        { status: 400, message: "needs one destination for each variation" },
-      ],
-      [
-        "a URL Redirect keeping a destination for a variation the save removes",
-        async () => undefined,
-        {
+        refusal: {
+          status: 400,
+          message: "needs one destination for each variation",
+        },
+      },
+      {
+        name: "a URL Redirect keeping a destination for a variation the save removes",
+        setup: async () => undefined,
+        body: {
           experiment: swapV1ForV2(),
           addUrlRedirects: [
             staged(A, { destinationURLs: destinations(A, ["v0", "v1", "v2"]) }),
           ],
         },
-        { status: 400, message: "needs one destination for each variation" },
-      ],
-      [
-        "a Visual Editor edit for a variation the save removes",
-        seedChangeset,
-        {
+        refusal: {
+          status: 400,
+          message: "needs one destination for each variation",
+        },
+      },
+      {
+        name: "a Visual Editor edit for a variation the save removes",
+        setup: seedChangeset,
+        body: {
           experiment: swapV1ForV2(),
           editVisualChangesets: [
             {
@@ -1027,31 +1041,37 @@ describe("applyExperimentChanges", () => {
             },
           ],
         },
-        { status: 400, message: "edits a variation this save removes" },
-      ],
-      [
-        "a URL Redirect on a running experiment",
-        () =>
+        refusal: {
+          status: 400,
+          message: "edits a variation this save removes",
+        },
+      },
+      {
+        name: "a URL Redirect on a running experiment",
+        setup: () =>
           collection("experiments")
             .updateOne({ id: EXP }, { $set: { status: "running" } })
             .then(() => undefined),
-        { addUrlRedirects: [staged(A)] },
-        { status: 400, message: "only change while the experiment is a draft" },
-      ],
-      [
-        "a first URL Redirect from someone who can run the experiment in only some environments",
-        async () => limitedTo(["staging"]),
-        { addUrlRedirects: [staged(A)] },
-        { status: 403, message: "" },
-      ],
-    ] as [
-      string,
-      () => Promise<void>,
-      ExperimentChangesBody,
-      { status: number; message: string },
-    ][])(
-      "refuses %s before writing anything",
-      async (_label, setup, body, { status, message }) => {
+        body: { addUrlRedirects: [staged(A)] },
+        refusal: {
+          status: 400,
+          message: "only change while the experiment is a draft",
+        },
+      },
+      {
+        name: "a first URL Redirect from someone who can run the experiment in only some environments",
+        setup: async () => limitedTo(["staging"]),
+        body: { addUrlRedirects: [staged(A)] },
+        refusal: { status: 403, message: "" },
+      },
+    ] as {
+      name: string;
+      setup: () => Promise<void>;
+      body: ExperimentChangesBody;
+      refusal: { status: number; message: string };
+    }[])(
+      "refuses $name before writing anything",
+      async ({ setup, body, refusal: { status, message } }) => {
         await seedLinked();
         await setup();
         const stored = async () => ({
@@ -1245,22 +1265,24 @@ describe("applyExperimentChanges", () => {
     });
 
     it.each([
-      [
-        "without naming the rules",
-        [{ featureId: FLAG, variations: arms("a", "x"), revision: LIVE }],
-        "variation values must be identical",
-      ],
-      [
-        "twice without separate groups",
-        [
+      {
+        name: "without naming the rules",
+        flagValues: [
+          { featureId: FLAG, variations: arms("a", "x"), revision: LIVE },
+        ],
+        message: "variation values must be identical",
+      },
+      {
+        name: "twice without separate groups",
+        flagValues: [
           { featureId: FLAG, variations: arms("a", "x"), revision: LIVE },
           { featureId: FLAG, variations: arms("a", "y"), revision: LIVE },
         ],
-        "only to set values for separate groups",
-      ],
-      [
-        "with a rule in two groups",
-        [
+        message: "only to set values for separate groups",
+      },
+      {
+        name: "with a rule in two groups",
+        flagValues: [
           {
             featureId: FLAG,
             ruleIds: ["fr_prod"],
@@ -1274,11 +1296,11 @@ describe("applyExperimentChanges", () => {
             revision: LIVE,
           },
         ],
-        "is in more than one group",
-      ],
-      [
-        "re-scoping environments for some of the rules",
-        [
+        message: "is in more than one group",
+      },
+      {
+        name: "re-scoping environments for some of the rules",
+        flagValues: [
           {
             featureId: FLAG,
             ruleIds: ["fr_prod"],
@@ -1287,9 +1309,9 @@ describe("applyExperimentChanges", () => {
             revision: LIVE,
           },
         ],
-        "environments can only change for all",
-      ],
-    ])("refuses values %s", async (description, flagValues, message) => {
+        message: "environments can only change for all",
+      },
+    ])("refuses values $name", async ({ flagValues, message }) => {
       await seedSplit();
       await expect(run({ flagValues })).rejects.toThrow(message);
       expect(await refRules("draft")).toEqual([]);

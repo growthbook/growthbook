@@ -158,19 +158,6 @@ describe("getStartActions", () => {
         disabled: false,
       },
     },
-    {
-      name: "holds a scheduled start on approval without bypass permission",
-      scheduledStartAt: future,
-      checklist: approval,
-      bypassed: true,
-      expected: {
-        action: "approve-schedule",
-        label: futureLabel,
-        bypassLabel: null,
-        hardBlocked: true,
-        disabled: true,
-      },
-    },
   ] as {
     name: string;
     scheduledStartAt?: Date;

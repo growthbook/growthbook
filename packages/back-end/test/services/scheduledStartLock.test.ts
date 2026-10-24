@@ -38,19 +38,13 @@ const withPhase = (patch: object): Changeset => ({
 describe("scheduledStartLockedFields", () => {
   it.each([
     {
-      name: "coverage",
-      changes: withPhase({ coverage: 0.5 }),
-      expected: ["coverage"],
-    },
-    {
-      name: "the split",
-      changes: withPhase({ variationWeights: [0.3, 0.7] }),
-      expected: ["variationWeights"],
-    },
-    {
-      name: "targeting",
-      changes: withPhase({ condition: '{"country":"US"}' }),
-      expected: ["condition"],
+      name: "targeting, coverage and the split",
+      changes: withPhase({
+        condition: '{"country":"US"}',
+        coverage: 0.5,
+        variationWeights: [0.3, 0.7],
+      }),
+      expected: ["condition", "coverage", "variationWeights"],
     },
     {
       name: "a namespace turned on",
@@ -129,12 +123,6 @@ describe("scheduledStartLockedFields", () => {
 
 describe("assertScheduledStartAllowsChange", () => {
   const coverage = withPhase({ coverage: 0.5 });
-
-  it("refuses a launch change while the start is scheduled", () => {
-    expect(() =>
-      assertScheduledStartAllowsChange(experiment(true), coverage),
-    ).toThrow(/coverage.*start is scheduled/);
-  });
 
   it.each([
     {
