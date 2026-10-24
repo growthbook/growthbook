@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useState } from "react";
+import React, { ReactNode, useEffect, useId, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import { PiCaretRightBold, PiPlus, PiTrash } from "react-icons/pi";
@@ -89,14 +89,18 @@ function ParamInput({
   min,
   disabled,
   ariaLabel,
+  suffix,
   onChange,
 }: {
   value: number;
   min: number;
   disabled: boolean;
   ariaLabel: string;
+  // The words after the box, kept next to it
+  suffix?: string;
   onChange: (v: number) => void;
 }) {
+  const errorId = useId();
   // Typed text stays until valid; invalid values never reach the draft, and
   // leaving the box puts back the last valid one
   const [text, setText] = useState(String(value));
@@ -104,7 +108,7 @@ function ParamInput({
   const isValid = (t: string) =>
     t.trim() !== "" && Number.isInteger(Number(t)) && Number(t) >= min;
   return (
-    // The message sits beside the box so the sentence around it stays aligned
+    // The message ends the row, so it doesn't split the sentence or shift it
     <Flex align="center" gap="1">
       <TextField
         type="number"
@@ -115,16 +119,25 @@ function ParamInput({
         disabled={disabled}
         aria-label={ariaLabel}
         aria-invalid={!isValid(text)}
+        aria-describedby={isValid(text) ? undefined : errorId}
+        inputClassName={isValid(text) ? undefined : "error"}
         onChange={(e) => {
           setText(e.target.value);
           if (isValid(e.target.value)) onChange(Number(e.target.value));
         }}
         onBlur={() => setText(String(value))}
       />
+      {suffix && (
+        <Text size="sm" color="text-mid">
+          {suffix}
+        </Text>
+      )}
       {!isValid(text) && (
-        <HelperText status="error" size="sm">
-          Enter a whole number, {min} or more
-        </HelperText>
+        <span id={errorId}>
+          <HelperText status="error" size="sm">
+            Enter a whole number, {min} or more
+          </HelperText>
+        </span>
       )}
     </Flex>
   );
@@ -177,11 +190,9 @@ function CheckLabel({
             min={2}
             disabled={inputDisabled}
             ariaLabel="Maximum variations, including control"
+            suffix="including control"
             onChange={(v) => setParam({ maxVariations: v })}
           />
-          <Text size="sm" color="text-mid">
-            including control
-          </Text>
         </Flex>
       )}
       {checkKey === "no-early-stop" && (
@@ -194,11 +205,9 @@ function CheckLabel({
             min={1}
             disabled={inputDisabled}
             ariaLabel="Minimum runtime in days when there's no scheduled end"
+            suffix="days without one"
             onChange={(v) => setParam({ minRuntimeDays: v })}
           />
-          <Text size="sm" color="text-mid">
-            days without one
-          </Text>
         </Flex>
       )}
       {def.note && (
