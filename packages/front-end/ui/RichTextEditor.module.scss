@@ -228,8 +228,9 @@
   position: relative;
   z-index: 1;
   background-color: var(--color-surface);
-  border-top-left-radius: inherit;
-  border-top-right-radius: inherit;
+  // The wrapper's, set rather than inherited: a collapsible ribbon sits in a Collapse.
+  border-top-left-radius: var(--radius-2);
+  border-top-right-radius: var(--radius-2);
 }
 
 .toolbarButton {

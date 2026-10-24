@@ -48,6 +48,7 @@ import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getLinkLabelFromUrl } from "@/components/Markdown/markdownLinkUtils";
+import Collapse from "@/ui/Collapse";
 import { Size } from "@/ui/sizes";
 import Tooltip from "@/ui/Tooltip";
 import {
@@ -371,6 +372,14 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     [onChange],
   );
 
+  const toolbar = (
+    <RichTextEditorToolbar
+      onPickImage={allowImages ? openFilePicker : undefined}
+      simple={simpleToolbar}
+      inset={collapsibleToolbar}
+    />
+  );
+
   return (
     <LexicalComposer
       initialConfig={{
@@ -400,13 +409,11 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
         }}
       >
         {allowImages ? <input {...getInputProps()} /> : null}
-        {toolbarOpen ? (
-          <RichTextEditorToolbar
-            onPickImage={allowImages ? openFilePicker : undefined}
-            simple={simpleToolbar}
-            inset={collapsibleToolbar}
-          />
-        ) : null}
+        {collapsibleToolbar ? (
+          <Collapse open={toolbarOpen}>{toolbar}</Collapse>
+        ) : (
+          toolbar
+        )}
         <div className={styles.editableWrap}>
           <RichTextPlugin
             contentEditable={
