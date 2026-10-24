@@ -542,8 +542,10 @@ export default function ReviewAndPublish({
   >(null);
   const [secondaryError, setSecondaryError] = useState<string | null>(null);
   const [actionsDropdownOpen, setActionsDropdownOpen] = useState(false);
-  const publishAfterApproval = useRef(false);
-  const checklistAfterApproval = useRef(false);
+  // What "Submit and Publish" goes on to once the revision is approved.
+  const [afterApproval, setAfterApproval] = useState<
+    "checklist" | "publish" | null
+  >(null);
   const doSubmitRef = useRef<() => void>(() => {});
   const revisionLogRef = useRef<MutateLog>(null);
 
@@ -630,6 +632,7 @@ export default function ReviewAndPublish({
     setConflictStep(0);
     setResolveConflicts(false);
     setExperimentsStep(false);
+    setAfterApproval(null);
     setSubmitError(null);
     setRevertOpen(false);
     setConfirmReopen(false);
@@ -1200,7 +1203,8 @@ export default function ReviewAndPublish({
   const onlyScheduledSelected =
     selectedImmediateCount === 0 && selectedScheduledCount > 0;
 
-  const hasChecklistStep = experiments.length > 0;
+  // Only the experiments going out with this publish have checklists to show.
+  const hasChecklistStep = selectedExperiments.size > 0;
 
   const openChecklistStep = useCallback(() => {
     checklistStateRef.current.clear();
@@ -1320,20 +1324,17 @@ export default function ReviewAndPublish({
   // After a reviewer chooses "Submit and Publish", advance to the pre-launch
   // checklist when linked experiments require it; otherwise run publish once
   // the revision is approved.
+  // An already-approved revision goes on at once: re-approving it changes no
+  // status to wait for.
   useEffect(() => {
-    if (revision?.status !== "approved") return;
-
-    if (checklistAfterApproval.current) {
-      checklistAfterApproval.current = false;
+    if (!afterApproval || revision?.status !== "approved") return;
+    setAfterApproval(null);
+    if (afterApproval === "checklist") {
       openChecklistStep();
-      return;
-    }
-
-    if (publishAfterApproval.current) {
-      publishAfterApproval.current = false;
+    } else {
       doSubmitRef.current();
     }
-  }, [revision?.status, openChecklistStep]);
+  }, [afterApproval, revision?.status, openChecklistStep]);
 
   // The selected version doesn't exist yet (still loading) or ?v= is invalid.
   if (!revision) {
@@ -2865,9 +2866,9 @@ export default function ReviewAndPublish({
                     let publishedViaArming = false;
                     if (opts?.publish) {
                       if (hasChecklistStep) {
-                        checklistAfterApproval.current = true;
+                        setAfterApproval("checklist");
                       } else if (!revisionAutoPublishArmed) {
-                        publishAfterApproval.current = true;
+                        setAfterApproval("publish");
                       } else {
                         publishedViaArming = true;
                       }
