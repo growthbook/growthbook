@@ -4,6 +4,7 @@ import {
   ScopeHealth,
   WIN_RATE_HEALTHY_RANGE,
   getHealthBand,
+  getNoScoreReason,
 } from "shared/enterprise";
 import { useSearch } from "@/services/search";
 import Heading from "@/ui/Heading";
@@ -79,15 +80,16 @@ function Sparkline({ values }: { values: number[] }) {
 }
 
 function ScoreTile({
-  score,
+  health,
   previous,
 }: {
-  score: number | null;
+  health: ScopeHealth;
   previous: number | null;
 }) {
+  const { score } = health;
   if (score === null) {
     return (
-      <Tooltip content="Fewer than 5 completed experiments">
+      <Tooltip content={getNoScoreReason(health) ?? ""}>
         <Text color="text-low">–</Text>
       </Tooltip>
     );
@@ -211,7 +213,7 @@ export default function HealthByProject({
                 )}
               </TableCell>
               <TableCell>
-                <ScoreTile score={r.health.score} previous={r.previousScore} />
+                <ScoreTile health={r.health} previous={r.previousScore} />
               </TableCell>
               {showTrend && (
                 <TableCell>

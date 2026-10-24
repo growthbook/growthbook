@@ -3,7 +3,7 @@ import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
 import {
   HEALTH_BAND_LABELS,
-  NO_STARTS_SCORE_CAP,
+  getNoScoreReason,
   HealthBand,
   ScopeHealth,
   WIN_RATE_HEALTHY_RANGE,
@@ -228,13 +228,13 @@ export default function HealthHeadline({
                 Health score
               </span>
               <InfoTip
-                content={`Average of the quality score of completed experiments and the healthy rate, or the healthy rate alone when quality scoring is off. Capped at ${NO_STARTS_SCORE_CAP} when no experiments started in the period. Velocity and win rate are tracked but not scored.`}
+                content={`Average of the quality score of completed experiments and the healthy rate, or the healthy rate alone when quality scoring is off. No score when nothing started in the period or fewer than 5 experiments completed. Velocity and win rate are tracked but not scored.`}
               />
             </Flex>
             <Text as="div" color="text-mid">
               {band
                 ? `out of 100 · ${HEALTH_BAND_LABELS[band]}`
-                : "Not enough data: needs 5 completed experiments"}
+                : getNoScoreReason(health)}
             </Text>
             {score !== null && previousScore !== null && (
               <Text as="div" size="sm" color="text-low">

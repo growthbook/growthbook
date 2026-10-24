@@ -9,7 +9,7 @@ import {
   computeHealthDetails,
   computeScopeHealth,
   getHealthSettings,
-  NO_STARTS_SCORE_CAP,
+  getNoScoreReason,
   resolveComparisonPreviousTimeFrame,
 } from "shared/enterprise";
 import { InsightsHealthScoreInterface } from "shared/validators";
@@ -57,8 +57,8 @@ function countUnhealthy(health: ScopeHealth): number {
 }
 
 function biggestGap(health: ScopeHealth): string {
-  if (health.score === null) return "Fewer than 5 completed experiments";
-  if (health.started === 0) return "No experiments started";
+  const noScore = getNoScoreReason(health);
+  if (noScore) return noScore;
   if (health.openSrmAlerts) {
     return `${health.openSrmAlerts} SRM alert${health.openSrmAlerts === 1 ? "" : "s"} open`;
   }
@@ -210,19 +210,7 @@ export default function HealthPage() {
     const attentionLink = details.attention.length
       ? [{ label: "See what needs attention", href: "#needs-attention" }]
       : [];
-    if (health.started === 0) {
-      improvement = (
-        <>
-          <strong>Velocity: no experiments started in this period.</strong> The
-          score is capped at {NO_STARTS_SCORE_CAP} until one starts.{" "}
-          {details.cycle.stuckDrafts > 0 &&
-            `${plural(details.cycle.stuckDrafts, "draft")} ${
-              details.cycle.stuckDrafts === 1 ? "has" : "have"
-            } waited more than 30 days to launch.`}
-          <ImprovementLinks links={attentionLink} />
-        </>
-      );
-    } else if (weakest < IMPROVEMENT_THRESHOLD) {
+    if (weakest < IMPROVEMENT_THRESHOLD) {
       improvement = qualityWeaker ? (
         <>
           <strong>

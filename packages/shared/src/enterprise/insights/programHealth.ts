@@ -24,8 +24,6 @@ const MAX_ATTENTION_ITEMS = 20;
 // Below this many completed experiments a score is too noisy to show
 export const HEALTH_MIN_COMPLETED = 5;
 export const WIN_RATE_HEALTHY_RANGE: [number, number] = [0.2, 0.3];
-// A program that started nothing in the period can't score above "At risk"
-export const NO_STARTS_SCORE_CAP = 59;
 
 export type GetQuality = (
   experiment: InsightsExperiment,
@@ -227,12 +225,13 @@ export function computeScopeHealth({
     quality,
     healthyRate,
     healthErrors,
+    // A scope that started nothing isn't scored, however good its history
     score:
-      completed.length < HEALTH_MIN_COMPLETED || blended === null
+      started === 0 ||
+      completed.length < HEALTH_MIN_COMPLETED ||
+      blended === null
         ? null
-        : Math.round(
-            started > 0 ? blended : Math.min(blended, NO_STARTS_SCORE_CAP),
-          ),
+        : Math.round(blended),
     openSrmAlerts: standard.filter(
       (e) =>
         e.status === "running" &&
@@ -241,6 +240,16 @@ export function computeScopeHealth({
     ).length,
     topQualityIssue: getQualityIssues(completed, getQuality)[0]?.label ?? null,
   };
+}
+
+export function getNoScoreReason(
+  health: Pick<ScopeHealth, "started" | "completed">,
+): string | null {
+  if (health.started === 0) return "No experiments started in this period";
+  if (health.completed < HEALTH_MIN_COMPLETED) {
+    return `Not enough data: needs ${HEALTH_MIN_COMPLETED} completed experiments`;
+  }
+  return null;
 }
 
 export type ProjectHealth = { project: string; health: ScopeHealth };

@@ -4,7 +4,7 @@ import {
   computeHealthDetails,
   computeScopeHealth,
   getHealthBand,
-  NO_STARTS_SCORE_CAP,
+  getNoScoreReason,
 } from "../../src/enterprise/insights/programHealth";
 import { ExperimentQualityScoreResult } from "../../src/enterprise/experimentQualityScore";
 
@@ -117,7 +117,7 @@ describe("computeScopeHealth", () => {
     expect(health.score).toBe(100);
   });
 
-  it("caps the score when nothing started in the period", () => {
+  it("withholds the score when nothing started in the period", () => {
     const health = computeScopeHealth({
       experiments: Array.from({ length: 5 }, () =>
         exp({ started: "2026-05-01", ended: "2026-09-01" }),
@@ -127,7 +127,10 @@ describe("computeScopeHealth", () => {
       getQuality: noQuality,
     });
     expect(health.started).toBe(0);
-    expect(health.score).toBe(NO_STARTS_SCORE_CAP);
+    expect(health.score).toBeNull();
+    expect(getNoScoreReason(health)).toBe(
+      "No experiments started in this period",
+    );
   });
 
   it("counts SRM as a health error but not a missing power target", () => {
