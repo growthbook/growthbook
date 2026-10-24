@@ -321,7 +321,6 @@ describe("buildContextualBanditSnapshotSettings", () => {
       query: "SELECT user_id, timestamp FROM cb_assignments",
     });
 
-    // On + column present => enabled
     expect(
       buildSnapshotSettingsForCb(
         buildContextualBanditSnapshotSettings(
@@ -334,7 +333,6 @@ describe("buildContextualBanditSnapshotSettings", () => {
       ).banditSettings?.periodWeighting,
     ).toBe(true);
 
-    // On + column absent => disabled (nothing to group on)
     expect(
       buildSnapshotSettingsForCb(
         buildContextualBanditSnapshotSettings(
@@ -347,7 +345,6 @@ describe("buildContextualBanditSnapshotSettings", () => {
       ).banditSettings?.periodWeighting,
     ).toBe(false);
 
-    // Off + column present => disabled
     expect(
       buildSnapshotSettingsForCb(
         buildContextualBanditSnapshotSettings(
@@ -376,13 +373,11 @@ describe("buildContextualBanditSnapshotSettings", () => {
       true,
     );
 
-    // BigQuery (backtick) quote => column recognized => weighting enabled
     expect(
       buildSnapshotSettingsForCb(cbSettings, "`").banditSettings
         ?.periodWeighting,
     ).toBe(true);
 
-    // Double-quote source => backtick-quoted token is a string => disabled
     expect(
       buildSnapshotSettingsForCb(cbSettings, '"').banditSettings
         ?.periodWeighting,
