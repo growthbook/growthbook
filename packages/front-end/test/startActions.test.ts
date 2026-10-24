@@ -19,10 +19,10 @@ const soft = { loading: false, remaining: 1, blocking: 0, approval: 0 };
 const approval = { loading: false, remaining: 2, blocking: 1, approval: 1 };
 const conflict = { loading: false, remaining: 1, blocking: 1, approval: 0 };
 const startNow = "Bypass remaining To Do items and start now";
-const scheduleStart = "Bypass remaining To Do items and confirm start";
+const scheduleStart = "Bypass remaining To Do items and schedule start";
 const reviewAndTodo =
   "Bypass approvals and remaining To Do items and start now";
-const futureLabel = "Confirm Oct 3 start";
+const futureLabel = "Schedule to Start (Oct 3)";
 
 describe("getStartSchedule", () => {
   it.each([
@@ -153,7 +153,7 @@ describe("getStartActions", () => {
         action: "approve-schedule",
         label: futureLabel,
         bypassLabel:
-          "Bypass approvals and remaining To Do items and confirm start",
+          "Bypass approvals and remaining To Do items and schedule start",
         waivesApproval: true,
         disabled: false,
       },
@@ -282,7 +282,7 @@ describe("getStartTitle", () => {
       name: "a draft awaiting its schedule's approval",
       startAt: future,
       next: null,
-      expected: "Confirm scheduled start",
+      expected: "Schedule start",
     },
     {
       name: "a draft whose schedule is approved",
