@@ -12,6 +12,8 @@ import { baseDialect } from "./base";
 const snowflakeEscapeStringLiteral = (value: string) =>
   value.replace(/\\/g, "\\\\").replace(/'/g, "''");
 
+const SAFE_SNOWFLAKE_JSON_KEY = /^[A-Za-z_][A-Za-z0-9_$]*$/;
+
 export const snowflakeDialect: SqlDialect = {
   ...baseDialect,
   concatStrings: (parts: string[]) => parts.join(" || "),
@@ -79,8 +81,15 @@ export const snowflakeDialect: SqlDialect = {
     ).join(" + ");
     return `COALESCE((${sumBelow}) * ${nEventsCol} / ${numQuantiles}.0, 0)`;
   },
-  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) =>
-    `PARSE_JSON(${jsonCol}):${path}::${isNumeric ? "float" : "string"}`,
+  // The `:path` form is SQL syntax, so keys that aren't plain identifiers
+  // switch to bracket notation with escaped string literals.
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
+    const parts = path.split(".");
+    const access = parts.every((p) => SAFE_SNOWFLAKE_JSON_KEY.test(p))
+      ? `:${path}`
+      : parts.map((p) => `['${snowflakeEscapeStringLiteral(p)}']`).join("");
+    return `PARSE_JSON(${jsonCol})${access}::${isNumeric ? "float" : "string"}`;
+  },
   evalBoolean: (col: string, value: boolean) =>
     `${col} = ${value ? "true" : "false"}`,
   // Snowflake aggregate-with-sort uses `WITHIN GROUP`. NULLs are skipped
