@@ -15,8 +15,9 @@ $sidebarwidth: var(--app-rail-width, 240px);
   z-index: 1010;
   // Always solid, so nothing shows through as the page scrolls under it.
   background-color: var(--color-background);
-  // 32px on the right, in line with the page content.
-  padding: 0 var(--space-6) 0 var(--space-5);
+  // The page's padding steps (global.scss), without growing past 32px where
+  // the page centers its content.
+  padding: 0 var(--page-padding-step);
   transition:
     left 200ms ease,
     right var(--agent-dock-duration) var(--agent-dock-easing);
@@ -28,9 +29,6 @@ $sidebarwidth: var(--app-rail-width, 240px);
     @media (prefers-reduced-motion: reduce) {
       transition: none;
     }
-  }
-  @media (max-width: 520px) {
-    padding: 0 8px;
   }
   @media (prefers-reduced-motion: reduce) {
     transition: none;
@@ -79,10 +77,7 @@ $sidebarwidth: var(--app-rail-width, 240px);
   z-index: 1010;
   background-color: var(--color-surface-solid);
   border-bottom: 1px solid var(--slate-a3);
-  padding: 0 16px;
-  @media (max-width: 520px) {
-    padding: 0 8px;
-  }
+  padding: 0 var(--page-padding-step);
 }
 .guidedstepbar {
   display: flex;
