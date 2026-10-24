@@ -60,17 +60,16 @@ export default function ExperimentDetailsPanel({
   tab,
   setTab,
 }: Props) {
-  const [showEditInfoModal, setShowEditInfoModal] = useState(false);
   // Another editing surface cannot open over the page's own unsaved edits, so
   // the controls that would open one say why instead.
   const editsBlocked = useEditsBlockedReason();
-  const { canEdit } = useExperimentEditing(experiment, disableEditing);
+  const { canEdit } = useExperimentEditing(experiment, disableEditing, holdout);
   const [infoSection, setInfoSection] = useState<InfoSection | null>(null);
   const [customFieldId, setCustomFieldId] = useState<string | null>(null);
+  const [editingHoldout, setEditingHoldout] = useState(false);
   const editSection = (section: InfoSection, fieldId: string | null = null) => {
     setInfoSection(section);
     setCustomFieldId(fieldId);
-    setShowEditInfoModal(true);
   };
 
   const { hasCommercialFeature } = useUser();
@@ -131,20 +130,20 @@ export default function ExperimentDetailsPanel({
 
   return (
     <>
-      {showEditInfoModal && !isHoldout && infoSection ? (
+      {infoSection ? (
         <EditExperimentInfoModal
           experiment={experiment}
-          setShowEditInfoModal={setShowEditInfoModal}
+          setShowEditInfoModal={() => setInfoSection(null)}
           mutate={mutate}
           section={infoSection}
           customFieldId={customFieldId}
         />
       ) : null}
-      {showEditInfoModal && isHoldout && holdout ? (
+      {editingHoldout && holdout ? (
         <EditHoldoutInfoModal
           experiment={experiment}
           holdout={holdout}
-          setShowEditInfoModal={setShowEditInfoModal}
+          setShowEditInfoModal={setEditingHoldout}
           mutate={mutate}
         />
       ) : null}
@@ -190,50 +189,48 @@ export default function ExperimentDetailsPanel({
                   </Box>
                 </>
               ) : null}
-              {/* Holdouts edit all of it at once; elsewhere each field has its
-                  own button. */}
+              {/* A holdout's name, owner, tags and projects edit together;
+                  every other field has its own button. */}
               <PanelSection
                 title="General"
                 action={
                   isHoldout
-                    ? pencil("Edit details", () => setShowEditInfoModal(true))
+                    ? pencil("Edit details", () => setEditingHoldout(true))
                     : null
                 }
               >
                 <Flex direction="column" gap="3">
-                  {!isHoldout && (
-                    <Metadata
-                      size="sm"
-                      stacked
-                      label="Description"
-                      action={pencil("Edit description", () =>
-                        editSection("description"),
-                      )}
-                      value={
-                        <Box width="100%">
-                          {experiment.description ? (
-                            // Beside the page rather than on it, so it reads at
-                            // the column's size, and a long one doesn't push
-                            // the rest of the column away.
-                            <ExpandableBlock>
-                              <Box style={{ fontSize: "var(--font-size-1)" }}>
-                                <Markdown>{experiment.description}</Markdown>
-                              </Box>
-                            </ExpandableBlock>
-                          ) : (
-                            <Text
-                              weight="regular"
-                              color="text-mid"
-                              size="sm"
-                              fontStyle="italic"
-                            >
-                              None
-                            </Text>
-                          )}
-                        </Box>
-                      }
-                    />
-                  )}
+                  <Metadata
+                    size="sm"
+                    stacked
+                    label="Description"
+                    action={pencil("Edit description", () =>
+                      editSection("description"),
+                    )}
+                    value={
+                      <Box width="100%">
+                        {experiment.description ? (
+                          // Beside the page rather than on it, so it reads at
+                          // the column's size, and a long one doesn't push
+                          // the rest of the column away.
+                          <ExpandableBlock>
+                            <Box style={{ fontSize: "var(--font-size-1)" }}>
+                              <Markdown>{experiment.description}</Markdown>
+                            </Box>
+                          </ExpandableBlock>
+                        ) : (
+                          <Text
+                            weight="regular"
+                            color="text-mid"
+                            size="sm"
+                            fontStyle="italic"
+                          >
+                            None
+                          </Text>
+                        )}
+                      </Box>
+                    }
+                  />
                   <ProjectTagBar
                     experiment={experiment}
                     holdout={holdout}

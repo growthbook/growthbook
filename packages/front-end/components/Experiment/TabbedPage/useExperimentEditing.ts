@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 /**
@@ -9,12 +10,14 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 export default function useExperimentEditing(
   experiment: ExperimentInterfaceStringDates,
   disableEditing?: boolean,
+  holdout?: HoldoutInterfaceStringDates,
 ) {
   const permissionsUtil = usePermissionsUtil();
-  const canEdit =
-    !experiment.archived &&
-    permissionsUtil.canViewExperimentModal(experiment.project) &&
-    !disableEditing;
+  // A holdout's experiment has no project; its scope lives on the holdout.
+  const canUpdate = holdout
+    ? permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects })
+    : permissionsUtil.canViewExperimentModal(experiment.project);
+  const canEdit = !experiment.archived && canUpdate && !disableEditing;
 
   return {
     canEdit,

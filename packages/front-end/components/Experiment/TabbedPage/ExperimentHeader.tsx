@@ -12,7 +12,6 @@ import {
   getHoldoutStage,
   canMaterializeLinkedChanges,
   getExperimentLinkageBlocker,
-  hasPendingScheduledStart,
   type LinkedChangesResolution,
 } from "shared/util";
 import { ReactNode, useEffect, useRef, useState } from "react";
@@ -88,7 +87,11 @@ import { RUN_PERMISSION_REASON, StartExperiment } from "./useStartExperiment";
 import StartExperimentPopover from "./StartExperimentPopover";
 import useStartGate from "./useStartGate";
 import { StartBlockers } from "./StartSections";
-import { hasStatusSchedule, scheduledTime } from "./statusSchedule";
+import {
+  armedStartDate,
+  hasStatusSchedule,
+  scheduledTime,
+} from "./statusSchedule";
 import { getStartTitle } from "./startActions";
 import { ExperimentTab } from ".";
 
@@ -271,10 +274,14 @@ export default function ExperimentHeader({
       setValue={(v) => setDeleteAcknowledged(!!v)}
     />
   );
-  // Deleting the experiment strips its rule from every linked flag.
+  // Deleting the experiment strips its rule from every linked flag. Visual
+  // changes and redirects count by the experiment's own markers, as the
+  // linkage blocker does, so the acknowledgement shows whenever it needs one.
   const linkedFlagIds = linkedFeatures
     .filter((f) => f.state === "live" || f.state === "draft")
     .map((f) => f.feature.id);
+  const visualCount = visualChangesets.length;
+  const redirectCount = urlRedirects.length;
   const deleteConsequences = [
     ...linkedFlagIds.map((id) => (
       <li key={id}>
@@ -284,19 +291,19 @@ export default function ExperimentHeader({
         <strong>{id}</strong>.
       </li>
     )),
-    ...(visualChangesets.length
+    ...(visualCount || experiment.hasVisualChangesets
       ? [
           <li key="visual">
-            {visualChangesets.length} AI Visual Editor change
-            {visualChangesets.length === 1 ? "" : "s"} will be deleted.
+            {visualCount || "Its"} AI Visual Editor change
+            {visualCount === 1 ? "" : "s"} will be deleted.
           </li>,
         ]
       : []),
-    ...(urlRedirects.length
+    ...(redirectCount || experiment.hasURLRedirects
       ? [
           <li key="redirects">
-            {urlRedirects.length} URL Redirect
-            {urlRedirects.length === 1 ? "" : "s"} will stop serving.
+            {redirectCount || "Its"} URL Redirect
+            {redirectCount === 1 ? "" : "s"} will stop serving.
           </li>,
         ]
       : []),
@@ -519,11 +526,7 @@ export default function ExperimentHeader({
   const hasAnySchedule = isHoldout
     ? !!holdout && hasStatusSchedule(holdout)
     : hasStatusSchedule(experiment);
-  const nextScheduledStartDate =
-    hasPendingScheduledStart(experiment) &&
-    experiment.nextScheduledStatusUpdate?.date
-      ? new Date(experiment.nextScheduledStatusUpdate.date)
-      : null;
+  const nextScheduledStartDate = armedStartDate(experiment);
   const startGate = useStartGate({
     experiment,
     linkedFeatures,

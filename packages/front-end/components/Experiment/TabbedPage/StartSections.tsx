@@ -14,6 +14,7 @@ import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelector
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { ReadOnlyChecklistRows } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import type { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
+import { percentFormatter } from "./DecisionMakingSettings";
 import { ServerChecklistItem } from "./startActions";
 import { StartUpgrade } from "./useStartGate";
 import { PendingDraftFailure } from "./useStartExperiment";
@@ -29,11 +30,6 @@ const PENDING_DRAFT_FAILURE_LABELS: Record<
   "needs-approval": "Awaiting approval",
   "publish-error": "Publish failed unexpectedly",
 };
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
 
 /** Label/value rows of when an experiment starts and ends. */
 export function SummaryGrid({ children }: { children: ReactNode }) {

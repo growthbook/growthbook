@@ -34,6 +34,7 @@ export default function SetupTabOverview({
   const { canEdit: canEditExperiment, editInline } = useExperimentEditing(
     experiment,
     disableEditing,
+    holdout,
   );
 
   const isBandit = experiment.type === "multi-armed-bandit";

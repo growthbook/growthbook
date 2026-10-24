@@ -13,6 +13,10 @@ import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import {
+  armedStartDate,
+  scheduledTime,
+} from "@/components/Experiment/TabbedPage/statusSchedule";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -55,6 +59,9 @@ export default function EditStatusModal({
     !!openStart &&
     experiment.status === "draft" &&
     form.watch("status") === "running";
+  // An armed start shows its date in place of the start popover, so moving it
+  // up goes through the schedule.
+  const armedStart = startsElsewhere ? armedStartDate(experiment) : null;
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
   const statusOptions = [
@@ -131,6 +138,7 @@ export default function EditStatusModal({
       )}
       cta={startsElsewhere ? "Continue" : "Update"}
       ctaColor={startsElsewhere ? "violet" : "red"}
+      ctaEnabled={!armedStart}
     >
       {isHoldout && (
         <Box mb="4">
@@ -141,6 +149,12 @@ export default function EditStatusModal({
           </Text>
         </Box>
       )}
+      {armedStart ? (
+        <Callout status="info" mb="4">
+          This experiment is scheduled to start {scheduledTime(armedStart)}. To
+          start it sooner, edit its schedule.
+        </Callout>
+      ) : null}
       {hasLinkedChanges && !startsElsewhere && (
         <Callout status="warning" mb="4">
           Changes you make here will immediately affect any linked Feature Flags

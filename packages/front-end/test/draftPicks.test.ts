@@ -111,6 +111,16 @@ describe("draftReviewState", () => {
       "approved",
       "Publish",
     ],
+    [
+      "is approved short of what publishing needs",
+      pending({
+        pendingApproval: true,
+        status: "approved",
+        approval: { satisfied: false },
+      }),
+      "in-review",
+      "Review",
+    ],
   ])("a draft that %s", (_, draft, state, step) => {
     expect(draftReviewState(draft)).toBe(state);
     expect(draftNextStep(draft)).toBe(step);

@@ -49,10 +49,11 @@ export type Props = ContentProps & {
 };
 
 // A modal opened from the popover stacks on top of it, so the popover is still
-// there when the modal closes.
+// there when the modal closes. Non-modal dialogs, like the AI assistant's
+// panel, don't count.
 const modalOpen = () =>
-  Array.from(document.querySelectorAll('[role="dialog"]')).some(
-    (el) => !el.closest("[data-radix-popper-content-wrapper]"),
+  !!document.querySelector(
+    '.rt-BaseDialogContent[data-state="open"], [aria-modal="true"]',
   );
 
 /** Starting a draft, or approving its scheduled start: the To Do, then the button. */
@@ -64,14 +65,17 @@ export default function StartExperimentPopover({
 }: Props) {
   // Closed to let a To Do item's action take over: focus stays where it went.
   const handedOff = useRef(false);
+  const close = () => {
+    // A refusal belongs to the attempt it was shown for.
+    props.start.clearStartFailures();
+    setOpen(false);
+  };
   return (
     <Popover
       open={open}
       onOpenChange={(next) => {
-        if (!next && modalOpen()) return;
-        // A refusal belongs to the attempt it was shown for.
-        if (!next) props.start.clearStartFailures();
-        setOpen(next);
+        if (next) setOpen(true);
+        else if (!modalOpen()) close();
       }}
       onCloseAutoFocus={(e) => {
         if (handedOff.current) e.preventDefault();
@@ -81,10 +85,10 @@ export default function StartExperimentPopover({
       content={
         <StartContent
           {...props}
-          close={() => setOpen(false)}
+          close={close}
           handOff={() => {
             handedOff.current = true;
-            setOpen(false);
+            close();
           }}
         />
       }
@@ -115,6 +119,14 @@ function StartContent({
     if (start.checklistFailures.length) setBypassed(false);
   }, [start.checklistFailures]);
   const gate = useStartGate({ experiment, linkedFeatures, start, bypassed });
+  const { bypassLabel, waivesApproval } = gate.actions;
+  // A tick agrees to the bypass its label named. Once the label changes, as
+  // when approvals join it, the new one needs its own.
+  const [tickedLabel, setTickedLabel] = useState(bypassLabel);
+  if (tickedLabel !== bypassLabel) {
+    setTickedLabel(bypassLabel);
+    setBypassed(false);
+  }
   const editsBlocked = useEditsBlockedReason();
   const end = scheduledEnd(experiment.statusUpdateSchedule);
   const [error, setError] = useState<string | null>(null);
@@ -130,7 +142,6 @@ function StartContent({
     checklistItemsRemaining !== 0 || loadError || summary.flagged.length > 0;
   // Starting publishes what's stored, not what's staged.
   const blockedReason = editsBlocked ?? start.banditBlockedReason;
-  const { bypassLabel, waivesApproval } = gate.actions;
 
   const scheduleLink = (text: string) =>
     editSchedule ? <Link onClick={editSchedule}>{text}</Link> : text;

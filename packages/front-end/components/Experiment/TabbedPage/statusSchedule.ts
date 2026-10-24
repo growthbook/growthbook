@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { hasPendingScheduledStart } from "shared/util";
 import { format } from "date-fns-tz";
 
 export const scheduledTime = (value: string | Date) =>
@@ -14,9 +15,19 @@ export const scheduledEnd = (
       ? `${schedule.stopAfter.value} ${schedule.stopAfter.unit} after start`
       : null;
 
+/** Whether a start or end is scheduled. A stop plan alone schedules nothing. */
 export const hasStatusSchedule = (target: {
   statusUpdateSchedule?: object | null;
 }) =>
-  Object.values(target.statusUpdateSchedule ?? {}).some(
-    (value) => value !== null,
+  Object.entries(target.statusUpdateSchedule ?? {}).some(
+    ([key, value]) => key !== "scheduledStopPlan" && (value ?? null) !== null,
   );
+
+/** When an approved start fires, while one is armed. */
+export const armedStartDate = (
+  experiment: Pick<ExperimentInterfaceStringDates, "nextScheduledStatusUpdate">,
+) =>
+  hasPendingScheduledStart(experiment) &&
+  experiment.nextScheduledStatusUpdate?.date
+    ? new Date(experiment.nextScheduledStatusUpdate.date)
+    : null;

@@ -115,17 +115,18 @@ export type DraftReviewState =
 
 /**
  * Where a draft stands on its way to publishing. One whose flag needs no review
- * is ready, as is one the publish gate already lets through.
+ * is ready, as is one the publish gate already lets through. An approval short
+ * of a team or an environment is still with its reviewers.
  */
 export function draftReviewState(
   draft: LinkedFeaturePendingDraft,
 ): DraftReviewState {
   if (draft.status === "changes-requested") return "changes-requested";
-  if (draft.status === "approved") return "approved";
   if (draft.status === "pending-review") return "in-review";
-  return !draft.pendingApproval || draftApprovalSatisfied(draft)
-    ? "ready"
-    : "needs-approval";
+  if (!draft.pendingApproval || draftApprovalSatisfied(draft)) {
+    return draft.status === "approved" ? "approved" : "ready";
+  }
+  return draft.status === "approved" ? "in-review" : "needs-approval";
 }
 
 const NEXT_STEPS: Record<DraftReviewState, string> = {
