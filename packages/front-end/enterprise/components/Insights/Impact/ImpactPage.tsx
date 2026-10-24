@@ -74,6 +74,8 @@ export default function ImpactPage() {
     setDebias,
     dateRange,
     setDateRange,
+    project: urlProject,
+    getShareUrl,
   } = useImpactUrlState();
   const { hasCommercialFeature } = useUser();
   const {
@@ -89,11 +91,13 @@ export default function ImpactPage() {
   const { apiCall } = useAuth();
   const [calculating, setCalculating] = useState(false);
 
-  const { experiments, loading: experimentsLoading } = useExperiments(
-    project,
-    true,
-    "standard",
-  );
+  const resolvedProject = urlProject ?? project;
+  const {
+    experiments,
+    loading: experimentsLoading,
+    error: experimentsError,
+    mutateExperiments,
+  } = useExperiments(resolvedProject, true, "standard");
   const {
     items: searched,
     searchInputProps,
@@ -207,6 +211,7 @@ export default function ImpactPage() {
   ].sort();
   const {
     data: snapshotData,
+    error: snapshotsError,
     isLoading: snapshotsLoading,
     mutate: mutateSnapshots,
   } = useApi<{ snapshots: ExperimentSnapshotInterface[] }>(
@@ -228,20 +233,26 @@ export default function ImpactPage() {
     debias,
   });
   const filteredRows = rows.filter((r) => searchedIds.has(r.id));
-  const previousRows = computeExperimentImpacts({
+  const previousAll = computeExperimentImpacts({
     experiments: previousContributing,
     snapshots,
     metricId,
     inverse,
     debias,
-  }).filter((r) => searchedIds.has(r.id));
+  });
+  const previousRows = previousAll.filter((r) => searchedIds.has(r.id));
   const summary = summarizeImpact(filteredRows);
   const previousSummary = previousRows.some((r) => r.annualValue !== null)
     ? summarizeImpact(previousRows)
     : null;
-  const missingScaledImpact = rows
-    .filter((r) => r.missingScaledImpact)
-    .map((r) => r.id);
+  // Both periods, so the comparison can be calculated too
+  const missingScaledImpact = [
+    ...new Set(
+      [...rows, ...previousAll]
+        .filter((r) => r.missingScaledImpact)
+        .map((r) => r.id),
+    ),
+  ];
 
   const allProjectTotals = sumValueByProject(rows);
   const filteredProjectTotals = sumValueByProject(filteredRows);
@@ -293,7 +304,11 @@ export default function ImpactPage() {
   ];
 
   const factMetric = getFactMetricById(metricId);
-  const metricSeries = useMetricSeries(factMetric, dateRange);
+  // No warehouse queries for orgs that only see the upgrade prompt
+  const metricSeries = useMetricSeries(
+    hasCommercialFeature("experiment-impact") ? factMetric : null,
+    dateRange,
+  );
   const counterfactual = metricSeries.series
     ? buildCounterfactual(metricSeries.series, filteredRows)
     : null;
@@ -343,6 +358,7 @@ export default function ImpactPage() {
           </Text>
         </Box>
         <ShareUrlPopover
+          url={getShareUrl(resolvedProject)}
           title="Share this view"
           description="Anyone with access to this organization sees the same metric, dates and filters."
           trigger={<Button disabled={!hasMetric}>Share</Button>}
@@ -454,6 +470,24 @@ export default function ImpactPage() {
                 onSelect={setMetricId}
               />
             </>
+          ) : experimentsError || snapshotsError ? (
+            <Callout
+              status="error"
+              action={
+                <Button
+                  color="inherit"
+                  onClick={() => {
+                    mutateExperiments();
+                    mutateSnapshots();
+                  }}
+                >
+                  Retry
+                </Button>
+              }
+            >
+              Couldn&apos;t load experiment results, so impact can&apos;t be
+              shown.
+            </Callout>
           ) : experimentsLoading ||
             (snapshotIds.length > 0 && snapshotsLoading) ? (
             <LoadingSpinner />
