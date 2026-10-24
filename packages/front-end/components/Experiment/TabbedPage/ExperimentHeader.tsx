@@ -544,7 +544,12 @@ export default function ExperimentHeader({
   // A holdout starts from its modal; anything else, from the start popover.
   const startButton = (
     <Button
-      variant={checklistReady ? "solid" : "soft"}
+      // Primary once only what this viewer can bypass is left.
+      variant={
+        (isHoldout ? checklistReady : !startGate.actions.hardBlocked)
+          ? "solid"
+          : "soft"
+      }
       onClick={isHoldout ? () => setShowStartExperiment(true) : undefined}
       disabled={!canRunExperiment || !!editsBlocked || startBlocked}
       // Disabled buttons take no hover, so it reaches the summary around it.
