@@ -12,6 +12,7 @@ import {
   getPopulationRuleViolations,
 } from "shared/populations";
 import {
+  getSqlExprRowFilterValues,
   calculateProductAnalyticsDateRange,
   encodeExplorationConfig,
   hasTimestampColumn,
@@ -121,6 +122,13 @@ export async function runProductAnalyticsExploration(
       datasource,
       dataset.type,
     )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+  // A `sql_expr` filter is raw SQL, so it needs SQL explorer access.
+  if (
+    getSqlExprRowFilterValues(config).length > 0 &&
+    !context.permissions.canRunSqlExplorerQueries(datasource)
   ) {
     context.permissions.throwPermissionError();
   }

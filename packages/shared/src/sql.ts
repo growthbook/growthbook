@@ -115,9 +115,13 @@ export function createLikeMatchFns(options: LikeMatchOptions): {
 }
 
 // Wraps a SQL identifier (column, alias) in the dialect's quote character,
-// escaping any embedded quotes by doubling them (ANSI SQL convention).
+// doubling embedded quotes (ANSI SQL convention) and backslashes, which
+// BigQuery and ClickHouse read as escapes inside quoted identifiers. Either
+// way the name can't close the identifier early.
 export function quoteIdentifier(name: string, q: SqlIdentifierQuote): string {
-  return `${q}${name.replace(new RegExp(q, "g"), q + q)}${q}`;
+  return `${q}${name
+    .replace(/\\/g, "\\\\")
+    .replace(new RegExp(q, "g"), q + q)}${q}`;
 }
 
 export const SQL_ROW_LIMIT = 1000;

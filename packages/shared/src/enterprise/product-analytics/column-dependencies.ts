@@ -186,3 +186,17 @@ export function explorationConfigReferencesColumn(
   // metric / data_source / sql configs never reference fact-table columns directly.
   return false;
 }
+
+// The values of every `sql_expr` row filter in a config, wherever it sits.
+// Draft metrics are skipped: they're gated like saving a fact metric.
+export function getSqlExprRowFilterValues(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(getSqlExprRowFilterValues);
+  if (!value || typeof value !== "object") return [];
+  const record = value as Record<string, unknown>;
+  if (record.operator === "sql_expr") {
+    return Array.isArray(record.values) ? record.values.map(String) : [""];
+  }
+  return Object.entries(record).flatMap(([key, v]) =>
+    key === "draftMetric" ? [] : getSqlExprRowFilterValues(v),
+  );
+}

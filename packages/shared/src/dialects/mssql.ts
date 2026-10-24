@@ -35,7 +35,7 @@ export const mssqlDialect: SqlDialect = {
   percentileApprox: (value: string, quantile: string | number) =>
     `APPROX_PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
+    const raw = `JSON_VALUE(${jsonCol}, '$.${mssqlDialect.escapeStringLiteral(path)}')`;
     return isNumeric ? mssqlDialect.castToFloat(raw) : raw;
   },
   evalBoolean: (col: string, value: boolean) => `${col} = ${value ? "1" : "0"}`,

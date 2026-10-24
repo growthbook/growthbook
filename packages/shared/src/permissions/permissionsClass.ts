@@ -60,7 +60,10 @@ import {
   teamProjects,
 } from "./permissions.utils";
 // Type-only: erased at runtime, so no cycle back through the util barrel.
-import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
+import {
+  READ_ONLY_PERMISSIONS,
+  SQL_AUTHORING_PERMISSIONS,
+} from "./permissions.constants";
 import {
   NO_ENVIRONMENT_BINDING,
   revisionActionPermission,
@@ -1489,10 +1492,18 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
+  // Test queries run whatever SQL is sent, so beyond running queries the user
+  // needs a permission that already lets them author SQL for this data source.
   public canRunTestQueries = (
     datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
-    return this.checkProjectFilterPermission(datasource, "runQueries");
+    if (!this.checkProjectFilterPermission(datasource, "runQueries")) {
+      return false;
+    }
+    if (this.hasPermission("createDimensions", "")) return true;
+    return SQL_AUTHORING_PERMISSIONS.some((permission) =>
+      this.checkProjectFilterPermissionInAnyProject(datasource, permission),
+    );
   };
 
   public canRunSchemaQueries = (
@@ -2080,21 +2091,24 @@ export class Permissions {
     obj: { projects?: string[] },
     permission: ProjectScopedPermission,
   ): boolean {
-    const projects = obj.projects?.length ? obj.projects : [""];
-
     if (READ_ONLY_PERMISSIONS.includes(permission)) {
-      if (
-        projects.length === 1 &&
-        !projects[0] &&
-        Object.keys(this.userPermissions.projects).length
-      ) {
-        projects.push(...Object.keys(this.userPermissions.projects));
-      }
-      return projects.some((project) =>
-        this.hasPermission(permission, project),
-      );
+      return this.checkProjectFilterPermissionInAnyProject(obj, permission);
     }
+    const projects = obj.projects?.length ? obj.projects : [""];
     return projects.every((project) => this.hasPermission(permission, project));
+  }
+
+  // True when the permission holds in any of the object's projects, or, for an
+  // object in all projects, globally or in any project the user has a role in.
+  private checkProjectFilterPermissionInAnyProject(
+    obj: { projects?: string[] },
+    permission: ProjectScopedPermission,
+  ): boolean {
+    const projects = obj.projects?.length ? [...obj.projects] : [""];
+    if (projects.length === 1 && !projects[0]) {
+      projects.push(...Object.keys(this.userPermissions.projects));
+    }
+    return projects.some((project) => this.hasPermission(permission, project));
   }
 
   private checkProjectFilterUpdatePermission(

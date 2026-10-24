@@ -1,5 +1,5 @@
 import type { ExperimentUnitsQuerySettings } from "shared/types/integrations";
-import { postgresDialect } from "shared/dialects";
+import { bigQueryDialect, postgresDialect } from "shared/dialects";
 import { getContextualBanditSrmQuery } from "back-end/src/integrations/sql/queries/contextual-bandit-srm-query";
 
 const defaultExposureQuery = {
@@ -240,5 +240,16 @@ describe("getContextualBanditSrmQuery", () => {
     const c = compact(sql);
 
     expect(c).toContain("variation='a''b'");
+  });
+
+  it("escapes the experiment tracking key", () => {
+    const sql = getContextualBanditSrmQuery(
+      bigQueryDialect,
+      makeParams(
+        { var_control: "a", var_treatment: "b" },
+        { experimentId: "x'y\\" },
+      ),
+    );
+    expect(compact(sql)).toContain(String.raw`e.experiment_id='x\'y\\'`);
   });
 });

@@ -130,7 +130,7 @@ export function getExperimentAggregateUnitsQuery(
             .map(
               (w) => `
             SELECT
-              ${dialect.castToString(`'${w.variationId}'`)} AS variation
+              ${dialect.castToString(`'${dialect.escapeStringLiteral(w.variationId)}'`)} AS variation
               , ${dialect.toTimestamp(w.date)} AS bandit_period
               , ${w.weight} AS weight
           `,

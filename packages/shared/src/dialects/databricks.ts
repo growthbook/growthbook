@@ -6,6 +6,7 @@ import {
   approxTopKCapacity,
   eligibleTopValueExpr,
 } from "./clauses/approx-top-values";
+import { quoteJsonPathSegments } from "./clauses/json-path";
 import { baseDialect } from "./base";
 
 const databricksEscapeStringLiteral = (value: string) =>
@@ -39,7 +40,7 @@ export const databricksDialect: SqlDialect = {
   hllReaggregate: (col: string) => `HLL_UNION_AGG(${col})`,
   hllCardinality: (col: string) => `HLL_SKETCH_ESTIMATE(${col})`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = `${jsonCol}:${path}`;
+    const raw = `${jsonCol}:${quoteJsonPathSegments(path, "`")}`;
     return isNumeric ? databricksDialect.castToFloat(raw) : raw;
   },
   // Spark SQL (Databricks) — `collect_list` skips NULLs by default; we

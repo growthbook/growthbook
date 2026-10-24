@@ -64,6 +64,7 @@ import {
   TemplateVariables,
 } from "shared/types/sql";
 import { stringToBoolean } from "../util";
+import { quoteIdentifier } from "../sql";
 import {
   getCappingTailState,
   isCappableFactMetric,
@@ -632,13 +633,17 @@ export function sqlReferencesColumnAllowingQualified(
   return found;
 }
 
+// A plain or dotted (struct field) column name that can be emitted unquoted.
+const BARE_COLUMN_REF =
+  /^[\p{L}_$][\p{L}\p{N}_$]*(\.[\p{L}_$][\p{L}\p{N}_$]*)*$/u;
+
 export function getColumnExpression(
   column: string,
   factTable: Pick<FactTableInterface, "columns">,
   // todo: add stringification for dimension cols that may not be string type
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
-  alias: string = "",
-  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+  alias: string,
+  identifierQuote: SqlIdentifierQuote,
 ): string {
   // Virtual (computed) columns inline their stored SQL expression wherever they
   // are referenced (metric value SELECT, row-filter WHERE, slice WHERE, ...).
@@ -673,7 +678,12 @@ export function getColumnExpression(
     }
   }
 
-  return alias ? `${alias}.${column}` : column;
+  // Column names can come from warehouse metadata, so anything unusual is
+  // quoted rather than emitted as SQL.
+  const ref = BARE_COLUMN_REF.test(column)
+    ? column
+    : quoteIdentifier(column, identifierQuote);
+  return alias ? `${alias}.${ref}` : ref;
 }
 
 export function getColumnRefWhereClause({
@@ -686,7 +696,7 @@ export function getColumnRefWhereClause({
   castToTimestamp,
   showSourceComment = false,
   sliceInfo,
-  identifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+  identifierQuote,
 }: {
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
   columnRef: ColumnRef;
@@ -697,7 +707,7 @@ export function getColumnRefWhereClause({
   castToTimestamp?: (column: string) => string;
   showSourceComment?: boolean;
   sliceInfo?: SliceMetricInfo;
-  identifierQuote?: SqlIdentifierQuote;
+  identifierQuote: SqlIdentifierQuote;
 }): string[] {
   const where = new Set<string>();
 
@@ -891,7 +901,7 @@ export function getRowFilterSQL({
   evalBoolean,
   castToTimestamp,
   showSourceComment = false,
-  identifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+  identifierQuote,
 }: {
   rowFilter: RowFilter;
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
@@ -905,7 +915,7 @@ export function getRowFilterSQL({
   // than lexicographic.
   castToTimestamp?: (column: string) => string;
   showSourceComment?: boolean;
-  identifierQuote?: SqlIdentifierQuote;
+  identifierQuote: SqlIdentifierQuote;
 }): string | null {
   // Some operators do not require a column
   if (rowFilter.operator === "saved_filter") {

@@ -18,7 +18,7 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
   }),
 
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
+    const raw = `json_extract_scalar(${jsonCol}, '$.${baseEscapeStringLiteral(path)}')`;
     return isNumeric ? baseDialect.castToFloat(raw) : raw;
   },
 

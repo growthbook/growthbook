@@ -1,5 +1,6 @@
 import { setTimeout as delay } from "timers/promises";
 import { z } from "zod";
+import { assertSafeReadOnlySQL } from "shared/sql";
 import {
   tryParseToolResultJson,
   toolResultSnapshotId,
@@ -21,6 +22,7 @@ import {
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
 import {
+  getSqlExprRowFilterValues,
   clearInapplicableShowAs,
   getEffectiveShowAs,
   getIsRatioByIndex,
@@ -903,6 +905,15 @@ async function executeRunExploration(
   try {
     const { config, warnings, getFactMetricById } =
       await normalizeConfigForExplorer(ctx, rawConfig);
+
+    // Text in warehouse data can steer the model, so raw SQL it puts in an
+    // exploration gets the same read-only check as Ask Data queries.
+    if (config.dataset?.type === "sql") {
+      assertSafeReadOnlySQL(config.dataset.sql);
+    }
+    for (const expr of getSqlExprRowFilterValues(config)) {
+      assertSafeReadOnlySQL(`SELECT 1 WHERE ${expr}`);
+    }
 
     const startedAt = Date.now();
     const initialExploration = await runProductAnalyticsExploration(

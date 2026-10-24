@@ -105,6 +105,7 @@ function getWHERE({
           }),
           // This isn't real SQL syntax for most dialects, but it should get the point across
           jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
+          identifierQuote: DEFAULT_IDENTIFIER_QUOTE,
           evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
           showSourceComment: true,
         })
@@ -478,6 +479,7 @@ export function getFunnelPreviewSQL({
         emitEscapeClause: false,
       }),
       jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
+      identifierQuote: DEFAULT_IDENTIFIER_QUOTE,
       evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
     });
 
