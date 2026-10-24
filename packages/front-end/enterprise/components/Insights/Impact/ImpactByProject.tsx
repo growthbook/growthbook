@@ -1,4 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
+import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 
@@ -18,7 +19,7 @@ export default function ImpactByProject({
 }) {
   const max = Math.max(...projects.map((p) => Math.abs(p.value)), 0);
   return (
-    <Box className="appbox" mb="0" p="4">
+    <Frame mb="0" py="4" px="4">
       <Heading as="h3" size="sm" mb="3">
         Impact by Project
       </Heading>
@@ -63,6 +64,6 @@ export default function ImpactByProject({
         Impact is summed per Project from completed experiments with a shipped
         or rolled-back decision.
       </Text>
-    </Box>
+    </Frame>
   );
 }

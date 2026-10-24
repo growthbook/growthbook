@@ -7,6 +7,7 @@ import {
   cssColorToHex,
   getChartThemeColors,
 } from "@/enterprise/components/ProductAnalytics/chart-theme";
+import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
@@ -42,7 +43,9 @@ function Stat({
 }) {
   return (
     <Box>
-      <div style={{ fontSize: 22, fontWeight: 700, color }}>{value}</div>
+      <Text as="div" size="xl" weight="semibold">
+        <span style={{ color }}>{value}</span>
+      </Text>
       <Text size="sm" color="text-low">
         {label}
       </Text>
@@ -236,7 +239,7 @@ export default function ImpactChart({
   const last = points[points.length - 1];
 
   return (
-    <Box className="appbox" mb="4" p="4">
+    <Frame mb="4" py="4" px="4">
       <Heading as="h3" size="sm" mb="3">
         {title} — Actual vs. Without Experiments
       </Heading>
@@ -462,6 +465,6 @@ export default function ImpactChart({
         interval. Rolled-back experiments count as avoided loss and don&apos;t
         change the estimate.
       </Text>
-    </Box>
+    </Frame>
   );
 }
