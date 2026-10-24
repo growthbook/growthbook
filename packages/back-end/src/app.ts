@@ -113,6 +113,7 @@ import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { experimentQualityScoreRouter } from "./routers/experiment-quality-score/experiment-quality-score.router";
 import { experimentationHealthRouter } from "./routers/experimentation-health/experimentation-health.router";
+import { insightsRouter } from "./routers/insights/insights.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
 import {
   ApiError,
@@ -1343,6 +1344,7 @@ app.get("/meta/ai", (async (
 app.use("/ai", aiRouter);
 app.use("/experiment-quality-score", experimentQualityScoreRouter);
 app.use("/experimentation-health", experimentationHealthRouter);
+app.use("/insights", insightsRouter);
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {
