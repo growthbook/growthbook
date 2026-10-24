@@ -30,10 +30,10 @@ export interface Props {
   top?: number;
   /** Panel width in px. Fixed so it does not stretch on wide screens. */
   width?: number;
-  /** Omit to make the panel a fixed width with no drag handle. */
-  onWidthChange?: (width: number) => void;
-  /** Lets a drag well past the minimum width close the panel. */
-  onCollapse?: () => void;
+  /** The width a drag of the panel's edge ends at. */
+  onWidthChange: (width: number) => void;
+  /** A drag well past the minimum width closes the panel. */
+  onCollapse: () => void;
 }
 
 /**
@@ -69,8 +69,6 @@ export default function CollapsiblePanelLayout({
     return () => observer.disconnect();
   }, []);
   const [previewCollapsed, setPreviewCollapsed] = useState(false);
-  const dragged = useRef(width);
-  const rawDrag = useRef(width);
   // Clamped at render rather than stored, so widening the window restores the
   // dragged width.
   const maxPanelWidth = layoutWidth
@@ -80,22 +78,19 @@ export default function CollapsiblePanelLayout({
   const collapseBelow = MIN_PANEL_WIDTH_PX - COLLAPSE_DELTA_PX;
 
   const startDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!onWidthChange) return;
     e.preventDefault();
     const startX = e.clientX;
-    dragged.current = panelWidth;
-    rawDrag.current = panelWidth;
-
-    const clamp = (value: number, min: number) =>
-      Math.round(Math.min(maxPanelWidth, Math.max(min, value)));
-
     const startWidth = panelWidth;
+    let rawDrag = panelWidth;
+
+    const clamp = (value: number) =>
+      Math.round(Math.min(maxPanelWidth, Math.max(MIN_PANEL_WIDTH_PX, value)));
+
     const onMove = (move: PointerEvent) => {
-      rawDrag.current = startWidth + (startX - move.clientX);
-      dragged.current = clamp(rawDrag.current, MIN_PANEL_WIDTH_PX);
-      setDragWidth(dragged.current);
+      rawDrag = startWidth + (startX - move.clientX);
+      setDragWidth(clamp(rawDrag));
       // Preview the collapse; nothing is committed until release.
-      setPreviewCollapsed(!!onCollapse && rawDrag.current < collapseBelow);
+      setPreviewCollapsed(rawDrag < collapseBelow);
     };
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
@@ -103,11 +98,11 @@ export default function CollapsiblePanelLayout({
       window.removeEventListener("pointercancel", onUp);
       setDragWidth(null);
       setPreviewCollapsed(false);
-      if (onCollapse && rawDrag.current < collapseBelow) {
+      if (rawDrag < collapseBelow) {
         onCollapse();
         return;
       }
-      onWidthChange(dragged.current);
+      onWidthChange(clamp(rawDrag));
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -220,22 +215,20 @@ export default function CollapsiblePanelLayout({
             ...overlaid,
           }}
         >
-          {onWidthChange ? (
-            <Box
-              onPointerDown={startDrag}
-              className={styles.dragHandle}
-              style={{
-                position: "absolute",
-                top: 0,
-                bottom: 0,
-                left: -HANDLE_WIDTH_PX / 2,
-                width: HANDLE_WIDTH_PX,
-                cursor: "col-resize",
-                touchAction: "none",
-                zIndex: 1,
-              }}
-            />
-          ) : null}
+          <Box
+            onPointerDown={startDrag}
+            className={styles.dragHandle}
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: -HANDLE_WIDTH_PX / 2,
+              width: HANDLE_WIDTH_PX,
+              cursor: "col-resize",
+              touchAction: "none",
+              zIndex: 1,
+            }}
+          />
           {/* Clips the contents mid-slide; the handle sits outside it so it
               can straddle the border. */}
           <Box height="100%" style={{ overflow: "hidden" }}>

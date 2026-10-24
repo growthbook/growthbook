@@ -70,7 +70,6 @@
   font-size: var(--font-size-2) !important;
 }
 
-.gb-select-wrapper--x-small,
 .gb-select-wrapper--xs {
   .gb-select__control {
     min-height: 24px !important;
@@ -101,7 +100,6 @@
   }
 }
 
-.gb-select-wrapper--small,
 .gb-select-wrapper--md {
   .gb-select__control {
     min-height: 32px !important;
@@ -116,7 +114,6 @@
   }
 }
 
-.gb-select-wrapper--medium,
 .gb-select-wrapper--lg {
   .gb-select__control {
     min-height: 40px !important;
@@ -279,12 +276,10 @@
   height: 24px;
   border-radius: var(--radius-1);
 }
-.gb-select-wrapper--small .gb-select__multi-value,
 .gb-select-wrapper--md .gb-select__multi-value {
   height: 22px;
   border-radius: var(--radius-1);
 }
-.gb-select-wrapper--medium .gb-select__multi-value,
 .gb-select-wrapper--lg .gb-select__multi-value {
   height: 26px;
   border-radius: var(--radius-2);
@@ -295,7 +290,6 @@
   font-weight: 500;
   font-size: var(--font-size-1) !important;
 }
-.gb-select-wrapper--medium .gb-select__multi-value__label,
 .gb-select-wrapper--lg .gb-select__multi-value__label {
   font-size: var(--font-size-2) !important;
 }

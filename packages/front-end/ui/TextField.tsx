@@ -45,8 +45,6 @@ export type TextFieldProps = {
   inputClassName?: string;
   type?: TextFieldType;
   multiline?: boolean;
-  minRows?: number;
-  maxRows?: number;
 } & Omit<
   React.ComponentPropsWithoutRef<typeof RadixTextField.Root>,
   "size" | "type"
@@ -73,8 +71,6 @@ export const TextField = forwardRef<
     containerClassName,
     inputClassName,
     multiline = false,
-    minRows = 1,
-    maxRows = 6,
     className,
     id,
     m,
@@ -143,8 +139,8 @@ export const TextField = forwardRef<
             ref={ref as Ref<HTMLTextAreaElement>}
             id={inputId}
             className="rt-reset rt-TextFieldInput"
-            minRows={minRows}
-            maxRows={maxRows}
+            minRows={1}
+            maxRows={6}
           />
           {append ? (
             <div className="rt-TextFieldSlot" data-side="right">

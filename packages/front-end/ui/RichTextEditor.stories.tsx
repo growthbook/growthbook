@@ -33,10 +33,7 @@ export default function RichTextEditorStories() {
             placeholder="What do you expect to happen, and why?"
           />
           <Flex gap="2">
-            <Button
-              variant="outline"
-              onClick={() => editor.current?.setMarkdown(SAMPLE)}
-            >
+            <Button variant="outline" onClick={() => setMd(SAMPLE)}>
               Reset content
             </Button>
             <Button variant="outline" onClick={() => editor.current?.focus()}>
@@ -76,11 +73,6 @@ export default function RichTextEditorStories() {
             maxHeight="md"
             placeholder="Add a note"
           />
-        </Flex>
-
-        <Flex direction="column" gap="2">
-          <Text weight="medium">Read only</Text>
-          <RichTextEditor readOnly value={md} height="sm" />
         </Flex>
       </Grid>
     </Flex>

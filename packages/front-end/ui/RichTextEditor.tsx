@@ -47,6 +47,7 @@ import { PiCaretDownBold, PiCaretUpBold } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { getLinkLabelFromUrl } from "@/components/Markdown/markdownLinkUtils";
 import { Size } from "@/ui/sizes";
 import Tooltip from "@/ui/Tooltip";
 import {
@@ -60,10 +61,6 @@ import { hasMarkdownFormatting } from "./richTextFormatting";
 import styles from "./RichTextEditor.module.scss";
 
 export interface RichTextEditorHandle {
-  /** The editor's current content, as markdown. */
-  getMarkdown: () => string;
-  /** Replace the content. Use for anything that writes over what's there. */
-  setMarkdown: (markdown: string) => void;
   focus: () => void;
 }
 
@@ -79,7 +76,6 @@ export interface Props {
   autoGrow?: boolean;
   /** Where growing stops and the content scrolls. Only applies with `autoGrow`. */
   maxHeight?: RichTextHeight;
-  readOnly?: boolean;
   autoFocus?: boolean;
   /** Rendered under the editable area, for a caller's own controls. */
   footer?: ReactNode;
@@ -130,14 +126,6 @@ const MARKDOWN_TRANSFORMERS = [
 
 const IMAGE_TYPES = "image/png, image/jpeg, image/gif";
 
-function linkLabelFromUrl(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "") || "Link";
-  } catch {
-    return "Link";
-  }
-}
-
 const THEME = {
   paragraph: styles.paragraph,
   quote: styles.quote,
@@ -165,46 +153,24 @@ const THEME = {
   code: styles.codeBlock,
 };
 
-/** Exposes the editor to the parent, and keeps `readOnly` in step. */
+/** Exposes the editor to the parent, and focuses it on mount when asked. */
 function EditorBridge({
   handleRef,
-  readOnly,
   autoFocus,
   autoFocusAtEnd,
-  lastMarkdown,
 }: {
   handleRef: Ref<RichTextEditorHandle>;
-  readOnly: boolean;
   autoFocus: boolean;
   autoFocusAtEnd: boolean;
-  lastMarkdown: MutableRefObject<string>;
 }) {
   const [editor] = useLexicalComposerContext();
 
-  useImperativeHandle(
-    handleRef,
-    () => ({
-      getMarkdown: () =>
-        editor
-          .getEditorState()
-          .read(() => $convertToMarkdownString(MARKDOWN_TRANSFORMERS)),
-      setMarkdown: (markdown: string) => {
-        editor.update(() => {
-          $convertFromMarkdownString(markdown, MARKDOWN_TRANSFORMERS);
-        });
-        lastMarkdown.current = markdown;
-      },
-      focus: () => editor.focus(),
-    }),
-    [editor, lastMarkdown],
-  );
+  useImperativeHandle(handleRef, () => ({ focus: () => editor.focus() }), [
+    editor,
+  ]);
 
   useEffect(() => {
-    editor.setEditable(!readOnly);
-  }, [editor, readOnly]);
-
-  useEffect(() => {
-    if (autoFocus && !readOnly) {
+    if (autoFocus) {
       editor.focus();
       // Seeded text the writer is meant to continue, rather than type in front of.
       if (autoFocusAtEnd) {
@@ -222,75 +188,10 @@ function EditorBridge({
 }
 
 /**
- * Pasting: image files upload and become image nodes, and a bare URL becomes a
- * link rather than the URL's text.
+ * Dropped or pasted image files upload and are inserted at the caret, and a
+ * pasted bare URL becomes a link rather than the URL's text.
  */
-function PasteHandling({
-  onFiles,
-  allowImages,
-}: {
-  onFiles: (files: File[]) => void;
-  allowImages: boolean;
-}) {
-  const [editor] = useLexicalComposerContext();
-
-  useEffect(
-    () =>
-      editor.registerCommand(
-        PASTE_COMMAND,
-        (event: ClipboardEvent) => {
-          const data = event.clipboardData;
-          if (!data) return false;
-
-          const files = Array.from(data.files).filter((f) =>
-            f.type.startsWith("image/"),
-          );
-          if (allowImages && files.length) {
-            event.preventDefault();
-            onFiles(files);
-            return true;
-          }
-
-          const text = data.getData("text/plain").trim();
-          if (!/^https?:\/\/\S+$/i.test(text)) return false;
-
-          const selection = $getSelection();
-          if (!$isRangeSelection(selection)) return false;
-          event.preventDefault();
-
-          // With nothing selected there is no text to become the link, so
-          // seed it from the URL the way the markdown editor does.
-          if (selection.isCollapsed()) {
-            selection.insertText(linkLabelFromUrl(text));
-          }
-          editor.dispatchCommand(TOGGLE_LINK_COMMAND, text);
-          return true;
-        },
-        COMMAND_PRIORITY_LOW,
-      ),
-    [editor, onFiles, allowImages],
-  );
-
-  return null;
-}
-
-/** Hands the editor a way to drop uploaded images in at the caret. */
-function useImageInsert() {
-  const [editor] = useLexicalComposerContext();
-  return useCallback(
-    (images: { src: string; alt: string }[]) => {
-      editor.update(() => {
-        const selection = $getSelection();
-        if (!$isRangeSelection(selection)) return;
-        $insertNodes(images.map(({ src, alt }) => $createImageNode(src, alt)));
-      });
-    },
-    [editor],
-  );
-}
-
-/** Uploads dropped or pasted images, then inserts them. */
-function ImageUploads({
+function PasteAndDrop({
   allowImages,
   setUploading,
   registerDrop,
@@ -299,7 +200,7 @@ function ImageUploads({
   setUploading: (uploading: boolean) => void;
   registerDrop: (handler: (files: File[]) => void) => void;
 }) {
-  const insertImages = useImageInsert();
+  const [editor] = useLexicalComposerContext();
   const { apiCall } = useAuth();
 
   const upload = useCallback(
@@ -314,17 +215,60 @@ function ImageUploads({
             return { src: fileURL, alt };
           }),
         );
-        insertImages(uploaded);
+        editor.update(() => {
+          const selection = $getSelection();
+          if (!$isRangeSelection(selection)) return;
+          $insertNodes(
+            uploaded.map(({ src, alt }) => $createImageNode(src, alt)),
+          );
+        });
       } finally {
         setUploading(false);
       }
     },
-    [allowImages, apiCall, insertImages, setUploading],
+    [allowImages, apiCall, editor, setUploading],
   );
 
   useEffect(() => registerDrop(upload), [registerDrop, upload]);
 
-  return <PasteHandling onFiles={upload} allowImages={allowImages} />;
+  useEffect(
+    () =>
+      editor.registerCommand(
+        PASTE_COMMAND,
+        (event: ClipboardEvent) => {
+          const data = event.clipboardData;
+          if (!data) return false;
+
+          const files = Array.from(data.files).filter((f) =>
+            f.type.startsWith("image/"),
+          );
+          if (allowImages && files.length) {
+            event.preventDefault();
+            upload(files);
+            return true;
+          }
+
+          const text = data.getData("text/plain").trim();
+          if (!/^https?:\/\/\S+$/i.test(text)) return false;
+
+          const selection = $getSelection();
+          if (!$isRangeSelection(selection)) return false;
+          event.preventDefault();
+
+          // With nothing selected there is no text to become the link, so
+          // seed it from the URL the way the markdown editor does.
+          if (selection.isCollapsed()) {
+            selection.insertText(getLinkLabelFromUrl(text));
+          }
+          editor.dispatchCommand(TOGGLE_LINK_COMMAND, text);
+          return true;
+        },
+        COMMAND_PRIORITY_LOW,
+      ),
+    [editor, upload, allowImages],
+  );
+
+  return null;
 }
 
 // Lexical gives the caret no way out of a code block at the end of the
@@ -377,7 +321,6 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     height = "md",
     autoGrow = false,
     maxHeight = "lg",
-    readOnly = false,
     autoFocus = false,
     footer,
     simpleToolbar = false,
@@ -395,7 +338,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
   const lastMarkdown = useRef(value);
   const [uploading, setUploading] = useState(false);
   const { blockFileUploads } = useOrgSettings();
-  const allowImages = !readOnly && !blockFileUploads;
+  const allowImages = !blockFileUploads;
 
   // The dropzone sits outside the composer, so it reaches the upload handler
   // through a ref rather than the editor context.
@@ -434,7 +377,6 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
         namespace: "rich-text-editor",
         nodes: NODES,
         theme: THEME,
-        editable: !readOnly,
         editorState: () =>
           $convertFromMarkdownString(value, MARKDOWN_TRANSFORMERS),
         onError: (error) => {
@@ -450,11 +392,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
               role: "presentation",
             }) as React.HTMLAttributes<HTMLDivElement>)
           : {})}
-        className={clsx(
-          styles.wrapper,
-          styles[size],
-          readOnly && styles.readOnly,
-        )}
+        className={clsx(styles.wrapper, styles[size])}
         style={{
           height: autoGrow ? undefined : RICH_TEXT_HEIGHTS[height],
           minHeight: autoGrow ? RICH_TEXT_HEIGHTS[height] : undefined,
@@ -462,20 +400,20 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
         }}
       >
         {allowImages ? <input {...getInputProps()} /> : null}
-        {readOnly || !toolbarOpen ? null : (
+        {toolbarOpen ? (
           <RichTextEditorToolbar
             onPickImage={allowImages ? openFilePicker : undefined}
             simple={simpleToolbar}
             inset={collapsibleToolbar}
           />
-        )}
+        ) : null}
         <div className={styles.editableWrap}>
           <RichTextPlugin
             contentEditable={
               <ContentEditable
                 // Browsers report contenteditable as -1, so a dialog's
                 // autofocus would skip past the text without this.
-                tabIndex={readOnly ? undefined : 0}
+                tabIndex={0}
                 className={styles.editable}
                 aria-placeholder={placeholder ?? ""}
                 placeholder={
@@ -488,7 +426,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
             ErrorBoundary={LexicalErrorBoundary}
           />
           {/* After the text, so a dialog focuses the text rather than this. */}
-          {!readOnly && collapsibleToolbar ? (
+          {collapsibleToolbar ? (
             <Tooltip
               content={toolbarOpen ? "Hide formatting" : "Show formatting"}
             >
@@ -520,7 +458,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
         <AutoLinkPlugin matchers={URL_MATCHERS} />
         <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
         <OnChangePlugin ignoreSelectionChange onChange={handleChange} />
-        <ImageUploads
+        <PasteAndDrop
           allowImages={allowImages}
           setUploading={setUploading}
           registerDrop={registerDrop}
@@ -529,10 +467,8 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
         <TrailingParagraphAfterCode />
         <EditorBridge
           handleRef={ref}
-          readOnly={readOnly}
           autoFocus={autoFocus}
           autoFocusAtEnd={autoFocusAtEnd}
-          lastMarkdown={lastMarkdown}
         />
         {uploading ? <div className={styles.uploading}>Uploading…</div> : null}
         {footer}

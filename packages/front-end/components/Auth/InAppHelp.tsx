@@ -19,6 +19,8 @@ import styles from "./InAppHelp.module.scss";
 const PYLON_CLEARANCE_PX = 76;
 
 const LAUNCHER_SIZE_PX = 56;
+// The launcher's `bottom` in InAppHelp.module.scss.
+const LAUNCHER_BOTTOM_PX = 10;
 
 export default function InAppHelp() {
   const router = useRouter();
@@ -56,36 +58,19 @@ export default function InAppHelp() {
 
   // Publish the launcher's footprint so bottom-right overlays can clear it.
   useEffect(() => {
-    const root = document.documentElement;
     const publish = (px: number) =>
-      root.style.setProperty("--help-launcher-clearance", `${px}px`);
-
-    if (window["pylon"]) {
-      publish(PYLON_CLEARANCE_PX);
-      return () => publish(0);
-    }
-
-    const el = launcher.current;
-    if (!el) {
-      publish(0);
-      return;
-    }
-    const measure = () =>
-      publish(
-        Math.max(
-          0,
-          Math.round(window.innerHeight - el.getBoundingClientRect().top),
-        ),
+      document.documentElement.style.setProperty(
+        "--help-launcher-clearance",
+        `${px}px`,
       );
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    window.addEventListener("resize", measure);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", measure);
-      publish(0);
-    };
+    publish(
+      window["pylon"]
+        ? PYLON_CLEARANCE_PX
+        : launcher.current
+          ? LAUNCHER_BOTTOM_PX + LAUNCHER_SIZE_PX
+          : 0,
+    );
+    return () => publish(0);
   });
 
   // Hide on presentation view (fullscreen present mode)

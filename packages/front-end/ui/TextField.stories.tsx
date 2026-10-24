@@ -50,7 +50,7 @@ export default function TextFieldStories() {
           label="Multiline"
           multiline
           placeholder="Starts at one line and grows as you type"
-          helpText="Up to 6 rows by default (maxRows), then it scrolls."
+          helpText="Up to 6 rows, then it scrolls."
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
         />

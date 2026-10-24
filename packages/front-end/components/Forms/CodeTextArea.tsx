@@ -653,62 +653,41 @@ export default function CodeTextArea({
                   >
                     {actions}
                     {showCopyButton && (
-                      <Tooltip
-                        body={copySuccess ? "Copied" : "Copy to clipboard"}
-                      >
-                        <IconButton
-                          type="button"
-                          radius="full"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (!copySuccess) performCopy(value);
-                          }}
-                          style={{ position: "relative", zIndex: 1000 }}
-                        >
-                          {copySuccess ? (
-                            <CopyIcon copied size={EDITOR_ACTION_ICON_SIZE} />
-                          ) : (
-                            <CopyIcon size={EDITOR_ACTION_ICON_SIZE} />
-                          )}
-                        </IconButton>
-                      </Tooltip>
+                      <EditorAction
+                        label={copySuccess ? "Copied" : "Copy to clipboard"}
+                        icon={
+                          <CopyIcon
+                            copied={copySuccess}
+                            size={EDITOR_ACTION_ICON_SIZE}
+                          />
+                        }
+                        onClick={() => {
+                          if (!copySuccess) performCopy(value);
+                        }}
+                      />
                     )}
                     {showFullscreenButton && (
-                      <Tooltip
+                      <EditorAction
                         key={isFullscreen ? "exit" : "enter"}
-                        body={
+                        label={
                           isFullscreen
                             ? "Exit full screen (ESC)"
                             : "Edit in full screen"
                         }
-                      >
-                        <IconButton
-                          type="button"
-                          radius="full"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (onRequestFullscreen) {
-                              onRequestFullscreen();
-                            } else {
-                              setIsFullscreen(!isFullscreen);
-                            }
-                          }}
-                          style={{ position: "relative", zIndex: 1000 }}
-                        >
-                          {isFullscreen ? (
-                            <FullscreenIcon
-                              exit
-                              size={EDITOR_ACTION_ICON_SIZE}
-                            />
-                          ) : (
-                            <FullscreenIcon size={EDITOR_ACTION_ICON_SIZE} />
-                          )}
-                        </IconButton>
-                      </Tooltip>
+                        icon={
+                          <FullscreenIcon
+                            exit={isFullscreen}
+                            size={EDITOR_ACTION_ICON_SIZE}
+                          />
+                        }
+                        onClick={() => {
+                          if (onRequestFullscreen) {
+                            onRequestFullscreen();
+                          } else {
+                            setIsFullscreen(!isFullscreen);
+                          }
+                        }}
+                      />
                     )}
                   </Flex>
                 )}

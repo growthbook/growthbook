@@ -24,10 +24,6 @@ export interface OverrideRow {
 
 const percent = (fraction: number) => `${Number((fraction * 100).toFixed(4))}%`;
 
-/** A stored fraction as a percent field's value, without float noise. */
-export const toPercentField = (fraction: number) =>
-  Number((fraction * 100).toFixed(9));
-
 const hours = (n: number) => `${n} hour${n === 1 ? "" : "s"}`;
 
 const cuped = (enabled?: boolean, days?: number) =>

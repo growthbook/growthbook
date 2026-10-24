@@ -194,12 +194,6 @@ export function capTypedPercent(raw: string, decimals: number): string {
   return match ? match[1] + (match[2] ?? "") : raw;
 }
 
-export function coverageFromPercent(raw: string): number {
-  return parseFloat((parseFloat(raw) / 100).toFixed(COVERAGE_DECIMALS + 2));
-}
-export function coverageToPercent(coverage: number): number {
-  return decimalToPercent(coverage, COVERAGE_DECIMALS + 2);
-}
 export function decimalToPercent(val: number, precision: number = 4): number {
   return parseFloat((val * 100).toFixed(precision - 2));
 }
@@ -283,13 +277,6 @@ export function appendQueryParamsToURL(
     },
   );
   return `${root}?${queryParams}${hash ? `#${hash}` : ""}`;
-}
-
-/** "a", "a and b", "a, b and c". */
-export function joinAnd(parts: string[]): string {
-  return parts.length <= 1
-    ? (parts[0] ?? "")
-    : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
 }
 
 export function capitalizeFirstLetter(string): string {

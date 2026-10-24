@@ -1,11 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import {
   capTypedPercent,
   COVERAGE_DECIMALS,
-  coverageFromPercent,
-  coverageToPercent,
   decimalToPercent,
   percentToDecimal,
 } from "@/services/utils";
@@ -39,28 +37,16 @@ export function PercentField({
   ariaLabel,
   commitOn = "change",
   step = 1,
-  decimals,
+  decimals = COVERAGE_DECIMALS,
 }: Props) {
-  const percent = isNaN(value)
-    ? ""
-    : decimals === undefined
-      ? coverageToPercent(value)
-      : decimalToPercent(value, decimals + 2);
-  // Only used with commitOn="blur".
-  const [typed, setTyped] = useState<string | number>(percent);
-  useEffect(() => setTyped(percent), [percent]);
+  const percent = isNaN(value) ? "" : decimalToPercent(value, decimals + 2);
+  // What's typed but not yet committed, with commitOn="blur".
+  const [typed, setTyped] = useState<string | null>(null);
 
   const onBlurCommit = commitOn === "blur";
-  const cap = (raw: string) =>
-    capTypedPercent(raw, decimals ?? COVERAGE_DECIMALS);
+  const cap = (raw: string) => capTypedPercent(raw, decimals);
   const commit = (raw: string) =>
-    onChange(
-      clamp(
-        decimals === undefined
-          ? coverageFromPercent(raw)
-          : percentToDecimal(raw, decimals + 2),
-      ),
-    );
+    onChange(clamp(percentToDecimal(raw, decimals + 2)));
 
   return (
     <Box
@@ -71,13 +57,20 @@ export function PercentField({
       <Field
         size="md"
         disabled={disabled}
-        value={onBlurCommit ? typed : percent}
+        value={onBlurCommit ? (typed ?? percent) : percent}
         onChange={(e) =>
           onBlurCommit
             ? setTyped(cap(e.target.value))
             : commit(cap(e.target.value))
         }
-        onBlur={onBlurCommit ? (e) => commit(e.target.value) : undefined}
+        onBlur={
+          onBlurCommit
+            ? (e) => {
+                commit(e.target.value);
+                setTyped(null);
+              }
+            : undefined
+        }
         type="number"
         min={0}
         max={100}

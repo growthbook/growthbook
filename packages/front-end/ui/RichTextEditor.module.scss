@@ -52,16 +52,6 @@
   background-color: var(--color-panel-solid);
 }
 
-.readOnly {
-  border-color: transparent;
-  background-color: transparent;
-
-  &:focus-within {
-    border-color: transparent;
-    box-shadow: none;
-  }
-}
-
 .editable {
   outline: none;
   cursor: text;

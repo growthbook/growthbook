@@ -27,7 +27,6 @@ type BaseProps = {
   color?: RadixSwitchProps["color"];
   id?: string;
   label?: React.ReactNode;
-  weight?: "regular" | "medium";
   size?: Size<"sm" | "md" | "lg">;
   description?: string;
   state?: "default" | "warning" | "error";
@@ -50,7 +49,6 @@ const Switch = forwardRef<HTMLButtonElement, Props>(function Switch(
     value,
     onChange,
     label,
-    weight = "medium",
     description,
     state = "default",
     stateLabel,
@@ -140,7 +138,7 @@ const Switch = forwardRef<HTMLButtonElement, Props>(function Switch(
           as="label"
           htmlFor={switchId}
           size={size}
-          weight={weight}
+          weight="medium"
           color={disabled ? "text-disabled" : "text-high"}
           mb="0"
         >
