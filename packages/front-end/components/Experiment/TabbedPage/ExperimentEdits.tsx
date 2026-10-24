@@ -420,20 +420,22 @@ export function useRegisterExperimentEdit(
   dirty: boolean,
   edit: PendingEdit,
 ) {
-  const ctx = useContext(ExperimentEditsContext);
+  // Stable, unlike the context around it, which changes with every staged
+  // edit: keyed on that, each change would unregister and re-register them all.
+  const register = useContext(ExperimentEditsContext)?.register;
   const latest = useRef(edit);
   latest.current = edit;
 
   const inChangeset = !!edit.changes;
   const label = edit.label;
   useEffect(() => {
-    if (!ctx) return;
+    if (!register) return;
     const discard = () => latest.current.discard();
     const onSaved = () => latest.current.onSaved?.();
     const review = latest.current.review
       ? () => latest.current.review?.() ?? { before: null, after: null }
       : undefined;
-    ctx.register(
+    register(
       id,
       dirty
         ? {
@@ -452,11 +454,11 @@ export function useRegisterExperimentEdit(
           }
         : null,
     );
-  }, [ctx, id, dirty, inChangeset, label]);
+  }, [register, id, dirty, inChangeset, label]);
 
   useEffect(() => {
-    return () => ctx?.register(id, null);
-  }, [ctx, id]);
+    return () => register?.(id, null);
+  }, [register, id]);
 }
 
 /** Why a control waits on the page's staged edits, or null when none are. */
