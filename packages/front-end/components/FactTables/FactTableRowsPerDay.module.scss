@@ -12,3 +12,14 @@
     background: var(--violet-11);
   }
 }
+
+// Unfilled bars that show where the chart goes, like the metric preview
+.placeholder {
+  span {
+    flex: 1;
+    border: 1px dashed var(--gray-a6);
+    border-bottom: 0;
+    border-radius: 4px 4px 0 0;
+    background: var(--gray-a2);
+  }
+}

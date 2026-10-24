@@ -44,6 +44,11 @@ function getRowsPerDay(
   return { days, counts, total: counts.reduce((sum, count) => sum + count, 0) };
 }
 const CHART_HEIGHT = 96;
+// Relative heights of the empty-state bars, as a percent of the tallest
+const PLACEHOLDER_BARS = Array.from(
+  { length: RANGE_DAYS },
+  (_, i) => [62, 68, 54, 75, 83, 46, 100][i % 7],
+);
 
 const compact = new Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -135,7 +140,7 @@ export default function FactTableRowsPerDay({
   return (
     <Frame px="5" py="4" mb="4">
       <Flex gap="6" wrap="wrap" align="stretch">
-        <Flex direction="column" gap="1" style={{ flex: "0 1 220px" }}>
+        <Flex direction="column" gap="1" style={{ flex: "0 0 260px" }}>
           <Heading as="h2" size="sm" mb="0">
             Rows Per Day
           </Heading>
@@ -149,8 +154,19 @@ export default function FactTableRowsPerDay({
                 {chart.days.length} days
               </Text>
             </>
-          ) : null}
-          <Flex align="center" gap="2" mt="2" wrap="wrap">
+          ) : (
+            <>
+              <Text size="xl" weight="semibold" color="text-low">
+                —
+              </Text>
+              <Text color="text-mid">
+                {checkedCache
+                  ? `Load row counts to see the last ${RANGE_DAYS} days`
+                  : "Checking for cached row counts…"}
+              </Text>
+            </>
+          )}
+          <Flex align="center" gap="2" mt="2" style={{ whiteSpace: "nowrap" }}>
             {exploration ? (
               <Text size="sm" color="text-mid">
                 Updated {ago(exploration.dateUpdated)}
@@ -229,7 +245,19 @@ export default function FactTableRowsPerDay({
               ))}
             </Flex>
           </figure>
-        ) : null}
+        ) : (
+          <Flex
+            align="end"
+            gap="2px"
+            aria-hidden="true"
+            className={styles.placeholder}
+            style={{ flex: "1 1 480px", minWidth: 0, height: CHART_HEIGHT }}
+          >
+            {PLACEHOLDER_BARS.map((height, i) => (
+              <span key={i} style={{ height: `${height}%` }} />
+            ))}
+          </Flex>
+        )}
       </Flex>
     </Frame>
   );
