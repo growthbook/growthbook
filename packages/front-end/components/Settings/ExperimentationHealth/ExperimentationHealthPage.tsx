@@ -295,9 +295,15 @@ export default function ExperimentationHealthPage() {
 
       {/* Single save for the whole page */}
       <Box
-        className="bg-main-color position-sticky w-100 py-3 border-top"
-        style={{ bottom: 0, zIndex: 840 }}
+        py="3"
         mt="4"
+        style={{
+          position: "sticky",
+          bottom: 0,
+          zIndex: 840,
+          background: "var(--background-color)",
+          borderTop: "1px solid var(--border-color-200)",
+        }}
       >
         <Flex justify="end" align="center" gap="3">
           {saveError && <HelperText status="error">{saveError}</HelperText>}
@@ -312,11 +318,7 @@ export default function ExperimentationHealthPage() {
             </HelperText>
           )}
           {saveMsg && (
-            <TempMessage
-              className="mb-0"
-              size="sm"
-              close={() => setSaveMsg(false)}
-            >
+            <TempMessage size="sm" close={() => setSaveMsg(false)}>
               Settings saved
             </TempMessage>
           )}

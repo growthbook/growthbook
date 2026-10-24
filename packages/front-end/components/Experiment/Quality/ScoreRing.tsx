@@ -2,7 +2,6 @@ import { FC } from "react";
 
 const SIZE = 64;
 
-// Circular score indicator: slate track, colored arc, score centered
 const ScoreRing: FC<{
   score: number;
   color: string; // css color for the arc + number

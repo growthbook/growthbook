@@ -581,6 +581,7 @@ export type ExperimentForQualityScore = Pick<
   | "guardrailMetrics"
   | "results"
   | "releasedVariationId"
+  | "winner"
   | "analysis"
 > & {
   processResults?: Pick<ExperimentProcessResults, "version"> & {
@@ -725,16 +726,17 @@ function evaluateDeterministicCheck(
         : { applicable: true, score: 0, reason: "No analysis written" };
     case "decision": {
       if (experiment.status !== "stopped") return { applicable: false };
-      const hasDecision =
-        !!experiment.results &&
-        (experiment.results !== "won" || !!experiment.releasedVariationId);
+      // A win needs its winner, recorded directly or by releasing it
+      const missingWinner =
+        experiment.results === "won" &&
+        experiment.winner === undefined &&
+        !experiment.releasedVariationId;
       return {
         applicable: true,
-        score: hasDecision ? 1 : 0,
-        reason:
-          experiment.results === "won" && !experiment.releasedVariationId
-            ? "Marked as won but no winning variation was released"
-            : undefined,
+        score: experiment.results && !missingWinner ? 1 : 0,
+        reason: missingWinner
+          ? "Marked as won without a winning variation"
+          : undefined,
       };
     }
   }

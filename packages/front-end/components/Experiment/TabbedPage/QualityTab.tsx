@@ -57,7 +57,7 @@ function getFixAction(
     case "goal-metrics":
     case "guardrail-metrics":
       return editMetrics
-        ? { label: "Edit Metrics", onClick: editMetrics }
+        ? { label: "Edit metrics", onClick: editMetrics }
         : null;
     case "max-variations":
       return {
@@ -67,7 +67,7 @@ function getFixAction(
     case "ai-hypothesis-quality":
     case "ai-hypothesis-metric-alignment":
       return {
-        label: "Edit Hypothesis",
+        label: "Edit hypothesis",
         onClick: () => setTabAndScroll("overview", "hypothesis"),
       };
     case "tags-or-project":
@@ -365,7 +365,8 @@ const QualityTab: FC<{
     permissionsUtil.canUpdateExperiment(experiment, {}) && !experiment.archived;
 
   const running = experiment.status === "running";
-  const statusLabel = experiment.status === "draft" ? "in draft" : "running";
+  const statusLabel =
+    experiment.status === "draft" ? "in draft" : experiment.status;
   const resultsJoinNote =
     result.appliedCheckCount < result.totalEnabledCheckCount && running
       ? " Decision and process checks join the score when it stops."

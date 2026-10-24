@@ -5,7 +5,11 @@ import {
   evaluateProcessRules,
   toProcessSnapshot,
 } from "shared/enterprise";
-import { ExperimentInterface } from "shared/validators";
+import {
+  ExperimentInterface,
+  auditUserToEventUser,
+  eventUserLabel,
+} from "shared/validators";
 import { AuditInterface } from "shared/types/audit";
 import { ReqContext } from "back-end/types/request";
 import { findAuditByEntityList } from "back-end/src/models/AuditModel";
@@ -17,31 +21,28 @@ const HISTORY_EVENTS = [
   "experiment.status",
   "experiment.phase",
   "experiment.start",
+  "experiment.stop",
 ];
 
 // Each audit entry holds two full experiment snapshots, so history is loaded
 // a few experiments at a time
 const HISTORY_BATCH_SIZE = 25;
 
-function describeUser(user: AuditInterface["user"]): string | undefined {
-  if ("system" in user) return "GrowthBook";
-  if ("apiKey" in user) return user.name || "An API key";
-  return user.name || user.email;
-}
-
 function toProcessChange(audit: AuditInterface): ProcessChange | null {
-  let details: { pre?: unknown; post?: unknown };
+  let details: unknown;
   try {
-    details = audit.details ? JSON.parse(audit.details) : {};
+    details = audit.details ? JSON.parse(audit.details) : null;
   } catch {
     return null;
   }
-  const pre = toProcessSnapshot(details.pre);
-  const post = toProcessSnapshot(details.post);
+  if (!details || typeof details !== "object") return null;
+  const { pre: before, post: after } = details as Record<string, unknown>;
+  const pre = toProcessSnapshot(before);
+  const post = toProcessSnapshot(after);
   if (!pre || !post) return null;
   return {
     date: audit.dateCreated,
-    user: describeUser(audit.user),
+    user: eventUserLabel(auditUserToEventUser(audit.user)) || undefined,
     pre,
     post,
   };

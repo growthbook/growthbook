@@ -1,5 +1,5 @@
 import React, { ReactNode, useState } from "react";
-import { Box, Flex, Tooltip } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import { PiCaretRightBold, PiTrash } from "react-icons/pi";
 import {
@@ -16,6 +16,7 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Switch from "@/ui/Switch";
+import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
@@ -126,7 +127,7 @@ function CheckLabel({
     );
   return (
     <>
-      <label htmlFor={`quality-check-${checkKey}`} className="mb-0">
+      <label htmlFor={`quality-check-${checkKey}`} style={{ margin: 0 }}>
         <Text size="md">{def.label}</Text>
       </label>
       {checkKey === "goal-metrics" && (
