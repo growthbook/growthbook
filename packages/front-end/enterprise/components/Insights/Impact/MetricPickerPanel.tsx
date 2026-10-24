@@ -1,5 +1,6 @@
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiCaretRight } from "react-icons/pi";
+import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import styles from "./MetricPickerPanel.module.scss";
@@ -47,85 +48,83 @@ export default function MetricPickerPanel({
 }) {
   return (
     <>
-      <Grid
-        columns={{ initial: "1", md: "2" }}
-        gap="5"
-        className="appbox"
-        p="5"
-      >
-        <Box>
-          <Text
-            size="sm"
-            weight="semibold"
-            color="text-mid"
-            textTransform="uppercase"
-          >
-            No metric selected
-          </Text>
-          <Heading as="h2" size="md" mt="1" mb="2">
-            Pick a Metric to Measure Impact
-          </Heading>
-          <Text as="p" color="text-mid" mb="2">
-            Impact adds up the scaled effect of every completed experiment on
-            one metric, annualized and de-biased. Choose the metric leadership
-            cares about most, usually revenue or conversion.
-          </Text>
-          <Text as="p" color="text-mid" mb="4">
-            Only experiments that used the metric count toward impact.
-          </Text>
-          <Flex
-            gap="6"
-            pt="3"
-            style={{ borderTop: "1px solid var(--gray-a5)" }}
-          >
-            <Count value={counts.completed} label="Completed experiments" />
-            <Count value={counts.won} label="Won" />
-            <Count value={counts.lost} label="Lost" />
-          </Flex>
-        </Box>
-        <Box>
-          <Flex justify="between" mb="2">
+      <Frame mb="0" py="5" px="5">
+        <Grid columns={{ initial: "1", md: "2" }} gap="5">
+          <Box>
             <Text
               size="sm"
               weight="semibold"
               color="text-mid"
               textTransform="uppercase"
             >
-              Suggested metrics
+              No metric selected
             </Text>
-            <Text size="sm" color="text-low">
-              Most used goal metrics
+            <Heading as="h2" size="md" mt="1" mb="2">
+              Pick a Metric to Measure Impact
+            </Heading>
+            <Text as="p" color="text-mid" mb="2">
+              Impact adds up the scaled effect of every completed experiment on
+              one metric, annualized and de-biased. Choose the metric leadership
+              cares about most, usually revenue or conversion.
             </Text>
-          </Flex>
-          <Box className={styles.list}>
-            {suggestions.length === 0 ? (
-              <Box p="3">
-                <Text color="text-mid">
-                  No completed experiments in this date range have goal metrics.
-                </Text>
-              </Box>
-            ) : (
-              suggestions.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  className={styles.row}
-                  onClick={() => onSelect(m.id)}
-                >
-                  <Box style={{ minWidth: 0 }}>
-                    <div className={styles.name}>{m.name}</div>
-                    <Text size="sm" color="text-low">
-                      {m.typeLabel} · Used in {m.count} experiment
-                      {m.count === 1 ? "" : "s"}
-                    </Text>
-                  </Box>
-                  <PiCaretRight />
-                </button>
-              ))
-            )}
+            <Text as="p" color="text-mid" mb="4">
+              Only experiments that used the metric count toward impact.
+            </Text>
+            <Flex
+              gap="6"
+              pt="3"
+              style={{ borderTop: "1px solid var(--gray-a5)" }}
+            >
+              <Count value={counts.completed} label="Completed experiments" />
+              <Count value={counts.won} label="Won" />
+              <Count value={counts.lost} label="Lost" />
+            </Flex>
           </Box>
-        </Box>
-      </Grid>
+          <Box>
+            <Flex justify="between" mb="2">
+              <Text
+                size="sm"
+                weight="semibold"
+                color="text-mid"
+                textTransform="uppercase"
+              >
+                Suggested metrics
+              </Text>
+              <Text size="sm" color="text-low">
+                Most used goal metrics
+              </Text>
+            </Flex>
+            <Box className={styles.list}>
+              {suggestions.length === 0 ? (
+                <Box p="3">
+                  <Text color="text-mid">
+                    No completed experiments in this date range have goal
+                    metrics.
+                  </Text>
+                </Box>
+              ) : (
+                suggestions.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={styles.row}
+                    onClick={() => onSelect(m.id)}
+                  >
+                    <Box style={{ minWidth: 0 }}>
+                      <div className={styles.name}>{m.name}</div>
+                      <Text size="sm" color="text-low">
+                        {m.typeLabel} · Used in {m.count} experiment
+                        {m.count === 1 ? "" : "s"}
+                      </Text>
+                    </Box>
+                    <PiCaretRight />
+                  </button>
+                ))
+              )}
+            </Box>
+          </Box>
+        </Grid>
+      </Frame>
       <Flex
         direction="column"
         gap="4"

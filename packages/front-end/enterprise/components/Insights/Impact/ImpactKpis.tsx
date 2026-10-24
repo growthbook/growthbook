@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
-import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Flex, Grid } from "@radix-ui/themes";
+import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import { ImpactSummary } from "./impactData";
 
@@ -15,7 +16,7 @@ function KpiCard({
   detail: ReactNode;
 }) {
   return (
-    <Box className="appbox" mb="0" px="4" py="3">
+    <Frame mb="0" px="4" py="3">
       <Flex align="center" gap="2" mb="1">
         {dot && (
           <span
@@ -42,7 +43,7 @@ function KpiCard({
       <Text as="div" size="sm" color="text-low">
         {detail}
       </Text>
-    </Box>
+    </Frame>
   );
 }
 

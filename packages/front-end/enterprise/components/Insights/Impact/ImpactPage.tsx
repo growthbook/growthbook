@@ -29,6 +29,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import DateRangeCompareDropdown from "@/enterprise/components/ProductAnalytics/DateRangeCompareDropdown";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import PremiumCallout from "@/ui/PremiumCallout";
@@ -375,54 +376,54 @@ export default function ImpactPage() {
         </PremiumCallout>
       ) : (
         <>
-          <Flex
-            className="appbox"
-            mb="3"
-            px="4"
-            py="3"
-            gap="4"
-            align="center"
-            wrap="wrap"
-          >
-            <Flex align="center" gap="2">
-              <Text size="sm" weight="semibold" color="text-mid">
-                METRIC
-              </Text>
-              <Box style={{ minWidth: 300 }}>
-                <MetricSelector
-                  value={hasMetric ? metricId : ""}
-                  onChange={setMetricId}
-                  includeFacts
-                  placeholder="Select a metric"
-                  containerClassName="mb-0"
-                  optionNote={metricNote}
-                  isOptionDisabled={(o) =>
-                    isSingleValue(o) && !isSelectable(o.value)
-                  }
-                  sortMetrics={(a, b) =>
-                    Number(isSelectable(b.id)) - Number(isSelectable(a.id)) ||
-                    (metricCounts.get(b.id) ?? 0) -
-                      (metricCounts.get(a.id) ?? 0)
-                  }
-                />
-              </Box>
+          <Frame mb="3" px="4" py="3">
+            <Flex gap="4" align="center" wrap="wrap">
+              <Flex align="center" gap="2">
+                <Text
+                  size="sm"
+                  weight="semibold"
+                  color="text-mid"
+                  textTransform="uppercase"
+                >
+                  Metric
+                </Text>
+                <Box style={{ minWidth: 300 }}>
+                  <MetricSelector
+                    aria-label="Metric"
+                    value={hasMetric ? metricId : ""}
+                    onChange={setMetricId}
+                    includeFacts
+                    placeholder="Select a metric"
+                    containerClassName="mb-0"
+                    optionNote={metricNote}
+                    isOptionDisabled={(o) =>
+                      isSingleValue(o) && !isSelectable(o.value)
+                    }
+                    sortMetrics={(a, b) =>
+                      Number(isSelectable(b.id)) - Number(isSelectable(a.id)) ||
+                      (metricCounts.get(b.id) ?? 0) -
+                        (metricCounts.get(a.id) ?? 0)
+                    }
+                  />
+                </Box>
+              </Flex>
+              <DateRangeCompareDropdown
+                value={{ dateRange, comparison: null }}
+                onChange={(next) => setDateRange(next.dateRange)}
+              />
+              <Box flexGrow="1" />
+              <Tooltip content="Adjusts winning lifts downward to correct for winner's curse. Applies to all figures on this page.">
+                <Box>
+                  <Switch
+                    value={debias}
+                    onChange={setDebias}
+                    disabled={!hasMetric}
+                    label="De-bias estimates"
+                  />
+                </Box>
+              </Tooltip>
             </Flex>
-            <DateRangeCompareDropdown
-              value={{ dateRange, comparison: null }}
-              onChange={(next) => setDateRange(next.dateRange)}
-            />
-            <Box flexGrow="1" />
-            <Tooltip content="Adjusts winning lifts downward to correct for winner's curse. Applies to all figures on this page.">
-              <Box>
-                <Switch
-                  value={debias}
-                  onChange={setDebias}
-                  disabled={!hasMetric}
-                  label="De-bias estimates"
-                />
-              </Box>
-            </Tooltip>
-          </Flex>
+          </Frame>
 
           <Flex gap="3" align="center" mb="1" wrap="wrap">
             <Box flexGrow="1" style={{ maxWidth: 520 }}>
@@ -611,14 +612,16 @@ function SeriesState({
   }
   if (status === "loading" || status === "running") {
     return (
-      <Flex className="appbox" mb="4" p="6" justify="center" gap="2">
-        <LoadingSpinner />
-        {status === "running" && (
-          <Text color="text-mid">
-            Loading this metric from the warehouse...
-          </Text>
-        )}
-      </Flex>
+      <Frame mb="4" py="6" px="6">
+        <Flex justify="center" gap="2">
+          <LoadingSpinner />
+          {status === "running" && (
+            <Text color="text-mid">
+              Loading this metric from the warehouse...
+            </Text>
+          )}
+        </Flex>
+      </Frame>
     );
   }
   const message =

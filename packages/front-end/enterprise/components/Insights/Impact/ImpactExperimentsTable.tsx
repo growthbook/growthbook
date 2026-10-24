@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
-import Badge from "@/ui/Badge";
+import { Flex } from "@radix-ui/themes";
+import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -13,7 +14,7 @@ const ROWS_SHOWN = 8;
 type TableItem = {
   id: string;
   name: string;
-  result: "Won" | "Lost";
+  result: "won" | "lost";
   lift: number | null;
   value: number;
 };
@@ -34,7 +35,7 @@ export default function ImpactExperimentsTable({
               {
                 id: r.id,
                 name: r.name,
-                result: r.result === "won" ? "Won" : "Lost",
+                result: r.result,
                 lift: r.relativeLift,
                 value: r.annualValue,
               },
@@ -55,7 +56,7 @@ export default function ImpactExperimentsTable({
   const shown = expanded ? sorted : sorted.slice(0, ROWS_SHOWN);
 
   return (
-    <Box className="appbox" mb="0" p="4">
+    <Frame mb="0" py="4" px="4">
       <Heading as="h3" size="sm" mb="2">
         Experiments
       </Heading>
@@ -100,11 +101,7 @@ export default function ImpactExperimentsTable({
                   <Link href={`/experiment/${item.id}`}>{item.name}</Link>
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    label={item.result}
-                    color={item.result === "Won" ? "green" : "red"}
-                    variant="soft"
-                  />
+                  <ResultsIndicator results={item.result} />
                 </TableCell>
                 <TableCell>
                   {item.lift === null
@@ -113,7 +110,7 @@ export default function ImpactExperimentsTable({
                 </TableCell>
                 <TableCell>
                   <Text weight="semibold">
-                    {item.result === "Won"
+                    {item.result === "won"
                       ? `${formatAnnual(item.value)}/yr`
                       : // Rolling back a variation that helped this metric forgoes value
                         `${formatAnnual(Math.abs(item.value))}/yr ${
@@ -135,6 +132,6 @@ export default function ImpactExperimentsTable({
           </Link>
         </Flex>
       )}
-    </Box>
+    </Frame>
   );
 }
