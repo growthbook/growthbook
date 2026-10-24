@@ -82,6 +82,12 @@ import {
   useFeatureExperimentChecklists,
 } from "@/services/features";
 import { getFutureScheduledStartDate } from "@/services/experiments";
+import Frame from "@/ui/Frame";
+import {
+  SummaryGrid,
+  SummaryRow,
+} from "@/components/Experiment/TabbedPage/StartSections";
+import { scheduledTime } from "@/components/Experiment/TabbedPage/RunningScheduleLink";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import LinkButton from "@/components/Button";
@@ -161,7 +167,10 @@ import {
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
 import RevertModal from "@/components/Reviews/Feature/RevertModal";
-import { getReviewAndPublishState } from "@/components/Reviews/reviewAndPublishState";
+import {
+  getReviewAndPublishState,
+  scheduleToStartLabel,
+} from "@/components/Reviews/reviewAndPublishState";
 import {
   PersonRow,
   ReviewerVerdictIcon,
@@ -1202,6 +1211,14 @@ export default function ReviewAndPublish({
   ).length;
   const onlyScheduledSelected =
     selectedImmediateCount === 0 && selectedScheduledCount > 0;
+  const scheduledStartDays = new Set(
+    scheduledExperiments
+      .filter((e) => selectedExperiments.has(e.id))
+      .map((e) => getFutureScheduledStartDate(e))
+      .flatMap((date) => (date ? [format(date, "MMM d")] : [])),
+  );
+  const scheduledStartDay =
+    scheduledStartDays.size === 1 ? [...scheduledStartDays][0] : null;
 
   // Only the experiments going out with this publish have checklists to show.
   const hasChecklistStep = selectedExperiments.size > 0;
@@ -1925,6 +1942,7 @@ export default function ReviewAndPublish({
     adminPublish,
     hasSelectedExperiments: selectedExperiments.size > 0,
     onlyScheduledSelected,
+    scheduledStartDay,
     experimentsStep,
     featureLockedByRamp,
     featureLockedBySchedule,
@@ -2563,41 +2581,37 @@ export default function ReviewAndPublish({
   // ── Left column: all of the changes, then history ──
   const changesColumn = experimentsStep ? (
     <Box>
-      <Heading as="h3" size="md" mb="3">
+      <Heading as="h3" size="md" mb="1">
         Review &amp; {onlyScheduledSelected ? "Schedule" : "Publish"}
       </Heading>
-      <Text as="p" mb="3">
-        Please review the{" "}
-        <strong>
-          Pre-Launch Checklist
-          {selectedExperiments.size !== 1 ? "s" : ""}
-        </strong>{" "}
-        for the experiment
-        {selectedExperiments.size !== 1 ? "s" : ""} that will be{" "}
-        {onlyScheduledSelected ? "scheduled to start" : "published"} along with
-        this draft.
+      <Text as="p" color="text-mid" mb="4">
+        Publishing this draft {onlyScheduledSelected ? "schedules" : "starts"}{" "}
+        {selectedExperiments.size === 1
+          ? "this experiment"
+          : "these experiments"}
+        {onlyScheduledSelected ? " to start" : ""}.
       </Text>
       {experiments.map((experiment) => {
         if (!selectedExperiments.has(experiment.id)) return null;
         const scheduledStartDate = getFutureScheduledStartDate(experiment);
         return (
-          <Box key={experiment.id} mb="3">
-            {scheduledStartDate && (
-              <Callout status="info" mb="2">
-                <strong>{experiment.name}</strong> will start on{" "}
-                <strong>
-                  {format(scheduledStartDate, "MMM d, yyyy 'at' h:mm a")}
-                </strong>
-                .
-              </Callout>
-            )}
+          <Frame key={experiment.id} px="5" py="4">
             <PreLaunchChecklistForDraftFeature
               experiment={experiment}
               feature={feature}
               mutateExperiment={mutate}
               onReady={(status) => handleChecklistReady(experiment.id, status)}
+              details={
+                <SummaryGrid>
+                  <SummaryRow label="Start">
+                    {scheduledStartDate
+                      ? scheduledTime(scheduledStartDate)
+                      : "When this draft publishes"}
+                  </SummaryRow>
+                </SummaryGrid>
+              }
             />
-          </Box>
+          </Frame>
         );
       })}
     </Box>
@@ -2853,7 +2867,7 @@ export default function ReviewAndPublish({
               ))}
 
             {/* Submit review — reviewer action, opens the comment/decision popover */}
-            {canReview && !adminPublish && (
+            {canReview && !adminPublish && !experimentsStep && (
               <Flex direction="column" gap="3">
                 <ReviewCommentPopover
                   submitUrl={`/feature/${feature.id}/${revision.version}/submit-review`}
@@ -2967,7 +2981,7 @@ export default function ReviewAndPublish({
                 : scheduledPending
                   ? "Publish now"
                   : onlyScheduledSelected
-                    ? "Schedule to Start"
+                    ? scheduleToStartLabel(scheduledStartDay)
                     : "Publish";
 
               {
@@ -3113,7 +3127,9 @@ export default function ReviewAndPublish({
                       }
                     : {},
                 )
-              ) : launchesExperiments && holdsSchedulePublish ? (
+              ) : launchesExperiments &&
+                holdsSchedulePublish &&
+                !experimentsStep ? (
                 <HelperText status="info" size="sm" mb="5">
                   <span>
                     To publish this draft later, schedule the start of{" "}
@@ -3246,7 +3262,11 @@ export default function ReviewAndPublish({
                       {state.showChecklistAcknowledgment && (
                         <Box mb="3">
                           <Checkbox
-                            label="Acknowledge incomplete recommended items and continue"
+                            label={`Bypass remaining To Do items and ${
+                              onlyScheduledSelected
+                                ? "schedule start"
+                                : "publish"
+                            }`}
                             weight="regular"
                             disabled={!canDoPrimary}
                             value={checklistAcknowledged}
@@ -3287,6 +3307,12 @@ export default function ReviewAndPublish({
                                 ? "One or more of the Projects this draft adds don't allow targeting from other Projects' Feature Flags. Remove them to publish."
                                 : "You don't have permission to target one or more of the Projects this draft adds. Remove them, or ask someone who can target them to publish."}
                           </PermissionBlocker>
+                        )}
+
+                        {experimentsStep && checklistBlocked && (
+                          <HelperText status="warning" size="sm">
+                            Resolve the Must resolve items to continue.
+                          </HelperText>
                         )}
 
                         {linkedRamps.map((ramp) => (

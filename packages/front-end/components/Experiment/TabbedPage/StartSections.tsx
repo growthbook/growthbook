@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { hasAttributeCondition } from "shared/experiments";
 import { ReactNode } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Callout from "@/ui/Callout";
@@ -37,6 +37,39 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
 });
+
+/** Label/value rows of when an experiment starts and ends. */
+export function SummaryGrid({ children }: { children: ReactNode }) {
+  return (
+    <Grid columns="max-content minmax(0, 1fr)" gapX="4" gapY="2" align="start">
+      {children}
+    </Grid>
+  );
+}
+
+export function SummaryRow({
+  label,
+  children,
+  action = null,
+}: {
+  label: string;
+  children: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <>
+      <Text size="sm" color="text-mid">
+        {label}
+      </Text>
+      <Flex justify="between" align="baseline" gap="3">
+        <Text size="sm" color="text-high">
+          {children}
+        </Text>
+        {action}
+      </Flex>
+    </>
+  );
+}
 
 export function StartFailures({
   failures,

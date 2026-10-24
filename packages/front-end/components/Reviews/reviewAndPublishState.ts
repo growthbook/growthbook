@@ -44,6 +44,8 @@ export interface RnPStateInput {
   hasSelectedExperiments: boolean;
   // Only future-scheduled experiments are selected (changes CTA wording).
   onlyScheduledSelected: boolean;
+  // The day those scheduled starts share ("Oct 29"), or null when they differ.
+  scheduledStartDay: string | null;
   // Currently on the pre-launch checklist step.
   experimentsStep: boolean;
   // Publishing is frozen by an active ramp-schedule lockdown on this feature.
@@ -83,12 +85,19 @@ export interface RnPState {
   waitingForReview: boolean;
 }
 
+export function scheduleToStartLabel(scheduledStartDay: string | null) {
+  return scheduledStartDay
+    ? `Schedule to Start (${scheduledStartDay})`
+    : "Schedule to Start";
+}
+
 function publishLabel(
   publishLocked: boolean,
   onlyScheduledSelected: boolean,
+  scheduledStartDay: string | null,
 ): string {
   if (publishLocked) return "Publish";
-  if (onlyScheduledSelected) return "Schedule to Start";
+  if (onlyScheduledSelected) return scheduleToStartLabel(scheduledStartDay);
   return "Publish";
 }
 
@@ -106,6 +115,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     adminPublish,
     hasSelectedExperiments,
     onlyScheduledSelected,
+    scheduledStartDay,
     experimentsStep,
     featureLockedByRamp,
     featureLockedBySchedule,
@@ -173,7 +183,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
       mode,
       ctaLabel: hasNextStep
         ? "Next"
-        : publishLabel(publishLocked, onlyScheduledSelected),
+        : publishLabel(publishLocked, onlyScheduledSelected, scheduledStartDay),
       ctaEnabled: baseEnabled && checklistGateOpen,
       ctaLocked: !hasNextStep && publishLocked,
       submitAction: hasNextStep ? "next-experiments" : "publish",
@@ -194,7 +204,11 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   let ctaLabel = canResubmit ? "Re-request Review" : "Request Review";
   let ctaLocked = false;
   if (approved && !hasNextStep) {
-    ctaLabel = publishLabel(publishLocked, onlyScheduledSelected);
+    ctaLabel = publishLabel(
+      publishLocked,
+      onlyScheduledSelected,
+      scheduledStartDay,
+    );
     ctaLocked = publishLocked;
   } else if (hasNextStep) {
     ctaLabel = "Next";

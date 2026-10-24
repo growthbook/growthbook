@@ -7,7 +7,7 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { PiArrowSquareOut, PiCheckBold } from "react-icons/pi";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import clsx from "clsx";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Separator } from "@radix-ui/themes";
 import NextLink from "next/link";
 import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
@@ -17,7 +17,6 @@ import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperime
 import Callout from "@/ui/Callout";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import Checkbox from "@/ui/Checkbox";
-import Badge from "@/ui/Badge";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
@@ -332,23 +331,16 @@ export function ChecklistItems({
   );
 }
 
-export function ChecklistCountBadge({
+/** Headed as on the details rail. */
+export function ChecklistTodoHeading({
   remaining,
-  blocking,
 }: {
-  // null while loading.
   remaining: number | null;
-  blocking: boolean;
 }) {
-  if ((remaining ?? 0) === 0) return null;
   return (
-    <Badge
-      size="xs"
-      color={blocking ? "red" : "amber"}
-      radius="full"
-      label={`${remaining}`}
-      style={{ justifyContent: "center", textAlign: "center" }}
-    />
+    <Text size="sm" weight="medium" color="text-low" textTransform="uppercase">
+      {remaining ? `To do (${remaining})` : "To do"}
+    </Text>
   );
 }
 
@@ -393,11 +385,14 @@ export function PreLaunchChecklistForDraftFeature({
   feature,
   mutateExperiment,
   onReady,
+  details = null,
 }: {
   experiment: ExperimentInterfaceStringDates;
   feature: FeatureInterface;
   mutateExperiment: () => unknown | Promise<unknown>;
   onReady?: (status: ChecklistReadyStatus) => void;
+  // Under the name, as the start popover has its schedule.
+  details?: ReactNode;
 }) {
   const { data: checklistData, error: checklistError } = useApi<{
     checklist: ExperimentLaunchChecklistInterface;
@@ -460,48 +455,36 @@ export function PreLaunchChecklistForDraftFeature({
     return <LoadingSpinner />;
   }
 
+  // Laid out as the start popover: hidden once nothing is left.
+  const showTodo =
+    experiment.status === "draft" &&
+    (summary.remaining > 0 || summary.flagged.length > 0);
+
   return (
-    <>
-      {experiment.status === "draft" ? (
+    <Flex direction="column" gap="3">
+      <Heading as="h4" size="sm" mb="0">
+        <Link href={`/experiment/${experiment.id}`} external>
+          {experiment.name}
+        </Link>
+      </Heading>
+      {details}
+      {showTodo ? (
         <>
-          <Flex align="center" gap="2" mb="3">
-            <Heading as="h4" size="sm" mb="0">
-              <Link href={`/experiment/${experiment.id}`} external>
-                {experiment.name}
-              </Link>
-            </Heading>
-            <ChecklistCountBadge
-              remaining={summary.remaining}
-              blocking={hasHardBlockers}
-            />
-          </Flex>
+          <Separator size="4" />
+          <ChecklistTodoHeading remaining={summary.remaining} />
           <ChecklistItems
             summary={summary}
-            size="md"
+            size="sm"
+            showCompleted
             onToggleManual={canEdit ? toggle : null}
           />
         </>
       ) : null}
       {toggleError ? (
-        <HelperText status="error" mt="2">
+        <HelperText status="error" size="sm">
           {toggleError}
         </HelperText>
       ) : null}
-      {hasHardBlockers ? (
-        <Callout status="error" my="3">
-          Please complete all required items to publish and start this
-          experiment.
-        </Callout>
-      ) : hasSoftBlockers ? (
-        <Callout status="warning" my="3">
-          Some recommended items are incomplete. Complete them first, or
-          acknowledge them to continue.
-        </Callout>
-      ) : (
-        <Callout status="success" my="3">
-          All required items are complete. The experiment is ready to start.
-        </Callout>
-      )}
-    </>
+    </Flex>
   );
 }

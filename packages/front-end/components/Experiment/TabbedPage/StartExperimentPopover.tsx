@@ -1,5 +1,5 @@
 import { ReactNode, useRef, useState } from "react";
-import { Flex, Grid, Separator } from "@radix-ui/themes";
+import { Flex, Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -13,7 +13,10 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import ScrollArea from "@/ui/ScrollArea";
-import { PreLaunchChecklistPanel } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import {
+  ChecklistTodoHeading,
+  PreLaunchChecklistPanel,
+} from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import { StartExperiment } from "./useStartExperiment";
 import useStartGate from "./useStartGate";
@@ -22,6 +25,8 @@ import {
   StartChecklistFailures,
   StartFailures,
   StartUpgradeCallout,
+  SummaryGrid,
+  SummaryRow,
 } from "./StartSections";
 import {
   hasStatusSchedule,
@@ -96,30 +101,6 @@ export default function StartExperimentPopover({
   );
 }
 
-function SummaryRow({
-  label,
-  children,
-  action = null,
-}: {
-  label: string;
-  children: ReactNode;
-  action?: ReactNode;
-}) {
-  return (
-    <>
-      <Text size="sm" color="text-mid">
-        {label}
-      </Text>
-      <Flex justify="between" align="baseline" gap="3">
-        <Text size="sm" color="text-high">
-          {children}
-        </Text>
-        {action}
-      </Flex>
-    </>
-  );
-}
-
 function StartContent({
   experiment,
   linkedFeatures,
@@ -183,12 +164,7 @@ function StartContent({
       ) : null}
       <StartUpgradeCallout upgrade={gate.upgrade} />
 
-      <Grid
-        columns="max-content minmax(0, 1fr)"
-        gapX="4"
-        gapY="2"
-        align="start"
-      >
+      <SummaryGrid>
         <SummaryRow
           label="Start"
           action={
@@ -208,24 +184,14 @@ function StartContent({
           {dateLabel ?? "Immediately"}
         </SummaryRow>
         {end ? <SummaryRow label="Ends">{end}</SummaryRow> : null}
-      </Grid>
+      </SummaryGrid>
 
       <Separator size="4" />
 
       {showTodo ? (
         <>
           <Flex direction="column" gap="3">
-            {/* Headed as on the details rail. */}
-            <Text
-              size="sm"
-              weight="medium"
-              color="text-low"
-              textTransform="uppercase"
-            >
-              {checklistItemsRemaining
-                ? `To do (${checklistItemsRemaining})`
-                : "To do"}
-            </Text>
+            <ChecklistTodoHeading remaining={checklistItemsRemaining} />
             {/* Bled out by the rows' hover tint, so the scroll box doesn't clip it. */}
             <ScrollArea
               gutter

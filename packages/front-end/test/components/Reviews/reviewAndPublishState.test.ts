@@ -20,6 +20,7 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
     adminPublish: false,
     hasSelectedExperiments: false,
     onlyScheduledSelected: false,
+    scheduledStartDay: null,
     experimentsStep: false,
     featureLockedByRamp: false,
     featureLockedBySchedule: false,
@@ -130,6 +131,18 @@ describe("getReviewAndPublishState", () => {
         }),
       );
       expect(s.ctaLabel).toBe("Schedule to Start");
+    });
+
+    it("names the day the scheduled starts share", () => {
+      const s = getReviewAndPublishState(
+        base({
+          hasSelectedExperiments: true,
+          experimentsStep: true,
+          onlyScheduledSelected: true,
+          scheduledStartDay: "Oct 29",
+        }),
+      );
+      expect(s.ctaLabel).toBe("Schedule to Start (Oct 29)");
     });
 
     it("requires admin bypass to publish through a ramp lockdown", () => {
