@@ -11,7 +11,7 @@ import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_THRESHOLD,
 } from "shared/constants";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretRight } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
@@ -248,7 +248,7 @@ export const DimensionIssues = ({
                           variations={variations}
                           srm={d.srm}
                         />
-                        <div className="mt-3">
+                        <Box mt="3">
                           {d.health !== "not-enough-traffic" ? (
                             <SRMWarning
                               srm={d.srm}
@@ -266,7 +266,7 @@ export const DimensionIssues = ({
                               </b>
                             </Callout>
                           )}
-                        </div>
+                        </Box>
                       </div>
                     </div>
                   </HealthCard>

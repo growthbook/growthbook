@@ -78,10 +78,21 @@ const focusFirstField: NonNullable<
 > = (e) => {
   const content = e.currentTarget as HTMLElement;
   e.preventDefault();
-  const field = content.querySelector<HTMLElement>(
+  const fields = content.querySelectorAll<HTMLElement>(
     "input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([disabled]), textarea:not([disabled]), [contenteditable='true']",
   );
-  (field ?? content).focus();
+  for (const field of Array.from(fields)) {
+    // Skips what keyboard focus skips, such as a dropzone's hidden input.
+    if (
+      field.getAttribute("tabindex")?.trim().startsWith("-") ||
+      !field.getClientRects().length
+    ) {
+      continue;
+    }
+    field.focus({ preventScroll: true });
+    if (document.activeElement === field) return;
+  }
+  content.focus({ preventScroll: true });
 };
 
 // ModalStandard is the opinionated wrapper around the composable Modal

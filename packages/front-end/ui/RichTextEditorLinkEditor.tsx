@@ -16,6 +16,7 @@ import Button from "@/ui/Button";
 import { Popover } from "@/ui/Popover";
 import TextField from "@/ui/TextField";
 import Text from "@/ui/Text";
+import { urlFromText } from "./RichTextEditorAutoLink";
 import styles from "./RichTextEditor.module.scss";
 
 export interface LinkTarget {
@@ -32,19 +33,6 @@ export interface LinkTarget {
   selection: RangeSelection | null;
   /** Hovering shows the address; editing shows the fields. */
   mode: "preview" | "edit";
-}
-
-/** A bare domain or address, with or without a scheme. */
-const URL_LIKE = /^(https?:\/\/\S+|(www\.)?[\w-]+(\.[\w-]+)+([/?#]\S*)?)$/i;
-
-/**
- * Treats a link-shaped selection as the destination, so selecting an address
- * and reaching for the link button fills the URL in rather than asking twice.
- */
-function urlFromText(text: string): string {
-  const trimmed = text.trim();
-  if (!URL_LIKE.test(trimmed)) return "";
-  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
 /**
@@ -70,6 +58,7 @@ export function useLinkTarget() {
         mode: "edit",
         selection: selection.clone(),
         node: link,
+        // A selected address fills the URL in, rather than asking twice.
         url: link ? link.getURL() : urlFromText(selected),
         title: link ? link.getTextContent() : selected,
       };
@@ -122,10 +111,15 @@ export default function RichTextEditorLinkEditor({
   // A ref, so dismissing always commits the latest values.
   const commit = useRef<() => void>(() => undefined);
   commit.current = () => {
-    const nextUrl = url.trim();
-    if (!nextUrl || (nextUrl === target.url && title.trim() === target.title)) {
+    const typedUrl = url.trim();
+    if (
+      !typedUrl ||
+      (typedUrl === target.url && title.trim() === target.title)
+    ) {
       return;
     }
+    // Without a scheme a domain would save as a path relative to the page.
+    const nextUrl = urlFromText(typedUrl) || typedUrl;
     const nextTitle = title.trim() || nextUrl;
 
     editor.update(() => {
@@ -180,13 +174,19 @@ export default function RichTextEditorLinkEditor({
       e.preventDefault();
       close(true);
     }
-    if (e.key === "Escape") onClose();
   };
+
+  // Radix reports outside clicks and focus here before dismissing, and
+  // Escape not at all: only leaving the card saves, Escape discards.
+  const leftCard = useRef(false);
 
   return (
     <Popover
       open
-      onOpenChange={(open) => !open && close(editing)}
+      onOpenChange={(open) => !open && close(editing && leftCard.current)}
+      onInteractOutside={() => {
+        leftCard.current = true;
+      }}
       anchorOnly
       triggerAsChild
       side="bottom"

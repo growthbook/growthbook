@@ -12,6 +12,7 @@ import {
 import {
   AUTO_LINK_TRANSFORMER,
   URL_MATCHERS,
+  urlFromText,
 } from "@/ui/RichTextEditorAutoLink";
 
 const transformers = [AUTO_LINK_TRANSFORMER, ...TRANSFORMERS];
@@ -61,5 +62,20 @@ describe("rich text bare URLs", () => {
     expect(roundTrip("[the docs](https://example.com/foo_bar)")).toBe(
       "[the docs](https://example.com/foo_bar)",
     );
+  });
+});
+
+describe("rich text link addresses", () => {
+  it("adds https to a bare domain and keeps a given scheme", () => {
+    expect(urlFromText(" docs.growthbook.io/setup ")).toBe(
+      "https://docs.growthbook.io/setup",
+    );
+    expect(urlFromText("http://example.com")).toBe("http://example.com");
+  });
+
+  it("leaves mail, anchor and path links to the caller", () => {
+    for (const text of ["mailto:a@example.com", "#setup", "/features"]) {
+      expect(urlFromText(text)).toBe("");
+    }
   });
 });

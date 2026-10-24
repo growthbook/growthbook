@@ -50,6 +50,8 @@ const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
     ref,
   ) => {
     const [shown, setShown] = useState(false);
+    // Otherwise a tooltip disabled while open reopens, unhovered, when enabled.
+    if (!enabled && shown) setShown(false);
 
     if (!enabled) {
       return <>{children}</>;

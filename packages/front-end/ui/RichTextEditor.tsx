@@ -29,7 +29,13 @@ import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import { AutoLinkNode, LinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
+import {
+  $isLinkNode,
+  $toggleLink,
+  AutoLinkNode,
+  LinkNode,
+} from "@lexical/link";
+import { $findMatchingParent } from "@lexical/utils";
 import {
   $createParagraphNode,
   $getRoot,
@@ -37,18 +43,20 @@ import {
   $insertNodes,
   $isRangeSelection,
   COMMAND_PRIORITY_LOW,
+  HISTORY_MERGE_TAG,
   PASTE_COMMAND,
   RootNode,
   type EditorState,
 } from "lexical";
 import { useDropzone } from "react-dropzone";
-import { IconButton } from "@radix-ui/themes";
+import { Box, IconButton } from "@radix-ui/themes";
 import { PiCaretDownBold, PiCaretUpBold } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getLinkLabelFromUrl } from "@/components/Markdown/markdownLinkUtils";
 import Collapse from "@/ui/Collapse";
+import HelperText from "@/ui/HelperText";
 import { Size } from "@/ui/sizes";
 import Tooltip from "@/ui/Tooltip";
 import {
@@ -195,10 +203,12 @@ function EditorBridge({
 function PasteAndDrop({
   allowImages,
   setUploading,
+  setUploadError,
   registerDrop,
 }: {
   allowImages: boolean;
   setUploading: (uploading: boolean) => void;
+  setUploadError: (message: string | null) => void;
   registerDrop: (handler: (files: File[]) => void) => void;
 }) {
   const [editor] = useLexicalComposerContext();
@@ -208,6 +218,7 @@ function PasteAndDrop({
     async (files: File[]) => {
       if (!allowImages || !files.length) return;
       setUploading(true);
+      setUploadError(null);
       try {
         const uploaded = await Promise.all(
           files.map(async (file) => {
@@ -217,17 +228,22 @@ function PasteAndDrop({
           }),
         );
         editor.update(() => {
-          const selection = $getSelection();
-          if (!$isRangeSelection(selection)) return;
+          // No caret, e.g. the toolbar was opened without clicking into the
+          // text: append, as the markdown field did.
+          if (!$getSelection()) $getRoot().selectEnd();
           $insertNodes(
             uploaded.map(({ src, alt }) => $createImageNode(src, alt)),
           );
         });
+      } catch (e) {
+        setUploadError(
+          e instanceof Error ? e.message : "Failed to upload image",
+        );
       } finally {
         setUploading(false);
       }
     },
-    [allowImages, apiCall, editor, setUploading],
+    [allowImages, apiCall, editor, setUploading, setUploadError],
   );
 
   useEffect(() => registerDrop(upload), [registerDrop, upload]);
@@ -258,10 +274,34 @@ function PasteAndDrop({
 
           // With nothing selected there is no text to become the link, so
           // seed it from the URL the way the markdown editor does.
-          if (selection.isCollapsed()) {
-            selection.insertText(getLinkLabelFromUrl(text));
+          const collapsed = selection.isCollapsed();
+          if (collapsed) {
+            const label = getLinkLabelFromUrl(text);
+            selection.insertText(label);
+            // It merges into the text around it: select just the label.
+            const caret = selection.anchor;
+            selection.anchor.set(
+              caret.key,
+              Math.max(0, caret.offset - label.length),
+              caret.type,
+            );
+            // Links don't nest, so inside one the URL stays text.
+            if ($findMatchingParent(selection.anchor.getNode(), $isLinkNode)) {
+              selection.insertText(text);
+              return true;
+            }
           }
-          editor.dispatchCommand(TOGGLE_LINK_COMMAND, text);
+          $toggleLink(text);
+          if (collapsed) {
+            // Typing carries on after the new link, not over its label.
+            const linked = $getSelection();
+            if ($isRangeSelection(linked)) {
+              $findMatchingParent(
+                linked.focus.getNode(),
+                $isLinkNode,
+              )?.selectNext(0, 0);
+            }
+          }
           return true;
         },
         COMMAND_PRIORITY_LOW,
@@ -281,8 +321,9 @@ function TrailingParagraphAfterCode() {
       const last = root.getLastChild();
       if ($isCodeNode(last)) last.insertAfter($createParagraphNode());
     };
-    // The value loaded at mount predates the transform.
-    editor.update(() => ensure($getRoot()));
+    // The value loaded at mount predates the transform. Merged into history,
+    // so this is neither an undo step nor a reported change.
+    editor.update(() => ensure($getRoot()), { tag: HISTORY_MERGE_TAG });
     return editor.registerNodeTransform(RootNode, ensure);
   }, [editor]);
   return null;
@@ -338,6 +379,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
   // What the editor last held, so a value we emitted doesn't loop back in.
   const lastMarkdown = useRef(value);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const { blockFileUploads } = useOrgSettings();
   const allowImages = !blockFileUploads;
 
@@ -364,7 +406,9 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     (editorState: EditorState) => {
       editorState.read(() => {
         const markdown = $convertToMarkdownString(MARKDOWN_TRANSFORMERS);
-        if (markdown === lastMarkdown.current) return;
+        // Trailing blank lines don't render, so they aren't an edit: the
+        // paragraph kept after a final code block adds one to a synced value.
+        if (markdown.trimEnd() === lastMarkdown.current.trimEnd()) return;
         lastMarkdown.current = markdown;
         onChange?.(markdown);
       });
@@ -468,6 +512,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
         <PasteAndDrop
           allowImages={allowImages}
           setUploading={setUploading}
+          setUploadError={setUploadError}
           registerDrop={registerDrop}
         />
         <ValueSync value={value} lastMarkdown={lastMarkdown} />
@@ -478,6 +523,13 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
           autoFocusAtEnd={autoFocusAtEnd}
         />
         {uploading ? <div className={styles.uploading}>Uploading…</div> : null}
+        {uploadError ? (
+          <Box px={size === "sm" ? "2" : "3"} pb={size === "sm" ? "2" : "3"}>
+            <HelperText status="error" size="sm">
+              {uploadError}
+            </HelperText>
+          </Box>
+        ) : null}
         {footer}
       </div>
     </LexicalComposer>

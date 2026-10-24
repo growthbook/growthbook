@@ -7,6 +7,7 @@ import {
   ExposureQuery,
 } from "shared/types/datasource";
 import clsx from "clsx";
+import { Box } from "@radix-ui/themes";
 import VariationUsersTable from "@/components/Experiment/TabbedPage/VariationUsersTable";
 import { HealthTabConfigParams } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
 import Callout from "@/ui/Callout";
@@ -123,7 +124,7 @@ export default function SRMCard({
                   srm={traffic.overall.srm}
                 />
               </div>
-              <div className="mt-3">
+              <Box mt="3">
                 <SRMWarningFooter
                   srm={traffic.overall.srm}
                   srmHealth={srmHealth}
@@ -131,7 +132,7 @@ export default function SRMCard({
                   users={traffic.overall.variationUnits}
                   isBandit={false}
                 />
-              </div>
+              </Box>
             </div>
           </div>
         </div>

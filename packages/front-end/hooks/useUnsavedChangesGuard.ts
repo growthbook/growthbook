@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import { createNavigationCancellation } from "@/components/FactTables/MetricEditor/navigationCancellation";
+
+function pathnameOf(url: string) {
+  return new URL(url, window.location.origin).pathname;
+}
 
 /**
- * While there are unsaved changes, links off the page ask first and closing or
- * reloading the tab warns. Same-page links (tabs, anchors) pass through.
- * `onLeave` runs once the user confirms, before navigating away.
+ * While there are unsaved changes, leaving the page (links, Back, router
+ * navigation) asks first and closing or reloading the tab warns. Same-page
+ * changes (tabs, anchors) pass through. `onLeave` runs once the user confirms,
+ * before navigating away.
  */
 export default function useUnsavedChangesGuard(
   hasUnsavedChanges: boolean,
@@ -56,13 +62,29 @@ export default function useUnsavedChangesGuard(
       setPendingHref(destination.href);
     };
 
+    // Back/forward and router.push. Anchor clicks never get here: onClick
+    // stops them before Next sees them. Compared against the router rather
+    // than the address bar, which Back has already changed.
+    const cancellation = createNavigationCancellation();
+    const onRouteChangeStart = (url: string, options: { shallow: boolean }) => {
+      if (navigationConfirmed.current) return;
+      if (pathnameOf(url) === pathnameOf(router.asPath)) return;
+      setPendingHref(url);
+      router.events.emit("routeChangeError", cancellation.error, url, options);
+      // Next's pages router only cancels a route change when a handler throws.
+      throw cancellation.error;
+    };
+
     window.addEventListener("beforeunload", onBeforeUnload);
     document.addEventListener("click", onClick, true);
+    router.events.on("routeChangeStart", onRouteChangeStart);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       document.removeEventListener("click", onClick, true);
+      router.events.off("routeChangeStart", onRouteChangeStart);
+      cancellation.dispose();
     };
-  }, [hasUnsavedChanges]);
+  }, [hasUnsavedChanges, router.asPath, router.events]);
 
   const allowUnload = useCallback(() => {
     navigationConfirmed.current = true;
