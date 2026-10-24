@@ -25,6 +25,7 @@ import {
   StandardFactMetricInterface,
 } from "shared/types/fact-table";
 import {
+  DEFAULT_IDENTIFIER_QUOTE,
   getAggregateFilters,
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
@@ -724,6 +725,7 @@ function getWHERE({
           }),
           // This isn't real SQL syntax for most dialects, but it should get the point across
           jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
+          identifierQuote: DEFAULT_IDENTIFIER_QUOTE,
           evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
           showSourceComment: true,
         })
@@ -1060,6 +1062,7 @@ function getFunnelPreviewSQL({
         emitEscapeClause: false,
       }),
       jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
+      identifierQuote: DEFAULT_IDENTIFIER_QUOTE,
       evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
     });
 

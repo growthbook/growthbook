@@ -218,7 +218,7 @@ export function getBanditStatisticsFactMetricCTE(
         .map((data) => {
           const alias = data.alias + "_";
           return `
-      , ${dialect.castToString(`'${data.id}'`)} as ${alias}id
+      , ${dialect.castToString(`'${dialect.escapeStringLiteral(data.id)}'`)} as ${alias}id
       , SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bps.users) AS ${alias}main_sum
       , SUM(bps.users) * (SUM(
         ${dialect.ifElse(

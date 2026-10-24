@@ -2,7 +2,7 @@ import type { DataSourceInterface } from "shared/types/datasource";
 import type { FactTableInterface } from "shared/types/fact-table";
 import type { ExplorationConfig } from "shared/validators";
 import { calculateProductAnalyticsDateRange } from "shared/enterprise";
-import { quoteIdentifier } from "shared/sql";
+import { assertSafeReadOnlySQL, quoteIdentifier } from "shared/sql";
 import type { ReqContext } from "back-end/types/request";
 import { createCompletedQuery } from "back-end/src/models/QueryModel";
 import {
@@ -11,6 +11,7 @@ import {
   runFreeFormQuery,
 } from "back-end/src/services/datasource";
 import { getFactTablesForDatasource } from "back-end/src/models/FactTableModel";
+import { assertSafeTablePathParts } from "back-end/src/integrations/sql/primitives/table-path";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -218,6 +219,11 @@ export async function previewWarehouseColumnValues(
     limit: number;
   },
 ): Promise<unknown> {
+  assertSafeTablePathParts(
+    input.databaseName,
+    input.tableSchema,
+    input.tableName,
+  );
   const integration = getSourceIntegrationObject(ctx, datasource);
   const q = getIntegrationIdentifierQuote(integration);
   const colList = input.columns.map((c) => quoteIdentifier(c, q)).join(", ");
@@ -231,6 +237,7 @@ export async function previewWarehouseColumnValues(
     : input.tableName;
 
   const sql = `SELECT DISTINCT ${colList} FROM ${tablePath} LIMIT ${input.limit}`;
+  assertSafeReadOnlySQL(sql);
 
   const { results, error } = await runFreeFormQuery(
     ctx,

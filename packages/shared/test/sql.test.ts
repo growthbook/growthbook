@@ -8,6 +8,7 @@ import {
   hasStartDateFilter,
   isMultiStatementSQL,
   isReadOnlySQL,
+  quoteIdentifier,
   stripTrailingSemicolon,
   usesBackslashStringEscapes,
 } from "../src/sql";
@@ -1011,4 +1012,11 @@ it("compiles a glob to the same LIKE clause as the equivalent operator", () => {
       matchers.stringMatch("url", operator as "starts_with", value),
     );
   }
+});
+
+describe("quoteIdentifier", () => {
+  it("doubles the quote character and backslashes", () => {
+    expect(quoteIdentifier("a`b\\", "`")).toBe("`a``b\\\\`");
+    expect(quoteIdentifier('my "col"', '"')).toBe('"my ""col"""');
+  });
 });

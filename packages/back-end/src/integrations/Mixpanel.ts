@@ -923,7 +923,7 @@ function is${name}(event) {
     if (end) {
       timeCheck += ` && event.time <= ${end.getTime()}`;
     }
-    return `event.name === "${experimentEvent}" && ${experimentIdCol} === "${id}" && ${timeCheck}`;
+    return `event.name === "${experimentEvent}" && ${experimentIdCol} === ${JSON.stringify(id)} && ${timeCheck}`;
   }
 
   private getMathHelperFunctions() {

@@ -1,3 +1,4 @@
+import { quoteIdentifier } from "shared/sql";
 import type {
   DataSourceInterface,
   DataSourceSettings,
@@ -539,7 +540,7 @@ export function getManagedWarehouseExposureQueryIdForAttribute({
 
 /** Quote a ClickHouse identifier (column/alias/JSON path segment) with backticks. */
 function chQuoteIdentifier(name: string): string {
-  return "`" + name.replace(/\\/g, "\\\\").replace(/`/g, "``") + "`";
+  return quoteIdentifier(name, "`");
 }
 
 const SAFE_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;

@@ -305,9 +305,16 @@ helpers.sqlstring = strictHelper(function (...args: unknown[]) {
   }
 
   const dialect = options?.data?.dialect as SqlDialect | undefined;
-  const escape =
-    dialect?.escapeStringLiteral ??
-    ((s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "''"));
-
-  return new Handlebars.SafeString("'" + escape(String(val)) + "'");
+  return new Handlebars.SafeString(
+    "'" + escapeTemplateStringLiteral(String(val), dialect) + "'",
+  );
 });
+
+export function escapeTemplateStringLiteral(
+  value: string,
+  dialect: SqlDialect | undefined,
+): string {
+  return dialect
+    ? dialect.escapeStringLiteral(value)
+    : value.replace(/\\/g, "\\\\").replace(/'/g, "''");
+}

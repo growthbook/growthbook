@@ -1,4 +1,7 @@
-import { explorationConfigReferencesColumn } from "shared/enterprise";
+import {
+  explorationConfigReferencesColumn,
+  getSqlExprRowFilterValues,
+} from "shared/enterprise";
 import { ExplorationConfig } from "shared/validators";
 
 const baseConfig = {
@@ -92,5 +95,37 @@ describe("explorationConfigReferencesColumn", () => {
         filters,
       ),
     ).toBe(false);
+  });
+});
+
+describe("getSqlExprRowFilterValues", () => {
+  it("finds sql_expr filters anywhere in a config except draft metrics", () => {
+    expect(
+      getSqlExprRowFilterValues({
+        dataset: {
+          values: [
+            {
+              rowFilters: [
+                { operator: "=", column: "country", values: ["US"] },
+                { operator: "sql_expr", values: ["amount > 10"] },
+              ],
+              draftMetric: {
+                numerator: {
+                  rowFilters: [{ operator: "sql_expr", values: ["1 = 1"] }],
+                },
+              },
+            },
+          ],
+        },
+        dimensions: [
+          {
+            dimensionType: "slice",
+            slices: [
+              { filters: [{ operator: "sql_expr", values: ["x IS NULL"] }] },
+            ],
+          },
+        ],
+      }),
+    ).toEqual(["amount > 10", "x IS NULL"]);
   });
 });
