@@ -590,7 +590,7 @@ export default {
   },
   java: {
     name: "Java SDK",
-    version: "0.11.2",
+    version: "0.11.3",
     github: "https://github.com/growthbook/growthbook-sdk-java",
     examples: [
       {
@@ -824,7 +824,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.3.3",
+    version: "1.3.4",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
