@@ -1,6 +1,5 @@
 import {
   canMaterializeLinkedChanges,
-  getAffectedEnvsForExperiment,
   getExperimentLinkageBlocker,
   PermissionError,
   type ExperimentLinkageBlocker,
@@ -31,40 +30,15 @@ import {
   removeRulesForDeletedExperiment,
 } from "./experiment-feature";
 
-export class LinkedChangesBlockedError extends BadRequestError {
-  blocker: ExperimentLinkageBlocker;
-  constructor(blocker: ExperimentLinkageBlocker, verb: string) {
-    super(
-      blocker === "temporary-rollout"
-        ? `This experiment's temporary rollout is still serving through its linked Feature Flags. Pass linkedChanges: "materialize" to keep the released variation as a permanent rule, or "remove" to stop serving it, before you ${verb} it.`
-        : `This experiment is running. Pass linkedChanges: "remove" to acknowledge that its linked changes stop serving when you ${verb} it.`,
-    );
-    this.blocker = blocker;
-  }
-}
-
-// Taking an experiment out of the payload, or putting it back, is a run-class
-// change on every environment its linked changes reach.
-export async function assertCanChangeServing(
-  context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface,
-): Promise<void> {
-  const linkedFeatures = await getFeaturesByIds(
-    context,
-    experiment.linkedFeatures ?? [],
+const linkedChangesBlocked = (
+  blocker: ExperimentLinkageBlocker,
+  verb: string,
+) =>
+  new BadRequestError(
+    blocker === "temporary-rollout"
+      ? `This experiment's temporary rollout is still serving through its linked Feature Flags. Pass linkedChanges: "materialize" to keep the released variation as a permanent rule, or "remove" to stop serving it, before you ${verb} it.`
+      : `This experiment is running. Pass linkedChanges: "remove" to acknowledge that its linked changes stop serving when you ${verb} it.`,
   );
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-}
 
 // Skipping an unreadable flag is how rules outlive their experiment.
 async function assertLinkedFlagsReadable(
@@ -116,7 +90,7 @@ async function resolveLinkedChanges(
   const info = await getLinkedFeatureInfo(context, experiment);
   const blocker = getExperimentLinkageBlocker(experiment, info);
   if (blocker && !linkedChanges) {
-    throw new LinkedChangesBlockedError(blocker, verb);
+    throw linkedChangesBlocked(blocker, verb);
   }
   if (linkedChanges !== "materialize") return false;
   if (!canMaterializeLinkedChanges(experiment, blocker)) {

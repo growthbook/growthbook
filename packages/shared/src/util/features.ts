@@ -312,8 +312,6 @@ export function validateJSONFeatureValue(
   }
 }
 
-const NUMBER_VALUE_PATTERN = /^-?[0-9]+(\.[0-9]+)?$/;
-
 // Rule values are stored as strings ("false", "10", '{"a":1}'); the SDK
 // payload builder parses that string per the feature's value type. Anything
 // that can carry a value as a raw JSON type (a ramp patch's `force` is typed
@@ -335,7 +333,7 @@ export function validateFeatureValue(
       throw new Error(prefix + 'Must be "true" or "false"');
     }
   } else if (type === "number") {
-    if (!value.match(NUMBER_VALUE_PATTERN)) {
+    if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
       throw new Error(prefix + "Must be a valid number");
     }
     const { valid, errors } = validateJSONFeatureValue(

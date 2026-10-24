@@ -41,6 +41,7 @@ import {
   assertExposureQueryDeclaresIdentifierType,
   toApiAssignmentQueryRef,
   resolveAnalysisIdentifierType,
+  linkedFeatureEnvStates,
 } from "shared/util";
 import {
   getBanditSRMValue,
@@ -132,7 +133,6 @@ import {
   LinkedChangeEnvState,
   LinkedChangeEnvStates,
   LinkedFeatureEnvInputs,
-  LinkedFeatureEnvState,
   LinkedFeatureInfo,
   LinkedFeaturePendingDraft,
   LinkedFeatureState,
@@ -254,6 +254,7 @@ import {
   InvalidTrackingKeyError,
 } from "back-end/src/util/errors";
 import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
+import { isoOrNull } from "back-end/src/services/experimentChanges/loadedBase";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   legacyDocDescribesPhase,
@@ -1258,40 +1259,6 @@ export async function syncVisualChangesetsAndUrlRedirectsForExperiment({
       ),
     );
   }
-}
-
-/**
- * Persists experiment changes and syncs linked visual changesets and URL
- * redirects when `variations` are in the changeset.
- */
-export async function updateExperimentAndSync({
-  context,
-  experiment,
-  changes,
-  bypassWebhooks = false,
-}: {
-  context: ReqContext | ApiReqContext;
-  experiment: ExperimentInterface;
-  changes: Changeset;
-  bypassWebhooks?: boolean;
-}): Promise<ExperimentInterface> {
-  const updated = await updateExperiment({
-    context,
-    experiment,
-    changes,
-    bypassWebhooks,
-  });
-
-  const shouldSyncLinked = changes.variations && updated;
-
-  if (shouldSyncLinked) {
-    await syncVisualChangesetsAndUrlRedirectsForExperiment({
-      context,
-      updated,
-    });
-  }
-
-  return updated;
 }
 
 export function updateExperimentBanditSettings({
@@ -2375,39 +2342,6 @@ export async function createSnapshot({
     metricMap,
     factTableMap,
   });
-}
-
-// Assigns a monotonic, non-colliding numeric `key` to any variation arriving
-// with an empty key. Existing (non-empty) keys are left untouched.
-// `existingKeys` is the set of keys already in use on the experiment.
-export function fillEmptyVariationKeys(
-  variations: Variation[],
-  existingKeys: Iterable<string>,
-): void {
-  if (!variations.some((v) => !v.key)) return;
-
-  const usedKeys = new Set(existingKeys);
-  let largestNumeric = -1;
-  for (const k of usedKeys) {
-    const n = Number(k);
-    if (
-      Number.isInteger(n) &&
-      n >= 0 &&
-      String(n) === k &&
-      n > largestNumeric
-    ) {
-      largestNumeric = n;
-    }
-  }
-  let nextKey = largestNumeric + 1;
-  for (const v of variations) {
-    if (!v.key) {
-      while (usedKeys.has(String(nextKey))) nextKey++;
-      v.key = String(nextKey);
-      usedKeys.add(v.key);
-      nextKey++;
-    }
-  }
 }
 
 const inUnitInterval = (n: number) => n >= 0 && n <= 1;
@@ -5755,25 +5689,10 @@ export async function getRefLinkedFeatureInfo({
         });
         return inputs;
       };
-      // The state each environment's inputs add up to.
       const buildEnvironmentStates = (
         from: MatchingRule[],
         revision?: FeatureRevisionInterface,
-      ) =>
-        Object.fromEntries(
-          Object.entries(buildEnvironmentInputs(from, revision)).map(
-            ([env, { flagEnabled, rule }]): [string, LinkedFeatureEnvState] => [
-              env,
-              rule === "missing"
-                ? "missing"
-                : !flagEnabled
-                  ? "disabled-env"
-                  : rule === "on"
-                    ? "active"
-                    : "disabled-rule",
-            ],
-          ),
-        );
+      ) => linkedFeatureEnvStates(buildEnvironmentInputs(from, revision));
       // Only a draft the feature actually resolved to stages its own enablement.
       const statesRevision =
         state === "draft" ? matchedDraftRevision : undefined;
@@ -5789,9 +5708,7 @@ export async function getRefLinkedFeatureInfo({
         draftFactsOf: DraftFacts,
       ): LinkedFeaturePendingDraft => ({
         version: revision.version,
-        dateUpdated: revision.dateUpdated
-          ? new Date(revision.dateUpdated).toISOString()
-          : null,
+        dateUpdated: isoOrNull(revision.dateUpdated),
         lockedBySchedule: isRevisionEditLockedBySchedule(revision),
         status: revision.status,
         values: refRuleValues(revisionMatches[0]?.rule),

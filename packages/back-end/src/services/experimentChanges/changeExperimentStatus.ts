@@ -10,6 +10,7 @@ import {
   Changeset,
   ExperimentResultsType,
 } from "shared/types/experiment";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   BuiltInChecklistItemKey,
   ChecklistStatus,
@@ -627,15 +628,15 @@ async function waivableApprovals(
   );
 }
 
-// The drafts a start would publish, as they stand now.
-async function pinLaunchDrafts(
+// The drafts a start would publish, each with its revision as it stands now.
+async function launchDraftRevisions(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) {
-  const pins: {
+  const drafts: {
     featureId: string;
     revisionVersion: number;
-    dateUpdated: Date;
+    revision: FeatureRevisionInterface | null;
   }[] = [];
   for (const { featureId, revisionVersion } of await getLaunchDrafts(
     context,
@@ -648,15 +649,21 @@ async function pinLaunchDrafts(
       feature: undefined,
       version: revisionVersion,
     });
-    if (revision) {
-      pins.push({
-        featureId,
-        revisionVersion,
-        dateUpdated: revision.dateUpdated,
-      });
-    }
+    drafts.push({ featureId, revisionVersion, revision });
   }
-  return pins;
+  return drafts;
+}
+
+async function pinLaunchDrafts(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+) {
+  return (await launchDraftRevisions(context, experiment)).flatMap(
+    ({ featureId, revisionVersion, revision }) =>
+      revision
+        ? [{ featureId, revisionVersion, dateUpdated: revision.dateUpdated }]
+        : [],
+  );
 }
 
 /**
@@ -674,30 +681,20 @@ export async function armedStartBypassStands(
     return false;
   }
   const pins = staged.pinnedDrafts ?? [];
-  for (const { featureId, revisionVersion } of await getLaunchDrafts(
-    armer,
-    experiment,
-  )) {
-    const pin = pins.find(
-      (p) => p.featureId === featureId && p.revisionVersion === revisionVersion,
-    );
-    if (!pin) return false;
-    const revision = await getRevision({
-      context: armer,
-      organization: armer.org.id,
-      featureId,
-      feature: undefined,
-      version: revisionVersion,
-    });
-    if (
-      !revision ||
-      new Date(revision.dateUpdated).getTime() !==
-        new Date(pin.dateUpdated).getTime()
-    ) {
-      return false;
-    }
-  }
-  return true;
+  return (await launchDraftRevisions(armer, experiment)).every(
+    ({ featureId, revisionVersion, revision }) => {
+      const pin = pins.find(
+        (p) =>
+          p.featureId === featureId && p.revisionVersion === revisionVersion,
+      );
+      return (
+        !!pin &&
+        !!revision &&
+        new Date(revision.dateUpdated).getTime() ===
+          new Date(pin.dateUpdated).getTime()
+      );
+    },
+  );
 }
 
 /** The open flag approvals a start by this principal would waive. */

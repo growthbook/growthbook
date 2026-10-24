@@ -933,14 +933,6 @@ export async function getFeature(
     : null;
 }
 
-// Not permission-filtered: tells a flag the caller can't read from one that's gone.
-export async function featureIdExists(
-  context: ReqContext | ApiReqContext,
-  id: string,
-): Promise<boolean> {
-  return !!(await FeatureModel.exists({ organization: context.org.id, id }));
-}
-
 export async function migrateDraft(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,

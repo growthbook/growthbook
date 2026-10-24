@@ -3,6 +3,8 @@ import isEqual from "lodash/isEqual";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
+  LinkedFeatureEnvInputs,
+  LinkedFeatureEnvState,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import {
@@ -268,6 +270,24 @@ export function canEditDeliveryInPlace(
 ): boolean {
   if (hasPendingScheduledStart(exp)) return false;
   return exp.status !== "running" || !experimentHasLinkedChanges(exp);
+}
+
+/** The state each environment's flag toggle and experiment rule add up to. */
+export function linkedFeatureEnvStates(
+  inputs: Record<string, LinkedFeatureEnvInputs>,
+): Record<string, LinkedFeatureEnvState> {
+  return Object.fromEntries(
+    Object.entries(inputs).map(([env, { flagEnabled, rule }]) => [
+      env,
+      rule === "missing"
+        ? "missing"
+        : !flagEnabled
+          ? "disabled-env"
+          : rule === "on"
+            ? "active"
+            : "disabled-rule",
+    ]),
+  );
 }
 
 export function experimentHasLiveLinkedChanges(

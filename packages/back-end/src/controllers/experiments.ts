@@ -8,7 +8,6 @@ import {
   getSnapshotAnalysis,
   isDefined,
   parseAssignmentQuerySelection,
-  type ExperimentLinkageBlocker,
   type LinkedChangesResolution,
 } from "shared/util";
 import {
@@ -123,9 +122,7 @@ import {
 import {
   archiveExperimentWithCleanup,
   deleteExperimentWithCleanup,
-  LinkedChangesBlockedError,
   unarchiveExperimentWithCleanup,
-  assertCanChangeServing,
 } from "back-end/src/services/experimentRemoval";
 import {
   createPastExperiments,
@@ -1642,25 +1639,15 @@ export async function postExperimentArchive(
     context.permissions.throwPermissionError();
   }
 
-  await assertCanChangeServing(context, experiment);
+  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
-  try {
-    await archiveExperimentWithCleanup({
-      context,
-      experiment,
-      linkedChanges: req.body?.linkedChanges,
-      eventAudit: res.locals.eventAudit,
-      audit: req.audit,
-    });
-  } catch (e) {
-    if (e instanceof LinkedChangesBlockedError) {
-      res
-        .status(400)
-        .json({ status: 400, message: e.message, blocker: e.blocker });
-      return;
-    }
-    throw e;
-  }
+  await archiveExperimentWithCleanup({
+    context,
+    experiment,
+    linkedChanges: req.body?.linkedChanges,
+    eventAudit: res.locals.eventAudit,
+    audit: req.audit,
+  });
 
   await req.audit({
     event: "experiment.archive",
@@ -1705,7 +1692,7 @@ export async function postExperimentUnarchive(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
-  await assertCanChangeServing(context, experiment);
+  await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
   try {
     await unarchiveExperimentWithCleanup({ context, experiment });
@@ -2645,8 +2632,7 @@ export async function deleteExperiment(
     { id: string }
   >,
   res: Response<
-    | { status: 200 }
-    | (PrivateApiErrorResponse & { blocker?: ExperimentLinkageBlocker }),
+    { status: 200 } | PrivateApiErrorResponse,
     EventUserForResponseLocals
   >,
 ) {
@@ -2678,23 +2664,13 @@ export async function deleteExperiment(
 
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
-  try {
-    await deleteExperimentWithCleanup({
-      context,
-      experiment,
-      linkedChanges: req.body?.linkedChanges,
-      eventAudit: res.locals.eventAudit,
-      audit: req.audit,
-    });
-  } catch (e) {
-    if (e instanceof LinkedChangesBlockedError) {
-      res
-        .status(400)
-        .json({ status: 400, message: e.message, blocker: e.blocker });
-      return;
-    }
-    throw e;
-  }
+  await deleteExperimentWithCleanup({
+    context,
+    experiment,
+    linkedChanges: req.body?.linkedChanges,
+    eventAudit: res.locals.eventAudit,
+    audit: req.audit,
+  });
 
   await req.audit({
     event: "experiment.delete",

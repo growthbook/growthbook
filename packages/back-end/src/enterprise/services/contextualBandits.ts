@@ -84,7 +84,11 @@ import { refreshLinkedFeaturePayloads } from "back-end/src/services/contextualBa
 import { findVisualChangesetsByContextualBandit } from "back-end/src/models/VisualChangesetModel";
 import { onContextualBanditVisualStateChanged } from "back-end/src/services/contextualBanditVisualState";
 import { computeContextualBanditStageAndSchedule } from "back-end/src/services/contextualBanditSchedule";
-import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
+import {
+  enableFootprintEnvironments,
+  resolveLinkTargetVersion,
+  scopeLinkedRefRule,
+} from "back-end/src/util/revisionRuleOps";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
   ContextualBanditResultsQueryRunner,
@@ -147,20 +151,6 @@ const isRuleForContextualBandit = (
 ) =>
   rule.type === "contextual-bandit-ref" &&
   rule.contextualBanditId === contextualBanditId;
-
-/** Revision a link edit lands on: an explicitly targeted open draft, otherwise a new draft branched off live. */
-function resolveLinkTargetVersion(
-  feature: FeatureInterface,
-  {
-    autoPublish,
-    draftVersion,
-    forceNewDraft,
-  }: { autoPublish?: boolean; draftVersion?: number; forceNewDraft?: boolean },
-): number {
-  return autoPublish || forceNewDraft
-    ? feature.version
-    : (draftVersion ?? feature.version);
-}
 
 /** Rules the edit gets applied on top of: the targeted draft's own rules, or live when a new draft will be branched off it. */
 async function getRulesForTargetVersion(
@@ -349,24 +339,10 @@ export async function linkFeatureToContextualBandit({
     context.permissions.throwPermissionError();
   }
 
-  let scopedRule: FeatureRule;
-  if (rule.allEnvironments === true) {
-    scopedRule = {
-      ...omit(rule, ["environments"]),
-      id: generateRuleId(),
-      allEnvironments: true,
-    } as FeatureRule;
-  } else if (
-    rule.allEnvironments === false &&
-    Array.isArray(rule.environments)
-  ) {
-    scopedRule = { ...rule, id: generateRuleId() } as FeatureRule;
-  } else {
-    scopedRule = stampRuleForEnvs(
-      { ...rule, id: generateRuleId() } as FeatureRule,
-      environments,
-    );
-  }
+  const scopedRule = scopeLinkedRefRule(
+    { ...rule, id: generateRuleId() } as FeatureRule,
+    environments,
+  );
 
   const ruleEnvFootprint = scopedRule.allEnvironments
     ? environments
@@ -401,33 +377,16 @@ export async function linkFeatureToContextualBandit({
   const revision = await getDraftRevision(context, feature, targetVersion);
 
   try {
-    const baseEnvEnabled: Record<string, boolean> = {
-      ...Object.fromEntries(
-        environments.map((e) => [
-          e,
-          feature.environmentSettings?.[e]?.enabled ?? false,
-        ]),
-      ),
-      ...(revision.environmentsEnabled ?? {}),
-    };
-    const envToggles: Record<string, boolean> = {};
-    for (const envId of ruleEnvFootprint) {
-      if (!environments.includes(envId)) continue;
-      if (!baseEnvEnabled[envId]) envToggles[envId] = true;
-    }
-
-    const existingRules = cloneDeep(revision.rules ?? []);
-    const nextRules = [...existingRules, scopedRule];
-
+    const environmentsEnabled = enableFootprintEnvironments(
+      feature,
+      revision,
+      environments,
+      ruleEnvFootprint,
+    );
     const combinedChanges: Partial<FeatureRevisionInterface> = {
-      rules: nextRules,
+      rules: [...cloneDeep(revision.rules ?? []), scopedRule],
+      ...(environmentsEnabled && { environmentsEnabled }),
     };
-    if (Object.keys(envToggles).length > 0) {
-      combinedChanges.environmentsEnabled = {
-        ...(revision.environmentsEnabled ?? {}),
-        ...envToggles,
-      };
-    }
     const bundlingIntoExistingDraft =
       !!draftVersion && !forceNewDraft && !autoPublish;
     if (!bundlingIntoExistingDraft && !revision.title) {
@@ -555,20 +514,10 @@ export async function updateContextualBanditFeatureRule({
     );
   }
 
-  let scopedRule: FeatureRule;
-  if (rule.allEnvironments === true) {
-    scopedRule = {
-      ...omit(rule, ["environments"]),
-      allEnvironments: true,
-    } as FeatureRule;
-  } else if (
-    rule.allEnvironments === false &&
-    Array.isArray(rule.environments)
-  ) {
-    scopedRule = { ...rule } as FeatureRule;
-  } else {
-    scopedRule = stampRuleForEnvs({ ...rule } as FeatureRule, environments);
-  }
+  const scopedRule = scopeLinkedRefRule(
+    { ...rule } as FeatureRule,
+    environments,
+  );
   assertScopedRules(
     context,
     [{ ...scopedRule, id: baselineRule.id }],

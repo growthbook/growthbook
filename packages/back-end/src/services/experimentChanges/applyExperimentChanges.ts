@@ -4,11 +4,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { EventUser } from "shared/types/events/event-types";
-import {
-  ACTIVE_DRAFT_STATUSES,
-  ExperimentChangesBody,
-  ExperimentRefRule,
-} from "shared/validators";
+import { ExperimentChangesBody, ExperimentRefRule } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import {
   getExperimentById,
@@ -33,7 +29,7 @@ import {
   ExperimentLinkedFeatureValueUpdate,
   planExperimentRuleEnvironments,
   updateExperimentRefVariations,
-  validateExperimentFeatureUpdates,
+  validateExperimentFeatureUpdate,
   validateExperimentFeatureVariations,
   linkFeatureToExperiment,
   assertFlagKeepable,
@@ -44,6 +40,7 @@ import {
 import {
   assertScopedRules,
   assertValidRuleWrite,
+  isDraftStatus,
   withStagedSchema,
 } from "back-end/src/api/features/validations";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
@@ -225,7 +222,7 @@ async function planFlagValues(
       !loaded ||
       (!startsDraft &&
         (isoOrNull(loaded.dateUpdated) !== loadedFrom.dateUpdated ||
-          !isEditableDraft(loaded)))
+          !isDraftStatus(loaded.status)))
     ) {
       throw changedSinceLoaded(`Feature Flag ${feature.id}`);
     }
@@ -240,25 +237,24 @@ async function planFlagValues(
         ...(entry.sparse !== undefined && { sparse: entry.sparse }),
         ...(entry.environments && { environments: entry.environments }),
         ...(entry.ruleIds && { ruleIds: entry.ruleIds }),
-        revisionOptions: startsDraft
-          ? { forceNewDraft: true }
-          : { targetVersion: loaded.version },
+        targetVersion: startsDraft ? null : loaded.version,
       };
       // Against the variations this save leaves, which the plan already vetted.
       validateExperimentFeatureVariations({
         variations: nextExperiment.variations,
         variationWeights: nextWeights,
-        experiment: nextExperiment,
-        features: { [feature.id]: update },
+        experimentType: nextExperiment.type,
+        featureId: feature.id,
+        update,
       });
-      const [plan] = await validateExperimentFeatureUpdates({
+      const plan = await validateExperimentFeatureUpdate({
         experiment,
-        features: { [feature.id]: update },
-        linkedFeatures: [feature],
+        feature,
+        update,
         context,
       });
       if (!plan) continue;
-      // Re-read inside validateExperimentFeatureUpdates; it must still be the one checked above.
+      // Re-read inside validateExperimentFeatureUpdate; it must still be the one checked above.
       if (
         plan.existingRevision &&
         isoOrNull(plan.existingRevision.dateUpdated) !== loadedFrom.dateUpdated
@@ -336,10 +332,6 @@ async function planFlagValues(
   return result;
 }
 
-function isEditableDraft(revision: FeatureRevisionInterface) {
-  return (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(revision.status);
-}
-
 async function writeFlagValues({
   context,
   plan,
@@ -383,7 +375,6 @@ async function writeFlagValues({
       sparse: update.sparse,
       ruleUpdates: scope?.ruleUpdate,
       user: eventAudit,
-      guardDateUpdated: true,
     });
     compensation.writtenDateUpdated = revision.dateUpdated;
 

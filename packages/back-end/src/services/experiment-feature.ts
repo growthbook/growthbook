@@ -3,7 +3,6 @@ import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DRAFT_REVISION_STATUSES,
-  autoMerge,
   AutoMergeResult,
   getEffectiveRevisionHoldout,
   getMatchingRules,
@@ -11,7 +10,6 @@ import {
   liveRevisionFromFeature,
   MatchingRule,
   mergeResultHasChanges,
-  reconcileMergeBaselines,
 } from "shared/util";
 import { isVariationWeightsSumValid } from "shared/experiments";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -28,7 +26,6 @@ import {
 } from "shared/validators";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { ApiReqContext } from "back-end/types/api";
-import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import {
   assessRevisionApproval,
   featureReviewRequired,
@@ -37,8 +34,8 @@ import {
 import {
   addLinkedExperiment,
   editFeatureRules,
-  featureIdExists,
   getFeature,
+  getFeatureProjectsByIds,
   prevalidatePublishRevision,
   publishRevision,
   updateFeature,
@@ -64,7 +61,11 @@ import {
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
-import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
+import {
+  enableFootprintEnvironments,
+  resolveLinkTargetVersion,
+  scopeLinkedRefRule,
+} from "back-end/src/util/revisionRuleOps";
 import {
   assertValidRuleWrite,
   withStagedSchema,
@@ -86,7 +87,6 @@ import { assertScheduledStartAllows } from "back-end/src/services/experimentChan
 export type ExperimentFeatureLinkResult = {
   version: number;
   published: boolean;
-  ruleId: string;
 };
 
 type ExperimentFeatureLinkOptions = {
@@ -116,7 +116,10 @@ export async function unlinkFlagFromExperiment(
 ): Promise<void> {
   const feature = await getFeature(context, featureId);
   // Only a flag that's gone is pruned unseen; one the caller can't read isn't.
-  if (!feature && (await featureIdExists(context, featureId))) {
+  if (
+    !feature &&
+    (await getFeatureProjectsByIds(context, [featureId])).has(featureId)
+  ) {
     context.permissions.throwPermissionError();
   }
   if (feature && !context.permissions.canEditFeatureDrafts(feature)) {
@@ -159,25 +162,10 @@ export async function linkFeatureToExperiment({
   }
   assertScheduledStartAllows(experiment, "linked Feature Flags");
 
-  // allEnvironments strips any stale environments[].
-  let scopedRule: FeatureRule;
-  if (rule.allEnvironments === true) {
-    scopedRule = {
-      ...omit(rule, ["environments"]),
-      id: generateRuleId(),
-      allEnvironments: true,
-    } as FeatureRule;
-  } else if (
-    rule.allEnvironments === false &&
-    Array.isArray(rule.environments)
-  ) {
-    scopedRule = { ...rule, id: generateRuleId() } as FeatureRule;
-  } else {
-    scopedRule = stampRuleForEnvs(
-      { ...rule, id: generateRuleId() } as FeatureRule,
-      environments,
-    );
-  }
+  const scopedRule = scopeLinkedRefRule(
+    { ...rule, id: generateRuleId() } as FeatureRule,
+    environments,
+  );
 
   await assertValidRuleWrite(
     context,
@@ -212,13 +200,15 @@ export async function linkFeatureToExperiment({
     rules: [scopedRule],
   });
 
-  // autoPublish always starts from live so the merge stays clean.
-  const targetVersion =
-    autoPublish || forceNewDraft
-      ? feature.version
-      : (draftVersion ?? feature.version);
-
-  const revision = await getDraftRevision(context, feature, targetVersion);
+  const revision = await getDraftRevision(
+    context,
+    feature,
+    resolveLinkTargetVersion(feature, {
+      autoPublish,
+      draftVersion,
+      forceNewDraft,
+    }),
+  );
 
   // If posting to a different revision, use the holdout from that revision
   // to check compatibility
@@ -308,37 +298,7 @@ export async function linkFeatureToExperiment({
     experiment,
   );
 
-  return {
-    version: updatedRevision.version,
-    published,
-    ruleId: scopedRule.id,
-  };
-}
-
-// One-way: a footprint environment that is off switches on; none switches off.
-function enableFootprintEnvironments(
-  feature: FeatureInterface,
-  revision: Pick<FeatureRevisionInterface, "environmentsEnabled">,
-  orgEnvironments: string[],
-  footprint: string[],
-): Record<string, boolean> | null {
-  const enabled: Record<string, boolean> = {
-    ...Object.fromEntries(
-      orgEnvironments.map((e) => [
-        e,
-        feature.environmentSettings?.[e]?.enabled ?? false,
-      ]),
-    ),
-    ...(revision.environmentsEnabled ?? {}),
-  };
-  const toggles = Object.fromEntries(
-    footprint
-      .filter((e) => orgEnvironments.includes(e) && !enabled[e])
-      .map((e) => [e, true]),
-  );
-  return Object.keys(toggles).length
-    ? { ...(revision.environmentsEnabled ?? {}), ...toggles }
-    : null;
+  return { version: updatedRevision.version, published };
 }
 
 async function mergeAndPublishRevision({
@@ -361,17 +321,12 @@ async function mergeAndPublishRevision({
     feature,
     revision,
   });
-  const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
+  const { mergeResult } = mergeDraftForAutoPublish(
+    context,
     feature,
+    revision,
     live,
     base,
-  );
-  const mergeResult = autoMerge(
-    mergeLive,
-    mergeBase,
-    revision,
-    context.environments,
-    {},
   );
   if (!mergeResult.success) throw new Error(conflictMessage);
   return publishRevision({
@@ -390,12 +345,6 @@ export type ExperimentFeatureUpdatePlan = {
   matchingRules: MatchingRule[];
 };
 
-export type ExperimentFeatureValueRevisionOptions = {
-  targetVersion?: number;
-  autoPublish?: boolean;
-  forceNewDraft?: boolean;
-};
-
 export type ExperimentLinkedFeatureValueUpdate = {
   variations: ExperimentRefVariation[];
   // JSON features only. When provided, sets the matching experiment-ref rule's
@@ -406,42 +355,26 @@ export type ExperimentLinkedFeatureValueUpdate = {
   environments?: ExperimentRuleEnvironments;
   /** Only these of the experiment's rules; omitted means all of them. */
   ruleIds?: string[];
-  revisionOptions: ExperimentFeatureValueRevisionOptions;
+  /** The open draft to write into; null starts a new draft off live. */
+  targetVersion: number | null;
 };
 
-function assertLinkedFeatureRevisionOptions(
-  featureId: string,
-  revisionOptions: ExperimentFeatureValueRevisionOptions | undefined,
-): asserts revisionOptions is ExperimentFeatureValueRevisionOptions {
-  if (revisionOptions === undefined) {
-    throw new Error(`Feature ${featureId}: revisionOptions is required`);
-  }
-  if (
-    revisionOptions.targetVersion === undefined &&
-    revisionOptions.autoPublish === undefined &&
-    revisionOptions.forceNewDraft === undefined
-  ) {
-    throw new Error(
-      `Feature ${featureId}: revisionOptions must set at least one of targetVersion, autoPublish, or forceNewDraft`,
-    );
-  }
-}
-
+// One flag's values against the experiment's variations and weights.
 export function validateExperimentFeatureVariations({
   variations,
   variationWeights,
-  experiment,
-  features,
+  experimentType,
+  featureId,
+  update,
 }: {
   variations: Variation[];
   variationWeights: number[];
-  experiment: ExperimentInterface;
-  features: Record<string, ExperimentLinkedFeatureValueUpdate>;
+  experimentType: ExperimentInterface["type"];
+  featureId: string;
+  update: Pick<ExperimentLinkedFeatureValueUpdate, "variations">;
 }) {
-  const existingVariations = experiment.variations;
-
   // A bandit sets its own weights, so they don't gate its values.
-  if (experiment.type !== "multi-armed-bandit") {
+  if (experimentType !== "multi-armed-bandit") {
     if (variations.length !== variationWeights.length) {
       throw new Error(
         "variations and variationWeights must be the same length.",
@@ -451,44 +384,22 @@ export function validateExperimentFeatureVariations({
       throw new Error("variationWeights must add up to 1.");
     }
   }
-  if (variations.length < existingVariations.length) {
-    throw new Error("Existing experiment variations cannot be removed.");
-  }
-  for (let i = 0; i < existingVariations.length; i++) {
-    const existingVariation = existingVariations[i];
-    const incomingVariation = variations[i];
-    if (
-      existingVariation?.id &&
-      (!incomingVariation || incomingVariation.id !== existingVariation.id)
-    ) {
-      throw new Error(
-        "Existing experiment variation IDs must remain unchanged. Only new variations can be added.",
-      );
-    }
-  }
-  if (
-    Object.values(features).some(
-      (v) => v.variations.length !== variations.length,
-    )
-  ) {
+  if (update.variations.length !== variations.length) {
     throw new Error("All features must specify values for all variations.");
   }
-  for (const [featureId, entry] of Object.entries(features)) {
-    const refVariations = entry.variations;
-    for (let i = 0; i < refVariations.length; i++) {
-      const expectedVariationId = variations[i]?.id;
-      if (!expectedVariationId) {
-        throw new Error(
-          `Variation at index ${i} is missing an id; ensure variations are normalized before validation.`,
-        );
-      }
-      if (refVariations[i].variationId !== expectedVariationId) {
-        throw new Error(
-          `Feature ${featureId}: experiment ref variation at index ${i} must use variationId "${expectedVariationId}".`,
-        );
-      }
+  update.variations.forEach((refVariation, i) => {
+    const expectedVariationId = variations[i]?.id;
+    if (!expectedVariationId) {
+      throw new Error(
+        `Variation at index ${i} is missing an id; ensure variations are normalized before validation.`,
+      );
     }
-  }
+    if (refVariation.variationId !== expectedVariationId) {
+      throw new Error(
+        `Feature ${featureId}: experiment ref variation at index ${i} must use variationId "${expectedVariationId}".`,
+      );
+    }
+  });
 }
 
 export async function updateExperimentRefVariations({
@@ -500,7 +411,6 @@ export async function updateExperimentRefVariations({
   sparse,
   ruleUpdates,
   user,
-  guardDateUpdated = false,
 }: {
   context: ReqContext;
   feature: FeatureInterface;
@@ -511,7 +421,6 @@ export async function updateExperimentRefVariations({
   // Other rule fields written with the values, e.g. its environment scope.
   ruleUpdates?: Partial<ExperimentRefRule>;
   user: EventUser;
-  guardDateUpdated?: boolean;
 }): Promise<FeatureRevisionInterface> {
   // Experiment-served values must satisfy the backing Config's schema +
   // invariants, the same as a direct feature publish — enforced here at
@@ -550,7 +459,7 @@ export async function updateExperimentRefVariations({
       ...(sparse !== undefined && { sparse }),
     },
     user,
-    { guardDateUpdated },
+    { guardDateUpdated: true },
   );
 
   if (!updatedRevision) {
@@ -574,116 +483,73 @@ function sameRuleEnvironments(
   );
 }
 
-export async function validateExperimentFeatureUpdates({
+// Null when the flag already holds these values.
+export async function validateExperimentFeatureUpdate({
   experiment,
-  features,
-  linkedFeatures,
+  feature,
+  update,
   context,
 }: {
   experiment: ExperimentInterface;
-  features: Record<string, ExperimentLinkedFeatureValueUpdate>;
-  linkedFeatures: FeatureInterface[];
+  feature: FeatureInterface;
+  update: ExperimentLinkedFeatureValueUpdate;
   context: ReqContext;
-}): Promise<ExperimentFeatureUpdatePlan[]> {
-  const plans: ExperimentFeatureUpdatePlan[] = [];
-
-  for (const feature of linkedFeatures) {
-    const entry = features[feature.id];
-    if (!entry) {
-      throw new Error(
-        `No feature value update provided for feature ${feature.id}`,
-      );
-    }
-    assertLinkedFeatureRevisionOptions(feature.id, entry.revisionOptions);
-    const { targetVersion, autoPublish, forceNewDraft } = entry.revisionOptions;
-
-    const useExistingRevision = targetVersion && !forceNewDraft && !autoPublish;
-
-    const revision = useExistingRevision
+}): Promise<ExperimentFeatureUpdatePlan | null> {
+  const { targetVersion } = update;
+  const revision =
+    targetVersion !== null
       ? await getDraftRevision(context, feature, targetVersion)
       : await getLiveRevisionForFeature(context, feature);
 
-    const onlyRuleIds = entry.ruleIds;
-    const matchingRules = getMatchingRules(
-      feature,
-      (r: FeatureRule) =>
-        r.type === "experiment-ref" &&
-        r.experimentId === experiment.id &&
-        (!onlyRuleIds || onlyRuleIds.includes(r.id)),
-      context.environments,
-      revision,
+  const onlyRuleIds = update.ruleIds;
+  const matchingRules = getMatchingRules(
+    feature,
+    (r: FeatureRule) =>
+      r.type === "experiment-ref" &&
+      r.experimentId === experiment.id &&
+      (!onlyRuleIds || onlyRuleIds.includes(r.id)),
+    context.environments,
+    revision,
+  );
+
+  if (!matchingRules.length)
+    throw new Error(
+      `No experiment-ref rules found for this experiment on feature ${feature.id}, version ${revision.version}`,
     );
-
-    if (!matchingRules.length)
-      throw new Error(
-        `No experiment-ref rules found for this experiment on feature ${feature.id}, version ${revision.version}`,
-      );
-    if (
-      onlyRuleIds?.some((id) => !matchingRules.some((m) => m.rule.id === id))
-    ) {
-      throw new Error(
-        `Feature ${feature.id}: one of the experiment's rules is no longer on version ${revision.version}.`,
-      );
-    }
-
-    const baselineVariations = (matchingRules[0].rule as ExperimentRefRule)
-      .variations;
-
-    for (let i = 1; i < matchingRules.length; i++) {
-      const rule = matchingRules[i].rule as ExperimentRefRule;
-      if (!isEqual(rule.variations, baselineVariations)) {
-        throw new Error(
-          `Feature ${feature.id}: variation values must be identical across all environments to edit feature values on an experiment.`,
-        );
-      }
-    }
-
-    const updatedVariationValues = entry.variations;
-    const featureNeedsUpdate = matchingRules.some((m: MatchingRule) => {
-      if (m.rule.type !== "experiment-ref") return false;
-      return (
-        !isEqual(m.rule.variations, updatedVariationValues) ||
-        (entry.sparse !== undefined && entry.sparse !== !!m.rule.sparse) ||
-        (!!entry.environments &&
-          !sameRuleEnvironments(m.rule, entry.environments))
-      );
-    });
-
-    if (!featureNeedsUpdate) continue;
-
-    if (autoPublish) {
-      if (
-        !context.permissions.canPublishFeature(
-          feature,
-          matchingRules.map((m) => m.environmentId),
-        )
-      ) {
-        context.permissions.throwPermissionError();
-      }
-
-      const ruleIds = Array.from(
-        new Set(
-          matchingRules
-            .map((m) => m.rule.id)
-            .filter((id): id is string => !!id),
-        ),
-      );
-      const projectedRevision = applyPartialFeatureRuleUpdatesToRevision(
-        revision,
-        ruleIds,
-        { variations: updatedVariationValues },
-      );
-      await assertCanAutoPublish(context, feature, projectedRevision);
-    }
-
-    plans.push({
-      feature,
-      existingRevision: useExistingRevision ? revision : undefined,
-      matchingRules,
-    });
+  if (onlyRuleIds?.some((id) => !matchingRules.some((m) => m.rule.id === id))) {
+    throw new Error(
+      `Feature ${feature.id}: one of the experiment's rules is no longer on version ${revision.version}.`,
+    );
   }
 
-  return plans;
+  const baselineVariations = (matchingRules[0].rule as ExperimentRefRule)
+    .variations;
+
+  for (let i = 1; i < matchingRules.length; i++) {
+    const rule = matchingRules[i].rule as ExperimentRefRule;
+    if (!isEqual(rule.variations, baselineVariations)) {
+      throw new Error(
+        `Feature ${feature.id}: variation values must be identical across all environments to edit feature values on an experiment.`,
+      );
+    }
+  }
+
+  const featureNeedsUpdate = matchingRules.some((m: MatchingRule) => {
+    if (m.rule.type !== "experiment-ref") return false;
+    return (
+      !isEqual(m.rule.variations, update.variations) ||
+      (update.sparse !== undefined && update.sparse !== !!m.rule.sparse) ||
+      (!!update.environments &&
+        !sameRuleEnvironments(m.rule, update.environments))
+    );
+  });
+  if (!featureNeedsUpdate) return null;
+
+  return {
+    feature,
+    existingRevision: targetVersion !== null ? revision : undefined,
+    matchingRules,
+  };
 }
 
 export type PendingDraftFailureReason =
@@ -847,7 +713,9 @@ export async function publishPendingFeatureDraftsForExperiment(
     const feature = await getFeature(context, featureId);
     if (!feature) {
       // Pruned only when deleted; unreadable fails the start.
-      if (await featureIdExists(context, featureId)) {
+      if (
+        (await getFeatureProjectsByIds(context, [featureId])).has(featureId)
+      ) {
         failed.push({ featureId, revisionVersion, reason: "publish-error" });
         continue;
       }

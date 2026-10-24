@@ -1,3 +1,4 @@
+import pickBy from "lodash/pickBy";
 import { z } from "zod";
 import {
   statsEngines,
@@ -303,11 +304,7 @@ export function stripUnknownRuleFields<T extends { type?: string }>(
   );
   if (!schema) return rule;
   const allowed = new Set(Object.keys(schema.shape));
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(rule)) {
-    if (allowed.has(k)) out[k] = v;
-  }
-  return out as T;
+  return pickBy(rule, (value, key) => allowed.has(key)) as T;
 }
 
 // Env-level settings only (kill switch + prerequisites). Rules live on
