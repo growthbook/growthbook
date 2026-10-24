@@ -20,7 +20,7 @@ export const athenaDialect: SqlDialect = {
     `date_diff('day', ${startCol}, ${endCol})`,
   castToFloat: (col: string) => `CAST(${col} AS double)`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
+    const raw = `json_extract_scalar(${jsonCol}, '$.${athenaDialect.escapeStringLiteral(path)}')`;
     return isNumeric ? athenaDialect.castToFloat(raw) : raw;
   },
   hasCountDistinctHLL: () => true,

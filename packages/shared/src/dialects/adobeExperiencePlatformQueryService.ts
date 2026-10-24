@@ -24,7 +24,7 @@ export const adobeExperiencePlatformQueryServiceDialect: SqlDialect = {
   percentileApprox: (col: string, percentile: number | string) =>
     `percentile_approx(${col}, ${percentile})`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = `get_json_object(${jsonCol}, '$.${path}')`;
+    const raw = `get_json_object(${jsonCol}, '$.${escapeStringLiteral(path)}')`;
     return isNumeric
       ? adobeExperiencePlatformQueryServiceDialect.castToFloat(raw)
       : raw;
