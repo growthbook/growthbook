@@ -96,6 +96,8 @@ describe("computeExperimentImpacts", () => {
       debias: false,
     });
     expect(lost.dailyImpact).toBe(8);
+    // Rolling back an increase in a lower-is-better metric is a gain
+    expect(lost.annualValue).toBe(-8 * -1 * DAYS_PER_YEAR);
   });
 
   it("flags snapshots that have results but no scaled analysis", () => {
@@ -139,6 +141,18 @@ describe("computeExperimentImpacts", () => {
     expect(shrunk).toBeLessThan(10);
     expect(shrunk).toBeGreaterThanOrEqual(0);
     expect(run(5, false)[0].dailyImpact).toBe(10);
+  });
+
+  it("counts only experiments with usable results toward the minimum", () => {
+    const [first] = computeExperimentImpacts({
+      experiments: ["a", "b", "c", "d", "e"].map((id) => exp(id, "won")),
+      // Two of the five have no scaled analysis
+      snapshots: ["a", "b", "c"].map((id, i) => snapshot(id, [10 + i])),
+      metricId: METRIC,
+      inverse: false,
+      debias: true,
+    });
+    expect(first.dailyImpact).toBe(10);
   });
 });
 

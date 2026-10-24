@@ -24,7 +24,7 @@ export type ExperimentImpactRow = {
   dailyImpact: number | null;
   dailyImpactSE: number | null;
   relativeLift: number | null;
-  // Value to the program: the gain for winners, the avoided loss for losers
+  // Value to the program, positive when good: the gain for winners, the avoided loss for losers
   annualValue: number | null;
   missingScaledImpact: boolean;
 };
@@ -108,7 +108,8 @@ export function computeExperimentImpacts({
     return { e, variations, missingScaledImpact };
   });
 
-  const applyDebias = debias && parsed.length >= MIN_EXPERIMENTS_TO_DEBIAS;
+  const usable = parsed.filter((p) => p.variations.some((v) => v)).length;
+  const applyDebias = debias && usable >= MIN_EXPERIMENTS_TO_DEBIAS;
   const adjustment = jamesSteinAdjustment(
     allImpacts,
     getStandardErrorFromLargestSample(samples) ?? 0,
@@ -137,12 +138,12 @@ export function computeExperimentImpacts({
       );
     }
     const dailyImpact = key ? shrink(key.impact) : null;
+    // Positive is good, so lower-is-better metrics flip sign
+    const direction = inverse ? -1 : 1;
     const value =
       dailyImpact === null || result === "other"
         ? null
-        : result === "won"
-          ? dailyImpact
-          : -dailyImpact;
+        : (result === "won" ? dailyImpact : -dailyImpact) * direction;
     return {
       id: e.id,
       name: e.name,

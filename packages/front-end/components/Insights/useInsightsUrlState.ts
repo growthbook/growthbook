@@ -19,13 +19,18 @@ function readString(value: string | string[] | undefined): string | null {
   return typeof value === "string" && value ? value : null;
 }
 
+// Pins All Projects in a link, so the viewer's sidebar Project doesn't apply
+const ALL_PROJECTS_PARAM = "all";
+
 // Page state lives in the URL, so a copied link reproduces the view
 export function useInsightsUrlState() {
   const router = useRouter();
   const { query } = router;
 
   const metricId = readString(query.metric) ?? "";
-  const project = readString(query.project);
+  const projectParam = readString(query.project);
+  // Null follows the sidebar's Project
+  const project = projectParam === ALL_PROJECTS_PARAM ? "" : projectParam;
   const debias = query.debias !== "0";
   const dateRange = useMemo<ExplorationDateRange>(() => {
     const lookback = Number(readString(query.lookback));
@@ -65,7 +70,7 @@ export function useInsightsUrlState() {
     [update],
   );
   const setProject = useCallback(
-    (id: string) => update({ project: id }),
+    (id: string) => update({ project: id || ALL_PROJECTS_PARAM }),
     [update],
   );
   const setDebias = useCallback(
@@ -84,12 +89,19 @@ export function useInsightsUrlState() {
     [update],
   );
 
+  // The current view, with the Project it resolved to written into the link
+  const getShareUrl = useCallback((resolvedProject: string) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("project", resolvedProject || ALL_PROJECTS_PARAM);
+    return url.toString();
+  }, []);
+
   return {
     ready: router.isReady,
+    project,
+    getShareUrl,
     metricId,
     setMetricId,
-    // Null until chosen, so the page can default to the global Project
-    project,
     setProject,
     debias,
     setDebias,
