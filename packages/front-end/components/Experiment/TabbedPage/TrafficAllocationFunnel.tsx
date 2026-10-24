@@ -168,7 +168,7 @@ function FunnelCard({
               <IconButton
                 className={styles.edit}
                 variant="ghost"
-                color="gray"
+                color="violet"
                 radius="full"
                 disabled={!!editBlockedReason}
                 onClick={() => onEdit()}

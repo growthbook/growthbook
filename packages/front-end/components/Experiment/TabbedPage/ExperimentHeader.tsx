@@ -1409,7 +1409,7 @@ export default function ExperimentHeader({
                   <IconButton
                     size="1"
                     variant="ghost"
-                    color={detailsOpen ? undefined : "gray"}
+                    color="gray"
                     style={{
                       // Ghost sizes itself from its padding; pin the box so
                       // the toggle does not shift as it flips.
