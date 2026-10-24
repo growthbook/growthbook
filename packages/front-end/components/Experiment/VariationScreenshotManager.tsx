@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Dispatch, SetStateAction, useMemo, useState } from "react";
 import clsx from "clsx";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
@@ -26,6 +26,7 @@ import Tooltip from "@/ui/Tooltip";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import placeholderStyles from "@/components/Experiment/VariationsTable.module.scss";
 import useSortableItem from "@/hooks/useSortableItem";
+import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import styles from "./VariationScreenshotManager.module.scss";
 
 const TILE_ASPECT = "1 / 1";
@@ -112,7 +113,8 @@ export default function VariationScreenshotManager({
   experiment: ExperimentInterfaceStringDates;
   variationIndex: number;
   screenshots: Screenshot[];
-  setScreenshots: (screenshots: Screenshot[]) => void;
+  // Updaters, since a multi-file drop adds them one at a time.
+  setScreenshots: Dispatch<SetStateAction<Screenshot[]>>;
   // The upload is already saved; the page's copy has to catch up before its save.
   mutate: () => void;
 }) {
@@ -137,6 +139,9 @@ export default function VariationScreenshotManager({
     [experiment, variationIndex, screenshots],
   );
   const [lightbox, setLightbox] = useState<number | null>(null);
+  // An upload writes straight to the stored variation at this index, which
+  // staged edits may have moved; their save would also drop it.
+  const uploadBlocked = useEditsBlockedReason();
 
   return (
     <Box>
@@ -146,10 +151,12 @@ export default function VariationScreenshotManager({
         collisionDetection={closestCenter}
         onDragEnd={({ active, over }) => {
           if (!over || active.id === over.id) return;
-          const oldIndex = screenshots.findIndex((s) => s.path === active.id);
-          const newIndex = screenshots.findIndex((s) => s.path === over.id);
-          if (oldIndex < 0 || newIndex < 0) return;
-          setScreenshots(arrayMove(screenshots, oldIndex, newIndex));
+          setScreenshots((prev) => {
+            const oldIndex = prev.findIndex((s) => s.path === active.id);
+            const newIndex = prev.findIndex((s) => s.path === over.id);
+            if (oldIndex < 0 || newIndex < 0) return prev;
+            return arrayMove(prev, oldIndex, newIndex);
+          });
         }}
       >
         <SortableContext
@@ -157,41 +164,64 @@ export default function VariationScreenshotManager({
           strategy={rectSortingStrategy}
         >
           <Grid columns="4" gap="4">
-            <ScreenshotUpload
-              experiment={experiment.id}
-              variation={variationIndex}
-              className={styles.gridUpload}
-              messageClassName={styles.gridUploadMessage}
-              message="Drop image here"
-              onSuccess={(_, screenshot) => {
-                setScreenshots([...screenshots, screenshot]);
-                mutate();
-              }}
-            >
-              <Flex
-                align="center"
-                justify="center"
-                width="100%"
-                className={clsx(
-                  "appbox mb-0",
-                  styles.uploadTile,
-                  placeholderStyles.noImageBox,
-                  placeholderStyles.noImageBoxEditable,
-                )}
-                style={{ aspectRatio: TILE_ASPECT, border: "none" }}
+            {uploadBlocked ? (
+              <Tooltip content={uploadBlocked} side="top">
+                <Flex
+                  align="center"
+                  justify="center"
+                  width="100%"
+                  className={clsx(
+                    "appbox mb-0",
+                    styles.uploadTile,
+                    placeholderStyles.noImageBox,
+                  )}
+                  style={{
+                    aspectRatio: TILE_ASPECT,
+                    border: "none",
+                    cursor: "not-allowed",
+                  }}
+                  aria-disabled
+                >
+                  <PiCameraPlusLight size={32} />
+                </Flex>
+              </Tooltip>
+            ) : (
+              <ScreenshotUpload
+                experiment={experiment.id}
+                variation={variationIndex}
+                className={styles.gridUpload}
+                messageClassName={styles.gridUploadMessage}
+                message="Drop image here"
+                onSuccess={(_, screenshot) => {
+                  setScreenshots((prev) => [...prev, screenshot]);
+                  mutate();
+                }}
               >
-                <PiCameraPlusLight size={32} />
-                <span className={styles.uploadHint}>Upload image</span>
-              </Flex>
-            </ScreenshotUpload>
+                <Flex
+                  align="center"
+                  justify="center"
+                  width="100%"
+                  className={clsx(
+                    "appbox mb-0",
+                    styles.uploadTile,
+                    placeholderStyles.noImageBox,
+                    placeholderStyles.noImageBoxEditable,
+                  )}
+                  style={{ aspectRatio: TILE_ASPECT, border: "none" }}
+                >
+                  <PiCameraPlusLight size={32} />
+                  <span className={styles.uploadHint}>Upload image</span>
+                </Flex>
+              </ScreenshotUpload>
+            )}
             {screenshots.map((s, i) => (
               <ScreenshotTile
                 key={s.path}
                 screenshot={s}
                 onOpen={() => setLightbox(i)}
                 onDelete={() =>
-                  setScreenshots(
-                    screenshots.filter((other) => other.path !== s.path),
+                  setScreenshots((prev) =>
+                    prev.filter((other) => other.path !== s.path),
                   )
                 }
               />

@@ -1,6 +1,9 @@
 import { MetricOverride } from "shared/validators";
 import { StatsEngine } from "shared/types/stats";
-import { DecisionFrameworkMetricOverrides } from "shared/types/experiment";
+import {
+  DecisionFrameworkMetricOverrides,
+  LegacyMetricOverride,
+} from "shared/types/experiment";
 
 export const METRIC_OVERRIDE_COLOR = "var(--blue-9)";
 // Outlines an overridden metric's chip; a border step reads alike in both modes.
@@ -176,4 +179,19 @@ export function getOverriddenMetricIds(
       .filter((o) => o.targetMDE !== undefined)
       .map((o) => o.id),
   ]);
+}
+
+/**
+ * Drops the window fields older saved overrides still carry alongside their
+ * replacements, which the override schema refuses.
+ */
+export function withoutDeprecatedOverrideFields(
+  overrides: LegacyMetricOverride[],
+): MetricOverride[] {
+  return overrides.map((override) => {
+    const current = { ...override };
+    delete current.conversionWindowHours;
+    delete current.conversionDelayHours;
+    return current;
+  });
 }

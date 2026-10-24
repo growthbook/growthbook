@@ -2,7 +2,7 @@ import React, { ReactNode, useMemo } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { PiInfo, PiXBold } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { useFieldArray, UseFormReturn } from "react-hook-form";
+import { FieldValues, useFieldArray, UseFormReturn } from "react-hook-form";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -20,6 +20,7 @@ import {
 } from "shared/experiments";
 import { OrganizationSettings } from "shared/types/organization";
 import { StatsEngine } from "shared/types/stats";
+import { MetricOverride } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -214,8 +215,8 @@ function OverrideCard({
   path: string;
   // A goal metric's target MDE, in percent, where the decision framework runs.
   targetMDEPath: string | null;
-  // eslint-disable-next-line
-  form: UseFormReturn<any>;
+  // Any form: `path` locates the override, wherever the host keeps it.
+  form: UseFormReturn<FieldValues>;
   metricDefinition: ExperimentMetricDefinition | null;
   allMetricDefinitions: ExperimentMetricDefinition[];
   highlighted: boolean;
@@ -229,7 +230,7 @@ function OverrideCard({
     Object.entries(values).forEach(([name, value]) =>
       form.setValue(field(name), value),
     );
-  const mo = form.watch(path);
+  const mo: MetricOverride = form.watch(path);
   const targetMDE: number | undefined = targetMDEPath
     ? form.watch(targetMDEPath)
     : undefined;
@@ -345,6 +346,7 @@ function OverrideCard({
         label={label}
         placeholder={placeholder}
         append={unit ? <Text color="text-low">{unit}</Text> : undefined}
+        error={form.getFieldState(field(name), form.formState).error?.message}
         {...extra}
         {...form.register(field(name), { valueAsNumber: true, ...rules })}
       />
@@ -523,7 +525,10 @@ function OverrideCard({
                     `Default ${defaultPrior.stddev}`,
                     {
                       disabled: !bayesian,
-                      rules: { validate: (v) => !((v ?? 0) <= 0) },
+                      rules: {
+                        validate: (v) =>
+                          !((v ?? 0) <= 0) || "Must be greater than 0",
+                      },
                     },
                   )}
                 </>
@@ -573,7 +578,14 @@ function OverrideCard({
                     min: 0,
                     step: undefined,
                     disabled: !hasRegressionAdjustmentFeature,
-                    rules: { validate: (v) => v === undefined || v > 0 },
+                    // Left empty, it follows the default.
+                    rules: {
+                      validate: (v) =>
+                        v === undefined ||
+                        Number.isNaN(v) ||
+                        v > 0 ||
+                        "Must be greater than 0",
+                    },
                   },
                 )
               ) : null}

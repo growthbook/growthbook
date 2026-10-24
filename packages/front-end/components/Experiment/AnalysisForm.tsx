@@ -63,6 +63,7 @@ import {
 } from "@/services/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
+import { withoutDeprecatedOverrideFields } from "@/services/metricOverrides";
 import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -554,6 +555,11 @@ const AnalysisForm: FC<{
         }
 
         if (stageChanges) {
+          if (body.metricOverrides) {
+            body.metricOverrides = withoutDeprecatedOverrideFields(
+              body.metricOverrides,
+            );
+          }
           // Strips anything outside the analysis settings.
           stageChanges(experimentAnalysisSettingsDraft.parse(body));
           return;

@@ -183,18 +183,20 @@ export default function BanditSummaryTable({
   const shrinkRows = variations.length > 8;
   const rowHeight = !shrinkRows ? ROW_HEIGHT : ROW_HEIGHT_CONDENSED;
 
-  // The container resizes with the window and as the details panel opens.
+  // The container resizes with the window and as the details panel opens. It
+  // only mounts once there are results, which can arrive after this does.
+  const hasResults = !!results;
   useEffect(() => {
-    if (!tableContainerRef.current) return;
+    if (!hasResults || !tableContainerRef.current) return;
     const resizeObserver = new ResizeObserver(() => onResize());
     resizeObserver.observe(tableContainerRef.current);
     const table = tableContainerRef.current.querySelector("table");
     if (table) resizeObserver.observe(table);
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [hasResults]);
   useLayoutEffect(onResize, [cellScale]);
   useEffect(onResize, [isTabActive]);
-  const overflowing = useIsOverflowingX(tableContainerRef, !!results);
+  const overflowing = useIsOverflowingX(tableContainerRef, hasResults);
 
   const {
     containerRef,

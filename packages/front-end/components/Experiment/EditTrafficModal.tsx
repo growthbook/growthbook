@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { distributeWeights } from "@/services/utils";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -21,7 +21,13 @@ export default function EditTrafficModal({
   const isBandit = experiment.type === "multi-armed-bandit";
   const variations = getLatestPhaseVariations(experiment);
   const [coverage, setCoverage] = useState(savedCoverage);
-  const [weights, setWeights] = useState(savedWeights);
+  // Legacy phases can store fewer weights than there are variations; a split
+  // that doesn't fit starts even, so every variation can be edited.
+  const [weights, setWeights] = useState(() =>
+    savedWeights.length === variations.length
+      ? savedWeights
+      : getEqualWeights(variations.length),
+  );
 
   return (
     <ModalStandard
@@ -54,7 +60,7 @@ export default function EditTrafficModal({
           variations={variations.map((v, i) => ({
             value: v.key || "",
             name: v.name,
-            weight: weights[i] ?? 0,
+            weight: weights[i],
             id: v.id,
           }))}
           showPreview

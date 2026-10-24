@@ -20,7 +20,13 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import {
+  formatAttributeOptionLabel,
+  toAttributeOption,
+} from "@/components/Features/AttributeOptionTooltip";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -148,10 +154,14 @@ export function getAutoExposureQueryId({
   return "";
 }
 
-// Not asked for at creation; changed afterwards on the Setup page.
-function defaultHashAttributeOf(hashAttributes: string[]): string {
-  if (hashAttributes.includes("id")) return "id";
-  return hashAttributes[0] ?? "id";
+// "id", or else the first attribute flagged for hashing. With none flagged the
+// form asks instead, starting from "id" only where the schema declares it.
+function defaultHashAttributeOf(
+  schema: { property: string; hashAttribute?: boolean }[],
+): string {
+  const hashable = schema.filter((a) => a.hashAttribute).map((a) => a.property);
+  if (hashable.length) return hashable.includes("id") ? "id" : hashable[0];
+  return !schema.length || schema.some((a) => a.property === "id") ? "id" : "";
 }
 
 /**
@@ -269,10 +279,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const initialProject = ctxProject || "";
 
   const initialAttributeSchema = useAttributeSchema(false, initialProject);
-  const initialHashAttributes = initialAttributeSchema
-    .filter((a) => a.hashAttribute)
-    .map((a) => a.property);
-  const initialHashAttribute = defaultHashAttributeOf(initialHashAttributes);
+  const initialHashAttribute = defaultHashAttributeOf(initialAttributeSchema);
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
@@ -296,11 +303,11 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
 
   // Re-scope the live options to the selected project
   const attributeSchema = useAttributeSchema(false, selectedProject);
-  const hashAttributes = attributeSchema
-    .filter((a) => a.hashAttribute)
-    .map((a) => a.property);
-  const hasHashAttributes = hashAttributes.length > 0;
-  const defaultHashAttribute = defaultHashAttributeOf(hashAttributes);
+  const hasHashAttributes = attributeSchema.some((a) => a.hashAttribute);
+  const defaultHashAttribute = defaultHashAttributeOf(attributeSchema);
+  // Usually left to the default and changed afterwards on the Setup page; with
+  // no attribute flagged for hashing, the default may be one no SDK sends.
+  const askHashAttribute = !hasHashAttributes && attributeSchema.length > 0;
 
   const { availableFields: customFields, value: customFieldValues } =
     useReconciledCustomFields({
@@ -368,6 +375,10 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       form.setValue("hashAttribute", holdoutHashAttribute);
     }
   }, [holdoutId, holdoutHashAttribute]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const hashAttributeHoldoutMismatch =
+    !!holdoutHashAttribute &&
+    form.watch("hashAttribute") !== holdoutHashAttribute;
 
   const watchedTemplateId = form.watch("templateId");
   const watchedTemplate = watchedTemplateId
@@ -442,6 +453,9 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
 
     const project = rawValue.project || "";
     const hashAttribute = rawValue.hashAttribute || defaultHashAttribute;
+    if (!hashAttribute) {
+      throw new Error("You must select an assignment attribute");
+    }
 
     const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
       sdkConnectionsData?.connections,
@@ -687,6 +701,36 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
         {...form.register("hypothesis")}
       />
+
+      {askHashAttribute && (
+        <SelectField
+          required
+          label={
+            <>
+              <Text weight="semibold" mb="1">
+                Assignment attribute
+              </Text>
+              <Text as="div" color="text-mid">
+                Will be hashed together with the tracking key to determine which
+                variation to assign
+              </Text>
+            </>
+          }
+          className={hashAttributeHoldoutMismatch ? "warning" : undefined}
+          value={form.watch("hashAttribute") ?? ""}
+          onChange={(v) => form.setValue("hashAttribute", v)}
+          options={attributeSchema.map(toAttributeOption)}
+          formatOptionLabel={formatAttributeOptionLabel}
+          helpText={
+            hashAttributeHoldoutMismatch ? (
+              <HelperText status="warning" size="sm" mt="2">
+                The hash attribute of this experiment does not match the hash
+                attribute of the holdout this experiment will belong to.
+              </HelperText>
+            ) : undefined
+          }
+        />
+      )}
 
       {customFields.length > 0 && (
         <CustomFieldInput

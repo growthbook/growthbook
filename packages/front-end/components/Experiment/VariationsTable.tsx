@@ -20,6 +20,7 @@ import VariationLabel from "@/ui/VariationLabel";
 import QuickEditButton, {
   revealsQuickEdit,
 } from "@/components/Experiment/TabbedPage/QuickEditButton";
+import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import styles from "./VariationsTable.module.scss";
 
 // A small marker, so an empty variation doesn't reserve screenshot-sized space.
@@ -134,7 +135,15 @@ interface Props {
   fill?: boolean;
 }
 
-function NoImageBox({ canEdit }: { canEdit?: boolean }) {
+function NoImageBox({
+  canEdit,
+  blockedReason = null,
+}: {
+  canEdit?: boolean;
+  /** Why an upload has to wait, shown on a disabled placeholder. */
+  blockedReason?: string | null;
+}) {
+  const uploadable = canEdit && !blockedReason;
   const box = (
     <Flex
       align="center"
@@ -142,7 +151,7 @@ function NoImageBox({ canEdit }: { canEdit?: boolean }) {
       className={clsx(
         "appbox mb-0",
         styles.noImageBox,
-        canEdit && styles.noImageBoxEditable,
+        uploadable && styles.noImageBoxEditable,
       )}
       flexShrink="0"
       style={{
@@ -151,7 +160,9 @@ function NoImageBox({ canEdit }: { canEdit?: boolean }) {
         height: NO_IMAGE_SIZE + "px",
         color: "var(--slate-8)",
         border: "none",
+        cursor: canEdit && blockedReason ? "not-allowed" : undefined,
       }}
+      aria-disabled={canEdit && blockedReason ? true : undefined}
     >
       {canEdit ? (
         <PiCameraPlusLight size="26px" />
@@ -162,7 +173,7 @@ function NoImageBox({ canEdit }: { canEdit?: boolean }) {
   );
 
   return canEdit ? (
-    <Tooltip content="Upload image" side="top">
+    <Tooltip content={blockedReason ?? "Upload image"} side="top">
       {box}
     </Tooltip>
   ) : (
@@ -210,6 +221,9 @@ export function VariationBox({
   onEditMetadata?: (variationIndex: number) => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
+  // The upload writes straight to the stored variation at index `i`, which
+  // staged edits may have moved; their save would also drop it.
+  const uploadBlocked = useEditsBlockedReason();
   const isBandit = experiment.type === "multi-armed-bandit";
   const shouldShowSplit = showSplit ?? !isBandit;
 
@@ -284,13 +298,17 @@ export function VariationBox({
                 {/* The upload wrapper is the flex item, so it holds the width. */}
                 <Box flexShrink="0" width={NO_IMAGE_SIZE + "px"}>
                   {canEdit && !blockFileUploads ? (
-                    <ScreenshotUpload
-                      variation={i}
-                      experiment={experiment.id}
-                      onSuccess={() => mutate?.()}
-                    >
-                      <NoImageBox canEdit={canEdit} />
-                    </ScreenshotUpload>
+                    uploadBlocked ? (
+                      <NoImageBox canEdit blockedReason={uploadBlocked} />
+                    ) : (
+                      <ScreenshotUpload
+                        variation={i}
+                        experiment={experiment.id}
+                        onSuccess={() => mutate?.()}
+                      >
+                        <NoImageBox canEdit />
+                      </ScreenshotUpload>
+                    )
                   ) : (
                     <NoImageBox canEdit={false} />
                   )}

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { experimentAnalysisSettingsDraft } from "shared/validators";
 import {
   describeMetricOverride,
   describeMetricSettings,
   getOverriddenMetricIds,
   MetricSettingsInput,
+  withoutDeprecatedOverrideFields,
 } from "@/services/metricOverrides";
 
 describe("describeMetricOverride", () => {
@@ -183,5 +185,30 @@ describe("describeMetricSettings", () => {
         regressionAdjustmentEnabled: false,
       }).map((r) => r.key),
     ).toEqual(["winRisk", "loseRisk", "prior"]);
+  });
+});
+
+describe("withoutDeprecatedOverrideFields", () => {
+  it("lets a legacy override through the draft schema, keeping its settings", () => {
+    const legacy = {
+      id: "met_a",
+      windowType: "conversion" as const,
+      windowHours: 72,
+      delayHours: 1,
+      conversionWindowHours: 72,
+      conversionDelayHours: 1,
+    };
+    expect(() =>
+      experimentAnalysisSettingsDraft.parse({ metricOverrides: [legacy] }),
+    ).toThrow();
+
+    expect(
+      experimentAnalysisSettingsDraft.parse({
+        metricOverrides: withoutDeprecatedOverrideFields([legacy]),
+      }).metricOverrides,
+    ).toEqual([
+      { id: "met_a", windowType: "conversion", windowHours: 72, delayHours: 1 },
+    ]);
+    expect(legacy.conversionWindowHours).toBe(72);
   });
 });
