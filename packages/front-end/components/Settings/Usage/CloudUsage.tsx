@@ -42,6 +42,7 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Heading from "@/ui/Heading";
+import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import track from "@/services/track";
@@ -335,88 +336,88 @@ export default function CloudUsage() {
   return (
     <Box position="relative">
       {!usage.length && <LoadingOverlay />}
-      <Flex gap="2" align="center" mb="4">
-        <Heading as="h1" size="xl" m="0">
-          CDN Usage
-        </Heading>
-        <Flex ml="auto" gap="4" align="center">
-          <DropdownMenu
-            disabled={!usage.length}
-            menuPlacement="end"
-            trigger={
-              <Button
-                variant="ghost"
-                icon={<PiDownloadSimple />}
-                disabled={!usage.length}
+      <SettingsPageHeader
+        title="CDN Usage"
+        actions={
+          <Flex gap="4" align="center">
+            <DropdownMenu
+              disabled={!usage.length}
+              menuPlacement="end"
+              trigger={
+                <Button
+                  variant="ghost"
+                  icon={<PiDownloadSimple />}
+                  disabled={!usage.length}
+                >
+                  Export CSV
+                </Button>
+              }
+            >
+              <DropdownMenuItem
+                onClick={() => {
+                  downloadCsv(
+                    usage.map((u) => ({
+                      // Trimmed, not re-parsed: the API sends "YYYY-MM-DD HH:mm:ss", which Date reads as local time
+                      date: u.date.substring(0, 10),
+                      requests: u.requests,
+                      // Raw bytes: full precision, unlike the page's rounded display
+                      bandwidth_bytes: u.bandwidth,
+                      managed_clickhouse_events: u.managedClickhouseEvents,
+                      event_forwarder_events: u.eventForwarderEvents,
+                    })),
+                    `cdn-usage-${month}.csv`,
+                  );
+                  track("Exported CDN Usage CSV", { breakdown: "totals" });
+                }}
               >
-                Export CSV
-              </Button>
-            }
-          >
-            <DropdownMenuItem
-              onClick={() => {
-                downloadCsv(
-                  usage.map((u) => ({
-                    // Trimmed, not re-parsed: the API sends "YYYY-MM-DD HH:mm:ss", which Date reads as local time
-                    date: u.date.substring(0, 10),
-                    requests: u.requests,
-                    // Raw bytes: full precision, unlike the page's rounded display
-                    bandwidth_bytes: u.bandwidth,
-                    managed_clickhouse_events: u.managedClickhouseEvents,
-                    event_forwarder_events: u.eventForwarderEvents,
-                  })),
-                  `cdn-usage-${month}.csv`,
-                );
-                track("Exported CDN Usage CSV", { breakdown: "totals" });
-              }}
-            >
-              Daily totals
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={!csvRows?.length}
-              onClick={() => {
-                if (!csvRows) return;
-                downloadCsv(
-                  csvRows.map((r) => {
-                    const connection = connectionsByKey.get(r.key);
-                    return {
-                      date: r.date.substring(0, 10),
-                      source:
-                        r.key === IMAGES_KEY
-                          ? "Visual Editor images"
-                          : (connection?.name ?? r.key),
-                      sdk_key: r.key === IMAGES_KEY ? "" : r.key,
-                      environment: connection?.environment ?? "",
-                      projects: !connection
-                        ? ""
-                        : connection.projects.length
-                          ? getProjectNames(connection.projects).join("; ")
-                          : "All Projects",
-                      type: r.type,
-                      requests: r.requests,
-                      bandwidth_bytes: r.bandwidth,
-                    };
-                  }),
-                  `cdn-usage-by-source-${month}.csv`,
-                );
-                track("Exported CDN Usage CSV", { breakdown: "source" });
-              }}
-            >
-              Daily by source
-            </DropdownMenuItem>
-          </DropdownMenu>
-          <Box width="160px">
-            <SelectField
-              size="small"
-              containerClassName="mb-0"
-              options={monthOptions}
-              value={monthsAgo + ""}
-              onChange={(value) => setMonthsAgo(parseInt(value))}
-              sort={false}
-            />
-          </Box>
-        </Flex>
-      </Flex>
+                Daily totals
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!csvRows?.length}
+                onClick={() => {
+                  if (!csvRows) return;
+                  downloadCsv(
+                    csvRows.map((r) => {
+                      const connection = connectionsByKey.get(r.key);
+                      return {
+                        date: r.date.substring(0, 10),
+                        source:
+                          r.key === IMAGES_KEY
+                            ? "Visual Editor images"
+                            : (connection?.name ?? r.key),
+                        sdk_key: r.key === IMAGES_KEY ? "" : r.key,
+                        environment: connection?.environment ?? "",
+                        projects: !connection
+                          ? ""
+                          : connection.projects.length
+                            ? getProjectNames(connection.projects).join("; ")
+                            : "All Projects",
+                        type: r.type,
+                        requests: r.requests,
+                        bandwidth_bytes: r.bandwidth,
+                      };
+                    }),
+                    `cdn-usage-by-source-${month}.csv`,
+                  );
+                  track("Exported CDN Usage CSV", { breakdown: "source" });
+                }}
+              >
+                Daily by source
+              </DropdownMenuItem>
+            </DropdownMenu>
+            <Box width="160px">
+              <SelectField
+                size="small"
+                containerClassName="mb-0"
+                options={monthOptions}
+                value={monthsAgo + ""}
+                onChange={(value) => setMonthsAgo(parseInt(value))}
+                sort={false}
+              />
+            </Box>
+          </Flex>
+        }
+      />
       <Flex gap="5" align="center" wrap="wrap" mb="4">
         <Text>
           <Text weight="semibold">Total requests:</Text>{" "}

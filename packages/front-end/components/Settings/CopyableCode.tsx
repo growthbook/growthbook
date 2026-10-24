@@ -10,9 +10,12 @@ import styles from "./CopyableCode.module.scss";
 export default function CopyableCode({
   value,
   muted = false,
+  framed = false,
 }: {
   value: string;
   muted?: boolean;
+  // A bordered chip with the copy icon always visible, for a standalone ID.
+  framed?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -68,7 +71,7 @@ export default function CopyableCode({
         trigger={
           <button
             type="button"
-            className={styles.value}
+            className={clsx(styles.value, framed && styles.framed)}
             aria-label={`Copy ${value}`}
             onClick={() => {
               performCopy(value);
@@ -90,6 +93,12 @@ export default function CopyableCode({
             >
               {value}
             </code>
+            {framed &&
+              (copied && copySuccess ? (
+                <PiCheck aria-hidden />
+              ) : (
+                <PiCopy aria-hidden />
+              ))}
           </button>
         }
       />

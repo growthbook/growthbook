@@ -163,9 +163,10 @@ const ShowLicenseInfo: FC<{
                     Upgrade
                   </Button>
                 )}
-                {license?.id?.startsWith("license") && (
-                  <RefreshLicenseButton setError={setRefreshError} />
-                )}
+                {permissionsUtil.canManageBilling() &&
+                  license?.id?.startsWith("license") && (
+                    <RefreshLicenseButton setError={setRefreshError} />
+                  )}
               </Flex>
               {refreshError && (
                 <HelperText status="error" mt="1">

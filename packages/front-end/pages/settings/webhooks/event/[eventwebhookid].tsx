@@ -8,6 +8,7 @@ import { EventWebHookLogsContainer } from "@/components/EventWebHooks/EventWebHo
 import useApi from "@/hooks/useApi";
 import SettingsPage from "@/components/Layout/SettingsPage";
 import Callout from "@/ui/Callout";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 const EventWebHookDetailPage: NextPage = () => {
   const router = useRouter();
@@ -27,8 +28,8 @@ const EventWebHookDetailPage: NextPage = () => {
   return (
     <SettingsPage
       title={title}
-      // The loaded webhook renders its own header.
-      hideHeader={!!eventWebHook}
+      // The webhook renders its own header; the page title only covers errors.
+      hideHeader={!error}
       breadcrumb={[
         { display: "Settings" },
         { display: "Organization" },
@@ -50,7 +51,9 @@ const EventWebHookDetailPage: NextPage = () => {
             <EventWebHookLogsContainer />
           </Box>
         </>
-      ) : null}
+      ) : (
+        <LoadingOverlay />
+      )}
     </SettingsPage>
   );
 };

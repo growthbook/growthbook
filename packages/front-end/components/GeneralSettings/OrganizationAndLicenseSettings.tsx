@@ -1,19 +1,15 @@
 import React, { useState } from "react";
 import { OrganizationInterface } from "shared/types/organization";
-import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
-import { PiCheck, PiCopy } from "react-icons/pi";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import HelperText from "@/ui/HelperText";
-import Text from "@/ui/Text";
 import { useSettingsForm } from "./SettingsFormProvider";
 import { SettingsField, SettingsGroup } from "./SettingsGroup";
-import styles from "./SettingsSection.module.scss";
 
 export default function OrganizationAndLicenseSettings({
   org,
@@ -23,9 +19,6 @@ export default function OrganizationAndLicenseSettings({
   const { license, users } = useUser();
   const { orgForm } = useSettingsForm();
   const permissions = usePermissions();
-  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
-    timeout: 1500,
-  });
   // this check isn't strictly necessary, as we check permissions accessing the settings page, but it's a good to be safe
   const canEdit = permissions.check("organizationSettings");
   const ownerEmail = orgForm.watch("ownerEmail");
@@ -99,27 +92,7 @@ export default function OrganizationAndLicenseSettings({
           label="Organization ID"
           help="Use this ID when contacting support or calling the API."
         >
-          {copySupported ? (
-            <button
-              type="button"
-              className={styles.codeChip}
-              aria-label="Copy organization ID"
-              title={copySuccess ? "Copied" : "Click to copy"}
-              onClick={() => org.id && performCopy(org.id)}
-            >
-              <Flex as="span" align="center" gap="2">
-                <Text mono>{org.id}</Text>
-                {copySuccess ? <PiCheck aria-hidden /> : <PiCopy aria-hidden />}
-              </Flex>
-            </button>
-          ) : (
-            <Box className={styles.codeChip}>
-              <Text mono>{org.id}</Text>
-            </Box>
-          )}
-          <VisuallyHidden role="status">
-            {copySuccess ? "Copied" : ""}
-          </VisuallyHidden>
+          <CopyableCode value={org.id ?? ""} framed />
         </SettingsField>
       </SettingsGroup>
       {(isCloud() || !isMultiOrg()) && (

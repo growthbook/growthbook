@@ -49,3 +49,30 @@
 .muted {
   color: var(--color-text-low);
 }
+
+// The chip look for a standalone ID, with the copy icon showing.
+.copyable .value.framed {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 10px;
+  max-width: 100%;
+  background-color: var(--slate-2);
+  border: 1px solid var(--slate-5);
+  border-radius: 4px;
+
+  &:hover,
+  &:focus-visible {
+    background-color: var(--slate-3);
+  }
+
+  .code {
+    font-size: 1em;
+  }
+
+  svg {
+    flex-shrink: 0;
+    color: var(--gray-11);
+  }
+}

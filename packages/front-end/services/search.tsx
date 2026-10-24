@@ -238,8 +238,13 @@ export function SortButton({
     <button
       type="button"
       onClick={onClick}
+      // Only the needed resets, so the browser's focus ring still shows.
       style={{
-        all: "unset",
+        background: "none",
+        border: 0,
+        padding: 0,
+        font: "inherit",
+        color: "inherit",
         cursor: "pointer",
         display: "inline-flex",
         alignItems: "center",

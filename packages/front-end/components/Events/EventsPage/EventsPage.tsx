@@ -3,7 +3,7 @@ import {
   EventInterface,
   NotificationEventName,
 } from "shared/types/events/event";
-import { PiCalendarBlank, PiCaretDown, PiDownloadSimple } from "react-icons/pi";
+import { PiDownloadSimple } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
@@ -11,6 +11,7 @@ import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Pagination from "@/components/Pagination";
 import { EventsTableRow } from "@/components/Events/EventsPage/EventsTableRow";
@@ -21,11 +22,11 @@ import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import { Popover } from "@/ui/Popover";
 import RadioGroup from "@/ui/RadioGroup";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Callout from "@/ui/Callout";
 import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
+import DateRangeTriggerPopover from "@/enterprise/components/ProductAnalytics/DateRangeTriggerPopover";
 import { ariaSort, SortButton } from "@/services/search";
 
 type EventsPageProps = {
@@ -60,6 +61,7 @@ export const EventsPage: FC<EventsPageProps> = ({
   const lastData = useRef(freshData);
   if (freshData) lastData.current = freshData;
   const data = freshData ?? lastData.current;
+  const refreshing = !freshData && !error;
 
   if (!data) {
     return <LoadingSpinner />;
@@ -109,59 +111,65 @@ export const EventsPage: FC<EventsPageProps> = ({
         </Callout>
       )}
 
-      <table className="mt-3 table gbtable table-hover appbox">
-        <thead>
-          <tr>
-            <th
-              style={{ width: 200 }}
-              aria-sort={ariaSort(sort.field === "dateCreated", sort.dir)}
-            >
-              <SortButton
-                active={sort.field === "dateCreated"}
-                dir={sort.dir}
-                subtle
-                onClick={() =>
-                  setSort({
-                    field: "dateCreated",
-                    dir: sort.dir * -1,
-                  })
-                }
-              >
-                Date
-              </SortButton>
-            </th>
-            <th>Type</th>
-            <th>By</th>
-            <th>Data</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {events.length === 0 ? (
-            // Empty state
-            <tr>
-              <td colSpan={5}>
-                {hasFilters ? (
-                  <div className="text-center">
-                    No events were found that match the filters.
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    No events were found. Events are created when users interact
-                    with the system.
-                  </div>
-                )}
-              </td>
-            </tr>
-          ) : (
-            <>
-              {events.map((event) => (
-                <EventsTableRow key={event.id} event={event} />
-              ))}
-            </>
-          )}
-        </tbody>
-      </table>
+      {/* On error, stale rows would read as a partial result, so they're hidden. */}
+      {!error && (
+        <Box position="relative" mt="3">
+          {refreshing && <LoadingOverlay />}
+          <table className="table gbtable appbox">
+            <thead>
+              <tr>
+                <th
+                  style={{ width: 200 }}
+                  aria-sort={ariaSort(sort.field === "dateCreated", sort.dir)}
+                >
+                  <SortButton
+                    active={sort.field === "dateCreated"}
+                    dir={sort.dir}
+                    subtle
+                    onClick={() =>
+                      setSort({
+                        field: "dateCreated",
+                        dir: sort.dir * -1,
+                      })
+                    }
+                  >
+                    Date
+                  </SortButton>
+                </th>
+                <th>Type</th>
+                <th>By</th>
+                <th>Data</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.length === 0 ? (
+                // Empty state
+                <tr>
+                  <td colSpan={5}>
+                    {hasFilters ? (
+                      <div className="text-center">
+                        No events were found that match the filters.
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        No events were found. Events are created when users
+                        interact with the system.
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                <>
+                  {events.map((event) => (
+                    <EventsTableRow key={event.id} event={event} />
+                  ))}
+                </>
+              )}
+            </tbody>
+          </table>
+        </Box>
+      )}
     </div>
   );
 };
@@ -186,18 +194,6 @@ const DATE_PRESETS = [
   { value: "30", label: "Last 30 days", days: 30 },
 ] as const;
 type DatePreset = (typeof DATE_PRESETS)[number]["value"] | "custom";
-
-function keepOpenForNestedPopover(e: {
-  target: EventTarget | null;
-  preventDefault: () => void;
-}) {
-  if (
-    e.target instanceof Element &&
-    e.target.closest("[data-radix-popper-content-wrapper]")
-  ) {
-    e.preventDefault();
-  }
-}
 
 // One control for the date filter: quick ranges, or a custom From/To.
 function DateRangeFilter({
@@ -228,101 +224,86 @@ function DateRangeFilter({
             : "All time";
 
   return (
-    <Popover
+    <DateRangeTriggerPopover
       open={open}
       onOpenChange={setOpen}
+      label={label ?? "All time"}
       align="end"
-      // The date pickers' calendars open in their own layer; using them
-      // shouldn't count as clicking outside and close this dropdown.
-      onInteractOutside={keepOpenForNestedPopover}
-      onFocusOutside={keepOpenForNestedPopover}
-      trigger={
-        <Button
-          variant="outline"
-          color="gray"
-          icon={<PiCalendarBlank />}
-          style={{ flexShrink: 0 }}
-        >
-          <Flex as="span" align="center" gap="2">
-            {label}
-            <PiCaretDown aria-hidden />
-          </Flex>
-        </Button>
-      }
-      content={
-        <Box width="300px">
-          <RadioGroup
-            options={DATE_PRESETS.map((p) => ({
-              value: p.value,
-              label: p.label,
-            }))}
-            value={preset === "custom" ? "" : preset}
-            setValue={(value) => {
-              const days =
-                DATE_PRESETS.find((p) => p.value === value)?.days ?? 0;
-              setPreset(value as DatePreset);
-              setFromDate(
-                days ? new Date(Date.now() - days * 86400000) : undefined,
-              );
-              setToDate(undefined);
-              setOpen(false);
-            }}
-          />
-          <Separator size="4" my="3" />
-          <Text as="div" weight="semibold" mb="2">
-            Custom range
-          </Text>
-          <Flex gap="2">
-            <Box flexGrow="1">
-              <Text
-                as="label"
-                htmlFor="events-from"
-                size="sm"
-                color="text-mid"
-                mb="1"
-              >
-                From
-              </Text>
-              <DatePicker
-                id="events-from"
-                size="md"
-                date={preset === "custom" ? fromDate : undefined}
-                setDate={(d) => {
-                  setPreset("custom");
-                  setFromDate(d);
-                }}
-                scheduleEndDate={toDate}
-                precision="date"
-                containerClassName=""
-              />
-            </Box>
-            <Box flexGrow="1">
-              <Text
-                as="label"
-                htmlFor="events-to"
-                size="sm"
-                color="text-mid"
-                mb="1"
-              >
-                To
-              </Text>
-              <DatePicker
-                id="events-to"
-                size="md"
-                date={toDate}
-                setDate={(d) => {
-                  setPreset("custom");
-                  setToDate(d);
-                }}
-                scheduleStartDate={fromDate}
-                precision="date"
-                containerClassName=""
-              />
-            </Box>
-          </Flex>
-        </Box>
-      }
-    />
+      panelWidth={324}
+    >
+      <Box p="3">
+        <RadioGroup
+          options={DATE_PRESETS.map((p) => ({
+            value: p.value,
+            label: p.label,
+          }))}
+          value={preset === "custom" ? "" : preset}
+          setValue={(value) => {
+            const days = DATE_PRESETS.find((p) => p.value === value)?.days ?? 0;
+            setPreset(value as DatePreset);
+            setFromDate(
+              days ? new Date(Date.now() - days * 86400000) : undefined,
+            );
+            setToDate(undefined);
+            setOpen(false);
+          }}
+        />
+        <Separator size="4" my="3" />
+        <Text as="div" weight="semibold" mb="2">
+          Custom range
+        </Text>
+        <Flex gap="2">
+          <Box flexGrow="1">
+            <Text
+              as="label"
+              htmlFor="events-from"
+              size="sm"
+              color="text-mid"
+              mb="1"
+            >
+              From
+            </Text>
+            <DatePicker
+              id="events-from"
+              size="md"
+              date={preset === "custom" ? fromDate : undefined}
+              setDate={(d) => {
+                setPreset("custom");
+                setFromDate(d);
+              }}
+              scheduleEndDate={toDate}
+              precision="date"
+              containerClassName=""
+            />
+          </Box>
+          <Box flexGrow="1">
+            <Text
+              as="label"
+              htmlFor="events-to"
+              size="sm"
+              color="text-mid"
+              mb="1"
+            >
+              To
+            </Text>
+            <DatePicker
+              id="events-to"
+              size="md"
+              date={toDate}
+              setDate={(d) => {
+                // A preset's From is hidden here, so it shouldn't linger.
+                if (preset !== "custom") setFromDate(undefined);
+                setPreset("custom");
+                setToDate(d);
+              }}
+              scheduleStartDate={fromDate}
+              precision="date"
+              containerClassName=""
+            />
+          </Box>
+        </Flex>
+      </Box>
+    </DateRangeTriggerPopover>
   );
 }
 
@@ -415,14 +396,14 @@ export const EventsPageContainer = () => {
           </Link>
         </Box>
       )}
-      <Box flexShrink="0">
+      <Flex align="center" gap="2" flexShrink="0">
+        <Text weight="semibold">Show</Text>
         <SelectField
           size="small"
+          aria-label="Events per page"
           // A fixed width, so the control doesn't grow when it opens.
           containerStyles={{ control: (base) => ({ ...base, width: 72 }) }}
-          containerClassName="d-flex align-items-center mb-0"
-          labelClassName="mr-2 mb-0"
-          label="Show"
+          containerClassName="mb-0"
           options={[
             {
               label: "10",
@@ -452,7 +433,7 @@ export const EventsPageContainer = () => {
             setPerPage(parseInt(v));
           }}
         />
-      </Box>
+      </Flex>
     </>
   );
 

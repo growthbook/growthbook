@@ -5,13 +5,13 @@ import {
 } from "shared/types/organization";
 import clsx from "clsx";
 import { Box, Flex, useThemeContext } from "@radix-ui/themes";
-import { PiMagnifyingGlass, PiPlus } from "react-icons/pi";
 import {
-  FaAngleDown,
-  FaAngleRight,
-  FaPencilAlt,
-  FaSpinner,
-} from "react-icons/fa";
+  PiCaretDown,
+  PiCaretRight,
+  PiMagnifyingGlass,
+  PiPencilSimple,
+  PiPlus,
+} from "react-icons/pi";
 import { date } from "shared/dates";
 import stringify from "json-stringify-pretty-compact";
 import Collapsible from "react-collapsible";
@@ -240,7 +240,7 @@ function OrganizationRow({
             }}
             style={{ lineHeight: "40px" }}
           >
-            <FaPencilAlt />
+            <PiPencilSimple />
           </a>
         </td>
         <td style={{ width: 40 }} className="p-0 text-center">
@@ -253,7 +253,7 @@ function OrganizationRow({
             }}
             style={{ fontSize: "1.2em", lineHeight: "40px" }}
           >
-            {expanded ? <FaAngleDown /> : <FaAngleRight />}
+            {expanded ? <PiCaretDown /> : <PiCaretRight />}
           </a>
         </td>
       </tr>
@@ -407,7 +407,7 @@ function OrganizationRow({
               <Collapsible
                 trigger={
                   <h3>
-                    Other Attributes <FaAngleRight className="chevron" />
+                    Other Attributes <PiCaretRight className="chevron" />
                   </h3>
                 }
                 transitionTime={150}
@@ -419,7 +419,7 @@ function OrganizationRow({
               <Collapsible
                 trigger={
                   <h3>
-                    Settings <FaAngleRight className="chevron" />
+                    Settings <PiCaretRight className="chevron" />
                   </h3>
                 }
                 transitionTime={150}
@@ -430,7 +430,7 @@ function OrganizationRow({
             <Collapsible
               trigger={
                 <h3>
-                  Members <FaAngleRight className="chevron" />
+                  Members <PiCaretRight className="chevron" />
                 </h3>
               }
               transitionTime={150}
@@ -454,12 +454,12 @@ function OrganizationRow({
                 <Collapsible
                   trigger={
                     <h3>
-                      License <FaAngleRight className="chevron" />
+                      License <PiCaretRight className="chevron" />
                     </h3>
                   }
                   transitionTime={150}
                 >
-                  {licenseLoading && <FaSpinner />}
+                  {licenseLoading && <LoadingSpinner />}
                   {(license && (
                     <Code language="json" code={stringify(license)} />
                   )) ||
@@ -520,7 +520,7 @@ function MemberRow({
             }}
             style={{ lineHeight: "40px" }}
           >
-            <FaPencilAlt />
+            <PiPencilSimple />
           </a>
         </td>
         <td style={{ width: 40 }} className="p-0 text-center">
@@ -533,7 +533,7 @@ function MemberRow({
             }}
             style={{ fontSize: "1.2em", lineHeight: "40px" }}
           >
-            {expanded ? <FaAngleDown /> : <FaAngleRight />}
+            {expanded ? <PiCaretDown /> : <PiCaretRight />}
           </a>
         </td>
       </tr>
