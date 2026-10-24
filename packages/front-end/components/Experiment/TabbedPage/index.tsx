@@ -746,8 +746,8 @@ export default function TabbedPage({
       </div>
 
       {tab !== "dashboards" && !showDashboardView && (
-        <div className="mt-4 px-4 border-top pb-3">
-          <div className="pt-2 pt-4 pb-5 container pagecontents">
+        <div className="mt-4 border-top pb-3 page-bleed">
+          <div className="pt-4 pb-5">
             <div className="h3 mb-4">Comments</div>
             <DiscussionThread
               type="experiment"

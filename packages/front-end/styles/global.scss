@@ -252,6 +252,16 @@ html.app-drawer-open body {
   @include page-padding-motion(padding-left, padding-right);
 }
 
+// Reaches past the wrapper's padding to the page's edges (backgrounds,
+// borders, sticky bars), keeping what's inside in line with the page.
+.page-bleed {
+  margin-left: calc(-1 * var(--page-padding));
+  margin-right: calc(-1 * var(--page-padding));
+  padding-left: var(--page-padding);
+  padding-right: var(--page-padding);
+  @include page-padding-motion(margin, padding);
+}
+
 .contents {
   padding: 15px;
 }
