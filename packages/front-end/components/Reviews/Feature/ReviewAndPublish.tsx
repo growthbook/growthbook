@@ -1205,6 +1205,9 @@ export default function ReviewAndPublish({
 
   // Only the experiments going out with this publish have checklists to show.
   const hasChecklistStep = selectedExperiments.size > 0;
+  const unstartedExperiments = experiments.filter(
+    (e) => !selectedExperiments.has(e.id),
+  );
 
   const openChecklistStep = useCallback(() => {
     checklistStateRef.current.clear();
@@ -2861,6 +2864,17 @@ export default function ReviewAndPublish({
                   canReviewerPublish={hasPublishPermission}
                   publishBlocked={reviewerPublishBlocked}
                   publishHasMoreSteps={hasChecklistStep}
+                  publishNote={
+                    unstartedExperiments.length ? (
+                      <>
+                        Publishing doesn&apos;t start{" "}
+                        <strong>
+                          {unstartedExperiments.map((e) => e.name).join(", ")}
+                        </strong>
+                        .
+                      </>
+                    ) : null
+                  }
                   isBlockedContributor={!!isBlockedContributor}
                   onSuccess={async (opts) => {
                     let publishedViaArming = false;
