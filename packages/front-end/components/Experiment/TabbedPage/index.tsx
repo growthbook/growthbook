@@ -64,6 +64,7 @@ import {
   HoldoutDraft,
   stagedEditsScope,
   useExperimentEdits,
+  useEditBase,
   useRegisterExperimentEdit,
   useStagedState,
 } from "./ExperimentEdits";
@@ -198,11 +199,19 @@ function TabbedPageContents({
   const [stagedHoldout, setStagedHoldout] = useStagedState<
     HoldoutDraft["value"]
   >("holdout", null);
+  const [holdoutBase, rebaseHoldout] = useEditBase(
+    "holdout",
+    stagedHoldout !== null,
+    () => experiment,
+  );
   useRegisterExperimentEdit("holdout", stagedHoldout !== null, {
     label: "Holdout",
+    rebase: rebaseHoldout,
     changes: () =>
       stagedHoldout !== null
-        ? experimentFieldChanges(experiment, { holdoutId: stagedHoldout })
+        ? experimentFieldChanges(holdoutBase ?? experiment, {
+            holdoutId: stagedHoldout,
+          })
         : {},
     onSaved: () => setStagedHoldout(null),
     discard: () => setStagedHoldout(null),
@@ -412,6 +421,7 @@ function TabbedPageContents({
   const { canEdit: canEditExperiment } = useExperimentEditing(
     experiment,
     viewingOldPhase,
+    holdout,
   );
 
   const setTabAndScroll = (tab: ExperimentTab, scrollToId?: string) => {

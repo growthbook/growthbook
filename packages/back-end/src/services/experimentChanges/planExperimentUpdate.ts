@@ -318,6 +318,17 @@ export async function planExperimentUpdate(
   if (data.variations) {
     validateVariationIds(data.variations);
   }
+  // One split per variation: a variation added or removed brings its own.
+  const variationCount = (data.variations ?? experiment.variations).length;
+  if (
+    data.variationWeights
+      ? data.variationWeights.length !== variationCount
+      : variationCount !== experiment.variations.length
+  ) {
+    throw new BadRequestError(
+      "Adding or removing a variation needs a traffic split with one weight per variation.",
+    );
+  }
 
   const { changesLivePayload, changedFields: changedPayloadFields } =
     getLivePayloadChanges(experiment, {

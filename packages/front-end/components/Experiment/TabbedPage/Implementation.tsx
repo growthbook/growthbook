@@ -66,6 +66,7 @@ import {
   FlagEnvironmentsDraft,
   HoldoutDraft,
   useExperimentEdits,
+  useEditBase,
   useRegisterExperimentEdit,
   useStagedState,
 } from "./ExperimentEdits";
@@ -189,10 +190,16 @@ export default function Implementation({
     }),
     [environmentScopes, setEnvironmentScopes],
   );
+  const [variationsBase, rebaseVariations] = useEditBase(
+    "variations",
+    !!variationsDraft,
+    () => experiment,
+  );
   useRegisterExperimentEdit("variations", !!variationsDraft, {
     label: "Variations",
+    rebase: rebaseVariations,
     changes: () =>
-      experimentFieldChanges(experiment, {
+      experimentFieldChanges(variationsBase ?? experiment, {
         variations: variationsDraft ?? experiment.variations,
         // The split the page shows, so both writes agree on the count.
         variationWeights:
@@ -482,18 +489,25 @@ export default function Implementation({
               experiment={stagedExperiment}
               stageVariations={setVariationsDraft}
               flagEnvironments={flagEnvironments}
-              editTargeting={pendingScheduledStart ? null : editTargeting}
+              editTargeting={
+                pendingScheduledStart || !canEdit ? null : editTargeting
+              }
               targetingDraft={targetingDraft}
-              editNamespace={pendingScheduledStart ? null : editNamespace}
-              canAddVariation={!pendingScheduledStart && !!canAddVariation}
+              editNamespace={
+                pendingScheduledStart || !canEdit ? null : editNamespace
+              }
+              canAddVariation={
+                !pendingScheduledStart && canEdit && !!canAddVariation
+              }
               editVariationKeys={() => setEditingKeys(true)}
-              canEditExperiment={canEditExperiment}
+              // Viewing an old phase, nothing here changes.
+              canEditExperiment={canEdit}
               safeToEdit={safeToEdit}
               phaseIndex={phases.length - 1}
               linkedFeatures={linkedFeatures}
               // Values land in drafts in every status; publishing them is what
               // goes through review.
-              canEditFlagValues={canEditExperiment}
+              canEditFlagValues={canEdit}
               implementationColumns={implementationColumns}
               addImplementation={addImplementation}
             />
@@ -503,7 +517,7 @@ export default function Implementation({
               </Heading>
               <VariationsTable
                 experiment={stagedExperiment}
-                canEditExperiment={canEditExperiment}
+                canEditExperiment={canEdit}
                 onEditMetadata={setEditMetadataIndex}
                 mutate={mutate}
                 showSplit={false}

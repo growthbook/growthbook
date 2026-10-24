@@ -38,7 +38,8 @@ export default function UnsavedEditsBar() {
                 />
               </Box>
             </Flex>
-          ) : edits.error ? (
+          ) : null}
+          {edits.error ? (
             <HelperText status="error" size="sm">
               {edits.error}
             </HelperText>

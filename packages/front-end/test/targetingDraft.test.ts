@@ -1,5 +1,8 @@
 import { ExperimentTargetingData } from "shared/types/experiment";
-import { onlyTrafficChanged } from "@/components/Experiment/TabbedPage/targetingDraft";
+import {
+  mergeStagedTargeting,
+  onlyTrafficChanged,
+} from "@/components/Experiment/TabbedPage/targetingDraft";
 
 const stored: ExperimentTargetingData = {
   condition: "",
@@ -46,5 +49,32 @@ describe("onlyTrafficChanged", () => {
         stored,
       ),
     ).toBe(false);
+  });
+});
+
+describe("mergeStagedTargeting", () => {
+  it("keeps mine, takes theirs elsewhere, and agrees where both match", () => {
+    const { merged, contested } = mergeStagedTargeting(
+      stored,
+      { ...stored, condition: '{"country":"US"}', coverage: 0.5 },
+      { ...stored, trackingKey: "renamed", coverage: 0.5 },
+    );
+    expect(merged).toEqual({
+      ...stored,
+      condition: '{"country":"US"}',
+      trackingKey: "renamed",
+      coverage: 0.5,
+    });
+    expect(contested).toEqual([]);
+  });
+
+  it("contests a field both changed differently, keeping mine", () => {
+    const { merged, contested } = mergeStagedTargeting(
+      stored,
+      { ...stored, hashAttribute: "device" },
+      { ...stored, hashAttribute: "account" },
+    );
+    expect(merged.hashAttribute).toBe("device");
+    expect(contested).toEqual(["hashAttribute"]);
   });
 });

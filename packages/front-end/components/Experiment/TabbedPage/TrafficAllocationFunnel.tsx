@@ -46,11 +46,13 @@ import {
   experimentFieldChanges,
   FlagEnvironmentsDraft,
   HoldoutDraft,
+  StagedEditConflict,
+  useEditBase,
   useExperimentEdits,
   useRegisterExperimentEdit,
   useStagedState,
 } from "./ExperimentEdits";
-import { onlyTrafficChanged } from "./targetingDraft";
+import { mergeStagedTargeting, onlyTrafficChanged } from "./targetingDraft";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -248,18 +250,26 @@ export default function TrafficAllocationFunnel({
     onSaved: () => targetingDraft?.set(null),
     discard: () => targetingDraft?.set(null),
   };
+  const [targetingBase, rebaseTargeting] = useEditBase(
+    "targeting",
+    !!staged,
+    () => ({ experiment, targeting: targetingDefaults }),
+  );
+  // What the staged targeting was made against, rather than any refetch since.
+  const loadedTargeting = targetingBase?.targeting ?? targetingDefaults;
   useRegisterExperimentEdit(
     "targeting",
     !!staged,
     // With no phase yet there's nothing to patch; targeting creates the first.
     staged &&
       experiment.phases.length > 0 &&
-      onlyTrafficChanged(staged, targetingDefaults)
+      onlyTrafficChanged(staged, loadedTargeting)
       ? {
           ...clearStaged,
           label: "Traffic",
+          rebase: rebaseTargeting,
           changes: () =>
-            experimentFieldChanges(experiment, {
+            experimentFieldChanges(targetingBase?.experiment ?? experiment, {
               coverage: staged.coverage,
               variationWeights: staged.variationWeights,
             }),
@@ -267,11 +277,30 @@ export default function TrafficAllocationFunnel({
       : {
           ...clearStaged,
           label: "Targeting",
-          review: () => ({ before: targetingDefaults, after: staged }),
+          review: () => ({ before: loadedTargeting, after: staged }),
+          // Keeping mine also takes what others changed since, where I didn't.
+          rebase: () => {
+            if (staged) {
+              targetingDraft?.set(
+                mergeStagedTargeting(loadedTargeting, staged, targetingDefaults)
+                  .merged,
+              );
+            }
+            rebaseTargeting();
+          },
+          // The endpoint takes the whole targeting, so what others changed
+          // since is merged in here rather than overwritten.
           save: async () => {
+            if (!staged) return;
+            const { merged, contested } = mergeStagedTargeting(
+              loadedTargeting,
+              staged,
+              targetingDefaults,
+            );
+            if (contested.length) throw new StagedEditConflict();
             await apiCall(`/experiment/${experiment.id}/targeting`, {
               method: "POST",
-              body: JSON.stringify(staged),
+              body: JSON.stringify(merged),
             });
           },
         },
@@ -310,11 +339,15 @@ export default function TrafficAllocationFunnel({
     stageVariationList(storedVariations().filter((_, i) => i !== index));
   const addVariation = () => {
     const current = storedVariations();
+    // The count's own key can still be taken after a removal.
+    const keys = new Set(current.map((v) => v.key));
+    let key = current.length;
+    while (keys.has(String(key))) key++;
     const variations = [
       ...current,
       {
         id: generateVariationId(),
-        key: String(current.length),
+        key: String(key),
         name: `Variation ${current.length}`,
         description: "",
         screenshots: [],

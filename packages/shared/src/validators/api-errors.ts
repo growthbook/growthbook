@@ -87,6 +87,15 @@ export const apiErrorRegistry = {
       example: z.string(),
     }),
   },
+  changes_conflict: {
+    status: 409,
+    description:
+      "Values the changes were made against were saved by someone else since they were loaded",
+    detailsSchema: z.object({
+      fields: z.array(z.string()),
+      featureIds: z.array(z.string()),
+    }),
+  },
   unscoped_rule: {
     status: 422,
     description:

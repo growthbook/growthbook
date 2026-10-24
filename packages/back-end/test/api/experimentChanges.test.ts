@@ -345,32 +345,79 @@ describe("applyExperimentChanges", () => {
     ]);
   });
 
+  const valuesFrom = (dateUpdated: string) => ({
+    flagValues: [
+      {
+        featureId: FLAG,
+        variations: arms("a", "new"),
+        revision: { version: 2, dateUpdated },
+      },
+    ],
+  });
   it.each([
     {
       name: "an experiment field",
       body: { experiment: hypothesisChange("something else") },
+      details: { fields: ["hypothesis"], featureIds: [] },
     },
     {
       name: "a flag draft",
-      body: {
-        flagValues: [
-          {
-            featureId: FLAG,
-            variations: arms("a", "new"),
-            revision: { version: 2, dateUpdated: "2025-12-31T00:00:00.000Z" },
-          },
-        ],
-      },
+      body: valuesFrom("2025-12-31T00:00:00.000Z"),
+      details: { fields: [], featureIds: [FLAG] },
+    },
+    {
+      name: "a flag draft published since",
+      publish: true,
+      body: valuesFrom(LOADED),
+      details: { fields: [], featureIds: [FLAG] },
     },
   ])(
-    "refuses with 409 and writes nothing when $name moved since it was loaded",
-    async ({ body }) => {
+    "names what moved and writes nothing when $name changed since it was loaded",
+    async ({ body, details, publish }) => {
       await seed({ withDraft: true });
-      await expect(run(body)).rejects.toMatchObject({ status: 409 });
+      if (publish) {
+        await collection("featurerevisions").updateOne(
+          { featureId: FLAG, version: 2 },
+          { $set: { status: "published" } },
+        );
+        await collection("features").updateOne(
+          { id: FLAG },
+          { $set: { version: 2 } },
+        );
+      }
+      await expect(run(body)).rejects.toMatchObject({
+        status: 409,
+        code: "changes_conflict",
+        details,
+      });
       expect(await revisionRules(2)).toEqual(arms("a", "draft"));
       expect((await getExperimentById(context, EXP))?.hypothesis).toBe("old");
     },
   );
+
+  it("takes a field someone else saved to the same value", async () => {
+    await seed({ withDraft: false });
+    await collection("experiments").updateOne(
+      { id: EXP },
+      { $set: { hypothesis: "new" } },
+    );
+    await run({ experiment: hypothesisChange("old") });
+    expect((await getExperimentById(context, EXP))?.hypothesis).toBe("new");
+  });
+
+  it("refuses a variation added without a split for it", async () => {
+    await seed({ withDraft: false });
+    await expect(
+      run({
+        experiment: {
+          changes: {
+            variations: [...seededVariations(), variation("v2", 2)],
+          },
+          base: { variations: seededVariations() },
+        },
+      }),
+    ).rejects.toThrow("one weight per variation");
+  });
 
   it("rolls the drafts back when the experiment write fails", async () => {
     await seed({ withDraft: true });
@@ -408,7 +455,7 @@ describe("applyExperimentChanges", () => {
         {
           featureId: FLAG,
           variations: arms("a", "new"),
-          revision: { version: 1, dateUpdated: LOADED },
+          revision: { version: 1, dateUpdated: null },
         },
       ],
     };
@@ -677,7 +724,7 @@ describe("applyExperimentChanges", () => {
         {
           featureId: FLAG,
           variations: [...arms("a", "b"), { variationId: "v2", value: "c" }],
-          revision: { version: 1, dateUpdated: LOADED },
+          revision: { version: 1, dateUpdated: null },
         },
       ],
     });
@@ -911,7 +958,11 @@ describe("applyExperimentChanges", () => {
           addUrlRedirects: [staged(A)],
           editVisualChangesets: [editVc0],
         }),
-      ).rejects.toMatchObject({ status: 409 });
+      ).rejects.toMatchObject({
+        status: 409,
+        message: expect.stringContaining("The experiment's changes saved"),
+      });
+      expect((await getExperimentById(context, EXP))?.hypothesis).toBe("new");
       expect(await storedRedirects()).toEqual([]);
       expect(await storedVisualChanges()).toEqual([
         ["v0", ".extension{}", undefined],

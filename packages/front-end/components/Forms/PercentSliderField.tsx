@@ -66,7 +66,9 @@ export function PercentField({
         onBlur={
           onBlurCommit
             ? (e) => {
-                commit(e.target.value);
+                // Tabbing through commits nothing, or a stored value with more
+                // precision than shown would come back rounded.
+                if (typed !== null) commit(e.target.value);
                 setTyped(null);
               }
             : undefined

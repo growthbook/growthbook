@@ -32,6 +32,7 @@ import {
   validateExperimentFeatureUpdate,
   validateExperimentFeatureVariations,
   linkFeatureToExperiment,
+  assertFlagLinkable,
   assertFlagKeepable,
   assertFlagRemovable,
   keepFlagInExperiment,
@@ -46,6 +47,8 @@ import {
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import {
   BadRequestError,
+  ChangesConflictError,
+  ConflictError,
   InternalServerError,
   NotFoundError,
 } from "back-end/src/util/errors";
@@ -145,22 +148,25 @@ const PLAN_INPUT_FIELDS: (keyof ExperimentInterface)[] = [
   "nextScheduledStatusUpdate",
 ];
 
-function assertExperimentBaseMatches(
+// Someone else changed it since it was loaded, to something this save doesn't set.
+function experimentFieldConflicts(
   experiment: ExperimentInterface,
   { changes, base }: NonNullable<ExperimentChangesBody["experiment"]>,
-) {
-  for (const key of Object.keys(changes)) {
+): string[] {
+  return Object.keys(changes).filter((key) => {
     if (!(key in base)) {
       throw new BadRequestError(`base is missing the loaded value of ${key}`);
     }
-    const current =
+    const current = asJson(
       key === "variationWeights" || key === "coverage"
         ? experiment.phases[experiment.phases.length - 1]?.[key]
-        : experiment[key as keyof ExperimentInterface];
-    if (!isEqual(asJson(current), asJson(base[key]))) {
-      throw changedSinceLoaded("The experiment");
-    }
-  }
+        : experiment[key as keyof ExperimentInterface],
+    );
+    return (
+      !isEqual(current, asJson(base[key])) &&
+      !isEqual(current, asJson(changes[key as keyof typeof changes]))
+    );
+  });
 }
 
 async function planFlagValues(
@@ -168,7 +174,7 @@ async function planFlagValues(
   experiment: ExperimentInterface,
   experimentPlan: ExperimentUpdatePlan | null,
   flagValues: NonNullable<ExperimentChangesBody["flagValues"]>,
-): Promise<FlagValuesPlan[]> {
+): Promise<{ plans: FlagValuesPlan[]; conflicts: string[] }> {
   const entriesByFeature = new Map<string, FlagValuesEntry[]>();
   for (const entry of flagValues) {
     entriesByFeature.set(entry.featureId, [
@@ -198,7 +204,8 @@ async function planFlagValues(
   }
 
   const result: FlagValuesPlan[] = [];
-  for (const [featureId, entries] of entriesByFeature) {
+  const conflicts: string[] = [];
+  features: for (const [featureId, entries] of entriesByFeature) {
     const feature = byId.get(featureId);
     if (!feature) throw new NotFoundError(`Feature Flag ${featureId}`);
     if (!context.permissions.canEditFeatureDrafts(feature)) {
@@ -213,15 +220,18 @@ async function planFlagValues(
       feature,
       version: loadedFrom.version,
     });
-    // A published revision never changes, so its version alone pins it.
-    const startsDraft = loadedFrom.version === feature.version;
+    // Loaded from live, which never changes, so its version alone pins it. A
+    // draft loaded and published since is no longer a draft, so it conflicts.
+    const startsDraft =
+      loadedFrom.dateUpdated === null && loadedFrom.version === feature.version;
     if (
       !loaded ||
       (!startsDraft &&
         (isoOrNull(loaded.dateUpdated) !== loadedFrom.dateUpdated ||
           !isDraftStatus(loaded.status)))
     ) {
-      throw changedSinceLoaded(`Feature Flag ${feature.id}`);
+      conflicts.push(feature.id);
+      continue;
     }
 
     let existingRevision: FeatureRevisionInterface | undefined;
@@ -256,7 +266,8 @@ async function planFlagValues(
         plan.existingRevision &&
         isoOrNull(plan.existingRevision.dateUpdated) !== loadedFrom.dateUpdated
       ) {
-        throw changedSinceLoaded(`Feature Flag ${feature.id}`);
+        conflicts.push(feature.id);
+        continue features;
       }
       existingRevision = plan.existingRevision;
       startingRevision ??=
@@ -326,7 +337,7 @@ async function planFlagValues(
 
     result.push({ feature, existingRevision, groups });
   }
-  return result;
+  return { plans: result, conflicts };
 }
 
 async function writeFlagValues({
@@ -349,7 +360,14 @@ async function writeFlagValues({
       feature.id,
       existingRevision.version,
     );
-    if (!snapshot) throw changedSinceLoaded(`Feature Flag ${feature.id}`);
+    // Moved since it was planned: nothing is written, so there's nothing to undo.
+    if (
+      !snapshot ||
+      isoOrNull(snapshot.dateUpdated) !==
+        isoOrNull(existingRevision.dateUpdated)
+    ) {
+      throw changedSinceLoaded(`Feature Flag ${feature.id}`);
+    }
   }
   let revision: FeatureRevisionInterface =
     existingRevision ??
@@ -360,7 +378,9 @@ async function writeFlagValues({
     snapshot,
     writtenDateUpdated: revision.dateUpdated,
   };
-  compensations.push(compensation);
+  // A draft this save created goes if anything fails; an existing one only
+  // needs restoring once this save has written to it.
+  if (!snapshot) compensations.push(compensation);
 
   for (const { matchingRules, update, scope } of groups) {
     revision = await updateExperimentRefVariations({
@@ -373,6 +393,7 @@ async function writeFlagValues({
       ruleUpdates: scope?.ruleUpdate,
       user: eventAudit,
     });
+    if (!compensations.includes(compensation)) compensations.push(compensation);
     compensation.writtenDateUpdated = revision.dateUpdated;
 
     // The rule's new footprint switches its environments on, one way.
@@ -447,17 +468,25 @@ export async function applyExperimentChanges({
     context.permissions.throwPermissionError();
   }
   let experimentPlan: ExperimentUpdatePlan | null = null;
+  const fieldConflicts = body.experiment
+    ? experimentFieldConflicts(experiment, body.experiment)
+    : [];
   if (body.experiment) {
-    assertExperimentBaseMatches(experiment, body.experiment);
     experimentPlan = await planExperimentUpdate(
       context,
       experiment,
       body.experiment.changes,
     );
   }
-  const flagPlans = body.flagValues?.length
+  const { plans: flagPlans, conflicts: flagConflicts } = body.flagValues?.length
     ? await planFlagValues(context, experiment, experimentPlan, body.flagValues)
-    : [];
+    : { plans: [], conflicts: [] };
+  if (fieldConflicts.length || flagConflicts.length) {
+    throw new ChangesConflictError({
+      fields: fieldConflicts,
+      featureIds: flagConflicts,
+    });
+  }
 
   if (body.unlinkFeatures?.some((id) => body.keepFeatures?.includes(id))) {
     throw new BadRequestError(
@@ -473,8 +502,29 @@ export async function applyExperimentChanges({
     const feature = await getFeature(context, featureId);
     if (feature) await assertFlagKeepable(context, experiment, feature);
   }
+  // Each link's own checks, against the experiment this save leaves, with the
+  // other flags it links too.
+  const plannedExperiment: ExperimentInterface = {
+    ...experiment,
+    ...experimentPlan?.changes,
+    linkedFeatures: [
+      ...new Set([
+        ...(experiment.linkedFeatures ?? []),
+        ...(body.linkFeatures ?? []).map((link) => link.featureId),
+      ]),
+    ],
+  };
   for (const link of body.linkFeatures ?? []) {
     assertScopedRules(context, [{ id: "", ...linkRuleScope(link) }], []);
+    const feature = await getFeature(context, link.featureId);
+    if (!feature) throw new NotFoundError(`Feature Flag ${link.featureId}`);
+    await assertFlagLinkable({
+      context,
+      experiment: plannedExperiment,
+      feature,
+      rule: linkRule(experiment.id, link),
+      forceNewDraft: true,
+    });
   }
   const linkedPlan = await planLinkedChanges(
     context,
@@ -525,6 +575,11 @@ export async function applyExperimentChanges({
     ) {
       throw changedSinceLoaded("The experiment");
     }
+    // Nothing rolls back once the experiment lands, so the linked changes'
+    // bases are checked again first.
+    if (linkedPlan) {
+      await planLinkedChanges(context, experiment, experimentPlan, body);
+    }
     // Pins the short window since the re-read; the field check above covers the rest.
     written = {
       experiment: fresh,
@@ -551,18 +606,27 @@ export async function applyExperimentChanges({
     plan: experimentPlan,
     audit,
   });
-  return {
-    dryRun: false,
-    experiment: await finishFlags({
-      context,
-      experiment: written.updated,
-      body,
-      linkedPlan,
-      eventAudit,
-      audit,
-    }),
-    flags,
-  };
+  try {
+    return {
+      dryRun: false,
+      experiment: await finishFlags({
+        context,
+        experiment: written.updated,
+        body,
+        linkedPlan,
+        eventAudit,
+        audit,
+      }),
+      flags,
+    };
+  } catch (e) {
+    const message = `The experiment's changes saved, but not all of its linked changes did: ${
+      e instanceof Error ? e.message : String(e)
+    }`;
+    throw e instanceof ConflictError
+      ? new ConflictError(message)
+      : new InternalServerError(message);
+  }
 }
 
 // Where a flag linked again runs: every environment unless the link names some.
@@ -572,6 +636,22 @@ function linkRuleScope(
   return link.environments && !link.environments.allEnvironments
     ? { allEnvironments: false, environments: link.environments.environments }
     : { allEnvironments: true };
+}
+
+function linkRule(
+  experimentId: string,
+  link: NonNullable<ExperimentChangesBody["linkFeatures"]>[number],
+): ExperimentRefRule {
+  return {
+    type: "experiment-ref",
+    id: "",
+    description: "",
+    enabled: true,
+    experimentId,
+    variations: link.variations,
+    ...(link.sparse && { sparse: true }),
+    ...linkRuleScope(link),
+  };
 }
 
 // Once the values and experiment have landed: flags linked again or unlinked,
@@ -598,16 +678,7 @@ async function finishFlags({
       context,
       experiment,
       feature,
-      rule: {
-        type: "experiment-ref",
-        id: "",
-        description: "",
-        enabled: true,
-        experimentId: experiment.id,
-        variations: link.variations,
-        ...(link.sparse && { sparse: true }),
-        ...linkRuleScope(link),
-      },
+      rule: linkRule(experiment.id, link),
       eventAudit,
       audit,
       forceNewDraft: true,

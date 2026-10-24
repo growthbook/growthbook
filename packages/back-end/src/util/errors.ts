@@ -72,6 +72,21 @@ export class InvalidTrackingKeyError extends ApiError<"invalid_tracking_key"> {
   }
 }
 
+export class ChangesConflictError extends ApiError<"changes_conflict"> {
+  constructor(details: ApiErrorDetails<"changes_conflict">) {
+    const names = [
+      ...details.fields,
+      ...details.featureIds.map((id) => `Feature Flag ${id}`),
+    ];
+    super(
+      "changes_conflict",
+      `${names.join(", ")} changed since you loaded ${names.length === 1 ? "it" : "them"}. Reload to see the latest, then make your changes again.`,
+      details,
+    );
+    this.name = "ChangesConflictError";
+  }
+}
+
 export class UnscopedRuleError extends ApiError<"unscoped_rule"> {
   constructor(count: number, ruleIds: string[]) {
     super(

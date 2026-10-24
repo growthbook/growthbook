@@ -23,3 +23,34 @@ export function onlyTrafficChanged(
     (key) => TRAFFIC_FIELDS.has(key) || isEqual(staged[key], stored[key]),
   );
 }
+
+/**
+ * Staged targeting onto what's stored now, from the `base` it was staged
+ * against: a field only someone else changed since takes theirs, and one both
+ * changed differently is contested and keeps mine.
+ */
+export function mergeStagedTargeting(
+  base: ExperimentTargetingData,
+  staged: ExperimentTargetingData,
+  current: ExperimentTargetingData,
+): {
+  merged: ExperimentTargetingData;
+  contested: (keyof ExperimentTargetingData)[];
+} {
+  const keys = Object.keys({ ...base, ...staged, ...current }) as Array<
+    keyof ExperimentTargetingData
+  >;
+  const merged = { ...current };
+  const contested: (keyof ExperimentTargetingData)[] = [];
+  for (const key of keys) {
+    if (isEqual(staged[key], base[key])) continue;
+    Object.assign(merged, { [key]: staged[key] });
+    if (
+      !isEqual(current[key], base[key]) &&
+      !isEqual(current[key], staged[key])
+    ) {
+      contested.push(key);
+    }
+  }
+  return { merged, contested };
+}

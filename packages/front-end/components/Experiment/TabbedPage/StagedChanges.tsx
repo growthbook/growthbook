@@ -10,6 +10,7 @@ import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
+import { ApiCallError } from "@/services/apiCallError";
 import { StagedReview, useExperimentEdits } from "./ExperimentEdits";
 
 type SaveCheck = { status: "ready" } | { status: "refused"; reason: string };
@@ -18,33 +19,52 @@ function StagedChange({
   label,
   review,
   discard,
+  keepMine,
 }: {
   label: string;
   review: StagedReview | null;
   discard: () => void;
+  /** Set while someone else's save conflicts with this edit. */
+  keepMine: (() => void) | null;
 }) {
   const [open, setOpen] = useState(false);
   const before = stringifyForRawDiff(review?.before);
   const after = stringifyForRawDiff(review?.after);
   const hasDiff = before !== after;
-  const discardLink = (
+  const link = (text: string, onClick: () => void) => (
     <Link
       size="sm"
       color="gray"
       onClick={(e) => {
         e.preventDefault();
-        discard();
+        onClick();
       }}
     >
-      Discard
+      {text}
     </Link>
   );
+  const actions = keepMine ? (
+    <Flex gap="3">
+      {link("Keep mine", keepMine)}
+      {link("Discard", discard)}
+    </Flex>
+  ) : (
+    link("Discard", discard)
+  );
+  const conflictNote = keepMine ? (
+    <HelperText status="warning" size="sm" mt="1">
+      Someone else saved a change to this since you made yours.
+    </HelperText>
+  ) : null;
   if (!hasDiff) {
     return (
-      <Flex align="center" justify="between" gap="4">
-        <Text color="text-high">{label}</Text>
-        {discardLink}
-      </Flex>
+      <Box>
+        <Flex align="center" justify="between" gap="4">
+          <Text color="text-high">{label}</Text>
+          {actions}
+        </Flex>
+        {conflictNote}
+      </Box>
     );
   }
   return (
@@ -53,10 +73,11 @@ function StagedChange({
         open={open}
         onOpenChange={setOpen}
         caret="start"
-        action={discardLink}
+        action={actions}
       >
         <Text color="text-high">{label}</Text>
       </CollapseTrigger>
+      {conflictNote}
       <Collapse open={open}>
         <Box mt="1" style={{ maxHeight: 240, overflowY: "auto" }}>
           <LazyDiffViewer
@@ -78,6 +99,11 @@ export default function StagedChanges() {
   const [open, setOpen] = useState(false);
   const [check, setCheck] = useState<SaveCheck | null>(null);
   const staged = edits?.staged;
+  const conflicts = edits?.conflicts;
+  // A save refused over someone else's change opens the list to resolve it.
+  useEffect(() => {
+    if (conflicts?.length) setOpen(true);
+  }, [conflicts]);
 
   // The check runs when the list opens or changes, not when the page renders.
   const checkAll = useRef(edits?.checkAll);
@@ -92,17 +118,21 @@ export default function StagedChanges() {
         if (current) setCheck({ status: "ready" });
       })
       .catch((e) => {
-        if (current) {
-          setCheck({
-            status: "refused",
-            reason: e.message || "The save would be refused.",
-          });
+        if (!current) return;
+        // Each conflicting edit says so on its own row.
+        if (e instanceof ApiCallError && e.code === "changes_conflict") {
+          setCheck(null);
+          return;
         }
+        setCheck({
+          status: "refused",
+          reason: e.message || "The save would be refused.",
+        });
       });
     return () => {
       current = false;
     };
-  }, [open, staged]);
+  }, [open, staged, conflicts]);
 
   if (!edits || !staged) return null;
 
@@ -132,6 +162,9 @@ export default function StagedChanges() {
               label={label}
               review={edits.review(id)}
               discard={() => edits.discard(id)}
+              keepMine={
+                edits.conflicts.includes(id) ? () => edits.keepMine(id) : null
+              }
             />
           ))}
           {check?.status === "ready" ? (

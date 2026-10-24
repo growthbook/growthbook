@@ -83,6 +83,7 @@ import {
 import {
   FlagEnvironmentsDraft,
   useExperimentEdits,
+  useEditBase,
   useRegisterExperimentEdit,
   useStagedState,
 } from "./ExperimentEdits";
@@ -179,6 +180,10 @@ export default function VariationValuesTable({
 }: Props) {
   const variations = getLatestPhaseVariations(experiment);
   const hasMenu = !!(onEditKeys || onRemoveVariation || onReorder);
+  // Per flag rather than per column, so every column of one flag agrees.
+  const [linkActions, setLinkActions] = useStagedState<
+    Record<string, LinkAction>
+  >("link-actions", {});
   const flagColumns = linkedFeatures.flatMap((info): FlagColumnSource[] =>
     info.valueGroups?.length
       ? info.valueGroups.map((group, index) => ({
@@ -365,6 +370,15 @@ export default function VariationValuesTable({
                   canEdit={canEditFlagValues}
                   flagEnvironments={flagEnvironments}
                   draftPicks={draftPicks}
+                  linkAction={linkActions[info.feature.id] ?? null}
+                  setLinkAction={(action) =>
+                    setLinkActions((prev) => {
+                      const next = { ...prev };
+                      if (action) next[info.feature.id] = action;
+                      else delete next[info.feature.id];
+                      return next;
+                    })
+                  }
                 />
               </div>
             ))}
@@ -459,6 +473,8 @@ type ValueGroup = {
   first: boolean;
 };
 
+type LinkAction = "relink" | "remove" | "keep";
+
 type FlagColumnSource = {
   key: string;
   info: LinkedFeatureInfo;
@@ -473,6 +489,8 @@ function FlagColumn({
   canEdit,
   flagEnvironments,
   draftPicks,
+  linkAction,
+  setLinkAction,
 }: {
   layout: ColumnLayout;
   experiment: ExperimentInterfaceStringDates;
@@ -481,6 +499,8 @@ function FlagColumn({
   canEdit: boolean;
   flagEnvironments: FlagEnvironmentsDraft;
   draftPicks: FlagDraftPicks;
+  linkAction: LinkAction | null;
+  setLinkAction: (action: LinkAction | null) => void;
 }) {
   const permissionsUtil = usePermissionsUtil();
   const [editEnvironments, setEditEnvironments] = useState(false);
@@ -499,9 +519,6 @@ function FlagColumn({
   const showsDraft = fromDraft && !showingLive;
   const workingOn = fromDraft ? pendingDraft.version : "new";
   const orphaned = info.state === "discarded";
-  const [linkAction, setLinkAction] = useStagedState<
-    "relink" | "remove" | "keep" | null
-  >(`link:${feature.id}`, null);
   const relinking = linkAction === "relink";
   const removing = linkAction === "remove";
   const pendingRemoval = info.pendingRemoval;
@@ -537,7 +554,15 @@ function FlagColumn({
   const [stagedFor, setStaged] = useStagedState<
     (Staged & { for: number | "new" }) | null
   >(valuesEditId, null);
-  const staged = stagedFor?.for === workingOn ? stagedFor : null;
+  // Values staged for a draft since published or discarded stay, aimed at
+  // what's open now; the save's conflict check says that draft moved.
+  const staged =
+    stagedFor &&
+    (stagedFor.for === workingOn ||
+      (stagedFor.for !== "new" &&
+        !drafts.some((d) => d.version === stagedFor.for)))
+      ? stagedFor
+      : null;
   const pinTarget = (next: number | "new") =>
     draftPicks.set(feature.id, {
       newestVersion: drafts[0]?.version ?? null,
@@ -645,8 +670,18 @@ function FlagColumn({
     return checked;
   };
 
+  const loadedRevision = () =>
+    fromDraft
+      ? { version: pendingDraft.version, dateUpdated: pendingDraft.dateUpdated }
+      : { version: feature.version, dateUpdated: null };
+  const [revisionBase, rebaseRevision] = useEditBase(
+    valuesEditId,
+    dirty && !linkAction,
+    loadedRevision,
+  );
   useRegisterExperimentEdit(valuesEditId, dirty && !linkAction, {
     label: `${feature.id} values${groupEnvironments ? ` (${groupEnvironments})` : ""}`,
+    rebase: rebaseRevision,
     review: () => ({
       before: {
         values: reviewValues(storedValue),
@@ -666,12 +701,7 @@ function FlagColumn({
           ...(sparse !== storedSparse && { sparse }),
           ...(stagedScope && { environments: stagedScope }),
           ...(group && { ruleIds: group.ruleIds }),
-          revision: fromDraft
-            ? {
-                version: pendingDraft.version,
-                dateUpdated: pendingDraft.dateUpdated,
-              }
-            : { version: feature.version, dateUpdated: null },
+          revision: revisionBase ?? loadedRevision(),
         },
       ],
     }),
@@ -734,7 +764,7 @@ function FlagColumn({
   const removeBlocked = experiment.status === "running";
   const launchDraft = drafts[0];
   const draftLaunches = launches && isLaunchDraft;
-  const stageLinkAction = (action: "relink" | "remove" | "keep") => {
+  const stageLinkAction = (action: LinkAction) => {
     clearStaged();
     setLinkAction(action);
   };
@@ -1129,7 +1159,19 @@ function FlagColumn({
         <EditExperimentEnvironmentsModal
           info={info}
           stagedScope={stagedScope}
-          environmentStates={environmentStates}
+          environmentStates={getEnvironmentStates(
+            fromDraft
+              ? pendingDraft
+              : {
+                  environmentStates:
+                    info.liveEnvironmentStates ?? info.environmentStates,
+                },
+          )}
+          storedAllEnvironments={
+            fromDraft
+              ? (pendingDraft.allEnvironments ?? null)
+              : (info.liveAllEnvironments ?? null)
+          }
           environmentInputs={storedInputs}
           showFlag={false}
           close={() => setEditEnvironments(false)}

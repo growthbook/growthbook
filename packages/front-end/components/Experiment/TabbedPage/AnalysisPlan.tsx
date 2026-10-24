@@ -37,6 +37,7 @@ import {
 } from "@/ui/DropdownMenu";
 import {
   experimentFieldChanges,
+  useEditBase,
   useRegisterExperimentEdit,
   useStagedState,
 } from "./ExperimentEdits";
@@ -227,10 +228,12 @@ export default function AnalysisPlan({
   );
   useEffect(() => resync(touchedRef.current), [resync]);
 
+  const [base, rebase] = useEditBase("analysis-plan", dirty, () => experiment);
   useRegisterExperimentEdit("analysis-plan", dirty, {
     label: "Analysis plan",
+    rebase,
     changes: () =>
-      experimentFieldChanges(experiment, {
+      experimentFieldChanges(base ?? experiment, {
         ...advanced,
         ...Object.fromEntries(sent.map((field) => [field, current[field]])),
       }),
@@ -280,11 +283,13 @@ export default function AnalysisPlan({
 
   // Follow the assignment attribute: when the query it leaves behind cannot
   // analyse the experiment, take the one that can — but only where the
-  // attribute names a single query, and never over a deliberate choice that
-  // still works.
+  // attribute names a single query, never over a deliberate choice that still
+  // works, and only before the experiment runs.
   const autoAppliedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!canEdit || !selectedDatasource) return;
+    if (!canEdit || experiment.status !== "draft" || !selectedDatasource) {
+      return;
+    }
     const key = `${datasource}:${hashAttribute}`;
     if (autoAppliedFor.current === key) return;
     autoAppliedFor.current = key;
@@ -306,6 +311,7 @@ export default function AnalysisPlan({
     exposureQueryId,
     mismatched,
     experiment.exposureQueryId,
+    experiment.status,
     setExposureQueryId,
     touch,
   ]);

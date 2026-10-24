@@ -12,10 +12,12 @@ import {
   useState,
 } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import type {
-  ExperimentChangesBody,
-  ExperimentChangesFields,
-  ExperimentRuleEnvironments,
+import {
+  apiErrorRegistry,
+  type ApiErrorDetails,
+  type ExperimentChangesBody,
+  type ExperimentChangesFields,
+  type ExperimentRuleEnvironments,
 } from "shared/validators";
 import { useAuth } from "@/services/auth";
 import { ApiCallError } from "@/services/apiCallError";
@@ -35,6 +37,8 @@ type PendingEdit = {
   discard: () => void;
   /** Runs once the edit has been written. */
   onSaved?: () => void;
+  /** Takes the page as it is now as what the edit was made against. */
+  rebase?: () => void;
 } & (
   | {
       /**
@@ -96,6 +100,10 @@ interface ExperimentEditsValue {
   discardAll: () => void;
   /** The staged edits, in the order they were made. */
   staged: { id: string; label: string }[];
+  /** Staged edits whose fields someone else saved since they were made. */
+  conflicts: string[];
+  /** Saves this edit over the other change next time. */
+  keepMine: (id: string) => void;
   discard: (id: string) => void;
   review: (id: string) => StagedReview | null;
   register: (id: string, edit: PendingEdit | null) => void;
@@ -114,6 +122,34 @@ type CheckChanges = (id: string, part: ExperimentChangesBody) => Promise<void>;
 const ExperimentEditsContext = createContext<ExperimentEditsValue | null>(null);
 
 const INVALID_FIELDS = "Fill in the highlighted fields to save.";
+const CONFLICT =
+  "Someone else saved changes to what you edited. Keep yours or discard them, then save again.";
+
+type ChangesConflict = ApiErrorDetails<"changes_conflict">;
+
+/** Thrown by an edit that saves itself when what it changed was saved by someone else. */
+export class StagedEditConflict extends Error {}
+
+function changesConflict(e: unknown): ChangesConflict | null {
+  if (!(e instanceof ApiCallError) || e.code !== "changes_conflict") {
+    return null;
+  }
+  const parsed = apiErrorRegistry.changes_conflict.detailsSchema.safeParse(
+    e.details,
+  );
+  return parsed.success ? parsed.data : null;
+}
+
+function touches(
+  share: ExperimentChangesBody | null,
+  { fields, featureIds }: ChangesConflict,
+): boolean {
+  return (
+    Object.keys(share?.experiment?.changes ?? {}).some((key) =>
+      fields.includes(key),
+    ) || !!share?.flagValues?.some((f) => featureIds.includes(f.featureId))
+  );
+}
 
 /**
  * An experiment-field edit, with the value each field held when loaded so a
@@ -223,7 +259,7 @@ export function ExperimentEditsProvider({
 }: {
   experimentId: string;
   scope: string;
-  mutate: () => void;
+  mutate: () => unknown;
   children: ReactNode;
 }) {
   const { apiCall } = useAuth();
@@ -241,6 +277,7 @@ export function ExperimentEditsProvider({
   const [error, setError] = useState<string | null>(null);
   const [unscopedRefusal, setUnscopedRefusal] = useState<string | null>(null);
   const [allowUnscopedRules, setAllowUnscopedRules] = useState(false);
+  const [conflicts, setConflicts] = useState<string[]>([]);
   const formId = useId();
   const form = useRef<HTMLFormElement>(null);
 
@@ -267,34 +304,53 @@ export function ExperimentEditsProvider({
     }
     setSaving(true);
     setError(null);
-    const pending = [...edits.current.values()];
-    // A refused save keeps the page's loaded base, so a retry can't quietly
+    setConflicts([]);
+    const pending = [...edits.current.entries()];
+    // A refused save keeps each edit's base, so a retry can't quietly
     // overwrite the change that refused it.
-    let wrote = false;
+    const saved: PendingEdit[] = [];
+    let refetch = false;
     try {
-      const inChangeset = pending.filter((edit) => edit.changes);
+      const inChangeset = pending.filter(([, edit]) => edit.changes);
       if (inChangeset.length) {
-        await apiCall(`/experiment/${experimentId}/changes`, {
-          method: "POST",
-          body: JSON.stringify({
-            ...mergeChanges(
-              inChangeset.map(
-                (edit) => edit.changes?.({ dryRun: false }) ?? {},
+        try {
+          await apiCall(`/experiment/${experimentId}/changes`, {
+            method: "POST",
+            body: JSON.stringify({
+              ...mergeChanges(
+                inChangeset.map(
+                  ([, edit]) => edit.changes?.({ dryRun: false }) ?? {},
+                ),
               ),
-            ),
-            ...(allowUnscopedRules && { allowUnscopedRules: true }),
-          }),
-        });
-        wrote = true;
-        inChangeset.forEach((edit) => edit.onSaved?.());
+              ...(allowUnscopedRules && { allowUnscopedRules: true }),
+            }),
+          });
+        } catch (e) {
+          const conflict = changesConflict(e);
+          if (!conflict) throw e;
+          // Refetched, so keeping an edit takes what was saved as its base.
+          refetch = true;
+          setConflicts(
+            inChangeset
+              .filter(([, edit]) => touches(dryRunShare(edit), conflict))
+              .map(([id]) => id),
+          );
+          throw new Error(CONFLICT);
+        }
+        saved.push(...inChangeset.map(([, edit]) => edit));
       }
       // Sequential: these hit the same document, and a parallel write would
       // race the last one to land.
-      for (const edit of pending) {
+      for (const [id, edit] of pending) {
         if (!edit.save) continue;
-        await edit.save();
-        wrote = true;
-        edit.onSaved?.();
+        try {
+          await edit.save();
+        } catch (e) {
+          if (!(e instanceof StagedEditConflict)) throw e;
+          setConflicts((prev) => [...prev, id]);
+          throw new Error(CONFLICT);
+        }
+        saved.push(edit);
       }
       setUnscopedRefusal(null);
       setAllowUnscopedRules(false);
@@ -306,8 +362,10 @@ export function ExperimentEditsProvider({
         setError(message);
       }
     } finally {
+      // Cleared once the refetch lands, so the page never shows the old values.
+      if (saved.length || refetch) await mutate();
+      saved.forEach((edit) => edit.onSaved?.());
       setSaving(false);
-      if (wrote) mutate();
     }
   }, [apiCall, experimentId, mutate, allowUnscopedRules]);
 
@@ -327,13 +385,31 @@ export function ExperimentEditsProvider({
   const discardAll = useCallback(() => {
     [...edits.current.values()].forEach((edit) => edit.discard());
     setError(null);
+    setConflicts([]);
     setUnscopedRefusal(null);
     setAllowUnscopedRules(false);
   }, []);
 
-  const discard = useCallback((id: string) => {
-    edits.current.get(id)?.discard();
+  const resolve = useCallback((id: string) => {
+    setConflicts((prev) => prev.filter((c) => c !== id));
   }, []);
+  useEffect(() => {
+    if (!conflicts.length) setError((e) => (e === CONFLICT ? null : e));
+  }, [conflicts]);
+  const discard = useCallback(
+    (id: string) => {
+      edits.current.get(id)?.discard();
+      resolve(id);
+    },
+    [resolve],
+  );
+  const keepMine = useCallback(
+    (id: string) => {
+      edits.current.get(id)?.rebase?.();
+      resolve(id);
+    },
+    [resolve],
+  );
 
   const review = useCallback((id: string): StagedReview | null => {
     const edit = edits.current.get(id);
@@ -346,9 +422,6 @@ export function ExperimentEditsProvider({
   // `except`'s share is left out, for a caller standing in its own.
   const dryRun = useCallback(
     async (except: string | null, extra: ExperimentChangesBody[]) => {
-      if (form.current && !form.current.checkValidity()) {
-        throw new Error(INVALID_FIELDS);
-      }
       const parts: ExperimentChangesBody[] = [];
       for (const [editId, edit] of edits.current) {
         const share = editId === except ? null : dryRunShare(edit);
@@ -365,11 +438,20 @@ export function ExperimentEditsProvider({
     },
     [apiCall, experimentId, allowUnscopedRules],
   );
+  // Another edit's conflict or empty field is the save's to report, not this one's.
   const checkChanges: CheckChanges = useCallback(
-    (id, part) => dryRun(id, [part]),
+    (id, part) =>
+      dryRun(id, [part]).catch((e) => {
+        if (!changesConflict(e)) throw e;
+      }),
     [dryRun],
   );
-  const checkAll = useCallback(() => dryRun(null, []), [dryRun]);
+  const checkAll = useCallback(async () => {
+    if (form.current && !form.current.checkValidity()) {
+      throw new Error(INVALID_FIELDS);
+    }
+    await dryRun(null, []);
+  }, [dryRun]);
 
   // Discards before leaving: a route change started with edits still staged
   // doesn't complete until they're saved or discarded.
@@ -398,6 +480,8 @@ export function ExperimentEditsProvider({
       formId,
       discardAll,
       staged,
+      conflicts,
+      keepMine,
       discard,
       review,
       register,
@@ -408,6 +492,8 @@ export function ExperimentEditsProvider({
     [
       scope,
       staged,
+      conflicts,
+      keepMine,
       saving,
       error,
       unscopedRule,
@@ -470,6 +556,7 @@ export function useRegisterExperimentEdit(
     if (!register) return;
     const discard = () => latest.current.discard();
     const onSaved = () => latest.current.onSaved?.();
+    const rebase = () => latest.current.rebase?.();
     const review = latest.current.review
       ? () => latest.current.review?.() ?? { before: null, after: null }
       : undefined;
@@ -481,6 +568,7 @@ export function useRegisterExperimentEdit(
             review,
             discard,
             onSaved,
+            rebase,
             ...(inChangeset
               ? {
                   changes: (options: { dryRun: boolean }) =>
@@ -497,6 +585,27 @@ export function useRegisterExperimentEdit(
   useEffect(() => {
     return () => register?.(id, null);
   }, [register, id]);
+}
+
+/**
+ * What an edit was made against, taken when it's first staged and kept, reloads
+ * included, until it's saved or discarded. A save compares against it rather
+ * than whatever the page has refetched since. `rebase` takes the page as it is now.
+ */
+export function useEditBase<B>(
+  slot: string,
+  dirty: boolean,
+  snapshot: () => B,
+): [B | null, () => void] {
+  const [base, setBase] = useStagedState<B | null>(`base:${slot}`, null);
+  const latest = useRef(snapshot);
+  latest.current = snapshot;
+  useEffect(() => {
+    if (dirty && base === null) setBase(latest.current());
+    if (!dirty && base !== null) setBase(null);
+  }, [dirty, base, setBase]);
+  const rebase = useCallback(() => setBase(latest.current()), [setBase]);
+  return [base, rebase];
 }
 
 /** Why a control waits on the page's staged edits, or null when none are. */
