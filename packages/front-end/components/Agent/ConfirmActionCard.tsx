@@ -111,7 +111,10 @@ export function RequestLine({
       style={{
         padding: "6px 8px",
         borderRadius: "var(--radius-2)",
-        background: "var(--gray-a3)",
+        // Set by its container (the GrowthBot panel, AgentPanel.tsx); the outline
+        // is drawn inside, so it keeps its size.
+        background: "var(--ai-artifact-inner-bg, var(--gray-a3))",
+        boxShadow: "var(--ai-artifact-strip-outline, none)",
       }}
     >
       <MethodPill method={method} />

@@ -114,6 +114,40 @@
   padding: 10px 12px 12px;
 }
 
+.compactWrapperSeamless {
+  border-top: none;
+  background: transparent;
+  padding: 4px 24px 32px;
+}
+
+// Still a clear change from its resting border when focused, so focus
+// stays visible.
+.compactWrapperSeamless .compactBox {
+  background: var(--color-panel-solid);
+  box-shadow:
+    0 0 3px var(--slate-a2),
+    0 1px 2px var(--slate-a2),
+    0 4px 8px -2px var(--slate-a3);
+  transition: border-color 150ms ease;
+
+  &:hover:not(.compactBoxFocused) {
+    border-color: var(--slate-9);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.compactWrapperSeamless .compactBoxFocused {
+  border-color: var(--slate-11);
+}
+
+// On the text itself, so the whole area is clickable.
+.compactWrapperSeamless .editor :global(.ProseMirror) {
+  min-height: 52px;
+}
+
 .compactBox {
   border: 1px solid var(--gray-a6);
   border-radius: var(--radius-4);
@@ -230,6 +264,23 @@
   &:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+}
+
+// 6px from the box's edges on one line (its 4px padding and 2px more),
+// which also centres it on the 32px line.
+.primarySendButton.primarySendButton {
+  width: 28px;
+  height: 28px;
+  margin: 0 2px 2px 0;
+  padding: 0;
+  flex-shrink: 0;
+  border-radius: var(--radius-3);
+
+  > span {
+    display: flex;
+    align-items: center;
+    line-height: 0;
   }
 }
 

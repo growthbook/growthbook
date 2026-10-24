@@ -8,14 +8,27 @@ $sidebarwidth: var(--app-rail-width, 240px);
   position: fixed;
   top: 0;
   left: $sidebarwidth;
-  right: 0;
+  // Ends at the docked GrowthBot panel's edge while it's open (AgentPanel
+  // .tsx), as the page does.
+  right: var(--agent-rail-width, 0px);
   height: var(--header-height);
   z-index: 1010;
   // Always solid, so nothing shows through as the page scrolls under it.
   background-color: var(--color-background);
   // 32px on the right, in line with the page content.
   padding: 0 var(--space-6) 0 var(--space-5);
-  transition: left 200ms ease;
+  transition:
+    left 200ms ease,
+    right var(--agent-dock-duration) var(--agent-dock-easing);
+  :global(html.agent-dock-motion) & {
+    transition:
+      left var(--agent-dock-duration) var(--agent-dock-easing),
+      right var(--agent-dock-duration) var(--agent-dock-easing);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
   @media (max-width: 520px) {
     padding: 0 8px;
   }
@@ -54,9 +67,23 @@ $sidebarwidth: var(--app-rail-width, 240px);
   position: fixed;
   top: var(--header-height);
   left: $sidebarwidth;
-  right: 0;
+  // Ends at the docked GrowthBot panel's edge, as the header does.
+  right: var(--agent-rail-width, 0px);
   height: 56px;
   z-index: 995;
+  transition: right var(--agent-dock-duration) var(--agent-dock-easing);
+  :global(html.agent-dock-motion) & {
+    transition:
+      left var(--agent-dock-duration) var(--agent-dock-easing),
+      right var(--agent-dock-duration) var(--agent-dock-easing);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 }
 .pagetitle {
   flex: 1;
@@ -91,6 +118,21 @@ $sidebarwidth: var(--app-rail-width, 240px);
   > :global(.nav-link):empty {
     display: none;
   }
+}
+
+// The notices' right padding spaces them from the GrowthBot button. While the
+// docked panel hides the button it goes too, so the notices end 32px from the
+// panel, in step with the button narrowing (GrowthBotButton.module.scss).
+.navbar > :global(.nav-link) {
+  transition: padding-right var(--agent-dock-duration) var(--agent-dock-easing);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+:global(html.agent-dock-full) .navbar > :global(.nav-link) {
+  padding-right: 0;
 }
 
 .dropdownItemIconColor {
