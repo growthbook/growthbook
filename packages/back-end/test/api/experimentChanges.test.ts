@@ -301,22 +301,6 @@ describe("applyExperimentChanges", () => {
     }
   });
 
-  it("starts a new draft when the values were loaded from live", async () => {
-    await seed({ withDraft: false });
-    const result = await run({
-      flagValues: [
-        {
-          featureId: FLAG,
-          variations: arms("a", "new"),
-          revision: { version: 1, dateUpdated: LOADED },
-        },
-      ],
-    });
-    expect(result.flags).toEqual([{ featureId: FLAG, version: 2 }]);
-    expect(await revisionRules(1)).toEqual(arms("a", "b"));
-    expect(await revisionRules(2)).toEqual(arms("a", "new"));
-  });
-
   it("writes a sparse-only change", async () => {
     await seed({ withDraft: true });
     await run({
@@ -684,7 +668,7 @@ describe("applyExperimentChanges", () => {
     if (!stored) throw new Error("missing experiment");
     const variations = [...stored.variations, variation("v2", 2)];
 
-    await run({
+    const result = await run({
       experiment: {
         changes: { variations, variationWeights: [0.34, 0.33, 0.33] },
         base: { variations: stored.variations, variationWeights: [0.5, 0.5] },
@@ -700,6 +684,9 @@ describe("applyExperimentChanges", () => {
     expect(
       (await getExperimentById(context, EXP))?.variations.map((v) => v.id),
     ).toEqual(["v0", "v1", "v2"]);
+    // Loaded from live, so the values start a new draft and live is untouched.
+    expect(result.flags).toEqual([{ featureId: FLAG, version: 2 }]);
+    expect(await revisionRules(1)).toEqual(arms("a", "b"));
     expect(await revisionRules(2)).toEqual([
       ...arms("a", "b"),
       { variationId: "v2", value: "c" },
@@ -1203,9 +1190,9 @@ describe("applyExperimentChanges", () => {
       expect(plain.valueGroups).toBeUndefined();
     });
 
-    it("writes each group's values to its own rules, in one draft", async () => {
-      await seedSplit();
-      const result = await run({
+    it.each([
+      {
+        name: "each group's values to its own rules, in one draft",
         flagValues: [
           {
             featureId: FLAG,
@@ -1220,17 +1207,10 @@ describe("applyExperimentChanges", () => {
             revision: LIVE,
           },
         ],
-      });
-      expect(result.flags).toEqual([{ featureId: FLAG, version: 2 }]);
-      expect(await draftValuesByRule()).toEqual({
-        fr_prod: arms("a", "prod"),
-        fr_stage: arms("a", "stage"),
-      });
-    });
-
-    it("leaves the other group's rules alone", async () => {
-      await seedSplit();
-      await run({
+        expected: { fr_prod: arms("a", "prod"), fr_stage: arms("a", "stage") },
+      },
+      {
+        name: "one group's values, leaving the other group's rules alone",
         flagValues: [
           {
             featureId: FLAG,
@@ -1239,11 +1219,13 @@ describe("applyExperimentChanges", () => {
             revision: LIVE,
           },
         ],
-      });
-      expect(await draftValuesByRule()).toEqual({
-        fr_prod: arms("a", "b"),
-        fr_stage: arms("a", "stage"),
-      });
+        expected: { fr_prod: arms("a", "b"), fr_stage: arms("a", "stage") },
+      },
+    ])("writes $name", async ({ flagValues, expected }) => {
+      await seedSplit();
+      const result = await run({ flagValues });
+      expect(result.flags).toEqual([{ featureId: FLAG, version: 2 }]);
+      expect(await draftValuesByRule()).toEqual(expected);
     });
 
     it.each([

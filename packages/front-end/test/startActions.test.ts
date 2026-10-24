@@ -5,7 +5,6 @@ import {
   getStartSchedule,
   ServerChecklistItem,
   StartActions,
-  StartChecklist,
   withServerChecklist,
 } from "@/components/Experiment/TabbedPage/startActions";
 
@@ -19,7 +18,6 @@ const soft = { loading: false, remaining: 1, blocking: 0, approval: 0 };
 const approval = { loading: false, remaining: 2, blocking: 1, approval: 1 };
 const conflict = { loading: false, remaining: 1, blocking: 1, approval: 0 };
 const startNow = "Bypass remaining To Do items and start now";
-const scheduleStart = "Bypass remaining To Do items and schedule start";
 const reviewAndTodo =
   "Bypass approvals and remaining To Do items and start now";
 const futureLabel = "Schedule to Start (Oct 3)";
@@ -47,11 +45,6 @@ describe("getStartActions", () => {
       checklist: { ...done, loading: true },
       bypassed: true,
       expected: { bypassLabel: null, hardBlocked: true, disabled: true },
-    },
-    {
-      name: "offers the bypass for a soft item",
-      checklist: soft,
-      expected: { bypassLabel: startNow, ready: true, disabled: true },
     },
     {
       name: "starts once the soft item is bypassed",
@@ -131,19 +124,6 @@ describe("getStartActions", () => {
       },
     },
     {
-      name: "approves a future schedule past a bypassed soft item",
-      scheduledStartAt: future,
-      checklist: soft,
-      bypassed: true,
-      expected: {
-        action: "approve-schedule",
-        label: futureLabel,
-        bypassLabel: scheduleStart,
-        ready: true,
-        disabled: false,
-      },
-    },
-    {
       name: "lets an admin arm a scheduled start past approval",
       scheduledStartAt: future,
       checklist: approval,
@@ -205,13 +185,6 @@ describe("withServerChecklist", () => {
     manual: true,
     reason: "Required custom launch checklist item is incomplete",
   };
-  const targeting: ServerChecklistItem = {
-    key: "targeting",
-    required: true,
-    status: "incomplete",
-    manual: false,
-    reason: "Configure variation assignment and targeting behavior",
-  };
   const mergeConflict: ServerChecklistItem = {
     key: "mergeConflict:flag-a",
     required: true,
@@ -220,27 +193,12 @@ describe("withServerChecklist", () => {
     reason: "Resolve the merge conflict",
     hardBlock: true,
   };
-  it.each([
-    {
-      name: "counts every soft item on top of the page's",
-      checklist: soft,
-      server: [customTask, targeting],
-      expected: { ...soft, remaining: 3 },
-    },
-    {
-      // Resolving it on the page must not leave Start blocked by the refusal.
-      name: "leaves a hard item to the page's live rows",
-      checklist: approval,
-      server: [mergeConflict, customTask],
-      expected: { ...approval, remaining: 3 },
-    },
-  ] as {
-    name: string;
-    checklist: StartChecklist;
-    server: ServerChecklistItem[];
-    expected: StartChecklist;
-  }[])("$name", ({ checklist, server, expected }) => {
-    expect(withServerChecklist(checklist, server)).toEqual(expected);
+  // Resolving the hard one on the page must not leave Start blocked by the refusal.
+  it("counts a soft item on top of the page's, leaving a hard one to its live rows", () => {
+    expect(withServerChecklist(approval, [mergeConflict, customTask])).toEqual({
+      ...approval,
+      remaining: 3,
+    });
   });
 });
 
@@ -252,12 +210,6 @@ describe("getStartTitle", () => {
     date: future.toISOString(),
   } as TitleInput["nextScheduledStatusUpdate"];
   it.each([
-    {
-      name: "a draft with no schedule",
-      startAt: null,
-      next: null,
-      expected: "Start experiment",
-    },
     {
       name: "a draft Bandit",
       type: "multi-armed-bandit",

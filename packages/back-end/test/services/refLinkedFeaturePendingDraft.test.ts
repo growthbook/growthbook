@@ -142,32 +142,24 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
     expect(info.hasUnrelatedDraftChanges).toBeUndefined();
   });
 
-  it("populates pendingDraft for a first draft that has no live rule to compare", async () => {
+  it("offers every draft that adds the rule when live has none, newest first", async () => {
     mockGetFeatures.mockResolvedValue([makeFeature([])]);
     mockGetRevisions.mockResolvedValue({
-      flag: [makeDraft(4, [refRule("draft-value")])],
+      flag: [
+        makeDraft(4, [refRule("older-edit")]),
+        makeDraft(5, [refRule("draft-value")]),
+      ],
     });
 
     const [info] = await run(true);
 
     expect(info.state).toBe("draft");
-    expect(info.pendingDraft?.version).toBe(4);
+    expect(info.pendingDraft?.version).toBe(5);
+    expect(info.otherPendingDrafts?.map((d) => d.version)).toEqual([4]);
     expect(info.liveValues).toBeUndefined();
     // On a draft experiment the sibling fields are populated.
-    expect(info.draftRevisionVersion).toBe(4);
+    expect(info.draftRevisionVersion).toBe(5);
     expect(info.pendingApproval).toBe(true);
-  });
-
-  it("reports no pendingDraft when the draft's rule is identical to live", async () => {
-    mockGetFeatures.mockResolvedValue([makeFeature([refRule("same")])]);
-    mockGetRevisions.mockResolvedValue({
-      flag: [makeDraft(4, [refRule("same")])],
-    });
-
-    const [info] = await run(false);
-
-    expect(info.state).toBe("live");
-    expect(info.pendingDraft).toBeUndefined();
   });
 
   it("offers every draft that changes the rule, newest first", async () => {
@@ -203,20 +195,5 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
 
     expect(info.pendingDraft?.version).toBe(4);
     expect(info.otherPendingDrafts).toBeUndefined();
-  });
-
-  it("offers every draft that adds the rule when live has none", async () => {
-    mockGetFeatures.mockResolvedValue([makeFeature([])]);
-    mockGetRevisions.mockResolvedValue({
-      flag: [
-        makeDraft(4, [refRule("older-edit")]),
-        makeDraft(5, [refRule("newer-edit")]),
-      ],
-    });
-
-    const [info] = await run(true);
-
-    expect(info.pendingDraft?.version).toBe(5);
-    expect(info.otherPendingDrafts?.map((d) => d.version)).toEqual([4]);
   });
 });

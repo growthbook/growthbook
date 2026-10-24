@@ -523,7 +523,7 @@ describe("a scheduled start's experiment", () => {
   const update = (body: object) =>
     auth(request(app).post(`/api/v1/experiments/${EXP_ID}`)).send(body);
 
-  it("refuses a REST change to what it launches, and stays scheduled", async () => {
+  it("refuses a REST change to what it launches, takes one to its metadata, and stays scheduled", async () => {
     await armed();
 
     const refused = await update({ hashAttribute: "deviceId" });
@@ -533,11 +533,6 @@ describe("a scheduled start's experiment", () => {
     expect((await experiments().findOne({ id: EXP_ID }))?.hashAttribute).toBe(
       "id",
     );
-    expect(await staged()).toMatchObject({ type: "start" });
-  });
-
-  it("takes a REST change to its metadata", async () => {
-    await armed();
 
     expect((await update({ description: "Why it matters" })).status).toBe(200);
     expect(await staged()).toMatchObject({ type: "start" });

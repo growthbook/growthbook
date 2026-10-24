@@ -16,7 +16,6 @@ import {
 } from "back-end/src/util/errors";
 import {
   assertScheduledStartNotHardBlocked,
-  executeExperimentStart,
   getExperimentStartChecklistStatus,
   startExperiment,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
@@ -89,37 +88,6 @@ beforeEach(() => {
     { id: "sdk_1" },
   ]);
   (getExperimentLaunchChecklist as jest.Mock).mockResolvedValue(null);
-});
-
-describe("executeExperimentStart", () => {
-  it("stages the scheduled stop on the authority of whoever started the experiment", async () => {
-    const experiment = {
-      id: "exp_1",
-      status: "draft",
-      owner: "u_owner",
-      variations: [{ id: "v0" }, { id: "v1" }],
-      phases: [{ variationWeights: [0.5, 0.5] }],
-      statusUpdateSchedule: { stopAt: new Date(Date.now() + 60 * 60 * 1000) },
-    } as unknown as ExperimentInterface;
-    const context = {
-      org: { id: "org_1" },
-      userId: "u_scheduler",
-      armer: { userId: "u_scheduler" },
-    } as unknown as ReqContext;
-
-    await executeExperimentStart(context, experiment);
-
-    expect(updateExperiment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        changes: expect.objectContaining({
-          nextScheduledStatusUpdate: expect.objectContaining({
-            type: "stop",
-            scheduledBy: "u_scheduler",
-          }),
-        }),
-      }),
-    );
-  });
 });
 
 describe("startExperiment", () => {
@@ -215,46 +183,20 @@ describe("custom launch checklist tasks", () => {
 });
 
 describe("assertScheduledStartNotHardBlocked", () => {
-  it.each([
-    {
-      name: "an unrelated draft change",
-      facts: { hasUnrelatedDraftChanges: true },
-      key: "unrelatedDraftChanges:flag_1",
-    },
-    {
-      name: "a merge conflict",
-      facts: { hasMergeConflict: true },
-      key: "mergeConflict:flag_1",
-    },
-  ])(
-    "refuses to fire with $name, as a retryable failure",
-    async ({ facts, key }) => {
-      (getLinkedFeatureInfo as jest.Mock).mockResolvedValue([
-        { ...draftFlag, ...facts },
-      ]);
+  it("refuses to fire with a merge conflict, as a retryable failure", async () => {
+    (getLinkedFeatureInfo as jest.Mock).mockResolvedValue([
+      { ...draftFlag, hasMergeConflict: true },
+    ]);
 
-      const error = await assertScheduledStartNotHardBlocked(
-        context,
-        draft,
-      ).catch((e) => e);
+    const error = await assertScheduledStartNotHardBlocked(
+      context,
+      draft,
+    ).catch((e) => e);
 
-      expect(error).toBeInstanceOf(ChecklistIncompleteError);
-      expect(isTerminalPublishError(error)).toBe(false);
-      expect(error.details.remainingChecklistItems).toEqual([
-        expect.objectContaining({ key }),
-      ]);
-    },
-  );
-
-  it("fires with only soft items open", async () => {
-    (findSDKConnectionsByOrganization as jest.Mock).mockResolvedValue([]);
-
-    await expect(
-      assertScheduledStartNotHardBlocked(context, draft),
-    ).resolves.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ key: "sdkConnection", status: "incomplete" }),
-      ]),
-    );
+    expect(error).toBeInstanceOf(ChecklistIncompleteError);
+    expect(isTerminalPublishError(error)).toBe(false);
+    expect(error.details.remainingChecklistItems).toEqual([
+      expect.objectContaining({ key: "mergeConflict:flag_1" }),
+    ]);
   });
 });

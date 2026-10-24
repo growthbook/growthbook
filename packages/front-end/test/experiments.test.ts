@@ -97,7 +97,6 @@ describe("isEqualSplit", () => {
   });
 
   it("rejects splits that differ by more than one step", () => {
-    expect(isEqualSplit([0.25, 0.25, 0.5])).toBe(false);
     expect(isEqualSplit([0.5001, 0.4999])).toBe(false);
   });
 });

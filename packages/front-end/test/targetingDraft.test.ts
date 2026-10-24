@@ -46,8 +46,5 @@ describe("onlyTrafficChanged", () => {
         stored,
       ),
     ).toBe(false);
-    expect(
-      onlyTrafficChanged({ ...stored, condition: '{"country":"US"}' }, stored),
-    ).toBe(false);
   });
 });

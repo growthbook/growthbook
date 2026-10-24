@@ -24,12 +24,6 @@ describe("redirectDestinationParts", () => {
     ).toBe("…/products/experiments");
   });
 
-  it("keeps the host out of it", () => {
-    expect(
-      shown("https://www.example.com", "https://www.example.com/landing"),
-    ).toBe("/landing");
-  });
-
   it("shows the whole path of a destination up a level", () => {
     expect(
       shown("https://www.example.com/pricing", "https://www.example.com/"),

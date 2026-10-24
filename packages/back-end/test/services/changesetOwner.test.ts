@@ -320,22 +320,30 @@ describe("ExperimentChangesetOwner", () => {
       ).toThrow("Only draft experiments can have their visual changes edited");
     });
 
-    it("allows a stopped experiment without the opt-in, checked everywhere and audited", async () => {
-      const req = writeReq(makeContext());
-      const owner = new ExperimentChangesetOwner(
-        req.context,
-        makeExperiment({ status: "stopped" }),
-      );
-      await owner.requireWrite(req, opts)();
-      expect(
-        jest.mocked(req.context.permissions.canRunExperiment).mock.calls,
-      ).toEqual([[{ project: "prj_1" }, ["__ALL__"]]]);
-      expect(req.audit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          details: expect.stringContaining('"liveVisualChangeEdit":true'),
-        }),
-      );
-    });
+    it.each([
+      { status: "running", allowRunning: true },
+      { status: "stopped", allowRunning: false },
+    ] as const)(
+      "allows a $status experiment (opt-in: $allowRunning), checked everywhere and audited",
+      async ({ status, allowRunning }) => {
+        const req = writeReq(makeContext());
+        const owner = new ExperimentChangesetOwner(
+          req.context,
+          makeExperiment({ status }),
+        );
+        await owner.requireWrite(req, { ...opts, allowRunning })();
+        expect(
+          jest.mocked(req.context.permissions.canRunExperiment).mock.calls,
+        ).toEqual([[{ project: "prj_1" }, ["__ALL__"]]]);
+        expect(req.audit).toHaveBeenCalledWith(
+          expect.objectContaining({
+            event: "experiment.update",
+            entity: { object: "experiment", id: "exp_1" },
+            details: expect.stringContaining('"liveVisualChangeEdit":true'),
+          }),
+        );
+      },
+    );
 
     it("rejects a running experiment without the opt-in", () => {
       const req = writeReq(makeContext());
@@ -357,22 +365,6 @@ describe("ExperimentChangesetOwner", () => {
       expect(() =>
         owner.requireWrite(req, { ...opts, allowRunning: true }),
       ).toThrow("permission denied");
-    });
-
-    it("audits an accepted live edit", async () => {
-      const req = writeReq(makeContext());
-      const owner = new ExperimentChangesetOwner(
-        req.context,
-        makeExperiment({ status: "running" }),
-      );
-      await owner.requireWrite(req, { ...opts, allowRunning: true })();
-      expect(req.audit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          event: "experiment.update",
-          entity: { object: "experiment", id: "exp_1" },
-          details: expect.stringContaining('"liveVisualChangeEdit":true'),
-        }),
-      );
     });
 
     it("logs instead of failing the write when the audit fails", async () => {

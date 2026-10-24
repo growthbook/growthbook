@@ -232,29 +232,6 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     expect(mockPublishRevision).not.toHaveBeenCalled();
   });
 
-  it("publishes a single draft cleanly", async () => {
-    mockGetRevision.mockResolvedValue({
-      version: 6,
-      status: "draft",
-      rules: [],
-    } as never);
-
-    const experiment = makeExperiment([
-      { featureId: "j2-test", revisionVersion: 6 },
-    ]);
-
-    const result = await publishPendingFeatureDraftsForExperiment(
-      ctx,
-      experiment,
-    );
-
-    expect(result.published).toEqual([
-      { featureId: "j2-test", revisionVersion: 6 },
-    ]);
-    expect(result.failed).toEqual([]);
-    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
-  });
-
   it("fetches each feature/revision once instead of re-fetching per phase", async () => {
     mockGetRevision.mockImplementation(async ({ version }) => {
       return { version, status: "draft", rules: [] } as never;

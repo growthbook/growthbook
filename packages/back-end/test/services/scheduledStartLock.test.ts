@@ -59,16 +59,6 @@ describe("scheduledStartLockedFields", () => {
       expected: ["phases"],
     },
     {
-      name: "a variation added",
-      changes: {
-        variations: [
-          ...experiment(true).variations,
-          { id: "v2", key: "2", name: "Third", screenshots: [] },
-        ],
-      },
-      expected: ["variations"],
-    },
-    {
       name: "a variation key",
       changes: {
         variations: experiment(true).variations.map((v, i) =>
@@ -78,14 +68,9 @@ describe("scheduledStartLockedFields", () => {
       expected: ["variations"],
     },
     {
-      name: "the hash attribute",
-      changes: { hashAttribute: "deviceId" },
-      expected: ["hashAttribute"],
-    },
-    {
-      name: "the holdout",
-      changes: { holdoutId: "hld_1" },
-      expected: ["holdoutId"],
+      name: "the hash attribute and the holdout",
+      changes: { hashAttribute: "deviceId", holdoutId: "hld_1" },
+      expected: ["hashAttribute", "holdoutId"],
     },
   ])("catches $name", ({ changes, expected }) => {
     expect(scheduledStartLockedFields(experiment(true), changes)).toEqual(

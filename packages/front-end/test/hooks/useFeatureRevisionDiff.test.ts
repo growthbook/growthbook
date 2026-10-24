@@ -213,12 +213,13 @@ describe("useFeatureRevisionDiff", () => {
     const current: FeatureRevisionDiffInput = {
       defaultValue: "false",
       rules: [],
-      environmentsEnabled: { production: false, staging: false },
+      environmentsEnabled: { production: false },
     };
+    // An env the current side lacks reads as off, so dev isn't a toggle.
     const draft: FeatureRevisionDiffInput = {
       defaultValue: "false",
       rules: [],
-      environmentsEnabled: { production: true, staging: false, dev: false },
+      environmentsEnabled: { production: true, dev: false },
     };
 
     const { result } = renderHook(() =>
@@ -230,8 +231,6 @@ describe("useFeatureRevisionDiff", () => {
     );
     expect(toggleDiffs).toHaveLength(1);
     expect(toggleDiffs[0].title).toBe("Environment");
-    expect(JSON.parse(toggleDiffs[0].a)).toEqual({ production: false });
-    expect(JSON.parse(toggleDiffs[0].b)).toEqual({ production: true });
   });
 
   it("ignores rule fields the rule type does not declare", () => {

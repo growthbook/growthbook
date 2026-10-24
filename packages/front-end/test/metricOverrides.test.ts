@@ -84,27 +84,18 @@ describe("describeMetricOverride", () => {
 });
 
 describe("getOverriddenMetricIds", () => {
-  it("keeps only metrics with something overridden", () => {
-    expect(
-      getOverriddenMetricIds([
-        { id: "met_a", delayHours: 2 },
-        { id: "met_b" },
-        { id: "met_c", regressionAdjustmentOverride: false },
-      ]),
-    ).toEqual(new Set(["met_a"]));
-  });
-
-  it("is empty without overrides", () => {
-    expect(getOverriddenMetricIds(undefined)).toEqual(new Set());
-  });
-
-  it("counts a target MDE override alone", () => {
+  it("keeps only metrics with something overridden, a target MDE alone included", () => {
     expect(
       getOverriddenMetricIds(
-        [{ id: "met_a" }],
-        [{ id: "met_a", targetMDE: 0.05 }, { id: "met_b" }],
+        [
+          { id: "met_a", delayHours: 2 },
+          { id: "met_b" },
+          { id: "met_c", regressionAdjustmentOverride: false },
+        ],
+        [{ id: "met_d", targetMDE: 0.05 }, { id: "met_e" }],
       ),
-    ).toEqual(new Set(["met_a"]));
+    ).toEqual(new Set(["met_a", "met_d"]));
+    expect(getOverriddenMetricIds(undefined)).toEqual(new Set());
   });
 });
 

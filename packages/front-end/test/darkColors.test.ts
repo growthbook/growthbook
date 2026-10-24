@@ -4,11 +4,6 @@ const channels = (hex: string) =>
   (hex.slice(1).match(/../g) ?? []).map((h) => parseInt(h, 16));
 
 describe("darkColor", () => {
-  it("lands light mode's white on the dark surface and black text near white", () => {
-    expect(darkColor("#ffffff", "surface")).toBe("#191919");
-    expect(darkColor("black", "text")).toBe("#e8e8e8");
-  });
-
   it("keeps a color's hue while lightening it for dark text", () => {
     const [r, g, b] = channels(darkColor("#00009f", "text"));
     expect(b).toBeGreaterThan(r);

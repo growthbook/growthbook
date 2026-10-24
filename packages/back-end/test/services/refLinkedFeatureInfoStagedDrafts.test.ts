@@ -188,5 +188,6 @@ describe("getRefLinkedFeatureInfo staged drafts", () => {
 
     expect(info.state).toBe("live");
     expect(info.stagedDrafts).toBeUndefined();
+    expect(info.pendingDraft).toBeUndefined();
   });
 });

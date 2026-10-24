@@ -253,7 +253,7 @@
       "count": 8
     }
   },
-  "packages/front-end/components/Experiment/EditPhaseModal.tsx": {
+  "packages/front-end/components/Experiment/EditPhasesModal.tsx": {
     "no-restricted-syntax": {
       "count": 3
     }
@@ -349,7 +349,7 @@
   },
   "packages/front-end/components/Experiment/PhaseSelector.tsx": {
     "no-restricted-syntax": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/QueryModal.tsx": {
@@ -701,11 +701,6 @@
   "packages/front-end/components/Features/RolloutPercentInput.tsx": {
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Features/RuleModal/BanditRefFields.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/Features/RuleModal/BanditRefNewFields.tsx": {
