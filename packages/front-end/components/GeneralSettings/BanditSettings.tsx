@@ -1,7 +1,6 @@
 import { useFormContext } from "react-hook-form";
 import { ScopedSettings } from "shared/settings";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { PiInfo } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -10,7 +9,7 @@ import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import Tooltip from "@/ui/Tooltip";
+import LabelWithHelp from "@/ui/LabelWithHelp";
 
 export default function BanditSettings({
   page = "org-settings",
@@ -210,29 +209,13 @@ export default function BanditSettings({
                 align="start"
                 weight="medium"
                 label={
-                  <Flex as="span" align="center" gap="1">
-                    Weight results across update periods
-                    <span
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      style={{ display: "inline-flex" }}
-                    >
-                      <Tooltip content="Each update period is weighted proportionally to traffic received. This reduces bias, but adds variance.">
-                        <PiInfo color="var(--color-text-low)" />
-                      </Tooltip>
-                    </span>
-                    <span
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      style={{ display: "inline-flex" }}
-                    >
+                  <LabelWithHelp
+                    label="Weight results across update periods"
+                    help="Each update period is weighted proportionally to traffic received. This reduces bias, but adds variance."
+                    adornment={
                       <PremiumTooltip commercialFeature="contextual-bandits" />
-                    </span>
-                  </Flex>
+                    }
+                  />
                 }
                 description="Reduce bias in Contextual Bandit decision metric estimates due to changing traffic over time. This applies to every Contextual Bandit in the organization and cannot be changed per experiment."
                 value={form.watch("banditPeriodWeighting") ?? true}
