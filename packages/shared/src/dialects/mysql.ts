@@ -90,7 +90,7 @@ export const mysqlDialect: SqlDialect = {
     ) t`;
   },
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = `JSON_EXTRACT(${jsonCol}, '$.${path}')`;
+    const raw = `JSON_EXTRACT(${jsonCol}, '$.${mysqlEscapeStringLiteral(path)}')`;
     return isNumeric ? mysqlDialect.castToFloat(raw) : raw;
   },
   // MySQL 8.0.14+ LATERAL derived table; requires MySQL 8 for window functions in top-N ranking.

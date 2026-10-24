@@ -11,6 +11,8 @@ import { baseDialect } from "./base";
 const databricksEscapeStringLiteral = (value: string) =>
   value.replace(/(['\\])/g, "\\$1");
 
+const SAFE_DATABRICKS_JSON_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 export const databricksDialect: SqlDialect = {
   ...baseDialect,
   concatStrings: (parts: string[]) => parts.join(" || "),
@@ -38,8 +40,12 @@ export const databricksDialect: SqlDialect = {
     `HLL_SKETCH_AGG(${databricksDialect.castToString(col)})`,
   hllReaggregate: (col: string) => `HLL_UNION_AGG(${col})`,
   hllCardinality: (col: string) => `HLL_SKETCH_ESTIMATE(${col})`,
+  // The `col:path` form is SQL syntax, so keys that aren't plain identifiers
+  // fall back to get_json_object, which takes the path as a string literal.
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = `${jsonCol}:${path}`;
+    const raw = path.split(".").every((p) => SAFE_DATABRICKS_JSON_KEY.test(p))
+      ? `${jsonCol}:${path}`
+      : `get_json_object(${jsonCol}, '$.${databricksEscapeStringLiteral(path)}')`;
     return isNumeric ? databricksDialect.castToFloat(raw) : raw;
   },
   // Spark SQL (Databricks) — `collect_list` skips NULLs by default; we
