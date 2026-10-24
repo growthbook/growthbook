@@ -63,22 +63,6 @@ import {
 } from "./AttributeOptionTooltip";
 import { formatSavedGroupOptionLabel } from "./SavedGroupOptionTooltip";
 
-export function ConditionLabel({
-  label,
-  width = 35,
-}: {
-  label: string;
-  width?: number;
-}) {
-  return (
-    <Flex align="center" flexShrink="0" style={{ width }} mb="1">
-      <Text weight="medium" size="md">
-        {label}
-      </Text>
-    </Flex>
-  );
-}
-
 /** Operators that support a case-insensitive variant via checkbox (list + regex) */
 const OPERATORS_WITH_CASE_INSENSITIVE = new Set([
   "$in",

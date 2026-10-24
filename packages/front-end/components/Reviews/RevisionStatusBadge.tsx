@@ -106,26 +106,6 @@ export function draftStatusDotColor(status: string): string {
   }
 }
 
-// Priority order for picking the dot color when multiple statuses exist.
-// Higher index = shown first.
-const DRAFT_STATUS_PRIORITY: ActiveDraftStatus[] = [
-  "draft",
-  "approved",
-  "pending-review",
-  "changes-requested",
-];
-
-/** Returns the highest-priority status present in the counts map. */
-export function topDraftStatus(
-  counts: Partial<Record<string, number>>,
-): string | null {
-  for (let i = DRAFT_STATUS_PRIORITY.length - 1; i >= 0; i--) {
-    const s = DRAFT_STATUS_PRIORITY[i];
-    if ((counts[s] ?? 0) > 0) return s;
-  }
-  return null;
-}
-
 /** Builds a tooltip ReactNode from a counts map — one line per status. */
 export function draftStatusTooltip(
   counts: Partial<Record<string, number>>,

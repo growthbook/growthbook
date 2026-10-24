@@ -18,6 +18,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import track from "@/services/track";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
+import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -30,6 +31,7 @@ import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
 import useHashAttributeOptions from "./useHashAttributeOptions";
 
 export interface Props {
+  section?: "targeting" | "namespace";
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures?: LinkedFeatureInfo[];
@@ -42,6 +44,7 @@ export interface Props {
 }
 
 export default function EditTargetingModal({
+  section = "targeting",
   close,
   experiment,
   linkedFeatures,
@@ -119,6 +122,33 @@ export default function EditTargetingModal({
   const settings = useOrgSettings();
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
+
+  if (safeToEdit && section === "namespace") {
+    return (
+      <ModalStandard
+        trackingEventModalType="edit-namespace-modal"
+        open={true}
+        close={close}
+        header="Edit Namespace"
+        subheader="Run mutually exclusive experiments within a shared namespace."
+        ctaEnabled={canSubmit}
+        cta={stageChanges ? "Confirm" : "Save"}
+        submit={onSubmit(mutate, "namespace", stageChanges)}
+        size="lg"
+      >
+        <div className="pt-2">
+          <NamespaceSelector
+            form={form}
+            featureId={experiment.trackingKey}
+            trackingKey={experiment.trackingKey}
+            experimentHashAttribute={form.watch("hashAttribute")}
+            fallbackAttribute={form.watch("fallbackAttribute")}
+            hideEnableToggle
+          />
+        </div>
+      </ModalStandard>
+    );
+  }
 
   if (safeToEdit) {
     return (

@@ -48,10 +48,8 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import {
-  formatAttributeOptionLabel,
-  toAttributeOption,
-} from "@/components/Features/AttributeOptionTooltip";
+import { formatAttributeOptionLabel } from "@/components/Features/AttributeOptionTooltip";
+import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOptions";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
@@ -192,7 +190,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
-  const hasHashAttributes = hashAttributes.length > 0;
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
@@ -236,6 +233,11 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         genEnvironmentSettings({ environments }),
     },
   });
+
+  const hashAttributeOptions = useHashAttributeOptions(
+    project,
+    form.watch("hashAttribute"),
+  );
 
   const selectedProjects = form.watch("projects") ?? [];
   const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
@@ -540,9 +542,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 size="legacy"
                 withRadixThemedPortal
                 containerClassName="flex-1"
-                options={attributeSchema
-                  .filter((s) => !hasHashAttributes || s.hashAttribute)
-                  .map(toAttributeOption)}
+                options={hashAttributeOptions}
                 value={form.watch("hashAttribute") ?? ""}
                 onChange={(v) => {
                   form.setValue("hashAttribute", v);

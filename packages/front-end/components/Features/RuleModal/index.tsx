@@ -113,7 +113,6 @@ import { scheduleAutoName } from "@/components/Features/RuleModal/ScheduleInputs
 import ExperimentRefFields from "@/components/Features/RuleModal/ExperimentRefFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
 import Page from "@/components/Modal/Page";
-import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
@@ -2671,6 +2670,7 @@ export default function RuleModal({
         {(ruleType === "experiment-ref" || ruleType === "experiment") &&
         experimentType === "experiment" ? (
           <ExperimentRefFields
+            kind="experiment"
             feature={feature}
             existingRule={mode === "edit"}
             defaultValues={defaultValues}
@@ -2685,7 +2685,8 @@ export default function RuleModal({
 
         {(ruleType === "experiment-ref" || ruleType === "experiment") &&
         experimentType === "bandit" ? (
-          <BanditRefFields
+          <ExperimentRefFields
+            kind="bandit"
             feature={feature}
             existingRule={mode === "edit"}
             changeRuleType={changeRuleType}

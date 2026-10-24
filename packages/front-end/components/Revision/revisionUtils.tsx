@@ -1,8 +1,6 @@
 import React from "react";
-import { Flex } from "@radix-ui/themes";
 import { Revision, RevisionStatus } from "shared/enterprise";
 import Badge from "@/ui/Badge";
-import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import {
   revisionStatusColor,
   revisionStatusLabel,
@@ -34,43 +32,6 @@ export function getStatusBadge(
       radius="full"
     />
   );
-}
-
-// Colored-dot + label rendering used by the approvals inbox + saved-group
-// reviews tab. Mirrors the home-page "Feature flags requiring attention" style
-// so status rendering stays consistent across dashboards.
-export function renderRevisionStatusCell(status: RevisionStatus) {
-  switch (status) {
-    case "approved":
-      return (
-        <Flex gap="1" align="center">
-          <ExperimentDot color="green" />
-          Approved
-        </Flex>
-      );
-    case "pending-review":
-      return (
-        <Flex gap="1" align="center">
-          <ExperimentDot color="amber" />
-          Pending Review
-        </Flex>
-      );
-    case "draft":
-      return <span className="mr-3">Draft</span>;
-    case "changes-requested":
-      return (
-        <Flex gap="1" align="center">
-          <ExperimentDot color="red" />
-          Changes Requested
-        </Flex>
-      );
-    case "merged":
-      return <span className="mr-3">Locked</span>;
-    case "discarded":
-      return <span className="mr-3">Discarded</span>;
-    default:
-      return null;
-  }
 }
 
 // Builds the saved-group revision deep-link using `?v=<n>`. Falls back to the

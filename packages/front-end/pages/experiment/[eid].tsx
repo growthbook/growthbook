@@ -17,11 +17,8 @@ import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
-import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
-import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
-import EditNamespaceModal from "@/components/Experiment/EditNamespaceModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import {
   stagedEditsScope,
@@ -41,11 +38,10 @@ const ExperimentPage = (): ReactElement => {
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
-  const [phaseModalOpen, setPhaseModalOpen] = useState(false);
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
-  const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
-  const [targetingModalOpen, setTargetingModalOpen] = useState(false);
-  const [namespaceModalOpen, setNamespaceModalOpen] = useState(false);
+  const [targetingModal, setTargetingModal] = useState<
+    null | "targeting" | "namespace"
+  >(null);
   const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
@@ -128,16 +124,12 @@ const ExperimentPage = (): ReactElement => {
   const duplicate = canEditExperiment
     ? () => setDuplicateModalOpen(true)
     : null;
-  const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
   const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
-  const editPhase = canRunExperiment
-    ? (i: number | null) => setEditPhaseId(i)
-    : null;
   const editTargeting = canRunExperiment
-    ? () => setTargetingModalOpen(true)
+    ? () => setTargetingModal("targeting")
     : null;
   const editNamespace = canRunExperiment
-    ? () => setNamespaceModalOpen(true)
+    ? () => setTargetingModal("namespace")
     : null;
   const editSchedule = canEditExperiment
     ? () => setEditScheduleModalOpen(true)
@@ -177,25 +169,6 @@ const ExperimentPage = (): ReactElement => {
           duplicate={true}
         />
       )}
-      {phaseModalOpen && (
-        <NewPhaseForm
-          close={() => setPhaseModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          source="eid"
-        />
-      )}
-      {editPhaseId !== null && (
-        <EditPhaseModal
-          close={() => setEditPhaseId(null)}
-          experiment={experiment}
-          mutate={mutate}
-          i={editPhaseId}
-          editTargeting={editTargeting}
-          source="eid"
-        />
-      )}
       {editPhasesOpen && (
         <EditPhasesModal
           close={() => setEditPhasesOpen(false)}
@@ -206,21 +179,10 @@ const ExperimentPage = (): ReactElement => {
           source="eid"
         />
       )}
-      {targetingModalOpen && (
+      {targetingModal && (
         <EditTargetingModal
-          close={() => setTargetingModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          safeToEdit={safeToEdit}
-          stageChanges={setTargetingDraft}
-          draft={targetingDraft}
-          // source="eid"
-        />
-      )}
-      {namespaceModalOpen && (
-        <EditNamespaceModal
-          close={() => setNamespaceModalOpen(false)}
+          section={targetingModal}
+          close={() => setTargetingModal(null)}
           mutate={mutate}
           experiment={experiment}
           linkedFeatures={linkedFeatures}
@@ -258,9 +220,7 @@ const ExperimentPage = (): ReactElement => {
           editMetrics={editMetrics}
           editResult={editResult}
           duplicate={duplicate}
-          newPhase={newPhase}
           editPhases={editPhases}
-          editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
           targetingDraft={{ value: targetingDraft, set: setTargetingDraft }}

@@ -2,7 +2,7 @@ import isEqual from "lodash/isEqual";
 import { LinkedFeatureInfo } from "shared/types/experiment";
 
 /** Whether the draft would move where the experiment runs. */
-export function environmentStatesDiffer(
+function environmentStatesDiffer(
   info: Pick<LinkedFeatureInfo, "liveEnvironmentStates" | "pendingDraft">,
 ): boolean {
   if (!info.pendingDraft) return false;

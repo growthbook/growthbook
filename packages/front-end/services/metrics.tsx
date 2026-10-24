@@ -472,20 +472,6 @@ export function validateFactMetricFormValues(
   }
 }
 
-export function getMetricConversionTitle(type: MetricType): string {
-  // TODO: support more metric types
-  if (type === "count") {
-    return "Count per User";
-  }
-  if (type === "duration") {
-    return "Duration";
-  }
-  if (type === "revenue") {
-    return "Revenue";
-  }
-  return "Conversion Rate";
-}
-
 export function getPercentileLabel(quantile: number): string {
   if (quantile === 0.5) {
     return "Median";

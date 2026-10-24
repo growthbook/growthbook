@@ -190,14 +190,7 @@ export default function MakeChangesFlow({
           <div className="mt-4">
             <label>Current targeting and traffic (for reference)</label>
             <div className="appbox bg-light px-3 pt-3 pb-1 mb-0">
-              <TargetingInfo
-                experiment={experiment}
-                noHeader={true}
-                targetingFieldsOnly={true}
-                separateTrafficSplitDisplay={true}
-                showDecimals={true}
-                showNamespaceRanges={true}
-              />
+              <TargetingInfo experiment={experiment} />
             </div>
           </div>
         </div>

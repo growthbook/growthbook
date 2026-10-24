@@ -4,29 +4,18 @@ import {
 } from "shared/types/experiment";
 import clsx from "clsx";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
-import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
-import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { GBInfo } from "@/components/Icons";
 
 export interface Props {
-  phaseIndex?: number | null;
   experiment: ExperimentInterfaceStringDates;
-  editTargeting?: (() => void) | null;
-  noHeader?: boolean;
-  targetingFieldsOnly?: boolean;
-  separateTrafficSplitDisplay?: boolean;
-  showDecimals?: boolean;
-  showNamespaceRanges?: boolean;
   showChanges?: boolean;
   changes?: ExperimentTargetingData;
   showFullTargetingInfo?: boolean;
-  horizontalView?: boolean;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -39,22 +28,14 @@ function formatRanges(ranges: [number, number][]): string {
 }
 
 export default function TargetingInfo({
-  phaseIndex = null,
   experiment,
-  editTargeting,
-  noHeader,
-  targetingFieldsOnly,
-  separateTrafficSplitDisplay,
-  showDecimals,
-  showNamespaceRanges,
   showChanges,
   changes,
   showFullTargetingInfo = true,
-  horizontalView,
 }: Props) {
   const { namespaces } = useOrgSettings();
 
-  const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
+  const phase = experiment.phases[experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
 
   // Calculate total namespace allocation
@@ -101,68 +82,16 @@ export default function TargetingInfo({
 
   return (
     <div>
-      {!noHeader && (
-        <HeaderWithEdit
-          edit={editTargeting || undefined}
-          className="h3"
-          containerClassName="mb-3"
-        >
-          Targeting and Traffic
-        </HeaderWithEdit>
-      )}
       {phase ? (
         <div className="row">
-          <div className={clsx("col", horizontalView && "d-flex flex-wrap")}>
-            {!targetingFieldsOnly && (
-              <>
-                <div className={clsx("mb-3", horizontalView && "mr-4")}>
-                  <div className="mb-1">
-                    <strong>Tracking Key</strong>{" "}
-                    <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
-                  </div>
-                  <div>{experiment.trackingKey}</div>
-                </div>
-                <div className={clsx("mb-3", horizontalView && "mr-4")}>
-                  <div className="mb-1">
-                    <strong>
-                      Assignment Attribute
-                      {experiment.fallbackAttribute ? "s" : ""}
-                    </strong>{" "}
-                    <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
-                      <GBInfo />
-                    </Tooltip>
-                  </div>
-                  <div className="d-flex flex-wrap align-items-center gap-1">
-                    <AttributeBadge
-                      attributeId={experiment.hashAttribute || "id"}
-                    />
-                    {experiment.fallbackAttribute ? (
-                      <>
-                        ,{" "}
-                        <AttributeBadge
-                          attributeId={experiment.fallbackAttribute}
-                        />
-                      </>
-                    ) : null}
-                    {
-                      <HashVersionTooltip>
-                        <small className="text-muted ml-1">
-                          (V{experiment.hashVersion || 2} hashing)
-                        </small>
-                      </HashVersionTooltip>
-                    }
-                  </div>
-                </div>
-              </>
-            )}
-
+          <div className="col">
             {(!showChanges ||
               showFullTargetingInfo ||
               hasSavedGroupsChanges ||
               hasConditionChanges ||
               hasPrerequisiteChanges) && (
               <>
-                <div className={clsx("mb-3", horizontalView && "mr-4")}>
+                <div className="mb-3">
                   <div className="mb-1">
                     <strong>Saved Group targeting</strong>
                   </div>
@@ -206,7 +135,7 @@ export default function TargetingInfo({
                     )}
                   </div>
                 </div>
-                <div className={clsx("mb-3", horizontalView && "mr-4")}>
+                <div className="mb-3">
                   <div className="mb-1">
                     <strong>Attribute targeting</strong>
                   </div>
@@ -246,7 +175,7 @@ export default function TargetingInfo({
                     )}
                   </div>
                 </div>
-                <div className={clsx("mb-3", horizontalView && "mr-4")}>
+                <div className="mb-3">
                   <div className="mb-1">
                     <strong>Prerequisite targeting</strong>
                   </div>
@@ -294,7 +223,7 @@ export default function TargetingInfo({
             )}
 
             {(!showChanges || showFullTargetingInfo || hasNamespaceChanges) && (
-              <div className={clsx("mb-3", horizontalView && "mr-4")}>
+              <div className="mb-3">
                 <div className="mb-1">
                   <strong>Namespace targeting</strong>{" "}
                   <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under Experimentation → Namespaces">
@@ -320,12 +249,11 @@ export default function TargetingInfo({
                             <span className="text-muted">
                               ({percentFormatter.format(namespaceCoverage)})
                             </span>
-                            {showNamespaceRanges &&
-                              namespaceRanges.length > 0 && (
-                                <span className="text-muted small ml-1">
-                                  {formatRanges(namespaceRanges)}
-                                </span>
-                              )}
+                            {namespaceRanges.length > 0 && (
+                              <span className="text-muted small ml-1">
+                                {formatRanges(namespaceRanges)}
+                              </span>
+                            )}
                           </>
                         ) : (
                           <em>Global (all users)</em>
@@ -349,12 +277,11 @@ export default function TargetingInfo({
                               )}
                               )
                             </span>
-                            {showNamespaceRanges &&
-                              changesNamespaceRanges.length > 0 && (
-                                <span className="text-muted small ml-1">
-                                  {formatRanges(changesNamespaceRanges)}
-                                </span>
-                              )}
+                            {changesNamespaceRanges.length > 0 && (
+                              <span className="text-muted small ml-1">
+                                {formatRanges(changesNamespaceRanges)}
+                              </span>
+                            )}
                           </>
                         ) : (
                           <em>Global (all users)</em>
@@ -366,146 +293,79 @@ export default function TargetingInfo({
               </div>
             )}
 
-            {!separateTrafficSplitDisplay ? (
+            {(!showChanges ||
+              showFullTargetingInfo ||
+              hasCoverageChanges ||
+              hasVariationWeightsChanges) && (
+              <div className="mb-3">
+                <div>
+                  <strong>Traffic percent</strong>
+                </div>
+                <div className="d-flex">
+                  <div
+                    className={clsx("d-flex", {
+                      "text-danger font-weight-bold": hasCoverageChanges,
+                    })}
+                  >
+                    {hasCoverageChanges && (
+                      <div className="text-center" style={{ width: 20 }}>
+                        Δ
+                      </div>
+                    )}
+                    <div>{percentFormatter.format(phase.coverage)}</div>
+                  </div>
+                  {hasCoverageChanges && (
+                    <div className="font-weight-bold text-success d-flex ml-4">
+                      <div className="text-center" style={{ width: 20 }}>
+                        →
+                      </div>
+                      <div>
+                        {percentFormatter.format(changes?.coverage ?? 1)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {experiment.type !== "multi-armed-bandit" &&
               (!showChanges ||
                 showFullTargetingInfo ||
                 hasCoverageChanges ||
                 hasVariationWeightsChanges) && (
-                <div className={clsx("mb-3", horizontalView && "mr-4")}>
-                  <div className="mb-1">
-                    <strong>Traffic</strong>
+                <div className="mb-3">
+                  <div>
+                    <strong>Variation weights</strong>
                   </div>
                   <div className="d-flex">
                     <div
                       className={clsx("d-flex", {
                         "text-danger font-weight-bold":
-                          hasCoverageChanges || hasVariationWeightsChanges,
+                          hasVariationWeightsChanges,
                       })}
                     >
-                      {(hasCoverageChanges || hasVariationWeightsChanges) && (
+                      {hasVariationWeightsChanges && (
                         <div className="text-center" style={{ width: 20 }}>
                           Δ
                         </div>
                       )}
-                      <div>
-                        {Math.floor(phase.coverage * 100)}% included
-                        {experiment.type !== "multi-armed-bandit" && (
-                          <>
-                            ,{" "}
-                            {formatTrafficSplit(
-                              phase.variationWeights,
-                              showDecimals ? 2 : 0,
-                            )}{" "}
-                            split
-                          </>
-                        )}
-                      </div>
+                      <div>{formatTrafficSplit(phase.variationWeights, 2)}</div>
                     </div>
-                    {(hasCoverageChanges || hasVariationWeightsChanges) && (
+                    {hasVariationWeightsChanges && (
                       <div className="font-weight-bold text-success d-flex ml-4">
                         <div className="text-center" style={{ width: 20 }}>
                           →
                         </div>
                         <div>
-                          {Math.floor((changes?.coverage ?? 1) * 100)}% included
-                          {experiment.type !== "multi-armed-bandit" && (
-                            <>
-                              ,{" "}
-                              {formatTrafficSplit(
-                                changes?.variationWeights ?? [],
-                                showDecimals ? 2 : 0,
-                              )}{" "}
-                              split
-                            </>
+                          {formatTrafficSplit(
+                            changes?.variationWeights ?? [],
+                            2,
                           )}
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
-              )
-            ) : (
-              <>
-                {(!showChanges ||
-                  showFullTargetingInfo ||
-                  hasCoverageChanges ||
-                  hasVariationWeightsChanges) && (
-                  <div className={clsx("mb-3", horizontalView && "mr-4")}>
-                    <div>
-                      <strong>Traffic percent</strong>
-                    </div>
-                    <div className="d-flex">
-                      <div
-                        className={clsx("d-flex", {
-                          "text-danger font-weight-bold": hasCoverageChanges,
-                        })}
-                      >
-                        {hasCoverageChanges && (
-                          <div className="text-center" style={{ width: 20 }}>
-                            Δ
-                          </div>
-                        )}
-                        <div>{percentFormatter.format(phase.coverage)}</div>
-                      </div>
-                      {hasCoverageChanges && (
-                        <div className="font-weight-bold text-success d-flex ml-4">
-                          <div className="text-center" style={{ width: 20 }}>
-                            →
-                          </div>
-                          <div>
-                            {percentFormatter.format(changes?.coverage ?? 1)}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                {experiment.type !== "multi-armed-bandit" &&
-                  (!showChanges ||
-                    showFullTargetingInfo ||
-                    hasCoverageChanges ||
-                    hasVariationWeightsChanges) && (
-                    <div className={clsx("mb-3", horizontalView && "mr-4")}>
-                      <div>
-                        <strong>Variation weights</strong>
-                      </div>
-                      <div className="d-flex">
-                        <div
-                          className={clsx("d-flex", {
-                            "text-danger font-weight-bold":
-                              hasVariationWeightsChanges,
-                          })}
-                        >
-                          {hasVariationWeightsChanges && (
-                            <div className="text-center" style={{ width: 20 }}>
-                              Δ
-                            </div>
-                          )}
-                          <div>
-                            {formatTrafficSplit(
-                              phase.variationWeights,
-                              showDecimals ? 2 : 0,
-                            )}
-                          </div>
-                        </div>
-                        {hasVariationWeightsChanges && (
-                          <div className="font-weight-bold text-success d-flex ml-4">
-                            <div className="text-center" style={{ width: 20 }}>
-                              →
-                            </div>
-                            <div>
-                              {formatTrafficSplit(
-                                changes?.variationWeights ?? [],
-                                showDecimals ? 2 : 0,
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-              </>
-            )}
+              )}
           </div>
         </div>
       ) : (

@@ -12,6 +12,7 @@ import {
   getHoldoutStage,
   canMaterializeLinkedChanges,
   getExperimentLinkageBlocker,
+  hasPendingScheduledStart,
   type LinkedChangesResolution,
 } from "shared/util";
 import { ReactNode, useEffect, useRef, useState } from "react";
@@ -519,7 +520,7 @@ export default function ExperimentHeader({
     ? !!holdout && hasStatusSchedule(holdout)
     : hasStatusSchedule(experiment);
   const nextScheduledStartDate =
-    experiment.nextScheduledStatusUpdate?.type === "start" &&
+    hasPendingScheduledStart(experiment) &&
     experiment.nextScheduledStatusUpdate?.date
       ? new Date(experiment.nextScheduledStatusUpdate.date)
       : null;

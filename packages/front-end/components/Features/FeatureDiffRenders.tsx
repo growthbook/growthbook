@@ -1891,23 +1891,6 @@ function renderPrerequisiteList(
   return sections.length ? <div className="mt-1">{sections}</div> : null;
 }
 
-export function renderEnvPrerequisites(
-  envId: string,
-  current: FeaturePrerequisite[],
-  draft: FeaturePrerequisite[],
-): ReactNode {
-  const result = renderPrerequisiteList(current, draft);
-  if (!result) return null;
-  return (
-    <div>
-      <Text size="sm" color="text-low" as="div" mb="2">
-        {envId}
-      </Text>
-      {result}
-    </div>
-  );
-}
-
 export function renderPrerequisites(
   current: FeaturePrerequisite[],
   draft: FeaturePrerequisite[],

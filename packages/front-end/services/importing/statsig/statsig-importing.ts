@@ -23,10 +23,6 @@ import {
   StatsigSavedGroup,
   StatsigEnvironment,
   StatsigTag,
-  StatsigFeatureGatesResponse,
-  StatsigDynamicConfigsResponse,
-  StatsigExperimentsResponse,
-  StatsigSavedGroupsResponse,
   ImportData,
   StatsigMetric,
   StatsigMetricSource,
@@ -188,60 +184,6 @@ async function getFromStatsig<ResType>(
 }
 
 /**
- * Fetch feature gates (based on Console API endpoints)
- */
-export const getStatsigFeatureGates = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<StatsigFeatureGatesResponse> => {
-  return getFromStatsig("gates", apiKey, "GET", useBackendProxy, apiCall);
-};
-
-/**
- * Fetch dynamic configs (based on Console API endpoints)
- */
-export const getStatsigDynamicConfigs = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<StatsigDynamicConfigsResponse> => {
-  return getFromStatsig(
-    "dynamic_configs",
-    apiKey,
-    "GET",
-    useBackendProxy,
-    apiCall,
-  );
-};
-
-/**
- * Fetch experiments (based on Console API endpoints)
- */
-export const getStatsigExperiments = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<StatsigExperimentsResponse> => {
-  return getFromStatsig("experiments", apiKey, "GET", useBackendProxy, apiCall);
-};
-
-/**
- * Fetch segments/saved groups (based on Console API endpoints)
- */
-export const getStatsigSegments = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<StatsigSavedGroupsResponse> => {
-  return getFromStatsig("segments", apiKey, "GET", useBackendProxy, apiCall);
-};
-
-/**
  * Fetch ID list for a specific segment
  */
 export const getStatsigSegmentIdList = async (
@@ -253,72 +195,6 @@ export const getStatsigSegmentIdList = async (
 ): Promise<{ data: { name: string; count: number; ids: string[] } }> => {
   return getFromStatsig(
     `segments/${segmentId}/id_list`,
-    apiKey,
-    "GET",
-    useBackendProxy,
-    apiCall,
-  );
-};
-
-/**
- * Fetch tags (based on Console API endpoints)
- */
-export const getStatsigTags = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<unknown> => {
-  return getFromStatsig("tags", apiKey, "GET", useBackendProxy, apiCall);
-};
-
-/**
- * Fetch metrics (based on Console API endpoints)
- */
-export const getStatsigMetrics = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<unknown> => {
-  return getFromStatsig(
-    "metrics/list",
-    apiKey,
-    "GET",
-    useBackendProxy,
-    apiCall,
-  );
-};
-
-/**
- * Fetch metric sources
- */
-export const getStatsigMetricSources = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<unknown> => {
-  return getFromStatsig(
-    "metrics/metric_source/list",
-    apiKey,
-    "GET",
-    useBackendProxy,
-    apiCall,
-  );
-};
-
-/**
- * Fetch environments (based on Console API endpoints)
- */
-export const getStatsigEnvironments = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<unknown> => {
-  return getFromStatsig(
-    "environments",
     apiKey,
     "GET",
     useBackendProxy,

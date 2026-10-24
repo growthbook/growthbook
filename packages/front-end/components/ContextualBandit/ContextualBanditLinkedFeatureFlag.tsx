@@ -202,7 +202,6 @@ export default function ContextualBanditLinkedFeatureFlag({
         />
       )}
       <LinkedChange
-        changeType={"flag"}
         heading={info.feature?.id || "Feature"}
         feature={info.feature}
         canEdit={showEditButton}

@@ -7,7 +7,7 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
-import { getHoldoutTrafficBreakdown } from "@/services/utils";
+import HoldoutTrafficBreakdown from "@/components/Holdout/HoldoutTrafficBreakdown";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
@@ -166,7 +166,6 @@ export function StartSummary({
     getNamespaceDisplayData(latestPhase?.namespace, namespaces);
   if (!latestPhase) return null;
 
-  const holdoutTraffic = getHoldoutTrafficBreakdown(latestPhase);
   return (
     <Flex direction="column" gap="4">
       {latestPhase.namespace?.enabled ? (
@@ -177,17 +176,7 @@ export function StartSummary({
         </HoldoutSummaryRow>
       ) : null}
       <HoldoutSummaryRow label="Traffic">
-        <Flex direction="column" gap="1">
-          <Text>{holdoutTraffic.inHoldoutPercent}% in holdout</Text>
-          <Text>
-            {holdoutTraffic.forMeasurementPercent}% not in holdout (for
-            measurement)
-          </Text>
-          <Text>
-            {holdoutTraffic.notForMeasurementPercent}% not in holdout (not for
-            measurement)
-          </Text>
-        </Flex>
+        <HoldoutTrafficBreakdown phase={latestPhase} />
       </HoldoutSummaryRow>
       {hasAttributeCondition(latestPhase.condition) ? (
         <HoldoutSummaryRow label="Attribute targeting">

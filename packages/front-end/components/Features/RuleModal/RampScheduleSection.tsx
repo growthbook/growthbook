@@ -123,16 +123,6 @@ export type StepField =
   | "environments"
   | "force";
 
-export const STEP_FIELD_LABELS: Record<StepField, string> = {
-  coverage: "Rollout %",
-  condition: "Attribute targeting",
-  savedGroups: "Saved groups",
-  prerequisites: "Prerequisites",
-  allEnvironments: "Environments",
-  environments: "Environment list",
-  force: "Feature value",
-};
-
 // coverage is 0–100 in the UI, converted to 0–1 in payloads.
 export type UIStepPatch = {
   coverage?: number;

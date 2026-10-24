@@ -16,6 +16,7 @@ import {
   canEditDeliveryInPlace,
   experimentHasLinkedChanges,
   getLinkedChangeEnvs,
+  hasPendingScheduledStart,
 } from "shared/util";
 import {
   getActivePhaseIndex,
@@ -39,7 +40,7 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
 import EditVariationKeysModal from "@/components/Experiment/EditVariationKeysModal";
-import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
+import HoldoutTrafficAndTargeting from "@/components/Holdout/HoldoutTrafficAndTargeting";
 import TrafficAllocationFunnel, {
   TargetingDraft,
 } from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
@@ -205,8 +206,7 @@ export default function Implementation({
   // Only a pending scheduled START should lock down editing (the experiment is
   // about to launch). A scheduled STOP (an end date on a running experiment)
   // must not block normal mid-flight traffic/targeting/variation edits.
-  const pendingScheduledStart =
-    experiment.nextScheduledStatusUpdate?.type === "start";
+  const pendingScheduledStart = hasPendingScheduledStart(experiment);
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -403,9 +403,6 @@ export default function Implementation({
   const safeToEdit = canEditDeliveryInPlace(experiment);
   const canEditSettings = !!editTargeting;
 
-  // Temporary check while we test the new traffic funnel
-  // TODO: Remove this once we're ready to support holdouts in the new traffic funnel UI.
-  const showTrafficFunnel = !isHoldout;
   const canEditHoldoutDefaultState =
     isHoldout &&
     !!holdout &&
@@ -475,7 +472,7 @@ export default function Implementation({
         <Heading as="h4" size="sm" color="text-high" mb="2">
           Implementation
         </Heading>
-        {showTrafficFunnel ? (
+        {!isHoldout ? (
           <>
             <TrafficAllocationFunnel
               holdoutDraft={holdoutDraft}
@@ -516,7 +513,7 @@ export default function Implementation({
             </Box>
           </>
         ) : (
-          <TrafficAndTargeting
+          <HoldoutTrafficAndTargeting
             experiment={experiment}
             editTraffic={pendingScheduledStart ? null : editTraffic}
             editTargeting={pendingScheduledStart ? null : editTargeting}

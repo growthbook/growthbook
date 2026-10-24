@@ -279,11 +279,6 @@ export default function ReleaseChangesForm({
           <div className="appbox bg-light px-3 pt-3 pb-0 mb-0">
             <TargetingInfo
               experiment={experiment}
-              noHeader={true}
-              targetingFieldsOnly={true}
-              separateTrafficSplitDisplay={true}
-              showDecimals={true}
-              showNamespaceRanges={true}
               showChanges={true}
               showFullTargetingInfo={showFullTargetingInfo}
               changes={form.getValues()}

@@ -31,7 +31,6 @@ import {
 } from "@/components/OpenVisualEditorLink";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import { useAuth } from "@/services/auth";
 import EditStatusModal from "@/components/Experiment/EditStatusModal";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
@@ -101,7 +100,6 @@ export interface Props {
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
   newPhase?: (() => void) | null;
-  editPhase?: ((i: number | null) => void) | null;
   editPhases?: (() => void) | null;
   editTargeting?: (() => void) | null;
   /** Targeting confirmed in a modal but not yet written. */
@@ -489,9 +487,6 @@ function TabbedPageContents({
     setHealthNotificationCount(0);
   }, []);
 
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const connections = sdkConnectionsData?.connections || [];
-
   const { data, mutate: mutateWatchers } = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
@@ -818,12 +813,8 @@ function TabbedPageContents({
                 holdoutProjects={holdout?.projects}
                 editMetrics={editMetrics}
                 editResult={editResult}
-                newPhase={newPhase}
-                connections={connections}
                 envs={envs}
                 setTab={setTabAndScroll}
-                visualChangesets={visualChangesets}
-                editTargeting={editTargeting}
                 isTabActive={tab === "results"}
                 metricTagFilter={metricTagFilter}
                 metricsFilter={metricsFilter}

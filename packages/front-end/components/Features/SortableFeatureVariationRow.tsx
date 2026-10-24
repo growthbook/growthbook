@@ -129,7 +129,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
     const weightPercent = floatRound(weight * 100, 2);
     const [val, setVal] = useState<number>(weightPercent);
     useEffect(() => {
-      if (val !== weight) {
+      if (val !== weightPercent) {
         setVal(weightPercent);
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps

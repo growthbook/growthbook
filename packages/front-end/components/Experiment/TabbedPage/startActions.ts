@@ -1,6 +1,8 @@
 import { format } from "date-fns-tz";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { hasPendingScheduledStart } from "shared/util";
 import type { ApiErrorDetails } from "shared/validators";
+import { scheduleToStartLabel } from "@/components/Reviews/reviewAndPublishState";
 
 export type StartSchedule = "none" | "future" | "past";
 
@@ -21,7 +23,7 @@ export function getStartTitle(
   now: Date,
 ): string {
   const startAt = experiment.statusUpdateSchedule?.startAt;
-  const startApproved = experiment.nextScheduledStatusUpdate?.type === "start";
+  const startApproved = hasPendingScheduledStart(experiment);
   if (
     !startApproved &&
     getStartSchedule(startAt ? new Date(startAt) : null, now) === "future"
@@ -129,7 +131,7 @@ export function getStartActions({
   return {
     action: futureStart ? "approve-schedule" : "start",
     label: futureStart
-      ? `Schedule to Start (${format(futureStart, "MMM d")})`
+      ? scheduleToStartLabel(format(futureStart, "MMM d"))
       : "Start now",
     bypassLabel: bypassable
       ? bypassLabel({

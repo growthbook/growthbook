@@ -17,7 +17,6 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiPencilSimple, PiPlus, PiWarningFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
-import { getHoldoutTrafficBreakdown } from "@/services/utils";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Text from "@/ui/Text";
@@ -387,7 +386,6 @@ export default function TrafficAllocationFunnel({
       implementationColumns.some((c) => c.staged)
         ? "draft"
         : "live"));
-  const isHoldout = experiment.type === "holdout";
   const isRunning = experiment.status === "running";
   const variationsLocked = isRunning || !safeToEdit;
   // Coverage and split edit in place only while delivery can.
@@ -397,11 +395,7 @@ export default function TrafficAllocationFunnel({
   // Bucketing follows the variation list, so its shape is fixed once it starts.
   const canRestructure = canStageVariations && experiment.status === "draft";
   const canAddNamespace =
-    !isHoldout &&
-    !!editNamespace &&
-    safeToEdit &&
-    !hasNamespace &&
-    !!namespaces?.length;
+    !!editNamespace && safeToEdit && !hasNamespace && !!namespaces?.length;
 
   // Staged over what's stored: "" means leaving the stored holdout.
   const holdoutId = holdoutDraft?.value ?? experiment.holdoutId ?? "";
@@ -426,7 +420,7 @@ export default function TrafficAllocationFunnel({
   const targetsEveryone = !hasTargetingConfigured(phase);
   const hasCondition = hasAttributeCondition(phase?.condition);
   const hasSavedGroups = !!phase?.savedGroups?.length;
-  const hasPrerequisites = !!phase?.prerequisites?.length && !isHoldout;
+  const hasPrerequisites = !!phase?.prerequisites?.length;
 
   if (!phase) {
     return (
@@ -437,7 +431,6 @@ export default function TrafficAllocationFunnel({
     );
   }
 
-  const holdoutTraffic = getHoldoutTrafficBreakdown(phase);
   const phaseVariations = getLatestPhaseVariations(experiment);
   const numVariations = phaseVariations.length;
   const variationWeights = phase.variationWeights ?? [];
@@ -528,7 +521,7 @@ export default function TrafficAllocationFunnel({
             />
           </FunnelCard>
 
-          {!isHoldout && hasNamespace ? (
+          {hasNamespace ? (
             <>
               <FunnelConnector />
               <FunnelCard
@@ -582,94 +575,72 @@ export default function TrafficAllocationFunnel({
             }
             disabled={!safeToEdit}
           >
-            {!isHoldout ? (
-              <FunnelRow label="Rollout percentage">
-                {editDeliveryInline ? (
-                  <PercentField
-                    value={coverage}
-                    onChange={(next) => stagePatch({ coverage: next })}
-                    ariaLabel="Rollout percentage"
-                    form={edits?.formId}
-                  />
-                ) : (
-                  <Text color="text-high">{Math.round(coverage * 100)}%</Text>
-                )}
-              </FunnelRow>
-            ) : (
-              <Flex direction="column" gap="1">
-                <Text color="text-mid">
-                  {holdoutTraffic.inHoldoutPercent}% in holdout
-                </Text>
-                <Text color="text-mid">
-                  {holdoutTraffic.forMeasurementPercent}% not in holdout (for
-                  measurement)
-                </Text>
-                <Text color="text-mid">
-                  {holdoutTraffic.notForMeasurementPercent}% not in holdout (not
-                  for measurement)
-                </Text>
-              </Flex>
-            )}
+            <FunnelRow label="Rollout percentage">
+              {editDeliveryInline ? (
+                <PercentField
+                  value={coverage}
+                  onChange={(next) => stagePatch({ coverage: next })}
+                  ariaLabel="Rollout percentage"
+                  form={edits?.formId}
+                />
+              ) : (
+                <Text color="text-high">{Math.round(coverage * 100)}%</Text>
+              )}
+            </FunnelRow>
           </FunnelCard>
         </Flex>
-        {!isHoldout && (
-          <>
-            {editingTraffic ? (
-              <EditTrafficModal
-                experiment={experiment}
-                coverage={coverage}
-                weights={variationWeights}
-                close={() => setEditingTraffic(false)}
-                stage={(traffic) => {
-                  stagePatch(traffic);
-                  setEditingTraffic(false);
-                }}
-              />
-            ) : null}
+        {editingTraffic ? (
+          <EditTrafficModal
+            experiment={experiment}
+            coverage={coverage}
+            weights={variationWeights}
+            close={() => setEditingTraffic(false)}
+            stage={(traffic) => {
+              stagePatch(traffic);
+              setEditingTraffic(false);
+            }}
+          />
+        ) : null}
 
-            {reordering ? (
-              <ReorderVariationsModal
-                experiment={experiment}
-                weights={variationWeights}
-                close={() => setReordering(false)}
-                stage={stageVariationList}
-              />
-            ) : null}
+        {reordering ? (
+          <ReorderVariationsModal
+            experiment={experiment}
+            weights={variationWeights}
+            close={() => setReordering(false)}
+            stage={stageVariationList}
+          />
+        ) : null}
 
-            <VariationValuesTable
-              experiment={experiment}
-              linkedFeatures={linkedFeatures}
-              canEditFlagValues={canEditFlagValues}
-              flagEnvironments={flagEnvironments}
-              draftPicks={draftPicks}
-              flagView={flagView}
-              onChangeFlagView={canViewLive ? setFlagView : null}
-              split={variationWeights}
-              onChangeSplit={
-                editDeliveryInline && !isBandit
-                  ? (weights) => stagePatch({ variationWeights: weights })
-                  : null
-              }
-              splitNote={isBandit ? "Managed by bandit" : null}
-              onEditKeys={
-                canEditExperiment && !variationsLocked
-                  ? editVariationKeys
-                  : undefined
-              }
-              onRemoveVariation={
-                canRestructure && numVariations > 2
-                  ? removeVariation
-                  : undefined
-              }
-              onReorder={canRestructure ? () => setReordering(true) : undefined}
-              onAddVariation={
-                canStageVariations && canAddVariation ? addVariation : undefined
-              }
-              implementationColumns={implementationColumns}
-              addImplementation={addImplementation}
-            />
-          </>
-        )}
+        <VariationValuesTable
+          experiment={experiment}
+          linkedFeatures={linkedFeatures}
+          canEditFlagValues={canEditFlagValues}
+          flagEnvironments={flagEnvironments}
+          draftPicks={draftPicks}
+          flagView={flagView}
+          onChangeFlagView={canViewLive ? setFlagView : null}
+          split={variationWeights}
+          onChangeSplit={
+            editDeliveryInline && !isBandit
+              ? (weights) => stagePatch({ variationWeights: weights })
+              : null
+          }
+          splitNote={isBandit ? "Managed by bandit" : null}
+          onEditKeys={
+            canEditExperiment && !variationsLocked
+              ? editVariationKeys
+              : undefined
+          }
+          onRemoveVariation={
+            canRestructure && numVariations > 2 ? removeVariation : undefined
+          }
+          onReorder={canRestructure ? () => setReordering(true) : undefined}
+          onAddVariation={
+            canStageVariations && canAddVariation ? addVariation : undefined
+          }
+          implementationColumns={implementationColumns}
+          addImplementation={addImplementation}
+        />
       </Flex>
     </Frame>
   );

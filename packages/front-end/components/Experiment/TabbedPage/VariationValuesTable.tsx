@@ -15,6 +15,7 @@ import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import {
   getConfigSubtree,
   getFeatureBaseConfigKey,
+  hasPendingScheduledStart,
   linkedFeatureEnvStates,
   parsePlainJSONObject,
 } from "shared/util";
@@ -832,10 +833,9 @@ function FlagColumn({
   if (cannotPublishLaunch) {
     notices.push({
       status: "error",
-      text:
-        experiment.nextScheduledStatusUpdate?.type === "start"
-          ? "Whoever scheduled the experiment's start can no longer publish this draft. Reschedule as an authorized user."
-          : "You don't have permission to publish this draft, so it won't publish at experiment start.",
+      text: hasPendingScheduledStart(experiment)
+        ? "Whoever scheduled the experiment's start can no longer publish this draft. Reschedule as an authorized user."
+        : "You don't have permission to publish this draft, so it won't publish at experiment start.",
       action: draftLink("Review draft"),
     });
   }

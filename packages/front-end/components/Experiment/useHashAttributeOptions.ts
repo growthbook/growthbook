@@ -13,7 +13,7 @@ import {
  * can't silently drop what the experiment already uses.
  */
 export default function useHashAttributeOptions(
-  attributeProjects: string[] | null | undefined,
+  attributeProjects: string | string[] | null | undefined,
   current: string | undefined,
 ): AttributeOptionForTooltip[] {
   const attributeSchema = useAttributeSchema(false, attributeProjects);

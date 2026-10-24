@@ -11,8 +11,6 @@ import {
   ExperimentSnapshotReportArgs,
   ReportInterface,
 } from "shared/types/report";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import NextLink from "next/link";
 import { useRouter } from "next/router";
 import { PiInfo } from "react-icons/pi";
@@ -74,13 +72,9 @@ export interface Props {
   mutate: () => void;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
-  newPhase?: (() => void) | null;
   holdoutProjects?: string[];
-  visualChangesets: VisualChangesetInterface[];
-  editTargeting?: (() => void) | null;
   envs: string[];
   setTab: (tab: ExperimentTab) => void;
-  connections: SDKConnectionInterface[];
   isTabActive: boolean;
   metricTagFilter: string[];
   setMetricTagFilter: (tags: string[]) => void;

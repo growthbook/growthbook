@@ -14,14 +14,10 @@ import {
 import { Text, Separator } from "@radix-ui/themes";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
-import { useAttributeSchema } from "@/services/features";
 import ConditionInput from "@/components//Features/ConditionInput";
 import SelectField from "@/components//Forms/SelectField";
-import {
-  type AttributeOptionForTooltip,
-  formatAttributeOptionLabel,
-  toAttributeOption,
-} from "@/components/Features/AttributeOptionTooltip";
+import { formatAttributeOptionLabel } from "@/components/Features/AttributeOptionTooltip";
+import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOptions";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
@@ -103,25 +99,10 @@ function TargetingForm({
   form: UseFormReturn<ExperimentTargetingData>;
   conditionKey: number;
 }) {
-  const attributeSchema = useAttributeSchema(false, experiment.project);
-  const hasHashAttributes =
-    attributeSchema.filter((x) => x.hashAttribute).length > 0;
-
-  const hashAttributeOptions: AttributeOptionForTooltip[] = attributeSchema
-    .filter((s) => !hasHashAttributes || s.hashAttribute)
-    .map(toAttributeOption);
-
-  // If the current hashAttribute isn't in the list, add it for backwards compatibility
-  // this could happen if the hashAttribute has been archived, or removed from the experiment's project after the experiment was created
-  if (
-    form.watch("hashAttribute") &&
-    !hashAttributeOptions.find((o) => o.value === form.watch("hashAttribute"))
-  ) {
-    hashAttributeOptions.push({
-      label: form.watch("hashAttribute"),
-      value: form.watch("hashAttribute"),
-    });
-  }
+  const hashAttributeOptions = useHashAttributeOptions(
+    experiment.project,
+    form.watch("hashAttribute"),
+  );
 
   return (
     <div className="pt-2">

@@ -110,20 +110,6 @@ export function getHoldoutTrafficBreakdown(
   };
 }
 
-// Get the number of decimals +1 needed to differentiate between
-// observed and expected weights
-export function getSRMNeededPrecisionP1(
-  observed: number[],
-  expected: number[],
-): number {
-  const observedpct = trafficSplitPercentages(observed);
-  const expectedpct = trafficSplitPercentages(expected);
-  const maxDiff = Math.max(
-    ...observedpct.map((o, i) => Math.abs(o - expectedpct[i] || 0)),
-  );
-  return (maxDiff ? -1 * Math.floor(Math.log10(maxDiff)) : 0) + 1;
-}
-
 export function phaseSummary(
   phase: ExperimentPhaseStringDates,
   skipWeights: boolean = false,
@@ -281,13 +267,6 @@ export function appendQueryParamsToURL(
 
 export function capitalizeFirstLetter(string): string {
   return string.charAt(0).toUpperCase() + string.slice(1);
-}
-
-export function capitalizeWords(string): string {
-  return string
-    .split(" ")
-    .map((word) => capitalizeFirstLetter(word))
-    .join(" ");
 }
 
 function getOrGenerateDeviceId() {

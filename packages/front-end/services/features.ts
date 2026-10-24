@@ -27,7 +27,6 @@ import {
   getDefaultHashAttribute,
   featureHasEnvironment,
   filterEnvironmentsByFeature,
-  generateVariationId,
   getNewDraftExperimentsToPublish,
   getRulesForEnvironment,
   validateAndFixCondition,
@@ -168,37 +167,6 @@ export function useScopedRuleDefaultEnvironment(
     environments.some((e) => e.id === preferredEnvironment)
     ? preferredEnvironment
     : null;
-}
-
-export function useEnvironmentState() {
-  const [state, setState] = useLocalStorage("currentEnvironment", "dev");
-  const { settings } = useUser();
-  const environments = useEnvironments();
-  const hasAppliedPreferredEnv = useRef(false);
-
-  // Apply any preferred environment on first load
-  useEffect(() => {
-    if (hasAppliedPreferredEnv.current) return;
-    if (!settings) return;
-
-    const preferredEnv = settings.preferredEnvironment;
-    if (!preferredEnv) {
-      hasAppliedPreferredEnv.current = true;
-      return;
-    }
-
-    const isValidEnv = environments.some((e) => e.id === preferredEnv);
-    if (isValidEnv) {
-      setState(preferredEnv);
-    }
-    hasAppliedPreferredEnv.current = true;
-  }, [settings, state, setState, environments]);
-
-  if (!environments.map((e) => e.id).includes(state)) {
-    return [environments[0]?.id || "production", setState] as const;
-  }
-
-  return [state, setState] as const;
 }
 
 export function useEnvironments() {
@@ -395,9 +363,6 @@ export function getPrerequisites(feature: FeatureInterface) {
 
 export function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
-}
-export function getTotalVariationWeight(weights: number[]): number {
-  return roundVariationWeight(weights.reduce((sum, w) => sum + w, 0));
 }
 
 export function getVariationDefaultName(
@@ -891,16 +856,6 @@ export function getEnabledEnvironments(
     if (!environments.some((e) => e.id === env)) return false;
     return !!feature.environmentSettings?.[env]?.enabled;
   });
-}
-
-export function getAffectedEnvs(
-  feature: FeatureInterface,
-  changedEnvs: string[],
-): string[] {
-  const settings = feature.environmentSettings;
-  if (!settings) return [];
-
-  return changedEnvs.filter((e) => settings?.[e]?.enabled);
 }
 
 export function getDefaultValue(valueType: FeatureValueType): string {
@@ -1663,61 +1618,6 @@ export function useAttributeMap(
 
     return map;
   }, [attributeSchema]);
-}
-
-export function getExperimentDefinitionFromFeature(
-  feature: FeatureInterface,
-  expRule: ExperimentRule,
-) {
-  const trackingKey = expRule?.trackingKey || feature.id;
-  if (!trackingKey) {
-    return null;
-  }
-
-  const variations = expRule.values.map((v, i) => {
-    let name = i ? `Variation ${i}` : "Control";
-    if (v?.name) {
-      name = v.name;
-    } else if (feature.valueType === "boolean") {
-      name = v.value === "true" ? "On" : "Off";
-    }
-    return {
-      name,
-      key: i + "",
-      id: generateVariationId(),
-      screenshots: [],
-      description: v.value,
-    };
-  });
-  const variationWeights = expRule.values.map((v) => v.weight);
-  const expDefinition: Partial<ExperimentInterfaceStringDates> = {
-    trackingKey: trackingKey,
-    name: trackingKey + " experiment",
-    hypothesis: expRule.description || "",
-    description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
-    variations,
-    phases: [
-      {
-        coverage: expRule.coverage ?? 1,
-        variationWeights,
-        variations: variations.map((v) => ({
-          id: v.id,
-          status: "active" as const,
-        })),
-        name: "Main",
-        reason: "",
-        dateStarted: new Date().toISOString(),
-        condition: expRule.condition || "",
-        namespace: expRule.namespace || {
-          enabled: false,
-          name: "",
-          range: [0, 0],
-        },
-        seed: trackingKey,
-      },
-    ],
-  };
-  return expDefinition;
 }
 
 export function useRealtimeData(
