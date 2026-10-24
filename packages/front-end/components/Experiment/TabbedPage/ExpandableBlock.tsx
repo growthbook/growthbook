@@ -24,8 +24,14 @@ export default function ExpandableBlock({
       <Box
         className={clamped ? "fade-mask-bottom-1rem" : undefined}
         style={{
-          maxHeight: expanded ? undefined : maxHeight,
+          maxHeight: expanded
+            ? undefined
+            : `calc(${maxHeight}px + 2 * var(--space-1))`,
           overflow: "hidden",
+          // Room for a row's hover tint, which reaches past the row
+          // (hover-highlight's default bleed), without moving the contents.
+          margin: "calc(-1 * var(--space-1)) calc(-1 * var(--space-2))",
+          padding: "var(--space-1) var(--space-2)",
         }}
       >
         <div ref={content}>{children}</div>
