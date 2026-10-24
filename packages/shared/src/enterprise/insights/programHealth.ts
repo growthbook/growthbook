@@ -2,8 +2,11 @@ import { getLatestPhaseVariations } from "shared/experiments";
 import { DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION } from "shared/constants";
 import { ExperimentHealthSettings } from "shared/types/experiment";
 import { computeSrmAndMultipleExposuresUnhealthyData } from "../decision-criteria/decisionCriteria";
+import { ExperimentQualityCheckKey } from "../../validators/experiment-quality-score";
 import {
+  EXPERIMENT_QUALITY_CHECKS,
   ExperimentQualityScoreResult,
+  NO_HYPOTHESIS_REASON,
   QUALITY_CHECK_PASS_THRESHOLD,
 } from "../experimentQualityScore";
 import {
@@ -110,15 +113,32 @@ function getHealthFlags(
   };
 }
 
-export type QualityIssue = { key: string; label: string; count: number };
+export type QualityIssue = {
+  key: string;
+  label: string;
+  action: string;
+  // Completed experiments that fail the check
+  count: number;
+  // Quality points those experiments lose to it
+  points: number;
+};
 
-// The quality checks completed experiments fail most often
+function getCheckAction(key: string, label: string): string {
+  return (
+    EXPERIMENT_QUALITY_CHECKS[key as ExperimentQualityCheckKey]?.action ??
+    `Improve "${label}"`
+  );
+}
+
+// Failed quality checks, costliest first
 export function getQualityIssues(
   experiments: InsightsExperiment[],
   getQuality: GetQuality,
 ): QualityIssue[] {
   const issues = new Map<string, QualityIssue>();
   experiments.forEach((e) => {
+    // Points each failed check costs this experiment
+    const lost = new Map<string, { label: string; points: number }>();
     getQuality(e)?.sections.forEach((section) =>
       section.checks.forEach((check) => {
         if (
@@ -128,17 +148,32 @@ export function getQualityIssues(
         ) {
           return;
         }
-        const issue = issues.get(check.key) ?? {
-          key: check.key,
-          label: check.label,
-          count: 0,
-        };
-        issue.count += 1;
-        issues.set(check.key, issue);
+        // As in getQualityImprovements, writing a hypothesis fixes these too
+        const [key, label] =
+          check.reason === NO_HYPOTHESIS_REASON
+            ? ["hypothesis", EXPERIMENT_QUALITY_CHECKS.hypothesis.label]
+            : [check.key, check.label];
+        const entry = lost.get(key) ?? { label, points: 0 };
+        entry.points += check.possiblePoints - check.earnedPoints;
+        lost.set(key, entry);
       }),
     );
+    lost.forEach(({ label, points }, key) => {
+      const issue = issues.get(key) ?? {
+        key,
+        label,
+        action: getCheckAction(key, label),
+        count: 0,
+        points: 0,
+      };
+      issue.count += 1;
+      issue.points += points;
+      issues.set(key, issue);
+    });
   });
-  return [...issues.values()].sort((a, b) => b.count - a.count);
+  return [...issues.values()].sort(
+    (a, b) => b.points - a.points || b.count - a.count,
+  );
 }
 
 export type ScopeHealth = {
@@ -238,7 +273,7 @@ export function computeScopeHealth({
         !e.archived &&
         getHealthFlags(e, healthSettings).srm,
     ).length,
-    topQualityIssue: getQualityIssues(completed, getQuality)[0]?.label ?? null,
+    topQualityIssue: getQualityIssues(completed, getQuality)[0]?.action ?? null,
   };
 }
 

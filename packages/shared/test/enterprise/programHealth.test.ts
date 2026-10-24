@@ -5,6 +5,7 @@ import {
   computeScopeHealth,
   getHealthBand,
   getNoScoreReason,
+  getQualityIssues,
 } from "../../src/enterprise/insights/programHealth";
 import { ExperimentQualityScoreResult } from "../../src/enterprise/experimentQualityScore";
 
@@ -185,5 +186,38 @@ describe("computeHealthDetails", () => {
     expect(details.diagnostics.endedEarly).toEqual({ count: 1, total: 3 });
     // A one-month run lands in the fifth 7-day bin
     expect(details.cycle.medianBin).toBe(4);
+  });
+});
+
+describe("getQualityIssues", () => {
+  const check = (key: string, lost: number, reason?: string) => ({
+    key,
+    label: key,
+    applicable: true,
+    score: 0,
+    reason,
+    earnedPoints: 0,
+    possiblePoints: lost,
+  });
+  const quality = (checks: ReturnType<typeof check>[]) => () =>
+    ({
+      score: 0,
+      sections: [{ checks }],
+    }) as unknown as ExperimentQualityScoreResult;
+
+  it("ranks by points lost and folds no-hypothesis AI failures into writing one", () => {
+    const issues = getQualityIssues(
+      [exp(), exp()],
+      quality([
+        check("description", 5),
+        check("hypothesis", 10),
+        check("ai-hypothesis-quality", 20, "No hypothesis"),
+      ]),
+    );
+    expect(issues.map((i) => [i.key, i.count, i.points])).toEqual([
+      ["hypothesis", 2, 60],
+      ["description", 2, 10],
+    ]);
+    expect(issues[0].action).toBe("Write a hypothesis");
   });
 });

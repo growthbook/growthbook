@@ -67,12 +67,17 @@ function biggestGap(health: ScopeHealth): string {
     health.quality < (health.healthyRate ?? 1) * 100 &&
     health.topQualityIssue
   ) {
-    return `Often missing: ${health.topQualityIssue}`;
+    return health.topQualityIssue;
   }
   const unhealthy = countUnhealthy(health);
   return unhealthy
     ? `${plural(unhealthy, "experiment")} with health issues`
     : "No major gaps";
+}
+
+// For an action used mid-sentence
+function lowerFirst(text: string) {
+  return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
 function plural(n: number, word: string) {
@@ -218,8 +223,10 @@ export default function HealthPage() {
             {Math.round(health.quality ?? 0)} / 100.
           </strong>{" "}
           {first &&
-            `The most common gap is "${first.label}" (${plural(first.count, "experiment")})${
-              second ? `, then "${second.label}"` : ""
+            `To raise it, ${lowerFirst(first.action)} (${plural(first.count, "experiment")})${
+              second
+                ? `, then ${lowerFirst(second.action)} (${plural(second.count, "experiment")})`
+                : ""
             }. `}
           {srmAlerts}
           <ImprovementLinks
