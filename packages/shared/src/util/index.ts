@@ -247,17 +247,26 @@ export function experimentHasLinkedChanges(
   return false;
 }
 
+/** A draft whose start is confirmed for a scheduled date. */
+export function hasPendingScheduledStart(exp: {
+  nextScheduledStatusUpdate?: { type: string } | null;
+}): boolean {
+  return exp.nextScheduledStatusUpdate?.type === "start";
+}
+
 /**
  * Whether targeting, traffic and namespace can change in place. A running
  * experiment with any implementation changes through a release plan, served
  * or not: a draft rule or a re-link can put it back in the payload at once.
+ * A confirmed scheduled start fixes them until it's unscheduled.
  */
 export function canEditDeliveryInPlace(
   exp: Pick<
     ExperimentInterface,
     "status" | "hasVisualChangesets" | "hasURLRedirects" | "linkedFeatures"
-  >,
+  > & { nextScheduledStatusUpdate?: { type: string } | null },
 ): boolean {
+  if (hasPendingScheduledStart(exp)) return false;
   return exp.status !== "running" || !experimentHasLinkedChanges(exp);
 }
 

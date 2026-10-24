@@ -1,4 +1,5 @@
 import {
+  ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
   LinkedFeaturePendingDraft,
 } from "shared/types/experiment";
@@ -69,6 +70,28 @@ export function withPickedDraft(
 }
 
 /** Whether the draft still needs approval, or its review is underway. */
+/**
+ * Whether a confirmed start publishes this draft past its approval: the start
+ * was scheduled with the bypass, and the draft is the one pinned then,
+ * unchanged since.
+ */
+export function startBypassCovers(
+  experiment: Pick<ExperimentInterfaceStringDates, "nextScheduledStatusUpdate">,
+  featureId: string,
+  draft: Pick<LinkedFeaturePendingDraft, "version" | "dateUpdated">,
+): boolean {
+  const staged = experiment.nextScheduledStatusUpdate;
+  if (staged?.type !== "start" || !staged.bypassApproval) return false;
+  const { dateUpdated } = draft;
+  if (!dateUpdated) return false;
+  return (staged.pinnedDrafts ?? []).some(
+    (pin) =>
+      pin.featureId === featureId &&
+      pin.revisionVersion === draft.version &&
+      new Date(pin.dateUpdated).getTime() === new Date(dateUpdated).getTime(),
+  );
+}
+
 export function draftInReview(draft: LinkedFeaturePendingDraft): boolean {
   return (
     (draft.pendingApproval && !draftApprovalSatisfied(draft)) ||

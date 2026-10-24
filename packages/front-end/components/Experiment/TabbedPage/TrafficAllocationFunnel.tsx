@@ -389,7 +389,9 @@ export default function TrafficAllocationFunnel({
         : "live"));
   const isHoldout = experiment.type === "holdout";
   const isRunning = experiment.status === "running";
-  const variationsLocked = isRunning;
+  const variationsLocked = isRunning || !safeToEdit;
+  // Coverage and split edit in place only while delivery can.
+  const editDeliveryInline = editInline && safeToEdit;
   const canStageVariations =
     canEditExperiment &&
     !variationsLocked &&
@@ -585,7 +587,7 @@ export default function TrafficAllocationFunnel({
               onEdit={
                 isHoldout
                   ? null
-                  : editInline
+                  : editDeliveryInline
                     ? () => setEditingTraffic(true)
                     : editTargeting
               }
@@ -593,7 +595,7 @@ export default function TrafficAllocationFunnel({
             >
               {!isHoldout ? (
                 <FunnelRow label="Rollout percentage">
-                  {editInline ? (
+                  {editDeliveryInline ? (
                     <PercentField
                       value={coverage}
                       onChange={(next) => stagePatch({ coverage: next })}
@@ -654,7 +656,7 @@ export default function TrafficAllocationFunnel({
                 onChangeFlagView={canViewLive ? setFlagView : null}
                 split={variationWeights}
                 onChangeSplit={
-                  editInline && !isBandit
+                  editDeliveryInline && !isBandit
                     ? (weights) => stagePatch({ variationWeights: weights })
                     : null
                 }

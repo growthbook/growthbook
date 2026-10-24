@@ -91,6 +91,7 @@ import {
   draftReviewHref,
   FlagDraftPicks,
   resolveDraftPick,
+  startBypassCovers,
 } from "./draftPicks";
 import FlagValuesModal from "./FlagValuesModal";
 import FunnelConnector from "./FunnelConnector";
@@ -772,6 +773,8 @@ function FlagColumn({
             : null;
   const needsApproval =
     !!shownDraft?.pendingApproval && !draftApprovalSatisfied(shownDraft);
+  const approvalBypassed =
+    !!shownDraft && startBypassCovers(experiment, feature.id, shownDraft);
   const cannotPublishLaunch =
     !!shownDraft && draftLaunches && !!info.cannotPublish;
   const draftHref = shownDraft
@@ -836,7 +839,9 @@ function FlagColumn({
         ? `Only Revision ${launchDraft.version} publishes when the experiment starts. Publish ${draftMention} from the Feature Flag.`
         : needsApproval
           ? launches
-            ? `${draftMention} needs approval. Once approved, it publishes when the experiment starts.`
+            ? approvalBypassed
+              ? `${draftMention} publishes when the experiment starts, its approval bypassed. Editing it means it needs approval first.`
+              : `${draftMention} needs approval. Once approved, it publishes when the experiment starts.`
             : `${draftMention} needs approval before it can publish.`
           : launches
             ? `${draftMention} publishes when the experiment starts, or publish it from the Feature Flag.`

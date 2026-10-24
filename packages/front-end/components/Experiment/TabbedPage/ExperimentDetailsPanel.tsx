@@ -1,4 +1,5 @@
 import { ReactNode, useState } from "react";
+import { hasPendingScheduledStart } from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { HoldoutInterfaceStringDates } from "shared/validators";
@@ -86,14 +87,19 @@ export default function ExperimentDetailsPanel({
       />
     ) : null;
 
-  // The key only changes while nothing is serving it.
+  // The key only changes while nothing is serving it, or about to.
   const fieldAction = (field: QuickEditField) => {
     if (field === "schedule") {
       return editSchedule
         ? pencil(QUICK_FIELD_LABELS.schedule, editSchedule)
         : null;
     }
-    if (field === "trackingKey" && experiment.status !== "draft") return null;
+    if (
+      field === "trackingKey" &&
+      (experiment.status !== "draft" || hasPendingScheduledStart(experiment))
+    ) {
+      return null;
+    }
     return pencil(QUICK_FIELD_LABELS[field], () => editSection(field));
   };
   const isHoldout = experiment.type === "holdout";

@@ -408,7 +408,7 @@ export default function Implementation({
   const isBandit = experiment.type === "multi-armed-bandit";
 
   const safeToEdit = canEditDeliveryInPlace(experiment);
-  const canEditSettings = !!editTargeting && !pendingScheduledStart;
+  const canEditSettings = !!editTargeting;
 
   // Temporary check while we test the new traffic funnel
   // TODO: Remove this once we're ready to support holdouts in the new traffic funnel UI.

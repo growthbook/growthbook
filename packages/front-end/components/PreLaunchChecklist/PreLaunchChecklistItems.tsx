@@ -8,7 +8,11 @@ import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunc
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { experimentHasLiveLinkedChanges, hasVisualChanges } from "shared/util";
+import {
+  experimentHasLiveLinkedChanges,
+  hasPendingScheduledStart,
+  hasVisualChanges,
+} from "shared/util";
 import {
   BuiltInChecklistItemKey,
   getHiddenBuiltInChecklistItems,
@@ -16,6 +20,7 @@ import {
 } from "shared/validators";
 import track from "@/services/track";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
+import { startBypassCovers } from "@/components/Experiment/TabbedPage/draftPicks";
 import { MERGE_CONFLICT_ITEM_PREFIX } from "./checklistSummary";
 
 export type ChecklistAction =
@@ -89,10 +94,9 @@ export function getChecklistItems({
 }): CheckListItem[] {
   const isBandit = experiment.type === "multi-armed-bandit";
 
-  // An approved start locks the editors these would open; links still work.
-  const startApproved = experiment.nextScheduledStatusUpdate?.type === "start";
+  const startApproved = hasPendingScheduledStart(experiment);
   const onClick = (fn?: (() => void) | null): ChecklistAction | undefined =>
-    fn && !startApproved ? { onClick: fn } : undefined;
+    fn ? { onClick: fn } : undefined;
   // Opens the analysis settings on the field the item is about.
   const openSettingsOn = (focus: AnalysisFormFocus | null) =>
     onClick(openAnalysisSettings && (() => openAnalysisSettings(focus)));
@@ -272,17 +276,24 @@ export function getChecklistItems({
           f.feature.id !== publishingFeatureId,
       )
       .forEach((f) => {
+        // The confirmed start publishes it past its approval.
+        const bypassed =
+          !!f.pendingDraft &&
+          startBypassCovers(experiment, f.feature.id, f.pendingDraft);
         items.push({
           key: `${PENDING_APPROVAL_ITEM_PREFIX}${f.feature.id}`,
           featureId: f.feature.id,
           status:
+            bypassed ||
             (f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved")
               ? "complete"
               : "incomplete",
           type: "auto",
           required: true,
           hardBlock: true,
-          display: `Approve the Feature Flag draft for ${f.feature.id}`,
+          display: bypassed
+            ? `Approval bypassed for the Feature Flag draft for ${f.feature.id}`
+            : `Approve the Feature Flag draft for ${f.feature.id}`,
           action: linkedFeatureAction(f),
         });
       });
@@ -353,8 +364,9 @@ export function getChecklistItems({
   pushBuiltIn("targeting", {
     key: "targeting",
     display: "Configure variation assignment and targeting",
+    // A confirmed start fixes targeting until it's unscheduled.
     action: onClick(
-      editTargeting
+      editTargeting && !startApproved
         ? () => {
             editTargeting();
             track("Edit targeting", { source: "experiment-start-banner" });

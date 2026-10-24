@@ -23,6 +23,7 @@ import {
   draftReviewHref,
   draftReviewState,
   revisionHref,
+  startBypassCovers,
 } from "./draftPicks";
 
 type DraftInReview = {
@@ -101,7 +102,7 @@ function startSentence({ draft, publishesAtStart }: DraftInReview) {
 /**
  * The linked flags' drafts someone still has to review or publish, in one
  * callout. A draft that publishes on its own when the experiment starts needs
- * nothing until then, unless it's waiting on review.
+ * nothing until then, unless it's waiting on a review the start won't bypass.
  */
 export default function DraftReviewCallouts({
   experiment,
@@ -120,7 +121,8 @@ export default function DraftReviewCallouts({
         const publishesAtStart =
           experiment.status === "draft" && draft.version === drafts[0].version;
         const waiting =
-          draftInReview(draft) || (draft.hasChanges && !publishesAtStart);
+          !startBypassCovers(experiment, feature.id, draft) &&
+          (draftInReview(draft) || (draft.hasChanges && !publishesAtStart));
         return waiting
           ? [{ featureId: feature.id, draft, publishesAtStart }]
           : [];

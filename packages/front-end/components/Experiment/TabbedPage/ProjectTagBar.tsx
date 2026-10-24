@@ -239,11 +239,8 @@ export default function ProjectTagBar({
         {experiment.status === "draft" && !isHoldout ? (
           <DraftSchedule
             experiment={experiment}
-            // Once the start is confirmed, it changes from the header.
             action={
-              experiment.nextScheduledStatusUpdate || experiment.archived
-                ? null
-                : (fieldAction?.("schedule") ?? null)
+              experiment.archived ? null : (fieldAction?.("schedule") ?? null)
             }
           />
         ) : null}
