@@ -1,5 +1,5 @@
 import isEqual from "lodash/isEqual";
-import { experimentHasLinkedChanges, validateFeatureValue } from "shared/util";
+import { validateFeatureValue } from "shared/util";
 import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { AuditInterfaceInput } from "shared/types/audit";
@@ -427,24 +427,6 @@ async function compensate(
   return failed;
 }
 
-// Joining a holdout is refused on the same terms the planner refuses leaving one.
-function assertHoldoutChangeAllowed(
-  experiment: ExperimentInterface,
-  holdoutId: string | undefined,
-) {
-  if (holdoutId === undefined) return;
-  if ((holdoutId || "") === (experiment.holdoutId || "")) return;
-  if (
-    experiment.status === "draft" &&
-    !experimentHasLinkedChanges(experiment)
-  ) {
-    return;
-  }
-  throw new BadRequestError(
-    "A holdout can only change while the experiment is a draft with nothing linked. Discard the holdout change, or set the status back to Draft and remove its linked changes.",
-  );
-}
-
 // Drafts land first and the experiment last; a failure anywhere before the
 // experiment write undoes the drafts in reverse.
 export async function applyExperimentChanges({
@@ -467,7 +449,6 @@ export async function applyExperimentChanges({
   let experimentPlan: ExperimentUpdatePlan | null = null;
   if (body.experiment) {
     assertExperimentBaseMatches(experiment, body.experiment);
-    assertHoldoutChangeAllowed(experiment, body.experiment.changes.holdoutId);
     experimentPlan = await planExperimentUpdate(
       context,
       experiment,

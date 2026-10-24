@@ -1,17 +1,7 @@
 import isEqual from "lodash/isEqual";
 import { Changeset, ExperimentInterface } from "shared/types/experiment";
-import { hasPendingScheduledStart } from "shared/util";
+import { isScheduledToStart } from "shared/util";
 import { BadRequestError } from "back-end/src/util/errors";
-
-/**
- * A draft whose start is confirmed for a scheduled date. What it launches stays
- * as confirmed until the start is unscheduled.
- */
-export function isScheduledToStart(
-  experiment: Pick<ExperimentInterface, "status" | "nextScheduledStatusUpdate">,
-): boolean {
-  return experiment.status === "draft" && hasPendingScheduledStart(experiment);
-}
 
 const LOCKED_KEYS = [
   "hashAttribute",

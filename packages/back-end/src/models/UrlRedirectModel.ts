@@ -19,7 +19,6 @@ import {
 import { MakeModelClass } from "./BaseModel";
 
 type WriteOptions = {
-  checkCircularDependencies?: boolean;
   skipSDKRefresh?: boolean;
 };
 
@@ -157,18 +156,8 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     );
   }
 
-  protected async customValidation(
-    doc: URLRedirectInterface,
-    previousDoc?: URLRedirectInterface,
-    writeOptions?: WriteOptions,
-  ) {
+  protected async customValidation(doc: URLRedirectInterface) {
     assertRedirectOrigin(doc);
-    if (writeOptions?.checkCircularDependencies) {
-      assertNoRedirectLoop(
-        doc,
-        (await this.getServedRedirects()).filter((r) => r.id !== doc.id),
-      );
-    }
   }
 
   protected async afterCreateOrUpdate(

@@ -151,7 +151,6 @@ import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
-import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { queryLogsRouter } from "./routers/query-logs/query-logs.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
@@ -882,11 +881,6 @@ app.post(
   "/experiments/:id/visual-changeset",
   experimentsController.postVisualChangeset,
 );
-app.put("/visual-changesets/:id", experimentsController.putVisualChangeset);
-app.delete(
-  "/visual-changesets/:id",
-  experimentsController.deleteVisualChangeset,
-);
 
 // Time Series
 app.get(
@@ -905,9 +899,6 @@ app.use("/templates", templateRouter);
 
 // Decision Criteria
 app.use("/decision-criteria", decisionCriteriaRouter);
-
-// URL Redirects
-app.use("/url-redirects", urlRedirectRouter);
 
 // Safe Rollouts
 app.use("/safe-rollout", safeRolloutRouter);
@@ -1032,10 +1023,6 @@ app.post(
 app.post(
   "/feature/:id/:version/contextual-bandit",
   featuresController.postFeatureContextualBanditRefRule,
-);
-app.delete(
-  "/experiment/:id/linked-feature/:featureId",
-  experimentsController.deleteExperimentLinkedFeature,
 );
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/title", featuresController.putRevisionTitle);

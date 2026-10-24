@@ -84,7 +84,7 @@ export function isHoldoutStageTransitionAllowed(
   return getAllowedHoldoutStageSources(targetStage).includes(currentStage);
 }
 
-export type HoldoutLinkBlocker =
+type HoldoutLinkBlocker =
   | {
       reason: "different-holdout";
       featureHoldoutId: string;

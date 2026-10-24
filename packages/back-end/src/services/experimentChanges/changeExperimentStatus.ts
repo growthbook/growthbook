@@ -18,7 +18,10 @@ import {
   getHiddenBuiltInChecklistItems,
   PENDING_APPROVAL_ITEM_PREFIX,
 } from "shared/validators";
-import { experimentHasLiveLinkedChanges } from "shared/util";
+import {
+  experimentHasLiveLinkedChanges,
+  hasPendingScheduledStart,
+} from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   customHooksActive,
@@ -87,8 +90,7 @@ export async function validateExperimentChange({
 
   const merged = { ...experiment, ...changes };
   const willRun =
-    merged.status === "running" ||
-    merged.nextScheduledStatusUpdate?.type === "start";
+    merged.status === "running" || hasPendingScheduledStart(merged);
 
   const effectiveChanges =
     willRun && experiment.status !== "running"
@@ -728,7 +730,7 @@ export async function assertScheduledStartNotHardBlocked(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   bypassApproval = false,
-): Promise<StartChecklistItemStatus[]> {
+): Promise<void> {
   const checklistItems = await getExperimentStartChecklistStatus(
     context,
     experiment,
@@ -736,7 +738,6 @@ export async function assertScheduledStartNotHardBlocked(
   assertNoIncompleteHardBlockers(
     await withoutWaivedApprovals(context, checklistItems, bypassApproval),
   );
-  return checklistItems;
 }
 
 // Once a start goes ahead, every item still open was skipped or waived by the bypass.

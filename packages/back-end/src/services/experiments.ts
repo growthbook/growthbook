@@ -32,6 +32,7 @@ import {
   getRequireRegisteredAttributesSettings,
   getNamespaceRanges,
   getSnapshotAnalysis,
+  hasPendingScheduledStart,
   isAnalysisAllowed,
   isDefined,
   liveRevisionFromFeature,
@@ -5913,7 +5914,7 @@ export async function getLinkedFeatureInfo(
   // a caller about to arm replaces the armer and is judged as itself.
   const judgedAs =
     publisher ??
-    (experiment.nextScheduledStatusUpdate?.type === "start"
+    (hasPendingScheduledStart(experiment)
       ? await getScheduledStatusContext(context, experiment)
       : context);
   return getRefLinkedFeatureInfo({

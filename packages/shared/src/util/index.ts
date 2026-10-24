@@ -27,7 +27,6 @@ import {
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
 } from "../validators/safe-rollout-snapshot";
-import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import {
   featureHasEnvironment,
   getAttributeScopeProjectIds,
@@ -257,6 +256,18 @@ export function hasPendingScheduledStart(exp: {
 }
 
 /**
+ * A draft whose start is confirmed for a scheduled date. What it launches stays
+ * as confirmed until the start is unscheduled.
+ */
+export function isScheduledToStart(
+  exp: Pick<ExperimentInterface, "status"> & {
+    nextScheduledStatusUpdate?: { type: string } | null;
+  },
+): boolean {
+  return exp.status === "draft" && hasPendingScheduledStart(exp);
+}
+
+/**
  * Whether targeting, traffic and namespace can change in place. A running
  * experiment with any implementation changes through a release plan, served
  * or not: a draft rule or a re-link can put it back in the payload at once.
@@ -358,31 +369,6 @@ export function includeExperimentInPayload(
     if (!hasFeaturesWithPublishedRules) {
       return false;
     }
-  }
-
-  return true;
-}
-
-export function includeHoldoutInPayload(
-  holdout: HoldoutInterfaceStringDates,
-  exp: ExperimentInterface | ExperimentInterfaceStringDates,
-): boolean {
-  // Archived experiments are always excluded
-  if (exp.archived) return false;
-
-  if (
-    Object.keys(holdout.linkedExperiments).length === 0 &&
-    Object.keys(holdout.linkedFeatures).length === 0
-  )
-    return false;
-
-  if (exp.status === "draft") return false;
-
-  if (!exp.phases?.length) return false;
-
-  // Stopped holdouts are not included in the payload
-  if (exp.status === "stopped") {
-    return false;
   }
 
   return true;

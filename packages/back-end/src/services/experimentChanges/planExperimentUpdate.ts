@@ -370,6 +370,21 @@ export async function planExperimentUpdate(
     }
   }
 
+  // Joining, changing or clearing ("") the holdout.
+  const holdoutChanges =
+    data.holdoutId !== undefined &&
+    (data.holdoutId || "") !== (experiment.holdoutId || "");
+  // TODO(holdouts): allow changing holdout if the experiment is not linked to a feature
+  // in the live! feature revision
+  if (
+    holdoutChanges &&
+    (experiment.status !== "draft" || experimentHasLinkedChanges(experiment))
+  ) {
+    throw new BadRequestError(
+      "A holdout can only change while the experiment is a draft with nothing linked. Discard the holdout change, or set the status back to Draft and remove its linked changes.",
+    );
+  }
+
   if (data.holdoutId && data.holdoutId !== experiment.holdoutId) {
     await getHoldoutAvailableForProject({
       context,
@@ -384,25 +399,9 @@ export async function planExperimentUpdate(
     });
   }
 
-  // TODO(holdouts): allow changing holdout if the experiment is not linked to a feature
-  // in the live! feature revision
   const holdout: ExperimentUpdatePlan["holdout"] = { remove: null, add: null };
-  // Changing or clearing ("") the holdout drops the current one.
-  if (
-    data.holdoutId !== undefined &&
-    data.holdoutId !== experiment.holdoutId &&
-    experiment.holdoutId
-  ) {
-    if (
-      experiment.status !== "draft" ||
-      experimentHasLinkedChanges(experiment)
-    ) {
-      throw new BadRequestError(
-        data.holdoutId
-          ? "Cannot change holdout after experiment has been run or linked changes have been added"
-          : "Cannot remove experiment from holdout after experiment has been run or linked changes have been added",
-      );
-    }
+  // Changing or clearing the holdout drops the current one.
+  if (holdoutChanges && experiment.holdoutId) {
     holdout.remove = experiment.holdoutId;
   }
 

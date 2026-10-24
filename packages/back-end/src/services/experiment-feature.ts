@@ -84,7 +84,7 @@ import {
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
 import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 
-export type ExperimentFeatureLinkResult = {
+type ExperimentFeatureLinkResult = {
   version: number;
   published: boolean;
 };
@@ -103,30 +103,6 @@ type ExperimentFeatureLinkOptions = {
   /** Start a new draft off live rather than reusing an open one. */
   forceNewDraft?: boolean;
 };
-
-/**
- * Unlinks a flag from the experiment. Needs feature-side edit rights too:
- * unlinking cancels a queued autopublish the feature team may be managing.
- * Edit-class, not publish, since nothing reaches the payload.
- */
-export async function unlinkFlagFromExperiment(
-  context: ReqContext | ApiReqContext,
-  experimentId: string,
-  featureId: string,
-): Promise<void> {
-  const feature = await getFeature(context, featureId);
-  // Only a flag that's gone is pruned unseen; one the caller can't read isn't.
-  if (
-    !feature &&
-    (await getFeatureProjectsByIds(context, [featureId])).has(featureId)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-  if (feature && !context.permissions.canEditFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
-  }
-  await unlinkFeatureFromExperiment(context, experimentId, featureId);
-}
 
 // Stage (or land) an experiment-ref rule. Mirrors `linkFeatureToContextualBandit`.
 export async function linkFeatureToExperiment({
@@ -1325,7 +1301,11 @@ export async function removeFlagFromExperiment({
 }): Promise<void> {
   const feature = await getFeature(context, featureId);
   if (!feature) {
-    await unlinkFlagFromExperiment(context, experiment.id, featureId);
+    // Only a flag that's gone is pruned unseen; one the caller can't read isn't.
+    if ((await getFeatureProjectsByIds(context, [featureId])).has(featureId)) {
+      context.permissions.throwPermissionError();
+    }
+    await unlinkFeatureFromExperiment(context, experiment.id, featureId);
     return;
   }
   await assertFlagRemovable(context, experiment, feature);

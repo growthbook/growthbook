@@ -16,7 +16,6 @@ import {
   getAllMetricIdsFromExperiment,
   getAllVariations,
   getActivePhase,
-  canEditContextualBanditVisualChanges,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
@@ -43,14 +42,7 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import { experimentChangesBody } from "shared/validators";
-import {
-  ContextualBanditChangesetOwner,
-  ExperimentChangesetOwner,
-  contextualBanditVisualChangesBlocked,
-  ownerNotFoundMessage,
-  resolveChangesetOwner,
-} from "back-end/src/services/changesetOwner";
-import { getEnvironments } from "back-end/src/util/organization.util";
+import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -101,10 +93,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   createVisualChangeset,
-  deleteVisualChangesetById,
-  findVisualChangesetById,
   findVisualChangesetsByExperiment,
-  updateVisualChangeset,
 } from "back-end/src/models/VisualChangesetModel";
 import {
   findSnapshotById,
@@ -186,8 +175,6 @@ import {
 import { canLinkExperimentToHoldoutFromFeatures } from "back-end/src/services/holdouts";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { getServedTempRolloutExperimentIds } from "back-end/src/services/tempRollouts";
-import { unlinkFlagFromExperiment } from "back-end/src/services/experiment-feature";
-import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 
 export const SNAPSHOT_TIMEOUT = 30 * 60 * 1000;
 
@@ -3373,103 +3360,6 @@ export async function postVisualChangeset(
   });
 }
 
-export async function putVisualChangeset(
-  req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const { org } = context;
-
-  const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
-  if (!visualChangeset) {
-    throw new Error("Visual Changeset not found");
-  }
-
-  const owner = await resolveChangesetOwner(context, visualChangeset);
-  if (!owner) {
-    throw new Error(ownerNotFoundMessage(visualChangeset));
-  }
-  if (owner instanceof ContextualBanditChangesetOwner) {
-    if (!canEditContextualBanditVisualChanges(owner.cb)) {
-      throw new Error(contextualBanditVisualChangesBlocked(owner.cb, "edited"));
-    }
-    if (!owner.canUpdateVisualChange()) {
-      context.permissions.throwPermissionError();
-    }
-    if (owner.cb.status === "running") {
-      const envs = getEnvironments(context.org).map((e) => e.id);
-      if (!context.permissions.canRunContextualBandit(owner.cb, envs)) {
-        context.permissions.throwPermissionError();
-      }
-    }
-  } else if (owner instanceof ExperimentChangesetOwner) {
-    assertVisualChangesEditable(owner.experiment);
-    assertCanRunLinkedChanges(context, owner.experiment);
-  }
-
-  const updates: Partial<VisualChangesetInterface> = {
-    editorUrl: req.body.editorUrl,
-    urlPatterns: req.body.urlPatterns,
-    visualChanges: req.body.visualChanges,
-  };
-
-  const ret = await updateVisualChangeset({
-    visualChangeset,
-    owner,
-    context,
-    updates,
-  });
-
-  res.status(200).json({
-    status: 200,
-    data: {
-      nModified: ret.nModified,
-      changesetId: ret.nModified > 0 ? req.params.id : undefined,
-      updates: ret.nModified > 0 ? req.body : undefined,
-    },
-  });
-}
-
-export async function deleteVisualChangeset(
-  req: AuthRequest<null, { id: string }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const { org } = context;
-
-  const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
-  if (!visualChangeset) {
-    throw new Error("Visual Changeset not found");
-  }
-
-  const owner = await resolveChangesetOwner(context, visualChangeset);
-
-  if (owner instanceof ContextualBanditChangesetOwner) {
-    const envs = getEnvironments(context.org).map((e) => e.id);
-    if (
-      !owner.canUpdateOwner() ||
-      !context.permissions.canRunContextualBandit(owner.cb, envs)
-    ) {
-      context.permissions.throwPermissionError();
-    }
-  } else {
-    const experiment =
-      owner instanceof ExperimentChangesetOwner ? owner.experiment : null;
-    if (experiment) assertVisualChangesEditable(experiment);
-    assertCanRunLinkedChanges(context, experiment ?? {});
-  }
-
-  await deleteVisualChangesetById({
-    visualChangeset,
-    owner,
-    context,
-  });
-
-  res.status(200).json({
-    status: 200,
-  });
-}
-
 export async function findOrCreateVisualEditorToken(
   req: AuthRequest,
   res: Response,
@@ -3575,27 +3465,4 @@ export async function postExperimentChanges(
     eventAudit: res.locals.eventAudit,
   });
   res.status(200).json({ status: 200, ...result });
-}
-
-export async function deleteExperimentLinkedFeature(
-  req: AuthRequest<null, { id: string; featureId: string }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const { id, featureId } = req.params;
-
-  const experiment = await getExperimentById(context, id);
-  if (!experiment) {
-    res.status(404).json({ status: 404, message: "Experiment not found" });
-    return;
-  }
-
-  if (!context.permissions.canUpdateExperiment(experiment, {})) {
-    context.permissions.throwPermissionError();
-  }
-  assertScheduledStartAllows(experiment, "linked Feature Flags");
-
-  await unlinkFlagFromExperiment(context, id, featureId);
-
-  res.status(200).json({ status: 200 });
 }

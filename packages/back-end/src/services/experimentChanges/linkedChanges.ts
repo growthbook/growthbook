@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
 import { z } from "zod";
 import { getLatestPhaseVariations } from "shared/experiments";
+import { isScheduledToStart } from "shared/util";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { ExperimentInterface } from "shared/types/experiment";
 import { URLRedirectInterface } from "shared/types/url-redirect";
@@ -29,10 +30,7 @@ import {
   auditVisualChangeEditAfterStart,
 } from "back-end/src/services/experiments";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import {
-  assertScheduledStartAllows,
-  isScheduledToStart,
-} from "back-end/src/services/experimentChanges/scheduledStartLock";
+import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 import { asJson, changedSinceLoaded, isoOrNull } from "./loadedBase";
 import type { ExperimentUpdatePlan } from "./planExperimentUpdate";
 
