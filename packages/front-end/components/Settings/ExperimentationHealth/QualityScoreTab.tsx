@@ -50,6 +50,10 @@ export default function QualityScoreTab({
   const { apiCall } = useAuth();
   const [recalculateStatus, setRecalculateStatus] = useState("");
   const [confirmRecalculate, setConfirmRecalculate] = useState(false);
+  const experimentsToRescore =
+    experimentCount === undefined
+      ? "every non-archived experiment"
+      : `${experimentCount} non-archived experiment${experimentCount === 1 ? "" : "s"}`;
   const recalculateBlocked = anyDirty
     ? "Save your changes first. Recalculating uses the saved settings."
     : !effective.enabled
@@ -61,7 +65,7 @@ export default function QualityScoreTab({
       {confirmRecalculate && (
         <ConfirmDialog
           title="Recalculate AI Verdicts"
-          content={`This re-runs the AI checks for ${experimentCount ?? "every"} non-archived experiments and uses AI tokens. Verdicts update in the background.`}
+          content={`This re-runs the AI checks for ${experimentsToRescore} and uses AI tokens. Verdicts update in the background.`}
           yesText="Recalculate"
           onCancel={() => setConfirmRecalculate(false)}
           onConfirm={async () => {
@@ -153,7 +157,7 @@ export default function QualityScoreTab({
                   AI changes apply to new verdicts only. Re-score existing
                   experiments —{" "}
                   <Text weight="semibold" color="text-high">
-                    {experimentCount ?? "…"} experiments
+                    {experimentsToRescore}
                   </Text>{" "}
                   · uses AI tokens.
                 </Text>

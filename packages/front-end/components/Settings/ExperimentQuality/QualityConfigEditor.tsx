@@ -21,6 +21,7 @@ import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import { TextField } from "@/ui/TextField";
 import Field from "@/components/Forms/Field";
+import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { SECTION_COLORS } from "@/components/Experiment/Quality/qualityDisplay";
 import ShareBar from "./ShareBar";
@@ -96,27 +97,36 @@ function ParamInput({
   ariaLabel: string;
   onChange: (v: number) => void;
 }) {
-  // Typed text stays until valid; invalid values never reach the draft
+  // Typed text stays until valid; invalid values never reach the draft, and
+  // leaving the box puts back the last valid one
   const [text, setText] = useState(String(value));
   useEffect(() => setText(String(value)), [value]);
   const isValid = (t: string) =>
     t.trim() !== "" && Number.isInteger(Number(t)) && Number(t) >= min;
   return (
-    <TextField
-      type="number"
-      size="sm"
-      style={{ width: 64 }}
-      min={min}
-      value={text}
-      disabled={disabled}
-      aria-label={ariaLabel}
-      error={isValid(text) ? undefined : `Must be ${min} or more`}
-      onChange={(e) => {
-        setText(e.target.value);
-        if (isValid(e.target.value)) onChange(Number(e.target.value));
-      }}
-      onBlur={() => setText(String(value))}
-    />
+    // The message sits beside the box so the sentence around it stays aligned
+    <Flex align="center" gap="1">
+      <TextField
+        type="number"
+        size="sm"
+        style={{ width: 64 }}
+        min={min}
+        value={text}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        aria-invalid={!isValid(text)}
+        onChange={(e) => {
+          setText(e.target.value);
+          if (isValid(e.target.value)) onChange(Number(e.target.value));
+        }}
+        onBlur={() => setText(String(value))}
+      />
+      {!isValid(text) && (
+        <HelperText status="error" size="sm">
+          Enter a whole number, {min} or more
+        </HelperText>
+      )}
+    </Flex>
   );
 }
 
