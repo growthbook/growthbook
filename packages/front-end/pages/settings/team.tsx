@@ -25,11 +25,11 @@ const TeamPage: FC = () => {
 
   if (!permissionsUtil.canManageTeam()) {
     return (
-      <div className="container pagecontents">
+      <SettingsPage title="Members">
         <Callout status="error">
           You do not have access to view this page.
         </Callout>
-      </div>
+      </SettingsPage>
     );
   }
 

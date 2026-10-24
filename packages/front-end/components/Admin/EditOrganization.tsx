@@ -9,10 +9,12 @@ import {
 } from "shared/types/event-forwarder";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { Flex } from "@radix-ui/themes";
+import { PiPlus } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
 import Checkbox from "@/ui/Checkbox";
+import Button from "@/ui/Button";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 
@@ -393,13 +395,14 @@ const EditOrganization: FC<{
                 <label className="mb-0 font-weight-bold">
                   Organization Messages
                 </label>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<PiPlus />}
                   onClick={addMessage}
                 >
-                  + Add Message
-                </button>
+                  Add message
+                </Button>
               </div>
               <div className="text-muted small mb-2">
                 Banners displayed to all users in this org. Supports Markdown.

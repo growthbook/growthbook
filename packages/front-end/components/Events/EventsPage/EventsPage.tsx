@@ -63,11 +63,9 @@ export const EventsPage: FC<EventsPageProps> = ({
 
   if (!permissionsUtil.canViewAuditLogs()) {
     return (
-      <div className="container pagecontents">
-        <Callout status="error">
-          You do not have access to view this page.
-        </Callout>
-      </div>
+      <Callout status="error">
+        You do not have access to view this page.
+      </Callout>
     );
   }
 

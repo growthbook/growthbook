@@ -59,35 +59,35 @@ const BillingPage: FC = () => {
 
   if (accountPlan === "enterprise" && subscription?.billingPlatform !== "orb") {
     return (
-      <div className="container pagecontents">
+      <SettingsPage title="Billing">
         <Callout status="info">
           This page is not available for enterprise customers. Please contact
           your account rep for any billing questions or changes.
         </Callout>
-      </div>
+      </SettingsPage>
     );
   }
 
   if (!permissionsUtil.canManageBilling()) {
     return (
-      <div className="container pagecontents">
+      <SettingsPage title="Billing">
         <Callout status="error">
           You do not have access to view this page.
         </Callout>
-      </div>
+      </SettingsPage>
     );
   }
 
   if (subscription?.isVercelIntegration) {
     return (
-      <div className="container pagecontents">
+      <SettingsPage title="Billing">
         <Callout status="info">
           This page is not available for organizations whose plan is managed by
           Vercel. Please go to your Vercel Integration Dashboard for any billing
           information. If you&apos;d like to cancel your subscription, you can
           do so in the GrowthBook Integration Dashboard in Vercel.
         </Callout>
-      </div>
+      </SettingsPage>
     );
   }
 

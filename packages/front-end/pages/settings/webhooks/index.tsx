@@ -34,11 +34,11 @@ const WebhooksPage: FC = () => {
 
   if (!canManageWebhooks) {
     return (
-      <div className="container pagecontents">
+      <SettingsPage title="Webhooks">
         <Callout status="error">
           You do not have access to view this page.
         </Callout>
-      </div>
+      </SettingsPage>
     );
   }
 

@@ -11,23 +11,23 @@ export default function UsagePage() {
 
   if (!permissionsUtil.canViewUsage()) {
     return (
-      <div className="container pagecontents">
+      <SettingsPage title="Usage">
         <Callout status="error">
           You do not have access to view this page.
         </Callout>
-      </div>
+      </SettingsPage>
     );
   }
 
   if (subscription?.isVercelIntegration) {
     return (
-      <div className="container pagecontents">
+      <SettingsPage title="Usage">
         <Callout status="info">
           This page is not available for organizations whose plan is managed by
           Vercel. Please go to your Vercel Integration Dashboard to view your
           usage and billing information.
         </Callout>
-      </div>
+      </SettingsPage>
     );
   }
 
