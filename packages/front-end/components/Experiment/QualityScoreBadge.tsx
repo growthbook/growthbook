@@ -15,7 +15,10 @@ import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import useExperimentQualityScore from "@/hooks/useExperimentQualityScore";
-import { getScoreTier } from "@/components/Experiment/Quality/qualityDisplay";
+import {
+  getScoreTier,
+  formatAIScore,
+} from "@/components/Experiment/Quality/qualityDisplay";
 
 const QualityScoreTooltipBody: FC<{ result: ExperimentQualityScoreResult }> = ({
   result,
@@ -63,7 +66,7 @@ const QualityScoreTooltipBody: FC<{ result: ExperimentQualityScoreResult }> = ({
                       {check.label}
                       {check.type === "ai" &&
                         check.score !== null &&
-                        ` — ${Math.round(check.score * 100)}%`}
+                        ` — ${formatAIScore(check.score)}`}
                     </Text>
                     {check.reason && (
                       <Text size="sm" color="text-mid" as="p" mb="0">

@@ -1,4 +1,4 @@
-import React, { ReactNode, useState } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import clsx from "clsx";
 import { PiCaretRightBold, PiPlus, PiTrash } from "react-icons/pi";
@@ -96,16 +96,26 @@ function ParamInput({
   ariaLabel: string;
   onChange: (v: number) => void;
 }) {
+  // Typed text stays until valid; invalid values never reach the draft
+  const [text, setText] = useState(String(value));
+  useEffect(() => setText(String(value)), [value]);
+  const isValid = (t: string) =>
+    t.trim() !== "" && Number.isInteger(Number(t)) && Number(t) >= min;
   return (
     <TextField
       type="number"
       size="sm"
       style={{ width: 64 }}
       min={min}
-      value={value}
+      value={text}
       disabled={disabled}
       aria-label={ariaLabel}
-      onChange={(e) => onChange(parseInt(e.target.value))}
+      error={isValid(text) ? undefined : `Must be ${min} or more`}
+      onChange={(e) => {
+        setText(e.target.value);
+        if (isValid(e.target.value)) onChange(Number(e.target.value));
+      }}
+      onBlur={() => setText(String(value))}
     />
   );
 }
@@ -298,7 +308,6 @@ export default function QualityConfigEditor({
                     })
                   }
                   aria-expanded={open}
-                  aria-label={`Toggle the ${section.label} section`}
                 >
                   <PiCaretRightBold
                     size={12}

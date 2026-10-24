@@ -3,12 +3,13 @@ import { FC } from "react";
 const SIZE = 64;
 
 const ScoreRing: FC<{
-  score: number;
+  // null when there's no score yet
+  score: number | null;
   color: string; // css color for the arc + number
 }> = ({ score, color }) => {
   const radius = 24;
   const circumference = 2 * Math.PI * radius;
-  const arc = (Math.min(Math.max(score, 0), 100) / 100) * circumference;
+  const arc = (Math.min(Math.max(score ?? 0, 0), 100) / 100) * circumference;
 
   return (
     <div style={{ position: "relative", width: SIZE, height: SIZE }}>
@@ -46,7 +47,7 @@ const ScoreRing: FC<{
           fontVariantNumeric: "tabular-nums",
         }}
       >
-        {Math.round(score)}
+        {score === null ? "—" : Math.round(score)}
       </span>
     </div>
   );

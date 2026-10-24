@@ -28,6 +28,7 @@ import { useAuth } from "@/services/auth";
 import ScoreRing from "@/components/Experiment/Quality/ScoreRing";
 import {
   SECTION_COLORS,
+  formatAIScore,
   getScoreTier,
   scaleColors,
 } from "@/components/Experiment/Quality/qualityDisplay";
@@ -221,7 +222,7 @@ const CheckResultCell: FC<{
           fontSize: 12,
         }}
       >
-        {check.score.toFixed(1)}
+        {formatAIScore(check.score)}
       </span>
     );
   }
@@ -467,7 +468,7 @@ const QualityTab: FC<{
               color={scaleColors(getScoreTier(displayScore)).bar}
             />
           ) : (
-            <ScoreRing score={0} color="var(--slate-8)" />
+            <ScoreRing score={null} color="var(--slate-8)" />
           )}
           <Box flexGrow="1">
             <Flex align="center" gap="2">
@@ -522,11 +523,6 @@ const QualityTab: FC<{
                     Remove override
                   </Link>
                 )}
-                {removeError && (
-                  <HelperText status="error" size="sm" mt="1">
-                    {removeError}
-                  </HelperText>
-                )}
               </Text>
             ) : (
               <Text size="sm" color="text-mid" as="p" mb="0">
@@ -535,6 +531,11 @@ const QualityTab: FC<{
                 {resultsJoinNote}
                 {result.pending ? " AI checks are still pending." : ""}
               </Text>
+            )}
+            {removeError && (
+              <HelperText status="error" size="sm" mt="1">
+                {removeError}
+              </HelperText>
             )}
           </Box>
           <Flex gap="3" flexShrink="0" wrap="wrap">

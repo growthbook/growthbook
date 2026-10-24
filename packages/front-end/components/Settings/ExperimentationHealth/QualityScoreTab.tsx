@@ -4,6 +4,7 @@ import { ResolvedQualityScope } from "shared/enterprise";
 import { ExperimentationHealthQualitySettings } from "shared/validators";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Switch from "@/ui/Switch";
@@ -48,6 +49,7 @@ export default function QualityScoreTab({
 }) {
   const { apiCall } = useAuth();
   const [recalculateStatus, setRecalculateStatus] = useState("");
+  const [confirmRecalculate, setConfirmRecalculate] = useState(false);
   const recalculateBlocked = anyDirty
     ? "Save your changes first. Recalculating uses the saved settings."
     : !effective.enabled
@@ -56,6 +58,24 @@ export default function QualityScoreTab({
 
   return (
     <Box>
+      {confirmRecalculate && (
+        <ConfirmDialog
+          title="Recalculate AI Verdicts"
+          content={`This re-runs the AI checks for ${experimentCount ?? "every"} non-archived experiments and uses AI tokens. Verdicts update in the background.`}
+          yesText="Recalculate"
+          onCancel={() => setConfirmRecalculate(false)}
+          onConfirm={async () => {
+            const res = await apiCall<{ queued: number }>(
+              "/experiment-quality-score/recalculate",
+              { method: "POST" },
+            );
+            setConfirmRecalculate(false);
+            setRecalculateStatus(
+              `Queued ${res.queued} experiment${res.queued === 1 ? "" : "s"} for AI re-scoring.`,
+            );
+          }}
+        />
+      )}
       {/* Header row */}
       <Flex justify="between" align="start" gap="4" mt="4" mb="3">
         <Box style={{ maxWidth: 520 }}>
@@ -140,15 +160,9 @@ export default function QualityScoreTab({
                 <Button
                   variant="outline"
                   disabled={!!recalculateBlocked}
-                  onClick={async () => {
+                  onClick={() => {
                     setRecalculateStatus("");
-                    const res = await apiCall<{ queued: number }>(
-                      "/experiment-quality-score/recalculate",
-                      { method: "POST" },
-                    );
-                    setRecalculateStatus(
-                      `Queued ${res.queued} experiment${res.queued === 1 ? "" : "s"} for AI re-scoring. Verdicts update in the background.`,
-                    );
+                    setConfirmRecalculate(true);
                   }}
                 >
                   Recalculate AI verdicts
