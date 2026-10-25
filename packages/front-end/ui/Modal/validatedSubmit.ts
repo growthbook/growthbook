@@ -13,8 +13,9 @@ import { StopSubmit } from "./StopSubmit";
  */
 export function validatedSubmit<T extends FieldValues>(
   form: Pick<UseFormReturn<T>, "handleSubmit">,
-  onValid: SubmitHandler<T>,
-  onInvalid?: SubmitErrorHandler<T>,
+  // Typed by the form, not by the callbacks.
+  onValid: SubmitHandler<NoInfer<T>>,
+  onInvalid?: SubmitErrorHandler<NoInfer<T>>,
 ): () => Promise<void> {
   return async () => {
     let invalid = false;
