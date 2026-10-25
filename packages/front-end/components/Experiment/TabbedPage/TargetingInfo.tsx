@@ -257,24 +257,27 @@ export function TargetingChanges({
         ]
       : []),
   ];
-  const rows = [
-    ...releaseRows,
-    ...fields
-      .filter((field) => changed.has(field.key) || (showAll && !field.advanced))
-      .map((field) => ({
-        key: field.key,
-        label: field.label,
-        changed: changed.has(field.key),
-        before: field.render(live),
-        after: field.render(value),
-      })),
-  ];
-  if (!rows.length) {
+  const targetingRows = fields
+    .filter((field) => changed.has(field.key) || (showAll && !field.advanced))
+    .map((field) => ({
+      key: field.key,
+      label: field.label,
+      changed: changed.has(field.key),
+      before: field.render(live),
+      after: field.render(value),
+    }));
+  if (!releaseRows.length && !targetingRows.length) {
     return (
       <div className="mb-3">
         <em>No changes</em>
       </div>
     );
   }
-  return <ChangesTable before="Live" after="After publishing" rows={rows} />;
+  return (
+    <ChangesTable
+      before="Live"
+      after="After publishing"
+      groups={[releaseRows, targetingRows]}
+    />
+  );
 }

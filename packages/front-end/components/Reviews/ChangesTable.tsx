@@ -9,7 +9,7 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import Text from "@/ui/Text";
-import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import { LABEL_WIDTH } from "@/components/Experiment/TabbedPage/SetupFieldRow";
 
 // A diff's before and after halves, as the feature diff colours them.
@@ -73,12 +73,14 @@ export type ChangesTableRow = {
 export default function ChangesTable({
   before,
   after,
-  rows,
+  groups,
 }: {
   before: string;
   after: string;
-  rows: ChangesTableRow[];
+  /** Rows that belong together, each group ruled off from the next. */
+  groups: ChangesTableRow[][];
 }) {
+  const shown = groups.filter((group) => group.length);
   const [open, setOpen] = useState<string[]>([]);
   const labelText = (text: string) => (
     <DiffInset flush>
@@ -132,34 +134,48 @@ export default function ChangesTable({
           } as CSSProperties
         }
       >
-        {rows.map((row) => {
+        {shown.flat().map((row) => {
           const isOpen = open.includes(row.key);
+          const endsGroup = shown
+            .slice(0, -1)
+            .some((group) => group[group.length - 1] === row);
           const label = row.details?.length ? (
-            <Flex align="center" justify="between" gap="2">
+            <>
               {labelText(row.label)}
-              <Button
-                variant="ghost"
-                color="gray"
-                size="sm"
-                aria-expanded={isOpen}
-                icon={isOpen ? <PiCaretDown /> : <PiCaretRight />}
-                iconPosition="right"
-                onClick={() =>
-                  setOpen((prev) =>
-                    isOpen
-                      ? prev.filter((k) => k !== row.key)
-                      : [...prev, row.key],
-                  )
-                }
-              >
-                Details
-              </Button>
-            </Flex>
+              <Flex justify="end">
+                <Link
+                  size="sm"
+                  aria-expanded={isOpen}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setOpen((prev) =>
+                      isOpen
+                        ? prev.filter((k) => k !== row.key)
+                        : [...prev, row.key],
+                    );
+                  }}
+                >
+                  <Flex align="center" gap="1">
+                    Details
+                    {isOpen ? <PiCaretDown /> : <PiCaretRight />}
+                  </Flex>
+                </Link>
+              </Flex>
+            </>
           ) : (
             labelText(row.label)
           );
           return (
-            <TableRow key={row.key}>
+            <TableRow
+              key={row.key}
+              style={
+                endsGroup
+                  ? ({
+                      "--table-row-box-shadow": "inset 0 -1px var(--gray-a5)",
+                    } as CSSProperties)
+                  : undefined
+              }
+            >
               {/* Flush, so the labels line up with the page's other rows. */}
               <TableCell style={{ width: LABEL_WIDTH, paddingLeft: 0 }}>
                 {label}
