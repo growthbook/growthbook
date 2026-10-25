@@ -70,6 +70,7 @@ import {
 } from "back-end/src/util/revisionRuleOps";
 import {
   assertValidRuleWrite,
+  discardIfJustCreated,
   withStagedSchema,
 } from "back-end/src/api/features/validations";
 import { ReqContext } from "back-end/types/request";
@@ -227,6 +228,8 @@ export async function linkFeatureToExperiment({
       forceNewDraft,
     });
 
+  // A draft opened off live is this call's to discard if it can't finish.
+  const created = targetVersion === feature.version;
   const revision = await getDraftRevision(context, feature, targetVersion);
 
   const environmentsEnabled = enableFootprintEnvironments(
@@ -252,28 +255,37 @@ export async function linkFeatureToExperiment({
   const auditSubject = scopedRule.allEnvironments
     ? "to all environments"
     : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
-  const updatedRevision =
-    (await updateRevision(context, feature, revision, combinedChanges, {
-      user: eventAudit,
-      action: "add experiment rule",
-      subject: auditSubject,
-      value: JSON.stringify(scopedRule),
-    })) ?? revision;
-  await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
-    environments: ruleEnvFootprint,
-  });
+  let updatedRevision = revision;
+  let updatedFeature: FeatureInterface | null = null;
+  try {
+    updatedRevision =
+      (await updateRevision(context, feature, revision, combinedChanges, {
+        user: eventAudit,
+        action: "add experiment rule",
+        subject: auditSubject,
+        value: JSON.stringify(scopedRule),
+      })) ?? revision;
+    await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
+      environments: ruleEnvFootprint,
+    });
+    if (autoPublish) {
+      await assertCanAutoPublish(context, feature, updatedRevision);
+      updatedFeature = await mergeAndPublishRevision({
+        context,
+        feature,
+        revision: updatedRevision,
+        comment: `Add experiment rule for "${experiment.name}"`,
+        bypassLockdown: flagBypass(context, feature, { optIn: true }).lockdown,
+        conflictMessage: `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
+      });
+    }
+  } catch (err) {
+    await discardIfJustCreated(context, revision, created);
+    throw err;
+  }
 
   let published = false;
-  if (autoPublish) {
-    await assertCanAutoPublish(context, feature, updatedRevision);
-    const updatedFeature = await mergeAndPublishRevision({
-      context,
-      feature,
-      revision: updatedRevision,
-      comment: `Add experiment rule for "${experiment.name}"`,
-      bypassLockdown: flagBypass(context, feature, { optIn: true }).lockdown,
-      conflictMessage: `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
-    });
+  if (updatedFeature) {
     await audit({
       event: "feature.publish",
       entity: { object: "feature", id: feature.id },

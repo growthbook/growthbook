@@ -117,7 +117,8 @@ export default function useStartExperiment({
 
     clearStartFailures();
     if (isHoldout) {
-      await apiCall(`/holdout/${holdout?.id}/edit-status`, {
+      if (!holdout) throw new Error("This holdout is still loading.");
+      await apiCall(`/holdout/${holdout.id}/edit-status`, {
         method: "POST",
         body: JSON.stringify({
           status: "running",

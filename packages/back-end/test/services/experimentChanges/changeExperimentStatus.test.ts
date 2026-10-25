@@ -37,6 +37,21 @@ jest.mock("back-end/src/services/experiments", () => ({
 jest.mock("back-end/src/services/growthbook", () => ({
   trackEventForContext: jest.fn(),
 }));
+// Import cycle: a lazy Proxy defers requireActual to first property access.
+const getFeaturesByIdsMock = jest.fn();
+jest.mock(
+  "back-end/src/models/FeatureModel",
+  () =>
+    new Proxy(
+      {},
+      {
+        get: (_t, prop: string) =>
+          prop === "getFeaturesByIds"
+            ? getFeaturesByIdsMock
+            : jest.requireActual("back-end/src/models/FeatureModel")[prop],
+      },
+    ),
+);
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   findSDKConnectionsByOrganization: jest.fn(),
 }));
@@ -109,6 +124,37 @@ describe("startExperiment", () => {
       },
     });
     expect(updateExperiment).not.toHaveBeenCalled();
+  });
+
+  it("holds a flag's approval the bypass doesn't reach", async () => {
+    (getLinkedFeatureInfo as jest.Mock).mockResolvedValue([
+      { ...draftFlag, pendingApproval: true, draftRevisionStatus: "draft" },
+    ]);
+    getFeaturesByIdsMock.mockResolvedValue([
+      { id: "flag_1", project: "other" },
+    ]);
+    const bypasser = {
+      ...context,
+      permissions: {
+        ...context.permissions,
+        canBypassFlagApprovalChecks: () => false,
+      },
+    } as unknown as ReqContext;
+
+    await expect(
+      startExperiment({
+        context: bypasser,
+        experimentId: "exp_1",
+        bypassLockdown: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "checklist_incomplete",
+      details: {
+        remainingChecklistItems: [
+          expect.objectContaining({ key: "pendingApproval:flag_1" }),
+        ],
+      },
+    });
   });
 });
 

@@ -259,7 +259,7 @@ const ExperimentCarouselModal: FC<{
         </Flex>
         <Flex direction="column" align="center">
           <VariationLabel
-            number={orderedVariants.findIndex((v) => v.id === variantId)}
+            number={variant.index}
             name={variant.name}
             size="lg"
           />

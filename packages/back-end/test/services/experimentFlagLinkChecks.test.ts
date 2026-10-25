@@ -8,8 +8,13 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
 }));
 
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
+  discardRevision: jest.fn(),
   getRevision: jest.fn(),
   updateRevision: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/featureRevisionEvents", () => ({
+  recordRevisionUpdate: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/features", () => ({
@@ -40,7 +45,14 @@ import {
   assertFlagLinkable,
   linkFeatureToExperiment,
 } from "back-end/src/services/experiment-feature";
-import { getDraftRevision } from "back-end/src/services/features";
+import {
+  assertCanAutoPublish,
+  getDraftRevision,
+} from "back-end/src/services/features";
+import {
+  discardRevision,
+  updateRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { assertValidRuleWrite } from "back-end/src/api/features/validations";
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
 
@@ -53,6 +65,7 @@ const context = {
   environments: ["production"],
   permissions: {
     canEditFeatureDrafts: () => true,
+    canPublishFeature: () => true,
     throwPermissionError: () => {
       throw new Error("permission");
     },
@@ -131,6 +144,54 @@ describe("linkFeatureToExperiment", () => {
       }),
     ).rejects.toThrow("holdout");
     expect(mockGetDraftRevision).not.toHaveBeenCalled();
+  });
+
+  it("discards the draft it opened when the publish is refused", async () => {
+    const draft = { featureId: "flag", version: 4, rules: [] };
+    mockGetDraftRevision.mockResolvedValueOnce(draft);
+    (updateRevision as jest.Mock).mockResolvedValueOnce(draft);
+    (assertCanAutoPublish as jest.Mock).mockRejectedValueOnce(
+      new Error("needs approval"),
+    );
+
+    await expect(
+      linkFeatureToExperiment({
+        context,
+        experiment: planned,
+        feature,
+        rule,
+        eventAudit: { type: "dashboard" } as never,
+        audit: jest.fn(),
+        autoPublish: true,
+      }),
+    ).rejects.toThrow("needs approval");
+    expect(discardRevision).toHaveBeenCalledWith(
+      context,
+      draft,
+      undefined,
+      null,
+    );
+  });
+
+  it("keeps an existing draft it was adding to", async () => {
+    mockGetDraftRevision.mockResolvedValueOnce({
+      featureId: "flag",
+      version: 2,
+    });
+    (updateRevision as jest.Mock).mockRejectedValueOnce(new Error("changed"));
+
+    await expect(
+      linkFeatureToExperiment({
+        context,
+        experiment: planned,
+        feature,
+        rule,
+        eventAudit: { type: "dashboard" } as never,
+        audit: jest.fn(),
+        draftVersion: 2,
+      }),
+    ).rejects.toThrow("changed");
+    expect(discardRevision).not.toHaveBeenCalled();
   });
 });
 

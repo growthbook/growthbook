@@ -8,6 +8,7 @@ import {
 import {
   ExperimentMetricDefinition,
   getMetricLink,
+  getMetricSnapshotSettings,
   isFactMetric,
 } from "shared/experiments";
 import { MetricOverride } from "shared/validators";
@@ -17,10 +18,7 @@ import {
 } from "shared/types/experiment";
 import { StatsEngine } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
-import {
-  DEFAULT_PROPER_PRIOR_STDDEV,
-  DEFAULT_TARGET_MDE,
-} from "shared/constants";
+import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { metricTypeLabel } from "@/services/metrics";
 import {
@@ -142,9 +140,15 @@ export function MetricOverrideTooltipContent({
       metric,
       denominatorMetric: denominator,
     });
-    const priorSettings = metric.priorSettings?.override
-      ? metric.priorSettings
-      : orgSettings.metricDefaults?.priorSettings;
+    // CUPED and priors as the analysis resolves them; it runs no CUPED at all
+    // while the experiment's own toggle is off.
+    const { metricSnapshotSettings: analysis } = getMetricSnapshotSettings({
+      metric,
+      denominatorMetrics: denominator ? [denominator] : [],
+      experimentRegressionAdjustmentEnabled:
+        !!experiment.regressionAdjustmentEnabled,
+      organizationSettings: orgSettings,
+    });
     return describeMetricSettings(
       {
         windowType: settings.windowType.value,
@@ -159,14 +163,14 @@ export function MetricOverrideTooltipContent({
         loseRisk: settings.loseRisk.value,
         cuped: hasCommercialFeature("regression-adjustment")
           ? {
-              enabled: settings.regressionAdjustmentEnabled.value,
-              days: settings.regressionAdjustmentDays.value,
+              enabled: analysis.regressionAdjustmentEnabled,
+              days: analysis.regressionAdjustmentDays,
             }
           : null,
         prior: {
-          proper: !!priorSettings?.proper,
-          mean: priorSettings?.mean ?? 0,
-          stddev: priorSettings?.stddev ?? DEFAULT_PROPER_PRIOR_STDDEV,
+          proper: analysis.properPrior,
+          mean: analysis.properPriorMean,
+          stddev: analysis.properPriorStdDev,
         },
         targetMDE: targetMDEOverrides
           ? (metric.targetMDE ?? DEFAULT_TARGET_MDE)

@@ -105,7 +105,12 @@ export const HoldoutSelect = ({
       setHoldout(requiredSelectableHoldouts[0]?.id ?? "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [holdoutsWithExperiment, requiredSelectableHoldouts]);
+  }, [
+    holdoutsWithExperiment,
+    requiredSelectableHoldouts,
+    keepSelection,
+    loading,
+  ]);
 
   if (!hasHoldouts) {
     if (hideEmptyStatePromo) return null;

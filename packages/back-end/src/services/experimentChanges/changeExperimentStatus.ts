@@ -636,9 +636,10 @@ async function withoutWaivedApprovals(
   context: ReqContext | ApiReqContext,
   checklistItems: StartChecklistItemStatus[],
   bypass: boolean,
+  options: { restApiBypassesReviews?: boolean } = {},
 ): Promise<StartChecklistItemStatus[]> {
   if (!bypass) return checklistItems;
-  const waived = await waivableApprovals(context, checklistItems);
+  const waived = await waivableApprovals(context, checklistItems, options);
   return checklistItems.filter((item) => !waived.has(item.key));
 }
 
@@ -793,12 +794,12 @@ export async function startExperiment({
     );
   }
 
-  // Safe to waive here: the publish path re-checks bypass authority per feature.
-  const remainingItems = bypassLockdown
-    ? checklistItems.filter(
-        (item) => !item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX),
-      )
-    : checklistItems;
+  const remainingItems = await withoutWaivedApprovals(
+    context,
+    checklistItems,
+    bypassLockdown,
+    { restApiBypassesReviews },
+  );
   assertNoIncompleteHardBlockers(remainingItems);
 
   const incompleteRequiredItems = remainingItems.filter(
