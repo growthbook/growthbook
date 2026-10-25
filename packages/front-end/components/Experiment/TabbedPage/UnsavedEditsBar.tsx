@@ -39,6 +39,12 @@ export default function UnsavedEditsBar() {
               </Box>
             </Flex>
           ) : null}
+          {edits.conflicts.length ? (
+            <HelperText status="warning" size="sm">
+              Someone else saved changes to what you edited. Keep yours or use
+              theirs, then save again.
+            </HelperText>
+          ) : null}
           {edits.error ? (
             <HelperText status="error" size="sm">
               {edits.error}

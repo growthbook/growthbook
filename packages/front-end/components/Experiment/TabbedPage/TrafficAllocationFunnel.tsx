@@ -46,13 +46,18 @@ import {
   experimentFieldChanges,
   FlagEnvironmentsDraft,
   HoldoutDraft,
+  reviewAgainstCurrent,
   StagedEditConflict,
   useEditBase,
   useExperimentEdits,
   useRegisterExperimentEdit,
   useStagedState,
 } from "./ExperimentEdits";
-import { mergeStagedTargeting, onlyTrafficChanged } from "./targetingDraft";
+import {
+  comparableTargeting,
+  mergeStagedTargeting,
+  onlyTrafficChanged,
+} from "./targetingDraft";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -268,6 +273,11 @@ export default function TrafficAllocationFunnel({
           ...clearStaged,
           label: "Traffic",
           rebase: rebaseTargeting,
+          review: () =>
+            reviewAgainstCurrent(experiment, {
+              coverage: staged.coverage,
+              variationWeights: staged.variationWeights,
+            }),
           changes: () =>
             experimentFieldChanges(targetingBase?.experiment ?? experiment, {
               coverage: staged.coverage,
@@ -277,7 +287,19 @@ export default function TrafficAllocationFunnel({
       : {
           ...clearStaged,
           label: "Targeting",
-          review: () => ({ before: loadedTargeting, after: staged }),
+          // What the save would write, merged onto what's saved now.
+          review: () => ({
+            before: comparableTargeting(targetingDefaults),
+            after: staged
+              ? comparableTargeting(
+                  mergeStagedTargeting(
+                    loadedTargeting,
+                    staged,
+                    targetingDefaults,
+                  ).merged,
+                )
+              : null,
+          }),
           // Keeping mine also takes what others changed since, where I didn't.
           rebase: () => {
             if (staged) {

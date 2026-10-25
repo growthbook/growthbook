@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretUp } from "react-icons/pi";
+import { canonicalValue } from "shared/util";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import { stringifyForRawDiff } from "@/components/Reviews/Feature/RevisionDiffUtils";
 import Button from "@/ui/Button";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
-import HelperText from "@/ui/HelperText";
+import HelperText, { RadixStatusIcon } from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import { ApiCallError } from "@/services/apiCallError";
 import { StagedReview, useExperimentEdits } from "./ExperimentEdits";
 
@@ -28,8 +30,9 @@ function StagedChange({
   keepMine: (() => void) | null;
 }) {
   const [open, setOpen] = useState(false);
-  const before = stringifyForRawDiff(review?.before);
-  const after = stringifyForRawDiff(review?.after);
+  // Shown as a change is judged, so key order and empty fields aren't diffs.
+  const before = stringifyForRawDiff(canonicalValue(review?.before));
+  const after = stringifyForRawDiff(canonicalValue(review?.after));
   const hasDiff = before !== after;
   const link = (text: string, onClick: () => void) => (
     <Link
@@ -43,28 +46,33 @@ function StagedChange({
       {text}
     </Link>
   );
+  // Discarding a conflicted edit takes theirs, so it says so.
   const actions = keepMine ? (
     <Flex gap="3">
       {link("Keep mine", keepMine)}
-      {link("Discard", discard)}
+      {link("Use theirs", discard)}
     </Flex>
   ) : (
     link("Discard", discard)
   );
-  const conflictNote = keepMine ? (
-    <HelperText status="warning" size="sm" mt="1">
-      Someone else saved a change to this since you made yours.
-    </HelperText>
-  ) : null;
+  const title = (
+    <Flex align="center" gap="1">
+      {keepMine ? (
+        <Tooltip content="Someone else saved a change to this since you made yours.">
+          <Flex as="span" style={{ color: "var(--amber-11)" }}>
+            <RadixStatusIcon status="warning" size="sm" />
+          </Flex>
+        </Tooltip>
+      ) : null}
+      <Text color="text-high">{label}</Text>
+    </Flex>
+  );
   if (!hasDiff) {
     return (
-      <Box>
-        <Flex align="center" justify="between" gap="4">
-          <Text color="text-high">{label}</Text>
-          {actions}
-        </Flex>
-        {conflictNote}
-      </Box>
+      <Flex align="center" justify="between" gap="4">
+        {title}
+        {actions}
+      </Flex>
     );
   }
   return (
@@ -75,9 +83,8 @@ function StagedChange({
         caret="start"
         action={actions}
       >
-        <Text color="text-high">{label}</Text>
+        {title}
       </CollapseTrigger>
-      {conflictNote}
       <Collapse open={open}>
         <Box mt="1" style={{ maxHeight: 240, overflowY: "auto" }}>
           <LazyDiffViewer
@@ -86,6 +93,12 @@ function StagedChange({
             hideLineNumbers
             extraLinesSurroundingDiff={1}
             styles={COMPACT_DIFF_STYLES}
+            // Against what's saved now, so a conflict shows what Keep mine
+            // replaces.
+            {...(keepMine && {
+              leftTitle: "Modified version",
+              rightTitle: "My version",
+            })}
           />
         </Box>
       </Collapse>
@@ -114,8 +127,11 @@ export default function StagedChanges() {
     setCheck(null);
     checkAll
       .current()
-      .then(() => {
-        if (current) setCheck({ status: "ready" });
+      .then((covered) => {
+        // Only claimed when the check saw every edit and none conflicts.
+        if (current && covered && !conflicts?.length) {
+          setCheck({ status: "ready" });
+        }
       })
       .catch((e) => {
         if (!current) return;
@@ -142,6 +158,8 @@ export default function StagedChanges() {
       onOpenChange={setOpen}
       side="top"
       align="start"
+      // Clear of the bar it opens from.
+      sideOffset={8}
       contentStyle={{ width: 640, maxWidth: "90vw", padding: "12px 16px" }}
       trigger={
         <Button

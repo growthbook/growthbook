@@ -405,6 +405,36 @@ describe("applyExperimentChanges", () => {
     expect((await getExperimentById(context, EXP))?.hypothesis).toBe("new");
   });
 
+  it("takes a field stored in another shape of the same value", async () => {
+    await seed({ withDraft: false });
+    // As another endpoint writes it: its own key order and empty fields.
+    await collection("experiments").updateOne(
+      { id: EXP },
+      {
+        $set: {
+          variations: seededVariations().map(({ id, key, name }) => ({
+            screenshots: [],
+            dom: [],
+            name,
+            key,
+            id,
+          })),
+        },
+      },
+    );
+    await run({
+      experiment: {
+        changes: {
+          variations: seededVariations().map((v) => ({ ...v, name: "new" })),
+        },
+        base: { variations: seededVariations() },
+      },
+    });
+    expect(
+      (await getExperimentById(context, EXP))?.variations.map((v) => v.name),
+    ).toEqual(["new", "new"]);
+  });
+
   it("refuses a variation added without a split for it", async () => {
     await seed({ withDraft: false });
     await expect(

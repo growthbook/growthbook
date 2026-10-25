@@ -1,5 +1,5 @@
 import isEqual from "lodash/isEqual";
-import { validateFeatureValue } from "shared/util";
+import { sameCanonicalValue, validateFeatureValue } from "shared/util";
 import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { AuditInterfaceInput } from "shared/types/audit";
@@ -157,14 +157,14 @@ function experimentFieldConflicts(
     if (!(key in base)) {
       throw new BadRequestError(`base is missing the loaded value of ${key}`);
     }
-    const current = asJson(
+    const current =
       key === "variationWeights" || key === "coverage"
         ? experiment.phases[experiment.phases.length - 1]?.[key]
-        : experiment[key as keyof ExperimentInterface],
-    );
+        : experiment[key as keyof ExperimentInterface];
+    // Judged as the page's diff is, so only a real change can conflict.
     return (
-      !isEqual(current, asJson(base[key])) &&
-      !isEqual(current, asJson(changes[key as keyof typeof changes]))
+      !sameCanonicalValue(current, base[key]) &&
+      !sameCanonicalValue(current, changes[key as keyof typeof changes])
     );
   });
 }

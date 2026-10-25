@@ -59,7 +59,7 @@ type PendingEdit = {
 export type StagedReview = { before: unknown; after: unknown };
 
 // Before and after from an edit's share of the changeset: each experiment
-// field against the value it was loaded with, and anything else as added.
+// field against its value in the share's base, and anything else as added.
 function reviewFromChanges(body: ExperimentChangesBody): StagedReview {
   const { experiment, ...rest } = body;
   return {
@@ -109,8 +109,12 @@ interface ExperimentEditsValue {
   review: (id: string) => StagedReview | null;
   register: (id: string, edit: PendingEdit | null) => void;
   checkChanges: CheckChanges;
-  /** Runs the save's checks on everything staged, writing nothing. */
-  checkAll: () => Promise<void>;
+  /**
+   * Runs the save's checks on everything staged, writing nothing. Resolves
+   * whether they covered every edit: one that saves through its own endpoint
+   * has nothing to dry-run against.
+   */
+  checkAll: () => Promise<boolean>;
   allowUnload: () => void;
 }
 
@@ -123,13 +127,14 @@ type CheckChanges = (id: string, part: ExperimentChangesBody) => Promise<void>;
 const ExperimentEditsContext = createContext<ExperimentEditsValue | null>(null);
 
 const INVALID_FIELDS = "Fill in the highlighted fields to save.";
-const CONFLICT =
-  "Someone else saved changes to what you edited. Keep yours or discard them, then save again.";
 
 type ChangesConflict = ApiErrorDetails<"changes_conflict">;
 
 /** Thrown by an edit that saves itself when what it changed was saved by someone else. */
 export class StagedEditConflict extends Error {}
+
+// The save stopped on a conflict, which the bar and the conflicting rows show.
+class ConflictFlagged extends Error {}
 
 function changesConflict(e: unknown): ChangesConflict | null {
   if (!(e instanceof ApiCallError) || e.code !== "changes_conflict") {
@@ -373,7 +378,7 @@ export function ExperimentEditsProvider({
               .filter(([, edit]) => touches(dryRunShare(edit), conflict))
               .map(([id]) => id),
           );
-          throw new Error(CONFLICT);
+          throw new ConflictFlagged();
         }
         saved.push(...inChangeset.map(([, edit]) => edit));
       }
@@ -386,7 +391,7 @@ export function ExperimentEditsProvider({
         } catch (e) {
           if (!(e instanceof StagedEditConflict)) throw e;
           setConflicts((prev) => [...prev, id]);
-          throw new Error(CONFLICT);
+          throw new ConflictFlagged();
         }
         saved.push(edit);
       }
@@ -394,7 +399,9 @@ export function ExperimentEditsProvider({
       setAllowUnscopedRules(false);
     } catch (e) {
       const message = e.message || "Could not save your changes";
-      if (e instanceof ApiCallError && e.code === "unscoped_rule") {
+      if (e instanceof ConflictFlagged) {
+        // Shown as the conflict, not as an error.
+      } else if (e instanceof ApiCallError && e.code === "unscoped_rule") {
         setUnscopedRefusal(message);
       } else {
         setError(message);
@@ -431,9 +438,6 @@ export function ExperimentEditsProvider({
   const resolve = useCallback((id: string) => {
     setConflicts((prev) => prev.filter((c) => c !== id));
   }, []);
-  useEffect(() => {
-    if (!conflicts.length) setError((e) => (e === CONFLICT ? null : e));
-  }, [conflicts]);
   const discard = useCallback(
     (id: string) => {
       edits.current.get(id)?.discard();
@@ -489,6 +493,7 @@ export function ExperimentEditsProvider({
       throw new Error(INVALID_FIELDS);
     }
     await dryRun(null, []);
+    return [...edits.current.values()].every((edit) => !edit.save);
   }, [dryRun]);
 
   // Discards before leaving: a route change started with edits still staged
@@ -647,6 +652,17 @@ export function useEditBase<B>(
 }
 
 /**
+ * What saving these fields would change, against the experiment as it is now:
+ * the edit's own base until someone else saves, then theirs.
+ */
+export function reviewAgainstCurrent(
+  experiment: ExperimentInterfaceStringDates,
+  fields: ExperimentChangesFields,
+): StagedReview {
+  return reviewFromChanges(experimentFieldChanges(experiment, fields));
+}
+
+/**
  * An edit to experiment fields, saved against the experiment as it stood when
  * the edit began, so a refetch can't pass someone else's change off as loaded.
  */
@@ -663,6 +679,7 @@ export function useExperimentFieldEdit(
 ) {
   const [base, rebase] = useEditBase(id, dirty, () => experiment);
   useRegisterExperimentEdit(id, dirty, {
+    review: () => reviewAgainstCurrent(experiment, fields()),
     ...edit,
     rebase,
     changes: () => experimentFieldChanges(base ?? experiment, fields()),

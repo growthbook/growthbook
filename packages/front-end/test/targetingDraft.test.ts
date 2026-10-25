@@ -50,6 +50,12 @@ describe("onlyTrafficChanged", () => {
       ),
     ).toBe(false);
   });
+
+  it("reads either empty condition as none", () => {
+    expect(
+      onlyTrafficChanged({ ...stored, condition: "{}", coverage: 0.4 }, stored),
+    ).toBe(true);
+  });
 });
 
 describe("mergeStagedTargeting", () => {
@@ -76,5 +82,15 @@ describe("mergeStagedTargeting", () => {
     );
     expect(merged.hashAttribute).toBe("device");
     expect(contested).toEqual(["hashAttribute"]);
+  });
+
+  it("takes their condition over mine left empty in another form", () => {
+    const { merged, contested } = mergeStagedTargeting(
+      stored,
+      { ...stored, condition: "{}" },
+      { ...stored, condition: '{"country":"US"}' },
+    );
+    expect(merged.condition).toBe('{"country":"US"}');
+    expect(contested).toEqual([]);
   });
 });
