@@ -5,7 +5,7 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 
 /** Width of the label column. Every setup field shares it, so they line up. */
-const LABEL_WIDTH = "180px";
+export const LABEL_WIDTH = "180px";
 
 /** Below this a control has no usable room, and the row stacks instead. */
 const MIN_FIELD_WIDTH = "260px";

@@ -17,17 +17,19 @@ import {
   hasNarrowedRanges,
   NamespaceValue,
 } from "shared/util";
+import { Flex } from "@radix-ui/themes";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   ChangeType,
   ReleasePlan,
 } from "@/components/Experiment/MakeChangesFlow";
-import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
+import { TargetingChanges } from "@/components/Experiment/TabbedPage/TargetingInfo";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
 import { formatPercent } from "@/services/metrics";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -253,37 +255,25 @@ export default function ReleaseChangesForm({
 
       {changeType !== "phase" && (
         <div className="mt-4 mb-1">
-          <div className="d-flex">
-            <label>Targeting and traffic changes</label>
-            <div className="flex-1" />
-            <div className="position-relative small" style={{ bottom: -6 }}>
-              <a
-                role="button"
-                className="link-purple ml-3"
-                onClick={() => setShowFullTargetingInfo(!showFullTargetingInfo)}
-              >
-                {showFullTargetingInfo ? (
-                  <>
-                    <BiHide className="mr-1" />
-                    Show changes only
-                  </>
-                ) : (
-                  <>
-                    <BiShow className="mr-1" />
-                    Show full targeting
-                  </>
-                )}
-              </a>
-            </div>
-          </div>
-          <div className="appbox bg-light px-3 pt-3 pb-0 mb-0">
-            <TargetingInfo
-              experiment={experiment}
-              showChanges={true}
-              showFullTargetingInfo={showFullTargetingInfo}
-              changes={form.getValues()}
-            />
-          </div>
+          <Flex align="center" justify="between" mb="1">
+            <label className="mb-0">Targeting and traffic changes</label>
+            <Link
+              size="sm"
+              onClick={() => setShowFullTargetingInfo(!showFullTargetingInfo)}
+            >
+              <Flex align="center" gap="1">
+                {showFullTargetingInfo ? <BiHide /> : <BiShow />}
+                {showFullTargetingInfo
+                  ? "Show changes only"
+                  : "Show full targeting"}
+              </Flex>
+            </Link>
+          </Flex>
+          <TargetingChanges
+            experiment={experiment}
+            value={form.getValues()}
+            showAll={showFullTargetingInfo}
+          />
         </div>
       )}
     </div>
