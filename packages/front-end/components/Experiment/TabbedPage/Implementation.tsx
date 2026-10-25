@@ -101,9 +101,8 @@ const LINKED_CHANGES_LOCKED_REASON =
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  /** Viewing an old phase: nothing staged here can change. */
+  // Viewing an old phase: nothing staged here can change.
   disableEditing?: boolean;
-  /** The page's staged holdout, which the traffic funnel edits. */
   holdoutDraft?: HoldoutDraft;
   holdout?: HoldoutInterfaceStringDates;
   holdoutFeatures?: FeatureInterface[];
@@ -170,7 +169,6 @@ export default function Implementation({
     () => withStagedVariations(experiment, variationsDraft),
     [experiment, variationsDraft],
   );
-  // Laid out like the variation cards above, staged edits included.
   const shownVariations = getLatestPhaseVariations(stagedExperiment);
   const shownVariationIds = shownVariations.map((v) => v.id);
   const [environmentScopes, setEnvironmentScopes] = useStagedState<
@@ -198,7 +196,6 @@ export default function Implementation({
         targetingDraft?.value?.variationWeights ??
         phases[phases.length - 1]?.variationWeights,
     }),
-    onSaved: () => setVariationsDraft(null),
     discard: () => setVariationsDraft(null),
   });
 
@@ -209,7 +206,6 @@ export default function Implementation({
 
   const permissionsUtil = usePermissionsUtil();
 
-  // URL Redirect and Visual Editor edits, staged like the rest.
   const [linkedDraft, setLinkedDraft] = useStagedState<LinkedChangesDraft>(
     LINKED_CHANGES_EDIT_ID,
     EMPTY_LINKED_CHANGES,
@@ -236,7 +232,6 @@ export default function Implementation({
     {
       label: "URL redirects and visual changes",
       changes: () => linkedBody,
-      onSaved: clearLinked,
       discard: clearLinked,
     },
   );
@@ -283,7 +278,6 @@ export default function Implementation({
   // Leaving needs nothing more; joining or switching needs the feature.
   const canStageHoldout = holdoutInReach && holdoutEditable;
   const canJoinHoldout = canStageHoldout && hasCommercialFeature("holdouts");
-  // Said rather than hidden.
   const holdoutLockedReason =
     holdoutInReach &&
     experiment.type !== "holdout" &&
@@ -308,15 +302,14 @@ export default function Implementation({
       ? LINKED_CHANGES_LOCKED_REASON
       : null;
   const stagesLinkedChanges = !disableEditing;
-
-  const canAddLinkedChanges = hasVisualEditorPermission && unscheduledDraft;
+  const canAddAny =
+    hasVisualEditorPermission && unscheduledDraft && stagesLinkedChanges;
 
   const hasLinkedChanges =
     experiment.hasVisualChangesets ||
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
 
-  const canAddAny = canAddLinkedChanges && stagesLinkedChanges;
   // Linking a Feature Flag writes at once, which would strand it: a holdout
   // changes only with nothing linked.
   const addBlockedReason =
@@ -343,7 +336,7 @@ export default function Implementation({
           layout={layout}
           redirect={r}
           project={experiment.project ?? ""}
-          canEdit={canAddLinkedChanges && stagesLinkedChanges}
+          canEdit={canAddAny}
           lockedReason={linkedChangesLockedReason}
           environmentStates={urlRedirectEnvStates}
           onEdit={() => setRedirectModal({ target: r })}
@@ -492,10 +485,8 @@ export default function Implementation({
                 !pendingScheduledStart && canEdit && !!canAddVariation
               }
               editVariationKeys={() => setEditingKeys(true)}
-              // Viewing an old phase, nothing here changes.
               canEditExperiment={canEdit}
               safeToEdit={safeToEdit}
-              phaseIndex={phases.length - 1}
               linkedFeatures={linkedFeatures}
               // Values land in drafts in every status; publishing them is what
               // goes through review.

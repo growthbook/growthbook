@@ -68,11 +68,8 @@ export type Props = TrackingEventModalProps & {
   children: ReactNode;
 };
 
-/**
- * Radix focuses the first tabbable node, which pops the tooltip of a modal
- * whose first control is an icon button. Prefer the first field a person would
- * type into, and otherwise the dialog itself.
- */
+// Radix focuses the first tabbable node, which pops an icon button's tooltip.
+// Prefer the first field to type into, else the dialog itself.
 const focusFirstField: NonNullable<
   ComponentProps<typeof Modal.Root>["onOpenAutoFocus"]
 > = (e) => {

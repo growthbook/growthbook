@@ -22,8 +22,7 @@ function SubmitButton() {
   );
 }
 
-/** Starting a holdout. Experiments start from their review instead. */
-export default function StartExperimentModal({
+export default function StartHoldoutModal({
   experiment,
   close,
   startExperiment,

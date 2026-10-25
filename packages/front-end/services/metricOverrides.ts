@@ -9,7 +9,7 @@ export const METRIC_OVERRIDE_COLOR = "var(--blue-9)";
 // Outlines an overridden metric's chip; a border step reads alike in both modes.
 export const METRIC_OVERRIDE_BORDER_COLOR = "var(--blue-a8)";
 
-/** Which setting a row is about, so an override can stand in for it. */
+// Which setting a row is about, so an override can stand in for it.
 type MetricSettingKey =
   | "targetMDE"
   | "window"
@@ -63,11 +63,8 @@ const windowRow = (
       }
     : { key: "window", label: "Metric window", value: "None" };
 
-/**
- * A field left unset keeps the metric's own setting, so it isn't listed. A goal
- * metric's target MDE is kept apart from the rest by the decision framework,
- * but reads as the first of its overrides.
- */
+// Unset fields keep the metric's own setting and aren't listed. A goal metric's
+// target MDE lives in the decision framework but reads as its first override.
 export function describeMetricOverride(
   o: MetricOverride,
   targetMDE?: number,
@@ -106,7 +103,7 @@ export function describeMetricOverride(
   return rows;
 }
 
-/** How a metric is analysed in an experiment before any override of it. */
+// How a metric is analysed in an experiment before any override of it.
 export interface MetricSettingsInput {
   windowType: "conversion" | "lookback" | "" | undefined;
   windowHours: number;
@@ -122,10 +119,8 @@ export interface MetricSettingsInput {
   targetMDE?: number;
 }
 
-/**
- * The settings the override doesn't already cover. Bayesian-only settings are
- * left out under the frequentist engine, which ignores them.
- */
+// The settings the override doesn't already cover. Bayesian-only settings are
+// left out under the frequentist engine, which ignores them.
 export function describeMetricSettings(
   s: MetricSettingsInput,
   statsEngine: StatsEngine,
@@ -166,7 +161,7 @@ export function describeMetricSettings(
   return rows.filter((r) => !overridden.has(r.key));
 }
 
-/** The metrics an experiment actually overrides, by id; target MDEs count too. */
+// The metrics an experiment actually overrides, by id; target MDEs count too.
 export function getOverriddenMetricIds(
   overrides: MetricOverride[] | undefined,
   targetMDEOverrides: DecisionFrameworkMetricOverrides[] = [],
@@ -181,10 +176,8 @@ export function getOverriddenMetricIds(
   ]);
 }
 
-/**
- * Drops the window fields older saved overrides still carry alongside their
- * replacements, which the override schema refuses.
- */
+// Drops the deprecated window fields older saved overrides still carry, which
+// the override schema refuses.
 export function withoutDeprecatedOverrideFields(
   overrides: LegacyMetricOverride[],
 ): MetricOverride[] {

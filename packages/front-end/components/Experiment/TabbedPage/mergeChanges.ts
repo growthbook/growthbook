@@ -1,10 +1,7 @@
 import type { ExperimentChangesBody } from "shared/validators";
 
-/**
- * One changeset from the page's edits, each holding a share of it: experiment
- * fields merge and every list adds up. `dryRun`, `allowUnscopedRules` and
- * `release` are the caller's, not an edit's.
- */
+// Experiment fields merge and lists concatenate; the caller adds `dryRun`,
+// `allowUnscopedRules` and `release`.
 export function mergeChanges(
   parts: ExperimentChangesBody[],
 ): ExperimentChangesBody {

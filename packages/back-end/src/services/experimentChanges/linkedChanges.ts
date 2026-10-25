@@ -1,7 +1,10 @@
 import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
 import { z } from "zod";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getLatestPhaseVariations,
+  syncedDestinationURLs,
+} from "shared/experiments";
 import { isScheduledToStart } from "shared/util";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -17,7 +20,6 @@ import {
   assertNoRedirectLoop,
   assertRedirectDestinations,
   assertRedirectOrigin,
-  syncedDestinationURLs,
 } from "back-end/src/models/UrlRedirectModel";
 import {
   deleteVisualChangesetById,
@@ -31,7 +33,12 @@ import {
 } from "back-end/src/services/experiments";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
-import { asJson, changedSinceLoaded, isoOrNull } from "./loadedBase";
+import {
+  asJson,
+  assertBaseCoversChanges,
+  changedSinceLoaded,
+  isoOrNull,
+} from "./loadedBase";
 import type { ExperimentUpdatePlan } from "./planExperimentUpdate";
 
 type RedirectAdd = NonNullable<
@@ -100,11 +107,7 @@ function assertVisualBaseMatches(
   current: VisualChangesetInterface,
   { changes, base }: VisualEdit,
 ) {
-  for (const key of Object.keys(changes)) {
-    if (!(key in base)) {
-      throw new BadRequestError(`base is missing the loaded value of ${key}`);
-    }
-  }
+  assertBaseCoversChanges(changes, base);
   const moved = () => changedSinceLoaded(visualName(current));
   for (const key of ["editorUrl", "urlPatterns"] as const) {
     if (key in changes && !isEqual(asJson(current[key]), asJson(base[key]))) {

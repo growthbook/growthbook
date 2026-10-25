@@ -63,10 +63,7 @@ type Props = {
     candidateRanges?: Array<{ from: Date; to: Date }>;
     onDayPick: (day: Date) => void;
   };
-  /**
-   * Shown while no date is set. Until one is picked, the field opens the
-   * calendar and ignores typing.
-   */
+  // Until a date is picked, the field only opens the calendar.
   placeholder?: string;
 };
 

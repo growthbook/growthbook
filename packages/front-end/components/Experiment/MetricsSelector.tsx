@@ -254,19 +254,13 @@ const MetricsSelector: FC<{
     reason?: string;
   };
   requireDatasource?: boolean;
-  /**
-   * Given, each chosen metric gets a hover card, and a chip holding an
-   * overridden metric is outlined.
-   */
+  /** Gives each chosen metric a hover card and outlines overridden ones. */
   metricOverrides?: MetricOverride[];
   /** Opens an override editor on the metrics a card was opened for. */
   onManageOverrides?: (metricIds: string[]) => void;
   /** Lets a chosen metric's card list the settings it's analysed with. */
   settingsScope?: MetricSettingsScope;
-  /**
-   * Given, for goal metrics, a target MDE counts as an override: it outlines
-   * the chip and leads the card.
-   */
+  /** Goal metrics' target MDEs, which count as overrides here. */
   targetMDEOverrides?: DecisionFrameworkMetricOverrides[];
 }> = ({
   datasource,

@@ -572,16 +572,12 @@ export default function VisualChangesetColumn({
       ? firstInclude.pattern
       : withoutProtocol(firstInclude.pattern)
     : withoutProtocol(vc.editorUrl);
-  const locked = (label: string) => (
-    <Tooltip content={lockedReason} side="left" enabled={!!lockedReason}>
-      <span>{label}</span>
-    </Tooltip>
-  );
   const menu = editable
     ? [
         <DropdownMenuItem
           key="targeting"
           disabled={!!lockedReason}
+          tooltip={lockedReason ?? undefined}
           onClick={() => {
             setEditingTargeting(true);
             track("Open visual editor modal", {
@@ -590,19 +586,20 @@ export default function VisualChangesetColumn({
             });
           }}
         >
-          {locked("Edit URL targeting")}
+          Edit URL targeting
         </DropdownMenuItem>,
         <DropdownMenuSeparator key="separator" />,
         <DropdownMenuItem
           key="remove"
           color="red"
           disabled={!!lockedReason}
+          tooltip={lockedReason ?? undefined}
           onClick={() => {
             onRemove(shown.stored.id);
             track("Delete visual changeset", { source: "visual-editor-ui" });
           }}
         >
-          {locked("Remove from experiment")}
+          Remove from experiment
         </DropdownMenuItem>,
       ]
     : [];

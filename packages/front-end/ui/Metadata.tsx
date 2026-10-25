@@ -11,10 +11,7 @@ type Props = {
   size?: Size<"sm" | "md">;
   /** Label above the value, for a narrow column. Otherwise inline "Label: value". */
   stacked?: boolean;
-  /**
-   * A stacked row's own button, such as its pencil. It ends the row, and the
-   * whole row clicks it; links and buttons in the value keep their own clicks.
-   */
+  /** A stacked row's own button (e.g. its pencil), clicked by the whole row. */
   action?: React.ReactNode;
 };
 
@@ -23,23 +20,18 @@ export default forwardRef<HTMLDivElement, Props>(function Metadata(
   ref,
 ) {
   if (stacked) {
-    const labelNode = (
-      <Text weight="regular" color="text-low" size={size}>
-        {label}
-      </Text>
-    );
-    const valueNode =
-      typeof value === "string" ? (
-        <Text weight="regular" color="text-high" size={size}>
-          {value}
-        </Text>
-      ) : (
-        value
-      );
     const content = (
       <>
-        {labelNode}
-        {valueNode}
+        <Text weight="regular" color="text-low" size={size}>
+          {label}
+        </Text>
+        {typeof value === "string" ? (
+          <Text weight="regular" color="text-high" size={size}>
+            {value}
+          </Text>
+        ) : (
+          value
+        )}
       </>
     );
 

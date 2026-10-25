@@ -66,37 +66,23 @@ function ChecklistRowAction({
   action: ChecklistAction;
   children: ReactNode;
 }) {
+  const attrs = { className: styles.rowAction, "data-checklist-action": "" };
   if ("onClick" in action) {
     return (
-      <button
-        type="button"
-        className={styles.rowAction}
-        data-checklist-action=""
-        onClick={action.onClick}
-      >
+      <button type="button" {...attrs} onClick={action.onClick}>
         {children}
       </button>
     );
   }
   if (!action.external) {
     return (
-      <NextLink
-        href={action.href}
-        className={styles.rowAction}
-        data-checklist-action=""
-      >
+      <NextLink href={action.href} {...attrs}>
         {children}
       </NextLink>
     );
   }
   return (
-    <a
-      href={action.href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={styles.rowAction}
-      data-checklist-action=""
-    >
+    <a href={action.href} target="_blank" rel="noopener noreferrer" {...attrs}>
       {children}
       <PiArrowSquareOut className={styles.externalIcon} />
     </a>
@@ -170,10 +156,8 @@ function ChecklistRow({
 
 type FadingItem = { key: string; tier: ChecklistTier; index: number };
 
-/**
- * Items just ticked off stay in their sections, ticked, until they've faded
- * out of them. They're under Completed from the start.
- */
+// Items just ticked off stay in their sections, ticked, until they've faded
+// out of them. They're under Completed from the start.
 function useFadingCompletions(
   lists: Record<ChecklistTier, CheckListItem[]>,
   complete: CheckListItem[],

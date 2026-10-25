@@ -12,19 +12,16 @@ import track from "@/services/track";
 const AI_DISABLED = "AI is disabled for your organization. Adjust in settings.";
 
 export interface Props {
-  /** Returns the suggested text, or an empty string when it has none. */
+  // Resolves to an empty string when there's no suggestion.
   suggest: (type: AISuggestionType) => Promise<string>;
   onSuggestion: (suggestion: string) => void;
   label?: string;
   trackingSource?: string;
-  /** Shows a failure, or clears it with null. */
+  // Null clears a shown failure.
   onError: (message: string | null) => void;
 }
 
-/**
- * The "get a suggestion" control, with its premium gate and opt-in, so any
- * editor can offer one without reimplementing the flow.
- */
+// The "get a suggestion" control with its premium gate and AI opt-in.
 export default function AISuggestButton({
   suggest,
   onSuggestion,

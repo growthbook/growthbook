@@ -3142,8 +3142,7 @@ export async function postVisualChangeset(
     throw new Error("Could not find experiment");
   }
 
-  assertVisualChangesEditable(experiment);
-  assertCanRunLinkedChanges(context, experiment);
+  assertVisualChangesEditable(context, experiment);
 
   const visualChangeset = await createVisualChangeset({
     owner: new ExperimentChangesetOwner(context, experiment),

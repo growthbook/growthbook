@@ -26,10 +26,7 @@ export interface CommentComposerProps {
   maxHeight?: RichTextHeight;
 }
 
-/**
- * Wraps the rich text editor in a form with internal value/loading/error
- * state. The caller only needs to provide the network call via `onSubmit`.
- */
+// Owns value/loading/error state; the caller only supplies the network call.
 export default function CommentComposer({
   onSubmit,
   cta = "Comment",

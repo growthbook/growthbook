@@ -2345,9 +2345,7 @@ export const experimentChangesBody = z
       )
       .optional(),
     removeVisualChangesets: z.array(z.string()).optional(),
-    // How a change to a started experiment's targeting goes out, as Make
-    // Changes picks it. Without one, what a running experiment serves can't
-    // change in place.
+    // Without one, what a running experiment serves can't change in place.
     release: z
       .object({
         // Ends the latest phase and starts another with the targeting.

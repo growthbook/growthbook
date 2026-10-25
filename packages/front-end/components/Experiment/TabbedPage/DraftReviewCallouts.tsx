@@ -44,7 +44,6 @@ function listHeading(states: DraftReviewState[]): string {
     : "The following Feature Flags need approval:";
 }
 
-// The flag and its revision, with the revision's status dot.
 function DraftLink({
   featureId,
   draft,
@@ -99,11 +98,8 @@ function startSentence({ draft, publishesAtStart }: DraftInReview) {
     : null;
 }
 
-/**
- * The linked flags' drafts someone still has to review or publish, in one
- * callout. A draft that publishes on its own when the experiment starts needs
- * nothing until then, unless it's waiting on a review the start won't bypass.
- */
+// A draft that publishes when the experiment starts needs nothing until then,
+// unless it's waiting on a review the start won't bypass.
 export default function DraftReviewCallouts({
   experiment,
   linkedFeatures,

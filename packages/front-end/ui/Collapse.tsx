@@ -3,10 +3,7 @@ import { ReactNode, TransitionEvent, useState } from "react";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import styles from "./Collapse.module.scss";
 
-/**
- * Content that slides open and shut. It mounts the first time it opens, and
- * shut, it's out of the tab order.
- */
+/** Content that slides open and shut; mounted on first open, untabbable shut. */
 export default function Collapse({
   open,
   children,

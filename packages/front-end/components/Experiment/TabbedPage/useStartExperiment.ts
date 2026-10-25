@@ -56,12 +56,10 @@ export default function useStartExperiment({
   const isHoldout = experiment.type === "holdout";
   const isBandit = experiment.type === "multi-armed-bandit";
 
-  // Per-flag failures from the last failed start, so each blocked draft can be
-  // linked instead of only showing the error string.
+  // Kept per flag so each blocked draft can be linked.
   const [pendingDraftFailures, setPendingDraftFailures] = useState<
     PendingDraftFailure[]
   >([]);
-  // The To Do items the server refused the last attempt on.
   const [checklistFailures, setChecklistFailures] = useState<
     ServerChecklistItem[]
   >([]);

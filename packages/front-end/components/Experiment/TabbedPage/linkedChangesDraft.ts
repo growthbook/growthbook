@@ -1,6 +1,7 @@
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import type { ExperimentChangesBody } from "shared/validators";
+import { syncedDestinationURLs } from "shared/experiments";
 import {
   DestinationURL,
   URLRedirectInterface,
@@ -38,10 +39,7 @@ type VisualEdit = {
   >;
 };
 
-/**
- * URL Redirect and Visual Editor edits staged for the page's Save. Each keeps
- * what it was staged against, so a refetch meanwhile can't re-base it.
- */
+// Each edit keeps what it was staged against, so a refetch can't re-base it.
 export type LinkedChangesDraft = {
   // Keyed on the page until the save gives them an id.
   addedRedirects: (RedirectFields & { key: string })[];
@@ -255,11 +253,8 @@ export function undoVisual(
   };
 }
 
-/**
- * What's staged against a redirect, changeset or visual change that still
- * exists. A visual change for a variation the page has staged away sits out
- * until that variation is back.
- */
+// Drops what no longer exists. A visual change for a variation staged away
+// sits out until that variation is back.
 export function pruneLinkedChanges(
   draft: LinkedChangesDraft,
   redirects: URLRedirectInterface[],
@@ -371,26 +366,17 @@ export function shownVisualChangesets(
   });
 }
 
-/**
- * The draft's share of the save. Each redirect gets one destination per
- * variation the save leaves, as the server's variation sync would give it.
- */
+// Each redirect gets one destination per variation the save leaves, as the
+// server's variation sync would give it.
 export function linkedChangesBody(
   draft: LinkedChangesDraft,
   variationIds: string[],
 ): ExperimentChangesBody {
-  const projected = (r: RedirectFields): RedirectFields => {
-    const byVariation = new Map(
-      r.destinationURLs.map((d) => [d.variation, d.url]),
-    );
-    return {
-      ...fieldsOf(r),
-      destinationURLs: variationIds.map((variation) => ({
-        variation,
-        url: byVariation.get(variation) ?? "",
-      })),
-    };
-  };
+  const variations = variationIds.map((id) => ({ id }));
+  const projected = (r: RedirectFields): RedirectFields => ({
+    ...fieldsOf(r),
+    destinationURLs: syncedDestinationURLs(r.destinationURLs, variations),
+  });
   const visualEdits = Object.entries(draft.editedVisual).flatMap(
     ([id, { targeting, changes: staged }]): VisualChangesetEdit[] => {
       const changes: VisualChangesetEdit["changes"] = {};

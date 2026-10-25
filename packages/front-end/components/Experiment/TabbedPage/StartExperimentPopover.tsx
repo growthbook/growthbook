@@ -48,9 +48,8 @@ export type Props = ContentProps & {
   trigger: ReactNode;
 };
 
-// A modal opened from the popover stacks on top of it, so the popover is still
-// there when the modal closes. Non-modal dialogs, like the AI assistant's
-// panel, don't count.
+// A modal opened from the popover stacks over it, so the popover stays open
+// beneath. Non-modal dialogs, like the AI assistant's panel, don't count.
 const modalOpen = () =>
   !!document.querySelector(
     '.rt-BaseDialogContent[data-state="open"], [aria-modal="true"]',
@@ -120,8 +119,7 @@ function StartContent({
   }, [start.checklistFailures]);
   const gate = useStartGate({ experiment, linkedFeatures, start, bypassed });
   const { bypassLabel, waivesApproval } = gate.actions;
-  // A tick agrees to the bypass its label named. Once the label changes, as
-  // when approvals join it, the new one needs its own.
+  // A tick agrees to the bypass its label named; a new label needs a new tick.
   const [tickedLabel, setTickedLabel] = useState(bypassLabel);
   if (tickedLabel !== bypassLabel) {
     setTickedLabel(bypassLabel);
@@ -137,7 +135,6 @@ function StartContent({
   const pastSchedule = gate.schedule === "past" && dateLabel;
   const { checklistItemsRemaining, loadError, summary } =
     usePreLaunchChecklist();
-  // Hidden once nothing is left to do or look at.
   const showTodo =
     checklistItemsRemaining !== 0 || loadError || summary.flagged.length > 0;
   // Starting publishes what's stored, not what's staged.
@@ -209,7 +206,7 @@ function StartContent({
         <>
           <Flex direction="column" gap="3">
             <ChecklistTodoHeading remaining={checklistItemsRemaining} />
-            {/* Bled out by the rows' hover tint, so the scroll box doesn't clip it. */}
+            {/* Bleeds out so the scroll box doesn't clip the rows' hover tint. */}
             <ScrollArea
               gutter
               style={{
@@ -222,8 +219,8 @@ function StartContent({
                 gap="3"
                 px="2"
                 py="2"
-                // An item's action goes to where it's resolved. The popover waits
-                // under a modal it opened, and gets out of the way of anything else.
+                // The popover waits under a modal an item's action opens, and
+                // closes for anything else.
                 onClick={(e) => {
                   if (
                     !(e.target as HTMLElement).closest(

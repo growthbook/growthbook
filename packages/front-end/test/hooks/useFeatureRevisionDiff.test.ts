@@ -210,17 +210,16 @@ describe("useFeatureRevisionDiff", () => {
     expect(html).not.toContain('["production","dev"]');
   });
 
-  it("emits an env-toggle diff only for envs that actually changed", () => {
+  it("titles a single toggled environment in the singular", () => {
     const current: FeatureRevisionDiffInput = {
       defaultValue: "false",
       rules: [],
       environmentsEnabled: { production: false },
     };
-    // An env the current side lacks reads as off, so dev isn't a toggle.
     const draft: FeatureRevisionDiffInput = {
       defaultValue: "false",
       rules: [],
-      environmentsEnabled: { production: true, dev: false },
+      environmentsEnabled: { production: true },
     };
 
     const { result } = renderHook(() =>

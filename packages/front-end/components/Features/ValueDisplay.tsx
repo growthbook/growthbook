@@ -31,7 +31,6 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
 import ScrollArea from "@/ui/ScrollArea";
 import { CopyIcon, FullscreenIcon } from "@/ui/ActionIcons";
-import { CODE_FONT_SIZE } from "@/components/SyntaxHighlighting/codeTheme";
 import CornerActions, { ActionsOverlay } from "./CornerActions";
 import { useValueDiff } from "./ValueDiffContext";
 import { getFieldLineNumbers } from "./jsonFieldLines";
@@ -69,7 +68,6 @@ export default function ValueDisplay({
   defaultValue,
   fullscreenHeader = "Feature Value",
   linkify,
-  fontSize = CODE_FONT_SIZE,
   lineHeight,
   monochrome,
 }: {
@@ -97,8 +95,6 @@ export default function ValueDisplay({
   // as links to the referenced constant). Rarely needed — pass to customize or,
   // with a no-op getHref, effectively disable linking.
   linkify?: LinkifyConfig;
-  // Override the rendered code font size (passed through to InlineCode).
-  fontSize?: string;
   // Override the rendered code line height (passed through to InlineCode).
   lineHeight?: number;
   monochrome?: boolean;
@@ -267,7 +263,7 @@ export default function ValueDisplay({
                   </IconButton>
                 </Tooltip>
               ) : null}
-              {showFullscreenButton && type === "json" && (
+              {showFullscreenButton && (
                 <Tooltip body="View in full screen" usePortal={true}>
                   <IconButton
                     type="button"
@@ -307,7 +303,6 @@ export default function ValueDisplay({
               boldLines={sparseMerge && !differingKeys ? boldLines : undefined}
               highlightLines={highlightLines}
               linkify={resolvedLinkify}
-              fontSize={fontSize}
               lineHeight={lineHeight}
               monochrome={monochrome}
             />
@@ -318,7 +313,6 @@ export default function ValueDisplay({
               boldLines={sparseMerge && !differingKeys ? boldLines : undefined}
               highlightLines={highlightLines}
               linkify={resolvedLinkify}
-              fontSize={fontSize}
               lineHeight={lineHeight}
               monochrome={monochrome}
             />
@@ -362,7 +356,6 @@ export default function ValueDisplay({
             sparse={sparse}
             defaultValue={defaultValue}
             linkify={resolvedLinkify}
-            fontSize={fontSize}
             lineHeight={lineHeight}
           />
         </Modal>

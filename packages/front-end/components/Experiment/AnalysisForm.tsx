@@ -78,7 +78,6 @@ import MetricSelector from "./MetricSelector";
 import BanditDecisionMetricSettings from "./BanditDecisionMetricSettings";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
-/** A field the settings can open on, ready to fill in. */
 export type AnalysisFormFocus = "datasource" | "exposureQuery" | "goalMetrics";
 
 const AnalysisForm: FC<{

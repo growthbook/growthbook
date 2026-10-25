@@ -136,7 +136,6 @@ export async function getContextualBanditLinkedFeatureInfo(
     matchRule: (rule) =>
       rule.type === "contextual-bandit-ref" &&
       rule.contextualBanditId === contextualBandit.id,
-    pendingFeatureDrafts: contextualBandit.pendingFeatureDrafts,
   });
 }
 

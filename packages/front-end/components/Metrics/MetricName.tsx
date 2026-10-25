@@ -157,7 +157,7 @@ export default function MetricName({
   isGroup?: boolean;
   showGroupIcon?: boolean;
   metrics?: { metric: ExperimentMetricDefinition | null; joinable: boolean }[];
-  /** Skip the group count's metric-list tooltip, e.g. in a card that lists them. */
+  // For a card that already lists the group's metrics.
   hideGroupTooltip?: boolean;
   showLink?: boolean;
   badgeColor?: string;

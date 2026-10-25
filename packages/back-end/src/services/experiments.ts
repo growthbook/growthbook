@@ -2585,9 +2585,10 @@ export function auditVisualChangeEditAfterStart(
 // Visual Editor changes stay editable once the experiment starts or stops,
 // but not while its start is scheduled.
 export function assertVisualChangesEditable(
+  context: ReqContext | ApiReqContext,
   experiment: Pick<
     ExperimentInterface,
-    "archived" | "status" | "nextScheduledStatusUpdate"
+    "archived" | "status" | "nextScheduledStatusUpdate" | "project"
   >,
 ): void {
   if (experiment.archived) {
@@ -2596,6 +2597,7 @@ export function assertVisualChangesEditable(
     );
   }
   assertScheduledStartAllows(experiment, "Visual Editor changes");
+  assertCanRunLinkedChanges(context, experiment);
 }
 
 type ReleasedVariationFields = Pick<
@@ -5398,7 +5400,6 @@ export async function getRefLinkedFeatureInfo({
   linkedFeatureIds,
   refIsDraft,
   matchRule,
-  pendingFeatureDrafts,
   pendingUnlinks = [],
   includeOtherPendingDrafts = false,
   includeValueGroups = false,
@@ -5409,7 +5410,6 @@ export async function getRefLinkedFeatureInfo({
   linkedFeatureIds: string[];
   refIsDraft: boolean;
   matchRule: (rule: FeatureRule) => boolean;
-  pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
   // Flags the experiment is removing, waiting on a draft to take the rule out.
   pendingUnlinks?: string[];
   // Only the Setup page chooses between drafts; each one costs a merge.
@@ -5428,13 +5428,6 @@ export async function getRefLinkedFeatureInfo({
     context.org.settings,
     context.hasPremiumFeature("require-approvals"),
   );
-
-  const pendingVersionsByFeatureId = new Map<string, Set<number>>();
-  (pendingFeatureDrafts ?? []).forEach(({ featureId, revisionVersion }) => {
-    const versions = pendingVersionsByFeatureId.get(featureId) ?? new Set();
-    versions.add(revisionVersion);
-    pendingVersionsByFeatureId.set(featureId, versions);
-  });
 
   const features = await getFeaturesByIds(context, linkedFeatureIds);
 
@@ -5473,11 +5466,6 @@ export async function getRefLinkedFeatureInfo({
       const draftsWithMatches = activeDrafts
         .map(withMatches)
         .filter(({ matches }) => matches.length > 0);
-      const otherDraftCount = Math.max(
-        0,
-        activeDrafts.filter((r) => refRulesForEntity(r.rules).length > 0)
-          .length - 1,
-      );
 
       // The drafts that change the rule, newest first, judged on what a start
       // reads so the page offers exactly the draft that launches.
@@ -5564,12 +5552,12 @@ export async function getRefLinkedFeatureInfo({
       const draftFacts = async (
         revision: (typeof revisions)[0],
       ): Promise<DraftFacts> => {
-        // The publish gate's own test.
-        let draftHasChanges = true;
-        let draftHasMergeConflict = false;
-        let draftChangesOutsideRef = false;
-        let draftRebaseRequired = false;
-        let draftApproval: RevisionApprovalState | undefined;
+        const result: DraftFacts = {
+          hasChanges: true,
+          hasMergeConflict: false,
+          hasUnrelatedDraftChanges: false,
+          rebaseRequired: false,
+        };
         try {
           const { live, base } = await getLiveAndBaseRevisionsForFeature({
             context,
@@ -5583,12 +5571,13 @@ export async function getRefLinkedFeatureInfo({
             live,
             base,
           );
-          draftHasChanges = mergeResultHasChanges(mergeResult);
-          draftRebaseRequired = rebaseRequired;
+          // The publish gate's own test.
+          result.hasChanges = mergeResultHasChanges(mergeResult);
+          result.rebaseRequired = rebaseRequired;
           if (!mergeResult.success) {
-            draftHasMergeConflict = true;
+            result.hasMergeConflict = true;
           } else {
-            draftChangesOutsideRef = draftHasChangesOutsideTargetRef(
+            result.hasUnrelatedDraftChanges = draftHasChangesOutsideTargetRef(
               revision,
               liveRevisionFromFeature(live, feature),
               matchRule,
@@ -5596,7 +5585,7 @@ export async function getRefLinkedFeatureInfo({
           }
           // Last: a failure here must not cost the conflict flags above.
           if (anyReviewRequired) {
-            draftApproval = await assessRevisionApprovalForAutoPublish(
+            result.approval = await assessRevisionApprovalForAutoPublish(
               context,
               feature,
               revision,
@@ -5611,26 +5600,15 @@ export async function getRefLinkedFeatureInfo({
             "[getRefLinkedFeatureInfo] draft cleanliness check failed",
           );
         }
-        return {
-          hasChanges: draftHasChanges,
-          hasMergeConflict: draftHasMergeConflict,
-          hasUnrelatedDraftChanges: draftChangesOutsideRef,
-          rebaseRequired: draftRebaseRequired,
-          approval: draftApproval,
-        };
+        return result;
       };
       const facts: DraftFacts | null =
         needsDraftFacts && matchedDraftRevision
           ? await draftFacts(matchedDraftRevision)
           : null;
-      // As the publish gate judges it: every project governing the flag and
-      // what the draft changes, not just the flag's own project.
       // Keyed on `state`: the checklist filters this without a state gate.
       const pendingApproval =
         state === "draft" && facts?.approval?.requiresReview ? true : undefined;
-      const draftHasMergeConflict = !!facts?.hasMergeConflict;
-      const draftHasUnrelatedChanges = !!facts?.hasUnrelatedDraftChanges;
-      const draftApproval = facts?.approval;
 
       const refRuleValues = (rule: FeatureRule | undefined) =>
         (rule as ExperimentRefRule | ContextualBanditRefRule | undefined)
@@ -5711,7 +5689,6 @@ export async function getRefLinkedFeatureInfo({
           sparse: !!rule?.sparse,
           allEnvironments: !!rule?.allEnvironments,
           title: revision.title,
-          otherDraftCount,
           pendingApproval: !!draftFactsOf.approval?.requiresReview,
           defaultValue: revision.defaultValue,
           ...(draftFactsOf.approval && {
@@ -5784,27 +5761,6 @@ export async function getRefLinkedFeatureInfo({
           }
         }
 
-        // Envs the pending draft will turn on when it's auto-published on start.
-        let environmentsToEnable: string[] | undefined;
-        if (
-          state === "draft" &&
-          matchedDraftRevision &&
-          pendingVersionsByFeatureId
-            .get(feature.id)
-            ?.has(matchedDraftRevision.version)
-        ) {
-          const enabled = new Set<string>();
-          scoped.forEach((match) => {
-            if (
-              envEnabledIn(match.environmentId, statesRevision) &&
-              !feature.environmentSettings?.[match.environmentId]?.enabled
-            ) {
-              enabled.add(match.environmentId);
-            }
-          });
-          if (enabled.size > 0) environmentsToEnable = [...enabled];
-        }
-
         const pendingDraft =
           hasPendingDraft && matchedDraftRevision && facts
             ? pendingDraftFor(
@@ -5852,17 +5808,18 @@ export async function getRefLinkedFeatureInfo({
             state === "draft" && {
               draftRevisionVersion: matchedDraftRevision.version,
               draftRevisionStatus: matchedDraftRevision.status,
-              ...(draftApproval && {
-                draftApprovalSatisfied: draftApproval.satisfied,
+              ...(facts?.approval && {
+                draftApprovalSatisfied: facts.approval.satisfied,
               }),
             }),
           ...(state === "draft" &&
-            draftHasMergeConflict && { hasMergeConflict: true }),
+            facts?.hasMergeConflict && { hasMergeConflict: true }),
           ...(state === "draft" &&
-            draftHasUnrelatedChanges && { hasUnrelatedDraftChanges: true }),
+            facts?.hasUnrelatedDraftChanges && {
+              hasUnrelatedDraftChanges: true,
+            }),
           ...(stagedDrafts.length > 0 && { stagedDrafts }),
           ...(cannotPublish !== undefined && { cannotPublish }),
-          ...(environmentsToEnable !== undefined && { environmentsToEnable }),
         };
       };
 
@@ -5923,7 +5880,6 @@ export async function getLinkedFeatureInfo(
     refIsDraft: experiment.status === "draft",
     matchRule: (rule) =>
       rule.type === "experiment-ref" && rule.experimentId === experiment.id,
-    pendingFeatureDrafts: experiment.pendingFeatureDrafts,
     pendingUnlinks: experiment.pendingFeatureUnlinks,
     includeOtherPendingDrafts,
     includeValueGroups,

@@ -33,6 +33,7 @@ import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import { useEnvironments } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UiTooltip from "@/ui/Tooltip";
 import {
   ChangeField,
   toConditionString,
@@ -1910,7 +1911,7 @@ export function renderPrerequisites(
 }
 
 // On/off icon for an environment toggle. "muted" is the before half of a diff.
-export function EnvEnabledIndicator({
+function EnvEnabledIndicator({
   enabled,
   tone = "state",
 }: {
@@ -1922,17 +1923,16 @@ export function EnvEnabledIndicator({
   const label = enabled ? "On" : "Off";
   const Icon = enabled ? FaCircleCheck : FaCircleXmark;
   return (
-    <span
-      style={{ display: "inline-flex", alignItems: "center" }}
-      title={label}
-    >
-      <Icon
-        size={20}
-        style={{ color, opacity: tone === "muted" ? 0.3 : undefined }}
-      />
-      {/* Real text, so a selection copies name and state. */}
-      <VisuallyHidden>{label}</VisuallyHidden>
-    </span>
+    <UiTooltip content={label}>
+      <span style={{ display: "inline-flex", alignItems: "center" }}>
+        <Icon
+          size={20}
+          style={{ color, opacity: tone === "muted" ? 0.3 : undefined }}
+        />
+        {/* Real text, so a selection copies name and state. */}
+        <VisuallyHidden>{label}</VisuallyHidden>
+      </span>
+    </UiTooltip>
   );
 }
 
@@ -1952,9 +1952,11 @@ export function renderEnvironmentToggles(
       {toggles.map(({ envId, from, to }) => (
         <Box key={envId} minWidth="0">
           <Box minWidth="0" mb="1">
-            <Text weight="medium" truncate title={envId}>
-              {envId}
-            </Text>
+            <UiTooltip content={envId}>
+              <Text weight="medium" truncate>
+                {envId}
+              </Text>
+            </UiTooltip>
           </Box>
           <Flex align="center" gap="2">
             <EnvEnabledIndicator enabled={from} tone="muted" />

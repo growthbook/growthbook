@@ -3,11 +3,8 @@ import type { ChecklistReadyStatus } from "@/components/PreLaunchChecklist/PreLa
 
 export type RnPMode = "fix-conflicts" | "main";
 
-/**
- * What the checklists of the experiments starting with a publish add up to.
- * One that hasn't reported yet is loading, and a loading one has no blockers
- * to show yet.
- */
+// The checklists of the experiments a publish starts, together. One that
+// hasn't reported yet counts as loading.
 export function checklistReadiness(
   selectedIds: Iterable<string>,
   reports: Record<string, ChecklistReadyStatus>,
@@ -23,18 +20,6 @@ export function checklistReadiness(
     blocked,
     incomplete: loading || blocked || loaded.some((r) => r.hasSoftBlockers),
   };
-}
-
-/**
- * A pending draft's (LinkedFeaturePendingDraft) publish gate answer when there
- * is one; "approved" can still be short of a team or an environment. For
- * LinkedFeatureInfo's own fields, use `linkedDraftApproved` from shared/util.
- */
-export function draftApprovalSatisfied(draft: {
-  approval?: { satisfied: boolean } | null;
-  status: string;
-}): boolean {
-  return draft.approval?.satisfied ?? draft.status === "approved";
 }
 
 // What the primary CTA does when clicked.

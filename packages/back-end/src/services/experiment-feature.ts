@@ -99,29 +99,18 @@ type ExperimentFeatureLinkOptions = {
   rule: ExperimentRefRule;
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
-  /** Land the rule immediately instead of leaving it staged in a draft. */
   autoPublish?: boolean;
-  /** Bundle into this open draft rather than starting a new one. */
   draftVersion?: number;
-  /** Start a new draft off live rather than reusing an open one. */
   forceNewDraft?: boolean;
 };
 
-type ExperimentFeatureLinkCheck = Pick<
+type ExperimentFeatureLinkCheck = Omit<
   ExperimentFeatureLinkOptions,
-  | "context"
-  | "experiment"
-  | "feature"
-  | "rule"
-  | "autoPublish"
-  | "draftVersion"
-  | "forceNewDraft"
+  "eventAudit" | "audit"
 >;
 
-/**
- * Every check a link makes before it writes. `experiment` may be the state a
- * save leaves it in, such as with a variation the same save adds.
- */
+// `experiment` may be the state a save leaves it in, e.g. with a variation the
+// same save adds.
 export async function assertFlagLinkable({
   context,
   experiment,
@@ -133,6 +122,7 @@ export async function assertFlagLinkable({
 }: ExperimentFeatureLinkCheck): Promise<{
   scopedRule: FeatureRule;
   ruleEnvFootprint: string[];
+  targetVersion: number;
 }> {
   const { environments } = context;
 
@@ -210,7 +200,7 @@ export async function assertFlagLinkable({
     effectiveHoldout: getEffectiveRevisionHoldout(target ?? {}, feature),
   });
 
-  return { scopedRule, ruleEnvFootprint };
+  return { scopedRule, ruleEnvFootprint, targetVersion };
 }
 
 // Stage (or land) an experiment-ref rule. Mirrors `linkFeatureToContextualBandit`.
@@ -226,25 +216,18 @@ export async function linkFeatureToExperiment({
   forceNewDraft,
 }: ExperimentFeatureLinkOptions): Promise<ExperimentFeatureLinkResult> {
   const { environments } = context;
-  const { scopedRule, ruleEnvFootprint } = await assertFlagLinkable({
-    context,
-    experiment,
-    feature,
-    rule,
-    autoPublish,
-    draftVersion,
-    forceNewDraft,
-  });
-
-  const revision = await getDraftRevision(
-    context,
-    feature,
-    resolveLinkTargetVersion(feature, {
+  const { scopedRule, ruleEnvFootprint, targetVersion } =
+    await assertFlagLinkable({
+      context,
+      experiment,
+      feature,
+      rule,
       autoPublish,
       draftVersion,
       forceNewDraft,
-    }),
-  );
+    });
+
+  const revision = await getDraftRevision(context, feature, targetVersion);
 
   const environmentsEnabled = enableFootprintEnvironments(
     feature,
@@ -369,15 +352,14 @@ export type ExperimentFeatureUpdatePlan = {
 
 export type ExperimentLinkedFeatureValueUpdate = {
   variations: ExperimentRefVariation[];
-  // JSON features only. When provided, sets the matching experiment-ref rule's
-  // sparse flag (the variation values are partial objects merged onto the
-  // feature default). Omitted = leave the rule's existing sparse flag untouched.
+  // JSON only: values are partial objects merged onto the default. Omitted keeps
+  // the rule's own sparse flag.
   sparse?: boolean;
-  /** Re-scopes the rule; omitted leaves its environments as they are. */
+  // Omitted leaves the rule's environments as they are.
   environments?: ExperimentRuleEnvironments;
-  /** Only these of the experiment's rules; omitted means all of them. */
+  // Omitted means all of the experiment's rules.
   ruleIds?: string[];
-  /** The open draft to write into; null starts a new draft off live. */
+  // Null starts a new draft off live.
   targetVersion: number | null;
 };
 
@@ -674,12 +656,12 @@ type ReadyDraft = ResolvedDraft & {
   bypassLockdown: boolean;
 };
 
-/** The one draft per linked flag that starting the experiment publishes. */
+// The one draft per linked flag that starting the experiment publishes.
 export async function getLaunchDrafts(
   context: ReqContext | ApiReqContext,
   experiment: Pick<ExperimentInterface, "id" | "pendingFeatureDrafts">,
-): Promise<{ featureId: string; revisionVersion: number }[]> {
-  const launches: { featureId: string; revisionVersion: number }[] = [];
+): Promise<ResolvedDraft[]> {
+  const launches: ResolvedDraft[] = [];
   const featureIds = new Set(
     (experiment.pendingFeatureDrafts ?? []).map((d) => d.featureId),
   );
@@ -704,7 +686,6 @@ export async function publishPendingFeatureDraftsForExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   bypassLockdown = false,
-  // The org lets REST calls skip approval, as the publish endpoints do.
   restApiBypassesReviews = false,
 ): Promise<PendingDraftPublishResult> {
   const queued = experiment.pendingFeatureDrafts ?? [];
@@ -861,16 +842,14 @@ export async function publishPendingFeatureDraftsForExperiment(
   // ── Phase 2: publish ──────────────────────────────────────────────────────
   const published: ResolvedDraft[] = [];
 
-  for (const entry of ready) {
-    const {
-      featureId,
-      revisionVersion,
-      feature,
-      revision,
-      mergeResult,
-      bypassLockdown: bypassFlagLockdown,
-    } = entry;
-
+  for (const {
+    featureId,
+    revisionVersion,
+    feature,
+    revision,
+    mergeResult,
+    bypassLockdown: bypassFlagLockdown,
+  } of ready) {
     if (!mergeResult.success) {
       logger.warn(
         {
@@ -1123,11 +1102,7 @@ export async function publishPendingFeatureDraftsForContextualBandit(
   return { published, failed };
 }
 
-/**
- * What re-scoping an experiment's rule changes on a revision: the rule's own
- * environment fields, and the flag environments it switches on. Leaving the
- * footprint only loses the rule.
- */
+// The rule's own environment fields, and the flag environments it switches on.
 export function planExperimentRuleEnvironments({
   feature,
   revision,
@@ -1298,11 +1273,6 @@ const removalLog =
 const removalTitle = (experiment: ExperimentInterface) =>
   `Remove from experiment "${experiment.name}"`;
 
-/**
- * Refuses taking a flag off the experiment: without draft rights, over a draft
- * locked for a scheduled publish, or while it runs and the flag serves the rule
- * or a draft would add it.
- */
 export async function assertFlagRemovable(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -1330,10 +1300,6 @@ export async function assertFlagRemovable(
   }
 }
 
-/**
- * Refuses keeping a flag that isn't pending removal, since keeping restores the
- * rule in every draft taking it out, or one whose drafts the undo can't write.
- */
 export async function assertFlagKeepable(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -1356,11 +1322,8 @@ export async function assertFlagKeepable(
   );
 }
 
-/**
- * Takes a flag off the experiment along with its rule. Open drafts lose the
- * rule now; a live rule leaves through a draft, and the flag unlinks once
- * nothing live or open has it (settlePendingFeatureUnlinks).
- */
+// Open drafts lose the rule now; a live rule leaves through a draft, and the
+// flag unlinks once nothing live or open has it (settlePendingFeatureUnlinks).
 export async function removeFlagFromExperiment({
   context,
   experiment,
@@ -1456,11 +1419,8 @@ async function discardDraftIfNoop({
   return true;
 }
 
-/**
- * Undoes a pending removal: each open draft taking the live rule out gets it
- * back beside the rules live has around it. The draft the removal started
- * goes once it has nothing left to publish; a teammate's stays.
- */
+// Undoes a pending removal. The draft the removal started is discarded once it
+// has nothing left to publish; a teammate's stays.
 export async function keepFlagInExperiment({
   context,
   experiment,
@@ -1538,7 +1498,6 @@ type CleanupArgs = {
   features: FeatureInterface[];
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
-  /** A REST call in an org that lets the REST API skip approval. */
   restApiBypassesReviews?: boolean;
 };
 

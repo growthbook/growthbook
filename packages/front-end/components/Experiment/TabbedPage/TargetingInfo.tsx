@@ -209,11 +209,7 @@ export default function TargetingInfo({
   );
 }
 
-/**
- * The experiment's targeting live beside `value`, with any new phase and seed
- * its release starts. Changes are judged as the save judges them, so only what
- * it would write shows as one.
- */
+/** Live targeting beside `value`, with the phase and seed its release starts. */
 export function TargetingChanges({
   experiment,
   value,
@@ -225,6 +221,7 @@ export function TargetingChanges({
   const [showAll, setShowAll] = useState(false);
   const live = useTargetingDefaults(experiment);
   const fields = useTargetingFields(experiment);
+  // Judged as the save judges them, so only what it would write shows.
   const changed = new Set(Object.keys(changedTargeting(value, live)));
   const phase = experiment.phases.length;
   const bucketMoved = changed.has("bucketVersion");

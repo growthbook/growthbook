@@ -12,11 +12,7 @@ const percent = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 1,
 });
 
-/**
- * A running experiment's data problems, one badge each: the same checks the
- * experiments list reports as Unhealthy or No data. Nothing when there are
- * none, or when it isn't running.
- */
+// The same checks the experiments list reports as Unhealthy or No data.
 export default function ExperimentHealthBadges({
   experiment,
 }: {

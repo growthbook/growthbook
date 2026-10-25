@@ -4,11 +4,8 @@ import Link from "@/ui/Link";
 import track from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
-/**
- * Offers to link an assignment attribute that no identifier type claims, so
- * experiments using it get an assignment query picked for them. Dismissed per
- * experiment.
- */
+// Shown when no identifier type claims the assignment attribute; dismissed per
+// experiment.
 export default function LinkHashAttributeCallout({
   experimentId,
   datasource,

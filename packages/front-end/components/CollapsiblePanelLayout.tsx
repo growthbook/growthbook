@@ -12,39 +12,29 @@ import styles from "./CollapsiblePanelLayout.module.scss";
 
 export const PANEL_WIDTH_PX = 360;
 const MIN_PANEL_WIDTH_PX = 280;
-/** The panel can take at most this share of the layout. */
 const MAX_PANEL_SHARE = 2 / 3;
-/** Drag this far past the minimum width to close the panel instead. */
+// Drag this far past the minimum width to close the panel instead.
 const COLLAPSE_DELTA_PX = 60;
 const HANDLE_WIDTH_PX = 20;
 const SLIDE_MS = 160;
 
 export interface Props {
   children: ReactNode;
-  /** The right column. */
   panel: ReactNode;
-  /**
-   * Sticks to the bottom of the content column, not under the panel. A
-   * floating panel ends above it.
-   */
+  // Sticks to the bottom of the content column; a floating panel ends above it.
   footer?: ReactNode;
   open: boolean;
-  /** Viewport offset the panel sticks to, below any fixed page header. */
+  // Viewport offset the panel sticks to, below any fixed page header.
   top?: number;
-  /** Panel width in px. Fixed so it does not stretch on wide screens. */
+  // Fixed so the panel does not stretch on wide screens.
   width?: number;
-  /** The width a drag of the panel's edge ends at. */
   onWidthChange: (width: number) => void;
-  /** A drag well past the minimum width closes the panel. */
+  // A drag well past the minimum width closes the panel.
   onCollapse: () => void;
 }
 
-/**
- * Two columns with a right panel that sticks alongside the content for the full
- * height of the screen. Wide enough, the panel docks and the content column
- * reflows beside it; narrower, the panel floats over the content instead so the
- * content keeps its width.
- */
+// A right panel that sticks beside the content at full screen height. Wide, it
+// docks and the content reflows; narrow, it floats so the content keeps its width.
 export default function CollapsiblePanelLayout({
   children,
   panel,

@@ -3,13 +3,9 @@ import { PiPencilSimple } from "react-icons/pi";
 import Tooltip from "@/ui/Tooltip";
 import styles from "./QuickEditButton.module.scss";
 
-/** Put this class on whatever should reveal its quick-edit buttons on hover. */
+/** Put on whatever should reveal its quick-edit buttons on hover. */
 export const revealsQuickEdit = styles.revealsEdit;
 
-/**
- * The pencil that opens a single field's editor. Hidden until its surroundings
- * are hovered, and disabled with the reason while the page has edits pending.
- */
 export default function QuickEditButton({
   label,
   onClick,
@@ -21,7 +17,7 @@ export default function QuickEditButton({
   onClick: () => void;
   blockedReason?: string | null;
   size?: "1" | "2";
-  /** Off where what it edits is plain; a blocked reason still shows. */
+  // Off where what it edits is plain; a blocked reason still shows.
   labelTooltip?: boolean;
 }) {
   return (

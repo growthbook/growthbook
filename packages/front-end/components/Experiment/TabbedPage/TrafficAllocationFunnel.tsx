@@ -10,6 +10,7 @@ import {
   changedTargeting,
   getEqualWeights,
   getLatestPhaseVariations,
+  getStorableVariations,
   hasAttributeCondition,
   hasTargetingConfigured,
   onlyTrafficFields,
@@ -55,17 +56,13 @@ import {
 } from "./ExperimentEdits";
 
 export interface Props {
-  phaseIndex?: number | null;
   experiment: ExperimentInterfaceStringDates;
   editTargeting?: (() => void) | null;
   editNamespace?: (() => void) | null;
   /** Offers the + that appends a variation and evens out the split. */
   canAddVariation: boolean;
-  /** Stages a new set of variations for the page's Save. */
   stageVariations: (variations: Variation[]) => void;
-  /** Environment scopes staged per flag. */
   flagEnvironments: FlagEnvironmentsDraft;
-  /** The page's staged holdout. */
   holdoutDraft?: HoldoutDraft;
   /** Whether the experiment can leave its holdout here. */
   canStageHoldout: boolean;
@@ -74,27 +71,19 @@ export interface Props {
   /** Why the holdout is fixed, shown on its disabled pencil. */
   holdoutLockedReason: string | null;
   editVariationKeys: () => void;
-  /** Every linked Feature Flag, one value row each under the variations. */
   linkedFeatures: LinkedFeatureInfo[];
-  /** Whether the value rows can be edited in place. */
   canEditFlagValues: boolean;
   implementationColumns: ImplementationColumn[];
   addImplementation: ReactNode;
   canEditExperiment: boolean;
   safeToEdit: boolean;
-  /**
-   * The targeting the page has confirmed but not yet written, and the way to
-   * change it. Held by the page, since the modal that stages it lives there.
-   */
+  /** Targeting confirmed in a modal but not yet written. */
   targetingDraft?: TargetingDraft;
 }
 
 export interface TargetingDraft {
   value: ExperimentTargetingData | null;
-  /**
-   * Takes an updater as well as a value: rebalancing writes every weight in
-   * one tick, and each write has to see the one before it.
-   */
+  // An updater, so each of a rebalance's writes in one tick sees the last.
   set: Dispatch<SetStateAction<ExperimentTargetingData | null>>;
 }
 
@@ -134,9 +123,8 @@ function FunnelCard({
   onEdit?: (() => void) | null;
   children?: ReactNode;
   disabled?: boolean;
-  /** Why the pencil cannot open right now, which it wears rather than vanishing. */
+  // Shown on a disabled pencil rather than hiding it.
   editBlockedReason?: string | null;
-  /** Items for the menu right of the pencil; no menu without them. */
   menu?: ReactNode;
   grow?: boolean;
 }) {
@@ -210,7 +198,6 @@ function FunnelCard({
 }
 
 export default function TrafficAllocationFunnel({
-  phaseIndex = null,
   experiment,
   editTargeting,
   editNamespace,
@@ -237,18 +224,13 @@ export default function TrafficAllocationFunnel({
   const targetingDefaults = useTargetingDefaults(experiment);
   const staged = targetingDraft?.value ?? null;
 
-  // Everything below reads the staged targeting where there is one, so a
-  // confirmed change shows on the page before it is written.
   const stagePatch = (patch: Partial<ExperimentTargetingData>) =>
     targetingDraft?.set((prev) => ({
       ...(prev ?? targetingDefaults),
       ...patch,
     }));
 
-  const clearStaged = {
-    onSaved: () => targetingDraft?.set(null),
-    discard: () => targetingDraft?.set(null),
-  };
+  const clearStaged = () => targetingDraft?.set(null);
   const [targetingBase, rebaseTargeting] = useEditBase(
     "targeting",
     !!staged,
@@ -262,7 +244,7 @@ export default function TrafficAllocationFunnel({
   // Over what's saved now: what the page shows, and what keeping mine keeps.
   const effective = staged ? { ...targetingDefaults, ...mine } : null;
   useRegisterExperimentEdit("targeting", !!staged, {
-    ...clearStaged,
+    discard: clearStaged,
     label: onlyTrafficFields(Object.keys(mine)) ? "Traffic" : "Targeting",
     review: () => reviewAgainstCurrent(experiment, mine),
     rebase: () => {
@@ -273,7 +255,6 @@ export default function TrafficAllocationFunnel({
       experimentFieldChanges(targetingBase?.experiment ?? experiment, mine),
   });
 
-  // The experiment-level half of the targeting, staged the same way.
   const hashAttribute =
     effective?.hashAttribute ?? experiment.hashAttribute ?? "id";
   const fallbackAttribute =
@@ -292,16 +273,7 @@ export default function TrafficAllocationFunnel({
   };
   const [reordering, setReordering] = useState(false);
   const [editingTraffic, setEditingTraffic] = useState(false);
-  const storedVariations = () =>
-    getLatestPhaseVariations(experiment).map(
-      ({ id, key, name, description, screenshots }): Variation => ({
-        id,
-        key,
-        name,
-        description,
-        screenshots,
-      }),
-    );
+  const storedVariations = () => getStorableVariations(experiment);
   const removeVariation = (index: number) =>
     stageVariationList(storedVariations().filter((_, i) => i !== index));
   const addVariation = () => {
@@ -328,8 +300,7 @@ export default function TrafficAllocationFunnel({
     });
   };
 
-  const storedPhase =
-    experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
+  const storedPhase = experiment.phases?.[experiment.phases.length - 1];
   const phase = effective
     ? {
         ...storedPhase,
@@ -405,7 +376,6 @@ export default function TrafficAllocationFunnel({
     { enabled: canStageHoldout || !!holdoutId },
   );
   const [choosingHoldout, setChoosingHoldout] = useState(false);
-  // Only when the picker would have something to offer.
   const canAddHoldout =
     canJoinHoldout &&
     !holdoutId &&
@@ -416,7 +386,6 @@ export default function TrafficAllocationFunnel({
   const stageHoldout = (id: string) =>
     holdoutDraft?.set(id === (experiment.holdoutId ?? "") ? null : id);
 
-  // Environment scope has its own line above, so the audience is attributes alone.
   const targetsEveryone = !hasTargetingConfigured(phase);
   const hasCondition = hasAttributeCondition(phase?.condition);
   const hasSavedGroups = !!phase?.savedGroups?.length;

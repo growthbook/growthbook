@@ -32,25 +32,26 @@ export type QuickEditField =
   | "tags"
   | "schedule";
 
-/** The quick-edit button for one field's row, where that field is editable. */
+// The quick-edit button for one field's row, where that field is editable.
 type FieldAction = ((field: QuickEditField) => ReactNode) | null;
 
 const toUTCDate = (dateValue: string | Date) => date(dateValue, "UTC");
 
-const empty = () => (
-  <Text weight="regular" color="text-mid" size="sm" fontStyle="italic">
-    None
-  </Text>
-);
+export function EmptyValue() {
+  return (
+    <Text weight="regular" color="text-mid" size="sm" fontStyle="italic">
+      None
+    </Text>
+  );
+}
 
-/** How the experiment is set up: its key, holdout and assignment. */
 export function ExperimentDataFields({
   experiment,
   stagedHoldoutId = null,
   fieldAction = null,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  /** A staged holdout ("" to leave), shown in place of the stored one. */
+  // A staged holdout ("" to leave), shown in place of the stored one.
   stagedHoldoutId?: string | null;
   fieldAction?: FieldAction;
 }) {
@@ -70,7 +71,7 @@ export function ExperimentDataFields({
           stacked
           label="Experiment Key"
           action={fieldAction?.("trackingKey")}
-          value={experiment.trackingKey || empty()}
+          value={experiment.trackingKey || <EmptyValue />}
         />
       )}
       {holdoutId && (
@@ -107,7 +108,6 @@ export function ExperimentDataFields({
   );
 }
 
-/** Who and what the experiment is, and when it ran. */
 export default function ProjectTagBar({
   experiment,
   holdout,
@@ -149,7 +149,7 @@ export default function ProjectTagBar({
       </span>
     </Tooltip>
   ) : !projectId ? (
-    empty()
+    <EmptyValue />
   ) : currentProject && currentProject !== experiment.project ? (
     <Tooltip body={<>This experiment is not in your current project.</>}>
       <strong>{projectName}</strong> <PiWarning className="text-warning" />
@@ -190,7 +190,7 @@ export default function ProjectTagBar({
                 projectIds={holdout.projects}
               />
             ) : (
-              empty()
+              <EmptyValue />
             )
           }
         />
@@ -218,7 +218,7 @@ export default function ProjectTagBar({
               {...tagLinkProps("experiments")}
             />
           ) : (
-            empty()
+            <EmptyValue />
           )
         }
       />
@@ -238,31 +238,28 @@ export default function ProjectTagBar({
           </Text>
         }
       />
-      <Flex direction="column" gap="3">
-        <ExperimentDates experiment={experiment} />
-        {experiment.status === "draft" && !isHoldout ? (
-          <DraftSchedule
-            experiment={experiment}
-            action={
-              experiment.archived ? null : (fieldAction?.("schedule") ?? null)
-            }
-          />
-        ) : null}
-        {experiment.status === "running" &&
-        !isHoldout &&
-        experiment.type !== "multi-armed-bandit" &&
-        !experiment.archived ? (
-          <RunningSchedule
-            experiment={experiment}
-            action={fieldAction?.("schedule") ?? null}
-          />
-        ) : null}
-      </Flex>
+      <ExperimentDates experiment={experiment} />
+      {experiment.status === "draft" && !isHoldout ? (
+        <DraftSchedule
+          experiment={experiment}
+          action={
+            experiment.archived ? null : (fieldAction?.("schedule") ?? null)
+          }
+        />
+      ) : null}
+      {experiment.status === "running" &&
+      !isHoldout &&
+      experiment.type !== "multi-armed-bandit" &&
+      !experiment.archived ? (
+        <RunningSchedule
+          experiment={experiment}
+          action={fieldAction?.("schedule") ?? null}
+        />
+      ) : null}
     </Flex>
   );
 }
 
-/** A scheduled date that has gone by, with a warning saying so. */
 function PassedDate({
   warning,
   children,
@@ -284,7 +281,6 @@ function PassedDate({
   );
 }
 
-/** A draft's scheduled start and end; each row edits the schedule. */
 function DraftSchedule({
   experiment,
   action,
@@ -305,7 +301,7 @@ function DraftSchedule({
         size="sm"
         stacked
         label="Schedule"
-        value={empty()}
+        value={<EmptyValue />}
         action={action}
       />
     ) : null;
@@ -342,10 +338,8 @@ function DraftSchedule({
   );
 }
 
-/**
- * A running experiment's scheduled end. The start is already past, and any
- * relative stopAfter resolved to a stopAt when it began.
- */
+// Only the end: the start is past, and a relative stopAfter resolved to a
+// stopAt when it began.
 function RunningSchedule({
   experiment,
   action,
@@ -367,7 +361,7 @@ function RunningSchedule({
       action={action}
       value={
         !end ? (
-          empty()
+          <EmptyValue />
         ) : endPassed ? (
           <PassedDate warning="This end has passed, and the experiment kept running. Edit the schedule to set a new one.">
             {end}
@@ -380,10 +374,6 @@ function RunningSchedule({
   );
 }
 
-/**
- * When the experiment ran, as far as it has. A holdout counts from its first
- * phase; anything else from its latest.
- */
 function ExperimentDates({
   experiment,
 }: {

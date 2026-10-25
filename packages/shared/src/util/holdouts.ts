@@ -95,7 +95,7 @@ type HoldoutLinkBlocker =
   | { reason: "has-linked-changes"; featureHoldoutId: string }
   | { reason: "not-in-holdout"; experimentHoldoutId: string };
 
-/** A holdout with no projects is available everywhere. */
+// A holdout with no projects is available everywhere.
 export function isHoldoutAvailableForProject(
   holdout: { projects: string[] },
   project: string | undefined,
@@ -106,12 +106,8 @@ export function isHoldoutAvailableForProject(
   );
 }
 
-/**
- * Why a Feature Flag can't take a rule for this experiment on holdout grounds,
- * or null when it can. A flag in a holdout pulls a holdout-free experiment
- * into it, which only a draft with nothing else linked may do.
- * `featureHoldoutProjects` is the flag's holdout's project scope, when known.
- */
+// A flag in a holdout pulls a holdout-free experiment into it, which only a
+// draft with nothing else linked may do.
 export function getHoldoutLinkBlocker({
   featureId,
   featureHoldoutId,

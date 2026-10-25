@@ -43,7 +43,7 @@ function normalized(value: unknown): unknown {
 const differs = (a: unknown, b: unknown) =>
   !isEqual(normalized(a), normalized(b));
 
-/** The launch-affecting fields a change would alter: bucketing, targeting and traffic. */
+// The bucketing, targeting and traffic fields a change would alter.
 export function scheduledStartLockedFields(
   experiment: ExperimentInterface,
   changes: Changeset,
@@ -79,10 +79,7 @@ export function scheduledStartLockedFields(
   return fields;
 }
 
-/**
- * Refuses a change to what a scheduled start launches. A change that unschedules
- * or starts the experiment is how that changes, so it passes.
- */
+// A change that unschedules or starts the experiment passes.
 export function assertScheduledStartAllowsChange(
   experiment: ExperimentInterface,
   changes: Changeset,
@@ -98,7 +95,6 @@ export function assertScheduledStartAllowsChange(
   }
 }
 
-/** Refuses a change to linked changes, such as Visual Editor changes, while a start is scheduled. */
 export function assertScheduledStartAllows(
   experiment: Pick<ExperimentInterface, "status" | "nextScheduledStatusUpdate">,
   what: string,

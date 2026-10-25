@@ -52,12 +52,11 @@ export function useTargetingDefaults(
   return getTargetingDefaults(experiment, hasSDKWithNoBucketingV2 ? 1 : 2);
 }
 
-// Shared by the targeting and traffic modals. When `attributeScopeProjects` is
-// omitted the pre-flight falls back to `experiment.project`.
+// Without `attributeScopeProjects` the pre-flight falls back to
+// `experiment.project`. A staged `draft` is what the form opens on.
 export function useExperimentTargetingForm(
   experiment: ExperimentInterfaceStringDates,
   attributeScopeProjects?: string[] | null,
-  /** Targeting already staged on the page, which the form opens on. */
   draft?: ExperimentTargetingData | null,
 ): UseExperimentTargetingFormResult {
   const { apiCall } = useAuth();

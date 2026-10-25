@@ -97,7 +97,7 @@ export type SelectFieldProps = Omit<
   maxMenuHeight?: number;
 };
 
-/** The shared ladder, plus `legacy` for the un-migrated default. */
+// The shared ladder, plus `legacy` for the un-migrated default.
 type SelectFieldSize = Size<"xs" | "sm" | "md" | "lg"> | "legacy";
 
 export function useSelectOptions(

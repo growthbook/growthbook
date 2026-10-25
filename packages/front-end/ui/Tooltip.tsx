@@ -12,10 +12,8 @@ import {
 
 type TooltipProps = RadixTooltipProps & {
   enabled?: boolean;
-  /**
-   * Opens only over the trigger's own box, not over anything stretched from
-   * it, such as a pseudo-element that makes a whole row click the trigger.
-   */
+  // Opens only over the trigger's own box, not a pseudo-element stretched
+  // from it (e.g. one that makes a whole row click the trigger).
   confineToTrigger?: boolean;
 };
 

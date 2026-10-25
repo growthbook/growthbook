@@ -1,8 +1,5 @@
-/**
- * Whether markdown uses anything beyond plain paragraphs: emphasis, headings,
- * lists, quotes, code, links or images. Characters the editor escaped (`\*`)
- * are text, not formatting.
- */
+// Whether markdown uses anything beyond plain paragraphs. Escaped characters
+// (`\*`) are text, not formatting.
 export function hasMarkdownFormatting(markdown: string): boolean {
   if (!markdown.trim()) return false;
   return FORMATTING.some((pattern) => pattern.test(markdown));

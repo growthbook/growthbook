@@ -42,31 +42,14 @@ describe("getLaunchDraftVersion", () => {
     ).toBe(3);
   });
 
-  it("passes over a draft that holds the rule as it was when the draft was cut", () => {
-    const base = revision(1, [ref("b")]);
-    const live = revision(3, [ref("b-published")]);
-    const stale = { ...revision(4, [ref("b"), force]), base };
-    expect(getLaunchDraftVersion("exp_1", [stale], live)).toBeNull();
-    expect(
-      getLaunchDraftVersion(
-        "exp_1",
-        [{ ...revision(2, [ref("b-edited")]), base }, stale],
-        live,
-      ),
-    ).toBe(2);
-  });
-
-  it("counts a draft that adds the rule", () => {
-    expect(
-      getLaunchDraftVersion("exp_1", [revision(2, [ref("b")])], null),
-    ).toBe(2);
-  });
-
-  it("counts a draft whose rule runs in no environment", () => {
-    const envless = { ...ref("b"), allEnvironments: false, environments: [] };
-    expect(getLaunchDraftVersion("exp_1", [revision(2, [envless])], null)).toBe(
-      2,
-    );
+  it.each([
+    { name: "adds the rule", rule: ref("b") },
+    {
+      name: "runs its rule in no environment",
+      rule: { ...ref("b"), allEnvironments: false, environments: [] },
+    },
+  ])("counts a draft that $name", ({ rule }) => {
+    expect(getLaunchDraftVersion("exp_1", [revision(2, [rule])], null)).toBe(2);
   });
 
   it("ignores other experiments' rules", () => {

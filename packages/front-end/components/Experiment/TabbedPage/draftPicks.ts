@@ -3,7 +3,7 @@ import {
   LinkedFeatureInfo,
   LinkedFeaturePendingDraft,
 } from "shared/types/experiment";
-import { draftApprovalSatisfied } from "@/components/Reviews/reviewAndPublishState";
+import { pendingDraftApproved } from "shared/util";
 
 /** Which of a flag's drafts its row shows and saves to. */
 export type DraftPick = {
@@ -17,11 +17,8 @@ export interface FlagDraftPicks {
   set: (featureId: string, pick: DraftPick) => void;
 }
 
-/**
- * A second draft is only worth starting when the newest also holds changes
- * that can't publish with the experiment; otherwise start would stack both.
- * A new one needs the rule live.
- */
+// Only worth it when the newest draft holds changes that can't publish with
+// the experiment, and the rule is live for a new draft to start from.
 export function canStartSeparateDraft(info: LinkedFeatureInfo): boolean {
   return (
     !!info.liveHasMatchingRule && !!info.pendingDraft?.hasUnrelatedDraftChanges
@@ -37,11 +34,8 @@ export function flagDrafts(
     : [];
 }
 
-/**
- * The drafts a flag's row chooses among, newest first, and the one it's on. A
- * picked draft holds while it's open; "New draft" holds until a newer draft
- * appears, as saving one does, or starting one stops making sense.
- */
+// A picked draft holds while it's open; "New draft" holds until a newer draft
+// appears or starting one stops making sense.
 export function resolveDraftPick(
   info: LinkedFeatureInfo,
   pick: DraftPick | undefined,
@@ -76,11 +70,8 @@ export function withPickedDraft(
   return pendingDraft === info.pendingDraft ? info : { ...info, pendingDraft };
 }
 
-/**
- * Whether a confirmed start publishes this draft past its approval: the start
- * was scheduled with the bypass, and the draft is the one pinned then,
- * unchanged since.
- */
+// Whether a start scheduled with the approval bypass pinned this draft, and it
+// hasn't changed since.
 export function startBypassCovers(
   experiment: Pick<ExperimentInterfaceStringDates, "nextScheduledStatusUpdate">,
   featureId: string,
@@ -113,17 +104,13 @@ export type DraftReviewState =
   | "needs-approval"
   | "in-review";
 
-/**
- * Where a draft stands on its way to publishing. One whose flag needs no review
- * is ready, as is one the publish gate already lets through. An approval short
- * of a team or an environment is still with its reviewers.
- */
+// An approval short of a team or an environment is still in review.
 export function draftReviewState(
   draft: LinkedFeaturePendingDraft,
 ): DraftReviewState {
   if (draft.status === "changes-requested") return "changes-requested";
   if (draft.status === "pending-review") return "in-review";
-  if (!draft.pendingApproval || draftApprovalSatisfied(draft)) {
+  if (!draft.pendingApproval || pendingDraftApproved(draft)) {
     return draft.status === "approved" ? "approved" : "ready";
   }
   return draft.status === "approved" ? "in-review" : "needs-approval";

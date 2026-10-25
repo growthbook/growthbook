@@ -19,11 +19,8 @@ import SetupFieldRow from "./SetupFieldRow";
 
 type Editor = "targetMDE" | "criteria" | "schedule";
 
-/**
- * How the experiment's result gets decided: each goal's target MDE, the
- * decision criteria and what happens at the end. Each one writes straight from
- * its own dialog, so they wait while the page holds unsaved edits.
- */
+// Each setting writes straight from its own dialog, so it waits while the page
+// holds unsaved edits.
 export default function DecisionPlan({
   experiment,
   mutate,

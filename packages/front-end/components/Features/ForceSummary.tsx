@@ -28,8 +28,7 @@ export default function ForceSummary({
   // Denser type for a cramped surface; the default is ValueDisplay's own.
   lineHeight?: number;
   actionsOverlay?: ActionsOverlay;
-  // The feature's default value (vs a rule). A config-backed default is a pure
-  // config with no overrides, so the "with overrides" tag never applies to it.
+  // A config-backed default is a pure config, so it never counts overrides.
   isDefault?: boolean;
   // Environment this value is shown for, so a config-backed value previews its
   // matching env flavor. Absent (e.g. all-environments view) = the base value.

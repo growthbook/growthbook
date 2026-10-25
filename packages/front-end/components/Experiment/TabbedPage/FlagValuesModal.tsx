@@ -12,12 +12,11 @@ import Text from "@/ui/Text";
 import VariationNumber from "@/ui/VariationNumber";
 import { repairVariationValues, variationLabel } from "./variationValues";
 
-export type FlagValuesResult = {
+type FlagValuesResult = {
   values: Record<string, string>;
   sparse: boolean;
 };
 
-/** Edits one flag's per-variation values; the page's Save writes them. */
 export default function FlagValuesModal({
   feature,
   variations,
@@ -29,7 +28,6 @@ export default function FlagValuesModal({
   close,
   apply,
 }: {
-  /** Its default value is the base a sparse value patches. */
   feature: FeatureInterface;
   variations: { id: string; name: string; index: number }[];
   initialValues: Record<string, string>;

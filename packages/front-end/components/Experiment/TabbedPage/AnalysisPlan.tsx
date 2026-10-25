@@ -46,20 +46,13 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   canEdit: boolean;
-  /** Passed through to the advanced settings modal. */
   envs: string[];
-  /** The settings modal's open state; other parts of the page open it too. */
+  // Lifted, since other parts of the page open the settings modal too.
   settingsOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
-  /** The field the settings modal opens on. */
   settingsFocus?: AnalysisFormFocus | null;
 }
 
-/**
- * How the experiment will be analysed: where the data comes from, what counts
- * as a participant, and which metrics are being watched. Held as a draft and
- * written by the page's save bar.
- */
 export default function AnalysisPlan({
   experiment,
   mutate,
@@ -80,15 +73,13 @@ export default function AnalysisPlan({
   const { defaultDataSource } = useOrgSettings();
   const { demoDataSourceId } = useDemoDataSourceProject();
 
-  // What the settings modal staged, beyond the fields this section holds in its
-  // own state.
+  // Settings-modal edits beyond the fields held in their own state below.
   const [advanced, setAdvanced] =
     useStagedState<ExperimentAnalysisSettingsDraft | null>(
       "analysis-plan:advanced",
       null,
     );
 
-  // The experiment as the staged settings leave it.
   const effective = useMemo(
     () => ({ ...experiment, ...advanced }),
     [experiment, advanced],
@@ -140,9 +131,8 @@ export default function AnalysisPlan({
     "analysis-plan:guardrailMetrics",
     experiment.guardrailMetrics || [],
   );
-  // Only what someone changed here is sent, so a write from elsewhere on the
-  // page isn't reverted by the copy this section holds. A suggested datasource
-  // isn't a change until touched, or every load would raise the save bar.
+  // Only touched fields are sent, so this section's copy can't revert a write
+  // from elsewhere, and a suggested datasource doesn't raise the save bar.
   const [touchedFields, setTouchedFields] = useStagedState<PlanField[]>(
     "analysis-plan:touched",
     [],
@@ -170,8 +160,8 @@ export default function AnalysisPlan({
     (field) => !isEqual(current[field], stored(field)),
   );
   const dirty = advanced !== null || edited.length > 0;
-  // What the page filled in where the experiment has nothing goes with any
-  // edit, since it shows as chosen.
+  // Values the page filled in where the experiment has none show as chosen, so
+  // they go with any edit.
   const sent = dirty
     ? [
         ...new Set([
@@ -268,15 +258,17 @@ export default function AnalysisPlan({
       ),
     [selectedDatasource?.settings, hashAttribute],
   );
+  const queryOption = (q: { id: string; name: string }) => ({
+    value: q.id,
+    label: q.name,
+  });
   const mismatched =
     linked &&
     !!exposureQueryId &&
     !matching.some((q) => q.id === exposureQueryId);
 
-  // Follow the assignment attribute: when the query it leaves behind cannot
-  // analyse the experiment, take the one that can — but only where the
-  // attribute names a single query, never over a deliberate choice that still
-  // works, and only before the experiment runs.
+  // Before it runs, follow the assignment attribute to the one query it names,
+  // unless a deliberate choice still works.
   const autoAppliedFor = useRef<string | null>(null);
   useEffect(() => {
     if (!canEdit || experiment.status !== "draft" || !selectedDatasource) {
@@ -364,8 +356,7 @@ export default function AnalysisPlan({
           targetMDEOverrides={targetMDEOverrides}
           close={() => setOverridesFor(null)}
           stageChanges={(next, nextTargetMDEs) => {
-            // The same bounds the full settings modal stages through, so only
-            // well-formed overrides reach the draft.
+            // The same bounds the full settings modal stages through.
             const parsed = experimentAnalysisSettingsDraft.parse({
               metricOverrides: next,
               ...(nextTargetMDEs
@@ -389,8 +380,7 @@ export default function AnalysisPlan({
           experiment={{ ...effective, ...current }}
           mutate={mutate}
           phase={experiment.phases.length - 1}
-          // Dates are a phase edit, not an analysis setting: they have no place
-          // in this draft, so the modal does not offer them here.
+          // Dates are a phase edit, with no place in this draft.
           editDates={false}
           editVariationIds={false}
           editMetrics={true}
@@ -519,27 +509,18 @@ export default function AnalysisPlan({
                   ? [
                       {
                         label: `Keyed to ${hashAttribute}`,
-                        options: matching.map((q) => ({
-                          value: q.id,
-                          label: q.name,
-                        })),
+                        options: matching.map(queryOption),
                       },
                       ...(other.length > 0
                         ? [
                             {
                               label: "Other assignment queries",
-                              options: other.map((q) => ({
-                                value: q.id,
-                                label: q.name,
-                              })),
+                              options: other.map(queryOption),
                             },
                           ]
                         : []),
                     ]
-                  : exposureQueries.map((q) => ({
-                      value: q.id,
-                      label: q.name,
-                    }))
+                  : exposureQueries.map(queryOption)
               }
               formatOptionLabel={({ label, value }) => {
                 const userIdType = exposureQueries.find(

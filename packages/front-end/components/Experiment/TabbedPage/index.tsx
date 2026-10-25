@@ -177,8 +177,7 @@ function TabbedPageContents({
   );
   // Up here because the panel unmounts whenever it closes.
   const [detailsTab, setDetailsTab] = useState<DetailsPanelTab>("details");
-  // The analysis settings modal, which the pre-launch checklist opens too, on
-  // the field its item is about.
+  // The pre-launch checklist opens it too, focused on its item's field.
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
   const [analysisSettingsFocus, setAnalysisSettingsFocus] =
     useState<AnalysisFormFocus | null>(null);
@@ -200,7 +199,6 @@ function TabbedPageContents({
   useExperimentFieldEdit("holdout", stagedHoldout !== null, experiment, {
     label: "Holdout",
     fields: () => (stagedHoldout !== null ? { holdoutId: stagedHoldout } : {}),
-    onSaved: () => setStagedHoldout(null),
     discard: () => setStagedHoldout(null),
   });
   const holdoutDraft: HoldoutDraft = {
@@ -215,9 +213,8 @@ function TabbedPageContents({
   // Every tab keeps the details rail; the dashboard view is a page of its own.
   const showDetailsPanel = !showDashboardView;
 
-  // Too narrow for the page and the panel side by side, the panel starts
-  // hidden and opens only when asked, over the content. The stored choice is
-  // for a wide window, so narrowing one never overwrites it.
+  // When narrow, the panel opens only on request, over the content; the stored
+  // choice is for a wide window, so narrowing never overwrites it.
   const narrow = useMediaQuery(`(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`);
   const [openWhileNarrow, setOpenWhileNarrow] = useState(false);
   useEffect(() => setOpenWhileNarrow(false), [narrow]);
@@ -450,7 +447,7 @@ function TabbedPageContents({
     newPhase,
     onStarted: () => setTabAndScroll("results"),
   });
-  // The header's Start anchors it.
+  // Up here so the status modal can open the header's Start popover.
   const [startOpen, setStartOpen] = useState(false);
 
   const persistTabPath = useCallback(
@@ -594,9 +591,7 @@ function TabbedPageContents({
           mutate={mutate}
           source={trackSource}
           holdout={holdout}
-          openStart={
-            experiment.type !== "holdout" ? () => setStartOpen(true) : null
-          }
+          openStart={isHoldout ? null : () => setStartOpen(true)}
         />
       )}
       {featureModal && (

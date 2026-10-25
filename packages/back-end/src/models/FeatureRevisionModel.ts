@@ -3384,14 +3384,13 @@ export async function getFeatureRevisionsByFeatureIds(
   // and v2 inheritance expansion per revision so a feature scoped to a
   // project that excludes some envs doesn't surface dead rules in those envs.
   featuresByFeatureId: Record<string, RevisionFeatureContext | undefined>,
-  statuses: readonly FeatureRevisionInterface["status"][] = ACTIVE_DRAFT_STATUSES,
 ): Promise<Record<string, FeatureRevisionInterface[]>> {
   const revisionsByFeatureId: Record<string, FeatureRevisionInterface[]> = {};
 
   if (featureIds.length) {
     const revisions = await FeatureRevisionModel.find({
       organization,
-      status: { $in: statuses },
+      status: { $in: ACTIVE_DRAFT_STATUSES },
       featureId: { $in: featureIds },
     })
       // Uncapped: a shared cap starves some flags of the draft holding their
@@ -3432,7 +3431,7 @@ export async function getNewestDiscardedRevisionWithExperimentRule(
 }
 
 // Staged targeting metadata for every active draft of the given features.
-// Lean and uncapped, unlike getFeatureRevisionsByFeatureIds.
+// Lean, unlike getFeatureRevisionsByFeatureIds.
 export async function getActiveDraftMetadataByFeatureIds(
   organization: string,
   featureIds: string[],

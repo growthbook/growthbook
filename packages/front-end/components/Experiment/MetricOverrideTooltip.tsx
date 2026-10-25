@@ -52,7 +52,7 @@ interface GroupMemberStatus {
   joinable: boolean;
 }
 
-/** `nested` indents it under a group member so the members' names still lead. */
+// `nested` indents it under a group member so the members' names still lead.
 function RowsBlock({
   heading,
   color,

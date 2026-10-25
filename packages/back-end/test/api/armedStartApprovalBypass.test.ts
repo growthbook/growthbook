@@ -18,6 +18,7 @@ import {
   asKey,
   asUser,
   auditContext,
+  checklistRefusal,
   dashboardReq,
   EXP_ID,
   experiments,
@@ -37,11 +38,8 @@ import {
 } from "./scheduledStart.fixture";
 import { setupApp } from "./api.setup";
 
-// A start armed past its flag drafts' approvals carries an admin's bypass to
-// when it fires, for the drafts as they were armed. A flag draft that would take
-// a draft experiment live can't be armed on the flag side, since its publish
-// would leave the experiment unstarted. Drives the real routes, controllers,
-// Mongo documents, and jobs.
+// A flag draft that would take a draft experiment live can't be armed on the
+// flag side: its publish would leave the experiment unstarted.
 
 const FLAG = "flag_bypass";
 
@@ -138,14 +136,8 @@ const approve = async (userId: string, body: Record<string, unknown>) => {
   await postApproveScheduledExperimentStart(req, res);
   return { captured, req };
 };
-const refusedOnApproval = {
-  code: "checklist_incomplete",
-  details: {
-    remainingChecklistItems: expect.arrayContaining([
-      expect.objectContaining({ key: `pendingApproval:${FLAG}` }),
-    ]),
-  },
-};
+const refusedOnApproval = (featureId: string) =>
+  checklistRefusal(`pendingApproval:${featureId}`);
 // Fires the armed start and expects it held back for a retry on featureId's approval.
 async function fireRefusedOnApproval(featureId: string) {
   const errors = jest.spyOn(logger, "error").mockImplementation();
@@ -156,14 +148,7 @@ async function fireRefusedOnApproval(featureId: string) {
   expect((await draft())?.status).toBe("pending-review");
   expect(await staged()).toMatchObject({ type: "start", failedAttempts: 1 });
   expect(errors).toHaveBeenCalledWith(
-    expect.objectContaining({
-      code: "checklist_incomplete",
-      details: {
-        remainingChecklistItems: expect.arrayContaining([
-          expect.objectContaining({ key: `pendingApproval:${featureId}` }),
-        ]),
-      },
-    }),
+    expect.objectContaining(refusedOnApproval(featureId)),
     expect.stringContaining("Failed to update experiment status"),
   );
 }
@@ -209,10 +194,10 @@ describe("a dashboard scheduled start armed past its flag draft's approval", () 
 
     await expect(
       approve("u_owner", { skipChecklist: true }),
-    ).rejects.toMatchObject(refusedOnApproval);
+    ).rejects.toMatchObject(refusedOnApproval(FLAG));
     await expect(
       approve("u_exp", { skipChecklist: true, bypassApproval: true }),
-    ).rejects.toMatchObject(refusedOnApproval);
+    ).rejects.toMatchObject(refusedOnApproval(FLAG));
     expect(await staged()).toBeFalsy();
   });
 

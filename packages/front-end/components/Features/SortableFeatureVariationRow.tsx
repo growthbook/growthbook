@@ -31,7 +31,7 @@ import FeatureValueField from "./FeatureValueField";
 import { reorderVariations } from "./SortableVariationsList";
 import styles from "./VariationsInput.module.scss";
 
-/** The one column template the header row and every variation row share. */
+// The column template the header row and every variation row share.
 export function gridColumns({
   hideVariationIds,
   hideValueField,
@@ -89,8 +89,6 @@ interface SortableProps {
   showDragHandle?: boolean;
   dragging?: boolean;
   onlySafeToEditVariationMetadata?: boolean;
-  // Auto-focus this variation's Name field on mount.
-  autoFocusName?: boolean;
   // JSON features only. Renders the value as a sparse patch (merged onto the
   // feature default) in the value editor.
   sparse?: boolean;
@@ -122,7 +120,6 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
       showDescription,
       showDragHandle,
       dragging,
-      autoFocusName,
       sparse,
       ...props
     },
@@ -243,7 +240,6 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
           {setVariations ? (
             <Field
               size="md"
-              autoFocus={autoFocusName}
               placeholder={`${getVariationDefaultName(
                 variation,
                 valueType ?? "string",

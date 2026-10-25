@@ -17,10 +17,7 @@ export type SerializedImageNode = Spread<
   SerializedLexicalNode
 >;
 
-/**
- * Images as a real node rather than raw markdown text, so an uploaded
- * screenshot shows up in the editor instead of a `![](url)` string.
- */
+// Renders images instead of their `![](url)` markdown text.
 export class ImageNode extends DecoratorNode<ReactNode> {
   __src: string;
   __altText: string;
@@ -111,7 +108,7 @@ export function $isImageNode(node: LexicalNode | null): node is ImageNode {
   return node instanceof ImageNode;
 }
 
-/** `![alt](src)`, matched before the link transformer so links keep working. */
+// `![alt](src)`; must precede the link transformer.
 export const IMAGE_TRANSFORMER: TextMatchTransformer = {
   dependencies: [ImageNode],
   export: (node) => {

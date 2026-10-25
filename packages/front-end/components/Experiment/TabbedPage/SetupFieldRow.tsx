@@ -4,21 +4,17 @@ import { PiInfo } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 
-/** Width of the label column. Every setup field shares it, so they line up. */
+// Shared by every setup field so their controls line up.
 export const LABEL_WIDTH = "180px";
 
-/** Below this a control has no usable room, and the row stacks instead. */
 const MIN_FIELD_WIDTH = "260px";
 
-/** Half the difference between a control's height and its own text. */
+// Nudges the label level with the text a taller control centres.
 const LABEL_OFFSET: Record<LabelSize, string> = { md: "10px", lg: "6px" };
 
 type LabelSize = "md" | "lg";
 
-/**
- * One field on the setup tab: its name on the left, the control on the right.
- * Anything explaining the field belongs in `tooltip`, not under the label.
- */
+/** A setup field: its label on the left, the control on the right. */
 export default function SetupFieldRow({
   label,
   labelSize = "md",
@@ -38,8 +34,7 @@ export default function SetupFieldRow({
   children: ReactNode;
 }) {
   return (
-    // Wraps rather than squeezing: below the width the field needs, the label
-    // takes a row of its own. Driven by the row's own width, not the window's.
+    // A narrow row wraps, putting the label on its own line.
     <Flex
       align={labelAlign === "center" ? "center" : "start"}
       gap="4"
@@ -49,8 +44,6 @@ export default function SetupFieldRow({
       <Box
         flexShrink="0"
         width={LABEL_WIDTH}
-        // Nudged down so the label reads level with the control beside it,
-        // which centres its own text inside a taller box.
         style={{
           paddingTop:
             content === "control" && labelAlign === "top"
@@ -62,7 +55,6 @@ export default function SetupFieldRow({
           <Text
             as="label"
             size={labelSize}
-            // A section's title reads like the page's other section headings.
             weight={labelSize === "lg" ? "semibold" : "medium"}
             color="text-high"
             mb="0"

@@ -96,13 +96,12 @@ export interface Props {
   hideCopyButton?: boolean;
   // Boolean, string and number: the field's border state, with no message.
   outlineStyle?: "default" | "error" | "warning";
-  /** Number fields fill their container rather than sitting at a fixed width. */
+  // Number fields fill their container rather than sitting at a fixed width.
   fullWidth?: boolean;
   // Renders the "Insert constant" picker as a compact square IconButton beside
   // the field instead of on a label row above it, and hides the copy button.
   inlineConstantButton?: boolean;
   multilineTextField?: boolean;
-  /** Size for the inner text fields; defaults to `Field`'s. */
   size?: ComponentProps<typeof Field>["size"];
   // JSON features only. Whether this rule value is a sparse patch (merged onto
   // the feature default). When `setSparse` is provided and the feature default

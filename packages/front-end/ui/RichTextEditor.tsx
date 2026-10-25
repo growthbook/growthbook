@@ -90,20 +90,14 @@ export interface Props {
   footer?: ReactNode;
   /** The short ribbon: no headings, no strikethrough. */
   simpleToolbar?: boolean;
-  /**
-   * Start with the ribbon hidden behind a button in the corner, for a field
-   * where formatting is the exception — a comment, say.
-   */
+  /** Hide the ribbon behind a corner button, for fields that rarely format. */
   collapsibleToolbar?: boolean;
   /** Put the caret after the value rather than before it. */
   autoFocusAtEnd?: boolean;
 }
 
-/**
- * Heights of the whole control, toolbar included, on the shared size names.
- * One ladder serves both the resting height and the cap, so a field cannot be
- * given a mismatched pair.
- */
+// Heights of the whole control, toolbar included. One ladder serves both the
+// resting height and the cap, so a field can't get a mismatched pair.
 const RICH_TEXT_HEIGHTS = {
   sm: 110,
   md: 150,
@@ -113,7 +107,7 @@ const RICH_TEXT_HEIGHTS = {
 
 export type RichTextHeight = keyof typeof RICH_TEXT_HEIGHTS;
 
-/** The node types the editor understands. Anything else is dropped on paste. */
+// Node types the editor keeps; anything else is dropped on paste.
 const NODES = [
   HeadingNode,
   QuoteNode,
@@ -126,7 +120,7 @@ const NODES = [
   ImageNode,
 ];
 
-/** Images first: their `![...]` would otherwise match as a link. */
+// Images first: their `![...]` would otherwise match as a link.
 const MARKDOWN_TRANSFORMERS = [
   IMAGE_TRANSFORMER,
   AUTO_LINK_TRANSFORMER,
@@ -162,7 +156,6 @@ const THEME = {
   code: styles.codeBlock,
 };
 
-/** Exposes the editor to the parent, and focuses it on mount when asked. */
 function EditorBridge({
   handleRef,
   autoFocus,
@@ -196,10 +189,8 @@ function EditorBridge({
   return null;
 }
 
-/**
- * Dropped or pasted image files upload and are inserted at the caret, and a
- * pasted bare URL becomes a link rather than the URL's text.
- */
+// Dropped or pasted images upload and insert at the caret; a pasted bare URL
+// becomes a link.
 function PasteAndDrop({
   allowImages,
   setUploading,
@@ -228,8 +219,8 @@ function PasteAndDrop({
           }),
         );
         editor.update(() => {
-          // No caret, e.g. the toolbar was opened without clicking into the
-          // text: append, as the markdown field did.
+          // No caret (e.g. the toolbar was used without clicking into the
+          // text): append.
           if (!$getSelection()) $getRoot().selectEnd();
           $insertNodes(
             uploaded.map(({ src, alt }) => $createImageNode(src, alt)),
@@ -272,8 +263,7 @@ function PasteAndDrop({
           if (!$isRangeSelection(selection)) return false;
           event.preventDefault();
 
-          // With nothing selected there is no text to become the link, so
-          // seed it from the URL the way the markdown editor does.
+          // With nothing selected, a label from the URL becomes the link text.
           const collapsed = selection.isCollapsed();
           if (collapsed) {
             const label = getLinkLabelFromUrl(text);
@@ -329,7 +319,7 @@ function TrailingParagraphAfterCode() {
   return null;
 }
 
-/** Applies `value` when it changes underneath us, e.g. an AI suggestion. */
+// Applies `value` when it changes underneath us, e.g. an AI suggestion.
 function ValueSync({
   value,
   lastMarkdown,
@@ -350,10 +340,7 @@ function ValueSync({
   return null;
 }
 
-/**
- * A rich text field that reads and writes markdown. Lexical ships no styles, so
- * the surface, node classes (THEME) and toolbar are all ours.
- */
+/** A rich text field that reads and writes markdown. */
 export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
   {
     value,

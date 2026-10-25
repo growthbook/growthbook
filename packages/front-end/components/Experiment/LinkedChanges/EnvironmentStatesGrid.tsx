@@ -46,7 +46,7 @@ export function getEnvironmentStates(source: {
 const inScope = (scope: ExperimentRuleEnvironments, env: string) =>
   scope.allEnvironments || scope.environments.includes(env);
 
-/** What the rule's settings become under a staged scope: entering switches the environment on. */
+// The rule's settings under a staged scope: entering switches the environment on.
 export function stageEnvironmentInputs(
   inputs: Record<string, LinkedFeatureEnvInputs>,
   scope: ExperimentRuleEnvironments | null,
@@ -103,7 +103,6 @@ const ENVIRONMENT_STATE_LABELS: Record<LinkedFeatureEnvState, string> = {
   missing: "Not included",
 };
 
-/** Whether the experiment is active in an environment. */
 function EnvironmentStateIcon({ isActive }: { isActive: boolean }) {
   return (
     <Box

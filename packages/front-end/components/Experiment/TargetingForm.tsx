@@ -120,13 +120,12 @@ export default function TargetingForm({
               };
             }) || []
           }
-          // As Setup's population and split modal shows it, with what this
-          // change leaves alone disabled.
+          // Matches Setup's population and split modal.
           showPreview
           disableCoverage={changeType === "weights"}
           disableVariations={changeType === "traffic"}
           hideSplits={type === "multi-armed-bandit"}
-          // Alone on its step, the step names it.
+          // Alone on its step, the step's title already names it.
           label={
             !isAdvancedChange
               ? null

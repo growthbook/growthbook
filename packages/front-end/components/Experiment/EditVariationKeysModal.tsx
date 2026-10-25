@@ -3,7 +3,7 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getStorableVariations } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -20,15 +20,7 @@ export default function EditVariationKeysModal({
   close: () => void;
   stage: (variations: Variation[]) => void;
 }) {
-  const variations = getLatestPhaseVariations(experiment).map(
-    ({ id, key, name, description, screenshots }) => ({
-      id,
-      key,
-      name,
-      description,
-      screenshots,
-    }),
-  );
+  const variations = getStorableVariations(experiment);
   const form = useForm({
     defaultValues: { keys: variations.map((v) => v.key) },
   });

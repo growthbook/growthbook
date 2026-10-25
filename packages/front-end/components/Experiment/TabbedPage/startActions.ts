@@ -4,7 +4,7 @@ import { hasPendingScheduledStart } from "shared/util";
 import type { ApiErrorDetails } from "shared/validators";
 import { scheduleToStartLabel } from "@/components/Reviews/reviewAndPublishState";
 
-export type StartSchedule = "none" | "future" | "past";
+type StartSchedule = "none" | "future" | "past";
 
 export function getStartSchedule(
   scheduledStartAt: Date | null,
@@ -36,7 +36,7 @@ export function getStartTitle(
     : "Start experiment";
 }
 
-export type StartChecklist = {
+type StartChecklist = {
   loading: boolean;
   remaining: number;
   blocking: number;
@@ -47,11 +47,8 @@ export type StartChecklist = {
 export type ServerChecklistItem =
   ApiErrorDetails<"checklist_incomplete">["remainingChecklistItems"][number];
 
-/**
- * Adds the soft items a refused start named, which the page may lack (a custom
- * checklist that didn't load). Hard items are rows the page builds itself, so
- * its live rows govern.
- */
+// Counts the soft items a refused start named, which the page may lack (a
+// custom checklist that didn't load); hard items are rows the page builds.
 export function withServerChecklist(
   checklist: StartChecklist,
   serverItems: ServerChecklistItem[],
@@ -97,12 +94,8 @@ function bypassLabel({
   return `Bypass ${skipped.join(" and ")} and ${then}`;
 }
 
-/**
- * The start button and its bypass. Anyone who can start may go ahead without
- * a soft item; an admin who may bypass flag approvals also without approval,
- * now or on a scheduled start, which carries the bypass to when it fires.
- * Nothing gets past any other hard blocker, and loading never counts as done.
- */
+// Anyone who can start may skip soft items; an admin who may bypass flag
+// approvals may also skip approval. Loading never counts as done.
 export function getStartActions({
   scheduledStartAt,
   now,

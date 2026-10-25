@@ -12,15 +12,9 @@ import {
 } from "back-end/src/services/experiments";
 import { notifyScheduledStatusUpdateFailed } from "back-end/src/services/experimentNotifications";
 
-// A staged status change fires as whoever armed it, user or API key, checked
-// again at fire time. Nobody to run as, or no authority, and the job does not
-// lend its own.
-
 jest.mock("back-end/src/services/organizations", () => ({
   getContextForAgendaJobByOrgId: jest.fn(async () => ({
     org: { id: "org_1" },
-    models: { metricGroups: { getAll: async () => [] } },
-    auditLog: jest.fn(),
   })),
 }));
 jest.mock("back-end/src/models/ExperimentModel", () => ({
@@ -36,13 +30,7 @@ jest.mock("back-end/src/services/experimentScheduling", () => ({
 }));
 jest.mock(
   "back-end/src/services/experimentChanges/changeExperimentStatus",
-  () => ({
-    armedStartBypassStands: jest.fn(async () => false),
-    assertScheduledStartNotHardBlocked: jest.fn(),
-    executeExperimentStart: jest.fn(async (_ctx, experiment) => ({
-      updated: { ...experiment, status: "running" },
-    })),
-  }),
+  () => ({ executeExperimentStart: jest.fn() }),
 );
 jest.mock("back-end/src/services/experiments", () => ({
   assertCanRunExperimentInAffectedEnvironments: jest.fn(),

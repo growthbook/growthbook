@@ -39,13 +39,7 @@ const AddToHoldoutModal = ({
       cta="Apply"
       // "None" clears a holdout that's set; there's nothing to clear otherwise.
       ctaEnabled={showHoldoutSelect && selected !== holdoutId}
-      submit={
-        showHoldoutSelect
-          ? async () => {
-              stage(selected);
-            }
-          : undefined
-      }
+      submit={showHoldoutSelect ? async () => stage(selected) : undefined}
     >
       {experimentHasLinkedFeatures && (
         <Callout status="error">

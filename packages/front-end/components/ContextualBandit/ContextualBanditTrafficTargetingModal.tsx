@@ -21,12 +21,6 @@ type FormValues = {
   variationWeights: number[];
 };
 
-/**
- * Combined Traffic & Targeting editor. Reuses the shared `FeatureVariationsInput`
- * (coverage-only via `hideVariations`, since weights stay algorithm-managed),
- * the shared assignment-attribute select, and `ConditionInput` for attribute
- * targeting.
- */
 export default function ContextualBanditTrafficTargetingModal({
   cb,
   mutate,
@@ -109,6 +103,7 @@ export default function ContextualBanditTrafficTargetingModal({
             id: v.id,
           }))}
           showPreview={false}
+          // Coverage only: the bandit manages the weights.
           hideVariations
         />
 

@@ -69,16 +69,9 @@ export function trafficSplitPercentages(weights: number[]): number[] {
   return weights.map((w) => +((w / sum) * 100));
 }
 
-/** `trim` drops trailing zeros, so up to `decimals` rather than always that many. */
-export function formatTrafficSplit(
-  weights: number[],
-  decimals = 0,
-  { trim = false }: { trim?: boolean } = {},
-): string {
+export function formatTrafficSplit(weights: number[], decimals = 0): string {
   return trafficSplitPercentages(weights)
-    .map((w) =>
-      trim ? String(Number(w.toFixed(decimals))) : w.toFixed(decimals),
-    )
+    .map((w) => w.toFixed(decimals))
     .join(" / ");
 }
 
@@ -170,9 +163,12 @@ export function percentToDecimalForNumber(
 export function percentToDecimal(val: string, precision: number = 4): number {
   return parseFloat((parseFloat(val) / 100).toFixed(precision));
 }
+
+// Decimal places a typed percent keeps.
 export const VARIATION_WEIGHT_DECIMALS = 2;
 export const COVERAGE_DECIMALS = 4;
 
+// Truncates typing to 3 integer digits and `decimals` decimal places.
 export function capTypedPercent(raw: string, decimals: number): string {
   const match = raw.match(
     new RegExp(`^(\\d{0,3})\\d*(\\.\\d{0,${decimals}})?`),
@@ -187,8 +183,8 @@ export function floatRound(val: number, precision: number = 4): number {
   return parseFloat(val.toFixed(precision));
 }
 
-// Within one step of the stored precision, as getEqualWeights leaves an
-// uneven count.
+// Within one step of the stored precision, since getEqualWeights can't split
+// every count evenly.
 export function isEqualSplit(weights: number[]): boolean {
   const step = Math.pow(10, -(VARIATION_WEIGHT_DECIMALS + 2));
   return floatRound(Math.max(...weights) - Math.min(...weights)) <= step;

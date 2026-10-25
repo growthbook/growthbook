@@ -2,21 +2,24 @@ import { CSSProperties } from "react";
 import { ghcolors } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { darkDeclaration } from "./darkColors";
 
-export type CodeTheme = typeof ghcolors;
+type CodeTheme = typeof ghcolors;
 
-export const CODE_FONT_WEIGHT = 400;
+const CODE_FONT_WEIGHT = 400;
 export const CODE_FONT_SIZE = "0.8rem";
 export const CODE_LINE_HEIGHT = 1.5;
 const CODE_FONT_FAMILY = "var(--code-font-family)";
 
 // The palette names its own fonts, which fall back to Courier where they're
-// missing; code uses the app's font instead.
-function withAppFont(theme: CodeTheme): CodeTheme {
+// missing; code uses the app's font and type scale instead.
+function withAppType(theme: CodeTheme): CodeTheme {
   return {
     ...theme,
     'code[class*="language-"]': {
       ...theme['code[class*="language-"]'],
       fontFamily: CODE_FONT_FAMILY,
+      fontSize: CODE_FONT_SIZE,
+      lineHeight: CODE_LINE_HEIGHT,
+      fontWeight: CODE_FONT_WEIGHT,
     },
     'pre[class*="language-"]': {
       ...theme['pre[class*="language-"]'],
@@ -42,7 +45,7 @@ function toDark(style: CSSProperties): CSSProperties {
   return dark;
 }
 
-const LIGHT_THEME = withAppFont(ghcolors);
+const LIGHT_THEME = withAppType(ghcolors);
 // Dark is light inverted, not a palette of its own.
 const DARK_THEME: CodeTheme = Object.fromEntries(
   Object.entries(LIGHT_THEME).map(([selector, style]) => [

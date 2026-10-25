@@ -7,10 +7,8 @@ function pathnameOf(url: string) {
 }
 
 /**
- * While there are unsaved changes, leaving the page (links, Back, router
- * navigation) asks first and closing or reloading the tab warns. Same-page
- * changes (tabs, anchors) pass through. `onLeave` runs once the user confirms,
- * before navigating away.
+ * While there are unsaved changes, leaving the page asks first and closing the
+ * tab warns; same-page changes pass through. `onLeave` runs on confirm.
  */
 export default function useUnsavedChangesGuard(
   hasUnsavedChanges: boolean,

@@ -13,7 +13,6 @@ export default function UnsavedEditsBar() {
 
   return (
     <div className={styles.bar}>
-      {/* Lined up with the column above it. */}
       <Box
         mx="auto"
         width="100%"

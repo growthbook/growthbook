@@ -69,7 +69,6 @@ type Args = {
   linkedChanges?: LinkedChangesResolution;
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
-  /** A REST call in an org that lets the REST API skip approval. */
   restApiBypassesReviews?: boolean;
 };
 

@@ -6,6 +6,7 @@ import {
   LinkedFeatureEnvInputs,
   LinkedFeatureEnvState,
   LinkedFeatureInfo,
+  LinkedFeaturePendingDraft,
 } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
@@ -71,9 +72,8 @@ export * from "./event-forwarder-warehouse-queries";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 
-// URL Redirects and Visual Editor changes serve in every environment, so a
-// write to one needs run permission in all of them. Never empty, which would
-// pass a permission check vacuously.
+// URL Redirects and Visual Editor changes serve in every environment. Never
+// empty, which would pass a permission check vacuously.
 export function getLinkedChangeEnvs(): string[] {
   return ["__ALL__"];
 }
@@ -248,17 +248,12 @@ export function experimentHasLinkedChanges(
   return false;
 }
 
-/** Whether a start is confirmed for a scheduled date. */
 export function hasPendingScheduledStart(exp: {
   nextScheduledStatusUpdate?: { type: string } | null;
 }): boolean {
   return exp.nextScheduledStatusUpdate?.type === "start";
 }
 
-/**
- * A draft whose start is confirmed for a scheduled date. What it launches stays
- * as confirmed until the start is unscheduled.
- */
 export function isScheduledToStart(
   exp: Pick<ExperimentInterface, "status"> & {
     nextScheduledStatusUpdate?: { type: string } | null;
@@ -267,12 +262,8 @@ export function isScheduledToStart(
   return exp.status === "draft" && hasPendingScheduledStart(exp);
 }
 
-/**
- * Whether targeting, traffic and namespace can change in place. A running
- * experiment with any implementation changes through a release plan, served
- * or not: a draft rule or a re-link can put it back in the payload at once.
- * A confirmed scheduled start fixes them until it's unscheduled.
- */
+// Targeting, traffic and namespace. A running experiment with any implementation
+// changes them through a release plan: a draft rule or re-link serves at once.
 export function canEditDeliveryInPlace(
   exp: Pick<
     ExperimentInterface,
@@ -283,7 +274,6 @@ export function canEditDeliveryInPlace(
   return exp.status !== "running" || !experimentHasLinkedChanges(exp);
 }
 
-/** The state each environment's flag toggle and experiment rule add up to. */
 export function linkedFeatureEnvStates(
   inputs: Record<string, LinkedFeatureEnvInputs>,
 ): Record<string, LinkedFeatureEnvState> {
@@ -301,7 +291,14 @@ export function linkedFeatureEnvStates(
   );
 }
 
-/** Whether a linked Feature Flag's draft clears approval: the publish gate's answer when there is one, else its status. */
+// The publish gate's answer when there is one, else the draft's status:
+// "approved" can still be short of a team or an environment.
+export function pendingDraftApproved(
+  draft: Pick<LinkedFeaturePendingDraft, "approval" | "status">,
+): boolean {
+  return draft.approval?.satisfied ?? draft.status === "approved";
+}
+
 export function linkedDraftApproved(
   info: Pick<
     LinkedFeatureInfo,

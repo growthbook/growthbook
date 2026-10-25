@@ -5,7 +5,7 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getStorableVariations } from "shared/experiments";
 import Text from "@/ui/Text";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import SortableVariationsList from "@/components/Features/SortableVariationsList";
@@ -62,16 +62,11 @@ export default function ReorderVariationsModal({
   stage: (variations: Variation[], weights: number[]) => void;
 }) {
   const [rows, setRows] = useState<Row[]>(() =>
-    getLatestPhaseVariations(experiment).map(
-      ({ id, key, name, description, screenshots }, i) => ({
-        id,
-        value: key,
-        name,
-        description,
-        screenshots,
-        weight: weights[i] ?? 0,
-      }),
-    ),
+    getStorableVariations(experiment).map(({ key, ...v }, i) => ({
+      ...v,
+      value: key,
+      weight: weights[i] ?? 0,
+    })),
   );
   // Default keys follow their position; bespoke ones travel with their variation.
   const keysMatchIndexes = rows.every((r, i) => r.value === i + "");

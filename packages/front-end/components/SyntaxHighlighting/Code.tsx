@@ -12,12 +12,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import {
-  CODE_FONT_SIZE,
-  CODE_FONT_WEIGHT,
-  CODE_LINE_HEIGHT,
-  getCodeTheme,
-} from "./codeTheme";
+import { CODE_FONT_SIZE, CODE_LINE_HEIGHT, getCodeTheme } from "./codeTheme";
 import PrismFallback from "./PrismFallback";
 import styles from "./Code.module.scss";
 
@@ -104,9 +99,6 @@ export default function Code({
 
   const style = useMemo(() => {
     const style = cloneDeep(getCodeTheme(theme));
-    style['code[class*="language-"]'].fontSize = CODE_FONT_SIZE;
-    style['code[class*="language-"]'].lineHeight = CODE_LINE_HEIGHT;
-    style['code[class*="language-"]'].fontWeight = CODE_FONT_WEIGHT;
 
     const codeBackgrounds = {
       dark: "transparent",

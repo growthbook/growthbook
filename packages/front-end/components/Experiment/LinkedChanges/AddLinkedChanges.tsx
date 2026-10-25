@@ -24,7 +24,7 @@ import SplitButton from "@/ui/SplitButton";
 import Tooltip from "@/ui/Tooltip";
 import { ICON_PROPERTIES } from "./constants";
 
-export type AddableKind = "feature" | "visual" | "urlredirect";
+type AddableKind = "feature" | "visual" | "urlredirect";
 export const ADDABLE_KINDS: AddableKind[] = [
   "feature",
   "visual",
@@ -85,28 +85,34 @@ const ADD_OPTIONS: Record<
 const PREMIUM_BODY =
   "You can add this to your draft, but you will not be able to start the experiment until upgrading.";
 
-/** Why this kind can't be added yet, and the plan feature starting it needs. */
+// Why this kind can't be added now, or the plan feature it lacks to start.
 function useLinkedChangeAddGate(
   type: AddableKind,
   experiment: ExperimentInterfaceStringDates,
+  blockedReason: string | null | undefined,
 ): {
-  unsupportedReason: string | null;
-  commercialFeature: CommercialFeature | null;
+  disabledReason: string | null;
+  missingFeature: CommercialFeature | null;
 } {
   const { data: sdkConnectionsData } = useSDKConnections();
+  const { hasCommercialFeature } = useUser();
   const { gate } = ADD_OPTIONS[type];
   if (!gate) {
-    return { unsupportedReason: null, commercialFeature: null };
+    return { disabledReason: blockedReason ?? null, missingFeature: null };
   }
   const hasSDKWithFeature = getConnectionsSDKCapabilities({
     connections: sdkConnectionsData?.connections ?? [],
     project: experiment.project ?? "",
   }).includes(gate.sdkCapabilityKey);
   return {
-    unsupportedReason: hasSDKWithFeature
+    disabledReason:
+      blockedReason ??
+      (hasSDKWithFeature
+        ? null
+        : `The SDKs in this project don't support ${gate.name}. Upgrade your SDK(s) or add a supported SDK.`),
+    missingFeature: hasCommercialFeature(gate.commercialFeature)
       ? null
-      : `The SDKs in this project don't support ${gate.name}. Upgrade your SDK(s) or add a supported SDK.`,
-    commercialFeature: gate.commercialFeature,
+      : gate.commercialFeature,
   };
 }
 
@@ -121,12 +127,11 @@ function AddImplementationItem({
   onClick: () => void;
   blockedReason?: string | null;
 }) {
-  const { hasCommercialFeature } = useUser();
-  const { unsupportedReason, commercialFeature } = useLinkedChangeAddGate(
+  const { disabledReason, missingFeature } = useLinkedChangeAddGate(
     type,
     experiment,
+    blockedReason,
   );
-  const disabledReason = blockedReason ?? unsupportedReason;
   const option = ADD_OPTIONS[type];
   const color = disabledReason ? "text-disabled" : "text-high";
   const content = (
@@ -152,9 +157,9 @@ function AddImplementationItem({
         <Tooltip content={disabledReason} side="left">
           <span>{content}</span>
         </Tooltip>
-      ) : commercialFeature && !hasCommercialFeature(commercialFeature) ? (
+      ) : missingFeature ? (
         <PremiumTooltip
-          commercialFeature={commercialFeature}
+          commercialFeature={missingFeature}
           body={PREMIUM_BODY}
           tipPosition="left"
         >
@@ -237,10 +242,7 @@ export function AddImplementationMenu({
   );
 }
 
-/**
- * Says why when it can't be added now; a premium kind can still be added to a
- * draft, which then can't start.
- */
+// A premium kind can still be added to a draft, which then can't start.
 function AddImplementationButton({
   type,
   experiment,
@@ -252,12 +254,11 @@ function AddImplementationButton({
   onClick: () => void;
   blockedReason?: string | null;
 }) {
-  const { hasCommercialFeature } = useUser();
-  const { unsupportedReason, commercialFeature } = useLinkedChangeAddGate(
+  const { disabledReason, missingFeature } = useLinkedChangeAddGate(
     type,
     experiment,
+    blockedReason,
   );
-  const disabledReason = blockedReason ?? unsupportedReason;
   const button = (
     <Button
       variant="outline"
@@ -271,10 +272,10 @@ function AddImplementationButton({
   if (disabledReason) {
     return <Tooltip content={disabledReason}>{button}</Tooltip>;
   }
-  if (commercialFeature && !hasCommercialFeature(commercialFeature)) {
+  if (missingFeature) {
     return (
       <PremiumTooltip
-        commercialFeature={commercialFeature}
+        commercialFeature={missingFeature}
         body={PREMIUM_BODY}
         usePortal
       >

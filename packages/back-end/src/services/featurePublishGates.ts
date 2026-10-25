@@ -652,12 +652,8 @@ export async function collectFeaturePublishGates({
   return gates;
 }
 
-/**
- * What a caller skips on one linked flag when an experiment publishes to it.
- * The org's REST setting waives approval as the publish endpoints do; the
- * caller's own bypass waives it only once they opt in. The ramp lockdown is
- * skipped only on that opt-in, and only where approval is.
- */
+// What a caller skips on one linked flag when an experiment publishes to it. The
+// org's REST setting waives approval outright; the caller's own needs the opt-in.
 export function flagBypass(
   context: Context,
   feature: FeatureInterface,

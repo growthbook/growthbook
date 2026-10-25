@@ -26,7 +26,7 @@ function StagedChange({
   label: string;
   review: StagedReview | null;
   discard: () => void;
-  /** Set while someone else's save conflicts with this edit. */
+  // Set while someone else's save conflicts with this edit.
   keepMine: (() => void) | null;
 }) {
   const [open, setOpen] = useState(false);
@@ -93,8 +93,7 @@ function StagedChange({
             hideLineNumbers
             extraLinesSurroundingDiff={1}
             styles={COMPACT_DIFF_STYLES}
-            // Against what's saved now, so a conflict shows what Keep mine
-            // replaces.
+            // Against what's saved now: what Keep mine replaces.
             {...(keepMine && {
               leftTitle: "Modified version",
               rightTitle: "My version",
@@ -156,7 +155,6 @@ export default function StagedChanges() {
       onOpenChange={setOpen}
       side="top"
       align="start"
-      // Clear of the bar it opens from.
       sideOffset={8}
       contentStyle={{ width: 640, maxWidth: "90vw", padding: "12px 16px" }}
       trigger={

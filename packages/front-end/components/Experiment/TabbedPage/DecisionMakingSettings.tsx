@@ -50,9 +50,8 @@ export function useDecisionFrameworkApplies(
 }
 
 /**
- * What the decision-making settings read back: each goal's target MDE, the
- * decision criteria and the end-of-experiment plan. Null where the experiment
- * has none (no decision framework, or a bandit or holdout).
+ * Each goal's target MDE, the decision criteria and the end-of-experiment plan;
+ * null where the decision framework doesn't apply.
  */
 export function useDecisionMakingSummary(
   experiment: ExperimentInterfaceStringDates,
@@ -102,7 +101,6 @@ export function useDecisionMakingSummary(
     }
   });
 
-  // Summarize the end-of-experiment scheduled-stop plan.
   const plan = experiment.statusUpdateSchedule?.scheduledStopPlan;
   const shippingVariationName = (id?: string) =>
     experiment.variations.find((v) => v.id === id)?.name ?? "a variation";
@@ -143,7 +141,7 @@ export function useDecisionMakingSummary(
   };
 }
 
-/** The decision-making settings as a read-only card, for the public page. */
+// Read-only, for the public page.
 export default function DecisionMakingSettings({
   experiment,
   ssrPolyfills,

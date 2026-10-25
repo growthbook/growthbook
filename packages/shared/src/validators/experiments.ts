@@ -313,10 +313,8 @@ export type ExperimentAnalysisSettings = z.infer<
   typeof experimentAnalysisSettings
 >;
 
-/**
- * An unsaved analysis draft: only the touched fields, with anything outside the
- * analysis settings stripped so a draft can't edit the rest of the experiment.
- */
+// Strips anything outside the analysis settings, so a draft can't edit the
+// rest of the experiment.
 export const experimentAnalysisSettingsDraft = experimentAnalysisSettings
   .partial()
   .extend({

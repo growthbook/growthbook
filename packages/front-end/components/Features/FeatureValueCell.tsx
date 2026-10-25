@@ -24,6 +24,7 @@ const ONE_LINE_ACTIONS: ActionsOverlay = {
     transform: "translateY(-50%)",
   },
 };
+
 export default function FeatureValueCell({
   id,
   value,

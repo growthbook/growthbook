@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ScrollArea from "@/ui/ScrollArea";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import ProjectTagBar, {
+  EmptyValue,
   ExperimentDataFields,
   QuickEditField,
 } from "@/components/Experiment/TabbedPage/ProjectTagBar";
@@ -40,7 +41,6 @@ export type DetailsPanelTab = (typeof DETAILS_PANEL_TABS)[number];
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterfaceStringDates;
-  /** A staged holdout ("" to leave), shown in place of the stored one. */
   stagedHoldoutId?: string | null;
   editSchedule?: (() => void) | null;
   mutate: () => void;
@@ -49,7 +49,6 @@ export interface Props {
   setTab: (tab: DetailsPanelTab) => void;
 }
 
-/** The experiment's metadata and discussion, in a rail beside the page. */
 export default function ExperimentDetailsPanel({
   experiment,
   holdout,
@@ -60,8 +59,7 @@ export default function ExperimentDetailsPanel({
   tab,
   setTab,
 }: Props) {
-  // Another editing surface cannot open over the page's own unsaved edits, so
-  // the controls that would open one say why instead.
+  // Editors can't open over the page's unsaved edits; their buttons say why.
   const editsBlocked = useEditsBlockedReason();
   const { canEdit } = useExperimentEditing(experiment, disableEditing, holdout);
   const [infoSection, setInfoSection] = useState<InfoSection | null>(null);
@@ -91,11 +89,11 @@ export default function ExperimentDetailsPanel({
       />
     ) : null;
 
-  // The key only changes while nothing is serving it, or about to.
   const fieldAction = (field: QuickEditField) => {
     if (field === "schedule") {
       return editSchedule ? pencil("Edit schedule", editSchedule) : null;
     }
+    // The key only changes while nothing is serving it, or about to.
     if (
       field === "trackingKey" &&
       (experiment.status !== "draft" || hasPendingScheduledStart(experiment))
@@ -108,7 +106,6 @@ export default function ExperimentDetailsPanel({
   const rowAction = isHoldout ? null : fieldAction;
   const { active: checklistActive, checklistItemsRemaining } =
     usePreLaunchChecklist();
-  // Once it starts, a draft's to-do list is gone.
   const showTodo = checklistActive && !experiment.archived;
 
   const customFieldRows = hasCustomFields ? (
@@ -219,14 +216,7 @@ export default function ExperimentDetailsPanel({
                             </Box>
                           </ExpandableBlock>
                         ) : (
-                          <Text
-                            weight="regular"
-                            color="text-mid"
-                            size="sm"
-                            fontStyle="italic"
-                          >
-                            None
-                          </Text>
+                          <EmptyValue />
                         )}
                       </Box>
                     }
@@ -274,7 +264,6 @@ export default function ExperimentDetailsPanel({
   );
 }
 
-/** A titled block of the panel, which its heading shows and hides. */
 function PanelSection({
   title,
   action = null,

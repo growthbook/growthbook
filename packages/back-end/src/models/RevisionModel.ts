@@ -299,7 +299,6 @@ export class RevisionModel extends BaseClass {
   // Judged on the write itself — `existing` as approved against `proposed` as
   // it will be stored — so a gated change added under a standing approval is
   // seen even when the approved content was not gated.
-  // Whether this change would take back an approval given before it.
   private changeResetsReview(existing: Revision, proposed: Revision): boolean {
     if (!this.context.hasPremiumFeature("require-approvals")) return false;
 

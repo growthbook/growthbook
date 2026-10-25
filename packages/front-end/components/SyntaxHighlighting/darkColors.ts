@@ -4,7 +4,7 @@
 // otherwise come out dim.
 
 type Rgb = [number, number, number];
-export type ColorRole = "text" | "surface";
+type ColorRole = "text" | "surface";
 
 // Where light mode's white lands: the dark panel (Radix gray 2).
 const DARK_SURFACE = "#1a191b";
@@ -115,7 +115,7 @@ function darkTextHue(a: number, b: number): [number, number] {
   return [a * cos - b * sin, a * sin + b * cos];
 }
 
-/** A light-mode color as dark mode shows it; unparseable colors pass through. */
+// A light-mode color as dark mode shows it; unparseable colors pass through.
 export function darkColor(color: string, role: ColorRole): string {
   const parsed = parseColor(color);
   if (!parsed) return color;
@@ -143,7 +143,7 @@ export function darkColor(color: string, role: ColorRole): string {
 const CSS_COLORS =
   /url\([^)]*\)|#[0-9a-f]{3,8}\b|rgba?\([^)]*\)|(?<![\w-])(?:black|white|red|blue)(?![\w-])/gi;
 
-/** A CSS property's value with its colors swapped for dark mode's. */
+// A CSS property's value with its colors swapped for dark mode's.
 export function darkDeclaration(property: string, value: string): string {
   const role: ColorRole = property === "color" ? "text" : "surface";
   return value.replace(CSS_COLORS, (match) =>
@@ -151,7 +151,7 @@ export function darkDeclaration(property: string, value: string): string {
   );
 }
 
-/** A stylesheet with its colors swapped for dark mode's. */
+// A stylesheet with its colors swapped for dark mode's.
 export function darkCss(css: string): string {
   return css.replace(
     /([\w-]+)(\s*:\s*)([^;{}]+)/g,

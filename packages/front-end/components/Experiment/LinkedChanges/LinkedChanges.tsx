@@ -1,7 +1,7 @@
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { Flex, type AvatarProps } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import Avatar from "@/ui/Avatar";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -46,7 +46,7 @@ export default function LinkedChanges({
               <Flex key={id} gap="3" align="center">
                 <Avatar
                   radius="full"
-                  color={radixColor as AvatarProps["color"]}
+                  color={radixColor}
                   size="lg"
                   variant="soft"
                 >

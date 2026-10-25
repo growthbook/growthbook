@@ -216,10 +216,8 @@ export async function canScheduleFeaturePublish(
   );
 }
 
-/**
- * Draft experiments whose rules this revision would take live, including ones
- * the caller can't read: a guard that missed them would let the rule land.
- */
+// Includes experiments the caller can't read: a guard that missed them would
+// let the rule land.
 export async function draftExperimentsLaunchedBy(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -271,11 +269,8 @@ const launchRefusal = (
   return `This draft's rules belong to ${subject}, which a scheduled or auto publish can't start. Schedule the experiment's start instead, which publishes its launch draft.`;
 };
 
-/**
- * An armed publish lands the flag but never starts the experiments its rules
- * belong to, so a draft that carries one is armed through the experiment's own
- * scheduled start instead.
- */
+// An armed publish never starts the experiments its rules belong to; those
+// drafts are armed through the experiment's own scheduled start instead.
 export async function assertArmDoesNotLaunchExperiments(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -334,9 +329,8 @@ async function publishArmedRevision(
   revision: FeatureRevisionInterface,
   mayForceMerge: boolean,
 ): Promise<FeatureRevisionInterface> {
-  // Arming refuses a draft that launches a draft experiment, so one here gained
-  // the rule after; no bypass lands it, since the experiment would be left
-  // unstarted.
+  // Arming refused this, so the draft gained the rule since. No bypass lands it:
+  // the experiment would be left unstarted.
   const launches = await draftExperimentsLaunchedBy(
     enablerContext,
     feature,

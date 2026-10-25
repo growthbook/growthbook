@@ -298,7 +298,6 @@ function ImpactTooltips({
 
   const hoppingTip =
     !isBandit && variationHopping && releasePlan !== "same-phase-sticky";
-  // In the tip's own small size.
   const stickyBucketingDocs = (
     <Link
       size="sm"

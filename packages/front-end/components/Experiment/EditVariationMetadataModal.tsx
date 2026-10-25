@@ -4,7 +4,7 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getStorableVariations } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
 import track from "@/services/track";
 import Field from "@/components/Forms/Field";
@@ -33,13 +33,7 @@ const EditVariationMetadataModal: FC<Props> = ({
   mutate,
   source,
 }) => {
-  const variations = getLatestPhaseVariations(experiment).map((v) => ({
-    id: v.id,
-    key: v.key,
-    name: v.name,
-    description: v.description,
-    screenshots: v.screenshots,
-  }));
+  const variations = getStorableVariations(experiment);
   const variation = variations[variationIndex];
 
   const form = useForm({

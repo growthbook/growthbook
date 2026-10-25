@@ -28,12 +28,8 @@ const DiscussionThread: FC<{
   allowNewComments?: boolean;
   showTitle?: boolean;
   title?: string;
-  /** Slim chrome for a narrow column: see `CommentCard`. */
   compact?: boolean;
-  /**
-   * Fill the given height, edge to edge: the thread scrolls above a pinned
-   * composer, both padded like a side panel's.
-   */
+  // Fill the given height: the thread scrolls above a pinned composer.
   fillHeight?: boolean;
 }> = ({
   type,

@@ -10,7 +10,7 @@ const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
 
 // Environments where the config, or a config it inherits from, serves one of
 // its environment overrides.
-export function useConfigOverrideEnvironments(
+function useConfigOverrideEnvironments(
   configKey: string,
   project: string,
 ): string[] {

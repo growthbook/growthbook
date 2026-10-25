@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 
-/**
- * True while the CSS media query matches. Fires only when the boundary is
- * crossed, unlike a resize listener, which fires on every frame of a drag.
- */
+/** True while the media query matches; re-renders only when that flips. */
 export default function useMediaQuery(query: string): boolean {
   // Read up front so the first paint is already on the right side.
   const [matches, setMatches] = useState(

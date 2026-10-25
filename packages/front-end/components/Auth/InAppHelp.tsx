@@ -15,7 +15,7 @@ import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import styles from "./InAppHelp.module.scss";
 
-/** Pylon's launcher is a third-party iframe, so its footprint can't be measured. */
+// Pylon's launcher is a third-party iframe, so its footprint can't be measured.
 const PYLON_CLEARANCE_PX = 76;
 
 const LAUNCHER_SIZE_PX = 56;

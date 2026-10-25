@@ -24,16 +24,12 @@ import QuickEditButton, {
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  /** Show the editor rather than the rendered markdown. */
+  // Show the editor rather than the rendered markdown.
   editable: boolean;
-  /** Past draft, the hypothesis still opens for editing from its pencil. */
+  // Where not editable, it still opens for editing from its pencil.
   canEdit: boolean;
 }
 
-/**
- * The hypothesis, edited in place on the page and written by its Save bar, or
- * read back as markdown where it isn't editable.
- */
 export default function HypothesisField({
   experiment,
   editable: editableHere,

@@ -77,10 +77,7 @@ export default function MetricsOverridesSelector({
   statsEngine: StatsEngine;
   /** A metric whose card is outlined for a moment as it opens. */
   highlightMetricId?: string | null;
-  /**
-   * Given, these goal metrics' cards lead with their target MDE, kept in the
-   * form's `targetMDEs` apart from the other overrides.
-   */
+  /** Goal metrics whose cards lead with a target MDE, kept in `targetMDEs`. */
   targetMDEGoalIds?: string[];
 }) {
   const {

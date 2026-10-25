@@ -160,7 +160,6 @@ export default function FeaturesHeader({
   useEffect(() => watchHealth([feature.id]), [feature.id, watchHealth]);
 
   // Sticky tabs header — mirrors the experiment page pattern
-  // NB: Keep in sync with .feature-tabs top property in global.scss
   const tabsPinSentinelRef = useRef<HTMLDivElement>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
   const { scrollY } = useScrollPosition();

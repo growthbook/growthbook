@@ -652,18 +652,15 @@ async function launchDraftRevisions(
     revisionVersion: number;
     revision: FeatureRevisionInterface | null;
   }[] = [];
-  for (const { featureId, revisionVersion } of await getLaunchDrafts(
-    context,
-    experiment,
-  )) {
+  for (const draft of await getLaunchDrafts(context, experiment)) {
     const revision = await getRevision({
       context,
       organization: context.org.id,
-      featureId,
+      featureId: draft.featureId,
       feature: undefined,
-      version: revisionVersion,
+      version: draft.revisionVersion,
     });
-    drafts.push({ featureId, revisionVersion, revision });
+    drafts.push({ ...draft, revision });
   }
   return drafts;
 }
@@ -680,11 +677,8 @@ async function pinLaunchDrafts(
   );
 }
 
-/**
- * Whether an armed start still carries the approval bypass it was armed with:
- * the armer may still bypass, and each draft it would publish is the one pinned
- * then. A draft that changed since needs approving like any other.
- */
+// The armer may still bypass, and each draft it would publish is the one pinned
+// when armed. A draft that changed since needs approving like any other.
 export async function armedStartBypassStands(
   armer: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -711,7 +705,6 @@ export async function armedStartBypassStands(
   );
 }
 
-/** The open flag approvals a start by this principal would waive. */
 export async function startApprovalsWaivedBy(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -776,14 +769,8 @@ export async function startExperiment({
   context: ReqContext;
   experimentId: string;
   skipChecklist?: boolean;
-  /** A REST call in an org that lets the REST API skip approval. */
   restApiBypassesReviews?: boolean;
-  /**
-   * When true, skip ramp-schedule lockdown on each linked flag the caller may
-   * bypass on, and forward the bypass to pending feature-draft publishing,
-   * which re-checks it per flag. Caller must verify admin-bypass permissions
-   * before passing true.
-   */
+  // Caller must verify admin-bypass permissions first; it is re-checked per flag.
   bypassLockdown?: boolean;
 }) {
   const loadedExperiment = await loadAndValidateExperimentForStatusChange(

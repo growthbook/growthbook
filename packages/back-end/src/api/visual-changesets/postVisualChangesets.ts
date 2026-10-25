@@ -6,10 +6,7 @@ import {
   createVisualChangeset,
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
-import {
-  assertCanRunLinkedChanges,
-  assertVisualChangesEditable,
-} from "back-end/src/services/experiments";
+import { assertVisualChangesEditable } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const postVisualChangesets = createApiRequestHandler(
@@ -27,8 +24,7 @@ export const postVisualChangesets = createApiRequestHandler(
   if (!req.context.permissions.canUpdateVisualChange(experiment)) {
     req.context.permissions.throwPermissionError();
   }
-  assertVisualChangesEditable(experiment);
-  assertCanRunLinkedChanges(req.context, experiment);
+  assertVisualChangesEditable(req.context, experiment);
 
   const urlPatterns: VisualChangesetURLPattern[] = req.body.urlPatterns.map(
     (p) => ({

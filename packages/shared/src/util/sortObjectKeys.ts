@@ -1,8 +1,5 @@
-/**
- * A JSON clone with object keys sorted recursively; arrays keep their order.
- * Key order is an artifact of authoring and merge history, so two values that
- * differ only in it compare equal once both are sorted.
- */
+// Arrays keep their order. Key order is an artifact of authoring and merge
+// history, so values differing only in it compare equal once sorted.
 export function sortObjectKeys(node: unknown): unknown {
   if (Array.isArray(node)) return node.map(sortObjectKeys);
   if (node && typeof node === "object") {
@@ -22,12 +19,8 @@ const isEmptyValue = (value: unknown) =>
   value === "" ||
   (typeof value === "object" && !Object.keys(value).length);
 
-/**
- * A value as a change is judged: keys sorted, and fields that are null or
- * empty ("", [], {}) dropped like absent ones, since the shapes a value is
- * stored, sent and rebuilt in disagree on which of those they write. Arrays
- * keep their order.
- */
+// Also drops null and empty ("", [], {}) fields like absent ones: the stored,
+// sent and rebuilt shapes of a value disagree on which of those they write.
 export function canonicalValue(node: unknown): unknown {
   if (node instanceof Date) return node.toISOString();
   if (Array.isArray(node)) return node.map(canonicalValue);
@@ -42,7 +35,6 @@ export function canonicalValue(node: unknown): unknown {
   return node;
 }
 
-/** Whether two values are the same change, by `canonicalValue`. */
 export function sameCanonicalValue(a: unknown, b: unknown): boolean {
   return (
     JSON.stringify(canonicalValue({ value: a })) ===

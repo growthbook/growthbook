@@ -103,7 +103,7 @@ export default function ExperimentSplitVisual({
         )}
       </Flex>
       <Box className={styles.bar_wrapper}>
-        <div className={`${styles.bar_holder} d-flex flex-row`}>
+        <div className={styles.bar_holder}>
           {segments.map(({ i, left, width, gap, name }) => {
             const additionalStyles: CSSProperties = {
               width: width + "%",

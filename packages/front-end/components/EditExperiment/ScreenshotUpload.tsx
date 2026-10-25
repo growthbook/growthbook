@@ -20,11 +20,9 @@ type props = {
   variation: number;
   onSuccess: (variation: number, screenshot: Screenshot) => void;
   children?: ReactNode;
-  /** Appended to the drop target, for callers that size it themselves. */
   className?: string;
-  /** Appended to the drag prompt, for callers with room to place it. */
   messageClassName?: string;
-  /** The drag prompt itself. Short by default — the variation card's target is tiny. */
+  // Short by default: the variation card's drop target is tiny.
   message?: ReactNode;
 };
 

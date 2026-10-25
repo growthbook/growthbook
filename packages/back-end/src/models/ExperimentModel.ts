@@ -1964,11 +1964,7 @@ async function unlinkFeatureFromExperimentDoc(
   });
 }
 
-/**
- * Unlinks the flag from the experiments waiting to drop it that nothing live
- * or open references any more. Unfiltered: the waiting removal is the
- * decision, whoever's write lands it.
- */
+// Unfiltered: the waiting removal is the decision, whoever's write lands it.
 export async function unlinkLandedFeatureRemovals(
   context: ReqContext | ApiReqContext,
   featureId: string,

@@ -65,7 +65,12 @@ import {
   planLinkedChanges,
   writeLinkedChanges,
 } from "./linkedChanges";
-import { asJson, changedSinceLoaded, isoOrNull } from "./loadedBase";
+import {
+  asJson,
+  assertBaseCoversChanges,
+  changedSinceLoaded,
+  isoOrNull,
+} from "./loadedBase";
 
 // A dry run writes nothing: `experiment` is as loaded and `flags` is empty.
 export type ExperimentChangesResult = {
@@ -89,6 +94,9 @@ type FlagValuesPlan = Omit<ExperimentFeatureUpdatePlan, "matchingRules"> & {
 };
 
 type FlagValuesEntry = NonNullable<ExperimentChangesBody["flagValues"]>[number];
+type LinkFeatureEntry = NonNullable<
+  ExperimentChangesBody["linkFeatures"]
+>[number];
 
 function assertFlagValuesEntries(
   featureId: string,
@@ -154,10 +162,7 @@ function experimentFieldConflicts(
   experiment: ExperimentInterface,
   body: NonNullable<ExperimentChangesBody["experiment"]>,
 ): string[] {
-  const missing = Object.keys(body.changes).find((key) => !(key in body.base));
-  if (missing) {
-    throw new BadRequestError(`base is missing the loaded value of ${missing}`);
-  }
+  assertBaseCoversChanges(body.changes, body.base);
   return conflictingFields(experiment, body);
 }
 
@@ -623,9 +628,7 @@ export async function applyExperimentChanges({
 }
 
 // Where a flag linked again runs: every environment unless the link names some.
-function linkRuleScope(
-  link: NonNullable<ExperimentChangesBody["linkFeatures"]>[number],
-) {
+function linkRuleScope(link: LinkFeatureEntry) {
   return link.environments && !link.environments.allEnvironments
     ? { allEnvironments: false, environments: link.environments.environments }
     : { allEnvironments: true };
@@ -633,7 +636,7 @@ function linkRuleScope(
 
 function linkRule(
   experimentId: string,
-  link: NonNullable<ExperimentChangesBody["linkFeatures"]>[number],
+  link: LinkFeatureEntry,
 ): ExperimentRefRule {
   return {
     type: "experiment-ref",

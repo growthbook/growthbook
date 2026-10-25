@@ -60,7 +60,7 @@ export function onlyTrafficFields(keys: string[]): boolean {
 
 type TargetingPhase = Pick<ExperimentPhase, PhaseField | "variations">;
 
-/** A field as a changeset reads it: off the latest phase, or the experiment. */
+// Off the latest phase for a phase field, else off the experiment.
 export function experimentFieldValue(
   experiment: { phases: Partial<TargetingPhase>[] },
   key: string,
@@ -71,7 +71,6 @@ export function experimentFieldValue(
   return (source as Record<string, unknown> | undefined)?.[key] ?? null;
 }
 
-/** Whether two values of a changeset field are the same change. */
 export function sameFieldValue(key: string, a: unknown, b: unknown): boolean {
   if (key === "condition") {
     const condition = (v: unknown) =>
@@ -81,10 +80,8 @@ export function sameFieldValue(key: string, a: unknown, b: unknown): boolean {
   return sameCanonicalValue(a, b);
 }
 
-/**
- * The fields a change sets that someone saved since its `base` was loaded, to
- * something other than the change itself: what saving it would refuse.
- */
+// Fields someone saved since `base` was loaded, to something other than the
+// change itself.
 export function conflictingFields(
   experiment: { phases: Partial<TargetingPhase>[] },
   share:
@@ -105,10 +102,8 @@ export type TargetingChanges = Partial<
   Omit<ExperimentTargetingData, "newPhase" | "reseed" | "variations">
 >;
 
-/**
- * The fields `staged` changes from `loaded`. The release plan sets a new
- * phase, and the experiment's own variations set the phase's.
- */
+// The release plan sets a new phase, and the experiment's own variations set
+// the phase's, so neither is a targeting change.
 export function changedTargeting(
   staged: Partial<ExperimentTargetingData>,
   loaded: Partial<ExperimentTargetingData>,
@@ -131,10 +126,6 @@ export function changedTargeting(
   return changes;
 }
 
-/**
- * What the experiment currently targets, whole, with a hash version for one
- * that has never set its own.
- */
 export function getTargetingDefaults(
   experiment: Pick<
     ExperimentInterface,

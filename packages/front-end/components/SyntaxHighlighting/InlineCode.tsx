@@ -5,12 +5,7 @@ import { createElement, createElementProps } from "react-syntax-highlighter";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { Language } from "./Code";
 import PrismFallback from "./PrismFallback";
-import {
-  CODE_FONT_SIZE,
-  CODE_FONT_WEIGHT,
-  CODE_LINE_HEIGHT,
-  getCodeTheme,
-} from "./codeTheme";
+import { CODE_FONT_SIZE, CODE_LINE_HEIGHT, getCodeTheme } from "./codeTheme";
 
 // Turn substrings of the highlighted code that match `pattern` (a regex with a
 // single capture group) into links. `getHref` receives the captured group; a
@@ -132,7 +127,6 @@ export default function InlineCode({
   const style = cloneDeep(getCodeTheme(theme, inTooltip));
   style['code[class*="language-"]'].fontSize = fontSize;
   style['code[class*="language-"]'].lineHeight = lineHeight;
-  style['code[class*="language-"]'].fontWeight = CODE_FONT_WEIGHT;
   // this next line actually doesn't do anything- its overridden somewhere in Prism.
   style['code[class*="language-"]'].whiteSpace = "pre-wrap";
   style['pre[class*="language-"]'].whiteSpace = "pre-wrap";

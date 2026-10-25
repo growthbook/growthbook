@@ -40,7 +40,7 @@ export default function HoldoutTrafficAndTargeting({
               </Heading>
               <div className="flex-1" />
               {editTraffic ? (
-                <Link onClick={() => editTraffic()}>
+                <Link onClick={editTraffic}>
                   <Text weight="semibold">Edit</Text>
                 </Link>
               ) : null}

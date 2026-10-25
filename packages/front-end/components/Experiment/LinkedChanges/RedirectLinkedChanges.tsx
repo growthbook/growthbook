@@ -63,24 +63,25 @@ export default function UrlRedirectColumn({
   const shown = showingLive ? redirect.stored : redirect;
   const origin = (shown ?? redirect).urlPattern;
   const editable = canEdit && !showingLive && redirect.staged !== "removed";
-  const locked = (label: string) => (
-    <Tooltip content={lockedReason} side="left" enabled={!!lockedReason}>
-      <span>{label}</span>
-    </Tooltip>
-  );
   const menu = editable
     ? [
-        <DropdownMenuItem key="edit" disabled={!!lockedReason} onClick={onEdit}>
-          {locked("Edit URL redirect")}
+        <DropdownMenuItem
+          key="edit"
+          disabled={!!lockedReason}
+          tooltip={lockedReason ?? undefined}
+          onClick={onEdit}
+        >
+          Edit URL redirect
         </DropdownMenuItem>,
         <DropdownMenuSeparator key="separator" />,
         <DropdownMenuItem
           key="remove"
           color="red"
           disabled={!!lockedReason}
+          tooltip={lockedReason ?? undefined}
           onClick={onRemove}
         >
-          {locked("Remove from experiment")}
+          Remove from experiment
         </DropdownMenuItem>,
       ]
     : [];

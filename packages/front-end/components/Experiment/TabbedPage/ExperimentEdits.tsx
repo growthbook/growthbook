@@ -28,30 +28,23 @@ import ConfirmDialog from "@/ui/ConfirmDialog";
 import { mergeChanges } from "./mergeChanges";
 
 type PendingEdit = {
-  /** Names the edit in the save bar's list of staged changes. */
   label: string;
-  /**
-   * What the edit changes, saved against staged. Edits in the changeset can
-   * leave it out: their experiment fields carry the values they replace.
-   */
+  // Without it, the review comes from the edit's share of the changeset.
   review?: () => StagedReview;
-  /** Puts the field back to what is stored. */
   discard: () => void;
-  /** Runs once the edit has been written. */
+  // Defaults to discard: most edits just clear what they staged.
   onSaved?: () => void;
-  /** Takes the page as it is now as what the edit was made against. */
+  // Takes the page as it is now as what the edit was made against.
   rebase?: () => void;
-  /**
-   * This edit's share of the one changeset the page saves. A dry run builds
-   * the same share without staging anything on the page.
-   */
+  // This edit's share of the one changeset the page saves; a dry run stages
+  // nothing on the page.
   changes: (options: { dryRun: boolean }) => ExperimentChangesBody;
 };
 
 export type StagedReview = { before: unknown; after: unknown };
 
-// Before and after from an edit's share of the changeset: each experiment
-// field against its value in the share's base, and anything else as added.
+// Each experiment field against its value in the share's base; anything else
+// counts as added.
 function reviewFromChanges(body: ExperimentChangesBody): StagedReview {
   const { experiment, ...rest } = body;
   return {
@@ -71,49 +64,39 @@ function dryRunShare(edit: PendingEdit): ExperimentChangesBody | null {
 
 interface ExperimentEditsValue {
   scope: string;
-  /** As last fetched, which staged edits are checked against as it refreshes. */
+  // As last fetched: staged edits are checked against it as it refreshes.
   experiment: ExperimentInterfaceStringDates;
-  /** Anything on the page edited but not yet written. */
   dirty: boolean;
   saving: boolean;
   error: string | null;
-  /**
-   * Set once a save is refused for a rule that applies everywhere; acknowledging
-   * lets the next save, and its checks, write it anyway.
-   */
+  // Set once a save is refused for a rule that applies everywhere;
+  // acknowledging lets the next save, and its checks, write it anyway.
   unscopedRule: {
     message: string;
     acknowledged: boolean;
     acknowledge: (acknowledged: boolean) => void;
   } | null;
   saveAll: () => Promise<void>;
-  /**
-   * The form a staged field joins through its `form` attribute, so a value its
-   * own constraints refuse stops the save.
-   */
+  // Staged fields join this form through their `form` attribute, so a value
+  // their own constraints refuse stops the save.
   formId: string;
   discardAll: () => void;
-  /** The staged edits, in the order they were made. */
   staged: { id: string; label: string }[];
-  /** Staged edits whose fields someone else saved since they were made. */
+  // Staged edits whose fields someone else saved since they were made.
   conflicts: string[];
-  /** An edit reporting whether the page's refetch already shows such a save. */
   markDrifted: (id: string, drifted: boolean) => void;
-  /** Saves this edit over the other change next time. */
+  // Saves this edit over the other change next time.
   keepMine: (id: string) => void;
   discard: (id: string) => void;
   review: (id: string) => StagedReview | null;
   register: (id: string, edit: PendingEdit | null) => void;
   checkChanges: CheckChanges;
-  /** Runs the save's checks on everything staged, writing nothing. */
   checkAll: () => Promise<void>;
   allowUnload: () => void;
 }
 
-/**
- * Runs the save's checks, writing nothing, with `part` standing in for edit
- * `id`'s share. Rejects with the reason the save would be refused.
- */
+// Runs the save's checks with `part` standing in for edit `id`'s share,
+// writing nothing; rejects with the reason the save would be refused.
 type CheckChanges = (id: string, part: ExperimentChangesBody) => Promise<void>;
 
 const ExperimentEditsContext = createContext<ExperimentEditsValue | null>(null);
@@ -147,9 +130,8 @@ function touches(
 }
 
 /**
- * An experiment-field edit, with the value each field held in `base` (the
- * experiment as the edit began; see useEditBase) so a save over someone else's
- * change fails instead of overwriting it.
+ * Carries each field's value in `base` (see useEditBase), so a save over
+ * someone else's change fails instead of overwriting it.
  */
 export function experimentFieldChanges(
   base: ExperimentInterfaceStringDates,
@@ -232,8 +214,8 @@ function clearStagedEdits(scope: string) {
 }
 
 /**
- * State that waits for the page's Save. Every component staging the same slot
- * shares it; set back to `initial`, it's unstaged and follows `initial` again.
+ * State that waits for the page's Save, shared by every component staging the
+ * slot. Set back to `initial`, it's unstaged and follows `initial` again.
  */
 export function useStagedState<T>(
   slot: string,
@@ -276,10 +258,7 @@ export function useStagedState<T>(
   return [value, set];
 }
 
-/**
- * Collects the page's in-place edits so one Save writes them together, rather
- * than every field posting the moment it loses focus.
- */
+// Collects the page's in-place edits so one Save writes them together.
 export function ExperimentEditsProvider({
   experiment,
   scope,
@@ -329,9 +308,12 @@ export function ExperimentEditsProvider({
   );
 
   const register = useCallback((id: string, edit: PendingEdit | null) => {
-    if (edit) edits.current.set(id, edit);
-    else edits.current.delete(id);
-    if (!edit) setDrifted((prev) => prev.filter((d) => d !== id));
+    if (edit) {
+      edits.current.set(id, edit);
+    } else {
+      edits.current.delete(id);
+      setDrifted((prev) => prev.filter((d) => d !== id));
+    }
     setStaged((prev) => {
       const i = prev.findIndex((entry) => entry.id === id);
       if (!edit)
@@ -343,6 +325,19 @@ export function ExperimentEditsProvider({
       );
     });
   }, []);
+
+  const postChanges = useCallback(
+    (parts: ExperimentChangesBody[], dryRun: boolean) =>
+      apiCall(`/experiment/${experimentId}/changes`, {
+        method: "POST",
+        body: JSON.stringify({
+          ...mergeChanges(parts),
+          ...(allowUnscopedRules && { allowUnscopedRules: true }),
+          ...(dryRun && { dryRun: true }),
+        }),
+      }),
+    [apiCall, experimentId, allowUnscopedRules],
+  );
 
   const saveAll = useCallback(async () => {
     // The browser says which field and why, and takes the writer there.
@@ -361,15 +356,10 @@ export function ExperimentEditsProvider({
     try {
       if (pending.length) {
         try {
-          await apiCall(`/experiment/${experimentId}/changes`, {
-            method: "POST",
-            body: JSON.stringify({
-              ...mergeChanges(
-                pending.map(([, edit]) => edit.changes({ dryRun: false })),
-              ),
-              ...(allowUnscopedRules && { allowUnscopedRules: true }),
-            }),
-          });
+          await postChanges(
+            pending.map(([, edit]) => edit.changes({ dryRun: false })),
+            false,
+          );
         } catch (e) {
           const conflict = changesConflict(e);
           if (!conflict) throw e;
@@ -387,13 +377,14 @@ export function ExperimentEditsProvider({
       setUnscopedRefusal(null);
       setAllowUnscopedRules(false);
     } catch (e) {
-      const message = e.message || "Could not save your changes";
-      if (e instanceof ConflictFlagged) {
-        // Shown as the conflict, not as an error.
-      } else if (e instanceof ApiCallError && e.code === "unscoped_rule") {
-        setUnscopedRefusal(message);
-      } else {
-        setError(message);
+      // A conflict shows on the bar and its rows, not as an error.
+      if (!(e instanceof ConflictFlagged)) {
+        const message = e.message || "Could not save your changes";
+        if (e instanceof ApiCallError && e.code === "unscoped_rule") {
+          setUnscopedRefusal(message);
+        } else {
+          setError(message);
+        }
       }
     } finally {
       // Cleared once the refetch lands, so the page never shows the old values.
@@ -401,7 +392,7 @@ export function ExperimentEditsProvider({
       saved.forEach((edit) => edit.onSaved?.());
       setSaving(false);
     }
-  }, [apiCall, experimentId, mutate, allowUnscopedRules]);
+  }, [postChanges, mutate]);
 
   // Its fields' input doesn't bubble to it, since they aren't inside it.
   useEffect(() => {
@@ -458,16 +449,9 @@ export function ExperimentEditsProvider({
         const share = editId === except ? null : dryRunShare(edit);
         if (share) parts.push(share);
       }
-      await apiCall(`/experiment/${experimentId}/changes`, {
-        method: "POST",
-        body: JSON.stringify({
-          ...mergeChanges([...parts, ...extra]),
-          ...(allowUnscopedRules && { allowUnscopedRules: true }),
-          dryRun: true,
-        }),
-      });
+      await postChanges([...parts, ...extra], true);
     },
-    [apiCall, experimentId, allowUnscopedRules],
+    [postChanges],
   );
   // Another edit's conflict or empty field is the save's to report, not this one's.
   const checkChanges: CheckChanges = useCallback(
@@ -570,10 +554,7 @@ export function useExperimentEdits() {
   return useContext(ExperimentEditsContext);
 }
 
-/**
- * Hands the page a field's pending change. Pass `dirty` false once it matches
- * what is stored, and the field drops out of the pending set.
- */
+// A field's pending change; `dirty` false drops it from the pending set.
 export function useRegisterExperimentEdit(
   id: string,
   dirty: boolean,
@@ -587,20 +568,13 @@ export function useRegisterExperimentEdit(
   const latest = useRef(edit);
   latest.current = edit;
 
-  // Someone's save the page has refetched since, over what this edit changes:
-  // flagged now rather than when Save is refused.
-  let drifted = false;
-  if (ctx && dirty) {
-    try {
-      drifted =
-        conflictingFields(
-          ctx.experiment,
-          edit.changes({ dryRun: true }).experiment,
-        ).length > 0;
-    } catch {
-      // An edit that can't build its share yet is the save's to report.
-    }
-  }
+  // A refetched save by someone else over this edit's fields is flagged now,
+  // not when Save is refused.
+  const share = ctx && dirty ? dryRunShare(edit) : null;
+  const drifted =
+    !!ctx &&
+    !!share &&
+    conflictingFields(ctx.experiment, share.experiment).length > 0;
   useEffect(() => {
     markDrifted?.(id, drifted);
   }, [markDrifted, id, drifted]);
@@ -609,7 +583,7 @@ export function useRegisterExperimentEdit(
   useEffect(() => {
     if (!register) return;
     const discard = () => latest.current.discard();
-    const onSaved = () => latest.current.onSaved?.();
+    const onSaved = () => (latest.current.onSaved ?? latest.current.discard)();
     const rebase = () => latest.current.rebase?.();
     const review = latest.current.review
       ? () => latest.current.review?.() ?? { before: null, after: null }
@@ -636,9 +610,8 @@ export function useRegisterExperimentEdit(
 }
 
 /**
- * What an edit was made against, taken when it's first staged and kept, reloads
- * included, until it's saved or discarded. A save compares against it rather
- * than whatever the page has refetched since. `rebase` takes the page as it is now.
+ * What an edit was made against: taken when it's first staged and kept,
+ * reloads included, so a save compares against it rather than a later refetch.
  */
 export function useEditBase<B>(
   slot: string,
@@ -656,10 +629,7 @@ export function useEditBase<B>(
   return [base, rebase];
 }
 
-/**
- * What saving these fields would change, against the experiment as it is now:
- * the edit's own base until someone else saves, then theirs.
- */
+/** What saving these fields would change against the experiment as it is now. */
 export function reviewAgainstCurrent(
   experiment: ExperimentInterfaceStringDates,
   fields: ExperimentChangesFields,
@@ -667,10 +637,7 @@ export function reviewAgainstCurrent(
   return reviewFromChanges(experimentFieldChanges(experiment, fields));
 }
 
-/**
- * An edit to experiment fields, saved against the experiment as it stood when
- * the edit began, so a refetch can't pass someone else's change off as loaded.
- */
+/** An edit to experiment fields, saved against the experiment as it began. */
 export function useExperimentFieldEdit(
   id: string,
   dirty: boolean,
@@ -691,19 +658,18 @@ export function useExperimentFieldEdit(
   });
 }
 
-/** Why a control waits on the page's staged edits, or null when none are. */
 export function useEditsBlockedReason(): string | null {
   const ctx = useContext(ExperimentEditsContext);
   return ctx?.dirty ? "Save or discard your changes first." : null;
 }
 
-/** A holdout staged for the page's Save: an id to join, "" to leave, null for none staged. */
+/** An id to join, "" to leave, or null for none staged. */
 export interface HoldoutDraft {
   value: string | null;
   set: (value: string | null) => void;
 }
 
-/** Environment scopes staged per Feature Flag, saved with that flag's values. */
+// Environment scopes staged per Feature Flag, saved with that flag's values.
 export interface FlagEnvironmentsDraft {
   value: Record<string, ExperimentRuleEnvironments>;
   set: (featureId: string, scope: ExperimentRuleEnvironments | null) => void;

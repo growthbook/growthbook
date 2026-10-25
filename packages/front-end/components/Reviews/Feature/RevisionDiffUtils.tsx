@@ -546,6 +546,15 @@ export type DiffCommentsProps = {
   onSubmitNew?: (text: string) => Promise<void>;
 };
 
+// A spot's comment, made under its ref or the legacy one it replaced.
+function anchorAt(
+  { anchors }: DiffCommentsProps,
+  refId: string,
+  legacyId: string | undefined,
+): AnchoredComment | undefined {
+  return anchors.get(refId) ?? (legacyId ? anchors.get(legacyId) : undefined);
+}
+
 // One interactive spot in the comment overlay. A spot with an existing
 // comment renders a persistent marker that jumps to the comment in the
 // revision timeline; an empty spot renders a hover-revealed affordance that
@@ -768,8 +777,7 @@ export function ExpandableDiff({
             const refId = line ? diffRefId(refObj) : null;
             const legacyId = refId ? legacyIdByRefId.get(refId) : undefined;
             const anchored = refId
-              ? (comments.anchors.get(refId) ??
-                (legacyId ? comments.anchors.get(legacyId) : undefined))
+              ? anchorAt(comments, refId, legacyId)
               : undefined;
             const interactive =
               !!refId && (!!anchored || !!comments.onSubmitNew);
@@ -857,10 +865,11 @@ export function ExpandableDiff({
               line: parseInt(m[2], 10),
             };
             const refId = diffRefId(refObj);
-            const legacyId = legacyIdByRefId.get(refId);
-            const anchored =
-              comments.anchors.get(refId) ??
-              (legacyId ? comments.anchors.get(legacyId) : undefined);
+            const anchored = anchorAt(
+              comments,
+              refId,
+              legacyIdByRefId.get(refId),
+            );
             if (anchored) {
               if (anchored.logId) scrollToRevisionLogEntry(anchored.logId);
               return;

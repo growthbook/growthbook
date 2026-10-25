@@ -4,14 +4,8 @@ import {
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 
-/**
- * The attributes an experiment may bucket on. Where the org has marked some
- * attributes as hash attributes, only those are offered.
- *
- * `current` is kept in the list even when it no longer qualifies — archived, or
- * out of the experiment's projects since it was chosen — so opening a picker
- * can't silently drop what the experiment already uses.
- */
+// Only the flagged hash attributes when the org flags any. `current` stays even
+// once archived or out of scope, so opening a picker can't silently drop it.
 export default function useHashAttributeOptions(
   attributeProjects: string | string[] | null | undefined,
   current: string | undefined,

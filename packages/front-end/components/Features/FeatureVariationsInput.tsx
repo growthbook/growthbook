@@ -64,9 +64,6 @@ export interface Props {
   showDescriptions?: boolean;
   simple?: boolean;
   onlySafeToEditVariationMetadata?: boolean;
-  // When set, the variation with this id has its Name field auto-focused on
-  // mount.
-  autoFocusVariationId?: string | null;
   // JSON features only. When true, each variation value is rendered as a sparse
   // patch (merged onto the feature default). Pass-through to the value editor;
   // callers own the sparse toggle since it's a rule-level flag.
@@ -99,7 +96,6 @@ export default function FeatureVariationsInput({
   showDescriptions,
   simple,
   onlySafeToEditVariationMetadata,
-  autoFocusVariationId,
   sparse,
 }: Props) {
   const weights = useMemo(
@@ -416,7 +412,6 @@ export default function FeatureVariationsInput({
                         feature={feature}
                         showDescription={showDescriptions}
                         showDragHandle={showDragHandle}
-                        autoFocusName={variation.id === autoFocusVariationId}
                         sparse={sparse}
                       />
                     ))}
@@ -474,7 +469,7 @@ function CoverageField({
   label: string;
   tooltip: string;
   disabled: boolean;
-  /** Sets it apart from the variations around it; alone, it needs none. */
+  // Sets it apart from the variations around it; alone, it needs none.
   panel: boolean;
   children?: ReactNode;
 }) {

@@ -32,6 +32,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
+  getExposureQueriesForAttribute,
   getExposureQueriesForProject,
   getDefaultIdentifierTypeForQuery,
   getHashAttributeIdentifierTypeMap,
@@ -136,22 +137,14 @@ export function getAutoExposureQueryId({
       : "";
   }
 
-  if (exposureQueries.length > 1) {
-    // A hash attribute can be linked to multiple identifier types, each with
-    // its own query. Only auto-select when exactly one query is linked across
-    // all matching identifier types.
-    const linkedUserIdTypes =
-      dsSettings?.userIdTypes
-        ?.filter((t) => t.attributes?.includes(hashAttribute))
-        .map((t) => t.userIdType) || [];
-    const matchingQueries = exposureQueries.filter((q) =>
-      getExposureQueryIdentifierTypes(q).some((identifierType) =>
-        linkedUserIdTypes.includes(identifierType),
-      ),
-    );
-    if (matchingQueries.length === 1) return matchingQueries[0].id;
-  }
-  return "";
+  // A hash attribute can be linked to several identifier types, each with its
+  // own query; only one linked query is unambiguous.
+  const { matching } = getExposureQueriesForAttribute(
+    dsSettings,
+    hashAttribute,
+    exposureQueries,
+  );
+  return matching.length === 1 ? matching[0].id : "";
 }
 
 // "id", or else the first attribute flagged for hashing. With none flagged the

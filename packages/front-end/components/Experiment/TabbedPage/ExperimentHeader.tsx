@@ -72,7 +72,7 @@ import HelperText from "@/ui/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import ScheduledEndPassedBanner from "@/components/Experiment/TabbedPage/ScheduledEndPassedBanner";
-import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
+import StartHoldoutModal from "@/components/Experiment/TabbedPage/StartHoldoutModal";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -110,7 +110,7 @@ export interface Props {
   mutateWatchers: () => void;
   usersWatching: (string | undefined)[];
   start: StartExperiment;
-  /** Where an experiment starts; holdouts start from a modal. */
+  // The start popover; holdouts start from a modal.
   startOpen: boolean;
   setStartOpen: (open: boolean) => void;
   editTargeting?: (() => void) | null;
@@ -150,10 +150,7 @@ const DisabledHealthTabTooltip = ({
   );
 };
 
-/**
- * A menu item that acts on the stored experiment or leaves the page, so staged
- * edits hold it until they're saved or discarded.
- */
+// Acts on the stored experiment or leaves the page, so it waits on staged edits.
 function StoredActionItem({
   onClick,
   color,
@@ -274,9 +271,8 @@ export default function ExperimentHeader({
       setValue={(v) => setDeleteAcknowledged(!!v)}
     />
   );
-  // Deleting the experiment strips its rule from every linked flag. Visual
-  // changes and redirects count by the experiment's own markers, as the
-  // linkage blocker does, so the acknowledgement shows whenever it needs one.
+  // Visual changes and redirects also count by the experiment's own markers, as
+  // the linkage blocker does, so the acknowledgement shows whenever it's needed.
   const linkedFlagIds = linkedFeatures
     .filter((f) => f.state === "live" || f.state === "draft")
     .map((f) => f.feature.id);
@@ -839,7 +835,7 @@ export default function ExperimentHeader({
         </ModalStandard>
       ) : null}
       {showStartExperiment && isHoldout && experiment.status === "draft" && (
-        <StartExperimentModal
+        <StartHoldoutModal
           experiment={experiment}
           close={() => setShowStartExperiment(false)}
           startExperiment={start.startExperiment}

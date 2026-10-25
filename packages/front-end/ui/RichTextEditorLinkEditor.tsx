@@ -26,19 +26,15 @@ export interface LinkTarget {
   url: string;
   /** The link being edited, if there already is one. */
   node: LinkNode | null;
-  /**
-   * What was selected when the card opened. Focus moves to the fields, so the
-   * live selection is no longer the one the link should replace.
-   */
+  // The selection when the card opened; focus then moves to its fields, so the
+  // live selection is no longer the one the link replaces.
   selection: RangeSelection | null;
   /** Hovering shows the address; editing shows the fields. */
   mode: "preview" | "edit";
 }
 
-/**
- * Reads whatever link a selection or an element sits in, so the toolbar
- * button, a hover and a click all open the same card with the same content.
- */
+// The link a selection or element sits in, so the toolbar button and a hover
+// open the same card.
 export function useLinkTarget() {
   const [editor] = useLexicalComposerContext();
 
@@ -90,10 +86,8 @@ export function useLinkTarget() {
   return { fromSelection, fromElement };
 }
 
-/**
- * A card floating under a link: its address on hover, its address and title
- * when editing. Edits land as you leave, so there is nothing to confirm.
- */
+// A card under a link: its address on hover, address and title fields when
+// editing. Edits apply on leaving the card.
 export default function RichTextEditorLinkEditor({
   target,
   onEdit,

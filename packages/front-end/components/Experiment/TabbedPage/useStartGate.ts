@@ -28,7 +28,7 @@ export default function useStartGate({
     StartExperiment,
     "startExperiment" | "approveScheduledExperimentStart" | "checklistFailures"
   >;
-  /** Whether the viewer ticked the bypass beside the button. */
+  // Whether the viewer ticked the bypass beside the button.
   bypassed: boolean;
 }) {
   const permissionsUtil = usePermissionsUtil();

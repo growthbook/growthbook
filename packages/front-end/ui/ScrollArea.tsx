@@ -2,9 +2,8 @@ import { CSSProperties, forwardRef, ReactNode } from "react";
 import { ScrollArea as RadixScrollArea } from "@radix-ui/themes";
 
 /**
- * A vertical scroll box whose scrollbar draws over the content, and only while
- * it's hovered or scrolled, whatever the OS setting. The ref is the element
- * that scrolls.
+ * A vertical scroll box whose scrollbar overlays the content, shown only while
+ * hovered or scrolled. The ref is the element that scrolls.
  */
 const ScrollArea = forwardRef<
   HTMLDivElement,
@@ -12,10 +11,7 @@ const ScrollArea = forwardRef<
     children: ReactNode;
     /** Keeps the content clear of the scrollbar drawn over it. */
     gutter?: boolean;
-    /**
-     * Lays the content out as a column as tall as the box, so a child can fill
-     * it (`flex: 1`) or scroll inside it.
-     */
+    /** A full-height column, so a child can fill it (`flex: 1`) or scroll. */
     fill?: boolean;
     className?: string;
     style?: CSSProperties;

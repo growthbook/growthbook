@@ -31,16 +31,13 @@ export type CheckListItem = {
   // Unique per row.
   key: string;
   // Plain copy: the row makes it a link when there's an action.
-  display: string | ReactElement;
+  display: string;
   action?: ChecklistAction;
   status: "complete" | "incomplete";
   type: "auto" | "manual";
   required: boolean;
-  /**
-   * Blocks the start outright (merge conflicts, missing approvals, unrelated
-   * draft edits), since auto-publish would fail. Only an admin's start bypass
-   * waives any: the approval rows (isBypassableStartItem).
-   */
+  // Blocks the start outright, since auto-publish would fail. Only an admin's
+  // start bypass waives any: the approval rows (isBypassableStartItem).
   hardBlock?: boolean;
   warning?: string;
   description?: string | ReactElement;
@@ -62,6 +59,18 @@ export function linkedFeatureAction(
   };
 }
 
+export function blockingRow(
+  row: Pick<CheckListItem, "key" | "display" | "action" | "description">,
+): CheckListItem {
+  return {
+    ...row,
+    status: "incomplete",
+    type: "auto",
+    required: true,
+    hardBlock: true,
+  };
+}
+
 // Rows a linked flag raises wherever it goes live: an experiment's start or a
 // Contextual Bandit's.
 export function mergeConflictRows(
@@ -69,14 +78,35 @@ export function mergeConflictRows(
 ): CheckListItem[] {
   return linkedFeatures
     .filter((f) => f.state === "draft" && f.hasMergeConflict)
-    .map(
-      (f): CheckListItem => ({
+    .map((f) =>
+      blockingRow({
         key: `mergeConflict:${f.feature.id}`,
-        status: "incomplete",
-        type: "auto",
-        required: true,
-        hardBlock: true,
         display: `Resolve the merge conflict in ${f.feature.id}`,
+        action: linkedFeatureAction(f),
+      }),
+    );
+}
+
+// The draft being published is exempt: its own publish takes the extra edits.
+export function unrelatedDraftChangeRows(
+  linkedFeatures: LinkedFeatureInfo[],
+  entity: "experiment" | "Contextual Bandit",
+  publishingFeatureId?: string,
+): CheckListItem[] {
+  return linkedFeatures
+    .filter(
+      (f) =>
+        f.state === "draft" &&
+        f.hasUnrelatedDraftChanges &&
+        !f.hasMergeConflict &&
+        f.feature.id !== publishingFeatureId,
+    )
+    .map((f) =>
+      blockingRow({
+        key: `unrelatedDraftChanges:${f.feature.id}`,
+        display: `The ${f.feature.id} draft has changes unrelated to this ${entity}`,
+        description:
+          "Remove them from the draft to auto-publish the Feature Flag, or publish the draft manually.",
         action: linkedFeatureAction(f),
       }),
     );
@@ -281,20 +311,18 @@ export function getChecklistItems({
     linkedFeatures
       .filter((f) => f.state === "draft" && f.cannotPublish)
       .forEach((f) => {
-        items.push({
-          key: `publishPermission:${f.feature.id}`,
-          status: "incomplete",
-          type: "auto",
-          required: true,
-          hardBlock: true,
-          display: startApproved
-            ? `Whoever scheduled this start can no longer publish ${f.feature.id}`
-            : `You need permission to publish ${f.feature.id} before this experiment can start`,
-          description: startApproved
-            ? "Reschedule or unschedule the start, then approve it again from an account that can."
-            : undefined,
-          action: linkedFeatureAction(f),
-        });
+        items.push(
+          blockingRow({
+            key: `publishPermission:${f.feature.id}`,
+            display: startApproved
+              ? `Whoever scheduled this start can no longer publish ${f.feature.id}`
+              : `You need permission to publish ${f.feature.id} before this experiment can start`,
+            description: startApproved
+              ? "Reschedule or unschedule the start, then approve it again from an account that can."
+              : undefined,
+            action: linkedFeatureAction(f),
+          }),
+        );
       });
 
     // Publishing this feature's own draft (from its Review & Publish page) is
@@ -327,29 +355,12 @@ export function getChecklistItems({
         });
       });
 
-    linkedFeatures
-      .filter(
-        (f) =>
-          f.state === "draft" &&
-          f.hasUnrelatedDraftChanges &&
-          !f.hasMergeConflict &&
-          f.feature.id !== publishingFeatureId,
-      )
-      .forEach((f) => {
-        items.push({
-          key: `unrelatedDraftChanges:${f.feature.id}`,
-          status: "incomplete",
-          type: "auto",
-          required: true,
-          hardBlock: true,
-          display: `The ${f.feature.id} draft has changes unrelated to this experiment`,
-          description:
-            "Remove them from the draft to auto-publish the Feature Flag, or publish the draft manually.",
-          action: linkedFeatureAction(f),
-        });
-      });
-
     items.push(
+      ...unrelatedDraftChangeRows(
+        linkedFeatures,
+        "experiment",
+        publishingFeatureId,
+      ),
       ...missingVariationValueRows(
         linkedFeatures,
         getLatestPhaseVariations(experiment),

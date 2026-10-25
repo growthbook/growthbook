@@ -34,6 +34,32 @@ const TILE_ASPECT = "1 / 1";
 // Shared so a reorder doesn't re-request every signed URL.
 const imageCache = {};
 
+// An element, not a component, so a tooltip can use it as its trigger.
+function uploadTile(blocked: boolean) {
+  return (
+    <Flex
+      align="center"
+      justify="center"
+      width="100%"
+      className={clsx(
+        "appbox mb-0",
+        styles.uploadTile,
+        placeholderStyles.noImageBox,
+        !blocked && placeholderStyles.noImageBoxEditable,
+      )}
+      style={{
+        aspectRatio: TILE_ASPECT,
+        border: "none",
+        cursor: blocked ? "not-allowed" : undefined,
+      }}
+      aria-disabled={blocked || undefined}
+    >
+      <PiCameraPlusLight size={32} />
+      {blocked ? null : <span className={styles.uploadHint}>Upload image</span>}
+    </Flex>
+  );
+}
+
 function ScreenshotTile({
   screenshot,
   onDelete,
@@ -50,7 +76,6 @@ function ScreenshotTile({
   return (
     <Box
       ref={setNodeRef}
-      position="relative"
       className={styles.tile}
       style={{
         ...style,
@@ -166,24 +191,7 @@ export default function VariationScreenshotManager({
           <Grid columns="4" gap="4">
             {uploadBlocked ? (
               <Tooltip content={uploadBlocked} side="top">
-                <Flex
-                  align="center"
-                  justify="center"
-                  width="100%"
-                  className={clsx(
-                    "appbox mb-0",
-                    styles.uploadTile,
-                    placeholderStyles.noImageBox,
-                  )}
-                  style={{
-                    aspectRatio: TILE_ASPECT,
-                    border: "none",
-                    cursor: "not-allowed",
-                  }}
-                  aria-disabled
-                >
-                  <PiCameraPlusLight size={32} />
-                </Flex>
+                {uploadTile(true)}
               </Tooltip>
             ) : (
               <ScreenshotUpload
@@ -197,21 +205,7 @@ export default function VariationScreenshotManager({
                   mutate();
                 }}
               >
-                <Flex
-                  align="center"
-                  justify="center"
-                  width="100%"
-                  className={clsx(
-                    "appbox mb-0",
-                    styles.uploadTile,
-                    placeholderStyles.noImageBox,
-                    placeholderStyles.noImageBoxEditable,
-                  )}
-                  style={{ aspectRatio: TILE_ASPECT, border: "none" }}
-                >
-                  <PiCameraPlusLight size={32} />
-                  <span className={styles.uploadHint}>Upload image</span>
-                </Flex>
+                {uploadTile(false)}
               </ScreenshotUpload>
             )}
             {screenshots.map((s, i) => (

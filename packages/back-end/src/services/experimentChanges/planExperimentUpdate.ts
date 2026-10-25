@@ -305,7 +305,6 @@ export async function planExperimentUpdate(
       throw new BadRequestError("Invalid datasource: " + data.datasource);
     }
   }
-  // Validate that specified metrics exist and belong to the organization
   const allMetricGroups = await context.models.metricGroups.getAll();
   const oldMetricIds = getAllMetricIdsFromExperiment(
     experiment,
@@ -326,7 +325,6 @@ export async function planExperimentUpdate(
     for (let i = 0; i < newMetricIds.length; i++) {
       const metric = metricMap.get(newMetricIds[i]);
       if (metric) {
-        // Make sure it is tied to the same datasource as the experiment
         if (datasourceId && metric.datasource !== datasourceId) {
           throw new BadRequestError(
             "Metrics must be tied to the same datasource as the experiment: " +
@@ -334,12 +332,10 @@ export async function planExperimentUpdate(
           );
         }
       } else {
-        // check to see if this metric is actually a metric group
         const metricGroup = await context.models.metricGroups.getById(
           newMetricIds[i],
         );
         if (metricGroup) {
-          // Make sure it is tied to the same datasource as the experiment
           if (metricGroup.datasource !== datasourceId) {
             throw new BadRequestError(
               "Metric group must be tied to the same datasource as the experiment: " +
@@ -347,7 +343,6 @@ export async function planExperimentUpdate(
             );
           }
         } else {
-          // new metric that's not recognized...
           invalidMetricIds.push(newMetricIds[i]);
           // TODO: Commented out as a hotfix. Remove when issue #5316 is fixed.
           // throw new BadRequestError("Unknown metric: " + newMetricIds[i]);
@@ -428,7 +423,6 @@ export async function planExperimentUpdate(
     );
   }
 
-  // Check if tracking key is being changed and validate uniqueness if required
   if (
     data.trackingKey &&
     data.trackingKey !== experiment.trackingKey &&
@@ -460,10 +454,14 @@ export async function planExperimentUpdate(
     );
   }
 
-  if (data.holdoutId && data.holdoutId !== experiment.holdoutId) {
+  const addedHoldoutId =
+    data.holdoutId && data.holdoutId !== experiment.holdoutId
+      ? data.holdoutId
+      : null;
+  if (addedHoldoutId) {
     await getHoldoutAvailableForProject({
       context,
-      holdoutId: data.holdoutId,
+      holdoutId: addedHoldoutId,
       project: data.project ?? experiment.project,
     });
   } else if (data.project !== undefined && experiment.holdoutId) {
@@ -473,16 +471,11 @@ export async function planExperimentUpdate(
       project: data.project,
     });
   }
-
-  const holdout: ExperimentUpdatePlan["holdout"] = { remove: null, add: null };
-  // Changing or clearing the holdout drops the current one.
-  if (holdoutChanges && experiment.holdoutId) {
-    holdout.remove = experiment.holdoutId;
-  }
-
-  if (data.holdoutId && data.holdoutId !== experiment.holdoutId) {
-    holdout.add = data.holdoutId;
-  }
+  const holdout: ExperimentUpdatePlan["holdout"] = {
+    remove:
+      holdoutChanges && experiment.holdoutId ? experiment.holdoutId : null,
+    add: addedHoldoutId,
+  };
 
   if (data.defaultDashboardId) {
     const dashboard = await context.models.dashboards.getById(
@@ -538,7 +531,6 @@ export async function planExperimentUpdate(
     });
   }
 
-  // Coerce lookbackOverride date value when type is "date"
   if (changes.lookbackOverride?.type === "date") {
     changes.lookbackOverride = {
       type: "date",
@@ -838,7 +830,6 @@ export async function finishExperimentUpdate({
   }
   if (changes.name || changes.description || changes.hypothesis) {
     const aiSettings = await getAISettingsForOrg(context);
-    // If name, description or hypothesis changed, update the vectors:
     if (aiSettings.aiEnabled) {
       await generateExperimentEmbeddings(context, [updated]);
     }
@@ -853,7 +844,6 @@ export async function finishExperimentUpdate({
     details: auditDetailsUpdate(experiment, updated),
   });
 
-  // If there are new tags to add
   await addTagsDiff(context.org.id, experiment.tags || [], plan.tags);
 
   await context.models.watch.upsertWatch({

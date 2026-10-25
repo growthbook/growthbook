@@ -3,19 +3,12 @@ import { Box } from "@radix-ui/themes";
 import useIsOverflowing from "@/hooks/useIsOverflowing";
 import Link from "@/ui/Link";
 
-/**
- * Content held to `maxHeight`: when it runs longer, the bottom fades out and a
- * link opens the rest. Content that fits shows as it is.
- */
-export default function ExpandableBlock({
-  maxHeight = 150,
-  children,
-}: {
-  maxHeight?: number;
-  children: ReactNode;
-}) {
+const MAX_HEIGHT = 150;
+
+// Content past MAX_HEIGHT fades out at the bottom, with a link to the rest.
+export default function ExpandableBlock({ children }: { children: ReactNode }) {
   const content = useRef<HTMLDivElement>(null);
-  const overflows = useIsOverflowing(content, maxHeight);
+  const overflows = useIsOverflowing(content, MAX_HEIGHT);
   const [expanded, setExpanded] = useState(false);
   const clamped = overflows && !expanded;
 
@@ -26,7 +19,7 @@ export default function ExpandableBlock({
         style={{
           maxHeight: expanded
             ? undefined
-            : `calc(${maxHeight}px + 2 * var(--space-1))`,
+            : `calc(${MAX_HEIGHT}px + 2 * var(--space-1))`,
           overflow: "hidden",
           // Room for a row's hover tint, which reaches past the row
           // (hover-highlight's default bleed), without moving the contents.

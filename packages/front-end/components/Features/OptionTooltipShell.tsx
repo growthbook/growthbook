@@ -28,9 +28,9 @@ export function OptionTooltipShell({
 }: {
   href: string;
   title: string;
-  /** "dark" for a card with links of its own, so the title isn't one more. */
+  // "dark" for a card with links of its own, so the title isn't one more.
   titleColor?: "dark";
-  /** A line held close under the title, such as what kind of thing it is. */
+  // A line held close under the title, such as what kind of thing it is.
   subtitle?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -153,8 +153,6 @@ export function OptionTooltipDescription({
   );
 }
 
-export type OptionPopoverSide = "top" | "right" | "bottom" | "left";
-
 export function OptionPopover({
   context = "menu",
   side,
@@ -162,8 +160,8 @@ export function OptionPopover({
   children,
 }: {
   context?: OptionContext;
-  /** Overrides the side the context would use, for a control too narrow for it. */
-  side?: OptionPopoverSide;
+  // Overrides the side the context would use, for a control too narrow for it.
+  side?: "top" | "right" | "bottom" | "left";
   content: React.ReactNode;
   children: React.ReactNode;
 }) {

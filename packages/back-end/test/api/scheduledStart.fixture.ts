@@ -6,9 +6,6 @@ import type { ApiKeyInterface } from "shared/types/apikey";
 import { ReqContextClass } from "back-end/src/services/context";
 import { updateSingleExperimentStatus } from "back-end/src/jobs/updateExperimentStatus";
 
-// The org, draft experiment and flag documents that the scheduled-start specs
-// share, and the dashboard request and response their controllers take.
-
 export const ORG_ID = "org_sched";
 export const EXP_ID = "exp_sched";
 export const HOUR = 60 * 60 * 1000;
@@ -242,6 +239,16 @@ export function dashboardReq<T>(
     audit: jest.fn(),
   } as unknown as T;
 }
+
+// The refusal a start gets while the checklist item `key` is open.
+export const checklistRefusal = (key: string) => ({
+  code: "checklist_incomplete",
+  details: {
+    remainingChecklistItems: expect.arrayContaining([
+      expect.objectContaining({ key }),
+    ]),
+  },
+});
 
 // The context the controller recorded on its first audit.
 export const auditContext = (req: { audit: unknown }) =>

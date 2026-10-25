@@ -18,6 +18,7 @@ import {
   hasPendingScheduledStart,
   linkedFeatureEnvStates,
   parsePlainJSONObject,
+  pendingDraftApproved,
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
@@ -69,7 +70,6 @@ import {
   VARIATION_WEIGHT_DECIMALS,
 } from "@/services/utils";
 import { PercentField } from "@/components/Forms/PercentSliderField";
-import { draftApprovalSatisfied } from "@/components/Reviews/reviewAndPublishState";
 import {
   ColumnCell,
   ColumnFooter,
@@ -705,7 +705,6 @@ function FlagColumn({
         },
       ],
     }),
-    onSaved: clearStaged,
     discard: clearStaged,
   });
 
@@ -742,7 +741,6 @@ function FlagColumn({
                   },
                 ],
               },
-      onSaved: clearLinkAction,
       discard: clearLinkAction,
     },
   );
@@ -776,13 +774,13 @@ function FlagColumn({
       ? "Needs rebase"
       : draftLaunches && shownDraft?.hasUnrelatedDraftChanges
         ? "Changes beyond this experiment"
-        : info.state === "discarded"
+        : orphaned
           ? "Rule missing"
           : info.state === "archived"
             ? "Archived"
             : null;
   const needsApproval =
-    !!shownDraft?.pendingApproval && !draftApprovalSatisfied(shownDraft);
+    !!shownDraft?.pendingApproval && !pendingDraftApproved(shownDraft);
   const approvalBypassed =
     !!shownDraft && startBypassCovers(experiment, feature.id, shownDraft);
   const cannotPublishLaunch =
@@ -790,12 +788,8 @@ function FlagColumn({
   const draftHref = shownDraft
     ? draftReviewHref(feature.id, shownDraft.version)
     : `/features/${feature.id}`;
-  const draftLink = (
-    label: string,
-    href = draftHref,
-    underline: "always" | "hover" = "always",
-  ) => (
-    <Link href={href} external underline={underline}>
+  const draftLink = (label: string, href = draftHref) => (
+    <Link href={href} external underline="always">
       {label}
       <PiArrowSquareOut style={{ marginLeft: "var(--space-1)" }} />
     </Link>
@@ -822,7 +816,6 @@ function FlagColumn({
           : { status: "info", text: "This Feature Flag is archived." },
     );
   }
-  const orphanText = "Flag has no experiment rule.";
   if (shownDraft?.hasMergeConflict) {
     notices.push({
       status: "error",
@@ -894,13 +887,13 @@ function FlagColumn({
     });
   }
 
-  const storedInputs = fromDraft
-    ? pendingDraft.environmentInputs
-    : (info.liveEnvironmentInputs ?? info.environmentInputs);
+  const liveInputs = info.liveEnvironmentInputs ?? info.environmentInputs;
+  const liveStates = {
+    environmentStates: info.liveEnvironmentStates ?? info.environmentStates,
+  };
+  const storedInputs = fromDraft ? pendingDraft.environmentInputs : liveInputs;
   const shownScope = showingLive ? null : stagedScope;
-  const shownInputs = showsDraft
-    ? pendingDraft.environmentInputs
-    : (info.liveEnvironmentInputs ?? info.environmentInputs);
+  const shownInputs = showsDraft ? pendingDraft.environmentInputs : liveInputs;
   const environmentInputs =
     shownInputs && stageEnvironmentInputs(shownInputs, shownScope);
   const environmentStates = getEnvironmentStates(
@@ -908,31 +901,21 @@ function FlagColumn({
       ? { environmentStates: linkedFeatureEnvStates(environmentInputs) }
       : showsDraft
         ? pendingDraft
-        : {
-            environmentStates:
-              info.liveEnvironmentStates ?? info.environmentStates,
-          },
+        : liveStates,
   );
-  const liveInput = (env: string) =>
-    info.liveEnvironmentInputs?.[env] ?? {
-      flagEnabled: !!feature.environmentSettings?.[env]?.enabled,
-      rule: "missing" as const,
-    };
-  const changedInputs = (env: string) => {
-    const input = environmentInputs?.[env];
-    if ((!showsDraft && !shownScope) || !input) {
-      return { flag: false, rule: false };
-    }
-    const live = liveInput(env);
-    return {
-      flag: input.flagEnabled !== live.flagEnabled,
-      rule: input.rule !== live.rule,
-    };
-  };
-  const environmentsChanged = environmentStates.some(({ env }) => {
-    const changed = changedInputs(env);
-    return changed.flag || changed.rule;
-  });
+  const environmentsChanged =
+    (showsDraft || !!shownScope) &&
+    environmentStates.some(({ env }) => {
+      const input = environmentInputs?.[env];
+      if (!input) return false;
+      const live = info.liveEnvironmentInputs?.[env];
+      const liveEnabled =
+        live?.flagEnabled ?? !!feature.environmentSettings?.[env]?.enabled;
+      return (
+        input.flagEnabled !== liveEnabled ||
+        input.rule !== (live?.rule ?? "missing")
+      );
+    });
   const environmentsTiming = !environmentsChanged
     ? null
     : `${showsDraft ? `From ${draftMention}. ` : ""}${
@@ -1101,7 +1084,7 @@ function FlagColumn({
     <Flex align="center" gap="3">
       <Box flexGrow="1" minWidth="0">
         <HelperText status="warning" size="sm">
-          {orphanText}
+          Flag has no experiment rule.
         </HelperText>
       </Box>
       {canEditFlagLinks && !showingLive ? (
@@ -1160,12 +1143,7 @@ function FlagColumn({
           info={info}
           stagedScope={stagedScope}
           environmentStates={getEnvironmentStates(
-            fromDraft
-              ? pendingDraft
-              : {
-                  environmentStates:
-                    info.liveEnvironmentStates ?? info.environmentStates,
-                },
+            fromDraft ? pendingDraft : liveStates,
           )}
           storedAllEnvironments={
             fromDraft

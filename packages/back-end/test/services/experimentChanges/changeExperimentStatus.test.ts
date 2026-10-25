@@ -22,22 +22,16 @@ import {
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentById: jest.fn(),
-  updateExperiment: jest.fn(async ({ experiment, changes }) => ({
-    ...experiment,
-    ...changes,
-  })),
+  updateExperiment: jest.fn(),
 }));
 jest.mock("back-end/src/services/experiment-feature", () => ({
-  publishPendingFeatureDraftsForExperiment: jest.fn(async () => ({
-    published: [],
-    failed: [],
-  })),
+  publishPendingFeatureDraftsForExperiment: jest.fn(),
   formatPendingDraftFailureMessage: jest.fn(),
 }));
 jest.mock("back-end/src/services/experiments", () => ({
   assertCanPublishPendingFeatureDrafts: jest.fn(),
   assertCanRunExperimentInAffectedEnvironments: jest.fn(),
-  getChangesToStartExperiment: jest.fn(async () => ({ status: "running" })),
+  getChangesToStartExperiment: jest.fn(),
   getLinkedFeatureInfo: jest.fn(),
 }));
 jest.mock("back-end/src/services/growthbook", () => ({

@@ -28,11 +28,14 @@ import {
   type LinkedChange,
 } from "@/components/Experiment/LinkedChanges/constants";
 import StartModalSection from "@/components/Experiment/StartModalSection";
+import { TargetingSummaryRow } from "@/components/Experiment/TabbedPage/StartSections";
 import { ChecklistItems } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import {
+  blockingRow,
   linkedFeatureAction,
   mergeConflictRows,
   missingVariationValueRows,
+  unrelatedDraftChangeRows,
   type CheckListItem,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
 import { summarizeChecklist } from "@/components/PreLaunchChecklist/checklistSummary";
@@ -48,72 +51,43 @@ function getChecklistItems(
   cb: ApiContextualBanditInterface,
   linkedFeatures: LinkedFeatureInfo[],
 ): CheckListItem[] {
-  const items: CheckListItem[] = [];
-  const blocker = (
-    item: Pick<CheckListItem, "key" | "display" | "action" | "description">,
-  ): CheckListItem => ({
-    ...item,
-    status: "incomplete",
-    type: "auto",
-    required: true,
-    hardBlock: true,
-  });
-
-  if (linkedFeatures.length === 0) {
-    items.push(
-      blocker({
-        key: "no-linked-feature",
-        display: "Link at least one Feature Flag",
-      }),
-    );
-  }
-
-  items.push(...mergeConflictRows(linkedFeatures));
-
-  linkedFeatures
+  const noLinkedFeature =
+    linkedFeatures.length === 0
+      ? [
+          blockingRow({
+            key: "no-linked-feature",
+            display: "Link at least one Feature Flag",
+          }),
+        ]
+      : [];
+  const awaitingApproval = linkedFeatures
     .filter(
       (f) =>
         f.pendingApproval &&
         !f.hasUnrelatedDraftChanges &&
         !linkedDraftApproved(f),
     )
-    .forEach((f) => {
-      items.push(
-        blocker({
-          key: `approve-${f.feature.id}`,
-          display: `Approve the Feature Flag draft for ${f.feature.id}`,
-          action: linkedFeatureAction(f),
-          description: f.draftRevisionStatus ? (
-            <Badge
-              label={revisionStatusLabel(f.draftRevisionStatus)}
-              color={revisionStatusColor(f.draftRevisionStatus)}
-              radius="full"
-            />
-          ) : undefined,
-        }),
-      );
-    });
-
-  linkedFeatures
-    .filter(
-      (f) =>
-        f.state === "draft" &&
-        f.hasUnrelatedDraftChanges &&
-        !f.hasMergeConflict,
-    )
-    .forEach((f) => {
-      items.push(
-        blocker({
-          key: `unrelated-${f.feature.id}`,
-          display: `The ${f.feature.id} draft has changes unrelated to this Contextual Bandit`,
-          action: linkedFeatureAction(f),
-        }),
-      );
-    });
-
-  items.push(...missingVariationValueRows(linkedFeatures, cb.variations));
-
-  return items;
+    .map((f) =>
+      blockingRow({
+        key: `approve-${f.feature.id}`,
+        display: `Approve the Feature Flag draft for ${f.feature.id}`,
+        action: linkedFeatureAction(f),
+        description: f.draftRevisionStatus ? (
+          <Badge
+            label={revisionStatusLabel(f.draftRevisionStatus)}
+            color={revisionStatusColor(f.draftRevisionStatus)}
+            radius="full"
+          />
+        ) : undefined,
+      }),
+    );
+  return [
+    ...noLinkedFeature,
+    ...mergeConflictRows(linkedFeatures),
+    ...awaitingApproval,
+    ...unrelatedDraftChangeRows(linkedFeatures, "Contextual Bandit"),
+    ...missingVariationValueRows(linkedFeatures, cb.variations),
+  ];
 }
 
 function SubmitButton({ cta, disabled }: { cta: string; disabled: boolean }) {
@@ -122,29 +96,6 @@ function SubmitButton({ cta, disabled }: { cta: string; disabled: boolean }) {
     <Button type="submit" disabled={disabled} loading={loading}>
       {cta}
     </Button>
-  );
-}
-
-function SummaryRow({
-  label,
-  children,
-  inline = false,
-}: {
-  label: string;
-  children: ReactNode;
-  inline?: boolean;
-}) {
-  return (
-    <Flex
-      direction={inline ? "row" : "column"}
-      gap={inline ? "2" : "1"}
-      align={inline ? "baseline" : "stretch"}
-    >
-      <Text size="md" weight="semibold" color="text-high">
-        {label}:
-      </Text>
-      <Box>{children}</Box>
-    </Flex>
   );
 }
 
@@ -242,25 +193,25 @@ export default function StartContextualBanditModal({
             icon={<PiInfoFill color="var(--indigo-11)" size={15} />}
           >
             <Flex direction="column" gap="4">
-              <SummaryRow label="Traffic" inline>
+              <TargetingSummaryRow label="Traffic" inline>
                 <Text>{coveragePct}% included</Text>
-              </SummaryRow>
+              </TargetingSummaryRow>
               {hasAttributeTargeting && (
-                <SummaryRow label="Attribute Targeting">
+                <TargetingSummaryRow label="Attribute Targeting">
                   <ConditionDisplay condition={cb.condition ?? "{}"} />
-                </SummaryRow>
+                </TargetingSummaryRow>
               )}
               {hasSavedGroupTargeting && (
-                <SummaryRow label="Saved Group Targeting">
+                <TargetingSummaryRow label="Saved Group Targeting">
                   <SavedGroupTargetingDisplay
                     savedGroups={cb.savedGroups ?? []}
                   />
-                </SummaryRow>
+                </TargetingSummaryRow>
               )}
               {hasPrerequisites && (
-                <SummaryRow label="Prerequisites">
+                <TargetingSummaryRow label="Prerequisites">
                   <ConditionDisplay prerequisites={cb.prerequisites} />
-                </SummaryRow>
+                </TargetingSummaryRow>
               )}
             </Flex>
           </StartModalSection>

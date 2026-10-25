@@ -17,10 +17,8 @@ const DIFF_TINT = {
 } as const;
 type DiffTint = (typeof DIFF_TINT)[keyof typeof DIFF_TINT];
 
-/**
- * The room a tinted side takes. Labels and headers take it too (`flush` drops
- * the sides, for the label column) so every cell's text starts level.
- */
+// The room a tinted side takes. Labels and headers take it too (`flush` drops
+// the sides, for the label column) so every cell's text starts level.
 function DiffInset({
   tint,
   flush = false,
@@ -74,7 +72,14 @@ export type ChangesTableRow = {
   details?: { label: string; before: ReactNode; after: ReactNode }[];
 };
 
-export type ChangesTableGroup = {
+type Line = {
+  key: string;
+  label: ReactNode;
+  before?: ReactNode;
+  after?: ReactNode;
+};
+
+type ChangesTableGroup = {
   key: string;
   rows: ChangesTableRow[];
   /** Under the rows, in the label column: what opens or widens the group. */
@@ -111,17 +116,11 @@ export default function ChangesTable({
   );
   // A line of a group: its label and what's either side. The group's last line
   // carries its rule.
-  const row = (
-    key: string,
-    label: ReactNode,
-    cells: [ReactNode, ReactNode],
-    ruledAbove: boolean,
-    ruledBelow: boolean,
-  ) => {
+  const row = (line: Line, ruledAbove: boolean, ruledBelow: boolean) => {
     const gap = rowGap(ruledAbove, ruledBelow);
     return (
       <TableRow
-        key={key}
+        key={line.key}
         style={
           ruledBelow
             ? ({
@@ -132,10 +131,10 @@ export default function ChangesTable({
       >
         {/* Flush, so the labels line up with the page's other rows. */}
         <TableCell style={{ width: LABEL_WIDTH, paddingLeft: 0, ...gap }}>
-          {label}
+          {line.label}
         </TableCell>
-        <TableCell style={gap}>{cells[0]}</TableCell>
-        <TableCell style={{ ...AFTER_COLUMN, ...gap }}>{cells[1]}</TableCell>
+        <TableCell style={gap}>{line.before}</TableCell>
+        <TableCell style={{ ...AFTER_COLUMN, ...gap }}>{line.after}</TableCell>
       </TableRow>
     );
   };
@@ -167,41 +166,25 @@ export default function ChangesTable({
         }
       >
         {shown.flatMap((group, g) => {
-          const lines: {
-            key: string;
-            label: ReactNode;
-            cells: [ReactNode, ReactNode];
-          }[] = [
-            ...group.rows.map((r) => ({
-              key: r.key,
-              label: (
-                <DiffInset flush>
-                  <Text weight="medium" color="text-high">
-                    {r.label}
-                  </Text>
-                </DiffInset>
-              ),
-              cells: [side(r, "before"), side(r, "after")] as [
-                ReactNode,
-                ReactNode,
-              ],
-            })),
-            ...(group.footer
-              ? [
-                  {
-                    key: `${group.key}.footer`,
-                    label: group.footer,
-                    cells: [null, null] as [ReactNode, ReactNode],
-                  },
-                ]
-              : []),
-          ];
+          const lines: Line[] = group.rows.map((r) => ({
+            key: r.key,
+            label: (
+              <DiffInset flush>
+                <Text weight="medium" color="text-high">
+                  {r.label}
+                </Text>
+              </DiffInset>
+            ),
+            before: side(r, "before"),
+            after: side(r, "after"),
+          }));
+          if (group.footer) {
+            lines.push({ key: `${group.key}.footer`, label: group.footer });
+          }
           // The group's first and last lines take the room around its rules.
           return lines.map((line, i) =>
             row(
-              line.key,
-              line.label,
-              line.cells,
+              line,
               i === 0 && g > 0,
               i === lines.length - 1 && g < shown.length - 1,
             ),

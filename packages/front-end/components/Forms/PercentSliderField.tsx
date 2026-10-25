@@ -12,24 +12,22 @@ import styles from "@/components/Features/VariationsInput.module.scss";
 import own from "./PercentSliderField.module.scss";
 
 export interface Props {
-  /** The share, as a decimal between 0 and 1. */
+  // A decimal between 0 and 1.
   value: number;
   onChange: (value: number) => void;
   disabled?: boolean;
   ariaLabel?: string;
-  /**
-   * "blur" holds what is typed until the field is left, for a field whose
-   * change moves the other fields around it. "change" reports every keystroke.
-   */
+  // "blur" holds what is typed until the field is left, for a field whose
+  // change moves the fields around it.
   commitOn?: "change" | "blur";
   decimals?: number;
-  /** The form whose check refuses it empty, when that isn't the one it's in. */
+  // The form whose check refuses it empty, when that isn't the one it's in.
   form?: string;
 }
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
 
-/** A percentage in a field that carries its own "%". */
+// A percentage in a field that carries its own "%".
 export function PercentField({
   value,
   onChange,

@@ -554,7 +554,7 @@ export default function ReviewAndPublish({
   const [afterApproval, setAfterApproval] = useState<
     "checklist" | "publish" | null
   >(null);
-  // Why an approval that should have fired the armed publish left it a draft.
+  // Why an approval that should have fired the armed publish left it unpublished.
   const [armedPublishMissed, setArmedPublishMissed] = useState<string | null>(
     null,
   );
@@ -1230,10 +1230,13 @@ export default function ReviewAndPublish({
     setChecklistStatuses({});
     setChecklistAcknowledged(false);
   }, []);
-  const openChecklistStep = useCallback(() => {
-    resetChecklists();
-    setExperimentsStep(true);
-  }, [resetChecklists]);
+  const toggleChecklistStep = useCallback(
+    (open: boolean) => {
+      resetChecklists();
+      setExperimentsStep(open);
+    },
+    [resetChecklists],
+  );
   useEffect(() => {
     resetChecklists();
   }, [version, resetChecklists]);
@@ -1333,20 +1336,18 @@ export default function ReviewAndPublish({
     <Box className="contents container-fluid pagecontents pt-4">{children}</Box>
   );
 
-  // After a reviewer chooses "Submit and Publish", advance to the pre-launch
-  // checklist when linked experiments require it; otherwise run publish once
-  // the revision is approved.
-  // An already-approved revision goes on at once: re-approving it changes no
-  // status to wait for.
+  // After a reviewer chooses "Submit and Publish", go on to the pre-launch
+  // checklist or the publish once the revision is approved: at once if it
+  // already was, since re-approving changes no status to wait for.
   useEffect(() => {
     if (!afterApproval || revision?.status !== "approved") return;
     setAfterApproval(null);
     if (afterApproval === "checklist") {
-      openChecklistStep();
+      toggleChecklistStep(true);
     } else {
       doSubmitRef.current();
     }
-  }, [afterApproval, revision?.status, openChecklistStep]);
+  }, [afterApproval, revision?.status, toggleChecklistStep]);
 
   // The selected version doesn't exist yet (still loading) or ?v= is invalid.
   if (!revision) {
@@ -1950,7 +1951,7 @@ export default function ReviewAndPublish({
     try {
       switch (state.submitAction) {
         case "next-experiments":
-          openChecklistStep();
+          toggleChecklistStep(true);
           return;
         case "request-review": {
           setSubmitting(true);
@@ -3309,10 +3310,7 @@ export default function ReviewAndPublish({
                               value={adminPublish}
                               setValue={(val) => {
                                 setAdminPublish(!!val);
-                                if (!val) {
-                                  resetChecklists();
-                                  setExperimentsStep(false);
-                                }
+                                if (!val) toggleChecklistStep(false);
                               }}
                             />
                           </Box>
@@ -3422,10 +3420,7 @@ export default function ReviewAndPublish({
                         <Box mt="2">
                           <LinkButton
                             color="link"
-                            onClick={() => {
-                              resetChecklists();
-                              setExperimentsStep(false);
-                            }}
+                            onClick={() => toggleChecklistStep(false)}
                           >
                             <FaArrowLeft /> Back
                           </LinkButton>

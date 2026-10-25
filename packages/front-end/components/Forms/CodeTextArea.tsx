@@ -267,9 +267,6 @@ export type Props = CodeTextAreaFieldProps & {
   minLines?: number;
   maxLines?: number;
   paddingTop?: number;
-  // Editor font size (Ace accepts px number or any CSS size). Smaller values
-  // also shrink line height, so a fixed line count takes less vertical space.
-  fontSize?: string | number;
   // Hide the fold-widget caret so the line-number gutter is as narrow as
   // possible — useful for cramped inline editors (e.g. feature/config values).
   slimGutter?: boolean;
@@ -321,12 +318,10 @@ export function EditorAction({
   label,
   icon,
   onClick,
-  disabled = false,
 }: {
   label: string;
   icon: ReactNode;
   onClick: () => void;
-  disabled?: boolean;
 }) {
   return (
     <Tooltip body={label}>
@@ -335,7 +330,6 @@ export function EditorAction({
         radius="full"
         variant="ghost"
         aria-label={label}
-        disabled={disabled}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -364,7 +358,6 @@ export default function CodeTextArea({
   minLines = 10,
   maxLines = 50,
   paddingTop = 0,
-  fontSize = CODE_FONT_SIZE,
   slimGutter = false,
   setCursorData,
   fullHeight,
@@ -612,7 +605,7 @@ export default function CodeTextArea({
                   value={value}
                   onChange={(newValue) => setValue(newValue)}
                   placeholder={placeholder}
-                  fontSize={fontSize}
+                  fontSize={CODE_FONT_SIZE}
                   completions={completions}
                   {...heightProps}
                   setOptions={{

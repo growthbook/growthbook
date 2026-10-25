@@ -16,10 +16,10 @@ import { ReadOnlyChecklistRows } from "@/components/PreLaunchChecklist/PreLaunch
 import type { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
 import { percentFormatter } from "./DecisionMakingSettings";
 import { ServerChecklistItem } from "./startActions";
+import { revisionHref } from "./draftPicks";
 import { StartUpgrade } from "./useStartGate";
 import { PendingDraftFailure } from "./useStartExperiment";
 
-// "needs-rebase" is the no-conflict case: the draft is merely behind live.
 const PENDING_DRAFT_FAILURE_LABELS: Record<
   PendingDraftFailure["reason"],
   string
@@ -31,7 +31,7 @@ const PENDING_DRAFT_FAILURE_LABELS: Record<
   "publish-error": "Publish failed unexpectedly",
 };
 
-/** Label/value rows of when an experiment starts and ends. */
+/** Label/value rows, such as when an experiment starts and ends. */
 export function SummaryGrid({ children }: { children: ReactNode }) {
   return (
     <Grid columns="max-content minmax(0, 1fr)" gapX="4" gapY="2" align="start">
@@ -84,7 +84,7 @@ export function StartFailures({
             wrap="wrap"
           >
             <Link
-              href={`/features/${failure.featureId}?v=${failure.revisionVersion}`}
+              href={revisionHref(failure.featureId, failure.revisionVersion)}
               target="_blank"
             >
               <Text size="sm" weight="semibold">
@@ -126,7 +126,7 @@ export function StartChecklistFailures({
   );
 }
 
-function HoldoutSummaryRow({
+export function TargetingSummaryRow({
   label,
   inline = false,
   children,
@@ -165,24 +165,24 @@ export function StartSummary({
   return (
     <Flex direction="column" gap="4">
       {latestPhase.namespace?.enabled ? (
-        <HoldoutSummaryRow label="Namespace" inline>
+        <TargetingSummaryRow label="Namespace" inline>
           <Text>
             {percentFormatter.format(namespaceCoverage)} of {namespaceName}
           </Text>
-        </HoldoutSummaryRow>
+        </TargetingSummaryRow>
       ) : null}
-      <HoldoutSummaryRow label="Traffic">
+      <TargetingSummaryRow label="Traffic">
         <HoldoutTrafficBreakdown phase={latestPhase} />
-      </HoldoutSummaryRow>
+      </TargetingSummaryRow>
       {hasAttributeCondition(latestPhase.condition) ? (
-        <HoldoutSummaryRow label="Attribute targeting">
+        <TargetingSummaryRow label="Attribute targeting">
           <ConditionDisplay condition={latestPhase.condition} />
-        </HoldoutSummaryRow>
+        </TargetingSummaryRow>
       ) : null}
       {latestPhase.savedGroups?.length ? (
-        <HoldoutSummaryRow label="Saved Group targeting">
+        <TargetingSummaryRow label="Saved Group targeting">
           <SavedGroupTargetingDisplay savedGroups={latestPhase.savedGroups} />
-        </HoldoutSummaryRow>
+        </TargetingSummaryRow>
       ) : null}
     </Flex>
   );
@@ -212,7 +212,7 @@ export function StartUpgradeCallout({
   );
 }
 
-/** Why a start no one here can force is held back, read only. */
+/** What blocks a start the viewer can't bypass, read only. */
 export function StartBlockers({
   items,
   upgrade,

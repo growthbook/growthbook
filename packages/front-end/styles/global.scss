@@ -620,7 +620,7 @@ pre {
 }
 .feature-tabs {
   background-color: var(--color-background);
-  // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in FeaturesHeader.tsx
+  // NB: Keep top and height in sync with components/Layout/constants.ts
   top: 55px;
   height: 40px;
   transition: 150ms all;

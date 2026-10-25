@@ -27,10 +27,11 @@ import styles from "./VariationsTable.module.scss";
 const NO_IMAGE_SIZE = 42;
 const MAX_IMAGE_HEIGHT = 150;
 
-/** Narrower than this and a card has no room for a name beside its controls. */
+// Narrower than this and a card has no room for a name beside its controls.
 const MIN_VARIATION_WIDTH = 220;
 
-/** Wraps on the grid's own width, not the viewport's, so a docked details panel narrows it. */
+// Wraps on the grid's own width, not the viewport's, so a docked details panel
+// narrows it.
 const VARIATION_GRID_COLUMNS = `repeat(auto-fit, minmax(min(100%, ${MIN_VARIATION_WIDTH}px), 1fr))`;
 
 const imageCache = {};
@@ -143,7 +144,7 @@ function NoImageBox({
   /** Why an upload has to wait, shown on a disabled placeholder. */
   blockedReason?: string | null;
 }) {
-  const uploadable = canEdit && !blockedReason;
+  const blocked = !!canEdit && !!blockedReason;
   const box = (
     <Flex
       align="center"
@@ -151,7 +152,7 @@ function NoImageBox({
       className={clsx(
         "appbox mb-0",
         styles.noImageBox,
-        uploadable && styles.noImageBoxEditable,
+        canEdit && !blocked && styles.noImageBoxEditable,
       )}
       flexShrink="0"
       style={{
@@ -160,9 +161,9 @@ function NoImageBox({
         height: NO_IMAGE_SIZE + "px",
         color: "var(--slate-8)",
         border: "none",
-        cursor: canEdit && blockedReason ? "not-allowed" : undefined,
+        cursor: blocked ? "not-allowed" : undefined,
       }}
-      aria-disabled={canEdit && blockedReason ? true : undefined}
+      aria-disabled={blocked || undefined}
     >
       {canEdit ? (
         <PiCameraPlusLight size="26px" />

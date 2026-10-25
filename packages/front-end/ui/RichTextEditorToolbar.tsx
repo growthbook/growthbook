@@ -50,12 +50,11 @@ import RichTextEditorLinkEditor, {
 } from "./RichTextEditorLinkEditor";
 import styles from "./RichTextEditor.module.scss";
 
-/** Which controls are lit for the current selection. */
+// Which controls are lit for the current selection.
 interface ActiveState {
   formats: Set<TextFormatType>;
   block: string;
-  /** URL of the link the caret sits in, or null when it is not in one. */
-  linkUrl: string | null;
+  inLink: boolean;
 }
 
 const TEXT_FORMATS: {
@@ -90,10 +89,7 @@ export default function RichTextEditorToolbar({
 }: {
   /** Omit to leave the image button out. */
   onPickImage?: () => void;
-  /**
-   * The short ribbon: no headings or strikethrough, for a field where a
-   * comment is the unit rather than a document.
-   */
+  /** The short ribbon: no headings or strikethrough. */
   simple?: boolean;
   /** Leave room at the end of the row for the editor's own corner button. */
   inset?: boolean;
@@ -102,7 +98,7 @@ export default function RichTextEditorToolbar({
   const [active, setActive] = useState<ActiveState>({
     formats: new Set(),
     block: "paragraph",
-    linkUrl: null,
+    inLink: false,
   });
 
   const [linkTarget, setLinkTarget] = useState<LinkTarget | null>(null);
@@ -137,7 +133,7 @@ export default function RichTextEditorToolbar({
     setActive({
       formats,
       block: blockType,
-      linkUrl: $findMatchingParent(anchorNode, $isLinkNode)?.getURL() ?? null,
+      inLink: $findMatchingParent(anchorNode, $isLinkNode) !== null,
     });
   }, []);
 
@@ -332,7 +328,7 @@ export default function RichTextEditorToolbar({
       {button(
         "link",
         linkTarget?.node ? "Edit link" : "Link",
-        !!active.linkUrl,
+        active.inLink,
         () => setLinkTarget(fromSelection()),
         PiLinkBold,
       )}

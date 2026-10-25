@@ -15,6 +15,7 @@ import {
   asKey,
   asUser,
   auditContext,
+  checklistRefusal,
   dashboardReq,
   EXP_ID,
   experiments,
@@ -34,16 +35,10 @@ import {
 } from "./scheduledStart.fixture";
 import { setupApp } from "./api.setup";
 
-// A staged start or stop fires on the authority of whoever staged it, checked
-// at fire time, a dashboard start honors its starter's acknowledgment, and a
-// scheduled start keeps what it launches. This drives the real routes and
-// controllers, Mongo document, and job.
-
 const FEATURE_ID = "feat_sched";
 
 const audits = () => mongoose.connection.collection("audits");
 
-// An org key: experimenter everywhere, but only a collaborator in the flag's project.
 const ciKey = (projectRoles: ApiKeyInterface["projectRoles"] = []) =>
   asKey(keyDoc("key_ci", "experimenter", { description: "CI", projectRoles }));
 
@@ -129,6 +124,13 @@ const stopPlan = {
   scheduledStopPlan: { mode: "stop" },
 };
 
+const start = () =>
+  auth(
+    request(app)
+      .post(`/api/v1/experiments/${EXP_ID}/start`)
+      .send({ skipChecklist: true }),
+  );
+
 async function armStart(context: ReqContextClass) {
   setReqContext(context);
   const scheduled = await auth(
@@ -137,11 +139,7 @@ async function armStart(context: ReqContextClass) {
       .send({ ...schedule, ...stopPlan }),
   );
   expect(scheduled.status).toBe(200);
-  return auth(
-    request(app)
-      .post(`/api/v1/experiments/${EXP_ID}/start`)
-      .send({ skipChecklist: true }),
-  );
+  return start();
 }
 
 describe("a scheduled status change is checked when armed and fires as the armer", () => {
@@ -184,25 +182,16 @@ describe("a scheduled status change is checked when armed and fires as the armer
   });
 
   it.each([
-    ["scheduled", true],
-    ["immediate", false],
+    { kind: "scheduled", viaSchedule: true },
+    { kind: "immediate", viaSchedule: false },
   ])(
-    "refuses a %s start by a key that may run the experiment but not publish its pending draft",
-    async (_kind, viaSchedule) => {
+    "refuses a $kind start by a key that may run the experiment but not publish its pending draft",
+    async ({ viaSchedule }) => {
       await seed("draft");
       await seedPendingDraft();
       const key = ciKey([{ project: "proj_flag", role: "collaborator" }]);
-      let res;
-      if (viaSchedule) {
-        res = await armStart(key);
-      } else {
-        setReqContext(key);
-        res = await auth(
-          request(app)
-            .post(`/api/v1/experiments/${EXP_ID}/start`)
-            .send({ skipChecklist: true }),
-        );
-      }
+      setReqContext(key);
+      const res = viaSchedule ? await armStart(key) : await start();
       expect(res.status).toBe(403);
       expect(await status()).toBe("draft");
       expect(await staged()).toBeNull();
@@ -419,14 +408,7 @@ describe("dashboard starts honor the starter's acknowledgment", () => {
   type ApproveReq = Parameters<typeof postApproveScheduledExperimentStart>[0];
   type PhaseReq = Parameters<typeof postExperimentPhase>[0];
 
-  const refusedOnSoftItem = {
-    code: "checklist_incomplete",
-    details: {
-      remainingChecklistItems: expect.arrayContaining([
-        expect.objectContaining({ key: "sdkConnection" }),
-      ]),
-    },
-  };
+  const refusedOnSoftItem = checklistRefusal("sdkConnection");
 
   it("starts only when the starter skips the open items, and records the skip", async () => {
     await seed("draft");

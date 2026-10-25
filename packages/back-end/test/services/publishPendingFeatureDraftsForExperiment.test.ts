@@ -152,6 +152,9 @@ beforeEach(() => {
     conflicts: [],
     result: { rules: [] },
   });
+  mockGetRevision.mockImplementation(
+    async ({ version }) => ({ version, status: "draft", rules: [] }) as never,
+  );
   mockAssessRevisionApproval.mockReturnValue(approvalSatisfied);
   draftsCarryingRuleUnchanged = new Set();
   mockSummaries.mockImplementation(async (_org, featureId) => ({
@@ -197,9 +200,6 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
   });
 
   it("does not publish anything when one of multiple drafts fails pre-flight", async () => {
-    mockGetRevision.mockImplementation(async ({ version }) => {
-      return { version, status: "draft", rules: [] } as never;
-    });
     mockAssessRevisionApproval
       .mockReturnValueOnce(approvalSatisfied)
       .mockReturnValueOnce(approvalBlocked);
@@ -220,9 +220,6 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
   });
 
   it("fails the whole batch before publishing anything when hook prevalidation rejects", async () => {
-    mockGetRevision.mockImplementation(async ({ version }) => {
-      return { version, status: "draft", rules: [] } as never;
-    });
     // First draft prevalidates fine, second is rejected by a custom hook.
     mockPrevalidatePublish
       .mockResolvedValueOnce(undefined)
@@ -241,10 +238,6 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
   });
 
   it("fetches each feature/revision once instead of re-fetching per phase", async () => {
-    mockGetRevision.mockImplementation(async ({ version }) => {
-      return { version, status: "draft", rules: [] } as never;
-    });
-
     const experiment = makeExperiment([
       { featureId: "feat_a", revisionVersion: 5 },
       { featureId: "feat_b", revisionVersion: 6 },
@@ -263,10 +256,6 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
   });
 
   it("publishes only the newest draft of a feature that changes the experiment, and drops the rest from the queue", async () => {
-    mockGetRevision.mockImplementation(async ({ version }) => {
-      return { version, status: "draft", rules: [] } as never;
-    });
-
     const experiment = makeExperiment([
       { featureId: "feat_a", revisionVersion: 5 },
       { featureId: "feat_a", revisionVersion: 7 },
@@ -331,9 +320,6 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
   });
 
   it("halts the train on first merge conflict (no further publishes)", async () => {
-    mockGetRevision.mockImplementation(async ({ version }) => {
-      return { version, status: "draft", rules: [] } as never;
-    });
     // Keyed by revision version (not call order): feat_a's draft merges cleanly; feat_b's (v6) conflicts
     mockAutoMerge.mockImplementation(
       (live, base, revision) =>
@@ -447,9 +433,6 @@ describe("publishPendingFeatureDraftsForExperiment lockdown bypass", () => {
           organization: "org_1",
           project: id === "feat_admin" ? "p_admin" : "p_other",
         }) as never,
-    );
-    mockGetRevision.mockImplementation(
-      async ({ version }) => ({ version, status: "draft", rules: [] }) as never,
     );
   });
 

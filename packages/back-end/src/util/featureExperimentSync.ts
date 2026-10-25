@@ -32,12 +32,8 @@ function matchedRules(rules: unknown, matches: RuleMatcher): FeatureRule[] {
   return JSON.parse(JSON.stringify(naiveFlattenV1Rules(rules).filter(matches)));
 }
 
-/**
- * The open drafts that change the matched rules, newest first: each holds them
- * differently from live and from the revision it was cut from. A draft that
- * carries them unchanged, or an old copy of them, is someone else's work. A
- * start launches the first; the experiment page shows the same list.
- */
+// Newest first. A draft carrying the rules unchanged from live or from its own
+// base, or an old copy of them, is someone else's work.
 export function getRuleChangingDraftVersions(
   matches: RuleMatcher,
   openDrafts: LaunchCandidate[],
@@ -60,7 +56,6 @@ export function getRuleChangingDraftVersions(
     .sort((a, b) => b - a);
 }
 
-/** The one draft an experiment launches for a flag. */
 export function getLaunchDraftVersion(
   experimentId: string,
   openDrafts: LaunchCandidate[],
@@ -208,11 +203,8 @@ export async function syncFeatureExperimentLinkages(
   }
 }
 
-/**
- * Unlinks the experiments waiting to drop this flag, once nothing live or open
- * still has their rule. Runs after draft writes and after a publish takes a
- * rule out; never throws.
- */
+// Unlinks the experiments waiting to drop this flag once nothing live or open
+// still has their rule. Never throws.
 async function settlePendingFeatureUnlinks(
   context: ReqContext | ApiReqContext,
   featureId: string,
@@ -230,7 +222,6 @@ async function settlePendingFeatureUnlinks(
   }
 }
 
-/** After a publish commits: the rules now live, and the drafts still open. */
 export async function settleFeatureRemovalsAfterPublish(
   context: ReqContext | ApiReqContext,
   feature: { organization: string; id: string; rules?: unknown },
@@ -263,10 +254,7 @@ function referencedExperimentIds(
   ];
 }
 
-/**
- * Whether a draft without the experiment's rule takes it out of the revision
- * it was cut from. A base that can't be found counts.
- */
+// A base that can't be found counts as having the rule.
 export function draftTakesRuleOut<R>(
   hasRule: (rules: R | undefined) => boolean,
   draft: { rules?: R },

@@ -154,10 +154,8 @@ export type FeatureRevisionDiffInput = Pick<
 
 export type FeatureRevisionDiff = {
   title: string;
-  // Stable machine identity for this section, independent of the display
-  // title (`rules`, `defaultValue`, `environmentsEnabled`, ...) plus
-  // `rampAction.<id>` / `rampSchedule.<id>` for supplemental entities.
-  // Used by diff comment references (see diffCommentRefs.ts).
+  // Stable section id for diff comment refs, independent of the title:
+  // `rules`, `defaultValue`, `environmentsEnabled`, `rampAction.<id>`, ...
   key?: string;
   a: string;
   b: string;
@@ -180,12 +178,8 @@ export type FeatureRevisionDiff = {
 
 export const ENVIRONMENT_TOGGLES_KEY = "environmentsEnabled";
 
-/**
- * Toggles used to diff as a section per environment, keyed
- * `environmentsEnabled.<env>` with a one-line body, and stored comments still
- * reference that form. Maps each such ref id onto its line in the merged
- * section whose sides are `a` and `b`.
- */
+// Stored comments may reference the old one-section-per-env form
+// (`environmentsEnabled.<env>`, line 1): map each onto its line in `a` / `b`.
 export function legacyEnvironmentRefs(
   a: string,
   b: string,

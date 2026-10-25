@@ -22,10 +22,6 @@ import {
   reconcileCustomFieldValues,
 } from "@/services/customFields";
 
-/**
- * Which of the experiment's details the modal edits. One field makes a quick,
- * narrow editor; custom fields are edited as a block.
- */
 export type InfoSection =
   | "name"
   | "trackingKey"
@@ -50,7 +46,7 @@ interface Props {
   setShowEditInfoModal: (value: boolean) => void;
   mutate: () => void;
   section: InfoSection;
-  /** With the customFields section, just this one field. */
+  // Narrows the customFields section to this one field.
   customFieldId?: string | null;
 }
 

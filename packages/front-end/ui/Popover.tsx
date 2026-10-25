@@ -48,7 +48,8 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   onOpenAutoFocus?: React.ComponentProps<
     typeof RadixPopover.Content
   >["onOpenAutoFocus"];
-  /** Called when the content closes and would refocus the trigger — call e.preventDefault() to leave focus where it went (e.g. a modal it opened). */
+  // e.preventDefault() leaves focus where it went (e.g. a modal it opened)
+  // instead of returning it to the trigger.
   onCloseAutoFocus?: React.ComponentProps<
     typeof RadixPopover.Content
   >["onCloseAutoFocus"];

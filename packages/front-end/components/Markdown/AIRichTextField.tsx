@@ -20,10 +20,8 @@ export interface Props {
   collapsibleToolbar?: boolean;
 }
 
-/**
- * The rich text editor with its AI suggestion inside the footer: a suggestion
- * replaces the text and can be undone.
- */
+// A rich text editor with an AI suggestion in its footer; a suggestion replaces
+// the text and can be undone.
 export default function AIRichTextField({
   value,
   onChange,

@@ -75,6 +75,8 @@ const seededPhases = (dateStarted: Date) => [
   },
 ];
 const collection = (name: string) => mongoose.connection.collection(name);
+const setExperiment = (fields: Record<string, unknown>) =>
+  collection("experiments").updateOne({ id: EXP }, { $set: fields });
 const arms = (a: string, b: string) => [
   { variationId: "v0", value: a },
   { variationId: "v1", value: b },
@@ -171,24 +173,39 @@ describe("applyExperimentChanges", () => {
   const { isReady } = setupApp();
   let context: ReqContextClass;
 
+  const storedExperiment = async () => {
+    const experiment = await getExperimentById(context, EXP);
+    if (!experiment) throw new Error("missing experiment");
+    return experiment;
+  };
+
   const run = async (
     body: ExperimentChangesBody,
     audit: (data: AuditInterfaceInput) => Promise<void> = async () => undefined,
-  ) => {
-    const experiment = await getExperimentById(context, EXP);
-    if (!experiment) throw new Error("missing experiment");
-    return applyExperimentChanges({
+  ) =>
+    applyExperimentChanges({
       context,
-      experiment,
+      experiment: await storedExperiment(),
       body,
       audit,
       eventAudit: { type: "api_key", apiKey: "key" },
     });
-  };
 
   const hypothesisChange = (base: string) => ({
     changes: { hypothesis: "new" },
     base: { hypothesis: base },
+  });
+  // Values for the seeded draft, as the page loaded it.
+  const draftValues = (
+    variations: ReturnType<typeof arms>,
+    extra: Partial<
+      NonNullable<ExperimentChangesBody["flagValues"]>[number]
+    > = {},
+  ) => ({
+    featureId: FLAG,
+    variations,
+    revision: { version: 2, dateUpdated: LOADED },
+    ...extra,
   });
 
   const makeContext = ({
@@ -224,10 +241,10 @@ describe("applyExperimentChanges", () => {
 
   it("refuses to start a draft through a plain field write", async () => {
     await seed({ withDraft: false });
-    const experiment = await getExperimentById(context, EXP);
-    if (!experiment) throw new Error("missing experiment");
     await expect(
-      planExperimentUpdate(context, experiment, { status: "running" }),
+      planExperimentUpdate(context, await storedExperiment(), {
+        status: "running",
+      }),
     ).rejects.toThrow("Start this experiment instead");
   });
 
@@ -235,13 +252,7 @@ describe("applyExperimentChanges", () => {
     await seed({ withDraft: true });
     const result = await run({
       experiment: hypothesisChange("old"),
-      flagValues: [
-        {
-          featureId: FLAG,
-          variations: arms("a", "new"),
-          revision: { version: 2, dateUpdated: LOADED },
-        },
-      ],
+      flagValues: [draftValues(arms("a", "new"))],
     });
     expect(result.flags).toEqual([{ featureId: FLAG, version: 2 }]);
     expect(result.experiment.hypothesis).toBe("new");
@@ -252,12 +263,9 @@ describe("applyExperimentChanges", () => {
     await seed({ withDraft: true });
     await run({
       flagValues: [
-        {
-          featureId: FLAG,
-          variations: arms("a", "draft"),
+        draftValues(arms("a", "draft"), {
           environments: { allEnvironments: false, environments: ["staging"] },
-          revision: { version: 2, dateUpdated: LOADED },
-        },
+        }),
       ],
     });
     const draft = await storedRevision(2);
@@ -281,19 +289,8 @@ describe("applyExperimentChanges", () => {
     },
   ])("$name though its phase has no weights", async ({ type, refusal }) => {
     await seed({ withDraft: true });
-    await collection("experiments").updateOne(
-      { id: EXP },
-      { $set: { type, "phases.0.variationWeights": [] } },
-    );
-    const save = run({
-      flagValues: [
-        {
-          featureId: FLAG,
-          variations: arms("a", "new"),
-          revision: { version: 2, dateUpdated: LOADED },
-        },
-      ],
-    });
+    await setExperiment({ type, "phases.0.variationWeights": [] });
+    const save = run({ flagValues: [draftValues(arms("a", "new"))] });
     if (refusal) {
       await expect(save).rejects.toThrow(refusal);
     } else {
@@ -305,14 +302,7 @@ describe("applyExperimentChanges", () => {
   it("writes a sparse-only change", async () => {
     await seed({ withDraft: true });
     await run({
-      flagValues: [
-        {
-          featureId: FLAG,
-          variations: arms("a", "draft"),
-          sparse: true,
-          revision: { version: 2, dateUpdated: LOADED },
-        },
-      ],
+      flagValues: [draftValues(arms("a", "draft"), { sparse: true })],
     });
     const draft = await storedRevision(2);
     expect(draft?.rules[0]).toMatchObject({
@@ -327,18 +317,7 @@ describe("applyExperimentChanges", () => {
       { id: FLAG },
       { $set: { valueType: "json", defaultValue: "{}" } },
     );
-    await run({
-      flagValues: [
-        {
-          featureId: FLAG,
-          variations: [
-            { variationId: "v0", value: "{}" },
-            { variationId: "v1", value: '{"layout":"grid"}}' },
-          ],
-          revision: { version: 2, dateUpdated: LOADED },
-        },
-      ],
-    });
+    await run({ flagValues: [draftValues(arms("{}", '{"layout":"grid"}}'))] });
     const values = await revisionRules(2);
     expect(values.map((v: { value: string }) => JSON.parse(v.value))).toEqual([
       {},
@@ -348,11 +327,7 @@ describe("applyExperimentChanges", () => {
 
   const valuesFrom = (dateUpdated: string) => ({
     flagValues: [
-      {
-        featureId: FLAG,
-        variations: arms("a", "new"),
-        revision: { version: 2, dateUpdated },
-      },
+      draftValues(arms("a", "new"), { revision: { version: 2, dateUpdated } }),
     ],
   });
   it.each([
@@ -372,10 +347,24 @@ describe("applyExperimentChanges", () => {
       body: valuesFrom(LOADED),
       details: { fields: [], featureIds: [FLAG] },
     },
+    {
+      name: "a targeting field",
+      stored: { "phases.0.condition": '{"country":"CA"}' },
+      body: {
+        experiment: {
+          changes: { condition: '{"country":"US"}' },
+          base: { condition: "" },
+        },
+      },
+      details: { fields: ["condition"], featureIds: [] },
+    },
   ])(
     "names what moved and writes nothing when $name changed since it was loaded",
-    async ({ body, details, publish }) => {
+    async ({ body, details, publish, stored }) => {
       await seed({ withDraft: true });
+      if (stored) {
+        await setExperiment(stored);
+      }
       if (publish) {
         await collection("featurerevisions").updateOne(
           { featureId: FLAG, version: 2 },
@@ -392,37 +381,29 @@ describe("applyExperimentChanges", () => {
         details,
       });
       expect(await revisionRules(2)).toEqual(arms("a", "draft"));
-      expect((await getExperimentById(context, EXP))?.hypothesis).toBe("old");
+      expect((await storedExperiment()).hypothesis).toBe("old");
     },
   );
 
   it("takes a field someone else saved to the same value", async () => {
     await seed({ withDraft: false });
-    await collection("experiments").updateOne(
-      { id: EXP },
-      { $set: { hypothesis: "new" } },
-    );
+    await setExperiment({ hypothesis: "new" });
     await run({ experiment: hypothesisChange("old") });
-    expect((await getExperimentById(context, EXP))?.hypothesis).toBe("new");
+    expect((await storedExperiment()).hypothesis).toBe("new");
   });
 
   it("takes a field stored in another shape of the same value", async () => {
     await seed({ withDraft: false });
     // As another endpoint writes it: its own key order and empty fields.
-    await collection("experiments").updateOne(
-      { id: EXP },
-      {
-        $set: {
-          variations: seededVariations().map(({ id, key, name }) => ({
-            screenshots: [],
-            dom: [],
-            name,
-            key,
-            id,
-          })),
-        },
-      },
-    );
+    await setExperiment({
+      variations: seededVariations().map(({ id, key, name }) => ({
+        screenshots: [],
+        dom: [],
+        name,
+        key,
+        id,
+      })),
+    });
     await run({
       experiment: {
         changes: {
@@ -431,9 +412,10 @@ describe("applyExperimentChanges", () => {
         base: { variations: seededVariations() },
       },
     });
-    expect(
-      (await getExperimentById(context, EXP))?.variations.map((v) => v.name),
-    ).toEqual(["new", "new"]);
+    expect((await storedExperiment()).variations.map((v) => v.name)).toEqual([
+      "new",
+      "new",
+    ]);
   });
 
   it("refuses a variation added without a split for it", async () => {
@@ -458,13 +440,7 @@ describe("applyExperimentChanges", () => {
     await expect(
       run({
         experiment: hypothesisChange("old"),
-        flagValues: [
-          {
-            featureId: FLAG,
-            variations: arms("a", "new"),
-            revision: { version: 2, dateUpdated: LOADED },
-          },
-        ],
+        flagValues: [draftValues(arms("a", "new"))],
       }),
     ).rejects.toThrow("lost race");
     expect(await revisionRules(2)).toEqual(arms("a", "draft"));
@@ -483,11 +459,9 @@ describe("applyExperimentChanges", () => {
     const body = {
       experiment: hypothesisChange("old"),
       flagValues: [
-        {
-          featureId: FLAG,
-          variations: arms("a", "new"),
+        draftValues(arms("a", "new"), {
           revision: { version: 1, dateUpdated: null },
-        },
+        }),
       ],
     };
     // A created draft is deleted by identity, so an edit to it does not block the undo.
@@ -498,15 +472,7 @@ describe("applyExperimentChanges", () => {
       revisionDoc(2, new Date(LOADED)),
     );
     await expect(
-      run({
-        ...body,
-        flagValues: [
-          {
-            ...body.flagValues[0],
-            revision: { version: 2, dateUpdated: LOADED },
-          },
-        ],
-      }),
+      run({ ...body, flagValues: [draftValues(arms("a", "new"))] }),
     ).rejects.toMatchObject({
       status: 500,
       message: expect.stringContaining(`${FLAG} (draft v2)`),
@@ -543,12 +509,9 @@ describe("applyExperimentChanges", () => {
       );
       const body: ExperimentChangesBody = {
         flagValues: [
-          {
-            featureId: FLAG,
-            variations: arms("a", "wide"),
+          draftValues(arms("a", "wide"), {
             environments: { allEnvironments: true, environments: [] },
-            revision: { version: 2, dateUpdated: LOADED },
-          },
+          }),
         ],
       };
       requireScoped();
@@ -568,7 +531,7 @@ describe("applyExperimentChanges", () => {
       };
       requireScoped();
       await expect(run(body)).rejects.toMatchObject({ code: "unscoped_rule" });
-      expect((await getExperimentById(context, EXP))?.hypothesis).toBe("old");
+      expect((await storedExperiment()).hypothesis).toBe("old");
 
       requireScoped({ allowUnscopedRules: true });
       await run({ ...body, allowUnscopedRules: true });
@@ -704,10 +667,7 @@ describe("applyExperimentChanges", () => {
 
     it("refuses while the experiment runs", async () => {
       await seed({ withDraft: false });
-      await collection("experiments").updateOne(
-        { id: EXP },
-        { $set: { status: "running" } },
-      );
+      await setExperiment({ status: "running" });
       await expect(run({ unlinkFeatures: [FLAG] })).rejects.toThrow(
         "Set the experiment's status back to Draft to remove this Feature Flag.",
       );
@@ -717,9 +677,7 @@ describe("applyExperimentChanges", () => {
           status: "draft",
         }),
       ).toBe(0);
-      expect((await getExperimentById(context, EXP))?.linkedFeatures).toEqual([
-        FLAG,
-      ]);
+      expect((await storedExperiment()).linkedFeatures).toEqual([FLAG]);
     });
   });
 
@@ -742,8 +700,7 @@ describe("applyExperimentChanges", () => {
 
   it("adds a variation and its flag value in one save", async () => {
     await seed({ withDraft: false });
-    const stored = await getExperimentById(context, EXP);
-    if (!stored) throw new Error("missing experiment");
+    const stored = await storedExperiment();
     const variations = [...stored.variations, variation("v2", 2)];
 
     const result = await run({
@@ -759,9 +716,11 @@ describe("applyExperimentChanges", () => {
         },
       ],
     });
-    expect(
-      (await getExperimentById(context, EXP))?.variations.map((v) => v.id),
-    ).toEqual(["v0", "v1", "v2"]);
+    expect((await storedExperiment()).variations.map((v) => v.id)).toEqual([
+      "v0",
+      "v1",
+      "v2",
+    ]);
     // Loaded from live, so the values start a new draft and live is untouched.
     expect(result.flags).toEqual([{ featureId: FLAG, version: 2 }]);
     expect(await revisionRules(1)).toEqual(arms("a", "b"));
@@ -773,17 +732,12 @@ describe("applyExperimentChanges", () => {
 
   it("changes a running bandit's coverage without restarting it, and refuses coverage that moved", async () => {
     await seed({ withDraft: false });
-    await collection("experiments").updateOne(
-      { id: EXP },
-      {
-        $set: {
-          type: "multi-armed-bandit",
-          status: "running",
-          linkedFeatures: [],
-          banditStage: "exploit",
-        },
-      },
-    );
+    await setExperiment({
+      type: "multi-armed-bandit",
+      status: "running",
+      linkedFeatures: [],
+      banditStage: "exploit",
+    });
 
     await run({
       experiment: { changes: { coverage: 0.4 }, base: { coverage: 1 } },
@@ -838,13 +792,6 @@ describe("applyExperimentChanges", () => {
 
   describe("targeting", () => {
     const US = '{"country":"US"}';
-    const setExperiment = (fields: Record<string, unknown>) =>
-      collection("experiments").updateOne({ id: EXP }, { $set: fields });
-    const stored = async () => {
-      const experiment = await getExperimentById(context, EXP);
-      if (!experiment) throw new Error("missing experiment");
-      return experiment;
-    };
 
     it("writes the latest phase and the experiment, keeping what someone else changed elsewhere", async () => {
       await seed({ withDraft: false });
@@ -859,23 +806,10 @@ describe("applyExperimentChanges", () => {
           base: { condition: "", hashAttribute: null },
         },
       });
-      const { phases, hashAttribute } = await stored();
+      const { phases, hashAttribute } = await storedExperiment();
       expect(phases).toHaveLength(1);
       expect(phases[0]).toMatchObject({ condition: US, coverage: 0.7 });
       expect(hashAttribute).toBe("device");
-    });
-
-    it("refuses a field someone else changed since it was loaded", async () => {
-      await seed({ withDraft: false });
-      await setExperiment({ "phases.0.condition": '{"country":"CA"}' });
-      await expect(
-        run({
-          experiment: { changes: { condition: US }, base: { condition: "" } },
-        }),
-      ).rejects.toMatchObject({
-        status: 409,
-        details: { fields: ["condition"], featureIds: [] },
-      });
     });
 
     it("creates the first phase on an experiment with none", async () => {
@@ -884,7 +818,7 @@ describe("applyExperimentChanges", () => {
       await run({
         experiment: { changes: { condition: US }, base: { condition: null } },
       });
-      const { phases } = await stored();
+      const { phases } = await storedExperiment();
       expect(phases).toHaveLength(1);
       expect(phases[0]).toMatchObject({
         condition: US,
@@ -913,13 +847,15 @@ describe("applyExperimentChanges", () => {
         experiment: coverage(0.5, 1),
         release: { newPhase: false, reseed: false },
       });
-      expect((await stored()).phases.map((p) => p.coverage)).toEqual([0.5]);
+      expect((await storedExperiment()).phases.map((p) => p.coverage)).toEqual([
+        0.5,
+      ]);
 
       await run({
         experiment: coverage(0.4, 0.5),
         release: { newPhase: true, reseed: true },
       });
-      const { phases } = await stored();
+      const { phases } = await storedExperiment();
       expect(phases.map((p) => p.coverage)).toEqual([0.5, 0.4]);
       expect(phases[0].dateEnded).toBeInstanceOf(Date);
       expect(phases[1]).toMatchObject({
@@ -939,7 +875,7 @@ describe("applyExperimentChanges", () => {
       await run({
         experiment: { changes: { condition: US }, base: { condition: "" } },
       });
-      expect((await stored()).banditStage).toBe("explore");
+      expect((await storedExperiment()).banditStage).toBe("explore");
     });
 
     it("keeps a holdout's targeting the same in every phase, and refuses what a holdout doesn't target", async () => {
@@ -956,7 +892,7 @@ describe("applyExperimentChanges", () => {
         release: { newPhase: false, reseed: false },
       });
       expect(
-        (await stored()).phases.map(({ condition, coverage }) => ({
+        (await storedExperiment()).phases.map(({ condition, coverage }) => ({
           condition,
           coverage,
         })),
@@ -1017,10 +953,7 @@ describe("applyExperimentChanges", () => {
 
     async function seedLinked(status = "draft") {
       await seed({ withDraft: false });
-      await collection("experiments").updateOne(
-        { id: EXP },
-        { $set: { linkedFeatures: [], status } },
-      );
+      await setExperiment({ linkedFeatures: [], status });
     }
     // Raw writes, so no model cache holds what a later save reads.
     async function seedRedirect(id: string, urlPattern: string) {
@@ -1034,10 +967,7 @@ describe("applyExperimentChanges", () => {
         dateCreated: new Date(LOADED),
         dateUpdated: new Date(LOADED),
       });
-      await collection("experiments").updateOne(
-        { id: EXP },
-        { $set: { hasURLRedirects: true } },
-      );
+      await setExperiment({ hasURLRedirects: true });
     }
     async function seedChangeset() {
       await collection("visualchangesets").insertOne({
@@ -1051,10 +981,7 @@ describe("applyExperimentChanges", () => {
           { ...loadedChange, id: "vc1", variation: "v1", css: ".loaded{}" },
         ],
       });
-      await collection("experiments").updateOne(
-        { id: EXP },
-        { $set: { hasVisualChangesets: true } },
-      );
+      await setExperiment({ hasVisualChangesets: true });
     }
     const storedRedirects = () =>
       collection("urlredirects")
@@ -1170,7 +1097,7 @@ describe("applyExperimentChanges", () => {
         status: 409,
         message: expect.stringContaining("The experiment's changes saved"),
       });
-      expect((await getExperimentById(context, EXP))?.hypothesis).toBe("new");
+      expect((await storedExperiment()).hypothesis).toBe("new");
       expect(await storedRedirects()).toEqual([]);
       expect(await storedVisualChanges()).toEqual([
         ["v0", ".extension{}", undefined],
@@ -1302,19 +1229,19 @@ describe("applyExperimentChanges", () => {
       async ({ setup, body, refusal: { status, message } }) => {
         await seedLinked();
         await setup();
-        const stored = async () => ({
+        const snapshot = async () => ({
           experiment: await collection("experiments").findOne({ id: EXP }),
           redirects: await storedRedirects(),
           visualChanges: await storedVisualChanges(),
         });
-        const before = await stored();
+        const before = await snapshot();
         await expect(
           run({ experiment: hypothesisChange("old"), ...body }),
         ).rejects.toMatchObject({
           status,
           message: expect.stringContaining(message),
         });
-        expect(await stored()).toEqual(before);
+        expect(await snapshot()).toEqual(before);
       },
     );
 
@@ -1336,7 +1263,7 @@ describe("applyExperimentChanges", () => {
         }),
       ).rejects.toThrow(`matches the origin of the one from ${A}/v0.`);
       expect(await storedRedirects()).toEqual([]);
-      expect((await getExperimentById(context, EXP))?.hypothesis).toBe("old");
+      expect((await storedExperiment()).hypothesis).toBe("old");
     });
 
     it("edits one variation's Visual Editor changes on a stopped experiment, keeping the others as the Visual Editor left them", async () => {
@@ -1417,8 +1344,7 @@ describe("applyExperimentChanges", () => {
 
     it("shows each set of values as its own group", async () => {
       await seedSplit();
-      const experiment = await getExperimentById(context, EXP);
-      if (!experiment) throw new Error("missing experiment");
+      const experiment = await storedExperiment();
       const [info] = await getLinkedFeatureInfo(context, experiment, {
         includeValueGroups: true,
       });
