@@ -31,6 +31,7 @@ import {
   generateVariationId,
   validateFeatureValue,
   visualChangeHasContent,
+  orgRequiresAnyReview,
 } from "shared/util";
 import {
   assertAtLeastTwoVariations,
@@ -220,12 +221,10 @@ async function publishContextualBanditRevision({
   comment: string;
   audit: (input: AuditInterfaceInput) => Promise<void>;
 }): Promise<{ pendingApproval: boolean }> {
-  const requireReviews = context.org.settings?.requireReviews;
-  const reviewsConfigured =
-    context.hasPremiumFeature("require-approvals") &&
-    (requireReviews === true ||
-      (Array.isArray(requireReviews) &&
-        requireReviews.some((r) => r?.requireReviewOn)));
+  const reviewsConfigured = orgRequiresAnyReview(
+    context.org.settings,
+    context.hasPremiumFeature("require-approvals"),
+  );
   const requiresReview = await revisionRequiresReview(
     context,
     feature,

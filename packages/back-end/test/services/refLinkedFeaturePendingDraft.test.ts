@@ -91,6 +91,8 @@ const context = {
   },
   hasPremiumFeature: () => true,
   permissions: { canPublishFeature: () => true },
+  // Names a governing Project in the approval assessment.
+  getProjects: async () => [],
 } as unknown as ReqContext;
 
 // The page reads drafts normalized; a start reads them as stored. `stored`
@@ -200,6 +202,41 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
     expect(info.draftRevisionVersion).toBe(5);
     expect(info.pendingApproval).toBe(true);
   });
+
+  it.each([
+    { targetingProjects: ["prj_targeted"], pendingApproval: true },
+    { targetingProjects: [], pendingApproval: undefined },
+  ])(
+    "judges approval by every Project governing the flag (targeting $targetingProjects)",
+    async ({ targetingProjects, pendingApproval }) => {
+      const settings = context.org.settings;
+      // Only the Project the flag may target has a review rule.
+      context.org.settings = {
+        ...settings,
+        requireReviews: [
+          {
+            requireReviewOn: true,
+            resetReviewOnChange: false,
+            environments: [],
+            projects: ["prj_targeted"],
+          },
+        ],
+      } as typeof settings;
+      try {
+        stub({ live: [], drafts: [makeDraft(5, [refRule("draft-value")])] });
+        mockGetFeatures.mockResolvedValue([
+          { ...makeFeature([]), targetingProjects },
+        ]);
+
+        const [info] = await run(true);
+
+        expect(info.pendingApproval).toBe(pendingApproval);
+        expect(info.pendingDraft?.pendingApproval).toBe(!!pendingApproval);
+      } finally {
+        context.org.settings = settings;
+      }
+    },
+  );
 
   it("offers every draft that changes the rule, newest first", async () => {
     stub({

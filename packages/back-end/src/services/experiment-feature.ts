@@ -4,6 +4,7 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   DRAFT_REVISION_STATUSES,
   AutoMergeResult,
+  checkIfRevisionNeedsReview,
   getEffectiveRevisionHoldout,
   getMatchingRules,
   isRevisionEditLockedBySchedule,
@@ -26,9 +27,9 @@ import {
 } from "shared/validators";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { ApiReqContext } from "back-end/types/api";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   assessRevisionApproval,
-  featureReviewRequired,
   mergeDraftForAutoPublish,
 } from "back-end/src/services/featurePublishGates";
 import {
@@ -1605,9 +1606,23 @@ async function resolveRulesForExperiment({
     const bypass =
       restApiBypassesReviews ||
       context.permissions.canBypassFlagApprovalChecks(feature, "feature");
+    // As publishing the rewrite would judge it: every project governing the
+    // flag, and the environments the rewrite touches.
+    const live = await getLiveRevisionForFeature(context, feature);
+    const reviewRequired =
+      !bypass &&
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision: live,
+        revision: { ...live, rules: rewrite(live.rules ?? []) },
+        orgEnvironments: getEnvironments(context.org),
+        settings: context.org.settings,
+        requireApprovalsLicensed:
+          context.hasPremiumFeature("require-approvals"),
+      });
     if (
       !context.permissions.canPublishFeature(feature, envs) ||
-      (!bypass && featureReviewRequired(context, feature))
+      reviewRequired
     ) {
       throw refuse(feature, "no authority to publish the change");
     }

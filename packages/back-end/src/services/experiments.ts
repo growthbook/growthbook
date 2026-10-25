@@ -43,6 +43,7 @@ import {
   toApiAssignmentQueryRef,
   resolveAnalysisIdentifierType,
   linkedFeatureEnvStates,
+  orgRequiresAnyReview,
 } from "shared/util";
 import {
   getBanditSRMValue,
@@ -207,7 +208,6 @@ import { logger } from "back-end/src/util/logger";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { assessRevisionApprovalForAutoPublish } from "back-end/src/services/experiment-feature";
 import {
-  featureReviewRequired,
   mergeDraftForAutoPublish,
   type RevisionApprovalState,
 } from "back-end/src/services/featurePublishGates";
@@ -5422,6 +5422,12 @@ export async function getRefLinkedFeatureInfo({
   publisher?: ReqContext | ApiReqContext | null;
 }): Promise<LinkedFeatureInfo[]> {
   if (!linkedFeatureIds.length) return [];
+  // Assessing a draft's approval costs a lookup; with no review rule on
+  // anywhere, none can need it.
+  const anyReviewRequired = orgRequiresAnyReview(
+    context.org.settings,
+    context.hasPremiumFeature("require-approvals"),
+  );
 
   const pendingVersionsByFeatureId = new Map<string, Set<number>>();
   (pendingFeatureDrafts ?? []).forEach(({ featureId, revisionVersion }) => {
@@ -5542,17 +5548,9 @@ export async function getRefLinkedFeatureInfo({
         }
       }
 
-      // Feature-scope approval check: requires review AND draft not yet approved.
       // Also when `state` is "draft": the two can disagree when a live rule is
       // scoped to a deleted environment.
       const needsDraftFacts = hasPendingDraft || state === "draft";
-      const reviewRequired =
-        needsDraftFacts && featureReviewRequired(context, feature);
-      // Keyed on `state`: the checklist filters this without a state gate.
-      const pendingApproval =
-        state === "draft" && matchedDraftRevision && reviewRequired
-          ? true
-          : undefined;
 
       type DraftFacts = {
         hasChanges: boolean;
@@ -5597,7 +5595,7 @@ export async function getRefLinkedFeatureInfo({
             );
           }
           // Last: a failure here must not cost the conflict flags above.
-          if (reviewRequired) {
+          if (anyReviewRequired) {
             draftApproval = await assessRevisionApprovalForAutoPublish(
               context,
               feature,
@@ -5625,6 +5623,11 @@ export async function getRefLinkedFeatureInfo({
         needsDraftFacts && matchedDraftRevision
           ? await draftFacts(matchedDraftRevision)
           : null;
+      // As the publish gate judges it: every project governing the flag and
+      // what the draft changes, not just the flag's own project.
+      // Keyed on `state`: the checklist filters this without a state gate.
+      const pendingApproval =
+        state === "draft" && facts?.approval?.requiresReview ? true : undefined;
       const draftHasMergeConflict = !!facts?.hasMergeConflict;
       const draftHasUnrelatedChanges = !!facts?.hasUnrelatedDraftChanges;
       const draftApproval = facts?.approval;
@@ -5709,7 +5712,7 @@ export async function getRefLinkedFeatureInfo({
           allEnvironments: !!rule?.allEnvironments,
           title: revision.title,
           otherDraftCount,
-          pendingApproval: reviewRequired,
+          pendingApproval: !!draftFactsOf.approval?.requiresReview,
           defaultValue: revision.defaultValue,
           ...(draftFactsOf.approval && {
             approval: { satisfied: draftFactsOf.approval.satisfied },

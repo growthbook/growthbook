@@ -16,6 +16,7 @@ import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
+import { removeRulesForDeletedExperiment } from "back-end/src/services/experiment-feature";
 import { applyExperimentChanges } from "back-end/src/services/experimentChanges/applyExperimentChanges";
 import { planExperimentUpdate } from "back-end/src/services/experimentChanges/planExperimentUpdate";
 import { setupApp } from "./api.setup";
@@ -796,6 +797,43 @@ describe("applyExperimentChanges", () => {
         experiment: { changes: { coverage: 0.5 }, base: { coverage: 1 } },
       }),
     ).rejects.toThrow("changed since you loaded it");
+  });
+
+  it("refuses taking a live rule out when a targeting Project's review rule governs the flag", async () => {
+    await seed({ withDraft: false });
+    // The flag's own Project has no rule; the Project it targets does.
+    await collection("features").updateOne(
+      { id: FLAG },
+      { $set: { targetingProjects: ["prj_targeted"] } },
+    );
+    context = makeContext({
+      role: "engineer",
+      settings: {
+        requireReviews: [
+          {
+            requireReviewOn: true,
+            resetReviewOnChange: false,
+            environments: [],
+            projects: ["prj_targeted"],
+          },
+        ],
+      } as unknown as OrganizationInterface["settings"],
+    });
+    const experiment = await getExperimentById(context, EXP);
+    const feature = await getFeature(context, FLAG);
+    if (!experiment || !feature) throw new Error("missing fixtures");
+    await expect(
+      removeRulesForDeletedExperiment({
+        context,
+        experiment,
+        features: [feature],
+        eventAudit: { type: "api_key", apiKey: "key" },
+        audit: async () => undefined,
+      }),
+    ).rejects.toThrow("no authority to publish the change");
+    expect((await getFeature(context, FLAG))?.rules).toEqual([
+      expect.objectContaining({ experimentId: EXP }),
+    ]);
   });
 
   describe("targeting", () => {

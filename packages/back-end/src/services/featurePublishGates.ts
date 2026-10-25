@@ -1,7 +1,6 @@
 import {
   autoMerge,
   AutoMergeResult,
-  getReviewSetting,
   reconcileMergeBaselines,
   getRevisionReviewRequirement,
   draftDiffersFromLive,
@@ -651,18 +650,6 @@ export async function collectFeaturePublishGates({
   if (moveGate) gates.push(moveGate);
 
   return gates;
-}
-
-export function featureReviewRequired(
-  context: ReqContext | ApiReqContext,
-  feature: FeatureInterface,
-): boolean {
-  if (!context.hasPremiumFeature("require-approvals")) return false;
-  const requireReviews = context.org.settings?.requireReviews;
-  if (requireReviews === true) return true;
-  return Array.isArray(requireReviews)
-    ? !!getReviewSetting(requireReviews, feature)?.requireReviewOn
-    : false;
 }
 
 // The merge an unattended publish lands, under the governance the publish button
