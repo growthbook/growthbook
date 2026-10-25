@@ -5,17 +5,16 @@ import {
   ExperimentTargetingData,
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
-import React, { useEffect, useMemo } from "react";
-import { FaExternalLinkAlt } from "react-icons/fa";
+import React, { ReactNode, useEffect, useMemo } from "react";
 import clsx from "clsx";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
-import { BsCheckCircle, BsExclamationCircle } from "react-icons/bs";
-import { PiLightbulb } from "react-icons/pi";
+import { PiArrowSquareOut, PiLightbulb } from "react-icons/pi";
 import {
   getNamespaceRanges,
   hasNarrowedRanges,
   NamespaceValue,
 } from "shared/util";
+import { Box, Flex } from "@radix-ui/themes";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   ChangeType,
@@ -27,6 +26,8 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
 import { formatPercent } from "@/services/metrics";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -188,7 +189,7 @@ export default function ReleaseChangesForm({
 
       <div className="mt-4 mb-3">
         <label className="mb-1">Impact</label>
-        <div className="font-weight-semibold">
+        <Text as="div" color="text-high" mb="2">
           {form.watch("newPhase")
             ? form.watch("reseed")
               ? `New phase${!isBandit ? ", new randomization seed." : "."}`
@@ -229,18 +230,18 @@ export default function ReleaseChangesForm({
               ).
             </Callout>
           )}
-        </div>
+        </Text>
+        {recommendedRolloutData && changeType !== "phase" && (
+          <ReleaseImpact
+            recommendedRolloutData={recommendedRolloutData}
+            releasePlan={releasePlan}
+            usingStickyBucketing={usingStickyBucketing}
+            newPhase={form.watch("newPhase")}
+            isBandit={isBandit}
+          />
+        )}
       </div>
 
-      {recommendedRolloutData && changeType !== "phase" && (
-        <ImpactTooltips
-          recommendedRolloutData={recommendedRolloutData}
-          releasePlan={releasePlan}
-          usingStickyBucketing={usingStickyBucketing}
-          newPhase={form.watch("newPhase")}
-          isBandit={isBandit}
-        />
-      )}
       {changeType === "phase" && releasePlan === "new-phase-same-seed" && (
         <Callout status="warning">
           Starting a new phase without re-randomizing can lead to carryover
@@ -256,7 +257,7 @@ export default function ReleaseChangesForm({
   );
 }
 
-function ImpactTooltips({
+function ReleaseImpact({
   recommendedRolloutData,
   releasePlan = "",
   usingStickyBucketing = false,
@@ -295,143 +296,114 @@ function ImpactTooltips({
     }
   }
 
+  const { reasons } = recommendedRolloutData;
+  const showReasons = riskLevel !== "safe" && releasePlan !== "new-phase";
+  const notes: ReactNode[] = [
+    ...(showReasons
+      ? [
+          reasons.moreRestrictiveTargeting && (
+            <>
+              <strong>More restrictive targeting conditions</strong> without
+              starting a new phase may bias results. Some users already in the
+              experiment analysis may begin receiving the default feature value.
+            </>
+          ),
+          reasons.otherTargetingChanges && (
+            <>
+              <strong>Ambiguous changes to targeting conditions</strong> without
+              starting a new phase may bias results. Some users already in the
+              experiment analysis may begin receiving the default feature value.
+            </>
+          ),
+          reasons.decreaseCoverage && (
+            <>
+              <strong>Decreased traffic coverage</strong> without starting a new
+              phase may bias results. Some users already in the experiment
+              analysis will begin receiving the default feature value.
+            </>
+          ),
+          reasons.changeVariationWeights && (
+            <>
+              <strong>Changing variation weights</strong> could lead to
+              statistical bias and/or multiple exposures.
+            </>
+          ),
+          reasons.disableVariation && (
+            <>
+              <strong>Disabling or re-enabling a variation</strong> could lead
+              to statistical bias and/or multiple exposures.
+            </>
+          ),
+          (reasons.addToNamespace ||
+            reasons.decreaseNamespaceRange ||
+            reasons.otherNamespaceChanges) && (
+            <>
+              <strong>More restrictive namespace targeting</strong> without
+              starting a new phase may bias results as users in your experiment
+              analysis may fall back to the default feature value.
+            </>
+          ),
+        ]
+      : []),
+    newPhase && "Starting a new phase restarts the analysis collection window.",
+  ].filter(Boolean);
+  // One place for what would help, rather than a tip under each risk.
+  const tips = [
+    showReasons &&
+      `Re-randomize traffic${
+        recommendStickyBucketing && switchToSB ? " or use Sticky Bucketing" : ""
+      } to help mitigate.`,
+    !isBandit &&
+      variationHopping &&
+      releasePlan !== "same-phase-sticky" &&
+      "You may be able to use Sticky Bucketing to prevent variation hopping.",
+  ].filter(Boolean);
+  const showDocs =
+    !isBandit &&
+    ((variationHopping && releasePlan !== "same-phase-sticky") ||
+      recommendStickyBucketing);
+
   return (
-    <div className="appbox bg-light px-3 pt-3 pb-0 mb-0">
-      <div className="mb-1 font-weight-bold">Statistical impact</div>
-      <div
-        className={clsx("mb-3", {
-          "text-success": riskLevel === "safe",
-          "text-warning-muted": ["warning", "danger"].includes(riskLevel),
-        })}
-      >
-        {riskLevel === "safe" && (
-          <span className="font-weight-semibold">
-            <BsCheckCircle className="mr-1" /> Your changes will not bias
-            experiment results.
-          </span>
-        )}
-        {riskLevel === "warning" && (
-          <span className="font-weight-semibold">
-            <BsExclamationCircle className="mr-1" /> The changes you have made
-            may bias experiment results.
-          </span>
-        )}
-        {riskLevel === "danger" && (
-          <span className="font-weight-semibold">
-            <BsExclamationCircle className="mr-1" /> The changes you have made
-            have a <strong>high risk</strong> of biasing experiment results.
-          </span>
-        )}
-        {newPhase && (
-          <div className="ml-4 mt-2 text-dark">
-            Note: starting a new phase restarts the analysis collection window.
-          </div>
-        )}
-        {riskLevel !== "safe" && (
-          <div className="mt-2 mb-0">
-            {releasePlan != "new-phase" ? (
-              <>
-                <div className="pl-4">
-                  {recommendedRolloutData.reasons.moreRestrictiveTargeting && (
-                    <div className="mt-2">
-                      <strong>More restrictive targeting conditions</strong>{" "}
-                      without starting a new phase may bias results. Some users
-                      already in the experiment analysis may begin receiving the
-                      default feature value.
-                    </div>
-                  )}
-                  {recommendedRolloutData.reasons.otherTargetingChanges && (
-                    <div className="mt-2">
-                      <strong>Ambiguous changes to targeting conditions</strong>{" "}
-                      without starting a new phase may bias results. Some users
-                      already in the experiment analysis may begin receiving the
-                      default feature value.
-                    </div>
-                  )}
-                  {recommendedRolloutData.reasons.decreaseCoverage && (
-                    <div className="mt-2">
-                      <strong>Decreased traffic coverage</strong> without
-                      starting a new phase may bias results. Some users already
-                      in the experiment analysis will begin receiving the
-                      default feature value.
-                    </div>
-                  )}
-                  {recommendedRolloutData.reasons.changeVariationWeights && (
-                    <div className="mt-2">
-                      <strong>Changing variation weights</strong> could lead to
-                      statistical bias and/or multiple exposures.
-                    </div>
-                  )}
-                  {recommendedRolloutData.reasons.disableVariation && (
-                    <div className="mt-2">
-                      <strong>Disabling or re-enabling a variation</strong>{" "}
-                      could lead to statistical bias and/or multiple exposures.
-                    </div>
-                  )}
-                  {(recommendedRolloutData.reasons.addToNamespace ||
-                    recommendedRolloutData.reasons.decreaseNamespaceRange ||
-                    recommendedRolloutData.reasons.otherNamespaceChanges) && (
-                    <div className="mt-2">
-                      <strong>More restrictive namespace targeting</strong>{" "}
-                      without starting a new phase may bias results as users in
-                      your experiment analysis may fall back to the default
-                      feature value.
-                    </div>
-                  )}
-                </div>
-
-                <Callout status="info" mt="2" mb="0" icon={<PiLightbulb />}>
-                  Re-randomize traffic{" "}
-                  {recommendStickyBucketing && switchToSB
-                    ? " or use Sticky Bucketing"
-                    : ""}{" "}
-                  to help mitigate.
-                </Callout>
-              </>
-            ) : null}
-          </div>
-        )}
-      </div>
-
-      <div className="mb-1 font-weight-bold">User experience impact</div>
-      <div
-        className={clsx("mb-3", {
-          "text-success": !variationHopping,
-          "text-warning-muted": variationHopping,
-        })}
-      >
-        {variationHopping ? (
-          <div className="font-weight-semibold">
-            <BsExclamationCircle className="mr-1" /> Some users may change their
-            assigned variation.
-          </div>
-        ) : (
-          <div className="font-weight-semibold">
-            <BsCheckCircle className="mr-1" /> Users will keep their assigned
-            variation.
-          </div>
-        )}
-
-        {!isBandit &&
-          variationHopping &&
-          releasePlan !== "same-phase-sticky" && (
-            <Callout status="info" mt="2" mb="0" icon={<PiLightbulb />}>
-              You may be able to use Sticky Bucketing to prevent variation
-              hopping.
-            </Callout>
+    <Flex direction="column" gap="2">
+      <Box>
+        <HelperText status={riskLevel === "safe" ? "success" : "warning"}>
+          {riskLevel === "safe" ? (
+            "Your changes will not bias experiment results."
+          ) : riskLevel === "warning" ? (
+            "Your changes may bias experiment results."
+          ) : (
+            <>
+              Your changes have a <strong>high risk</strong> of biasing
+              experiment results.
+            </>
           )}
-      </div>
-
-      {!isBandit &&
-        ((variationHopping && releasePlan !== "same-phase-sticky") ||
-          recommendStickyBucketing) && (
-          <div className="text-right mb-2 small">
-            <DocLink useRadix={false} docSection="stickyBucketing">
-              Learn about Sticky Bucketing <FaExternalLinkAlt />
-            </DocLink>
-          </div>
-        )}
-    </div>
+          {/* Under the line they explain, lined up with its text. */}
+          {notes.map((note, i) => (
+            <Box key={i} mt="1">
+              <Text color="text-mid">{note}</Text>
+            </Box>
+          ))}
+        </HelperText>
+      </Box>
+      <HelperText status={variationHopping ? "warning" : "success"}>
+        {variationHopping
+          ? "Some users may change their assigned variation."
+          : "Users will keep their assigned variation."}
+      </HelperText>
+      {tips.length ? (
+        <Callout status="info" icon={<PiLightbulb />}>
+          {tips.join(" ")}
+          {showDocs ? (
+            <>
+              {" "}
+              <DocLink docSection="stickyBucketing">
+                Learn about Sticky Bucketing <PiArrowSquareOut />
+              </DocLink>
+            </>
+          ) : null}
+        </Callout>
+      ) : null}
+    </Flex>
   );
 }
 
