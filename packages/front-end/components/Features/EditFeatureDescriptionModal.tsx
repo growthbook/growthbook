@@ -18,6 +18,7 @@ import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 
 interface Props {
   close: () => void;
@@ -91,7 +92,7 @@ export default function EditFeatureDescriptionModal({
         open={true}
         size="lg"
         close={close}
-        submit={form.handleSubmit(async ({ description }) => {
+        submit={validatedSubmit(form, async ({ description }) => {
           const guard = conflict.guard({ description });
           const res = await conflict.guarded(() =>
             apiCall<{ draftVersion?: number }>(

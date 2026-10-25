@@ -8,7 +8,7 @@ import { expandMetricGroups } from "shared/experiments";
 import { MetricOverride } from "shared/validators";
 import { StatsEngine } from "shared/types/stats";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import { StopSubmit } from "@/ui/Modal/StopSubmit";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Callout from "@/ui/Callout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -137,31 +137,25 @@ export default function MetricOverridesModal({
       cta="Confirm"
       ctaEnabled={canOverride}
       size="lg"
-      submit={form.handleSubmit(
-        async (value) => {
-          const next = withoutDeprecatedOverrideFields(value.metricOverrides);
-          fixMetricOverridesBeforeSaving(next);
-          stageChanges(
-            next,
-            targetMDEOverrides
-              ? [
-                  // A metric that's no longer a goal keeps what it had.
-                  ...targetMDEOverrides.filter((o) => !goalIds.includes(o.id)),
-                  ...goalIds.flatMap((id) => {
-                    const percent = value.targetMDEs[id];
-                    return percent === undefined || Number.isNaN(percent)
-                      ? []
-                      : [{ id, targetMDE: percent / 100 }];
-                  }),
-                ]
-              : undefined,
-          );
-        },
-        // Stays open so the invalid field can say why.
-        () => {
-          throw new StopSubmit();
-        },
-      )}
+      submit={validatedSubmit(form, async (value) => {
+        const next = withoutDeprecatedOverrideFields(value.metricOverrides);
+        fixMetricOverridesBeforeSaving(next);
+        stageChanges(
+          next,
+          targetMDEOverrides
+            ? [
+                // A metric that's no longer a goal keeps what it had.
+                ...targetMDEOverrides.filter((o) => !goalIds.includes(o.id)),
+                ...goalIds.flatMap((id) => {
+                  const percent = value.targetMDEs[id];
+                  return percent === undefined || Number.isNaN(percent)
+                    ? []
+                    : [{ id, targetMDE: percent / 100 }];
+                }),
+              ]
+            : undefined,
+        );
+      })}
     >
       {!hasFeature ? (
         <Callout status="info" mb="3">

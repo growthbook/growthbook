@@ -295,6 +295,12 @@ export default defineConfig([
           message:
             'Do not add new `size="legacy"` props. Omit `size` to use the component default, or use an explicit design-system size from `@/ui/sizes` ("xs", "sm", "md", "lg"); each component supports a subset.',
         },
+        {
+          selector:
+            "JSXOpeningElement[name.name='ModalStandard'] > JSXAttribute[name.name='submit'] > JSXExpressionContainer > CallExpression[callee.property.name='handleSubmit']",
+          message:
+            "Use validatedSubmit(form, onValid) from @/ui/Modal/validatedSubmit: with form.handleSubmit alone, a field that fails its rules closes the modal and drops the edit.",
+        },
       ],
       "local/no-alert-classname": "error",
     },

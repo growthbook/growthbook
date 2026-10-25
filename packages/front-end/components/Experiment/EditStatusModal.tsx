@@ -13,6 +13,7 @@ import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import {
   armedStartDate,
   scheduledTime,
@@ -95,7 +96,8 @@ export default function EditStatusModal({
       }
       close={close}
       open={true}
-      submit={form.handleSubmit(
+      submit={validatedSubmit(
+        form,
         async (value: {
           status: ExperimentStatus | "analysis";
           reason: string;

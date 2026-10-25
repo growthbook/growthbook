@@ -9,6 +9,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import track from "@/services/track";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import FieldAlignedVariationNumber, {
   VARIATION_NUMBER_WIDTH,
 } from "@/components/Experiment/FieldAlignedVariationNumber";
@@ -61,7 +62,7 @@ const EditVariationMetadataModal: FC<Props> = ({
       open={true}
       close={close}
       size="lg"
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         const updatedVariations = variations.map((v, i) =>
           i === variationIndex
             ? {

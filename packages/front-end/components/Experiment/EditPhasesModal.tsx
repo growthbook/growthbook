@@ -13,6 +13,7 @@ import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Table, {
   TableBody,
   TableCell,
@@ -225,7 +226,7 @@ function EditPhaseStep({
       open={true}
       close={close}
       header={`Edit Analysis Phase #${i + 1}`}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         validateSavedGroupTargeting(value.savedGroups);
 
         await apiCall(`/experiment/${experiment.id}/phase/${i}`, {

@@ -12,6 +12,7 @@ import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Text from "@/ui/Text";
 import RichTextEditor from "@/ui/RichTextEditor";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
@@ -115,7 +116,7 @@ export default function EditExperimentInfoModal({
           ? `Edit ${shownCustomFields[0].name}`
           : SECTION_HEADERS[section]
       }
-      submit={form.handleSubmit(async (data) => {
+      submit={validatedSubmit(form, async (data) => {
         // Only what this section shows: custom fields are rewritten whole, so
         // an unrelated save would drop values outside the project's scope.
         await apiCall(`/experiment/${experiment.id}`, {

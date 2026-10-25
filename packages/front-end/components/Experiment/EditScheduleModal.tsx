@@ -9,6 +9,7 @@ import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import DatePicker from "@/components/DatePicker";
 import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
@@ -434,7 +435,7 @@ export default function EditScheduleModal({
             </Button>
           ) : undefined
         }
-        submit={form.handleSubmit(async (data) => {
+        submit={validatedSubmit(form, async (data) => {
           await apiCall(`/experiment/${experiment.id}`, {
             method: "POST",
             body: JSON.stringify({

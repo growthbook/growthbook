@@ -62,6 +62,7 @@ import {
   getIsExperimentIncludedInIncrementalRefresh,
 } from "@/services/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Text from "@/ui/Text";
 import { withoutDeprecatedOverrideFields } from "@/services/metricOverrides";
 import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
@@ -479,7 +480,7 @@ const AnalysisForm: FC<{
       open={true}
       close={cancel}
       size="lg"
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
         const body: Partial<ExperimentInterfaceStringDates> & {
