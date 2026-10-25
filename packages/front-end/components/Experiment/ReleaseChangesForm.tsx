@@ -5,10 +5,9 @@ import {
   ExperimentTargetingData,
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import clsx from "clsx";
-import { BiHide, BiShow } from "react-icons/bi";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { BsCheckCircle, BsExclamationCircle } from "react-icons/bs";
 import { PiLightbulb } from "react-icons/pi";
@@ -17,7 +16,6 @@ import {
   hasNarrowedRanges,
   NamespaceValue,
 } from "shared/util";
-import { Flex } from "@radix-ui/themes";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   ChangeType,
@@ -29,7 +27,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
 import { formatPercent } from "@/services/metrics";
 import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -52,8 +49,6 @@ export default function ReleaseChangesForm({
     orgStickyBucketing && !experiment.disableStickyBucketing;
 
   const isBandit = experiment.type === "multi-armed-bandit";
-
-  const [showFullTargetingInfo, setShowFullTargetingInfo] = useState(false);
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
@@ -254,25 +249,8 @@ export default function ReleaseChangesForm({
       )}
 
       <div className="mt-4 mb-1">
-        <Flex align="center" justify="between" mb="1">
-          <label className="mb-0">Changes</label>
-          <Link
-            size="sm"
-            onClick={() => setShowFullTargetingInfo(!showFullTargetingInfo)}
-          >
-            <Flex align="center" gap="1">
-              {showFullTargetingInfo ? <BiHide /> : <BiShow />}
-              {showFullTargetingInfo
-                ? "Show changes only"
-                : "Show full targeting"}
-            </Flex>
-          </Link>
-        </Flex>
-        <TargetingChanges
-          experiment={experiment}
-          value={form.getValues()}
-          showAll={showFullTargetingInfo}
-        />
+        <label className="mb-1">Changes</label>
+        <TargetingChanges experiment={experiment} value={form.getValues()} />
       </div>
     </div>
   );

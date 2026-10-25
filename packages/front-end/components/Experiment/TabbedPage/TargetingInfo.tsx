@@ -1,4 +1,6 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
+import { Flex } from "@radix-ui/themes";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
@@ -14,6 +16,7 @@ import { GBInfo } from "@/components/Icons";
 import ChangesTable, {
   ChangesTableRow,
 } from "@/components/Reviews/ChangesTable";
+import Link from "@/ui/Link";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -141,6 +144,32 @@ function useTargetingFields(
   ];
 }
 
+function Disclosure({
+  open,
+  onToggle,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  children: string;
+}) {
+  return (
+    <Link
+      size="sm"
+      aria-expanded={open}
+      onClick={(e) => {
+        e.preventDefault();
+        onToggle();
+      }}
+    >
+      <Flex align="center" gap="1">
+        {children}
+        {open ? <PiCaretDown /> : <PiCaretRight />}
+      </Flex>
+    </Link>
+  );
+}
+
 /** Who the experiment includes now. */
 export default function TargetingInfo({
   experiment,
@@ -188,12 +217,12 @@ export default function TargetingInfo({
 export function TargetingChanges({
   experiment,
   value,
-  showAll,
 }: {
   experiment: ExperimentInterfaceStringDates;
   value: ExperimentTargetingData;
-  showAll: boolean;
 }) {
+  const [showDetails, setShowDetails] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const live = useTargetingDefaults(experiment);
   const fields = useTargetingFields(experiment);
   const changed = new Set(Object.keys(changedTargeting(value, live)));
@@ -266,18 +295,34 @@ export function TargetingChanges({
       before: field.render(live),
       after: field.render(value),
     }));
-  if (!releaseRows.length && !targetingRows.length) {
-    return (
-      <div className="mb-3">
-        <em>No changes</em>
-      </div>
-    );
-  }
   return (
     <ChangesTable
       before="Live"
       after="After publishing"
-      groups={[releaseRows, targetingRows]}
+      showDetails={showDetails}
+      groups={[
+        {
+          key: "release",
+          rows: releaseRows,
+          footer: releaseRows.some((row) => row.details) ? (
+            <Disclosure
+              open={showDetails}
+              onToggle={() => setShowDetails(!showDetails)}
+            >
+              {showDetails ? "Hide details" : "Show details"}
+            </Disclosure>
+          ) : undefined,
+        },
+        {
+          key: "targeting",
+          rows: targetingRows,
+          footer: (
+            <Disclosure open={showAll} onToggle={() => setShowAll(!showAll)}>
+              {showAll ? "Show changes only" : "Show full targeting"}
+            </Disclosure>
+          ),
+        },
+      ]}
     />
   );
 }

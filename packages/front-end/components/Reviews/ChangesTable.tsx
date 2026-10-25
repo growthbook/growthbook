@@ -1,6 +1,5 @@
-import { CSSProperties, ReactNode, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
-import { PiCaretDown, PiCaretRight } from "react-icons/pi";
+import { CSSProperties, ReactNode } from "react";
+import { Box } from "@radix-ui/themes";
 import Table, {
   TableBody,
   TableCell,
@@ -9,7 +8,6 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import Text from "@/ui/Text";
-import Link from "@/ui/Link";
 import { LABEL_WIDTH } from "@/components/Experiment/TabbedPage/SetupFieldRow";
 
 // A diff's before and after halves, as the feature diff colours them.
@@ -76,22 +74,27 @@ export type ChangesTableRow = {
   details?: { label: string; before: ReactNode; after: ReactNode }[];
 };
 
+export type ChangesTableGroup = {
+  key: string;
+  rows: ChangesTableRow[];
+  /** Under the rows, in the label column: what opens or widens the group. */
+  footer?: ReactNode;
+};
+
 /** Each setting as it is on the left and as it will be on the right, tinted where it changes. */
 export default function ChangesTable({
   before,
   after,
   groups,
+  showDetails,
 }: {
   before: string;
   after: string;
   /** Rows that belong together, each group ruled off from the next. */
-  groups: ChangesTableRow[][];
+  groups: ChangesTableGroup[];
+  showDetails: boolean;
 }) {
-  const shown = groups.filter((group) => group.length);
-  const [showDetails, setShowDetails] = useState(false);
-  const hasDetails = shown.some((group) =>
-    group.some((row) => row.details?.length),
-  );
+  const shown = groups.filter((group) => group.rows.length || group.footer);
   const side = (row: ChangesTableRow, which: keyof typeof DIFF_TINT) => (
     <DiffInset tint={row.changed ? DIFF_TINT[which] : undefined}>
       {row[which]}
@@ -106,28 +109,42 @@ export default function ChangesTable({
         : null}
     </DiffInset>
   );
+  // A line of a group: its label and what's either side. The group's last line
+  // carries its rule.
+  const row = (
+    key: string,
+    label: ReactNode,
+    cells: [ReactNode, ReactNode],
+    ruledAbove: boolean,
+    ruledBelow: boolean,
+  ) => {
+    const gap = rowGap(ruledAbove, ruledBelow);
+    return (
+      <TableRow
+        key={key}
+        style={
+          ruledBelow
+            ? ({
+                "--table-row-box-shadow": "inset 0 -1px var(--gray-a5)",
+              } as CSSProperties)
+            : undefined
+        }
+      >
+        {/* Flush, so the labels line up with the page's other rows. */}
+        <TableCell style={{ width: LABEL_WIDTH, paddingLeft: 0, ...gap }}>
+          {label}
+        </TableCell>
+        <TableCell style={gap}>{cells[0]}</TableCell>
+        <TableCell style={{ ...AFTER_COLUMN, ...gap }}>{cells[1]}</TableCell>
+      </TableRow>
+    );
+  };
   return (
     // Fixed, so the two sides split what the labels leave evenly.
     <Table variant="ghost" layout="fixed">
       <TableHeader>
         <TableRow style={{ verticalAlign: "middle" }}>
-          <TableColumnHeader style={{ width: LABEL_WIDTH, paddingLeft: 0 }}>
-            {hasDetails ? (
-              <Link
-                size="sm"
-                aria-expanded={showDetails}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setShowDetails(!showDetails);
-                }}
-              >
-                <Flex align="center" gap="1">
-                  {showDetails ? "Hide details" : "Show details"}
-                  {showDetails ? <PiCaretDown /> : <PiCaretRight />}
-                </Flex>
-              </Link>
-            ) : null}
-          </TableColumnHeader>
+          <TableColumnHeader style={{ width: LABEL_WIDTH, paddingLeft: 0 }} />
           <TableColumnHeader>
             <DiffInset>
               <ColumnLabel>{before}</ColumnLabel>
@@ -149,39 +166,47 @@ export default function ChangesTable({
           } as CSSProperties
         }
       >
-        {shown.flatMap((group, g) =>
-          group.map((row, i) => {
-            const ruledBelow = i === group.length - 1 && g < shown.length - 1;
-            const gap = rowGap(i === 0 && g > 0, ruledBelow);
-            return (
-              <TableRow
-                key={row.key}
-                style={
-                  ruledBelow
-                    ? ({
-                        "--table-row-box-shadow": "inset 0 -1px var(--gray-a5)",
-                      } as CSSProperties)
-                    : undefined
-                }
-              >
-                {/* Flush, so the labels line up with the page's other rows. */}
-                <TableCell
-                  style={{ width: LABEL_WIDTH, paddingLeft: 0, ...gap }}
-                >
-                  <DiffInset flush>
-                    <Text weight="medium" color="text-high">
-                      {row.label}
-                    </Text>
-                  </DiffInset>
-                </TableCell>
-                <TableCell style={gap}>{side(row, "before")}</TableCell>
-                <TableCell style={{ ...AFTER_COLUMN, ...gap }}>
-                  {side(row, "after")}
-                </TableCell>
-              </TableRow>
-            );
-          }),
-        )}
+        {shown.flatMap((group, g) => {
+          const lines: {
+            key: string;
+            label: ReactNode;
+            cells: [ReactNode, ReactNode];
+          }[] = [
+            ...group.rows.map((r) => ({
+              key: r.key,
+              label: (
+                <DiffInset flush>
+                  <Text weight="medium" color="text-high">
+                    {r.label}
+                  </Text>
+                </DiffInset>
+              ),
+              cells: [side(r, "before"), side(r, "after")] as [
+                ReactNode,
+                ReactNode,
+              ],
+            })),
+            ...(group.footer
+              ? [
+                  {
+                    key: `${group.key}.footer`,
+                    label: group.footer,
+                    cells: [null, null] as [ReactNode, ReactNode],
+                  },
+                ]
+              : []),
+          ];
+          // The group's first and last lines take the room around its rules.
+          return lines.map((line, i) =>
+            row(
+              line.key,
+              line.label,
+              line.cells,
+              i === 0 && g > 0,
+              i === lines.length - 1 && g < shown.length - 1,
+            ),
+          );
+        })}
       </TableBody>
     </Table>
   );
