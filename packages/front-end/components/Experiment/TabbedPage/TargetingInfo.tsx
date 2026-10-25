@@ -11,7 +11,9 @@ import { formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { GBInfo } from "@/components/Icons";
-import ChangesTable from "@/components/Reviews/ChangesTable";
+import ChangesTable, {
+  ChangesTableRow,
+} from "@/components/Reviews/ChangesTable";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -136,6 +138,18 @@ function useTargetingFields(
       render: ({ hashVersion }) =>
         hashVersion === 1 ? "V1 (Legacy)" : "V2 (Preferred)",
     },
+    {
+      key: "bucketVersion",
+      label: "Bucket version",
+      advanced: true,
+      render: ({ bucketVersion }) => bucketVersion,
+    },
+    {
+      key: "minBucketVersion",
+      label: "Minimum bucket version",
+      advanced: true,
+      render: ({ minBucketVersion }) => minBucketVersion,
+    },
   ];
 }
 
@@ -179,8 +193,9 @@ export default function TargetingInfo({
 }
 
 /**
- * The experiment's targeting live beside `value`. Changes are judged as the
- * save judges them, so only what it would write shows as one.
+ * The experiment's targeting live beside `value`, with any new phase and seed
+ * its release starts. Changes are judged as the save judges them, so only what
+ * it would write shows as one.
  */
 export function TargetingChanges({
   experiment,
@@ -194,15 +209,42 @@ export function TargetingChanges({
   const live = useTargetingDefaults(experiment);
   const fields = useTargetingFields(experiment);
   const changed = new Set(Object.keys(changedTargeting(value, live)));
-  const rows = fields
-    .filter((field) => changed.has(field.key) || (showAll && !field.advanced))
-    .map((field) => ({
-      key: field.key,
-      label: field.label,
-      changed: changed.has(field.key),
-      before: field.render(live),
-      after: field.render(value),
-    }));
+  const phase = experiment.phases.length;
+  // The release plan's part: a new phase, and with it maybe a new seed.
+  const releaseRows: ChangesTableRow[] = value.newPhase
+    ? [
+        {
+          key: "phase",
+          label: "Phase",
+          changed: true,
+          before: phase ? `Phase ${phase}` : none,
+          after: `Phase ${phase + 1}`,
+        },
+        ...(value.reseed && phase
+          ? [
+              {
+                key: "seed",
+                label: "Randomization seed",
+                changed: true,
+                before: live.seed || experiment.trackingKey,
+                after: "New seed",
+              },
+            ]
+          : []),
+      ]
+    : [];
+  const rows = [
+    ...releaseRows,
+    ...fields
+      .filter((field) => changed.has(field.key) || (showAll && !field.advanced))
+      .map((field) => ({
+        key: field.key,
+        label: field.label,
+        changed: changed.has(field.key),
+        before: field.render(live),
+        after: field.render(value),
+      })),
+  ];
   if (!rows.length) {
     return (
       <div className="mb-3">

@@ -253,29 +253,27 @@ export default function ReleaseChangesForm({
         </Callout>
       )}
 
-      {changeType !== "phase" && (
-        <div className="mt-4 mb-1">
-          <Flex align="center" justify="between" mb="1">
-            <label className="mb-0">Targeting and traffic changes</label>
-            <Link
-              size="sm"
-              onClick={() => setShowFullTargetingInfo(!showFullTargetingInfo)}
-            >
-              <Flex align="center" gap="1">
-                {showFullTargetingInfo ? <BiHide /> : <BiShow />}
-                {showFullTargetingInfo
-                  ? "Show changes only"
-                  : "Show full targeting"}
-              </Flex>
-            </Link>
-          </Flex>
-          <TargetingChanges
-            experiment={experiment}
-            value={form.getValues()}
-            showAll={showFullTargetingInfo}
-          />
-        </div>
-      )}
+      <div className="mt-4 mb-1">
+        <Flex align="center" justify="between" mb="1">
+          <label className="mb-0">Changes</label>
+          <Link
+            size="sm"
+            onClick={() => setShowFullTargetingInfo(!showFullTargetingInfo)}
+          >
+            <Flex align="center" gap="1">
+              {showFullTargetingInfo ? <BiHide /> : <BiShow />}
+              {showFullTargetingInfo
+                ? "Show changes only"
+                : "Show full targeting"}
+            </Flex>
+          </Link>
+        </Flex>
+        <TargetingChanges
+          experiment={experiment}
+          value={form.getValues()}
+          showAll={showFullTargetingInfo}
+        />
+      </div>
     </div>
   );
 }

@@ -144,7 +144,8 @@ export function getTargetingDefaults(
     attributeScopeAllProjects: experiment.attributeScopeAllProjects ?? false,
     hashVersion: experiment.hashVersion || hashVersionFallback,
     disableStickyBucketing: experiment.disableStickyBucketing ?? false,
-    bucketVersion: experiment.bucketVersion || 1,
+    // Unset reads as 0, as the SDK reads it.
+    bucketVersion: experiment.bucketVersion ?? 0,
     minBucketVersion: experiment.minBucketVersion || 0,
     namespace: (() => {
       const saved = lastPhase?.namespace;

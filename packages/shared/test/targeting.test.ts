@@ -4,6 +4,7 @@ import type { ExperimentTargetingData } from "shared/types/experiment";
 import {
   changedTargeting,
   experimentFieldValue,
+  getTargetingDefaults,
   hasAttributeCondition,
   hasTargetingConfigured,
 } from "../src/experiments/targeting";
@@ -103,6 +104,23 @@ describe("changedTargeting", () => {
         loaded,
       ),
     ).toEqual({ coverage: 0.4, hashAttribute: "device" });
+  });
+});
+
+describe("getTargetingDefaults", () => {
+  it("lets a release's first bucket bump count as a change", () => {
+    const live = getTargetingDefaults(
+      {
+        variations: [],
+        hashAttribute: "id",
+        trackingKey: "exp",
+        phases: [],
+      },
+      2,
+    );
+    expect(changedTargeting({ ...live, bucketVersion: 1 }, live)).toEqual({
+      bucketVersion: 1,
+    });
   });
 });
 
