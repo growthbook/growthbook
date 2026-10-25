@@ -5,7 +5,7 @@ import {
 } from "shared/types/experiment";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import { useEffect, useState } from "react";
+import { Fragment, ReactNode, useEffect, useRef, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -16,7 +16,34 @@ import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Checkbox from "@/ui/Checkbox";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
+import Tooltip from "@/ui/Tooltip";
+import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import TargetingForm from "./TargetingForm";
+
+const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
+
+// Cut off past a width, with the whole key on hover once it is.
+function FlagKey({ id }: { id: string }) {
+  const ref = useRef<HTMLElement>(null);
+  const truncated = useIsOverflowingX(ref);
+  return (
+    <Tooltip content={id} enabled={truncated}>
+      <strong
+        ref={ref}
+        style={{
+          display: "inline-block",
+          maxWidth: 240,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          verticalAlign: "bottom",
+        }}
+      >
+        {id}
+      </strong>
+    </Tooltip>
+  );
+}
 
 export type ChangeType =
   | "targeting"
@@ -68,6 +95,21 @@ export default function MakeChangesFlow({
   const [changesConfirmed, setChangesConfirmed] = useState(false);
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  // What serves the experiment, so it takes the change once it's published.
+  const linkedFlags = experiment.linkedFeatures ?? [];
+  const servedBy: ReactNode[] = [
+    ...(linkedFlags.length === 1
+      ? [
+          <Fragment key="flag">
+            the linked Feature Flag <FlagKey id={linkedFlags[0]} />
+          </Fragment>,
+        ]
+      : linkedFlags.length
+        ? [`the ${linkedFlags.length} linked Feature Flags`]
+        : []),
+    ...(experiment.hasVisualChangesets ? ["the AI Visual Editor changes"] : []),
+    ...(experiment.hasURLRedirects ? ["the URL Redirects"] : []),
+  ];
 
   const lastStepNumber = changeType !== "phase" ? 2 : 1;
 
@@ -173,8 +215,25 @@ export default function MakeChangesFlow({
               </Box>
             }
           >
-            Changes made will apply to linked Feature Flags, Visual Changes, and
-            URL Redirects immediately upon publishing.
+            {servedBy.length ? (
+              <>
+                Publishing applies immediately to{" "}
+                {listFormat
+                  .formatToParts(servedBy.map((_, i) => String(i)))
+                  .map((part, i) =>
+                    part.type === "element" ? (
+                      <Fragment key={i}>
+                        {servedBy[Number(part.value)]}
+                      </Fragment>
+                    ) : (
+                      part.value
+                    ),
+                  )}
+                .
+              </>
+            ) : (
+              "Publishing applies immediately."
+            )}
           </ModalWarningBanner>
         ) : undefined
       }
