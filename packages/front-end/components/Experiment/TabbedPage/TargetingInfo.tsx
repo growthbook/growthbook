@@ -138,18 +138,6 @@ function useTargetingFields(
       render: ({ hashVersion }) =>
         hashVersion === 1 ? "V1 (Legacy)" : "V2 (Preferred)",
     },
-    {
-      key: "bucketVersion",
-      label: "Bucket version",
-      advanced: true,
-      render: ({ bucketVersion }) => bucketVersion,
-    },
-    {
-      key: "minBucketVersion",
-      label: "Minimum bucket version",
-      advanced: true,
-      render: ({ minBucketVersion }) => minBucketVersion,
-    },
   ];
 }
 
@@ -210,29 +198,65 @@ export function TargetingChanges({
   const fields = useTargetingFields(experiment);
   const changed = new Set(Object.keys(changedTargeting(value, live)));
   const phase = experiment.phases.length;
-  // The release plan's part: a new phase, and with it maybe a new seed.
-  const releaseRows: ChangesTableRow[] = value.newPhase
-    ? [
-        {
-          key: "phase",
-          label: "Phase",
-          changed: true,
-          before: phase ? `Phase ${phase}` : none,
-          after: `Phase ${phase + 1}`,
-        },
-        ...(value.reseed && phase
-          ? [
+  const bucketMoved = changed.has("bucketVersion");
+  const minBucketMoved = changed.has("minBucketVersion");
+  // What the release plan does, in words; the settings behind each open up.
+  const releaseRows: ChangesTableRow[] = [
+    ...(value.newPhase
+      ? [
+          {
+            key: "phase",
+            label: "Phase",
+            changed: true,
+            before: phase ? `Phase ${phase}` : none,
+            after: `Phase ${phase + 1}`,
+          },
+        ]
+      : []),
+    ...(value.newPhase && value.reseed && phase
+      ? [
+          {
+            key: "assignment",
+            label: "Assignment",
+            changed: true,
+            before: "As assigned now",
+            after: "Randomized again",
+            details: [
               {
-                key: "seed",
-                label: "Randomization seed",
-                changed: true,
+                label: "Seed",
                 before: live.seed || experiment.trackingKey,
-                after: "New seed",
+                after: "A new seed",
               },
-            ]
-          : []),
-      ]
-    : [];
+            ],
+          },
+        ]
+      : []),
+    ...(bucketMoved || minBucketMoved
+      ? [
+          {
+            key: "stickyBucketing",
+            label: "Sticky bucketed users",
+            changed: true,
+            before: "Keep their assigned variation",
+            after: minBucketMoved
+              ? "Excluded from the experiment"
+              : "Reassigned",
+            details: [
+              {
+                label: "Bucket version",
+                before: live.bucketVersion,
+                after: value.bucketVersion ?? live.bucketVersion,
+              },
+              {
+                label: "Minimum bucket version",
+                before: live.minBucketVersion,
+                after: value.minBucketVersion ?? live.minBucketVersion,
+              },
+            ],
+          },
+        ]
+      : []),
+  ];
   const rows = [
     ...releaseRows,
     ...fields

@@ -1,5 +1,6 @@
-import { CSSProperties, ReactNode } from "react";
-import { Box } from "@radix-ui/themes";
+import { CSSProperties, ReactNode, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import Table, {
   TableBody,
   TableCell,
@@ -8,6 +9,7 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import Text from "@/ui/Text";
+import Button from "@/ui/Button";
 import { LABEL_WIDTH } from "@/components/Experiment/TabbedPage/SetupFieldRow";
 
 // A diff's before and after halves, as the feature diff colours them.
@@ -63,6 +65,8 @@ export type ChangesTableRow = {
   changed: boolean;
   before: ReactNode;
   after: ReactNode;
+  /** The settings a summarizing row stands for, shown in it once it's opened. */
+  details?: { label: string; before: ReactNode; after: ReactNode }[];
 };
 
 /** Each setting as it is on the left and as it will be on the right, tinted where it changes. */
@@ -75,6 +79,32 @@ export default function ChangesTable({
   after: string;
   rows: ChangesTableRow[];
 }) {
+  const [open, setOpen] = useState<string[]>([]);
+  const labelText = (text: string) => (
+    <DiffInset flush>
+      <Text weight="medium" color="text-high">
+        {text}
+      </Text>
+    </DiffInset>
+  );
+  const side = (
+    row: ChangesTableRow,
+    which: keyof typeof DIFF_TINT,
+    isOpen: boolean,
+  ) => (
+    <DiffInset tint={row.changed ? DIFF_TINT[which] : undefined}>
+      {row[which]}
+      {isOpen
+        ? row.details?.map((detail) => (
+            <Box key={detail.label} mt="1" style={{ overflowWrap: "anywhere" }}>
+              <Text size="sm" color="text-mid">
+                {detail.label}: {detail[which]}
+              </Text>
+            </Box>
+          ))
+        : null}
+    </DiffInset>
+  );
   return (
     // Fixed, so the two sides split what the labels leave evenly.
     <Table variant="ghost" layout="fixed">
@@ -102,28 +132,45 @@ export default function ChangesTable({
           } as CSSProperties
         }
       >
-        {rows.map((row) => (
-          <TableRow key={row.key}>
-            {/* Flush, so the labels line up with the page's other rows. */}
-            <TableCell style={{ width: LABEL_WIDTH, paddingLeft: 0 }}>
-              <DiffInset flush>
-                <Text weight="medium" color="text-high">
-                  {row.label}
-                </Text>
-              </DiffInset>
-            </TableCell>
-            <TableCell>
-              <DiffInset tint={row.changed ? DIFF_TINT.before : undefined}>
-                {row.before}
-              </DiffInset>
-            </TableCell>
-            <TableCell style={AFTER_COLUMN}>
-              <DiffInset tint={row.changed ? DIFF_TINT.after : undefined}>
-                {row.after}
-              </DiffInset>
-            </TableCell>
-          </TableRow>
-        ))}
+        {rows.map((row) => {
+          const isOpen = open.includes(row.key);
+          const label = row.details?.length ? (
+            <Flex align="center" justify="between" gap="2">
+              {labelText(row.label)}
+              <Button
+                variant="ghost"
+                color="gray"
+                size="sm"
+                aria-expanded={isOpen}
+                icon={isOpen ? <PiCaretDown /> : <PiCaretRight />}
+                iconPosition="right"
+                onClick={() =>
+                  setOpen((prev) =>
+                    isOpen
+                      ? prev.filter((k) => k !== row.key)
+                      : [...prev, row.key],
+                  )
+                }
+              >
+                Details
+              </Button>
+            </Flex>
+          ) : (
+            labelText(row.label)
+          );
+          return (
+            <TableRow key={row.key}>
+              {/* Flush, so the labels line up with the page's other rows. */}
+              <TableCell style={{ width: LABEL_WIDTH, paddingLeft: 0 }}>
+                {label}
+              </TableCell>
+              <TableCell>{side(row, "before", isOpen)}</TableCell>
+              <TableCell style={AFTER_COLUMN}>
+                {side(row, "after", isOpen)}
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
