@@ -186,10 +186,12 @@ export default function FeatureVariationsInput({
         : hideCoverage || hideVariations
           ? "Traffic Percentage"
           : "Traffic Percentage & Variation Weights";
+  // The slider's own label says it all, and there's nothing to set it apart from.
+  const coverageAlone = !simple && !hideCoverage && !!hideVariations;
 
   return (
     <Box mb="4">
-      {_label !== null ? (
+      {_label !== null && !coverageAlone ? (
         <Text as="label" weight="semibold">
           {label}
         </Text>
@@ -204,6 +206,7 @@ export default function FeatureVariationsInput({
               tooltip={coverageTooltip}
               disabled={disableCoverage}
               inputDisabled={disableCoverage}
+              panel
             />
           ) : null}
           <Field
@@ -242,6 +245,7 @@ export default function FeatureVariationsInput({
               inputDisabled={
                 disableCoverage && !!onlySafeToEditVariationMetadata
               }
+              panel={!coverageAlone}
             >
               {showPreview &&
               !hideVariations &&
@@ -467,6 +471,7 @@ function CoverageField({
   tooltip,
   disabled,
   inputDisabled,
+  panel,
   children,
 }: {
   coverage?: number;
@@ -475,13 +480,22 @@ function CoverageField({
   tooltip: string;
   disabled: boolean;
   inputDisabled: boolean;
+  /** Sets it apart from the variations around it; alone, it needs none. */
+  panel: boolean;
   children?: ReactNode;
 }) {
   const unset = isNaN(coverage ?? 0);
   const set = (decimal: number) =>
     setCoverage?.(Math.min(Math.max(decimal, 0), 1));
   return (
-    <Box px="4" pt="4" mb="6" className="bg-highlight rounded">
+    <Box
+      {...(panel && {
+        px: "4",
+        pt: "4",
+        mb: "6",
+        className: "bg-highlight rounded",
+      })}
+    >
       <Text as="label" mb="0">
         {label}{" "}
         <Tooltip content={tooltip} side="top">
@@ -495,7 +509,7 @@ function CoverageField({
           </Box>
         </Tooltip>
       </Text>
-      <Flex align="center" pb="4" gap="3">
+      <Flex align="center" pb={panel ? "4" : "0"} gap="3">
         <Box flexGrow="1">
           <Slider
             value={unset ? [0] : [decimalToPercent(coverage ?? 0)]}

@@ -121,8 +121,10 @@ export default function TargetingForm({
           }
           showPreview={false}
           disableCoverage={changeType === "weights"}
-          disableVariations={changeType === "traffic"}
-          hideVariations={type === "multi-armed-bandit"}
+          // A traffic-only change leaves the split as it is, so it isn't shown.
+          hideVariations={
+            changeType === "traffic" || type === "multi-armed-bandit"
+          }
           label={
             changeType === "traffic" || type === "multi-armed-bandit"
               ? "Traffic Percentage"
