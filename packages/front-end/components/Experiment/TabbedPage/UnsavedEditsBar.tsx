@@ -42,7 +42,7 @@ export default function UnsavedEditsBar() {
           {edits.conflicts.length ? (
             <HelperText status="warning" size="sm">
               Someone else saved changes to what you edited. Keep yours or use
-              theirs, then save again.
+              theirs.
             </HelperText>
           ) : null}
           {edits.error ? (

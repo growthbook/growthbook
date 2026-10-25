@@ -3,6 +3,7 @@
 import type { ExperimentTargetingData } from "shared/types/experiment";
 import {
   changedTargeting,
+  conflictingFields,
   experimentFieldValue,
   getTargetingDefaults,
   hasAttributeCondition,
@@ -134,5 +135,26 @@ describe("experimentFieldValue", () => {
     expect(experimentFieldValue(experiment, "hashAttribute")).toBe("device");
     expect(experimentFieldValue(experiment, "condition")).toBe(null);
     expect(experimentFieldValue({ phases: [] }, "coverage")).toBe(null);
+  });
+});
+
+describe("conflictingFields", () => {
+  const experiment = { hypothesis: "theirs", phases: [{ coverage: 0.5 }] };
+  it("names a field someone saved since, to something else", () => {
+    expect(
+      conflictingFields(experiment, {
+        changes: { hypothesis: "mine", coverage: 0.4 },
+        base: { hypothesis: "loaded", coverage: 0.5 },
+      }),
+    ).toEqual(["hypothesis"]);
+  });
+
+  it("passes a field saved since to the same value", () => {
+    expect(
+      conflictingFields(experiment, {
+        changes: { hypothesis: "theirs" },
+        base: { hypothesis: "loaded" },
+      }),
+    ).toEqual([]);
   });
 });

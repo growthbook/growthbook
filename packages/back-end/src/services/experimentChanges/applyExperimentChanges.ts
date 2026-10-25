@@ -1,6 +1,6 @@
 import isEqual from "lodash/isEqual";
 import { validateFeatureValue } from "shared/util";
-import { experimentFieldValue, sameFieldValue } from "shared/experiments";
+import { conflictingFields } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { AuditInterfaceInput } from "shared/types/audit";
@@ -152,19 +152,13 @@ const PLAN_INPUT_FIELDS: (keyof ExperimentInterface)[] = [
 // Someone else changed it since it was loaded, to something this save doesn't set.
 function experimentFieldConflicts(
   experiment: ExperimentInterface,
-  { changes, base }: NonNullable<ExperimentChangesBody["experiment"]>,
+  body: NonNullable<ExperimentChangesBody["experiment"]>,
 ): string[] {
-  return Object.keys(changes).filter((key) => {
-    if (!(key in base)) {
-      throw new BadRequestError(`base is missing the loaded value of ${key}`);
-    }
-    const current = experimentFieldValue(experiment, key);
-    // Judged as the page's diff is, so only a real change can conflict.
-    return (
-      !sameFieldValue(key, current, base[key]) &&
-      !sameFieldValue(key, current, changes[key as keyof typeof changes])
-    );
-  });
+  const missing = Object.keys(body.changes).find((key) => !(key in body.base));
+  if (missing) {
+    throw new BadRequestError(`base is missing the loaded value of ${missing}`);
+  }
+  return conflictingFields(experiment, body);
 }
 
 async function planFlagValues(

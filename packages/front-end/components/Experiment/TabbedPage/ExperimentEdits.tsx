@@ -13,7 +13,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { experimentFieldValue } from "shared/experiments";
+import { conflictingFields, experimentFieldValue } from "shared/experiments";
 import {
   apiErrorRegistry,
   type ApiErrorDetails,
@@ -71,6 +71,8 @@ function dryRunShare(edit: PendingEdit): ExperimentChangesBody | null {
 
 interface ExperimentEditsValue {
   scope: string;
+  /** As last fetched, which staged edits are checked against as it refreshes. */
+  experiment: ExperimentInterfaceStringDates;
   /** Anything on the page edited but not yet written. */
   dirty: boolean;
   saving: boolean;
@@ -95,6 +97,8 @@ interface ExperimentEditsValue {
   staged: { id: string; label: string }[];
   /** Staged edits whose fields someone else saved since they were made. */
   conflicts: string[];
+  /** An edit reporting whether the page's refetch already shows such a save. */
+  markDrifted: (id: string, drifted: boolean) => void;
   /** Saves this edit over the other change next time. */
   keepMine: (id: string) => void;
   discard: (id: string) => void;
@@ -277,17 +281,18 @@ export function useStagedState<T>(
  * than every field posting the moment it loses focus.
  */
 export function ExperimentEditsProvider({
-  experimentId,
+  experiment,
   scope,
   mutate,
   children,
 }: {
-  experimentId: string;
+  experiment: ExperimentInterfaceStringDates;
   scope: string;
   mutate: () => unknown;
   children: ReactNode;
 }) {
   const { apiCall } = useAuth();
+  const experimentId = experiment.id;
   const edits = useRef(new Map<string, PendingEdit>());
 
   const previousScope = useRef(scope);
@@ -303,12 +308,30 @@ export function ExperimentEditsProvider({
   const [unscopedRefusal, setUnscopedRefusal] = useState<string | null>(null);
   const [allowUnscopedRules, setAllowUnscopedRules] = useState(false);
   const [conflicts, setConflicts] = useState<string[]>([]);
+  const [drifted, setDrifted] = useState<string[]>([]);
   const formId = useId();
   const form = useRef<HTMLFormElement>(null);
+
+  const markDrifted = useCallback((id: string, isDrifted: boolean) => {
+    setDrifted((prev) =>
+      isDrifted === prev.includes(id)
+        ? prev
+        : isDrifted
+          ? [...prev, id]
+          : prev.filter((d) => d !== id),
+    );
+  }, []);
+  // Refused by a save, or already shown by a refetch: either way, resolved the
+  // same way.
+  const shownConflicts = useMemo(
+    () => [...new Set([...conflicts, ...drifted])],
+    [conflicts, drifted],
+  );
 
   const register = useCallback((id: string, edit: PendingEdit | null) => {
     if (edit) edits.current.set(id, edit);
     else edits.current.delete(id);
+    if (!edit) setDrifted((prev) => prev.filter((d) => d !== id));
     setStaged((prev) => {
       const i = prev.findIndex((entry) => entry.id === id);
       if (!edit)
@@ -480,6 +503,7 @@ export function ExperimentEditsProvider({
   const value = useMemo(
     () => ({
       scope,
+      experiment,
       dirty: staged.length > 0,
       saving,
       error,
@@ -488,7 +512,8 @@ export function ExperimentEditsProvider({
       formId,
       discardAll,
       staged,
-      conflicts,
+      conflicts: shownConflicts,
+      markDrifted,
       keepMine,
       discard,
       review,
@@ -499,8 +524,10 @@ export function ExperimentEditsProvider({
     }),
     [
       scope,
+      experiment,
       staged,
-      conflicts,
+      shownConflicts,
+      markDrifted,
       keepMine,
       saving,
       error,
@@ -552,11 +579,31 @@ export function useRegisterExperimentEdit(
   dirty: boolean,
   edit: PendingEdit,
 ) {
+  const ctx = useContext(ExperimentEditsContext);
   // Stable, unlike the context around it, which changes with every staged
   // edit: keyed on that, each change would unregister and re-register them all.
-  const register = useContext(ExperimentEditsContext)?.register;
+  const register = ctx?.register;
+  const markDrifted = ctx?.markDrifted;
   const latest = useRef(edit);
   latest.current = edit;
+
+  // Someone's save the page has refetched since, over what this edit changes:
+  // flagged now rather than when Save is refused.
+  let drifted = false;
+  if (ctx && dirty) {
+    try {
+      drifted =
+        conflictingFields(
+          ctx.experiment,
+          edit.changes({ dryRun: true }).experiment,
+        ).length > 0;
+    } catch {
+      // An edit that can't build its share yet is the save's to report.
+    }
+  }
+  useEffect(() => {
+    markDrifted?.(id, drifted);
+  }, [markDrifted, id, drifted]);
 
   const label = edit.label;
   useEffect(() => {

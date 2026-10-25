@@ -117,7 +117,7 @@ export interface Props {
 export default function TabbedPage(props: Props) {
   return (
     <ExperimentEditsProvider
-      experimentId={props.experiment.id}
+      experiment={props.experiment}
       scope={stagedEditsScope(props.experiment)}
       mutate={props.mutate}
     >

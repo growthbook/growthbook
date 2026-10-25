@@ -81,6 +81,26 @@ export function sameFieldValue(key: string, a: unknown, b: unknown): boolean {
   return sameCanonicalValue(a, b);
 }
 
+/**
+ * The fields a change sets that someone saved since its `base` was loaded, to
+ * something other than the change itself: what saving it would refuse.
+ */
+export function conflictingFields(
+  experiment: { phases: Partial<TargetingPhase>[] },
+  share:
+    | { changes: Record<string, unknown>; base: Record<string, unknown> }
+    | undefined,
+): string[] {
+  if (!share) return [];
+  return Object.keys(share.changes).filter((key) => {
+    const current = experimentFieldValue(experiment, key);
+    return (
+      !sameFieldValue(key, current, share.base[key]) &&
+      !sameFieldValue(key, current, share.changes[key])
+    );
+  });
+}
+
 export type TargetingChanges = Partial<
   Omit<ExperimentTargetingData, "newPhase" | "reseed" | "variations">
 >;
