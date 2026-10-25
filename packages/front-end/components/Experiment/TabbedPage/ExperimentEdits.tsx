@@ -10,6 +10,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -152,21 +153,22 @@ function touches(
 }
 
 /**
- * An experiment-field edit, with the value each field held when loaded so a
- * save over someone else's change fails instead of overwriting it.
+ * An experiment-field edit, with the value each field held in `base` (the
+ * experiment as the edit began; see useEditBase) so a save over someone else's
+ * change fails instead of overwriting it.
  */
 export function experimentFieldChanges(
-  experiment: ExperimentInterfaceStringDates,
+  base: ExperimentInterfaceStringDates,
   changes: ExperimentChangesFields,
 ): ExperimentChangesBody {
-  const base: Record<string, unknown> = {};
+  const loaded: Record<string, unknown> = {};
   for (const key of Object.keys(changes)) {
-    base[key] =
+    loaded[key] =
       key === "variationWeights" || key === "coverage"
-        ? (experiment.phases[experiment.phases.length - 1]?.[key] ?? null)
-        : (experiment[key as keyof ExperimentInterfaceStringDates] ?? null);
+        ? (base.phases[base.phases.length - 1]?.[key] ?? null)
+        : (base[key as keyof ExperimentInterfaceStringDates] ?? null);
   }
-  return { experiment: { changes, base } };
+  return { experiment: { changes, base: loaded } };
 }
 
 const STAGED_EDITS_PREFIX = "gb-experiment-edits";
@@ -177,30 +179,71 @@ export function stagedEditsScope(
   return `${experiment.id}:${experiment.status}`;
 }
 
-function readStaged<T>(key: string | null, initial: T): T {
-  if (!key) return initial;
-  try {
-    const stored = sessionStorage.getItem(key);
-    return stored === null ? initial : (JSON.parse(stored) as T);
-  } catch {
-    return initial;
+// Nothing staged: the slot reads as its caller's `initial`, so it follows what
+// is stored until someone changes it.
+const UNSET: unique symbol = Symbol("unset");
+type Stored<T> = T | typeof UNSET;
+
+// One value per key, shared by every component staging it and kept in
+// sessionStorage, so a reload or a second view of the same slot agrees.
+const stagedValues = new Map<string, unknown>();
+const stagedListeners = new Map<string, Set<() => void>>();
+
+function readStaged(key: string): unknown {
+  if (!stagedValues.has(key)) {
+    let value: unknown = UNSET;
+    try {
+      const stored = sessionStorage.getItem(key);
+      if (stored !== null) value = JSON.parse(stored);
+    } catch {
+      // Unavailable storage leaves it unstaged.
+    }
+    stagedValues.set(key, value);
   }
+  return stagedValues.get(key);
+}
+
+function writeStaged(key: string, value: unknown) {
+  stagedValues.set(key, value);
+  try {
+    if (value === UNSET) sessionStorage.removeItem(key);
+    else sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Kept in memory for this page view.
+  }
+  stagedListeners.get(key)?.forEach((listener) => listener());
+}
+
+function subscribeStaged(key: string, listener: () => void) {
+  const listeners = stagedListeners.get(key) ?? new Set<() => void>();
+  listeners.add(listener);
+  stagedListeners.set(key, listeners);
+  return () => {
+    listeners.delete(listener);
+    if (!listeners.size) stagedListeners.delete(key);
+  };
 }
 
 function clearStagedEdits(scope: string) {
+  const prefix = `${STAGED_EDITS_PREFIX}:${scope}:`;
+  const keys = new Set(stagedValues.keys());
   try {
-    const prefix = `${STAGED_EDITS_PREFIX}:${scope}:`;
-    const keys = Array.from({ length: sessionStorage.length }, (_, i) =>
-      sessionStorage.key(i),
-    );
-    keys.forEach((key) => {
-      if (key?.startsWith(prefix)) sessionStorage.removeItem(key);
-    });
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key) keys.add(key);
+    }
   } catch {
-    return;
+    // Only what's in memory, then.
   }
+  keys.forEach((key) => {
+    if (key.startsWith(prefix)) writeStaged(key, UNSET);
+  });
 }
 
+/**
+ * State that waits for the page's Save. Every component staging the same slot
+ * shares it; set back to `initial`, it's unstaged and follows `initial` again.
+ */
 export function useStagedState<T>(
   slot: string,
   initial: T,
@@ -211,40 +254,35 @@ export function useStagedState<T>(
   const key = resolvedScope
     ? `${STAGED_EDITS_PREFIX}:${resolvedScope}:${slot}`
     : null;
-  const [state, setState] = useState(() => ({
-    key,
-    value: readStaged(key, initial),
-  }));
-  let current = state;
-  if (state.key !== key) {
-    current = { key, value: readStaged(key, initial) };
-    setState(current);
-  }
-
-  const initialJson = JSON.stringify(initial);
-  useEffect(() => {
-    if (!current.key) return;
-    try {
-      const json = JSON.stringify(current.value);
-      if (json === initialJson) sessionStorage.removeItem(current.key);
-      else sessionStorage.setItem(current.key, json);
-    } catch {
-      return;
-    }
-  }, [current.key, current.value, initialJson]);
-
-  const set: Dispatch<SetStateAction<T>> = useCallback(
-    (next) =>
-      setState((prev) => ({
-        key: prev.key,
-        value:
-          typeof next === "function"
-            ? (next as (prev: T) => T)(prev.value)
-            : next,
-      })),
-    [],
+  // With no scope there's nowhere to share it, so it's this component's alone.
+  const [local, setLocal] = useState<Stored<T>>(UNSET);
+  const subscribe = useCallback(
+    (listener: () => void) =>
+      key ? subscribeStaged(key, listener) : () => undefined,
+    [key],
   );
-  return [current.value, set];
+  const shared = useSyncExternalStore(
+    subscribe,
+    () => (key ? readStaged(key) : UNSET),
+    () => UNSET,
+  );
+  const stored = (key ? shared : local) as Stored<T>;
+  const value = stored === UNSET ? initial : stored;
+
+  const latest = useRef({ key, initial });
+  latest.current = { key, initial };
+  const set: Dispatch<SetStateAction<T>> = useCallback((next) => {
+    const { key, initial } = latest.current;
+    const resolve = (prev: Stored<T>): Stored<T> => {
+      const from = prev === UNSET ? initial : prev;
+      const to =
+        typeof next === "function" ? (next as (prev: T) => T)(from) : next;
+      return JSON.stringify(to) === JSON.stringify(initial) ? UNSET : to;
+    };
+    if (key) writeStaged(key, resolve(readStaged(key) as Stored<T>));
+    else setLocal(resolve);
+  }, []);
+  return [value, set];
 }
 
 /**
@@ -606,6 +644,29 @@ export function useEditBase<B>(
   }, [dirty, base, setBase]);
   const rebase = useCallback(() => setBase(latest.current()), [setBase]);
   return [base, rebase];
+}
+
+/**
+ * An edit to experiment fields, saved against the experiment as it stood when
+ * the edit began, so a refetch can't pass someone else's change off as loaded.
+ */
+export function useExperimentFieldEdit(
+  id: string,
+  dirty: boolean,
+  experiment: ExperimentInterfaceStringDates,
+  {
+    fields,
+    ...edit
+  }: Pick<PendingEdit, "label" | "review" | "discard" | "onSaved"> & {
+    fields: () => ExperimentChangesFields;
+  },
+) {
+  const [base, rebase] = useEditBase(id, dirty, () => experiment);
+  useRegisterExperimentEdit(id, dirty, {
+    ...edit,
+    rebase,
+    changes: () => experimentFieldChanges(base ?? experiment, fields()),
+  });
 }
 
 /** Why a control waits on the page's staged edits, or null when none are. */

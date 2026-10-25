@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -14,9 +14,7 @@ import Markdown from "@/components/Markdown/Markdown";
 import AIRichTextField from "@/components/Markdown/AIRichTextField";
 import Text from "@/ui/Text";
 import {
-  experimentFieldChanges,
-  useEditBase,
-  useRegisterExperimentEdit,
+  useExperimentFieldEdit,
   useStagedState,
 } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
@@ -47,30 +45,15 @@ export default function HypothesisField({
 
   const savedValue = experiment.hypothesis || "";
   const [value, setValue] = useStagedState("inline:hypothesis", savedValue);
-  // Untouched, it follows what's saved, so a refetch doesn't read as an edit.
-  const lastSaved = useRef(savedValue);
-  useEffect(() => {
-    if (value.trim() === lastSaved.current.trim()) setValue(savedValue);
-    lastSaved.current = savedValue;
-  }, [savedValue, value, setValue]);
   const [editingOnDemand, setEditingOnDemand] = useState(
     () => value.trim() !== savedValue.trim(),
   );
   const editable = editableHere || editingOnDemand;
 
   const dirty = editable && value.trim() !== savedValue.trim();
-  const [base, rebase] = useEditBase(
-    "inline:hypothesis",
-    dirty,
-    () => experiment,
-  );
-  useRegisterExperimentEdit("inline:hypothesis", dirty, {
+  useExperimentFieldEdit("inline:hypothesis", dirty, experiment, {
     label: "Hypothesis",
-    rebase,
-    changes: () =>
-      experimentFieldChanges(base ?? experiment, {
-        hypothesis: value.trim(),
-      }),
+    fields: () => ({ hypothesis: value.trim() }),
     onSaved: () => {
       if (aiSuggestion.current) {
         track("experiment-hypothesis-saved-after-ai-suggestion", {

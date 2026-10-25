@@ -35,12 +35,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
-import {
-  experimentFieldChanges,
-  useEditBase,
-  useRegisterExperimentEdit,
-  useStagedState,
-} from "./ExperimentEdits";
+import { useExperimentFieldEdit, useStagedState } from "./ExperimentEdits";
 import SetupFieldRow from "./SetupFieldRow";
 import { useDecisionFrameworkApplies } from "./DecisionMakingSettings";
 
@@ -228,15 +223,12 @@ export default function AnalysisPlan({
   );
   useEffect(() => resync(touchedRef.current), [resync]);
 
-  const [base, rebase] = useEditBase("analysis-plan", dirty, () => experiment);
-  useRegisterExperimentEdit("analysis-plan", dirty, {
+  useExperimentFieldEdit("analysis-plan", dirty, experiment, {
     label: "Analysis plan",
-    rebase,
-    changes: () =>
-      experimentFieldChanges(base ?? experiment, {
-        ...advanced,
-        ...Object.fromEntries(sent.map((field) => [field, current[field]])),
-      }),
+    fields: () => ({
+      ...advanced,
+      ...Object.fromEntries(sent.map((field) => [field, current[field]])),
+    }),
     onSaved: () => {
       setTouchedFields([]);
       setAdvanced(null);

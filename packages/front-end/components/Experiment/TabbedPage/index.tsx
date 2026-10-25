@@ -60,12 +60,10 @@ import ExperimentDetailsPanel, {
 } from "./ExperimentDetailsPanel";
 import {
   ExperimentEditsProvider,
-  experimentFieldChanges,
   HoldoutDraft,
   stagedEditsScope,
   useExperimentEdits,
-  useEditBase,
-  useRegisterExperimentEdit,
+  useExperimentFieldEdit,
   useStagedState,
 } from "./ExperimentEdits";
 import UnsavedEditsBar from "./UnsavedEditsBar";
@@ -199,20 +197,9 @@ function TabbedPageContents({
   const [stagedHoldout, setStagedHoldout] = useStagedState<
     HoldoutDraft["value"]
   >("holdout", null);
-  const [holdoutBase, rebaseHoldout] = useEditBase(
-    "holdout",
-    stagedHoldout !== null,
-    () => experiment,
-  );
-  useRegisterExperimentEdit("holdout", stagedHoldout !== null, {
+  useExperimentFieldEdit("holdout", stagedHoldout !== null, experiment, {
     label: "Holdout",
-    rebase: rebaseHoldout,
-    changes: () =>
-      stagedHoldout !== null
-        ? experimentFieldChanges(holdoutBase ?? experiment, {
-            holdoutId: stagedHoldout,
-          })
-        : {},
+    fields: () => (stagedHoldout !== null ? { holdoutId: stagedHoldout } : {}),
     onSaved: () => setStagedHoldout(null),
     discard: () => setStagedHoldout(null),
   });

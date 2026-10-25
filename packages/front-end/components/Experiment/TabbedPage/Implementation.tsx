@@ -62,11 +62,10 @@ import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperime
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 import {
-  experimentFieldChanges,
   FlagEnvironmentsDraft,
   HoldoutDraft,
   useExperimentEdits,
-  useEditBase,
+  useExperimentFieldEdit,
   useRegisterExperimentEdit,
   useStagedState,
 } from "./ExperimentEdits";
@@ -190,22 +189,15 @@ export default function Implementation({
     }),
     [environmentScopes, setEnvironmentScopes],
   );
-  const [variationsBase, rebaseVariations] = useEditBase(
-    "variations",
-    !!variationsDraft,
-    () => experiment,
-  );
-  useRegisterExperimentEdit("variations", !!variationsDraft, {
+  useExperimentFieldEdit("variations", !!variationsDraft, experiment, {
     label: "Variations",
-    rebase: rebaseVariations,
-    changes: () =>
-      experimentFieldChanges(variationsBase ?? experiment, {
-        variations: variationsDraft ?? experiment.variations,
-        // The split the page shows, so both writes agree on the count.
-        variationWeights:
-          targetingDraft?.value?.variationWeights ??
-          phases[phases.length - 1]?.variationWeights,
-      }),
+    fields: () => ({
+      variations: variationsDraft ?? experiment.variations,
+      // The split the page shows, so both writes agree on the count.
+      variationWeights:
+        targetingDraft?.value?.variationWeights ??
+        phases[phases.length - 1]?.variationWeights,
+    }),
     onSaved: () => setVariationsDraft(null),
     discard: () => setVariationsDraft(null),
   });
