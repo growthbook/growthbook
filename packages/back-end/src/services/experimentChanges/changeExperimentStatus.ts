@@ -35,6 +35,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { ReqContext } from "back-end/types/request";
+import { flagBypass } from "back-end/src/services/featurePublishGates";
 import { ApiReqContext } from "back-end/types/api";
 import {
   assertCanPublishPendingFeatureDrafts,
@@ -624,8 +625,8 @@ async function waivableApprovals(
   );
   return new Set(
     features
-      .filter((feature) =>
-        context.permissions.canBypassFlagApprovalChecks(feature, "feature"),
+      .filter(
+        (feature) => flagBypass(context, feature, { optIn: true }).approval,
       )
       .map((feature) => `${PENDING_APPROVAL_ITEM_PREFIX}${feature.id}`),
   );
@@ -834,8 +835,10 @@ export async function startExperiment({
     const feature = linked?.get(fid);
     const bypass =
       !!feature &&
-      (restApiBypassesReviews ||
-        context.permissions.canBypassFlagApprovalChecks(feature, "feature"));
+      flagBypass(context, feature, {
+        optIn: bypassLockdown,
+        restApiBypassesReviews,
+      }).lockdown;
     if (!bypass) await assertFeatureNotLockedByRamp(context, fid);
   }
 

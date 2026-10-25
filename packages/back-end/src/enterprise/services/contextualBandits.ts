@@ -63,7 +63,10 @@ import {
   PendingDraftFailure,
   PendingDraftFailureReason,
 } from "back-end/src/services/experiment-feature";
-import { mergeDraftForAutoPublish } from "back-end/src/services/featurePublishGates";
+import {
+  flagBypass,
+  mergeDraftForAutoPublish,
+} from "back-end/src/services/featurePublishGates";
 import {
   getLinkageSyncRevisionSummaries,
   getRevision,
@@ -270,10 +273,7 @@ async function publishContextualBanditRevision({
     revision,
     result: mergeResult.result,
     comment,
-    bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
-      feature,
-      "feature",
-    ),
+    bypassLockdown: flagBypass(context, feature, { optIn: true }).lockdown,
   });
 
   await context.models.contextualBandits.activatePendingVariationsForFeature(

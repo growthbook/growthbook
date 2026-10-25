@@ -30,6 +30,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   assessRevisionApproval,
+  flagBypass,
   mergeDraftForAutoPublish,
 } from "back-end/src/services/featurePublishGates";
 import {
@@ -287,10 +288,7 @@ export async function linkFeatureToExperiment({
       feature,
       revision: updatedRevision,
       comment: `Add experiment rule for "${experiment.name}"`,
-      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
-        feature,
-        "feature",
-      ),
+      bypassLockdown: flagBypass(context, feature, { optIn: true }).lockdown,
       conflictMessage: `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
     });
     await audit({
@@ -787,11 +785,11 @@ export async function publishPendingFeatureDraftsForExperiment(
       base,
     );
     // Re-derived per feature: the caller's opt-in is not authority on its own.
-    const bypassApproval =
-      restApiBypassesReviews ||
-      (bypassLockdown &&
-        context.permissions.canBypassFlagApprovalChecks(feature, "feature"));
-    const bypassFlagLockdown = bypassLockdown && bypassApproval;
+    const { approval: bypassApproval, lockdown: bypassFlagLockdown } =
+      flagBypass(context, feature, {
+        optIn: bypassLockdown,
+        restApiBypassesReviews,
+      });
     // Refused before anything publishes rather than partway through.
     if (!bypassFlagLockdown) {
       await assertFeatureNotLockedByRamp(context, featureId);
@@ -1603,9 +1601,11 @@ async function resolveRulesForExperiment({
     const envs = Array.from(
       getEnabledEnvironments(feature, context.environments),
     );
-    const bypass =
-      restApiBypassesReviews ||
-      context.permissions.canBypassFlagApprovalChecks(feature, "feature");
+    // Cleaning up after the experiment is the caller's own call to make.
+    const bypass = flagBypass(context, feature, {
+      optIn: true,
+      restApiBypassesReviews,
+    }).approval;
     // As publishing the rewrite would judge it: every project governing the
     // flag, and the environments the rewrite touches.
     const live = await getLiveRevisionForFeature(context, feature);
