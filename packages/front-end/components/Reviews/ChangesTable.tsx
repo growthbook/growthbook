@@ -59,13 +59,20 @@ function ColumnLabel({ children }: { children: string }) {
 // The rule between the before and after columns.
 const AFTER_COLUMN = { borderLeft: "1px solid var(--gray-a5)" };
 
+// Rows sit close, the tints already setting them apart; a group's rule gets
+// more room.
+const rowGap = (ruledAbove: boolean, ruledBelow: boolean) => ({
+  paddingTop: ruledAbove ? "var(--space-3)" : "var(--space-2)",
+  paddingBottom: ruledBelow ? "var(--space-3)" : "var(--space-2)",
+});
+
 export type ChangesTableRow = {
   key: string;
   label: string;
   changed: boolean;
   before: ReactNode;
   after: ReactNode;
-  /** The settings a summarizing row stands for, shown in it once it's opened. */
+  /** The settings a summarizing row stands for, shown in it with the details. */
   details?: { label: string; before: ReactNode; after: ReactNode }[];
 };
 
@@ -81,22 +88,14 @@ export default function ChangesTable({
   groups: ChangesTableRow[][];
 }) {
   const shown = groups.filter((group) => group.length);
-  const [open, setOpen] = useState<string[]>([]);
-  const labelText = (text: string) => (
-    <DiffInset flush>
-      <Text weight="medium" color="text-high">
-        {text}
-      </Text>
-    </DiffInset>
+  const [showDetails, setShowDetails] = useState(false);
+  const hasDetails = shown.some((group) =>
+    group.some((row) => row.details?.length),
   );
-  const side = (
-    row: ChangesTableRow,
-    which: keyof typeof DIFF_TINT,
-    isOpen: boolean,
-  ) => (
+  const side = (row: ChangesTableRow, which: keyof typeof DIFF_TINT) => (
     <DiffInset tint={row.changed ? DIFF_TINT[which] : undefined}>
       {row[which]}
-      {isOpen
+      {showDetails
         ? row.details?.map((detail) => (
             <Box key={detail.label} mt="1" style={{ overflowWrap: "anywhere" }}>
               <Text size="sm" color="text-mid">
@@ -112,7 +111,23 @@ export default function ChangesTable({
     <Table variant="ghost" layout="fixed">
       <TableHeader>
         <TableRow style={{ verticalAlign: "middle" }}>
-          <TableColumnHeader style={{ width: LABEL_WIDTH, paddingLeft: 0 }} />
+          <TableColumnHeader style={{ width: LABEL_WIDTH, paddingLeft: 0 }}>
+            {hasDetails ? (
+              <Link
+                size="sm"
+                aria-expanded={showDetails}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowDetails(!showDetails);
+                }}
+              >
+                <Flex align="center" gap="1">
+                  {showDetails ? "Hide details" : "Show details"}
+                  {showDetails ? <PiCaretDown /> : <PiCaretRight />}
+                </Flex>
+              </Link>
+            ) : null}
+          </TableColumnHeader>
           <TableColumnHeader>
             <DiffInset>
               <ColumnLabel>{before}</ColumnLabel>
@@ -125,7 +140,7 @@ export default function ChangesTable({
           </TableColumnHeader>
         </TableRow>
       </TableHeader>
-      {/* Only the header is ruled; the tints mark the changes. */}
+      {/* Only the header and the groups are ruled; the tints mark the changes. */}
       <TableBody
         style={
           {
@@ -134,59 +149,39 @@ export default function ChangesTable({
           } as CSSProperties
         }
       >
-        {shown.flat().map((row) => {
-          const isOpen = open.includes(row.key);
-          const endsGroup = shown
-            .slice(0, -1)
-            .some((group) => group[group.length - 1] === row);
-          const label = row.details?.length ? (
-            <>
-              {labelText(row.label)}
-              <Flex justify="end">
-                <Link
-                  size="sm"
-                  aria-expanded={isOpen}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setOpen((prev) =>
-                      isOpen
-                        ? prev.filter((k) => k !== row.key)
-                        : [...prev, row.key],
-                    );
-                  }}
+        {shown.flatMap((group, g) =>
+          group.map((row, i) => {
+            const ruledBelow = i === group.length - 1 && g < shown.length - 1;
+            const gap = rowGap(i === 0 && g > 0, ruledBelow);
+            return (
+              <TableRow
+                key={row.key}
+                style={
+                  ruledBelow
+                    ? ({
+                        "--table-row-box-shadow": "inset 0 -1px var(--gray-a5)",
+                      } as CSSProperties)
+                    : undefined
+                }
+              >
+                {/* Flush, so the labels line up with the page's other rows. */}
+                <TableCell
+                  style={{ width: LABEL_WIDTH, paddingLeft: 0, ...gap }}
                 >
-                  <Flex align="center" gap="1">
-                    Details
-                    {isOpen ? <PiCaretDown /> : <PiCaretRight />}
-                  </Flex>
-                </Link>
-              </Flex>
-            </>
-          ) : (
-            labelText(row.label)
-          );
-          return (
-            <TableRow
-              key={row.key}
-              style={
-                endsGroup
-                  ? ({
-                      "--table-row-box-shadow": "inset 0 -1px var(--gray-a5)",
-                    } as CSSProperties)
-                  : undefined
-              }
-            >
-              {/* Flush, so the labels line up with the page's other rows. */}
-              <TableCell style={{ width: LABEL_WIDTH, paddingLeft: 0 }}>
-                {label}
-              </TableCell>
-              <TableCell>{side(row, "before", isOpen)}</TableCell>
-              <TableCell style={AFTER_COLUMN}>
-                {side(row, "after", isOpen)}
-              </TableCell>
-            </TableRow>
-          );
-        })}
+                  <DiffInset flush>
+                    <Text weight="medium" color="text-high">
+                      {row.label}
+                    </Text>
+                  </DiffInset>
+                </TableCell>
+                <TableCell style={gap}>{side(row, "before")}</TableCell>
+                <TableCell style={{ ...AFTER_COLUMN, ...gap }}>
+                  {side(row, "after")}
+                </TableCell>
+              </TableRow>
+            );
+          }),
+        )}
       </TableBody>
     </Table>
   );
