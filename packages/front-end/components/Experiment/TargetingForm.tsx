@@ -104,6 +104,7 @@ export default function TargetingForm({
       {["traffic", "weights", "advanced"].includes(changeType) && (
         <FeatureVariationsInput
           valueType={"string"}
+          valueAsId
           coverage={form.watch("coverage")}
           setCoverage={(coverage) => form.setValue("coverage", coverage)}
           setWeight={(i, weight) =>
@@ -119,17 +120,18 @@ export default function TargetingForm({
               };
             }) || []
           }
-          showPreview={false}
+          // As Setup's population and split modal shows it, with what this
+          // change leaves alone disabled.
+          showPreview
           disableCoverage={changeType === "weights"}
-          // A traffic-only change leaves the split as it is, so it isn't shown.
-          hideVariations={
-            changeType === "traffic" || type === "multi-armed-bandit"
-          }
+          disableVariations={changeType === "traffic"}
+          hideSplits={type === "multi-armed-bandit"}
+          // Alone on its step, the step names it.
           label={
-            changeType === "traffic" || type === "multi-armed-bandit"
-              ? "Traffic Percentage"
-              : changeType === "weights"
-                ? "Variation Weights"
+            !isAdvancedChange
+              ? null
+              : type === "multi-armed-bandit"
+                ? "Traffic Percentage"
                 : "Traffic Percentage & Variation Weights"
           }
           startEditingSplits={true}

@@ -205,7 +205,6 @@ export default function FeatureVariationsInput({
               label={coverageLabel}
               tooltip={coverageTooltip}
               disabled={disableCoverage}
-              inputDisabled={disableCoverage}
               panel
             />
           ) : null}
@@ -242,9 +241,6 @@ export default function FeatureVariationsInput({
               label={coverageLabel}
               tooltip={coverageTooltip}
               disabled={disableCoverage}
-              inputDisabled={
-                disableCoverage && !!onlySafeToEditVariationMetadata
-              }
               panel={!coverageAlone}
             >
               {showPreview &&
@@ -470,7 +466,6 @@ function CoverageField({
   label,
   tooltip,
   disabled,
-  inputDisabled,
   panel,
   children,
 }: {
@@ -479,7 +474,6 @@ function CoverageField({
   label: string;
   tooltip: string;
   disabled: boolean;
-  inputDisabled: boolean;
   /** Sets it apart from the variations around it; alone, it needs none. */
   panel: boolean;
   children?: ReactNode;
@@ -542,7 +536,7 @@ function CoverageField({
               min={0}
               max={100}
               step="1"
-              disabled={inputDisabled}
+              disabled={disabled}
             />
             <Text as="span">%</Text>
           </Box>
