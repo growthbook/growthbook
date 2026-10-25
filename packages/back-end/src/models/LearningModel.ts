@@ -13,6 +13,7 @@ import {
 } from "back-end/src/enterprise/services/ai";
 import { assertAIAccess } from "back-end/src/enterprise/services/ai-access";
 import { logger } from "back-end/src/util/logger";
+import { getEmbeddingsForModel } from "back-end/src/util/vectors";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
@@ -238,7 +239,10 @@ export class LearningModel extends BaseClass {
     );
     if (!candidates.length) return [];
 
-    const [queryEmbedding] = await generateEmbeddings({
+    const {
+      model,
+      embeddings: [queryEmbedding],
+    } = await generateEmbeddings({
       context: this.context,
       input: [query],
     });
@@ -247,7 +251,7 @@ export class LearningModel extends BaseClass {
     const vectors = await this.context.models.vectors.getByLearningIds(
       candidates.map((i) => i.id),
     );
-    const embeddingById = new Map(vectors.map((v) => [v.joinId, v.embeddings]));
+    const embeddingById = getEmbeddingsForModel(vectors, model);
 
     return candidates
       .map((learning) => {
@@ -255,7 +259,7 @@ export class LearningModel extends BaseClass {
         const similarity =
           embedding && embedding.length === queryEmbedding.length
             ? cosineSimilarity(queryEmbedding, embedding)
-            : -1; // missing/mismatched embedding sinks to the bottom
+            : -1; // missing/stale embedding sinks to the bottom
         return { learning, similarity };
       })
       .filter((r) => r.similarity >= 0)
@@ -269,13 +273,14 @@ export class LearningModel extends BaseClass {
   private async upsertEmbedding(doc: LearningInterface): Promise<void> {
     if (!this.context.org.settings?.aiEnabled) return;
     try {
-      const embeddings = await generateEmbeddings({
+      const { model, embeddings } = await generateEmbeddings({
         context: this.context,
         input: [getLearningTextForEmbedding(doc)],
       });
       if (embeddings[0]?.length) {
         await this.context.models.vectors.addOrUpdateLearningVector(doc.id, {
           embeddings: embeddings[0],
+          model,
         });
       }
     } catch (e) {

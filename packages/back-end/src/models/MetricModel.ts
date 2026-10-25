@@ -790,7 +790,7 @@ export async function generateMetricEmbeddings(
   for (let i = 0; i < metricsToGenerateEmbeddings.length; i += batchSize) {
     const batch = metricsToGenerateEmbeddings.slice(i, i + batchSize);
     const input = batch.map((m) => getTextForEmbedding(m));
-    const embeddings = await generateEmbeddings({ context, input });
+    const { model, embeddings } = await generateEmbeddings({ context, input });
 
     for (let j = 0; j < batch.length; j++) {
       const m = batch[j];
@@ -798,6 +798,7 @@ export async function generateMetricEmbeddings(
       try {
         await context.models.vectors.addOrUpdateMetricVector(m.id, {
           embeddings: embeddings[j],
+          model,
         });
       } catch (error) {
         throw new Error("Error updating embeddings");

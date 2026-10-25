@@ -162,6 +162,7 @@ import {
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { getEmbeddingsForModel } from "back-end/src/util/vectors";
 import { assumeUtc } from "back-end/src/util/dates";
 import {
   errorStringFromZodResult,
@@ -546,39 +547,6 @@ export async function postSimilarExperiments(
       message: "No previous experiments found with hypothesis",
     });
   }
-  // get Experiment embeddings/vectors.
-  const experimentIds = filteredPreviousExps.map((e) => e.id);
-  let existingVectors =
-    await context.models.vectors.getByExperimentIds(experimentIds);
-  // check to see if we need to generate any missing vectors/embeddings:
-  if (existingVectors.length !== experimentIds.length) {
-    // get the ids of the existing vectors:
-    const existingVectorIds = existingVectors.map((v) => v.joinId);
-    // check to see if there are any experiments that do not have an entry in the ExperimentVectorsModel, or don't have embeddings:
-    const missingVectors = filteredPreviousExps.filter(
-      (exp) => !existingVectorIds.includes(exp.id),
-    );
-    // if there are any missing vectors, we need to generate them:
-    if (missingVectors.length > 0) {
-      await generateExperimentEmbeddings(context, missingVectors);
-      // now fetch the updated vectors:
-      existingVectors =
-        await context.models.vectors.getByExperimentIds(experimentIds);
-    }
-  }
-
-  // get the existing vectors that have embeddings with the text to search by:
-  const experimentsToSearch = [];
-  for (const exp of filteredPreviousExps) {
-    // get the existing vector for the experiment:
-    const existingVector = existingVectors.find((v) => v.joinId === exp.id);
-    if (!existingVector) continue;
-    experimentsToSearch.push({
-      id: exp.id,
-      embeddings: existingVector.embeddings || [],
-    });
-  }
-  // Now we have all the existing experiments with embeddings, we can search for similar experiments
   // Create the text to search by for the new experiment
   const newExperimentText = `Name: ${name}\nHypothesis: ${hypothesis}${
     description && description !== "" ? "\nDescription: " + description : ""
@@ -586,16 +554,38 @@ export async function postSimilarExperiments(
   }`;
 
   // Generate embeddings for the new experiment
-  const newExperimentEmbeddingResponse = await generateEmbeddings({
+  const {
+    model,
+    embeddings: [newEmbedding],
+  } = await generateEmbeddings({
     context,
     input: [newExperimentText],
   });
-  const newEmbedding = newExperimentEmbeddingResponse[0];
+
+  // get Experiment embeddings/vectors from the same embedding model:
+  const experimentIds = filteredPreviousExps.map((e) => e.id);
+  let embeddingsById = getEmbeddingsForModel(
+    await context.models.vectors.getByExperimentIds(experimentIds),
+    model,
+  );
+  // regenerate any that are missing or were made by a different model:
+  const staleExps = filteredPreviousExps.filter(
+    (exp) => !embeddingsById.has(exp.id),
+  );
+  if (staleExps.length > 0) {
+    await generateExperimentEmbeddings(context, staleExps);
+    embeddingsById = getEmbeddingsForModel(
+      await context.models.vectors.getByExperimentIds(experimentIds),
+      model,
+    );
+  }
+
   // Call to calculate cosine similarity between the new experiment and existing experiments: cosineSimilarity
-  const similarities = experimentsToSearch
+  const similarities = filteredPreviousExps
     .map((exp) => {
-      if (!exp.embeddings) return null;
-      const similarity = cosineSimilarity(newEmbedding, exp.embeddings);
+      const embeddings = embeddingsById.get(exp.id);
+      if (!embeddings) return null;
+      const similarity = cosineSimilarity(newEmbedding, embeddings);
       return {
         id: exp.id,
         similarity,

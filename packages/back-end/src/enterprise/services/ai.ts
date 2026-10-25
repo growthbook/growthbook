@@ -28,6 +28,7 @@ import {
   AIProvider,
   anthropicStructuredOutputMode,
   DEFAULT_MAX_OUTPUT_TOKENS,
+  EmbeddingModel,
   getProviderFromModel,
   getProviderFromEmbeddingModel,
   getProviderForAIModel,
@@ -1228,7 +1229,7 @@ export async function generateEmbeddings({
 }: {
   context: ReqContext | ApiReqContext;
   input: string[];
-}): Promise<number[][]> {
+}): Promise<{ model: EmbeddingModel; embeddings: number[][] }> {
   const {
     aiEnabled,
     openAIAPIKey,
@@ -1304,7 +1305,7 @@ export async function generateEmbeddings({
       usedOwnKey: keySource[provider] === "organization",
     });
 
-    return embeddings;
+    return { model: embeddingModel, embeddings };
   } catch (error) {
     logger.error("Error generating embeddings:", error);
     throw new Error("Failed to generate embeddings");

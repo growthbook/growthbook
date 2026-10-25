@@ -7,6 +7,8 @@ export const vectors = z
     organization: z.string(),
     type: z.enum(["experiment", "metric", "learning"]),
     embeddings: z.array(z.number()),
+    // Embedding model id; vectors from different models aren't comparable
+    model: z.string().optional(),
     keywords: z.array(z.string()).optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
