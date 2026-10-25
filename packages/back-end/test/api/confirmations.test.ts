@@ -1043,7 +1043,7 @@ describe("confirmations", () => {
     ).toBe(202);
   });
 
-  it("holds starting a draft by update as skipping its launch checklist", async () => {
+  it("refuses starting by update past its checklist unless asked, then holds naming what it skips", async () => {
     await seed("production");
     await seedExperiment();
     setReqContext(
@@ -1052,13 +1052,30 @@ describe("confirmations", () => {
         confirmRules: [{ actions: ["override.skipChecklist"] }],
       }),
     );
-    const held = await auth(
+    const refused = await auth(
       request(app).post(`/api/v1/experiments/${EXP}`),
     ).send({ status: "running" });
+    expect(refused.status).toBe(409);
+    expect(refused.body.code).toBe("checklist_incomplete");
+    expect(refused.body.gates).toContainEqual(
+      expect.objectContaining({ key: "datasource", override: "skipChecklist" }),
+    );
+
+    const held = await auth(
+      request(app).post(`/api/v1/experiments/${EXP}`),
+    ).send({ status: "running", skipChecklist: true });
     expect(held.status).toBe(202);
     expect(held.body.confirmation.actions).toEqual([
       { action: "override.skipChecklist", environments: [] },
     ]);
+    const stored = await mongoose.connection
+      .collection("confirmations")
+      .findOne({ id: held.body.confirmation.id });
+    expect(stored?.notices).toContainEqual({
+      severity: "warning",
+      messages: ["Select a data source before starting."],
+      via: "skipChecklist",
+    });
   });
 
   it("holds archiving a live experiment as its stop, and unarchiving as its start", async () => {

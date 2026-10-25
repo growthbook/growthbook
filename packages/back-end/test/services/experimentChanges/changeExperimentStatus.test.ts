@@ -29,6 +29,7 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 jest.mock("back-end/src/services/experiment-feature", () => ({
   publishPendingFeatureDraftsForExperiment: jest.fn(),
   formatPendingDraftFailureMessage: jest.fn(),
+  getLaunchDrafts: jest.fn(async () => []),
 }));
 jest.mock("back-end/src/services/experiments", () => ({
   assertCanPublishPendingFeatureDrafts: jest.fn(),
@@ -104,6 +105,7 @@ beforeEach(() => {
     { id: "sdk_1", projects: [] },
   ]);
   (getExperimentLaunchChecklist as jest.Mock).mockResolvedValue(null);
+  getFeaturesByIdsMock.mockResolvedValue([]);
 });
 
 describe("startExperiment", () => {
@@ -152,6 +154,7 @@ describe("startExperiment", () => {
       startExperiment({
         context: bypasser,
         experimentId: "exp_1",
+        skipChecklist: true,
         bypassLockdown: true,
       }),
     ).rejects.toMatchObject({

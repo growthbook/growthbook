@@ -1,4 +1,4 @@
-import { omit } from "lodash";
+import { isUndefined, omit, omitBy } from "lodash";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import {
@@ -19,6 +19,7 @@ import {
   getExperimentByTrackingKey,
 } from "back-end/src/models/ExperimentModel";
 import {
+  assertCanPublishPendingFeatureDrafts,
   assertCanRunExperimentChanges,
   assertCanRunExperimentInAffectedEnvironments,
   assertExperimentKeyFormat,
@@ -42,9 +43,11 @@ import {
 } from "back-end/src/services/prerequisiteParents";
 import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
 import {
+  assertStartNotBlocked,
   getStartAcknowledgment,
-  startApprovalBypass,
+  planStartGates,
   startExperiment,
+  startResult,
   statusChangeEffects,
   validateExperimentChange,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
@@ -67,6 +70,7 @@ import {
   experimentChangeActions,
   pinnedFields,
   confirmationLink,
+  gateNotices,
   queuedDraftsHold,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
@@ -129,17 +133,23 @@ export const updateExperiment = createApiRequestHandler(
     ? await getDataSourceById(req.context, datasourceId)
     : null;
 
-  if (
+  const datasourceChanged =
     payload.datasourceId !== undefined &&
-    payload.datasourceId !== experiment.datasource
-  ) {
-    if (experiment.datasource) {
-      throw new Error(
-        "Cannot change datasource via API if one is already set.",
+    payload.datasourceId !== experiment.datasource;
+  if (datasourceChanged) {
+    if (experiment.datasource && experiment.status !== "draft") {
+      throw new BadRequestError(
+        "The data source can only change while the experiment is a draft.",
       );
     }
     if (!datasource) {
       throw new Error("Datasource not found.");
+    }
+    // The stored query belongs to the old data source.
+    if (experiment.exposureQueryId && payload.assignmentQueryId === undefined) {
+      throw new BadRequestError(
+        "Changing the data source needs an `assignmentQueryId` from the new one.",
+      );
     }
   }
 
@@ -254,16 +264,20 @@ export const updateExperiment = createApiRequestHandler(
     true,
     metricGroups,
   );
+  const payloadMetrics = {
+    goalMetrics: payload.metrics,
+    secondaryMetrics: payload.secondaryMetrics,
+    guardrailMetrics: payload.guardrailMetrics,
+    activationMetric: payload.activationMetric,
+  };
+  // A new data source has to hold every metric the experiment keeps.
   const newMetricIds = getAllMetricIdsFromExperiment(
-    {
-      goalMetrics: payload.metrics,
-      secondaryMetrics: payload.secondaryMetrics,
-      guardrailMetrics: payload.guardrailMetrics,
-      activationMetric: payload.activationMetric,
-    },
+    datasourceChanged
+      ? { ...experiment, ...omitBy(payloadMetrics, isUndefined) }
+      : payloadMetrics,
     true,
     metricGroups,
-  ).filter((m) => !oldMetricIds.includes(m));
+  ).filter((m) => datasourceChanged || !oldMetricIds.includes(m));
 
   const map = await getMetricMap(req.context);
 
@@ -323,8 +337,7 @@ export const updateExperiment = createApiRequestHandler(
 
   const shouldValidatePrecomputedUnitDimensionIds =
     payload.precomputedUnitDimensionIds !== undefined ||
-    (payload.datasourceId !== undefined &&
-      payload.datasourceId !== experiment.datasource) ||
+    datasourceChanged ||
     (payload.assignmentQueryId !== undefined &&
       payload.assignmentQueryId !== experiment.exposureQueryId) ||
     identifierTypeChanged;
@@ -540,6 +553,29 @@ export const updateExperiment = createApiRequestHandler(
 
   await validateExperimentChange({ context: req.context, experiment, changes });
 
+  const skipChecklist = !!payload.skipChecklist;
+  const bypassLockdown =
+    isStartingFromDraft && canBypassReviewChecks(req, experiment);
+  const restApiBypassesReviews = canUseRestApiBypassSetting(req);
+  // A start meets what POST /start does, judged on the experiment as this
+  // update leaves it, and before the hold.
+  if (isStartingFromDraft) {
+    await assertCanPublishPendingFeatureDrafts(req.context, experiment);
+  }
+  const startPlan = isStartingFromDraft
+    ? await planStartGates(
+        req.context,
+        { ...experiment, ...changes },
+        {
+          when: "now",
+          skipChecklist,
+          bypassApproval: bypassLockdown,
+          restApiBypassesReviews,
+        },
+      )
+    : null;
+  if (startPlan) assertStartNotBlocked(startPlan);
+
   const liveActions = [
     ...experimentChangeActions(experiment, changes),
     // Archiving takes an experiment out of the payload; unarchiving puts it back.
@@ -555,19 +591,13 @@ export const updateExperiment = createApiRequestHandler(
       ? experiment.pendingFeatureDrafts
       : undefined,
   );
-  const restApiBypassesReviews = canUseRestApiBypassSetting(req);
   await requireConfirmation(req.context, {
     actions: [
       ...(liveActions.length ? liveActions : ["experiment.draft" as const]),
-      // Starting a draft here skips the launch checklist, as if asked to.
-      ...(isStartingFromDraft ? (["override.skipChecklist"] as const) : []),
       ...queued.actions,
     ],
-    bypassing: isStartingFromDraft
-      ? await startApprovalBypass(req.context, experiment, {
-          restApiBypassesReviews,
-        })
-      : [],
+    bypassing: startPlan?.bypassed ?? [],
+    notices: startPlan ? gateNotices(startPlan.skipped) : [],
     project: experiment.project,
     summary: `Change ${experiment.name}`,
     links: [
@@ -605,6 +635,7 @@ export const updateExperiment = createApiRequestHandler(
   }
   let changesForUpdate = changes;
   let startAcknowledgment = {};
+  let started: ReturnType<typeof startResult> = {};
 
   if (isStartingFromDraft) {
     // Persist the non-status changes (including any new statusUpdateSchedule)
@@ -623,20 +654,20 @@ export const updateExperiment = createApiRequestHandler(
     // Route draft->running transitions through the dedicated lifecycle method
     // so ramp lockdown, checklist, and pending-draft publish behavior stays
     // consistent across all entry points.
-    const bypassLockdown = canBypassReviewChecks(req, experiment);
-    const { updated, checklistItems } = await startExperiment({
-      context: req.context,
-      experimentId: experiment.id,
-      // behavior for patch endpoint is to skip pre-launch checklist
-      skipChecklist: true,
-      bypassLockdown,
-      restApiBypassesReviews,
-    });
+    const { updated, checklistItems, plan, publishedFeatureDrafts } =
+      await startExperiment({
+        context: req.context,
+        experimentId: experiment.id,
+        skipChecklist,
+        bypassLockdown,
+        restApiBypassesReviews,
+      });
     startAcknowledgment = getStartAcknowledgment({
       checklistItems,
-      skipChecklist: true,
+      skipChecklist,
       bypassLockdown,
     });
+    started = startResult(plan, publishedFeatureDrafts);
     experimentForUpdate = updated;
     // All non-status changes were already persisted above; startExperiment
     // handled the transition (and resolved the schedule), so nothing remains.
@@ -685,5 +716,6 @@ export const updateExperiment = createApiRequestHandler(
   );
   return {
     experiment: apiExperiment,
+    ...started,
   };
 });

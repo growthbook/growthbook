@@ -297,6 +297,24 @@ describe("a REST scheduled start past a flag draft's approval", () => {
     expect((await draft())?.status).toBe("published");
   });
 
+  it("reports what a start now bypassed and published", async () => {
+    await seed({ schedule: false });
+    setReqContext(asKey(adminKey, reviewOrg));
+
+    const res = await start();
+
+    expect(res.status).toBe(200);
+    expect(res.body.bypassedGates).toContainEqual({
+      key: `pendingApproval:${FLAG}`,
+      type: "approval-required",
+      outcome: "bypassed",
+      via: "bypassApprovalPermission",
+    });
+    expect(res.body.publishedFeatureDrafts).toEqual([
+      expect.objectContaining({ featureId: FLAG }),
+    ]);
+  });
+
   it("refuses a key without bypass authority", async () => {
     await seed();
     setReqContext(asKey(experimenterKey, reviewOrg));

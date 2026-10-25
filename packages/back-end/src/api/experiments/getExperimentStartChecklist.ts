@@ -12,13 +12,11 @@ export const getExperimentStartChecklist = createApiRequestHandler(
     req.params.id,
   );
 
-  const { checklistItems, status } = await getExperimentStartChecklistStatus({
-    context: req.context as ReqContext,
-    experiment,
-  });
+  const { checklistItems, gates, status } =
+    await getExperimentStartChecklistStatus({
+      context: req.context as ReqContext,
+      experiment,
+    });
 
-  return {
-    checklistItems,
-    status,
-  };
+  return { checklistItems, gates, status };
 });

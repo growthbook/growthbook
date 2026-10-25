@@ -137,6 +137,7 @@ export const BYPASS_OVERRIDE_ACTIONS: Record<
   bypassApprovalPermission: "override.bypassApproval",
   restApiBypassesReviews: "override.restBypassesReviews",
   revertsBypassApproval: null,
+  skipChecklist: "override.skipChecklist",
 };
 
 // The checks a publishing write can ask to skip.

@@ -16699,8 +16699,8 @@ paths:
       summary: Update a single experiment
       description: >-
         Setting `status` from draft to running starts the experiment as `POST
-        /experiments/{id}/start` does, except that incomplete required checklist
-        items don't refuse it; hard blockers still do. Changing `archived`
+        /experiments/{id}/start` does, judged on the experiment as this update
+        leaves it, with `skipChecklist` in this body. Changing `archived`
         archives or unarchives it as `POST /experiments/{id}/archive` and
         `/unarchive` do.
       tags:
@@ -17384,6 +17384,14 @@ paths:
                     has explicitly asked you to. If a check blocks you, stop and
                     ask a person instead of working around it.
                   type: boolean
+                skipChecklist:
+                  description: >-
+                    When `status` starts a draft: start past its incomplete
+                    launch checklist items, as `POST /experiments/{id}/start`
+                    does. Only set this when a person has explicitly asked you
+                    to. If a check blocks you, stop and ask a person instead of
+                    working around it.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -17395,6 +17403,57 @@ paths:
                 properties:
                   experiment:
                     $ref: '#/components/schemas/Experiment'
+                  bypassedGates:
+                    description: >-
+                      Gates this start skipped or bypassed. Present only when
+                      there were some.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          description: >-
+                            The checklist item this stands for, or
+                            `rampLocked:<featureId>` for a linked Feature Flag
+                            locked by a ramp.
+                          type: string
+                        type:
+                          description: >-
+                            Gate kind: "checklist-item", "approval-required",
+                            "merge-conflict", "unrelated-draft-changes",
+                            "permission-denied" or "ramp-locked".
+                          type: string
+                        outcome:
+                          type: string
+                          const: bypassed
+                        via:
+                          description: >-
+                            How it was passed: `skipChecklist`, the caller's
+                            permission (`bypassApprovalPermission`), or the
+                            organization's REST API approval bypass
+                            (`restApiBypassesReviews`).
+                          type: string
+                          enum:
+                            - ignoreWarnings
+                            - skipSchemaValidation
+                            - skipHooks
+                            - bypassApprovalPermission
+                            - restApiBypassesReviews
+                            - revertsBypassApproval
+                            - skipChecklist
+                      required:
+                        - key
+                        - type
+                        - outcome
+                        - via
+                      additionalProperties: false
+                  publishedFeatureDrafts:
+                    description: >-
+                      The linked Feature Flag drafts the start published.
+                      Present only when it published some.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/publishedFeatureDrafts'
                 required:
                   - experiment
                 additionalProperties: false
@@ -17502,9 +17561,18 @@ paths:
                     enum:
                       - ready
                       - notReady
+                  gates:
+                    description: >-
+                      Each incomplete item as a gate: what blocks a start, and
+                      what gets past it. A start refused by any of them returns
+                      `checklist_incomplete` with the blocking ones in `gates`.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/gates'
                 required:
                   - checklistItems
                   - status
+                  - gates
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -17640,16 +17708,18 @@ paths:
       summary: Start/Stage an experiment
       description: >-
         Starts an experiment or stages it for a future start if a
-        `statusUpdateSchedule` is set on the experiment. Both run the launch
-        checklist that `GET /experiments/{id}/start-checklist` returns: an
-        incomplete required item refuses the start with `checklist_incomplete`
-        unless `skipChecklist` is set, and a hard blocker refuses it either way.
-        A linked Feature Flag draft that still needs approval is a hard blocker
-        (`pendingApproval:<featureId>`), unless the caller has Bypass draft
+        `statusUpdateSchedule` is set on the experiment. Both check the launch
+        checklist that `GET /experiments/{id}/start-checklist` returns, as
+        gates. An incomplete item refuses the start with `checklist_incomplete`
+        unless `skipChecklist` is set; a linked Feature Flag blocker refuses it
+        either way. The refusal lists each blocking gate in `gates`, with the
+        flag or permission that gets past it and a route that resolves it. A
+        linked Feature Flag draft that still needs approval, or a flag locked by
+        a ramp, is bypassed automatically when the caller has Bypass draft
         approvals access for that flag or the organization enables the REST API
-        approval bypass, in which case approval is bypassed automatically.
-        Starting publishes the linked drafts; if any can't publish, for example
-        because it needs a rebase, the start fails with
+        approval bypass. A start reports what it got past in `bypassedGates` and
+        the drafts it published in `publishedFeatureDrafts`; if a draft can't
+        publish, for example because it needs a rebase, the start fails with
         `pending_draft_publish_failed` before any is published. A staged start
         carries the caller's Bypass draft approvals access to when it runs, for
         the drafts as they were when it was staged: if one has changed since, or
@@ -17710,6 +17780,57 @@ paths:
                       Present only when the request staged a future scheduled
                       start instead of starting the experiment immediately.
                     type: string
+                  bypassedGates:
+                    description: >-
+                      Gates this start skipped or bypassed. Present only when
+                      there were some.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          description: >-
+                            The checklist item this stands for, or
+                            `rampLocked:<featureId>` for a linked Feature Flag
+                            locked by a ramp.
+                          type: string
+                        type:
+                          description: >-
+                            Gate kind: "checklist-item", "approval-required",
+                            "merge-conflict", "unrelated-draft-changes",
+                            "permission-denied" or "ramp-locked".
+                          type: string
+                        outcome:
+                          type: string
+                          const: bypassed
+                        via:
+                          description: >-
+                            How it was passed: `skipChecklist`, the caller's
+                            permission (`bypassApprovalPermission`), or the
+                            organization's REST API approval bypass
+                            (`restApiBypassesReviews`).
+                          type: string
+                          enum:
+                            - ignoreWarnings
+                            - skipSchemaValidation
+                            - skipHooks
+                            - bypassApprovalPermission
+                            - restApiBypassesReviews
+                            - revertsBypassApproval
+                            - skipChecklist
+                      required:
+                        - key
+                        - type
+                        - outcome
+                        - via
+                      additionalProperties: false
+                  publishedFeatureDrafts:
+                    description: >-
+                      The linked Feature Flag drafts the start published.
+                      Present only when it published some.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/publishedFeatureDrafts'
                 required:
                   - experiment
                 additionalProperties: false
@@ -17817,9 +17938,18 @@ paths:
                     enum:
                       - ready
                       - notReady
+                  gates:
+                    description: >-
+                      Each incomplete item as a gate: what blocks a start, and
+                      what gets past it. A start refused by any of them returns
+                      `checklist_incomplete` with the blocking ones in `gates`.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/gates'
                 required:
                   - checklistItems
                   - status
+                  - gates
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
@@ -30363,7 +30493,71 @@ paths:
                       a 422 instead.
                     type: array
                     items:
-                      $ref: '#/components/schemas/gates'
+                      type: object
+                      properties:
+                        entityType:
+                          type: string
+                          enum:
+                            - feature
+                            - saved-group
+                            - config
+                            - constant
+                        id:
+                          description: The identifier used in the request.
+                          type: string
+                        version:
+                          type: integer
+                        type:
+                          description: Gate kind, e.g. "approval-required".
+                          type: string
+                        severity:
+                          type: string
+                          enum:
+                            - blocker
+                            - warning
+                        messages:
+                          type: array
+                          items:
+                            type: string
+                        override:
+                          description: Request flag that clears this gate on retry, if any.
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        requiresPermission:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        resolution:
+                          description: >-
+                            A route that resolves the gate without an override
+                            flag.
+                          anyOf:
+                            - type: object
+                              properties:
+                                action:
+                                  type: string
+                                method:
+                                  type: string
+                                path:
+                                  type: string
+                              required:
+                                - action
+                                - method
+                                - path
+                              additionalProperties: false
+                            - type: 'null'
+                      required:
+                        - entityType
+                        - id
+                        - version
+                        - type
+                        - severity
+                        - messages
+                        - override
+                        - requiresPermission
+                        - resolution
+                      additionalProperties: false
                   bypassedGates:
                     description: >-
                       Gates bypassed by the caller's flags or authority — what
@@ -86671,6 +86865,7 @@ components:
             - bypassApprovalPermission
             - restApiBypassesReviews
             - revertsBypassApproval
+            - skipChecklist
       required:
         - type
         - outcome
@@ -87678,6 +87873,83 @@ components:
         - manual
         - reason
       additionalProperties: false
+    gates:
+      type: object
+      properties:
+        key:
+          description: >-
+            The checklist item this stands for, or `rampLocked:<featureId>` for
+            a linked Feature Flag locked by a ramp.
+          type: string
+        type:
+          description: >-
+            Gate kind: "checklist-item", "approval-required", "merge-conflict",
+            "unrelated-draft-changes", "permission-denied" or "ramp-locked".
+          type: string
+        featureId:
+          description: The linked Feature Flag whose authority decides this gate.
+          type: string
+        severity:
+          type: string
+          enum:
+            - blocker
+            - warning
+        messages:
+          type: array
+          items:
+            type: string
+        override:
+          description: >-
+            Request flag that gets past this gate on retry, if any
+            (`skipChecklist`).
+          anyOf:
+            - type: string
+            - type: 'null'
+        requiresPermission:
+          description: >-
+            Permission that bypasses this gate without a flag: holding it on the
+            Feature Flag's Project, or the organization's REST API approval
+            bypass.
+          anyOf:
+            - type: string
+            - type: 'null'
+        resolution:
+          description: A route that resolves the gate.
+          anyOf:
+            - type: object
+              properties:
+                action:
+                  type: string
+                method:
+                  type: string
+                path:
+                  type: string
+              required:
+                - action
+                - method
+                - path
+              additionalProperties: false
+            - type: 'null'
+      required:
+        - key
+        - type
+        - severity
+        - messages
+        - override
+        - requiresPermission
+        - resolution
+      additionalProperties: false
+    publishedFeatureDrafts:
+      type: object
+      properties:
+        featureId:
+          type: string
+        revisionVersion:
+          type: number
+      required:
+        - featureId
+        - revisionVersion
+      additionalProperties: false
     snapshot:
       type: object
       properties:
@@ -88104,70 +88376,6 @@ components:
         - version
         - revisionId
         - status
-      additionalProperties: false
-    gates:
-      type: object
-      properties:
-        entityType:
-          type: string
-          enum:
-            - feature
-            - saved-group
-            - config
-            - constant
-        id:
-          description: The identifier used in the request.
-          type: string
-        version:
-          type: integer
-        type:
-          description: Gate kind, e.g. "approval-required".
-          type: string
-        severity:
-          type: string
-          enum:
-            - blocker
-            - warning
-        messages:
-          type: array
-          items:
-            type: string
-        override:
-          description: Request flag that clears this gate on retry, if any.
-          anyOf:
-            - type: string
-            - type: 'null'
-        requiresPermission:
-          anyOf:
-            - type: string
-            - type: 'null'
-        resolution:
-          description: A route that resolves the gate without an override flag.
-          anyOf:
-            - type: object
-              properties:
-                action:
-                  type: string
-                method:
-                  type: string
-                path:
-                  type: string
-              required:
-                - action
-                - method
-                - path
-              additionalProperties: false
-            - type: 'null'
-      required:
-        - entityType
-        - id
-        - version
-        - type
-        - severity
-        - messages
-        - override
-        - requiresPermission
-        - resolution
       additionalProperties: false
     suppressed:
       description: >-

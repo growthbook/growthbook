@@ -21,6 +21,7 @@ import {
   booleanQueryField,
   csvQueryField,
   HUMAN_OVERRIDE_NOTE,
+  bypassViaValues,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import {
@@ -1827,6 +1828,12 @@ const updateExperimentBody = z
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
     ignoreWarnings: ignoreWarningsBodyField,
+    skipChecklist: z
+      .boolean()
+      .describe(
+        `When \`status\` starts a draft: start past its incomplete launch checklist items, as \`POST /experiments/{id}/start\` does. ${HUMAN_OVERRIDE_NOTE}`,
+      )
+      .optional(),
   })
   .strict();
 
@@ -2194,12 +2201,92 @@ export type ExperimentStartChecklistStatus = z.infer<
   typeof experimentStartChecklistStatusValidator
 >;
 
+const startGateKeyFields = {
+  key: z
+    .string()
+    .describe(
+      "The checklist item this stands for, or `rampLocked:<featureId>` for a linked Feature Flag locked by a ramp.",
+    ),
+  type: z
+    .string()
+    .describe(
+      'Gate kind: "checklist-item", "approval-required", "merge-conflict", "unrelated-draft-changes", "permission-denied" or "ramp-locked".',
+    ),
+};
+
+// What blocks starting an experiment, on the same model as a publish's gates.
+const startGateValidator = z
+  .object({
+    ...startGateKeyFields,
+    featureId: z
+      .string()
+      .optional()
+      .describe("The linked Feature Flag whose authority decides this gate."),
+    severity: z.enum(["blocker", "warning"]),
+    messages: z.array(z.string()),
+    override: z
+      .string()
+      .nullable()
+      .describe(
+        "Request flag that gets past this gate on retry, if any (`skipChecklist`).",
+      ),
+    requiresPermission: z
+      .string()
+      .nullable()
+      .describe(
+        "Permission that bypasses this gate without a flag: holding it on the Feature Flag's Project, or the organization's REST API approval bypass.",
+      ),
+    resolution: z
+      .object({
+        action: z.string(),
+        method: z.string(),
+        path: z.string(),
+      })
+      .nullable()
+      .describe("A route that resolves the gate."),
+  })
+  .strict();
+
 const experimentStartChecklistResponseValidator = z
   .object({
     checklistItems: z.array(startChecklistItemStatusValidator),
     status: experimentStartChecklistStatusValidator,
+    gates: z
+      .array(startGateValidator)
+      .describe(
+        "Each incomplete item as a gate: what blocks a start, and what gets past it. A start refused by any of them returns `checklist_incomplete` with the blocking ones in `gates`.",
+      ),
   })
   .strict();
+
+const startResultFields = {
+  bypassedGates: z
+    .array(
+      z
+        .object({
+          ...startGateKeyFields,
+          outcome: z.literal("bypassed"),
+          via: z
+            .enum(bypassViaValues)
+            .describe(
+              "How it was passed: `skipChecklist`, the caller's permission (`bypassApprovalPermission`), or the organization's REST API approval bypass (`restApiBypassesReviews`).",
+            ),
+        })
+        .strict(),
+    )
+    .optional()
+    .describe(
+      "Gates this start skipped or bypassed. Present only when there were some.",
+    ),
+  publishedFeatureDrafts: z
+    .array(
+      z.object({ featureId: z.string(), revisionVersion: z.number() }).strict(),
+    )
+    .optional()
+    .describe(
+      "The linked Feature Flag drafts the start published. Present only when it published some.",
+    ),
+};
 
 export const getExperimentStartChecklistValidator = {
   bodySchema: z.never(),
@@ -2221,11 +2308,12 @@ export const updateExperimentValidator = {
   responseSchema: z
     .object({
       experiment: apiExperimentValidator,
+      ...startResultFields,
     })
     .strict(),
   summary: "Update a single experiment",
   description:
-    "Setting `status` from draft to running starts the experiment as `POST /experiments/{id}/start` does, except that incomplete required checklist items don't refuse it; hard blockers still do. Changing `archived` archives or unarchives it as `POST /experiments/{id}/archive` and `/unarchive` do.",
+    "Setting `status` from draft to running starts the experiment as `POST /experiments/{id}/start` does, judged on the experiment as this update leaves it, with `skipChecklist` in this body. Changing `archived` archives or unarchives it as `POST /experiments/{id}/archive` and `/unarchive` do.",
   confirmation: [
     "experiment.draft",
     "experiment.start",
@@ -2262,11 +2350,12 @@ export const postExperimentStartValidator = {
           "Present only when the request staged a future scheduled start instead of starting the experiment immediately.",
         )
         .optional(),
+      ...startResultFields,
     })
     .strict(),
   summary: "Start/Stage an experiment",
   description:
-    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment. Both run the launch checklist that `GET /experiments/{id}/start-checklist` returns: an incomplete required item refuses the start with `checklist_incomplete` unless `skipChecklist` is set, and a hard blocker refuses it either way. A linked Feature Flag draft that still needs approval is a hard blocker (`pendingApproval:<featureId>`), unless the caller has Bypass draft approvals access for that flag or the organization enables the REST API approval bypass, in which case approval is bypassed automatically. Starting publishes the linked drafts; if any can't publish, for example because it needs a rebase, the start fails with `pending_draft_publish_failed` before any is published. A staged start carries the caller's Bypass draft approvals access to when it runs, for the drafts as they were when it was staged: if one has changed since, or the caller has lost that access, it needs approval like any other. The organization's REST API approval bypass doesn't carry to a staged start.",
+    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment. Both check the launch checklist that `GET /experiments/{id}/start-checklist` returns, as gates. An incomplete item refuses the start with `checklist_incomplete` unless `skipChecklist` is set; a linked Feature Flag blocker refuses it either way. The refusal lists each blocking gate in `gates`, with the flag or permission that gets past it and a route that resolves it. A linked Feature Flag draft that still needs approval, or a flag locked by a ramp, is bypassed automatically when the caller has Bypass draft approvals access for that flag or the organization enables the REST API approval bypass. A start reports what it got past in `bypassedGates` and the drafts it published in `publishedFeatureDrafts`; if a draft can't publish, for example because it needs a rebase, the start fails with `pending_draft_publish_failed` before any is published. A staged start carries the caller's Bypass draft approvals access to when it runs, for the drafts as they were when it was staged: if one has changed since, or the caller has lost that access, it needs approval like any other. The organization's REST API approval bypass doesn't carry to a staged start.",
   confirmation: [
     "experiment.start",
     "override.skipChecklist",

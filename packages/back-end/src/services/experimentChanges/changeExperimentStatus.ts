@@ -40,7 +40,16 @@ import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnect
 import { findVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
 import { ReqContext } from "back-end/types/request";
 import { flagBypass } from "back-end/src/services/featurePublishGates";
-import type { BypassedGate } from "back-end/src/revisions/publishGates";
+import type {
+  BypassedGate,
+  SkippedGate,
+} from "back-end/src/revisions/publishGates";
+import {
+  evaluateStartGates,
+  rampLockedGate,
+  startChecklistGates,
+  type StartGate,
+} from "back-end/src/services/experimentChanges/startGates";
 import { ApiReqContext } from "back-end/types/api";
 import {
   assertCanPublishPendingFeatureDrafts,
@@ -63,7 +72,10 @@ import {
   InvalidStatusError,
   PendingDraftPublishFailedError,
 } from "back-end/src/util/errors";
-import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
+import {
+  assertFeatureNotLockedByRamp,
+  RampLockdownError,
+} from "back-end/src/services/rampSchedule";
 import { trackEventForContext } from "back-end/src/services/growthbook";
 import { isArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 import { assertScheduledStartAllowsChange } from "back-end/src/services/experimentChanges/scheduledStartLock";
@@ -80,6 +92,7 @@ export type StartChecklistItemStatus = {
 export type ExperimentStartChecklistResult = {
   experiment: ExperimentInterface;
   checklistItems: StartChecklistItemStatus[];
+  gates: StartGate[];
   status: ExperimentStartChecklistStatus;
 };
 
@@ -741,11 +754,9 @@ export async function getExperimentStartChecklist({
   experiment: ExperimentInterface;
   arming?: boolean;
 }): Promise<ExperimentStartChecklistResult> {
-  const checklistItems = await getExperimentStartChecklistStatus(
-    context,
-    experiment,
-    { arming },
-  );
+  const { checklistItems, gates } = await planStartGates(context, experiment, {
+    when: arming ? "arm" : "now",
+  });
   const hasIncompleteRequiredItems = checklistItems.some(
     (item) => item.required && item.status === "incomplete",
   );
@@ -753,61 +764,9 @@ export async function getExperimentStartChecklist({
   return {
     experiment,
     checklistItems,
+    gates,
     status: hasIncompleteRequiredItems ? "notReady" : "ready",
   };
-}
-
-function assertNoIncompleteHardBlockers(
-  checklistItems: StartChecklistItemStatus[],
-): void {
-  const incompleteHardBlockers = checklistItems.filter(
-    (item) => item.hardBlock && item.status === "incomplete",
-  );
-  if (incompleteHardBlockers.length > 0) {
-    throw new ChecklistIncompleteError(
-      "Experiment cannot be started: linked feature draft issues must be resolved and cannot be bypassed",
-      incompleteHardBlockers,
-    );
-  }
-}
-
-// The open approval rows this principal may waive, each judged on its own flag
-// as publishing that flag's draft at the start judges it.
-async function waivableApprovals(
-  context: ReqContext | ApiReqContext,
-  checklistItems: StartChecklistItemStatus[],
-  { restApiBypassesReviews = false }: { restApiBypassesReviews?: boolean } = {},
-): Promise<Set<string>> {
-  const open = checklistItems.filter(
-    (item) =>
-      item.status === "incomplete" &&
-      item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX),
-  );
-  if (!open.length) return new Set();
-  // The org setting waives every flag's approval, as the publish does.
-  if (restApiBypassesReviews) return new Set(open.map((item) => item.key));
-  const features = await getFeaturesByIds(
-    context,
-    open.map((item) => item.key.slice(PENDING_APPROVAL_ITEM_PREFIX.length)),
-  );
-  return new Set(
-    features
-      .filter(
-        (feature) => flagBypass(context, feature, { optIn: true }).approval,
-      )
-      .map((feature) => `${PENDING_APPROVAL_ITEM_PREFIX}${feature.id}`),
-  );
-}
-
-async function withoutWaivedApprovals(
-  context: ReqContext | ApiReqContext,
-  checklistItems: StartChecklistItemStatus[],
-  bypass: boolean,
-  options: { restApiBypassesReviews?: boolean } = {},
-): Promise<StartChecklistItemStatus[]> {
-  if (!bypass) return checklistItems;
-  const waived = await waivableApprovals(context, checklistItems, options);
-  return checklistItems.filter((item) => !waived.has(item.key));
 }
 
 // The drafts a start would publish, each with its revision as it stands now.
@@ -873,36 +832,117 @@ export async function armedStartBypassStands(
   );
 }
 
-// The approval bypass a start would apply, named for its confirmation hold.
-export async function startApprovalBypass(
+export type StartPlan = {
+  checklistItems: StartChecklistItemStatus[];
+  gates: StartGate[];
+  blocking: StartGate[];
+  bypassed: BypassedGate[];
+  skipped: (SkippedGate & { key: string })[];
+};
+
+// What starting now, arming a scheduled start, or that start firing faces, on
+// the publish-gate model: incomplete checklist items are warnings
+// `skipChecklist` acknowledges; linked flags' blockers are cleared only by that
+// flag's authority, as publishing its draft clears them.
+export async function planStartGates(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
-  { restApiBypassesReviews = false }: { restApiBypassesReviews?: boolean } = {},
-): Promise<BypassedGate[]> {
-  if (
-    !restApiBypassesReviews &&
-    !context.permissions.canBypassFlagApprovalChecks(experiment, "feature")
-  ) {
-    return [];
-  }
-  const waived = await waivableApprovals(
+  {
+    when,
+    skipChecklist = false,
+    bypassApproval = false,
+    restApiBypassesReviews = false,
+  }: {
+    when: "now" | "arm" | "fire";
+    skipChecklist?: boolean;
+    // Asks for the caller's approval bypass, judged per flag.
+    bypassApproval?: boolean;
+    // Starting now only: it doesn't carry to a staged start.
+    restApiBypassesReviews?: boolean;
+  },
+): Promise<StartPlan> {
+  const checklistItems = await getExperimentStartChecklistStatus(
     context,
-    await getExperimentStartChecklistStatus(context, experiment, {
-      arming: true,
-    }),
-    { restApiBypassesReviews },
+    experiment,
+    { arming: when !== "fire" },
   );
-  return waived.size
-    ? [
-        {
-          type: "approval-required",
-          outcome: "bypassed",
-          via: restApiBypassesReviews
-            ? "restApiBypassesReviews"
-            : "bypassApprovalPermission",
-        },
-      ]
-    : [];
+  const gates = startChecklistGates(
+    experiment.id,
+    checklistItems,
+    new Map(
+      (await getLaunchDrafts(context, experiment)).map((d) => [
+        d.featureId,
+        d.revisionVersion,
+      ]),
+    ),
+  );
+  // A scheduled start meets these when it fires.
+  if (when === "now") {
+    for (const featureId of experiment.linkedFeatures ?? []) {
+      try {
+        await assertFeatureNotLockedByRamp(context, featureId);
+      } catch (e) {
+        if (!(e instanceof RampLockdownError)) throw e;
+        gates.push(rampLockedGate(featureId, e.message));
+      }
+    }
+  }
+  const flagIds = [...new Set(gates.flatMap((g) => g.featureId ?? []))];
+  const features = new Map(
+    bypassApproval && flagIds.length
+      ? (await getFeaturesByIds(context, flagIds)).map((f) => [f.id, f])
+      : [],
+  );
+  return {
+    checklistItems,
+    gates,
+    ...evaluateStartGates(
+      gates,
+      {
+        skipChecklist,
+        canBypassFlag: (feature) =>
+          !!feature &&
+          context.permissions.canBypassFlagApprovalChecks(feature, "feature"),
+        restApiBypassesReviews: when === "now" && restApiBypassesReviews,
+      },
+      features,
+    ),
+  };
+}
+
+// What a REST start reports: what it got past, and the drafts it published.
+export function startResult(
+  plan: StartPlan,
+  publishedFeatureDrafts: { featureId: string; revisionVersion: number }[] = [],
+) {
+  return {
+    ...(plan.skipped.length
+      ? {
+          bypassedGates: plan.skipped.map(({ key, type, via }) => ({
+            key,
+            type,
+            outcome: "bypassed" as const,
+            via,
+          })),
+        }
+      : {}),
+    ...(publishedFeatureDrafts.length ? { publishedFeatureDrafts } : {}),
+  };
+}
+
+export function assertStartNotBlocked(plan: StartPlan): void {
+  if (!plan.blocking.length) return;
+  const keys = new Set(plan.blocking.map((gate) => gate.key));
+  const hard = plan.blocking.filter((gate) => !gate.override);
+  throw new ChecklistIncompleteError(
+    hard.length === 1
+      ? `Experiment cannot be started: ${hard[0].messages[0]}`
+      : hard.length
+        ? "Experiment cannot be started: linked feature draft issues must be resolved and cannot be bypassed"
+        : "Experiment cannot be started: required checklist items are incomplete",
+    plan.checklistItems.filter((item) => keys.has(item.key)),
+    plan.blocking,
+  );
 }
 
 // Run when a scheduled start fires. The approver already acknowledged the soft items.
@@ -911,12 +951,12 @@ export async function assertScheduledStartNotHardBlocked(
   experiment: ExperimentInterface,
   bypassApproval = false,
 ): Promise<void> {
-  const checklistItems = await getExperimentStartChecklistStatus(
-    context,
-    experiment,
-  );
-  assertNoIncompleteHardBlockers(
-    await withoutWaivedApprovals(context, checklistItems, bypassApproval),
+  assertStartNotBlocked(
+    await planStartGates(context, experiment, {
+      when: "fire",
+      skipChecklist: true,
+      bypassApproval,
+    }),
   );
 }
 
@@ -957,13 +997,6 @@ export async function startExperiment({
     context,
     experimentId,
   );
-  await assertCanPublishPendingFeatureDrafts(context, loadedExperiment);
-  const checklistItems = await getExperimentStartChecklistStatus(
-    context,
-    loadedExperiment,
-    { arming: true },
-  );
-
   const experiment = loadedExperiment;
   if (experiment.status !== "draft") {
     throw new InvalidStatusError(
@@ -972,33 +1005,30 @@ export async function startExperiment({
       ["draft"],
     );
   }
+  await assertCanPublishPendingFeatureDrafts(context, experiment);
 
-  const remainingItems = await withoutWaivedApprovals(
-    context,
-    checklistItems,
-    bypassLockdown,
-    { restApiBypassesReviews },
-  );
-  assertNoIncompleteHardBlockers(remainingItems);
+  const plan = await planStartGates(context, experiment, {
+    when: "now",
+    skipChecklist,
+    bypassApproval: bypassLockdown,
+    restApiBypassesReviews,
+  });
+  assertStartNotBlocked(plan);
 
-  const incompleteRequiredItems = remainingItems.filter(
-    (item) => item.required && item.status === "incomplete",
-  );
-  if (incompleteRequiredItems.length > 0 && !skipChecklist) {
-    throw new ChecklistIncompleteError(
-      "Experiment cannot be started: required checklist items are incomplete",
-      incompleteRequiredItems,
-    );
-  }
-
-  const { updated } = await executeExperimentStart(
+  const { updated, publishResult } = await executeExperimentStart(
     context,
     experiment,
     bypassLockdown,
     restApiBypassesReviews,
   );
 
-  return { experiment, updated, checklistItems };
+  return {
+    experiment,
+    updated,
+    checklistItems: plan.checklistItems,
+    plan,
+    publishedFeatureDrafts: publishResult.published,
+  };
 }
 
 /**
@@ -1043,33 +1073,15 @@ export async function approveScheduledExperimentStart({
   }
 
   await assertCanPublishPendingFeatureDrafts(context, experiment);
-  const checklistItems = await getExperimentStartChecklistStatus(
-    context,
-    experiment,
-    { arming: true },
-  );
-
   const bypass =
     bypassApproval &&
     context.permissions.canBypassFlagApprovalChecks(experiment, "feature");
-  const remainingItems = await withoutWaivedApprovals(
-    context,
-    checklistItems,
-    bypass,
-  );
-  assertNoIncompleteHardBlockers(remainingItems);
-
-  if (!skipChecklist) {
-    const incompleteRequired = remainingItems.filter(
-      (item) => item.required && item.status === "incomplete",
-    );
-    if (incompleteRequired.length > 0) {
-      throw new ChecklistIncompleteError(
-        "Experiment cannot be started: required checklist items are incomplete",
-        incompleteRequired,
-      );
-    }
-  }
+  const plan = await planStartGates(context, experiment, {
+    when: "arm",
+    skipChecklist,
+    bypassApproval: bypass,
+  });
+  assertStartNotBlocked(plan);
 
   // The fire runs as the armer, so there has to be one to record.
   if (!context.userId && !isArmingApiKeyId(context.apiKey)) {
@@ -1099,7 +1111,13 @@ export async function approveScheduledExperimentStart({
     changes,
   });
 
-  return { experiment, updated, checklistItems, bypassApproval: bypass };
+  return {
+    experiment,
+    updated,
+    checklistItems: plan.checklistItems,
+    plan,
+    bypassApproval: bypass,
+  };
 }
 
 /**

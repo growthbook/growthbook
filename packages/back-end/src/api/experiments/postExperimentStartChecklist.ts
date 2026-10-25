@@ -39,6 +39,7 @@ export const postExperimentStartChecklistManualComplete =
 
       return {
         checklistItems: checklist.checklistItems,
+        gates: checklist.gates,
         status: checklist.status,
       };
     },

@@ -18,6 +18,7 @@ import {
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
 import {
+  formatGateLine,
   hookErrorText,
   PublishBlockedError,
 } from "back-end/src/revisions/publishGates";
@@ -31,6 +32,7 @@ import {
   ApiError,
   BulkImportPartialFailureError,
   BulkPublishCommitError,
+  ChecklistIncompleteError,
   ConfirmationRequiredError,
   CustomHookError,
   DraftLimitError,
@@ -262,6 +264,13 @@ export async function runApiHandler(
       body.gates = e.gates;
       body.warnings = e.warnings;
     }
+    // An experiment start's blockers, on the same model.
+    if (e instanceof ChecklistIncompleteError && e.gates.length) {
+      body.gates = e.gates;
+      if (!(req as unknown as ApiRequestLocals).isJwtAuth) {
+        body.message = [e.message, ...e.gates.map(formatGateLine)].join("\n");
+      }
+    }
     // Bulk-publish commit failures carry per-item outcomes so callers can see
     // which entities compensated cleanly.
     if (e instanceof BulkPublishCommitError) {
@@ -304,6 +313,9 @@ export async function runApiHandler(
 
 function refusalNotices(e: Error): ConfirmationNotice[] {
   if (e instanceof PublishBlockedError) return gateNotices(e.gates);
+  if (e instanceof ChecklistIncompleteError && e.gates.length) {
+    return gateNotices(e.gates);
+  }
   if (e instanceof SoftWarningError) {
     return [
       { severity: "warning", messages: [e.message, ...e.warnings], via: null },

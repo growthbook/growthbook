@@ -3,6 +3,7 @@ import {
   postExperimentStartValidator,
 } from "shared/validators";
 import { getValidDate } from "shared/dates";
+import { assertCanPublishPendingFeatureDrafts } from "back-end/src/services/experiments";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -13,12 +14,15 @@ import { ReqContext } from "back-end/types/request";
 import {
   approveScheduledExperimentStart,
   getStartAcknowledgment,
-  startApprovalBypass,
+  assertStartNotBlocked,
+  planStartGates,
+  startResult,
   startExperiment,
   validateExperimentChange,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   confirmationLink,
+  gateNotices,
   queuedDraftsHold,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
@@ -54,21 +58,59 @@ export const postExperimentStart = createApiRequestHandler(
     !isBandit && existing.statusUpdateSchedule?.startAt
       ? getValidDate(existing.statusUpdateSchedule.startAt)
       : null;
-  const hasFutureSchedule = startAt && startAt > new Date();
+  const hasFutureSchedule = !!startAt && startAt > new Date();
   const alreadyStaged = !isBandit && !!existing.nextScheduledStatusUpdate;
+  if (hasFutureSchedule && alreadyStaged) {
+    throw new Error(
+      "Experiment is already staged for a scheduled start. To start now, remove the schedule via the update experiment endpoint.",
+    );
+  }
+  if (!hasFutureSchedule) {
+    await validateExperimentChange({
+      context,
+      experiment: existing,
+      changes: { status: "running" },
+    });
+  }
+
+  const skipChecklist = !!req.body?.skipChecklist;
+  // Like a Feature Revision publish: approval is bypassed by authority, not
+  // by asking. `bypassApproval` in the body is accepted and ignored.
+  const bypassLockdown = canBypassReviewChecks(req, existing);
   // Only a start now honors the org setting; an armed start fires on the
   // armer's own authority.
   const restApiBypassesReviews =
     !hasFutureSchedule && canUseRestApiBypassSetting(req);
+  // Checked before the hold, so a person confirms only what can go ahead, and
+  // sees what it gets past.
+  await assertCanPublishPendingFeatureDrafts(context, existing);
+  const plan = await planStartGates(
+    context,
+    existing,
+    hasFutureSchedule
+      ? {
+          when: "arm",
+          skipChecklist,
+          bypassApproval: context.permissions.canBypassFlagApprovalChecks(
+            existing,
+            "feature",
+          ),
+        }
+      : {
+          when: "now",
+          skipChecklist,
+          bypassApproval: bypassLockdown,
+          restApiBypassesReviews,
+        },
+  );
+  assertStartNotBlocked(plan);
 
   // Staging a scheduled start is held too: it starts later with no one present.
   const queued = await queuedDraftsHold(context, existing.pendingFeatureDrafts);
   await requireConfirmation(context, {
     actions: ["experiment.start", ...queued.actions],
-    // Authority or the org setting waives the drafts' open approvals unasked.
-    bypassing: await startApprovalBypass(context, existing, {
-      restApiBypassesReviews,
-    }),
+    bypassing: plan.bypassed,
+    notices: gateNotices(plan.skipped),
     project: existing.project,
     summary: `Start ${existing.name}`,
     links: [
@@ -79,17 +121,15 @@ export const postExperimentStart = createApiRequestHandler(
     pin: [existing.status, existing.statusUpdateSchedule ?? null, queued.pin],
   });
 
-  if (hasFutureSchedule && alreadyStaged) {
-    throw new Error(
-      "Experiment is already staged for a scheduled start. To start now, remove the schedule via the update experiment endpoint.",
-    );
-  }
-
-  if (hasFutureSchedule && !alreadyStaged && startAt) {
-    const { experiment, updated } = await approveScheduledExperimentStart({
+  if (hasFutureSchedule && startAt) {
+    const {
+      experiment,
+      updated,
+      plan: armed,
+    } = await approveScheduledExperimentStart({
       context,
       experimentId: req.params.id,
-      skipChecklist: req.body?.skipChecklist,
+      skipChecklist,
       // By authority, as starting now is; the job asks again when it fires.
       bypassApproval: true,
     });
@@ -113,20 +153,17 @@ export const postExperimentStart = createApiRequestHandler(
       message: `Experiment had a schedule set for a future date and was successfully staged to start on ${formatScheduledStartUtc(
         startAt,
       )}`,
+      ...startResult(armed),
     };
   }
 
-  await validateExperimentChange({
-    context,
-    experiment: existing,
-    changes: { status: "running" },
-  });
-
-  const skipChecklist = !!req.body?.skipChecklist;
-  // Like a Feature Revision publish: approval is bypassed by authority, not
-  // by asking. `bypassApproval` in the body is accepted and ignored.
-  const bypassLockdown = canBypassReviewChecks(req, existing);
-  const { experiment, updated, checklistItems } = await startExperiment({
+  const {
+    experiment,
+    updated,
+    checklistItems,
+    plan: started,
+    publishedFeatureDrafts,
+  } = await startExperiment({
     context,
     experimentId: req.params.id,
     skipChecklist,
@@ -153,5 +190,6 @@ export const postExperimentStart = createApiRequestHandler(
   );
   return {
     experiment: apiExperiment,
+    ...startResult(started, publishedFeatureDrafts),
   };
 });

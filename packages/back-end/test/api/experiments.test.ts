@@ -2133,6 +2133,57 @@ describe("experiments API", () => {
         });
       });
 
+      it("moves a draft to another data source along with one of its queries", async () => {
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...withSelection,
+          status: "draft",
+        });
+        (getDataSourceById as jest.Mock).mockImplementation(
+          async (_context, id: string) => ({
+            id,
+            type: "postgres",
+            settings: {
+              queries: {
+                exposure: [
+                  {
+                    id: "eq_other",
+                    name: "Other",
+                    userIdType: "user_id",
+                    userIdTypes: ["user_id"],
+                  },
+                ],
+              },
+            },
+          }),
+        );
+        const move = (body: object) =>
+          request(app)
+            .post("/api/v1/experiments/exp_123")
+            .send(body)
+            .set("Authorization", "Bearer foo");
+
+        expect((await move({ datasourceId: "ds_other" })).status).toBe(400);
+        const moved = await move({
+          datasourceId: "ds_other",
+          assignmentQueryId: "eq_other",
+        });
+        expect(moved.status).toBe(200);
+        expect(
+          (updateExperiment as jest.Mock).mock.calls[0][0].changes,
+        ).toMatchObject({
+          datasource: "ds_other",
+          exposureQueryId: "eq_other",
+        });
+
+        (getExperimentById as jest.Mock).mockResolvedValue(withSelection);
+        const started = await move({
+          datasourceId: "ds_other",
+          assignmentQueryId: "eq_other",
+        });
+        expect(started.status).toBe(400);
+        expect(started.body.message).toContain("draft");
+      });
+
       it("accepts re-sending a selection whose query no longer declares it", async () => {
         const res = await request(app)
           .post("/api/v1/experiments/exp_123")
