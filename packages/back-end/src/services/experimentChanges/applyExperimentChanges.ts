@@ -1,5 +1,6 @@
 import isEqual from "lodash/isEqual";
-import { sameCanonicalValue, validateFeatureValue } from "shared/util";
+import { validateFeatureValue } from "shared/util";
+import { experimentFieldValue, sameFieldValue } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { AuditInterfaceInput } from "shared/types/audit";
@@ -157,14 +158,11 @@ function experimentFieldConflicts(
     if (!(key in base)) {
       throw new BadRequestError(`base is missing the loaded value of ${key}`);
     }
-    const current =
-      key === "variationWeights" || key === "coverage"
-        ? experiment.phases[experiment.phases.length - 1]?.[key]
-        : experiment[key as keyof ExperimentInterface];
+    const current = experimentFieldValue(experiment, key);
     // Judged as the page's diff is, so only a real change can conflict.
     return (
-      !sameCanonicalValue(current, base[key]) &&
-      !sameCanonicalValue(current, changes[key as keyof typeof changes])
+      !sameFieldValue(key, current, base[key]) &&
+      !sameFieldValue(key, current, changes[key as keyof typeof changes])
     );
   });
 }
@@ -471,11 +469,12 @@ export async function applyExperimentChanges({
   const fieldConflicts = body.experiment
     ? experimentFieldConflicts(experiment, body.experiment)
     : [];
-  if (body.experiment) {
+  if (body.experiment || body.release) {
     experimentPlan = await planExperimentUpdate(
       context,
       experiment,
-      body.experiment.changes,
+      body.experiment?.changes ?? {},
+      { release: body.release },
     );
   }
   const { plans: flagPlans, conflicts: flagConflicts } = body.flagValues?.length

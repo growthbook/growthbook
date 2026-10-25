@@ -127,11 +127,9 @@ export default function StagedChanges() {
     setCheck(null);
     checkAll
       .current()
-      .then((covered) => {
-        // Only claimed when the check saw every edit and none conflicts.
-        if (current && covered && !conflicts?.length) {
-          setCheck({ status: "ready" });
-        }
+      .then(() => {
+        // Not while an edit still conflicts.
+        if (current && !conflicts?.length) setCheck({ status: "ready" });
       })
       .catch((e) => {
         if (!current) return;

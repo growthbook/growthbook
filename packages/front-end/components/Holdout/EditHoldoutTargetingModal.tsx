@@ -4,7 +4,8 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";
-import React from "react";
+import React, { useState } from "react";
+import { changedTargeting } from "shared/experiments";
 import {
   coverageToHoldoutSize,
   holdoutSizeToCoverage,
@@ -22,6 +23,8 @@ import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
+import { experimentFieldChanges } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
@@ -41,21 +44,23 @@ export default function EditHoldoutTargetingModal({
   const { apiCall } = useAuth();
   const [conditionKey, forceConditionRender] = useIncrementer();
 
-  const mainPhase: ExperimentPhaseStringDates | undefined =
-    experiment.phases[0];
+  // As the modal opened, so a change saved since conflicts instead of being
+  // overwritten.
+  const [opened] = useState(experiment);
+  const mainPhase: ExperimentPhaseStringDates | undefined = opened.phases[0];
 
   const defaultValues = {
     condition: mainPhase?.condition ?? "",
     savedGroups: mainPhase?.savedGroups ?? [],
     coverage: mainPhase?.coverage ?? 1,
-    hashAttribute: experiment.hashAttribute || "id",
+    hashAttribute: opened.hashAttribute || "id",
   };
 
   const form = useForm<ExperimentTargetingData>({
     defaultValues,
   });
 
-  const onSubmit = form.handleSubmit(async (value) => {
+  const onSubmit = validatedSubmit(form, async (value) => {
     validateSavedGroupTargeting(value.savedGroups);
 
     validateAndFixCondition(value.condition, (condition) => {
@@ -63,9 +68,16 @@ export default function EditHoldoutTargetingModal({
       forceConditionRender();
     });
 
-    await apiCall(`/experiment/${experiment.id}/targeting`, {
+    await apiCall(`/experiment/${experiment.id}/changes`, {
       method: "POST",
-      body: JSON.stringify(value),
+      body: JSON.stringify({
+        ...experimentFieldChanges(
+          opened,
+          changedTargeting(value, defaultValues),
+        ),
+        // A running holdout's size changes as it's saved.
+        release: { newPhase: false, reseed: false },
+      }),
     });
     mutate();
     track("edit-holdout-targeting");

@@ -13,6 +13,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { experimentFieldValue } from "shared/experiments";
 import {
   apiErrorRegistry,
   type ApiErrorDetails,
@@ -40,21 +41,12 @@ type PendingEdit = {
   onSaved?: () => void;
   /** Takes the page as it is now as what the edit was made against. */
   rebase?: () => void;
-} & (
-  | {
-      /**
-       * This edit's share of the one changeset the page saves. A dry run
-       * builds the same share without staging anything on the page.
-       */
-      changes: (options: { dryRun: boolean }) => ExperimentChangesBody;
-      save?: never;
-    }
-  | {
-      /** Writes through its own endpoint, after the changeset. Rejects to leave the bar up. */
-      save: () => Promise<void>;
-      changes?: never;
-    }
-);
+  /**
+   * This edit's share of the one changeset the page saves. A dry run builds
+   * the same share without staging anything on the page.
+   */
+  changes: (options: { dryRun: boolean }) => ExperimentChangesBody;
+};
 
 export type StagedReview = { before: unknown; after: unknown };
 
@@ -71,7 +63,7 @@ function reviewFromChanges(body: ExperimentChangesBody): StagedReview {
 // One that can't build its share yet is the save's to report.
 function dryRunShare(edit: PendingEdit): ExperimentChangesBody | null {
   try {
-    return edit.changes?.({ dryRun: true }) ?? null;
+    return edit.changes({ dryRun: true });
   } catch {
     return null;
   }
@@ -109,12 +101,8 @@ interface ExperimentEditsValue {
   review: (id: string) => StagedReview | null;
   register: (id: string, edit: PendingEdit | null) => void;
   checkChanges: CheckChanges;
-  /**
-   * Runs the save's checks on everything staged, writing nothing. Resolves
-   * whether they covered every edit: one that saves through its own endpoint
-   * has nothing to dry-run against.
-   */
-  checkAll: () => Promise<boolean>;
+  /** Runs the save's checks on everything staged, writing nothing. */
+  checkAll: () => Promise<void>;
   allowUnload: () => void;
 }
 
@@ -129,9 +117,6 @@ const ExperimentEditsContext = createContext<ExperimentEditsValue | null>(null);
 const INVALID_FIELDS = "Fill in the highlighted fields to save.";
 
 type ChangesConflict = ApiErrorDetails<"changes_conflict">;
-
-/** Thrown by an edit that saves itself when what it changed was saved by someone else. */
-export class StagedEditConflict extends Error {}
 
 // The save stopped on a conflict, which the bar and the conflicting rows show.
 class ConflictFlagged extends Error {}
@@ -168,10 +153,7 @@ export function experimentFieldChanges(
 ): ExperimentChangesBody {
   const loaded: Record<string, unknown> = {};
   for (const key of Object.keys(changes)) {
-    loaded[key] =
-      key === "variationWeights" || key === "coverage"
-        ? (base.phases[base.phases.length - 1]?.[key] ?? null)
-        : (base[key as keyof ExperimentInterfaceStringDates] ?? null);
+    loaded[key] = experimentFieldValue(base, key);
   }
   return { experiment: { changes, base: loaded } };
 }
@@ -354,16 +336,13 @@ export function ExperimentEditsProvider({
     const saved: PendingEdit[] = [];
     let refetch = false;
     try {
-      const inChangeset = pending.filter(([, edit]) => edit.changes);
-      if (inChangeset.length) {
+      if (pending.length) {
         try {
           await apiCall(`/experiment/${experimentId}/changes`, {
             method: "POST",
             body: JSON.stringify({
               ...mergeChanges(
-                inChangeset.map(
-                  ([, edit]) => edit.changes?.({ dryRun: false }) ?? {},
-                ),
+                pending.map(([, edit]) => edit.changes({ dryRun: false })),
               ),
               ...(allowUnscopedRules && { allowUnscopedRules: true }),
             }),
@@ -374,26 +353,13 @@ export function ExperimentEditsProvider({
           // Refetched, so keeping an edit takes what was saved as its base.
           refetch = true;
           setConflicts(
-            inChangeset
+            pending
               .filter(([, edit]) => touches(dryRunShare(edit), conflict))
               .map(([id]) => id),
           );
           throw new ConflictFlagged();
         }
-        saved.push(...inChangeset.map(([, edit]) => edit));
-      }
-      // Sequential: these hit the same document, and a parallel write would
-      // race the last one to land.
-      for (const [id, edit] of pending) {
-        if (!edit.save) continue;
-        try {
-          await edit.save();
-        } catch (e) {
-          if (!(e instanceof StagedEditConflict)) throw e;
-          setConflicts((prev) => [...prev, id]);
-          throw new ConflictFlagged();
-        }
-        saved.push(edit);
+        saved.push(...pending.map(([, edit]) => edit));
       }
       setUnscopedRefusal(null);
       setAllowUnscopedRules(false);
@@ -493,7 +459,6 @@ export function ExperimentEditsProvider({
       throw new Error(INVALID_FIELDS);
     }
     await dryRun(null, []);
-    return [...edits.current.values()].every((edit) => !edit.save);
   }, [dryRun]);
 
   // Discards before leaving: a route change started with edits still staged
@@ -593,7 +558,6 @@ export function useRegisterExperimentEdit(
   const latest = useRef(edit);
   latest.current = edit;
 
-  const inChangeset = !!edit.changes;
   const label = edit.label;
   useEffect(() => {
     if (!register) return;
@@ -612,18 +576,12 @@ export function useRegisterExperimentEdit(
             discard,
             onSaved,
             rebase,
-            ...(inChangeset
-              ? {
-                  changes: (options: { dryRun: boolean }) =>
-                    latest.current.changes?.(options) ?? {},
-                }
-              : {
-                  save: () => latest.current.save?.() ?? Promise.resolve(),
-                }),
+            changes: (options: { dryRun: boolean }) =>
+              latest.current.changes(options),
           }
         : null,
     );
-  }, [register, id, dirty, inChangeset, label]);
+  }, [register, id, dirty, label]);
 
   useEffect(() => {
     return () => register?.(id, null);

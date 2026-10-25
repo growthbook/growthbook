@@ -798,6 +798,146 @@ describe("applyExperimentChanges", () => {
     ).rejects.toThrow("changed since you loaded it");
   });
 
+  describe("targeting", () => {
+    const US = '{"country":"US"}';
+    const setExperiment = (fields: Record<string, unknown>) =>
+      collection("experiments").updateOne({ id: EXP }, { $set: fields });
+    const stored = async () => {
+      const experiment = await getExperimentById(context, EXP);
+      if (!experiment) throw new Error("missing experiment");
+      return experiment;
+    };
+
+    it("writes the latest phase and the experiment, keeping what someone else changed elsewhere", async () => {
+      await seed({ withDraft: false });
+      // Someone else's save: a new size, and the empty condition's other form.
+      await setExperiment({
+        "phases.0.coverage": 0.7,
+        "phases.0.condition": "{}",
+      });
+      await run({
+        experiment: {
+          changes: { condition: US, hashAttribute: "device" },
+          base: { condition: "", hashAttribute: null },
+        },
+      });
+      const { phases, hashAttribute } = await stored();
+      expect(phases).toHaveLength(1);
+      expect(phases[0]).toMatchObject({ condition: US, coverage: 0.7 });
+      expect(hashAttribute).toBe("device");
+    });
+
+    it("refuses a field someone else changed since it was loaded", async () => {
+      await seed({ withDraft: false });
+      await setExperiment({ "phases.0.condition": '{"country":"CA"}' });
+      await expect(
+        run({
+          experiment: { changes: { condition: US }, base: { condition: "" } },
+        }),
+      ).rejects.toMatchObject({
+        status: 409,
+        details: { fields: ["condition"], featureIds: [] },
+      });
+    });
+
+    it("creates the first phase on an experiment with none", async () => {
+      await seed({ withDraft: false });
+      await setExperiment({ phases: [] });
+      await run({
+        experiment: { changes: { condition: US }, base: { condition: null } },
+      });
+      const { phases } = await stored();
+      expect(phases).toHaveLength(1);
+      expect(phases[0]).toMatchObject({
+        condition: US,
+        coverage: 1,
+        variationWeights: [0.5, 0.5],
+        variations: [
+          { id: "v0", status: "active" },
+          { id: "v1", status: "active" },
+        ],
+      });
+    });
+
+    it("changes what a live experiment serves only with a release, in place or in a new phase", async () => {
+      await seed({ withDraft: false });
+      await setExperiment({ status: "running" });
+      const coverage = (to: number, from: number) => ({
+        changes: { coverage: to },
+        base: { coverage: from },
+      });
+
+      await expect(run({ experiment: coverage(0.5, 1) })).rejects.toThrow(
+        "while the experiment is running and live",
+      );
+
+      await run({
+        experiment: coverage(0.5, 1),
+        release: { newPhase: false, reseed: false },
+      });
+      expect((await stored()).phases.map((p) => p.coverage)).toEqual([0.5]);
+
+      await run({
+        experiment: coverage(0.4, 0.5),
+        release: { newPhase: true, reseed: true },
+      });
+      const { phases } = await stored();
+      expect(phases.map((p) => p.coverage)).toEqual([0.5, 0.4]);
+      expect(phases[0].dateEnded).toBeInstanceOf(Date);
+      expect(phases[1]).toMatchObject({
+        variationWeights: [0.5, 0.5],
+        seed: expect.any(String),
+      });
+    });
+
+    it("restarts a running bandit once who it targets changes", async () => {
+      await seed({ withDraft: false });
+      await setExperiment({
+        type: "multi-armed-bandit",
+        status: "running",
+        linkedFeatures: [],
+        banditStage: "exploit",
+      });
+      await run({
+        experiment: { changes: { condition: US }, base: { condition: "" } },
+      });
+      expect((await stored()).banditStage).toBe("explore");
+    });
+
+    it("keeps a holdout's targeting the same in every phase, and refuses what a holdout doesn't target", async () => {
+      await seed({ withDraft: false });
+      const [phase] = seededPhases(new Date("2026-01-01T00:00:00Z"));
+      await setExperiment({ type: "holdout", linkedFeatures: [] });
+      await setExperiment({ phases: [phase, { ...phase, name: "Analysis" }] });
+
+      await run({
+        experiment: {
+          changes: { condition: US, coverage: 0.1 },
+          base: { condition: "", coverage: 1 },
+        },
+        release: { newPhase: false, reseed: false },
+      });
+      expect(
+        (await stored()).phases.map(({ condition, coverage }) => ({
+          condition,
+          coverage,
+        })),
+      ).toEqual([
+        { condition: US, coverage: 0.1 },
+        { condition: US, coverage: 0.1 },
+      ]);
+
+      await expect(
+        run({
+          experiment: {
+            changes: { prerequisites: [{ id: FLAG, condition: "{}" }] },
+            base: { prerequisites: null },
+          },
+        }),
+      ).rejects.toThrow("A holdout's targeting");
+    });
+  });
+
   describe("URL Redirects and Visual Editor changes", () => {
     const A = "https://a.example.com";
     const B = "https://b.example.com";

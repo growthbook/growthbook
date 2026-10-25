@@ -796,10 +796,6 @@ app.get(
   experimentsController.getExperimentIncrementalRefresh,
 );
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
-app.post(
-  "/experiment/:id/targeting",
-  experimentsController.postExperimentTargeting,
-);
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
 app.post(
   "/experiment/:id/approve-scheduled-start",

@@ -5,8 +5,7 @@ import {
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";
-import omit from "lodash/omit";
-import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
+import { changedTargeting, getTargetingDefaults } from "shared/experiments";
 import { validateAndFixCondition } from "shared/util";
 import { mergeContiguousRanges } from "@/components/Features/NamespaceSelectorUtils";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -21,6 +20,7 @@ import {
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { allConnectionsSupportBucketingV2 } from "./HashVersionSelector";
 import { ChangeType } from "./MakeChangesFlow";
+import { experimentFieldChanges } from "./TabbedPage/ExperimentEdits";
 
 export interface UseExperimentTargetingFormResult {
   form: UseFormReturn<ExperimentTargetingData>;
@@ -40,66 +40,7 @@ export interface UseExperimentTargetingFormResult {
   ) => () => Promise<void>;
 }
 
-/**
- * What the experiment currently targets, in the shape the endpoint takes, so a
- * field staged on its own still posts a whole payload.
- */
-function getTargetingDefaults(
-  experiment: ExperimentInterfaceStringDates,
-  hashVersionFallback: 1 | 2,
-): ExperimentTargetingData {
-  const lastPhase: ExperimentPhaseStringDates | undefined =
-    experiment.phases[experiment.phases.length - 1];
-  const lastPhaseVariations = getLatestPhaseVariations(experiment);
-
-  return {
-    condition: lastPhase?.condition ?? "",
-    savedGroups: lastPhase?.savedGroups ?? [],
-    prerequisites: lastPhase?.prerequisites ?? [],
-    coverage: lastPhase?.coverage ?? 1,
-    hashAttribute: experiment.hashAttribute || "id",
-    fallbackAttribute: experiment.fallbackAttribute || "",
-    attributeScopeAllProjects: experiment.attributeScopeAllProjects ?? false,
-    hashVersion: experiment.hashVersion || hashVersionFallback,
-    disableStickyBucketing: experiment.disableStickyBucketing ?? false,
-    bucketVersion: experiment.bucketVersion || 1,
-    minBucketVersion: experiment.minBucketVersion || 0,
-    namespace: (() => {
-      const saved = lastPhase?.namespace;
-      if (!saved) {
-        // Canonical blank shape; matches what NamespaceSelector writes so
-        // `isEqual(watched, defaults)` can't misfire from shape drift.
-        return {
-          enabled: false,
-          name: "",
-          format: "legacy" as const,
-          ranges: [] as [number, number][],
-        };
-      }
-      // Fold legacy `range` → `ranges` so defaults line up with the shape
-      // NamespaceSelector produces immediately on mount.
-      if ("range" in saved && !("ranges" in saved)) {
-        return { ...omit(saved, "range"), ranges: [saved.range] };
-      }
-      return saved;
-    })() as ExperimentTargetingData["namespace"],
-    seed: lastPhase?.seed ?? "",
-    trackingKey: experiment.trackingKey || "",
-    variationWeights:
-      lastPhase?.variationWeights ??
-      getEqualWeights(lastPhaseVariations.length, 4),
-    variations:
-      lastPhase?.variations ??
-      lastPhaseVariations.map((v) => ({
-        id: v.id,
-        status: "active" as const,
-      })),
-    newPhase: false,
-    reseed: true,
-  };
-}
-
-/** The defaults above, with the hash version the org's SDKs can actually run. */
+/** What the experiment targets now, with the hash version the org's SDKs can run. */
 export function useTargetingDefaults(
   experiment: ExperimentInterfaceStringDates,
 ) {
@@ -111,8 +52,7 @@ export function useTargetingDefaults(
   return getTargetingDefaults(experiment, hasSDKWithNoBucketingV2 ? 1 : 2);
 }
 
-// Shared by the targeting and traffic modals, which both POST to the same
-// `/experiment/:id/targeting` endpoint. When `attributeScopeProjects` is
+// Shared by the targeting and traffic modals. When `attributeScopeProjects` is
 // omitted the pre-flight falls back to `experiment.project`.
 export function useExperimentTargetingForm(
   experiment: ExperimentInterfaceStringDates,
@@ -132,6 +72,9 @@ export function useExperimentTargetingForm(
 
   const stored = useTargetingDefaults(experiment);
   const defaultValues = draft ?? stored;
+  // As the form opened, so a change saved since conflicts instead of being
+  // overwritten.
+  const [opened] = useState(() => ({ experiment, targeting: stored }));
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
     experiment.phases[experiment.phases.length - 1];
@@ -182,8 +125,8 @@ export function useExperimentTargetingForm(
         condition: lastPhase?.condition ?? "",
       };
 
-      // Opt-in client-side pre-flight — mirrors the back-end check in
-      // postExperimentTargeting so typo'd attributes fail fast without a
+      // Opt-in client-side pre-flight — mirrors the back-end check in the
+      // experiment update planner so typo'd attributes fail fast without a
       // round-trip and with the same error wording.
       validateUnregisteredAttributes(
         {
@@ -222,9 +165,16 @@ export function useExperimentTargetingForm(
         return;
       }
 
-      await apiCall(`/experiment/${experiment.id}/targeting`, {
+      // Only what changed, so a save over someone else's change is refused.
+      await apiCall(`/experiment/${experiment.id}/changes`, {
         method: "POST",
-        body: JSON.stringify(value),
+        body: JSON.stringify({
+          ...experimentFieldChanges(
+            opened.experiment,
+            changedTargeting(value, opened.targeting),
+          ),
+          release: { newPhase: value.newPhase, reseed: value.reseed },
+        }),
       });
       mutate();
     });

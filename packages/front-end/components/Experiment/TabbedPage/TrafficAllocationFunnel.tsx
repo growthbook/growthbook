@@ -7,10 +7,12 @@ import {
   Variation,
 } from "shared/types/experiment";
 import {
+  changedTargeting,
   getEqualWeights,
   getLatestPhaseVariations,
   hasAttributeCondition,
   hasTargetingConfigured,
+  onlyTrafficFields,
 } from "shared/experiments";
 import { generateVariationId } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -27,7 +29,6 @@ import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import ReorderVariationsModal from "@/components/Experiment/ReorderVariationsModal";
 import Link from "@/ui/Link";
 import { hasUnpublishedChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
-import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { PercentField } from "@/components/Forms/PercentSliderField";
 import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
@@ -47,17 +48,11 @@ import {
   FlagEnvironmentsDraft,
   HoldoutDraft,
   reviewAgainstCurrent,
-  StagedEditConflict,
   useEditBase,
   useExperimentEdits,
   useRegisterExperimentEdit,
   useStagedState,
 } from "./ExperimentEdits";
-import {
-  comparableTargeting,
-  mergeStagedTargeting,
-  onlyTrafficChanged,
-} from "./targetingDraft";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -236,7 +231,6 @@ export default function TrafficAllocationFunnel({
   targetingDraft,
 }: Props) {
   const { namespaces } = useOrgSettings();
-  const { apiCall } = useAuth();
   const edits = useExperimentEdits();
   const { editInline } = useExperimentEditing(experiment);
 
@@ -260,79 +254,30 @@ export default function TrafficAllocationFunnel({
     !!staged,
     () => ({ experiment, targeting: targetingDefaults }),
   );
-  // What the staged targeting was made against, rather than any refetch since.
-  const loadedTargeting = targetingBase?.targeting ?? targetingDefaults;
-  useRegisterExperimentEdit(
-    "targeting",
-    !!staged,
-    // With no phase yet there's nothing to patch; targeting creates the first.
-    staged &&
-      experiment.phases.length > 0 &&
-      onlyTrafficChanged(staged, loadedTargeting)
-      ? {
-          ...clearStaged,
-          label: "Traffic",
-          rebase: rebaseTargeting,
-          review: () =>
-            reviewAgainstCurrent(experiment, {
-              coverage: staged.coverage,
-              variationWeights: staged.variationWeights,
-            }),
-          changes: () =>
-            experimentFieldChanges(targetingBase?.experiment ?? experiment, {
-              coverage: staged.coverage,
-              variationWeights: staged.variationWeights,
-            }),
-        }
-      : {
-          ...clearStaged,
-          label: "Targeting",
-          // What the save would write, merged onto what's saved now.
-          review: () => ({
-            before: comparableTargeting(targetingDefaults),
-            after: staged
-              ? comparableTargeting(
-                  mergeStagedTargeting(
-                    loadedTargeting,
-                    staged,
-                    targetingDefaults,
-                  ).merged,
-                )
-              : null,
-          }),
-          // Keeping mine also takes what others changed since, where I didn't.
-          rebase: () => {
-            if (staged) {
-              targetingDraft?.set(
-                mergeStagedTargeting(loadedTargeting, staged, targetingDefaults)
-                  .merged,
-              );
-            }
-            rebaseTargeting();
-          },
-          // The endpoint takes the whole targeting, so what others changed
-          // since is merged in here rather than overwritten.
-          save: async () => {
-            if (!staged) return;
-            const { merged, contested } = mergeStagedTargeting(
-              loadedTargeting,
-              staged,
-              targetingDefaults,
-            );
-            if (contested.length) throw new StagedEditConflict();
-            await apiCall(`/experiment/${experiment.id}/targeting`, {
-              method: "POST",
-              body: JSON.stringify(merged),
-            });
-          },
-        },
-  );
+  // What the staged targeting changes from what it was made against, rather
+  // than from any refetch since.
+  const mine = staged
+    ? changedTargeting(staged, targetingBase?.targeting ?? targetingDefaults)
+    : {};
+  // Over what's saved now: what the page shows, and what keeping mine keeps.
+  const effective = staged ? { ...targetingDefaults, ...mine } : null;
+  useRegisterExperimentEdit("targeting", !!staged, {
+    ...clearStaged,
+    label: onlyTrafficFields(Object.keys(mine)) ? "Traffic" : "Targeting",
+    review: () => reviewAgainstCurrent(experiment, mine),
+    rebase: () => {
+      if (effective) targetingDraft?.set(effective);
+      rebaseTargeting();
+    },
+    changes: () =>
+      experimentFieldChanges(targetingBase?.experiment ?? experiment, mine),
+  });
 
   // The experiment-level half of the targeting, staged the same way.
   const hashAttribute =
-    staged?.hashAttribute ?? experiment.hashAttribute ?? "id";
+    effective?.hashAttribute ?? experiment.hashAttribute ?? "id";
   const fallbackAttribute =
-    staged?.fallbackAttribute ?? experiment.fallbackAttribute ?? "";
+    effective?.fallbackAttribute ?? experiment.fallbackAttribute ?? "";
 
   const stageVariationList = (
     variations: Variation[],
@@ -385,15 +330,15 @@ export default function TrafficAllocationFunnel({
 
   const storedPhase =
     experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
-  const phase = staged
+  const phase = effective
     ? {
         ...storedPhase,
-        coverage: staged.coverage,
-        condition: staged.condition,
-        savedGroups: staged.savedGroups,
-        prerequisites: staged.prerequisites,
-        variationWeights: staged.variationWeights,
-        namespace: staged.namespace,
+        coverage: effective.coverage,
+        condition: effective.condition,
+        savedGroups: effective.savedGroups,
+        prerequisites: effective.prerequisites,
+        variationWeights: effective.variationWeights,
+        namespace: effective.namespace,
       }
     : storedPhase;
   const hasNamespace = phase?.namespace && phase.namespace.enabled;

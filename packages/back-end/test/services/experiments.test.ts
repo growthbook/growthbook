@@ -18,7 +18,6 @@ import {
   validateScheduleUpdate,
 } from "back-end/src/services/experimentScheduling";
 import {
-  applyVariationWeightsToLatestPhase,
   assertValidBucketVersions,
   assertValidReleasedVariationId,
   createMetric,
@@ -1537,56 +1536,6 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       );
 
       expect("activationMetric" in changes).toBe(false);
-    });
-  });
-
-  describe("applyVariationWeightsToLatestPhase", () => {
-    it("sets variationWeights on the last phase and preserves other phase fields", () => {
-      const experiment = {
-        phases: [
-          {
-            name: "Main",
-            condition: "{}",
-            variationWeights: [0.5, 0.5],
-            coverage: 1,
-            dateStarted: new Date("2024-01-01"),
-          },
-        ],
-      } as ExperimentInterface;
-
-      const next = applyVariationWeightsToLatestPhase(experiment, [0.6, 0.4]);
-
-      expect(next).toHaveLength(1);
-      expect(next[0].variationWeights).toEqual([0.6, 0.4]);
-      expect(next[0].name).toEqual("Main");
-      expect(next[0].coverage).toBe(1);
-      expect(experiment.phases[0].variationWeights).toEqual([0.5, 0.5]);
-    });
-
-    it("only updates the last phase when multiple phases exist", () => {
-      const experiment = {
-        phases: [
-          {
-            name: "Ramp",
-            condition: "{}",
-            variationWeights: [0.5, 0.5],
-            coverage: 0.2,
-            dateStarted: new Date("2024-01-01"),
-          },
-          {
-            name: "Main",
-            condition: "{}",
-            variationWeights: [0.5, 0.5],
-            coverage: 1,
-            dateStarted: new Date("2024-02-01"),
-          },
-        ],
-      } as ExperimentInterface;
-
-      const next = applyVariationWeightsToLatestPhase(experiment, [0.7, 0.3]);
-
-      expect(next[0].variationWeights).toEqual([0.5, 0.5]);
-      expect(next[1].variationWeights).toEqual([0.7, 0.3]);
     });
   });
 

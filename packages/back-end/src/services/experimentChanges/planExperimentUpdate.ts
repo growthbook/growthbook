@@ -1,19 +1,31 @@
+import { v4 as uuidv4 } from "uuid";
 import { getValidDate } from "shared/dates";
 import {
   experimentHasLinkedChanges,
   includeExperimentInPayload,
 } from "shared/util";
-import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import {
+  experimentFieldValue,
+  getAllMetricIdsFromExperiment,
+  getTargetingDefaults,
+  isPhaseField,
+  onlyTrafficFields,
+  sameFieldValue,
+} from "shared/experiments";
+import type {
+  ExperimentChangesBody,
+  ExperimentChangesFields,
+} from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import {
   Changeset,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
+  ExperimentPhase,
 } from "shared/types/experiment";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
-  applyVariationWeightsToLatestPhase,
   assertCanRunExperimentChanges,
   assertExperimentKeyFormat,
   determineNextBanditSchedule,
@@ -54,15 +66,35 @@ import {
 import { getLivePayloadChanges } from "back-end/src/services/experimentLivePayload";
 import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
+import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
 
-export type ExperimentUpdateInput = Partial<ExperimentInterfaceStringDates> & {
-  currentPhase?: number;
-  phaseStartDate?: string;
-  phaseEndDate?: string;
-  variationWeights?: number[];
-  coverage?: number;
-  isVariationKeyReconciliation?: boolean;
-};
+export type ExperimentUpdateInput = Partial<ExperimentInterfaceStringDates> &
+  // The latest phase's targeting.
+  Pick<
+    ExperimentChangesFields,
+    | "coverage"
+    | "variationWeights"
+    | "condition"
+    | "savedGroups"
+    | "prerequisites"
+    | "namespace"
+    | "seed"
+  > & {
+    currentPhase?: number;
+    phaseStartDate?: string;
+    phaseEndDate?: string;
+    isVariationKeyReconciliation?: boolean;
+  };
+
+// Who a bandit is learning about, and how they're bucketed.
+const BUCKETING_FIELDS = [
+  "hashAttribute",
+  "fallbackAttribute",
+  "hashVersion",
+  "disableStickyBucketing",
+  "bucketVersion",
+  "minBucketVersion",
+];
 
 export type ExperimentUpdatePlan = {
   changes: Changeset;
@@ -79,8 +111,11 @@ const UPDATABLE_KEYS: (keyof ExperimentInterface)[] = [
   "userIdType",
   "hashAttribute",
   "fallbackAttribute",
+  "attributeScopeAllProjects",
   "disableStickyBucketing",
   "hashVersion",
+  "bucketVersion",
+  "minBucketVersion",
   "name",
   "tags",
   "description",
@@ -155,6 +190,7 @@ export async function planExperimentUpdate(
   context: ReqContext,
   experiment: ExperimentInterface,
   input: ExperimentUpdateInput,
+  { release }: Pick<ExperimentChangesBody, "release"> = {},
 ): Promise<ExperimentUpdatePlan> {
   const { org } = context;
   const {
@@ -175,19 +211,44 @@ export async function planExperimentUpdate(
       linkedFeatures: experiment.linkedFeatures,
     }),
   );
+  const latestPhase = experiment.phases[experiment.phases.length - 1];
   await assertRegisteredAttributesScoped(
     context,
     {
       hashAttribute: data.hashAttribute,
       fallbackAttribute: data.fallbackAttribute,
+      condition: data.condition,
     },
     "experiment",
     {
       hashAttribute: experiment.hashAttribute,
       fallbackAttribute: experiment.fallbackAttribute,
+      condition: latestPhase?.condition,
     },
     attributeScope,
   );
+  if (
+    data.condition !== undefined ||
+    data.savedGroups !== undefined ||
+    data.prerequisites !== undefined
+  ) {
+    await validateChangedPhaseReferences(
+      [
+        {
+          condition: data.condition ?? latestPhase?.condition,
+          savedGroups: data.savedGroups ?? latestPhase?.savedGroups,
+          prerequisites: data.prerequisites ?? latestPhase?.prerequisites,
+        },
+      ],
+      experiment.phases.slice(-1),
+      context,
+    );
+    await assertValidExperimentPrerequisites(
+      context,
+      data.prerequisites,
+      latestPhase?.prerequisites,
+    );
+  }
   // Match persisted phases by condition value, not index — reordered or
   // spliced phase lists must not re-validate grandfathered conditions.
   const persistedConditions = new Set(
@@ -333,8 +394,11 @@ export async function planExperimentUpdate(
   const { changesLivePayload, changedFields: changedPayloadFields } =
     getLivePayloadChanges(experiment, {
       variations: data.variations,
-      coverage: data.coverage,
-      variationWeights: data.variationWeights,
+      // A release changes what's served on purpose.
+      ...(!release && {
+        coverage: data.coverage,
+        variationWeights: data.variationWeights,
+      }),
       isVariationKeyReconciliation,
     });
   if (experiment.status === "running" && changesLivePayload) {
@@ -583,12 +647,12 @@ export async function planExperimentUpdate(
 
   // Clean up some vars for bandits, but only if safe to do so...
   // If it's a draft, hasn't been run as a bandit before, and is/will be a MAB:
-  if (
+  const resetDraftBandit =
     experiment.status === "draft" &&
     experiment.banditStage === undefined &&
     ((data.type === undefined && experiment.type === "multi-armed-bandit") ||
-      data.type === "multi-armed-bandit")
-  ) {
+      data.type === "multi-armed-bandit");
+  if (resetDraftBandit) {
     changes = resetExperimentBanditSettings({
       experiment,
       metricMap,
@@ -612,42 +676,91 @@ export async function planExperimentUpdate(
     }
   }
 
+  const phaseChanges = Object.fromEntries(
+    Object.entries(data).filter(
+      ([key, value]) => isPhaseField(key) && value !== undefined,
+    ),
+  ) as Partial<ExperimentPhase>;
   if (experiment.type === "holdout") {
-    // Holdout targeting is handled by postExperimentTargeting, so coverage is
-    // the only payload-affecting field this path handles; apply it to every phase.
-    if (data.coverage !== undefined) {
-      const coverage = data.coverage;
-      const phases = changes.phases || [...experiment.phases];
-      changes.phases = phases.map((phase) => ({ ...phase, coverage }));
-    }
-  } else {
-    if (data.variationWeights) {
-      changes.phases = applyVariationWeightsToLatestPhase(
-        experiment,
-        data.variationWeights,
+    // Kept the same in every phase, which a holdout's analysis reads.
+    const { coverage, condition, savedGroups, ...other } = phaseChanges;
+    delete other.variationWeights;
+    if (release?.newPhase || Object.keys(other).length) {
+      throw new BadRequestError(
+        "A holdout's targeting is its condition, saved groups and size, the same in every phase.",
       );
     }
-
-    // Re-order phase variations to match the order of the variations coming in via the request body
-    if (data.variations) {
-      const phases = changes.phases || [...experiment.phases];
-      const lastIndex = phases.length - 1;
-      phases[lastIndex] = {
-        ...phases[lastIndex],
+    const holdoutTargeting = Object.fromEntries(
+      Object.entries({ coverage, condition, savedGroups }).filter(
+        ([, value]) => value !== undefined,
+      ),
+    );
+    if (Object.keys(holdoutTargeting).length) {
+      changes.phases = (changes.phases || [...experiment.phases]).map(
+        (phase) => ({ ...phase, ...holdoutTargeting }),
+      );
+    }
+  } else {
+    const phases = [...(changes.phases || experiment.phases)];
+    const last = phases.length - 1;
+    // The phase's variations follow the experiment's, in their order.
+    if (data.variations && last >= 0) {
+      phases[last] = {
+        ...phases[last],
         variations: data.variations.map((v) => ({
           id: v.id,
           status: "active" as const,
         })),
       };
+    }
+    if (release?.newPhase || (last < 0 && Object.keys(phaseChanges).length)) {
+      const previous = last >= 0 ? phases[last] : null;
+      // The first phase starts from what the page shows before there is one.
+      const from =
+        previous ?? getTargetingDefaults({ ...experiment, phases }, 2);
+      if (previous) phases[last] = { ...previous, dateEnded: new Date() };
+      phases.push({
+        coverage: from.coverage,
+        variationWeights: from.variationWeights,
+        variations: from.variations,
+        condition: from.condition,
+        savedGroups: from.savedGroups,
+        prerequisites: from.prerequisites,
+        namespace: from.namespace,
+        seed: from.seed,
+        ...phaseChanges,
+        ...(last >= 0 && release?.reseed && { seed: uuidv4() }),
+        dateStarted: new Date(),
+        name: "Main",
+        reason: "",
+      });
+    } else if (Object.keys(phaseChanges).length) {
+      phases[last] = { ...phases[last], ...phaseChanges };
+    }
+    if (phases.some((phase, i) => phase !== experiment.phases[i])) {
       changes.phases = phases;
     }
+  }
 
-    if (data.coverage !== undefined) {
-      const coverage = data.coverage;
-      const phases = changes.phases || [...experiment.phases];
-      const lastIndex = phases.length - 1;
-      phases[lastIndex] = { ...phases[lastIndex], coverage };
-      changes.phases = phases;
+  // A running bandit's learning holds while it targets the same people the
+  // same way; anything else starts it over.
+  if (experiment.type === "multi-armed-bandit" && !resetDraftBandit) {
+    const moved = Object.keys(data).filter(
+      (key) =>
+        (isPhaseField(key) || BUCKETING_FIELDS.includes(key)) &&
+        !sameFieldValue(
+          key,
+          data[key as keyof typeof data],
+          experimentFieldValue(experiment, key),
+        ),
+    );
+    if (release?.newPhase || !onlyTrafficFields(moved)) {
+      changes = resetExperimentBanditSettings({
+        experiment,
+        metricMap,
+        changes,
+        settings,
+      });
     }
   }
 

@@ -6005,22 +6005,6 @@ export async function getLinkedChangeEnvironmentStates(
   return { visualChangesetEnvStates, urlRedirectEnvStates };
 }
 
-/**
- * Returns a new phases array with the latest phase's `variationWeights` set to the given values.
- */
-export function applyVariationWeightsToLatestPhase(
-  experiment: ExperimentInterface,
-  variationWeights: number[],
-): ExperimentPhase[] {
-  const phases = [...experiment.phases];
-  const lastIndex = phases.length - 1;
-  phases[lastIndex] = {
-    ...phases[lastIndex],
-    variationWeights,
-  };
-  return phases;
-}
-
 export async function getChangesToStartExperiment(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,

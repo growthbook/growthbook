@@ -10,7 +10,7 @@ const redirect = {
 
 // Required, so a key added to the body doesn't compile until it's here.
 const part: Required<
-  Omit<ExperimentChangesBody, "dryRun" | "allowUnscopedRules">
+  Omit<ExperimentChangesBody, "dryRun" | "allowUnscopedRules" | "release">
 > = {
   experiment: { changes: { name: "New" }, base: { name: "Old" } },
   flagValues: [

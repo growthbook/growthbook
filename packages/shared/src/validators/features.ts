@@ -40,7 +40,12 @@ import {
 } from "./ramp-schedule";
 
 import { namedSchema } from "./openapi-helpers";
-import { experimentAnalysisSettingsDraft, variation } from "./experiments";
+import {
+  experimentAnalysisSettingsDraft,
+  experimentInterface,
+  experimentPhase,
+  variation,
+} from "./experiments";
 import { stagedUrlRedirect } from "./url-redirects";
 import { visualChangesetEdit } from "./visual-changesets";
 import {
@@ -2216,16 +2221,47 @@ export type ExperimentRuleEnvironments = z.infer<
   typeof experimentRuleEnvironments
 >;
 
+const share = z.number().min(0).max(1);
+
 const experimentChangesFields = experimentAnalysisSettingsDraft
   .extend({
     name: z.string().min(1),
     description: z.string(),
     hypothesis: z.string(),
     variations: z.array(variation),
-    variationWeights: z.array(z.number()),
-    coverage: z.number().min(0).max(1),
     // "" clears the holdout.
     holdoutId: z.string(),
+    // Targeting. The phase's fields are written to the latest one, or to a new
+    // one the save's `release` starts.
+    ...experimentPhase.pick({
+      condition: true,
+      savedGroups: true,
+      prerequisites: true,
+      seed: true,
+    }).shape,
+    coverage: share,
+    variationWeights: z.array(share),
+    // Either format, as the targeting form writes it.
+    namespace: z
+      .object({
+        enabled: z.boolean(),
+        name: z.string(),
+        range: z.tuple([z.number(), z.number()]).optional(),
+        ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
+        hashAttribute: z.string().optional(),
+        hashVersion: z.number().optional(),
+        format: z.enum(["legacy", "multiRange"]).optional(),
+      })
+      .strict(),
+    ...experimentInterface.pick({
+      hashAttribute: true,
+      fallbackAttribute: true,
+      attributeScopeAllProjects: true,
+      hashVersion: true,
+      disableStickyBucketing: true,
+      bucketVersion: true,
+      minBucketVersion: true,
+    }).shape,
   })
   .partial()
   .strict();
@@ -2309,6 +2345,18 @@ export const experimentChangesBody = z
       )
       .optional(),
     removeVisualChangesets: z.array(z.string()).optional(),
+    // How a change to a started experiment's targeting goes out, as Make
+    // Changes picks it. Without one, what a running experiment serves can't
+    // change in place.
+    release: z
+      .object({
+        // Ends the latest phase and starts another with the targeting.
+        newPhase: z.boolean(),
+        // The new phase gets a new seed, so everyone is assigned again.
+        reseed: z.boolean(),
+      })
+      .strict()
+      .optional(),
     // Runs every check the save would and writes nothing.
     dryRun: z.boolean().optional(),
     allowUnscopedRules: allowUnscopedRulesBodyField,
