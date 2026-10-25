@@ -1415,6 +1415,14 @@ const apiVariationInput = z.object({
 });
 export type ApiVariationInput = z.infer<typeof apiVariationInput>;
 
+const apiPhaseNamespaceInput = z.object({
+  namespaceId: z.string(),
+  enabled: z.boolean().optional(),
+  /** @deprecated use `ranges`; populated with the first range for backward compatibility */
+  range: z.array(z.number()).min(2).max(2).optional(),
+  ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
+});
+
 // Phase for input payloads
 const apiPhaseInput = z.object({
   name: z.string().describe("Short phase label (e.g. `Main`)."),
@@ -1423,15 +1431,7 @@ const apiPhaseInput = z.object({
   reasonForStopping: z.string().optional(),
   seed: z.string().optional(),
   coverage: z.number().min(0).max(1).optional(),
-  namespace: z
-    .object({
-      namespaceId: z.string(),
-      enabled: z.boolean().optional(),
-      /** @deprecated use `ranges`; populated with the first range for backward compatibility */
-      range: z.array(z.number()).min(2).max(2).optional(),
-      ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
-    })
-    .optional(),
+  namespace: apiPhaseNamespaceInput.optional(),
   prerequisites: z
     .array(
       z.object({
@@ -1726,13 +1726,7 @@ const updateExperimentBody = z
           reasonForStopping: z.string().optional(),
           seed: z.string().optional(),
           coverage: z.number().min(0).max(1).optional(),
-          namespace: z
-            .object({
-              namespaceId: z.string(),
-              range: z.array(z.number()).min(2).max(2),
-              enabled: z.boolean().optional(),
-            })
-            .optional(),
+          namespace: apiPhaseNamespaceInput.optional(),
           prerequisites: z
             .array(
               z.object({
@@ -2126,7 +2120,9 @@ export const postExperimentUnarchiveValidator = {
   tags: ["experiments"],
   method: "post" as const,
   path: "/experiments/:id/unarchive",
-  confirmation: ["experiment.draft"] as const,
+  // A draft only; anything else goes back in the SDK payload.
+  confirmation: ["experiment.draft", "experiment.start"] as const,
+  confirmationInHandler: true,
 };
 
 export const deleteExperimentValidator = {
@@ -2228,6 +2224,8 @@ export const updateExperimentValidator = {
     })
     .strict(),
   summary: "Update a single experiment",
+  description:
+    "Setting `status` from draft to running starts the experiment as `POST /experiments/{id}/start` does, except that incomplete required checklist items don't refuse it; hard blockers still do. Changing `archived` archives or unarchives it as `POST /experiments/{id}/archive` and `/unarchive` do.",
   confirmation: [
     "experiment.draft",
     "experiment.start",
@@ -2237,6 +2235,7 @@ export const updateExperimentValidator = {
     "experiment.phases",
     "experiment.other",
     "override.skipChecklist",
+    "override.bypassApproval",
     ...FEATURE_LANDING_ACTIONS,
   ] as const,
   confirmationInHandler: true,
@@ -2244,7 +2243,10 @@ export const updateExperimentValidator = {
   tags: ["experiments"],
   method: "post" as const,
   path: "/experiments/:id",
-  possibleErrors: ["pending_draft_publish_failed"] as const,
+  possibleErrors: [
+    "checklist_incomplete",
+    "pending_draft_publish_failed",
+  ] as const,
 };
 
 export const postExperimentStartValidator = {
@@ -2264,7 +2266,7 @@ export const postExperimentStartValidator = {
     .strict(),
   summary: "Start/Stage an experiment",
   description:
-    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment. Starting publishes any pending Feature Flag drafts linked to the experiment; when those still need approval the start fails with `pending_draft_publish_failed`, unless the caller has Bypass draft approvals access or the organization enables the REST API approval bypass, in which case approval is bypassed automatically. A staged start carries the caller's Bypass draft approvals access to when it runs, for the drafts as they were when it was staged: if one has changed since, or the caller has lost that access, it needs approval like any other. The organization's REST API approval bypass doesn't carry to a staged start.",
+    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment. Both run the launch checklist that `GET /experiments/{id}/start-checklist` returns: an incomplete required item refuses the start with `checklist_incomplete` unless `skipChecklist` is set, and a hard blocker refuses it either way. A linked Feature Flag draft that still needs approval is a hard blocker (`pendingApproval:<featureId>`), unless the caller has Bypass draft approvals access for that flag or the organization enables the REST API approval bypass, in which case approval is bypassed automatically. Starting publishes the linked drafts; if any can't publish, for example because it needs a rebase, the start fails with `pending_draft_publish_failed` before any is published. A staged start carries the caller's Bypass draft approvals access to when it runs, for the drafts as they were when it was staged: if one has changed since, or the caller has lost that access, it needs approval like any other. The organization's REST API approval bypass doesn't carry to a staged start.",
   confirmation: [
     "experiment.start",
     "override.skipChecklist",

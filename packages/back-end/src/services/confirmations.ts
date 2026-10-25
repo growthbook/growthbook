@@ -831,6 +831,8 @@ const PHASE_ACTIONS = Object.entries(PHASE_FIELD_ACTIONS).flatMap(
     action ? [[field as keyof ExperimentPhase, action] as const] : [],
 );
 const RERANDOMIZE_FIELDS = [
+  // The seed when a phase has none of its own, as bandits treat it.
+  "trackingKey",
   "hashAttribute",
   "fallbackAttribute",
   "hashVersion",

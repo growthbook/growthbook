@@ -12,17 +12,18 @@ import {
 import { ReqContext } from "back-end/types/request";
 import {
   approveScheduledExperimentStart,
-  startApprovalsWaivedBy,
+  getStartAcknowledgment,
+  startApprovalBypass,
   startExperiment,
   validateExperimentChange,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   confirmationLink,
   queuedDraftsHold,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
+import { requireExperiment } from "./requireExperiment";
 
 function formatScheduledStartUtc(date: Date): string {
   const datePart = date.toLocaleString("en-US", {
@@ -45,13 +46,7 @@ export const postExperimentStart = createApiRequestHandler(
 )(async (req) => {
   const context = req.context as ReqContext;
 
-  const existing = await getExperimentById(context, req.params.id);
-  if (!existing) {
-    throw new Error("Could not find experiment with that id");
-  }
-  if (existing.type === "holdout") {
-    throw new Error("Holdouts are not supported via this API");
-  }
+  const existing = await requireExperiment(context, req.params.id);
 
   // Bandits manage their own update cadence; they don't use statusUpdateSchedule.
   const isBandit = existing.type === "multi-armed-bandit";
@@ -68,27 +63,12 @@ export const postExperimentStart = createApiRequestHandler(
 
   // Staging a scheduled start is held too: it starts later with no one present.
   const queued = await queuedDraftsHold(context, existing.pendingFeatureDrafts);
-  // Authority or the org setting waives the drafts' open approvals unasked, so
-  // the hold names that bypass whenever there's one to waive.
-  const waivesApproval =
-    (
-      await startApprovalsWaivedBy(context, existing, {
-        restApiBypassesReviews,
-      })
-    ).size > 0;
   await requireConfirmation(context, {
     actions: ["experiment.start", ...queued.actions],
-    bypassing: waivesApproval
-      ? [
-          {
-            type: "approval-required",
-            outcome: "bypassed",
-            via: restApiBypassesReviews
-              ? "restApiBypassesReviews"
-              : "bypassApprovalPermission",
-          },
-        ]
-      : [],
+    // Authority or the org setting waives the drafts' open approvals unasked.
+    bypassing: await startApprovalBypass(context, existing, {
+      restApiBypassesReviews,
+    }),
     project: existing.project,
     summary: `Start ${existing.name}`,
     links: [
@@ -142,13 +122,15 @@ export const postExperimentStart = createApiRequestHandler(
     changes: { status: "running" },
   });
 
-  const { experiment, updated } = await startExperiment({
+  const skipChecklist = !!req.body?.skipChecklist;
+  // Like a Feature Revision publish: approval is bypassed by authority, not
+  // by asking. `bypassApproval` in the body is accepted and ignored.
+  const bypassLockdown = canBypassReviewChecks(req, existing);
+  const { experiment, updated, checklistItems } = await startExperiment({
     context,
     experimentId: req.params.id,
-    skipChecklist: req.body?.skipChecklist,
-    // Like a Feature Revision publish: approval is bypassed by authority, not
-    // by asking. `bypassApproval` in the body is accepted and ignored.
-    bypassLockdown: canBypassReviewChecks(req, existing),
+    skipChecklist,
+    bypassLockdown,
     restApiBypassesReviews,
   });
 
@@ -158,7 +140,11 @@ export const postExperimentStart = createApiRequestHandler(
       object: "experiment",
       id: experiment.id,
     },
-    details: auditDetailsUpdate(experiment, updated),
+    details: auditDetailsUpdate(
+      experiment,
+      updated,
+      getStartAcknowledgment({ checklistItems, skipChecklist, bypassLockdown }),
+    ),
   });
 
   const apiExperiment = await toEnhancedExperimentApiResponse(

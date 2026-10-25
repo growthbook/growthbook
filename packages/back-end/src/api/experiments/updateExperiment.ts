@@ -1,5 +1,6 @@
 import { omit } from "lodash";
 import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { getScopedSettings } from "shared/settings";
 import {
   parseAssignmentQueryInput,
   resolveAssignmentQuerySelectionChange,
@@ -15,13 +16,14 @@ import {
 } from "back-end/src/api/features/reviewBypass";
 import {
   updateExperiment as updateExperimentToDb,
-  getExperimentById,
   getExperimentByTrackingKey,
 } from "back-end/src/models/ExperimentModel";
 import {
   assertCanRunExperimentChanges,
+  assertCanRunExperimentInAffectedEnvironments,
   assertExperimentKeyFormat,
   normalizeStatusUpdateScheduleChanges,
+  syncVisualChangesetsAndUrlRedirectsForExperiment,
   toExperimentApiInterface,
   getExperimentAttributeScopeProjects,
   updateExperimentApiPayloadToInterface,
@@ -40,15 +42,24 @@ import {
 } from "back-end/src/services/prerequisiteParents";
 import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
 import {
+  getStartAcknowledgment,
+  startApprovalBypass,
   startExperiment,
+  statusChangeEffects,
   validateExperimentChange,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import {
+  archiveExperimentWithCleanup,
+  unarchiveExperimentWithCleanup,
+} from "back-end/src/services/experimentRemoval";
 import {
   resolveOwnerEmail,
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { BadRequestError } from "back-end/src/util/errors";
+import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -63,17 +74,12 @@ import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
 } from "./validations";
+import { requireExperiment } from "./requireExperiment";
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
 )(async (req) => {
-  const experiment = await getExperimentById(req.context, req.params.id);
-  if (!experiment) {
-    throw new Error("Could not find the experiment to update");
-  }
-  if (experiment.type === "holdout") {
-    throw new Error("Holdouts are not supported via this API");
-  }
+  const experiment = await requireExperiment(req.context, req.params.id);
 
   const assignmentQueryInput = parseAssignmentQueryInput(
     req.body.assignmentQuery,
@@ -92,6 +98,18 @@ export const updateExperiment = createApiRequestHandler(
   // Validate projects - We can remove this validation when ExperimentModel is migrated to BaseModel
   if (payload.project) {
     await req.context.models.projects.ensureProjectsExist([payload.project]);
+  }
+  // The experiment's holdout has to cover the Project it moves to.
+  if (
+    payload.project !== undefined &&
+    payload.project !== experiment.project &&
+    experiment.holdoutId
+  ) {
+    await getHoldoutAvailableForProject({
+      context: req.context,
+      holdoutId: experiment.holdoutId,
+      project: payload.project,
+    });
   }
 
   if (!req.context.permissions.canUpdateExperiment(experiment, payload)) {
@@ -417,6 +435,58 @@ export const updateExperiment = createApiRequestHandler(
 
   normalizeStatusUpdateScheduleChanges(experiment, changes, req.context.armer);
 
+  // A stop ends the phase and a restart reopens it, as in the app; a start
+  // goes through startExperiment below. Phases sent with it are the caller's.
+  const statusEffects =
+    changes.status &&
+    changes.status !== experiment.status &&
+    experiment.status !== "draft" &&
+    !payload.phases
+      ? statusChangeEffects({
+          experiment,
+          status: changes.status,
+          settings: getScopedSettings({
+            organization: req.organization,
+            experiment,
+          }).settings,
+        })
+      : {};
+
+  // As in the app, a started experiment can't lose its last phase.
+  if (
+    changes.phases?.length === 0 &&
+    experiment.phases.length > 0 &&
+    experiment.status !== "draft"
+  ) {
+    throw new BadRequestError(
+      "An experiment that has started keeps at least one phase.",
+    );
+  }
+
+  // One weight per variation in the phase that serves, as the app requires.
+  const latestPhase = (changes.phases ?? experiment.phases).at(-1);
+  if (
+    (changes.variations || changes.phases) &&
+    latestPhase &&
+    latestPhase.variationWeights.length !==
+      (latestPhase.variations?.length ||
+        (changes.variations ?? experiment.variations).length)
+  ) {
+    throw new BadRequestError(
+      "Adding or removing a variation needs a traffic split with one weight per variation. Send `phases` with `variationWeights` for the latest phase.",
+    );
+  }
+
+  // Archiving runs the archive endpoints' checks and cleanup, not a field write.
+  const archive =
+    changes.archived !== undefined && changes.archived !== !!experiment.archived
+      ? changes.archived
+      : null;
+  delete changes.archived;
+  if (archive !== null) {
+    await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
+  }
+
   // canUpdateExperiment (above) is the analysis-level check. Fields that reach
   // SDK payloads additionally need run-experiments permission in the
   // environments the experiment affects — the same rule, on the same fields,
@@ -470,13 +540,22 @@ export const updateExperiment = createApiRequestHandler(
 
   await validateExperimentChange({ context: req.context, experiment, changes });
 
-  const liveActions = experimentChangeActions(experiment, changes);
+  const liveActions = [
+    ...experimentChangeActions(experiment, changes),
+    // Archiving takes an experiment out of the payload; unarchiving puts it back.
+    ...(archive !== null && experiment.status !== "draft"
+      ? [archive ? ("experiment.stop" as const) : ("experiment.start" as const)]
+      : []),
+  ];
+  // Part of the status change, which holds as itself.
+  Object.assign(changes, statusEffects);
   const queued = await queuedDraftsHold(
     req.context,
     changes.status === "running" && experiment.status !== "running"
       ? experiment.pendingFeatureDrafts
       : undefined,
   );
+  const restApiBypassesReviews = canUseRestApiBypassSetting(req);
   await requireConfirmation(req.context, {
     actions: [
       ...(liveActions.length ? liveActions : ["experiment.draft" as const]),
@@ -484,6 +563,11 @@ export const updateExperiment = createApiRequestHandler(
       ...(isStartingFromDraft ? (["override.skipChecklist"] as const) : []),
       ...queued.actions,
     ],
+    bypassing: isStartingFromDraft
+      ? await startApprovalBypass(req.context, experiment, {
+          restApiBypassesReviews,
+        })
+      : [],
     project: experiment.project,
     summary: `Change ${experiment.name}`,
     links: [
@@ -498,8 +582,29 @@ export const updateExperiment = createApiRequestHandler(
     ],
   });
 
-  let experimentForUpdate = experiment;
+  let experimentForUpdate =
+    archive === null
+      ? experiment
+      : archive
+        ? await archiveExperimentWithCleanup({
+            context: req.context,
+            experiment,
+            eventAudit: req.eventAudit,
+            audit: req.audit,
+            restApiBypassesReviews,
+          })
+        : await unarchiveExperimentWithCleanup({
+            context: req.context,
+            experiment,
+          });
+  if (archive !== null) {
+    await req.audit({
+      event: archive ? "experiment.archive" : "experiment.unarchive",
+      entity: { object: "experiment", id: experiment.id },
+    });
+  }
   let changesForUpdate = changes;
+  let startAcknowledgment = {};
 
   if (isStartingFromDraft) {
     // Persist the non-status changes (including any new statusUpdateSchedule)
@@ -511,20 +616,26 @@ export const updateExperiment = createApiRequestHandler(
     if (Object.keys(remainingChanges).length > 0) {
       await updateExperimentToDb({
         context: req.context,
-        experiment,
+        experiment: experimentForUpdate,
         changes: remainingChanges,
       });
     }
     // Route draft->running transitions through the dedicated lifecycle method
     // so ramp lockdown, checklist, and pending-draft publish behavior stays
     // consistent across all entry points.
-    const { updated } = await startExperiment({
+    const bypassLockdown = canBypassReviewChecks(req, experiment);
+    const { updated, checklistItems } = await startExperiment({
       context: req.context,
       experimentId: experiment.id,
       // behavior for patch endpoint is to skip pre-launch checklist
       skipChecklist: true,
-      bypassLockdown: canBypassReviewChecks(req, experiment),
-      restApiBypassesReviews: canUseRestApiBypassSetting(req),
+      bypassLockdown,
+      restApiBypassesReviews,
+    });
+    startAcknowledgment = getStartAcknowledgment({
+      checklistItems,
+      skipChecklist: true,
+      bypassLockdown,
     });
     experimentForUpdate = updated;
     // All non-status changes were already persisted above; startExperiment
@@ -544,6 +655,13 @@ export const updateExperiment = createApiRequestHandler(
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");
   }
+  // Visual changes and redirects keep one entry per variation, as in the app.
+  if (changes.variations) {
+    await syncVisualChangesetsAndUrlRedirectsForExperiment({
+      context: req.context,
+      updated: updatedExperiment,
+    });
+  }
 
   await req.audit({
     event: "experiment.update",
@@ -551,7 +669,11 @@ export const updateExperiment = createApiRequestHandler(
       object: "experiment",
       id: experiment.id,
     },
-    details: auditDetailsUpdate(experiment, updatedExperiment),
+    details: auditDetailsUpdate(
+      experiment,
+      updatedExperiment,
+      startAcknowledgment,
+    ),
   });
 
   const apiExperiment = await resolveOwnerEmail(

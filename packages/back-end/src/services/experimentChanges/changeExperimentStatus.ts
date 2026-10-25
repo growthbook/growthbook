@@ -4,6 +4,8 @@ import {
   withScheduledBy,
 } from "shared/experiments";
 import { getValidDate, resolveScheduledStop } from "shared/dates";
+import { v4 as uuidv4 } from "uuid";
+import { ScopedSettings } from "shared/settings";
 import {
   ExperimentInterface,
   LinkedFeatureInfo,
@@ -21,6 +23,7 @@ import {
 import {
   experimentHasLiveLinkedChanges,
   hasPendingScheduledStart,
+  hasVisualChanges,
   linkedDraftApproved,
 } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
@@ -34,14 +37,17 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { findVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
 import { ReqContext } from "back-end/types/request";
 import { flagBypass } from "back-end/src/services/featurePublishGates";
+import type { BypassedGate } from "back-end/src/revisions/publishGates";
 import { ApiReqContext } from "back-end/types/api";
 import {
   assertCanPublishPendingFeatureDrafts,
   assertCanRunExperimentInAffectedEnvironments,
   getChangesToStartExperiment,
   getLinkedFeatureInfo,
+  resetExperimentBanditSettings,
 } from "back-end/src/services/experiments";
 import {
   formatPendingDraftFailureMessage,
@@ -247,7 +253,16 @@ export async function getExperimentStartChecklistStatus(
     experiment,
     arming ? { publisher: context } : {},
   );
-  const sdkConnections = await findSDKConnectionsByOrganization(context);
+  // The connections that can serve this experiment's Project.
+  const sdkConnections = (
+    await findSDKConnectionsByOrganization(context)
+  ).filter(
+    (c) => !c.projects.length || c.projects.includes(experiment.project || ""),
+  );
+  const [visualChangesets, urlRedirects] = await Promise.all([
+    findVisualChangesetsByExperiment(experiment.id, context.org.id),
+    context.models.urlRedirects.findByExperiment(experiment.id),
+  ]);
   const isBandit = experiment.type === "multi-armed-bandit";
   const checklist = orgHasPremiumFeature(context.org, "custom-launch-checklist")
     ? (experiment.project &&
@@ -265,6 +280,32 @@ export async function getExperimentStartChecklistStatus(
   ) => {
     if (!hidden.has(item.key)) items.push(item);
   };
+
+  if (!isBandit) {
+    pushBuiltIn({
+      key: "datasource",
+      required: true,
+      status: experiment.datasource ? "complete" : "incomplete",
+      manual: false,
+      reason: "Select a data source before starting.",
+    });
+    pushBuiltIn({
+      key: "exposureQuery",
+      required: true,
+      status: experiment.exposureQueryId ? "complete" : "incomplete",
+      manual: false,
+      reason: "Select an experiment assignment query before starting.",
+    });
+    if (experiment.datasource && experiment.exposureQueryId) {
+      pushBuiltIn({
+        key: "goalMetric",
+        required: true,
+        status: experiment.goalMetrics?.length ? "complete" : "incomplete",
+        manual: false,
+        reason: "Add at least one goal metric before starting.",
+      });
+    }
+  }
 
   pushBuiltIn({
     key: "linkedChanges",
@@ -306,6 +347,44 @@ export async function getExperimentStartChecklistStatus(
     manual: false,
     reason: "Add an SDK connection before starting.",
   });
+
+  const hasAnyVisualChanges = visualChangesets.some((vc) =>
+    hasVisualChanges(vc.visualChanges),
+  );
+  if (visualChangesets.length > 0) {
+    // An A/A test needs no changes.
+    items.push({
+      key: "visualEditorChanges",
+      required: false,
+      status: hasAnyVisualChanges ? "complete" : "incomplete",
+      manual: false,
+      reason: "Add changes in the AI Visual Editor.",
+    });
+  }
+  if (hasAnyVisualChanges) {
+    items.push({
+      key: "visualEditorSdk",
+      required: true,
+      status: sdkConnections.some((c) => c.includeVisualExperiments)
+        ? "complete"
+        : "incomplete",
+      manual: false,
+      reason:
+        "Enable Visual Editor experiments on an SDK connection for this Project before starting.",
+    });
+  }
+  if (urlRedirects.length > 0) {
+    items.push({
+      key: "urlRedirectSdk",
+      required: true,
+      status: sdkConnections.some((c) => c.includeRedirectExperiments)
+        ? "complete"
+        : "incomplete",
+      manual: false,
+      reason:
+        "Enable URL redirect experiments on an SDK connection for this Project before starting.",
+    });
+  }
 
   const latestVariations = getLatestPhaseVariations(experiment);
   linkedFeatures
@@ -453,6 +532,75 @@ async function loadAndValidateExperimentForStatusChange(
  * (HTTP request or Agenda job). Publishes pending linked feature drafts
  * atomically with the status transition and throws if any draft fails.
  */
+// What a status change writes beyond the status. A stop ends the latest phase;
+// a stopped experiment that runs or drafts again reopens it, and a bandit
+// starts a fresh phase with fresh buckets instead.
+export function statusChangeEffects({
+  experiment,
+  status,
+  settings,
+  reason = "",
+  dateEnded,
+}: {
+  experiment: ExperimentInterface;
+  status: ExperimentInterface["status"];
+  settings: ScopedSettings;
+  reason?: string;
+  dateEnded?: Date;
+}): Changeset {
+  const phases = [...experiment.phases];
+  const last = phases.length - 1;
+  if (last < 0) return {};
+  if (
+    experiment.status === "running" &&
+    status === "stopped" &&
+    !phases[last].dateEnded
+  ) {
+    phases[last] = {
+      ...phases[last],
+      reason,
+      dateEnded: dateEnded ?? new Date(),
+    };
+    return { phases };
+  }
+  if (
+    experiment.status !== "stopped" ||
+    (status !== "running" && status !== "draft")
+  ) {
+    return {};
+  }
+  const reopened = { ...phases[last] };
+  delete reopened.dateEnded;
+  if (experiment.type !== "multi-armed-bandit") {
+    phases[last] = reopened;
+    return { phases };
+  }
+  phases[last] = { ...reopened, dateEnded: new Date() };
+  phases.push({
+    condition: reopened.condition,
+    savedGroups: reopened.savedGroups,
+    prerequisites: reopened.prerequisites,
+    coverage: reopened.coverage,
+    dateStarted: new Date(),
+    name: "Main",
+    namespace: reopened.namespace,
+    reason: "",
+    variationWeights: reopened.variationWeights,
+    variations: reopened.variations,
+    seed: uuidv4(),
+  });
+  const changes: Changeset = {
+    phases,
+    // Flush the sticky buckets.
+    bucketVersion: (experiment.bucketVersion ?? 0) + 1,
+    minBucketVersion: (experiment.bucketVersion ?? 0) + 1,
+  };
+  return {
+    ...changes,
+    ...resetExperimentBanditSettings({ experiment, changes, settings }),
+  };
+}
+
 export async function executeExperimentStart(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -462,6 +610,25 @@ export async function executeExperimentStart(
   updated: ExperimentInterface;
   publishResult: PendingDraftPublishResult;
 }> {
+  // Every linked flag, not only those with a draft to publish, as a scheduled
+  // start fires here too. The bypass holds per flag.
+  const linkedIds = experiment.linkedFeatures ?? [];
+  const linked = bypassLockdown
+    ? new Map(
+        (await getFeaturesByIds(context, linkedIds)).map((f) => [f.id, f]),
+      )
+    : null;
+  for (const fid of linkedIds) {
+    const feature = linked?.get(fid);
+    const bypass =
+      !!feature &&
+      flagBypass(context, feature, {
+        optIn: bypassLockdown,
+        restApiBypassesReviews,
+      }).lockdown;
+    if (!bypass) await assertFeatureNotLockedByRamp(context, fid);
+  }
+
   const publishResult = await publishPendingFeatureDraftsForExperiment(
     context,
     experiment,
@@ -706,24 +873,36 @@ export async function armedStartBypassStands(
   );
 }
 
-export async function startApprovalsWaivedBy(
+// The approval bypass a start would apply, named for its confirmation hold.
+export async function startApprovalBypass(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   { restApiBypassesReviews = false }: { restApiBypassesReviews?: boolean } = {},
-): Promise<Set<string>> {
+): Promise<BypassedGate[]> {
   if (
     !restApiBypassesReviews &&
     !context.permissions.canBypassFlagApprovalChecks(experiment, "feature")
   ) {
-    return new Set();
+    return [];
   }
-  return waivableApprovals(
+  const waived = await waivableApprovals(
     context,
     await getExperimentStartChecklistStatus(context, experiment, {
       arming: true,
     }),
     { restApiBypassesReviews },
   );
+  return waived.size
+    ? [
+        {
+          type: "approval-required",
+          outcome: "bypassed",
+          via: restApiBypassesReviews
+            ? "restApiBypassesReviews"
+            : "bypassApprovalPermission",
+        },
+      ]
+    : [];
 }
 
 // Run when a scheduled start fires. The approver already acknowledged the soft items.
@@ -810,24 +989,6 @@ export async function startExperiment({
       "Experiment cannot be started: required checklist items are incomplete",
       incompleteRequiredItems,
     );
-  }
-
-  // The bypass holds per flag, on what the caller may skip there.
-  const linkedIds = experiment.linkedFeatures ?? [];
-  const linked = bypassLockdown
-    ? new Map(
-        (await getFeaturesByIds(context, linkedIds)).map((f) => [f.id, f]),
-      )
-    : null;
-  for (const fid of linkedIds) {
-    const feature = linked?.get(fid);
-    const bypass =
-      !!feature &&
-      flagBypass(context, feature, {
-        optIn: bypassLockdown,
-        restApiBypassesReviews,
-      }).lockdown;
-    if (!bypass) await assertFeatureNotLockedByRamp(context, fid);
   }
 
   const { updated } = await executeExperimentStart(

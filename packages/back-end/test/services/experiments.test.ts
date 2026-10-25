@@ -1714,6 +1714,22 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
     expect(changes.nextScheduledStatusUpdate).toBeNull();
   });
 
+  it("leaves an armed start armed when the schedule is echoed back", () => {
+    const startAt = new Date("2099-06-01T12:00:00Z");
+    const experiment = makeExperiment({
+      statusUpdateSchedule: { startAt },
+      nextScheduledStatusUpdate: { type: "start", date: startAt },
+    });
+    // As a REST GET returns it.
+    const changes = {
+      statusUpdateSchedule: { startAt: startAt.toISOString() },
+    } as unknown as Partial<ExperimentInterface>;
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes).toEqual({});
+  });
+
   it("object with no startAt clears both schedule and staged start", () => {
     const experiment = makeExperiment({
       statusUpdateSchedule: { startAt: new Date("2099-01-01") },
@@ -1886,7 +1902,7 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
 
     normalizeStatusUpdateScheduleChanges(experiment, changes);
 
-    expect(changes.statusUpdateSchedule).toBeNull();
+    expect(changes.statusUpdateSchedule ?? null).toBeNull();
   });
 
   it("drops the nested scheduledStopPlan on a start-only schedule (no end)", () => {

@@ -1061,6 +1061,35 @@ describe("confirmations", () => {
     ]);
   });
 
+  it("holds archiving a live experiment as its stop, and unarchiving as its start", async () => {
+    await seed("production");
+    await seedExperiment();
+    const experiments = mongoose.connection.collection("experiments");
+    await experiments.updateOne({ id: EXP }, { $set: { status: "running" } });
+    setReqContext(
+      asKey({
+        ...bot,
+        confirmRules: [{ actions: ["experiment.stop", "experiment.start"] }],
+      }),
+    );
+    const archive = await auth(
+      request(app).post(`/api/v1/experiments/${EXP}`),
+    ).send({ archived: true });
+    expect(archive.status).toBe(202);
+    expect(archive.body.confirmation.actions).toEqual([
+      { action: "experiment.stop", environments: [] },
+    ]);
+
+    await experiments.updateOne({ id: EXP }, { $set: { archived: true } });
+    const unarchive = await auth(
+      request(app).post(`/api/v1/experiments/${EXP}/unarchive`),
+    ).send({});
+    expect(unarchive.status).toBe(202);
+    expect(unarchive.body.confirmation.actions).toEqual([
+      { action: "experiment.start", environments: [] },
+    ]);
+  });
+
   it("holds every publish as skipping a review when REST bypasses reviews", async () => {
     await seed("production");
     await insertConstant("hitl_bypass");

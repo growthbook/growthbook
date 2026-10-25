@@ -2,6 +2,7 @@
 // ProjectModel / request-context import cycle from the wrong end.
 import "back-end/src/services/features";
 import { ExperimentInterface } from "shared/types/experiment";
+import { getScopedSettings } from "shared/settings";
 import { ReqContext } from "back-end/types/request";
 import {
   getExperimentById,
@@ -18,6 +19,7 @@ import {
   assertScheduledStartNotHardBlocked,
   getExperimentStartChecklistStatus,
   startExperiment,
+  statusChangeEffects,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
@@ -33,6 +35,7 @@ jest.mock("back-end/src/services/experiments", () => ({
   assertCanRunExperimentInAffectedEnvironments: jest.fn(),
   getChangesToStartExperiment: jest.fn(),
   getLinkedFeatureInfo: jest.fn(),
+  resetExperimentBanditSettings: jest.fn(() => ({ banditStage: "explore" })),
 }));
 jest.mock("back-end/src/services/growthbook", () => ({
   trackEventForContext: jest.fn(),
@@ -54,6 +57,9 @@ jest.mock(
 );
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   findSDKConnectionsByOrganization: jest.fn(),
+}));
+jest.mock("back-end/src/models/VisualChangesetModel", () => ({
+  findVisualChangesetsByExperiment: jest.fn(async () => []),
 }));
 jest.mock("back-end/src/models/ExperimentLaunchChecklistModel", () => ({
   getExperimentLaunchChecklist: jest.fn(),
@@ -79,6 +85,7 @@ const context = {
   org: { id: "org_1" },
   userId: "u_1",
   permissions: { canUpdateExperiment: () => true },
+  models: { urlRedirects: { findByExperiment: async () => [] } },
 } as unknown as ReqContext;
 const draftFlag = {
   feature: { id: "flag_1" },
@@ -94,7 +101,7 @@ beforeEach(() => {
   (getExperimentById as jest.Mock).mockResolvedValue(draft);
   (getLinkedFeatureInfo as jest.Mock).mockResolvedValue([]);
   (findSDKConnectionsByOrganization as jest.Mock).mockResolvedValue([
-    { id: "sdk_1" },
+    { id: "sdk_1", projects: [] },
   ]);
   (getExperimentLaunchChecklist as jest.Mock).mockResolvedValue(null);
 });
@@ -154,6 +161,78 @@ describe("startExperiment", () => {
           expect.objectContaining({ key: "pendingApproval:flag_1" }),
         ],
       },
+    });
+  });
+});
+
+describe("getExperimentStartChecklistStatus", () => {
+  it("asks for what the app's checklist asks for", async () => {
+    (findSDKConnectionsByOrganization as jest.Mock).mockResolvedValue([
+      { id: "sdk_other", projects: ["prj_other"] },
+    ]);
+
+    const statuses = Object.fromEntries(
+      (await getExperimentStartChecklistStatus(context, draft)).map((item) => [
+        item.key,
+        item.status,
+      ]),
+    );
+
+    expect(statuses).toMatchObject({
+      datasource: "incomplete",
+      exposureQuery: "incomplete",
+      // Only a connection that serves the experiment's Project counts.
+      sdkConnection: "incomplete",
+    });
+  });
+});
+
+describe("statusChangeEffects", () => {
+  const { settings } = getScopedSettings({
+    organization: { settings: {} } as never,
+  });
+  const ran = {
+    ...draft,
+    phases: [{ variationWeights: [0.5, 0.5], dateStarted: new Date(0) }],
+  } as unknown as ExperimentInterface;
+
+  it("ends the phase on a stop, and reopens it on a restart", () => {
+    const stop = statusChangeEffects({
+      experiment: { ...ran, status: "running" },
+      status: "stopped",
+      settings,
+      reason: "Done",
+    });
+    expect(stop.phases?.[0]).toMatchObject({
+      reason: "Done",
+      dateEnded: expect.any(Date),
+    });
+
+    const restart = statusChangeEffects({
+      experiment: { ...ran, status: "stopped", phases: stop.phases ?? [] },
+      status: "running",
+      settings,
+    });
+    expect(restart.phases?.[0].dateEnded).toBeUndefined();
+  });
+
+  it("restarts a bandit on a fresh phase with fresh buckets", () => {
+    const restart = statusChangeEffects({
+      experiment: {
+        ...ran,
+        type: "multi-armed-bandit",
+        status: "stopped",
+        bucketVersion: 2,
+      },
+      status: "running",
+      settings,
+    });
+    expect(restart.phases).toHaveLength(2);
+    expect(restart.phases?.[0].dateEnded).toEqual(expect.any(Date));
+    expect(restart).toMatchObject({
+      bucketVersion: 3,
+      minBucketVersion: 3,
+      banditStage: "explore",
     });
   });
 });

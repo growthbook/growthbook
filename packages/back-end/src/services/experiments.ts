@@ -5033,6 +5033,11 @@ function resolveExperimentUpdateVariationsAndPhases(
         ? {
             ...phase,
             variations: syncedPhaseVariations,
+            // A variation added or removed evens out the split, as in the app.
+            ...(phase.variationWeights.length !==
+              syncedPhaseVariations.length && {
+              variationWeights: getEqualWeights(syncedPhaseVariations.length),
+            }),
           }
         : phase,
     );
@@ -5050,7 +5055,7 @@ function resolveExperimentUpdateVariationsAndPhases(
  *  - Explicit null clears both the schedule and any staged start.
  *  - An object resolves `startAt` via getValidDate; missing startAt is treated
  *    as "clear the schedule"; any existing staged start is reset so the schedule
- *    must be re-staged.
+ *    must be re-staged. An unchanged schedule is no change: a staged start stays.
  *  - If `statusUpdateSchedule` is not in the payload but `status` is moving out
  *    of draft, clear any pending staged start so the agenda job won't fire it.
  */
@@ -5098,13 +5103,21 @@ export function normalizeStatusUpdateScheduleChanges(
                 : {}),
             }
           : null;
-
-      // Re-stage the single pending action from the new schedule:
-      //  - running experiment: (re)stage the stop from the resolved stopAt
-      //  - otherwise (draft): clear any staged start; it must be re-approved
-      changes.nextScheduledStatusUpdate = withScheduledBy(stagedStop, by);
+      if (
+        isEqual(changes.statusUpdateSchedule, experiment.statusUpdateSchedule)
+      ) {
+        // An echoed schedule is no change, and leaves an armed start armed.
+        delete changes.statusUpdateSchedule;
+      } else {
+        // Re-stage the single pending action from the new schedule:
+        //  - running experiment: (re)stage the stop from the resolved stopAt
+        //  - otherwise (draft): clear any staged start; it must be re-approved
+        changes.nextScheduledStatusUpdate = withScheduledBy(stagedStop, by);
+      }
     }
-  } else if (
+  }
+  if (
+    !("statusUpdateSchedule" in changes) &&
     changes.status &&
     changes.status !== "draft" &&
     experiment.nextScheduledStatusUpdate

@@ -18,7 +18,6 @@ import {
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
-import { v4 as uuidv4 } from "uuid";
 import { IdeaInterface } from "shared/types/idea";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { DataSourceInterface } from "shared/types/datasource";
@@ -72,6 +71,7 @@ import {
 import {
   approveScheduledExperimentStart,
   getStartAcknowledgment,
+  statusChangeEffects,
   startExperiment,
   stopExperiment,
   unapproveScheduledExperimentStart,
@@ -1751,26 +1751,10 @@ export async function postExperimentStatus(
 
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
-  // If status changed from running to stopped, update the latest phase
-  const phases = [...experiment.phases];
-  const lastIndex = phases.length - 1;
-  if (
-    experiment.status === "running" &&
-    status === "stopped" &&
-    phases?.length > 0 &&
-    !phases[lastIndex].dateEnded
-  ) {
-    phases[lastIndex] = {
-      ...phases[lastIndex],
-      reason,
-      dateEnded: dateEnded ? getValidDate(assumeUtc(dateEnded)) : new Date(),
-    };
-    changes.phases = phases;
-  }
   // Starting an experiment from draft
-  else if (experiment.status === "draft" && status === "running") {
+  if (experiment.status === "draft" && status === "running") {
     // A plain status write would skip every start check and never publish linked drafts.
-    if (!phases.length) {
+    if (!experiment.phases.length) {
       res.status(400).json({
         status: 400,
         message:
@@ -1818,56 +1802,17 @@ export async function postExperimentStatus(
     });
     return;
   }
-  // If starting or drafting a stopped experiment, clear the phase end date
-  // and perform any needed bandit cleanup
-  else if (
-    experiment.status === "stopped" &&
-    (status === "running" || status === "draft") &&
-    phases?.length > 0
-  ) {
-    const clonedPhase = { ...phases[lastIndex] };
 
-    delete clonedPhase.dateEnded;
-    phases[lastIndex] = clonedPhase;
-
-    changes.phases = phases;
-
-    // Bandit-specific changes
-    if (experiment.type === "multi-armed-bandit") {
-      // We must create a new phase. No continuing old phases allowed
-      // If we had a previous phase, mark it as ended
-      if (phases.length) {
-        phases[phases.length - 1].dateEnded = new Date();
-      }
-
-      phases.push({
-        condition: clonedPhase.condition,
-        savedGroups: clonedPhase.savedGroups,
-        prerequisites: clonedPhase.prerequisites,
-        coverage: clonedPhase.coverage,
-        dateStarted: new Date(),
-        name: "Main",
-        namespace: clonedPhase.namespace,
-        reason: "",
-        variationWeights: clonedPhase.variationWeights,
-        variations: clonedPhase.variations,
-        seed: uuidv4(),
-      });
-
-      // flush the sticky existing buckets
-      changes.bucketVersion = (experiment.bucketVersion ?? 0) + 1;
-      changes.minBucketVersion = (experiment.bucketVersion ?? 0) + 1;
-
-      Object.assign(
-        changes,
-        resetExperimentBanditSettings({
-          experiment,
-          changes,
-          settings,
-        }),
-      );
-    }
-  }
+  Object.assign(
+    changes,
+    statusChangeEffects({
+      experiment,
+      status,
+      settings,
+      reason,
+      dateEnded: dateEnded ? getValidDate(assumeUtc(dateEnded)) : undefined,
+    }),
+  );
 
   changes.status = status;
 

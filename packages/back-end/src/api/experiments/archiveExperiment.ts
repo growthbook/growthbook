@@ -14,6 +14,10 @@ import {
 } from "back-end/src/services/experimentRemoval";
 import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import {
+  confirmationLink,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 import { requireExperiment } from "./requireExperiment";
 
@@ -54,6 +58,15 @@ export const postExperimentUnarchive = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
   await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
+  await requireConfirmation(req.context, {
+    actions: [
+      experiment.status === "draft" ? "experiment.draft" : "experiment.start",
+    ],
+    project: experiment.project,
+    summary: `Unarchive ${experiment.name}`,
+    links: [confirmationLink("experiment", experiment.id, experiment.name)],
+    pin: [experiment.status, experiment.archived],
+  });
   const updated = await unarchiveExperimentWithCleanup({
     context: req.context,
     experiment,

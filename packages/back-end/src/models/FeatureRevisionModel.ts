@@ -7,6 +7,7 @@ import {
   featureMetadataEnvelope,
   fillRevisionFromFeature,
   getApplicableEnvIds,
+  getExperimentIdsFromRules,
   getRevisionReviewRequirement,
   isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
@@ -585,16 +586,17 @@ export async function getLinkageSyncRevisionSummaries(
  * Reconcile both linkage projections after a write that only moves drafts
  * around, so there is no publish to gate.
  *
- * Bandit linkage is awaited, so the response the caller returns already reflects
- * it, but only when a bandit rule is involved on either side of the write —
- * which is also the only way linkage can go stale, since a bandit that drops out
- * of every revision was referenced by the pre-write rules. Experiment linkage
- * keeps its existing fire-and-forget behaviour.
+ * Each linkage is awaited, so the response the caller returns already reflects
+ * it, when a rule of its kind is involved on either side of the write — which
+ * is also the only way it can go stale, since a bandit or experiment that drops
+ * out of every revision was referenced by the pre-write rules. A start right
+ * after the write then sees the draft queued. Otherwise experiment linkage
+ * runs in the background.
  */
 async function syncLinkagesAfterDraftWrite(
   context: ReqContext | ApiReqContext,
   revision: Pick<FeatureRevisionInterface, "organization" | "featureId">,
-  banditRuleSets: unknown[],
+  ruleSets: unknown[],
   label: string,
 ): Promise<void> {
   const summaries = getLinkageSyncRevisionSummaries(
@@ -602,7 +604,7 @@ async function syncLinkagesAfterDraftWrite(
     revision.featureId,
   );
 
-  summaries
+  const experimentSync = summaries
     .then(({ openDrafts, liveRevision }) =>
       syncFeatureExperimentLinkages(
         context,
@@ -614,8 +616,11 @@ async function syncLinkagesAfterDraftWrite(
     .catch((e) => {
       logger.error(e, `experiment linkage sync failed in ${label}`);
     });
+  if (ruleSets.some((rules) => getExperimentIdsFromRules(rules).length > 0)) {
+    await experimentSync;
+  }
 
-  if (!banditRuleSets.some(referencesAnyContextualBandit)) return;
+  if (!ruleSets.some(referencesAnyContextualBandit)) return;
 
   try {
     const { openDrafts, liveRevision } = await summaries;
