@@ -135,8 +135,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
         type: "stale",
         hours: 6,
         cron: "0 */6 * * *",
-        analysisEndDate: "runTime",
-        analysisEndTime: "00:00",
       },
       runHealthTrafficQuery: false,
       srmThreshold: DEFAULT_SRM_THRESHOLD,
