@@ -5,7 +5,10 @@ import {
   resolveAnalysisIdentifierType,
 } from "shared/util";
 import { getValidDate } from "shared/dates";
-import { getUnsetAnalysisSettings } from "shared/settings";
+import {
+  getUnsetAnalysisSettings,
+  SETTLED_ANALYSIS_SETTINGS,
+} from "shared/settings";
 import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
@@ -33,6 +36,7 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 
@@ -94,14 +98,20 @@ export default function AnalysisPlanAdvanced({
   const orgSettings = useOrgSettings();
 
   // What the experiment leaves unset shows as what saving it will store.
+  const project = getProjectById(experiment.project || "") ?? undefined;
   const settled = {
     ...experiment,
-    ...getUnsetAnalysisSettings({
-      organization,
-      project: getProjectById(experiment.project || "") ?? undefined,
-      experiment,
-    }),
+    ...getUnsetAnalysisSettings({ organization, project, experiment }),
   };
+  // What the org and project would give it now.
+  const defaults = getUnsetAnalysisSettings({
+    organization,
+    project,
+    experiment: {},
+  });
+  const differsFromDefaults = SETTLED_ANALYSIS_SETTINGS.some(
+    (key) => settled[key] !== defaults[key],
+  );
 
   const datasource = getDatasourceById(datasourceId);
   const properties = datasource?.properties;
@@ -454,6 +464,11 @@ export default function AnalysisPlanAdvanced({
                 </Setting>
               ) : null}
             </Card>
+          ) : null}
+          {differsFromDefaults && !disabled ? (
+            <Flex justify="end">
+              <Link onClick={() => stage(defaults)}>Reset to defaults</Link>
+            </Flex>
           ) : null}
         </Box>
       </Collapse>
