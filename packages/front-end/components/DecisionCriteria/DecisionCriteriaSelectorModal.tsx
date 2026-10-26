@@ -20,6 +20,8 @@ interface DecisionCriteriaSelectorModalProps {
   initialCriteria?: DecisionCriteriaData;
   experiment: ExperimentInterfaceStringDates;
   canEdit: boolean;
+  // Holds the choice with the page's other unsaved edits instead of saving it.
+  stageChanges?: (decisionCriteriaId: string) => void;
 }
 
 const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
@@ -28,6 +30,7 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
   experiment,
   initialCriteria,
   canEdit,
+  stageChanges,
 }) => {
   const { data } = useApi<{
     status: number;
@@ -62,6 +65,11 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
       submit={
         canEdit
           ? form.handleSubmit(async (value) => {
+              if (stageChanges) {
+                stageChanges(value.decisionCriteriaId);
+                onSubmit();
+                return;
+              }
               apiCall(`/experiment/${experiment.id}`, {
                 method: "POST",
                 body: JSON.stringify({
@@ -77,6 +85,7 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
           : undefined
       }
       close={onClose}
+      cta={stageChanges ? "Confirm" : undefined}
       header="Experiment Decision Criteria"
       trackingEventModalType="decision_criteria_selector"
       size="lg"
