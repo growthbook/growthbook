@@ -12,9 +12,18 @@ import {
   TypeMismatchCallback,
   VarType,
 } from "./types/mongrule";
-import { paddedVersionString } from "./util";
+import { hasOwn, paddedVersionString } from "./util";
 
 const _regexCache: { [key: string]: RegExp } = {};
+
+// true or false, or null when the result depends on an operator or saved group
+// type this SDK doesn't support. Exported functions treat null as failing.
+type Result = boolean | null;
+const not = (r: Result): Result => (r === null ? null : !r);
+
+// Keys a condition can have that aren't attributes, besides $not, which is
+// also an operator on a value
+const CONDITION_OPERATORS = ["$or", "$nor", "$and", "$savedGroup"];
 
 type EvalConditionContext = {
   savedGroups: SavedGroupsPayload;
@@ -30,44 +39,49 @@ export function evalCondition(
   options: EvalConditionOptions = {},
 ): boolean {
   const { savedGroups, onTypeMismatch } = options;
-  return evalConditionWithContext(obj, condition, {
-    savedGroups: savedGroups || {},
-    visited: new Set(),
-    typeMismatch: onTypeMismatch ? { onTypeMismatch, path: "" } : undefined,
-  });
+  return (
+    evalConditionWithContext(obj, condition, {
+      savedGroups: savedGroups || {},
+      visited: new Set(),
+      typeMismatch: onTypeMismatch ? { onTypeMismatch, path: "" } : undefined,
+    }) === true
+  );
 }
 
+// Condition is an object, keys are either specific operators or object paths
+// values are either arguments for operators or conditions for paths
 function evalConditionWithContext(
   obj: TestedObj,
   condition: ConditionInterface,
   ctx: EvalConditionContext,
-): boolean {
-  // Condition is an object, keys are either specific operators or object paths
-  // values are either arguments for operators or conditions for paths
+): Result {
+  let result: Result = true;
   for (const [k, v] of Object.entries(condition)) {
+    let r: Result;
     switch (k) {
       case "$or":
-        if (!evalOr(obj, v as ConditionInterface[], ctx)) return false;
+        r = evalOr(obj, v as ConditionInterface[], ctx);
         break;
       case "$nor":
-        if (evalOr(obj, v as ConditionInterface[], ctx)) return false;
+        r = not(evalOr(obj, v as ConditionInterface[], ctx));
         break;
       case "$and":
-        if (!evalAnd(obj, v as ConditionInterface[], ctx)) return false;
+        r = evalAnd(obj, v as ConditionInterface[], ctx);
         break;
       case "$not":
-        if (evalConditionWithContext(obj, v as ConditionInterface, ctx))
-          return false;
+        r = not(evalConditionWithContext(obj, v as ConditionInterface, ctx));
         break;
       case "$savedGroup":
-        if (!evalSavedGroup(obj, v, ctx)) return false;
+        r = evalSavedGroup(obj, v, ctx);
         break;
       default:
-        if (!evalConditionValue(v, getPath(obj, k), withPath(ctx, k)))
-          return false;
+        r = evalConditionValue(v, getPath(obj, k), withPath(ctx, k));
     }
+    // One failing entry decides it, wherever an unsupported one is
+    if (r === false) return false;
+    if (r === null) result = null;
   }
-  return true;
+  return result;
 }
 
 function withPath(
@@ -90,7 +104,7 @@ function evalSavedGroup(
   obj: TestedObj,
   reference: unknown,
   ctx: EvalConditionContext,
-): boolean {
+): Result {
   if (!reference || typeof reference !== "object" || Array.isArray(reference))
     return false;
 
@@ -128,8 +142,8 @@ function evalSavedGroup(
     });
   }
 
-  // A group type added after this SDK was built
-  return false;
+  // A group type added after this SDK was built. The client SDK may support it.
+  return null;
 }
 
 // Return value at dot-separated path of an object
@@ -137,7 +151,8 @@ function getPath(obj: TestedObj, path: string) {
   const parts = path.split(".");
   let current: any = obj;
   for (let i = 0; i < parts.length; i++) {
-    if (current && typeof current === "object" && parts[i] in current) {
+    // Own keys only, so a missing `constructor` isn't the inherited one
+    if (current && typeof current === "object" && hasOwn(current, parts[i])) {
       current = current[parts[i]];
     } else {
       return null;
@@ -164,7 +179,7 @@ function evalConditionValue(
   value: any,
   ctx: EvalConditionContext,
   insensitive: boolean = false,
-) {
+): Result {
   // Simple equality comparisons
   if (
     typeof condition === "string" ||
@@ -194,27 +209,24 @@ function evalConditionValue(
   }
 
   // This is a special operator condition and we should evaluate each one separately
+  let result: Result = true;
   for (const op in condition) {
-    if (
-      !evalOperatorCondition(
-        op as Operator,
-        value,
-        condition[op as keyof OperatorConditionValue],
-        ctx,
-      )
-    ) {
-      return false;
-    }
+    const r = evalOperatorCondition(
+      op as Operator,
+      value,
+      condition[op as keyof OperatorConditionValue],
+      ctx,
+    );
+    if (r === false) return false;
+    if (r === null) result = null;
   }
-  return true;
+  return result;
 }
 
 // If the object has only keys that start with '$'
+// An empty object has no operators, so it passes
 function isOperatorObject(obj: any): boolean {
-  const keys = Object.keys(obj);
-  return (
-    keys.length > 0 && keys.filter((k) => k[0] === "$").length === keys.length
-  );
+  return !Array.isArray(obj) && Object.keys(obj).every((k) => k[0] === "$");
 }
 
 // Return the data type of a value
@@ -245,22 +257,32 @@ function isOrderable(actual: unknown, expected: unknown): boolean {
 }
 
 // At least one element of actual must match the expected condition/value
-function elemMatch(actual: any, expected: any, ctx: EvalConditionContext) {
+function elemMatch(
+  actual: any,
+  expected: any,
+  ctx: EvalConditionContext,
+): Result {
   if (!Array.isArray(actual)) {
     reportMismatch(ctx, "$elemMatch", expected, actual);
     return false;
   }
-  const check = isOperatorObject(expected)
-    ? (v: any) => evalConditionValue(expected, v, ctx)
-    : (v: any) => evalConditionWithContext(v, expected, ctx);
+  // Operators test each element itself. A condition, including one that only
+  // uses $or, $and, $nor, or $savedGroup, tests each element's fields.
+  const check =
+    isOperatorObject(expected) &&
+    !Object.keys(expected).some((k) => CONDITION_OPERATORS.includes(k))
+      ? (v: any) => evalConditionValue(expected, v, ctx)
+      : (v: any) => evalConditionWithContext(v, expected, ctx);
+  let result: Result = false;
   for (let i = 0; i < actual.length; i++) {
     // Only skip nullish elements; falsy values like 0, "" and false are valid
     // array members and must still be tested against the condition.
-    if ((actual[i] ?? null) !== null && check(actual[i])) {
-      return true;
-    }
+    if ((actual[i] ?? null) === null) continue;
+    const r = check(actual[i]);
+    if (r === true) return true;
+    if (r === null) result = null;
   }
-  return false;
+  return result;
 }
 
 function isIn(
@@ -331,23 +353,38 @@ function getSavedGroupArrayValues(
   return null;
 }
 
+// A saved group type added after this SDK was built
+function isNewGroupType(entry: SavedGroupsPayload[string] | undefined) {
+  return (
+    !!entry &&
+    typeof entry === "object" &&
+    !Array.isArray(entry) &&
+    entry.type !== "list" &&
+    entry.type !== "condition"
+  );
+}
+
 function isInAll(
   actual: unknown[],
   expected: ConditionValue[],
   ctx: EvalConditionContext,
   insensitive: boolean = false,
-): boolean {
+): Result {
+  let result: Result = true;
   for (let i = 0; i < expected.length; i++) {
-    let passed = false;
+    let passed: Result = false;
     for (let j = 0; j < actual.length; j++) {
-      if (evalConditionValue(expected[i], actual[j], ctx, insensitive)) {
+      const r = evalConditionValue(expected[i], actual[j], ctx, insensitive);
+      if (r === true) {
         passed = true;
         break;
       }
+      if (r === null) passed = null;
     }
-    if (!passed) return false;
+    if (passed === false) return false;
+    if (passed === null) result = null;
   }
-  return true;
+  return result;
 }
 
 // Evaluate a single operator condition
@@ -356,7 +393,7 @@ function evalOperatorCondition(
   actual: any,
   expected: any,
   ctx: EvalConditionContext,
-): boolean {
+): Result {
   switch (operator) {
     case "$veq":
     case "$vne":
@@ -395,12 +432,14 @@ function evalOperatorCondition(
       if (!Array.isArray(expected)) return false;
       return checkIn(actual, expected, true, operator, ctx);
     case "$inGroup": {
+      if (isNewGroupType(ctx.savedGroups[expected])) return null;
       const values = getSavedGroupArrayValues(ctx.savedGroups[expected]);
       return values === null
         ? false
         : checkIn(actual, values, false, operator, ctx);
     }
     case "$notInGroup": {
+      if (isNewGroupType(ctx.savedGroups[expected])) return null;
       // No values means matching nobody. An empty list would pass everyone.
       const values = getSavedGroupArrayValues(ctx.savedGroups[expected]);
       return values === null
@@ -414,7 +453,7 @@ function evalOperatorCondition(
       if (!Array.isArray(expected)) return false;
       return !checkIn(actual, expected, true, operator, ctx);
     case "$not":
-      return !evalConditionValue(expected, actual, ctx);
+      return not(evalConditionValue(expected, actual, ctx));
     case "$size":
       if (!Array.isArray(actual)) {
         reportMismatch(ctx, operator, expected, actual);
@@ -445,8 +484,11 @@ function evalOperatorCondition(
     case "$type":
       return getType(actual) === expected;
     default:
+      // Keys this SDK knows, but on a condition rather than on a value, where
+      // they never match
+      if (CONDITION_OPERATORS.includes(operator)) return false;
       console.error("Unknown operator: " + operator);
-      return false;
+      return null;
   }
 }
 
@@ -484,14 +526,15 @@ function evalOr(
   obj: TestedObj,
   conditions: ConditionInterface[],
   ctx: EvalConditionContext,
-): boolean {
+): Result {
   if (!conditions.length) return true;
+  let result: Result = false;
   for (let i = 0; i < conditions.length; i++) {
-    if (evalConditionWithContext(obj, conditions[i], ctx)) {
-      return true;
-    }
+    const r = evalConditionWithContext(obj, conditions[i], ctx);
+    if (r === true) return true;
+    if (r === null) result = null;
   }
-  return false;
+  return result;
 }
 
 // Recursive $and rule
@@ -499,11 +542,12 @@ function evalAnd(
   obj: TestedObj,
   conditions: ConditionInterface[],
   ctx: EvalConditionContext,
-): boolean {
+): Result {
+  let result: Result = true;
   for (let i = 0; i < conditions.length; i++) {
-    if (!evalConditionWithContext(obj, conditions[i], ctx)) {
-      return false;
-    }
+    const r = evalConditionWithContext(obj, conditions[i], ctx);
+    if (r === false) return false;
+    if (r === null) result = null;
   }
-  return true;
+  return result;
 }

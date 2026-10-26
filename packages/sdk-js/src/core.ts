@@ -258,7 +258,7 @@ export function evalFeature<V = unknown>(
           }
 
           const evalObj = { value: parentResult.value };
-          const evaled = evalParentCondition(
+          const evaled = evalConditionSafely(
             evalObj,
             parentCondition.condition || {},
             ctx,
@@ -632,7 +632,7 @@ export function runExperiment<T>(
 
         const evalObj = { value: parentResult.value };
         if (
-          !evalParentCondition(evalObj, parentCondition.condition || {}, ctx)
+          !evalConditionSafely(evalObj, parentCondition.condition || {}, ctx)
         ) {
           process.env.NODE_ENV !== "production" &&
             ctx.global.log("Skip because prerequisite evaluation fails", {
@@ -886,7 +886,14 @@ function getContextualBanditLeaf(
   ctx: EvalContext,
 ): { leafId: number; weights: number[] } | null {
   for (const context of cbDefinition.contexts || []) {
-    if (conditionPasses((context.condition || {}) as ConditionInterface, ctx)) {
+    // A condition that throws makes the bandit use its fallback weights
+    if (
+      evalCondition(
+        getAttributes(ctx.user),
+        (context.condition || {}) as ConditionInterface,
+        evalConditionOptions(ctx),
+      )
+    ) {
       return { leafId: context.leafId, weights: context.weights };
     }
   }
@@ -952,15 +959,12 @@ function conditionPasses(
   condition: ConditionInterface,
   ctx: EvalContext,
 ): boolean {
-  return evalCondition(
-    getAttributes(ctx.user),
-    condition,
-    evalConditionOptions(ctx),
-  );
+  return evalConditionSafely(getAttributes(ctx.user), condition, ctx);
 }
 
-// A malformed prerequisite condition never matches, rather than throwing into the app
-function evalParentCondition(
+// A condition that throws, such as a malformed one, fails rather than breaking
+// evaluation
+function evalConditionSafely(
   obj: TestedObj,
   condition: ConditionInterface,
   ctx: EvalContext,
@@ -969,7 +973,7 @@ function evalParentCondition(
     return evalCondition(obj, condition, evalConditionOptions(ctx));
   } catch (e) {
     process.env.NODE_ENV !== "production" &&
-      ctx.global.log("Invalid prerequisite condition", { condition, error: e });
+      ctx.global.log("Condition evaluation failed", { condition, error: e });
     return false;
   }
 }
