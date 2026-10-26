@@ -1,0 +1,15 @@
+// The chosen criteria's link sits above the field's input, which otherwise
+// takes the click.
+.valueRules {
+  position: relative;
+  z-index: 1;
+}
+
+// Each option's link shows as the option is pointed at.
+.optionRules {
+  visibility: hidden;
+
+  :global(.gb-select__option--is-focused) & {
+    visibility: visible;
+  }
+}

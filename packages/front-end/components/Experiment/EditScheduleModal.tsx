@@ -9,6 +9,7 @@ import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
 import { scheduleStagesStatusChange } from "shared/experiments";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -33,6 +34,7 @@ import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteri
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 import { RUN_PERMISSION_REASON } from "@/components/Experiment/TabbedPage/useStartExperiment";
+import styles from "./EditScheduleModal.module.scss";
 
 type ScheduledStopMode = "notify" | "auto-ship" | "force-ship" | "stop";
 type ScheduledStopFallback = "notify" | "force-ship";
@@ -117,7 +119,7 @@ export default function EditScheduleModal({
   );
 
   const [criteriaId, setCriteriaId] = useState(decisionCriteria.id);
-  const [viewingRules, setViewingRules] = useState(false);
+  const [rulesFor, setRulesFor] = useState<DecisionCriteriaData | null>(null);
 
   // Auto-ship needs both the paid feature AND the org's decision-framework
   // toggle enabled — matches the back-end apply-time gate.
@@ -405,12 +407,12 @@ export default function EditScheduleModal({
 
   return (
     <>
-      {viewingRules ? (
+      {rulesFor ? (
         <DecisionCriteriaModal
-          decisionCriteria={selectedCriteria}
+          decisionCriteria={rulesFor}
           editable={false}
           mutate={() => {}}
-          onClose={() => setViewingRules(false)}
+          onClose={() => setRulesFor(null)}
         />
       ) : null}
       <ModalStandard
@@ -727,35 +729,67 @@ export default function EditScheduleModal({
 
             {mode === "auto-ship" && (
               <Box my="4">
-                <Flex align="center" justify="between" gap="3" mb="2">
-                  <Text color="text-high" weight="semibold">
-                    Decision criteria
-                  </Text>
-                  <Link onClick={() => setViewingRules(true)}>View rules</Link>
-                </Flex>
                 <SelectField
+                  label={
+                    <Text color="text-high" weight="semibold" mb="0">
+                      Decision criteria
+                    </Text>
+                  }
                   value={criteriaId}
                   onChange={setCriteriaId}
                   options={criteriaOptions.map((c) => ({
                     value: c.id,
                     label: c.name,
                   }))}
-                  // The menu describes each; the closed field names it.
+                  // Each links to its rules; the menu describes them too.
                   formatOptionLabel={({ value, label }, { context }) => {
-                    const description =
-                      context === "menu"
-                        ? criteriaOptions.find((c) => c.id === value)
-                            ?.description
-                        : null;
+                    const criteria = criteriaOptions.find(
+                      (c) => c.id === value,
+                    );
+                    const viewRules = criteria ? (
+                      <Link
+                        className={
+                          context === "value"
+                            ? styles.valueRules
+                            : styles.optionRules
+                        }
+                        // The field's press opens its menu; the option's
+                        // click picks it. Neither should.
+                        onMouseDown={
+                          context === "value"
+                            ? (e) => e.stopPropagation()
+                            : undefined
+                        }
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setRulesFor(criteria);
+                        }}
+                        underline="hover"
+                      >
+                        <Flex
+                          as="span"
+                          align="center"
+                          gap="1"
+                          style={{ whiteSpace: "nowrap" }}
+                        >
+                          View rules
+                          <PiArrowSquareOut size={12} />
+                        </Flex>
+                      </Link>
+                    ) : null;
                     return (
-                      <>
-                        {label}
-                        {description ? (
-                          <Text as="div" size="sm" color="text-mid">
-                            {description}
-                          </Text>
-                        ) : null}
-                      </>
+                      <Flex align="start" justify="between" gap="3">
+                        <Box minWidth="0">
+                          {label}
+                          {context === "menu" && criteria?.description ? (
+                            <Text as="div" size="sm" color="text-mid">
+                              {criteria.description}
+                            </Text>
+                          ) : null}
+                        </Box>
+                        {viewRules}
+                      </Flex>
                     );
                   }}
                   sort={false}
