@@ -309,8 +309,22 @@ export default function ContextualBanditDetailPage({
 
   return (
     <Box>
-      <Flex direction="row" align="start" justify="between" gap="5">
-        <Flex align="center" gap="2">
+      <Flex
+        direction="row"
+        align="start"
+        justify="between"
+        wrap="wrap"
+        gap="5"
+        gapY="3"
+      >
+        <Flex
+          align="center"
+          gap="2"
+          flexGrow="1"
+          flexShrink="1"
+          flexBasis="300px"
+          minWidth="0"
+        >
           <Heading
             as="h1"
             size="xl"
