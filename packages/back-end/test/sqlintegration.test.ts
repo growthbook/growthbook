@@ -398,6 +398,48 @@ describe("bigquery integration", () => {
       );
     });
 
+    it("keeps saved JSON path syntax as written", () => {
+      expect(mysqlDialect.jsonExtract("props", '"a.b"', false)).toBe(
+        `JSON_EXTRACT(props, '$."a.b"')`,
+      );
+      expect(mysqlDialect.jsonExtract("props", "items[*].name", false)).toBe(
+        "JSON_EXTRACT(props, '$.items[*].name')",
+      );
+      expect(bigQueryDialect.jsonExtract("props", '"a.b".c', false)).toBe(
+        `JSON_VALUE(props, '$."a.b".c')`,
+      );
+      expect(prestoDialect.jsonExtract("props", 'a["b c"]', false)).toBe(
+        `json_extract_scalar(props, '$.a["b c"]')`,
+      );
+      expect(mysqlDialect.jsonExtract("props", "$current_url", false)).toBe(
+        "JSON_EXTRACT(props, '$.$current_url')",
+      );
+      expect(snowflakeDialect.jsonExtract("props", '"a.b".c', false)).toBe(
+        `PARSE_JSON(props):"a.b".c::string`,
+      );
+      expect(snowflakeDialect.jsonExtract("props", "a['b c']", false)).toBe(
+        "PARSE_JSON(props):a['b c']::string",
+      );
+      expect(
+        databricksDialect.jsonExtract("props", "items[*].name", false),
+      ).toBe("props:items[*].name");
+      expect(databricksDialect.jsonExtract("props", "a.`b c`", false)).toBe(
+        "props:a.`b c`",
+      );
+    });
+
+    it("still escapes paths it can't parse", () => {
+      expect(mysqlDialect.jsonExtract("props", `"x') OR 1=1 --`, false)).toBe(
+        `JSON_EXTRACT(props, '$."x'') OR 1=1 --')`,
+      );
+      expect(
+        snowflakeDialect.jsonExtract("props", `"x" OR 1=1 --`, false),
+      ).toBe(`PARSE_JSON(props)['"x" OR 1=1 --']::string`);
+      expect(
+        databricksDialect.jsonExtract("props", "a.`b` OR 1=1", false),
+      ).toBe("get_json_object(props, '$.a.`b` OR 1=1')");
+    });
+
     it("quotes other keys inside the JSON path", () => {
       expect(mysqlDialect.jsonExtract("props", "a.x'y[1]", false)).toBe(
         `JSON_EXTRACT(props, '$.a."x''y"[1]')`,

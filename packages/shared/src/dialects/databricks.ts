@@ -6,11 +6,17 @@ import {
   approxTopKCapacity,
   eligibleTopValueExpr,
 } from "./clauses/approx-top-values";
-import { isPlainJsonPath } from "./clauses/json-path";
+import { JsonPathStep, parseJsonPath } from "./clauses/json-path";
 import { baseDialect } from "./base";
 
 const databricksEscapeStringLiteral = (value: string) =>
   value.replace(/(['\\])/g, "\\$1");
+
+const isSafeDatabricksStep = (step: JsonPathStep) =>
+  step.kind === "member"
+    ? /^[A-Za-z_][A-Za-z0-9_]*$/.test(step.raw) ||
+      (step.quote === "`" && /^[^`]*$/.test(step.name))
+    : /^(\d+|\*|'[^'\\]*')$/.test(step.inner);
 
 export const databricksDialect: SqlDialect = {
   ...baseDialect,
@@ -39,10 +45,11 @@ export const databricksDialect: SqlDialect = {
     `HLL_SKETCH_AGG(${databricksDialect.castToString(col)})`,
   hllReaggregate: (col: string) => `HLL_UNION_AGG(${col})`,
   hllCardinality: (col: string) => `HLL_SKETCH_ESTIMATE(${col})`,
-  // The `col:path` form is SQL syntax, so keys that aren't plain identifiers
-  // fall back to get_json_object, which takes the path as a string literal.
+  // The `col:path` form is SQL syntax, so it's only kept when every step is
+  // safe there; otherwise fall back to get_json_object, which takes the path
+  // as a string literal.
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = isPlainJsonPath(path)
+    const raw = parseJsonPath(path)?.every(isSafeDatabricksStep)
       ? `${jsonCol}:${path}`
       : `get_json_object(${jsonCol}, '$.${databricksEscapeStringLiteral(path)}')`;
     return isNumeric ? databricksDialect.castToFloat(raw) : raw;

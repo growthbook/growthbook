@@ -1,34 +1,86 @@
-// JSON field names come from sampled warehouse rows, so only plain keys
-// (optionally followed by array steps like `items[0]`) are written into a
-// JSON path as-is. Everything else gets quoted.
-const PLAIN_JSON_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const ARRAY_STEPS = /(\[\d+\])*$/;
+// A JSON field is either a key sampled from warehouse rows (untrusted, may
+// contain any character) or a path someone typed into the column editor
+// (`user.plan`, `items[0].name`, `"a.b"`, `items[*]`). Parse the path so
+// existing syntax is kept as written and only bare keys that can't be written
+// bare get quoted.
 
-export function splitJsonPath(
-  path: string,
-): { key: string; arraySteps: string }[] {
-  return path.split(".").map((segment) => {
-    const arraySteps = segment.match(ARRAY_STEPS)?.[0] ?? "";
-    return {
-      key: segment.slice(0, segment.length - arraySteps.length),
-      arraySteps,
-    };
-  });
+export type JsonPathStep =
+  | { kind: "member"; raw: string; name: string; quote: "" | '"' | "`" }
+  | { kind: "subscript"; raw: string; inner: string };
+
+// Bare members that every engine reads as a plain key (or wildcard).
+const BARE_MEMBER = /^[A-Za-z0-9_$*]+$/;
+
+function readQuoted(path: string, start: number): number {
+  const quote = path[start];
+  for (let i = start + 1; i < path.length; i++) {
+    if (path[i] === "\\") i++;
+    else if (path[i] === quote) return i + 1;
+  }
+  return -1;
 }
 
-export function isPlainJsonPath(path: string): boolean {
-  return splitJsonPath(path).every(({ key }) => PLAIN_JSON_KEY.test(key));
+// Returns null when the path isn't well-formed member/subscript syntax.
+export function parseJsonPath(path: string): JsonPathStep[] | null {
+  const steps: JsonPathStep[] = [];
+  let i = 0;
+  while (i <= path.length) {
+    const start = i;
+    let name: string;
+    let quote: "" | '"' | "`" = "";
+    if (path[i] === '"' || path[i] === "`") {
+      quote = path[i] as '"' | "`";
+      i = readQuoted(path, i);
+      if (i < 0) return null;
+      name = path.slice(start + 1, i - 1);
+    } else {
+      while (i < path.length && path[i] !== "." && path[i] !== "[") i++;
+      name = path.slice(start, i);
+      if (!name) return null;
+    }
+    steps.push({ kind: "member", raw: path.slice(start, i), name, quote });
+
+    while (path[i] === "[") {
+      const open = i;
+      i++;
+      while (i < path.length && path[i] !== "]") {
+        if (path[i] === "'" || path[i] === '"') {
+          i = readQuoted(path, i);
+          if (i < 0) return null;
+        } else {
+          i++;
+        }
+      }
+      if (path[i] !== "]") return null;
+      i++;
+      steps.push({
+        kind: "subscript",
+        raw: path.slice(open, i),
+        inner: path.slice(open + 1, i - 1),
+      });
+    }
+
+    if (i === path.length) return steps;
+    if (path[i] !== ".") return null;
+    i++;
+  }
+  return null;
 }
 
-// `$.a.b[0]`, with any other key quoted as `."x y"` or `["x y"]`.
+// `$.` + the path for engines that take JSONPath in a string literal, with
+// bare keys that aren't plain quoted as `."x y"` or `["x y"]`. The result
+// still has to be escaped as a SQL string literal.
 export function quoteJsonPath(path: string, style: "dot" | "bracket"): string {
+  const steps = parseJsonPath(path);
+  if (!steps) return `$.${path}`;
   return (
     "$" +
-    splitJsonPath(path)
-      .map(({ key, arraySteps }) => {
-        if (PLAIN_JSON_KEY.test(key)) return `.${key}${arraySteps}`;
-        const quoted = JSON.stringify(key);
-        return `${style === "dot" ? `.${quoted}` : `[${quoted}]`}${arraySteps}`;
+    steps
+      .map((step) => {
+        if (step.kind === "subscript") return step.raw;
+        if (step.quote || BARE_MEMBER.test(step.raw)) return `.${step.raw}`;
+        const quoted = JSON.stringify(step.name);
+        return style === "dot" ? `.${quoted}` : `[${quoted}]`;
       })
       .join("")
   );
