@@ -5,7 +5,7 @@ import {
   getConnectionsSDKCapabilities,
 } from "shared/sdk-versioning";
 import { ReactElement } from "react";
-import { Flex, type AvatarProps } from "@radix-ui/themes";
+import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
 import {
   PiCaretDownFill,
   PiDesktop,
@@ -17,6 +17,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Avatar from "@/ui/Avatar";
+import Frame from "@/ui/Frame";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -51,7 +52,7 @@ const ADD_OPTIONS: Record<
   feature: {
     header: "Feature Flag",
     description: "Make code changes in your app",
-    addLabel: "Add Feature Flag",
+    addLabel: "Feature Flag",
     icon: <PiFlag />,
     color: ICON_PROPERTIES["feature-flag"].radixColor,
     gate: null,
@@ -59,7 +60,7 @@ const ADD_OPTIONS: Record<
   visual: {
     header: "AI Visual Editor",
     description: "No-code browser extension",
-    addLabel: "Add AI Visual Editor changes",
+    addLabel: "AI Visual Editor changes",
     icon: <PiDesktop />,
     color: ICON_PROPERTIES["visual-editor"].radixColor,
     gate: {
@@ -71,7 +72,7 @@ const ADD_OPTIONS: Record<
   urlredirect: {
     header: "URL Redirect",
     description: "A/B test URL redirects",
-    addLabel: "Add URL redirect",
+    addLabel: "URL redirect",
     icon: <PiLink />,
     color: ICON_PROPERTIES.redirects.radixColor,
     gate: {
@@ -180,6 +181,8 @@ export function AddImplementationMenu({
 }: {
   experiment: ExperimentInterfaceStringDates;
   onAdd: Record<AddableKind, () => void>;
+  // The kind the main button adds; none while nothing is added yet, when
+  // each kind is listed with what it's for.
   primary?: AddableKind | null;
   // Why a kind can't be added right now.
   blockedReasons?: Partial<Record<AddableKind, string | null>>;
@@ -195,21 +198,36 @@ export function AddImplementationMenu({
   ));
   if (!primary) {
     return (
-      <DropdownMenu
-        trigger={
-          <Button
-            variant="outline"
-            icon={<PiCaretDownFill />}
-            iconPosition="right"
-          >
-            Add implementation
-          </Button>
-        }
-        menuPlacement="end"
-        variant="soft"
-      >
-        {items}
-      </DropdownMenu>
+      <Frame width="100%" mb="0" px="4" py="2">
+        {ADDABLE_KINDS.map((type, i) => (
+          <Box key={type}>
+            {i > 0 ? <Separator size="4" /> : null}
+            <Flex align="center" justify="between" gap="3" py="2">
+              <Flex align="center" gap="3" minWidth="0">
+                <Avatar
+                  radius="small"
+                  color={ADD_OPTIONS[type].color}
+                  size="sm"
+                  variant="soft"
+                >
+                  {ADD_OPTIONS[type].icon}
+                </Avatar>
+                <Text weight="semibold" color="text-high" whiteSpace="nowrap">
+                  {ADD_OPTIONS[type].header}
+                </Text>
+                <Text color="text-mid">{ADD_OPTIONS[type].description}</Text>
+              </Flex>
+              <AddImplementationButton
+                type={type}
+                experiment={experiment}
+                onClick={onAdd[type]}
+                blockedReason={blockedReasons[type]}
+                ghost
+              />
+            </Flex>
+          </Box>
+        ))}
+      </Frame>
     );
   }
   return (
@@ -248,11 +266,14 @@ function AddImplementationButton({
   experiment,
   onClick,
   blockedReason,
+  ghost = false,
 }: {
   type: AddableKind;
   experiment: ExperimentInterfaceStringDates;
   onClick: () => void;
   blockedReason?: string | null;
+  // A link-like action at the end of a row describing the kind.
+  ghost?: boolean;
 }) {
   const { disabledReason, missingFeature } = useLinkedChangeAddGate(
     type,
@@ -261,10 +282,11 @@ function AddImplementationButton({
   );
   const button = (
     <Button
-      variant="outline"
+      variant={ghost ? "ghost" : "outline"}
       icon={<PiPlus />}
       onClick={onClick}
       disabled={!!disabledReason}
+      aria-label={`Add ${ADD_OPTIONS[type].addLabel}`}
     >
       {ADD_OPTIONS[type].addLabel}
     </Button>

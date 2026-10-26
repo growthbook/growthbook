@@ -372,7 +372,8 @@ export default function Implementation({
         visual: () => setVisualEditorModal(true),
         urlredirect: () => setRedirectModal({ target: null }),
       }}
-      primary={shownKinds.length === 1 ? shownKinds[0] : null}
+      // In priority order, the first kind it already has.
+      primary={shownKinds[0] ?? null}
       blockedReasons={{
         feature: addBlockedReason,
         visual: linkedChangesLockedReason,
