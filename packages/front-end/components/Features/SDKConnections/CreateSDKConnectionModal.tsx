@@ -89,20 +89,25 @@ export default function CreateSDKConnectionModal({
     getConnectionLanguageFilter(initialValue?.languages ?? []),
   );
 
+  const currentCapabilities = getConnectionSDKCapabilities(
+    { languages: value.languages, sdkVersion: value.sdkVersion },
+    "min-ver-intersection",
+  );
+  const latestCapabilities = getConnectionSDKCapabilities(
+    { languages: value.languages, sdkVersion: value.sdkVersion },
+    "max-ver-intersection",
+  );
+  const showVisualEditorSettings = latestCapabilities.includes("visualEditor");
+  const showRedirectSettings = latestCapabilities.includes("redirects");
+
   useEffect(() => {
-    const caps = getConnectionSDKCapabilities(
-      { languages: value.languages, sdkVersion: value.sdkVersion },
-      "max-ver-intersection",
-    );
-    const visual = caps.includes("visualEditor");
-    const redirect = caps.includes("redirects");
     setValue((v) => ({
       ...v,
-      includeVisualExperiments: visual,
-      includeRedirectExperiments: redirect,
-      includeDraftExperiments: visual,
+      includeVisualExperiments: showVisualEditorSettings,
+      includeRedirectExperiments: showRedirectSettings,
+      includeDraftExperiments: showVisualEditorSettings,
     }));
-  }, [value.languages, value.sdkVersion]);
+  }, [showVisualEditorSettings, showRedirectSettings]);
 
   useEffect(() => {
     if (savedGroupFormatChosen.current) return;
@@ -119,15 +124,6 @@ export default function CreateSDKConnectionModal({
   useEffect(() => {
     track("View SDK Connection Form");
   }, []);
-
-  const currentCapabilities = getConnectionSDKCapabilities(
-    { languages: value.languages, sdkVersion: value.sdkVersion },
-    "min-ver-intersection",
-  );
-  const latestCapabilities = getConnectionSDKCapabilities(
-    { languages: value.languages, sdkVersion: value.sdkVersion },
-    "max-ver-intersection",
-  );
 
   const requireProjectSelection = !!settings.requireProjectForSdkConnections;
 
@@ -170,7 +166,6 @@ export default function CreateSDKConnectionModal({
           ...sanitizeAdvancedForSave(value, {
             latestCapabilities,
             currentCapabilities,
-            hasLargeSavedGroupFeature,
           }),
         };
 

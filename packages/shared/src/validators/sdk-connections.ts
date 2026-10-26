@@ -5,7 +5,11 @@ import {
   publishBypassedGatesField,
 } from "./shared";
 import { namedSchema } from "./openapi-helpers";
-import { payloadFormatValidator, webhookMethods } from "./webhooks";
+import {
+  payloadFormatValidator,
+  webhookMethods,
+  webhookTimeoutSecondsValidator,
+} from "./webhooks";
 
 /**
  * The three ways Saved Groups can be written into an SDK payload.
@@ -143,11 +147,21 @@ export const sdkWebhookSnapshotValidator = z.object({
   payloadFormat: payloadFormatValidator.optional(),
   payloadKey: z.string().optional(),
   disabled: z.boolean().optional(),
+  timeoutSeconds: webhookTimeoutSecondsValidator.optional(),
 });
 
 export type SDKWebhookRevisionSnapshot = z.infer<
   typeof sdkWebhookSnapshotValidator
 >;
+
+// A null timeout means "use the default", same as an absent one; dropping it
+// keeps the two from diffing as a change.
+export function parseSdkWebhookSnapshot(
+  value: unknown,
+): SDKWebhookRevisionSnapshot {
+  const { timeoutSeconds, ...rest } = sdkWebhookSnapshotValidator.parse(value);
+  return (timeoutSeconds ?? null) === null ? rest : { ...rest, timeoutSeconds };
+}
 
 export const sdkConnectionSnapshotValidator = z.object({
   sdkConnection: sdkConnectionSettingsSnapshotValidator,
@@ -192,7 +206,11 @@ export const sdkConnectionUpdatableFieldsSchema =
 // Corresponds to payload-schemas/PostSdkConnectionPayload.yaml
 const postSdkConnectionBody = z
   .object({
-    name: z.string(),
+    name: z
+      .string()
+      .describe(
+        "Short display name, usually app and platform (e.g. `Web app`).",
+      ),
     language: z.string(),
     sdkVersion: z.string().optional(),
     environment: z.string(),
@@ -285,6 +303,7 @@ export const postSdkConnectionValidator = {
     })
     .strict(),
   summary: "Create a single sdk connection",
+  confirmation: ["sdkConnection.create"] as const,
   operationId: "postSdkConnection",
   tags: ["sdk-connections"],
   method: "post" as const,
@@ -321,6 +340,7 @@ export const putSdkConnectionValidator = {
   summary: "Update a single sdk connection",
   description:
     "Applies the change immediately and records it as a published revision, so it appears in the connection's history. When the organization requires approvals for this connection's projects and environment, the request is refused unless the API key's role holds the `bypassApprovalSDKConnections` permission or the organization has enabled 'REST API always bypasses approval requirements'; open a draft from the SDK connection page instead. Set `archived` to archive or restore the connection.",
+  confirmation: ["sdkConnection.edit"] as const,
   operationId: "putSdkConnection",
   tags: ["sdk-connections"],
   method: "put" as const,
@@ -339,6 +359,7 @@ export const deleteSdkConnectionValidator = {
   summary: "Deletes a single SDK connection",
   description:
     "The connection must already be archived (`PUT /sdk-connections/{id}` with `archived: true`), so that taking an SDK offline is a reviewable step when the organization requires approvals. Deleting an archived connection needs no approval.",
+  confirmation: ["sdkConnection.delete"] as const,
   operationId: "deleteSdkConnection",
   tags: ["sdk-connections"],
   method: "delete" as const,

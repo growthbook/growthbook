@@ -5,9 +5,13 @@ import {
 } from "shared/types/experiment";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { useCallback, useMemo } from "react";
+import { getEqualWeights } from "shared/experiments";
 import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedChanges/LinkedFeatureFlag";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
+import { experimentVisualChangesetOwner } from "@/components/Experiment/visualChangesetOwner";
+import { useAuth } from "@/services/auth";
 import Avatar from "@/ui/Avatar";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -21,7 +25,7 @@ import {
   LINKED_CHANGE_CONTAINER_PROPERTIES,
   type LinkedChange,
 } from "./constants";
-import AddLinkedChanges from "./AddLinkedChanges";
+import AddLinkedChanges, { type LinkedChangeTarget } from "./AddLinkedChanges";
 
 export default function LinkedChanges({
   linkedFeatures,
@@ -60,8 +64,56 @@ export default function LinkedChanges({
   setEditVariationIndex?: (index: number) => void;
   hideVariations?: boolean;
 }) {
+  const { apiCall } = useAuth();
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
+
+  // Not atomic: a failed changeset sweep leaves orphan visualChanges, which the UI already filters by variation id.
+  const deleteVariation = useCallback(
+    async (variationId: string) => {
+      const newVariations = experiment.variations.filter(
+        (v) => v.id !== variationId,
+      );
+      await apiCall(`/experiment/${experiment.id}`, {
+        method: "POST",
+        body: JSON.stringify({
+          variations: newVariations,
+          variationWeights: getEqualWeights(newVariations.length, 4),
+        }),
+      });
+      await Promise.all(
+        visualChangesets
+          .filter((vc) =>
+            vc.visualChanges.some((c) => c.variation === variationId),
+          )
+          .map((vc) =>
+            apiCall(`/visual-changesets/${vc.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                ...vc,
+                visualChanges: vc.visualChanges.filter(
+                  (c) => c.variation !== variationId,
+                ),
+              }),
+            }),
+          ),
+      );
+    },
+    [apiCall, experiment, visualChangesets],
+  );
+  const changesetOwner = useMemo(
+    () => experimentVisualChangesetOwner(experiment, deleteVariation),
+    [experiment, deleteVariation],
+  );
+  const canAddLinkedChanges =
+    experiment.status === "draft" &&
+    !experiment.nextScheduledStatusUpdate &&
+    !experiment.archived;
+  const linkedChangeTarget: LinkedChangeTarget = {
+    project: experiment.project ?? "",
+    noun: "experiment",
+    types: ["feature-flag", "visual-editor", "redirects"],
+  };
 
   const publicLinkedChangeSummary: { id: LinkedChange; count: number }[] = [
     { id: "feature-flag", count: linkedFeatures.length },
@@ -145,7 +197,7 @@ export default function LinkedChanges({
             />
           ))}
           <VisualChangesetTable
-            experiment={experiment}
+            owner={changesetOwner}
             visualChangesets={visualChangesets}
             mutate={mutate}
             canEditVisualChangesets={canEditVisualChangesets}
@@ -161,19 +213,17 @@ export default function LinkedChanges({
               environmentStates={urlRedirectEnvStates}
             />
           ))}
-          {experiment.status === "draft" &&
-            !experiment.nextScheduledStatusUpdate &&
-            !experiment.archived &&
+          {canAddLinkedChanges &&
             numLinkedChanges > 0 &&
             setFeatureModal &&
             setVisualEditorModal &&
             setUrlRedirectModal && (
               <Flex justify="between" px="1">
                 <Text color="text-high" size="lg" weight="semibold">
-                  Add Feature, URL Redirect or Visual Editor
+                  Add Feature, URL Redirect or AI Visual Editor
                 </Text>
                 <AddLinkedChangeButton
-                  experiment={experiment}
+                  target={linkedChangeTarget}
                   linkedFeatures={linkedFeatures}
                   visualChangesets={visualChangesets}
                   urlRedirects={urlRedirects}
@@ -185,9 +235,9 @@ export default function LinkedChanges({
             )}
           {setFeatureModal && setVisualEditorModal && setUrlRedirectModal && (
             <AddLinkedChanges
-              experiment={experiment}
+              target={linkedChangeTarget}
+              canAdd={canAddLinkedChanges}
               numLinkedChanges={numLinkedChanges}
-              hasLinkedFeatures={linkedFeatures.length > 0}
               setFeatureModal={setFeatureModal}
               setVisualEditorModal={setVisualEditorModal}
               setUrlRedirectModal={setUrlRedirectModal}

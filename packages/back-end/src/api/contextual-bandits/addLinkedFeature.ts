@@ -1,4 +1,4 @@
-import { addContextualBanditLinkedFeatureValidator } from "shared/validators";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -16,10 +16,11 @@ import {
   assertVariationsCoverBandit,
   buildContextualBanditRefRule,
   loadContextualBanditForRead,
+  holdLinkedFeatureWrite,
 } from "./_shared";
 
 export const addContextualBanditLinkedFeature = createApiRequestHandler(
-  addContextualBanditLinkedFeatureValidator,
+  contextualBanditEndpoints.addContextualBanditLinkedFeature,
 )(async (req) => {
   const { contextualBandit } = await loadContextualBanditForRead(
     req.context,
@@ -82,6 +83,13 @@ export const addContextualBanditLinkedFeature = createApiRequestHandler(
     req.context,
     withStagedSchema(feature, staged),
     rule,
+  );
+  // Publishing a new link branches from live, whatever draft was named.
+  await holdLinkedFeatureWrite(
+    req.context,
+    feature,
+    autoPublish,
+    autoPublish ? undefined : draftVersion,
   );
   const result = await linkFeatureToContextualBandit({
     context: req.context,

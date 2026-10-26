@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import {
+  statsEngines,
+  MAX_DESCRIPTION_LENGTH,
+  FEATURE_KEY_PATTERN,
+} from "shared/constants";
 import { eventUser } from "./event-user";
 import {
   featurePrerequisite,
@@ -18,7 +22,7 @@ import {
   ownerEmailField,
   ownerField,
   ownerInputField,
-  requiredUnlessPatOwnerInputField,
+  requiredUnlessPersonOwnerInputField,
 } from "./owner-field";
 import {
   featureRulePatch,
@@ -28,10 +32,19 @@ import {
   rampStartAction,
   rampStartPatch,
   rampMonitoringConfig,
+  apiRampMonitoringConfig,
+  apiRampMonitoringConfigInput,
   stepHoldConditions,
 } from "./ramp-schedule";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  FEATURE_DESCRIPTION,
+  FEATURE_KEY_DESCRIPTION,
+  RULE_DESCRIPTION,
+  TAGS_DESCRIPTION,
+} from "./api-field-descriptions";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -326,6 +339,13 @@ export const JSONSchemaDef = z
   })
   .strict();
 
+// REST input shape: a JSON body can't carry a Date, so the server stamps `date`.
+export const apiJSONSchemaDefInput = JSONSchemaDef.omit({
+  date: true,
+}).describe(
+  "Validation schema to stage on the draft. The server sets `date`, so don't send it.",
+);
+
 const revisionLog = z
   .object({
     // Optional — legacy log entries stored inline on the revision document
@@ -452,6 +472,9 @@ const minimalFeatureRevisionInterface = z
     scheduledPublishLockEdits: z.boolean().optional(),
     scheduledPublishLockOthers: z.boolean().optional(),
     scheduledPublishBypassApproval: z.boolean().optional(),
+    // Lets the flag page load a draft together with its base, without first
+    // loading the draft to find out which base that is.
+    baseVersion: z.number().optional(),
   })
   .strict();
 
@@ -531,6 +554,7 @@ export const revisionRampCreateAction = z.object({
 
 // API input variant — normalize to RevisionRampCreateAction before storing.
 export const apiRevisionRampCreateAction = revisionRampCreateAction.extend({
+  monitoringConfig: apiRampMonitoringConfigInput.optional(),
   steps: z.array(revisionApiRampStep).optional(),
   startActions: z.array(revisionApiRampStartAction).optional(),
   endActions: z.array(revisionApiRampStepAction).optional(),
@@ -578,9 +602,17 @@ const revisionRampAction = z.discriminatedUnion("mode", [
   revisionRampUpdateAction,
   revisionRampDetachAction,
 ]);
+/**
+ * Revision responses return the stored flat monitoring config with its
+ * assignment query grouped, like every other response.
+ */
 export const apiRevisionRampAction = z.discriminatedUnion("mode", [
-  apiRevisionRampCreateAction,
-  apiRevisionRampUpdateAction,
+  apiRevisionRampCreateAction.extend({
+    monitoringConfig: apiRampMonitoringConfig.optional(),
+  }),
+  apiRevisionRampUpdateAction.extend({
+    monitoringConfig: apiRampMonitoringConfig.optional(),
+  }),
   revisionRampDetachAction,
 ]);
 
@@ -601,9 +633,9 @@ export type RevisionRampAction = z.infer<typeof revisionRampAction>;
 // the REST API, and reviewer-scoped queries — don't have to replay the log.
 export const revisionReviewSchema = z
   .object({
-    // Stable reviewer identifier used for upserts/queries: the user id for
-    // dashboard users; the key id (or apiKey identifier) for API keys.
-    // See `reviewerKeyForEventUser`.
+    // Stable reviewer identifier used for upserts/queries: the member behind
+    // the verdict, or the key's id when a key reviewed as itself. See
+    // `eventUserIdentity`.
     userId: z.string(),
     // Full event user who submitted the verdict — lets policy hooks match on
     // type ("dashboard" vs "api_key"), apiKey, email, etc.
@@ -627,17 +659,6 @@ export const revisionReviewSchema = z
   .strict();
 
 export type RevisionReview = z.infer<typeof revisionReviewSchema>;
-
-// Stable identifier for a reviewer across review lifecycle events, or null if
-// the event user can't hold a review verdict (system/anonymous users).
-export function reviewerKeyForEventUser(
-  user: z.infer<typeof eventUser>,
-): string | null {
-  if (!user) return null;
-  if (user.type === "dashboard") return user.id;
-  if (user.type === "api_key") return user.id || user.apiKey || null;
-  return null;
-}
 
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
@@ -690,17 +711,18 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
       .array(z.object({ rampScheduleId: z.string(), ruleId: z.string() }))
       .optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
-    // User IDs who have made edits to this draft. Populated incrementally via
+    // Identities (user or API key IDs) that have edited this draft. Populated incrementally via
     // updateRevision's $addToSet; may be empty if no content edits have been made.
     // Note: the revision author (createdBy) is NOT automatically seeded here.
     contributors: z.array(z.string()).optional(),
+    // API keys that edited this draft in either mode, written with the edit.
+    editorKeys: z.array(z.string()).optional(),
     /** Review-cycle identity; absent legacy values are treated as cycle 0. */
     reviewCycle: z.number().optional(),
     autoPublishOnApproval: z.boolean().optional(),
-    // User ID of whoever most recently armed `autoPublishOnApproval` — the
-    // auto-publish executes with this user's authority. Absent when armed by
-    // an actor without a user ID (e.g. an API key), in which case the
-    // publish falls back to `createdBy`.
+    // Who most recently armed `autoPublishOnApproval`, and whose authority the
+    // auto-publish runs with: a user ID, an API key ID, or `<keyId>:<memberId>`
+    // for a key that assumed a member's role.
     autoPublishEnabledBy: z.string().optional(),
     // Defers an armed revision's auto-publish until on/after this date (and, if
     // required, approved). null/absent = publish as soon as approved.
@@ -1238,24 +1260,6 @@ export const apiRevisionMetadata = z
     "Metadata fields captured in this revision (only present when metadata gating is enabled)",
   );
 
-// ---- EventUser ----
-// API-safe projection of the internal EventUser union (see event-user.ts).
-// Deliberately excludes the api_key actor's `apiKey` field.
-export const apiEventUserValidator = namedSchema(
-  "EventUser",
-  z
-    .object({
-      type: z.enum(["dashboard", "api_key", "system"]),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      email: z.string().optional(),
-    })
-    .strict()
-    .describe("The user (or automated actor) responsible for an action"),
-);
-
-export type ApiEventUser = z.infer<typeof apiEventUserValidator>;
-
 // ---- FeatureRevisionV1 (schemas/FeatureRevisionV1.yaml) ----
 export const apiFeatureRevisionValidator = namedSchema(
   "FeatureRevisionV1",
@@ -1451,7 +1455,11 @@ const postFeatureForceRule = z
   .object({
     ...postFeatureRuleProjectScopeShape,
     ...v1RuleReadOnlyEcho,
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     condition: z
       .string()
       .describe("Applied to everyone by default.")
@@ -1471,7 +1479,11 @@ const postFeatureRolloutRule = z
   .object({
     ...postFeatureRuleProjectScopeShape,
     ...v1RuleReadOnlyEcho,
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     condition: z
       .string()
       .describe("Applied to everyone by default.")
@@ -1504,7 +1516,11 @@ const postFeatureExperimentRefRule = z
   .object({
     ...postFeatureRuleProjectScopeShape,
     ...v1RuleReadOnlyEcho,
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     id: z.string().optional(),
     enabled: z.boolean().describe("Enabled by default").optional(),
     type: z.literal("experiment-ref"),
@@ -1529,7 +1545,11 @@ const postFeatureExperimentRuleFields = {
   ...postFeatureRuleProjectScopeShape,
   ...v1RuleReadOnlyEcho,
   ...v1RuleSavedGroupInput,
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(RULE_DESCRIPTION)
+    .optional(),
   condition: z.string(),
   id: z.string().optional(),
   enabled: z.boolean().describe("Enabled by default").optional(),
@@ -1639,16 +1659,15 @@ const postFeatureBody = z
     id: z
       .string()
       .min(1)
-      .describe(
-        "A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.",
-      ),
+      .meta({ pattern: FEATURE_KEY_PATTERN })
+      .describe(FEATURE_KEY_DESCRIPTION),
     archived: z.boolean().optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the feature")
+      .describe(FEATURE_DESCRIPTION)
       .optional(),
-    owner: requiredUnlessPatOwnerInputField,
+    owner: requiredUnlessPersonOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     targetingAllProjects: z
       .boolean()
@@ -1677,7 +1696,7 @@ const postFeatureBody = z
         'Key of the config backing this flag ("Config mode"). Requires `valueType: "json"` and a live config; `defaultValue` and rule values become override patches on top. null or omitted for a plain flag.',
       )
       .optional(),
-    tags: z.array(z.string()).describe("List of associated tags").optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     environments: z
       .record(z.string(), postFeatureEnvironment)
       .describe(
@@ -1711,7 +1730,7 @@ const updateFeatureBody = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the feature")
+      .describe(FEATURE_DESCRIPTION)
       .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
@@ -1738,9 +1757,7 @@ const updateFeatureBody = z
       .optional(),
     tags: z
       .array(z.string())
-      .describe(
-        "List of associated tags. Will override tags completely with submitted list",
-      )
+      .describe(`${TAGS_DESCRIPTION} Replaces the existing tags completely.`)
       .optional(),
     environments: z
       .record(z.string(), postFeatureEnvironment)
@@ -1835,6 +1852,8 @@ export const postFeatureValidator = {
     "**Deprecated.** Use [POST /v2/features](#operation/postFeatureV2) instead.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
+  confirmation: ["feature.create", "feature.publish"] as const,
+  confirmationInHandler: true,
   operationId: "postFeature",
   tags: ["features"],
   method: "post" as const,
@@ -1881,6 +1900,12 @@ export const updateFeatureValidator = {
     "**Deprecated.** Use [POST /v2/features/:id](#operation/updateFeatureV2) instead.\n\nUpdates the Feature Flag and immediately publishes a new revision. The caller needs Edit access in the Feature Flag's Project and Publish access for every affected environment. When approval is required, use the revision endpoints instead, unless the caller can bypass draft approvals.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "updateFeature",
   tags: ["features"],
   method: "post" as const,
@@ -1904,6 +1929,8 @@ export const deleteFeatureValidator = {
     '**Deprecated.** Use [DELETE /v2/features/:id](#operation/deleteFeatureV2) instead.\n\nPermanently deletes a Feature Flag and all of its revisions. The caller needs Archive & delete access. Deleting a live Feature Flag also requires Publish access for every environment where it is enabled and the organization setting "REST API always bypasses approval requirements". Otherwise, archive the Feature Flag before deleting it.',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
+  confirmation: ["feature.delete"] as const,
+  confirmationInHandler: true,
   operationId: "deleteFeature",
   tags: ["features"],
   method: "delete" as const,
@@ -1947,6 +1974,8 @@ export const toggleFeatureValidator = {
     "**Deprecated.** Use [POST /v2/features/:id/toggle](#operation/toggleFeatureV2) instead.\n\nEnables or disables a Feature Flag in one or more environments and immediately publishes the change. The caller needs Publish access for every environment in the request. When approval is required, use a draft revision instead, unless the caller can bypass draft approvals.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
+  confirmation: ["feature.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  confirmationInHandler: true,
   operationId: "toggleFeature",
   tags: ["features"],
   method: "post" as const,
@@ -1977,6 +2006,12 @@ export const revertFeatureValidator = {
     '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nRestores a previously published revision and immediately publishes the result as a new revision. The caller needs Revert access for every affected environment. When approval is required, the request is allowed only if the caller holds the `FlagsBypassApprovals` policy, or the organization enables either "REST API always bypasses approval requirements" or "Allow reverts without approval".\n\nIf the restored values no longer match the Feature Flag\'s current value type or JSON schema, or restoring an archived state would archive a flag that live flags or experiments still depend on, the API returns 422 with `warnings`. Send `"ignoreWarnings": true` to acknowledge those warnings and continue.',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "revertFeature",
   tags: ["features"],
   method: "post" as const,

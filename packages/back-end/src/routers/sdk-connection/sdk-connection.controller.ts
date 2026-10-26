@@ -15,7 +15,7 @@ import {
   createSdkWebhookValidator,
   sdkConnectionSettingsSnapshotValidator,
   sdkConnectionUpdatableFieldsSchema,
-  sdkWebhookSnapshotValidator,
+  parseSdkWebhookSnapshot,
   SDKConnectionRevisionSnapshot,
   SDKConnectionSettingsRevisionSnapshot,
   SDKWebhookRevisionSnapshot,
@@ -41,6 +41,7 @@ import {
   testProxyConnection,
 } from "back-end/src/models/SdkConnectionModel";
 import { validateRequireProjectForSdkConnections } from "back-end/src/api/sdk-connections/validations";
+import { withReadablePayloadBreakdowns } from "back-end/src/services/sdkPayloadSize";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import {
@@ -80,7 +81,10 @@ export const getSDKConnections = async (
   }>,
 ) => {
   const context = getContextFromReq(req);
-  const connections = await findSDKConnectionsByOrganization(context);
+  const connections = await withReadablePayloadBreakdowns(
+    context,
+    await findSDKConnectionsByOrganization(context),
+  );
   res.status(200).json({
     status: 200,
     connections,
@@ -320,7 +324,7 @@ export const putSDKConnection = async (
 
   // Rows predating `httpMethod` lack it, but the snapshot schema requires it.
   const liveWebhookSnapshots = liveWebhooks.map((wh) =>
-    sdkWebhookSnapshotValidator.parse({
+    parseSdkWebhookSnapshot({
       ...wh,
       httpMethod: wh.httpMethod ?? "POST",
     }),
@@ -330,7 +334,7 @@ export const putSDKConnection = async (
     value: unknown,
   ): SDKWebhookRevisionSnapshot[] | null => {
     if (!Array.isArray(value)) return null;
-    return value.map((wh) => sdkWebhookSnapshotValidator.parse(wh));
+    return value.map((wh) => parseSdkWebhookSnapshot(wh));
   };
 
   const incomingWebhooks = parseIncomingWebhooks(req.body.sdkWebhooks);
@@ -564,6 +568,10 @@ export const checkSDKConnectionProxyStatus = async (
 
   if (!connection) {
     throw new Error("Could not find SDK Connection");
+  }
+
+  if (!context.permissions.canUpdateSDKConnection(connection, {})) {
+    context.permissions.throwPermissionError();
   }
 
   const result = await testProxyConnection(context, connection, true);

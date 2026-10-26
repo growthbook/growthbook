@@ -2,7 +2,12 @@ import { z } from "zod";
 import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { apiBaseSchema } from "./base-model";
 import { queryPointerValidator } from "./queries";
-import { rowFilterValidator, funnelStepValidator } from "./fact-table";
+import {
+  rowFilterValidator,
+  funnelStepValidator,
+  factMetricValidator,
+} from "./fact-table";
+import { populationStepValidator } from "./population";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -12,13 +17,26 @@ const baseValueValidator = z.object({
 });
 
 // Metrics
+export const draftExplorationMetricValidator = factMetricValidator.omit({
+  id: true,
+  organization: true,
+  dateCreated: true,
+  dateUpdated: true,
+});
+
 const metricValueValidator = baseValueValidator.extend({
   type: z.literal("metric"),
   metricId: z.string(),
   unit: z.string().nullable(),
   denominatorUnit: z.string().nullable(),
 });
-export type MetricValue = z.infer<typeof metricValueValidator>;
+// Internal only (metric editor live preview): an unsaved metric definition to
+// run in place of a saved one. Kept out of the public validators so the REST
+// API, OpenAPI spec, and AI agent never accept or document user-authored drafts.
+const internalMetricValueValidator = metricValueValidator.extend({
+  draftMetric: draftExplorationMetricValidator.optional(),
+});
+export type MetricValue = z.infer<typeof internalMetricValueValidator>;
 
 export type DatasetType =
   | "metric"
@@ -26,6 +44,7 @@ export type DatasetType =
   | "data_source"
   | "funnel"
   | "journey"
+  | "population"
   | "sql";
 
 const metricDatasetValidator = z
@@ -34,6 +53,9 @@ const metricDatasetValidator = z
     values: z.array(metricValueValidator),
   })
   .strict();
+const internalMetricDatasetValidator = metricDatasetValidator.extend({
+  values: z.array(internalMetricValueValidator),
+});
 
 // Fact Tables
 const valueType = ["unit_count", "count", "sum"] as const;
@@ -198,6 +220,28 @@ const journeyDatasetValidator = z
   .strict();
 export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;
 
+// Populations: one single-step population definition per value. Step windows
+// aren't supported, so they're not part of the value.
+const populationValueValidator = baseValueValidator.extend({
+  type: z.literal("population"),
+  unit: z.string().nullable(),
+  ...populationStepValidator.pick({
+    source: true,
+    aggregateFilter: true,
+    aggregateFilterColumn: true,
+  }).shape,
+});
+export type PopulationValue = z.infer<typeof populationValueValidator>;
+
+// Internal only until the Explorer supports populations.
+const populationDatasetValidator = z
+  .object({
+    type: z.literal("population"),
+    values: z.array(populationValueValidator),
+  })
+  .strict();
+export type PopulationDataset = z.infer<typeof populationDatasetValidator>;
+
 /**
  * The literal values a discriminated union accepts, as an error message.
  * Zod reports an unrecognized discriminator as "Invalid input" and names no
@@ -227,10 +271,11 @@ export const explorationDatasetValidator = z.discriminatedUnion("type", [
 ]);
 
 const _valueValidator = z.discriminatedUnion("type", [
-  metricValueValidator,
+  internalMetricValueValidator,
   factTableValueValidator,
   dataSourceValueValidator,
   sqlValueValidator,
+  populationValueValidator,
 ]);
 export type ProductAnalyticsValue = z.infer<typeof _valueValidator>;
 
@@ -370,6 +415,11 @@ export const metricExplorationConfigValidator =
     dataset: metricDatasetValidator,
   });
 
+const internalMetricExplorationConfigValidator =
+  metricExplorationConfigValidator.extend({
+    dataset: internalMetricDatasetValidator,
+  });
+
 export const factTableExplorationConfigValidator =
   baseExplorationConfigValidator.extend({
     type: z.literal("fact_table"),
@@ -399,6 +449,12 @@ export const journeyExplorationConfigValidator =
     dataset: journeyDatasetValidator,
   });
 
+export const populationExplorationConfigValidator =
+  baseExplorationConfigValidator.extend({
+    type: z.literal("population"),
+    dataset: populationDatasetValidator,
+  });
+
 const configOptions = [
   metricExplorationConfigValidator,
   factTableExplorationConfigValidator,
@@ -406,6 +462,13 @@ const configOptions = [
   sqlExplorationConfigValidator,
   funnelExplorationConfigValidator,
   journeyExplorationConfigValidator,
+] as const;
+
+// Population previews are stored like any other run but never exposed by the
+// REST API, so they're accepted here and not in `configOptions`.
+const storedConfigOptions = [
+  ...configOptions,
+  populationExplorationConfigValidator,
 ] as const;
 
 // For SQL datasets, we need to know the column types
@@ -484,8 +547,8 @@ export const productAnalyticsExplorationValidator = z.object({
   datasource: z.string(),
   configHash: z.string(),
   valueHashes: z.array(z.string()),
-  config: z.discriminatedUnion("type", configOptions, {
-    error: mustBeOneOf(configOptions, "type"),
+  config: z.discriminatedUnion("type", storedConfigOptions, {
+    error: mustBeOneOf(storedConfigOptions, "type"),
   }),
   result: productAnalyticsResultValidator,
   dateStart: z.string(),
@@ -519,10 +582,29 @@ export const explorationConfigValidator = z.discriminatedUnion(
   configOptions,
   { error: mustBeOneOf(configOptions, "type") },
 );
-export type ExplorationConfig = z.infer<typeof explorationConfigValidator>;
+
+// Internal app endpoints only: also accepts `draftMetric` on metric values.
+const internalConfigOptions = [
+  internalMetricExplorationConfigValidator,
+  factTableExplorationConfigValidator,
+  dataSourceExplorationConfigValidator,
+  sqlExplorationConfigValidator,
+  funnelExplorationConfigValidator,
+  journeyExplorationConfigValidator,
+  populationExplorationConfigValidator,
+] as const;
+export const internalExplorationConfigValidator = z.discriminatedUnion(
+  "type",
+  internalConfigOptions,
+  { error: mustBeOneOf(internalConfigOptions, "type") },
+);
+// Superset of the public shape, so publicly parsed configs are assignable.
+export type ExplorationConfig = z.infer<
+  typeof internalExplorationConfigValidator
+>;
 
 export type MetricExplorationConfig = z.infer<
-  typeof metricExplorationConfigValidator
+  typeof internalMetricExplorationConfigValidator
 >;
 export type FactTableExplorationConfig = z.infer<
   typeof factTableExplorationConfigValidator
@@ -539,12 +621,16 @@ export type FunnelExplorationConfig = z.infer<
 export type JourneyExplorationConfig = z.infer<
   typeof journeyExplorationConfigValidator
 >;
+export type PopulationExplorationConfig = z.infer<
+  typeof populationExplorationConfigValidator
+>;
 
-export type MetricDataset = z.infer<typeof metricDatasetValidator>;
+export type MetricDataset = z.infer<typeof internalMetricDatasetValidator>;
 export type FactTableDataset = z.infer<typeof factTableDatasetValidator>;
 export type DataSourceDataset = z.infer<typeof dataSourceDatasetValidator>;
 export type SqlDataset = z.infer<typeof sqlDatasetValidator>;
-export type ExplorationDataset = z.infer<typeof explorationDatasetValidator>;
+// From the internal config so it matches MetricDataset (with `draftMetric`).
+export type ExplorationDataset = ExplorationConfig["dataset"];
 
 /** Datasets built from a list of values, as opposed to the ones that describe
  *  their own shape (funnels carry `steps`, journeys carry step columns). Prefer
@@ -554,7 +640,8 @@ export type ValuesDataset =
   | MetricDataset
   | FactTableDataset
   | DataSourceDataset
-  | SqlDataset;
+  | SqlDataset
+  | PopulationDataset;
 
 export function datasetHasValues(
   dataset: ExplorationDataset,
@@ -574,6 +661,7 @@ export function datasetHasValues(
     case "fact_table":
     case "data_source":
     case "sql":
+    case "population":
       return true;
     default: {
       const exhaustive: never = dataset;
@@ -610,7 +698,7 @@ export type ProductAnalyticsExploration = z.infer<
 
 export const productAnalyticsRunRequestBodyValidator = z
   .object({
-    config: explorationConfigValidator,
+    config: internalExplorationConfigValidator,
     previousTimeFrame: explorationDateRangeValidator.optional(),
     // The client sends the already-resolved window, so this is only used to pick
     // how the two periods' rows are paired.

@@ -1,7 +1,6 @@
 import escapeRegExp from "lodash/escapeRegExp";
-import mongoose from "mongoose";
-import { UpdateProps } from "shared/types/base-model";
 import {
+  eventUserToApiEventUser,
   ANCHORED_RAMP_SCHEDULE_STATUSES,
   ApiRampScheduleInterface,
   RampScheduleInterface,
@@ -13,12 +12,15 @@ import {
   isReadyForApproval,
   rampScheduleValidator,
 } from "shared/validators";
+import mongoose from "mongoose";
+import { UpdateProps } from "shared/types/base-model";
 import {
   rampSchedulePublishEnvironments,
   RULE_ID_ENV_SUFFIX_DELIMITER,
   stemRuleId,
   isRampScheduleServing,
   unanchoredRampTargets,
+  monitoringConfigToApi,
 } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
 import {
@@ -29,6 +31,7 @@ import {
 } from "back-end/src/services/rampPlanReview";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import type { ApiReqContext } from "back-end/types/api";
+import type { ReqContext } from "back-end/types/request";
 import {
   appendRampEvent,
   assertCanEditRampScheduleConfig,
@@ -42,6 +45,8 @@ import {
   rampStartValuesOf,
   runLockedRampScheduleAction,
   syncLinkedSafeRolloutForRampState,
+  assertValidMonitoringConfigChange,
+  withMonitoringDatasourceKey,
 } from "back-end/src/services/rampSchedule";
 import { applyPagination } from "back-end/src/util/handler";
 import {
@@ -51,6 +56,7 @@ import {
 } from "back-end/src/util/errors";
 import { rampTargetsEquivalent } from "back-end/src/util/flattenRules";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
@@ -237,9 +243,25 @@ export function migrateRampScheduleStatus<T extends { status?: string }>(
   return doc;
 }
 
+/**
+ * `context` must have the monitoring data source cached; the model's
+ * getForeignKeys does that on every read and write.
+ */
 export function rampScheduleToApiInterface(
+  context: ReqContext | ApiReqContext,
   doc: RampScheduleInterface,
 ): ApiRampScheduleInterface {
+  const monitoringConfig = doc.monitoringConfig
+    ? {
+        ...monitoringConfigToApi(
+          doc.monitoringConfig,
+          context.foreignRefs.datasource.get(doc.monitoringConfig.datasourceId)
+            ?.settings?.queries?.exposure ?? [],
+        ),
+        signalMetricIds: doc.monitoringConfig.signalMetricIds ?? [],
+      }
+    : doc.monitoringConfig;
+
   return {
     id: doc.id,
     dateCreated: doc.dateCreated.toISOString(),
@@ -269,12 +291,7 @@ export function rampScheduleToApiInterface(
     nextProcessAt: dateToIso(doc.nextProcessAt),
     elapsedMs: doc.elapsedMs,
     lockdownConfig: doc.lockdownConfig,
-    monitoringConfig: doc.monitoringConfig
-      ? {
-          ...doc.monitoringConfig,
-          signalMetricIds: doc.monitoringConfig.signalMetricIds ?? [],
-        }
-      : doc.monitoringConfig,
+    monitoringConfig,
     experimentHealthAction: doc.experimentHealthAction,
     currentStepEnteredAt: dateToIso(doc.currentStepEnteredAt),
     // The record is only meaningful for the current step (see the field's
@@ -295,6 +312,9 @@ export function rampScheduleToApiInterface(
         ? {
             ...doc.stepApproval,
             approvedAt: doc.stepApproval.approvedAt.toISOString(),
+            approvedByUser: eventUserToApiEventUser(
+              doc.stepApproval.approvedByUser ?? undefined,
+            ),
           }
         : undefined,
     awaitingApproval: isReadyForApproval(doc) || isAwaitingStartApproval(doc),
@@ -415,10 +435,29 @@ function assertTargetsAnchored(
 }
 
 export class RampScheduleModel extends BaseClass {
-  protected async beforeCreate(doc: RampScheduleInterface) {
+  protected override getForeignKeys(doc: RampScheduleInterface) {
+    return withMonitoringDatasourceKey(
+      super.getForeignKeys(doc),
+      doc.monitoringConfig,
+    );
+  }
+  protected override async beforeCreate(doc: RampScheduleInterface) {
     assertTargetsAnchored(doc, []);
   }
-  protected async beforeUpdate(
+  protected override async customValidation(
+    doc: RampScheduleInterface,
+    previousDoc?: RampScheduleInterface,
+  ) {
+    const project = this.getProject(doc);
+    await assertValidMonitoringConfigChange(
+      this.context,
+      previousDoc?.monitoringConfig,
+      doc.monitoringConfig,
+      // A ramp without an anchoring feature has no project to check against.
+      project === undefined ? undefined : { project },
+    );
+  }
+  protected override async beforeUpdate(
     existing: RampScheduleInterface,
     updates: UpdateProps<RampScheduleInterface>,
   ) {
@@ -484,7 +523,7 @@ export class RampScheduleModel extends BaseClass {
     );
   }
 
-  protected migrate(legacyDoc: unknown): RampScheduleInterface {
+  protected override migrate(legacyDoc: unknown): RampScheduleInterface {
     const doc = legacyDoc as RampScheduleInterface;
     const endCondMigrated = migrateRampScheduleEndCondition(doc);
     const statusMigrated = migrateRampScheduleStatus(endCondMigrated);
@@ -578,10 +617,10 @@ export class RampScheduleModel extends BaseClass {
     return result;
   }
 
-  protected toApiInterface(
+  protected override toApiInterface(
     doc: RampScheduleInterface,
   ): ApiRampScheduleInterface {
-    return rampScheduleToApiInterface(doc);
+    return rampScheduleToApiInterface(this.context, doc);
   }
 
   public override async handleApiList(
@@ -783,7 +822,13 @@ export class RampScheduleModel extends BaseClass {
       updates.lockdownConfig = body.lockdownConfig;
     }
     if (body.monitoringConfig !== undefined) {
-      const monitoringConfig = body.monitoringConfig;
+      const monitoringConfig = body.monitoringConfig
+        ? await resolveApiMonitoringConfig(
+            this.context,
+            body.monitoringConfig,
+            schedule.monitoringConfig,
+          )
+        : null;
       updates.monitoringConfig =
         monitoringConfig && monitoringConfig.monitoringMode
           ? {

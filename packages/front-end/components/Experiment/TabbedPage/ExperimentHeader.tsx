@@ -7,7 +7,11 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
-import { experimentHasLiveLinkedChanges, getHoldoutStage } from "shared/util";
+import {
+  resolveAnalysisIdentifierType,
+  experimentHasLiveLinkedChanges,
+  getHoldoutStage,
+} from "shared/util";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
@@ -67,6 +71,7 @@ import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RemoveFromHoldoutModal from "@/components/Experiment/holdout/RemoveFromHoldoutModal";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
+import { datasourcesWithoutHealthData } from "@/components/HealthTab/constants";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
@@ -102,8 +107,6 @@ export interface Props {
   showDashboardView: boolean;
   editSchedule?: (() => void) | null;
 }
-
-const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
 
 const HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP = {
   start: "Holdout starts ",
@@ -213,9 +216,13 @@ export default function ExperimentHeader({
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
+  const exposureQuery = datasourceSettings?.queries?.exposure?.find(
     (e) => e.id === experiment.exposureQueryId,
-  )?.userIdType;
+  );
+  const userIdType = resolveAnalysisIdentifierType(
+    exposureQuery,
+    experiment.exposureQueryIdentifierType,
+  );
 
   const reportArgs: ExperimentSnapshotReportArgs = {
     userIdType: userIdType as "user" | "anonymous" | undefined,
@@ -743,7 +750,7 @@ export default function ExperimentHeader({
       {showTemplateForm && (
         <TemplateForm
           onClose={() => setShowTemplateForm(false)}
-          initialValue={convertExperimentToTemplate(experiment)}
+          initialValue={convertExperimentToTemplate(experiment, exposureQuery)}
           isNewTemplate
           source="experiment"
         />
@@ -890,7 +897,7 @@ export default function ExperimentHeader({
                         linkedFeatures,
                       )
                     }
-                    body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
+                    body="Add at least one live Linked Feature, AI Visual Editor change, or URL Redirect before starting."
                   >
                     <Button
                       variant={checklistReady ? "solid" : "soft"}

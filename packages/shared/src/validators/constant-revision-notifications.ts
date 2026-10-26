@@ -1,41 +1,32 @@
-// Webhook payload schemas for constant revision events (`constant.revision.*`).
-// Modeled on saved-group-revision-notifications.ts. The base shape is the API
-// revision projection, but the JSON-Patch–typed fields (`proposedChanges` and
-// the activity-log snapshots) are loosened to render-safe supersets so the docs
-// generator can emit them.
+// Webhook payload schemas for constant revision events (`constant.revision.*`): the
+// revision with its before, after, patch and review history, plus each event's
+// own fields.
 
 import { z } from "zod";
-import { apiConstantRevisionValidator } from "./constant-revisions";
 import {
   bulkPublishIdField,
   revisionPublishFailedExtension,
 } from "./revision-publish-failed";
+import {
+  keyedEntityReference,
+  revisionWebhookReference,
+  revisionWebhookReview,
+  webhookProposedChanges,
+} from "./revision-webhook-reference";
+import { apiConstantValidator } from "./constant";
+import { apiConstantRevisionValidator } from "./constant-revisions";
 
-const reviewer = z
-  .object({
-    id: z.string().optional(),
-    name: z.string().optional(),
-    email: z.string().optional(),
-  })
-  .strict();
-
-const webhookProposedChanges = z.array(
-  z.object({ op: z.string(), path: z.string() }).passthrough(),
-);
-const webhookActivityLog = z.array(
-  z
-    .object({
-      id: z.string(),
-      userId: z.string(),
-      action: z.string(),
-      dateCreated: z.string(),
-    })
-    .passthrough(),
-);
-
-const constantRevisionWebhookPayload = apiConstantRevisionValidator.extend({
+const constantRevisionWebhookPayload = revisionWebhookReference.extend({
+  constant: keyedEntityReference,
+  baseConstant: apiConstantValidator,
+  proposedConstant: apiConstantValidator,
   proposedChanges: webhookProposedChanges,
-  activityLog: webhookActivityLog,
+  ...apiConstantRevisionValidator.pick({
+    contributors: true,
+    revertedFrom: true,
+    reviews: true,
+    resolution: true,
+  }).shape,
 });
 
 export const constantRevisionCreatedPayload = constantRevisionWebhookPayload;
@@ -100,22 +91,20 @@ export type ConstantRevisionUpdatedPayload = z.infer<
 >;
 
 export const constantRevisionApprovedPayload = constantRevisionWebhookPayload
-  .extend({ reviewer, reviewComment: z.string().nullable() })
+  .extend(revisionWebhookReview)
   .strict();
 export type ConstantRevisionApprovedPayload = z.infer<
   typeof constantRevisionApprovedPayload
 >;
 
 export const constantRevisionChangesRequestedPayload =
-  constantRevisionWebhookPayload
-    .extend({ reviewer, reviewComment: z.string().nullable() })
-    .strict();
+  constantRevisionWebhookPayload.extend(revisionWebhookReview).strict();
 export type ConstantRevisionChangesRequestedPayload = z.infer<
   typeof constantRevisionChangesRequestedPayload
 >;
 
 export const constantRevisionCommentedPayload = constantRevisionWebhookPayload
-  .extend({ reviewer, reviewComment: z.string() })
+  .extend({ ...revisionWebhookReview, reviewComment: z.string() })
   .strict();
 export type ConstantRevisionCommentedPayload = z.infer<
   typeof constantRevisionCommentedPayload

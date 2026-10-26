@@ -25,7 +25,10 @@ import {
   ExperimentSnapshotSettings,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
-import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
+import {
+  resolveExposureQueryForAnalysis,
+  buildUnitsQuerySettingsFromSnapshot,
+} from "shared/util";
 import {
   ExperimentQueryMetadata,
   Queries,
@@ -416,10 +419,11 @@ const startExperimentIncrementalRefreshQueries = async (
     throw new Error("Exposure query not found");
   }
 
-  const resolvedExposureQuery = {
-    query: exposureQuery.query,
-    userIdType: exposureQuery.userIdType,
-  };
+  const resolvedExposureQuery = resolveExposureQueryForAnalysis(
+    exposureQuery,
+    snapshotSettings.exposureQueryIdentifierType,
+  );
+  const exposureUserIdType = resolvedExposureQuery.identifierType;
 
   const unitsSettings = buildUnitsQuerySettingsFromSnapshot(
     snapshotSettings,
@@ -565,7 +569,10 @@ const startExperimentIncrementalRefreshQueries = async (
             unitsMaxTimestamp: watermark.maxTimestamp,
             unitsMaxTimestampRaw: watermark.maxTimestampRaw,
             experimentSettingsHash:
-              getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
+              getExperimentSettingsHashForIncrementalRefresh(
+                snapshotSettings,
+                integration.datasource.settings.queries?.exposure ?? [],
+              ),
             unitsDimensions: eligibleDimensions.map((d) => d.id),
           },
         );
@@ -697,6 +704,7 @@ const startExperimentIncrementalRefreshQueries = async (
             queryMetadata,
           ),
         ),
+        metadata: { factTableIds: [group.factTableId] },
         queryType: "experimentIncrementalRefreshCreateMetricsSourceTable",
       });
       queries.push(createMetricsSourceQuery);
@@ -730,6 +738,7 @@ const startExperimentIncrementalRefreshQueries = async (
           setExternalId,
           queryMetadata,
         ),
+      metadata: { factTableIds: [group.factTableId] },
       queryType: "experimentIncrementalRefreshInsertMetricsSourceData",
     });
     queries.push(insertMetricsSourceDataQuery);
@@ -780,6 +789,7 @@ const startExperimentIncrementalRefreshQueries = async (
           run: fenced((query, setExternalId, queryMetadata) =>
             integration.runDropTableQuery(query, setExternalId, queryMetadata),
           ),
+          metadata: { factTableIds: [group.factTableId] },
           queryType: "experimentIncrementalRefreshDropMetricsCovariateTable",
         });
         queries.push(dropMetricCovariateTableQuery);
@@ -802,6 +812,7 @@ const startExperimentIncrementalRefreshQueries = async (
               queryMetadata,
             ),
           ),
+          metadata: { factTableIds: [group.factTableId] },
           queryType: "experimentIncrementalRefreshCreateMetricsCovariateTable",
         });
         queries.push(createMetricCovariateTableQuery);
@@ -812,7 +823,7 @@ const startExperimentIncrementalRefreshQueries = async (
         context,
         factTable,
         datasourceId: integration.datasource.id,
-        exposureUserIdType: exposureQuery.userIdType,
+        exposureUserIdType,
         regressionAdjustedMetrics,
         settings: snapshotSettings,
         activationMetric,
@@ -923,6 +934,7 @@ const startExperimentIncrementalRefreshQueries = async (
                 idType: covariatePath.idType,
               },
             ),
+          metadata: { factTableIds: [group.factTableId] },
           queryType:
             "experimentIncrementalRefreshInsertMetricsCovariateDataFromAggregated",
         });
@@ -935,8 +947,9 @@ const startExperimentIncrementalRefreshQueries = async (
             // so the fallback window always matches the pre-aggregated path.
             alignLegacyScanToDailyGrain: (
               factTable?.aggregatedFactTableSettings?.idTypes ?? []
-            ).includes(exposureQuery.userIdType),
+            ).includes(exposureUserIdType),
           }),
+          metadata: { factTableIds: [group.factTableId] },
           queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
         });
       }
@@ -1022,6 +1035,7 @@ const startExperimentIncrementalRefreshQueries = async (
           );
         }
       },
+      metadata: { factTableIds: [group.factTableId] },
       queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
     });
     queries.push(maxTimestampMetricsSourceQuery);
@@ -1096,6 +1110,7 @@ const startExperimentIncrementalRefreshQueries = async (
               setExternalId,
               queryMetadata,
             ),
+          metadata: { factTableIds: [group.factTableId] },
           queryType: "experimentIncrementalRefreshStatistics",
         });
         queries.push(statisticsQuery);
@@ -1176,6 +1191,9 @@ const startExperimentIncrementalRefreshQueries = async (
           setExternalId,
           queryMetadata,
         ),
+      metadata: {
+        factTableIds: subGroup.pipelines.map((p) => p.group.factTableId),
+      },
       queryType: "experimentIncrementalRefreshStatistics",
     });
     queries.push(multiSourceStatsQuery);

@@ -1,11 +1,14 @@
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import {
   BigQueryEventForwarderStoredConfig,
+  DatabricksEventForwarderStoredConfig,
   EventForwarderSinkType,
   EventForwarderStatus,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
+import { EventForwarderDatasourceParams } from "shared/util";
 import {
   EventForwarderConfigInterface,
   EventForwarderConnectorPhase,
@@ -26,11 +29,13 @@ import {
 import {
   decryptEventForwarderConfigModel,
   getBigQueryEventForwarderProjectId,
+  isInHouseConsumerTopic,
 } from "back-end/src/services/eventForwarder/config";
 import {
   ensureEventForwarderBigQueryTables,
   resolveBigQueryEventForwarderTablePrefix,
 } from "back-end/src/services/eventForwarder/bigquery";
+import { ensureEventForwarderDatabricksTables } from "back-end/src/services/eventForwarder/databricks";
 import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarder/datasourceQueries";
 import { reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries } from "back-end/src/services/eventForwarder/datasourceSync";
 import { ensureEventForwarderEventsFactTable } from "back-end/src/services/eventForwarder/factTable";
@@ -39,6 +44,8 @@ import {
   assertEventForwarderWriteAccessResult,
   testEventForwarderWriteAccess,
 } from "back-end/src/services/eventForwarder/writeAccess";
+// After writeAccess: the Snowflake service loads SqlIntegration, which must already be initialised.
+import { ensureEventForwarderSnowflakeTables } from "back-end/src/services/eventForwarder/snowflake";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -192,7 +199,7 @@ export async function syncEventForwarderStatusFromLicenseServer(
 export async function provisionEventForwarderThroughLicenseServer(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface | null,
-  datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
+  datasourceParams?: EventForwarderDatasourceParams,
   options?: { restartAfterProvision?: boolean },
 ): Promise<void> {
   if (!eventForwarderConfig) {
@@ -290,6 +297,14 @@ export async function provisionEventForwarderThroughLicenseServer(
           }),
         );
 
+        // Connector configs own their tables (Snowpipe schematization); consumer configs get them from the app.
+        if (isInHouseConsumerTopic(eventForwarderConfig.topic, "snowflake")) {
+          await ensureEventForwarderSnowflakeTables(
+            datasourceParams as SnowflakeConnectionParams,
+            decrypted,
+          );
+        }
+
         result = await postProvisionEventForwarderToLicenseServer({
           organizationId: context.org.id,
           datasourceId: eventForwarderConfig.datasourceId,
@@ -303,21 +318,63 @@ export async function provisionEventForwarderThroughLicenseServer(
         });
         break;
       }
-      case "databricks":
+      case "databricks": {
+        const databricksConnectionParams =
+          datasourceParams as DatabricksConnectionParams;
+        const decrypted =
+          decryptEventForwarderConfigModel<DatabricksEventForwarderStoredConfig>(
+            eventForwarderConfig,
+          );
+
+        assertEventForwarderWriteAccessResult(
+          await testEventForwarderWriteAccess(context, {
+            sinkType: "databricks",
+            datasource,
+            params: databricksConnectionParams,
+            config: decrypted,
+          }),
+        );
+
+        await ensureEventForwarderDatabricksTables(
+          databricksConnectionParams,
+          decrypted,
+        );
+
+        // No Confluent resources; the license server just acks and the consumer picks the config up.
+        result = await postProvisionEventForwarderToLicenseServer({
+          sinkType: "databricks",
+          organizationId: context.org.id,
+          datasourceId: eventForwarderConfig.datasourceId,
+          region: eventForwarderConfig.region ?? "us-east-1",
+        });
+        break;
+      }
       default:
         throw new Error(
           `Unsupported event forwarder sink type for provisioning: ${String(eventForwarderConfig.sinkType)}`,
         );
     }
 
+    // In-house consumer sinks have no connector to wait on: tables exist and
+    // write access passed, so they are ready now.
+    const inHouseConsumer = isInHouseConsumerTopic(
+      eventForwarderConfig.topic,
+      eventForwarderConfig.sinkType,
+    );
     const currentEventForwarderConfig =
       await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
         schemaId: result.schemaId,
-        status: "pending",
+        status: inHouseConsumer ? "ready" : "pending",
         connectorName: result.connectorName,
         connectorId: result.connectorId,
         lastProvisioningError: "",
       });
+    if (inHouseConsumer) {
+      await queueInitialWarehouseSyncIfNeeded(
+        context,
+        currentEventForwarderConfig,
+      );
+    }
 
     try {
       await reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
@@ -415,7 +472,7 @@ export async function provisionEventForwarderThroughLicenseServer(
 export async function updateEventForwarderCredentialsThroughLicenseServer(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface | null,
-  datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
+  datasourceParams?: EventForwarderDatasourceParams,
 ): Promise<void> {
   if (!eventForwarderConfig) {
     return;
@@ -478,6 +535,14 @@ export async function updateEventForwarderCredentialsThroughLicenseServer(
         break;
       }
       case "databricks":
+        // Creds already re-encrypted into the config doc; the license server just acks.
+        await postUpdateEventForwarderCredentialsToLicenseServer({
+          organizationId: context.org.id,
+          datasourceId: eventForwarderConfig.datasourceId,
+          connectorName,
+          sinkType: "databricks",
+        });
+        break;
       default:
         throw new Error(
           `Unsupported event forwarder sink type for credential update: ${String(eventForwarderConfig.sinkType)}`,

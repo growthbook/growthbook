@@ -62,14 +62,14 @@ export function getExperimentUnitsQuery(
     datasource.settings,
     {
       objects: [
-        [exposureQuery.userIdType],
+        [exposureQuery.identifierType],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
         ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
       ],
       from: unitsSettings.startDate,
       to: unitsSettings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
+      forcedBaseIdType: exposureQuery.identifierType,
       experimentId: unitsSettings.experimentId,
     },
   );
@@ -84,6 +84,19 @@ export function getExperimentUnitsQuery(
     unitsSettings.attributionModel === "lookbackOverride";
 
   const contextualBanditCfg = getContextualBanditUnitsSqlConfig(unitsSettings);
+
+  const isContextualBandit = !!unitsSettings.banditSettings?.contextualBandit;
+
+  // Contextual bandits attribute each user to their first exposure (one unit per
+  // user), so multi-variation users are never bucketed as '__multiple__'.
+  const variationValuePerUnit =
+    isContextualBandit || unitsSettings.banditSettings?.useFirstExposure
+      ? getFirstVariationValuePerUnit(dialect)
+      : dialect.ifElse(
+          "count(distinct e.variation) > 1",
+          "'__multiple__'",
+          "max(e.variation)",
+        );
 
   const {
     contextualExposureSelectCols,
@@ -231,16 +244,7 @@ export function getExperimentUnitsQuery(
       -- One row per user
       SELECT
         e.${baseIdType} AS ${baseIdType}
-        , ${
-          !!unitsSettings.banditSettings?.useFirstExposure &&
-          unitsSettings.banditSettings
-            ? getFirstVariationValuePerUnit(dialect)
-            : dialect.ifElse(
-                "count(distinct e.variation) > 1",
-                "'__multiple__'",
-                "max(e.variation)",
-              )
-        } AS variation
+        , ${variationValuePerUnit} AS variation
         , MIN(${timestampColumn}) AS first_exposure_timestamp
         ${unitDimensions
           .map(

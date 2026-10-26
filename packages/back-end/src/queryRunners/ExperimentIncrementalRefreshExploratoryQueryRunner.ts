@@ -1,3 +1,4 @@
+import { resolveExposureQueryForAnalysis } from "shared/util";
 import type { QueryRunnerFailureCause } from "shared/types/query";
 import {
   ExperimentMetricInterface,
@@ -94,10 +95,10 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     throw new Error("Exposure query not found");
   }
 
-  const resolvedExposureQuery = {
-    query: exposureQuery.query,
-    userIdType: exposureQuery.userIdType,
-  };
+  const resolvedExposureQuery = resolveExposureQueryForAnalysis(
+    exposureQuery,
+    snapshotSettings.exposureQueryIdentifierType,
+  );
 
   // Only include metrics tied to this experiment, which is governed by the snapshotSettings.metricSettings
   // after the introduction of metric slices
@@ -313,6 +314,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
             queryMetadata,
           ),
         ),
+        metadata: { factTableIds: [group.factTableId] },
         queryType: "experimentIncrementalRefreshStatistics",
       });
       queries.push(statisticsQuery);
@@ -382,6 +384,9 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
           queryMetadata,
         ),
       ),
+      metadata: {
+        factTableIds: subGroup.pipelines.map((p) => p.group.factTableId),
+      },
       queryType: "experimentIncrementalRefreshStatistics",
     });
     queries.push(multiSourceStatsQuery);

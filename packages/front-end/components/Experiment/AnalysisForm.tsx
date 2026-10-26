@@ -7,21 +7,35 @@ import {
 } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiCaretRightFill } from "react-icons/pi";
-import { datetime, getValidDate } from "shared/dates";
+import { getValidDate } from "shared/dates";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  getExposureQueryIdentifierTypes,
+  resolveAnalysisIdentifierType,
+  isProjectListValidForProject,
+} from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
+import {
+  getDefaultIdentifierType,
+  getExposureQueriesInScope,
+  getExposureQuery,
+  getHashAttributeIdentifierTypeMap,
+  getSelectableIdentifierTypes,
+} from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import AssignmentQueryFields, {
+  AssignmentQueryDriftWarning,
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
@@ -29,10 +43,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import Field from "@/components/Forms/Field";
-import SelectField, {
-  GroupedValue,
-  SingleValue,
-} from "@/components/Forms/SelectField";
+import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -71,6 +82,10 @@ const AnalysisForm: FC<{
   editDates?: boolean;
   editMetrics?: boolean;
   source?: string;
+  /**
+   * A holdout's assignment query must cover every Project the holdout spans.
+   */
+  holdoutProjects?: string[];
 }> = ({
   experiment,
   envs,
@@ -78,6 +93,7 @@ const AnalysisForm: FC<{
   mutate,
   phase,
   source,
+  holdoutProjects,
   editVariationIds = true,
   editDates = true,
   editMetrics = false,
@@ -136,17 +152,44 @@ const AnalysisForm: FC<{
   }
 
   const phaseObj = experiment.phases[phase];
+  const initialDatasource = getDatasourceById(experiment.datasource);
+  const initialDatasourceSettings = initialDatasource?.settings;
+  const initialExposureQuery = getExposureQuery(
+    initialDatasourceSettings,
+    experiment.exposureQueryId,
+    experiment.userIdType,
+  );
+  /**
+   * Show what the experiment analyzes on, even a drifted identifier, so the
+   * form can flag it; with no query yet, pre-fill from the hash attribute.
+   */
+  const initialIdentifierType = initialExposureQuery
+    ? resolveAnalysisIdentifierType(
+        initialExposureQuery,
+        experiment.exposureQueryIdentifierType,
+      )
+    : getDefaultIdentifierType({
+        identifierTypes: getSelectableIdentifierTypes(
+          initialDatasource
+            ? getExposureQueriesInScope(
+                initialDatasource,
+                experiment.project,
+                holdoutProjects,
+              )
+            : [],
+        ),
+        hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
+          initialDatasourceSettings?.userIdTypes,
+        ),
+        hashAttribute: experiment.hashAttribute,
+      });
 
   const form = useForm({
     defaultValues: {
       trackingKey: experiment.trackingKey || "",
       datasource: experiment.datasource || "",
-      exposureQueryId:
-        getExposureQuery(
-          getDatasourceById(experiment.datasource)?.settings,
-          experiment.exposureQueryId,
-          experiment.userIdType,
-        )?.id || "",
+      exposureQueryId: initialExposureQuery?.id || "",
+      exposureQueryIdentifierType: initialIdentifierType,
       activationMetric: experiment.activationMetric || "",
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
@@ -155,12 +198,8 @@ const AnalysisForm: FC<{
         experiment.attributionModel ||
         orgSettings.attributionModel ||
         "firstExposure",
-      dateStarted: getValidDate(phaseObj?.dateStarted ?? "")
-        .toISOString()
-        .substr(0, 16),
-      dateEnded: getValidDate(phaseObj?.dateEnded ?? "")
-        .toISOString()
-        .substr(0, 16),
+      dateStarted: getValidDate(phaseObj?.dateStarted ?? "").toISOString(),
+      dateEnded: getValidDate(phaseObj?.dateEnded ?? "").toISOString(),
       variations: getLatestPhaseVariations(experiment) || [],
       phases: experiment.phases || [],
       sequentialTestingEnabled:
@@ -280,56 +319,49 @@ const AnalysisForm: FC<{
     name: "variations",
   });
 
-  const exposureQueries = useMemo(
-    () => datasource?.settings?.queries?.exposure ?? [],
-    [datasource?.settings?.queries?.exposure],
-  );
   const exposureQueryId = form.watch("exposureQueryId");
-  const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
+  const exposureQueryIdentifierType = form.watch("exposureQueryIdentifierType");
+  const exposureQuery = datasource?.settings?.queries?.exposure?.find(
+    (e) => e.id === exposureQueryId,
+  );
 
-  const hashAttributeToIdentifierTypeMap = useMemo(() => {
-    const map = new Map<string, string[]>();
-    for (const userIdType of datasource?.settings?.userIdTypes ?? []) {
-      for (const attribute of userIdType.attributes ?? []) {
-        map.set(attribute, [
-          ...(map.get(attribute) ?? []),
-          userIdType.userIdType,
-        ]);
-      }
-    }
-    return map;
-  }, [datasource?.settings?.userIdTypes]);
-
-  const groupedExposureQueries = useMemo((): (GroupedValue | SingleValue)[] => {
-    const hashAttribute = experiment.hashAttribute ?? "";
-    const matched = exposureQueries.filter((q) =>
-      hashAttributeToIdentifierTypeMap
-        .get(hashAttribute)
-        ?.includes(q.userIdType),
-    );
-    const unmatched = exposureQueries.filter((q) => !matched.includes(q));
-    if (hashAttributeToIdentifierTypeMap.size > 0) {
-      return [
-        matched.length > 0
-          ? {
-              label: "Matches Hash Attribute",
-              options: matched.map((q) => ({ label: q.name, value: q.id })),
-            }
-          : null,
-        unmatched.length > 0
-          ? {
-              label: "Does Not Match Hash Attribute",
-              options: unmatched.map((q) => ({ label: q.name, value: q.id })),
-            }
-          : null,
-      ].filter((g): g is GroupedValue => g !== null);
-    }
-    return exposureQueries.map((q) => ({ label: q.name, value: q.id }));
-  }, [
-    exposureQueries,
-    hashAttributeToIdentifierTypeMap,
-    experiment.hashAttribute,
-  ]);
+  const setExposureQueryId = useCallback(
+    (value: string) => form.setValue("exposureQueryId", value),
+    [form],
+  );
+  const setExposureQueryIdentifierType = useCallback(
+    (identifierType: string | undefined) => {
+      form.setValue("exposureQueryIdentifierType", identifierType);
+      if (!identifierType) return;
+      const selectedUnitDimensionIds =
+        form.getValues("precomputedUnitDimensionIds") || [];
+      if (!selectedUnitDimensionIds.length) return;
+      const datasourceId = form.getValues("datasource");
+      form.setValue(
+        "precomputedUnitDimensionIds",
+        selectedUnitDimensionIds.filter((id) => {
+          const dimension = dimensions.find((d) => d.id === id);
+          return (
+            dimension?.datasource === datasourceId &&
+            dimension.userIdType === identifierType
+          );
+        }),
+      );
+    },
+    [form, dimensions],
+  );
+  const assignmentQuerySelection = useAssignmentQuerySelection({
+    datasource,
+    project: experiment.project,
+    holdoutProjects,
+    hashAttribute: experiment.hashAttribute,
+    exposureQueryId,
+    identifierType: exposureQueryIdentifierType,
+    setExposureQueryId,
+    setIdentifierType: setExposureQueryIdentifierType,
+    autoRepair: false,
+    keepCurrentSelection: true,
+  });
 
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
@@ -350,10 +382,15 @@ const AnalysisForm: FC<{
         .filter(
           (d) =>
             d.datasource === datasourceField &&
-            (!exposureQuery || d.userIdType === exposureQuery.userIdType),
+            (!exposureQuery ||
+              d.userIdType ===
+                resolveAnalysisIdentifierType(
+                  exposureQuery,
+                  exposureQueryIdentifierType,
+                )),
         )
         .map((d) => ({ label: d.name, value: d.id })),
-    [dimensions, datasourceField, exposureQuery],
+    [dimensions, datasourceField, exposureQuery, exposureQueryIdentifierType],
   );
   const datasourceHasWritableEphemeralPipelineEnabled = useMemo(
     () =>
@@ -529,6 +566,9 @@ const AnalysisForm: FC<{
           </FormProvider>
         )}
 
+        {!editingDataSource && datasource?.properties?.exposureQueries && (
+          <AssignmentQueryDriftWarning selection={assignmentQuerySelection} />
+        )}
         {!editingDataSource ? (
           <Box className="rounded mb-3 px-3 py-2 bg-highlight">
             <Flex justify="between" align="start" gap="3">
@@ -548,12 +588,24 @@ const AnalysisForm: FC<{
                 {datasource?.properties?.exposureQueries && (
                   <Box mb="1">
                     <Text size="sm" color="text-mid">
+                      Identifier Type:
+                    </Text>{" "}
+                    <Text size="sm" weight="medium">
+                      {exposureQueryIdentifierType || (
+                        <Text color="text-mid" fontStyle="italic">
+                          Choose...
+                        </Text>
+                      )}
+                    </Text>
+                  </Box>
+                )}
+                {datasource?.properties?.exposureQueries && (
+                  <Box mb="1">
+                    <Text size="sm" color="text-mid">
                       Experiment Assignment Table:
                     </Text>{" "}
                     <Text size="sm" weight="medium">
-                      {exposureQueries?.find(
-                        (q) => q.id === form.watch("exposureQueryId"),
-                      )?.name || (
+                      {exposureQuery?.name || (
                         <Text color="text-mid" fontStyle="italic">
                           Choose...
                         </Text>
@@ -604,6 +656,25 @@ const AnalysisForm: FC<{
                   !getExposureQuery(ds?.settings, form.watch("exposureQueryId"))
                 ) {
                   form.setValue("exposureQueryId", "");
+                  form.setValue(
+                    "exposureQueryIdentifierType",
+                    getDefaultIdentifierType({
+                      identifierTypes: getSelectableIdentifierTypes(
+                        ds
+                          ? getExposureQueriesInScope(
+                              ds,
+                              experiment.project,
+                              holdoutProjects,
+                            )
+                          : [],
+                      ),
+                      hashAttributeIdentifierTypeMap:
+                        getHashAttributeIdentifierTypeMap(
+                          ds?.settings?.userIdTypes,
+                        ),
+                      hashAttribute: experiment.hashAttribute,
+                    }),
+                  );
                 }
 
                 // If the segment is now invalid
@@ -669,50 +740,10 @@ const AnalysisForm: FC<{
               }
             />
             {datasource?.properties?.exposureQueries && (
-              <SelectField
-                label={
-                  <>
-                    Experiment Assignment Table{" "}
-                    <Tooltip body="Should correspond to the Identifier Type used to randomize units for this experiment" />
-                  </>
-                }
-                value={form.watch("exposureQueryId") ?? ""}
-                onChange={(v) => {
-                  form.setValue("exposureQueryId", v);
-
-                  const newUserIdType = exposureQueries?.find(
-                    (e) => e.id === v,
-                  )?.userIdType;
-                  if (!newUserIdType) return;
-
-                  removeInvalidPrecomputedUnitDimensionIds({
-                    datasourceId: form.watch("datasource"),
-                    userIdType: newUserIdType,
-                  });
-                }}
-                required
-                sort={false}
-                disabled={isBandit && experiment.status !== "draft"}
+              <AssignmentQueryFields
+                selection={assignmentQuerySelection}
                 placeholder="Choose..."
-                options={groupedExposureQueries}
-                formatOptionLabel={({ label, value }) => {
-                  const userIdType = exposureQueries?.find(
-                    (e) => e.id === value,
-                  )?.userIdType;
-                  return (
-                    <>
-                      {label}
-                      {userIdType ? (
-                        <span
-                          className="text-muted small float-right position-relative"
-                          style={{ top: 3 }}
-                        >
-                          Identifier Type: <code>{userIdType}</code>
-                        </span>
-                      ) : null}
-                    </>
-                  );
-                }}
+                disabled={isBandit && experiment.status !== "draft"}
               />
             )}
             {datasource && !isHoldout && (
@@ -769,11 +800,12 @@ const AnalysisForm: FC<{
             <div className="row">
               <div className="col">
                 <DatePicker
-                  label="Start Time (UTC)"
+                  label="Start time"
+                  timeZone="utc"
                   helpText="Only include users who entered the experiment on or after this date"
                   date={form.watch("dateStarted")}
                   setDate={(v) => {
-                    form.setValue("dateStarted", v ? datetime(v) : "");
+                    form.setValue("dateStarted", v ? v.toISOString() : "");
                   }}
                   scheduleEndDate={form.watch("dateEnded")}
                   disableAfter={form.watch("dateEnded") || undefined}
@@ -782,11 +814,12 @@ const AnalysisForm: FC<{
               {experiment.status === "stopped" && (
                 <div className="col">
                   <DatePicker
-                    label="End Time (UTC)"
+                    label="End time"
+                    timeZone="utc"
                     helpText="Only include users who entered the experiment on or before this date"
                     date={form.watch("dateEnded")}
                     setDate={(v) => {
-                      form.setValue("dateEnded", v ? datetime(v) : "");
+                      form.setValue("dateEnded", v ? v.toISOString() : "");
                     }}
                     scheduleStartDate={form.watch("dateStarted")}
                     disableBefore={form.watch("dateStarted") || undefined}
@@ -984,6 +1017,7 @@ const AnalysisForm: FC<{
               noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
               datasource={form.watch("datasource")}
               exposureQueryId={exposureQueryId}
+              exposureQueryIdentifierType={exposureQueryIdentifierType}
               project={experiment.project}
               goalMetrics={form.watch("goalMetrics")}
               secondaryMetrics={form.watch("secondaryMetrics")}
@@ -1023,6 +1057,7 @@ const AnalysisForm: FC<{
                     disabled={isExperimentIncludedInIncrementalRefresh}
                     datasource={form.watch("datasource")}
                     exposureQueryId={exposureQueryId}
+                    exposureQueryIdentifierType={exposureQueryIdentifierType}
                     project={experiment.project}
                     includeFacts={true}
                     label={
@@ -1218,7 +1253,9 @@ const AnalysisForm: FC<{
                               {["timestamp", "variation_id"]
                                 .concat(
                                   exposureQuery
-                                    ? [exposureQuery.userIdType]
+                                    ? getExposureQueryIdentifierTypes(
+                                        exposureQuery,
+                                      )
                                     : [],
                                 )
                                 .concat(exposureQuery?.dimensions || [])

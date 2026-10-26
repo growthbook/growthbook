@@ -1,17 +1,21 @@
 import { Response } from "express";
-import { Column } from "shared/types/integrations";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";
 import { queueUpdateInformationSchema } from "back-end/src/jobs/updateInformationSchema";
 import { queueUpdateStaleInformationSchemaTable } from "back-end/src/jobs/updateStaleInformationSchemaTable";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getInformationSchemaByDatasourceId } from "back-end/src/models/InformationSchemaModel";
+import {
+  getInformationSchemaByDatasourceId,
+  updateInformationSchemaById,
+} from "back-end/src/models/InformationSchemaModel";
 import {
   createInformationSchemaTable,
   getInformationSchemaTableById,
 } from "back-end/src/models/InformationSchemaTablesModel";
 import {
   fetchTableData,
+  getInformationSchemaColumns,
   getInformationSchemaWithPaths,
+  refreshInformationSchemaTable,
 } from "back-end/src/services/informationSchema";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -118,12 +122,7 @@ export async function getTableData(
     return;
   }
 
-  const columns: Column[] = tableData.map((row) => {
-    return {
-      columnName: row.column_name,
-      dataType: row.data_type,
-    };
-  });
+  const columns = getInformationSchemaColumns(tableData);
 
   // Create the table record in Mongo.
   const newTable = await createInformationSchemaTable({
@@ -151,10 +150,10 @@ export async function putTableData(
   >,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { tableId } = req.params;
 
-  const table = await getInformationSchemaTableById(org.id, tableId);
+  const table = await getInformationSchemaTableById(context.org.id, tableId);
 
   if (!table) {
     res.status(404).json({
@@ -164,9 +163,10 @@ export async function putTableData(
     return;
   }
 
-  await queueUpdateStaleInformationSchemaTable(org.id, table.id);
-
-  res.status(200).json({ message: "Job scheduled successfully" });
+  res.status(200).json({
+    status: 200,
+    table: await refreshInformationSchemaTable(context, table),
+  });
 }
 
 export async function postInformationSchema(
@@ -216,6 +216,13 @@ export async function putInformationSchema(
   if (!context.permissions.canRunSchemaQueries(datasource)) {
     context.permissions.throwPermissionError();
   }
+
+  // Before responding, so a client polling for this refresh can't mistake the
+  // previous result for its own
+  await updateInformationSchemaById(org.id, informationSchemaId, {
+    status: "PENDING",
+    error: null,
+  });
 
   await queueUpdateInformationSchema(
     datasource.id,

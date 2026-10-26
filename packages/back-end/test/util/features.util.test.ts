@@ -1,6 +1,8 @@
+import type { LegacyFeatureInterface } from "shared/types/feature";
 import {
   applyEnvironmentInheritance,
   filterRefreshableSDKConnections,
+  toFeatureMetaInfo,
 } from "../../src/util/features";
 
 describe("feature utils", () => {
@@ -308,6 +310,75 @@ describe("feature utils", () => {
       const connections = [{ key: "a", archived: true }, { key: "b" }];
       filterRefreshableSDKConnections(connections);
       expect(connections).toHaveLength(2);
+    });
+  });
+});
+
+describe("toFeatureMetaInfo", () => {
+  const date = new Date("2026-01-01T00:00:00Z");
+  const prerequisite = { id: "parent", condition: '{"value": true}' };
+  const stored = (doc: Record<string, unknown>) =>
+    ({
+      id: "f",
+      project: "",
+      owner: "o",
+      description: "",
+      valueType: "boolean",
+      defaultValue: "true",
+      archived: false,
+      version: 1,
+      dateCreated: date,
+      dateUpdated: date,
+      ...doc,
+    }) as unknown as LegacyFeatureInterface;
+
+  it("summarizes a bare flag, defaulting the lists a lean read leaves out", () => {
+    expect(toFeatureMetaInfo(stored({}), false)).toEqual({
+      id: "f",
+      project: "",
+      targetingProjects: [],
+      targetingAllProjects: undefined,
+      archived: false,
+      description: "",
+      dateCreated: date,
+      dateUpdated: date,
+      tags: [],
+      owner: "o",
+      valueType: "boolean",
+      version: 1,
+      linkedExperiments: [],
+      neverStale: undefined,
+      hasPrerequisites: false,
+      hasSavedGroups: false,
+      configBackingKey: null,
+      revision: undefined,
+    });
+  });
+
+  it.each([
+    ["flag", { prerequisites: [prerequisite] }],
+    ["rule", { rules: [{ id: "r", prerequisites: [prerequisite] }] }],
+    [
+      "environment",
+      { environmentSettings: { dev: { prerequisites: [prerequisite] } } },
+    ],
+  ])("finds prerequisites on the %s", (level, doc) => {
+    expect(toFeatureMetaInfo(stored(doc), false).hasPrerequisites).toBe(true);
+  });
+
+  it("flags saved groups and config backing, and adds the default value when asked", () => {
+    const meta = toFeatureMetaInfo(
+      stored({
+        baseConfig: "cfg_1",
+        rules: [{ id: "r", savedGroups: [{ ids: ["g"] }] }],
+      }),
+      true,
+    );
+    expect(meta).toMatchObject({
+      hasSavedGroups: true,
+      hasPrerequisites: false,
+      configBackingKey: "cfg_1",
+      defaultValue: "true",
     });
   });
 });

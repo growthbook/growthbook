@@ -3,6 +3,12 @@ import {
   featureReviewCandidateProjects,
 } from "shared/util";
 import type { OrganizationSettings } from "shared/types/organization";
+import {
+  EventUser as EventUserType,
+  eventUserIdentity,
+  eventUserLabel,
+  revisionActor,
+} from "shared/validators";
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { Box, Flex, TextField } from "@radix-ui/themes";
@@ -23,7 +29,7 @@ import Text from "@/ui/Text";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
-import Owner from "@/components/Avatar/Owner";
+import EventUser from "@/components/Avatar/EventUser";
 import Pagination from "@/ui/Pagination";
 import { DocLink } from "@/components/DocLink";
 import {
@@ -89,6 +95,7 @@ type ApprovalRow = {
   entityName: string;
   entityType: string;
   authorId: string;
+  author: EventUserType;
   authorDisplay: string;
   status: RevisionStatus;
   // Store as a numeric timestamp (ms) so useSearch's sort comparator (which
@@ -207,6 +214,7 @@ function revisionToRow(revision: Revision): ApprovalRow {
     entityName,
     entityType: revision.target.type,
     authorId: revision.authorId,
+    author: revisionActor(revision, revision.authorId),
     authorDisplay: "",
     status: revision.status,
     dateCreated: new Date(revision.dateCreated).getTime(),
@@ -236,13 +244,7 @@ function featureRevisionToRow(
   revision: FeatureRevisionWithMeta,
   settings: OrganizationSettings,
 ): ApprovalRow | null {
-  // Only show revisions with an identifiable logged-in author (matches the
-  // shape expected by the "Requested by" column).
-  const createdBy = revision.createdBy;
-  const authorId =
-    createdBy && createdBy.type === "dashboard" ? createdBy.id : "";
-  const authorDisplay =
-    createdBy && createdBy.type === "dashboard" ? createdBy.name : "";
+  const author = revision.createdBy ?? null;
 
   // `pending-parent` revisions are held child revisions managed by ramp
   // schedules and are not user-actionable, so they should not appear in the
@@ -265,8 +267,9 @@ function featureRevisionToRow(
     version: revision.version,
     entityName: revision.featureId,
     entityType: "feature",
-    authorId,
-    authorDisplay,
+    authorId: eventUserIdentity(author) ?? "",
+    author,
+    authorDisplay: "",
     status,
     dateCreated: new Date(revision.dateCreated).getTime(),
     url: `/features/${revision.featureId}?v=${revision.version}`,
@@ -322,21 +325,32 @@ const ApprovalRequests: FC = () => {
     return Array.from(types);
   }, [rows]);
 
-  const authors = useMemo(() => {
-    const authorSet = new Set(rows.map((r) => r.authorId));
-    return Array.from(authorSet).filter(Boolean);
-  }, [rows]);
+  const approvalItems = useAddComputedFields(
+    rows,
+    (item) => ({
+      ...item,
+      authorDisplay: eventUserLabel(item.author, {
+        nameFor: (id) => getUserDisplay(id, false),
+      }),
+      // Composite key so the default view sorts by status priority first and
+      // then by date-requested (newest first) within each status bucket. The
+      // date is subtracted so ascending numeric sort gives newest-first per
+      // bucket. Using a large status multiplier guarantees status dominates the
+      // sort regardless of timestamp magnitude.
+      _sortKey: STATUS_PRIORITY[item.status] * 1e15 - item.dateCreated,
+    }),
+    [getUserDisplay],
+  );
 
-  const approvalItems = useAddComputedFields(rows, (item) => ({
-    ...item,
-    authorDisplay: item.authorDisplay || getUserDisplay(item.authorId) || "",
-    // Composite key so the default view sorts by status priority first and
-    // then by date-requested (newest first) within each status bucket. The
-    // date is subtracted so ascending numeric sort gives newest-first per
-    // bucket. Using a large status multiplier guarantees status dominates the
-    // sort regardless of timestamp magnitude.
-    _sortKey: STATUS_PRIORITY[item.status] * 1e15 - item.dateCreated,
-  }));
+  const authors = useMemo(
+    () =>
+      new Map(
+        approvalItems
+          .filter((r) => r.authorId)
+          .map((r) => [r.authorId, r.authorDisplay] as const),
+      ),
+    [approvalItems],
+  );
 
   const { items, searchInputProps, SortableTH, syntaxFilters, setSearchValue } =
     useSearch({
@@ -558,9 +572,9 @@ const ApprovalRequests: FC = () => {
     const f = syntaxFilters.find((s) => s.field === "author");
     if (!f || f.values.length === 0) return "Requested by: Any";
     return `Requested by: ${f.values
-      .map((v) => getUserDisplay(v) || v)
+      .map((v) => getUserDisplay(v, false) || authors.get(v) || v)
       .join(", ")}`;
-  }, [syntaxFilters, getUserDisplay]);
+  }, [syntaxFilters, getUserDisplay, authors]);
 
   const statusHeading = useMemo(() => {
     const values: string[] = hasExplicitStatusFilter
@@ -648,10 +662,10 @@ const ApprovalRequests: FC = () => {
             syntaxFilters={syntaxFilters}
             open={dropdownFilterOpen}
             setOpen={setDropdownFilterOpen}
-            items={authors.map((a) => ({
-              name: getUserDisplay(a) || a,
-              id: a,
-              searchValue: getUserDisplay(a) || a,
+            items={Array.from(authors, ([id, label]) => ({
+              name: getUserDisplay(id, false) || label,
+              id,
+              searchValue: getUserDisplay(id, false) || label,
             }))}
             updateQuery={updateQuery}
           />
@@ -732,7 +746,11 @@ const ApprovalRequests: FC = () => {
                   <td>{getEntityTypeLabel(row.entityType)}</td>
                   <td>
                     {row.authorId ? (
-                      <Owner ownerId={row.authorId} />
+                      <EventUser
+                        user={row.author}
+                        display="avatar-name"
+                        size="sm"
+                      />
                     ) : (
                       row.authorDisplay || "--"
                     )}

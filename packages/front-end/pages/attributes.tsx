@@ -1,15 +1,12 @@
 import React, { FC, ReactNode, useEffect, useMemo, useState } from "react";
 import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
-import { BiShow } from "react-icons/bi";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import RadixTooltip from "@/ui/Tooltip";
-import Modal from "@/components/Modal";
 import { useAttributeSchema } from "@/services/features";
 import AttributeModal from "@/components/Features/AttributeModal";
 import AttributeRowMenu from "@/components/Features/AttributeRowMenu";
-import AttributeReferencesList from "@/components/Features/AttributeReferencesList";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -20,7 +17,6 @@ import AttributeSearchFilters from "@/components/Search/AttributeSearchFilters";
 import SortedTags from "@/components/Tags/SortedTags";
 import Markdown from "@/components/Markdown/Markdown";
 import Link from "@/ui/Link";
-import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { TruncateMiddleWithTooltip } from "@/ui/TruncateMiddleWithTooltip";
 import Table, {
   TableHeader,
@@ -134,12 +130,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
   );
 
   const [modalData, setModalData] = useState<null | string>(null);
-
-  const attributeKeys = useMemo(
-    () => attributeSchema.map((a) => a.property),
-    [attributeSchema],
-  );
-  const { references } = useAttributeReferences(attributeKeys);
 
   // Column ids are namespaced `custom:<fieldId>`. Those ids are org-unique, so a
   // saved layout carried into another org just resolves away instead of breaking.
@@ -263,14 +253,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
     );
   }, [syntaxFilters]);
 
-  const [referencesProperty, setReferencesProperty] = useState<string | null>(
-    null,
-  );
-  const referencesAttribute =
-    referencesProperty !== null
-      ? attributeSchema.find((a) => a.property === referencesProperty)
-      : undefined;
-
   type AttributeRow = (typeof attributesWithComputedFields)[number];
 
   const columnDefs = useMemo<TableColumnDef<AttributeRow>[]>(
@@ -386,41 +368,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
         ),
       },
       {
-        id: "references",
-        label: "References",
-        defaultWidth: 130,
-        cellProps: () => ({ className: "text-gray" }),
-        render: (v) => {
-          const refs = references?.[v.property];
-          const numReferences =
-            (refs?.features.length ?? 0) +
-            (refs?.experiments.length ?? 0) +
-            (refs?.savedGroups.length ?? 0);
-
-          return numReferences > 0 ? (
-            <Link
-              onClick={() => setReferencesProperty(v.property)}
-              style={{ whiteSpace: "nowrap" }}
-            >
-              <BiShow /> {numReferences} reference
-              {numReferences === 1 ? "" : "s"}
-            </Link>
-          ) : (
-            <Tooltip body="No features, experiments, or condition groups reference this attribute.">
-              <span
-                style={{
-                  whiteSpace: "nowrap",
-                  color: "var(--gray-10)",
-                  cursor: "not-allowed",
-                }}
-              >
-                <BiShow /> 0 references
-              </span>
-            </Tooltip>
-          );
-        },
-      },
-      {
         id: "hashAttribute",
         label: "Identifier",
         header: (
@@ -458,9 +405,15 @@ const FeatureAttributesPage = (): React.ReactElement => {
         cellProps: () => ({ className: "text-gray" }),
         render: (v) => {
           const raw = v.customFields?.[f.id] ?? "";
-          if (!raw) return null;
+          const text = customFieldValueToText(f, raw);
+          if (!text.trim()) return null;
           return (
-            <ClampedCell tooltip={customFieldValueToText(f, raw)}>
+            <ClampedCell
+              tooltip={text}
+              clampLines={
+                f.type === "textarea" || f.type === "markdown" ? 2 : 1
+              }
+            >
               {renderCustomFieldValue(f, raw)}
             </ClampedCell>
           );
@@ -498,7 +451,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         ),
       },
     ],
-    [references, attributeCustomFields],
+    [attributeCustomFields],
   );
 
   const {
@@ -704,31 +657,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
           {pagination}
         </Box>
       </Box>
-      {referencesAttribute && (
-        <Modal
-          header={`'${referencesAttribute.property}' References`}
-          trackingEventModalType="show-attribute-references"
-          close={() => setReferencesProperty(null)}
-          open={true}
-          closeCta="Close"
-        >
-          <Text as="p" mb="3">
-            This attribute is referenced by the following features, experiments,
-            and condition groups.
-          </Text>
-          <AttributeReferencesList
-            features={
-              references?.[referencesAttribute.property]?.features ?? []
-            }
-            experiments={
-              references?.[referencesAttribute.property]?.experiments ?? []
-            }
-            conditionGroups={
-              references?.[referencesAttribute.property]?.savedGroups ?? []
-            }
-          />
-        </Modal>
-      )}
       {modalData !== null && (
         <AttributeModal
           close={() => setModalData(null)}

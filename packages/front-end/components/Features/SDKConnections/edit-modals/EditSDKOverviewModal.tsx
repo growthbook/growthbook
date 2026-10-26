@@ -41,7 +41,6 @@ export default function EditSDKOverviewModal({
 } & SdkConnectionRevisionProps) {
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
-  const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
   const [value, setValue] = useState<FormValue>(() => ({
     name: connection.name,
     languages: connection.languages ?? [],
@@ -119,7 +118,6 @@ export default function EditSDKOverviewModal({
           ...sanitizeAdvancedForSave(value, {
             latestCapabilities,
             currentCapabilities,
-            hasLargeSavedGroupFeature,
           }),
         });
       }}

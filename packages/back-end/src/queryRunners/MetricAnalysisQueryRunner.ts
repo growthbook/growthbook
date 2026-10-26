@@ -1,11 +1,16 @@
 import { UpdateProps } from "shared/types/base-model";
 import { getValidDateOffsetByUTC } from "shared/dates";
-import { isBinomialMetric, isRatioMetric } from "shared/experiments";
+import {
+  getFactMetricFactTableIds,
+  isBinomialMetric,
+  isRatioMetric,
+} from "shared/experiments";
 import {
   meanVarianceFromSums,
   proportionVarianceFromSums,
   ratioVarianceFromSums,
   returnZeroIfNotFinite,
+  getExposureQueryIdentifierTypes,
 } from "shared/util";
 import { DEFAULT_METRIC_HISTOGRAM_BINS } from "shared/constants";
 import {
@@ -59,12 +64,23 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
       );
     }
 
+    if (
+      populationExposureQuery &&
+      !getExposureQueryIdentifierTypes(populationExposureQuery).includes(
+        params.settings.userIdType,
+      )
+    ) {
+      throw new Error(
+        `Population exposure query "${populationExposureQuery.id}" does not declare identifier type "${params.settings.userIdType}"`,
+      );
+    }
+
     const paramsWithPopulation: MetricAnalysisParams = {
       ...params,
       populationExposureQuery: populationExposureQuery
         ? {
             query: populationExposureQuery.query,
-            userIdType: populationExposureQuery.userIdType,
+            identifierType: params.settings.userIdType,
           }
         : undefined,
     };
@@ -83,6 +99,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
             setExternalId,
             queryMetadata,
           ),
+        metadata: { factTableIds: getFactMetricFactTableIds(this.metric) },
         queryType: "metricAnalysis",
       }),
     ];

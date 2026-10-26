@@ -6,10 +6,10 @@ import {
 import { Flex } from "@radix-ui/themes";
 import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import SDKLanguageLogo from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import EnvironmentProjectsBadge from "@/components/Features/SDKConnections/EnvironmentProjectsBadge";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
-import Badge from "@/ui/Badge";
 import Link from "@/ui/Link";
 import Metadata from "@/ui/Metadata";
 
@@ -79,10 +79,9 @@ export default function SDKConnectionHeaderMeta({
           value={
             <Flex align="center" gap="2" wrap="wrap">
               {showAllEnvironmentProjects ? (
-                <Badge
-                  color="teal"
-                  variant="solid"
-                  label={`All env projects (${envProjects.length})`}
+                <EnvironmentProjectsBadge
+                  environment={connection.environment}
+                  projectIds={envProjects}
                 />
               ) : (
                 <ProjectBadges

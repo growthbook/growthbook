@@ -29,7 +29,6 @@ const allOn: SDKConnectionAdvancedValue = {
 const fullyCapable: Parameters<typeof sanitizeAdvancedForSave>[1] = {
   latestCapabilities: ["visualEditor", "redirects", "savedGroupReferences"],
   currentCapabilities: ["savedGroupReferences"],
-  hasLargeSavedGroupFeature: true,
 };
 
 describe("shouldShowPayloadSecurity", () => {
@@ -146,17 +145,11 @@ describe("sanitizeAdvancedForSave", () => {
     expect(result.includeDraftExperiments).toBe(true);
   });
 
-  it("only persists saved group references with capability and entitlement", () => {
+  it("only persists saved group references when the SDK can read them", () => {
     expect(
       sanitizeAdvancedForSave(allOn, {
         ...fullyCapable,
         currentCapabilities: [],
-      }).savedGroupFormat,
-    ).toBe("inline");
-    expect(
-      sanitizeAdvancedForSave(allOn, {
-        ...fullyCapable,
-        hasLargeSavedGroupFeature: false,
       }).savedGroupFormat,
     ).toBe("inline");
     // v2 on a v1-only SDK is kept: the payload steps down until an upgrade.
@@ -183,25 +176,23 @@ describe("sanitizeAdvancedForSave", () => {
 });
 
 describe("sanitizeSavedGroupFormat", () => {
-  it("falls back to inline without capability or entitlement", () => {
+  it("falls back to inline only when the SDK can't read references", () => {
     expect(
-      sanitizeSavedGroupFormat("referencesV1", {
-        currentCapabilities: [],
-        hasLargeSavedGroupFeature: true,
-      }),
+      sanitizeSavedGroupFormat("referencesV1", { currentCapabilities: [] }),
     ).toBe("inline");
     expect(
       sanitizeSavedGroupFormat("referencesV1", {
         currentCapabilities: ["savedGroupReferences"],
-        hasLargeSavedGroupFeature: false,
-      }),
-    ).toBe("inline");
-    expect(
-      sanitizeSavedGroupFormat("referencesV1", {
-        currentCapabilities: ["savedGroupReferences"],
-        hasLargeSavedGroupFeature: true,
       }),
     ).toBe("referencesV1");
+  });
+
+  it("keeps the stored format regardless of plan", () => {
+    expect(
+      sanitizeSavedGroupFormat("referencesV2", {
+        currentCapabilities: ["savedGroupReferences"],
+      }),
+    ).toBe("referencesV2");
   });
 });
 

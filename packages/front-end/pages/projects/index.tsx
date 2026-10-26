@@ -4,7 +4,6 @@ import { ProjectInterface } from "shared/types/project";
 import { ago } from "shared/dates";
 import { Box } from "@radix-ui/themes";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
-import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,7 +15,7 @@ import UITooltip from "@/ui/Tooltip";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
-import { useSearch } from "@/services/search";
+import { useAddComputedFields, useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import Table, {
   TableHeader,
@@ -26,16 +25,20 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import CopyableCode from "@/components/Settings/CopyableCode";
+import HistoryTable from "@/components/HistoryTable";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
 
-  const { organization } = useUser();
+  const { organization, getOwnerDisplay } = useUser();
 
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
     null,
   );
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [auditLogOpen, setAuditLogOpen] = useState(false);
 
   const permissionsUtil = usePermissionsUtil();
   const canCreateProjects = permissionsUtil.canCreateProjects();
@@ -52,6 +55,12 @@ const ProjectsPage: FC = () => {
   const atProjectLimit =
     maxProjects !== null && nonDemoProjectCount >= maxProjects;
 
+  const projectsWithOwners = useAddComputedFields(
+    projects,
+    (p) => ({ ownerNameDisplay: getOwnerDisplay(p.owner) }),
+    [getOwnerDisplay],
+  );
+
   const {
     items,
     searchInputProps,
@@ -59,11 +68,17 @@ const ProjectsPage: FC = () => {
     SortableTableColumnHeader,
     pagination,
   } = useSearch({
-    items: projects,
+    items: projectsWithOwners,
     localStorageKey: "projects",
     defaultSortField: "dateCreated",
     defaultSortDir: -1,
-    searchFields: ["name^3", "description^2", "publicId", "id"],
+    searchFields: [
+      "name^3",
+      "description^2",
+      "publicId",
+      "id",
+      "ownerNameDisplay",
+    ],
     pageSize: 50,
     updateSearchQueryOnChange: true,
   });
@@ -84,6 +99,17 @@ const ProjectsPage: FC = () => {
           commercialFeature={null}
         />
       )}
+      {auditLogOpen && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          header="Project Audit Log"
+          close={() => setAuditLogOpen(false)}
+          size="lg"
+        >
+          <HistoryTable type="project" showName />
+        </ModalStandard>
+      )}
 
       <Box mt="4" mb="5">
         <div className="row align-items-center mb-1">
@@ -91,6 +117,9 @@ const ProjectsPage: FC = () => {
             <h2 className="mb-0">Projects</h2>
           </div>
           <div className="flex-1" />
+          <div className="col-auto">
+            <Link onClick={() => setAuditLogOpen(true)}>Audit log</Link>
+          </div>
           <div className="col-auto">
             <Tooltip
               body={
@@ -145,7 +174,13 @@ const ProjectsPage: FC = () => {
                   >
                     ID
                   </SortableTableColumnHeader>
-                  <TableColumnHeader width="30%">Description</TableColumnHeader>
+                  <TableColumnHeader width="20%">Description</TableColumnHeader>
+                  <SortableTableColumnHeader
+                    field="ownerNameDisplay"
+                    style={{ width: "10%" }}
+                  >
+                    Owner
+                  </SortableTableColumnHeader>
                   <SortableTableColumnHeader
                     field="dateCreated"
                     style={{ width: "15%" }}
@@ -191,25 +226,20 @@ const ProjectsPage: FC = () => {
                           </div>
                         ) : null}
                         {p.publicId && (
-                          <Box
-                            style={{ color: "var(--gray-9)", opacity: 0.85 }}
-                          >
-                            <Text as="div" size="sm" mono>
-                              {p.publicId}
-                            </Text>
+                          <Box>
+                            <CopyableCode value={p.publicId} muted />
                           </Box>
                         )}
                       </TableCell>
                       <TableCell>
-                        <Text size="sm" mono>
-                          {p.id}
-                        </Text>
+                        <CopyableCode value={p.id} />
                       </TableCell>
                       <TableCell>
                         {p.description && p.description.length > 80
                           ? p.description.substring(0, 80).trim() + "..."
                           : (p.description ?? "")}
                       </TableCell>
+                      <TableCell>{p.ownerNameDisplay}</TableCell>
                       <TableCell>{ago(p.dateCreated)}</TableCell>
                       <TableCell>{ago(p.dateUpdated)}</TableCell>
                     </TableRow>
@@ -217,7 +247,7 @@ const ProjectsPage: FC = () => {
                 })}
                 {!items.length && isFiltered && (
                   <TableRow>
-                    <TableCell colSpan={5} align="center">
+                    <TableCell colSpan={6} align="center">
                       No matching projects
                     </TableCell>
                   </TableRow>

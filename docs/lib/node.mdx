@@ -7,6 +7,7 @@ toc_max_heading_level: 5
 import { ExternalLink } from "/snippets/ExternalLink.jsx";
 import { SdkResources } from "/snippets/SdkResources.jsx";
 import { SdkSupportedFeatures } from "/snippets/SdkSupportedFeatures.jsx";
+import NodeEventTracking from "/snippets/partials/sdk-event-tracking/_nodejs.mdx";
 
 We officially support Node 18 and above.
 
@@ -92,6 +93,12 @@ Scoped instances were first introduced in SDK version 1.3.1.
 GrowthBook comes with a number of built-in plugins that add additional functionality. You can enable these by passing them into the GrowthBook client's `createScopedInstance()` factory method or into the GrowthBook constructor.
 
 Plugins require GrowthBook version 1.4.0 or higher, released in Feb 2025.
+
+### GrowthBook Tracking
+
+Sends experiment view, feature usage, and custom events to GrowthBook's [Managed Warehouse](/app/managed-warehouse) or [Event Forwarder](/app/event-forwarder).
+
+<NodeEventTracking />
 
 ### Tracing
 
@@ -204,6 +211,21 @@ The return value of init has 3 properties:
 - **source** - Where this result came from. One of the following values: `network`, `cache`, `init`, `error`, or `timeout`
 - **error** - If success is `false`, this will contain an `Error` object with more details about the error
 
+#### Fallback Payload
+
+To use a bundled payload only when features can't be downloaded, pass it to `setPayload` when `init` doesn't succeed:
+
+```ts
+const res = await gbClient.init({ timeout: 2000 });
+if (!res.success) {
+  await gbClient.setPayload(fallbackPayload);
+}
+```
+
+Don't pass the fallback to `init({ payload })` because that skips the network request entirely. A cached payload counts as a success, so the fallback is only used when there's nothing usable in the cache.
+
+The fallback stays in place until a later request succeeds. If `init` timed out and `streaming` or `pollingInterval` is enabled, the SDK applies the original request when it finishes. After a network error, only `pollingInterval` retries.
+
 ### Custom Integration
 
 If you prefer to handle the network and caching logic yourself, you can pass in a full JSON "payload" directly into the SDK. For example, you might store features in Postgres or Redis.
@@ -249,6 +271,19 @@ For long-running Node.js processes, there are 2 main approaches to keeping featu
 
 1. Streaming
 2. Polling
+
+<Note>
+**Streaming vs cache refresh vs `backgroundSync`**
+
+These are easy to mix up:
+
+- **Streaming**: GrowthBook (Cloud or Proxy) pushes a notification when features change. On Node, set up an `EventSource` polyfill and use `init({ streaming: true })` so this client subscribes to those updates (below).
+- **Cache refresh**: the SDK refetches the features payload (for example by calling `refreshFeatures()`). Cache settings like `staleTTL` only apply when a fetch already runs; they do **not** start fetches on their own.
+- **`backgroundSync`**: a kill switch for background updates (default `true`). Setting it to `false` disables both streaming and `pollingInterval`. (Setting `cacheSettings: { backgroundSync: true }` alone does **not** enable auto-refresh on Node.)
+
+To keep features current, use `streaming: true`, `pollingInterval`, or your own `refreshFeatures()` timer. Without one of these, the process keeps the payload from `init` until it restarts.
+
+</Note>
 
 ### Streaming Updates
 
@@ -296,6 +331,8 @@ This will make an initial network request to download the features payload from 
 
 Every call to evaluate feature flags will use the latest available payload.
 
+To stop all background updates (streaming and polling), call `configureCache({ backgroundSync: false })`. This also stops any refresh that's already running. `GrowthBookClient` does not take a `backgroundSync` constructor option; the setting only lives on the cache config. To turn off streaming but keep polling, leave out `streaming: true` and pass only `pollingInterval`.
+
 ### Polling Updates
 
 If your environment doesn't support streaming updates or you want a simpler option, pass a `pollingInterval` (in milliseconds) into `init`. This requires no polyfills.
@@ -329,6 +366,8 @@ The JavaScript SDK has 2 caching layers:
 
 1. In-memory cache (enabled by default)
 2. Persistent localStorage cache (disabled by default, requires configuration)
+
+Caching controls how a features payload is stored and reused **when the SDK fetches**. It is not a substitute for [streaming or polling](#refreshing-features) in long-running Node processes.
 
 ### Configuring Local Storage
 
@@ -364,12 +403,98 @@ configureCache({
   maxAge: 1000 * 60 * 60 * 4,
   // Set to `true` to completely disable both in-memory and persistent caching
   disableCache: false,
+  // Set to `false` to disable streaming and polling (default true).
+  // `true` does not enable either one. See Refreshing Features.
+  backgroundSync: true,
 })
 ```
 
 ### Skip Cache
 
 The cache layers apply to both the `init` and `refreshFeatures` methods. Both of these accept a `skipCache: true` option to bypass the cache layers if desired.
+
+## Reducing Payloads
+
+If you render pages on the server, you can pass the GrowthBook payload to your front-end SDK so it doesn't need to download it again. The full payload includes every feature and targeting rule though, and most of those won't apply to the current user.
+
+The `reducePayload` method removes everything that can't affect the current user, based on the attributes you know on the server. For that user, the front-end SDK will evaluate the smaller payload exactly the same as the full one.
+
+```js
+const userContext = {
+  attributes: {
+    id: req.user.id,
+  }
+};
+
+const payload = gbClient.reducePayload({ userContext });
+```
+
+You don't need to know every attribute. Rules that depend on attributes you didn't pass stay in the payload, and the front-end SDK evaluates them as usual. Global attributes are used too.
+
+It helps the most when your rules target long lists of ids, since those lists can usually be removed entirely.
+
+A scoped instance already has a user context, so you can call it without one:
+
+```js
+const payload = req.growthbook.reducePayload();
+```
+
+Then, serialize the payload in your response and pass it into your front-end GrowthBook instance:
+
+```js
+// On the front-end
+const gb = new GrowthBook({
+  attributes: {
+    id: "123",
+  },
+}).initSync({ payload });
+```
+
+Experiment tracking and feature usage callbacks fire the same as they would with the full payload.
+
+There are a few things to keep in mind:
+
+- The front-end must use the same attribute values you passed on the server, with the same types. For example, `123` and `"123"` don't match each other in a list of ids.
+- Only pass attributes that won't change while the page is open. If the front-end changes one later, for example `url` after a client-side navigation or `id` after the user logs in, rules that were removed for the old value won't come back.
+- If your SDK Connection encrypts the payload, the reduced payload is not encrypted. Anyone who can see the page can read it.
+- Treat the returned payload as read-only. It shares objects with the GrowthBookClient's own copy of the payload.
+
+### Filters
+
+You can also remove features and experiments based on their project, tags, or custom fields. This is useful when your front-end only uses some of your features, and it works with or without a user context.
+
+```js
+const payload = gbClient.reducePayload({
+  userContext,
+  // Keep only what matches every filter
+  include: {
+    // The project's public ID, or its internal ID if it doesn't have one
+    projects: ["prj_abc123"],
+    tags: ["web"],
+    // Custom field id -> values
+    customFields: {
+      platform: ["web", "all"],
+    },
+  },
+  // Remove what matches any filter
+  exclude: {
+    tags: ["server-only"],
+  },
+  // Send the prerequisites of kept features even if the filters remove them
+  prerequisites: "keep",
+});
+```
+
+Each filter is an array, and a feature only needs to match one of its values. A feature is kept when it matches every `include` filter and no `exclude` filter. `include` and `exclude` take the same filters, and you can pass either one or both.
+
+The `include` `projects` filter also removes rules that only apply to other projects. A feature without a project isn't in any project, so an `include` `projects` filter removes it, like a feature without tags. A feature set to target all projects matches every `include` `projects` filter, and `exclude` never removes it.
+
+`prerequisites` decides what happens when a feature you keep has a prerequisite the filters remove:
+
+- `"keep"` (the default) sends the prerequisite anyway, so the front-end evaluates the same as with the full payload.
+- `"filter"` leaves it out. The front-end treats it as an unknown feature with a `null` value, so checks against it fail, and if it's a gate, the dependent feature is blocked. Holdouts are always kept, since they aren't features your app uses.
+
+Filters rely on metadata in the payload, so turn on the matching **Payload Metadata** options in your SDK Connection: **Include Project IDs**, **Include tags**, and **Include Custom Fields**. Without that metadata, an `include` filter removes every feature, and an `exclude` filter removes none.
 
 ## Experimentation (A/B Testing)
 
@@ -477,7 +602,7 @@ This will use the `trackingCallback` configured on your front-end GrowthBook ins
 
 ### Sticky Bucketing
 
-Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing. The JS SDK exports several implementations of this service for common use cases, or you may build your own:
+Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment support sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing. The JS SDK exports several implementations of this service for common use cases, or you may build your own:
 
 - `ExpressCookieStickyBucketService` — For NodeJS/Express controller-level bucket persistence using browser cookies; intended to be interoperable with `BrowserCookieStickyBucketService`. Assumes `cookie-parser` is implemented (can be polyfilled). Cookie attributes can also be configured. The default cookie expiry is 180 days; override by passing `maxAge: {ms}` into the constructor's `cookieAttributes`.
 
@@ -490,7 +615,7 @@ Implementing most StickyBucketService implementations is straightforward and wor
 ```js
 const { ExpressCookieStickyBucketService } = require("@growthbook/growthbook");
 
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   const stickyBucketService = new ExpressCookieStickyBucketService({
       req,
       res
@@ -634,7 +759,7 @@ const userContext = {
 
 ### Feature Usage Callback
 
-GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
+GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like New Relic or Datadog.
 
 Like with the `trackingCallback`, this can be defined on either the GrowthBookClient instance or as part of the user context. When defined on the GrowthBookClient instance, a 3rd argument with the user context will be sent so you can identify which user evaluated a feature.
 
@@ -760,7 +885,7 @@ gbClient.runInlineExperiment({
 
   // Experiment meta info
   name: "Results per Page",
-  phase: "full-traffic"
+  phase: "full-traffic",
 
   // Variation meta info
   meta: [
@@ -786,7 +911,7 @@ We do this using deterministic hashing to assign users a value between 0 and 1 f
 // Will include 60% of users - ones with a hash between 0 and 0.6
 gbClient.runInlineExperiment({
   key: "experiment-1",
-  variation: [0, 1],
+  variations: [0, 1],
   filters: [
     {
       seed: "pricing",
@@ -799,7 +924,7 @@ gbClient.runInlineExperiment({
 // Will include the other 40% of users - ones with a hash between 0.6 and 1
 gbClient.runInlineExperiment({
   key: "experiment-2",
-  variation: [0, 1],
+  variations: [0, 1],
   filters: [
     {
       seed: "pricing",
@@ -854,7 +979,7 @@ The following condition would evaluate to `true` and the user would be included 
 ```js
 gbClient.runInlineExperiment({
   key: "my-experiment",
-  variation: [0, 1],
+  variations: [0, 1],
   condition: {
     "browser.vendor": "firefox",
     "country": {
@@ -1001,7 +1126,8 @@ For middleware implementations or API routes, pass the `request` object to `devt
 
 ```js
 import { NextResponse } from 'next/server';
-import { devtoolsNextjsPlugin } from "@growthbook/growthbook/plugins";
+import { GrowthBook } from "@growthbook/growthbook";
+import { devtoolsNextjsPlugin, getDebugEvent } from "@growthbook/growthbook/plugins";
 
 export function middleware(request) {
   const response = NextResponse.next();
@@ -1019,7 +1145,7 @@ export function middleware(request) {
 
   response.headers.set(
     "x-gbdebug-events",
-    JSON.stringify(getDebugEvent(req.growthbook, "nextjs_middleware"))
+    JSON.stringify(getDebugEvent(growthbook, "nextjs_middleware"))
   );
   return response;
 }
@@ -1027,13 +1153,13 @@ export function middleware(request) {
 
 For passing the debug events back to DevTools, this middleware example assumes the receiving end has access to headers. This may not always be the case (e.g. redirects); you may need to rely on cookies or an encoded URL parameter.
 
-For API routes or middleware redirects, you are responsible for parsing the `x-debug-events` header value on the front-end and pushing it to `window._gbdebugEvents`. You may wish to import the `getDebugScriptContents()` method on the front-end to ingest these debug events. An example integration may look like this:
+For API routes or middleware redirects, you are responsible for parsing the `x-gbdebug-events` header value on the front-end and pushing it to `window._gbdebugEvents`. You may wish to import the `getDebugScriptContents()` method on the front-end to ingest these debug events. An example integration may look like this:
 
 ```js
 const response = await fetch(apiUrl);
 const event = response.headers.get("x-gbdebug-events");
 if (event) {
-  window._gbdebugEvents?.push(event);
+  window._gbdebugEvents?.push(JSON.parse(event));
 }
 ```
 
@@ -1062,14 +1188,14 @@ app.use((req, res, next) => {
     [ devtoolsExpressPlugin({ request: req }) ]
   );
 
-  res.set("x-gbdebug-events", getDebugEvent(req.growthbook, "express"));
+  res.set("x-gbdebug-events", JSON.stringify(getDebugEvent(req.growthbook, "express")));
 
   // etc...
   next();
 });
 ```
 
-Similar to the Next.js middleware example above, you are responsible for parsing the `x-debug-events` header value on the front-end and pushing it to `window._gbdebugEvents`. You may use `getDebugScriptContents()` on the front-end to help.
+Similar to the Next.js middleware example above, you are responsible for parsing the `x-gbdebug-events` header value on the front-end and pushing it to `window._gbdebugEvents`. You may use `getDebugScriptContents()` on the front-end to help.
 
 ### Node.js (platform agnostic)
 

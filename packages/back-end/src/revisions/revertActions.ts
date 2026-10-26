@@ -20,6 +20,12 @@ import {
   buildPatchOps,
 } from "back-end/src/revisions/util";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
+import {
+  confirmationLink,
+  landingActions,
+  requireConfirmation,
+  REVISION_MODEL,
+} from "back-end/src/services/confirmations";
 import type {
   BypassedGate,
   BypassVia,
@@ -386,6 +392,43 @@ async function applyRevertDirectly({
   return merged;
 }
 
+// A revert holds as what it does: staging a draft, or landing as a publish that
+// may archive and may skip an approval.
+function holdRevert(
+  context: Context,
+  entityType: RevisionTargetType,
+  entity: Record<string, unknown> & { id: string },
+  version: number | undefined,
+  fields: Record<string, unknown>,
+  landing: boolean,
+  bypassing: BypassedGate[] = [],
+) {
+  const model = REVISION_MODEL[entityType];
+  const label = String(entity.key ?? entity.groupName ?? entity.id);
+  const archives = isArchiveTransition({
+    proposed: "archived" in fields ? !!fields.archived : undefined,
+    current: entity.archived as boolean | undefined,
+  });
+  return requireConfirmation(context, {
+    actions: landing
+      ? landingActions(model, archives)
+      : model === "sdkConnection"
+        ? []
+        : [`${model}.draft`],
+    bypassing,
+    project: typeof entity.project === "string" ? entity.project : undefined,
+    summary: `${landing ? "Revert" : "Draft a revert of"} ${label}${version === undefined ? "" : ` to revision ${version}`}`,
+    links: [
+      confirmationLink(
+        model,
+        model === "savedGroup" ? entity.id : String(entity.key ?? entity.id),
+        label,
+      ),
+    ],
+    pin: entity.dateUpdated,
+  });
+}
+
 // The revert order, owned centrally so a handler cannot omit a step or run one in
 // the wrong place.
 //
@@ -467,6 +510,14 @@ export async function revertRevision({
   const dispatch = getRevisionWebhookAdapter(entityType);
 
   if (!landing) {
+    await holdRevert(
+      context,
+      entityType,
+      entity,
+      targetRevision.version,
+      fields,
+      false,
+    );
     const draft = await createOrUpdateRevision(
       context as Parameters<typeof createOrUpdateRevision>[0],
       entityType,
@@ -491,6 +542,24 @@ export async function revertRevision({
       : approval?.settingSuppressedApproval
         ? "revertsBypassApproval"
         : null;
+  const bypassedGates: BypassedGate[] = approvalBypassedVia
+    ? [
+        {
+          type: "approval-required",
+          outcome: "bypassed",
+          via: approvalBypassedVia,
+        },
+      ]
+    : [];
+  await holdRevert(
+    context,
+    entityType,
+    entity,
+    targetRevision.version,
+    fields,
+    true,
+    bypassedGates,
+  );
 
   const merged = await applyRevertDirectly({
     context,
@@ -507,17 +576,5 @@ export async function revertRevision({
   // revision state from.
   await dispatch?.dispatch(context, merged, { type: "published" });
   await dispatch?.dispatch(context, merged, { type: "reverted" });
-  return {
-    revision: merged,
-    published: true,
-    bypassedGates: approvalBypassedVia
-      ? [
-          {
-            type: "approval-required",
-            outcome: "bypassed",
-            via: approvalBypassedVia,
-          },
-        ]
-      : [],
-  };
+  return { revision: merged, published: true, bypassedGates };
 }

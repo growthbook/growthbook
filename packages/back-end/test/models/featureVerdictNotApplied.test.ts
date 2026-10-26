@@ -30,7 +30,10 @@ describe("submitReviewAndComments reports whether the verdict landed", () => {
     org: { id: ORG_ID, settings: {} },
     userId: "u_reviewer",
     models: {
-      featureRevisionLogs: { create: async () => undefined },
+      featureRevisionLogs: {
+        create: async () => undefined,
+        dangerousCreateBypassPermission: async () => undefined,
+      },
     },
   } as never;
 
@@ -111,6 +114,50 @@ describe("submitReviewAndComments reports whether the verdict landed", () => {
     const row = await stored();
     expect(row?.status).toBe("approved");
     expect((row?.reviews as unknown[]).length).toBe(1);
+  });
+
+  it("refuses a key acting as itself once its edit lands on the row", async () => {
+    // The caller checked a copy the key hadn't edited yet.
+    const revision = await seed("pending-review");
+    const keyContext = {
+      ...(context as object),
+      userId: "",
+      keyActingAsItself: "key_bot",
+    } as never;
+    const keyUser = {
+      type: "api_key" as const,
+      apiKey: "key_bot",
+      name: "Bot",
+    };
+    const setEdits = (contributors: string[], editorKeys: string[]) =>
+      mongoose.connection
+        .collection("featurerevisions")
+        .updateOne(
+          { organization: ORG_ID, featureId: "feat_applied", version: 2 },
+          { $set: { contributors, editorKeys } },
+        );
+    const review = () =>
+      submitReviewAndComments(
+        keyContext,
+        revision,
+        keyUser,
+        "Approved",
+        undefined,
+        1,
+      );
+
+    // Edited as itself, then while assuming a member.
+    for (const [contributors, editorKeys] of [
+      [["key_bot"], []],
+      [["u_dana"], ["key_bot"]],
+    ]) {
+      await setEdits(contributors, editorKeys);
+      await expect(review()).rejects.toThrow("draft you created");
+      expect((await stored())?.reviews).toEqual([]);
+    }
+
+    await setEdits(["u_dana"], ["key_other"]);
+    expect((await review()).applied).toBe(true);
   });
 
   it("refuses a verdict formed against a superseded review cycle", async () => {

@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "1.9.0",
+      "prerelease": true,
+      "capabilities": ["interleaving"]
+    },
+    {
+      "version": "1.8.1",
+      "prerelease": true,
+      "capabilities": ["contextualBanditsAuto"]
+    },
+    {
       "version": "1.8.0",
       "capabilities": ["savedGroupReferencesV2"]
     },

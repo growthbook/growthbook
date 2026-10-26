@@ -6,7 +6,11 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourceSettings,
+  SchemaFormat,
+} from "shared/types/datasource";
 import {
   MetricDefaults,
   OrganizationSettings,
@@ -22,7 +26,9 @@ import {
   getDefaultFactMetricProps,
 } from "@/services/metrics";
 import { ApiCallType } from "@/services/auth";
+import { eventSchemas } from "@/services/eventSchema";
 import {
+  getInitialSettings,
   getTablePrefix,
   LANGFUSE_TABLES,
   langfuseProjectClause,
@@ -32,6 +38,7 @@ import {
   phoenixProjectClause,
   phoenixTraceJoins,
 } from "@/services/datasources";
+import { getGA4EventsSql } from "@/services/factTables";
 
 function generateColumns(
   cols: Record<string, Partial<ColumnInterface>>,
@@ -190,8 +197,7 @@ function getSegmentResources(
   context_campaign_medium as medium
 FROM ${tablePrefix}tracks
 WHERE
-  received_at >= '{{date startDateISO "yyyy-MM-dd"}}' 
-  AND received_at <= '{{date endDateISO "yyyy-MM-dd"}}'
+  received_at >= '{{date startDateISO "yyyy-MM-dd"}}'
 `.trim(),
           eventName: "",
           userIdTypes: ["user_id", "anonymous_id"],
@@ -224,8 +230,7 @@ WHERE
   context_campaign_medium as medium
 FROM ${tablePrefix}pages
 WHERE
-  received_at >= '{{date startDateISO "yyyy-MM-dd"}}' 
-  AND received_at <= '{{date endDateISO "yyyy-MM-dd"}}'
+  received_at >= '{{date startDateISO "yyyy-MM-dd"}}'
 `.trim(),
           eventName: "",
           userIdTypes: ["user_id", "anonymous_id"],
@@ -278,8 +283,7 @@ function getRudderstackResources(
   context_campaign_medium as medium
 FROM ${tablePrefix}tracks
 WHERE
-  received_at >= '{{date startDateISO "yyyy-MM-dd"}}' 
-  AND received_at <= '{{date endDateISO "yyyy-MM-dd"}}'
+  received_at >= '{{date startDateISO "yyyy-MM-dd"}}'
 `.trim(),
           eventName: "",
           userIdTypes: ["user_id", "anonymous_id"],
@@ -310,8 +314,7 @@ WHERE
   context_campaign_medium as medium
 FROM ${tablePrefix}pages
 WHERE
-  received_at >= '{{date startDateISO "yyyy-MM-dd"}}' 
-  AND received_at <= '{{date endDateISO "yyyy-MM-dd"}}'
+  received_at >= '{{date startDateISO "yyyy-MM-dd"}}'
 `.trim(),
           eventName: "",
           userIdTypes: ["user_id", "anonymous_id"],
@@ -372,8 +375,7 @@ SELECT
 FROM
   ${tablePrefix}EVENTS_${projectId}
 WHERE
-  event_time >= '{{date startDateISO "yyyy-MM-dd"}}'
-  AND event_time <= '{{date endDateISO "yyyy-MM-dd"}}'`.trim(),
+  event_time >= '{{date startDateISO "yyyy-MM-dd"}}'`.trim(),
           eventName: "",
           userIdTypes: ["user_id", ...(anonymous_attr ? [anonymous_attr] : [])],
           columns: generateColumns({
@@ -423,30 +425,11 @@ function getGA4Resources(
         factTable: {
           name: "GA4 Events",
           description: "",
-          sql: `
-  SELECT
-    TIMESTAMP_MICROS(event_timestamp) as timestamp,
-    user_id,
-    user_pseudo_id as anonymous_id,
-    event_name,
-    geo.country,
-    device.category as device_category,
-    traffic_source.source,
-    traffic_source.medium,
-    traffic_source.name as campaign,
-    REGEXP_EXTRACT((SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location'), r'http[s]?:\\/\\/?[^\\/\\s]+\\/([^?]*)') as page_path,
-    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'session_engaged') as session_engaged,
-    event_value_in_usd,
-    CAST((SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id') AS string) as session_id,
-    (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'engagement_time_msec')/1000 as engagement_time
-  FROM
-    \`${params.defaultProject || "my_project"}\`.\`${
-      params.defaultDataset || "my_dataset"
-    }\`.\`events_*\`
-  WHERE
-    ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
-    (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
-              `.trim(),
+          sql: getGA4EventsSql(
+            `\`${params.defaultProject || "my_project"}\`.\`${
+              params.defaultDataset || "my_dataset"
+            }\`.\`events_*\``,
+          ),
           eventName: "",
           userIdTypes,
           columns: generateColumns({
@@ -1147,6 +1130,102 @@ export function getInitialDatasourceResources({
 
   return {
     factTables: [],
+  };
+}
+
+// Merges a tracker's settings into an existing Data Source's instead of
+// replacing them. Query ids are prefixed so they don't collide, and queries
+// already there (e.g. Firebase's on a GA4 Data Source) are skipped.
+export function getDatasourceTemplateSettings({
+  datasource,
+  template,
+  schemaOptions,
+}: {
+  datasource: DataSourceInterfaceWithParams;
+  template: SchemaFormat;
+  schemaOptions: Record<string, string>;
+}): DataSourceSettings {
+  const initial = getInitialSettings(
+    template,
+    datasource.params,
+    schemaOptions,
+  );
+  const settings = datasource.settings;
+  const existingTypes = new Set(
+    (settings.userIdTypes || []).map((t) => t.userIdType),
+  );
+  const existingExposure = settings.queries?.exposure || [];
+  const existingJoins = settings.queries?.identityJoins || [];
+  const label =
+    eventSchemas.find((s) => s.value === template)?.label ?? template;
+
+  const exposure = initial.queries.exposure
+    .map((q) => ({
+      ...q,
+      id: `${template}_${q.id}`,
+      name: `${label}: ${q.name}`,
+    }))
+    .filter(
+      (q) =>
+        !existingExposure.some((e) => e.id === q.id || e.query === q.query),
+    );
+  const identityJoins = initial.queries.identityJoins.filter(
+    (join) =>
+      !existingJoins.some(
+        (e) =>
+          e.ids.length === join.ids.length &&
+          join.ids.every((id) => e.ids.includes(id)),
+      ),
+  );
+
+  return {
+    ...settings,
+    userIdTypes: [
+      ...(settings.userIdTypes || []),
+      ...initial.userIdTypes.filter((t) => !existingTypes.has(t.userIdType)),
+    ],
+    queries: {
+      ...settings.queries,
+      exposure: [...existingExposure, ...exposure],
+      identityJoins: [...existingJoins, ...identityJoins],
+    },
+  };
+}
+
+// Skips fact tables the Data Source already has, so re-running adds nothing.
+export function getDatasourceTemplateResources({
+  datasource,
+  template,
+  schemaOptions,
+  existingFactTables,
+}: {
+  datasource: DataSourceInterfaceWithParams;
+  template: SchemaFormat;
+  schemaOptions: Record<string, string>;
+  existingFactTables: Pick<
+    FactTableInterface,
+    "name" | "datasource" | "archived"
+  >[];
+}): InitialDatasourceResources {
+  const existingNames = new Set(
+    existingFactTables
+      .filter((f) => f.datasource === datasource.id && !f.archived)
+      .map((f) => f.name),
+  );
+  const resources = getInitialDatasourceResources({
+    datasource: {
+      ...datasource,
+      settings: {
+        ...datasource.settings,
+        schemaFormat: template,
+        schemaOptions,
+      },
+    },
+  });
+  return {
+    factTables: resources.factTables.filter(
+      (f) => !existingNames.has(f.factTable.name),
+    ),
   };
 }
 

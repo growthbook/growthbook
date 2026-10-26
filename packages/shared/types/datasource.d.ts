@@ -127,7 +127,8 @@ export interface SchemaFormatConfig {
     schema?: string;
   }) => string;
   getEventFilterWhereClause: (metricName: string) => string;
-  getDateLimitClause: (dates?: { start: Date; end: Date }) => string;
+  // Lower bound only: a day-precision upper bound drops the end date's rows
+  getDateLimitClause: (start?: Date) => string;
   displayNameColumn?: string;
 }
 
@@ -180,7 +181,12 @@ export interface ExposureQuery {
   id: string;
   name: string;
   description?: string;
+  /**
+   * Frozen legacy identifier: what records without a stored identifier analyze
+   * on. Set once when the query is created and never follows `userIdTypes`.
+   */
   userIdType: string;
+  userIdTypes: string[];
   query: string;
   hasNameCol?: boolean;
   dimensions: string[];
@@ -189,6 +195,8 @@ export interface ExposureQuery {
   error?: string;
   /** Set to "api" for queries auto-created by Event Forwarder. */
   managedBy?: "" | "api";
+  /** Projects this query is scoped to. Empty = all of the data source's projects; when set, a subset of them. */
+  projects?: string[];
 }
 
 export interface FeatureUsageQuery {

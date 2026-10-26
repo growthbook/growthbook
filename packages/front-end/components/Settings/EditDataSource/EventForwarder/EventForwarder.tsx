@@ -1,7 +1,12 @@
 import { useCallback, useRef, useState } from "react";
 import {
+  databricksParamsSupportEventForwarder,
+  getDatabricksEventForwarderAuthMessage,
   DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
   normalizeBigQueryTablePrefixForEventForwarder,
+  normalizeDatabricksEventForwarderDestination,
+  normalizeDatabricksEventForwarderZerobusEndpoint,
+  suggestDatabricksEventForwarderZerobusEndpoint,
   normalizeSnowflakeEventForwarderAccessUrl,
   normalizeSnowflakeTablePrefixForEventForwarder,
   stripLeadingUtf8ByteOrderMark,
@@ -15,16 +20,24 @@ import {
 import { EventForwarderStatusResponse } from "shared/validators";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { useFeatureValue } from "@growthbook/growthbook-react";
 import { PiCaretRight, PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
+import { DailyUsage, UsageLimits } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
+import useApi from "@/hooks/useApi";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { isCloud } from "@/services/env";
+import UsageMeter from "@/components/Settings/EditDataSource/EventForwarder/UsageMeter";
 import PremiumCallout from "@/ui/PremiumCallout";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import SelectField from "@/components/Forms/SelectField";
 import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwarderForm";
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
+import DatabricksEventForwarderForm from "@/components/Settings/DatabricksEventForwarderForm";
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
@@ -56,10 +69,11 @@ type Props = {
 };
 
 type EventForwarderDatasourceDraft = {
-  type: "bigquery" | "snowflake";
+  type: "bigquery" | "snowflake" | "databricks";
   params:
     | Partial<BigQueryConnectionParams>
-    | Partial<SnowflakeConnectionParams>;
+    | Partial<SnowflakeConnectionParams>
+    | Partial<DatabricksConnectionParams>;
   projects?: string[];
   eventForwarderConfig: EventForwarderConfigDraft | null;
 };
@@ -150,6 +164,18 @@ function getEventForwarderDraft(
       },
     };
   }
+  if (existing?.sinkType === "databricks") {
+    return {
+      sinkType: "databricks",
+      region: existing.region,
+      config: {
+        catalog: existing.config.catalog,
+        schema: existing.config.schema,
+        tablePrefix: existing.config.tablePrefix,
+        zerobusEndpoint: existing.config.zerobusEndpoint,
+      },
+    };
+  }
 
   if (dataSource.type === "bigquery") {
     const params = dataSource.params as BigQueryConnectionParams;
@@ -183,6 +209,19 @@ function getEventForwarderDraft(
           "",
         role: params.role || "",
         warehouse: params.warehouse || "",
+      },
+    };
+  }
+  if (dataSource.type === "databricks") {
+    const params = dataSource.params as DatabricksConnectionParams;
+    return {
+      sinkType: "databricks",
+      region: "us-east-1",
+      config: {
+        catalog: params.catalog || "",
+        schema: "",
+        tablePrefix: DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
+        zerobusEndpoint: "",
       },
     };
   }
@@ -245,6 +284,32 @@ function getEventForwarderValidationErrors(
     } catch (e) {
       errors.push(
         e instanceof Error ? e.message : "Enter a valid table prefix.",
+      );
+    }
+    return errors;
+  }
+
+  if (cfg.sinkType === "databricks") {
+    const p = rawParams as Partial<DatabricksConnectionParams>;
+    if (!databricksParamsSupportEventForwarder(p)) {
+      errors.push(getDatabricksEventForwarderAuthMessage(p));
+    }
+    try {
+      normalizeDatabricksEventForwarderDestination(cfg.config);
+    } catch (e) {
+      errors.push(
+        e instanceof Error
+          ? e.message
+          : "Enter a valid catalog, schema and table prefix.",
+      );
+    }
+    try {
+      normalizeDatabricksEventForwarderZerobusEndpoint(
+        cfg.config.zerobusEndpoint,
+      );
+    } catch (e) {
+      errors.push(
+        e instanceof Error ? e.message : "Enter a valid Zerobus endpoint.",
       );
     }
     return errors;
@@ -334,13 +399,15 @@ function EventForwarderModal({
   const { apiCall } = useAuth();
   const isSubmittingRef = useRef(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const databricksParams =
+    dataSource.params as Partial<DatabricksConnectionParams>;
   const dataRegionOptions = useDataRegionOptions();
   const [datasourceDraft, setDatasourceDraft] =
     useState<EventForwarderDatasourceDraft>(() => ({
-      type: dataSource.type as "bigquery" | "snowflake",
-      params: { ...dataSource.params } as
-        | Partial<BigQueryConnectionParams>
-        | Partial<SnowflakeConnectionParams>,
+      type: dataSource.type as EventForwarderDatasourceDraft["type"],
+      params: {
+        ...dataSource.params,
+      } as EventForwarderDatasourceDraft["params"],
       projects: dataSource.projects,
       eventForwarderConfig: getEventForwarderDraft(dataSource),
     }));
@@ -448,6 +515,19 @@ function EventForwarderModal({
                 setEventForwarderConfig={setEventForwarderConfig}
               />
             ) : null}
+            {eventForwarderConfig?.sinkType === "databricks" ? (
+              <DatabricksEventForwarderForm
+                eventForwarderConfig={eventForwarderConfig}
+                setEventForwarderConfig={setEventForwarderConfig}
+                catalogReadOnly={!!databricksParams.catalog}
+                zerobusPlaceholder={
+                  suggestDatabricksEventForwarderZerobusEndpoint(
+                    databricksParams.host,
+                  ) ||
+                  "https://<workspace-id>.zerobus.<region>.cloud.databricks.com"
+                }
+              />
+            ) : null}
             {eventForwarderConfig ? (
               <SelectField
                 size="small"
@@ -463,7 +543,7 @@ function EventForwarderModal({
                 }}
                 disabled={isEditingEventForwarder}
                 options={dataRegionOptions}
-                helpText="Where the forwarder's Kafka/Confluent resources are provisioned. This cannot be changed later."
+                helpText="Where GrowthBook processes event data before writing to your warehouse. This cannot be changed later."
               />
             ) : null}
             <Callout status="info" mb="0" mt="3" icon={null}>
@@ -533,11 +613,28 @@ export default function EventForwarder({
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [pauseResumeLoading, setPauseResumeLoading] = useState(false);
   const { apiCall } = useAuth();
-  const { effectiveAccountPlan, subscription, hasCommercialFeature } =
+  const { effectiveAccountPlan, subscription, hasCommercialFeature, usage } =
     useUser();
+  const permissionsUtil = usePermissionsUtil();
   const eventForwarderConfig = dataSource.eventForwarderConfig;
+  const isMetered =
+    isCloud() && !hasCommercialFeature("unlimited-event-forwarder-usage");
+  const { data: usageData } = useApi<{
+    usage: DailyUsage[];
+    limits: UsageLimits;
+  }>("/billing/usage?monthsAgo=0", {
+    shouldRun: () =>
+      isMetered && !!eventForwarderConfig && permissionsUtil.canViewUsage(),
+  });
+  const forwarderLimit = usageData?.limits.eventForwarderEvents;
+  const forwardedThisMonth =
+    usageData?.usage.reduce((sum, u) => sum + u.eventForwarderEvents, 0) ?? 0;
+  // "over" is the advertised stop (what the nav and docs say); the hidden
+  // `blocked` flag is enforced server-side and needs nothing here.
+  const isOverLimit = isMetered && usage?.eventForwarder?.status === "over";
   const eventsForwarderFlag = useFeatureValue(
     "events-forwarder-multi-step",
     "OFF",
@@ -580,8 +677,16 @@ export default function EventForwarder({
           eventForwarderConfig?.status === "schema_update_error" ||
           pollTimedOut ||
           !!primaryConnectorErrorMessage)));
+  // Pause/Resume stay available while usage-blocked; a resume takes effect on the 1st
   const canToggle = canEdit && (isReady || isPaused);
   const action = isReady ? "pause" : "resume";
+  const databricksParams =
+    dataSource.params as Partial<DatabricksConnectionParams>;
+  const databricksAuthBlocked =
+    dataSource.type === "databricks" &&
+    !databricksParamsSupportEventForwarder(databricksParams);
+  const databricksAuthMessage =
+    getDatabricksEventForwarderAuthMessage(databricksParams);
 
   return (
     <Box>
@@ -595,11 +700,16 @@ export default function EventForwarder({
               {isProvisioning ? (
                 <EventForwarderSetupIndicator />
               ) : (
-                <Badge
-                  label={statusLabels[eventForwarderConfig.status]}
-                  color={statusColors[eventForwarderConfig.status]}
-                  variant="soft"
-                />
+                <>
+                  <Badge
+                    label={statusLabels[eventForwarderConfig.status]}
+                    color={statusColors[eventForwarderConfig.status]}
+                    variant="soft"
+                  />
+                  {isOverLimit ? (
+                    <Badge label="Limit reached" color="red" variant="soft" />
+                  ) : null}
+                </>
               )}
             </Flex>
           ) : null}
@@ -660,6 +770,37 @@ export default function EventForwarder({
         </Callout>
       ) : null}
 
+      {databricksAuthBlocked ? (
+        <Callout status="warning" mb="3">
+          {databricksAuthMessage}
+        </Callout>
+      ) : null}
+
+      {eventForwarderConfig && isOverLimit ? (
+        <Callout
+          status="error"
+          mb="3"
+          action={
+            <Button color="inherit" onClick={() => setShowUpgrade(true)}>
+              Upgrade
+            </Button>
+          }
+        >
+          Monthly event limit reached. Forwarding has stopped until the 1st or
+          until you upgrade, and events received meanwhile are not delivered.
+          {isPaused
+            ? " It is also paused. You can resume it now; forwarding restarts once the limit clears."
+            : ""}
+        </Callout>
+      ) : null}
+      {showUpgrade ? (
+        <UpgradeModal
+          close={() => setShowUpgrade(false)}
+          source="event-forwarder-card-usage-blocked"
+          commercialFeature="unlimited-event-forwarder-usage"
+        />
+      ) : null}
+
       {!eventForwarderConfig ? (
         eventsForwarderFlag === "VISIBLE" ? (
           <Callout status="info">
@@ -679,7 +820,11 @@ export default function EventForwarder({
             Event Forwarder is not configured for this datasource.
             {canEdit ? (
               <Box mt="3">
-                <Button color="inherit" onClick={() => setShowEditModal(true)}>
+                <Button
+                  color="inherit"
+                  disabled={databricksAuthBlocked}
+                  onClick={() => setShowEditModal(true)}
+                >
                   Set Up Event Forwarder
                 </Button>
               </Box>
@@ -763,6 +908,27 @@ export default function EventForwarder({
                   />
                 </>
               ) : null}
+              {eventForwarderConfig.sinkType === "databricks" ? (
+                <>
+                  <EventForwarderConfigField
+                    label="Catalog"
+                    value={eventForwarderConfig.config.catalog}
+                  />
+                  <EventForwarderConfigField
+                    label="Schema"
+                    value={eventForwarderConfig.config.schema}
+                  />
+                  <EventForwarderConfigField
+                    label="Table Prefix"
+                    value={eventForwarderConfig.config.tablePrefix}
+                    optional
+                  />
+                  <EventForwarderConfigField
+                    label="Zerobus endpoint"
+                    value={eventForwarderConfig.config.zerobusEndpoint}
+                  />
+                </>
+              ) : null}
               <EventForwarderConfigField
                 label="Data region"
                 value={getDataRegionLabel(
@@ -770,6 +936,14 @@ export default function EventForwarder({
                 )}
               />
             </Flex>
+
+            {typeof forwarderLimit === "number" ? (
+              <UsageMeter
+                used={forwardedThisMonth}
+                limit={forwarderLimit}
+                noun="events"
+              />
+            ) : null}
 
             {isProvisioning ? (
               <Callout status="info">

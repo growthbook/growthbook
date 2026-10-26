@@ -106,6 +106,9 @@ function toWebhookSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
     ...(wh.payloadFormat !== undefined && { payloadFormat: wh.payloadFormat }),
     ...(wh.payloadKey !== undefined && { payloadKey: wh.payloadKey }),
     ...(wh.disabled !== undefined && { disabled: wh.disabled }),
+    ...((wh.timeoutSeconds ?? null) !== null && {
+      timeoutSeconds: wh.timeoutSeconds,
+    }),
   };
 }
 
@@ -550,6 +553,9 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
                 payloadFormat: wh.payloadFormat,
               }),
               ...(wh.payloadKey !== undefined && { payloadKey: wh.payloadKey }),
+              ...((wh.timeoutSeconds ?? null) !== null && {
+                timeoutSeconds: wh.timeoutSeconds,
+              }),
               disabled: wh.disabled ?? false,
             });
           }
@@ -569,6 +575,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
                 headers: newWh.headers,
                 payloadFormat: newWh.payloadFormat,
                 payloadKey: newWh.payloadKey,
+                timeoutSeconds: newWh.timeoutSeconds ?? null,
                 disabled: newWh.disabled,
               });
             }

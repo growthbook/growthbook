@@ -78,7 +78,6 @@ export default function EditSDKSettingsModal({
   const customFields = useCustomFields();
   const { hasCommercialFeature } = useUser();
   const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
-  const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
   const proxyHostId = useId();
 
   const currentSdkCapabilities = getConnectionSDKCapabilities(
@@ -144,7 +143,6 @@ export default function EditSDKSettingsModal({
         await save({
           savedGroupFormat: sanitizeSavedGroupFormat(value.savedGroupFormat, {
             currentCapabilities: currentSdkCapabilities,
-            hasLargeSavedGroupFeature,
           }),
         });
         return;
@@ -171,6 +169,7 @@ export default function EditSDKSettingsModal({
         });
         return;
       case "proxy":
+        if (!isCloud()) return;
         await save({
           proxyEnabled: value.proxyEnabled,
           proxyHost: value.proxyHost,
@@ -345,7 +344,7 @@ export default function EditSDKSettingsModal({
             </Flex>
           )}
 
-          {section === "proxy" && (
+          {section === "proxy" && isCloud() && (
             <Flex direction="column" gap="3">
               <Switch
                 label={SETTING_TITLES.useProxy}

@@ -16,6 +16,12 @@ import { PermissionError } from "shared/util";
 import { BaseSchemaWithPrimaryKey } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { EntityType, EventType } from "shared/types/audit";
+import {
+  ApiBaseSchema,
+  CrudAction,
+  CrudValidatorOverrides,
+  DefaultCrudValidators,
+} from "shared/api-model";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
@@ -29,13 +35,7 @@ import {
   ForeignRefsCacheKeys,
 } from "back-end/src/services/context";
 import { ApiRequest } from "back-end/src/util/handler";
-import {
-  ApiBaseSchema,
-  ApiModelConfig,
-  CrudValidatorOverrides,
-  DefaultCrudValidators,
-} from "back-end/src/api/ApiModel";
-import { CrudAction } from "back-end/src/api/apiModelHandlers";
+import { ApiModelConfig } from "back-end/src/api/apiModelHandlers";
 import { dbSafeBulkWrite } from "back-end/src/util/mongo.util";
 import {
   DefinitionsVersionScope,
@@ -284,14 +284,15 @@ const pendingIndexOperations = new Map<string, Promise<string | void>[]>();
 // they look unset, without requiring a data migration.
 const nullIntolerantOptionalFields = new WeakMap<object, ReadonlySet<string>>();
 
-// Helper function to wait for all pending index operations to complete
-export async function waitForIndexes(): Promise<void> {
-  const allPromises: Promise<string | void>[] = [];
-  for (const promises of pendingIndexOperations.values()) {
-    allPromises.push(...promises);
-  }
-  await Promise.allSettled(allPromises);
-  pendingIndexOperations.clear();
+// Waits for pending index operations on one collection, or on all collections if omitted
+export async function waitForIndexes(collectionName?: string): Promise<void> {
+  const names = collectionName
+    ? [collectionName]
+    : [...pendingIndexOperations.keys()];
+  await Promise.allSettled(
+    names.flatMap((name) => pendingIndexOperations.get(name) ?? []),
+  );
+  names.forEach((name) => pendingIndexOperations.delete(name));
 }
 
 // Extracts the Zod schema type for a specific slot (paramsSchema/bodySchema/querySchema)
@@ -1132,12 +1133,12 @@ export abstract class BaseModel<
         props.owner = await resolveOwnerToUserId(props.owner, this.context);
       }
       if (!props.owner) {
-        props.owner = this.context.userId || "";
+        props.owner = this.context.actingUserId;
       }
     }
 
     if ("createdBy" in props && !props.createdBy) {
-      props.createdBy = this.context.userName || "";
+      props.createdBy = this.context.actingUserName;
     }
 
     const generatedIds: Record<string, string> = {};

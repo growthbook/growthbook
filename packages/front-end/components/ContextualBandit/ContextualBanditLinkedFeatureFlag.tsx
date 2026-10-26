@@ -1,8 +1,10 @@
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import React, { useState } from "react";
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiGitMerge, PiXBold } from "react-icons/pi";
+import { useRestApiCall } from "@/services/restApi";
 import LinkedChange from "@/components/Experiment/LinkedChanges/LinkedChange";
 import ForceSummary from "@/components/Features/ForceSummary";
 import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
@@ -17,7 +19,6 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import { decimalToPercent } from "@/services/utils";
-import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import EditContextualBanditFeatureValuesModal from "./EditContextualBanditFeatureValuesModal";
 
@@ -32,7 +33,7 @@ export default function ContextualBanditLinkedFeatureFlag({
   cb,
   mutate,
 }: Props) {
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
   const [removing, setRemoving] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -53,9 +54,12 @@ export default function ContextualBanditLinkedFeatureFlag({
   const handleRemove = async () => {
     setRemoving(true);
     try {
-      await apiCall(
-        `/api/v1/contextual-bandits/${cb.id}/linked-feature/${info.feature.id}?autoPublish=true`,
-        { method: "DELETE" },
+      await restApiCall(
+        contextualBanditEndpoints.deleteContextualBanditLinkedFeature,
+        {
+          params: { id: cb.id, featureId: info.feature.id },
+          query: { autoPublish: true },
+        },
       );
       mutate?.();
     } finally {

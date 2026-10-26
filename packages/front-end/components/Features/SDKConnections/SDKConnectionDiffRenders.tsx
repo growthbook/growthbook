@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import { Box } from "@radix-ui/themes";
 import {
   SDKConnectionRevisionSnapshot,
@@ -525,6 +526,10 @@ export function getSDKConnectionArchivedBadges(
     : [{ label: "Unarchive", action: "unarchive" }];
 }
 
+function timeoutDisplay(v: number | null | undefined): ReactNode {
+  return (v ?? null) === null ? <em>Default</em> : `${v}s`;
+}
+
 function webhookLabel(wh: SDKWebhookRevisionSnapshot): string {
   return wh.name || wh.endpoint || wh.id;
 }
@@ -559,15 +564,33 @@ export function renderSDKConnectionWebhooks(
   for (const wh of postWebhooks) {
     const old = preById.get(wh.id);
     if (old && !isEqual(old, wh)) {
-      rows.push(
-        <ChangeField
-          key={`edit-${wh.id}`}
-          label={webhookLabel(wh)}
-          changed
-          oldNode={strDisplay(old.endpoint)}
-          newNode={strDisplay(wh.endpoint)}
-        />,
-      );
+      const timeoutChanged =
+        (old.timeoutSeconds ?? null) !== (wh.timeoutSeconds ?? null);
+      if (timeoutChanged) {
+        rows.push(
+          <ChangeField
+            key={`timeout-${wh.id}`}
+            label={`${webhookLabel(wh)} Timeout`}
+            changed
+            oldNode={timeoutDisplay(old.timeoutSeconds)}
+            newNode={timeoutDisplay(wh.timeoutSeconds)}
+          />,
+        );
+      }
+      if (
+        !timeoutChanged ||
+        !isEqual(omit(old, "timeoutSeconds"), omit(wh, "timeoutSeconds"))
+      ) {
+        rows.push(
+          <ChangeField
+            key={`edit-${wh.id}`}
+            label={webhookLabel(wh)}
+            changed
+            oldNode={strDisplay(old.endpoint)}
+            newNode={strDisplay(wh.endpoint)}
+          />,
+        );
+      }
     }
   }
 

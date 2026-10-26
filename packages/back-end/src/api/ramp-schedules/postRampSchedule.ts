@@ -11,6 +11,7 @@ import {
   RampStepAction,
   stepHoldConditions,
   isAwaitingStartApproval,
+  apiAssignmentQueryInputFields,
 } from "shared/validators";
 import type { FeatureInterface } from "shared/types/feature";
 import {
@@ -32,8 +33,13 @@ import {
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
 import { rampScheduleToApiInterface } from "back-end/src/models/RampScheduleModel";
+import { resolveApiMonitoringConfig } from "back-end/src/services/assignmentQuerySelection";
 import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  confirmationLink,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 
 // Strict: a rule field placed on the step or action instead of inside `patch`
 // would otherwise be dropped and the step stored with nothing to apply.
@@ -80,6 +86,8 @@ export const postBodyStep = z
 const postRampScheduleValidator = {
   method: "post" as const,
   path: "/ramp-schedules",
+  confirmation: ["rampSchedule.create", "rampSchedule.start"] as const,
+  confirmationInHandler: true,
   operationId: "postRampSchedule",
   summary: "Create a ramp schedule",
   description:
@@ -106,7 +114,7 @@ const postRampScheduleValidator = {
       monitoringConfig: z
         .object({
           datasourceId: z.string(),
-          exposureQueryId: z.string(),
+          ...apiAssignmentQueryInputFields("exposureQuery"),
           guardrailMetricIds: z.array(z.string()).min(1),
           signalMetricIds: z.array(z.string()).optional(),
           monitoringMode: z.enum(["auto", "manual"]).optional(),
@@ -428,6 +436,31 @@ export const postRampSchedule = createApiRequestHandler(
     } as unknown as RampScheduleInterface);
   }
 
+  const monitoringConfig = body.monitoringConfig
+    ? await resolveApiMonitoringConfig(req.context, body.monitoringConfig, null)
+    : null;
+
+  // Attaching on creation controls a live rule without a revision publish.
+  await requireConfirmation(
+    req.context,
+    hasTarget
+      ? {
+          actions: ["rampSchedule.start"],
+          project: feature!.project,
+          summary: `Attach a ramp schedule to ${feature!.id}`,
+          links: [confirmationLink("feature", feature!.id)],
+          pin: feature!.dateUpdated,
+        }
+      : {
+          actions: ["rampSchedule.create"],
+          summary: body.name
+            ? `Create ramp schedule ${body.name}`
+            : "Create a ramp schedule",
+          links: [],
+          pin: null,
+        },
+  );
+
   const schedule = await req.context.models.rampSchedules.create({
     name: body.name ?? defaultName,
     entityType: "feature",
@@ -454,7 +487,7 @@ export const postRampSchedule = createApiRequestHandler(
     startDate,
     cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
     monitoringConfig: normalizeMonitoringConfig(
-      body.monitoringConfig ?? template?.monitoringConfig ?? null,
+      monitoringConfig ?? template?.monitoringConfig ?? null,
     ),
     lockdownConfig: body.lockdownConfig ?? template?.lockdownConfig,
     ...(body.experimentHealthAction
@@ -489,5 +522,5 @@ export const postRampSchedule = createApiRequestHandler(
     await dispatchAwaitingStartApproval(req.context, schedule);
   }
 
-  return { rampSchedule: rampScheduleToApiInterface(schedule) };
+  return { rampSchedule: rampScheduleToApiInterface(req.context, schedule) };
 });

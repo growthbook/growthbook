@@ -6,7 +6,15 @@ import { validateListSize } from "back-end/src/routers/saved-group/saved-group.c
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req) => {
-    const { name, attributeKey, values, condition, owner, projects } = req.body;
+    const {
+      name,
+      description,
+      attributeKey,
+      values,
+      condition,
+      owner,
+      projects,
+    } = req.body;
 
     if (!req.context.permissions.canCreateSavedGroup({ ...req.body })) {
       req.context.permissions.throwPermissionError();
@@ -40,8 +48,11 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       }
 
       // Validate condition
-      const allSavedGroups = await req.context.models.savedGroups.getAll();
-      const groupMap = new Map(allSavedGroups.map((sg) => [sg.id, sg]));
+      const referencedGroups =
+        await req.context.models.savedGroups.getReferencedWithoutValues(
+          condition,
+        );
+      const groupMap = new Map(referencedGroups.map((sg) => [sg.id, sg]));
       const conditionRes = validateCondition(condition, groupMap);
       if (!conditionRes.success) {
         throw new Error(conditionRes.error);
@@ -85,9 +96,10 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       type: type,
       values: values || [],
       groupName: name,
+      description,
       // Falls back to the authenticated user (only present for Personal Access
       // Tokens) when no owner is provided, otherwise stays empty.
-      owner: owner || req.context.userId || "",
+      owner: owner || req.context.actingUserId,
       condition: condition || "",
       attributeKey,
       projects,

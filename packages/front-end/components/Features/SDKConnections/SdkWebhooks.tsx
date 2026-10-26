@@ -1,11 +1,16 @@
 import React, { ReactElement, useState } from "react";
+import { Flex, IconButton } from "@radix-ui/themes";
+import {
+  PiCheck,
+  PiDotsThreeVertical,
+  PiInfo,
+  PiWarningFill,
+} from "react-icons/pi";
 import {
   WebhookInterface,
   CreateSdkWebhookProps,
   UpdateSdkWebhookProps,
 } from "shared/types/webhook";
-import { FaCheck, FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
-import { IconButton } from "@radix-ui/themes";
 import { ago } from "shared/dates";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { Revision, patchOpsToPartial } from "shared/enterprise";
@@ -13,7 +18,6 @@ import {
   sdkWebhookSnapshotValidator,
   SDKWebhookRevisionSnapshot,
 } from "shared/validators";
-import { PiDotsThreeVertical } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
 import useApi from "@/hooks/useApi";
 import EditSDKWebhooksModal, {
@@ -30,6 +34,8 @@ import ClickToReveal from "@/components/Settings/ClickToReveal";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Callout from "@/ui/Callout";
+import { Popover } from "@/ui/Popover";
+import Text from "@/ui/Text";
 import Table, {
   TableHeader,
   TableBody,
@@ -38,6 +44,7 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import { isDraftRevision } from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
+import WebhookErrorDetails from "./WebhookErrorDetails";
 
 const payloadFormatLabels: Record<string, string | ReactElement> = {
   standard: "Standard",
@@ -54,11 +61,13 @@ const payloadFormatLabels: Record<string, string | ReactElement> = {
   none: "none",
 };
 
-// Rows predating `httpMethod` default to POST, as the server does.
+// Rows predating `httpMethod` default to POST, and a default timeout is
+// omitted, both as the server snapshots them.
 function toSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
   return sdkWebhookSnapshotValidator.parse({
     ...wh,
     httpMethod: wh.httpMethod ?? "POST",
+    timeoutSeconds: wh.timeoutSeconds ?? undefined,
   });
 }
 
@@ -184,6 +193,9 @@ export default function SdkWebhooks({
       ...(formData.payloadKey !== undefined && {
         payloadKey: formData.payloadKey,
       }),
+      ...((formData.timeoutSeconds ?? null) !== null && {
+        timeoutSeconds: formData.timeoutSeconds,
+      }),
     };
     await submitWebhookRevision([...currentSnapshots, newSnapshot]);
   };
@@ -202,25 +214,31 @@ export default function SdkWebhooks({
         "This webhook is not part of the selected draft, so the edit cannot be staged there. Switch to the live version or another draft and try again.",
       );
     }
-    const updated = currentSnapshots.map((s) =>
-      s.id === id
-        ? {
-            ...s,
-            name: formData.name ?? s.name,
-            endpoint: formData.endpoint ?? s.endpoint,
-            httpMethod: formData.httpMethod ?? s.httpMethod,
-            ...(formData.headers !== undefined && {
-              headers: formData.headers,
-            }),
-            ...(formData.payloadFormat !== undefined && {
-              payloadFormat: formData.payloadFormat,
-            }),
-            ...(formData.payloadKey !== undefined && {
-              payloadKey: formData.payloadKey,
-            }),
-          }
-        : s,
-    );
+    const updated = currentSnapshots.map((s) => {
+      if (s.id !== id) return s;
+      // A blank timeout (null) clears it back to the default.
+      const { timeoutSeconds: currentTimeout, ...rest } = s;
+      const timeoutSeconds =
+        formData.timeoutSeconds === undefined
+          ? currentTimeout
+          : formData.timeoutSeconds;
+      return {
+        ...rest,
+        name: formData.name ?? s.name,
+        endpoint: formData.endpoint ?? s.endpoint,
+        httpMethod: formData.httpMethod ?? s.httpMethod,
+        ...(formData.headers !== undefined && {
+          headers: formData.headers,
+        }),
+        ...(formData.payloadFormat !== undefined && {
+          payloadFormat: formData.payloadFormat,
+        }),
+        ...(formData.payloadKey !== undefined && {
+          payloadKey: formData.payloadKey,
+        }),
+        ...((timeoutSeconds ?? null) !== null && { timeoutSeconds }),
+      };
+    });
     await submitWebhookRevision(updated);
   };
 
@@ -234,62 +252,37 @@ export default function SdkWebhooks({
     if (!live) {
       return <Badge label="Never fired" color="gray" variant="soft" />;
     }
-    if (live.disabled) {
+    if (live.disabled || live.error) {
       return (
-        <Tooltip
-          className="ml-1"
-          innerClassName="pb-3"
-          usePortal={true}
-          body={
-            <Callout key={live.id} status="error">
-              <div style={{ wordBreak: "break-all" }}>
-                Disabled after {live.consecutiveFailures} consecutive failures.
-                {live.error ? (
-                  <>
-                    <br />
-                    Last error: {live.error}
-                  </>
-                ) : null}
-              </div>
-            </Callout>
+        <Popover
+          openOnHover
+          side="bottom"
+          contentStyle={{ maxWidth: 420 }}
+          trigger={
+            <Badge
+              label={
+                <>
+                  <PiWarningFill />
+                  {live.disabled ? "Disabled" : "Error"}
+                </>
+              }
+              color="red"
+              variant="soft"
+              style={{ cursor: "default" }}
+            />
           }
-        >
-          <Badge
-            label={
-              <>
-                <FaExclamationTriangle className="mr-1" />
-                Disabled
-              </>
-            }
-            color="red"
-            variant="soft"
-          />
-        </Tooltip>
-      );
-    }
-    if (live.error) {
-      return (
-        <Tooltip
-          className="ml-1"
-          innerClassName="pb-3"
-          usePortal={true}
-          body={
-            <Callout key={live.id} status="error">
-              <div style={{ wordBreak: "break-all" }}>{live.error}</div>
-            </Callout>
+          content={
+            <Flex direction="column" gap="2">
+              {live.disabled ? (
+                <Text weight="semibold">
+                  Disabled after {live.consecutiveFailures} consecutive
+                  failures.
+                </Text>
+              ) : null}
+              {live.error ? <WebhookErrorDetails error={live.error} /> : null}
+            </Flex>
           }
-        >
-          <Badge
-            label={
-              <>
-                <FaExclamationTriangle className="mr-1" />
-                Error
-              </>
-            }
-            color="red"
-            variant="soft"
-          />
-        </Tooltip>
+        />
       );
     }
     if (live.lastSuccess) {
@@ -297,7 +290,7 @@ export default function SdkWebhooks({
         <Badge
           label={
             <>
-              <FaCheck className="mr-1" />
+              <PiCheck />
               {ago(live.lastSuccess)}
             </>
           }
@@ -377,7 +370,7 @@ export default function SdkWebhooks({
           </TableCell>
           <TableCell>{renderStatus(live)}</TableCell>
           <TableCell>
-            {!managedBy ? (
+            {live || !managedBy ? (
               <DropdownMenu
                 trigger={
                   <IconButton
@@ -392,8 +385,9 @@ export default function SdkWebhooks({
                 }
                 menuPlacement="end"
               >
-                {canUpdateWebhook && live ? (
+                {live ? (
                   <DropdownMenuItem
+                    disabled={!canUpdateWebhook}
                     onClick={async () => {
                       await apiCall(`/sdk-webhooks/${live.id}/test`, {
                         method: "post",
@@ -404,7 +398,7 @@ export default function SdkWebhooks({
                     Test
                   </DropdownMenuItem>
                 ) : null}
-                {canUpdateWebhook ? (
+                {!managedBy && canUpdateWebhook ? (
                   <DropdownMenuItem
                     onClick={() =>
                       setEditWebhookData({
@@ -415,13 +409,14 @@ export default function SdkWebhooks({
                         headers: snapshot.headers,
                         payloadFormat: snapshot.payloadFormat,
                         payloadKey: snapshot.payloadKey,
+                        timeoutSeconds: snapshot.timeoutSeconds ?? null,
                       })
                     }
                   >
                     Edit
                   </DropdownMenuItem>
                 ) : null}
-                {canDeleteWebhook ? (
+                {!managedBy && canDeleteWebhook ? (
                   <DropdownMenuItem
                     color="red"
                     confirmation={{
@@ -487,7 +482,7 @@ export default function SdkWebhooks({
             }
           >
             <span className="text-muted ml-2" style={{ fontSize: "0.75rem" }}>
-              What is this? <FaInfoCircle />
+              What is this? <PiInfo />
             </span>
           </Tooltip>
         </div>

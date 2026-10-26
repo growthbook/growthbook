@@ -19,7 +19,7 @@ import {
   type ApiAnalyticsExploration,
   type ExplorationConfig,
 } from "shared/validators";
-import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
+import { OpenApiModelSpec } from "shared/api-model";
 
 const boundedId = z.string().min(1).max(255);
 const boundedIds = z.array(boundedId).min(1).max(20);
@@ -171,6 +171,7 @@ export const getProductAnalyticsColumnValuesBodySchema = z
 export const getProductAnalyticsColumnValuesEndpoint = {
   pathFragment: "/column-values",
   verb: "post" as const,
+  confirmation: [],
   operationId: "getProductAnalyticsColumnValues",
   validator: {
     bodySchema: getProductAnalyticsColumnValuesBodySchema,
@@ -195,6 +196,7 @@ export function makeExplorationEndpoint<
   return {
     pathFragment: opts.pathFragment,
     verb: "post" as const,
+    confirmation: [],
     operationId: opts.operationId,
     validator: {
       bodySchema: bodyValidator,

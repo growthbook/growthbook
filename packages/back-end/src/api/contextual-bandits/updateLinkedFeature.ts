@@ -1,4 +1,4 @@
-import { updateContextualBanditLinkedFeatureValidator } from "shared/validators";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { updateContextualBanditFeatureRule } from "back-end/src/enterprise/services/contextualBandits";
@@ -7,10 +7,11 @@ import {
   assertVariationsCoverBandit,
   buildContextualBanditRefRule,
   loadContextualBanditForRead,
+  holdLinkedFeatureWrite,
 } from "./_shared";
 
 export const updateContextualBanditLinkedFeature = createApiRequestHandler(
-  updateContextualBanditLinkedFeatureValidator,
+  contextualBanditEndpoints.updateContextualBanditLinkedFeature,
 )(async (req) => {
   const { contextualBandit } = await loadContextualBanditForRead(
     req.context,
@@ -47,6 +48,13 @@ export const updateContextualBanditLinkedFeature = createApiRequestHandler(
     audit: req.audit,
     autoPublish: req.body.autoPublish,
     draftVersion: req.body.draftVersion,
+    beforeWrite: () =>
+      holdLinkedFeatureWrite(
+        req.context,
+        feature,
+        req.body.autoPublish,
+        req.body.draftVersion,
+      ),
   });
 
   return {

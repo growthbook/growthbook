@@ -5,6 +5,7 @@ import {
   getSDKCapabilityVersion,
 } from "shared/sdk-versioning";
 import {
+  parseSdkWebhookSnapshot,
   SDKConnectionRevisionSnapshot,
   SDKConnectionSettingsRevisionSnapshot,
 } from "shared/validators";
@@ -33,6 +34,7 @@ import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
+import { isCloud } from "@/services/env";
 import SDKConnectionSettingsCards from "@/components/Features/SDKConnections/SDKConnectionSettingsCards";
 import SDKConnectionHeaderMeta from "@/components/Features/SDKConnections/SDKConnectionHeaderMeta";
 import SDKConnectionCredentialsCard from "@/components/Features/SDKConnections/SDKConnectionCredentialsCard";
@@ -59,6 +61,7 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { docUrl } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
+import { PayloadSizeCallout } from "@/components/Features/SDKConnections/PayloadSizeNotices";
 import { capitalizeFirstLetter } from "@/services/utils";
 
 // Webhooks are required: an empty list reads as "every webhook was added" and
@@ -142,18 +145,9 @@ function flattenConnection(
   };
   return {
     sdkConnection: settings,
-    sdkWebhooks: webhooks.map((wh) => ({
-      id: wh.id,
-      name: wh.name,
-      endpoint: wh.endpoint,
-      httpMethod: wh.httpMethod ?? "POST",
-      ...(wh.headers !== undefined && { headers: wh.headers }),
-      ...(wh.payloadFormat !== undefined && {
-        payloadFormat: wh.payloadFormat,
-      }),
-      ...(wh.payloadKey !== undefined && { payloadKey: wh.payloadKey }),
-      ...(wh.disabled !== undefined && { disabled: wh.disabled }),
-    })) as SDKConnectionRevisionSnapshot["sdkWebhooks"],
+    sdkWebhooks: webhooks.map((wh) =>
+      parseSdkWebhookSnapshot({ ...wh, httpMethod: wh.httpMethod ?? "POST" }),
+    ),
   };
 }
 
@@ -600,6 +594,7 @@ export default function SDKConnectionPage() {
         onEditProjects={() => setEditSection("overview")}
       />
 
+      <PayloadSizeCallout connection={connection} mt="3" mb="0" />
       {!supportsBucketingV2 && (
         <Callout status="warning" mt="3">
           <Text weight="semibold">
@@ -653,7 +648,7 @@ export default function SDKConnectionPage() {
               <Heading size="lg" as="h2" mb="0">
                 Connection Details
               </Heading>
-              {canUpdate && (
+              {canUpdate && isCloud() && (
                 <Link onClick={() => setEditSection("proxy")}>Edit</Link>
               )}
             </Flex>

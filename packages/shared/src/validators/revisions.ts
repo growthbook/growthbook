@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { eventUser, actorIdField } from "./event-user";
 import { savedGroupValidator } from "./saved-group";
 import { constantValidator } from "./constant";
 import { configValidator } from "./config";
@@ -23,7 +24,10 @@ export type ReviewDecision = (typeof reviewDecision)[number];
 
 export const reviewValidator = z.object({
   id: z.string(),
-  userId: z.string(),
+  // Who the verdict counts for (coverage, self-approval): a member, or a key
+  // that reviewed as itself. `user` is the full actor behind it.
+  userId: actorIdField,
+  user: eventUser.optional(),
   decision: z.enum(reviewDecision),
   comment: z.string().optional(),
   dateCreated: z.date(),
@@ -103,7 +107,9 @@ export type JsonPatchOperation = z.infer<typeof jsonPatchOperationValidator>;
 // Activity log entry (for timeline/history)
 export const activityLogEntryValidator = z.object({
   id: z.string(),
-  userId: z.string(),
+  userId: actorIdField,
+  // Full actor, so history can show "person via API key". Absent on legacy entries.
+  user: eventUser.optional(),
   action: z.enum([
     "created",
     "updated",
@@ -198,7 +204,7 @@ export type RevisionTarget = z.infer<typeof revisionTargetValidator>;
 
 export const revisionValidator = z.object({
   id: z.string(),
-  authorId: z.string(),
+  authorId: actorIdField,
   version: z.number().optional(), // Optional for backward compatibility with existing revisions
   title: z.string().optional(),
   comment: z.string().optional(), // Optional free-form context supplied at draft creation
@@ -255,7 +261,7 @@ export const revisionValidator = z.object({
   resolution: z
     .object({
       action: z.enum(["merged", "discarded"]),
-      userId: z.string(),
+      userId: actorIdField,
       dateCreated: z.date(),
     })
     .optional(),

@@ -95,16 +95,9 @@ export function defaultSavedGroupFormat({
 // steps down to v1 and re-upgrading the SDK resumes v2.
 export function sanitizeSavedGroupFormat(
   format: SavedGroupFormat,
-  {
-    currentCapabilities,
-    hasLargeSavedGroupFeature,
-  }: {
-    currentCapabilities: SDKCapability[];
-    hasLargeSavedGroupFeature: boolean;
-  },
+  { currentCapabilities }: { currentCapabilities: SDKCapability[] },
 ): SavedGroupFormat {
-  return currentCapabilities.includes("savedGroupReferences") &&
-    hasLargeSavedGroupFeature
+  return currentCapabilities.includes("savedGroupReferences")
     ? format
     : "inline";
 }
@@ -114,11 +107,9 @@ export function sanitizeAdvancedForSave(
   {
     latestCapabilities,
     currentCapabilities,
-    hasLargeSavedGroupFeature,
   }: {
     latestCapabilities: SDKCapability[];
     currentCapabilities: SDKCapability[];
-    hasLargeSavedGroupFeature: boolean;
   },
 ): SDKConnectionAdvancedValue {
   const includeVisualExperiments =
@@ -131,7 +122,6 @@ export function sanitizeAdvancedForSave(
     includeExperimentNames: v.includeExperimentNames,
     savedGroupFormat: sanitizeSavedGroupFormat(v.savedGroupFormat, {
       currentCapabilities,
-      hasLargeSavedGroupFeature,
     }),
     includeProjectIdInMetadata: v.includeProjectIdInMetadata,
     includeCustomFieldsInMetadata: v.includeCustomFieldsInMetadata,

@@ -477,7 +477,7 @@ export default function TabbedPage({
               deviceType,
             });
           }}
-          cta="Open Visual Editor"
+          cta="Open AI Visual Editor"
           source={trackSource}
         />
       )}
@@ -680,6 +680,7 @@ export default function TabbedPage({
         <ResultsTab
           experiment={experiment}
           mutate={mutate}
+          holdoutProjects={holdout?.projects}
           editMetrics={editMetrics}
           editResult={editResult}
           newPhase={newPhase}
@@ -740,6 +741,7 @@ export default function TabbedPage({
               variationFilter: [],
             });
           }}
+          isTabActive={tab === "health"}
         />
       </div>
 

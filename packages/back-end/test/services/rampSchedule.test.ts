@@ -89,6 +89,12 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   registerRevisionPublishedHook: jest.fn(),
 }));
 
+// These mock contexts have no request data source cache.
+jest.mock("back-end/src/services/assignmentQuerySelection", () => ({
+  ...jest.requireActual("back-end/src/services/assignmentQuerySelection"),
+  getExposureQueriesForDatasource: jest.fn().mockResolvedValue([]),
+}));
+
 jest.mock("back-end/src/models/EventModel", () => ({
   createEvent: jest.fn(),
 }));
@@ -4680,6 +4686,8 @@ describe("approveAndPublishStep", () => {
     return {
       ctx: {
         userId: USER_ID,
+        actingUserId: USER_ID,
+        actorId: USER_ID,
         org: { id: ORG_ID, settings: {} },
         auditUser: { type: "session" as const, userAgent: "", ip: "" },
         environments: [],
@@ -4713,6 +4721,7 @@ describe("approveAndPublishStep", () => {
     expect(updates.stepApproval).toMatchObject({
       stepIndex: 0,
       approvedBy: USER_ID,
+      approvedByUser: ctx.auditUser,
       context: "api",
     });
     expect(updates.stepApproval?.approvedAt).toBeInstanceOf(Date);
@@ -5848,6 +5857,8 @@ describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
     const updateById = jest.fn().mockResolvedValue(doc);
     const ctx = {
       userId: "u1",
+      actingUserId: "u1",
+      actorId: "u1",
       models: {
         rampSchedules: {
           getById: jest.fn().mockResolvedValue(doc),

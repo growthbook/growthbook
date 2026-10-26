@@ -7,6 +7,7 @@ import {
   getPayloadAllowedKeys,
   buildV2SavedGroupsPayload,
   findAllReferencedSavedGroupIds,
+  savedGroupIdsInTargeting,
   resolveSavedGroupFormat,
   savedGroupFormatFromConnection,
   withLegacySavedGroupFlag,
@@ -660,6 +661,26 @@ describe("referencesV2 finalizeCondition", () => {
   });
 });
 
+describe("savedGroupIdsInTargeting", () => {
+  it("collects ids from the saved group list and every condition, once each", () => {
+    expect(
+      savedGroupIdsInTargeting({
+        savedGroups: [{ ids: ["grp_a", "grp_b"] }],
+        condition: JSON.stringify({
+          $or: [{ id: { $inGroup: "grp_c" } }, { $savedGroups: ["grp_a"] }],
+        }),
+        prerequisites: [
+          { condition: JSON.stringify({ value: { $inGroup: "grp_d" } }) },
+        ],
+      }),
+    ).toEqual(["grp_a", "grp_b", "grp_c", "grp_d"]);
+  });
+
+  it("names nothing for a malformed condition", () => {
+    expect(savedGroupIdsInTargeting({ condition: "{not json" })).toEqual([]);
+  });
+});
+
 describe("findAllReferencedSavedGroupIds", () => {
   const groupMap: GroupMap = new Map([
     ["list_1", { type: "list", attributeKey: "country", values: ["US"] }],
@@ -1239,5 +1260,131 @@ describe("withoutUnsupportedSavedGroupCapabilities", () => {
         remoteEvalEnabled: true,
       }),
     ).toEqual(["prerequisites"]);
+  });
+});
+
+// `$savedGroups` is rewritten by moving everything beside it into an `$and`.
+// What it moved must still be rewritten, whichever key was stored first.
+describe("a `$savedGroups` operator with negated siblings", () => {
+  const org = {
+    settings: {
+      attributeSchema: [{ property: "id", datatype: "string" }],
+    },
+  } as OrganizationInterface;
+  const groupMap: GroupMap = new Map([
+    ["beta", { type: "list", attributeKey: "id", values: ["u1"] }],
+    ["banned", { type: "list", attributeKey: "id", values: ["u1", "u2"] }],
+  ]);
+  const KEY_ORDERS = {
+    "operator first": {
+      $savedGroups: ["beta"],
+      $not: { $savedGroups: ["banned"] },
+    },
+    "negation first": {
+      $not: { $savedGroups: ["banned"] },
+      $savedGroups: ["beta"],
+    },
+    // The rewrite replaces an `$and` the walk already visited
+    "existing $and first": {
+      $and: [{ country: "US" }],
+      $savedGroups: ["beta"],
+      $not: { $savedGroups: ["banned"] },
+    },
+  };
+
+  it.each(Object.entries(KEY_ORDERS))("references v1: %s", (_order, stored) => {
+    const condition = structuredClone(stored);
+    recursiveWalk(condition, createV1SavedGroupsOperatorHandler(groupMap));
+    expect(JSON.stringify(condition)).not.toContain("$savedGroups");
+    expect(condition).toEqual({
+      $and: expect.arrayContaining([
+        { $not: { id: { $inGroup: "banned" } } },
+        { id: { $inGroup: "beta" } },
+      ]),
+    });
+  });
+
+  it.each(Object.entries(KEY_ORDERS))("inline: %s", (_order, stored) => {
+    const strategy = getSavedGroupPayloadStrategy({
+      capabilities: ["looseUnmarshalling"],
+      groupMap,
+      organization: org,
+    });
+    const condition = structuredClone(stored);
+    recursiveWalk(condition, strategy.createSavedGroupsOperatorHandler());
+    strategy.finalizeCondition(condition);
+    expect(condition).toEqual({
+      $and: expect.arrayContaining([
+        { $not: { id: { $in: ["u1", "u2"] } } },
+        { id: { $in: ["u1"] } },
+      ]),
+    });
+  });
+
+  it.each(Object.entries(KEY_ORDERS))(
+    "references v2 condition group entry: %s",
+    (_order, stored) => {
+      const payload = buildV2SavedGroupsPayload(
+        [
+          {
+            id: "g",
+            type: "condition",
+            condition: JSON.stringify(stored),
+          } as SavedGroupInterface,
+        ],
+        org,
+        groupMap,
+      );
+      expect(payload.g).toEqual({
+        type: "condition",
+        condition: {
+          $and: expect.arrayContaining([
+            { $not: { $savedGroup: { id: "banned" } } },
+            { $savedGroup: { id: "beta" } },
+          ]),
+        },
+      });
+    },
+  );
+
+  it("still flags a broken reference hidden under the moved sibling", () => {
+    const condition = {
+      $savedGroups: ["beta"],
+      $not: { $savedGroups: ["missing"] },
+    };
+    recursiveWalk(condition, createV1SavedGroupsOperatorHandler(groupMap));
+    expect(conditionHasSavedGroupErrors(condition)).toBe(true);
+  });
+});
+
+describe("recursiveWalk", () => {
+  it("walks values a handler moves under a key the pass has not seen", () => {
+    const seen: string[] = [];
+    const object = { a: 1, b: { c: 2 } };
+    recursiveWalk(object, ([key], parent) => {
+      seen.push(key);
+      if (key === "a") {
+        parent.moved = { b: parent.b };
+        delete parent.b;
+      }
+    });
+    expect(seen).toEqual(["a", "moved", "b", "c"]);
+  });
+
+  it("does not re-walk a value that is not equal to itself", () => {
+    let visits = 0;
+    recursiveWalk({ value: NaN }, () => {
+      visits++;
+    });
+    expect(visits).toBe(1);
+  });
+
+  it("walks array items that hold keys, never the indices or an ID list's values", () => {
+    const seen: string[] = [];
+    recursiveWalk(
+      { $and: [{ a: { $in: Array.from({ length: 1000 }, (_, i) => i) } }] },
+      ([key]) => seen.push(key),
+    );
+    expect(seen).toEqual(["$and", "a", "$in"]);
   });
 });

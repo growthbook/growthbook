@@ -19,7 +19,7 @@ import { DocLink } from "@/components/DocLink";
 import InstallationCodeSnippet from "@/components/SyntaxHighlighting/Snippets/InstallationCodeSnippet";
 import GrowthBookSetupCodeSnippet from "@/components/SyntaxHighlighting/Snippets/GrowthBookSetupCodeSnippet";
 import BooleanFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/BooleanFeatureCodeSnippet";
-import ClickToCopy from "@/components/Settings/ClickToCopy";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
 import SelectField from "@/components/Forms/SelectField";
 import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
@@ -331,7 +331,7 @@ export default function CodeSnippetModal({
                           ) : null}
                         </th>
                         <td>
-                          <ClickToCopy>{featuresEndpoint}</ClickToCopy>
+                          <CopyableCode value={featuresEndpoint} />
                         </td>
                       </tr>
                       <tr>
@@ -348,7 +348,7 @@ export default function CodeSnippetModal({
                           ) : null}
                         </th>
                         <td>
-                          <ClickToCopy>{apiHost}</ClickToCopy>
+                          <CopyableCode value={apiHost} />
                         </td>
                       </tr>
                       <tr>
@@ -359,7 +359,7 @@ export default function CodeSnippetModal({
                           Client Key
                         </th>
                         <td>
-                          <ClickToCopy>{clientKey}</ClickToCopy>
+                          <CopyableCode value={clientKey} />
                         </td>
                       </tr>
                       {encryptionKey && (
@@ -371,7 +371,7 @@ export default function CodeSnippetModal({
                             Decryption Key
                           </th>
                           <td>
-                            <ClickToCopy>{encryptionKey}</ClickToCopy>
+                            <CopyableCode value={encryptionKey} />
                           </td>
                         </tr>
                       )}
