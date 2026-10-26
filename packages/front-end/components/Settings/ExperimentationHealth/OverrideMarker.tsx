@@ -9,6 +9,7 @@ export function OverrideDot() {
   return (
     <Tooltip content="Customized for this Project">
       <span
+        role="img"
         aria-label="Customized for this Project"
         style={{
           display: "inline-block",
@@ -33,7 +34,8 @@ export function OrgDefaultLink({
   return (
     <Link
       onClick={onReset}
-      style={{ fontSize: 11, whiteSpace: "nowrap" }}
+      size="sm"
+      style={{ whiteSpace: "nowrap" }}
       aria-label={`Reset to the organization default, ${value}`}
     >
       Org default: {value}{" "}

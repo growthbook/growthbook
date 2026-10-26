@@ -6,6 +6,8 @@ import { computeAndStoreProcessResults } from "back-end/src/enterprise/services/
 import { getAgendaInstance } from "back-end/src/services/queueing";
 
 const UPDATE_PROCESS_SCORES = "updateExperimentProcessScores";
+// Experiments judged per run; the rest continue in a follow-up job
+const PAGE_SIZE = 25;
 
 type UpdateProcessScoresJob = Job<{
   organization: string;
@@ -19,31 +21,45 @@ export default function (agenda: Agenda) {
     const { organization, experimentIds, force } = job.attrs.data ?? {};
     if (!organization || !experimentIds?.length) return;
     const context = await getContextForAgendaJobByOrgId(organization);
-    const experiments = await getExperimentsByIds(context, experimentIds);
+    const experiments = await getExperimentsByIds(
+      context,
+      experimentIds.slice(0, PAGE_SIZE),
+    );
     await computeAndStoreProcessResults(
       context,
       force
         ? experiments
         : experiments.filter((e) => !hasCurrentProcessResults(e)),
     );
+    if (experimentIds.length > PAGE_SIZE) {
+      await queueJob({
+        organization,
+        experimentIds: experimentIds.slice(PAGE_SIZE),
+        force,
+      });
+    }
   });
 }
 
 async function queueJob(
   data: UpdateProcessScoresJob["attrs"]["data"],
-  // Jobs sharing a key are merged into one
-  uniqueKey: Record<string, unknown>,
+  // Jobs sharing a key are merged into one; follow-up pages have none
+  uniqueKey?: Record<string, unknown>,
+  delayMs = 0,
 ) {
   const job = getAgendaInstance().create(
     UPDATE_PROCESS_SCORES,
     data,
   ) as UpdateProcessScoresJob;
-  job.unique(uniqueKey);
-  job.schedule(new Date());
+  if (uniqueKey) job.unique(uniqueKey);
+  job.schedule(new Date(Date.now() + delayMs));
   await job.save();
 }
 
-// Re-judges one experiment, e.g. right after it stops
+// Callers audit a stop after it returns, so judging waits for that entry
+const AFTER_STOP_DELAY_MS = 2 * 60 * 1000;
+
+// Re-judges one experiment once it has stopped
 export function queueExperimentProcessScoreUpdate(
   organization: string,
   experimentId: string,
@@ -51,6 +67,7 @@ export function queueExperimentProcessScoreUpdate(
   return queueJob(
     { organization, experimentIds: [experimentId], force: true },
     { organization, processExperimentId: experimentId },
+    AFTER_STOP_DELAY_MS,
   );
 }
 

@@ -86,10 +86,13 @@ const recheckExperimentQuality = async (job: RecheckExperimentQualityJob) => {
 
   const context = await getContextForAgendaJobByOrgId(organization);
   if (!context.hasPremiumFeature("experiment-quality-score")) return;
-  const scope = getQualityScopeFilter(
-    await context.models.experimentationHealthSettings.getAll(),
-  );
+  const records = await context.models.experimentationHealthSettings.getAll();
+  const scope = getQualityScopeFilter(records);
   if (!scope) return;
+  // Built-in AI checks need a hypothesis; custom ones can apply without
+  const hasCustomChecks = records.some((r) =>
+    r.quality?.config?.customAiChecks?.some((c) => c.enabled !== false),
+  );
 
   // Once per pass: process results for experiments stopped before scoring
   // was turned on, or before a release changed the rules
@@ -119,7 +122,7 @@ const recheckExperimentQuality = async (job: RecheckExperimentQualityJob) => {
         project ? { project } : {},
         outdatedOnly
           ? {
-              hypothesis: { $nin: ["", null] },
+              ...(hasCustomChecks ? {} : { hypothesis: { $nin: ["", null] } }),
               "aiQualityResults.version": {
                 $ne: EXPERIMENT_QUALITY_PROMPT_VERSION,
               },

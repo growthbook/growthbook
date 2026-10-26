@@ -16,6 +16,9 @@ export const SECTION_COLORS: Record<
   ai: scaleColors("violet"),
 };
 
+// An AI verdict (0-1) as shown everywhere it appears
+export const formatAIScore = (score: number) => `${Math.round(score * 100)}%`;
+
 export type ScoreTier = "green" | "amber" | "red";
 
 // Tier for a 0-100 score

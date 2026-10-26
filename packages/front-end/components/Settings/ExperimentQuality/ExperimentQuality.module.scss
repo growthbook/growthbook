@@ -32,14 +32,6 @@
   }
 }
 
-.sectionPanel {
-  border: 1px solid var(--border-color-200);
-  background: var(--color-panel);
-  border-radius: 8px;
-  padding: 12px 16px 8px;
-  margin-bottom: 12px;
-}
-
 .sectionHeader {
   display: grid;
   grid-template-columns: 1fr 240px 52px;
@@ -77,27 +69,15 @@
   gap: 2px;
 }
 
-.paramInput {
-  width: 40px;
-  box-sizing: border-box;
-  font-size: 12px;
-  text-align: center;
-  padding: 1px 2px;
-  border: 1px solid var(--border-color-200);
-  border-radius: 4px;
-  background: var(--color-panel);
-  color: var(--color-text-high);
-}
-
 .sectionLabel {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 
 .sectionShare {
   display: block;
   text-align: right;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-high);
@@ -105,12 +85,6 @@
   &.off {
     color: var(--color-text-low);
   }
-}
-
-.nameInput {
-  width: 220px;
-  text-align: left;
-  padding: 1px 6px;
 }
 
 .addCustomRow {

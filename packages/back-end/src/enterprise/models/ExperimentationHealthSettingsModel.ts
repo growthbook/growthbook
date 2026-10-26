@@ -13,7 +13,6 @@ const BaseClass = MakeModelClass({
   schema: experimentationHealthSettingsValidator,
   collectionName: EXPERIMENTATION_HEALTH_SETTINGS_COLLECTION,
   affectsDefinitionsVersion: true,
-  definitionsVersionProjectField: "project",
   idPrefix: "ehs_",
   readonlyFields: ["project"],
   auditLog: {
@@ -78,10 +77,10 @@ export class ExperimentationHealthSettingsModel extends BaseClass {
     for (let attempt = 0; attempt < 2; attempt++) {
       const existing = await this.getForScope(project);
       if (existing) {
-        return this._updateOne(existing, updates);
+        return this.update(existing, updates);
       }
       try {
-        return await this._createOne({ project, ...updates });
+        return await this.create({ project, ...updates });
       } catch (e) {
         if (!isDuplicateKeyError(e)) throw e;
       }

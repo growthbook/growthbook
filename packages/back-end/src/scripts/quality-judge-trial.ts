@@ -42,13 +42,17 @@ import {
   judgeQualityWithDecisionModel,
 } from "back-end/src/enterprise/services/decisionModel";
 
+const label = z.union([z.literal(0), z.literal(0.5), z.literal(1)]).nullable();
+const trialCasesValidator = z.array(
+  z.object({
+    id: z.string(),
+    hypothesis: z.string(),
+    goalMetrics: z.array(z.string()),
+    labels: z.object({ hypothesis: label, alignment: label.optional() }),
+  }),
+);
 type Label = 0 | 0.5 | 1;
-type TrialCase = {
-  id: string;
-  hypothesis: string;
-  goalMetrics: string[];
-  labels: { hypothesis: Label | null; alignment?: Label | null };
-};
+type TrialCase = z.infer<typeof trialCasesValidator>[number];
 type Check = "hypothesis" | "alignment";
 type Verdicts = Partial<Record<Check, { score: number; reason: string }>>;
 type JudgeRun = { verdicts: Verdicts; ms: number; inputTokens: number };
@@ -244,7 +248,9 @@ async function runAll(
 async function trial() {
   const casesPath =
     arg("cases") ?? path.join(__dirname, "quality-judge-trial.cases.json");
-  const cases: TrialCase[] = JSON.parse(fs.readFileSync(casesPath, "utf8"));
+  const cases = trialCasesValidator.parse(
+    JSON.parse(fs.readFileSync(casesPath, "utf8")),
+  );
   const llm = (arg("llm") ?? CLOUD_MANAGED_AI_MODEL) as AIModel;
 
   console.log(`Judging ${cases.length} cases from ${casesPath}`);

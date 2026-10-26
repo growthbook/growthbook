@@ -11,7 +11,7 @@ import {
 } from "../validators/experiments";
 
 // Bump when a rule's logic changes so cached results are recomputed
-export const EXPERIMENT_PROCESS_RULES_VERSION = 1;
+export const EXPERIMENT_PROCESS_RULES_VERSION = 2;
 
 type DateLike = Date | string;
 
@@ -267,12 +267,14 @@ const PROCESS_RULES: Record<ProcessExperimentQualityCheckKey, ProcessRule> = {
     const stop = [...history]
       .reverse()
       .find((h) => h.pre.status === "running" && h.post.status === "stopped");
-    const plannedStop = stop?.pre.statusUpdateSchedule?.stopAt;
-    if (!stop || !plannedStop) return { result: "na" };
-    // Sequential testing is designed for stopping as soon as it's clear
+    if (!stop) return { result: "na" };
+    // Sequential testing is designed for stopping as soon as it's clear, so
+    // it passes before the minimum-runtime fallback can apply
     if (stop.pre.sequentialTestingEnabled ?? orgSequentialTestingEnabled) {
-      return { result: "na" };
+      return { result: "pass" };
     }
+    const plannedStop = stop.pre.statusUpdateSchedule?.stopAt;
+    if (!plannedStop) return { result: "na" };
     // Allow an hour for the scheduled stop job to run
     const early =
       new Date(plannedStop).getTime() - new Date(stop.date).getTime();

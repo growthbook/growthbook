@@ -200,8 +200,19 @@ describe("process rules", () => {
       result: "fail",
       detail: "Stopped 3 days before its planned end",
     });
-    // Org default sequential testing makes early stopping valid
-    expect(results(early, true)["no-early-stop"]).toBe("na");
+    // Org default sequential testing makes early stopping valid, with or
+    // without a scheduled end
+    expect(results(early, true)["no-early-stop"]).toBe("pass");
+    const unscheduled = { ...running, statusUpdateSchedule: null };
+    expect(
+      results(
+        [
+          change(0, draft, unscheduled),
+          change(5, unscheduled, { ...unscheduled, status: "stopped" }),
+        ],
+        true,
+      )["no-early-stop"],
+    ).toBe("pass");
     // ...unless the experiment turned it off
     const off = { ...running, sequentialTestingEnabled: false };
     expect(

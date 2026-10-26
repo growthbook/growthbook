@@ -506,6 +506,20 @@ describe("getExperimentQualityScore", () => {
     });
   });
 
+  it("counts a win with a recorded winner, even without a release", () => {
+    const won = (overrides: Partial<ExperimentForQualityScore>) =>
+      checkByKey(
+        score(baseExperiment({ results: "won", ...overrides })),
+        "decision",
+      );
+    expect(won({ releasedVariationId: "", winner: 1 })?.score).toBe(1);
+    expect(won({ releasedVariationId: "1", winner: undefined })?.score).toBe(1);
+    expect(won({ releasedVariationId: "", winner: undefined })).toMatchObject({
+      score: 0,
+      reason: "Marked as won without a winning variation",
+    });
+  });
+
   it("checks the analysis write-up once stopped", () => {
     const settings = resolveExperimentQualityScoreSettings();
     expect(settings.checks["analysis-written"].enabled).toBe(true);

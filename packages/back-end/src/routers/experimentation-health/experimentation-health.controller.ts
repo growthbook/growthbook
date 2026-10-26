@@ -10,6 +10,14 @@ import { ReqContext } from "back-end/types/request";
 import { queueExperimentQualityRecheck } from "back-end/src/jobs/experimentQualityScoreQueue";
 import { logger } from "back-end/src/util/logger";
 
+function requireQualityScoreFeature(context: ReqContext) {
+  if (!context.hasPremiumFeature("experiment-quality-score")) {
+    context.throwPlanDoesNotAllowError(
+      "Your organization does not have access to experiment quality scores",
+    );
+  }
+}
+
 // Saved settings change what's checked, so the scope's scores are rechecked
 function recheckScope(context: ReqContext, project: string) {
   queueExperimentQualityRecheck({
@@ -29,6 +37,7 @@ export async function putExperimentationHealthSettings(
   res: Response,
 ) {
   const context = getContextFromReq(req);
+  requireQualityScoreFeature(context);
   const { project, quality } = req.body;
 
   if (project !== ORG_DEFAULT_SCOPE) {
@@ -65,6 +74,7 @@ export async function deleteExperimentationHealthSettings(
   res: Response,
 ) {
   const context = getContextFromReq(req);
+  requireQualityScoreFeature(context);
   const existing =
     await context.models.experimentationHealthSettings.getForScope(
       req.query.project,

@@ -16,6 +16,7 @@ import {
   isAICheckApplicable,
   resolveExperimentQualitySettings,
 } from "shared/enterprise";
+import { expandMetricGroups } from "shared/experiments";
 import { ReqContext } from "back-end/types/request";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import {
@@ -23,7 +24,10 @@ import {
   secondsUntilAICanBeUsedAgain,
 } from "back-end/src/enterprise/services/ai";
 import { getExperimentMetricsByIds } from "back-end/src/services/experiments";
-import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentById,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
 import {
   isDecisionModelConfigured,
   judgeQualityWithDecisionModel,
@@ -73,13 +77,17 @@ export async function loadAIQualityInputs(
   context: ReqContext,
   goalMetricIds: string[],
 ) {
-  const [records, metrics] = await Promise.all([
+  const [records, metricGroups] = await Promise.all([
     context.models.experimentationHealthSettings.getAll(),
-    getExperimentMetricsByIds(context, [...new Set(goalMetricIds)]),
+    context.models.metricGroups.getAll(),
+  ]);
+  // Goal metrics can be metric groups; the AI judges their members
+  const metrics = await getExperimentMetricsByIds(context, [
+    ...new Set(expandMetricGroups(goalMetricIds, metricGroups)),
   ]);
   const recordsByProject = new Map(records.map((r) => [r.project, r]));
   const metricNames = new Map(metrics.map((m) => [m.id, m.name]));
-  return { recordsByProject, metricNames };
+  return { recordsByProject, metricGroups, metricNames };
 }
 
 export type AIQualityInputs = Awaited<ReturnType<typeof loadAIQualityInputs>>;
@@ -108,8 +116,9 @@ function getAIQualityWork(
   );
   if (!applicableChecks.length && !applicableCustomChecks.length) return null;
 
-  const goalMetricNames = getGoalMetricNames(experiment.goalMetrics, (id) =>
-    inputs.metricNames.get(id),
+  const goalMetricNames = getGoalMetricNames(
+    expandMetricGroups(experiment.goalMetrics, inputs.metricGroups),
+    (id) => inputs.metricNames.get(id),
   );
   return {
     settings,
@@ -374,6 +383,15 @@ export async function computeAndStoreAIQualityChecks({
           })
         : [],
     ]);
+    // A missing answer is a failure, so it's retried rather than cached
+    const answered = new Set(checks.flat().map((c) => c.key));
+    const missing = [
+      ...applicableChecks,
+      ...applicableCustomChecks.map((c) => c.key),
+    ].filter((key) => !answered.has(key));
+    if (missing.length) {
+      throw new Error(`The AI didn't score ${missing.join(", ")}`);
+    }
     aiQualityResults = {
       inputsHash,
       version: EXPERIMENT_QUALITY_PROMPT_VERSION,
@@ -395,9 +413,22 @@ export async function computeAndStoreAIQualityChecks({
     };
   }
 
+  // Inputs that changed during the call have already queued a fresh run,
+  // which must not be overwritten by these older answers
+  const latest = await getExperimentById(context, experiment.id);
+  const latestWork =
+    latest &&
+    getAIQualityWork(
+      latest,
+      await loadAIQualityInputs(context, latest.goalMetrics),
+    );
+  if (!latest || latestWork?.inputsHash !== inputsHash) {
+    return { status: "skipped" };
+  }
+
   await updateExperiment({
     context,
-    experiment,
+    experiment: latest,
     changes: { aiQualityResults },
     bypassWebhooks: true,
   });
