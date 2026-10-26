@@ -116,7 +116,7 @@ export const getInformationSchemaTableValidator = {
     .strict(),
   summary: "Get a single Information Schema Table by id",
   description:
-    "Returns cached metadata for a specific table in the Data Source, including columns and their data types. Not all data source types support information schemas.",
+    "Returns cached metadata for a specific table in the Data Source, including columns and their data types. The first request for a table listed in the information schema reads its columns from the warehouse, which needs permission to run queries. Not all data source types support information schemas.",
   operationId: "getInformationSchemaTable",
   tags: ["data-sources"],
   method: "get" as const,

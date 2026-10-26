@@ -157,6 +157,18 @@ export async function getInformationSchemaById(
   return result ? toInterface(result) : null;
 }
 
+export async function getInformationSchemaByTableId(
+  organization: string,
+  tableId: string,
+): Promise<InformationSchemaInterface | null> {
+  const result = await InformationSchemaModel.findOne({
+    organization,
+    "databases.schemas.tables.id": tableId,
+  });
+
+  return result ? toInterface(result) : null;
+}
+
 export async function deleteInformationSchemaById(
   organization: string,
   informationSchemaId: string,

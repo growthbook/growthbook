@@ -1231,6 +1231,19 @@ export async function projectHasFactTables(
   }));
 }
 
+// Ignores read permissions, so a dependency check can't miss a hidden table
+export async function datasourceHasFactTables(
+  context: ReqContext | ApiReqContext,
+  datasourceId: string,
+  ignoreIds: string[] = [],
+): Promise<boolean> {
+  return !!(await FactTableModel.exists({
+    organization: context.org.id,
+    datasource: datasourceId,
+    id: { $nin: ignoreIds },
+  }));
+}
+
 export async function deleteAllFactTablesForAProject({
   projectId,
   context,

@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { omit } from "lodash";
 import { QueryInterface, QueryStatistics, QueryType } from "shared/types/query";
 import { QueryLanguage } from "shared/types/datasource";
-import { ApiQuery } from "shared/validators";
+import { ApiQuery, queryStatusValidator } from "shared/validators";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
 import { generateId } from "back-end/src/util/uuid";
 import { logger } from "back-end/src/util/logger";
@@ -119,6 +119,26 @@ export async function getQueryById(
     id: id,
   });
   return doc ? toInterface(doc) : null;
+}
+
+export async function getQueriesByDatasource(
+  organization: string,
+  datasource: string,
+  limit: number = 50,
+) {
+  // Results aren't returned and can be large
+  const docs = await QueryModel.find(
+    {
+      organization,
+      datasource,
+      // Every status, so the status-first index can merge-sort by createdAt
+      status: { $in: queryStatusValidator.options },
+    },
+    { result: 0, rawResult: 0 },
+  )
+    .limit(limit)
+    .sort({ createdAt: -1 });
+  return docs.map((doc) => toInterface(doc));
 }
 
 // Queries still in flight; querylogs only gets a row once a query finishes
@@ -590,7 +610,9 @@ export function toQueryApiInterface(query: QueryInterface): ApiQuery {
     queryType: query.queryType || "",
     createdAt: query.createdAt?.toISOString() || "",
     startedAt: query.startedAt?.toISOString() || "",
+    finishedAt: query.finishedAt?.toISOString() ?? null,
     status: query.status,
+    error: query.error || null,
     externalId: query.externalId ? query.externalId : "",
     dependencies: query.dependencies ? query.dependencies : [],
     runAtEnd: query.runAtEnd ? query.runAtEnd : false,
