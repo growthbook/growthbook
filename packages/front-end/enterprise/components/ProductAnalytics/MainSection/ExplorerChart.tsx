@@ -265,7 +265,7 @@ export default function ExplorerChart({
         : 0;
       return {
         value,
-        populationRate: !!cell?.populationRate,
+        denominatorType: cell?.denominatorType,
         label: v.name?.trim() ? v.name : `Metric ${metricIndex + 1}`,
       };
     });
@@ -1022,7 +1022,7 @@ export default function ExplorerChart({
                   <BigValueChart
                     value={card.value}
                     formatter={
-                      card.populationRate
+                      card.denominatorType === "population"
                         ? (v) => `${formatNumber(v * 100)}%`
                         : formatNumber
                     }

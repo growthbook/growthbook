@@ -2383,7 +2383,7 @@ export function transformProductAnalyticsRowsToResult(
         metricId,
         ...(config.dataset.type === "metric" &&
         config.dataset.values[index]?.population
-          ? { populationRate: true }
+          ? { denominatorType: "population" as const }
           : {}),
         numerator: parseNumberValue(row[aliases.numerator]),
         denominator: parseNumberValue(row[aliases.denominator]),

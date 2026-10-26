@@ -450,11 +450,11 @@ export function getEffectiveMetricValue(
   v: {
     numerator: number | null;
     denominator: number | null;
-    populationRate?: boolean;
+    denominatorType?: "population";
   },
   opts: { showAs: ShowAs; isRatio: boolean },
 ): number | null {
-  if (v.populationRate) {
+  if (v.denominatorType === "population") {
     return v.numerator !== null && v.denominator !== null && v.denominator > 0
       ? v.numerator / v.denominator
       : null;
@@ -633,7 +633,7 @@ export function getExplorationCellValue(
     values?: {
       numerator: number | null;
       denominator: number | null;
-      populationRate?: boolean;
+      denominatorType?: "population";
     }[];
   },
   col: ExplorationColumn,

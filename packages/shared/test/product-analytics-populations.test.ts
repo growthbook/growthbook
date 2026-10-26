@@ -176,19 +176,19 @@ describe("population-backed proportions", () => {
         metricId: metric.id,
         numerator: 1,
         denominator: 2,
-        populationRate: true,
+        denominatorType: "population" as const,
       },
       {
         metricId: metric.id,
         numerator: 0,
         denominator: 1,
-        populationRate: true,
+        denominatorType: "population" as const,
       },
       {
         metricId: metric.id,
         numerator: 0,
         denominator: 0,
-        populationRate: true,
+        denominatorType: "population" as const,
       },
     ]);
     expect(

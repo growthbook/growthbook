@@ -529,7 +529,7 @@ export const productAnalyticsResultRowValidator = z.object({
         metricId: z.string(),
         numerator: z.number().nullable(),
         denominator: z.number().nullable(),
-        populationRate: z.boolean().optional(),
+        denominatorType: z.literal("population").optional(),
       }),
     )
     .optional(),

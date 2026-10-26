@@ -352,7 +352,7 @@ function cell(numerator: number, denominator: number | null = null) {
 }
 
 function explorationFromValues(
-  values: (ReturnType<typeof cell> & { populationRate?: boolean })[],
+  values: (ReturnType<typeof cell> & { denominatorType?: "population" })[],
 ): ProductAnalyticsExploration {
   return {
     result: { rows: [{ dimensions: [], values }] },
@@ -523,7 +523,7 @@ describe("population rate comparisons", () => {
               metricId: "m",
               numerator: 0,
               denominator: 0,
-              populationRate: true,
+              denominatorType: "population" as const,
             },
           ],
         },
@@ -534,7 +534,7 @@ describe("population rate comparisons", () => {
               metricId: "m",
               numerator: 0,
               denominator: 10,
-              populationRate: true,
+              denominatorType: "population" as const,
             },
           ],
         },
@@ -545,7 +545,7 @@ describe("population rate comparisons", () => {
               metricId: "m",
               numerator: 2,
               denominator: 10,
-              populationRate: true,
+              denominatorType: "population" as const,
             },
           ],
         },
@@ -569,10 +569,10 @@ describe("population rate comparisons", () => {
   });
   it("does not invent a trend when either population is empty", () => {
     const current = explorationFromValues([
-      { ...cell(0, 0), populationRate: true },
+      { ...cell(0, 0), denominatorType: "population" as const },
     ]);
     const previous = explorationFromValues([
-      { ...cell(2, 10), populationRate: true },
+      { ...cell(2, 10), denominatorType: "population" as const },
     ]);
     expect(
       computeBigNumberComparisonTrendForMetricIndex(
