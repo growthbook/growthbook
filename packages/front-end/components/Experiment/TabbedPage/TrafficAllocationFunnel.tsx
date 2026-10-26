@@ -33,6 +33,7 @@ import { hasUnpublishedChanges } from "@/components/Experiment/LinkedChanges/lin
 import track from "@/services/track";
 import { PercentField } from "@/components/Forms/PercentSliderField";
 import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
+import { isNamespaceSelectable } from "@/components/Features/NamespaceSelector";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -256,7 +257,7 @@ export default function TrafficAllocationFunnel({
   });
 
   const hashAttribute =
-    effective?.hashAttribute ?? experiment.hashAttribute ?? "id";
+    effective?.hashAttribute || experiment.hashAttribute || "id";
   const fallbackAttribute =
     effective?.fallbackAttribute ?? experiment.fallbackAttribute ?? "";
 
@@ -365,8 +366,14 @@ export default function TrafficAllocationFunnel({
     canEditExperiment && !variationsLocked && !!targetingDraft;
   // Bucketing follows the variation list, so its shape is fixed once it starts.
   const canRestructure = canStageVariations && experiment.status === "draft";
+  // Only while there's one it can join.
   const canAddNamespace =
-    !!editNamespace && safeToEdit && !hasNamespace && !!namespaces?.length;
+    !!editNamespace &&
+    safeToEdit &&
+    !hasNamespace &&
+    !!namespaces?.some((n) =>
+      isNamespaceSelectable(n, { hashAttribute, fallbackAttribute }),
+    );
 
   // Staged over what's stored: "" means leaving the stored holdout.
   const holdoutId = holdoutDraft?.value ?? experiment.holdoutId ?? "";

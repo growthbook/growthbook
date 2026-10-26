@@ -83,6 +83,22 @@ const DISABLED_NAMESPACE: CanonicalNamespace = {
   ranges: [],
 };
 
+// Whether an experiment assigning by `hashAttribute` can join the namespace.
+// With a fallback attribute only legacy namespaces can take it; a multi-range
+// one needs the same hash attribute.
+export function isNamespaceSelectable(
+  namespace: Namespaces,
+  {
+    hashAttribute,
+    fallbackAttribute,
+  }: { hashAttribute: string; fallbackAttribute: string },
+): boolean {
+  if (namespace.status === "inactive") return false;
+  const legacy = namespace.format !== "multiRange";
+  if (fallbackAttribute.trim()) return legacy;
+  return legacy || namespace.hashAttribute === hashAttribute;
+}
+
 export default function NamespaceSelector({
   form,
   featureId,
@@ -162,17 +178,14 @@ export default function NamespaceSelector({
       ? activeNamespaces.filter((n) => isLegacyNamespace(n))
       : activeNamespaces;
 
-    const options = filtered.map((n) => {
-      const isHashMismatch =
-        !isFallbackMode &&
-        !isLegacyNamespace(n) &&
-        n.hashAttribute !== effectiveHashAttribute;
-      return {
-        value: n.name,
-        label: n.label,
-        isDisabled: isHashMismatch,
-      };
-    }) as SingleValue[];
+    const options = filtered.map((n) => ({
+      value: n.name,
+      label: n.label,
+      isDisabled: !isNamespaceSelectable(n, {
+        hashAttribute: effectiveHashAttribute,
+        fallbackAttribute: effectiveFallbackAttribute,
+      }),
+    })) as SingleValue[];
 
     return {
       filteredNamespaces: filtered,
@@ -192,6 +205,7 @@ export default function NamespaceSelector({
   }, [
     allNamespaces,
     effectiveHashAttribute,
+    effectiveFallbackAttribute,
     isFallbackMode,
     namespace,
     hideEnableToggle,

@@ -114,7 +114,7 @@ export default function AnalysisPlan({
   const targetingDefaults = useTargetingDefaults(experiment);
 
   const hashAttribute =
-    targetingDraft?.value?.hashAttribute ?? experiment.hashAttribute ?? "";
+    targetingDraft?.value?.hashAttribute || experiment.hashAttribute || "id";
   // Before it runs, the analysis and the assignment attribute follow each
   // other; after, a new attribute would re-randomize.
   const bound =
