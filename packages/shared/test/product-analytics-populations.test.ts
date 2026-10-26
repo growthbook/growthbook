@@ -171,6 +171,28 @@ function execute(
 }
 
 describe("population-backed proportions", () => {
+  describe("generated daily SQL (SQLite)", () => {
+    it.each([
+      { name: "without a population", selectedPopulation: null },
+      {
+        name: "with the mobile revenue population",
+        selectedPopulation: population,
+      },
+    ])("matches the query $name", ({ selectedPopulation }) => {
+      const dailyConfig: MetricExplorationConfig = {
+        ...config,
+        dataset: {
+          ...config.dataset,
+          values: [
+            { ...config.dataset.values[0], population: selectedPopulation },
+          ],
+        },
+      };
+      const { sql } = query(dailyConfig);
+      expect(sql).toMatchSnapshot();
+    });
+  });
+
   it("counts eligible units once, includes non-converters, and excludes outsiders and null identifiers", () => {
     const rows = execute();
     const dailyPopulationResults = rows.map((row) => row.values?.[0]);
