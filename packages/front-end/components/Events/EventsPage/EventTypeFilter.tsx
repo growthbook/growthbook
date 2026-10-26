@@ -52,7 +52,9 @@ export default function EventTypeFilter({
   const q = query.trim().toLowerCase();
   const groups = GROUPS.map((g) => ({
     ...g,
-    names: g.names.filter((n) => n.toLowerCase().includes(q)),
+    names: g.label.toLowerCase().includes(q)
+      ? g.names
+      : g.names.filter((n) => n.toLowerCase().includes(q)),
   })).filter((g) => g.names.length);
   const fieldRef = useRef<HTMLDivElement>(null);
   const pillsRef = useRef<HTMLDivElement>(null);
