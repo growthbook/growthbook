@@ -1,4 +1,4 @@
-import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
+import { PiCheck, PiCopy } from "react-icons/pi";
 import clsx from "clsx";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
@@ -25,7 +25,6 @@ export default function ClickToCopy({
     >
       {copySupported ? (
         <button
-          className="btn p-0"
           type="button"
           onClick={(e) => {
             e.preventDefault();
@@ -36,14 +35,17 @@ export default function ClickToCopy({
             }
           }}
           title="Copy to Clipboard"
-          style={compact ? { lineHeight: 1.1 } : {}}
+          style={{
+            display: "inline-flex",
+            padding: 0,
+            border: 0,
+            background: "none",
+            color: "var(--gray-11)",
+            fontSize: compact ? ".95rem" : "1rem",
+            cursor: "pointer",
+          }}
         >
-          <span
-            className="text-main"
-            style={{ fontSize: compact ? ".95rem" : "1.1rem" }}
-          >
-            {copySuccess ? <HiOutlineClipboardCheck /> : <HiOutlineClipboard />}
-          </span>
+          {copySuccess ? <PiCheck /> : <PiCopy />}
         </button>
       ) : null}
       {children ? (

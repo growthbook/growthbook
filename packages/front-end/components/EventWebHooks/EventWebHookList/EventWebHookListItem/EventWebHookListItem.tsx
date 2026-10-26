@@ -2,6 +2,7 @@ import React, { FC } from "react";
 import Link from "next/link";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { datetime } from "shared/dates";
+import { Flex } from "@radix-ui/themes";
 import {
   WebhookIcon,
   useIconForState,
@@ -32,19 +33,28 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
     payloadType === "slack" && !!eventWebHook.slack?.teamId;
 
   return (
-    <Link href={href} style={{ textDecoration: "none" }} className="card p-3">
-      <div className="d-flex">
-        <div className="ml-2">
-          <div className="m-2 p-2 border rounded">
-            <WebhookIcon
-              type={payloadType}
-              style={{ height: "2rem", width: "2rem" }}
-            />
-          </div>
-        </div>
-        <div className="mr-4 ml-3">
-          <div className="d-flex">
-            <h3 className="link-purple text-truncate">{name}</h3>
+    <Link
+      href={href}
+      style={{ textDecoration: "none", padding: "16px 20px" }}
+      className="card"
+    >
+      <Flex gap="16px">
+        <Flex
+          align="center"
+          justify="center"
+          flexShrink="0"
+          width="44px"
+          height="44px"
+          style={{
+            border: "1px solid var(--gray-a5)",
+            borderRadius: "var(--radius-3)",
+          }}
+        >
+          <WebhookIcon type={payloadType} style={{ height: 22, width: 22 }} />
+        </Flex>
+        <Flex direction="column" gap="6px" minWidth="0">
+          <div className="d-flex align-items-center">
+            <h3 className="link-purple text-truncate mb-0">{name}</h3>
             {enabled && (
               <div>
                 <span className="badge badge-gray text-uppercase ml-2">
@@ -90,8 +100,8 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
               maxEventsDisplay: MAX_EVENTS_DISPLAY,
             })}
           </div>
-        </div>
-      </div>
+        </Flex>
+      </Flex>
     </Link>
   );
 };
