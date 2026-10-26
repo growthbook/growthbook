@@ -9,7 +9,7 @@ import type {
   FactTableInterface,
 } from "shared/types/fact-table";
 
-export function validateMetricPopulation(
+export function validatePopulationMetricCompatibility(
   config: Pick<ExplorationConfig, "datasource" | "dimensions">,
   value: MetricValue,
   metric: FactMetricInterface,

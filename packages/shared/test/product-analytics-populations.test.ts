@@ -6,7 +6,7 @@ import {
   buildExplorationColumns,
   encodeExplorationConfig,
   decodeExplorationConfigJson,
-  validateMetricPopulation,
+  validatePopulationMetricCompatibility,
 } from "shared/enterprise";
 import { createLikeStringMatchFn } from "shared/sql";
 import {
@@ -350,7 +350,7 @@ describe("population-backed proportions", () => {
       m = metric,
       unit: string | null = "user_id",
     ) =>
-      validateMetricPopulation(
+      validatePopulationMetricCompatibility(
         c,
         { ...c.dataset.values[0], unit },
         m,
