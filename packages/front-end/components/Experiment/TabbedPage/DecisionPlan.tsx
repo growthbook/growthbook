@@ -18,7 +18,7 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { useEditsBlockedReason } from "./ExperimentEdits";
-import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
+import QuickEditButton, { clicksQuickEdit } from "./QuickEditButton";
 import SetupFieldRow from "./SetupFieldRow";
 import { scheduleSummary } from "./statusSchedule";
 
@@ -123,25 +123,29 @@ export default function DecisionPlan({
         />
       ) : null}
 
-      <Box className={scheduleEditable ? revealsQuickEdit : undefined}>
-        <SetupFieldRow label="Schedule" labelAlign="center">
-          <Panel>
-            <Flex align="center" gap="2">
-              <Text color="text-high">
-                {scheduleSummary(experiment.statusUpdateSchedule)}
-              </Text>
-              {scheduleEditable ? (
-                <QuickEditButton
-                  label="Edit schedule"
-                  onClick={() => setEditing("schedule")}
-                  blockedReason={editsBlocked}
-                  labelTooltip={false}
-                />
-              ) : null}
-            </Flex>
-          </Panel>
-        </SetupFieldRow>
-      </Box>
+      <SetupFieldRow label="Schedule" labelAlign="center">
+        <Panel>
+          <Flex
+            align="center"
+            justify="between"
+            gap="3"
+            className={scheduleEditable ? clicksQuickEdit : undefined}
+          >
+            <Text color="text-high">
+              {scheduleSummary(experiment.statusUpdateSchedule)}
+            </Text>
+            {scheduleEditable ? (
+              <QuickEditButton
+                label="Edit schedule"
+                onClick={() => setEditing("schedule")}
+                blockedReason={editsBlocked}
+                labelTooltip={false}
+                fillsRow
+              />
+            ) : null}
+          </Flex>
+        </Panel>
+      </SetupFieldRow>
 
       {summary ? (
         <SetupFieldRow label="Decision" content="panel">
@@ -193,7 +197,13 @@ export default function DecisionPlan({
                 label="At end"
                 tooltip="What happens when the experiment reaches its scheduled end."
               >
-                <Flex align="start" gap="2" className={revealsQuickEdit}>
+                <Flex
+                  flexGrow="1"
+                  align="start"
+                  justify="between"
+                  gap="3"
+                  className={scheduleEditable ? clicksQuickEdit : undefined}
+                >
                   <Box minWidth="0">
                     <Text as="div" color="text-high">
                       {summary.endSummary}
@@ -210,6 +220,7 @@ export default function DecisionPlan({
                       onClick={() => setEditing("schedule")}
                       blockedReason={editsBlocked}
                       labelTooltip={false}
+                      fillsRow
                     />
                   ) : null}
                 </Flex>

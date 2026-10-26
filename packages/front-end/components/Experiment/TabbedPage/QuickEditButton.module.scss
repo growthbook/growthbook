@@ -1,3 +1,5 @@
+@import "../../../styles/hover-highlight";
+
 // A section's edit button stays out of the way until the section is pointed
 // at, or reached by keyboard.
 .edit {
@@ -18,5 +20,16 @@
 @media (hover: none) {
   .edit {
     opacity: 1;
+  }
+}
+
+// A row clicked anywhere to edit, as the funnel's cards: tinted on hover, its
+// button on the right.
+.clickRow {
+  @include hover-highlight;
+  @include click-row;
+
+  .rowTarget {
+    @include click-row-target;
   }
 }

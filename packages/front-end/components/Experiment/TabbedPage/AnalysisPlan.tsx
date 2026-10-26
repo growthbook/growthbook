@@ -54,7 +54,7 @@ import SetupFieldRow from "./SetupFieldRow";
 import { useDecisionFrameworkApplies } from "./DecisionMakingSettings";
 import AnalysisPlanAdvanced from "./AnalysisPlanAdvanced";
 import DecisionPlan from "./DecisionPlan";
-import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
+import QuickEditButton, { clicksQuickEdit } from "./QuickEditButton";
 import type { TargetingDraft } from "./TrafficAllocationFunnel";
 
 type MetricField = "goalMetrics" | "secondaryMetrics" | "guardrailMetrics";
@@ -622,7 +622,12 @@ export default function AnalysisPlan({
           label="Data Source"
           content="text"
         >
-          <Flex align="start" gap="2" className={revealsQuickEdit}>
+          <Flex
+            align="start"
+            justify="between"
+            gap="3"
+            className={editDatasource ? clicksQuickEdit : undefined}
+          >
             <Text color="text-high">
               {hiddenDatasource
                 ? restricted
@@ -633,6 +638,7 @@ export default function AnalysisPlan({
                 label="Edit data source"
                 onClick={editDatasource}
                 labelTooltip={false}
+                fillsRow
               />
             ) : null}
           </Flex>
