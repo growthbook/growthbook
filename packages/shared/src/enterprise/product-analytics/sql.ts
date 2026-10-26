@@ -1036,76 +1036,80 @@ function getMetricData(
     }
   }
 
-  // Always expose a denominator (unit count) for unit-aggregated non-ratio,
-  // non-quantile metrics so the frontend can render either the raw numerator
-  // (totals) or numerator/denominator (per-unit averages) based on the
-  // chart-level `showAs` setting.
-  //
-  // Intentionally symmetric across dataset types: fact_table/data_source
-  // datasets (where `showAsAppliesTo` returns false and the denominator is
-  // never surfaced) still emit this column. The extra `COUNT(...)` is cheap
-  // relative to the rest of the rollup and keeps the SQL shape / result
-  // column set identical regardless of dataset type, which simplifies the
-  // downstream parser and test fixtures. If this ever becomes a measurable
-  // cost, narrow the guard to metric datasets where per-unit is meaningful.
+  let populationData: MetricData["population"];
+  let unitAggregationExpr: string | null;
+  let rollupAggregationExpr: string;
   let rollupCountExpr: string | null = null;
-  if (
-    selectedUnit &&
-    metric.metricType !== "ratio" &&
-    metric.metricType !== "quantile"
-  ) {
-    rollupCountExpr = getRollupCountExpr(metric, alias);
-  }
 
-  const population = metricWithMetadata.population;
-  const populationAlias = `pop${metricIndex}`;
-  const populationColumn: ColumnRef | null = population
-    ? {
-        factTableId: population.source.factTableId,
-        column: "$$distinctUsers",
-        rowFilters: population.rowFilters,
-        aggregateFilter: population.aggregateFilter,
-        aggregateFilterColumn: population.aggregateFilterColumn,
-      }
-    : null;
-  const presenceColumn = { ...columnRef, column: "$$count" };
-  const populationData = populationColumn
-    ? {
-        alias: populationAlias,
-        eventValueExpr: getEventValueExpr(
-          populationColumn,
-          factTable,
-          helpers,
-          populationAlias,
-          null,
-        ),
-        presenceExpr: getEventValueExpr(
-          { ...populationColumn, column: "$$count" },
-          factTable,
-          helpers,
-          populationAlias,
-          null,
-        ),
-        // Presence matters for conditions such as <= 0: rows belonging only to
-        // another metric must never qualify as population members.
-        unitAggregationExpr: `CASE WHEN COUNT(${populationAlias}_rows) > 0 THEN ${getUnitAggregationExpr(populationColumn, populationAlias, helpers)} ELSE NULL END`,
-      }
-    : undefined;
-  let rollupAggregationExpr = getRollupAggregationExpr(
-    metric,
-    columnRef,
-    alias,
-    helpers,
-    !!selectedUnit,
-  );
-  if (populationData) {
+  if (metricWithMetadata.population) {
+    const population = metricWithMetadata.population;
+    const populationAlias = `pop${metricIndex}`;
+    const populationColumn: ColumnRef = {
+      factTableId: population.source.factTableId,
+      column: "$$distinctUsers",
+      rowFilters: population.rowFilters,
+      aggregateFilter: population.aggregateFilter,
+      aggregateFilterColumn: population.aggregateFilterColumn,
+    };
+    populationData = {
+      alias: populationAlias,
+      eventValueExpr: getEventValueExpr(
+        populationColumn,
+        factTable,
+        helpers,
+        populationAlias,
+        null,
+      ),
+      presenceExpr: getEventValueExpr(
+        { ...populationColumn, column: "$$count" },
+        factTable,
+        helpers,
+        populationAlias,
+        null,
+      ),
+      // Presence matters for conditions such as <= 0: rows belonging only to
+      // another metric must never qualify as population members.
+      unitAggregationExpr: `CASE WHEN COUNT(${populationAlias}_rows) > 0 THEN ${getUnitAggregationExpr(populationColumn, populationAlias, helpers)} ELSE NULL END`,
+    };
     const unitIndex = selectedUnit ? units.indexOf(selectedUnit) : -1;
     if (unitIndex === -1) {
       throw new Error(`Unit ${selectedUnit} not found in fact table group`);
     }
-    const eligible = `${populationData.alias} = 1 AND unit${unitIndex} IS NOT NULL`;
+    unitAggregationExpr = `CASE WHEN COUNT(${alias}_rows) > 0 THEN ${getUnitAggregationExpr(columnRef, alias, helpers)} ELSE NULL END`;
+    const eligible = `${populationAlias} = 1 AND unit${unitIndex} IS NOT NULL`;
     rollupAggregationExpr = `SUM(CASE WHEN ${eligible} AND ${alias} = 1 THEN 1 ELSE 0 END)`;
     rollupCountExpr = `SUM(CASE WHEN ${eligible} THEN 1 ELSE 0 END)`;
+  } else {
+    unitAggregationExpr = selectedUnit
+      ? getUnitAggregationExpr(columnRef, alias, helpers)
+      : null;
+    rollupAggregationExpr = getRollupAggregationExpr(
+      metric,
+      columnRef,
+      alias,
+      helpers,
+      !!selectedUnit,
+    );
+    // Always expose a denominator (unit count) for unit-aggregated non-ratio,
+    // non-quantile metrics so the frontend can render either the raw numerator
+    // (totals) or numerator/denominator (per-unit averages) based on the
+    // chart-level `showAs` setting.
+    //
+    // Intentionally symmetric across dataset types: fact_table/data_source
+    // datasets (where `showAsAppliesTo` returns false and the denominator is
+    // never surfaced) still emit this column. The extra `COUNT(...)` is cheap
+    // relative to the rest of the rollup and keeps the SQL shape / result
+    // column set identical regardless of dataset type, which simplifies the
+    // downstream parser and test fixtures. If this ever becomes a measurable
+    // cost, narrow the guard to metric datasets where per-unit is meaningful.
+
+    if (
+      selectedUnit &&
+      metric.metricType !== "ratio" &&
+      metric.metricType !== "quantile"
+    ) {
+      rollupCountExpr = getRollupCountExpr(metric, alias);
+    }
   }
   const cappingSettings = getCappingSettings(metric);
   const rawPercentileValueExpr = getEventValueExpr(
@@ -1133,17 +1137,13 @@ function getMetricData(
     ),
     population: populationData,
     presenceExpr: getEventValueExpr(
-      presenceColumn,
+      { ...columnRef, column: "$$count" },
       factTable,
       helpers,
       alias,
       null,
     ),
-    unitAggregationExpr: selectedUnit
-      ? populationData
-        ? `CASE WHEN COUNT(${alias}_rows) > 0 THEN ${getUnitAggregationExpr(columnRef, alias, helpers)} ELSE NULL END`
-        : getUnitAggregationExpr(columnRef, alias, helpers)
-      : null,
+    unitAggregationExpr,
     rollupAggregationExpr,
     rollupCountExpr,
   };
