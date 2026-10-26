@@ -506,18 +506,37 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   word-wrap: break-word;
 }
 
-/* "New" pill on the Product Updates navbar link */
+/* Product Updates navbar link: brand-blue tint plus a "new" dot on the icon.
+   Remove once the page is no longer new. */
+#navbar a[href="https://growthbook.io/product-updates"]:not(#banner a)
+{
+  position: relative;
+  color: rgb(var(--primary)) !important;
+  border-color: rgb(var(--primary) / 0.4) !important;
+  background-color: rgb(var(--primary) / 0.08) !important;
+}
+
+#navbar a[href="https://growthbook.io/product-updates"]:not(#banner a) svg
+{
+  background-color: rgb(var(--primary)) !important;
+}
+
 #navbar a[href="https://growthbook.io/product-updates"]:not(#banner a)::after
 {
-  content: "New";
-  margin-left: 6px;
-  padding: 1px 6px;
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 29px;
+  width: 7px;
+  height: 7px;
   border-radius: 9999px;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1.4;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: #fff;
-  background: var(--violet-9);
+  background: rgb(var(--primary));
+  box-shadow: 0 0 0 2px rgb(var(--background-light));
+}
+
+.dark
+  #navbar
+  a[href="https://growthbook.io/product-updates"]:not(#banner a)::after
+{
+  box-shadow: 0 0 0 2px rgb(var(--background-dark));
 }
