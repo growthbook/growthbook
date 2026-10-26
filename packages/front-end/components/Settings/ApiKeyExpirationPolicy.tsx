@@ -49,7 +49,6 @@ export function parseLifetimeDraft(draft: string | null) {
   return { value, invalid: !Number.isInteger(value) || value < 1 };
 }
 
-/** The policy's inline control: a checkbox revealing the day count. */
 export const ExpirationPolicyField: FC<{
   kind: Kind;
   draft: string | null;

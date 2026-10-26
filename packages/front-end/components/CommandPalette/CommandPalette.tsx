@@ -221,7 +221,6 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
         .filter(Boolean)
         .join(" "),
     }));
-    // General settings is one page of sections, so each section gets a row.
     if (flatNav.some((row) => row.href === "/settings")) {
       for (const s of SETTINGS_SECTIONS) {
         result.push({

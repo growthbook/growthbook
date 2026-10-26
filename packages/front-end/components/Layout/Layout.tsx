@@ -73,8 +73,7 @@ const Layout = (): React.ReactElement => {
 
   // hacky:
   const router = useRouter();
-  // Settings adds its own sub nav beside the sidebar from 1400px. Below that
-  // the sidebar lists the Organization pages as sub-links instead.
+  // Below 1400px the sidebar lists the Organization pages instead of the sub nav.
   const [wide, setWide] = useState(true);
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1400px)");

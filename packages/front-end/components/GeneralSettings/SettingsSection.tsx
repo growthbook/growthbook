@@ -19,7 +19,6 @@ import {
 } from "./settingsSections";
 import styles from "./SettingsSection.module.scss";
 
-// Ids of the cards matching the current query, or null when there is no query.
 const SectionMatchContext = createContext<Set<string> | null>(null);
 
 export default function SettingsSection({
@@ -113,7 +112,6 @@ export default function SettingsSection({
   );
 }
 
-/** Searchable unit inside a SettingsSection. Hidden when a query is set and it does not match. */
 export function SettingsCard({
   id,
   keywords,

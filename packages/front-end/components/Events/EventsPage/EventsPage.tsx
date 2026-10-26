@@ -56,8 +56,7 @@ export const EventsPage: FC<EventsPageProps> = ({
     events: EventInterface[];
   }>("/events?" + filterURLParams);
   const permissionsUtil = usePermissionsUtil();
-  // Keep the last results while a filter change loads, so the header and
-  // filters (and any open filter dropdown) stay mounted.
+  // Keeps the last results while refetching so open filter dropdowns stay mounted.
   const lastData = useRef(freshData);
   if (freshData) lastData.current = freshData;
   const data = freshData ?? lastData.current;
@@ -111,7 +110,6 @@ export const EventsPage: FC<EventsPageProps> = ({
         </Callout>
       )}
 
-      {/* On error, stale rows would read as a partial result, so they're hidden. */}
       {!error && (
         <Box position="relative" mt="3">
           {refreshing && <LoadingOverlay />}
@@ -195,7 +193,6 @@ const DATE_PRESETS = [
 ] as const;
 type DatePreset = (typeof DATE_PRESETS)[number]["value"] | "custom";
 
-// One control for the date filter: quick ranges, or a custom From/To.
 function DateRangeFilter({
   preset,
   setPreset,
@@ -347,7 +344,6 @@ export const EventsPageContainer = () => {
   const enableExports = hasCommercialFeature("audit-logging");
 
   const hasFilters = eventType.length > 0 || !!fromDate || !!toDate;
-  // Grouped by area, e.g. feature.* under Feature Flags.
   const eventTypeOptions = Object.entries(
     notificationEventNames.reduce<Record<string, string[]>>((groups, name) => {
       const area = name.split(".")[0];
@@ -401,7 +397,6 @@ export const EventsPageContainer = () => {
         <SelectField
           size="small"
           aria-label="Show events per page"
-          // A fixed width, so the control doesn't grow when it opens.
           containerStyles={{ control: (base) => ({ ...base, width: 72 }) }}
           containerClassName="mb-0"
           options={[

@@ -53,7 +53,6 @@ type ModalProps = {
   errorDetails?: string | null;
   loading?: boolean;
   size?: "md" | "lg" | "xl" | "max" | "fill";
-  // Caps the dialog width in px, for designs between the preset sizes.
   maxWidth?: number;
   sizeY?: "max" | "fill";
   inline?: boolean;

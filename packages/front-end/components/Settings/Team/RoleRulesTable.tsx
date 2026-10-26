@@ -51,7 +51,6 @@ export default function RoleRulesTable({
   teams?: TeamRuleSource[];
   // An API key's project rules stay binding even over All Projects admin.
   forApiKey?: boolean;
-  // Shares the bottom row with "Add Project override", e.g. Cancel and Save.
   footerEnd?: ReactNode;
 }) {
   const { organization, hasCommercialFeature } = useUser();

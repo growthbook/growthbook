@@ -39,12 +39,7 @@ export const EventDetailContainer = () => {
     <SettingsPage
       title={title}
       description={event ? datetime(event.dateCreated) : undefined}
-      breadcrumb={[
-        { display: "Settings" },
-        { display: "Organization" },
-        { display: "Logs", href: "/events" },
-        { display: title },
-      ]}
+      parent={{ display: "Logs", href: "/events" }}
     >
       {error || (!isValidating && !event) ? (
         <Callout status="error">Unable to fetch event {eventId}</Callout>

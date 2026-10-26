@@ -4,7 +4,9 @@ import MemberPersonalAccessTokens from "@/components/Settings/MemberPersonalAcce
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
-import SettingsPage from "@/components/Layout/SettingsPage";
+import SettingsPage, {
+  SettingsNoAccess,
+} from "@/components/Layout/SettingsPage";
 
 const ManagePersonalAccessTokensPage: FC = () => {
   const permissionsUtils = usePermissionsUtil();
@@ -12,13 +14,7 @@ const ManagePersonalAccessTokensPage: FC = () => {
     !permissionsUtils.canManageOrgSettings() &&
     !permissionsUtils.canManagePersonalAccessTokens()
   ) {
-    return (
-      <SettingsPage title="Manage PATs">
-        <Callout status="error">
-          You do not have access to view this page.
-        </Callout>
-      </SettingsPage>
-    );
+    return <SettingsNoAccess title="Manage PATs" />;
   }
 
   return (

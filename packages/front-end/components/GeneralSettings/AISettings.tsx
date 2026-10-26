@@ -43,109 +43,72 @@ import { SettingsField, SettingsGroup } from "./SettingsGroup";
 import AIProviderKeys, { useAIProviderKeys } from "./AIProviderKeys";
 import AgentSkillsSettings from "./AgentSkillsSettings";
 
-function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
+const PROMPTS: {
   promptType: string;
   promptName: string;
   promptDescription: string;
-  promptValue: string;
   promptDefaultValue: string;
   promptHelpText: string;
-  overrideModel: string | undefined;
-  overrideModelHelpText?: string | undefined;
-}> {
-  return [
-    {
-      promptType: "experiment-analysis",
-      promptName: "Experiment analysis",
-      promptDescription:
-        "Writes an analysis of results when an experiment stops. Describe the format you want.",
-      promptValue:
-        data.prompts.find((p) => p.type === "experiment-analysis")?.prompt ||
-        AI_PROMPT_DEFAULTS["experiment-analysis"],
-      promptDefaultValue: AI_PROMPT_DEFAULTS["experiment-analysis"],
-      promptHelpText:
-        "Make sure to explain the format of the results you would like to see.",
-      overrideModel: data.prompts.find((p) => p.type === "experiment-analysis")
-        ?.overrideModel,
-    },
-    {
-      promptType: "find-learnings-context",
-      promptName: "Find Learnings context",
-      promptDescription:
-        "Optional. Added to the prompt for finding cross-experiment Learnings: your product, audience, or what counts as a meaningful insight.",
-      promptValue:
-        data.prompts.find((p) => p.type === "find-learnings-context")?.prompt ||
-        AI_PROMPT_DEFAULTS["find-learnings-context"],
-      promptDefaultValue: AI_PROMPT_DEFAULTS["find-learnings-context"],
-      promptHelpText:
-        "Optional. Leave blank to use only the built-in instructions. When set, this text is appended to the system prompt for find-learnings runs.",
-      overrideModel: data.prompts.find(
-        (p) => p.type === "find-learnings-context",
-      )?.overrideModel,
-    },
-    {
-      promptType: "experiment-hypothesis",
-      promptName: "Hypothesis format",
-      promptDescription:
-        "A style for hypotheses so they're consistent across experiments.",
-      promptValue:
-        data.prompts.find((p) => p.type === "experiment-hypothesis")?.prompt ||
-        AI_PROMPT_DEFAULTS["experiment-hypothesis"],
-      promptDefaultValue: AI_PROMPT_DEFAULTS["experiment-hypothesis"],
-      promptHelpText: "",
-      overrideModel: data.prompts.find(
-        (p) => p.type === "experiment-hypothesis",
-      )?.overrideModel,
-    },
-    {
-      promptType: "metric-description",
-      promptName: "Metric description",
-      promptDescription:
-        "Writes a description when a metric is created. Describe the format you want.",
-      promptValue:
-        data.prompts.find((p) => p.type === "metric-description")?.prompt ||
-        AI_PROMPT_DEFAULTS["metric-description"],
-      promptDefaultValue: AI_PROMPT_DEFAULTS["metric-description"],
-      promptHelpText:
-        "Make sure to explain the format of the results you would like to see.",
-      overrideModel: data.prompts.find((p) => p.type === "metric-description")
-        ?.overrideModel,
-    },
-    {
-      promptType: "generate-sql-query",
-      promptName: "Text to SQL",
-      promptDescription:
-        "Extra guidance for generated SQL. Database type, names, and table structures are included automatically.",
-      promptValue:
-        data.prompts.find((p) => p.type === "generate-sql-query")?.prompt ||
-        AI_PROMPT_DEFAULTS["generate-sql-query"],
-      promptDefaultValue: AI_PROMPT_DEFAULTS["generate-sql-query"],
-      overrideModelHelpText:
-        "Some prompts are better than others at generating SQL.",
-      promptHelpText:
-        "Provide any additional guidance on how you would like SQL queries to be generated.",
-      overrideModel: data.prompts.find((p) => p.type === "generate-sql-query")
-        ?.overrideModel,
-    },
-    {
-      promptType: "product-analytics-chat",
-      promptName: "Product Analytics AI analyst",
-      promptDescription:
-        "Optional. Your tone, naming, and policies for the Product Analytics assistant. Data Source context is included automatically.",
-      promptValue:
-        data.prompts.find((p) => p.type === "product-analytics-chat")?.prompt ||
-        AI_PROMPT_DEFAULTS["product-analytics-chat"],
-      promptDefaultValue: AI_PROMPT_DEFAULTS["product-analytics-chat"],
-      promptHelpText:
-        "Leave blank to use only the built-in assistant instructions. When set, this text is appended to the system prompt.",
-      overrideModelHelpText:
-        "Tool-heavy assistants often work better with a capable model.",
-      overrideModel: data.prompts.find(
-        (p) => p.type === "product-analytics-chat",
-      )?.overrideModel,
-    },
-  ];
-}
+  overrideModelHelpText?: string;
+}[] = [
+  {
+    promptType: "experiment-analysis",
+    promptName: "Experiment analysis",
+    promptDescription:
+      "Writes an analysis of results when an experiment stops. Describe the format you want.",
+    promptDefaultValue: AI_PROMPT_DEFAULTS["experiment-analysis"],
+    promptHelpText:
+      "Make sure to explain the format of the results you would like to see.",
+  },
+  {
+    promptType: "find-learnings-context",
+    promptName: "Find Learnings context",
+    promptDescription:
+      "Optional. Added to the prompt for finding cross-experiment Learnings: your product, audience, or what counts as a meaningful insight.",
+    promptDefaultValue: AI_PROMPT_DEFAULTS["find-learnings-context"],
+    promptHelpText:
+      "Optional. Leave blank to use only the built-in instructions. When set, this text is appended to the system prompt for find-learnings runs.",
+  },
+  {
+    promptType: "experiment-hypothesis",
+    promptName: "Hypothesis format",
+    promptDescription:
+      "A style for hypotheses so they're consistent across experiments.",
+    promptDefaultValue: AI_PROMPT_DEFAULTS["experiment-hypothesis"],
+    promptHelpText: "",
+  },
+  {
+    promptType: "metric-description",
+    promptName: "Metric description",
+    promptDescription:
+      "Writes a description when a metric is created. Describe the format you want.",
+    promptDefaultValue: AI_PROMPT_DEFAULTS["metric-description"],
+    promptHelpText:
+      "Make sure to explain the format of the results you would like to see.",
+  },
+  {
+    promptType: "generate-sql-query",
+    promptName: "Text to SQL",
+    promptDescription:
+      "Extra guidance for generated SQL. Database type, names, and table structures are included automatically.",
+    promptDefaultValue: AI_PROMPT_DEFAULTS["generate-sql-query"],
+    overrideModelHelpText:
+      "Some prompts are better than others at generating SQL.",
+    promptHelpText:
+      "Provide any additional guidance on how you would like SQL queries to be generated.",
+  },
+  {
+    promptType: "product-analytics-chat",
+    promptName: "Product Analytics AI analyst",
+    promptDescription:
+      "Optional. Your tone, naming, and policies for the Product Analytics assistant. Data Source context is included automatically.",
+    promptDefaultValue: AI_PROMPT_DEFAULTS["product-analytics-chat"],
+    promptHelpText:
+      "Leave blank to use only the built-in assistant instructions. When set, this text is appended to the system prompt.",
+    overrideModelHelpText:
+      "Tool-heavy assistants often work better with a capable model.",
+  },
+];
 
 const ApiKeyWarning: React.FC<{
   model?: string;
@@ -317,7 +280,7 @@ export default function AISettings({
     prompts: AIPromptInterface[];
   }>(`/ai/prompts`);
 
-  const prompts = data ? getPrompts(data) : [];
+  const prompts = data ? PROMPTS : [];
   const PROMPT_GROUPS: {
     id: string;
     title: string;
@@ -622,7 +585,6 @@ export default function AISettings({
                     modelOptionLabel(option, context, sttDefaultNote)
                   }
                 />
-                {/* Only a chosen model can be wrong; the default always resolves to a key or nothing. */}
                 {form.watch("sttModel") && (
                   <SttKeyWarning
                     sttModel={form.watch("sttModel")}

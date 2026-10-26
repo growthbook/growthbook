@@ -18,7 +18,6 @@ type SettingsNavContextValue = {
   /** Section a click is scrolling to; the scroll spy shows only it until the scroll settles. */
   pinnedSection: MutableRefObject<string | null>;
   pinSection: (id: string) => void;
-  /** Matching cards per General section. Only populated while a query is set. */
   counts: Record<string, number>;
   setCount: (sectionId: string, count: number | null) => void;
   searchRef: RefObject<HTMLInputElement>;

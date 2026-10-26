@@ -368,7 +368,6 @@ export const navlinks: SidebarLinkProps[] = [
 
 export const settingsNavLink = navlinks.find((l) => l.name === "Settings")!;
 
-/** Routes that show the icon rail plus the settings sub nav instead of the full sidebar. */
 export function isSettingsRoute(route: string): boolean {
   return settingsNavLink.path.test(route.replace(/^\//, ""));
 }

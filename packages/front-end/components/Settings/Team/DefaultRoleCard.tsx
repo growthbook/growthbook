@@ -10,7 +10,6 @@ import { useUser } from "@/services/UserContext";
 import { RoleRulesSummary } from "./RoleRulesSummary";
 import RoleRulesTable from "./RoleRulesTable";
 
-// A row inside the members settings card; Edit expands the rules table in place.
 export default function DefaultRoleCard() {
   const { organization, permissionsUtil, refreshOrganization } = useUser();
   const { apiCall } = useAuth();

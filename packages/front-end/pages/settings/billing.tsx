@@ -11,7 +11,9 @@ import OrbPortal from "@/enterprise/components/Billing/OrbPortal";
 import { isCloud } from "@/services/env";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
-import SettingsPage from "@/components/Layout/SettingsPage";
+import SettingsPage, {
+  SettingsNoAccess,
+} from "@/components/Layout/SettingsPage";
 import Heading from "@/ui/Heading";
 
 const BillingPage: FC = () => {
@@ -69,13 +71,7 @@ const BillingPage: FC = () => {
   }
 
   if (!permissionsUtil.canManageBilling()) {
-    return (
-      <SettingsPage title="Billing">
-        <Callout status="error">
-          You do not have access to view this page.
-        </Callout>
-      </SettingsPage>
-    );
+    return <SettingsNoAccess title="Billing" />;
   }
 
   if (subscription?.isVercelIntegration) {

@@ -3,6 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import type { BreadcrumbItem } from "@/ui/Breadcrumbs";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import Callout from "@/ui/Callout";
 import UnsavedChangesBar from "@/components/GeneralSettings/UnsavedChangesBar";
 import PageHead from "./PageHead";
 
@@ -48,6 +49,7 @@ export default function SettingsPage({
   title,
   description,
   actions,
+  parent,
   breadcrumb,
   hideHeader,
   contentClassName,
@@ -56,6 +58,7 @@ export default function SettingsPage({
   title: string;
   description?: ReactNode;
   actions?: ReactNode;
+  parent?: BreadcrumbItem;
   breadcrumb?: BreadcrumbItem[];
   hideHeader?: boolean;
   contentClassName?: string;
@@ -68,6 +71,7 @@ export default function SettingsPage({
           breadcrumb ?? [
             { display: "Settings" },
             { display: "Organization" },
+            ...(parent ? [parent] : []),
             { display: title },
           ]
         }
@@ -86,5 +90,15 @@ export default function SettingsPage({
         </Box>
       </Box>
     </>
+  );
+}
+
+export function SettingsNoAccess({ title }: { title: string }) {
+  return (
+    <SettingsPage title={title}>
+      <Callout status="error">
+        You do not have access to view this page.
+      </Callout>
+    </SettingsPage>
   );
 }

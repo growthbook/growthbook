@@ -21,7 +21,6 @@ import ApiKeyExpirationPolicy, {
   settingField,
 } from "./ApiKeyExpirationPolicy";
 
-// Read-only summary; Edit swaps it for the controls in place, with Cancel and Save.
 const OrganizationPoliciesCard: FC<{
   kind: Kind;
   keys: ApiKeyInterface[];
@@ -90,7 +89,6 @@ const OrganizationPoliciesCard: FC<{
               disabled={invalid}
               setError={setError}
               onClick={async () => {
-                // Turning tokens off revokes them, so it asks first.
                 if (disable && !wasDisabled) {
                   setConfirmDisable(true);
                   return;

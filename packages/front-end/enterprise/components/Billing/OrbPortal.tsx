@@ -30,8 +30,7 @@ export default function OrbPortal() {
         Invoices & Usage
       </Heading>
       {data.portalUrl ? (
-        // Orb's portal is cross-origin, so its fonts can't be styled. Drawn
-        // larger and scaled down, it renders smaller while filling the card.
+        // Cross-origin, so it's scaled down to shrink its fonts.
         <Box style={{ height: "100vh", overflow: "hidden" }}>
           <iframe
             src={data.portalUrl}

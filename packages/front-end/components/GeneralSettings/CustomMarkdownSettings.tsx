@@ -49,11 +49,7 @@ export default function CustomMarkdownSettings() {
     return (
       <SettingsGroup
         id="md-locked"
-        title={
-          <PremiumTooltip commercialFeature="custom-markdown">
-            Features, Experiments & Metrics
-          </PremiumTooltip>
-        }
+        title="Features, Experiments & Metrics"
         description={
           <>
             Guidance shown at the top of the Feature Flag, experiment, and

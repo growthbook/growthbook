@@ -51,7 +51,6 @@ type Props = {
   scheduleEndDate?: Date | string;
   containerClassName?: string;
   clearButton?: boolean;
-  // Shows a calendar icon at the right edge of the field.
   calendarIcon?: boolean;
   wrapRangeInputs?: boolean;
   compact?: boolean;

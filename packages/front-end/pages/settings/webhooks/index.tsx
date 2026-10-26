@@ -9,8 +9,9 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
-import Callout from "@/ui/Callout";
-import SettingsPage from "@/components/Layout/SettingsPage";
+import SettingsPage, {
+  SettingsNoAccess,
+} from "@/components/Layout/SettingsPage";
 import Heading from "@/ui/Heading";
 
 const WebhooksPage: FC = () => {
@@ -33,13 +34,7 @@ const WebhooksPage: FC = () => {
   );
 
   if (!canManageWebhooks) {
-    return (
-      <SettingsPage title="Webhooks">
-        <Callout status="error">
-          You do not have access to view this page.
-        </Callout>
-      </SettingsPage>
-    );
+    return <SettingsNoAccess title="Webhooks" />;
   }
 
   return (

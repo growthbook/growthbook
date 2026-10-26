@@ -3,6 +3,7 @@ import { ApiKeyInterface } from "shared/types/apikey";
 import { ago, datetime } from "shared/dates";
 import { getExpirationStatus } from "shared/api-key-expiration";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiMagnifyingGlass } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -127,6 +128,7 @@ const MemberPersonalAccessTokens: FC = () => {
     defaultSortField: "memberName",
     searchFields: ["memberName", "memberEmail", "description"],
     pageSize: 20,
+    subtleSortIcons: true,
   });
 
   if (!canManage) return null;
@@ -173,10 +175,12 @@ const MemberPersonalAccessTokens: FC = () => {
           )}
           <Flex align="center" gap="3" mb="2">
             <Text weight="medium">{`${visibleRows.length} token${visibleRows.length === 1 ? "" : "s"}`}</Text>
-            <Box width="250px" flexShrink="0">
+            <Box width="280px" flexShrink="0">
               <TextField
                 type="search"
-                placeholder="Search..."
+                aria-label="Search tokens"
+                placeholder="Search tokens"
+                prepend={<PiMagnifyingGlass aria-hidden />}
                 {...searchInputProps}
               />
             </Box>
@@ -197,7 +201,7 @@ const MemberPersonalAccessTokens: FC = () => {
                   Member
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="description">
-                  Name
+                  Description
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="lastUsedSort">
                   Last used
@@ -275,7 +279,7 @@ const MemberPersonalAccessTokens: FC = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <Flex gap="4">
+                      <Flex gap="4" justify="end">
                         <Button
                           variant="ghost"
                           color={token.disabled ? "violet" : "red"}

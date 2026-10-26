@@ -44,6 +44,8 @@ export const ConnectSettingsForm = ({ children }) => {
   return children({ ...methods });
 };
 
+const USER_EVENTS = ["wheel", "touchmove", "keydown"] as const;
+
 const GeneralSettingsPage = (): React.ReactElement => {
   const [urlHash] = useURLHash();
   const {
@@ -59,10 +61,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const { promptForm, cronString, updateCronString } = useSettingsForm();
   const pageRef = useRef<HTMLDivElement>(null);
   const mountedAt = useRef(Date.now());
-  // `#section` or a legacy `#tab/element` hash scrolls to that element. Cards
-  // above it keep loading for a moment, so the scroll is re-applied as the page
-  // grows until the user takes over or 2s pass. Arriving from another page
-  // jumps straight there; a hash change while on the page scrolls smoothly.
+  // Re-applies the hash scroll while cards above load, until the user scrolls or 2s pass.
   useEffect(() => {
     const id = resolveSettingsHash(urlHash);
     const root = pageRef.current;
@@ -81,13 +80,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
     observer.observe(root);
     const stop = () => observer.disconnect();
     const timer = window.setTimeout(stop, 2000);
-    const userEvents = ["wheel", "touchmove", "keydown"] as const;
-    userEvents.forEach((e) => window.addEventListener(e, stop, { once: true }));
+    USER_EVENTS.forEach((e) =>
+      window.addEventListener(e, stop, { once: true }),
+    );
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timer);
       stop();
-      userEvents.forEach((e) => window.removeEventListener(e, stop));
+      USER_EVENTS.forEach((e) => window.removeEventListener(e, stop));
     };
   }, [urlHash, pinSection]);
 
@@ -120,7 +120,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     };
     const onScroll = () => {
       if (!frame) frame = window.requestAnimationFrame(update);
-      // The pin lifts once the scroll has settled.
       window.clearTimeout(settle);
       settle = window.setTimeout(() => {
         if (!pinnedSection.current) return;
@@ -128,23 +127,22 @@ const GeneralSettingsPage = (): React.ReactElement => {
         update();
       }, 150);
     };
-    const userEvents = ["wheel", "touchmove", "keydown"] as const;
     update();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
-    userEvents.forEach((e) =>
+    USER_EVENTS.forEach((e) =>
       window.addEventListener(e, unpin, { passive: true }),
     );
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
-      userEvents.forEach((e) => window.removeEventListener(e, unpin));
+      USER_EVENTS.forEach((e) => window.removeEventListener(e, unpin));
       window.cancelAnimationFrame(frame);
       window.clearTimeout(settle);
     };
   }, [query, counts, setActiveSection, pinnedSection]);
 
-  // Highlights query tokens inside cards. Progressive: browsers without the Highlight API skip it.
+  // Browsers without the Highlight API skip this.
   useEffect(() => {
     if (!("highlights" in CSS)) return;
     const tokens = tokenizeSettingsQuery(query);

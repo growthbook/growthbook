@@ -14,7 +14,6 @@ export default function CopyableCode({
 }: {
   value: string;
   muted?: boolean;
-  // A bordered chip with the copy icon always visible, for a standalone ID.
   framed?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);

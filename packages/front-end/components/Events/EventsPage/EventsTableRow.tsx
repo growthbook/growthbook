@@ -7,7 +7,7 @@ import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import EventUser from "@/components/Avatar/EventUser";
 import Link from "@/ui/Link";
 import { getEventText } from "@/components/Events/EventsPage/utils";
-import Code from "@/components/SyntaxHighlighting/Code";
+import { EventDetail } from "@/components/Events/EventDetail/EventDetail";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
@@ -86,19 +86,12 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
           </span>
         </td>
       </tr>
-      {/* The JSON spans the table under the row, so the row stays centered. */}
       {showDetails && (
         <tr>
           <td colSpan={5}>
             {/* Zero intrinsic width: long lines scroll instead of widening the table. */}
             <Box width="0" minWidth="100%">
-              <Code
-                language="json"
-                filename={event.data.event}
-                code={JSON.stringify(event.data, null, 2)}
-                expandable={false}
-                fontSize="0.7rem"
-              />
+              <EventDetail event={event} />
             </Box>
           </td>
         </tr>

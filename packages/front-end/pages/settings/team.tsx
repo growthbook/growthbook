@@ -11,8 +11,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
-import Callout from "@/ui/Callout";
 import SettingsPage, {
+  SettingsNoAccess,
   SettingsPageHeader,
 } from "@/components/Layout/SettingsPage";
 
@@ -24,13 +24,7 @@ const TeamPage: FC = () => {
   const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
 
   if (!permissionsUtil.canManageTeam()) {
-    return (
-      <SettingsPage title="Members">
-        <Callout status="error">
-          You do not have access to view this page.
-        </Callout>
-      </SettingsPage>
-    );
+    return <SettingsNoAccess title="Members" />;
   }
 
   return (

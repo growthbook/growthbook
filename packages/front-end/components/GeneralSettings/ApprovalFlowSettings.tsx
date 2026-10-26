@@ -13,7 +13,6 @@ import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Frame from "@/ui/Frame";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import PremiumCallout from "@/ui/PremiumCallout";
@@ -87,8 +86,7 @@ export default function ApprovalFlowSettings() {
     }
   }, [tabs, requestedProject]);
 
-  // Tabs mirror the rules in the form: settings load after mount, and Discard
-  // drops rules added since the last save.
+  // Tabs follow the form rules, which load after mount and reset on Discard.
   const storedScopeKey = overrideScopes([flagRules, savedGroupRules]).join("|");
   useEffect(() => {
     const stored = storedScopeKey ? storedScopeKey.split("|") : [];
@@ -176,11 +174,7 @@ export default function ApprovalFlowSettings() {
     return (
       <SettingsGroup
         id="ap-flows"
-        title={
-          <PremiumTooltip commercialFeature="require-approvals">
-            Approval Flows
-          </PremiumTooltip>
-        }
+        title="Approval Flows"
         description="Every change to flags, Configs, Constants, and Saved Groups is saved as a revision. Approval adds a review step before it goes live."
         keywords="approval review publish"
       >

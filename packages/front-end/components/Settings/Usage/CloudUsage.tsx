@@ -45,6 +45,7 @@ import Heading from "@/ui/Heading";
 import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
+import Metadata from "@/ui/Metadata";
 import track from "@/services/track";
 
 // Formatter for numbers
@@ -419,22 +420,22 @@ export default function CloudUsage() {
         }
       />
       <Flex gap="5" align="center" wrap="wrap" mb="4">
-        <Text>
-          <Text weight="semibold">Total requests:</Text>{" "}
-          {requestsFormatter.format(totalRequests)}
-        </Text>
-        <Text>
-          <Text weight="semibold">Total bandwidth:</Text>{" "}
-          {formatBandwidth(totalBandwidth)}
-        </Text>
-        <Text>
-          <Text weight="semibold">Total managed ClickHouse events:</Text>{" "}
-          {requestsFormatter.format(totalManagedClickhouseEvents)}
-        </Text>
-        <Text>
-          <Text weight="semibold">Total Event Forwarder events:</Text>{" "}
-          {requestsFormatter.format(totalEventForwarderEvents)}
-        </Text>
+        <Metadata
+          label="Total requests"
+          value={requestsFormatter.format(totalRequests)}
+        />
+        <Metadata
+          label="Total bandwidth"
+          value={formatBandwidth(totalBandwidth)}
+        />
+        <Metadata
+          label="Total managed ClickHouse events"
+          value={requestsFormatter.format(totalManagedClickhouseEvents)}
+        />
+        <Metadata
+          label="Total Event Forwarder events"
+          value={requestsFormatter.format(totalEventForwarderEvents)}
+        />
         {isFiltered && (
           <Text color="text-low">
             Totals include all {breakdowns[breakdown].noun}

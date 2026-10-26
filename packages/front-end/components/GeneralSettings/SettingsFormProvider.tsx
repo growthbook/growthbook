@@ -52,6 +52,7 @@ import {
   useOrganizationMetricDefaults,
 } from "@/hooks/useOrganizationMetricDefaults";
 import { isSettingsRoute } from "@/components/Layout/sidebarNav";
+import { createNavigationCancellation } from "@/components/FactTables/MetricEditor/navigationCancellation";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import { describeUnsavedChanges, sectionForField } from "./settingsSections";
 
@@ -71,7 +72,6 @@ export type OrgDetailsForm = {
 type SettingsFormContextValue = {
   form: UseFormReturn<OrganizationSettingsWithMetricDefaults>;
   promptForm: UseFormReturn;
-  /** Organization name, owner, and installation name, saved with the settings. */
   orgForm: UseFormReturn<OrgDetailsForm>;
   cronString: string;
   updateCronString: (cron?: string) => void;
@@ -79,8 +79,8 @@ type SettingsFormContextValue = {
   setCodeRefsBranchesToFilterStr: (value: string) => void;
   dirtyCount: number;
   dirtySectionIds: string[];
-  saveMsg: boolean;
-  setSaveMsg: (value: boolean) => void;
+  savedCount: number;
+  setSavedCount: (value: number) => void;
   submitError: string | null;
   setSubmitError: (value: string | null) => void;
   save: () => Promise<void>;
@@ -99,11 +99,7 @@ export function useSettingsForm() {
   return ctx;
 }
 
-/**
- * Holds the General settings form above the pages, so an unsaved draft survives
- * moving between General and Organization pages and can be saved from either.
- * Leaving Settings altogether discards the draft.
- */
+// Holds the General settings draft above the pages so it survives Organization page visits.
 export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const active = isSettingsRoute(router.route);
@@ -120,7 +116,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const { mutate: mutateAgentSkills } = useApi("/agent/skills", {
     shouldRun: () => !!settings.aiEnabled,
   });
-  const [saveMsg, setSaveMsg] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
   const originalRef = useRef<OrganizationSettings>({});
@@ -274,8 +270,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       aiAutocompleteEnabled: settings.aiAutocompleteEnabled ?? true,
       aiAutocompleteModel: knownTextModel(settings.aiAutocompleteModel),
       disabledAgentSkills: settings.disabledAgentSkills ?? [],
-      // Seeding a model on Cloud would persist it on the next save of any
-      // setting, silently taking the org off the managed default.
+      // On Cloud a seeded model would be saved later and leave the managed default.
       defaultAIModel:
         knownTextModel(settings.defaultAIModel) ||
         (isCloud() ? undefined : "gpt-4o-mini"),
@@ -307,8 +302,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   });
   const { apiCall } = useAuth();
   const values = form.watch();
-  // Compared field by field against the loaded settings: `setValue` without
-  // `shouldDirty` is common here, so react-hook-form's dirty state misses edits.
+  // Compared against the loaded settings, since many setValue calls skip shouldDirty.
   const dirtyFields = Object.keys(originalValue).filter((k) => {
     const current = (values as Record<string, unknown>)[k];
     const original = (originalValue as Record<string, unknown>)[k];
@@ -414,8 +408,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
             : false;
         }
       });
-      // A refresh while editing (e.g. after saving a PAT policy) keeps the
-      // draft, while Discard still returns to the saved values.
+      // A refresh while editing keeps the draft; Discard still restores saved values.
       const current = form.getValues() as Record<string, unknown>;
       const prev = originalRef.current as Record<string, unknown>;
       const draft = { ...newVal } as Record<string, unknown>;
@@ -570,8 +563,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Only changed settings are sent, so a role limited to e.g. the North Star
-    // metric is not rejected for untouched fields it may not manage.
+    // Only changed settings are sent, so limited roles aren't rejected for untouched fields.
     const changed = Object.fromEntries(
       Object.entries(transformedOrgSettings).filter(([k]) =>
         dirtyFields.includes(k),
@@ -590,20 +582,18 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       });
       // Update org name in global context (e.g. top nav)
       if (orgPatch.name && setOrgName) setOrgName(orgPatch.name);
-      // The license is cached by installation name on the server.
-      // Optional and needs billing access, so a failure must not fail the save.
+      // Refreshes the license cached by installation name; needs billing access, so it may fail.
       if (orgPatch.installationName !== undefined) {
         await apiCall(`/license`).catch(() => undefined);
       }
     }
     await Promise.all([refreshOrganization(), mutateAgentSkills()]);
-
-    // show the user that the settings have saved:
-    setSaveMsg(true);
   });
 
   const save = async () => {
+    const count = dirtyCount;
     setSubmitError(null);
+    setSavedCount(0);
     await saveSettings();
     // Only save prompts if the prompt form has changes
     if (dirtyPromptFields.length) {
@@ -611,19 +601,19 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       promptForm.reset(promptForm.getValues());
       await mutatePrompts();
     }
+    setSavedCount(count);
   };
 
-  // The draft lives only while inside Settings.
   useEffect(() => {
     if (!active && dirtyCount > 0) discardChanges();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
-  // Leaving Settings, closing, or reloading with a draft asks first.
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const leaving = useRef(false);
   useEffect(() => {
     if (!active || !dirtyCount) return;
+    const cancellation = createNavigationCancellation();
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
@@ -633,15 +623,16 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       if (isSettingsRoute(new URL(url, window.location.origin).pathname))
         return;
       setPendingHref(url);
-      router.events.emit("routeChangeError", new Error("cancelled"), url);
+      router.events.emit("routeChangeError", cancellation.error, url);
       // Next's pages router only cancels a route change when a handler throws.
-      throw "Route change cancelled: unsaved settings";
+      throw cancellation.error;
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     router.events.on("routeChangeStart", onRouteChangeStart);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       router.events.off("routeChangeStart", onRouteChangeStart);
+      cancellation.dispose();
     };
   }, [active, dirtyCount, router.events]);
 
@@ -657,8 +648,8 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         setCodeRefsBranchesToFilterStr: updateCodeRefsBranches,
         dirtyCount,
         dirtySectionIds,
-        saveMsg,
-        setSaveMsg,
+        savedCount,
+        setSavedCount,
         submitError,
         setSubmitError,
         save,

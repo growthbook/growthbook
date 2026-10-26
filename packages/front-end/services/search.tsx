@@ -219,7 +219,6 @@ export function ariaSort(
   return dir < 0 ? "descending" : "ascending";
 }
 
-// A sortable column label: a real button, so sorting works from the keyboard.
 export function SortButton({
   active,
   dir,
@@ -229,7 +228,6 @@ export function SortButton({
 }: {
   active: boolean;
   dir: number;
-  // Gray Pi carets instead of the filled arrows.
   subtle?: boolean;
   onClick: () => void;
   children: ReactNode;

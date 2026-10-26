@@ -7,7 +7,6 @@ import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import { skillDisplayName } from "@/enterprise/components/AIChat/Composer/extensions/skillCommand";
 
-// Settings copy for the built-in skills; custom skills show their own description.
 const SKILL_COPY: Record<string, { label: string; description: string }> = {
   analytics: {
     label: "Analytics",

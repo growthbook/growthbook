@@ -51,7 +51,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-/** Stats engine and variance reduction groups of the Statistics section. */
 export default function StatsEngineSettings() {
   const form = useFormContext<FormValues>();
   const { hasCommercialFeature } = useUser();

@@ -4,7 +4,7 @@ export type SettingsSectionDef = {
   description: string;
 };
 
-/** Sections of the General settings page, in display order. Ids double as element ids and `#hash` targets. */
+// In display order; ids are also element ids and hash targets.
 export const SETTINGS_SECTIONS: readonly SettingsSectionDef[] = [
   {
     id: "organization",
@@ -75,7 +75,6 @@ const LEGACY_TAB_SECTION: Record<string, string> = {
   custom: "markdown",
 };
 
-/** Element id a `/settings#...` hash should scroll to, or null when there is no hash. */
 export function resolveSettingsHash(hash: string | undefined): string | null {
   if (!hash) return null;
   const [tab, section] = hash.split("/");
@@ -83,7 +82,6 @@ export function resolveSettingsHash(hash: string | undefined): string | null {
   return LEGACY_TAB_SECTION[tab] ?? tab;
 }
 
-/** Search keywords for Organization pages, keyed by their sidebar href. */
 export const ORG_PAGE_KEYWORDS: Record<string, string> = {
   "/projects": "project group organize",
   "/settings/team": "people users roles teams invite seats",
@@ -104,7 +102,6 @@ export function tokenizeSettingsQuery(query: string): string[] {
   return query.trim().toLowerCase().split(/\s+/).filter(Boolean);
 }
 
-/** Every token must appear somewhere in the haystack. */
 export function matchesSettingsQuery(
   haystack: string,
   tokens: string[],
@@ -220,12 +217,11 @@ const FIELD_SECTION: Record<string, string> = Object.fromEntries(
   ),
 );
 
-/** Section id that renders a General settings form field, or null if none does. */
 export function sectionForField(field: string): string | null {
   return FIELD_SECTION[field] ?? null;
 }
 
-/** "2 unsaved changes in AI and Custom markdown", or "… in 3 sections". */
+// "2 unsaved changes in AI and Custom Markdown", or "… in 3 sections".
 export function describeUnsavedChanges(
   count: number,
   sectionIds: string[],

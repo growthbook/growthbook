@@ -79,8 +79,7 @@ export default function SettingsNav() {
     ? "No matches"
     : `${total} match${total === 1 ? "" : "es"} in ${where.join(" and ")}`;
 
-  // Cmd/Ctrl+/ focuses the search on a settings page; Cmd/Ctrl+K stays on the
-  // global command palette.
+  // Cmd/Ctrl+/ focuses this search; Cmd/Ctrl+K stays on the command palette.
   const [shortcutHint, setShortcutHint] = useState("");
   useEffect(() => {
     setShortcutHint(/Mac/.test(navigator.platform) ? "⌘" : "Ctrl");
@@ -95,7 +94,6 @@ export default function SettingsNav() {
     return () => document.removeEventListener("keydown", onKey);
   }, [searchRef]);
 
-  // Leaving settings drops the query so a return starts clean.
   useEffect(() => () => setQuery(""), [setQuery]);
 
   const onQueryChange = (q: string) => {

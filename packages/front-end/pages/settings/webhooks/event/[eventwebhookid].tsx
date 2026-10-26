@@ -28,14 +28,8 @@ const EventWebHookDetailPage: NextPage = () => {
   return (
     <SettingsPage
       title={title}
-      // The webhook renders its own header; the page title only covers errors.
       hideHeader={!error}
-      breadcrumb={[
-        { display: "Settings" },
-        { display: "Organization" },
-        { display: "Webhooks", href: "/settings/webhooks" },
-        { display: title },
-      ]}
+      parent={{ display: "Webhooks", href: "/settings/webhooks" }}
     >
       {error ? (
         <Callout status="error">

@@ -1,30 +1,57 @@
+import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
+import { PiCheckBold } from "react-icons/pi";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
-import TempMessage from "@/components/TempMessage";
 import { describeUnsavedChanges } from "./settingsSections";
 import { useSettingsForm } from "./SettingsFormProvider";
 import styles from "./SettingsSection.module.scss";
 
-// Floating bar for unsaved General settings. Organization pages save as you
-// go, so it only shows on General; the draft is kept for when you return.
+const TOAST_MS = 3000;
+
+// Only on General; Organization pages save as you go.
 export default function UnsavedChangesBar() {
   const router = useRouter();
   const {
     dirtyCount,
     dirtySectionIds,
-    saveMsg,
-    setSaveMsg,
+    savedCount,
+    setSavedCount,
     submitError,
     setSubmitError,
     save,
     discard,
   } = useSettingsForm();
 
+  useEffect(() => {
+    if (!savedCount) return;
+    const timer = setTimeout(() => setSavedCount(0), TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [savedCount, setSavedCount]);
+
   if (router.route !== "/settings") return null;
-  if (!dirtyCount && !saveMsg && !submitError) return null;
+
+  if (!dirtyCount && savedCount > 0) {
+    return (
+      <Flex className={styles.savedToastSlot} justify="center">
+        <Flex
+          className={styles.savedToast}
+          align="center"
+          gap="3"
+          role="status"
+        >
+          <PiCheckBold className={styles.savedToastIcon} aria-hidden />
+          <Text weight="medium">
+            Saved {savedCount} change{savedCount === 1 ? "" : "s"}
+          </Text>
+        </Flex>
+      </Flex>
+    );
+  }
+
+  if (!dirtyCount && !submitError) return null;
 
   return (
     <Box
@@ -41,11 +68,6 @@ export default function UnsavedChangesBar() {
             </Text>
           )}
           {submitError && <HelperText status="error">{submitError}</HelperText>}
-          {saveMsg && (
-            <TempMessage close={() => setSaveMsg(false)}>
-              Settings saved
-            </TempMessage>
-          )}
         </Box>
         {dirtyCount > 0 && (
           <>

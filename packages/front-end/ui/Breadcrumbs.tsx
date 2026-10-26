@@ -11,7 +11,7 @@ export interface BreadcrumbItem {
   href?: string;
 }
 
-// `muted`: ancestors in regular gray with "/" separators, only the current crumb bold.
+// Gray ancestors with "/" separators; only the current crumb is bold.
 export default function Breadcrumbs({
   items,
   muted = false,

@@ -27,17 +27,44 @@
   height: 45vh;
 }
 
-// Floats above the sections while scrolling; rests in flow once the end is reached.
-.unsavedBar {
+.unsavedBar,
+.savedToastSlot {
   position: sticky;
   bottom: 16px;
   z-index: 30;
   margin-top: 16px;
+}
+
+.unsavedBar {
   padding: 12px 16px;
   background: var(--color-panel-solid);
   border: 1px solid var(--slate-a4);
   border-radius: 8px;
   box-shadow: var(--shadow-5);
+}
+
+.savedToastSlot {
+  pointer-events: none;
+}
+
+.savedToast {
+  padding: 12px 24px;
+  border-radius: 8px;
+  background: var(--indigo-12);
+  color: var(--indigo-1);
+  box-shadow: var(--shadow-4);
+  animation: savedToastIn 160ms ease-out;
+}
+
+.savedToastIcon {
+  color: var(--green-9);
+}
+
+@keyframes savedToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 .unsavedDot {
@@ -48,7 +75,6 @@
   flex-shrink: 0;
 }
 
-// The design keeps General settings narrower than the Organization pages.
 .generalContent {
   max-width: 920px;
 }
