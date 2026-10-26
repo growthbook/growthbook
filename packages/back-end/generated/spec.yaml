@@ -38281,6 +38281,7 @@ paths:
           explode: false
         - $ref: '#/components/parameters/feature'
         - $ref: '#/components/parameters/customFields'
+        - $ref: '#/components/parameters/reason'
       requestBody:
         required: false
         content:
@@ -38378,6 +38379,7 @@ paths:
           explode: false
         - $ref: '#/components/parameters/feature'
         - $ref: '#/components/parameters/customFields'
+        - $ref: '#/components/parameters/reason'
       requestBody:
         required: false
         content:
@@ -66287,6 +66289,17 @@ components:
           type: string
       style: deepObject
       explode: true
+    reason:
+      name: reason
+      in: query
+      description: >-
+        Used when the body has no `reason`, for tools whose payload can't be
+        changed.
+      schema:
+        description: >-
+          Used when the body has no `reason`, for tools whose payload can't be
+          changed.
+        type: string
     index:
       name: index
       in: query

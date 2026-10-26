@@ -62,6 +62,12 @@ const alertQuerySchema = z
       )
       .meta({ style: "deepObject", explode: true })
       .optional(),
+    reason: z
+      .string()
+      .optional()
+      .describe(
+        "Used when the body has no `reason`, for tools whose payload can't be changed.",
+      ),
   })
   .strict();
 
@@ -235,7 +241,12 @@ export const rollbackMatchingRampSchedules = createApiRequestHandler({
       "Rolling back requires at least one filter: environment, project, tag, feature or customFields.",
     );
   }
-  return applyAlertAction(req.context, "rollback", req.query, req.body?.reason);
+  return applyAlertAction(
+    req.context,
+    "rollback",
+    req.query,
+    req.body?.reason || req.query.reason,
+  );
 });
 
 export const pauseMatchingRampSchedules = createApiRequestHandler({
@@ -247,5 +258,10 @@ export const pauseMatchingRampSchedules = createApiRequestHandler({
   description:
     "Pauses every `running` ramp schedule that matches the query filters. Built\nfor an alerting tool's webhook, such as a Datadog monitor. Each schedule stays\npaused until someone calls `/actions/resume` on it.\n\nEach filter takes comma-separated values and matches any of them; different\nfilters must all match. With no filters, every running schedule is paused,\nfor example during a site-wide outage.\n\nReturns each matched schedule and whether the pause was applied or skipped,\nfor example because the API key can't publish its Feature Flag. Unknown body\nfields are ignored, so a tool can send its own payload.\n",
 })(async (req) =>
-  applyAlertAction(req.context, "pause", req.query, req.body?.reason),
+  applyAlertAction(
+    req.context,
+    "pause",
+    req.query,
+    req.body?.reason || req.query.reason,
+  ),
 );
