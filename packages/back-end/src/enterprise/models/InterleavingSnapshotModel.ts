@@ -40,7 +40,6 @@ export class InterleavingSnapshotModel extends BaseClass {
     return this.context.hasPremiumFeature("interleaving");
   }
 
-  /** Latest snapshot for an interleaving experiment. */
   public async getLatestForInterleaving(
     interleavingId: string,
   ): Promise<InterleavingSnapshotInterface | null> {
@@ -51,7 +50,7 @@ export class InterleavingSnapshotModel extends BaseClass {
     return snapshots[0] || null;
   }
 
-  /** Recent snapshots for an interleaving experiment. */
+  // Capped at 100 regardless of what the caller asks for.
   public listForInterleaving(
     interleavingId: string,
     limit: number = 20,

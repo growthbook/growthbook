@@ -1,5 +1,6 @@
 import { buildMinimalOrCondition, format } from "shared/sql";
 import {
+  getColumnExpression,
   getColumnRefWhereClause,
   getFactTableIdColumnExpression,
   getFactTableTemplateVariables,
@@ -53,24 +54,21 @@ export function interleavingMetricColumn(metricId: string, stat: string) {
  *
  * Metric values use the experiment fact-metric resolution (numerator column
  * and row filters via getFactMetricColumn/getColumnRefWhereClause, per-unit
- * aggregation via getAggregationMetadata). __events is the single scan of
- * the fact table, at user x ranking x item grain when a paired analysis
- * needs the per-impression join, else user x item.
+ * aggregation via getAggregationMetadata). __eventRows is the single filtered
+ * fact-table source; each analysis aggregates it at the grain it needs.
  *
- * Shared __exposures and __events feed two independent chains, each emitted
- * only when an analysis requests it, and joined per user at the end:
- * - "paired": __credited (exposures joined to engagement per impression x
- *   item via ranking_id; NULL ids never match) -> __impression (x, y, n per
- *   impression) -> __pairedUser (sums over engaged impressions only, where
- *   engaged means x + y > 0). n counts treatment-drafted competitive
- *   exposures; both x and y are normalized by it, which a fair team draft
- *   balances in expectation. The final SELECT emits cross-user joint moments
- *   for the paired delta-method t-test.
+ * - "paired": __events aggregates by impression x item, then __credited joins
+ *   exposures to engagement via ranking_id (NULL ids never match) ->
+ *   __impression (x, y, n per impression) -> __pairedUser (sums over engaged
+ *   impressions only, where engaged means x + y > 0). n counts
+ *   treatment-drafted competitive exposures; both x and y are normalized by
+ *   it, which a fair team draft balances in expectation. The final SELECT
+ *   emits cross-user joint moments for the paired delta-method t-test.
  * - "preference": __share (per user x item treatment share over all
  *   competitive exposures, i.e. exposureCount attribution) joined to
- *   engagement per user x item (__events rolled up to that grain when it is
- *   at impression grain) -> __preferenceUser (fractional win totals) -> user
- *   preference counts for the sign test.
+ *   __preferenceEvents (post-first-exposure engagement per user x item) ->
+ *   __preferenceUser (fractional win totals) -> user preference counts for the
+ *   sign test.
  *
  * v1 limitations (documented): metric capping and conversion windows are
  * not applied; the snapshot date range bounds both exposures and engagement.
@@ -88,10 +86,8 @@ type PlanEntry = {
   out: (stat: string) => string;
   paired: boolean;
   preference: boolean;
-  // Aggregated metric value per group in __events
+  // Aggregated metric value at either analysis's event grain
   value: string;
-  // Re-aggregates per-impression values to user x item (__itemEvents)
-  rollup: (column: string) => string;
 };
 
 type Plan = {
@@ -162,7 +158,6 @@ function buildPlan(
           ? `CASE WHEN (${filters.join(" AND ")}) THEN ${rowValue} ELSE NULL END`
           : rowValue,
       ),
-      rollup: agg.reAggregationFunction,
     };
   });
 
@@ -217,15 +212,25 @@ export function getInterleavingMetricQuery(
           WHEN ${variation} = ${lit(controlKey)} THEN 0
         END`;
 
+  // Join keys are normalised to string on both sides of every join below.
+  // `fieldText` always yields text, while the fact table's columns are
+  // whatever the warehouse declares, so a numeric item_id would otherwise
+  // fail the join outright (Postgres: "operator does not exist: integer =
+  // text"). Casting happens in the projecting CTE, not the ON clause, so
+  // ClickHouse still sees an equi-join.
+  const itemId = dialect.castToString(item(INTERLEAVING_ITEM_FIELD_ITEM_ID));
+  const exposureRankingId = dialect.castToString(
+    `e.${INTERLEAVING_RANKING_ID_COLUMN}`,
+  );
+
   // One row per (user, ranking, competitive item). Grouping collapses
   // double-logged impressions (SDK retries) and repeated items in a list.
-  const itemId = item(INTERLEAVING_ITEM_FIELD_ITEM_ID);
   const exposuresCTE = `
     __exposures AS (
       SELECT
         ${cols([
           `e.${userIdType} AS user_id`,
-          `e.${INTERLEAVING_RANKING_ID_COLUMN} AS ranking_id`,
+          `${exposureRankingId} AS ranking_id`,
           `${itemId} AS item_id`,
           `MAX(${teamExpr}) AS team`,
           `MIN(e.${ts}) AS exposure_timestamp`,
@@ -238,12 +243,25 @@ export function getInterleavingMetricQuery(
         AND ${item(INTERLEAVING_ITEM_FIELD_COMPETITIVE)} = 'true'
         AND ${variation} IN (${lit(controlKey)}, ${lit(treatmentKey)})
         AND ${dateFilter(`e.${ts}`)}
-      GROUP BY e.${userIdType}, e.${INTERLEAVING_RANKING_ID_COLUMN}, ${itemId}
+      GROUP BY e.${userIdType}, ${exposureRankingId}, ${itemId}
     )`;
 
-  // The single fact-table scan. Rows matching none of the metrics' row
-  // filters are dropped. Grain is user x ranking x item when paired needs
-  // the per-impression join, else user x item.
+  // Treatment share and first exposure for each user x item. Preference
+  // engagement is only eligible after this timestamp.
+  const shareCTE = `
+    __share AS (
+      SELECT
+        e.user_id,
+        e.item_id,
+        AVG(e.team * 1.0) AS share_t,
+        MIN(e.exposure_timestamp) AS first_exposure_timestamp
+      FROM __exposures e
+      GROUP BY e.user_id, e.item_id
+    )`;
+
+  // The single filtered fact-table source. The analysis-specific CTEs below
+  // aggregate these rows independently so selecting one analysis cannot alter
+  // the other's results.
   const { factTable } = params;
   const eventUserId = getFactTableIdColumnExpression(
     factTable,
@@ -252,29 +270,29 @@ export function getInterleavingMetricQuery(
     "m",
   );
   const eventTs = `m.${getFactTableTimestampColumn(factTable)}`;
-  const eventKeys = [
-    eventUserId,
-    ...(includePaired ? [`m.${INTERLEAVING_RANKING_ID_COLUMN}`] : []),
-    `m.${INTERLEAVING_ITEM_ID_COLUMN}`,
-  ];
-  const eventsWhere = [
+  // Resolved like every other fact-table column so virtual columns and JSON
+  // paths work, then cast to match the exposure side's string keys.
+  const eventColumn = (column: string) =>
+    dialect.castToString(
+      getColumnExpression(
+        column,
+        factTable,
+        dialect.jsonExtract,
+        "m",
+        dialect.identifierQuote,
+      ),
+    );
+  const eventItemId = eventColumn(INTERLEAVING_ITEM_ID_COLUMN);
+  const eventRankingId = eventColumn(INTERLEAVING_RANKING_ID_COLUMN);
+  const eventRowsWhere = [
     dateFilter(eventTs),
     buildMinimalOrCondition(plan.filterGroups),
   ]
     .filter(Boolean)
     .join("\n        AND ");
-  const eventsCTE = `
-    __events AS (
-      SELECT
-        ${cols([
-          `${eventUserId} AS user_id`,
-          ...(includePaired
-            ? [`m.${INTERLEAVING_RANKING_ID_COLUMN} AS ranking_id`]
-            : []),
-          `m.${INTERLEAVING_ITEM_ID_COLUMN} AS item_id`,
-          ...plan.entries.map((e) => `${e.value} AS value_${e.i}`),
-          `MIN(${eventTs}) AS first_event_timestamp`,
-        ])}
+  const eventRowsCTE = `
+    __eventRows AS (
+      SELECT m.*
       FROM (
         ${compileSqlTemplate(
           factTable.sql,
@@ -285,8 +303,38 @@ export function getInterleavingMetricQuery(
           dialect,
         )}
       ) m
-      WHERE ${eventsWhere}
-      GROUP BY ${eventKeys.join(", ")}
+      WHERE ${eventRowsWhere}
+    )`;
+
+  const eventsCTE = `
+    __events AS (
+      SELECT
+        ${cols([
+          `${eventUserId} AS user_id`,
+          `${eventRankingId} AS ranking_id`,
+          `${eventItemId} AS item_id`,
+          ...plan.paired.map((e) => `${e.value} AS value_${e.i}`),
+          `MIN(${eventTs}) AS first_event_timestamp`,
+        ])}
+      FROM __eventRows m
+      GROUP BY ${eventUserId}, ${eventRankingId}, ${eventItemId}
+    )`;
+
+  const preferenceEventsCTE = `
+    __preferenceEvents AS (
+      SELECT
+        ${cols([
+          `${eventUserId} AS user_id`,
+          `${eventItemId} AS item_id`,
+          ...plan.preference.map((e) => `${e.value} AS value_${e.i}`),
+        ])}
+      FROM __eventRows m
+      INNER JOIN __share s ON (
+        s.user_id = ${eventUserId}
+        AND s.item_id = ${eventItemId}
+      )
+      WHERE ${eventTs} >= s.first_exposure_timestamp
+      GROUP BY ${eventUserId}, ${eventItemId}
     )`;
 
   // Paired chain
@@ -358,36 +406,6 @@ export function getInterleavingMetricQuery(
 
   // Preference chain
 
-  // Engagement per user x item across ALL events. __events is already at
-  // that grain unless paired put it at impression grain, then roll it up.
-  const itemEventsCTE = includePaired
-    ? `
-    __itemEvents AS (
-      SELECT
-        ${cols([
-          "ev.user_id",
-          "ev.item_id",
-          ...plan.preference.map(
-            (e) => `${e.rollup(`ev.value_${e.i}`)} AS value_${e.i}`,
-          ),
-        ])}
-      FROM __events ev
-      GROUP BY ev.user_id, ev.item_id
-    )`
-    : "";
-  const itemEvents = includePaired ? "__itemEvents" : "__events";
-
-  // Treatment share of each user's competitive exposures to an item
-  const shareCTE = `
-    __share AS (
-      SELECT
-        e.user_id,
-        e.item_id,
-        AVG(e.team * 1.0) AS share_t
-      FROM __exposures e
-      GROUP BY e.user_id, e.item_id
-    )`;
-
   // Fractional wins per user; a user x item with no engagement owns nothing
   const preferenceUserCTE = `
     __preferenceUser AS (
@@ -400,7 +418,7 @@ export function getInterleavingMetricQuery(
           ]),
         ])}
       FROM __share s
-      LEFT JOIN ${itemEvents} ev ON (
+      LEFT JOIN __preferenceEvents ev ON (
         ev.user_id = s.user_id AND ev.item_id = s.item_id
       )
       GROUP BY s.user_id
@@ -432,9 +450,12 @@ export function getInterleavingMetricQuery(
 
   const ctes = [
     exposuresCTE,
-    eventsCTE,
+    ...(includePreference ? [shareCTE] : []),
+    eventRowsCTE,
+    ...(includePaired ? [eventsCTE] : []),
+    ...(includePreference ? [preferenceEventsCTE] : []),
     ...(includePaired ? [creditedCTE, impressionCTE, pairedUserCTE] : []),
-    ...(includePreference ? [itemEventsCTE, shareCTE, preferenceUserCTE] : []),
+    ...(includePreference ? [preferenceUserCTE] : []),
   ].filter(Boolean);
 
   return format(

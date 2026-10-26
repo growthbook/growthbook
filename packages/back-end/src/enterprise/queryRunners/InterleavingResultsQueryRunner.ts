@@ -167,13 +167,14 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
           case "preference": {
             const prefT = col("users_pref_treatment");
             const prefC = col("users_pref_control");
+            const nonTiedUsers = prefT + prefC;
             const perUser = (v: number) =>
-              usersExposed > 0 ? v / usersExposed : 0;
+              nonTiedUsers > 0 ? v / nonTiedUsers : 0;
             results.push({
               metricId,
               analysis,
               users: usersExposed,
-              denominator: usersExposed,
+              denominator: nonTiedUsers,
               control: { value: prefC, cr: perUser(prefC) },
               treatment: { value: prefT, cr: perUser(prefT) },
               test: preferenceSignTest({

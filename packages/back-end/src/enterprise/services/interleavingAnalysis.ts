@@ -12,6 +12,34 @@ import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/int
 
 type Context = ReqContext | ApiReqContext;
 
+export async function resolveInterleavingExposureQuery(
+  context: Context,
+  interleaving: Pick<
+    InterleavingInterface,
+    "interleavingExposureQueryId" | "datasource" | "userIdType"
+  >,
+) {
+  const query = await context.models.interleavingExposureQueries.getById(
+    interleaving.interleavingExposureQueryId,
+  );
+  if (!query) {
+    context.throwNotFoundError(
+      `Interleaving exposure query not found: ${interleaving.interleavingExposureQueryId}`,
+    );
+  }
+  if (query.datasourceId !== interleaving.datasource) {
+    throw new Error(
+      `Interleaving exposure query "${query.name}" belongs to a different Data Source than this interleaving experiment`,
+    );
+  }
+  if (!query.userIdTypes.includes(interleaving.userIdType)) {
+    throw new Error(
+      `Interleaving exposure query "${query.name}" doesn't declare the "${interleaving.userIdType}" identifier type`,
+    );
+  }
+  return query;
+}
+
 async function getIntegration(context: Context, datasourceId: string) {
   const ds = await getDataSourceById(context, datasourceId);
   if (!ds) {
@@ -37,28 +65,12 @@ async function getInterleavingSnapshotSettings(
       "Start this interleaving experiment before updating results",
     );
   }
+  const endDate = interleaving.dateStopped ?? new Date();
 
-  const interleavingExposureQuery =
-    await context.models.interleavingExposureQueries.getById(
-      interleaving.interleavingExposureQueryId,
-    );
-  if (!interleavingExposureQuery) {
-    context.throwNotFoundError(
-      `Interleaving exposure query not found: ${interleaving.interleavingExposureQueryId}`,
-    );
-  }
-  if (interleavingExposureQuery.datasourceId !== interleaving.datasource) {
-    throw new Error(
-      `Interleaving exposure query "${interleavingExposureQuery.name}" belongs to a different Data Source than this interleaving experiment`,
-    );
-  }
-  if (
-    !interleavingExposureQuery.userIdTypes.includes(interleaving.userIdType)
-  ) {
-    throw new Error(
-      `Interleaving exposure query "${interleavingExposureQuery.name}" doesn't declare the "${interleaving.userIdType}" identifier type`,
-    );
-  }
+  const interleavingExposureQuery = await resolveInterleavingExposureQuery(
+    context,
+    interleaving,
+  );
 
   const [a, b] = interleaving.variations;
   return {
@@ -74,7 +86,7 @@ async function getInterleavingSnapshotSettings(
     ],
     metrics: interleaving.metrics,
     startDate: interleaving.dateStarted,
-    endDate: interleaving.dateStopped ?? null,
+    endDate,
   };
 }
 

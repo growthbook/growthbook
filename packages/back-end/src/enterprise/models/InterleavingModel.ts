@@ -1,7 +1,12 @@
 import isEqual from "lodash/isEqual";
 import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
 import {
   apiCreateInterleavingBody,
+  apiInterleavingLifecycleReturn,
+  apiInterleavingResultsReturn,
+  apiInterleavingSnapshotReturn,
+  apiInterleavingSnapshotsReturn,
   apiUpdateInterleavingBody,
   ApiInterleavingInterface,
   getInterleavingResultsEndpoint,
@@ -51,7 +56,10 @@ import {
   toApiInterleaving,
   toApiInterleavingSnapshot,
 } from "back-end/src/enterprise/services/interleavingApi";
-import { runInterleavingSnapshot } from "back-end/src/enterprise/services/interleavingAnalysis";
+import {
+  resolveInterleavingExposureQuery,
+  runInterleavingSnapshot,
+} from "back-end/src/enterprise/services/interleavingAnalysis";
 import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { PAYLOAD_AFFECTING_INTERLEAVING_FIELDS } from "back-end/src/services/experimentPayloadFields";
@@ -118,7 +126,9 @@ const BaseClass = MakeModelClass({
     customHandlers: [
       defineCustomApiHandler({
         ...startInterleavingEndpoint,
-        reqHandler: async (req) => {
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiInterleavingLifecycleReturn>> => {
           const interleaving = await req.context.models.interleavings.getById(
             req.params.id,
           );
@@ -138,7 +148,9 @@ const BaseClass = MakeModelClass({
       }),
       defineCustomApiHandler({
         ...stopInterleavingEndpoint,
-        reqHandler: async (req) => {
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiInterleavingLifecycleReturn>> => {
           const interleaving = await req.context.models.interleavings.getById(
             req.params.id,
           );
@@ -159,7 +171,9 @@ const BaseClass = MakeModelClass({
       defineCustomApiHandler({
         ...refreshInterleavingEndpoint,
         // Existence, plan, and query permissions are checked by the service
-        reqHandler: async (req) => ({
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiInterleavingSnapshotReturn>> => ({
           snapshot: toApiInterleavingSnapshot(
             await runInterleavingSnapshot(req.context, req.params.id),
           ),
@@ -167,7 +181,9 @@ const BaseClass = MakeModelClass({
       }),
       defineCustomApiHandler({
         ...getInterleavingResultsEndpoint,
-        reqHandler: async (req) => {
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiInterleavingResultsReturn>> => {
           const interleaving = await req.context.models.interleavings.getById(
             req.params.id,
           );
@@ -187,7 +203,9 @@ const BaseClass = MakeModelClass({
       }),
       defineCustomApiHandler({
         ...listInterleavingSnapshotsEndpoint,
-        reqHandler: async (req) => {
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiInterleavingSnapshotsReturn>> => {
           const interleaving = await req.context.models.interleavings.getById(
             req.params.id,
           );
@@ -206,7 +224,9 @@ const BaseClass = MakeModelClass({
       }),
       defineCustomApiHandler({
         ...getInterleavingSnapshotEndpoint,
-        reqHandler: async (req) => {
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiInterleavingSnapshotReturn>> => {
           const snapshot =
             await req.context.models.interleavingSnapshots.getById(
               req.params.snapshotId,
@@ -350,7 +370,8 @@ export class InterleavingModel extends BaseClass {
   ): Promise<void> {
     const identityChanged =
       doc.key !== previousDoc?.key ||
-      doc.trackingKey !== previousDoc?.trackingKey;
+      doc.trackingKey !== previousDoc?.trackingKey ||
+      doc.datasource !== previousDoc?.datasource;
     const servingChanged =
       doc.status !== previousDoc?.status ||
       doc.archived !== previousDoc?.archived ||
@@ -361,16 +382,16 @@ export class InterleavingModel extends BaseClass {
           existing: il,
           environmentIds: this.context.environments,
         });
-      const sharing = (
+      const others = (
         await (
           this.context.scanContextOverride ??
           getContextForAgendaJobByOrgObject(this.context.org)
         ).models.interleavings.getAll()
-      ).filter((il) => il.id !== doc.id && il.key === doc.key);
+      ).filter((il) => il.id !== doc.id);
 
       if (interleavingInSDKPayload(doc)) {
         const serving = new Set(servingEnvs(doc));
-        for (const other of sharing) {
+        for (const other of others.filter((il) => il.key === doc.key)) {
           if (!interleavingInSDKPayload(other)) continue;
           const overlap = servingEnvs(other).filter((env) => serving.has(env));
           if (overlap.length) {
@@ -379,12 +400,19 @@ export class InterleavingModel extends BaseClass {
             );
           }
         }
-      }
 
-      if (sharing.some((other) => other.trackingKey === doc.trackingKey)) {
-        throw new Error(
-          `Another interleaving experiment with the key "${doc.key}" already reports as "${doc.trackingKey}". Set a different tracking key so their exposures can be told apart.`,
-        );
+        if (
+          others.some(
+            (other) =>
+              interleavingInSDKPayload(other) &&
+              other.datasource === doc.datasource &&
+              other.trackingKey === doc.trackingKey,
+          )
+        ) {
+          throw new Error(
+            `Another interleaving experiment already reports as "${doc.trackingKey}" in this Data Source. Set a different tracking key so their exposures can be told apart.`,
+          );
+        }
       }
     }
 
@@ -433,6 +461,19 @@ export class InterleavingModel extends BaseClass {
         userIdType: doc.userIdType,
         metrics: doc.metrics,
       });
+    }
+
+    const starting =
+      doc.status === "running" && previousDoc?.status !== "running";
+    if (
+      !previousDoc ||
+      starting ||
+      doc.interleavingExposureQueryId !==
+        previousDoc.interleavingExposureQueryId ||
+      doc.datasource !== previousDoc.datasource ||
+      doc.userIdType !== previousDoc.userIdType
+    ) {
+      await resolveInterleavingExposureQuery(this.context, doc);
     }
 
     if (
@@ -586,6 +627,21 @@ export class InterleavingModel extends BaseClass {
     interleavingExposureQueryId: string,
   ): Promise<InterleavingInterface[]> {
     return this._find({ interleavingExposureQueryId });
+  }
+
+  // Every interleaving in the org referencing the query, ignoring the caller's
+  // read permissions. Only for authoritative dependency scans: deleting an
+  // exposure query is gated on the datasource, which is shared across projects,
+  // so missing a reference in a project the caller cannot read would let the
+  // delete through and strand that experiment. Never return these to the
+  // caller.
+  public dangerousGetAllByExposureQueryIdForDependencyScan(
+    interleavingExposureQueryId: string,
+  ): Promise<InterleavingInterface[]> {
+    return this._find(
+      { interleavingExposureQueryId },
+      { bypassReadPermissionChecks: true },
+    );
   }
 
   /** Looks up an interleaving by its code-facing key (what `interleave()` receives). */
