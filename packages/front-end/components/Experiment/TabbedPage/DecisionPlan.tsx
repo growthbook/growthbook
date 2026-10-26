@@ -18,7 +18,7 @@ import Tooltip from "@/ui/Tooltip";
 import { useEditsBlockedReason } from "./ExperimentEdits";
 import QuickEditButton, { clicksQuickEdit } from "./QuickEditButton";
 import SetupFieldRow from "./SetupFieldRow";
-import { scheduledEnd, scheduleSummary } from "./statusSchedule";
+import { scheduledEnd, scheduleTimes } from "./statusSchedule";
 
 const INNER_LABEL_WIDTH = "128px";
 
@@ -113,6 +113,8 @@ export default function DecisionPlan({
   const scheduleEditable =
     canEditSchedule && permissionsUtil.canUpdateExperiment(experiment, {});
   const close = () => setEditing(null);
+  const times = scheduleTimes(experiment);
+  const scheduled = !!(times.starts || times.ends);
 
   return (
     <>
@@ -151,17 +153,29 @@ export default function DecisionPlan({
         />
       ) : null}
 
-      <SetupFieldRow label="Schedule" content="panel">
+      <SetupFieldRow
+        label="Schedule"
+        {...(scheduled ? { content: "panel" } : { labelAlign: "center" })}
+      >
         <Panel>
           <Flex
-            align="center"
+            align={scheduled ? "start" : "center"}
             justify="between"
             gap="3"
             className={scheduleEditable ? clicksQuickEdit : undefined}
           >
-            <Text color="text-high">
-              {scheduleSummary(experiment.statusUpdateSchedule)}
-            </Text>
+            {scheduled ? (
+              <Flex direction="column" gap="3" flexGrow="1">
+                <InnerRow label="Starts">
+                  <Text color="text-high">{times.starts ?? "Manually"}</Text>
+                </InnerRow>
+                <InnerRow label="Ends">
+                  <Text color="text-high">{times.ends ?? "Manually"}</Text>
+                </InnerRow>
+              </Flex>
+            ) : (
+              <Text color="text-high">Starts and ends manually.</Text>
+            )}
             {scheduleEditable ? (
               <QuickEditButton
                 label="Edit schedule"

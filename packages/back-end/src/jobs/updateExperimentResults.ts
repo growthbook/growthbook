@@ -118,9 +118,11 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   if (experiment.project) {
     project = await context.models.projects.getById(experiment.project);
   }
+  // With the experiment, as a manual refresh resolves them.
   const { settings: scopedSettings } = getScopedSettings({
     organization: context.org,
     project: project ?? undefined,
+    experiment,
   });
 
   // Disable auto snapshots for the experiment so it doesn't keep trying to update if schedule is off (non-bandits only)

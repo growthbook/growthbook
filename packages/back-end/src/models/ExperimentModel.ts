@@ -35,6 +35,11 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import {
+  getUnsetAnalysisSettings,
+  isAnalysisSettingUnset,
+  SETTLED_ANALYSIS_SETTINGS,
+} from "shared/settings";
 import { getExperimentReminderResets } from "back-end/src/services/experimentReminderState";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -908,6 +913,14 @@ export async function createExperiment({
     lastSnapshotAttempt: new Date(),
     nextSnapshotAttempt: nextUpdate ?? undefined,
   } satisfies Partial<ExperimentInterface> as ExperimentInterface;
+  Object.assign(
+    experimentToCreate,
+    getUnsetAnalysisSettings({
+      organization: context.org,
+      project: (await getAnalysisProject(context, data.project)) ?? undefined,
+      experiment: experimentToCreate,
+    }),
+  );
 
   if (experimentToCreate.type !== "holdout") {
     await runValidateExperimentHooks({
@@ -1059,7 +1072,51 @@ export async function updateExperiment({
     bypassWebhooks,
   });
 
-  return updated;
+  return { ...updated, ...(await settleAnalysisSettings(context, updated)) };
+}
+
+const getAnalysisProject = async (
+  context: ReqContext | ApiReqContext,
+  projectId: string | undefined,
+) => (projectId ? context.models.projects.getById(projectId) : null);
+
+/**
+ * Stores the analysis settings an experiment still leaves to the org or
+ * project, as they resolve now, so its results stop following later changes
+ * there. Each is written only if still unset, so it can't overwrite a value
+ * set meanwhile, and it stays out of the update's change set.
+ */
+async function settleAnalysisSettings(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<Partial<ExperimentInterface>> {
+  if (
+    !SETTLED_ANALYSIS_SETTINGS.some((key) =>
+      isAnalysisSettingUnset(experiment[key]),
+    )
+  ) {
+    return {};
+  }
+  const settled = getUnsetAnalysisSettings({
+    organization: context.org,
+    project:
+      (await getAnalysisProject(context, experiment.project)) ?? undefined,
+    experiment,
+  });
+  await Promise.all(
+    Object.entries(settled).map(([key, value]) =>
+      ExperimentModel.updateOne(
+        {
+          id: experiment.id,
+          organization: context.org.id,
+          // Only the string setting can be stored empty.
+          [key]: typeof value === "string" ? { $in: [null, ""] } : null,
+        },
+        { $set: { [key]: value } },
+      ),
+    ),
+  );
+  return settled;
 }
 
 export async function getExperimentsByMetric(

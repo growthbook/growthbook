@@ -743,7 +743,6 @@ export default function AnalysisPlan({
           open={advancedOpen}
           setOpen={setAdvancedOpen}
           experiment={effective}
-          savedStatsEngine={experiment.statsEngine}
           datasourceId={datasource}
           exposureQueryId={exposureQueryId}
           metrics={{ goalMetrics, secondaryMetrics, guardrailMetrics }}

@@ -1,6 +1,6 @@
 import {
   hasStatusSchedule,
-  scheduleSummary,
+  scheduleTimes,
 } from "@/components/Experiment/TabbedPage/statusSchedule";
 
 const stopPlan = { enabled: true };
@@ -25,22 +25,56 @@ describe("hasStatusSchedule", () => {
   });
 });
 
-describe("scheduleSummary", () => {
+describe("scheduleTimes", () => {
+  const draft = { status: "draft" as const, phases: [] };
   it.each([
-    [null, "Starts and ends manually."],
+    [draft, { starts: null, ends: null }],
     [
-      { stopAfter: { value: 1, unit: "hours" } },
-      "Starts manually and ends after 1 hour.",
+      {
+        ...draft,
+        statusUpdateSchedule: {
+          stopAfter: { value: 1, unit: "hours" as const },
+        },
+      },
+      { starts: null, ends: "After 1 hour" },
     ],
     [
-      { stopAfter: { value: 14, unit: "days" } },
-      "Starts manually and ends after 14 days.",
+      {
+        ...draft,
+        statusUpdateSchedule: {
+          stopAfter: { value: 14, unit: "days" as const },
+        },
+      },
+      { starts: null, ends: "After 14 days" },
     ],
     [
-      { startAt: "2026-10-28T00:00:00", stopAt: "2026-11-11T09:30:00" },
-      "Starts Oct 28, 2026 12:00 AM and ends Nov 11, 2026 9:30 AM.",
+      {
+        ...draft,
+        statusUpdateSchedule: {
+          startAt: "2026-10-28T00:00:00",
+          stopAt: "2026-11-11T09:30:00",
+        },
+      },
+      { starts: "Oct 28, 2026 12:00 AM", ends: "Nov 11, 2026 9:30 AM" },
     ],
-  ] as const)("%j", (statusUpdateSchedule, expected) => {
-    expect(scheduleSummary(statusUpdateSchedule)).toBe(expected);
+    // Once it's run, its own dates.
+    [
+      {
+        status: "stopped" as const,
+        phases: [
+          {
+            dateStarted: "2026-10-01T08:00:00",
+            dateEnded: "2026-10-15T08:00:00",
+          },
+        ],
+      },
+      { starts: "Oct 1, 2026 8:00 AM", ends: "Oct 15, 2026 8:00 AM" },
+    ],
+  ])("%j", (experiment, expected) => {
+    expect(
+      scheduleTimes(
+        experiment as unknown as Parameters<typeof scheduleTimes>[0],
+      ),
+    ).toEqual(expected);
   });
 });

@@ -32,20 +32,29 @@ export const armedStartDate = (
     ? new Date(experiment.nextScheduledStatusUpdate.date)
     : null;
 
-/** A schedule in a sentence, e.g. "Starts manually and ends after 14 days." */
-export const scheduleSummary = (
-  schedule: ExperimentInterfaceStringDates["statusUpdateSchedule"],
+/** When an experiment starts and ends: a date or a span; null by hand. */
+export const scheduleTimes = (
+  experiment: Pick<
+    ExperimentInterfaceStringDates,
+    "status" | "phases" | "statusUpdateSchedule"
+  >,
 ) => {
   const at = (value: string | Date) =>
     format(new Date(value), "MMM d, yyyy h:mm a");
+  const schedule = experiment.statusUpdateSchedule;
+  const phase = experiment.phases.at(-1);
+  const started =
+    experiment.status !== "draft" ? phase?.dateStarted : undefined;
+  const ended = experiment.status === "stopped" ? phase?.dateEnded : undefined;
   const after = schedule?.stopAfter;
-  const start = schedule?.startAt ? at(schedule.startAt) : null;
-  const end = schedule?.stopAt
-    ? at(schedule.stopAt)
-    : after
-      ? `after ${after.value} ${after.value === 1 ? after.unit.replace(/s$/, "") : after.unit}`
-      : null;
-  return !start && !end
-    ? "Starts and ends manually."
-    : `Starts ${start ?? "manually"} and ends ${end ?? "manually"}.`;
+  const start = schedule?.startAt ?? started;
+  const end = schedule?.stopAt ?? ended;
+  return {
+    starts: start ? at(start) : null,
+    ends: end
+      ? at(end)
+      : after
+        ? `After ${after.value} ${after.value === 1 ? after.unit.replace(/s$/, "") : after.unit}`
+        : null,
+  };
 };

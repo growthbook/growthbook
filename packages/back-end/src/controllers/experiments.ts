@@ -2,7 +2,6 @@ import { Response } from "express";
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import {
   getSnapshotAnalysis,
@@ -1312,17 +1311,12 @@ export async function postExperiments(
     previewURL: data.previewURL || "",
     targetURLRegex: data.targetURLRegex || "",
     ideaSource: data.ideaSource || "",
-    // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
     sequentialTestingEnabled:
       experimentType === "multi-armed-bandit"
         ? false
-        : (data.sequentialTestingEnabled ??
-          !!org?.settings?.sequentialTestingEnabled),
-    sequentialTestingTuningParameter:
-      data.sequentialTestingTuningParameter ??
-      org?.settings?.sequentialTestingTuningParameter ??
-      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-    regressionAdjustmentEnabled: data.regressionAdjustmentEnabled ?? undefined,
+        : data.sequentialTestingEnabled,
+    sequentialTestingTuningParameter: data.sequentialTestingTuningParameter,
+    regressionAdjustmentEnabled: data.regressionAdjustmentEnabled,
     statsEngine:
       experimentType === "multi-armed-bandit" ? "bayesian" : data.statsEngine,
     type: experimentType,

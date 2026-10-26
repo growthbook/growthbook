@@ -4860,16 +4860,9 @@ export function postExperimentApiPayloadToInterface(
     previewURL: "",
     targetURLRegex: "",
     ideaSource: "",
-    sequentialTestingEnabled:
-      payload.sequentialTestingEnabled ??
-      !!organization?.settings?.sequentialTestingEnabled,
-    sequentialTestingTuningParameter:
-      payload.sequentialTestingTuningParameter ??
-      organization?.settings?.sequentialTestingTuningParameter ??
-      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-    regressionAdjustmentEnabled:
-      payload.regressionAdjustmentEnabled ??
-      !!organization?.settings?.regressionAdjustmentEnabled,
+    sequentialTestingEnabled: payload.sequentialTestingEnabled,
+    sequentialTestingTuningParameter: payload.sequentialTestingTuningParameter,
+    regressionAdjustmentEnabled: payload.regressionAdjustmentEnabled,
     ...(payload.postStratificationEnabled !== undefined
       ? { postStratificationEnabled: payload.postStratificationEnabled }
       : {}),

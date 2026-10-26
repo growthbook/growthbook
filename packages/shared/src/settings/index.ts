@@ -1,4 +1,9 @@
+import type { ExperimentInterface } from "shared/types/experiment";
 import { isFactMetric } from "../../experiments";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "../../constants";
 import genDefaultResolver from "./resolvers/genDefaultResolver";
 import genMetricOverrideResolver from "./resolvers/genMetricOverrideResolver";
 import genDefaultSettings from "./resolvers/genDefaultSettings";
@@ -201,3 +206,50 @@ export const getScopedSettings = (
 
   return scopeSettings(settings, scopes);
 };
+
+// An experiment's analysis settings that fall back to the org or project when
+// unset. Stored on the experiment, a later change there can't move its results.
+export const SETTLED_ANALYSIS_SETTINGS = [
+  "statsEngine",
+  "regressionAdjustmentEnabled",
+  "postStratificationEnabled",
+  "sequentialTestingEnabled",
+  "sequentialTestingTuningParameter",
+] as const;
+type SettledAnalysisSettings = Pick<
+  ExperimentInterface,
+  (typeof SETTLED_ANALYSIS_SETTINGS)[number]
+>;
+
+export const isAnalysisSettingUnset = (value: unknown) => (value ?? "") === "";
+
+/**
+ * What each unset analysis setting resolves to now, the way the analysis
+ * resolves it, so storing it leaves today's results unchanged.
+ */
+export function getUnsetAnalysisSettings({
+  organization,
+  project,
+  experiment,
+}: Pick<ScopeDefinition, "organization" | "project"> & {
+  experiment: Partial<SettledAnalysisSettings>;
+}): Partial<SettledAnalysisSettings> {
+  const { settings } = getScopedSettings({ organization, project });
+  const orgSettings = organization.settings ?? {};
+  const resolved: SettledAnalysisSettings = {
+    statsEngine: settings.statsEngine.value ?? DEFAULT_STATS_ENGINE,
+    // The analysis turns CUPED on when the org or the experiment does, so the
+    // org's setting is the one an unset experiment gets.
+    regressionAdjustmentEnabled: !!orgSettings.regressionAdjustmentEnabled,
+    postStratificationEnabled: settings.postStratificationEnabled.value,
+    sequentialTestingEnabled: !!orgSettings.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      orgSettings.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  };
+  return Object.fromEntries(
+    SETTLED_ANALYSIS_SETTINGS.filter((key) =>
+      isAnalysisSettingUnset(experiment[key]),
+    ).map((key) => [key, resolved[key]]),
+  );
+}

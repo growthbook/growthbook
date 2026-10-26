@@ -10,7 +10,6 @@ import { PiCaretRightFill } from "react-icons/pi";
 import { getValidDate } from "shared/dates";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
 import {
@@ -18,7 +17,7 @@ import {
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
 } from "shared/util";
-import { getScopedSettings } from "shared/settings";
+import { getScopedSettings, getUnsetAnalysisSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
@@ -135,11 +134,15 @@ const AnalysisForm: FC<{
     experiment,
   });
 
-  // Get parent settings (without experiment scope) for displaying defaults
-  const { settings: parentScopedSettings } = getScopedSettings({
-    organization,
-    project: project ?? undefined,
-  });
+  // What the experiment leaves unset starts at what saving it will store.
+  const settled = {
+    ...experiment,
+    ...getUnsetAnalysisSettings({
+      organization,
+      project: project ?? undefined,
+      experiment,
+    }),
+  };
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
@@ -209,15 +212,9 @@ const AnalysisForm: FC<{
       variations: getLatestPhaseVariations(experiment) || [],
       phases: experiment.phases || [],
       sequentialTestingEnabled:
-        hasSequentialTestingFeature &&
-        experiment.sequentialTestingEnabled !== undefined
-          ? experiment.sequentialTestingEnabled
-          : !!orgSettings.sequentialTestingEnabled,
+        hasSequentialTestingFeature && !!settled.sequentialTestingEnabled,
       sequentialTestingTuningParameter:
-        experiment.sequentialTestingEnabled !== undefined
-          ? experiment.sequentialTestingTuningParameter
-          : (orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER),
+        settled.sequentialTestingTuningParameter,
       goalMetrics: experiment.goalMetrics,
       guardrailMetrics: experiment.guardrailMetrics || [],
       secondaryMetrics: experiment.secondaryMetrics || [],
@@ -241,9 +238,9 @@ const AnalysisForm: FC<{
                 DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
             }
         : undefined,
-      statsEngine: experiment.statsEngine,
-      regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
-      postStratificationEnabled: experiment.postStratificationEnabled,
+      statsEngine: settled.statsEngine,
+      regressionAdjustmentEnabled: settled.regressionAdjustmentEnabled,
+      postStratificationEnabled: settled.postStratificationEnabled,
       type: experiment.type || "standard",
       banditScheduleValue:
         experiment.banditScheduleValue ??
@@ -264,21 +261,6 @@ const AnalysisForm: FC<{
     },
   });
 
-  // A migration normalizes sequentialTestingEnabled to a boolean for every
-  // experiment, so we can't distinguish "explicitly set to org default" from
-  // "never set" by looking at the field. Treat values matching the org default
-  // as the Default selection — behaviorally equivalent and lets the dropdown
-  // initialize correctly on freshly created experiments.
-  const [usingSequentialTestingDefault, setUsingSequentialTestingDefault] =
-    useState(
-      (experiment.sequentialTestingEnabled ?? false) ===
-        !!orgSettings.sequentialTestingEnabled &&
-        (experiment.sequentialTestingTuningParameter ??
-          orgSettings.sequentialTestingTuningParameter ??
-          DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER) ===
-          (orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER),
-    );
   const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
     useState(() => {
       if (experiment.type !== "multi-armed-bandit") return false;
@@ -287,28 +269,6 @@ const AnalysisForm: FC<{
         experiment.banditConversionWindowUnit != null;
       return !hasOverride;
     });
-  const setSequentialTestingToDefault = useCallback(
-    (enable: boolean) => {
-      if (enable) {
-        form.setValue(
-          "sequentialTestingEnabled",
-          !!orgSettings.sequentialTestingEnabled,
-        );
-        form.setValue(
-          "sequentialTestingTuningParameter",
-          orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-        );
-      }
-      setUsingSequentialTestingDefault(enable);
-    },
-    [
-      form,
-      setUsingSequentialTestingDefault,
-      orgSettings.sequentialTestingEnabled,
-      orgSettings.sequentialTestingTuningParameter,
-    ],
-  );
 
   const { apiCall } = useAuth();
 
@@ -495,14 +455,6 @@ const AnalysisForm: FC<{
           body.lookbackOverride = value.lookbackOverride;
         } else if (experiment.lookbackOverride !== undefined) {
           body.lookbackOverride = undefined;
-        }
-        if (usingSequentialTestingDefault) {
-          // User checked the org default checkbox; ignore form values
-          body.sequentialTestingEnabled =
-            !!orgSettings.sequentialTestingEnabled;
-          body.sequentialTestingTuningParameter =
-            orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
         }
 
         // bandits
@@ -843,8 +795,7 @@ const AnalysisForm: FC<{
               onChange={(v) => {
                 form.setValue("statsEngine", v);
               }}
-              parentSettings={parentScopedSettings}
-              allowUndefined={!isBandit}
+              allowUndefined={false}
               disabled={isBandit}
               className=""
             />
@@ -886,38 +837,18 @@ const AnalysisForm: FC<{
                       </PremiumTooltip>
                     }
                     value={
-                      !hasPostStratificationFeature ||
-                      form.watch("postStratificationEnabled") == null
-                        ? ""
-                        : form.watch("postStratificationEnabled")
-                          ? "on"
-                          : "off"
+                      hasPostStratificationFeature &&
+                      form.watch("postStratificationEnabled")
+                        ? "on"
+                        : "off"
                     }
                     onChange={(v) => {
-                      form.setValue(
-                        "postStratificationEnabled",
-                        v === "" ? null : v === "on",
-                      );
+                      form.setValue("postStratificationEnabled", v === "on");
                     }}
                     options={[
-                      {
-                        label: `Default (${
-                          hasPostStratificationFeature &&
-                          parentScopedSettings.postStratificationEnabled.value
-                            ? "On"
-                            : "Off"
-                        })`,
-                        value: "",
-                      },
                       { label: "On", value: "on" },
                       { label: "Off", value: "off" },
                     ]}
-                    formatOptionLabel={({ value, label }) => {
-                      if (value === "") {
-                        return <em className="text-muted">{label}</em>;
-                      }
-                      return label;
-                    }}
                     sort={false}
                     disabled={
                       !hasPostStratificationFeature ||
@@ -941,52 +872,25 @@ const AnalysisForm: FC<{
                       Sequential Testing
                     </PremiumTooltip>
                   }
-                  value={
-                    usingSequentialTestingDefault
-                      ? ""
-                      : form.watch("sequentialTestingEnabled")
-                        ? "on"
-                        : "off"
-                  }
+                  value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
                   onChange={(v) => {
-                    if (v === "") {
-                      setSequentialTestingToDefault(true);
-                    } else {
-                      setSequentialTestingToDefault(false);
-                      form.setValue("sequentialTestingEnabled", v === "on");
-                    }
+                    form.setValue("sequentialTestingEnabled", v === "on");
                   }}
                   options={[
-                    {
-                      label: `Default (${
-                        orgSettings.sequentialTestingEnabled ? "On" : "Off"
-                      })`,
-                      value: "",
-                    },
                     { label: "On", value: "on" },
                     { label: "Off", value: "off" },
                   ]}
-                  formatOptionLabel={({ value, label }) => {
-                    if (value === "") {
-                      return <em className="text-muted">{label}</em>;
-                    }
-                    return label;
-                  }}
                   sort={false}
                   disabled={!hasSequentialTestingFeature}
                 />
               </Box>
               <Box style={{ flex: 1, minWidth: 0 }}>
-                {(usingSequentialTestingDefault &&
-                  !!orgSettings.sequentialTestingEnabled) ||
-                (!usingSequentialTestingDefault &&
-                  form.watch("sequentialTestingEnabled")) ? (
+                {form.watch("sequentialTestingEnabled") ? (
                   <Field
                     label="Tuning parameter"
                     type="number"
                     containerClassName="mb-0"
                     min="0"
-                    readOnly={usingSequentialTestingDefault}
                     disabled={!hasSequentialTestingFeature || hasFileConfig()}
                     {...form.register("sequentialTestingTuningParameter", {
                       valueAsNumber: true,

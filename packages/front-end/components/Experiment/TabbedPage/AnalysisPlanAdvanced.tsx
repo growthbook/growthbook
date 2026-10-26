@@ -5,9 +5,8 @@ import {
   resolveAnalysisIdentifierType,
 } from "shared/util";
 import { getValidDate } from "shared/dates";
-import { getScopedSettings } from "shared/settings";
+import { getUnsetAnalysisSettings } from "shared/settings";
 import {
-  DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
@@ -33,7 +32,6 @@ import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
-import Link from "@/ui/Link";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
@@ -67,7 +65,6 @@ export default function AnalysisPlanAdvanced({
   open,
   setOpen,
   experiment,
-  savedStatsEngine,
   datasourceId,
   exposureQueryId,
   metrics,
@@ -79,8 +76,6 @@ export default function AnalysisPlanAdvanced({
   setOpen: (open: boolean) => void;
   /** The experiment with the plan's staged settings applied. */
   experiment: ExperimentInterfaceStringDates;
-  // An engine once saved can't be cleared back to the default here.
-  savedStatsEngine?: ExperimentInterfaceStringDates["statsEngine"];
   datasourceId: string;
   exposureQueryId: string;
   metrics: {
@@ -98,11 +93,15 @@ export default function AnalysisPlanAdvanced({
   const { organization, hasCommercialFeature } = useUser();
   const orgSettings = useOrgSettings();
 
-  const { settings: defaults } = getScopedSettings({
-    organization,
-    project: getProjectById(experiment.project || "") ?? undefined,
-  });
-  const statsEngine = experiment.statsEngine || defaults.statsEngine.value;
+  // What the experiment leaves unset shows as what saving it will store.
+  const settled = {
+    ...experiment,
+    ...getUnsetAnalysisSettings({
+      organization,
+      project: getProjectById(experiment.project || "") ?? undefined,
+      experiment,
+    }),
+  };
 
   const datasource = getDatasourceById(datasourceId);
   const properties = datasource?.properties;
@@ -124,14 +123,9 @@ export default function AnalysisPlanAdvanced({
   const hasCuped = hasCommercialFeature("regression-adjustment");
   const hasPostStratification = hasCommercialFeature("post-stratification");
   const hasSequential = hasCommercialFeature("sequential-testing");
-  const cupedDefault = defaults.regressionAdjustmentEnabled.value;
-  const varianceReductionChanged =
-    !!experiment.regressionAdjustmentEnabled !== cupedDefault ||
-    (experiment.postStratificationEnabled ?? null) !== null;
-  const sequentialEnabled = !!experiment.sequentialTestingEnabled;
+  const sequentialEnabled = !!settled.sequentialTestingEnabled;
   const tuningParameter =
-    experiment.sequentialTestingTuningParameter ??
-    orgSettings.sequentialTestingTuningParameter ??
+    settled.sequentialTestingTuningParameter ??
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   // Typed as text, so "0." can be on its way to a valid value.
   const [tuningText, setTuningText] = useState(String(tuningParameter));
@@ -192,46 +186,28 @@ export default function AnalysisPlanAdvanced({
                   labelClassName=""
                   containerClassName="mb-0"
                   className=""
-                  value={experiment.statsEngine}
-                  onChange={(value) =>
-                    stage({ statsEngine: value || undefined })
-                  }
-                  parentSettings={defaults}
-                  allowUndefined={!savedStatsEngine}
+                  value={settled.statsEngine}
+                  onChange={(statsEngine) => stage({ statsEngine })}
+                  allowUndefined={false}
                   disabled={disabled}
                 />
               </Box>
             </Setting>
             <Setting label="Variance Reduction">
               <Flex direction="column" gap="2">
-                <Flex align="center" gap="4">
-                  <Checkbox
-                    label={
-                      <PremiumTooltip commercialFeature="regression-adjustment">
-                        CUPED
-                      </PremiumTooltip>
-                    }
-                    weight="regular"
-                    value={hasCuped && !!experiment.regressionAdjustmentEnabled}
-                    setValue={(value) =>
-                      stage({ regressionAdjustmentEnabled: value })
-                    }
-                    disabled={disabled || !hasCuped}
-                  />
-                  {varianceReductionChanged && !disabled ? (
-                    <Link
-                      onClick={(e) => {
-                        e.preventDefault();
-                        stage({
-                          regressionAdjustmentEnabled: cupedDefault,
-                          postStratificationEnabled: null,
-                        });
-                      }}
-                    >
-                      Reset to Defaults
-                    </Link>
-                  ) : null}
-                </Flex>
+                <Checkbox
+                  label={
+                    <PremiumTooltip commercialFeature="regression-adjustment">
+                      CUPED
+                    </PremiumTooltip>
+                  }
+                  weight="regular"
+                  value={hasCuped && !!settled.regressionAdjustmentEnabled}
+                  setValue={(value) =>
+                    stage({ regressionAdjustmentEnabled: value })
+                  }
+                  disabled={disabled || !hasCuped}
+                />
                 {!orgSettings.disablePrecomputedDimensions ? (
                   <Checkbox
                     label={
@@ -242,9 +218,7 @@ export default function AnalysisPlanAdvanced({
                     weight="regular"
                     value={
                       hasPostStratification &&
-                      (experiment.postStratificationEnabled ??
-                        defaults.postStratificationEnabled.value ??
-                        DEFAULT_POST_STRATIFICATION_ENABLED)
+                      !!settled.postStratificationEnabled
                     }
                     setValue={(value) =>
                       stage({ postStratificationEnabled: value })
@@ -254,7 +228,7 @@ export default function AnalysisPlanAdvanced({
                 ) : null}
               </Flex>
             </Setting>
-            {statsEngine === "frequentist" ? (
+            {settled.statsEngine === "frequentist" ? (
               <Setting label="Corrections">
                 <Flex direction="column" gap="2">
                   <Checkbox
