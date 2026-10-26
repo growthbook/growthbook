@@ -342,7 +342,7 @@ export default function HealthHeadline({
         />
         <Tile
           label="Quality"
-          info="Average quality score of completed experiments, from the checks in Experimentation Health settings."
+          info="Average quality score of completed experiments, from the checks in Experiment Quality settings."
           value={
             health.quality !== null
               ? Math.round(health.quality)
