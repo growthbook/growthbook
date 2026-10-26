@@ -21,6 +21,7 @@ import type {
   LogUnion,
   Plugin,
   RefreshFeaturesOptions,
+  ReducePayloadOptions,
   Result,
   TrackingCallback,
   TrackingCallbackWithUser,
@@ -41,6 +42,7 @@ import {
   getAllStickyBucketAssignmentDocs,
   getApiHosts,
   getTrackingUserContext,
+  reducePayload,
   runExperiment,
 } from "./core";
 import { StickyBucketService } from "./sticky-bucket-service";
@@ -189,6 +191,16 @@ export class GrowthBookClient<
   public getDecryptedPayload(): FeatureApiResponse {
     return this._decryptedPayload || this.getPayload();
   }
+  public reducePayload(options?: ReducePayloadOptions): FeatureApiResponse {
+    options = options || {};
+    return {
+      ...this.getDecryptedPayload(),
+      ...reducePayload(
+        this._getEvalContext(options.userContext || {}),
+        options,
+      ),
+    };
+  }
 
   private async _refresh({
     timeout,
@@ -299,6 +311,7 @@ export class GrowthBookClient<
       features: this._features,
       experiments: this._experiments,
       log: this.log,
+      debug: this.debug,
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
@@ -509,6 +522,12 @@ export class UserScopedGrowthBook<
   }
   public getDecryptedPayload() {
     return this._gb.getDecryptedPayload();
+  }
+  public reducePayload(options?: Omit<ReducePayloadOptions, "userContext">) {
+    return this._gb.reducePayload({
+      ...options,
+      userContext: this._userContext,
+    });
   }
   public inDevMode(): boolean {
     return !!this._userContext.enableDevMode;

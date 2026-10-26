@@ -4,6 +4,9 @@ import { z } from "zod";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
+import uniqBy from "lodash/uniqBy";
+import uniqWith from "lodash/uniqWith";
+import type { Request } from "express";
 import {
   AutoExperiment,
   FeatureRule as FeatureDefinitionRule,
@@ -1209,16 +1212,24 @@ function recordSdkPayloadRefreshMetrics(durationMs: number) {
   }
 }
 
-// This is a synchronous wrapper around refreshSDKPayloadCache
-// We shouldn't need to await the refresh in most cases
-export function queueSDKPayloadRefresh(data: {
+type QueueSDKPayloadRefreshData = {
   context: ReqContext | ApiReqContext;
   payloadKeys: SDKPayloadKey[];
   sdkConnections?: SDKConnectionInterface[];
   skipRefreshForProject?: string;
   treatEmptyProjectAsGlobal?: boolean;
   auditContext?: { event: string; model: string; id?: string };
-}) {
+};
+
+// Keyed by request, not context: getContextFromReq builds a new context per call.
+const pendingRefreshByRequest = new WeakMap<
+  Request,
+  QueueSDKPayloadRefreshData & { stackTrace: string }
+>();
+
+// This is a synchronous wrapper around refreshSDKPayloadCache
+// We shouldn't need to await the refresh in most cases
+export function queueSDKPayloadRefresh(data: QueueSDKPayloadRefreshData) {
   // Bulk-publish side-effect buffer: while a multi-entity commit is applying,
   // collect the affected keys instead of refreshing per write — the publisher
   // flushes one deduped refresh (at most one rebuild per SDK connection) after
@@ -1234,6 +1245,43 @@ export function queueSDKPayloadRefresh(data: {
   // Capture stack trace at the entry point to include the original caller
   const rawStack = new Error().stack || "";
   const stackTrace = rawStack.replace(/^Error.*?\n/, "");
+
+  // Merge every refresh queued during one request into one rebuild when it ends.
+  const req = data.context.req;
+  const res = req?.res;
+  if (
+    req &&
+    res &&
+    !res.headersSent &&
+    !res.destroyed &&
+    !data.skipRefreshForProject
+  ) {
+    const pending = pendingRefreshByRequest.get(req);
+    if (pending) {
+      pending.context = data.context;
+      pending.payloadKeys = uniqWith(
+        [...pending.payloadKeys, ...data.payloadKeys],
+        isEqual,
+      );
+      pending.sdkConnections = uniqBy(
+        [...(pending.sdkConnections ?? []), ...(data.sdkConnections ?? [])],
+        "key",
+      );
+      pending.treatEmptyProjectAsGlobal ||= !!data.treatEmptyProjectAsGlobal;
+      return;
+    }
+    pendingRefreshByRequest.set(req, { ...data, stackTrace });
+    res.once("close", () => {
+      const merged = pendingRefreshByRequest.get(req);
+      pendingRefreshByRequest.delete(req);
+      if (!merged) return;
+      refreshSDKPayloadCache(merged).catch((e) => {
+        logger.error(e, "Error refreshing SDK Payload Cache");
+      });
+    });
+    return;
+  }
+
   refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
     logger.error(e, "Error refreshing SDK Payload Cache");
   });

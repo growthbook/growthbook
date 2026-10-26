@@ -57,9 +57,9 @@ import CompareContextualBanditEventsModal from "@/components/ContextualBandit/Co
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import {
   useContextualBanditHealthIssues,
-  useContextualBanditResults,
   useContextualBanditStatusHealth,
 } from "@/hooks/useContextualBandits";
+import { useContextualBanditSnapshot } from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
 import Avatar from "@/ui/Avatar";
 
 function OverviewSection({
@@ -157,9 +157,8 @@ export default function ContextualBanditDetailPage({
   const showResultsTab = cb.status !== "draft";
 
   const coveragePct = cb.coverage != null ? Math.round(cb.coverage * 100) : 100;
-  const { measurementArm: measurementArmResults } = useContextualBanditResults(
-    cb.status !== "draft" ? cb.id : undefined,
-  );
+  const { measurementArm: measurementArmResults } =
+    useContextualBanditSnapshot();
 
   const formatConversionWindow = (value: number, unit: string): string =>
     `${value} ${value === 1 ? unit.replace(/s$/, "") : unit}`;

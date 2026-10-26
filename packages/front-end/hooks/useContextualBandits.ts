@@ -1,15 +1,16 @@
 import { ApiContextualBanditInterface } from "shared/validators";
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { getActiveVariations } from "shared/experiments";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { z } from "zod";
 import {
   getContextualBanditResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
 import type { IssueValue } from "@/components/HealthTab/IssueTags";
+import { useContextualBanditSnapshot } from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { useRestApi, useRestApiCall } from "@/services/restApi";
+import { useRestApi } from "@/services/restApi";
 
 /** Fetches CB docs from the REST API and returns the API shape directly. */
 export function useContextualBandits(
@@ -66,94 +67,11 @@ export function useContextualBandit(cbId: string | undefined) {
   };
 }
 
-export type ContextualBanditMeasurementArmResults = {
-  experimentId: string;
-  trackingKey: string;
-  percent: number;
-  status: string;
-  latestSnapshot: {
-    id: string;
-    dateCreated: string;
-    status: "running" | "success" | "error";
-    error?: string;
-  } | null;
-  decisionMetricResult: {
-    metricId: string;
-    controlMean: number | null;
-    banditMean: number | null;
-    controlUsers: number | null;
-    banditUsers: number | null;
-    lift: number | null;
-    ci: [number | null, number | null] | null;
-    chanceToWin: number | null;
-    pValue: number | null;
-  } | null;
-};
-
-/**
- * CB-native results state: fetches the CB results snapshot, auto-polls while a run is in progress,
- * and exposes a refresh action. Replaces the experiment `useSnapshot()` context for CBs.
- */
-export function useContextualBanditResults(cbId: string | undefined) {
-  const restApiCall = useRestApiCall();
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshError, setRefreshError] = useState("");
-
-  const { data, error, mutate, isValidating } = useRestApi(
-    contextualBanditEndpoints.getContextualBanditResults,
-    cbId ? { params: { id: cbId } } : null,
-  );
-
-  const latest = data?.latest ?? null;
-  const isRunning = latest?.status === "running";
-
-  useEffect(() => {
-    if (!isRunning) return;
-    const timer = setInterval(() => {
-      void mutate();
-    }, 2000);
-    return () => clearInterval(timer);
-  }, [isRunning, mutate]);
-
-  const refresh = useCallback(async () => {
-    if (!cbId) return;
-    setRefreshing(true);
-    setRefreshError("");
-    try {
-      await restApiCall(contextualBanditEndpoints.refreshContextualBandit, {
-        params: { id: cbId },
-      });
-      await mutate();
-    } catch (e) {
-      setRefreshError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setRefreshing(false);
-    }
-  }, [restApiCall, cbId, mutate]);
-
-  const cancel = useCallback(async () => {
-    if (!cbId) return;
-    await restApiCall(contextualBanditEndpoints.cancelContextualBandit, {
-      params: { id: cbId },
-    });
-  }, [restApiCall, cbId]);
-
-  return {
-    loading: !!cbId && !error && !data,
-    isValidating,
-    contextualBanditSnapshot: data?.contextualBanditSnapshot ?? null,
-    results: data?.results ?? null,
-    latest,
-    measurementArm: data?.measurementArm ?? null,
-    error,
-    mutate,
-    refresh,
-    cancel,
-    refreshing,
-    refreshError,
-    setRefreshError,
-  };
-}
+export type ContextualBanditMeasurementArmResults = NonNullable<
+  z.infer<
+    typeof contextualBanditEndpoints.getContextualBanditResults.responseSchema
+  >["measurementArm"]
+>;
 
 /** Fetches the features linked to a CB (enriched `LinkedFeatureInfo[]`) for the Linked Features section. */
 export function useContextualBanditLinkedFeatures(cbId: string | undefined) {
@@ -235,7 +153,7 @@ export function resolveContextualBanditStatusHealth(
 export function useContextualBanditStatusHealth(
   cb: ApiContextualBanditInterface,
 ): ContextualBanditStatusHealth | undefined {
-  const { results, loading } = useContextualBanditResults(cb.id);
+  const { results, loading } = useContextualBanditSnapshot();
   return useMemo(
     () =>
       resolveContextualBanditStatusHealth(

@@ -164,6 +164,18 @@ export const getContextualBanditEvent = {
   path: "/contextual-bandits/:id/events/:eventId",
 };
 
+const contextualBanditLatestStatusSchema = z.object({
+  id: z.string(),
+  status: z.enum(["running", "success", "error"]),
+  error: z.string(),
+  queries: z.array(queryPointerValidator),
+  runStarted: z.string().nullable(),
+  dateCreated: z.string(),
+  multipleExposures: z.number(),
+  type: z.string(),
+  triggeredBy: z.string(),
+});
+
 export const getContextualBanditResults = {
   bodySchema: z.never(),
   querySchema: z.never(),
@@ -278,19 +290,7 @@ export const getContextualBanditResults = {
             .nullable(),
         })
         .nullable(),
-      latest: z
-        .object({
-          id: z.string(),
-          status: z.enum(["running", "success", "error"]),
-          error: z.string(),
-          queries: z.array(queryPointerValidator),
-          runStarted: z.string().nullable(),
-          dateCreated: z.string(),
-          multipleExposures: z.number(),
-          type: z.string(),
-          triggeredBy: z.string(),
-        })
-        .nullable(),
+      latest: contextualBanditLatestStatusSchema.nullable(),
       measurementArm: z
         .object({
           experimentId: z.string(),
@@ -331,6 +331,24 @@ export const getContextualBanditResults = {
   tags: ["ContextualBandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/results",
+};
+
+export const getContextualBanditStatus = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: contextualBanditIdOnlyParam,
+  responseSchema: z
+    .object({
+      latest: contextualBanditLatestStatusSchema.nullable(),
+    })
+    .strict(),
+  summary: "Get Contextual Bandit run status",
+  description:
+    "Returns just the status of the most recent snapshot run for the contextual bandit (id, status, queries, timestamps). A lightweight alternative to the full results endpoint, intended for polling while a run is in progress.",
+  operationId: "getContextualBanditStatus",
+  tags: ["ContextualBandits"],
+  method: "get" as const,
+  path: "/contextual-bandits/:id/status",
 };
 
 export const getContextualBanditLinkedFeatures = {
@@ -380,6 +398,7 @@ export const addContextualBanditLinkedFeature = {
   tags: ["ContextualBandits"],
   method: "post" as const,
   path: "/contextual-bandits/:id/linked-feature/:featureId",
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const updateContextualBanditLinkedFeature = {
@@ -410,6 +429,7 @@ export const updateContextualBanditLinkedFeature = {
   tags: ["ContextualBandits"],
   method: "put" as const,
   path: "/contextual-bandits/:id/linked-feature/:featureId",
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const deleteContextualBanditLinkedFeature = {

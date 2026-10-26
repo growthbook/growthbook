@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { date, daysLeft } from "shared/dates";
+import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import track from "@/services/track";
@@ -11,7 +11,11 @@ export default function useAccountPlanNotices(): AppNotice[] {
   const canManageBilling = permissionsUtil.canManageBilling();
   const canViewUsage = permissionsUtil.canViewUsage();
 
-  const usageDetails = (docsHref: string, trackEvent: string) =>
+  const usageDetails = (
+    docsHref: string,
+    trackEvent: string,
+    docsLabel = "FAQ",
+  ) =>
     canViewUsage ? (
       <>
         Click to upgrade, or go to{" "}
@@ -20,14 +24,9 @@ export default function useAccountPlanNotices(): AppNotice[] {
     ) : (
       <>
         Click to upgrade, or visit{" "}
-        <a
-          href={docsHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={() => track(trackEvent)}
-        >
-          Growthbook Docs &gt; FAQ
-        </a>
+        <Link href={docsHref} external onClick={() => track(trackEvent)}>
+          GrowthBook Docs &gt; {docsLabel}
+        </Link>
       </>
     );
 
@@ -75,6 +74,37 @@ export default function useAccountPlanNotices(): AppNotice[] {
             ? "managed-warehouse-usage-exceeded-topnav-notification"
             : "managed-warehouse-usage-approaching-topnav-notification",
         commercialFeature: "unlimited-managed-warehouse-usage",
+      },
+    });
+  }
+
+  const forwarder = usage?.eventForwarder?.status;
+  if (forwarder === "approaching" || forwarder === "over") {
+    notices.push({
+      id: "event-forwarder-usage",
+      severity: forwarder === "over" ? "error" : "warning",
+      title:
+        forwarder === "over"
+          ? "Event Forwarder event limit exceeded"
+          : "Approaching Event Forwarder event limit",
+      details: (
+        <>
+          {forwarder === "over"
+            ? "Forwarding has stopped for the rest of the month. Events received while it is stopped are not delivered."
+            : "Forwarding stops for the rest of the month once the limit is exceeded."}{" "}
+          {usageDetails(
+            "https://docs.growthbook.io/app/event-forwarder#usage-limits",
+            "Clicked Read About Event Forwarder Limits Link in Tooltip",
+            "Event Forwarder",
+          )}
+        </>
+      ),
+      upgrade: {
+        source:
+          forwarder === "over"
+            ? "event-forwarder-usage-exceeded-topnav-notification"
+            : "event-forwarder-usage-approaching-topnav-notification",
+        commercialFeature: "unlimited-event-forwarder-usage",
       },
     });
   }

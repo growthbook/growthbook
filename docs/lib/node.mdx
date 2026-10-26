@@ -413,6 +413,89 @@ configureCache({
 
 The cache layers apply to both the `init` and `refreshFeatures` methods. Both of these accept a `skipCache: true` option to bypass the cache layers if desired.
 
+## Reducing Payloads
+
+If you render pages on the server, you can pass the GrowthBook payload to your front-end SDK so it doesn't need to download it again. The full payload includes every feature and targeting rule though, and most of those won't apply to the current user.
+
+The `reducePayload` method removes everything that can't affect the current user, based on the attributes you know on the server. For that user, the front-end SDK will evaluate the smaller payload exactly the same as the full one.
+
+```js
+const userContext = {
+  attributes: {
+    id: req.user.id,
+  }
+};
+
+const payload = gbClient.reducePayload({ userContext });
+```
+
+You don't need to know every attribute. Rules that depend on attributes you didn't pass stay in the payload, and the front-end SDK evaluates them as usual. Global attributes are used too.
+
+It helps the most when your rules target long lists of ids, since those lists can usually be removed entirely.
+
+A scoped instance already has a user context, so you can call it without one:
+
+```js
+const payload = req.growthbook.reducePayload();
+```
+
+Then, serialize the payload in your response and pass it into your front-end GrowthBook instance:
+
+```js
+// On the front-end
+const gb = new GrowthBook({
+  attributes: {
+    id: "123",
+  },
+}).initSync({ payload });
+```
+
+Experiment tracking and feature usage callbacks fire the same as they would with the full payload.
+
+There are a few things to keep in mind:
+
+- The front-end must use the same attribute values you passed on the server, with the same types. For example, `123` and `"123"` don't match each other in a list of ids.
+- Only pass attributes that won't change while the page is open. If the front-end changes one later, for example `url` after a client-side navigation or `id` after the user logs in, rules that were removed for the old value won't come back.
+- If your SDK Connection encrypts the payload, the reduced payload is not encrypted. Anyone who can see the page can read it.
+- Treat the returned payload as read-only. It shares objects with the GrowthBookClient's own copy of the payload.
+
+### Filters
+
+You can also remove features and experiments based on their project, tags, or custom fields. This is useful when your front-end only uses some of your features, and it works with or without a user context.
+
+```js
+const payload = gbClient.reducePayload({
+  userContext,
+  // Keep only what matches every filter
+  include: {
+    // The project's public ID, or its internal ID if it doesn't have one
+    projects: ["prj_abc123"],
+    tags: ["web"],
+    // Custom field id -> values
+    customFields: {
+      platform: ["web", "all"],
+    },
+  },
+  // Remove what matches any filter
+  exclude: {
+    tags: ["server-only"],
+  },
+  // Send the prerequisites of kept features even if the filters remove them
+  prerequisites: "keep",
+});
+```
+
+Each filter is an array, and a feature only needs to match one of its values. A feature is kept when it matches every `include` filter and no `exclude` filter. `include` and `exclude` take the same filters, and you can pass either one or both.
+
+The `include` `projects` filter also removes rules that only apply to other projects. A feature without a project isn't in any project, so an `include` `projects` filter removes it, like a feature without tags. A feature set to target all projects matches every `include` `projects` filter, and `exclude` never removes it.
+
+`prerequisites` decides what happens when a feature you keep has a prerequisite the filters remove:
+
+- `"keep"` (the default) sends the prerequisite anyway, so the front-end evaluates the same as with the full payload.
+- `"filter"` leaves it out. The front-end treats it as an unknown feature with a `null` value, so checks against it fail, and if it's a gate, the dependent feature is blocked. Holdouts are always kept, since they aren't features your app uses.
+
+Filters rely on metadata in the payload, so turn on the matching **Payload Metadata** options in your SDK Connection: **Include Project IDs**, **Include tags**, and **Include Custom Fields**. Without that metadata, an `include` filter removes every feature, and an `exclude` filter removes none.
+
 ## Experimentation (A/B Testing)
 
 In order to run A/B tests, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).

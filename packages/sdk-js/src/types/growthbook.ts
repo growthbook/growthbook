@@ -50,6 +50,7 @@ export type FeatureRule<T = any> = {
   }>;
   contextualBanditRef?: string;
   contextualVariations?: T[];
+  metadata?: PayloadMetadata;
 };
 
 export type ContextualBanditDefinition = {
@@ -69,7 +70,19 @@ export type ContextualBanditDefinitions = Record<
 export interface FeatureDefinition<T = any> {
   defaultValue?: T;
   rules?: FeatureRule<T>[];
+  metadata?: PayloadMetadata;
 }
+
+/**
+ * Sent when the SDK Connection opts in. A feature in every project has
+ * `allProjects` instead of `projects`, and one in no project has neither.
+ */
+export type PayloadMetadata = {
+  projects?: string[];
+  allProjects?: boolean;
+  tags?: string[];
+  customFields?: Record<string, unknown>;
+};
 
 export type FeatureResultSource =
   | "unknownFeature"
@@ -142,6 +155,7 @@ export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
   changeId?: string;
   // If true, require the experiment to be manually triggered
   manual?: boolean;
+  metadata?: PayloadMetadata;
   contextualBanditRef?: string;
 };
 
@@ -355,6 +369,7 @@ export type ClientOptions = {
 // Contexts
 export type GlobalContext = {
   log: (msg: string, ctx: any) => void;
+  debug?: boolean;
   features?: FeatureDefinitions;
   experiments?: AutoExperiment[];
   enabled?: boolean;
@@ -505,6 +520,27 @@ export type FeatureApiResponse = {
 
 // Alias
 export type GrowthBookPayload = FeatureApiResponse;
+
+/** Each filter is an array, and any one of its values is enough */
+export type PayloadFilters = {
+  projects?: string[];
+  tags?: string[];
+  customFields?: Record<string, unknown[]>;
+};
+
+export type ReducePayloadOptions = {
+  userContext?: UserContext;
+  /** Keep only the features and auto experiments that match every filter */
+  include?: PayloadFilters;
+  /** Remove the features and auto experiments that match any filter */
+  exclude?: PayloadFilters;
+  /**
+   * "keep" (default) sends the prerequisites of what is kept even when the
+   * filters remove them, so the client evaluates the same as the full payload.
+   * "filter" applies the filters to them too.
+   */
+  prerequisites?: "keep" | "filter";
+};
 
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
 // These are typed as `any` since polyfills like `node-fetch` are not 100% compatible with native types

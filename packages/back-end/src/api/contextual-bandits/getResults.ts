@@ -7,7 +7,10 @@ import {
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getContextualBanditResultsForUi } from "back-end/src/enterprise/services/contextualBandits";
 import { getMeasurementArmResultsSummary } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
-import { loadContextualBanditForRead } from "./_shared";
+import {
+  loadContextualBanditForRead,
+  toApiContextualBanditLatestStatus,
+} from "./_shared";
 
 export const getContextualBanditResults = createApiRequestHandler(
   contextualBanditEndpoints.getContextualBanditResults,
@@ -96,21 +99,7 @@ export const getContextualBanditResults = createApiRequestHandler(
       : null,
     overallWeights,
     results,
-    latest: latestSnapshotSummary
-      ? {
-          id: latestSnapshotSummary.id,
-          status: latestSnapshotSummary.status,
-          error: latestSnapshotSummary.error ?? "",
-          queries: latestSnapshotSummary.queries,
-          runStarted: latestSnapshotSummary.runStarted
-            ? latestSnapshotSummary.runStarted.toISOString()
-            : null,
-          dateCreated: latestSnapshotSummary.dateCreated.toISOString(),
-          multipleExposures: latestSnapshotSummary.multipleExposures,
-          type: latestSnapshotSummary.type ?? "standard",
-          triggeredBy: latestSnapshotSummary.triggeredBy ?? "manual",
-        }
-      : null,
+    latest: toApiContextualBanditLatestStatus(latestSnapshotSummary),
     measurementArm,
   };
 });
