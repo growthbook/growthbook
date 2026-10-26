@@ -606,6 +606,63 @@ describe("snapshot planning", () => {
     ).toMatchObject({ type: "lookback", windowUnit: "hours", windowValue: 6 });
   });
 
+  // Sizing it from the end date instead is a fix that changes results for
+  // orgs without a lag, so it ships separately.
+  it("still sizes a stopped holdout's analysis window from now", () => {
+    jest.useFakeTimers().setSystemTime(new Date("2025-01-20T00:00:00.000Z"));
+    try {
+      const {
+        datasource,
+        factTableMap,
+        metricMap,
+        settingsForSnapshotMetrics,
+      } = makeJoinabilityFixture();
+      const dateEnded = new Date("2025-01-10T00:00:00.000Z");
+      const experiment = makeExperiment({
+        type: "holdout",
+        exposureQueryId: "exposure_user",
+        goalMetrics: ["m_joinable"],
+        metricOverrides: [],
+        phases: [
+          {
+            dateStarted: new Date("2025-01-01T00:00:00.000Z"),
+            lookbackStartDate: new Date("2025-01-05T00:00:00.000Z"),
+            dateEnded,
+            variationWeights: [0.5, 0.5],
+          },
+        ] as ExperimentInterface["phases"],
+      });
+
+      const snapshotSettings = getSnapshotSettings({
+        experiment,
+        phaseIndex: 0,
+        snapshotType: "standard",
+        dimension: null,
+        regressionAdjustmentEnabled: false,
+        orgPriorSettings: undefined,
+        orgDisabledPrecomputedDimensions: true,
+        settingsForSnapshotMetrics,
+        metricMap,
+        factTableMap,
+        metricGroups: [],
+        incrementalRefreshModel: null,
+        datasource,
+      });
+
+      expect(snapshotSettings.endDate).toEqual(dateEnded);
+      expect(
+        snapshotSettings.metricSettings.find((m) => m.id === "m_joinable")
+          ?.computedSettings?.windowSettings,
+      ).toMatchObject({
+        type: "lookback",
+        windowUnit: "hours",
+        windowValue: 15 * 24,
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it("analyzes an ended phase through its end date, not a cutoff", () => {
     const { datasource, factTableMap, metricMap, settingsForSnapshotMetrics } =
       makeJoinabilityFixture();

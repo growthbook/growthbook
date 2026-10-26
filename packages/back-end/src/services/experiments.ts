@@ -761,7 +761,11 @@ export function getSnapshotSettings({
 
   // Lookback windows are counted back from the analysis end date, so they are
   // sized from it too.
-  const analysisEndDate = phase.dateEnded || cutoff || new Date();
+  const currentDate = new Date();
+  const analysisEndDate = phase.dateEnded || cutoff || currentDate;
+  // A stopped holdout still sizes its window from now. Sizing it from its end
+  // date changes results for every org, so that fix ships on its own.
+  const holdoutWindowEndDate = phase.dateEnded ? currentDate : analysisEndDate;
 
   // Expand all derived metrics (slices and funnel steps) into the metricMap
   expandDerivedMetricsInMap({
@@ -794,10 +798,10 @@ export function getSnapshotSettings({
           }
         : experiment.type === "holdout" &&
             phase.lookbackStartDate &&
-            phase.lookbackStartDate < analysisEndDate
+            phase.lookbackStartDate < holdoutWindowEndDate
           ? {
               value: differenceInMinutes(
-                analysisEndDate,
+                holdoutWindowEndDate,
                 phase.lookbackStartDate,
                 {
                   roundingMethod: "ceil",
