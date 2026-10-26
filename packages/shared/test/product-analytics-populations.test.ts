@@ -174,19 +174,19 @@ describe("population-backed proportions", () => {
         metricId: metric.id,
         numerator: 1,
         denominator: 2,
-        populationRate: true,
+        denominatorType: "population" as const,
       },
       {
         metricId: metric.id,
         numerator: 0,
         denominator: 1,
-        populationRate: true,
+        denominatorType: "population" as const,
       },
       {
         metricId: metric.id,
         numerator: 0,
         denominator: 0,
-        populationRate: true,
+        denominatorType: "population" as const,
       },
     ]);
   });
@@ -287,7 +287,7 @@ describe("population-backed proportions", () => {
     };
     const cell = execute(c)[0].values![0];
     expect(cell.denominator ?? 0).toBe(0);
-    expect(cell.populationRate).toBe(true);
+    expect(cell.denominatorType).toBe("population");
     expect(query().orderedMetricIds).toEqual([metric.id]);
   });
   it("keeps two population selections independent in the same scan", () => {

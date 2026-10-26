@@ -57747,8 +57747,9 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          populationRate:
-                                            type: boolean
+                                          denominatorType:
+                                            type: string
+                                            const: population
                                         required:
                                           - metricId
                                           - numerator
@@ -58589,8 +58590,9 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          populationRate:
-                                            type: boolean
+                                          denominatorType:
+                                            type: string
+                                            const: population
                                         required:
                                           - metricId
                                           - numerator
@@ -59382,8 +59384,9 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          populationRate:
-                                            type: boolean
+                                          denominatorType:
+                                            type: string
+                                            const: population
                                         required:
                                           - metricId
                                           - numerator
@@ -60195,8 +60198,9 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          populationRate:
-                                            type: boolean
+                                          denominatorType:
+                                            type: string
+                                            const: population
                                         required:
                                           - metricId
                                           - numerator
@@ -61004,8 +61008,9 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          populationRate:
-                                            type: boolean
+                                          denominatorType:
+                                            type: string
+                                            const: population
                                         required:
                                           - metricId
                                           - numerator
@@ -61828,8 +61833,9 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          populationRate:
-                                            type: boolean
+                                          denominatorType:
+                                            type: string
+                                            const: population
                                         required:
                                           - metricId
                                           - numerator
@@ -83133,8 +83139,9 @@ components:
                           anyOf:
                             - type: number
                             - type: 'null'
-                        populationRate:
-                          type: boolean
+                        denominatorType:
+                          type: string
+                          const: population
                       required:
                         - metricId
                         - numerator
