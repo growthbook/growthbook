@@ -1,4 +1,5 @@
 import md5 from "md5";
+import { isEqual } from "lodash";
 import {
   ExperimentMetricInterface,
   getAutoSliceMetrics,
@@ -23,7 +24,14 @@ import {
 } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
 import { ExposureQuery } from "shared/types/datasource";
-import { getIdentifierTypeForSettingsHash } from "shared/util";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+  getIdentifierTypeForSettingsHash,
+  resolveAnalysisIdentifierType,
+} from "shared/util";
 import { ExperimentInterface } from "shared/types/experiment";
 import {
   FactMetricInterface,
@@ -116,6 +124,17 @@ type HashExposureQuery = Pick<
   "id" | "userIdType" | "userIdTypes" | "columnMapping"
 >;
 
+// The assignment query columns an incremental units table is built from
+const getUnitsTableColumns = (
+  query: Pick<ExposureQuery, "columnMapping">,
+  identifierType: string,
+) => ({
+  identifier: getExposureQueryIdentifierColumn(query, identifierType),
+  timestamp: getExposureQueryTimestampColumn(query),
+  experimentId: getExposureQueryExperimentIdColumn(query),
+  variationId: getExposureQueryVariationIdColumn(query),
+});
+
 export function getExperimentSettingsHashForIncrementalRefresh(
   snapshotSettings: ExperimentSnapshotSettings,
   exposureQueries: HashExposureQuery[],
@@ -135,14 +154,27 @@ export function getExperimentSettingsHashForIncrementalRefresh(
     settingsForHash.exposureQueryIdentifierType = identifierType;
   }
 
-  // A new column mapping reads units from different columns, so the stored
-  // units table has to be rebuilt. Queries without a mapping leave the hash
-  // unchanged, so existing pipelines don't trigger a full refresh.
-  const columnMapping = exposureQueries.find(
+  // Remapping a column the units table reads means rebuilding it. Other
+  // mapped columns (names, other identifiers) don't touch it, and while every
+  // units column keeps its standard name the hash is unchanged, so existing
+  // pipelines don't trigger a full refresh.
+  const exposureQuery = exposureQueries.find(
     (q) => q.id === snapshotSettings.exposureQueryId,
-  )?.columnMapping;
-  if (columnMapping && Object.keys(columnMapping).length) {
-    settingsForHash.columnMapping = columnMapping;
+  );
+  if (exposureQuery?.columnMapping) {
+    const analysisIdentifierType = resolveAnalysisIdentifierType(
+      exposureQuery,
+      snapshotSettings.exposureQueryIdentifierType,
+    );
+    const unitsColumns = getUnitsTableColumns(
+      exposureQuery,
+      analysisIdentifierType,
+    );
+    if (
+      !isEqual(unitsColumns, getUnitsTableColumns({}, analysisIdentifierType))
+    ) {
+      settingsForHash.unitsColumns = unitsColumns;
+    }
   }
 
   // Incremental units SQL used to ignore segment and queryFilter before #6711.

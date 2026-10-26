@@ -1,5 +1,6 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExperimentInterface } from "shared/types/experiment";
+import { ExposureQueryColumnMapping } from "shared/types/datasource";
 import { OrganizationInterface } from "shared/types/organization";
 import { IncrementalRefreshInterface } from "shared/validators";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -478,6 +479,47 @@ describe("getExperimentSettingsHashForIncrementalRefresh — output hash", () =>
       "1c14c7b3c695413e66101563d2b606ab",
     );
     expect(withMapping("received_at")).not.toBe(withMapping("event_time"));
+  });
+
+  it("ignores mapped columns the units table doesn't read", () => {
+    const hash = (columnMapping: ExposureQueryColumnMapping) =>
+      getExperimentSettingsHashForIncrementalRefresh(
+        { ...GOLDEN_INPUT, exposureQueryIdentifierType: "user_id" },
+        [{ ...EXPOSURE_QUERIES[0], columnMapping }],
+      );
+    const base = hash({ timestampColumn: "received_at" });
+    expect(
+      hash({
+        timestampColumn: "received_at",
+        experimentNameColumn: "exp_title",
+        variationNameColumn: "variant_title",
+        userIdColumns: { anonymous_id: "anon" },
+      }),
+    ).toBe(base);
+    expect(
+      hash({
+        timestampColumn: "received_at",
+        userIdColumns: { user_id: "uid" },
+      }),
+    ).not.toBe(base);
+  });
+
+  it("keeps the pinned md5 when every units column keeps its standard name", () => {
+    expect(
+      getExperimentSettingsHashForIncrementalRefresh(
+        { ...GOLDEN_INPUT, exposureQueryIdentifierType: "user_id" },
+        [
+          {
+            ...EXPOSURE_QUERIES[0],
+            columnMapping: {
+              timestampColumn: "timestamp",
+              experimentNameColumn: "exp_title",
+              userIdColumns: { anonymous_id: "anon" },
+            },
+          },
+        ],
+      ),
+    ).toBe("1c14c7b3c695413e66101563d2b606ab");
   });
 
   it("changes the hash when the identifier isn't the query's legacy default", () => {
