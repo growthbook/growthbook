@@ -13,6 +13,7 @@ import {
   MetricExplorationConfig,
   MetricPopulation,
   metricPopulationValidator,
+  metricTypeValidator,
   explorationConfigValidator,
 } from "shared/validators";
 import {
@@ -144,8 +145,10 @@ function execute(
   try {
     db.exec(`CREATE TABLE events(user_id TEXT, timestamp TEXT, revenue REAL, device_type TEXT, event_name TEXT);
       INSERT INTO events VALUES
-        ('a', '2026-09-01', 6, 'mobile', 'Subscription Renewal'), ('a', '2026-09-01', 6, 'mobile', 'Subscription Renewal'),
-        ('a', '2026-09-01', 0, 'desktop', 'Purchase'), ('a', '2026-09-01', 0, 'desktop', 'Purchase'),
+        ('a', '2026-09-01', 6, 'mobile', 'Subscription Renewal'),
+        ('a', '2026-09-01', 6, 'mobile', 'Subscription Renewal'),
+        ('a', '2026-09-01', 0, 'desktop', 'Purchase'),
+        ('a', '2026-09-01', 0, 'desktop', 'Purchase'),
         ('b', '2026-09-01', 20, 'mobile', 'Subscription Renewal'),
         ('c', '2026-09-01', 0, 'desktop', 'Purchase'),
         ('d', '2026-09-01', 5, 'mobile', 'Purchase'),
@@ -342,6 +345,40 @@ describe("population-backed proportions", () => {
       "Conversion Rate (0–1)",
     );
   });
+  it.each(metricTypeValidator.options.filter((type) => type !== "proportion"))(
+    "rejects a population attached to a %s metric",
+    (metricType) => {
+      const unsupportedMetric = {
+        ...metric,
+        metricType,
+        numerator: metricType === "funnel" ? null : metric.numerator,
+      } as FactMetricInterface;
+      expect(() =>
+        validatePopulationMetricCompatibility(
+          config,
+          config.dataset.values[0],
+          unsupportedMetric,
+          population,
+          table,
+        ),
+      ).toThrow("Populations currently support only proportion metrics.");
+    },
+  );
+  it("rejects a proportion metric whose numerator does not count distinct users", () => {
+    const invalidMetric = {
+      ...metric,
+      numerator: { ...metric.numerator!, column: "revenue" },
+    } as FactMetricInterface;
+    expect(() =>
+      validatePopulationMetricCompatibility(
+        config,
+        config.dataset.values[0],
+        invalidMetric,
+        population,
+        table,
+      ),
+    ).toThrow("Populations currently support only proportion metrics.");
+  });
   it("rejects unsupported inline population configurations", () => {
     const validate = (
       c = config,
@@ -356,12 +393,6 @@ describe("population-backed proportions", () => {
         p,
         table,
       );
-    expect(() =>
-      validate(config, population, {
-        ...metric,
-        metricType: "mean",
-      } as FactMetricInterface),
-    ).toThrow("proportion");
     expect(() => validate(config, population, metric, null)).toThrow(
       "identifier",
     );
