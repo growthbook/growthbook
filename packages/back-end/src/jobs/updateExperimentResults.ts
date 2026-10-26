@@ -156,15 +156,29 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
         )
       : null;
   if (cutoff) {
-    const latestEndDate = await findLatestSuccessfulSnapshotEndDate(context, {
-      experiment: experiment.id,
-      phase: phaseIndex,
-    });
+    const [latestEndDate, incrementalRefresh] = await Promise.all([
+      findLatestSuccessfulSnapshotEndDate(context, {
+        experiment: experiment.id,
+        phase: phaseIndex,
+      }),
+      context.models.incrementalRefresh.getByExperimentIdAndPhase(
+        experiment.id,
+        phaseIndex,
+      ),
+    ]);
     // An end date in the future (left by a phase end that was later cleared)
     // must not hold off updates until that date.
-    if (latestEndDate && latestEndDate >= cutoff && latestEndDate <= now) {
+    const covered =
+      !!latestEndDate && latestEndDate >= cutoff && latestEndDate <= now;
+    // A refresh that failed after loading the Incremental Refresh tables left
+    // rows past the cutoff in them, and an update can't take rows back out.
+    const tablesPastCutoff = [
+      incrementalRefresh?.unitsMaxTimestamp,
+      ...(incrementalRefresh?.metricSources ?? []).map((s) => s.maxTimestamp),
+    ].some((maxTimestamp) => !!maxTimestamp && maxTimestamp > cutoff);
+    if (covered || tablesPastCutoff) {
       logger.info(
-        `Skipping scheduled update for experiment ${experimentId}: latest snapshot already covers ${cutoff.toISOString()}`,
+        `Skipping scheduled update for experiment ${experimentId}: ${covered ? "latest snapshot" : "Incremental Refresh tables"} already cover ${cutoff.toISOString()}`,
       );
       const nextUpdate = determineNextDate(updateSchedule);
       if (nextUpdate) {

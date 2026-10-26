@@ -277,6 +277,114 @@ describe("scheduled experiment updates", () => {
       }
     },
   );
+
+  it("skips when the incremental tables hold data past the lagged cutoff", async () => {
+    const organizations = mongoose.connection.collection("organizations");
+    const snapshots = mongoose.connection.collection("experimentsnapshots");
+    const incrementalRefresh =
+      mongoose.connection.collection("incrementalrefresh");
+    await organizations.updateOne(
+      { id: ORG_ID },
+      {
+        $set: {
+          settings: {
+            updateSchedule: {
+              type: "stale",
+              hours: 6,
+              analysisEndDateMode: "lag",
+              analysisEndDateLagHours: 3,
+            },
+          },
+        },
+      },
+    );
+    const dates = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      variations: running.variations.map((v) => ({ ...v, screenshots: [] })),
+      phases: [
+        {
+          dateStarted: new Date(Date.now() - 48 * HOUR),
+          variationWeights: [0.5, 0.5],
+        },
+      ],
+    };
+    await experiments().insertMany([
+      {
+        ...running,
+        ...dates,
+        id: "exp_ahead",
+        nextSnapshotAttempt: new Date(),
+      },
+      {
+        ...running,
+        ...dates,
+        id: "exp_behind",
+        nextSnapshotAttempt: new Date(),
+      },
+    ]);
+    // Both last succeeded before the cutoff; a newer refresh that loaded
+    // exp_ahead's tables then failed left no snapshot behind.
+    await snapshots.insertMany(
+      ["exp_ahead", "exp_behind"].map((experiment) => ({
+        organization: ORG_ID,
+        experiment,
+        phase: 0,
+        dimension: null,
+        type: "standard",
+        status: "success",
+        dateCreated: new Date(Date.now() - 5 * HOUR),
+        id: `snp_${experiment}`,
+        settings: {
+          metricSettings: [],
+          endDate: new Date(Date.now() - 5 * HOUR),
+        },
+      })),
+    );
+    const tables = (experimentId: string, maxTimestamp: Date) => ({
+      id: `ir_${experimentId}`,
+      organization: ORG_ID,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      experimentId,
+      phase: 0,
+      unitsTableFullName: "units",
+      unitsMaxTimestamp: new Date(Date.now() - 5 * HOUR),
+      unitsDimensions: [],
+      experimentSettingsHash: null,
+      metricSources: [
+        {
+          groupId: "g1",
+          factTableId: "ftb_1",
+          metrics: [],
+          maxTimestamp,
+          tableFullName: "metrics",
+        },
+      ],
+      metricCovariateSources: [],
+      currentExecutionSnapshotId: null,
+    });
+    await incrementalRefresh.insertMany([
+      tables("exp_ahead", new Date(Date.now() - HOUR)),
+      tables("exp_behind", new Date(Date.now() - 4 * HOUR)),
+    ]);
+
+    try {
+      await updateSingleExperiment(jobFor("exp_ahead"));
+      expect(getDataSourceById).not.toHaveBeenCalled();
+      const ahead = await experiments().findOne({ id: "exp_ahead" });
+      expect(ahead?.nextSnapshotAttempt.getTime()).toBeGreaterThan(
+        Date.now() + 5 * HOUR,
+      );
+
+      await updateSingleExperiment(jobFor("exp_behind"));
+      expect(getDataSourceById).toHaveBeenCalledTimes(1);
+    } finally {
+      await snapshots.deleteMany({});
+      await incrementalRefresh.deleteMany({});
+      await organizations.updateOne({ id: ORG_ID }, { $set: { settings: {} } });
+    }
+  });
 });
 
 describe("failing scheduled updates", () => {
