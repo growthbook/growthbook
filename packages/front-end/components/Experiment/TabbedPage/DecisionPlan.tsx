@@ -18,7 +18,7 @@ import Tooltip from "@/ui/Tooltip";
 import { useEditsBlockedReason } from "./ExperimentEdits";
 import QuickEditButton, { clicksQuickEdit } from "./QuickEditButton";
 import SetupFieldRow from "./SetupFieldRow";
-import { scheduleSummary } from "./statusSchedule";
+import { scheduledEnd, scheduleSummary } from "./statusSchedule";
 
 const INNER_LABEL_WIDTH = "128px";
 
@@ -211,16 +211,23 @@ export default function DecisionPlan({
                   gap="3"
                   className={scheduleEditable ? clicksQuickEdit : undefined}
                 >
-                  <Box minWidth="0">
-                    <Text as="div" color="text-high">
-                      {summary.endSummary}
-                    </Text>
-                    {summary.endDetails.map((detail) => (
-                      <Text as="div" color="text-mid" key={detail}>
-                        {detail}
+                  {/* The plan only runs at a scheduled end. */}
+                  {scheduledEnd(experiment.statusUpdateSchedule) ? (
+                    <Box minWidth="0">
+                      <Text as="div" color="text-high">
+                        {summary.endSummary}
                       </Text>
-                    ))}
-                  </Box>
+                      {summary.endDetails.map((detail) => (
+                        <Text as="div" color="text-mid" key={detail}>
+                          {detail}
+                        </Text>
+                      ))}
+                    </Box>
+                  ) : (
+                    <Text color="text-mid">
+                      Decided when you stop the experiment
+                    </Text>
+                  )}
                   {scheduleEditable ? (
                     <QuickEditButton
                       label="Edit end of experiment"
