@@ -12,7 +12,6 @@ import {
   getEligibleContextualAttributes,
   DEFAULT_MEASUREMENT_ARM_PERCENT,
   MAX_MEASUREMENT_ARM_PERCENT,
-  MIN_MEASUREMENT_ARM_PERCENT,
 } from "shared/validators";
 import { useRouter } from "next/router";
 import { getValidDate } from "shared/dates";
@@ -24,11 +23,11 @@ import {
   getMetricWindowHours,
 } from "shared/experiments";
 import { kebabCase } from "lodash";
-import { Flex, Separator } from "@radix-ui/themes";
-import { PiInfo } from "react-icons/pi";
+import { Separator } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Text from "@/ui/Text";
+import { decimalToPercent, percentToDecimal } from "@/services/utils";
+import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
 import { useWatching } from "@/services/WatchProvider";
 import { useRestApiCall } from "@/services/restApi";
 import track from "@/services/track";
@@ -591,40 +590,48 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                 />
 
                 <Separator size="4" my="5" />
-                <Flex align="center">
-                  <Checkbox
-                    label="Include a Measurement Arm"
-                    value={!!form.watch("measurementArmEnabled")}
-                    setValue={(v) => form.setValue("measurementArmEnabled", v)}
-                  />
-                  <Tooltip body="Holds back a share of eligible users from the bandit. They get the default experience (linked features' default values, no visual changes), and the Results tab compares them against bandit users to measure the bandit's overall lift. Locked once the bandit starts.">
-                    <PiInfo color="var(--color-text-low)" className="ml-1" />
-                  </Tooltip>
-                </Flex>
-                {form.watch("measurementArmEnabled") ? (
-                  <Field
-                    label="Measurement Arm Traffic"
-                    type="number"
-                    step="1"
-                    min={MIN_MEASUREMENT_ARM_PERCENT * 100}
-                    max={MAX_MEASUREMENT_ARM_PERCENT * 100}
-                    append="%"
-                    containerClassName="mt-3"
-                    helpText={`Percent of eligible users held back. Default ${
-                      DEFAULT_MEASUREMENT_ARM_PERCENT * 100
-                    }%.`}
-                    value={Math.round(
-                      (form.watch("measurementArmPercent") ??
-                        DEFAULT_MEASUREMENT_ARM_PERCENT) * 100,
-                    )}
-                    onChange={(e) => {
-                      const pct = parseFloat(e.target.value);
-                      if (!isNaN(pct)) {
-                        form.setValue("measurementArmPercent", pct / 100);
+                <div>
+                  <Text as="label" weight="medium" mb="1">
+                    Measurement Arm Size
+                  </Text>
+                  <Text as="div" color="text-mid" mb="2">
+                    Enter the percent of eligible traffic to hold back from the
+                    bandit on the default experience. The rest of the traffic
+                    goes to the bandit, and the two are compared on the Results
+                    tab. Set to 0 for no measurement arm. Locked once the bandit
+                    starts.
+                  </Text>
+                  <div
+                    className={`position-relative ${variationInputStyles.percentInputWrap} ${variationInputStyles.hideArrows}`}
+                    style={{ width: 110 }}
+                  >
+                    <Field
+                      size="md"
+                      style={{ width: 95 }}
+                      value={
+                        form.watch("measurementArmEnabled")
+                          ? decimalToPercent(
+                              form.watch("measurementArmPercent") ??
+                                DEFAULT_MEASUREMENT_ARM_PERCENT,
+                            )
+                          : 0
                       }
-                    }}
-                  />
-                ) : null}
+                      onChange={(e) => {
+                        let pct = percentToDecimal(e.target.value);
+                        if (isNaN(pct) || pct < 0) pct = 0;
+                        if (pct > MAX_MEASUREMENT_ARM_PERCENT)
+                          pct = MAX_MEASUREMENT_ARM_PERCENT;
+                        form.setValue("measurementArmEnabled", pct > 0);
+                        form.setValue("measurementArmPercent", pct);
+                      }}
+                      type="number"
+                      min={0}
+                      max={decimalToPercent(MAX_MEASUREMENT_ARM_PERCENT)}
+                      step="1"
+                    />
+                    <span>%</span>
+                  </div>
+                </div>
               </>
             )}
 
