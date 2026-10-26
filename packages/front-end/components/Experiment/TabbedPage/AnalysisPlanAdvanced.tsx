@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   getExposureQueryIdentifierTypes,
   resolveAnalysisIdentifierType,
@@ -175,7 +175,8 @@ export default function AnalysisPlanAdvanced({
   const disabled = !canEdit;
 
   return (
-    <Box id="analysis-plan-advanced" mt="4">
+    <Box id="analysis-plan-advanced" mt="3">
+      <Separator size="4" mb="4" />
       <CollapseTrigger open={open} onOpenChange={setOpen} caret="start">
         <Text weight="medium" color="text-high">
           Advanced
