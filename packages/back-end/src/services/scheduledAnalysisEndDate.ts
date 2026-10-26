@@ -65,12 +65,12 @@ export function getAnalysisEndDateSettingsError(
   }
   if (mode === "fixedTime") {
     if (schedule?.type !== "cron") {
-      return "An exact time of day requires a cron update schedule";
+      return "A most recent time of day cutoff requires a cron update schedule";
     }
     return typeof schedule.analysisEndDateTime === "string" &&
       ANALYSIS_END_TIME_PATTERN.test(schedule.analysisEndDateTime)
       ? null
       : "Time of day must be in HH:MM format (UTC)";
   }
-  return `Unknown analysis end date: ${String(mode)}`;
+  return `Unknown data cutoff: ${String(mode)}`;
 }

@@ -407,18 +407,18 @@ export default function ExperimentSettings({
                 {form.watch("updateSchedule.type") !== "never" && (
                   <Box mt="4">
                     <Text as="p" size="3" className="font-weight-semibold">
-                      Analysis end date for scheduled updates
+                      Data cutoff for scheduled updates
                     </Text>
                     <Text as="p" mb="2">
-                      Use a cutoff in the past so every scheduled update
-                      analyzes data through the same time, even if its queries
-                      start late.
+                      If your data takes time to land in your Data Source, use
+                      these options so scheduled updates only include complete
+                      data. Manual updates always include all data.
                     </Text>
                     <RadioGroup
                       disabled={hasFileConfig()}
                       options={[
                         {
-                          label: "Time the update runs",
+                          label: "When the update runs",
                           value: "runTime",
                         },
                         {
@@ -426,7 +426,7 @@ export default function ExperimentSettings({
                           value: "lag",
                           description: (
                             <Field
-                              append="hours before"
+                              append="hours"
                               type="number"
                               style={{ width: "180px" }}
                               step={1}
@@ -446,17 +446,17 @@ export default function ExperimentSettings({
                           ),
                         },
                         {
-                          label: "Exact time of day (UTC)",
+                          label: "Most recent time of day",
                           value: "fixedTime",
                           disabled:
                             form.watch("updateSchedule.type") !== "cron",
                           description: (
                             <>
                               <Text mb="2" as="p">
-                                Analyze data through the most recent occurrence
-                                of this time. Requires a cron schedule.
+                                Requires a cron schedule.
                               </Text>
                               <Field
+                                append="UTC"
                                 type="time"
                                 style={{ width: "180px" }}
                                 disabled={
