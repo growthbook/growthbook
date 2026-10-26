@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from "uuid";
 import {
   apiContextualBanditCancelReturn,
   apiContextualBanditLifecycleReturn,
+  apiContextualBanditListVisualChangesetsReturn,
+  apiContextualBanditPostVisualChangesetsReturn,
   apiContextualBanditRefreshReturn,
   apiContextualBanditVariationsReturn,
   apiCreateContextualBanditBody,
@@ -18,6 +20,8 @@ import {
   ContextualBanditVariation,
   contextualBanditValidator,
   LeafWeight,
+  listContextualBanditVisualChangesetsEndpoint,
+  postContextualBanditVisualChangesetsEndpoint,
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
@@ -31,9 +35,22 @@ import {
   getContextualBanditIdsFromRules,
 } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
-import { isFactMetricId } from "shared/experiments";
-import { NotFoundError } from "back-end/src/util/errors";
+import {
+  contextualBanditHasServableVisualChanges,
+  isFactMetricId,
+} from "shared/experiments";
+import { someConnectionSupportsCapabilities } from "shared/sdk-versioning";
+import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
+import {
+  createVisualChangeset,
+  deleteVisualChangesetsByContextualBandit,
+  findVisualChangesetsByContextualBandit,
+  toVisualChangesetApiInterface,
+} from "back-end/src/models/VisualChangesetModel";
+import { ContextualBanditChangesetOwner } from "back-end/src/services/changesetOwner";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
@@ -63,7 +80,6 @@ import {
   queuedDraftsHold,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
-import { deleteVisualChangesetsByContextualBandit } from "back-end/src/models/VisualChangesetModel";
 
 const COLLECTION = "contextualbandits";
 
@@ -134,9 +150,15 @@ const BaseClass = MakeModelClass({
             cb,
           );
           if (linkedFeatures.length === 0) {
-            throw new Error(
-              "Link at least one Feature Flag before starting this contextual bandit",
+            const changesets = await findVisualChangesetsByContextualBandit(
+              cb.id,
+              req.context.org.id,
             );
+            if (!contextualBanditHasServableVisualChanges(cb, changesets)) {
+              throw new Error(
+                "Link at least one Feature Flag or save an AI Visual Editor change before starting this Contextual Bandit",
+              );
+            }
           }
           const queued = await queuedDraftsHold(
             req.context,
@@ -269,6 +291,81 @@ const BaseClass = MakeModelClass({
           return { status: 200 };
         },
       }),
+      defineCustomApiHandler({
+        ...postContextualBanditVisualChangesetsEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<
+          z.infer<typeof apiContextualBanditPostVisualChangesetsReturn>
+        > => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          const owner = new ContextualBanditChangesetOwner(req.context, cb);
+          if (!owner.canCreateChangeset()) {
+            req.context.permissions.throwPermissionError();
+          }
+          owner.assertCanCreateChangeset();
+          const connections = await findSDKConnectionsByOrganization(
+            req.context,
+          );
+          if (
+            !someConnectionSupportsCapabilities({
+              connections,
+              capabilities: ["visualEditor", "contextualBanditsAuto"],
+              project: cb.project ?? "",
+            })
+          ) {
+            throw new BadRequestError(
+              "None of the SDK Connections in this Contextual Bandit's Project support Contextual Bandit visual changes. Upgrade an SDK Connection to a supported version first.",
+            );
+          }
+          const urlPatterns: VisualChangesetURLPattern[] =
+            req.body.urlPatterns.map((p) => ({
+              type: p.type,
+              pattern: p.pattern,
+              include: p.include ?? true,
+            }));
+
+          const visualChangeset = await createVisualChangeset({
+            owner,
+            urlPatterns,
+            editorUrl: req.body.editorUrl,
+            context: req.context,
+          });
+
+          return {
+            visualChangeset: toVisualChangesetApiInterface(visualChangeset),
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...listContextualBanditVisualChangesetsEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<
+          z.infer<typeof apiContextualBanditListVisualChangesetsReturn>
+        > => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          const changesets = await findVisualChangesetsByContextualBandit(
+            cb.id,
+            req.context.org.id,
+          );
+          return {
+            visualChangesets: changesets.map((vc) =>
+              toVisualChangesetApiInterface(vc),
+            ),
+          };
+        },
+      }),
     ],
   },
 });
@@ -329,6 +426,7 @@ export function toApiContextualBandit(
     analysisSummary: doc.analysisSummary,
     autoSnapshots: doc.autoSnapshots,
     nextSnapshotAttempt: doc.nextSnapshotAttempt?.toISOString(),
+    hasVisualChangesets: doc.hasVisualChangesets,
   };
 }
 

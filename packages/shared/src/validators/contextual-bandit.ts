@@ -2,9 +2,17 @@ import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import { banditStageType, screenshot, variation } from "./experiments";
 import { namedSchema } from "./openapi-helpers";
+import {
+  apiVisualChangesetValidator,
+  postVisualChangesetBody,
+} from "./visual-changesets";
 import { apiRuleConfigField } from "./features-v2";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
-import { featurePrerequisite, savedGroupTargeting } from "./shared";
+import {
+  allowUnscopedRulesBodyField,
+  featurePrerequisite,
+  savedGroupTargeting,
+} from "./shared";
 import {
   BANDIT_TRACKING_KEY_DESCRIPTION,
   GENERIC_NAME_DESCRIPTION,
@@ -459,6 +467,30 @@ export const apiContextualBanditCancelReturn = z
   })
   .describe("Contextual Bandit snapshot refresh canceled");
 
+export const apiContextualBanditPostVisualChangesetsValidator = {
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
+  bodySchema: postVisualChangesetBody,
+  querySchema: z.never(),
+};
+
+export const apiContextualBanditPostVisualChangesetsReturn = z.object({
+  visualChangeset: apiVisualChangesetValidator,
+});
+
+export const apiContextualBanditListVisualChangesetsValidator = {
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
+  bodySchema: z.never(),
+  querySchema: z.never(),
+};
+
+export const apiContextualBanditListVisualChangesetsReturn = z.object({
+  visualChangesets: z.array(apiVisualChangesetValidator),
+});
+
 export const contextualBanditIdAndSnapshotParam = z
   .object({
     id: z.string().describe("The Contextual Bandit id"),
@@ -540,6 +572,7 @@ export const contextualBanditLinkedFeatureRuleFields = {
     .describe(
       "Publish the resulting revision immediately instead of leaving it as a draft.",
     ),
+  allowUnscopedRules: allowUnscopedRulesBodyField,
 };
 
 export const contextualBanditLinkedFeatureDraftVersionField = z.coerce

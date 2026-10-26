@@ -367,6 +367,8 @@ export interface OrganizationSettings {
   // Only affects new rules on eligible JSON features; off by default.
   sparseJSONRulesByDefault?: boolean;
   requireProjectForFeatures?: boolean;
+  // New Feature Flag rules for all environments and all projects need an explicit override.
+  requireScopedFeatureRules?: boolean;
   requireProjectForSdkConnections?: boolean;
   // When true, saving a feature rule or experiment rejects hashAttribute,
   // fallbackAttribute, or condition keys that don't appear (unarchived) in
@@ -406,7 +408,6 @@ export interface OrganizationSettings {
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;
   blockFileUploads?: boolean;
-  defaultFeatureRulesInAllEnvs?: boolean;
   savedGroupSizeLimit?: number;
   // Opt-in validation of Saved Group scope at consuming Feature Flags.
   enforceSavedGroupProjectScope?: boolean;
@@ -593,6 +594,7 @@ export type DailyUsage = {
   requests: number;
   bandwidth: number;
   managedClickhouseEvents: number;
+  eventForwarderEvents: number;
 };
 
 // One row per day, SDK key and request type; empty key is image traffic.
@@ -604,6 +606,7 @@ export type UsageLimits = {
   cdnRequests: UsageLimit;
   cdnBandwidth: UsageLimit;
   managedClickhouseEvents?: UsageLimit;
+  eventForwarderEvents?: UsageLimit;
 };
 
 export type OrganizationUsage = {
@@ -611,6 +614,7 @@ export type OrganizationUsage = {
     requests: UsageLimit;
     bandwidth: UsageLimit;
     managedClickhouseEvents?: UsageLimit;
+    eventForwarderEvents?: UsageLimit;
   };
   cdn: {
     lastUpdated: Date;
@@ -619,5 +623,11 @@ export type OrganizationUsage = {
   managedClickhouse?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
+  };
+  eventForwarder?: {
+    lastUpdated: Date;
+    status: "under" | "approaching" | "over";
+    // Past the license server's hidden hard limit; forwarding has stopped
+    blocked?: boolean;
   };
 };

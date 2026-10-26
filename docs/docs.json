@@ -995,6 +995,7 @@
                   "api/ContextualBandits/operation/listContextualBanditEvents",
                   "api/ContextualBandits/operation/getContextualBanditEvent",
                   "api/ContextualBandits/operation/getContextualBanditResults",
+                  "api/ContextualBandits/operation/getContextualBanditStatus",
                   "api/ContextualBandits/operation/getContextualBanditLinkedFeatures",
                   "api/ContextualBandits/operation/addContextualBanditLinkedFeature",
                   "api/ContextualBandits/operation/updateContextualBanditLinkedFeature",
@@ -1007,7 +1008,9 @@
                   "api/ContextualBandits/operation/stopContextualBandit",
                   "api/ContextualBandits/operation/refreshContextualBandit",
                   "api/ContextualBandits/operation/updateContextualBanditVariations",
-                  "api/ContextualBandits/operation/cancelContextualBandit"
+                  "api/ContextualBandits/operation/cancelContextualBandit",
+                  "api/ContextualBandits/operation/listContextualBanditVisualChangesets",
+                  "api/ContextualBandits/operation/postContextualBanditVisualChangesets"
                 ]
               },
               {
