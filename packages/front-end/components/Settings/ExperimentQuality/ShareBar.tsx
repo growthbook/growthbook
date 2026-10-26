@@ -2,8 +2,6 @@ import { FC } from "react";
 import { Slider } from "@radix-ui/themes";
 import styles from "./ExperimentQuality.module.scss";
 
-// Draggable share bar: rounded track, colored fill, white handle ringed in
-// the bar color. Callers re-flow sibling shares on change.
 const ShareBar: FC<{
   value: number; // 0-100 integer share
   onChange: (value: number) => void;

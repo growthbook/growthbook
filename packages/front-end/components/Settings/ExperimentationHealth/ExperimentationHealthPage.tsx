@@ -9,7 +9,9 @@ import {
   ORG_DEFAULT_SCOPE,
 } from "shared/validators";
 import { AIPromptInterface, AI_PROMPT_DEFAULTS } from "shared/ai";
+import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -197,77 +199,77 @@ export default function ExperimentationHealthPage() {
       </Text>
 
       {/* Scope bar */}
-      <Flex
-        align="center"
-        gap="3"
-        mt="4"
-        px="3"
-        py="2"
-        wrap="wrap"
-        style={{
-          background: "var(--color-panel)",
-          border: "1px solid var(--border-color-200)",
-          borderRadius: 8,
-        }}
-      >
-        <Flex align="center" gap="1">
-          <Text size="sm" color="text-mid">
-            Scope:
-          </Text>
-          <Select
-            size="sm"
-            value={isOrgScope ? ORG_SCOPE_OPTION : scope}
-            setValue={(v) =>
-              setScope(v === ORG_SCOPE_OPTION ? ORG_DEFAULT_SCOPE : v)
-            }
-            disabled={anyDirty}
-          >
-            {canManageOrg && (
-              <SelectItem value={ORG_SCOPE_OPTION}>
-                Organization default
-              </SelectItem>
-            )}
-            {canManageOrg && editableProjects.length > 0 && <SelectSeparator />}
-            {editableProjects.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                <Flex align="center" gap="2">
-                  {p.name}
-                  {customizedProjectIds.has(p.id) && <OverrideDot />}
-                </Flex>
-              </SelectItem>
-            ))}
-          </Select>
-        </Flex>
-        {anyDirty ? (
-          <Text size="sm" color="text-low">
-            Save or cancel your changes to switch scope
-          </Text>
-        ) : isOrgScope ? (
-          customizedProjectIds.size > 0 && (
-            <Text size="sm" color="text-low">
-              {customizedProjectIds.size}{" "}
-              {customizedProjectIds.size === 1 ? "Project" : "Projects"}{" "}
-              customized
-            </Text>
-          )
-        ) : (
-          <Flex align="center" gap="2">
-            {projectCustomized && <OverrideDot />}
+      <Frame mt="4" mb="0" px="3" py="2">
+        <Flex align="center" gap="3" wrap="wrap">
+          <Flex align="center" gap="1">
             <Text size="sm" color="text-mid">
-              {projectCustomized
-                ? "Quality scoring customized for this Project"
-                : "Follows the organization default"}
+              Scope:
             </Text>
+            <Select
+              size="sm"
+              aria-label="Scope"
+              value={isOrgScope ? ORG_SCOPE_OPTION : scope}
+              setValue={(v) =>
+                setScope(v === ORG_SCOPE_OPTION ? ORG_DEFAULT_SCOPE : v)
+              }
+              disabled={anyDirty}
+            >
+              {canManageOrg && (
+                <SelectItem value={ORG_SCOPE_OPTION}>
+                  Organization default
+                </SelectItem>
+              )}
+              {canManageOrg && editableProjects.length > 0 && (
+                <SelectSeparator />
+              )}
+              {editableProjects.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  <Flex align="center" gap="2">
+                    {p.name}
+                    {customizedProjectIds.has(p.id) && (
+                      <Badge
+                        label="Customized"
+                        color="violet"
+                        variant="soft"
+                        size="xs"
+                      />
+                    )}
+                  </Flex>
+                </SelectItem>
+              ))}
+            </Select>
           </Flex>
-        )}
-        {!isOrgScope && scopeRecord && (
-          <Box ml="auto">
-            <Link onClick={() => setResetOpen(true)}>
-              Reset all to organization defaults
-            </Link>
-          </Box>
-        )}
-      </Flex>
+          {anyDirty ? (
+            <Text size="sm" color="text-low">
+              Save or cancel your changes to switch scope
+            </Text>
+          ) : isOrgScope ? (
+            customizedProjectIds.size > 0 && (
+              <Text size="sm" color="text-low">
+                {customizedProjectIds.size}{" "}
+                {customizedProjectIds.size === 1 ? "Project" : "Projects"}{" "}
+                customized
+              </Text>
+            )
+          ) : (
+            <Flex align="center" gap="2">
+              {projectCustomized && <OverrideDot />}
+              <Text size="sm" color="text-mid">
+                {projectCustomized
+                  ? "Quality scoring customized for this Project"
+                  : "Follows the organization default"}
+              </Text>
+            </Flex>
+          )}
+          {!isOrgScope && scopeRecord && (
+            <Box ml="auto">
+              <Link onClick={() => setResetOpen(true)}>
+                Reset all to organization defaults
+              </Link>
+            </Box>
+          )}
+        </Flex>
+      </Frame>
 
       <Box mt="4">
         <QualityScoreTab
@@ -295,9 +297,15 @@ export default function ExperimentationHealthPage() {
 
       {/* Single save for the whole page */}
       <Box
-        className="bg-main-color position-sticky w-100 py-3 border-top"
-        style={{ bottom: 0, zIndex: 840 }}
+        py="3"
         mt="4"
+        style={{
+          position: "sticky",
+          bottom: 0,
+          zIndex: 840,
+          background: "var(--background-color)",
+          borderTop: "1px solid var(--border-color-200)",
+        }}
       >
         <Flex justify="end" align="center" gap="3">
           {saveError && <HelperText status="error">{saveError}</HelperText>}
@@ -312,11 +320,7 @@ export default function ExperimentationHealthPage() {
             </HelperText>
           )}
           {saveMsg && (
-            <TempMessage
-              className="mb-0"
-              size="sm"
-              close={() => setSaveMsg(false)}
-            >
+            <TempMessage size="sm" close={() => setSaveMsg(false)}>
               Settings saved
             </TempMessage>
           )}

@@ -1,7 +1,7 @@
-import React, { ReactNode, useState } from "react";
-import { Box, Flex, Tooltip } from "@radix-ui/themes";
+import React, { ReactNode, useEffect, useId, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import clsx from "clsx";
-import { PiCaretRightBold, PiTrash } from "react-icons/pi";
+import { PiCaretRightBold, PiPlus, PiTrash } from "react-icons/pi";
 import {
   EXPERIMENT_QUALITY_CHECKS,
   EXPERIMENT_QUALITY_SECTIONS,
@@ -13,11 +13,15 @@ import {
   experimentQualitySectionKeys,
 } from "shared/validators";
 import Badge from "@/ui/Badge";
+import Frame from "@/ui/Frame";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Switch from "@/ui/Switch";
+import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
+import { TextField } from "@/ui/TextField";
 import Field from "@/components/Forms/Field";
+import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { SECTION_COLORS } from "@/components/Experiment/Quality/qualityDisplay";
 import ShareBar from "./ShareBar";
@@ -57,7 +61,8 @@ function CheckRow({
 }) {
   const isOn = enabled && !disabled;
   return (
-    <Box py="2" style={{ opacity: isOn ? 1 : 0.5 }}>
+    // Only fade rows that can't be changed; an unchecked check can be turned on
+    <Box py="2" style={{ opacity: disabled ? 0.5 : 1 }}>
       <div className={styles.checkRow}>
         <Checkbox
           mb="0"
@@ -84,24 +89,57 @@ function ParamInput({
   min,
   disabled,
   ariaLabel,
+  suffix,
   onChange,
 }: {
   value: number;
   min: number;
   disabled: boolean;
   ariaLabel: string;
+  // The words after the box, kept next to it
+  suffix?: string;
   onChange: (v: number) => void;
 }) {
+  const errorId = useId();
+  // Typed text stays until valid; invalid values never reach the draft, and
+  // leaving the box puts back the last valid one
+  const [text, setText] = useState(String(value));
+  useEffect(() => setText(String(value)), [value]);
+  const isValid = (t: string) =>
+    t.trim() !== "" && Number.isInteger(Number(t)) && Number(t) >= min;
   return (
-    <input
-      type="number"
-      className={styles.paramInput}
-      min={min}
-      value={value}
-      disabled={disabled}
-      aria-label={ariaLabel}
-      onChange={(e) => onChange(parseInt(e.target.value))}
-    />
+    // The message ends the row, so it doesn't split the sentence or shift it
+    <Flex align="center" gap="1">
+      <TextField
+        type="number"
+        size="sm"
+        style={{ width: 64 }}
+        min={min}
+        value={text}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        aria-invalid={!isValid(text)}
+        aria-describedby={isValid(text) ? undefined : errorId}
+        inputClassName={isValid(text) ? undefined : "error"}
+        onChange={(e) => {
+          setText(e.target.value);
+          if (isValid(e.target.value)) onChange(Number(e.target.value));
+        }}
+        onBlur={() => setText(String(value))}
+      />
+      {suffix && (
+        <Text size="sm" color="text-mid">
+          {suffix}
+        </Text>
+      )}
+      {!isValid(text) && (
+        <span id={errorId}>
+          <HelperText status="error" size="sm">
+            Enter a whole number, {min} or more
+          </HelperText>
+        </span>
+      )}
+    </Flex>
   );
 }
 
@@ -125,7 +163,7 @@ function CheckLabel({
     );
   return (
     <>
-      <label htmlFor={`quality-check-${checkKey}`} className="mb-0">
+      <label htmlFor={`quality-check-${checkKey}`} style={{ margin: 0 }}>
         <Text size="md">{def.label}</Text>
       </label>
       {checkKey === "goal-metrics" && (
@@ -152,11 +190,9 @@ function CheckLabel({
             min={2}
             disabled={inputDisabled}
             ariaLabel="Maximum variations, including control"
+            suffix="including control"
             onChange={(v) => setParam({ maxVariations: v })}
           />
-          <Text size="sm" color="text-mid">
-            including control
-          </Text>
         </Flex>
       )}
       {checkKey === "no-early-stop" && (
@@ -169,11 +205,9 @@ function CheckLabel({
             min={1}
             disabled={inputDisabled}
             ariaLabel="Minimum runtime in days when there's no scheduled end"
+            suffix="days without one"
             onChange={(v) => setParam({ minRuntimeDays: v })}
           />
-          <Text size="sm" color="text-mid">
-            days without one
-          </Text>
         </Flex>
       )}
       {def.note && (
@@ -274,7 +308,7 @@ export default function QualityConfigEditor({
         const enabledCount = countEnabledChecks(draft, sectionKey);
 
         return (
-          <div key={sectionKey} className={styles.sectionPanel}>
+          <Frame key={sectionKey} px="4" pt="3" pb="2" mb="3">
             <div
               className={clsx(
                 styles.sectionHeader,
@@ -293,7 +327,6 @@ export default function QualityConfigEditor({
                     })
                   }
                   aria-expanded={open}
-                  aria-label={`Toggle the ${section.label} section`}
                 >
                   <PiCaretRightBold
                     size={12}
@@ -411,15 +444,12 @@ export default function QualityConfigEditor({
                       disabled={!included}
                       label={
                         <>
-                          <input
-                            type="text"
-                            className={clsx(
-                              styles.paramInput,
-                              styles.nameInput,
-                            )}
+                          <TextField
+                            size="sm"
+                            style={{ width: 220 }}
                             placeholder="Name this check"
                             value={custom.name}
-                            disabled={!custom.enabled || !included}
+                            disabled={!included}
                             aria-label="Custom check name"
                             onChange={(e) =>
                               setDraft(
@@ -473,7 +503,10 @@ export default function QualityConfigEditor({
                     {draft.customAiChecks.length < MAX_CUSTOM_QUALITY_CHECKS ? (
                       <>
                         <Link onClick={() => setDraft(addCustomCheck(draft))}>
-                          + Add custom check
+                          <Flex align="center" gap="1" display="inline-flex">
+                            <PiPlus />
+                            Add custom check
+                          </Flex>
                         </Link>{" "}
                         <Text size="sm" color="text-low">
                           Name it and describe what to evaluate — it counts the
@@ -491,7 +524,7 @@ export default function QualityConfigEditor({
                 {isAI && aiSectionFooter}
               </>
             )}
-          </div>
+          </Frame>
         );
       })}
     </Box>

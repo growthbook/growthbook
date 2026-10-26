@@ -13,9 +13,12 @@ import {
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import useExperimentQualityScore from "@/hooks/useExperimentQualityScore";
-import { getScoreTier } from "@/components/Experiment/Quality/qualityDisplay";
+import {
+  getScoreTier,
+  formatAIScore,
+} from "@/components/Experiment/Quality/qualityDisplay";
 
 const QualityScoreTooltipBody: FC<{ result: ExperimentQualityScoreResult }> = ({
   result,
@@ -63,7 +66,7 @@ const QualityScoreTooltipBody: FC<{ result: ExperimentQualityScoreResult }> = ({
                       {check.label}
                       {check.type === "ai" &&
                         check.score !== null &&
-                        ` — ${Math.round(check.score * 100)}%`}
+                        ` — ${formatAIScore(check.score)}`}
                     </Text>
                     {check.reason && (
                       <Text size="sm" color="text-mid" as="p" mb="0">
@@ -88,21 +91,24 @@ const QualityScoreBadge: FC<{
   if (!result || score === null) return null;
 
   return (
-    <Tooltip body={<QualityScoreTooltipBody result={result} />}>
-      <Badge
-        color={getScoreTier(score)}
-        variant="soft"
-        radius="full"
-        label={
-          <Flex align="center" gap="1" display="inline-flex">
-            <span>
-              Quality: {score}
-              {result.pending && !result.override ? "*" : ""}
-            </span>
-            {result.override && <PiPencilSimpleFill size={10} />}
-          </Flex>
-        }
-      />
+    <Tooltip content={<QualityScoreTooltipBody result={result} />}>
+      {/* Focusable, so the breakdown is reachable by keyboard */}
+      <span tabIndex={0}>
+        <Badge
+          color={getScoreTier(score)}
+          variant="soft"
+          radius="full"
+          label={
+            <Flex align="center" gap="1" display="inline-flex">
+              <span>
+                Quality: {score}
+                {result.pending && !result.override ? "*" : ""}
+              </span>
+              {result.override && <PiPencilSimpleFill size={10} />}
+            </Flex>
+          }
+        />
+      </span>
     </Tooltip>
   );
 };
