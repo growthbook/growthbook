@@ -9,7 +9,6 @@ import {
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiLockSimple } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
-import { getMetricLink } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentAnalysisSettingsDraft,
@@ -488,7 +487,7 @@ export default function AnalysisPlan({
     touch,
   ]);
 
-  const { activationMetric, segment } = effective;
+  const { activationMetric } = effective;
   const datasourceOptions = datasources
     .filter(
       (d) =>
@@ -682,31 +681,6 @@ export default function AnalysisPlan({
             </HelperText>
           ) : null}
         </SetupFieldRow>
-
-        {activationMetric ? (
-          <SetupFieldRow
-            label="Activation metric"
-            tooltip="Only users who convert on this metric are included in the analysis."
-            content="text"
-          >
-            <Link href={getMetricLink(activationMetric)}>
-              {getExperimentMetricById(activationMetric)?.name ||
-                activationMetric}
-            </Link>
-          </SetupFieldRow>
-        ) : null}
-
-        {segment ? (
-          <SetupFieldRow
-            label="Segment"
-            tooltip="Limits the analysis to users in this segment."
-            content="text"
-          >
-            <Text color="text-high">
-              {getSegmentById(segment)?.name || segment}
-            </Text>
-          </SetupFieldRow>
-        ) : null}
 
         {metricRow(
           "Goal metrics",
