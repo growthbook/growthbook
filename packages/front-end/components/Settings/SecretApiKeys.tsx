@@ -139,7 +139,7 @@ const SecretApiKeys: FC<{
 
       <div>
         <SettingsPageHeader
-          title="Secret API keys"
+          title="Secret API Keys"
           description={
             <>
               Secret keys have access to your organization. They{" "}

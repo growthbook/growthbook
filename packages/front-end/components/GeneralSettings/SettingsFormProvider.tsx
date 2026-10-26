@@ -63,7 +63,7 @@ const isAbsent = (v: unknown) =>
 const knownTextModel = <T extends string>(model: T | undefined) =>
   model && getProviderForAIModel("text", model) ? model : undefined;
 
-export type OrgDetailsForm = {
+type OrgDetailsForm = {
   name: string;
   ownerEmail: string;
   installationName: string;

@@ -1,4 +1,4 @@
-export type SettingsSectionDef = {
+type SettingsSectionDef = {
   id: string;
   title: string;
   description: string;

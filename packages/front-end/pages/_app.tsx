@@ -200,22 +200,22 @@ function App({
           {ready || noLoadingOverlay ? (
             <HoverTooltipProvider>
               <SidebarOpenProvider>
-                <SettingsNavProvider>
-                  <GrowthBookProvider growthbook={growthbook}>
-                    <div id="portal-root" />
-                    {preAuth || progressiveAuth ? (
-                      renderPreAuth()
-                    ) : (
-                      <PageHeadProvider>
-                        <AuthProvider>
-                          <ProtectedPage
-                            organizationRequired={organizationRequired}
-                          >
-                            {organizationRequired ? (
-                              <GetStartedProvider>
-                                <DefinitionsProvider>
-                                  <FeatureHealthStatesProvider>
-                                    <AgentPanelProvider>
+                <GrowthBookProvider growthbook={growthbook}>
+                  <div id="portal-root" />
+                  {preAuth || progressiveAuth ? (
+                    renderPreAuth()
+                  ) : (
+                    <PageHeadProvider>
+                      <AuthProvider>
+                        <ProtectedPage
+                          organizationRequired={organizationRequired}
+                        >
+                          {organizationRequired ? (
+                            <GetStartedProvider>
+                              <DefinitionsProvider>
+                                <FeatureHealthStatesProvider>
+                                  <AgentPanelProvider>
+                                    <SettingsNavProvider>
                                       <SettingsFormProvider>
                                         {liteLayout ? (
                                           <LayoutLite />
@@ -248,26 +248,26 @@ function App({
                                           </OrgPageContent>
                                         </main>
                                       </SettingsFormProvider>
-                                    </AgentPanelProvider>
-                                  </FeatureHealthStatesProvider>
-                                </DefinitionsProvider>
-                              </GetStartedProvider>
-                            ) : (
-                              <div>
-                                <TopNavLite />
-                                <main className="container">
-                                  <Component
-                                    {...{ ...pageProps, envReady: ready }}
-                                  />
-                                </main>
-                              </div>
-                            )}
-                          </ProtectedPage>
-                        </AuthProvider>
-                      </PageHeadProvider>
-                    )}
-                  </GrowthBookProvider>
-                </SettingsNavProvider>
+                                    </SettingsNavProvider>
+                                  </AgentPanelProvider>
+                                </FeatureHealthStatesProvider>
+                              </DefinitionsProvider>
+                            </GetStartedProvider>
+                          ) : (
+                            <div>
+                              <TopNavLite />
+                              <main className="container">
+                                <Component
+                                  {...{ ...pageProps, envReady: ready }}
+                                />
+                              </main>
+                            </div>
+                          )}
+                        </ProtectedPage>
+                      </AuthProvider>
+                    </PageHeadProvider>
+                  )}
+                </GrowthBookProvider>
               </SidebarOpenProvider>
             </HoverTooltipProvider>
           ) : error ? (
