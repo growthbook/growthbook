@@ -1522,6 +1522,17 @@ describe("snapshot planning", () => {
       expect(plan.snapshot.sourceSnapshotEndDate).toBe(
         endDateIsCutoff ? producerEndDate : producerDateCreated,
       );
+      // Rates and windows are sized from the end date, so a breakdown of a
+      // cutoff analysis ends where its source's data does.
+      if (endDateIsCutoff) {
+        expect(plan.snapshot.settings.endDate).toEqual(producerEndDate);
+        expect(plan.snapshot.settings.endDateIsCutoff).toBe(true);
+      } else {
+        expect(plan.snapshot.settings.endDate.getTime()).toBeGreaterThan(
+          producerDateCreated.getTime(),
+        );
+        expect(plan.snapshot.settings).not.toHaveProperty("endDateIsCutoff");
+      }
       expect(getLatestSuccessfulSnapshotMock).toHaveBeenCalled();
     },
   );

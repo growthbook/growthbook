@@ -2089,9 +2089,17 @@ export async function planSnapshot({
       data.sourceSnapshotId = sourceSnapshot.id;
       data.sourceSnapshotDateCreated = sourceSnapshot.dateCreated;
       // The source's data ends at its cutoff, otherwise at its run time.
-      data.sourceSnapshotEndDate =
-        getSnapshotCutoffDate(sourceSnapshot.settings) ??
-        sourceSnapshot.dateCreated;
+      const sourceCutoff = getSnapshotCutoffDate(sourceSnapshot.settings);
+      data.sourceSnapshotEndDate = sourceCutoff ?? sourceSnapshot.dateCreated;
+      // The tables hold nothing past the source's cutoff, so daily rates and
+      // lookback windows must be sized from it too, not from now.
+      if (sourceCutoff && !snapshotSettingsArgs.cutoff) {
+        data.settings = getSnapshotSettings({
+          ...snapshotSettingsArgs,
+          incrementalRefreshModel,
+          cutoff: sourceCutoff,
+        });
+      }
     } else if (materializedBySnapshotId) {
       logger.error(
         { experimentId: experiment.id, phaseIndex, materializedBySnapshotId },
