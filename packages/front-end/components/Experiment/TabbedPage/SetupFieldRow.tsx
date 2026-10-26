@@ -16,6 +16,7 @@ type LabelSize = "md" | "lg";
 
 /** A setup field: its label on the left, the control on the right. */
 export default function SetupFieldRow({
+  id,
   label,
   labelSize = "md",
   tooltip,
@@ -23,6 +24,8 @@ export default function SetupFieldRow({
   labelAlign = "top",
   children,
 }: {
+  /** For pointing at the field from elsewhere on the page. */
+  id?: string;
   label: string;
   /** `lg` for a field whose label doubles as the section's title. */
   labelSize?: LabelSize;
@@ -36,6 +39,7 @@ export default function SetupFieldRow({
   return (
     // A narrow row wraps, putting the label on its own line.
     <Flex
+      id={id}
       align={labelAlign === "center" ? "center" : "start"}
       gap="4"
       py="2"

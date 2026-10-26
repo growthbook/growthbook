@@ -622,9 +622,7 @@ export default function Implementation({
         {!isHoldout && !isBandit ? (
           <AnalysisPlan
             experiment={experiment}
-            mutate={mutate}
             canEdit={canEditExperiment}
-            envs={envs}
             settingsOpen={analysisSettingsOpen}
             setSettingsOpen={setAnalysisSettingsOpen}
             settingsFocus={analysisSettingsFocus}

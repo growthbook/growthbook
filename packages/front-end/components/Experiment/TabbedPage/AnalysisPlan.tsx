@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiCaretDownFill, PiLockSimple, PiPencilSimple } from "react-icons/pi";
+import { PiLockSimple } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
 import { getMetricLink } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -9,6 +9,7 @@ import {
   experimentAnalysisSettingsDraft,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
+import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -20,34 +21,27 @@ import {
   getAutoExposureQueryId,
 } from "@/components/Experiment/SimpleNewExperimentForm";
 import { getExposureQueriesForAttribute } from "@/services/datasources";
-import AnalysisForm, {
-  AnalysisFormFocus,
-} from "@/components/Experiment/AnalysisForm";
+import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import MetricOverridesModal from "@/components/Experiment/MetricOverridesModal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
-import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
-import {
-  DropdownMenu,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-} from "@/ui/DropdownMenu";
 import { useExperimentFieldEdit, useStagedState } from "./ExperimentEdits";
 import SetupFieldRow from "./SetupFieldRow";
 import { useDecisionFrameworkApplies } from "./DecisionMakingSettings";
+import AnalysisPlanAdvanced from "./AnalysisPlanAdvanced";
 
 type MetricField = "goalMetrics" | "secondaryMetrics" | "guardrailMetrics";
 type PlanField = "datasource" | "exposureQueryId" | MetricField;
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  mutate: () => void;
   canEdit: boolean;
-  envs: string[];
-  // Lifted, since other parts of the page open the settings modal too.
+  // Other parts of the page point at a field here: the checklist, and the
+  // details panel's data source. No field means the advanced settings.
   settingsOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
   settingsFocus?: AnalysisFormFocus | null;
@@ -55,9 +49,7 @@ export interface Props {
 
 export default function AnalysisPlan({
   experiment,
-  mutate,
   canEdit,
-  envs,
   settingsOpen,
   setSettingsOpen,
   settingsFocus = null,
@@ -66,6 +58,7 @@ export default function AnalysisPlan({
     datasources,
     getDatasourceById,
     getExperimentMetricById,
+    getMetricGroupById,
     getSegmentById,
     getProjectById,
   } = useDefinitions();
@@ -73,12 +66,27 @@ export default function AnalysisPlan({
   const { defaultDataSource } = useOrgSettings();
   const { demoDataSourceId } = useDemoDataSourceProject();
 
-  // Settings-modal edits beyond the fields held in their own state below.
+  // Settings beyond the fields held in their own state below.
   const [advanced, setAdvanced] =
     useStagedState<ExperimentAnalysisSettingsDraft | null>(
       "analysis-plan:advanced",
       null,
     );
+  // A setting put back to what's saved is no longer an edit.
+  const stage = useCallback(
+    (changes: ExperimentAnalysisSettingsDraft) =>
+      setAdvanced((prev) => {
+        const next: Record<string, unknown> = { ...prev, ...changes };
+        Object.keys(next).forEach((key) => {
+          const saved = (experiment as Record<string, unknown>)[key];
+          if (isEqual(next[key] ?? null, saved ?? null)) delete next[key];
+        });
+        return Object.keys(next).length ? next : null;
+      }),
+    [setAdvanced, experiment],
+  );
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [editingDatasource, setEditingDatasource] = useState(false);
 
   const effective = useMemo(
     () => ({ ...experiment, ...advanced }),
@@ -146,6 +154,43 @@ export default function AnalysisPlan({
       setTouchedFields((prev) => [...new Set([...prev, ...fields])]),
     [setTouchedFields],
   );
+  // As the settings modal did: what belongs to the old source goes with it.
+  const changeDatasource = (id: string) => {
+    if (id === datasource) return;
+    touch("datasource", "exposureQueryId");
+    setDatasource(id);
+    setExposureQueryId("");
+    // Cleared, the rest stays for switching back.
+    if (!id) return;
+    const fromSource = (metricId: string) =>
+      (getExperimentMetricById(metricId) ?? getMetricGroupById(metricId))
+        ?.datasource === id;
+    (
+      [
+        ["goalMetrics", goalMetrics, setGoalMetrics],
+        ["secondaryMetrics", secondaryMetrics, setSecondaryMetrics],
+        ["guardrailMetrics", guardrailMetrics, setGuardrailMetrics],
+      ] as const
+    ).forEach(([field, ids, set]) => {
+      const kept = ids.filter(fromSource);
+      if (kept.length === ids.length) return;
+      touch(field);
+      set(kept);
+    });
+    const { segment, activationMetric, precomputedUnitDimensionIds } =
+      effective;
+    stage({
+      ...(segment && getSegmentById(segment)?.datasource !== id
+        ? { segment: "" }
+        : {}),
+      ...(activationMetric && !fromSource(activationMetric)
+        ? { activationMetric: "" }
+        : {}),
+      ...(precomputedUnitDimensionIds?.length
+        ? { precomputedUnitDimensionIds: [] }
+        : {}),
+    });
+  };
   const current = {
     datasource,
     exposureQueryId,
@@ -241,11 +286,6 @@ export default function AnalysisPlan({
       </Flex>
     </Tooltip>
   );
-  const datasourceLabel = selectedDatasource
-    ? selectedDatasource.name
-    : hiddenDatasource
-      ? restricted
-      : "None";
   const exposureQueries = selectedDatasource?.settings?.queries?.exposure ?? [];
   const exposureQuery = exposureQueries.find((q) => q.id === exposureQueryId);
 
@@ -301,6 +341,34 @@ export default function AnalysisPlan({
   ]);
 
   const { activationMetric, segment } = effective;
+  const datasourceOptions = datasources
+    .filter(
+      (d) =>
+        d.id === datasource ||
+        (d.id !== demoDataSourceId &&
+          isProjectListValidForProject(d.projects, experiment.project)),
+    )
+    .map((d) => ({ value: d.id, label: d.name }));
+
+  // Pointed at from elsewhere: bring the field into view, or open the place
+  // it's edited.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    setSettingsOpen(false);
+    if (settingsFocus === "datasource" && experiment.datasource) {
+      setEditingDatasource(true);
+      return;
+    }
+    if (!settingsFocus) setAdvancedOpen(true);
+    const id = settingsFocus
+      ? `analysis-plan-${settingsFocus}`
+      : "analysis-plan-advanced";
+    requestAnimationFrame(() => {
+      const row = document.getElementById(id);
+      row?.scrollIntoView({ behavior: "smooth", block: "center" });
+      row?.querySelector("input")?.focus({ preventScroll: true });
+    });
+  }, [settingsOpen, settingsFocus, setSettingsOpen, experiment.datasource]);
 
   const metricRow = (
     label: string,
@@ -309,7 +377,11 @@ export default function AnalysisPlan({
     selected: string[],
     onChange: (ids: string[]) => void,
   ) => (
-    <SetupFieldRow label={label} tooltip={tooltip}>
+    <SetupFieldRow
+      id={`analysis-plan-${field}`}
+      label={label}
+      tooltip={tooltip}
+    >
       <MetricsSelector
         selected={selected}
         onChange={(ids) => {
@@ -368,121 +440,46 @@ export default function AnalysisPlan({
                   }
                 : {}),
             });
-            setAdvanced((prev) => ({ ...(prev ?? {}), ...parsed }));
+            stage(parsed);
             setOverridesFor(null);
           }}
         />
       ) : null}
-      {settingsOpen ? (
-        <AnalysisForm
-          cancel={() => setSettingsOpen(false)}
-          // Opens on the page's draft, so confirming hands back what it shows.
-          experiment={{ ...effective, ...current }}
-          mutate={mutate}
-          phase={experiment.phases.length - 1}
-          // Dates are a phase edit, with no place in this draft.
-          editDates={false}
-          editVariationIds={false}
-          editMetrics={true}
-          focus={settingsFocus}
-          source="analysis-plan"
-          envs={envs}
-          stageChanges={(changes) => {
-            const {
-              datasource: nextDatasource,
-              exposureQueryId: nextExposureQueryId,
-              goalMetrics: nextGoalMetrics,
-              secondaryMetrics: nextSecondaryMetrics,
-              guardrailMetrics: nextGuardrailMetrics,
-              ...rest
-            } = changes;
-            if (nextDatasource !== undefined) {
-              touch("datasource");
-              setDatasource(nextDatasource);
-            }
-            if (nextExposureQueryId !== undefined) {
-              touch("exposureQueryId");
-              setExposureQueryId(nextExposureQueryId);
-            }
-            if (nextGoalMetrics) {
-              touch("goalMetrics");
-              setGoalMetrics(nextGoalMetrics);
-            }
-            if (nextSecondaryMetrics) {
-              touch("secondaryMetrics");
-              setSecondaryMetrics(nextSecondaryMetrics);
-            }
-            if (nextGuardrailMetrics) {
-              touch("guardrailMetrics");
-              setGuardrailMetrics(nextGuardrailMetrics);
-            }
-            setAdvanced((prev) => ({ ...(prev ?? {}), ...rest }));
-            setSettingsOpen(false);
-          }}
+      {editingDatasource ? (
+        <DataSourceModal
+          value={datasource}
+          options={datasourceOptions}
+          close={() => setEditingDatasource(false)}
+          change={changeDatasource}
         />
       ) : null}
       <Separator size="4" my="2" />
       <Box py="4">
-        <Flex align="center" justify="between" mb="1">
-          <Heading color="text-high" as="h4" size="sm" mb="0">
-            Analysis Plan
-          </Heading>
-          <Flex align="center" gap="3">
-            <Flex align="center" gap="1">
-              <Text as="label" weight="medium" color="text-low" mb="0">
-                Data source:
-              </Text>
-              {canEdit ? (
-                <DropdownMenu
-                  menuPlacement="end"
-                  variant="soft"
-                  trigger={
-                    <Link
-                      type="button"
-                      style={{ color: "var(--color-text-high)" }}
-                    >
-                      <Text mr="1">{datasourceLabel}</Text>
-                      <PiCaretDownFill />
-                    </Link>
-                  }
-                >
-                  <DropdownMenuGroup>
-                    {[
-                      { id: "", name: "None" },
-                      ...datasources.filter((d) => d.id !== demoDataSourceId),
-                    ].map((d) => (
-                      <DropdownMenuItem
-                        key={d.id || "none"}
-                        onClick={() => {
-                          if (d.id === datasource) return;
-                          touch("datasource", "exposureQueryId");
-                          setDatasource(d.id);
-                          // The old query belongs to the old source.
-                          setExposureQueryId("");
-                        }}
-                      >
-                        {d.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuGroup>
-                </DropdownMenu>
-              ) : (
-                <Text color="text-high">{datasourceLabel}</Text>
-              )}
-            </Flex>
-            {canEdit ? (
-              <Button
-                variant="ghost"
-                icon={<PiPencilSimple />}
-                onClick={() => setSettingsOpen(true)}
-              >
-                Additional settings
-              </Button>
-            ) : null}
-          </Flex>
-        </Flex>
+        <Heading color="text-high" as="h4" size="sm" mb="1">
+          Analysis Plan
+        </Heading>
+
+        {/* Once saved, the data source changes from the details panel. */}
+        {!experiment.datasource ? (
+          <SetupFieldRow
+            id="analysis-plan-datasource"
+            label="Data Source"
+            tooltip="Where this experiment's exposures and metrics are queried."
+          >
+            <SelectField
+              value={datasource}
+              onChange={changeDatasource}
+              initialOption="None"
+              options={datasourceOptions}
+              placeholder="Select data source..."
+              forceUndefinedValueToNull
+              disabled={!canEdit}
+            />
+          </SetupFieldRow>
+        ) : null}
 
         <SetupFieldRow
+          id="analysis-plan-exposureQuery"
           label="Assignment Query"
           tooltip="Defines who is in the experiment and how they are identified."
           content={hiddenDatasource ? "text" : undefined}
@@ -604,7 +601,65 @@ export default function AnalysisPlan({
           guardrailMetrics,
           setGuardrailMetrics,
         )}
+
+        <AnalysisPlanAdvanced
+          open={advancedOpen}
+          setOpen={setAdvancedOpen}
+          experiment={effective}
+          savedStatsEngine={experiment.statsEngine}
+          datasourceId={datasource}
+          exposureQueryId={exposureQueryId}
+          metrics={{ goalMetrics, secondaryMetrics, guardrailMetrics }}
+          stage={stage}
+          manageOverrides={
+            canEdit
+              ? () =>
+                  setOverridesFor([
+                    ...goalMetrics,
+                    ...secondaryMetrics,
+                    ...guardrailMetrics,
+                  ])
+              : undefined
+          }
+          canEdit={canEdit}
+        />
       </Box>
     </>
+  );
+}
+
+function DataSourceModal({
+  value,
+  options,
+  close,
+  change,
+}: {
+  value: string;
+  options: { value: string; label: string }[];
+  close: () => void;
+  change: (id: string) => void;
+}) {
+  const [next, setNext] = useState(value);
+  return (
+    <ModalStandard
+      open
+      header="Data Source"
+      close={close}
+      cta="Confirm"
+      ctaEnabled={next !== value}
+      trackingEventModalType="experiment-data-source"
+      submit={() => {
+        change(next);
+        close();
+      }}
+    >
+      <SelectField
+        value={next}
+        onChange={setNext}
+        initialOption="None"
+        options={options}
+        helpText="Metrics and segments that aren't from the new data source are removed."
+      />
+    </ModalStandard>
   );
 }

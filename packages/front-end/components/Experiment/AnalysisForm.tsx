@@ -21,10 +21,6 @@ import {
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
 import { getLatestPhaseVariations } from "shared/experiments";
-import {
-  experimentAnalysisSettingsDraft,
-  ExperimentAnalysisSettingsDraft,
-} from "shared/validators";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -64,7 +60,6 @@ import {
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Text from "@/ui/Text";
-import { withoutDeprecatedOverrideFields } from "@/services/metricOverrides";
 import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
@@ -94,8 +89,6 @@ const AnalysisForm: FC<{
    * A holdout's assignment query must cover every Project the holdout spans.
    */
   holdoutProjects?: string[];
-  /** Stages the analysis settings on the page's draft instead of writing them. */
-  stageChanges?: (changes: ExperimentAnalysisSettingsDraft) => void;
   /** Opens with this field focused. */
   focus?: AnalysisFormFocus | null;
 }> = ({
@@ -109,7 +102,6 @@ const AnalysisForm: FC<{
   editVariationIds = true,
   editDates = true,
   editMetrics = false,
-  stageChanges,
   focus = null,
 }) => {
   const {
@@ -554,24 +546,13 @@ const AnalysisForm: FC<{
           }
         }
 
-        if (stageChanges) {
-          if (body.metricOverrides) {
-            body.metricOverrides = withoutDeprecatedOverrideFields(
-              body.metricOverrides,
-            );
-          }
-          // Strips anything outside the analysis settings.
-          stageChanges(experimentAnalysisSettingsDraft.parse(body));
-          return;
-        }
-
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(body),
         });
         mutate();
       })}
-      cta={stageChanges ? "Confirm" : "Save"}
+      cta="Save"
     >
       <Box>
         {isBandit && (

@@ -177,7 +177,7 @@ function TabbedPageContents({
   );
   // Up here because the panel unmounts whenever it closes.
   const [detailsTab, setDetailsTab] = useState<DetailsPanelTab>("details");
-  // The pre-launch checklist opens it too, focused on its item's field.
+  // The pre-launch checklist and the details panel point at analysis fields.
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
   const [analysisSettingsFocus, setAnalysisSettingsFocus] =
     useState<AnalysisFormFocus | null>(null);
@@ -656,6 +656,10 @@ function TabbedPageContents({
                 disableEditing={viewingOldPhase}
                 stagedHoldoutId={stagedHoldout}
                 editSchedule={editSchedule}
+                editDataSource={() => {
+                  setTabAndScroll("overview");
+                  showAnalysisSettings(true, "datasource");
+                }}
                 tab={detailsTab}
                 setTab={setDetailsTab}
               />

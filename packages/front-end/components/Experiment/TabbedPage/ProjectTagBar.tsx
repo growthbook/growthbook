@@ -24,13 +24,15 @@ import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicat
 import { getHealthStateFromDetailedStatus } from "@/services/experiments";
 import ProjectBadges from "@/components/ProjectBadges";
 import { getStartSchedule } from "./startActions";
+import { useStagedState } from "./ExperimentEdits";
 
 export type QuickEditField =
   | "project"
   | "trackingKey"
   | "owner"
   | "tags"
-  | "schedule";
+  | "schedule"
+  | "datasource";
 
 // The quick-edit button for one field's row, where that field is editable.
 type FieldAction = ((field: QuickEditField) => ReactNode) | null;
@@ -61,10 +63,29 @@ export function ExperimentDataFields({
     enabled: !!holdoutId,
   });
   const { useStickyBucketing } = useOrgSettings();
+  const { getDatasourceById } = useDefinitions();
+  // The Analysis Plan's staged change, until it's saved.
+  const [datasourceId] = useStagedState(
+    "analysis-plan:datasource",
+    experiment.datasource || "",
+  );
   const isHoldout = experiment.type === "holdout";
 
   return (
     <Flex direction="column" gap="3">
+      <Metadata
+        size="sm"
+        stacked
+        label="Data Source"
+        action={fieldAction?.("datasource")}
+        value={
+          datasourceId ? (
+            getDatasourceById(datasourceId)?.name || <em>Restricted</em>
+          ) : (
+            <EmptyValue />
+          )
+        }
+      />
       {!isHoldout && (
         <Metadata
           size="sm"
