@@ -1059,14 +1059,13 @@ function getMetricData(
 
   const population = metricWithMetadata.population;
   const populationAlias = `pop${metricIndex}`;
-  const step = population;
-  const populationColumn: ColumnRef | null = step
+  const populationColumn: ColumnRef | null = population
     ? {
-        factTableId: step.source.factTableId,
+        factTableId: population.source.factTableId,
         column: "$$distinctUsers",
-        rowFilters: step.rowFilters,
-        aggregateFilter: step.aggregateFilter,
-        aggregateFilterColumn: step.aggregateFilterColumn,
+        rowFilters: population.rowFilters,
+        aggregateFilter: population.aggregateFilter,
+        aggregateFilterColumn: population.aggregateFilterColumn,
       }
     : null;
   const presenceColumn = { ...columnRef, column: "$$count" };
