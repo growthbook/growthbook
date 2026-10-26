@@ -478,6 +478,82 @@ describe("GrowthBookClient", () => {
       gb.destroy();
     });
   });
+
+  describe("reducePayload", () => {
+    it("Keeps experiments that no longer match, for sticky buckets", () => {
+      const user: UserContext = {
+        attributes: { id: "u", country: "US" },
+        saveStickyBucketAssignmentDoc: async () => {},
+        stickyBucketAssignmentDocs: {
+          "id||u": {
+            attributeName: "id",
+            attributeValue: "u",
+            assignments: { exp__0: "b" },
+          },
+        },
+      };
+      const rule = {
+        key: "exp",
+        variations: ["A", "B"],
+        meta: [{ key: "a" }, { key: "b" }],
+        condition: { country: "CA" },
+      };
+      const full = new GrowthBookClient().initSync({
+        payload: {
+          features: { f: { defaultValue: "default", rules: [rule] } },
+        },
+      });
+      const reduced = new GrowthBookClient().initSync({
+        payload: full.reducePayload({ userContext: user }),
+      });
+      expect(full.evalFeature("f", user).value).toEqual("B");
+      expect(reduced.evalFeature("f", user).value).toEqual("B");
+      full.destroy();
+      reduced.destroy();
+    });
+
+    it("Reduces payloads with the saved groups and bandits it evaluates with", () => {
+      // Passed as options, not in the payload
+      const savedGroups = {
+        grp: { type: "list" as const, attributeKey: "id", values: ["123"] },
+      };
+      const contextualBandits = {
+        cb: { contexts: [{ leafId: 1, condition: {}, weights: [0, 1] }] },
+      };
+      const bandit = {
+        key: "exp",
+        variations: ["a", "b"],
+        contextualBanditRef: "cb",
+      };
+      const gb = new GrowthBookClient({
+        savedGroups,
+        contextualBandits,
+      }).initSync({
+        payload: {
+          features: {
+            feature: {
+              defaultValue: "off",
+              rules: [
+                { condition: { $savedGroup: { id: "grp" } }, force: "on" },
+                bandit,
+              ],
+            },
+          },
+        },
+      });
+
+      const payload = gb.reducePayload({
+        userContext: { attributes: { id: "123" } },
+      });
+      expect(payload.features?.feature.rules).toEqual([
+        { force: "on" },
+        bandit,
+      ]);
+      expect(payload.contextualBandits).toEqual(contextualBandits);
+
+      gb.destroy();
+    });
+  });
 });
 
 describe("UserScopedGrowthBook", () => {
