@@ -15,7 +15,7 @@ const ExperimentationHealthSettingsPage: React.FC = () => {
       <div className="container pagecontents">
         <Box mt="4">
           <PremiumEmptyState
-            title="Experimentation Health"
+            title="Experiment Quality"
             description="Score every experiment 0–100 on completeness and trustworthiness — hypothesis, documented decisions and learnings, health checks, and optional AI review."
             commercialFeature="experiment-quality-score"
             learnMoreLink="https://docs.growthbook.io/app/experiment-configuration"
@@ -32,7 +32,7 @@ const ExperimentationHealthSettingsPage: React.FC = () => {
     return (
       <div className="container pagecontents">
         <Callout status="error" mt="4">
-          You do not have permission to manage Experimentation Health settings.
+          You do not have permission to manage Experiment Quality settings.
         </Callout>
       </div>
     );
