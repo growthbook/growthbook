@@ -58,8 +58,10 @@ function Card({
       </Heading>
       <Flex direction="column">{children}</Flex>
       {reset ? (
-        <Flex justify="end" mt="4">
-          <Link onClick={reset}>Reset to defaults</Link>
+        <Flex justify="end" mt="2">
+          <Link size="sm" onClick={reset}>
+            Reset to defaults
+          </Link>
         </Flex>
       ) : null}
     </Frame>
@@ -271,42 +273,48 @@ export default function AnalysisPlanAdvanced({
             </SetupFieldRow>
             {settled.statsEngine === "frequentist" ? (
               <SetupFieldRow label="Corrections" content="text">
-                <Checkbox
-                  label={
-                    <PremiumTooltip commercialFeature="sequential-testing">
-                      Sequential testing
-                    </PremiumTooltip>
-                  }
-                  weight="regular"
-                  value={hasSequential && sequentialEnabled}
-                  setValue={(value) =>
-                    stage({
-                      sequentialTestingEnabled: value,
-                      sequentialTestingTuningParameter: tuningParameter,
-                    })
-                  }
-                  disabled={disabled || !hasSequential}
-                />
-              </SetupFieldRow>
-            ) : null}
-            {settled.statsEngine === "frequentist" && sequentialEnabled ? (
-              <SetupFieldRow label="Tuning parameter">
-                <Box width="200px">
-                  <Field
-                    type="number"
-                    min="0"
-                    containerClassName="mb-0"
-                    value={tuningText}
-                    onChange={(e) => {
-                      setTuningText(e.target.value);
-                      const value = parseFloat(e.target.value);
-                      if (value > 0) {
-                        stage({ sequentialTestingTuningParameter: value });
-                      }
-                    }}
+                <Flex direction="column" gap="2">
+                  <Checkbox
+                    label={
+                      <PremiumTooltip commercialFeature="sequential-testing">
+                        Sequential testing
+                      </PremiumTooltip>
+                    }
+                    weight="regular"
+                    value={hasSequential && sequentialEnabled}
+                    setValue={(value) =>
+                      stage({
+                        sequentialTestingEnabled: value,
+                        sequentialTestingTuningParameter: tuningParameter,
+                      })
+                    }
                     disabled={disabled || !hasSequential}
                   />
-                </Box>
+                  {/* Under the checkbox it tunes, in line with its label. */}
+                  {sequentialEnabled ? (
+                    <Flex align="center" gap="3" pl="5">
+                      <Text>Tuning parameter</Text>
+                      <Box width="120px">
+                        <Field
+                          type="number"
+                          min="0"
+                          containerClassName="mb-0"
+                          value={tuningText}
+                          onChange={(e) => {
+                            setTuningText(e.target.value);
+                            const value = parseFloat(e.target.value);
+                            if (value > 0) {
+                              stage({
+                                sequentialTestingTuningParameter: value,
+                              });
+                            }
+                          }}
+                          disabled={disabled || !hasSequential}
+                        />
+                      </Box>
+                    </Flex>
+                  ) : null}
+                </Flex>
               </SetupFieldRow>
             ) : null}
           </Card>
