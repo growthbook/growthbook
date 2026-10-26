@@ -468,21 +468,26 @@ export const scheduledStopPlanValidator = z
   .refine(forceShipCriteriaHasVariation, forceShipVariationRefine);
 export type ScheduledStopPlan = z.infer<typeof scheduledStopPlanValidator>;
 
-export const statusUpdateScheduleValidator = z
-  .object({
-    startAt: z.date().optional(),
-    stopAt: z.date().optional(),
-    stopAfter: scheduleStopAfterValidator.optional().nullable(),
-    // The end-of-experiment automation is nested here so a stop plan can only
-    // exist alongside the schedule that triggers it.
-    scheduledStopPlan: scheduledStopPlanValidator.optional().nullable(),
-  })
-  // Allowing both is ambiguous: stopAfter resolves to a stopAt at start and
-  // would clobber the explicit one.
-  .refine((s) => !(s.stopAt && s.stopAfter), {
-    message: "Provide either stopAt or stopAfter, not both.",
-    path: ["stopAfter"],
-  });
+const statusUpdateSchedule = <D extends z.ZodTypeAny>(date: D) =>
+  z
+    .object({
+      startAt: date.optional(),
+      stopAt: date.optional(),
+      stopAfter: scheduleStopAfterValidator.optional().nullable(),
+      // The end-of-experiment automation is nested here so a stop plan can
+      // only exist alongside the schedule that triggers it.
+      scheduledStopPlan: scheduledStopPlanValidator.optional().nullable(),
+    })
+    // Allowing both is ambiguous: stopAfter resolves to a stopAt at start and
+    // would clobber the explicit one.
+    .refine((s) => !(s.stopAt && s.stopAfter), {
+      message: "Provide either stopAt or stopAfter, not both.",
+      path: ["stopAfter"],
+    });
+
+export const statusUpdateScheduleValidator = statusUpdateSchedule(z.date());
+// As a request carries it, with its dates as strings.
+export const statusUpdateScheduleInput = statusUpdateSchedule(z.string());
 
 export const nextScheduledStatusUpdateValidator = z.object({
   type: z.enum(SCHEDULED_STATUS_UPDATE_TYPES),

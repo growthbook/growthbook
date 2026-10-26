@@ -15,7 +15,7 @@ import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
-import { useEditsBlockedReason } from "./ExperimentEdits";
+import { useExperimentFieldEdit, useStagedState } from "./ExperimentEdits";
 import QuickEditButton, { clicksQuickEdit } from "./QuickEditButton";
 import SetupFieldRow from "./SetupFieldRow";
 import { scheduledEnd, scheduleTimes } from "./statusSchedule";
@@ -83,11 +83,10 @@ function InnerRow({
   );
 }
 
-// The Analysis Plan's schedule and decision rows, each edited in a dialog. The
-// decision criteria stage with the plan; the schedule writes from its own
-// dialog, so it waits while the page holds unsaved edits.
+// The Analysis Plan's schedule and decision rows, each edited in a dialog
+// that stages with the plan.
 export default function DecisionPlan({
-  experiment,
+  experiment: plan,
   stage,
   canEdit,
   canEditSchedule,
@@ -104,10 +103,22 @@ export default function DecisionPlan({
   envs: string[];
 }) {
   const permissionsUtil = usePermissionsUtil();
+  // Held with the page's other edits until it saves; null clears it.
+  const [stagedSchedule, setStagedSchedule] = useStagedState<{
+    schedule: ExperimentInterfaceStringDates["statusUpdateSchedule"];
+  } | null>("analysis-plan:schedule", null);
+  useExperimentFieldEdit("schedule", !!stagedSchedule, plan, {
+    label: "Schedule",
+    fields: () => ({ statusUpdateSchedule: stagedSchedule?.schedule ?? null }),
+    onSaved: () => setStagedSchedule(null),
+    discard: () => setStagedSchedule(null),
+  });
+  const experiment = stagedSchedule
+    ? { ...plan, statusUpdateSchedule: stagedSchedule.schedule }
+    : plan;
   const summary = useDecisionMakingSummary(experiment);
-  const editsBlocked = useEditsBlockedReason();
   const [editing, setEditing] = useState<
-    "schedule" | "criteria" | "rules" | null
+    "schedule" | "endPlan" | "criteria" | "rules" | null
   >(null);
 
   const scheduleEditable =
@@ -115,15 +126,18 @@ export default function DecisionPlan({
   const close = () => setEditing(null);
   const times = scheduleTimes(experiment);
   const scheduled = !!(times.starts || times.ends);
+  const hasEnd = !!scheduledEnd(experiment.statusUpdateSchedule);
 
   return (
     <>
-      {editing === "schedule" ? (
+      {editing === "schedule" || editing === "endPlan" ? (
         <EditScheduleModal
+          focusEndPlan={editing === "endPlan"}
           experiment={experiment}
           mutate={mutate}
           envs={envs}
           close={close}
+          stageChanges={(schedule) => setStagedSchedule({ schedule })}
         />
       ) : null}
       {editing === "criteria" && summary ? (
@@ -180,7 +194,6 @@ export default function DecisionPlan({
               <QuickEditButton
                 label="Edit schedule"
                 onClick={() => setEditing("schedule")}
-                blockedReason={editsBlocked}
                 labelTooltip={false}
                 fillsRow
               />
@@ -219,14 +232,14 @@ export default function DecisionPlan({
                 label="At end"
                 tooltip="What happens when the experiment reaches its scheduled end."
               >
-                <Flex
-                  align="start"
-                  justify="between"
-                  gap="3"
-                  className={scheduleEditable ? clicksQuickEdit : undefined}
-                >
-                  {/* The plan only runs at a scheduled end. */}
-                  {scheduledEnd(experiment.statusUpdateSchedule) ? (
+                {/* The plan only runs at a scheduled end. */}
+                {hasEnd ? (
+                  <Flex
+                    align="start"
+                    justify="between"
+                    gap="3"
+                    className={scheduleEditable ? clicksQuickEdit : undefined}
+                  >
                     <Box minWidth="0">
                       <Text as="div" color="text-high">
                         {summary.endSummary}
@@ -237,21 +250,20 @@ export default function DecisionPlan({
                         </Text>
                       ))}
                     </Box>
-                  ) : (
-                    <Text color="text-high">
-                      You choose what happens when you stop the experiment
-                    </Text>
-                  )}
-                  {scheduleEditable ? (
-                    <QuickEditButton
-                      label="Edit end of experiment"
-                      onClick={() => setEditing("schedule")}
-                      blockedReason={editsBlocked}
-                      labelTooltip={false}
-                      fillsRow
-                    />
-                  ) : null}
-                </Flex>
+                    {scheduleEditable ? (
+                      <QuickEditButton
+                        label="Edit end of experiment"
+                        onClick={() => setEditing("endPlan")}
+                        labelTooltip={false}
+                        fillsRow
+                      />
+                    ) : null}
+                  </Flex>
+                ) : (
+                  <Text color="text-high">
+                    You choose what happens when you stop the experiment
+                  </Text>
+                )}
               </InnerRow>
             </Flex>
           </Panel>

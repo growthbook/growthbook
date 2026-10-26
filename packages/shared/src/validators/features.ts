@@ -43,6 +43,7 @@ import { namedSchema } from "./openapi-helpers";
 import {
   experimentAnalysisSettingsDraft,
   experimentInterface,
+  statusUpdateScheduleInput,
   experimentPhase,
   variation,
 } from "./experiments";
@@ -2262,6 +2263,8 @@ const experimentChangesFields = experimentAnalysisSettingsDraft
       bucketVersion: true,
       minBucketVersion: true,
     }).shape,
+    // Null clears it.
+    statusUpdateSchedule: statusUpdateScheduleInput.nullable(),
   })
   .partial()
   .strict();

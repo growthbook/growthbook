@@ -70,10 +70,19 @@ export default function EditScheduleModal({
   mutate,
   close,
   envs,
+  stageChanges,
+  focusEndPlan = false,
 }: {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   close: () => void;
+  // Holds the schedule with the page's other unsaved edits instead of saving
+  // it; null clears it.
+  stageChanges?: (
+    statusUpdateSchedule: ExperimentInterfaceStringDates["statusUpdateSchedule"],
+  ) => void;
+  // Opens on what happens when it ends, rather than its first field.
+  focusEndPlan?: boolean;
   // Environments the experiment reaches; a scheduled start, stop or ship is
   // only offered to viewers who could run the experiment there.
   envs?: string[];
@@ -406,7 +415,7 @@ export default function EditScheduleModal({
         close={close}
         header={hasSchedule ? "Edit Schedule" : "Add Schedule"}
         subheader="Schedule when this experiment starts and ends, and choose what happens automatically at the end date."
-        cta={hasSchedule ? "Update" : "Done"}
+        cta={stageChanges ? "Confirm" : hasSchedule ? "Update" : "Done"}
         ctaColor="violet"
         ctaEnabled={
           scheduleChanged &&
@@ -418,6 +427,17 @@ export default function EditScheduleModal({
           !statusChangeLocked
         }
         size="lg"
+        onOpenAutoFocus={
+          focusEndPlan
+            ? (e) => {
+                e.preventDefault();
+                document
+                  .getElementById("schedule-end-plan")
+                  ?.querySelector("input")
+                  ?.focus();
+              }
+            : undefined
+        }
         secondaryAction={
           isApproved && experiment.status === "draft" ? (
             <Button
@@ -436,6 +456,10 @@ export default function EditScheduleModal({
           ) : undefined
         }
         submit={validatedSubmit(form, async (data) => {
+          if (stageChanges) {
+            stageChanges(buildSchedule(data, end));
+            return;
+          }
           await apiCall(`/experiment/${experiment.id}`, {
             method: "POST",
             body: JSON.stringify({
@@ -610,7 +634,7 @@ export default function EditScheduleModal({
 
         {hasEndDate && (
           <Box>
-            <Box my="4">
+            <Box my="4" id="schedule-end-plan">
               <SelectField
                 label={
                   <Text color="text-high" weight="semibold" mb="0">
