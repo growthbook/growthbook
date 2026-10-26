@@ -10,16 +10,7 @@ import {
 
 type SDKCapability = ReturnType<typeof getConnectionSDKCapabilities>[number];
 
-/**
- * Payload security rules shared by the create and edit surfaces, mirroring
- * the original full form so the split modals stay consistent.
- */
-
-/**
- * Next.js connections must serve plain text — the framework's own caching layer
- * can't read a ciphered or remotely-evaluated payload. Every other language
- * supports encryption and secure attributes.
- */
+// Next.js caching can't read a ciphered or remotely-evaluated payload.
 export function shouldShowPayloadSecurity(
   languages: SDKLanguage[] | undefined,
 ): boolean {
@@ -28,10 +19,6 @@ export function shouldShowPayloadSecurity(
 
 export type DeliveryMode = "plain" | "ciphered" | "remote";
 
-/**
- * The Payload Security mode a stored connection is in, as the full form
- * derives it: Remote Eval wins, then either cipher option, else plain text.
- */
 export function deliveryModeFromConnection(
   c: Partial<
     Pick<
@@ -45,7 +32,6 @@ export function deliveryModeFromConnection(
   return "plain";
 }
 
-/** The settings below Payload Security, grouped as the full form groups them. */
 export type SDKConnectionAdvancedValue = {
   // Experiments
   includeVisualExperiments: boolean;
@@ -68,10 +54,6 @@ export type SDKConnectionAdvancedValue = {
   proxyHost: string;
 };
 
-/**
- * Seed the advanced settings from a stored connection, or with the full form's
- * defaults for a new one when nothing is passed.
- */
 export function advancedValueFromConnection(
   c?: Partial<SDKConnectionInterface>,
 ): SDKConnectionAdvancedValue {
@@ -79,9 +61,6 @@ export function advancedValueFromConnection(
     includeVisualExperiments: !!c?.includeVisualExperiments,
     includeRedirectExperiments: !!c?.includeRedirectExperiments,
     includeExperimentNames: c?.includeExperimentNames ?? true,
-    // The model derives `savedGroupFormat` from the old boolean, so a stored
-    // connection always resolves; a new one starts inline until the create
-    // modal's effect follows the chosen SDK.
     savedGroupFormat: c ? savedGroupFormatFromConnection(c) : "inline",
     includeProjectIdInMetadata: !!c?.includeProjectIdInMetadata,
     includeCustomFieldsInMetadata: !!c?.includeCustomFieldsInMetadata,
@@ -97,10 +76,6 @@ export function advancedValueFromConnection(
   };
 }
 
-/**
- * The most capable format the chosen SDK can read: the full form's create-time
- * default. Both reference formats need the plan.
- */
 export function defaultSavedGroupFormat({
   currentCapabilities,
   hasLargeSavedGroupFeature,
@@ -116,12 +91,8 @@ export function defaultSavedGroupFormat({
   return "inline";
 }
 
-/**
- * Never persist a reference format the pinned SDK can't read at all, or that
- * the plan doesn't include. `referencesV2` on an SDK that only reads v1 is
- * kept on purpose, as the full form keeps it: the payload steps down to v1 and
- * re-upgrading the SDK resumes v2.
- */
+// referencesV2 on an SDK that only reads v1 is kept on purpose: the payload
+// steps down to v1 and re-upgrading the SDK resumes v2.
 export function sanitizeSavedGroupFormat(
   format: SavedGroupFormat,
   {
@@ -138,12 +109,6 @@ export function sanitizeSavedGroupFormat(
     : "inline";
 }
 
-/**
- * The persisted shape of the advanced settings, sanitised the way the full
- * form's submit does: never store an option the SDK can't use at its latest
- * version, drop draft experiments when neither parent is on, and clear the
- * dependants of switched-off options.
- */
 export function sanitizeAdvancedForSave(
   v: SDKConnectionAdvancedValue,
   {
@@ -181,8 +146,7 @@ export function sanitizeAdvancedForSave(
       (includeVisualExperiments || includeRedirectExperiments) &&
       v.includeDraftExperiments,
     proxyEnabled: v.proxyEnabled,
-    // The typed host is kept even while the proxy is off, as the full form
-    // did, so re-enabling it doesn't make someone retype it.
+    // Kept while the proxy is off so re-enabling it doesn't mean retyping it.
     proxyHost: v.proxyHost,
   };
 }

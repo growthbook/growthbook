@@ -46,13 +46,6 @@ export type SDKConnectionFieldsValue = PayloadSecurityValue & {
   includeReferencedPrerequisites: boolean;
 };
 
-/**
- * The connection fields shared by the create and edit modals, so the two can't
- * drift. Purely controlled: the modals own submission, the revision flow and
- * any capability sanitisation applied on save. Behaviour follows the full form:
- * the version picker, environment list and project list are gated and filtered
- * exactly as it gates and filters them.
- */
 export default function SDKConnectionFields({
   value,
   onChange,
@@ -70,12 +63,7 @@ export default function SDKConnectionFields({
   setLanguageFilter: (f: LanguageFilter) => void;
   languageError?: string | null;
   environmentError?: string | null;
-  /** Picks the permission that filters the project list, as the full form does. */
   edit: boolean;
-  /**
-   * Vercel owns the connection's scope: only environments that can serve its
-   * project are offered, and the projects can't be changed.
-   */
   managedByVercel?: boolean;
   requireProjectSelection?: boolean;
 }) {
@@ -85,7 +73,6 @@ export default function SDKConnectionFields({
 
   const singleLanguage =
     value.languages.length === 1 ? value.languages[0] : undefined;
-  // The full form's rule: no version picker for "other" or the no-code SDKs.
   const showVersionPicker =
     !!singleLanguage && !/^(other|nocode-.*)$/.test(singleLanguage);
   const latestVersion = singleLanguage
@@ -113,8 +100,6 @@ export default function SDKConnectionFields({
       )
     : environments;
 
-  // Only projects the environment serves and the user may act on, plus any
-  // already selected so they can be removed.
   const filteredProjectIds = filterProjectsByEnvironment(
     projects.map((p) => p.id),
     selectedEnvironment,
@@ -173,12 +158,11 @@ export default function SDKConnectionFields({
         <SDKLanguageSelector
           value={value.languages}
           setValue={(langs) =>
-            // A single language pins its latest version, as the full form does.
             onChange(
               langs.length === 1
                 ? {
                     languages: langs,
-                    sdkVersion: getLatestSDKVersion(langs[0] as SDKLanguage),
+                    sdkVersion: getLatestSDKVersion(langs[0]),
                   }
                 : { languages: langs },
             )
@@ -251,8 +235,6 @@ export default function SDKConnectionFields({
           error={environmentError ?? undefined}
           value={value.environment}
           setValue={(env) =>
-            // Changing environment resets the project filter, unless Vercel
-            // owns the scope.
             onChange(
               managedByVercel
                 ? { environment: env }
@@ -283,22 +265,20 @@ export default function SDKConnectionFields({
       <Box>
         <MultiSelectField
           label={
-            (
-              <Flex align="center" gap="1" as="span">
-                Filter by Projects
-                <Tooltip
-                  body={`The dropdown below has been filtered to only include projects where you have permission to ${
-                    edit ? "update" : "create"
-                  } SDK Connections.`}
-                />
-              </Flex>
-            ) as unknown as string
+            <Flex align="center" gap="1" as="span">
+              Filter by Projects
+              <Tooltip
+                body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                  edit ? "update" : "create"
+                } SDK Connections.`}
+              />
+            </Flex>
           }
           placeholder={
             environmentHasProjects ? "All Environment Projects" : "All Projects"
           }
           value={value.projects}
-          onChange={(p) => onChange({ projects: p as string[] })}
+          onChange={(p) => onChange({ projects: p })}
           options={projectsOptions}
           disabled={managedByVercel}
           required={requireProjectSelection}
@@ -334,7 +314,7 @@ export default function SDKConnectionFields({
         <Box mt="3">
           <Checkbox
             weight="regular"
-            value={!!value.includeReferencedPrerequisites}
+            value={value.includeReferencedPrerequisites}
             setValue={(val) =>
               onChange({ includeReferencedPrerequisites: val })
             }

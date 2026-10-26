@@ -14,8 +14,6 @@ import {
   findSDKConnectionById,
 } from "back-end/src/models/SdkConnectionModel";
 
-// The adapter's applyChanges / getModel call straight into the model module;
-// mock just the functions it uses.
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   editSDKConnection: jest.fn(),
   findSDKConnectionById: jest.fn(),
@@ -91,7 +89,6 @@ const baseWebhook: SDKWebhookRevisionSnapshot = {
   disabled: false,
 };
 
-// The stored composite snapshot the adapter produces / consumes.
 const baseSnapshot = sdkConnectionAdapter.buildSnapshot(
   baseConnection as unknown as SDKConnectionRevisionSnapshot,
 );
@@ -265,7 +262,7 @@ describe("sdkConnectionAdapter", () => {
       const withNulls = {
         ...baseConnection,
         _id: "internal",
-        sdkVersion: null as unknown as string,
+        sdkVersion: null,
         legacyField: "x",
       } as unknown as SDKConnectionRevisionSnapshot;
       const snap = sdkConnectionAdapter.buildSnapshot(withNulls);

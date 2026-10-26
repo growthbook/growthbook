@@ -39,16 +39,13 @@ import {
 } from "back-end/src/models/SdkConnectionModel";
 
 // Loaded at call time: the validations module pulls in the services graph,
-// which cycles back through revisions/index to this adapter before it has
-// finished initializing (same reason saved-group.adapter defers its guard).
+// which cycles back through revisions/index to this adapter.
 type SdkConnectionValidations =
   typeof import("back-end/src/api/sdk-connections/validations");
 function loadValidations(): Promise<SdkConnectionValidations> {
   return import("back-end/src/api/sdk-connections/validations");
 }
 
-// Whitelist of keys allowed in the settings portion of the snapshot, derived
-// from the schema so the two can't drift.
 const SETTINGS_ALLOWED_KEYS = Object.keys(
   sdkConnectionSettingsSnapshotValidator.shape,
 );
@@ -57,17 +54,13 @@ const CONNECTION_UPDATABLE_FIELDS: ReadonlySet<string> = new Set(
   Object.keys(sdkConnectionUpdatableFieldsSchema.shape),
 );
 
-// Top-level updatable keys in the composite snapshot: the connection settings
-// object and the webhooks array. Used by the revision merge system to filter
-// ops and detect changes.
 const UPDATABLE_FIELDS: ReadonlySet<string> = new Set([
   "sdkConnection",
   "sdkWebhooks",
 ]);
 
-// Payload settings that need an entitlement to turn ON. Mirrors the PUT
-// controller, which only gates the off→on transition so a connection that kept
-// a setting from a lapsed plan stays editable.
+// Only the off→on transition is gated, so a connection that kept a setting from
+// a lapsed plan stays editable.
 const PREMIUM_SETTINGS = [
   ["encryptPayload", "encrypt-features-endpoint"],
   ["hashSecureAttributes", "hash-secure-attributes"],
@@ -76,23 +69,15 @@ const PREMIUM_SETTINGS = [
 
 const webhookListValidator = z.array(sdkWebhookSnapshotValidator);
 
-// What `getById` returns and what a landing writes: the stored composite plus
-// the root fields the generic engine reads off a live entity. `id` is what
-// compensation re-reads by, `projects` is what the project-scoped authority
-// checks read, and `dateUpdated` is the connection's stamp that the landing
-// fences compare — the settings snapshot deliberately excludes it.
+// The stored composite plus the root fields the generic engine reads off a live
+// entity; the settings snapshot deliberately excludes `dateUpdated`.
 export type SDKConnectionLiveSnapshot = SDKConnectionRevisionSnapshot & {
   id: string;
   projects: string[];
   dateUpdated?: Date;
 };
 
-// Project a live SDK connection into the flattened, secret-free settings
-// snapshot shape:
-//   - `proxy` is flattened to `proxyEnabled` / `proxyHost`
-//   - secret/system fields (encryptionKey, key, proxy signing key, connected,
-//     managedBy) are dropped by the key whitelist
-//   - nullish optional fields are dropped
+// Secrets and system fields are dropped by the key whitelist.
 function toConnectionSettingsSnapshot(
   entity: Record<string, unknown>,
 ): SDKConnectionSettingsRevisionSnapshot {
@@ -111,7 +96,6 @@ function toConnectionSettingsSnapshot(
   return settings as unknown as SDKConnectionSettingsRevisionSnapshot;
 }
 
-// Map a live webhook to its snapshot shape (no secrets / runtime state).
 function toWebhookSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
   return {
     id: wh.id,
@@ -125,9 +109,7 @@ function toWebhookSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
   };
 }
 
-// Build the composite snapshot from a live connection entity and its webhooks.
-// An entity may carry pre-fetched webhooks as `_webhooks` (attached by the
-// controller before snapshot-building). If absent the array defaults to [].
+// Callers may attach pre-fetched webhooks to the entity as `_webhooks`.
 function toSnapshot(
   entity: Record<string, unknown>,
   webhooks?: WebhookInterface[],
@@ -157,8 +139,6 @@ function toLiveSnapshot(
   };
 }
 
-// The settings this revision lands with: the coarse `replace /sdkConnection`
-// op layered on the baseline.
 function settingsAfter(
   snapshot: SDKConnectionRevisionSnapshot,
   proposedChanges: unknown,
@@ -170,9 +150,7 @@ function settingsAfter(
   return proposed.sdkConnection ?? snapshot.sdkConnection;
 }
 
-// User must be able to bypass approval in EVERY project the connection belongs
-// to (treats the empty-projects case as the global "" project). Used both for
-// the bypass-approval gate and for non-author revision deletion.
+// Requires bypass in EVERY project the connection belongs to ("" when none).
 function canBypassAcrossProjects(
   context: Context,
   snapshot: SDKConnectionRevisionSnapshot,
@@ -185,7 +163,6 @@ function canBypassAcrossProjects(
   );
 }
 
-// canCreate and canUpdate both gate on the connection edit permission.
 function canEditSdkConnection(
   context: Context,
   snapshot: SDKConnectionRevisionSnapshot,
@@ -193,7 +170,6 @@ function canEditSdkConnection(
   return context.permissions.canUpdateSDKConnection(snapshot.sdkConnection, {});
 }
 
-// Type-level check: does the org use SDK-connection approvals at all?
 function isSdkConnectionApprovalRequired(context: Context): boolean {
   return (
     context.hasPremiumFeature("require-approvals") &&
@@ -201,9 +177,8 @@ function isSdkConnectionApprovalRequired(context: Context): boolean {
   );
 }
 
-// Every enabled rule whose project AND environment scope covers one of the
-// given scopes. Not `getApprovalFlowRules`: that resolves by project alone and
-// would fold an environment-scoped rule onto every environment.
+// Not `getApprovalFlowRules`: that resolves by project alone and would fold an
+// environment-scoped rule onto every environment.
 function rulesMatchingScopes(
   context: Context,
   scopes: SdkConnectionApprovalScope[],
@@ -218,10 +193,6 @@ function rulesMatchingScopes(
   ];
 }
 
-// The rules governing this revision, judged on both the baseline and proposed
-// scopes so a revision that moves the connection into (or out of) a gated scope
-// is still reviewed. A name-only change answers only to the rules that gate
-// metadata.
 // Narrower than `ReviewRequirement` so the per-rule toggles stay visible.
 type SdkConnectionReviewRequirement = {
   required: boolean;
@@ -244,6 +215,7 @@ function sdkConnectionReviewRequirement(
   ) {
     return { required: false, rules: [] };
   }
+  // Both scopes, so moving a connection into or out of a gated scope is reviewed.
   const rules = rulesMatchingScopes(context, [
     baseline.sdkConnection,
     settingsAfter(baseline, revision.target.proposedChanges),
@@ -272,10 +244,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
   {
     getModel(context: Context) {
       return {
-        // Read-filtered batch fetch used by revision listings to decide
-        // visibility from the live connection rather than a stale snapshot.
-        // Callers only read `id`, so the raw connections stand in for the
-        // composite snapshot shape here.
+        // Callers only read `id`, so raw connections stand in for snapshots.
         getReadScopesByIds: async (ids: string[]) => {
           if (!ids.length) return [];
           const connections = await findSDKConnectionsByIds(context, ids);
@@ -301,13 +270,8 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       const raw = entity as unknown as Record<string, unknown>;
 
       // Must be idempotent: `RevisionModel.createRequest` re-runs buildSnapshot
-      // on an already-built snapshot to strip legacy fields. Every other
-      // adapter's snapshot *is* its entity, so a second pass is a no-op there —
-      // but this snapshot is composite, so re-reading it as a live connection
-      // would look for `id`/`name`/... at the root and produce an empty
-      // `sdkConnection`. Re-clean the nested settings instead. The live root
-      // fields (`id`, `projects`, `dateUpdated`) are dropped here on purpose:
-      // the stored snapshot is the composite alone.
+      // on an already-built (composite) snapshot. The live root fields are
+      // dropped on purpose.
       if (raw && typeof raw === "object" && "sdkConnection" in raw) {
         return {
           sdkConnection: toConnectionSettingsSnapshot(
@@ -351,8 +315,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       return canEditSdkConnection(context, snapshot);
     },
 
-    // Gates non-author deletion of a revision. Restricted to bypass-capable
-    // users, since discarding another user's in-flight revision is admin-level.
+    // Discarding another user's in-flight revision is admin-level.
     canDelete(
       context: Context,
       snapshot: SDKConnectionRevisionSnapshot,
@@ -366,8 +329,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       envsOf: (_context, snapshot) => environmentsOf(snapshot),
     }),
 
-    // A connection serves exactly one environment, so a change reaches that
-    // environment — and the destination environment when the revision moves it.
+    // A connection serves one environment, plus the destination on a move.
     publishFootprint(
       _context: Context,
       snapshot: SDKConnectionRevisionSnapshot,
@@ -422,9 +384,8 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       return rules.length > 0 && rules.every((r) => !!r.autopublishOnApproval);
     },
 
-    // The same rules the PUT controller enforces, for the generic publish paths
-    // that never pass through it. Runs before the merge is claimed, so a
-    // rejection leaves the draft open.
+    // For the generic publish paths that skip the PUT controller. Runs before
+    // the merge is claimed, so a rejection leaves the draft open.
     async assertPublishable(
       context: Context,
       entity: SDKConnectionRevisionSnapshot,
@@ -475,7 +436,6 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       }
     },
 
-    // SDK connections have no revert-specific validation to relax.
     async applyChanges(
       context: Context,
       entity: SDKConnectionRevisionSnapshot,
@@ -486,8 +446,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
         onPersisted?: (result: ApplyChangesResult) => void;
       },
     ): Promise<ApplyChangesResult> {
-      // Keys this apply actually persisted. Compensation restores only these,
-      // so it must reflect the write, not the request.
+      // Compensation restores only these, so they reflect the write, not the request.
       const persistedKeys: string[] = [];
       let written: Record<string, unknown> | null = null;
       const report = () =>
@@ -528,10 +487,8 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
 
       let liveConnection: SDKConnectionInterface = connection;
       if (Object.keys(settingsChanges).length > 0) {
-        // A draft can relocate a connection's projects/environment, and the
-        // generic move guards read the source scope only — so the DESTINATION
-        // is authorized nowhere else. Passing the updates makes the check
-        // cover both ends.
+        // The generic move guards read the source scope only, so authorize the
+        // destination here.
         if (
           !context.permissions.canUpdateSDKConnection(connection, {
             ...(settingsChanges.projects !== undefined && {
@@ -554,16 +511,13 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
         );
         persistedKeys.push("sdkConnection");
         written = toLiveSnapshot(liveConnection, entity.sdkWebhooks);
-        // Reported the moment the entity write lands, before webhooks: a
-        // webhook failure after this point still leaves the settings change
-        // live, and compensation has to know that.
+        // Report before webhooks: a webhook failure still leaves this live.
         report();
       }
 
       if (webhooksChanged) {
-        // The model's own hooks gate on the GLOBAL manageEventWebhooks, not the
-        // env-scoped manageSDKWebhooks the direct webhook routes enforce — so
-        // without this a revision is a way around SDK-webhook permissions.
+        // The model's hooks only check the global manageEventWebhooks, not the
+        // env-scoped SDK-webhook permissions.
         const scope = {
           projects: entity.sdkConnection.projects,
           environment: entity.sdkConnection.environment,
@@ -585,10 +539,8 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
               ...context.models.sdkWebhooks.getDefaultCreateProps(
                 entity.sdkConnection.id,
               ),
-              // Keep the snapshot's id so the merged revision records the id
-              // that actually exists, and a retry sees the webhook as already
-              // created instead of making a duplicate. Client-side draft ids
-              // are prefixed `temp_`, so let the model mint those.
+              // Keep the snapshot's id so a retry doesn't duplicate the
+              // webhook; client-side `temp_` ids are minted by the model.
               ...(wh.id && !wh.id.startsWith("temp_") ? { id: wh.id } : {}),
               name: wh.name,
               endpoint: wh.endpoint,

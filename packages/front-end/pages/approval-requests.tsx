@@ -222,7 +222,6 @@ function buildRevisionUrl(revision: Revision): string {
   if (revision.target.type === "saved-group") {
     return buildSavedGroupRevisionUrl(revision.target.id, revision);
   }
-  // SDK connections live at /sdks/:id, not at the generic entity-key route.
   if (revision.target.type === "sdk-connection") {
     return buildSDKConnectionRevisionUrl(revision.target.id, revision);
   }
@@ -428,10 +427,7 @@ const ApprovalRequests: FC = () => {
         );
       }
       if (row.entityType === "sdk-connection") {
-        // Reviewing an SDK-connection revision requires the same permission as
-        // updating the connection. We don't have the environment on the row,
-        // so we pass an empty string which is equivalent to "any environment"
-        // for the permission check when no specific environment restriction applies.
+        // The row has no environment; "" checks against any environment.
         return permissionsUtil.canUpdateSDKConnection(
           { projects: row.projects, environment: "" },
           { projects: row.projects, environment: "" },

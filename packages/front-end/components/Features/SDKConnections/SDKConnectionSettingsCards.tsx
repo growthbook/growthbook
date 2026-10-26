@@ -24,7 +24,6 @@ import {
 const STREAMING_TOOLTIP =
   "Streaming Updates allow you to instantly update any subscribed SDKs when you make any feature changes in GrowthBook. For front-end SDKs, active users will see the changes immediately without having to refresh the page.";
 
-// On/off value rendered the same way in every card so they read as one set.
 function Toggle({ on }: { on: boolean }) {
   return (
     <Flex as="span" align="center" gap="2">
@@ -44,8 +43,6 @@ function Toggle({ on }: { on: boolean }) {
   );
 }
 
-// Long labels wrap their value onto the next line instead of squeezing both
-// into narrow columns.
 function SettingRow(props: ComponentProps<typeof Metadata>) {
   return <Metadata {...props} style={{ flexWrap: "wrap", ...props.style }} />;
 }
@@ -76,11 +73,6 @@ function SettingsCard({
   );
 }
 
-/**
- * One card per settings category, titled and grouped exactly as the full form
- * is. A setting is only listed when the full form would offer it for this
- * connection's SDK language and version.
- */
 export default function SDKConnectionSettingsCards({
   connection,
   canUpdate,
@@ -92,9 +84,6 @@ export default function SDKConnectionSettingsCards({
 }) {
   const customFields = useCustomFields();
 
-  // The same gates the full form applies: Visual Editor and URL Redirects on
-  // the SDK's latest version, Saved Groups on the pinned one, and no payload
-  // security choices at all for Next.js.
   const currentCaps = getConnectionSDKCapabilities(
     connection,
     "min-ver-intersection",
@@ -110,8 +99,6 @@ export default function SDKConnectionSettingsCards({
     connection.languages,
   );
 
-  // Streaming is derived, not stored: it works on Cloud, or when a proxy is
-  // configured to push updates.
   const streamingEnabled = isCloud() || !!connection.proxy?.enabled;
 
   const selectedCustomFields = (connection.allowedCustomFieldsInMetadata ?? [])
@@ -145,8 +132,6 @@ export default function SDKConnectionSettingsCards({
           <>
             <SettingRow
               label="Payload security"
-              // Ciphered covers either half, matching the full form — hashing
-              // alone still means the payload isn't plain text.
               value={
                 connection.encryptPayload || connection.hashSecureAttributes
                   ? "Ciphered"
@@ -257,8 +242,7 @@ export default function SDKConnectionSettingsCards({
         )}
       </SettingsCard>
 
-      {/* Self-hosted configures the proxy via env vars, so the full form only
-          offers these on Cloud. */}
+      {/* Self-hosted configures the proxy via env vars. */}
       {isCloud() && (
         <SettingsCard
           title={CATEGORY_TITLES.proxy}

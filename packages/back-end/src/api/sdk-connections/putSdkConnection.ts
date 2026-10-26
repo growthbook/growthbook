@@ -33,8 +33,8 @@ export const putSdkConnection = createApiRequestHandler(
   if (!req.context.permissions.canUpdateSDKConnection(sdkConnection, params))
     req.context.permissions.throwPermissionError();
 
-  // Archiving is delete-class and restoring is publish-class, both scoped to
-  // the one environment the connection serves — the same gate the UI lands on.
+  // Archiving is delete-class and restoring is publish-class, in the
+  // connection's environment.
   if (
     params.archived !== undefined &&
     params.archived !== !!sdkConnection.archived &&
@@ -53,25 +53,16 @@ export const putSdkConnection = createApiRequestHandler(
     await req.context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds([
       sdkConnection.id,
     ]);
-  const liveEntity = {
-    ...sdkConnection,
-    _webhooks: liveWebhooks,
-  } as unknown as Record<string, unknown> & {
-    id: string;
-    owner?: string;
-    dateCreated?: Date;
-  };
+  const liveEntity = { ...sdkConnection, _webhooks: liveWebhooks };
 
-  // Fields the request left out come back as `undefined` and must not blank
-  // the baseline.
+  // Omitted fields come back as `undefined` and must not blank the baseline.
   const changes = omitBy(params, isUndefined);
 
   const adapter = getAdapter("sdk-connection");
   const baseline = adapter.buildSnapshot(
     liveEntity,
   ) as SDKConnectionRevisionSnapshot;
-  // The snapshot stores the connection flattened, so the proposed state is the
-  // flattened baseline with the validated fields laid over it.
+  // The snapshot stores the connection flattened.
   const proposedSettings = (
     adapter.buildSnapshot({
       ...baseline.sdkConnection,
@@ -87,8 +78,7 @@ export const putSdkConnection = createApiRequestHandler(
     { op: "replace", path: "/sdkConnection", value: proposedSettings },
   ];
 
-  // Per-scope, on both the baseline and the proposed state: an org-wide check
-  // refused edits to connections no rule covers, which the UI lets through.
+  // Judged per scope on baseline and proposed state, not org-wide.
   const approvalRequired = adapter.isApprovalRequiredForRevision
     ? adapter.isApprovalRequiredForRevision(req.context, {
         target: { snapshot: baseline, proposedChanges: patchOps },
@@ -118,11 +108,8 @@ export const putSdkConnection = createApiRequestHandler(
 
   await ensureLiveRevisionExists(req.context, "sdk-connection", liveEntity);
 
-  // Recorded as a merged revision before the live write, like every other
-  // direct REST landing, so the UI's history and baseline don't drift. The
-  // entity mirrors what the adapter's `getById` returns: the composite plus the
-  // root `id`, `projects` and `dateUpdated` the engine's fences and authority
-  // checks read.
+  // The engine's fences and authority checks read the root `id`, `projects`
+  // and `dateUpdated` alongside the composite.
   const { result: updatedSdkConnection } = await landDirectChange({
     context: req.context,
     entityType: "sdk-connection",

@@ -54,8 +54,7 @@ const payloadFormatLabels: Record<string, string | ReactElement> = {
   none: "none",
 };
 
-// `httpMethod` is optional on rows predating it but required by the snapshot
-// schema; default it the way the server does instead of throwing.
+// Rows predating `httpMethod` default to POST, as the server does.
 function toSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
   return sdkWebhookSnapshotValidator.parse({
     ...wh,
@@ -63,8 +62,6 @@ function toSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
   });
 }
 
-// A row is the snapshot being shown (the draft's when one is selected) plus
-// the live webhook it corresponds to, which carries runtime-only fields.
 type WebhookRow = {
   snapshot: SDKWebhookRevisionSnapshot;
   live?: WebhookInterface;
@@ -98,20 +95,15 @@ export default function SdkWebhooks({
   const canUpdateWebhook = permissionsUtil.canUpdateSDKWebhook(connection);
   const canDeleteWebhook = permissionsUtil.canDeleteSDKWebhook(connection);
 
-  // Merged/discarded revisions can be viewed but never written to.
   const selectedDraft = isDraftRevision(selectedRevision)
     ? selectedRevision
     : null;
-  // Changes go through the revision system when review is required or when
-  // the user is working inside a draft; writing straight to live would
-  // silently diverge from the draft they are looking at.
+  // Writing straight to live while viewing a draft would diverge from it.
   const useRevisionFlow = !!approvalRequired || !!selectedDraft;
 
   const liveWebhooks = data?.webhooks ?? [];
   const liveById = new Map(liveWebhooks.map((wh) => [wh.id, wh]));
 
-  // The draft's effective webhook list: its own proposed list, else the
-  // baseline it was created from.
   const draftWebhookSnapshots = ((): SDKWebhookRevisionSnapshot[] | null => {
     if (!selectedDraft) return null;
     const proposed = patchOpsToPartial(
@@ -148,7 +140,6 @@ export default function SdkWebhooks({
     !canCreateWebhooks ||
     (hasWebhooks && !hasCommercialFeature("multiple-sdk-webhooks"));
 
-  // Append to the selected draft, otherwise create a new one.
   function buildRevisionUrl() {
     if (selectedDraft) {
       return `/sdk-connections/${connection.id}?revisionId=${selectedDraft.id}`;
@@ -173,8 +164,6 @@ export default function SdkWebhooks({
     await mutate();
   }
 
-  // The base for a draft edit is the DRAFT's list, which is also what the
-  // table renders, so every row the user can act on exists in it.
   const currentWebhookSnapshots = (): SDKWebhookRevisionSnapshot[] =>
     draftWebhookSnapshots ?? liveWebhooks.map(toSnapshot);
 
@@ -236,9 +225,8 @@ export default function SdkWebhooks({
   };
 
   const handleDeleteViaRevision = async (webhookId: string): Promise<void> => {
-    const currentSnapshots = currentWebhookSnapshots();
     await submitWebhookRevision(
-      currentSnapshots.filter((s) => s.id !== webhookId),
+      currentWebhookSnapshots().filter((s) => s.id !== webhookId),
     );
   };
 

@@ -41,12 +41,6 @@ function Category({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/**
- * Everything below Payload Security, in the full form's categories with its
- * copy: GrowthBook Proxy stays visible, the rest sits behind an "Advanced
- * settings" disclosure. Shared by the create and edit modals so the two can't
- * drift; the modals own submission and run `sanitizeAdvancedForSave`.
- */
 export default function SDKConnectionAdvancedSettings({
   value,
   onChange,
@@ -59,21 +53,15 @@ export default function SDKConnectionAdvancedSettings({
   onChange: (patch: Partial<SDKConnectionAdvancedValue>) => void;
   languages: SDKLanguage[];
   sdkVersion?: string;
-  /** Only changes the Saved Groups warning copy, as in the full form. */
   remoteEvalEnabled: boolean;
-  /** The persisted Saved Groups format when editing; unset on create. */
   storedSavedGroupFormat?: SavedGroupFormat;
 }) {
   const customFields = useCustomFields();
 
-  // Gated exactly as the full form gates them — with no language chosen yet,
-  // the capability-dependent options are not offered.
   const currentCaps = getConnectionSDKCapabilities(
     { languages, sdkVersion },
     "min-ver-intersection",
   );
-  // "max-ver-intersection" matches the full form: these are offered on what
-  // the SDK supports at its latest version, not the pinned one.
   const latestCaps = getConnectionSDKCapabilities(
     { languages, sdkVersion },
     "max-ver-intersection",
@@ -85,7 +73,6 @@ export default function SDKConnectionAdvancedSettings({
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const proxyHostId = useId();
-  // Scroll newly-expanded content into view.
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (open) {
@@ -102,8 +89,7 @@ export default function SDKConnectionAdvancedSettings({
 
   return (
     <>
-      {/* Self-hosted configures the proxy via env vars, so the full form only
-          offers these on Cloud. */}
+      {/* Self-hosted configures the proxy via env vars. */}
       {isCloud() && (
         <Category title={CATEGORY_TITLES.proxy}>
           <Switch
@@ -252,9 +238,7 @@ export default function SDKConnectionAdvancedSettings({
                       placeholder="No fields included"
                       value={value.allowedCustomFieldsInMetadata}
                       onChange={(fields) =>
-                        onChange({
-                          allowedCustomFieldsInMetadata: fields as string[],
-                        })
+                        onChange({ allowedCustomFieldsInMetadata: fields })
                       }
                       options={(customFields || []).map((cf) => ({
                         label: cf.name,

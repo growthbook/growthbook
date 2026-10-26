@@ -42,14 +42,12 @@ export default function EditSDKOverviewModal({
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
-  // Same shape as the create modal, so the two share both form sections.
   const [value, setValue] = useState<FormValue>(() => ({
     name: connection.name,
     languages: connection.languages ?? [],
     sdkVersion: connection.sdkVersion,
     environment: connection.environment,
     projects: connection.projects ?? [],
-    // Absent = off, so existing connections keep their behavior.
     includeReferencedPrerequisites: !!connection.includeReferencedPrerequisites,
     delivery: deliveryModeFromConnection(connection),
     encryptPayload: !!connection.encryptPayload,
@@ -59,7 +57,6 @@ export default function EditSDKOverviewModal({
   const { draftSelector, save } = useSdkConnectionRevisionFlow({
     connection,
     mutate,
-    // Approval is judged on where the connection is being moved to as well.
     proposedScope: { projects: value.projects, environment: value.environment },
     ...revisionProps,
   });
@@ -72,14 +69,10 @@ export default function EditSDKOverviewModal({
   const onChange = (patch: Partial<FormValue>) =>
     setValue((v) => ({ ...v, ...patch }));
 
-  // Gates follow the selection being edited, not the stored connection, so
-  // switching language updates what gets persisted.
   const currentCapabilities = getConnectionSDKCapabilities(
     { languages: value.languages, sdkVersion: value.sdkVersion },
     "min-ver-intersection",
   );
-  // "max-ver-intersection" matches the full form: save-time sanitisation is
-  // based on what the SDK supports at its latest version, not the pinned one.
   const latestCapabilities = getConnectionSDKCapabilities(
     { languages: value.languages, sdkVersion: value.sdkVersion },
     "max-ver-intersection",
@@ -99,14 +92,11 @@ export default function EditSDKOverviewModal({
       size="lg"
       cta="Save Settings"
       submit={async () => {
-        // Every capability lookup reads languages[0], so a connection without
-        // one breaks downstream.
         if (!value.languages.length) {
           setLanguageError("Please select an SDK language");
           throw new Error("Please select an SDK language");
         }
         setLanguageError(null);
-        // The full form's environment select was `required`.
         if (!value.environment) {
           setEnvironmentError("Please select an environment");
           throw new Error("Please select an environment");
@@ -120,11 +110,8 @@ export default function EditSDKOverviewModal({
           environment: value.environment,
           projects: value.projects,
           includeReferencedPrerequisites: value.includeReferencedPrerequisites,
-          // Plain Text is the only mode that implies no encryption.
           encryptPayload: plain ? false : value.encryptPayload,
           hashSecureAttributes: plain ? false : value.hashSecureAttributes,
-          // As the full form: never persist Remote Eval the SDK can't run at
-          // its latest version, or that the plan doesn't include.
           remoteEvalEnabled:
             value.delivery === "remote" &&
             latestCapabilities.includes("remoteEval") &&

@@ -5,13 +5,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { DocLink } from "@/components/DocLink";
 
-/**
- * The titles of every SDK connection settings category and setting, verbatim
- * from the full form, so they read the same on the detail page cards, in the
- * per-card editor and in the create/edit modals. The label components below
- * add the full form's help copy and docs links.
- */
-
 export const CATEGORY_TITLES = {
   payloadSecurity: "Payload Security",
   experiments: "Experiments",

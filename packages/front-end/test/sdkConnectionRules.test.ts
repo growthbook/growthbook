@@ -26,11 +26,11 @@ const allOn: SDKConnectionAdvancedValue = {
   proxyHost: "https://proxy.example.com",
 };
 
-const fullyCapable = {
+const fullyCapable: Parameters<typeof sanitizeAdvancedForSave>[1] = {
   latestCapabilities: ["visualEditor", "redirects", "savedGroupReferences"],
   currentCapabilities: ["savedGroupReferences"],
   hasLargeSavedGroupFeature: true,
-} as Parameters<typeof sanitizeAdvancedForSave>[1];
+};
 
 describe("shouldShowPayloadSecurity", () => {
   it("hides the secured modes for Next.js only", () => {
@@ -60,7 +60,7 @@ describe("deliveryModeFromConnection", () => {
 });
 
 describe("advancedValueFromConnection", () => {
-  it("uses the full form's defaults for a new connection", () => {
+  it("uses the defaults for a new connection", () => {
     expect(advancedValueFromConnection()).toEqual({
       includeVisualExperiments: false,
       includeRedirectExperiments: false,
@@ -98,7 +98,15 @@ describe("advancedValueFromConnection", () => {
         includeRuleIds: true,
         includeExperimentNames: false,
         allowedCustomFieldsInMetadata: ["cf_a"],
-        proxy: { enabled: true, host: "https://p.example.com" } as never,
+        proxy: {
+          enabled: true,
+          host: "https://p.example.com",
+          signingKey: "",
+          connected: false,
+          version: "",
+          error: "",
+          lastError: null,
+        },
       }),
     ).toMatchObject({
       includeRuleIds: true,

@@ -80,8 +80,7 @@ const VerifyConnectionPage = ({
           eventTracker,
           language: currentConnection?.languages || [],
         });
-        // The selection always drives the snippet; the write is a convenience
-        // the server may refuse (e.g. the connection's changes need review).
+        // The snippet follows the selection even if the write is refused.
         setEventTracker(value);
         setSaveError(null);
         if (canUpdate && currentConnection?.id) {

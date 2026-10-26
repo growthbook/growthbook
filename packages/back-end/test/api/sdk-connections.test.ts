@@ -69,8 +69,7 @@ describe("sdk-connections API", () => {
 
   const org = { id: "org", environments: [{ id: "production" }] };
 
-  // PUT lands through the revision engine, which needs a real context (models,
-  // permissions, premium gating). Admin so authority checks pass by default.
+  // PUT lands through the revision engine, which needs a real context.
   const buildContext = ({
     settings = {},
     premium = false,

@@ -18,8 +18,6 @@ import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
 type Pre = Partial<SDKConnectionRevisionSnapshot> | null;
 type Post = Partial<SDKConnectionRevisionSnapshot>;
 
-// Settings shortcuts — most render functions only care about the nested
-// sdkConnection settings object, not the composite snapshot root.
 function preConn(
   pre: Pre,
 ): Partial<SDKConnectionSettingsRevisionSnapshot> | null {
@@ -31,15 +29,13 @@ function postConn(
   return post.sdkConnection ?? null;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 function boolDisplay(v: boolean | undefined | null): ReactNode {
-  if (v == null) return <em>—</em>;
+  if ((v ?? null) === null) return <em>—</em>;
   return v ? "Yes" : "No";
 }
 
 function strDisplay(v: string | undefined | null): ReactNode {
-  if (v == null || v === "") return <em>—</em>;
+  if ((v ?? null) === null || v === "") return <em>—</em>;
   return v;
 }
 
@@ -47,8 +43,6 @@ function arrayDisplay(v: string[] | undefined | null): ReactNode {
   if (!v || v.length === 0) return <em>—</em>;
   return v.join(", ");
 }
-
-// ─── Section: Scope ───────────────────────────────────────────────────────────
 
 export function renderSDKConnectionScope(
   pre: Pre,
@@ -188,8 +182,6 @@ export function getSDKConnectionScopeBadges(pre: Pre, post: Post): DiffBadge[] {
   return badges;
 }
 
-// ─── Section: Payload Security ────────────────────────────────────────────────
-
 export function renderSDKConnectionSecurity(
   pre: Pre,
   post: Post,
@@ -266,8 +258,6 @@ export function getSDKConnectionSecurityBadges(
   return badges;
 }
 
-// ─── Section: Experiment Inclusion ───────────────────────────────────────────
-
 export function renderSDKConnectionExperiments(
   pre: Pre,
   post: Post,
@@ -308,8 +298,6 @@ export function renderSDKConnectionExperiments(
 
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
-
-// ─── Section: Payload Metadata ────────────────────────────────────────────────
 
 export function renderSDKConnectionMetadata(
   pre: Pre,
@@ -394,8 +382,6 @@ export function renderSDKConnectionMetadata(
   return rows.length ? <Box mt="1">{rows}</Box> : null;
 }
 
-// ─── Section: Proxy ───────────────────────────────────────────────────────────
-
 export function renderSDKConnectionProxy(
   pre: Pre,
   post: Post,
@@ -459,8 +445,6 @@ export function getSDKConnectionProxyBadges(pre: Pre, post: Post): DiffBadge[] {
   return badges;
 }
 
-// ─── Section: Name ────────────────────────────────────────────────────────────
-
 export function renderSDKConnectionName(
   pre: Pre,
   post: Post,
@@ -492,8 +476,6 @@ export function getSDKConnectionNameBadges(pre: Pre, post: Post): DiffBadge[] {
   }
   return [];
 }
-
-// ─── Section: Archived ────────────────────────────────────────────────────────
 
 export function renderSDKConnectionArchived(
   pre: Pre,
@@ -543,8 +525,6 @@ export function getSDKConnectionArchivedBadges(
     : [{ label: "Unarchive", action: "unarchive" }];
 }
 
-// ─── Section: Webhooks ────────────────────────────────────────────────────────
-
 function webhookLabel(wh: SDKWebhookRevisionSnapshot): string {
   return wh.name || wh.endpoint || wh.id;
 }
@@ -562,7 +542,6 @@ export function renderSDKConnectionWebhooks(
 
   const rows: ReactNode[] = [];
 
-  // Added
   for (const wh of postWebhooks) {
     if (!preById.has(wh.id)) {
       rows.push(
@@ -577,7 +556,6 @@ export function renderSDKConnectionWebhooks(
     }
   }
 
-  // Changed
   for (const wh of postWebhooks) {
     const old = preById.get(wh.id);
     if (old && !isEqual(old, wh)) {
@@ -593,7 +571,6 @@ export function renderSDKConnectionWebhooks(
     }
   }
 
-  // Removed
   for (const wh of preWebhooks) {
     if (!postById.has(wh.id)) {
       rows.push(
@@ -644,11 +621,8 @@ export function getSDKConnectionWebhookBadges(
   return badges;
 }
 
-// ─── Diff Config ──────────────────────────────────────────────────────────────
-
-// All connection-settings sections share the `sdkConnection` top-level key so
-// the diff engine detects changes. Each render function internally compares its
-// own sub-fields and returns null when nothing in that section changed.
+// Settings sections share the `sdkConnection` key; each renders null when its
+// own fields are unchanged.
 export const REVISION_SDK_CONNECTION_DIFF_CONFIG: RevisionDiffConfig<SDKConnectionRevisionSnapshot> =
   {
     sections: [

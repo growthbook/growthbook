@@ -53,8 +53,7 @@ export const putApprovalSettings = createApiRequestHandler(
           })),
         }
       : {}),
-    // Merge rather than replace: a request that sends only `savedGroups` would
-    // otherwise silently delete every sdkConnections rule, with no audit signal.
+    // Merge so a request sending only `savedGroups` keeps the sdkConnections rules.
     ...(approvalFlows
       ? {
           approvalFlows: {

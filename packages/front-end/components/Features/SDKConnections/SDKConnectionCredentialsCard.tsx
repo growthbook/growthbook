@@ -91,8 +91,6 @@ export default function SDKConnectionCredentialsCard({
     });
   }
 
-  // Secret — only exists when the payload is encrypted, and stays hidden
-  // until explicitly revealed.
   if (connection.encryptPayload && connection.encryptionKey) {
     details.push({
       label: "Decryption Key",

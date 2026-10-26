@@ -18,8 +18,7 @@ export const deleteSdkConnection = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  // Archive-then-delete, as in the interactive route: the archive is the
-  // reviewable step, so the hard delete of an archived connection needs none.
+  // Archiving is the reviewable step, so the hard delete requires it first.
   if (!sdkConnection.archived) {
     throw new BadRequestError(
       "Archive the SDK connection before deleting it " +

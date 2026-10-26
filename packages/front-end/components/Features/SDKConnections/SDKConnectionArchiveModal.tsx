@@ -21,8 +21,6 @@ interface SDKConnectionArchiveModalProps {
   selectFlow?: (revision: Revision | null) => void;
 }
 
-// Thin wrapper around the entity-agnostic ArchiveModal. Nothing references an
-// SDK connection, so archiving is never reference-blocked.
 export default function SDKConnectionArchiveModal({
   connection,
   close,
@@ -41,7 +39,7 @@ export default function SDKConnectionArchiveModal({
   const canBypass = connection.projects?.length
     ? connection.projects.every((p) =>
         permissionsUtil.canBypassSDKConnectionApprovalChecks({
-          project: p || "",
+          project: p,
         }),
       )
     : permissionsUtil.canBypassSDKConnectionApprovalChecks({ project: "" });
@@ -71,6 +69,7 @@ export default function SDKConnectionArchiveModal({
         connection,
         [connection.environment],
       )}
+      // Nothing references an SDK connection, so archiving is never blocked.
       referenceCount={0}
       referencesLoading={false}
       referencesList={null}

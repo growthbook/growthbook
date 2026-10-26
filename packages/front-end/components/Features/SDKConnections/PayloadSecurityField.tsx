@@ -30,17 +30,6 @@ export type PayloadSecurityValue = {
   includeExperimentNames: boolean;
 };
 
-/**
- * Payload Security for an SDK connection: Plain Text / Ciphered / Remote Eval,
- * with the full form's Cipher Options nested under the two secured modes.
- * Shared by the create/edit modal and the section editor so gating and
- * entitlements can't drift between them.
- *
- * Same behaviour as the full form's tabs, in the new layout: Plain Text clears
- * everything, entering Ciphered pre-enables the plan's cipher options, Remote
- * Eval leaves them alone, and a remotely evaluated payload can still be
- * encrypted and hashed. The radio itself is the remote-eval toggle.
- */
 export default function PayloadSecurityField({
   value,
   onChange,
@@ -65,8 +54,6 @@ export default function PayloadSecurityField({
     { languages, sdkVersion },
     "min-ver-intersection",
   );
-  // Gated on the pinned version's capabilities exactly as the full form is —
-  // with no language chosen yet, neither is offered.
   const encryptionSupported = currentCaps.includes("encryption");
   const remoteEvalSupported = currentCaps.includes("remoteEval");
   const singleLanguage = languages.length === 1 ? languages[0] : undefined;
@@ -74,8 +61,6 @@ export default function PayloadSecurityField({
     ? getSDKCapabilityVersion(singleLanguage, "encryption")
     : undefined;
 
-  // Next.js is plain-text only, so the full form hides the whole section and
-  // forces Plain Text.
   const allowed = shouldShowPayloadSecurity(languages);
   useEffect(() => {
     if (
@@ -105,8 +90,6 @@ export default function PayloadSecurityField({
         Cipher Options
       </Text>
       <Flex direction="column" gap="3">
-        {/* Only offered when the pinned SDK version can decrypt, as on the
-            full form. */}
         {encryptionSupported && (
           <Checkbox
             weight="regular"
@@ -194,7 +177,6 @@ export default function PayloadSecurityField({
     </Box>
   );
 
-  // The full form's warning for cipher options combined with remote eval.
   const activeCipherOptions = [
     value.encryptPayload && "Encrypt payload",
     value.hashSecureAttributes && "Hash secure attributes",
@@ -339,8 +321,6 @@ export default function PayloadSecurityField({
           const mode = v as DeliveryMode;
           const patch: Partial<PayloadSecurityValue> = { delivery: mode };
           if (mode === "plain" || mode === "remote") {
-            // As the full form's tabs: Plain Text and Remote Eval both clear
-            // the cipher options; only Ciphered offers them.
             patch.encryptPayload = false;
             patch.hashSecureAttributes = false;
           } else if (
@@ -348,8 +328,6 @@ export default function PayloadSecurityField({
             !value.encryptPayload &&
             !value.hashSecureAttributes
           ) {
-            // Entering Ciphered with nothing set pre-enables whichever
-            // options the plan allows.
             patch.encryptPayload = hasEncryptionFeature;
             patch.hashSecureAttributes = hasSecureAttributesFeature;
           }

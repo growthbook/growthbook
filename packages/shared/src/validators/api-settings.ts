@@ -67,9 +67,6 @@ export const apiSavedGroupApprovalRule = namedSchema(
   z.object(approvalFlowRuleFields).strict(),
 );
 
-// A connection serves exactly one environment, so its rules also scope by
-// environment. Its own schema so reads serialize `environments` rather than
-// dropping it through the saved-group pick list.
 export const apiSdkConnectionApprovalRule = namedSchema(
   "SdkConnectionApprovalRule",
   z

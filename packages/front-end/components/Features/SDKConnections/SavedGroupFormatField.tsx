@@ -9,12 +9,6 @@ import {
   SavedGroupReferencesLabel,
 } from "@/components/Features/SDKConnections/sdkConnectionSettingLabels";
 
-/**
- * The full form's "Pass Saved Groups by reference" select, verbatim: Off / ID
- * Lists only / All Saved Groups, with its plan and SDK-version notes. Shared by
- * the create and per-card edit modals so the two can't drift; callers own
- * submission and run `sanitizeSavedGroupFormat`.
- */
 export default function SavedGroupFormatField({
   value,
   onChange,
@@ -27,9 +21,7 @@ export default function SavedGroupFormatField({
   onChange: (format: SavedGroupFormat) => void;
   languages: SDKLanguage[];
   sdkVersion?: string;
-  /** Only changes the warning copy, as in the full form. */
   remoteEvalEnabled: boolean;
-  /** The persisted format when editing; leave unset on create. */
   storedFormat?: SavedGroupFormat;
 }) {
   const { hasCommercialFeature } = useUser();
@@ -57,9 +49,7 @@ export default function SavedGroupFormatField({
   return (
     <SelectField
       label={
-        (
-          <SavedGroupReferencesLabel remoteEvalEnabled={remoteEvalEnabled} />
-        ) as unknown as string
+        <SavedGroupReferencesLabel remoteEvalEnabled={remoteEvalEnabled} />
       }
       sort={false}
       isClearable={false}
@@ -78,11 +68,8 @@ export default function SavedGroupFormatField({
               {
                 value: "referencesV2",
                 label: SAVED_GROUP_FORMAT_LABELS.referencesV2,
-                // An SDK downgrade on a saved connection keeps this
-                // selectable, so the choice shows a warning rather than
-                // being silently dropped, and re-upgrading the SDK
-                // resumes v2. That only applies to a connection already
-                // on v2, never to a new one, and never without the plan.
+                // A saved v2 connection stays selectable after an SDK
+                // downgrade so the choice warns instead of being dropped.
                 isDisabled:
                   !hasLargeSavedGroupFeature ||
                   (!supportsAllSavedGroupTypes && !savedAsAllSavedGroupTypes),

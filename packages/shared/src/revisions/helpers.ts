@@ -37,10 +37,7 @@ export const entityProjects = (snapshot: unknown): string[] => {
   const entity = (snapshot ?? {}) as {
     project?: string;
     projects?: string[];
-    // The SDK-connection snapshot is composite, so its scope lives one level
-    // down. Without this every project-scoped approval rule resolved against an
-    // empty list and was invisible to self-approval blocking, review reset and
-    // autopublish.
+    // SDK-connection snapshots are composite; their scope is one level down.
     sdkConnection?: { project?: string; projects?: string[] };
   };
   const scope = entity.sdkConnection ?? entity;
@@ -394,8 +391,6 @@ const isSelfApprovalBlockedForEntity = (
   return !!getApprovalFlowSettings(
     settings?.approvalFlows,
     entityType,
-    // Via the shared resolver so composite snapshots (SDK connections) yield
-    // their nested scope rather than an empty list.
     entityProjects(snapshot),
   )?.blockSelfApproval;
 };
@@ -654,8 +649,7 @@ export function getRevisionUpdatableFields(
       return new Set(Object.keys(constantUpdatableFieldsSchema.shape));
     case "saved-group":
       return new Set(Object.keys(savedGroupUpdatableFieldsSchema.shape));
-    // The SDK-connection snapshot is composite, so its proposed changes target
-    // the two top-level branches rather than individual connection fields.
+    // Composite snapshot: changes replace whole top-level branches.
     case "sdk-connection":
       return new Set(["sdkConnection", "sdkWebhooks"]);
   }
@@ -868,13 +862,8 @@ const isAbsentSdkSetting = (value: unknown): boolean =>
 const sdkSettingsFieldEqual = (a: unknown, b: unknown): boolean =>
   isEqual(a, b) || (isAbsentSdkSetting(a) && isAbsentSdkSetting(b));
 
-/**
- * The settings keys a revision changes, compared against the baseline
- * snapshot's `sdkConnection`. Connection settings are stored as one coarse
- * `replace /sdkConnection` op, so the diff is computed field by field. Returns
- * null when the revision touches webhooks, has any other op shape, or there is
- * no baseline to compare against, so callers can stay conservative.
- */
+// Settings are stored as one `replace /sdkConnection` op, so diff field by
+// field against the baseline. Null when the shape is anything else.
 const sdkConnectionChangedSettingKeys = (
   proposedChanges: JsonPatchOperation[] | unknown,
   baselineSnapshot?: Record<string, unknown>,
@@ -910,13 +899,7 @@ const changesOnly = (
   allowed: ReadonlySet<string>,
 ): boolean => !!keys && keys.length > 0 && keys.every((k) => allowed.has(k));
 
-/**
- * Returns true when the only change in the revision is the SDK-connection
- * display name (the sole "metadata" field). Almost every other field affects
- * the generated payload, so only the name is exempt. Archiving and webhook
- * changes are intentionally excluded — they always require review when
- * approval is enabled. Without a baseline this conservatively returns false.
- */
+// The name is the only SDK-connection field that never reaches the payload.
 export const isSdkConnectionRevisionMetadataOnly = (
   proposedChanges: JsonPatchOperation[] | unknown,
   baselineSnapshot?: Record<string, unknown>,
@@ -941,27 +924,12 @@ export const isSdkConnectionRevisionReviewExempt = (
     SDK_CONNECTION_REVIEW_EXEMPT_KEYS,
   );
 
-// ---------------------------------------------------------------------------
-// SDK-connection approval scoping (project + environment, SDK-connection only)
-//
-// Each rule carries optional `projects` / `environments` arrays. As for saved
-// groups and features, a rule naming one of the connection's projects replaces
-// the all-projects rule, so an override can switch approval off for its
-// projects. Within the winning layer a rule applies when it is required and
-// the connection's environment matches its `environments` (empty = all).
-// ---------------------------------------------------------------------------
-
 export type SdkConnectionApprovalScope = {
   projects?: string[];
   environment?: string;
 };
 
-/**
- * Whether an approval rule's project/environment scope matches a connection.
- * An empty (or omitted) `projects`/`environments` on the rule means "all".
- * Mirrors the feature `getReviewSetting` (project) + `checkEnvironmentsMatch`
- * (environment) logic, extended to a connection's `projects` array.
- */
+// Empty or omitted `projects`/`environments` on the rule means "all".
 export const sdkConnectionMatchesApprovalScope = (
   rule: Pick<ApprovalFlowConfiguration, "projects" | "environments">,
   scope: SdkConnectionApprovalScope,
@@ -980,11 +948,8 @@ export const sdkConnectionMatchesApprovalScope = (
   return projectMatch && envMatch;
 };
 
-/**
- * The approval rules that govern a connection: the rules naming one of its
- * projects when any exist, otherwise the all-projects rules, narrowed to the
- * required ones whose environments match.
- */
+// Rules naming one of the connection's projects replace the all-projects
+// rules, so an override can switch approval off for its projects.
 export const getSdkConnectionGoverningRules = (
   approvalFlows: ApprovalFlowConfigurations | undefined,
   scope: SdkConnectionApprovalScope,
@@ -1002,22 +967,12 @@ export const getSdkConnectionGoverningRules = (
   );
 };
 
-/**
- * The first rule governing the connection, or undefined if none require
- * approval for it. It supplies the per-rule settings (requireMetadataReview,
- * etc.).
- */
 export const getSdkConnectionApprovalRule = (
   approvalFlows: ApprovalFlowConfigurations | undefined,
   scope: SdkConnectionApprovalScope,
 ): ApprovalFlowConfiguration | undefined =>
   getSdkConnectionGoverningRules(approvalFlows, scope)[0];
 
-/**
- * Whether the org has *any* enabled SDK-connection approval rule (ignoring
- * scope). Used for type-level "does this org use SDK-connection approvals at
- * all" decisions, e.g. the approvals inbox / badge query.
- */
 export const orgHasAnySdkConnectionApproval = (
   approvalFlows: ApprovalFlowConfigurations | undefined,
 ): boolean => !!approvalFlows?.sdkConnections?.some((rule) => rule.required);

@@ -115,7 +115,8 @@ export function buildSDKConnectionRevisionUrl(
   revision?: Pick<Revision, "version"> | null,
 ): string {
   const base = `/sdks/${sdkConnectionId}`;
-  if (revision?.version != null) return `${base}?v=${revision.version}`;
+  if (revision && revision.version !== undefined)
+    return `${base}?v=${revision.version}`;
   return base;
 }
 

@@ -9,9 +9,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 
-// Props the SDK connection page threads through to each edit modal so they can
-// participate in the revision / approval flow (draft selector at the top +
-// routing the PUT through the right revision params).
 export type SdkConnectionRevisionProps = {
   onRevisionCreated?: (revision: Revision) => void;
   openRevisions?: Revision[];
@@ -35,8 +32,7 @@ const DRAFT_STATUSES: ReadonlySet<Revision["status"]> = new Set([
   "approved",
 ]);
 
-// Only open revisions accept writes; merged/discarded ones are viewable from
-// the header dropdown and `?v=` but must never be sent as `revisionId`.
+// Merged/discarded revisions are viewable but never sent as `revisionId`.
 export function isDraftRevision(
   revision: Revision | null | undefined,
 ): revision is Revision {
@@ -52,31 +48,19 @@ export function canBypassSdkConnectionApproval(
   return projects.length
     ? projects.every((p) =>
         permissionsUtil.canBypassSDKConnectionApprovalChecks({
-          project: p || "",
+          project: p,
         }),
       )
     : permissionsUtil.canBypassSDKConnectionApprovalChecks({ project: "" });
 }
 
-// Flattened view of the connection the modal was seeded from, so the body can
-// be diffed field-by-field against what the user actually saw.
 function seededValue(connection: SDKConnectionInterface, key: string): unknown {
   if (key === "proxyEnabled") return connection.proxy?.enabled;
   if (key === "proxyHost") return connection.proxy?.host;
   return (connection as unknown as Record<string, unknown>)[key];
 }
 
-/**
- * Encapsulates the SDK connection revision/approval flow shared by the
- * per-section edit modals. Returns a `DraftSelector` node to render at the top
- * of the modal and a `save` helper that PUTs only the changed fields with the
- * correct revision params and selects the resulting revision.
- *
- * `connection` is the state the modal was seeded from (the selected draft's
- * effective state when one is selected), and `proposedScope` is the form's
- * current projects/environment so approval is judged the way the server does:
- * against the live scope OR the proposed one.
- */
+// As on the server, approval applies when the live OR proposed scope matches.
 export function useSdkConnectionRevisionFlow({
   connection,
   mutate,
@@ -150,23 +134,22 @@ export function useSdkConnectionRevisionFlow({
   const metadataOnlyRevisionFlow =
     effectiveApprovalRequired && !effectiveMetadataReviewRequired;
 
-  const draftSelector =
-    revisionAware && connection.id ? (
-      <RevisionDraftSelectorForChanges
-        entityId={connection.id}
-        openRevisions={openRevisions ?? []}
-        allRevisions={allRevisions ?? []}
-        mode={draftMode}
-        setMode={setDraftMode}
-        selectedDraftId={selectedDraftId}
-        setSelectedDraftId={setSelectedDraftId}
-        canAutoPublish={effectiveCanAutoPublish}
-        approvalRequired={effectiveApprovalRequired}
-        metadataOnly={metadataOnlyRevisionFlow}
-        defaultExpanded={!effectiveCanAutoPublish}
-        dropdownRequiresApproval={false}
-      />
-    ) : null;
+  const draftSelector = revisionAware ? (
+    <RevisionDraftSelectorForChanges
+      entityId={connection.id}
+      openRevisions={openRevisions ?? []}
+      allRevisions={allRevisions ?? []}
+      mode={draftMode}
+      setMode={setDraftMode}
+      selectedDraftId={selectedDraftId}
+      setSelectedDraftId={setSelectedDraftId}
+      canAutoPublish={effectiveCanAutoPublish}
+      approvalRequired={effectiveApprovalRequired}
+      metadataOnly={metadataOnlyRevisionFlow}
+      defaultExpanded={!effectiveCanAutoPublish}
+      dropdownRequiresApproval={false}
+    />
+  ) : null;
 
   const save = async (body: Record<string, unknown>) => {
     const changed: Record<string, unknown> = {};
@@ -179,8 +162,7 @@ export function useSdkConnectionRevisionFlow({
       }
     }
 
-    // The selector's effect reconciles this too; the save-time coercion is the
-    // safety net so a publish is never sent where the scope forbids it.
+    // Safety net: never publish where the scope forbids it.
     const mode: DraftMode =
       draftMode === "publish" && !effectiveCanAutoPublish ? "new" : draftMode;
 

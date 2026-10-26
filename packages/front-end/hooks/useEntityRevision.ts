@@ -5,8 +5,6 @@ import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 
-// Minimal shape every revisable entity exposes; used only to synthesize the
-// initial "Revision 1" placeholder when no real revisions exist yet.
 type RevisableEntity = {
   id: string;
   organization: string;
@@ -14,18 +12,6 @@ type RevisableEntity = {
   dateUpdated: Date | string;
 };
 
-/**
- * Generic revision-state hook shared by the Saved Groups and SDK Connections
- * detail pages. Owns:
- *   - selected revision <-> URL `?v=<n>` sync
- *   - open / merged / discarded derivations
- *   - publish / discard / reopen actions against the generic `/revision/*` API
- *   - a frontend-only synthetic "Revision 1" when the entity has no revisions
- *
- * The return shape intentionally uses the legacy `*ApprovalFlow*` keys so the
- * existing call sites (which destructure with aliases) work unchanged across
- * entity types.
- */
 export function useEntityRevision<T extends RevisableEntity>({
   entityType,
   entityId,
@@ -38,11 +24,9 @@ export function useEntityRevision<T extends RevisableEntity>({
   entityId: string | undefined;
   entityMutate: () => void;
   entity?: T;
-  // Author used for the synthetic initial revision. Saved groups pass the
-  // group owner; entities without an owner (e.g. SDK connections) pass "".
+  // Author of the synthetic initial revision.
   ownerId?: string;
-  // When false (no revision UI, e.g. the approvals feature lapsed) the page
-  // opens on live instead of the author's open draft.
+  // When false the page opens on live instead of the author's open draft.
   autoSelectDrafts?: boolean;
 }) {
   const { userId } = useUser();

@@ -240,10 +240,7 @@ export type ApprovalFlowConfiguration = {
   blockSelfApproval?: boolean;
   autopublishOnApproval?: boolean;
   resetReviewOnChange?: boolean;
-  // Optional project / environment scope (used by SDK connections, mirroring
-  // feature `requireReviews`). An omitted/empty array means "all". A rule
-  // applies when the resource's project(s) match `projects` AND its environment
-  // matches `environments`. Multiple rules OR together.
+  // Empty or omitted means all.
   projects?: string[];
   environments?: string[];
 };

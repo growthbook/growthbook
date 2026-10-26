@@ -38,14 +38,9 @@ export default function CreateSDKConnectionModal({
 }: {
   close: () => void;
   mutate: () => void;
-  /** Duplicate seeds the form from an existing connection. */
   initialValue?: Partial<SDKConnectionInterface>;
   cta?: string;
-  /**
-   * Off, the modal neither navigates nor closes after creating: the caller
-   * swaps in the next step (the setup flow shows the code snippet) once the
-   * refreshed connection list arrives.
-   */
+  // When false, the caller swaps in the next step instead of navigating away.
   autoCloseOnSubmit?: boolean;
 }) {
   const { apiCall } = useAuth();
@@ -56,13 +51,9 @@ export default function CreateSDKConnectionModal({
   const { hasCommercialFeature } = useUser();
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
 
-  // One state object feeds both shared sections, so the two modals stay
-  // identical and a setting is never held in two places.
   const [value, setValue] = useState<FormValue>(() => ({
     name: initialValue?.name ?? "",
     languages: initialValue?.languages ?? [],
-    // As the full form: a single language seeds its default version, anything
-    // else seeds the generic one.
     sdkVersion:
       initialValue?.sdkVersion ??
       getDefaultSDKVersion(
@@ -98,9 +89,6 @@ export default function CreateSDKConnectionModal({
     getConnectionLanguageFilter(initialValue?.languages ?? []),
   );
 
-  // Matches the full form's create branch: a new connection opts into visual
-  // editor and redirect experiments whenever the chosen SDK supports them,
-  // rather than starting everything off.
   useEffect(() => {
     const caps = getConnectionSDKCapabilities(
       { languages: value.languages, sdkVersion: value.sdkVersion },
@@ -114,12 +102,8 @@ export default function CreateSDKConnectionModal({
       includeRedirectExperiments: redirect,
       includeDraftExperiments: visual,
     }));
-    // Only when the language selection changes.
   }, [value.languages, value.sdkVersion]);
 
-  // As the full form: on a new connection the SDK is usually picked after the
-  // form opens, so the default has to follow it — the most capable format the
-  // chosen SDK can read. Both reference formats need the plan.
   useEffect(() => {
     if (savedGroupFormatChosen.current) return;
     const savedGroupFormat = defaultSavedGroupFormat({
@@ -132,7 +116,6 @@ export default function CreateSDKConnectionModal({
     setValue((v) => ({ ...v, savedGroupFormat }));
   }, [value.languages, value.sdkVersion, hasLargeSavedGroupFeature]);
 
-  // Parity with the full form's create analytics.
   useEffect(() => {
     track("View SDK Connection Form");
   }, []);
@@ -141,14 +124,11 @@ export default function CreateSDKConnectionModal({
     { languages: value.languages, sdkVersion: value.sdkVersion },
     "min-ver-intersection",
   );
-  // "max-ver-intersection" matches the full form's save-time sanitisation.
   const latestCapabilities = getConnectionSDKCapabilities(
     { languages: value.languages, sdkVersion: value.sdkVersion },
     "max-ver-intersection",
   );
 
-  // On create the org setting always applies — there's no existing scope to
-  // grandfather.
   const requireProjectSelection = !!settings.requireProjectForSdkConnections;
 
   return (
@@ -168,7 +148,6 @@ export default function CreateSDKConnectionModal({
           throw new Error("Please select an SDK language");
         }
         setLanguageError(null);
-        // The full form's environment select was `required`.
         if (!value.environment) {
           setEnvironmentError("Please select an environment");
           throw new Error("Please select an environment");
@@ -182,11 +161,8 @@ export default function CreateSDKConnectionModal({
           environment: value.environment,
           projects: value.projects,
           includeReferencedPrerequisites: value.includeReferencedPrerequisites,
-          // Plain Text is the only mode that implies no encryption.
           encryptPayload: plain ? false : value.encryptPayload,
           hashSecureAttributes: plain ? false : value.hashSecureAttributes,
-          // As the full form: never persist Remote Eval the SDK can't run at
-          // its latest version, or that the plan doesn't include.
           remoteEvalEnabled:
             value.delivery === "remote" &&
             latestCapabilities.includes("remoteEval") &&

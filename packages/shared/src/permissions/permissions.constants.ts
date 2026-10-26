@@ -290,7 +290,6 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   SavedGroupsDelete: ["readData", "deleteSavedGroups"],
   // The saved-group half of the bypass add-on, mirroring FlagsBypassApprovals.
   SavedGroupsBypassApprovals: ["readData", "bypassApprovalSavedGroups"],
-  // The SDK-connection half of the bypass add-on, mirroring SavedGroupsBypassApprovals.
   SDKConnectionsBypassApprovals: ["readData", "bypassApprovalSDKConnections"],
   BypassSavedGroupSizeLimit: ["readData", "bypassSavedGroupSizeLimit"],
   // Deprecated superset — see DEPRECATED_POLICIES.

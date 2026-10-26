@@ -26,9 +26,6 @@ export default function SDKConnectionHeaderMeta({
   const environments = useEnvironments();
   const environment = environments.find((e) => e.id === connection.environment);
 
-  // Mirrors the project display the connection diagram used: an "all env
-  // projects" badge when the connection isn't scoped, and any projects the
-  // environment disallows flagged inline.
   const envProjects = environment?.projects ?? [];
   const filteredProjectIds = filterProjectsByEnvironment(
     connection.projects ?? [],
@@ -49,7 +46,6 @@ export default function SDKConnectionHeaderMeta({
   ];
 
   const languages = connection.languages ?? [];
-  // Version only makes sense when a single language is selected.
   const sdkValue = languages.length ? (
     <Flex align="center" gap="3" wrap="wrap">
       {languages.map((language) => (

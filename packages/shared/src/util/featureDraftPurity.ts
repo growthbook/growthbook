@@ -282,12 +282,13 @@ export function proposedProjectScope(proposedChanges: unknown): {
     if (op.path === "/projects" && Array.isArray(op.value)) {
       scope.projects = op.value as string[];
     }
-    // The SDK-connection snapshot is composite: a relocation rides inside the
-    // whole-settings replace, never as a root `/projects` op.
-    if (op.path === "/sdkConnection" && isRecord(op.value)) {
-      if (Array.isArray(op.value.projects)) {
-        scope.projects = op.value.projects as string[];
-      }
+    // SDK connections move projects inside the whole-settings replace.
+    if (
+      op.path === "/sdkConnection" &&
+      isRecord(op.value) &&
+      Array.isArray(op.value.projects)
+    ) {
+      scope.projects = op.value.projects as string[];
     }
   }
   return scope;

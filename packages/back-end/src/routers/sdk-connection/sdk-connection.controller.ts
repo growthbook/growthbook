@@ -60,8 +60,7 @@ const SETTINGS_SNAPSHOT_KEYS = Object.keys(
   sdkConnectionSettingsSnapshotValidator.shape,
 );
 
-// Build the sdkConnection settings snapshot value for a patch op from a
-// flattened connection state (proxyEnabled/proxyHost already flat).
+// Expects proxyEnabled/proxyHost already flattened.
 function buildSettingsSnapshotValue(
   flatState: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -139,17 +138,10 @@ export const postSDKConnection = async (
     },
   });
 
-  // Backfill a "live" revision representing the created state so the history
-  // view (and later edits) have a baseline to diff against. New connections
-  // have no webhooks yet; attach an empty array so the adapter's buildSnapshot
-  // produces a composite { sdkConnection, sdkWebhooks: [] } baseline.
+  // Baseline for history and later edits; a new connection has no webhooks.
   await ensureLiveRevisionExists(context, "sdk-connection", {
-    ...(doc as unknown as Record<string, unknown>),
+    ...doc,
     _webhooks: [],
-  } as unknown as Record<string, unknown> & {
-    id: string;
-    owner?: string;
-    dateCreated?: Date;
   });
 
   res.status(200).json({
@@ -183,9 +175,7 @@ type PutSDKConnectionResponse =
       revision: Revision;
     };
 
-// Same rule as the adapter's `isApprovalRequiredForRevision`, which needs a
-// persisted revision; this answers before the draft is minted so a refused
-// publish leaves nothing behind.
+// Answers before a revision exists, so a refused publish leaves no draft behind.
 function isApprovalRequiredForChange(
   context: ReqContext,
   baseline: SDKConnectionRevisionSnapshot,
@@ -217,7 +207,6 @@ export const putSDKConnection = async (
     throw new Error("Could not find SDK Connection");
   }
 
-  // Permission check always runs regardless of approval flow status.
   if (!context.permissions.canUpdateSDKConnection(connection, req.body)) {
     context.permissions.throwPermissionError();
   }
@@ -228,8 +217,7 @@ export const putSDKConnection = async (
     connection.projects,
   );
 
-  // Apply premium-feature gating to the incoming values before diffing, so an
-  // org without the entitlement can't enable a gated payload setting.
+  // Gate premium settings before diffing so they can't be enabled without the plan.
   const proposed: Record<string, unknown> = { ...req.body };
 
   if (req.body.encryptPayload !== undefined) {
@@ -257,25 +245,20 @@ export const putSDKConnection = async (
     proposed.remoteEvalEnabled = false;
   }
 
-  // Flat connection-settings fields that are allowed in a revision.
   const connectionSettingsUpdatableFields = new Set(
     Object.keys(sdkConnectionUpdatableFieldsSchema.shape),
   );
 
-  // Pre-fetch webhooks so ensureLiveRevisionExists / createOrUpdateRevision
-  // can produce a composite snapshot { sdkConnection, sdkWebhooks }.
   const liveWebhooks =
     await context.models.sdkWebhooks.findAllSdkWebhooksByConnectionIds([id]);
 
-  // The flattened, secret-free view of the live connection (proxy flattened).
   const currentState: Record<string, unknown> = {
     ...connection,
     proxyEnabled: connection.proxy?.enabled,
     proxyHost: connection.proxy?.host,
   };
 
-  // If updating a specific revision, diff against that draft's current
-  // settings (snapshot + its own proposed changes) instead of the live conn.
+  // When updating a draft, diff against the draft's state, not the live connection.
   const revisionId = req.query.revisionId;
   let settingsComparisonBase = { ...currentState };
   if (revisionId) {
@@ -304,11 +287,8 @@ export const putSDKConnection = async (
     };
   }
 
-  // Absent means false for every optional boolean (payload builders test
-  // `=== true`) and the edit modals seed absent booleans as false, so an
-  // incoming `false` against an absent stored value is not a change — nor is
-  // "" or [] against an absent string/array. An absent incoming value is
-  // "not sent" (the modals omit untouched sections).
+  // An absent stored value equals false/""/[] (the modals seed absent fields
+  // that way), and an absent incoming value means "not sent".
   const isAbsent = (v: unknown) => v === undefined || v === null;
   const isEmptyValue = (v: unknown) =>
     v === false || v === "" || isEqual(v, []);
@@ -338,10 +318,7 @@ export const putSDKConnection = async (
   // request is refused. It never becomes a draft the caller didn't ask for.
   const wantsMerge = explicitPublish || !wantsDraft;
 
-  // Convert live webhooks to snapshot shape for comparison. `httpMethod` is
-  // optional on the webhook schema and absent on rows predating it, while the
-  // snapshot schema requires it — so default before parsing rather than
-  // throwing and leaving the connection uneditable.
+  // Rows predating `httpMethod` lack it, but the snapshot schema requires it.
   const liveWebhookSnapshots = liveWebhooks.map((wh) =>
     sdkWebhookSnapshotValidator.parse({
       ...wh,
@@ -349,8 +326,6 @@ export const putSDKConnection = async (
     }),
   );
 
-  // The request body is untrusted: validate it against the same schema instead
-  // of casting, so a malformed webhook can't be written straight to Mongo.
   const parseIncomingWebhooks = (
     value: unknown,
   ): SDKWebhookRevisionSnapshot[] | null => {
@@ -363,8 +338,7 @@ export const putSDKConnection = async (
     incomingWebhooks !== null &&
     !isEqual(incomingWebhooks, liveWebhookSnapshots);
 
-  // Nothing changed and no empty draft was asked for: an explicit publish flag
-  // on an unchanged save (the edit modals always send one) is still a no-op.
+  // The edit modals always send a publish flag, so an unchanged save is a no-op.
   if (
     Object.keys(fieldsToUpdate).length === 0 &&
     !hasWebhookChanges &&
@@ -373,9 +347,7 @@ export const putSDKConnection = async (
     return res.status(200).json({ status: 200 });
   }
 
-  // The adapter's apply gates webhook writes on the env-scoped SDK-webhook
-  // atoms. Asked here so a caller who holds the connection atom but not those
-  // is refused before anything is minted or written.
+  // Checked up front so nothing is minted for a caller the apply would refuse.
   if (hasWebhookChanges) {
     const scope = {
       projects: connection.projects,
@@ -390,17 +362,11 @@ export const putSDKConnection = async (
     }
   }
 
-  // Build a coarse-replacement patch op: replace the entire sdkConnection
-  // settings object atomically. This keeps `checkMergeConflicts` working
-  // correctly (it extracts top-level field names from paths).
+  // `checkMergeConflicts` reads top-level paths, so the op replaces the whole
+  // settings object, layered on the state being edited (the draft's, if any).
   const currentSettingsSnapshot = buildSettingsSnapshotValue(
     currentState,
   ) as SDKConnectionSettingsRevisionSnapshot;
-  // The op REPLACES the whole settings object, so it must be layered on the
-  // state this request is editing — the draft's patched state when updating a
-  // draft, not the live connection. Building it from `currentState` silently
-  // reverted every field the draft had already changed and this request didn't
-  // re-send, with no conflict and no diff entry.
   const proposedSettingsSnapshot = buildSettingsSnapshotValue({
     ...settingsComparisonBase,
     ...fieldsToUpdate,
@@ -437,8 +403,7 @@ export const putSDKConnection = async (
     proposedSettingsSnapshot,
     patchOps,
   );
-  // A move takes bypass authority in the destination scope too, so both the
-  // live and the proposed scope are asked — as the approval rule is above.
+  // A move needs bypass authority in the destination scope too.
   const canBypass =
     adapter.canBypassApproval(context, baselineSnapshot) &&
     adapter.canBypassApproval(context, {
@@ -446,9 +411,8 @@ export const putSDKConnection = async (
       sdkWebhooks: [],
     });
 
-  // Every publish gate runs before the draft is minted, so a refused publish
-  // leaves nothing behind. Publish authority for a connection is the same atom
-  // as edit authority (`manageSDKConnections`), already checked above.
+  // Publish gates run before the draft is minted. Publish authority is the
+  // edit permission, already checked above.
   if (wantsMerge && needsApproval) {
     if (!explicitPublish) {
       throw new BadRequestError(
@@ -459,12 +423,11 @@ export const putSDKConnection = async (
       context.permissions.throwPermissionError();
     }
   }
-  const willPublish = wantsMerge;
 
-  // Same rule as `publishRevision`: another draft's committed "lock other
-  // drafts" schedule blocks this landing unless the caller can bypass.
+  // Another draft's "lock other drafts" schedule blocks this landing unless the
+  // caller can bypass.
   if (
-    willPublish &&
+    wantsMerge &&
     !canBypass &&
     (await context.models.revisions.hasPublishLockingScheduledSibling(
       {
@@ -481,26 +444,14 @@ export const putSDKConnection = async (
     );
   }
 
-  // Entity with pre-attached webhooks for composite snapshot building.
-  const entityWithWebhooks = {
-    ...(connection as unknown as Record<string, unknown>),
-    _webhooks: liveWebhooks,
-  };
+  const entityWithWebhooks = { ...connection, _webhooks: liveWebhooks };
 
-  await ensureLiveRevisionExists(
-    context,
-    "sdk-connection",
-    entityWithWebhooks as unknown as Record<string, unknown> & {
-      id: string;
-      owner?: string;
-      dateCreated?: Date;
-    },
-  );
+  await ensureLiveRevisionExists(context, "sdk-connection", entityWithWebhooks);
 
   let revision = await createOrUpdateRevision(
     context,
     "sdk-connection",
-    entityWithWebhooks as unknown as Record<string, unknown> & { id: string },
+    entityWithWebhooks,
     patchOps,
     {
       forceCreate: wantsMerge || forceCreateRevision,
@@ -510,7 +461,7 @@ export const putSDKConnection = async (
     },
   );
 
-  if (!willPublish) {
+  if (!wantsMerge) {
     return res.status(202).json({
       status: 202,
       requiresApproval: needsApproval,
@@ -518,9 +469,8 @@ export const putSDKConnection = async (
     });
   }
 
-  // Claim the (CAS-guarded) merge before the live write so a concurrent
-  // discard can't orphan a half-applied change; reopen if the write fails.
-  // Kept for compensation: the claim overwrites `revision` with the merged row.
+  // Claim the merge before the live write so a concurrent discard can't orphan
+  // a half-applied change; reopen if the write fails.
   const priorRevision = revision;
   revision = await context.models.revisions.merge(revision.id, context.userId, {
     // Only record a bypass when the caller used the explicit admin override.
@@ -547,10 +497,8 @@ export const putSDKConnection = async (
     );
   } catch (e) {
     try {
-      // The adapter reports the flat connection it wrote; ownership is judged
-      // per composite key, so hand compensation the landing's own shape. Live
-      // back first, then un-merge — ordering and guards live in
-      // `compensateFailedLanding`.
+      // Compensation judges ownership per composite key, so pass the landing's
+      // own shape rather than the flat connection the adapter wrote.
       const settingsWritten = applied !== undefined && applied.written !== null;
       await compensateFailedLanding({
         context,
@@ -591,9 +539,7 @@ export const deleteSDKConnection = async (
     context.permissions.throwPermissionError();
   }
 
-  // Archive-then-delete: archiving is reversible and flows through the approval
-  // system; the hard delete bypasses approval but is gated on the archive
-  // having already been published. Mirrors the saved-group delete flow.
+  // Archiving is the reviewable step, so the hard delete requires it first.
   if (!connection.archived) {
     throw new Error("SDK connection must be archived before it can be deleted");
   }

@@ -44,8 +44,6 @@ import {
   useSdkConnectionRevisionFlow,
 } from "./useSdkConnectionRevisionFlow";
 
-// Each settings card on the page opens this modal scoped to its own category,
-// so a section only ever saves the fields it shows.
 export type SDKConnectionEditSection = SDKConnectionSettingsCategory;
 
 type FormValue = PayloadSecurityValue & SDKConnectionAdvancedValue;
@@ -83,15 +81,10 @@ export default function EditSDKSettingsModal({
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
   const proxyHostId = useId();
 
-  // Capability gates, mirroring the full form: an option is only offered when
-  // the connection's SDK language/version actually supports it.
   const currentSdkCapabilities = getConnectionSDKCapabilities(
     connection,
     "min-ver-intersection",
   );
-  // "max-ver-intersection", as the full form uses: Visual Editor and URL
-  // Redirects are offered on what the SDK supports at its LATEST version, not
-  // the version this connection is pinned to.
   const latestSdkCapabilities = getConnectionSDKCapabilities(
     connection,
     "max-ver-intersection",
@@ -109,7 +102,6 @@ export default function EditSDKSettingsModal({
     ...revisionProps,
   });
 
-  // One state object for every section, so a field is never held twice.
   const [value, setValue] = useState<FormValue>(() => ({
     delivery: deliveryModeFromConnection(connection),
     encryptPayload: !!connection.encryptPayload,
@@ -124,11 +116,8 @@ export default function EditSDKSettingsModal({
       case "payloadSecurity": {
         const plain = value.delivery === "plain";
         await save({
-          // Plain Text is the only mode that implies no encryption.
           encryptPayload: plain ? false : value.encryptPayload,
           hashSecureAttributes: plain ? false : value.hashSecureAttributes,
-          // As the full form: never persist Remote Eval the SDK can't run at
-          // its latest version, or that the plan doesn't include.
           remoteEvalEnabled:
             value.delivery === "remote" &&
             latestSdkCapabilities.includes("remoteEval") &&
@@ -146,7 +135,6 @@ export default function EditSDKSettingsModal({
           includeVisualExperiments: visual,
           includeRedirectExperiments: redirect,
           includeExperimentNames: value.includeExperimentNames,
-          // As the full form: draft auto-experiments need a parent option on.
           includeDraftExperiments:
             (visual || redirect) && !!connection.includeDraftExperiments,
         });
@@ -154,8 +142,6 @@ export default function EditSDKSettingsModal({
       }
       case "savedGroups":
         await save({
-          // Premium, as in the full form: without the entitlement this must
-          // not be persisted.
           savedGroupFormat: sanitizeSavedGroupFormat(value.savedGroupFormat, {
             currentCapabilities: currentSdkCapabilities,
             hasLargeSavedGroupFeature,
@@ -187,8 +173,6 @@ export default function EditSDKSettingsModal({
       case "proxy":
         await save({
           proxyEnabled: value.proxyEnabled,
-          // Kept while the proxy is off, as the full form did, so re-enabling
-          // it doesn't make someone retype the host.
           proxyHost: value.proxyHost,
         });
         return;
@@ -298,9 +282,7 @@ export default function EditSDKSettingsModal({
                       placeholder="No fields included"
                       value={value.allowedCustomFieldsInMetadata}
                       onChange={(fields) =>
-                        onChange({
-                          allowedCustomFieldsInMetadata: fields as string[],
-                        })
+                        onChange({ allowedCustomFieldsInMetadata: fields })
                       }
                       options={(customFields || []).map((cf) => ({
                         label: cf.name,

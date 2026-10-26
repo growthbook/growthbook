@@ -90,17 +90,9 @@ export const REVISION_PERMISSIONS: Record<
     revert: { permission: "revertSavedGroups", scope: "project" },
     bypass: { permission: "bypassApprovalSavedGroups", scope: "project" },
   },
-  // SDK connections have a single edit atom (`manageSDKConnections`) rather
-  // than per-action atoms, so every action maps to it — except bypass, which
-  // gets its own so that being able to edit a connection is not by itself
-  // enough to skip an approval. A connection declares an environment and
-  // `manageSDKConnections` is env-scoped, so it takes the flag scoping: the
-  // actions that touch live state carry the environment footprint. Declaring
-  // them project-scoped would skip the environment check entirely, letting a
-  // dev-limited role publish a revision against a production connection.
-  // Unlike the flag entities there is no separate draft atom, so drafting also
-  // carries the environment footprint — the scope of each entry has to match
-  // its atom's own scope, which the REVISION_PERMISSIONS matrix test enforces.
+  // SDK connections share one env-scoped edit atom, so every action (drafting
+  // included) carries the environment footprint. Bypass gets its own atom so
+  // edit access alone can't skip an approval.
   "sdk-connection": {
     create: { permission: "manageSDKConnections", scope: "environment" },
     delete: { permission: "manageSDKConnections", scope: "environment" },

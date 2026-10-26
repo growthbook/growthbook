@@ -282,8 +282,7 @@ export async function createOrUpdateRevision(
     // Guard against cross-entity writes: a caller could pass a revisionId
     // that belongs to a different entity (same org) and we'd otherwise
     // write entity A's proposed changes into entity B's draft. Checked even
-    // when a fresh revision is forced, so the id can never front another
-    // entity's content into this one's history.
+    // when forceCreate is set.
     if (
       targetRevision.target.type !== entityType ||
       targetRevision.target.id !== entity.id

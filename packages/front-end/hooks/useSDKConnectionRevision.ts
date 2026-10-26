@@ -12,8 +12,7 @@ export function useSDKConnectionRevision(
     entityId: sdkConnectionId,
     entityMutate: sdkConnectionMutate,
     entity: connection,
-    // SDK connections have no owner; the synthetic initial revision rarely
-    // shows since the backend backfills a baseline revision on create.
+    // SDK connections have no owner.
     ownerId: "",
     autoSelectDrafts,
   });

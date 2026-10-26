@@ -5,12 +5,7 @@ import type {
 } from "back-end/src/revisions/publishGates";
 import type { BulkRevisionRef } from "back-end/src/revisions/bulkPublish/BulkPublishableAdapter";
 
-// SDK connections take part in the revision flow but not in Releases / bulk
-// publish: their snapshot is composite and the landing sequence hasn't been
-// designed for it. Excluding the type here keeps the registry exhaustive, so a
-// future attempt to bulk-publish one fails to compile rather than hitting an
-// undefined adapter at runtime. The REST `entityTypeField` enum omits it too,
-// so no request can name one.
+// SDK connections aren't bulk-publishable: their snapshot is composite.
 export type BulkPublishTargetType = Exclude<
   RevisionedEntityType,
   "sdk-connection"

@@ -215,12 +215,8 @@ export async function findSDKConnectionsByIds(
   return docs.map(toInterface);
 }
 
-/**
- * Client-key lookup used by every payload-serving path. Archived connections are
- * excluded: archiving is presented to the user as "it will no longer serve
- * feature flags to your application", so the key must stop resolving here.
- * Pass `includeArchived` only for management reads that must still see them.
- */
+// Archived connections stop serving, so their key doesn't resolve unless
+// `includeArchived` is passed.
 export async function findSDKConnectionByKey(
   key: string,
   { includeArchived = false }: { includeArchived?: boolean } = {},
@@ -386,8 +382,7 @@ export async function editSDKConnection(
   context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   updates: EditSDKConnectionParams,
-  // `casOnDateUpdated` makes the write compare-and-swap on the stamp a landing
-  // proved; `null` guards a connection that has never been stamped.
+  // `null` guards a connection that has never been stamped.
   options?: { casOnDateUpdated?: Date | null },
 ) {
   const { proxyEnabled, proxyHost, languages, ...rest } =
@@ -495,9 +490,7 @@ export async function editSDKConnection(
 
   const updated = { ...connection, ...fullChanges };
 
-  // An archived connection must stop serving rather than be rebuilt: drop its
-  // cached payload and CDN copy instead of pushing a refresh. Unarchiving goes
-  // through the normal refresh (`archived` is in keysRequiringProxyUpdate).
+  // An archived connection stops serving: purge its cache instead of refreshing.
   if (updated.archived) {
     if (!connection.archived) {
       await purgeArchivedConnectionCache(context, updated);

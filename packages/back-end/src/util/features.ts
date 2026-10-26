@@ -802,8 +802,7 @@ export function expandPayloadKeysForPrerequisites(
   return out;
 }
 
-// Archived connections no longer serve a payload, so nothing downstream of a
-// refresh (cache upsert, SDK webhooks, proxy/CDN pushes) should run for them.
+// Archived connections no longer serve a payload.
 export function filterRefreshableSDKConnections<
   T extends Pick<SDKConnectionInterface, "archived">,
 >(connections: T[]): T[] {

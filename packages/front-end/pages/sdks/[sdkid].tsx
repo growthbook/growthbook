@@ -45,7 +45,6 @@ import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
-import { RevisionDiffConfig } from "@/components/Revision/useRevisionDiff";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import RevisionDropdown from "@/components/Revision/RevisionDropdown";
 import RevisionSummaryCard from "@/components/Revision/RevisionSummaryCard";
@@ -62,9 +61,8 @@ import { docUrl } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import { capitalizeFirstLetter } from "@/services/utils";
 
-// Build the revision snapshot for a live connection. The webhooks are passed in
-// because the live snapshot is the merge target for conflict detection: an empty
-// array here reads as "every webhook was added" and flags a false conflict.
+// Webhooks are required: an empty list reads as "every webhook was added" and
+// flags a false conflict.
 function flattenConnection(
   connection: SDKConnectionInterface,
   webhooks: WebhookInterface[] = [],
@@ -132,9 +130,8 @@ function flattenConnection(
     ...(connection.includeReferencedPrerequisites !== undefined && {
       includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
     }),
-    // Emitted only when set: an explicit `undefined` is not equal to an absent
-    // key under lodash isEqual, which would show as a permanent phantom diff
-    // against a snapshot that simply omitted them.
+    // Omitted when unset: an explicit `undefined` isn't isEqual to an absent
+    // key, which would show as a phantom diff.
     ...(connection.proxy?.enabled !== undefined && {
       proxyEnabled: connection.proxy.enabled,
     }),
@@ -143,8 +140,6 @@ function flattenConnection(
     }),
     ...(connection.archived !== undefined && { archived: connection.archived }),
   };
-  // Mirrors the adapter's toWebhookSnapshot: runtime/secret fields are omitted
-  // so the two sides of a diff line up.
   return {
     sdkConnection: settings,
     sdkWebhooks: webhooks.map((wh) => ({
@@ -162,9 +157,6 @@ function flattenConnection(
   };
 }
 
-// Overlay a flattened snapshot-shaped object onto a live connection. Flattened
-// proxy keys (proxyEnabled/proxyHost) are mapped back onto the nested `proxy`
-// object that SDKConnectionInterface uses.
 function overlayFlattenedOnConnection(
   connection: SDKConnectionInterface,
   flattened: Record<string, unknown>,
@@ -187,10 +179,8 @@ function overlayFlattenedOnConnection(
   return next;
 }
 
-// Build the connection shape that represents the revision's effective state
-// (snapshot + proposed changes), overlaid on the live connection so secret /
-// system fields excluded from the snapshot (key, encryptionKey, connected,
-// managedBy, proxy signing key) are preserved.
+// Overlaid on live so fields excluded from the snapshot (key, encryptionKey,
+// connected, managedBy, proxy signing key) are preserved.
 function buildDisplayedConnection(
   connection: SDKConnectionInterface,
   revision: Revision | null,
@@ -211,8 +201,6 @@ export default function SDKConnectionPage() {
   const { sdkid } = router.query;
 
   const { data, mutate, error } = useSDKConnections();
-  // The live webhooks are part of the revision snapshot, so the page needs them
-  // to build an accurate merge target for diffing and conflict detection.
   const { data: webhookData, mutate: mutateWebhooks } = useApi<{
     webhooks?: WebhookInterface[];
   }>(`/sdk-connections/${sdkid}/webhooks`, { shouldRun: () => !!sdkid });
@@ -222,7 +210,6 @@ export default function SDKConnectionPage() {
   const { user, hasCommercialFeature } = useUser();
   const settings = useOrgSettings();
 
-  // Duplicate opens the create modal seeded from this connection.
   const [duplicateSource, setDuplicateSource] =
     useState<SDKConnectionInterface | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -239,9 +226,6 @@ export default function SDKConnectionPage() {
 
   const hasApprovalsFeature = hasCommercialFeature("require-approvals");
 
-  // Per-connection approval is scoped by project + environment via the shared
-  // helper (no client re-implementation of scoping). Only drives button
-  // enable/disable; the backend re-validates on the 200/202 response.
   const matchedRule =
     hasApprovalsFeature && connection
       ? getSdkConnectionApprovalRule(settings.approvalFlows, {
@@ -252,8 +236,7 @@ export default function SDKConnectionPage() {
   const approvalRequired = !!matchedRule;
   const metadataReviewRequired = matchedRule?.requireMetadataReview ?? true;
 
-  // Publishing lands webhook changes too, so the live entity refresh must
-  // revalidate the webhooks key or draft-added rows stay invisible.
+  // Publishing lands webhook changes too, so revalidate webhooks with it.
   const mutateLive = () => {
     mutate();
     mutateWebhooks();
@@ -280,21 +263,17 @@ export default function SDKConnectionPage() {
 
   const hasRevisions = allRevisions.length > 0;
 
-  // Per-revision approval gate, mirroring the adapter's
-  // isApprovalRequiredForRevision: the rule is matched against the draft's
-  // baseline scope OR its effective (proposed) scope, so a draft that moves
-  // the connection into a gated environment/project needs review even when
-  // the live connection does not. A metadata-only revision (name only) can be
-  // published without review when `requireMetadataReview` is off.
+  // A draft that moves the connection into a gated scope needs review even when
+  // the live connection doesn't, so match against baseline OR effective scope.
   const selectedRevisionScopes = useMemo(() => {
     if (!selectedRevision) return null;
     const baseline = selectedRevision.target.snapshot as
       | SDKConnectionRevisionSnapshot
       | undefined;
     const effective = applyTopLevelPatchOps(
-      (baseline ?? {}) as unknown as Record<string, unknown>,
+      (baseline ?? {}) as Record<string, unknown>,
       selectedRevision.target.proposedChanges,
-    ) as unknown as SDKConnectionRevisionSnapshot;
+    ) as SDKConnectionRevisionSnapshot;
     return {
       baseline: baseline?.sdkConnection ?? {},
       effective: effective.sdkConnection ?? {},
@@ -364,10 +343,6 @@ export default function SDKConnectionPage() {
       )[0];
   }, [selectedRevision, allRevisions]);
 
-  // The connection shape representing the selected revision's effective state
-  // (snapshot + proposed changes), overlaid on the live connection so secret
-  // fields stay intact. Falls back to the live connection when nothing is
-  // selected. Used to drive the page's visual representation.
   const displayedConnection = useMemo(() => {
     if (!connection) return undefined;
     return buildDisplayedConnection(connection, selectedRevision ?? null);
@@ -410,16 +385,12 @@ export default function SDKConnectionPage() {
 
   const canDuplicate = permissionsUtil.canCreateSDKConnection(connection);
   const canUpdate = permissionsUtil.canUpdateSDKConnection(connection, {});
-  // Delete is gated on the LIVE archived state — the backend enforces the same
-  // rule (archive must be published before delete is allowed).
   const canDelete =
     permissionsUtil.canDeleteSDKConnection(connection) &&
     !connection.managedBy?.type;
   const isExternallyManaged = !!connection.managedBy?.type;
 
-  // Whether to surface revision/approval UI. Without the feature, edits just
-  // auto-publish and the page behaves as before (minus archive-then-delete),
-  // rendering live state even if `?v=` points at an open draft.
+  // Without the feature, render live even if `?v=` points at an open draft.
   const showRevisionUI = hasApprovalsFeature && hasRevisions;
 
   const displayedConn = showRevisionUI
@@ -428,8 +399,6 @@ export default function SDKConnectionPage() {
   const displayedName = displayedConn.name;
   const displayedArchived = !!displayedConn.archived;
 
-  // V2 hashing requires a recent SDK version; warn when this connection's SDK
-  // predates it, same as the connections list does.
   const supportsBucketingV2 =
     getConnectionSDKCapabilities(displayedConn).includes("bucketingV2");
   const bucketingV2IntroducedVersion = getSDKCapabilityVersion(
@@ -440,10 +409,6 @@ export default function SDKConnectionPage() {
     ? languageMapping[displayedConn.languages[0]]?.docs
     : undefined;
 
-  // Per-section edit modal routing. Each section opens its dedicated modal.
-  const openEditSection = (section: SDKConnectionEditSection | "overview") => {
-    setEditSection(section);
-  };
   const closeEditSection = () => setEditSection(null);
 
   return (
@@ -471,14 +436,10 @@ export default function SDKConnectionPage() {
       )}
 
       {showCompareModal && (
-        <CompareRevisionsModal
-          liveEntity={liveSnapshot as Record<string, unknown>}
+        <CompareRevisionsModal<SDKConnectionRevisionSnapshot>
+          liveEntity={liveSnapshot as SDKConnectionRevisionSnapshot}
           entityId={connection.id}
-          diffConfig={
-            REVISION_SDK_CONNECTION_DIFF_CONFIG as unknown as RevisionDiffConfig<
-              Record<string, unknown>
-            >
-          }
+          diffConfig={REVISION_SDK_CONNECTION_DIFF_CONFIG}
           currentRevisionId={selectedRevisionId}
           allRevisions={allRevisions}
           onClose={() => setShowCompareModal(false)}
@@ -553,10 +514,7 @@ export default function SDKConnectionPage() {
               context="header"
             />
           )}
-          {(canUpdate ||
-            canDuplicate ||
-            canDelete ||
-            (canUpdate && !isExternallyManaged)) && (
+          {(canUpdate || canDuplicate || canDelete) && (
             <DropdownMenu
               trigger={
                 <IconButton
@@ -576,11 +534,7 @@ export default function SDKConnectionPage() {
               {canUpdate && (
                 <DropdownMenuItem
                   onClick={() => {
-                    // The revision-aware modal, not the old full form: that
-                    // form PUTs with no revision params, so under approvals it
-                    // returned 202 without writing while the UI reported
-                    // success and minted an orphan draft per save.
-                    openEditSection("overview");
+                    setEditSection("overview");
                     setDropdownOpen(false);
                   }}
                 >
@@ -602,7 +556,7 @@ export default function SDKConnectionPage() {
               )}
               {canUpdate && !isExternallyManaged && (
                 <>
-                  {(canDuplicate || canUpdate) && <DropdownMenuSeparator />}
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => {
                       setDropdownOpen(false);
@@ -613,8 +567,7 @@ export default function SDKConnectionPage() {
                   </DropdownMenuItem>
                 </>
               )}
-              {/* Delete is only enabled once the LIVE connection is archived —
-                  the backend enforces the same rule. */}
+              {/* The backend only deletes a connection once LIVE is archived. */}
               {canDelete && connection.archived && (
                 <DropdownMenuItem
                   color="red"
@@ -644,7 +597,7 @@ export default function SDKConnectionPage() {
       <SDKConnectionHeaderMeta
         connection={displayedConn}
         canUpdate={canUpdate}
-        onEditProjects={() => openEditSection("overview")}
+        onEditProjects={() => setEditSection("overview")}
       />
 
       {!supportsBucketingV2 && (
@@ -673,19 +626,16 @@ export default function SDKConnectionPage() {
             <TabsTrigger value="review">Review &amp; Publish</TabsTrigger>
           )}
         </TabsList>
-        {/* The Review & Publish tab renders its own revision header, so the
-            summary card (and its draft banner) would duplicate it there. */}
+        {/* The Review & Publish tab renders its own revision header. */}
         {showRevisionUI && activeTab !== "review" && (
           <Box mt="4">
             <RevisionSummaryCard
               allRevisions={allRevisions}
               selectedRevision={selectedRevision}
               entityNoun="SDK Connection"
-              hasRevisions={allRevisions.length > 0}
+              hasRevisions={hasRevisions}
               canEditTitle={canUpdate}
               canEditDescription={canUpdate}
-              // SDK connections have no owner field, so the card falls back to the
-              // connection's own creation date with no author.
               fallbackOwnerId=""
               fallbackDateCreated={new Date(connection.dateCreated)}
               onSelectRevision={selectFlow}
@@ -704,7 +654,7 @@ export default function SDKConnectionPage() {
                 Connection Details
               </Heading>
               {canUpdate && (
-                <Link onClick={() => openEditSection("proxy")}>Edit</Link>
+                <Link onClick={() => setEditSection("proxy")}>Edit</Link>
               )}
             </Flex>
             <SDKConnectionCredentialsCard
@@ -720,7 +670,7 @@ export default function SDKConnectionPage() {
             <SDKConnectionSettingsCards
               connection={displayedConn}
               canUpdate={canUpdate}
-              onEditSection={openEditSection}
+              onEditSection={setEditSection}
             />
           </Box>
         </TabsContent>
