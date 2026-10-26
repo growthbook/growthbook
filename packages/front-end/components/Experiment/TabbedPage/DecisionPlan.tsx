@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiInfo, PiPencilSimple } from "react-icons/pi";
+import { PiInfo } from "react-icons/pi";
 import {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
@@ -13,7 +13,6 @@ import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteri
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import { useDecisionMakingSummary } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import SelectField from "@/components/Forms/SelectField";
-import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -124,28 +123,25 @@ export default function DecisionPlan({
         />
       ) : null}
 
-      <SetupFieldRow label="Schedule" labelAlign="center">
-        <Panel>
-          <Flex align="center" justify="between" gap="3">
-            <Text color="text-mid">
-              {scheduleSummary(experiment.statusUpdateSchedule)}
-            </Text>
-            {scheduleEditable ? (
-              <Tooltip content={editsBlocked} enabled={!!editsBlocked}>
-                <Button
-                  variant="outline"
-                  color="gray"
-                  icon={<PiPencilSimple />}
-                  disabled={!!editsBlocked}
+      <Box className={scheduleEditable ? revealsQuickEdit : undefined}>
+        <SetupFieldRow label="Schedule" labelAlign="center">
+          <Panel>
+            <Flex align="center" gap="2">
+              <Text color="text-high">
+                {scheduleSummary(experiment.statusUpdateSchedule)}
+              </Text>
+              {scheduleEditable ? (
+                <QuickEditButton
+                  label="Edit schedule"
                   onClick={() => setEditing("schedule")}
-                >
-                  Edit
-                </Button>
-              </Tooltip>
-            ) : null}
-          </Flex>
-        </Panel>
-      </SetupFieldRow>
+                  blockedReason={editsBlocked}
+                  labelTooltip={false}
+                />
+              ) : null}
+            </Flex>
+          </Panel>
+        </SetupFieldRow>
+      </Box>
 
       {summary ? (
         <SetupFieldRow label="Decision" content="panel">
