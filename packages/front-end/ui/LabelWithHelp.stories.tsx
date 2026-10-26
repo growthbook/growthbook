@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
+import Text from "./Text";
 import Badge from "./Badge";
 import Checkbox from "./Checkbox";
 import LabelWithHelp from "./LabelWithHelp";
@@ -10,7 +11,7 @@ export default function LabelWithHelpStories() {
   return (
     <Flex direction="column" gap="4">
       <Flex direction="column" gap="2">
-        <Text size="2" weight="bold">
+        <Text size="md" weight="semibold">
           Variants
         </Text>
         <Flex direction="column" gap="2" align="start">
@@ -36,10 +37,10 @@ export default function LabelWithHelpStories() {
       </Flex>
 
       <Flex direction="column" gap="2">
-        <Text size="2" weight="bold">
+        <Text size="md" weight="semibold">
           Inside a Checkbox label
         </Text>
-        <Text size="1" style={{ color: "var(--gray-9)" }}>
+        <Text size="sm" color="text-low">
           The help icon is focusable (tab to it to open the tooltip on keyboard
           / screen readers). Clicking the help icon or the adornment does not
           toggle the checkbox; clicking the label text does.
