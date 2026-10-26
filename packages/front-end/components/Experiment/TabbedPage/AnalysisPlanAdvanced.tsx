@@ -16,6 +16,7 @@ import {
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { ExperimentAnalysisSettingsDraft } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { getOverriddenMetricIds } from "@/services/metricOverrides";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
@@ -35,11 +36,11 @@ import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
-import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 import SetupFieldRow from "./SetupFieldRow";
+import QuickEditButton, { clicksQuickEdit } from "./QuickEditButton";
 
 function Card({
   title,
@@ -96,8 +97,13 @@ export default function AnalysisPlanAdvanced({
   manageOverrides?: () => void;
   canEdit: boolean;
 }) {
-  const { getDatasourceById, getProjectById, segments, dimensions } =
-    useDefinitions();
+  const {
+    getDatasourceById,
+    getProjectById,
+    getExperimentMetricById,
+    segments,
+    dimensions,
+  } = useDefinitions();
   const { organization, hasCommercialFeature } = useUser();
   const orgSettings = useOrgSettings();
 
@@ -210,6 +216,12 @@ export default function AnalysisPlanAdvanced({
       metrics.guardrailMetrics.length >
     0;
   const disabled = !canEdit;
+  const overriddenNames = [
+    ...getOverriddenMetricIds(
+      experiment.metricOverrides,
+      experiment.decisionFrameworkSettings?.decisionFrameworkMetricOverrides,
+    ),
+  ].map((id) => getExperimentMetricById(id)?.name ?? id);
 
   return (
     <Box id="analysis-plan-advanced" mt="3">
@@ -502,15 +514,33 @@ export default function AnalysisPlanAdvanced({
                   stage({ customMetricSlices: slices })
                 }
               />
-              {hasMetrics && manageOverrides ? (
-                <SetupFieldRow label="Metric overrides" labelAlign="center">
-                  <Flex align="center" justify="between" gap="3">
-                    <Text color="text-mid">
-                      Override metric behaviors within this experiment.
+              {hasMetrics ? (
+                <SetupFieldRow
+                  label="Metric overrides"
+                  tooltip="Override metric behaviors within this experiment."
+                  content="text"
+                >
+                  <Flex
+                    align="start"
+                    justify="between"
+                    gap="3"
+                    className={manageOverrides ? clicksQuickEdit : undefined}
+                  >
+                    <Text
+                      color={overriddenNames.length ? "text-high" : "text-mid"}
+                    >
+                      {overriddenNames.length
+                        ? overriddenNames.join(", ")
+                        : "None"}
                     </Text>
-                    <Button variant="outline" onClick={manageOverrides}>
-                      Manage overrides
-                    </Button>
+                    {manageOverrides ? (
+                      <QuickEditButton
+                        label="Edit metric overrides"
+                        onClick={manageOverrides}
+                        labelTooltip={false}
+                        fillsRow
+                      />
+                    ) : null}
                   </Flex>
                 </SetupFieldRow>
               ) : null}
