@@ -4,6 +4,7 @@ import React, {
   useContext,
   useCallback,
   useEffect,
+  useRef,
 } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -163,10 +164,19 @@ function useRefetchHeavyOnStatusSuccess(
   heavyIsValidating: boolean,
   refetchHeavy: () => Promise<unknown>,
 ): void {
+  const refetchedForStatusId = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (statusLatest?.status !== "success") return;
     if (heavyIsValidating) return;
-    if (statusLatest.id !== snapshotId) void refetchHeavy();
+    if (statusLatest.id === snapshotId) {
+      // Heavy fetch caught up — reset so a later regression to this id can
+      // trigger a fresh refetch.
+      refetchedForStatusId.current = undefined;
+      return;
+    }
+    if (refetchedForStatusId.current === statusLatest.id) return;
+    refetchedForStatusId.current = statusLatest.id;
+    void refetchHeavy();
   }, [
     statusLatest?.id,
     statusLatest?.status,

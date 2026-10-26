@@ -19075,6 +19075,102 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/results' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandits/{id}/status:
+    get:
+      operationId: getContextualBanditStatus
+      summary: Get Contextual Bandit run status
+      description: >-
+        Returns just the status of the most recent snapshot run for the
+        contextual bandit (id, status, queries, timestamps). A lightweight
+        alternative to the full results endpoint, intended for polling while a
+        run is in progress.
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Contextual Bandit id
+          schema:
+            description: The Contextual Bandit id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  latest:
+                    anyOf:
+                      - type: object
+                        properties:
+                          id:
+                            type: string
+                          status:
+                            type: string
+                            enum:
+                              - running
+                              - success
+                              - error
+                          error:
+                            type: string
+                          queries:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                query:
+                                  type: string
+                                status:
+                                  type: string
+                                  enum:
+                                    - queued
+                                    - running
+                                    - failed
+                                    - partially-succeeded
+                                    - succeeded
+                                name:
+                                  type: string
+                              required:
+                                - query
+                                - status
+                                - name
+                              additionalProperties: false
+                          runStarted:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          dateCreated:
+                            type: string
+                          multipleExposures:
+                            type: number
+                          type:
+                            type: string
+                          triggeredBy:
+                            type: string
+                        required:
+                          - id
+                          - status
+                          - error
+                          - queries
+                          - runStarted
+                          - dateCreated
+                          - multipleExposures
+                          - type
+                          - triggeredBy
+                        additionalProperties: false
+                      - type: 'null'
+                required:
+                  - latest
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/status' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandits/{id}/linked-features:
     get:
       operationId: getContextualBanditLinkedFeatures
@@ -71698,6 +71794,8 @@ components:
           items:
             type: object
             properties:
+              id:
+                type: string
               description:
                 type: string
               css:
@@ -86236,6 +86334,8 @@ components:
     VisualChange:
       type: object
       properties:
+        id:
+          type: string
         description:
           type: string
         css:
