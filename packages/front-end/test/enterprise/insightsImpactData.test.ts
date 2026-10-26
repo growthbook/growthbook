@@ -5,6 +5,7 @@ import {
   ExperimentImpactRow,
   buildCounterfactual,
   computeExperimentImpacts,
+  averageRampShare,
   rampShare,
   summarizeImpact,
 } from "@/enterprise/components/Insights/Impact/impactData";
@@ -126,6 +127,21 @@ describe("computeExperimentImpacts", () => {
     expect(row.annualValue).toBeNull();
   });
 
+  it("treats a failed calculation as missing, not as zero", () => {
+    const failed = snapshot("won", [5]);
+    const metric = failed.analyses[1].results[0].variations[1].metrics[METRIC];
+    Object.assign(metric, { computeFailed: true, errorMessage: "Failed" });
+    const [row] = computeExperimentImpacts({
+      experiments: [exp("won", "won")],
+      snapshots: [failed],
+      metricId: METRIC,
+      inverse: false,
+      debias: false,
+    });
+    expect(row.dailyImpact).toBeNull();
+    expect(row.failedResult).toBe(true);
+  });
+
   it("only de-biases with enough experiments, shrinking toward zero", () => {
     const ids = ["a", "b", "c", "d", "e"];
     const run = (n: number, debias: boolean) =>
@@ -173,6 +189,7 @@ function row(
     relativeLift: null,
     annualValue,
     missingScaledImpact: false,
+    failedResult: false,
     ...extra,
   };
 }
@@ -204,6 +221,25 @@ describe("rampShare", () => {
     expect(rampShare(new Date("2025-12-31T00:00:00Z"), start, ship)).toBe(0);
     expect(rampShare(new Date("2026-01-06T00:00:00Z"), start, ship)).toBe(0.5);
     expect(rampShare(new Date("2026-02-01T00:00:00Z"), start, ship)).toBe(1);
+  });
+});
+
+describe("averageRampShare", () => {
+  const day = (d: number) => new Date(Date.UTC(2026, 0, d));
+  it("averages the ramp over a bucket", () => {
+    // Fully ramped for the second half of a 20-day bucket, half ramped on average in the first
+    expect(averageRampShare(day(1), day(21), day(1), day(11))).toBeCloseTo(
+      0.75,
+    );
+    expect(averageRampShare(day(1), day(11), day(20), day(25))).toBe(0);
+    expect(averageRampShare(day(1), day(11), day(1), day(1))).toBe(1);
+  });
+
+  it("counts a ship partway through the bucket", () => {
+    // Started and shipped on day 21 of a 30-day bucket: shipped for 10 of 30 days
+    expect(averageRampShare(day(1), day(31), day(21), day(21))).toBeCloseTo(
+      10 / 30,
+    );
   });
 });
 

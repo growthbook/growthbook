@@ -246,6 +246,7 @@ export default function ImpactPage() {
   const previousSummary = previousRows.some((r) => r.annualValue !== null)
     ? summarizeImpact(previousRows)
     : null;
+  const failedResults = filteredRows.filter((r) => r.failedResult).length;
   // Both periods, so the comparison can be calculated too
   const missingScaledImpact = [
     ...new Set(
@@ -511,6 +512,14 @@ export default function ImpactPage() {
                   {missingScaledImpact.length} experiment
                   {missingScaledImpact.length === 1 ? " is" : "s are"} missing
                   scaled impact results.
+                </Callout>
+              )}
+              {failedResults > 0 && (
+                <Callout status="info" mb="4">
+                  {failedResults} experiment
+                  {failedResults === 1 ? "" : "s"} couldn&apos;t calculate this
+                  metric, so {failedResults === 1 ? "it's" : "they're"} left out
+                  of the totals. Check the results tab of each for the error.
                 </Callout>
               )}
               <ImpactKpis

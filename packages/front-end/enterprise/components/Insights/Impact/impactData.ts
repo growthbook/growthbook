@@ -27,6 +27,8 @@ export type ExperimentImpactRow = {
   // Value to the program, positive when good: the gain for winners, the avoided loss for losers
   annualValue: number | null;
   missingScaledImpact: boolean;
+  // The stats engine failed for this metric, so it's left out
+  failedResult: boolean;
 };
 
 function classifyResult(e: ExperimentInterfaceStringDates): ImpactResult {
@@ -68,6 +70,7 @@ export function computeExperimentImpacts({
       lift: number | null;
     } | null)[] = [];
     let missingScaledImpact = false;
+    let failedResult = false;
     const s = snapshotsByExperiment.get(e.id);
     const defaultAnalysis = s ? getSnapshotAnalysis(s) : null;
     const settings = defaultAnalysis?.settings;
@@ -85,8 +88,11 @@ export function computeExperimentImpacts({
       res.variations.forEach((v, i) => {
         if (i === 0) return;
         const result = v.metrics[metricId];
-        // Placeholder keeps indexes aligned with `e.winner`
-        if (!result) {
+        const failed =
+          !!result && (!!result.computeFailed || !!result.errorMessage);
+        if (failed) failedResult = true;
+        // Placeholder keeps indexes aligned with `e.winner`; a failed result isn't a zero effect
+        if (!result || failed) {
           variations.push(null);
           return;
         }
@@ -105,7 +111,7 @@ export function computeExperimentImpacts({
     } else if (defaultAnalysis?.status === "success") {
       missingScaledImpact = true;
     }
-    return { e, variations, missingScaledImpact };
+    return { e, variations, missingScaledImpact, failedResult };
   });
 
   const usable = parsed.filter((p) => p.variations.some((v) => v)).length;
@@ -120,7 +126,7 @@ export function computeExperimentImpacts({
         (1 - adjustment.adjustment) * (impact - adjustment.mean)
       : impact;
 
-  return parsed.map(({ e, variations, missingScaledImpact }) => {
+  return parsed.map(({ e, variations, missingScaledImpact, failedResult }) => {
     const result = classifyResult(e);
     let key: (typeof variations)[number] | undefined;
     if (result === "won") {
@@ -156,6 +162,7 @@ export function computeExperimentImpacts({
       relativeLift: key?.lift ?? null,
       annualValue: value === null ? null : value * DAYS_PER_YEAR,
       missingScaledImpact,
+      failedResult,
     };
   });
 }
@@ -219,6 +226,8 @@ export type MetricSeriesPoint = {
   value: number;
   // The metric's daily total, in the same units as scaled impact
   total: number;
+  // End of the bucket this point covers (monthly on long ranges); unset is an instant
+  end?: Date;
 };
 
 export type CounterfactualPoint = {
@@ -230,6 +239,28 @@ export type CounterfactualPoint = {
 };
 
 // Share of a shipped effect present on `date`: linear over the run, then held
+// Mean of rampShare over [from, to], so a bucket counts a ship partway through it
+export function averageRampShare(
+  from: Date,
+  to: Date,
+  start: Date,
+  ship: Date,
+): number {
+  const a = from.getTime();
+  const b = to.getTime();
+  const s = start.getTime();
+  const e = ship.getTime();
+  if (b <= a) return rampShare(from, start, ship);
+  // Area under the ramp from the start up to t
+  const area = (t: number) => {
+    if (t <= s) return 0;
+    if (e <= s) return t - s;
+    if (t <= e) return (t - s) ** 2 / (2 * (e - s));
+    return (e - s) / 2 + (t - e);
+  };
+  return (area(b) - area(a)) / (b - a);
+}
+
 export function rampShare(date: Date, start: Date, ship: Date): number {
   const t = date.getTime();
   if (t <= start.getTime()) return 0;
@@ -273,7 +304,9 @@ export function buildCounterfactual(
     let s = 0;
     let v = 0;
     contributors.forEach((c) => {
-      const ramp = rampShare(p.date, c.start, c.ship);
+      const ramp = p.end
+        ? averageRampShare(p.date, p.end, c.start, c.ship)
+        : rampShare(p.date, c.start, c.ship);
       s += ramp * c.share;
       v += Math.pow(ramp * c.se, 2);
     });
