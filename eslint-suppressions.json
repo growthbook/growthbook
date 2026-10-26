@@ -436,14 +436,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/TargetMDEModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/index.tsx": {
     "no-restricted-imports": {
       "count": 1

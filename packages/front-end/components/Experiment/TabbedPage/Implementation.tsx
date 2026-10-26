@@ -46,7 +46,6 @@ import TrafficAllocationFunnel, {
 } from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import AnalysisPlan from "@/components/Experiment/TabbedPage/AnalysisPlan";
-import DecisionPlan from "@/components/Experiment/TabbedPage/DecisionPlan";
 import Callout from "@/ui/Callout";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable";
@@ -628,6 +627,9 @@ export default function Implementation({
             settingsFocus={analysisSettingsFocus}
             targetingDraft={targetingDraft}
             canEditTargeting={!!editTargeting}
+            canEditSchedule={canEditSettings}
+            mutate={mutate}
+            envs={envs}
           />
         ) : (
           <AnalysisSettings
@@ -641,12 +643,6 @@ export default function Implementation({
             settingsFocus={analysisSettingsFocus}
           />
         )}
-        <DecisionPlan
-          experiment={experiment}
-          mutate={mutate}
-          canEdit={canEditSettings}
-          envs={envs}
-        />
       </div>
     </>
   );

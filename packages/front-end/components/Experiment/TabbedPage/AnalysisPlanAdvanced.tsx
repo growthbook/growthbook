@@ -54,7 +54,7 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
 function Setting({ label, children }: { label: string; children: ReactNode }) {
   return (
     <Box>
-      <Text as="div" size="sm" weight="medium" color="text-high" mb="2">
+      <Text as="div" weight="medium" color="text-high" mb="2">
         {label}
       </Text>
       {children}
@@ -470,14 +470,10 @@ export default function AnalysisPlanAdvanced({
               {hasMetrics && manageOverrides ? (
                 <Setting label="Metric Overrides">
                   <Flex align="center" justify="between" gap="3">
-                    <Text color="text-mid" size="sm">
+                    <Text color="text-mid">
                       Override metric behaviors within this experiment.
                     </Text>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={manageOverrides}
-                    >
+                    <Button variant="outline" onClick={manageOverrides}>
                       Manage overrides
                     </Button>
                   </Flex>

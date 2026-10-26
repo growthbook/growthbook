@@ -11,6 +11,8 @@ const MIN_FIELD_WIDTH = "260px";
 
 // Nudges the label level with the text a taller control centres.
 const LABEL_OFFSET: Record<LabelSize, string> = { md: "10px", lg: "6px" };
+// A control inside a padded panel: the panel's padding further down.
+const PANEL_PADDING = "var(--space-4)";
 
 type LabelSize = "md" | "lg";
 
@@ -30,8 +32,11 @@ export default function SetupFieldRow({
   /** `lg` for a field whose label doubles as the section's title. */
   labelSize?: LabelSize;
   tooltip?: string;
-  /** `text` for a row that only reads a value back, which needs no offset. */
-  content?: "control" | "text";
+  /**
+   * `text` for a row that only reads a value back, which needs no offset;
+   * `panel` for controls inside a padded panel.
+   */
+  content?: "control" | "text" | "panel";
   /** `center` for a row whose control is a single line, such as a select. */
   labelAlign?: "top" | "center";
   children: ReactNode;
@@ -50,9 +55,11 @@ export default function SetupFieldRow({
         width={LABEL_WIDTH}
         style={{
           paddingTop:
-            content === "control" && labelAlign === "top"
-              ? LABEL_OFFSET[labelSize]
-              : "0",
+            content === "text" || labelAlign === "center"
+              ? "0"
+              : content === "panel"
+                ? `calc(${PANEL_PADDING} + ${LABEL_OFFSET[labelSize]})`
+                : LABEL_OFFSET[labelSize],
         }}
       >
         <Flex align="center" gap="1">

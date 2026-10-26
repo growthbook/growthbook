@@ -53,6 +53,7 @@ import { useExperimentFieldEdit, useStagedState } from "./ExperimentEdits";
 import SetupFieldRow from "./SetupFieldRow";
 import { useDecisionFrameworkApplies } from "./DecisionMakingSettings";
 import AnalysisPlanAdvanced from "./AnalysisPlanAdvanced";
+import DecisionPlan from "./DecisionPlan";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 import type { TargetingDraft } from "./TrafficAllocationFunnel";
 
@@ -81,6 +82,10 @@ export interface Props {
   // Holds the assignment attribute until the page saves.
   targetingDraft?: TargetingDraft;
   canEditTargeting?: boolean;
+  // The schedule writes from its own dialog.
+  canEditSchedule: boolean;
+  mutate: () => void;
+  envs: string[];
 }
 
 export default function AnalysisPlan({
@@ -91,6 +96,9 @@ export default function AnalysisPlan({
   settingsFocus = null,
   targetingDraft,
   canEditTargeting = false,
+  canEditSchedule,
+  mutate,
+  envs,
 }: Props) {
   const {
     datasources,
@@ -715,6 +723,15 @@ export default function AnalysisPlan({
           guardrailMetrics,
           setGuardrailMetrics,
         )}
+
+        <DecisionPlan
+          experiment={effective}
+          stage={stage}
+          canEdit={canEdit}
+          canEditSchedule={canEditSchedule}
+          mutate={mutate}
+          envs={envs}
+        />
 
         <AnalysisPlanAdvanced
           open={advancedOpen}
