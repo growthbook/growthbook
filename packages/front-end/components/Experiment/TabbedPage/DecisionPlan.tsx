@@ -137,7 +137,19 @@ export default function DecisionPlan({
           mutate={mutate}
           envs={envs}
           close={close}
-          stageChanges={(schedule) => setStagedSchedule({ schedule })}
+          stageChanges={(changes) => {
+            if ("statusUpdateSchedule" in changes) {
+              setStagedSchedule({ schedule: changes.statusUpdateSchedule });
+            }
+            if (changes.decisionCriteriaId) {
+              stage({
+                decisionFrameworkSettings: {
+                  ...experiment.decisionFrameworkSettings,
+                  decisionCriteriaId: changes.decisionCriteriaId,
+                },
+              });
+            }
+          }}
         />
       ) : null}
       {editing === "criteria" && summary ? (
@@ -240,16 +252,16 @@ export default function DecisionPlan({
                     gap="3"
                     className={scheduleEditable ? clicksQuickEdit : undefined}
                   >
-                    <Box minWidth="0">
+                    <Flex direction="column" gap="1" minWidth="0">
                       <Text as="div" color="text-high">
                         {summary.endSummary}
                       </Text>
-                      {summary.endDetails.map((detail) => (
-                        <Text as="div" color="text-mid" key={detail}>
+                      {summary.endDetails.map((detail, i) => (
+                        <Text as="div" color="text-high" key={i}>
                           {detail}
                         </Text>
                       ))}
-                    </Box>
+                    </Flex>
                     {scheduleEditable ? (
                       <QuickEditButton
                         label="Edit end of experiment"

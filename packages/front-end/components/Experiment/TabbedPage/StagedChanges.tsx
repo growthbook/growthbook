@@ -49,8 +49,8 @@ function StagedChange({
   // Discarding a conflicted edit takes theirs, so it says so.
   const actions = keepMine ? (
     <Flex gap="3">
-      {link("Keep mine", keepMine)}
       {link("Use theirs", discard)}
+      {link("Keep mine", keepMine)}
     </Flex>
   ) : (
     link("Discard", discard)

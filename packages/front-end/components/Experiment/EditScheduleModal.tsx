@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  DecisionCriteriaData,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
+import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
 import { scheduleStagesStatusChange } from "shared/experiments";
-import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -25,7 +28,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
-import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
+import useApi from "@/hooks/useApi";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
@@ -76,11 +79,12 @@ export default function EditScheduleModal({
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   close: () => void;
-  // Holds the schedule with the page's other unsaved edits instead of saving
-  // it; null clears it.
-  stageChanges?: (
-    statusUpdateSchedule: ExperimentInterfaceStringDates["statusUpdateSchedule"],
-  ) => void;
+  // Holds the changes with the page's other unsaved edits instead of saving
+  // them: the schedule if it changed (null clears it), and the criteria.
+  stageChanges?: (changes: {
+    statusUpdateSchedule?: ExperimentInterfaceStringDates["statusUpdateSchedule"];
+    decisionCriteriaId?: string;
+  }) => void;
   // Opens on what happens when it ends, rather than its first field.
   focusEndPlan?: boolean;
   // Environments the experiment reaches; a scheduled start, stop or ship is
@@ -112,7 +116,8 @@ export default function EditScheduleModal({
     experiment.decisionFrameworkSettings?.decisionCriteriaId,
   );
 
-  const [decisionCriteriaModal, setDecisionCriteriaModal] = useState(false);
+  const [criteriaId, setCriteriaId] = useState(decisionCriteria.id);
+  const [viewingRules, setViewingRules] = useState(false);
 
   // Auto-ship needs both the paid feature AND the org's decision-framework
   // toggle enabled — matches the back-end apply-time gate.
@@ -366,6 +371,18 @@ export default function EditScheduleModal({
     comparableSchedule(buildSchedule(form.watch(), end)),
     comparableSchedule(buildSchedule(defaultValues, initialEnd)),
   );
+  // The criteria judge the winner a ship-the-winner end ships.
+  const { data: criteriaData } = useApi<{
+    decisionCriteria: DecisionCriteriaData[];
+  }>("/decision-criteria", { shouldRun: () => decisionFrameworkAvailable });
+  const criteriaOptions = [
+    ...PRESET_DECISION_CRITERIAS,
+    ...(criteriaData?.decisionCriteria ?? []),
+  ];
+  const selectedCriteria =
+    criteriaOptions.find((c) => c.id === criteriaId) ?? decisionCriteria;
+  const criteriaChanged =
+    mode === "auto-ship" && criteriaId !== decisionCriteria.id;
 
   const modeHelpText = () => {
     switch (mode) {
@@ -388,26 +405,14 @@ export default function EditScheduleModal({
 
   return (
     <>
-      {decisionCriteriaModal &&
-        (canEditDecisionCriteria ? (
-          <DecisionCriteriaSelectorModal
-            initialCriteria={decisionCriteria}
-            experiment={experiment}
-            onSubmit={() => {
-              setDecisionCriteriaModal(false);
-              mutate();
-            }}
-            onClose={() => setDecisionCriteriaModal(false)}
-            canEdit={canEditDecisionCriteria}
-          />
-        ) : (
-          <DecisionCriteriaModal
-            decisionCriteria={decisionCriteria}
-            editable={false}
-            mutate={() => {}}
-            onClose={() => setDecisionCriteriaModal(false)}
-          />
-        ))}
+      {viewingRules ? (
+        <DecisionCriteriaModal
+          decisionCriteria={selectedCriteria}
+          editable={false}
+          mutate={() => {}}
+          onClose={() => setViewingRules(false)}
+        />
+      ) : null}
       <ModalStandard
         trackingEventModalType="edit-schedule-modal"
         trackingEventModalSource="eid"
@@ -418,7 +423,7 @@ export default function EditScheduleModal({
         cta={stageChanges ? "Confirm" : hasSchedule ? "Update" : "Done"}
         ctaColor="violet"
         ctaEnabled={
-          scheduleChanged &&
+          (scheduleChanged || criteriaChanged) &&
           !stopBeforeStart &&
           !startDateMissing &&
           !endDateMissing &&
@@ -456,14 +461,27 @@ export default function EditScheduleModal({
           ) : undefined
         }
         submit={validatedSubmit(form, async (data) => {
+          const statusUpdateSchedule = buildSchedule(data, end);
+          const decisionCriteriaId = criteriaChanged ? criteriaId : undefined;
           if (stageChanges) {
-            stageChanges(buildSchedule(data, end));
+            stageChanges({
+              ...(scheduleChanged ? { statusUpdateSchedule } : {}),
+              decisionCriteriaId,
+            });
             return;
           }
           await apiCall(`/experiment/${experiment.id}`, {
             method: "POST",
             body: JSON.stringify({
-              statusUpdateSchedule: buildSchedule(data, end),
+              statusUpdateSchedule,
+              ...(decisionCriteriaId
+                ? {
+                    decisionFrameworkSettings: {
+                      ...experiment.decisionFrameworkSettings,
+                      decisionCriteriaId,
+                    },
+                  }
+                : {}),
             }),
           });
           mutate();
@@ -708,37 +726,49 @@ export default function EditScheduleModal({
             </Box>
 
             {mode === "auto-ship" && (
-              // TODO: Replace with ui/Panel component when it's ready
-              <Box
-                my="4"
-                p="3"
-                style={{
-                  backgroundColor: "var(--slate-2)",
-                  borderRadius: "var(--radius-1)",
-                  borderColor: "var(--slate-a3)",
-                  borderWidth: "1px",
-                  borderStyle: "solid",
-                }}
-              >
-                <Flex align="center" justify="between" mb="1" gap="2">
-                  <Text size="sm" weight="semibold" color="text-high">
-                    Decision Criteria
+              <Box my="4">
+                <Flex align="center" justify="between" gap="3" mb="2">
+                  <Text color="text-high" weight="semibold">
+                    Decision criteria
                   </Text>
-                  <Link onClick={() => setDecisionCriteriaModal(true)}>
-                    <Flex align="center" gap="1" as="span">
-                      <Text size="sm" weight="semibold">
-                        {canEditDecisionCriteria ? "Edit" : "View"}
-                      </Text>
-                      <PiArrowSquareOut size={12} />
-                    </Flex>
-                  </Link>
+                  <Link onClick={() => setViewingRules(true)}>View rules</Link>
                 </Flex>
-                <Text as="div" size="sm" color="text-mid" mb="2">
-                  {decisionCriteria.name}
-                  {decisionCriteria.description
-                    ? `: ${decisionCriteria.description}`
-                    : ""}
-                </Text>
+                <SelectField
+                  value={criteriaId}
+                  onChange={setCriteriaId}
+                  options={criteriaOptions.map((c) => ({
+                    value: c.id,
+                    label: c.name,
+                  }))}
+                  // The menu describes each; the closed field names it.
+                  formatOptionLabel={({ value, label }, { context }) => {
+                    const description =
+                      context === "menu"
+                        ? criteriaOptions.find((c) => c.id === value)
+                            ?.description
+                        : null;
+                    return (
+                      <>
+                        {label}
+                        {description ? (
+                          <Text as="div" size="sm" color="text-mid">
+                            {description}
+                          </Text>
+                        ) : null}
+                      </>
+                    );
+                  }}
+                  sort={false}
+                  disabled={!canEditDecisionCriteria}
+                  containerStyle={{ marginBottom: 0 }}
+                />
+                {selectedCriteria.description ? (
+                  <Box mt="2">
+                    <Helpertext status="info" size="sm">
+                      {selectedCriteria.description}
+                    </Helpertext>
+                  </Box>
+                ) : null}
               </Box>
             )}
 

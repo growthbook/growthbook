@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { getScopedSettings } from "shared/settings";
 import {
   expandMetricGroups,
@@ -17,6 +17,7 @@ import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteri
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
+import VariationLabel from "@/ui/VariationLabel";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -102,10 +103,25 @@ export function useDecisionMakingSummary(
   });
 
   const plan = experiment.statusUpdateSchedule?.scheduledStopPlan;
-  const shippingVariationName = (id?: string) =>
-    experiment.variations.find((v) => v.id === id)?.name ?? "a variation";
-  let endSummary: string;
-  const endDetails: string[] = [];
+  // A phrase ending in the variation it ships, labelled as variations are.
+  const shipping = (phrase: string, id?: string) => {
+    const index = experiment.variations.findIndex((v) => v.id === id);
+    return index < 0 ? (
+      `${phrase} a variation`
+    ) : (
+      <Flex as="span" align="center" gap="1" minWidth="0">
+        <Box as="span" flexShrink="0">
+          {phrase}
+        </Box>
+        <VariationLabel
+          number={index}
+          name={experiment.variations[index].name || `Variation ${index}`}
+        />
+      </Flex>
+    );
+  };
+  let endSummary: ReactNode;
+  const endDetails: ReactNode[] = [];
   const tiebreakerName = () => {
     if (!plan?.tiebreakerMetricId) return null;
     return metricById(plan.tiebreakerMetricId)?.name ?? plan.tiebreakerMetricId;
@@ -116,11 +132,11 @@ export function useDecisionMakingSummary(
     if (tb) endDetails.push(`Tiebreaker: ${tb}`);
     endDetails.push(
       plan.fallback === "force-ship"
-        ? `No clear winner: ship ${shippingVariationName(plan.fallbackVariationId)}`
+        ? shipping("No clear winner: ship", plan.fallbackVariationId)
         : "No clear winner: keep running",
     );
   } else if (plan?.mode === "force-ship") {
-    endSummary = `Ship ${shippingVariationName(plan.fallbackVariationId)}`;
+    endSummary = shipping("Ship", plan.fallbackVariationId);
     const tb = tiebreakerName();
     if (tb) endDetails.push(`Verdict tiebreaker: ${tb}`);
   } else if (plan?.mode === "stop") {
