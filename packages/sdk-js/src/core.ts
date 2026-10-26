@@ -1552,22 +1552,55 @@ export function reducePayload(
   };
   mark([features, experiments, contextualBandits], true);
 
+  // The groups each group's contents mention, collected once, since a large
+  // list can be shared by many groups
+  const refs = new Map<string, Set<string>>();
+  const refsOf = (id: string) => {
+    let found = refs.get(id);
+    if (!found) {
+      const ids = new Set<string>();
+      const collect = (x: unknown) => {
+        if (typeof x === "string") {
+          if (hasOwn(savedGroups, x)) ids.add(x);
+        } else if (x && typeof x === "object")
+          Object.values(x).forEach(collect);
+      };
+      collect(savedGroups[id]);
+      found = ids;
+      refs.set(id, found);
+    }
+    return found;
+  };
+
   // A group on a cycle can't be reduced on its own: its result depends on
-  // which group the evaluation entered the cycle from
-  const reaches = (from: string, to: string, visited: Set<string>): boolean => {
-    const found: string[] = [];
-    const collect = (x: unknown) => {
-      if (typeof x === "string") {
-        if (hasOwn(savedGroups, x)) found.push(x);
-      } else if (x && typeof x === "object") Object.values(x).forEach(collect);
-    };
-    collect(savedGroups[from]);
-    return found.some((id) => {
-      if (id === to) return true;
-      if (visited.has(id)) return false;
-      visited.add(id);
-      return reaches(id, to, visited);
-    });
+  // which group the evaluation entered the cycle from. Tarjan's algorithm finds
+  // them in one pass over the references.
+  const onCycle = new Set<string>();
+  const order = new Map<string, number>();
+  const stack: string[] = [];
+  const onStack = new Set<string>();
+  const visit = (id: string): number => {
+    const own = order.size;
+    order.set(id, own);
+    stack.push(id);
+    onStack.add(id);
+    let low = own;
+    for (const next of refsOf(id)) {
+      if (next === id) onCycle.add(id);
+      if (!order.has(next)) low = Math.min(low, visit(next));
+      else if (onStack.has(next))
+        low = Math.min(low, order.get(next) as number);
+    }
+    if (low === own) {
+      const component = stack.splice(stack.indexOf(id));
+      component.forEach((g) => onStack.delete(g));
+      if (component.length > 1) component.forEach((g) => onCycle.add(g));
+    }
+    return low;
+  };
+  const isOnCycle = (id: string) => {
+    if (!order.has(id)) visit(id);
+    return onCycle.has(id);
   };
 
   // Keep each saved group whose id appears as a string anywhere, with condition
@@ -1577,7 +1610,7 @@ export function reducePayload(
     if (typeof x === "string") {
       if (!hasOwn(savedGroups, x) || groups.has(x)) return;
       const condition =
-        asWritten.has(x) || reaches(x, x, new Set())
+        asWritten.has(x) || isOnCycle(x)
           ? null
           : pruneSavedGroup(attributes, { id: x }, savedGroups);
       groups.set(

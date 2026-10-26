@@ -3,6 +3,7 @@ import {
   FeatureApiResponse,
   FeatureRule,
   LocalStorageStickyBucketService,
+  SavedGroupsPayload,
   UserContext,
 } from "../src";
 import { GrowthBookClient } from "../src/GrowthBookClient";
@@ -552,6 +553,66 @@ describe("GrowthBookClient", () => {
       expect(payload.contextualBandits).toEqual(contextualBandits);
 
       gb.destroy();
+    });
+
+    it("Reduces many condition groups that share a large list", () => {
+      // The list also names c0, so c0 and the list form a cycle and stay as written
+      const values = ["c0", ...Array.from({ length: 5000 }, (_, i) => `u${i}`)];
+      const savedGroups: SavedGroupsPayload = {
+        big: { type: "list", attributeKey: "id", values },
+        a: {
+          type: "condition",
+          condition: { $or: [{ $savedGroup: { id: "b" } }, { x: true }] },
+        },
+        b: {
+          type: "condition",
+          condition: { $not: { $savedGroup: { id: "a" } } },
+        },
+      };
+      const rules: FeatureRule[] = [
+        { condition: { $savedGroup: { id: "b" } }, force: "cycle" },
+      ];
+      for (let i = 0; i < 300; i++) {
+        savedGroups[`c${i}`] = {
+          type: "condition",
+          condition: { country: "US", $savedGroup: { id: "big" } },
+        };
+        rules.push({ condition: { $savedGroup: { id: `c${i}` } }, force: i });
+      }
+      const full = new GrowthBookClient().initSync({
+        payload: {
+          features: { f: { defaultValue: "off", rules } },
+          savedGroups,
+        },
+      });
+      const payload = full.reducePayload({
+        userContext: { attributes: { country: "US" } },
+      });
+
+      const reducedGroups = payload.savedGroups || {};
+      expect(reducedGroups.big).toEqual(savedGroups.big);
+      expect(reducedGroups.a).toEqual(savedGroups.a);
+      expect(reducedGroups.b).toEqual(savedGroups.b);
+      expect(reducedGroups.c0).toEqual(savedGroups.c0);
+      for (let i = 1; i < 300; i++) {
+        expect(reducedGroups[`c${i}`]).toEqual({
+          type: "condition",
+          condition: { $savedGroup: { id: "big" } },
+        });
+      }
+
+      const reduced = new GrowthBookClient().initSync({ payload });
+      for (const attributes of [
+        { country: "US", id: "u42", x: false },
+        { country: "US", id: "nobody", x: true },
+        { country: "US", id: "nobody", x: false },
+      ]) {
+        expect(reduced.evalFeature("f", { attributes }).value).toEqual(
+          full.evalFeature("f", { attributes }).value,
+        );
+      }
+      full.destroy();
+      reduced.destroy();
     });
   });
 });
