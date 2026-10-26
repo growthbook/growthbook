@@ -1,5 +1,9 @@
 import type { InterleavingInterface } from "../validators/interleaving";
-import { getValidation, validateJSONFeatureValue } from "./features";
+import {
+  entityTargetsProject,
+  getValidation,
+  validateJSONFeatureValue,
+} from "./features";
 
 // Key of the pseudo feature generated into SDK payloads for an interleaving.
 export function getInterleavingFeatureDefId(key: string): string {
@@ -18,6 +22,32 @@ export function interleavingInSDKPayload(il: {
   archived: boolean;
 }): boolean {
   return il.status === "running" && !il.archived;
+}
+
+export function interleavingInPayloadScope(
+  il: InterleavingInterface,
+  environment: string,
+  projects: string[],
+): boolean {
+  if (!interleavingInSDKPayload(il)) return false;
+  if (!il.environmentSettings[environment]?.enabled) return false;
+  return (
+    projects.length === 0 || projects.some((p) => entityTargetsProject(il, p))
+  );
+}
+
+export function interleavingPrerequisiteIds(
+  interleavings: InterleavingInterface[],
+  environment: string,
+  projects: string[],
+): string[] {
+  return [
+    ...new Set(
+      interleavings
+        .filter((il) => interleavingInPayloadScope(il, environment, projects))
+        .flatMap((il) => (il.prerequisites ?? []).map((p) => p.id)),
+    ),
+  ];
 }
 
 // `getValidation` turns an unparseable schema into "validation disabled", so an

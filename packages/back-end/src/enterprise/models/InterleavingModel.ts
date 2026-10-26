@@ -4,6 +4,7 @@ import {
   apiCreateInterleavingBody,
   apiUpdateInterleavingBody,
   ApiInterleavingInterface,
+  ApiInterleavingSnapshotInterface,
   getInterleavingResultsEndpoint,
   getInterleavingSnapshotEndpoint,
   INTERLEAVING_API_UPDATE_FIELDS,
@@ -19,6 +20,7 @@ import {
   assertUsableRankerSchema,
   generateVariationId,
   interleavingInSDKPayload,
+  interleavingTargetingServes,
   parseInterleavingRankerConfig,
 } from "shared/util";
 import { interleavingEnvsForChange } from "shared/permissions";
@@ -52,6 +54,8 @@ import {
 } from "back-end/src/enterprise/services/interleavingApi";
 import { runInterleavingSnapshot } from "back-end/src/enterprise/services/interleavingAnalysis";
 import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
+import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import { PAYLOAD_AFFECTING_INTERLEAVING_FIELDS } from "back-end/src/services/experimentPayloadFields";
 
 type ApiVariationInput = NonNullable<
   ReturnType<typeof apiUpdateInterleavingBody.parse>["variations"]
@@ -59,6 +63,16 @@ type ApiVariationInput = NonNullable<
 type ApiJSONSchemaInput = NonNullable<
   ReturnType<typeof apiUpdateInterleavingBody.parse>["jsonSchema"]
 >;
+
+function payloadAffectingChanges(
+  existing: InterleavingInterface,
+  changes?: Partial<InterleavingInterface>,
+): (keyof InterleavingInterface)[] {
+  if (!changes) return [];
+  return PAYLOAD_AFFECTING_INTERLEAVING_FIELDS.filter(
+    (field) => field in changes && !isEqual(changes[field], existing[field]),
+  );
+}
 
 function toJSONSchema(
   input: ApiJSONSchemaInput | null | undefined,
@@ -91,7 +105,6 @@ const BaseClass = MakeModelClass({
         organization: 1,
         key: 1,
       },
-      unique: true,
     },
     {
       fields: {
@@ -147,7 +160,9 @@ const BaseClass = MakeModelClass({
       defineCustomApiHandler({
         ...refreshInterleavingEndpoint,
         // Existence, plan, and query permissions are checked by the service
-        reqHandler: async (req) => ({
+        reqHandler: async (
+          req,
+        ): Promise<{ snapshot: ApiInterleavingSnapshotInterface }> => ({
           snapshot: toApiInterleavingSnapshot(
             await runInterleavingSnapshot(req.context, req.params.id),
           ),
@@ -155,7 +170,9 @@ const BaseClass = MakeModelClass({
       }),
       defineCustomApiHandler({
         ...getInterleavingResultsEndpoint,
-        reqHandler: async (req) => {
+        reqHandler: async (
+          req,
+        ): Promise<{ snapshot: ApiInterleavingSnapshotInterface | null }> => {
           const interleaving = await req.context.models.interleavings.getById(
             req.params.id,
           );
@@ -175,7 +192,9 @@ const BaseClass = MakeModelClass({
       }),
       defineCustomApiHandler({
         ...listInterleavingSnapshotsEndpoint,
-        reqHandler: async (req) => {
+        reqHandler: async (
+          req,
+        ): Promise<{ snapshots: ApiInterleavingSnapshotInterface[] }> => {
           const interleaving = await req.context.models.interleavings.getById(
             req.params.id,
           );
@@ -194,7 +213,9 @@ const BaseClass = MakeModelClass({
       }),
       defineCustomApiHandler({
         ...getInterleavingSnapshotEndpoint,
-        reqHandler: async (req) => {
+        reqHandler: async (
+          req,
+        ): Promise<{ snapshot: ApiInterleavingSnapshotInterface }> => {
           const snapshot =
             await req.context.models.interleavingSnapshots.getById(
               req.params.snapshotId,
@@ -336,12 +357,42 @@ export class InterleavingModel extends BaseClass {
     doc: InterleavingInterface,
     previousDoc?: InterleavingInterface,
   ): Promise<void> {
-    // The unique index is the backstop; this gives a readable error.
-    if (!previousDoc) {
-      const clash = await this._findOne({ key: doc.key });
-      if (clash && clash.id !== doc.id) {
+    const identityChanged =
+      doc.key !== previousDoc?.key ||
+      doc.trackingKey !== previousDoc?.trackingKey;
+    const servingChanged =
+      doc.status !== previousDoc?.status ||
+      doc.archived !== previousDoc?.archived ||
+      !isEqual(doc.environmentSettings, previousDoc?.environmentSettings);
+    if (identityChanged || servingChanged) {
+      const servingEnvs = (il: InterleavingInterface) =>
+        interleavingEnvsForChange({
+          existing: il,
+          environmentIds: this.context.environments,
+        });
+      const sharing = (
+        await (
+          this.context.scanContextOverride ??
+          getContextForAgendaJobByOrgObject(this.context.org)
+        ).models.interleavings.getAll()
+      ).filter((il) => il.id !== doc.id && il.key === doc.key);
+
+      if (interleavingInSDKPayload(doc)) {
+        const serving = new Set(servingEnvs(doc));
+        for (const other of sharing) {
+          if (!interleavingInSDKPayload(other)) continue;
+          const overlap = servingEnvs(other).filter((env) => serving.has(env));
+          if (overlap.length) {
+            throw new Error(
+              `Another interleaving experiment with the key "${doc.key}" is already running in ${overlap.join(", ")}. Stop it, or turn that environment off for one of them.`,
+            );
+          }
+        }
+      }
+
+      if (sharing.some((other) => other.trackingKey === doc.trackingKey)) {
         throw new Error(
-          `An interleaving experiment with the key "${doc.key}" already exists.`,
+          `Another interleaving experiment with the key "${doc.key}" already reports as "${doc.trackingKey}". Set a different tracking key so their exposures can be told apart.`,
         );
       }
     }
@@ -411,15 +462,26 @@ export class InterleavingModel extends BaseClass {
 
     // Targeting reaches the SDK payload as the pseudo flag's rule, so it gets
     // the feature-rule write checks (changed fields only), as CBs do.
+    // A stopped interleaving doesn't block deleting the saved groups and
+    // features its targeting names, so everything is re-checked on the way back
+    // to serving — a dangling reference silently flips a `none` match open.
+    const goingLive =
+      !!previousDoc &&
+      !interleavingTargetingServes(previousDoc) &&
+      interleavingTargetingServes(doc);
+    const referenceContext = goingLive
+      ? (this.context.scanContextOverride ??
+        getContextForAgendaJobByOrgObject(this.context.org))
+      : this.context;
     await validateChangedRuleReferences(
       [doc],
-      previousDoc ? [previousDoc] : [],
-      this.context,
+      previousDoc && !goingLive ? [previousDoc] : [],
+      referenceContext,
     );
     await assertValidExperimentPrerequisites(
-      this.context,
+      referenceContext,
       doc.prerequisites,
-      previousDoc?.prerequisites,
+      goingLive ? undefined : previousDoc?.prerequisites,
     );
     assertRegisteredAttributes(
       this.context,
@@ -439,9 +501,10 @@ export class InterleavingModel extends BaseClass {
 
   protected async afterUpdate(
     existing: InterleavingInterface,
-    _updates: UpdateProps<InterleavingInterface>,
+    updates: UpdateProps<InterleavingInterface>,
     newDoc: InterleavingInterface,
   ) {
+    if (!payloadAffectingChanges(existing, updates).length) return;
     this.refreshSDKPayload([existing, newDoc], "updated");
   }
 
@@ -489,15 +552,25 @@ export class InterleavingModel extends BaseClass {
     const envsChanged =
       updated?.environmentSettings !== undefined &&
       !isEqual(updated.environmentSettings, existing.environmentSettings);
+    // Editing a running interleaving's targeting, traffic or bucketing changes
+    // what SDKs serve right away, the same as starting it, so it answers to the
+    // same run permission. Drafts don't serve, so they stay on createAnalyses.
+    const servesNow =
+      interleavingInSDKPayload(existing) &&
+      payloadAffectingChanges(existing, updated).length > 0;
     const envs = interleavingEnvsForChange({
       existing,
       updated,
       environmentIds: this.context.environments,
     });
     if (
-      (statusChanged || envsChanged) &&
+      (statusChanged || envsChanged || servesNow) &&
       envs.length > 0 &&
-      !this.context.permissions.canRunInterleaving(existing, envs)
+      !this.context.permissions.canRunInterleavingUpdate(
+        existing,
+        updated ?? existing,
+        envs,
+      )
     ) {
       return false;
     }

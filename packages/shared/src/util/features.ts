@@ -2686,9 +2686,15 @@ function findMalformedOperatorValue(value: unknown): string | null {
   for (const [op, operand] of Object.entries(value)) {
     if (op === "$elemMatch") {
       if ((operand ?? null) === null) return "$elemMatch cannot be null";
-      const err = isOperatorObject(operand)
-        ? findMalformedOperatorValue(operand)
-        : findMalformedConditionOperator(operand);
+      // As in the SDK, $or, $and, $nor, or $savedGroup make it a condition on
+      // each item's fields rather than operators on each item
+      const err =
+        isOperatorObject(operand) &&
+        !Object.keys(operand).some((k) =>
+          ["$or", "$and", "$nor", "$savedGroup"].includes(k),
+        )
+          ? findMalformedOperatorValue(operand)
+          : findMalformedConditionOperator(operand);
       if (err) return err;
     } else if (op === "$not" || op === "$size") {
       const err = findMalformedOperatorValue(operand);

@@ -17,6 +17,12 @@ export const interleavingExposureQueryApiSpec = {
     updateBody: apiUpdateInterleavingExposureQueryBody,
   },
   includeDefaultCrud: true,
+  // Mirrors contextual-bandit-query: an auxiliary query config for an experiment type.
+  confirmation: {
+    create: ["experiment.create"],
+    update: ["experiment.other"],
+    delete: ["experiment.other"],
+  },
   crudValidatorOverrides: {
     list: apiListInterleavingExposureQueriesValidator,
   },

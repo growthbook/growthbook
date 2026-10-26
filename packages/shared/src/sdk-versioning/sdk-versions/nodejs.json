@@ -7,7 +7,8 @@
     },
     {
       "version": "1.8.1",
-      "prerelease": true
+      "prerelease": true,
+      "capabilities": ["contextualBanditsAuto"]
     },
     {
       "version": "1.8.0",

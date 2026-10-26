@@ -167,6 +167,74 @@ describe("interleaving lifecycle predicates", () => {
   });
 });
 
+describe("interleaving key", () => {
+  it.each(["featured-products-ranker", "search_v2", "a.b:c|d"])(
+    "accepts %j",
+    (key) => {
+      expect(interleavingValidator.safeParse({ ...baseDoc, key }).success).toBe(
+        true,
+      );
+    },
+  );
+
+  it.each(["", "has space", "slash/key", "emoji🙂"])("rejects %j", (key) => {
+    expect(interleavingValidator.safeParse({ ...baseDoc, key }).success).toBe(
+      false,
+    );
+  });
+
+  it("is required", () => {
+    const { key: _key, ...rest } = baseDoc;
+    expect(interleavingValidator.safeParse(rest).success).toBe(false);
+  });
+});
+
+describe("getInterleavingFeatureDefId", () => {
+  it("prefixes the key", () => {
+    expect(getInterleavingFeatureDefId("search")).toBe("$interleave:search");
+  });
+
+  it("cannot collide with a real feature key", () => {
+    // `$` is outside FEATURE_KEY_REGEX, so no customer feature can claim it.
+    expect(
+      interleavingValidator.safeParse({ ...baseDoc, key: "$interleave:x" })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe("interleaving lifecycle predicates", () => {
+  const cases: [string, boolean, boolean, boolean][] = [
+    // status, archived, inSDKPayload, targetingServes
+    ["draft", false, false, true],
+    ["running", false, true, true],
+    ["stopped", false, false, false],
+    ["draft", true, false, false],
+    ["running", true, false, false],
+    ["stopped", true, false, false],
+  ];
+
+  it.each(cases)(
+    "%s (archived: %s) -> payload %s, targeting %s",
+    (status, archived, inPayload, targeting) => {
+      expect(interleavingInSDKPayload({ status, archived })).toBe(inPayload);
+      expect(interleavingTargetingServes({ status, archived })).toBe(targeting);
+    },
+  );
+
+  it("keeps a draft out of the payload but still holding its references", () => {
+    const draft = { status: "draft", archived: false };
+    expect(interleavingInSDKPayload(draft)).toBe(false);
+    expect(interleavingTargetingServes(draft)).toBe(true);
+  });
+
+  it("drops a stopped interleaving from the payload entirely", () => {
+    const stopped = { status: "stopped", archived: false };
+    expect(interleavingInSDKPayload(stopped)).toBe(false);
+    expect(interleavingTargetingServes(stopped)).toBe(false);
+  });
+});
+
 describe("interleavingMetricConfigValidator", () => {
   const parse = (analyses: unknown) =>
     interleavingMetricConfigValidator.safeParse({ id: "fact__m", analyses })
