@@ -1,30 +1,17 @@
 import type { FeatureInterface } from "shared/types/feature";
+import type { RampAlertFilters } from "shared/validators";
 
-// Query-string filters an alert webhook uses to pick the ramps it acts on.
-// Each list matches any of its values; different filters must all match.
-export type RampAlertFilters = {
-  environment?: string[];
-  project?: string[];
-  tag?: string[];
-  feature?: string[];
-  customFields?: Record<string, string>;
-};
-
+// Each list matches any of its values; different filters must all match. An
+// empty list (`?tag=` or `customFields[team]=`) restricts nothing, so it doesn't
+// count toward the filter a rollback requires.
 export function hasRampAlertFilters(filters: RampAlertFilters): boolean {
   return (
     !!filters.environment?.length ||
     !!filters.project?.length ||
     !!filters.tag?.length ||
     !!filters.feature?.length ||
-    Object.keys(filters.customFields ?? {}).length > 0
+    Object.values(filters.customFields ?? {}).some((v) => v.length > 0)
   );
-}
-
-export function splitCsv(value: string): string[] {
-  return value
-    .split(",")
-    .map((v) => v.trim())
-    .filter(Boolean);
 }
 
 function anyOf(wanted: string[] | undefined, actual: string[]): boolean {
@@ -45,8 +32,8 @@ export function featureMatchesRampAlertFilters(
     anyOf(filters.feature, [feature.id]) &&
     anyOf(filters.project, feature.project ? [feature.project] : []) &&
     anyOf(filters.tag, feature.tags ?? []) &&
-    Object.entries(filters.customFields ?? {}).every(([key, csv]) =>
-      anyOf(splitCsv(csv), customFieldValues(feature.customFields?.[key])),
+    Object.entries(filters.customFields ?? {}).every(([key, values]) =>
+      anyOf(values, customFieldValues(feature.customFields?.[key])),
     )
   );
 }

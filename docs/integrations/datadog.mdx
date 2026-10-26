@@ -159,9 +159,9 @@ GrowthBook decides. Datadog data lands in your warehouse as a guardrail metric, 
 3. Feature rollouts query the warehouse on a schedule and run GrowthBook's stats engine.
 4. If significant regressions are detected, GrowthBook rolls back automatically.
 
-If Datadog's native log forwarding is not an option, a scheduled job can export per-user request and error counts through the spans aggregation API. This one (Node.js 18 or newer) reads `DD_API_KEY` and `DD_APP_KEY` from the environment and prints a CSV to load with your warehouse's bulk loader (`COPY INTO`, `bq load`, and so on):
+If Datadog's native log forwarding is not an option, a scheduled job can export per-user request and error counts through the spans aggregation API. This one (Node.js 18 or newer, saved as `.mjs` so its top-level `await` runs) reads `DD_API_KEY` and `DD_APP_KEY` from the environment and prints a CSV to load with your warehouse's bulk loader (`COPY INTO`, `bq load`, and so on):
 
-```javascript export-errors.js
+```javascript export-errors.mjs
 // Export per-user request and error counts from Datadog for the last 5 minutes, as CSV.
 // Run on a schedule and load the output into your warehouse (COPY INTO, bq load, etc).
 const DD_API = process.env.DD_API_HOST ?? "https://api.datadoghq.com";

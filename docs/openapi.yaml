@@ -66286,7 +66286,9 @@ components:
         propertyNames:
           type: string
         additionalProperties:
-          type: string
+          type: array
+          items:
+            type: string
       style: deepObject
       explode: true
     reason:

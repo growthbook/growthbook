@@ -1,7 +1,7 @@
+import { rampAlertQueryValidator } from "shared/validators";
 import {
   hasRampAlertFilters,
   rampMatchesAlertFilters,
-  splitCsv,
 } from "back-end/src/util/rampAlertFilters";
 
 const checkout = {
@@ -17,21 +17,48 @@ const ramp = (
   environments = ["production"],
 ) => ({ features, environments });
 
-describe("splitCsv", () => {
-  it("trims values and drops empty ones", () => {
-    expect(splitCsv(" checkout, ,payments,")).toEqual(["checkout", "payments"]);
+describe("rampAlertQueryValidator", () => {
+  it("splits comma-separated and repeated values, dropping blanks", () => {
+    expect(
+      rampAlertQueryValidator.parse({
+        tag: " checkout, ,payments,",
+        environment: ["production", "staging,dev"],
+        customFields: { team: "growth,core", owner: "" },
+      }),
+    ).toEqual({
+      tag: ["checkout", "payments"],
+      environment: ["production", "staging", "dev"],
+      customFields: { team: ["growth", "core"], owner: [] },
+    });
+  });
+
+  // A confirmed request replays the query saved after the first parse.
+  it("parses its own output the same way", () => {
+    const parsed = rampAlertQueryValidator.parse({
+      environment: "production",
+      customFields: { team: "growth" },
+      reason: "Datadog: checkout errors",
+    });
+    expect(rampAlertQueryValidator.parse(parsed)).toEqual(parsed);
+  });
+
+  it("refuses unknown parameters", () => {
+    expect(
+      rampAlertQueryValidator.safeParse({ tags: "checkout" }).success,
+    ).toBe(false);
   });
 });
 
 describe("hasRampAlertFilters", () => {
-  it("is false for no filters, empty lists and empty custom fields", () => {
+  it("is false for no filters, empty lists and blank custom fields", () => {
     expect(hasRampAlertFilters({})).toBe(false);
     expect(hasRampAlertFilters({ tag: [], customFields: {} })).toBe(false);
+    expect(hasRampAlertFilters({ customFields: { team: [] } })).toBe(false);
   });
 
   it("is true for any one filter", () => {
     expect(hasRampAlertFilters({ environment: ["production"] })).toBe(true);
-    expect(hasRampAlertFilters({ customFields: { team: "growth" } })).toBe(
+    expect(hasRampAlertFilters({ customFields: { team: ["growth"] } })).toBe(
       true,
     );
   });
@@ -99,14 +126,14 @@ describe("rampMatchesAlertFilters", () => {
   });
 
   it("matches custom fields by value, including multi-select and numbers", () => {
-    const matches = (customFields: Record<string, string>) =>
+    const matches = (customFields: Record<string, string[]>) =>
       rampMatchesAlertFilters(ramp([checkout]), { customFields });
 
-    expect(matches({ team: "growth" })).toBe(true);
-    expect(matches({ team: "core,growth" })).toBe(true);
-    expect(matches({ regions: "eu" })).toBe(true);
-    expect(matches({ tier: "1" })).toBe(true);
-    expect(matches({ team: "core" })).toBe(false);
-    expect(matches({ owner: "growth" })).toBe(false);
+    expect(matches({ team: ["growth"] })).toBe(true);
+    expect(matches({ team: ["core", "growth"] })).toBe(true);
+    expect(matches({ regions: ["eu"] })).toBe(true);
+    expect(matches({ tier: ["1"] })).toBe(true);
+    expect(matches({ team: ["core"] })).toBe(false);
+    expect(matches({ owner: ["growth"] })).toBe(false);
   });
 });

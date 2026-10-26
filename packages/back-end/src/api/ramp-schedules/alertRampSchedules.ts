@@ -3,9 +3,15 @@ import {
   PermissionError,
   rampControlFootprint,
   rampRuleEnvKey,
+  rampTargetRuleIds,
 } from "shared/util";
-import { componentSchema } from "shared/validators";
+import {
+  rampAlertBodyValidator,
+  rampAlertQueryValidator,
+  rampAlertResponseValidator,
+} from "shared/validators";
 import type {
+  RampAlertFilters,
   RampScheduleInterface,
   RampScheduleStatus,
 } from "shared/validators";
@@ -23,10 +29,8 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { ConflictError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import {
-  RampAlertFilters,
   hasRampAlertFilters,
   rampMatchesAlertFilters,
-  splitCsv,
 } from "back-end/src/util/rampAlertFilters";
 import type { ApiReqContext } from "back-end/types/api";
 
@@ -34,74 +38,16 @@ import type { ApiReqContext } from "back-end/types/api";
 // so the reason is cut rather than refused.
 const MAX_REASON_LENGTH = 500;
 
-const csvFilter = (description: string) =>
-  z
-    .string()
-    .transform(splitCsv)
-    .describe(description)
-    .meta({ type: "array", items: { type: "string" }, explode: false })
-    .optional();
-
-// Strict, so a misspelled filter is refused instead of matching every ramp.
-const alertQuerySchema = z
-  .object({
-    environment: csvFilter(
-      "Comma-separated environments. Matches ramps whose rules run in any of them.",
-    ),
-    project: csvFilter(
-      "Comma-separated Project ids. Matches ramps on Feature Flags in any of them.",
-    ),
-    tag: csvFilter(
-      "Comma-separated tags. Matches ramps on Feature Flags with any of them.",
-    ),
-    feature: csvFilter("Comma-separated Feature Flag ids."),
-    customFields: z
-      .record(z.string(), z.string())
-      .describe(
-        "Custom field values, as `customFields[<key>]=<value>`. Comma-separate several values for one key.",
-      )
-      .meta({ style: "deepObject", explode: true })
-      .optional(),
-    reason: z
-      .string()
-      .optional()
-      .describe(
-        "Used when the body has no `reason`, for tools whose payload can't be changed.",
-      ),
-  })
-  .strict();
-
-// Alerting tools post their own payloads, so unknown fields are allowed.
-const alertBodySchema = z
-  .object({
-    reason: z
-      .string()
-      .optional()
-      .describe(
-        "Recorded on each ramp, prefixed with `Alert: `. Use the alert title and link.",
-      ),
-  })
-  .loose()
-  .optional();
-
-const alertResponseSchema = z.object({
-  rampSchedules: z.array(
-    componentSchema(
-      "MatchedRampSchedule",
-      z.object({
-        id: z.string(),
-        featureId: z.string(),
-        result: z.enum(["applied", "skipped"]),
-        message: z.string().optional(),
-      }),
-    ),
-  ),
-});
-
-const rampFeatureIds = (schedule: RampScheduleInterface) => [
-  schedule.entityId,
-  ...schedule.targets.map((t) => t.entityId),
-];
+// Every rule each target can reach: its own and any its actions' patches name,
+// as `assertCanControlRampSchedule` resolves them.
+const rampRuleRefs = (schedule: RampScheduleInterface) =>
+  schedule.targets.flatMap((t) =>
+    rampTargetRuleIds(schedule, t).map((ruleId) => ({
+      featureId: t.entityId,
+      ruleId,
+      environment: t.environment ?? undefined,
+    })),
+  );
 
 async function filterRampSchedules(
   context: ApiReqContext,
@@ -110,10 +56,15 @@ async function filterRampSchedules(
 ): Promise<RampScheduleInterface[]> {
   if (!schedules.length) return [];
 
+  // Targets, not the anchor `entityId`, which outlives an ejected target.
   const features = new Map(
     (
       await getAllFeatures(context, {
-        ids: [...new Set(schedules.flatMap(rampFeatureIds))],
+        ids: [
+          ...new Set(
+            schedules.flatMap((s) => s.targets.map((t) => t.entityId)),
+          ),
+        ],
         includeArchived: true,
       })
     ).map((f) => [f.id, f]),
@@ -124,13 +75,7 @@ async function filterRampSchedules(
   const ruleEnvs = filters.environment?.length
     ? await getFeatureRuleEnvironmentsByIds(
         context,
-        schedules.flatMap((s) =>
-          s.targets.map((t) => ({
-            featureId: t.entityId,
-            ruleId: t.ruleId ?? undefined,
-            environment: t.environment ?? undefined,
-          })),
-        ),
+        schedules.flatMap(rampRuleRefs),
       )
     : null;
   const allEnvironments = getEnvironmentIdsFromOrg(context.org);
@@ -138,23 +83,28 @@ async function filterRampSchedules(
   return schedules.filter((schedule) =>
     rampMatchesAlertFilters(
       {
-        features: rampFeatureIds(schedule).flatMap(
-          (id) => features.get(id) ?? [],
+        features: schedule.targets.flatMap(
+          (t) => features.get(t.entityId) ?? [],
         ),
         environments: ruleEnvs
           ? rampControlFootprint({
               schedule,
               allEnvironments,
-              ruleEnvsForTarget: (t) =>
-                t.ruleId
-                  ? ruleEnvs.get(
-                      rampRuleEnvKey(
-                        t.entityId ?? schedule.entityId,
-                        t.ruleId,
-                        t.environment ?? undefined,
-                      ),
-                    )
-                  : undefined,
+              ruleEnvsForTarget: (t) => {
+                const reachable = rampTargetRuleIds(schedule, t).map((ruleId) =>
+                  ruleEnvs.get(
+                    rampRuleEnvKey(
+                      t.entityId ?? schedule.entityId,
+                      ruleId,
+                      t.environment ?? undefined,
+                    ),
+                  ),
+                );
+                if (!reachable.length) return undefined;
+                return reachable.some((r) => r === "all")
+                  ? "all"
+                  : reachable.flatMap((r) => (Array.isArray(r) ? r : []));
+              },
             })
           : [],
       },
@@ -168,7 +118,7 @@ async function applyAlertAction(
   action: "rollback" | "pause",
   filters: RampAlertFilters,
   cause: string | undefined,
-): Promise<z.infer<typeof alertResponseSchema>> {
+): Promise<z.infer<typeof rampAlertResponseValidator>> {
   const trimmed = cause?.trim();
   const reason = (trimmed ? `Alert: ${trimmed}` : "Alert").slice(
     0,
@@ -183,8 +133,9 @@ async function applyAlertAction(
     filters,
   );
 
-  const rampSchedules: z.infer<typeof alertResponseSchema>["rampSchedules"] =
-    [];
+  const rampSchedules: z.infer<
+    typeof rampAlertResponseValidator
+  >["rampSchedules"] = [];
   // One at a time: two ramps on the same Feature Flag both publish to it.
   for (const schedule of matched) {
     try {
@@ -220,9 +171,9 @@ async function applyAlertAction(
 }
 
 const alertEndpointSpec = {
-  bodySchema: alertBodySchema,
-  querySchema: alertQuerySchema,
-  responseSchema: alertResponseSchema,
+  bodySchema: rampAlertBodyValidator,
+  querySchema: rampAlertQueryValidator,
+  responseSchema: rampAlertResponseValidator,
   method: "post" as const,
   tags: ["ramp-schedules"],
 };

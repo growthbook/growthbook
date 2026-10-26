@@ -984,7 +984,14 @@ export class RampScheduleModel extends BaseClass {
   public async getByStatuses(
     statuses: RampScheduleStatus[],
   ): Promise<RampScheduleInterface[]> {
-    return this._find({ status: { $in: statuses } });
+    // Older docs still store `pending-approval`, which reads back as running.
+    return this._find({
+      status: {
+        $in: statuses.includes("running")
+          ? [...statuses, "pending-approval"]
+          : statuses,
+      },
+    });
   }
 
   // Schedules whose anchor a publish of `featureId` must reconcile with.
