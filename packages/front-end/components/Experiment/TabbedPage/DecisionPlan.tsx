@@ -224,7 +224,7 @@ export default function DecisionPlan({
                       ))}
                     </Box>
                   ) : (
-                    <Text color="text-mid">
+                    <Text color="text-high">
                       You choose what happens when you stop the experiment
                     </Text>
                   )}
