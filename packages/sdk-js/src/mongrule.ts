@@ -72,7 +72,7 @@ function evalConditionWithContext(
         r = not(evalConditionWithContext(obj, v as ConditionInterface, ctx));
         break;
       case "$savedGroup":
-        r = evalSavedGroup(obj, v, ctx);
+        r = evalSavedGroup(obj, v, ctx) as Result;
         break;
       default:
         r = evalConditionValue(v, getPath(obj, k), withPath(ctx, k));
@@ -82,6 +82,118 @@ function evalConditionWithContext(
     if (r === null) result = null;
   }
   return result;
+}
+
+// Partially evaluate a condition when only some attributes are known, e.g. on
+// a server. Attributes missing from `obj` are unknown. Returns a boolean once
+// the result can't depend on them, otherwise the condition minus every branch
+// that is already decided.
+export function pruneCondition(
+  obj: TestedObj,
+  condition: ConditionInterface,
+  savedGroups?: SavedGroupsPayload,
+): ConditionInterface | boolean {
+  return pruneWithContext(obj, condition, {
+    savedGroups: savedGroups || {},
+    visited: new Set(),
+  });
+}
+
+// Prune the saved group a reference points to. Returns its result once decided,
+// otherwise its condition minus every branch that is already decided.
+export function pruneSavedGroup(
+  obj: TestedObj,
+  reference: unknown,
+  savedGroups: SavedGroupsPayload,
+): Result | ConditionInterface {
+  return evalSavedGroup(
+    obj,
+    reference,
+    { savedGroups, visited: new Set() },
+    pruneWithContext,
+  );
+}
+
+function pruneWithContext(
+  obj: TestedObj,
+  condition: ConditionInterface,
+  ctx: EvalConditionContext,
+): ConditionInterface | boolean {
+  // One that throws, such as a malformed one, stays as written. Evaluating it
+  // fails as a whole, so no part of it can be decided.
+  try {
+    return pruneEntries(obj, condition, ctx);
+  } catch (e) {
+    return condition;
+  }
+}
+
+function pruneEntries(
+  obj: TestedObj,
+  condition: ConditionInterface,
+  ctx: EvalConditionContext,
+): ConditionInterface | boolean {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(condition)) {
+    let r: any;
+    switch (k) {
+      case "$or":
+      case "$nor":
+      case "$and":
+        r = pruneList(obj, v as ConditionInterface[], ctx, k !== "$and");
+        break;
+      case "$not":
+        r = pruneEntries(obj, v as ConditionInterface, ctx);
+        break;
+      case "$savedGroup":
+        r = evalSavedGroup(obj, v, ctx, pruneEntries);
+        // Keep an undecided reference as is rather than inlining the group
+        if (typeof r !== "boolean") r = null;
+        break;
+      default:
+        // null when the attribute is unknown, or the value uses an operator
+        // this SDK doesn't support, which the client's SDK may
+        r = isKnown(obj, k)
+          ? evalConditionValue(v, getPath(obj, k), ctx)
+          : null;
+    }
+    // $not and $nor pass when what they hold fails
+    if ((k === "$not" || k === "$nor") && typeof r === "boolean") r = !r;
+
+    // One failing entry fails the whole condition, and a passing one is dropped
+    if (r === false) return false;
+    // null is an undecided leaf, which stays as written
+    if (r === null) out[k] = v;
+    else if (r !== true) out[k] = r;
+  }
+  return Object.keys(out).length ? out : true;
+}
+
+// Prune an $or (or an $and) list. Returns the conditions still undecided, or
+// the list's result once there are none.
+function pruneList(
+  obj: TestedObj,
+  conditions: ConditionInterface[],
+  ctx: EvalConditionContext,
+  or: boolean,
+): ConditionInterface[] | boolean {
+  const out: ConditionInterface[] = [];
+  for (const condition of conditions) {
+    const r = pruneEntries(obj, condition, ctx);
+    // One passing condition decides an $or, and one failing condition an $and
+    if (or && r === true) return true;
+    if (!or && r === false) return false;
+    if (typeof r !== "boolean") out.push(r);
+  }
+  if (out.length) return out;
+  // Every condition failed an $or, or passed an $and. Like evalOr, an empty
+  // $or passes.
+  return or ? !conditions.length : true;
+}
+
+// A nested path is unknown, since the server may only have part of the object
+function isKnown(obj: TestedObj, path: string) {
+  return !path.includes(".") && hasOwn(obj, path);
 }
 
 function withPath(
@@ -104,7 +216,10 @@ function evalSavedGroup(
   obj: TestedObj,
   reference: unknown,
   ctx: EvalConditionContext,
-): Result {
+  // A pruning function, to return null or a condition while unknown attributes
+  // decide the result. Passed in so that builds that never prune leave it out.
+  prune?: typeof pruneEntries,
+): Result | ConditionInterface {
   if (!reference || typeof reference !== "object" || Array.isArray(reference))
     return false;
 
@@ -123,6 +238,7 @@ function evalSavedGroup(
     const key = attributeKey ?? entry.attributeKey;
     if (typeof key !== "string") return false;
     if (!Array.isArray(entry.values)) return false;
+    if (prune && !isKnown(obj, key)) return null;
     return checkIn(
       getPath(obj, key),
       entry.values,
@@ -136,7 +252,7 @@ function evalSavedGroup(
     // A condition group has no single attribute, so any override is ignored
     if (!entry.condition || typeof entry.condition !== "object") return false;
     // A copy, so sibling groups don't see each other's ids
-    return evalConditionWithContext(obj, entry.condition, {
+    return (prune || evalConditionWithContext)(obj, entry.condition, {
       ...ctx,
       visited: new Set(ctx.visited).add(id),
     });
@@ -285,7 +401,7 @@ function elemMatch(
   return result;
 }
 
-function isIn(
+export function isIn(
   actual: any,
   expected: Array<any>,
   insensitive: boolean = false,
