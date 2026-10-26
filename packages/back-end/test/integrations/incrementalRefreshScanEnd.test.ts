@@ -1,7 +1,10 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
-import { getIncrementalMetricScanEnd } from "back-end/src/services/experiments";
+import {
+  getIncrementalMetricScanEnd,
+  getSourceSnapshotDataEnd,
+} from "back-end/src/services/experiments";
 import { factTableFactory } from "../factories/FactTable.factory";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 
@@ -194,5 +197,38 @@ describe("incremental refresh metric source scan end", () => {
     const cte = factTableCte(sql);
     expect(cte).toMatch(/m\.timestamp\s*<=\s*'2024-01-15 00:00:00'/);
     expect(cte).not.toContain("00:05:00");
+  });
+});
+
+describe("getSourceSnapshotDataEnd", () => {
+  const dateCreated = new Date("2024-01-15T03:00:00Z");
+  const cutoff = new Date("2024-01-15T00:00:00Z");
+
+  it("is the cutoff of a source that ran on a running phase", () => {
+    expect(
+      getSourceSnapshotDataEnd(
+        {},
+        { dateCreated, settings: { endDate: cutoff } },
+      ),
+    ).toEqual(cutoff);
+  });
+
+  it("is the run time of a source that ran on an ended phase", () => {
+    const dateEnded = new Date("2024-01-10T00:00:00Z");
+    expect(
+      getSourceSnapshotDataEnd(
+        { dateEnded },
+        { dateCreated, settings: { endDate: new Date(dateEnded) } },
+      ),
+    ).toEqual(dateCreated);
+  });
+
+  it("is the cutoff when the phase ended after the source ran", () => {
+    expect(
+      getSourceSnapshotDataEnd(
+        { dateEnded: new Date("2024-01-16T00:00:00Z") },
+        { dateCreated, settings: { endDate: cutoff } },
+      ),
+    ).toEqual(cutoff);
   });
 });

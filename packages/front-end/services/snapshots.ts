@@ -78,13 +78,7 @@ export function getResultsFreshness({
   const ranAt = getValidDate(dateCreated);
 
   if (sourceSnapshot) {
-    return {
-      kind: "derived",
-      ranAt,
-      asOf: phaseEnded
-        ? sourceSnapshot.dateCreated
-        : sourceSnapshot.analysisEndDate,
-    };
+    return { kind: "derived", ranAt, asOf: sourceSnapshot.analysisEndDate };
   }
 
   if (analysisEndDate && !phaseEnded) {

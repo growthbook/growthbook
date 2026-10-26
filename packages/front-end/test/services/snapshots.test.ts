@@ -50,7 +50,6 @@ describe("getResultsFreshness", () => {
   });
 
   it("keeps a stopped phase on its run time", () => {
-    const sourceDateCreated = new Date("2026-10-19T08:00:00Z");
     expect(
       getResultsFreshness({
         dateCreated: ranAt,
@@ -58,17 +57,6 @@ describe("getResultsFreshness", () => {
         phaseEnded: true,
       }),
     ).toEqual({ kind: "updated", ranAt });
-    expect(
-      getResultsFreshness({
-        dateCreated: ranAt,
-        phaseEnded: true,
-        sourceSnapshot: {
-          id: "snp_overall",
-          dateCreated: sourceDateCreated,
-          analysisEndDate: new Date("2026-09-01T00:00:00Z"),
-        },
-      }),
-    ).toEqual({ kind: "derived", ranAt, asOf: sourceDateCreated });
   });
 
   it("parses string dates", () => {

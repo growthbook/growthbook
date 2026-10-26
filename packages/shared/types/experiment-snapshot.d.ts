@@ -233,6 +233,7 @@ export interface ExperimentSnapshotInterface {
   // is built on top of the overall results snapshot
   sourceSnapshotId?: string;
   sourceSnapshotDateCreated?: Date;
+  // Where the source's incremental metric scan stopped
   sourceSnapshotEndDate?: Date;
   runStarted: Date | null;
   status: "running" | "success" | "error";
