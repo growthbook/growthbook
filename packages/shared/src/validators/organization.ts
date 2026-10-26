@@ -219,6 +219,7 @@ export const dailyUsageValidator = z
     requests: z.number(),
     bandwidth: z.number(),
     managedClickhouseEvents: z.number(),
+    eventForwarderEvents: z.number().optional(),
   })
   .strict();
 

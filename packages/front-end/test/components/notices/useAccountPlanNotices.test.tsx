@@ -40,6 +40,26 @@ describe("useAccountPlanNotices", () => {
     });
   });
 
+  it("warns, with an upgrade, when Event Forwarder usage is approaching", () => {
+    vi.mocked(useUser).mockReturnValue({
+      // @ts-expect-error "partial test mock"
+      usage: {
+        cdn: { lastUpdated: new Date(), status: "under" },
+        eventForwarder: { lastUpdated: new Date(), status: "approaching" },
+      },
+      license: null,
+      seatsInUse: 0,
+    });
+    canManageBilling(true);
+
+    const [notice] = renderHook(() => useAccountPlanNotices()).result.current;
+    expect(notice).toMatchObject({
+      severity: "warning",
+      title: expect.stringContaining("Approaching Event Forwarder event limit"),
+      upgrade: { commercialFeature: "unlimited-event-forwarder-usage" },
+    });
+  });
+
   it("shows an error, with an upgrade, when AI traces usage is over", () => {
     vi.mocked(useUser).mockReturnValue({
       // @ts-expect-error "partial test mock"
