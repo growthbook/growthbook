@@ -5,7 +5,6 @@ export function useSDKConnectionRevision(
   sdkConnectionId: string | undefined,
   sdkConnectionMutate: () => void,
   connection?: SDKConnectionInterface,
-  { autoSelectDrafts = true }: { autoSelectDrafts?: boolean } = {},
 ) {
   return useEntityRevision({
     entityType: "sdk-connection",
@@ -14,6 +13,5 @@ export function useSDKConnectionRevision(
     entity: connection,
     // SDK connections have no owner.
     ownerId: "",
-    autoSelectDrafts,
   });
 }

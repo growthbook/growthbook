@@ -240,7 +240,6 @@ export default function SDKConnectionPage() {
     connection?.id,
     mutateLive,
     connection,
-    { autoSelectDrafts: hasApprovalsFeature },
   );
   const {
     selectedApprovalFlow: selectedRevision,
@@ -384,8 +383,7 @@ export default function SDKConnectionPage() {
     !connection.managedBy?.type;
   const isExternallyManaged = !!connection.managedBy?.type;
 
-  // Without the feature, render live even if `?v=` points at an open draft.
-  const showRevisionUI = hasApprovalsFeature && hasRevisions;
+  const showRevisionUI = hasRevisions;
 
   const displayedConn = showRevisionUI
     ? (displayedConnection ?? connection)
@@ -729,18 +727,14 @@ export default function SDKConnectionPage() {
           connection={displayedConn}
           close={closeEditSection}
           mutate={mutate}
-          {...(hasApprovalsFeature
-            ? {
-                onRevisionCreated,
-                openRevisions,
-                allRevisions,
-                selectedRevision,
-                onSelectRevision: selectFlow,
-                approvalRequired,
-                canAutoPublish,
-                metadataReviewRequired,
-              }
-            : {})}
+          onRevisionCreated={onRevisionCreated}
+          openRevisions={openRevisions}
+          allRevisions={allRevisions}
+          selectedRevision={selectedRevision}
+          onSelectRevision={selectFlow}
+          approvalRequired={approvalRequired}
+          canAutoPublish={canAutoPublish}
+          metadataReviewRequired={metadataReviewRequired}
         />
       )}
       {editSection !== null && editSection !== "overview" && (
@@ -749,18 +743,14 @@ export default function SDKConnectionPage() {
           close={closeEditSection}
           mutate={mutate}
           section={editSection}
-          {...(hasApprovalsFeature
-            ? {
-                onRevisionCreated,
-                openRevisions,
-                allRevisions,
-                selectedRevision,
-                onSelectRevision: selectFlow,
-                approvalRequired,
-                canAutoPublish,
-                metadataReviewRequired,
-              }
-            : {})}
+          onRevisionCreated={onRevisionCreated}
+          openRevisions={openRevisions}
+          allRevisions={allRevisions}
+          selectedRevision={selectedRevision}
+          onSelectRevision={selectFlow}
+          approvalRequired={approvalRequired}
+          canAutoPublish={canAutoPublish}
+          metadataReviewRequired={metadataReviewRequired}
         />
       )}
     </div>

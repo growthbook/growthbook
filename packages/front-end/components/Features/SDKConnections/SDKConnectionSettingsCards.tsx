@@ -3,14 +3,13 @@ import {
   getConnectionSDKCapabilities,
   savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
-import { ComponentProps, ReactNode } from "react";
+import { ReactNode } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { isCloud } from "@/services/env";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
-import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { shouldShowPayloadSecurity } from "@/components/Features/SDKConnections/sdkConnectionRules";
@@ -43,8 +42,34 @@ function Toggle({ on }: { on: boolean }) {
   );
 }
 
-function SettingRow(props: ComponentProps<typeof Metadata>) {
-  return <Metadata {...props} style={{ flexWrap: "wrap", ...props.style }} />;
+function SettingRow({
+  label,
+  value,
+  tooltip,
+}: {
+  label: string;
+  value: ReactNode;
+  tooltip?: string;
+}) {
+  return (
+    <Flex justify="between" align="start" gap="4">
+      <Flex align="center" gap="1">
+        <Text weight="medium" color="text-high">
+          {label}
+        </Text>
+        {tooltip ? <Tooltip body={tooltip} /> : null}
+      </Flex>
+      <Box flexShrink="0" style={{ whiteSpace: "nowrap" }}>
+        {typeof value === "string" ? (
+          <Text weight="regular" color="text-mid">
+            {value}
+          </Text>
+        ) : (
+          value
+        )}
+      </Box>
+    </Flex>
+  );
 }
 
 function SettingsCard({
@@ -121,13 +146,11 @@ export default function SDKConnectionSettingsCards({
             value={connection.remoteEvalEnabled ? "Remote Eval" : "Standard"}
           />
         )}
-        <Flex align="center" gap="1">
-          <SettingRow
-            label="Streaming updates"
-            value={<Toggle on={streamingEnabled} />}
-          />
-          <Tooltip body={STREAMING_TOOLTIP} />
-        </Flex>
+        <SettingRow
+          label="Streaming updates"
+          value={<Toggle on={streamingEnabled} />}
+          tooltip={STREAMING_TOOLTIP}
+        />
         {payloadSecurityAllowed && (
           <>
             <SettingRow
