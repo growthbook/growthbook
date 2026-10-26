@@ -54,7 +54,7 @@ describe("processExperimentFactMetricsQueryRows", () => {
       m1_quantile_upper: 2.5,
       m1_quantile_nstar: 400,
     });
-    // Key order is part of the contract: chunked storage unions keys in order.
+    // Pin key order too, so refactors cannot silently reorder the output.
     expect(Object.keys(result)).toEqual([
       "variation",
       "dimension",
