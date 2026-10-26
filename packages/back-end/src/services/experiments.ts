@@ -1022,6 +1022,9 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   return new Date(Date.now() + hours * 60 * 60 * 1000);
 }
 
+// "HH:MM" in UTC, capturing hours and minutes
+const ANALYSIS_END_TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
 export function getScheduledAnalysisEndDate(
   schedule: ExperimentUpdateSchedule | null,
   phaseStart: Date,
@@ -1039,9 +1042,7 @@ export function getScheduledAnalysisEndDate(
       break;
     }
     case "fixedTime": {
-      const match = schedule?.analysisEndTime?.match(
-        /^([01]\d|2[0-3]):([0-5]\d)$/,
-      );
+      const match = schedule?.analysisEndTime?.match(ANALYSIS_END_TIME_PATTERN);
       if (schedule?.type !== "cron" || !match) break;
       const cutoff = Date.UTC(
         now.getUTCFullYear(),
@@ -1061,6 +1062,33 @@ export function getScheduledAnalysisEndDate(
       mode satisfies never;
   }
   return endDate > phaseStart ? endDate : now;
+}
+
+/** Why an update schedule's analysis end date settings can't be saved, if they can't. */
+export function getAnalysisEndDateSettingsError(
+  schedule: ExperimentUpdateSchedule | null | undefined,
+): string | null {
+  const mode = schedule?.analysisEndDate;
+  if (mode === undefined || mode === "runTime") return null;
+  if (mode === "lag") {
+    const hours = schedule?.analysisEndLagHours;
+    return typeof hours === "number" &&
+      Number.isInteger(hours) &&
+      hours >= 1 &&
+      hours <= 168
+      ? null
+      : "Hours before the update runs must be a whole number between 1 and 168";
+  }
+  if (mode === "fixedTime") {
+    if (schedule?.type !== "cron") {
+      return "An exact time of day requires a cron update schedule";
+    }
+    return typeof schedule.analysisEndTime === "string" &&
+      ANALYSIS_END_TIME_PATTERN.test(schedule.analysisEndTime)
+      ? null
+      : "Time of day must be in HH:MM format (UTC)";
+  }
+  return `Unknown analysis end date: ${String(mode)}`;
 }
 
 /**

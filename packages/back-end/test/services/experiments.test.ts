@@ -24,6 +24,7 @@ import {
   createMetric,
   fillEmptyVariationKeys,
   getExperimentMetricById,
+  getAnalysisEndDateSettingsError,
   getScheduledAnalysisEndDate,
   normalizeStatusUpdateScheduleChanges,
   postExperimentApiPayloadToInterface,
@@ -2648,5 +2649,61 @@ describe("getScheduledAnalysisEndDate", () => {
         now,
       ),
     ).toEqual(now);
+  });
+});
+
+describe("getAnalysisEndDateSettingsError", () => {
+  const cron = { type: "cron" as const, cron: "0 3 * * *" };
+
+  it("accepts schedules that analyze through the run time", () => {
+    expect(getAnalysisEndDateSettingsError(null)).toBeNull();
+    expect(getAnalysisEndDateSettingsError({ type: "stale" })).toBeNull();
+    expect(
+      getAnalysisEndDateSettingsError({
+        type: "stale",
+        analysisEndDate: "runTime",
+        analysisEndLagHours: undefined,
+      }),
+    ).toBeNull();
+  });
+
+  it("requires a whole number of lag hours between 1 and 168", () => {
+    const lag = (analysisEndLagHours?: number) =>
+      getAnalysisEndDateSettingsError({
+        type: "stale",
+        analysisEndDate: "lag",
+        analysisEndLagHours,
+      });
+    expect(lag(1)).toBeNull();
+    expect(lag(168)).toBeNull();
+    for (const hours of [undefined, 0, -1, 1.5, 169, NaN]) {
+      expect(lag(hours)).toMatch(/between 1 and 168/);
+    }
+  });
+
+  it("requires a cron schedule and an HH:MM time for a fixed time", () => {
+    expect(
+      getAnalysisEndDateSettingsError({
+        ...cron,
+        analysisEndDate: "fixedTime",
+        analysisEndTime: "00:30",
+      }),
+    ).toBeNull();
+    expect(
+      getAnalysisEndDateSettingsError({
+        type: "stale",
+        analysisEndDate: "fixedTime",
+        analysisEndTime: "00:30",
+      }),
+    ).toMatch(/cron/);
+    for (const analysisEndTime of [undefined, "", "24:00", "3:30", "03:60"]) {
+      expect(
+        getAnalysisEndDateSettingsError({
+          ...cron,
+          analysisEndDate: "fixedTime",
+          analysisEndTime,
+        }),
+      ).toMatch(/HH:MM/);
+    }
   });
 });

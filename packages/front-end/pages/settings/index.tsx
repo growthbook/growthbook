@@ -136,7 +136,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
         hours: 6,
         cron: "0 */6 * * *",
         analysisEndDate: "runTime",
-        analysisEndLagHours: 0,
         analysisEndTime: "00:00",
       },
       runHealthTrafficQuery: false,

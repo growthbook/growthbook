@@ -430,7 +430,7 @@ export default function ExperimentSettings({
                               type="number"
                               style={{ width: "180px" }}
                               step={1}
-                              min={0}
+                              min={1}
                               max={168}
                               disabled={
                                 hasFileConfig() ||
