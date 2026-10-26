@@ -83,8 +83,10 @@ export function getExperimentUnitsQuery(
   const startDate: Date = unitsSettings.startDate;
   const endDate: Date = getExperimentEndDate(unitsSettings, 0);
 
-  const timestampColumn = `e.${getExposureQueryTimestampColumn(exposureQuery)}`;
-  const timestampDateTimeColumn = dialect.castUserDateCol(timestampColumn);
+  // __experimentExposures reads the mapped columns and aliases them to the
+  // standard names, so every CTE after it reads e.timestamp
+  const rawTimestampColumn = `e.${getExposureQueryTimestampColumn(exposureQuery)}`;
+  const timestampColumn = "e.timestamp";
   const overrideConversionWindows =
     unitsSettings.attributionModel === "experimentDuration" ||
     unitsSettings.attributionModel === "lookbackOverride";
@@ -166,7 +168,7 @@ export function getExperimentUnitsQuery(
         , ${dialect.castToString(
           `e.${getExposureQueryVariationIdColumn(exposureQuery)}`,
         )} as variation
-        , ${timestampDateTimeColumn} as timestamp
+        , ${dialect.castUserDateCol(rawTimestampColumn)} as timestamp
         ${contextualExposureSelectCols}
         ${experimentDimensions
           .map((d) => {
@@ -186,10 +188,10 @@ export function getExperimentUnitsQuery(
           e.${getExposureQueryExperimentIdColumn(
             exposureQuery,
           )} = '${unitsSettings.experimentId}'
-          AND ${timestampColumn} >= ${dialect.toTimestamp(startDate)}
+          AND ${rawTimestampColumn} >= ${dialect.toTimestamp(startDate)}
           ${
             endDate
-              ? `AND ${timestampColumn} <= ${dialect.toTimestamp(endDate)}`
+              ? `AND ${rawTimestampColumn} <= ${dialect.toTimestamp(endDate)}`
               : ""
           }
           ${
