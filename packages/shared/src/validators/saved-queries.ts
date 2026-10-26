@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { factTableColumnTypeValidator } from "./fact-table";
+import { namedSchema } from "./openapi-helpers";
+import { readOnlyEcho } from "./shared";
 
 const dateAggregationEnum = z.enum([
   "none",
@@ -280,4 +282,111 @@ export type SavedQueryUpdateProps = UpdateProps<SavedQuery>;
 export type DataVizConfig = z.infer<typeof dataVizConfigValidator>;
 export type QueryExecutionResult = z.infer<
   typeof queryExecutionResultValidator
+>;
+
+// Result rows are only returned by the refresh endpoint, to keep listings small.
+export const apiSavedQueryValidator = namedSchema(
+  "SavedQuery",
+  z
+    .object({
+      id: z.string(),
+      datasourceId: z.string(),
+      name: z.string(),
+      sql: z.string(),
+      dataVizConfig: z.array(dataVizConfigValidator),
+      linkedDashboardIds: z.array(z.string()),
+      dateLastRan: z.string().meta({ format: "date-time" }),
+      lastRun: z.object({
+        rowCount: z.number(),
+        error: z.string().nullable(),
+        duration: z.number().nullable(),
+      }),
+      dateCreated: z.iso.datetime(),
+      dateUpdated: z.iso.datetime(),
+    })
+    .strict(),
+);
+export type ApiSavedQuery = z.infer<typeof apiSavedQueryValidator>;
+
+const savedQueryFields = {
+  name: z.string().min(1),
+  sql: z.string().min(1),
+  dataVizConfig: z
+    .array(dataVizConfigValidator)
+    .optional()
+    .describe("Charts to draw from the results"),
+};
+
+const savedQueryIdParams = z.object({ id: z.string() }).strict();
+
+export const apiSavedQueryReturn = z
+  .object({ savedQuery: apiSavedQueryValidator })
+  .strict();
+export type ApiSavedQueryReturn = z.infer<typeof apiSavedQueryReturn>;
+
+export const apiListSavedQueriesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ datasourceId: z.string().optional() }).strict(),
+  paramsSchema: z.never(),
+};
+
+export const apiCreateSavedQueryBody = z
+  .object({
+    datasourceId: z.string(),
+    ...savedQueryFields,
+    runNow: z
+      .boolean()
+      .optional()
+      .describe(
+        "Run the query before saving it (default true). A query that fails is not saved.",
+      ),
+  })
+  .strict();
+export type ApiCreateSavedQueryBody = z.infer<typeof apiCreateSavedQueryBody>;
+
+export const apiCreateSavedQueryValidator = {
+  bodySchema: apiCreateSavedQueryBody,
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const apiUpdateSavedQueryBody = z
+  .object({
+    ...savedQueryFields,
+    // A GET response can be posted back with only the changes
+    id: readOnlyEcho,
+    datasourceId: readOnlyEcho,
+    linkedDashboardIds: readOnlyEcho,
+    dateLastRan: readOnlyEcho,
+    lastRun: readOnlyEcho,
+    dateCreated: readOnlyEcho,
+    dateUpdated: readOnlyEcho,
+  })
+  .partial()
+  .strict();
+export type ApiUpdateSavedQueryBody = z.infer<typeof apiUpdateSavedQueryBody>;
+
+export const apiUpdateSavedQueryValidator = {
+  bodySchema: apiUpdateSavedQueryBody,
+  querySchema: z.never(),
+  paramsSchema: savedQueryIdParams,
+};
+
+export const apiRefreshSavedQueryValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: savedQueryIdParams,
+};
+
+export const apiRefreshSavedQueryReturn = z
+  .object({
+    savedQuery: apiSavedQueryValidator,
+    results: z
+      .array(z.record(z.string(), z.unknown()))
+      .describe("Up to 1000 rows"),
+    error: z.string().nullable(),
+  })
+  .strict();
+export type ApiRefreshSavedQueryReturn = z.infer<
+  typeof apiRefreshSavedQueryReturn
 >;

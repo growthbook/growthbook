@@ -4,7 +4,7 @@ import type { apiBaseSchema } from "./validators/base-model";
 import type { ApiErrorCode } from "./validators/api-errors";
 import type { ConfirmAction } from "./validators/confirmations";
 import { capitalizeFirstCharacter } from "./util";
-import { HttpVerb, RequestSchemas } from "./api-spec";
+import { ExampleRequest, HttpVerb, RequestSchemas } from "./api-spec";
 
 export const crudActions = [
   "get",
@@ -92,6 +92,8 @@ export type OpenApiEndpointSpec = {
   confirmation?: readonly ConfirmAction[];
   /** The handler holds for confirmation itself, once it knows the change. */
   confirmationInHandler?: boolean;
+  /** Example request used for the docs' code samples. */
+  exampleRequest?: ExampleRequest;
 };
 
 /**
@@ -308,6 +310,7 @@ export type CustomEndpoint<E extends OpenApiEndpointSpec> = E["validator"] & {
   version?: "v1" | "v2";
   confirmation?: readonly ConfirmAction[];
   confirmationInHandler?: boolean;
+  exampleRequest?: ExampleRequest;
 };
 
 /** The endpoint the back-end mounts for one of a spec's custom endpoints. */
@@ -328,6 +331,7 @@ export function customEndpoint<E extends OpenApiEndpointSpec>(
     version: endpoint.version,
     confirmation: endpoint.confirmation,
     confirmationInHandler: endpoint.confirmationInHandler,
+    exampleRequest: endpoint.exampleRequest,
   };
 }
 

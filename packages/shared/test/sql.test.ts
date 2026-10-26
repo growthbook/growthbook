@@ -759,6 +759,29 @@ describe("assertSafeReadOnlySQL", () => {
     ).toThrow("DROP");
   });
 
+  it("allows the TRUNCATE and INSERT functions", () => {
+    expect(() =>
+      assertSafeReadOnlySQL(
+        "SELECT TRUNCATE(amount, 2), INSERT (name, 1, 2, 'x') FROM orders",
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects TRUNCATE and INSERT statements inside a CTE", () => {
+    expect(() =>
+      assertSafeReadOnlySQL("WITH x AS (TRUNCATE TABLE t) SELECT 1"),
+    ).toThrow("TRUNCATE");
+    expect(() =>
+      assertSafeReadOnlySQL(
+        "WITH x AS (INSERT INTO t VALUES (1) RETURNING 1) SELECT * FROM x",
+      ),
+    ).toThrow("INSERT");
+  });
+
+  it("rejects EXEC with parentheses", () => {
+    expect(() => assertSafeReadOnlySQL("SELECT 1 EXEC ('x')")).toThrow("EXEC");
+  });
+
   it("rejects CREATE", () => {
     expect(() =>
       assertSafeReadOnlySQL("SELECT 1 CREATE TABLE foo (id INT)"),

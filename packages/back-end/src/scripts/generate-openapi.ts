@@ -80,6 +80,7 @@ const openApiTags = [
   "api-keys",
   "event-webhooks",
   "audits",
+  "saved-queries",
   "code-references",
   "archetypes",
   "queries",
@@ -277,6 +278,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "Audit Logs",
     description:
       "Audit history of who changed what, and the event log that drives event webhooks. Requires permission to view audit logs.",
+  },
+  "saved-queries": {
+    display: "Saved Queries",
+    description:
+      "Saved SQL Explorer queries and their charts, which Dashboard SQL Explorer blocks display. Requires the saved SQL Explorer queries feature.",
   },
   meta: {
     display: "Meta",

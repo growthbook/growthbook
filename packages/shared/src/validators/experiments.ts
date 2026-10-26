@@ -1086,7 +1086,17 @@ export const apiExperimentResultsValidator = namedSchema(
           .array(z.object({ type: z.string(), id: z.string().optional() }))
           .optional(),
       }),
-      settings: apiExperimentAnalysisSettingsValidator,
+      settings: componentSchema(
+        "ExperimentResultsSettings",
+        apiExperimentAnalysisSettingsValidator.extend({
+          differenceType: z.enum(["relative", "absolute", "scaled"]).optional(),
+          baselineVariationIndex: z
+            .number()
+            .optional()
+            .describe("Index of the variation the others are compared to"),
+          baselineVariationId: z.string().optional(),
+        }),
+      ),
       queryIds: z.array(z.string()),
       results: z.array(
         z.object({
@@ -2627,4 +2637,59 @@ export const getExperimentSnapshotValidator = {
   tags: ["snapshots"],
   method: "get" as const,
   path: "/snapshots/:id",
+};
+
+const snapshotIdParams = z
+  .object({ id: z.string().describe("The snapshot id") })
+  .strict();
+
+export const postSnapshotCancelValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: snapshotIdParams,
+  responseSchema: z
+    .object({
+      outcome: z
+        .enum(["deleted", "concluded", "reconciled", "unchanged"])
+        .describe(
+          "`deleted` when nothing had finished; `concluded` keeps results from queries that did",
+        ),
+    })
+    .strict(),
+  summary: "Cancel a running snapshot",
+  description: "Also cancels its queries in the warehouse where supported.",
+  confirmation: ["other.write"] as const,
+  operationId: "postSnapshotCancel",
+  tags: ["snapshots"],
+  method: "post" as const,
+  path: "/snapshots/:id/cancel",
+};
+
+export const postSnapshotAnalysisValidator = {
+  bodySchema: z
+    .object({
+      differenceType: z.enum(["relative", "absolute", "scaled"]).optional(),
+      baselineVariationId: z
+        .string()
+        .optional()
+        .describe("Compare against this variation instead of the control"),
+      statsEngine: z.enum(["bayesian", "frequentist"]).optional(),
+    })
+    .strict()
+    .describe("Omitted fields use the snapshot's default analysis"),
+  querySchema: z.never(),
+  paramsSchema: snapshotIdParams,
+  responseSchema: z.object({ result: apiExperimentResultsValidator }).strict(),
+  summary: "Get a snapshot's results with other analysis settings",
+  description:
+    "Re-analyzes the stored query results without re-running any queries, and saves the analysis for next time. Returns 409 while the snapshot's queries or the same analysis are still running.",
+  confirmation: ["other.write"] as const,
+  operationId: "postSnapshotAnalysis",
+  tags: ["snapshots"],
+  method: "post" as const,
+  path: "/snapshots/:id/analysis",
+  exampleRequest: {
+    params: { id: "snp_abc123" },
+    body: { differenceType: "absolute" as const },
+  },
 };

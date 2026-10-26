@@ -3162,6 +3162,18 @@ export async function createSnapshotAnalysis(
   if (runningQueries.length > 0 || failedQueries.length >= totalQueries / 2) {
     throw new Error("Snapshot queries not available for analysis");
   }
+
+  // JIT migrate snapshots saved before coverage was stored on them
+  if (snapshot.settings.coverage === undefined) {
+    snapshot.settings.coverage = experiment.phases[snapshot.phase]?.coverage;
+    await updateSnapshot({
+      context,
+      id: snapshot.id,
+      updates: { settings: snapshot.settings },
+      conclusion: null,
+    });
+  }
+
   const analysis: ExperimentSnapshotAnalysis = {
     analysisKey: buildAnalysisKey(),
     results: [],
@@ -3176,22 +3188,27 @@ export async function createSnapshotAnalysis(
     analysis,
   });
 
-  // Format data correctly
-  const queryMap = await getQueryMapForAnalysis(context, snapshot, [
-    analysisSettings,
-  ]);
-
-  // Run the analysis
-  const { results } = await analyzeExperimentResults({
-    queryData: queryMap,
-    snapshotSettings: snapshot.settings,
-    analysisSettings: [analysisSettings],
-    variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
-    metricMap: metricMap,
-  });
-  analysis.results = results[0]?.dimensions || [];
-  analysis.status = "success";
-  analysis.error = undefined;
+  try {
+    const queryMap = await getQueryMapForAnalysis(context, snapshot, [
+      analysisSettings,
+    ]);
+    const { results } = await analyzeExperimentResults({
+      queryData: queryMap,
+      snapshotSettings: snapshot.settings,
+      analysisSettings: [analysisSettings],
+      variationNames: getLatestPhaseVariations(experiment).map((v) => v.name),
+      metricMap: metricMap,
+    });
+    analysis.results = results[0]?.dimensions || [];
+    analysis.status = "success";
+    analysis.error = undefined;
+  } catch (e) {
+    // Record the failure so the analysis isn't left "running"
+    analysis.status = "error";
+    analysis.error = e instanceof Error ? e.message : String(e);
+    await updateSnapshotAnalysis({ context, id: snapshot.id, analysis });
+    throw e;
+  }
 
   await updateSnapshotAnalysis({
     context,
@@ -3608,6 +3625,7 @@ export function toSnapshotApiInterface(
   snapshot: ExperimentSnapshotInterface,
   metricsById: Map<string, ExperimentMetricInterface>,
   exposureQueries: ExposureQuery[],
+  analysisSettings?: ExperimentSnapshotAnalysisSettings,
 ): ApiExperimentResults {
   const dimension = toApiDimension(snapshot.dimension);
 
@@ -3622,8 +3640,9 @@ export function toSnapshotApiInterface(
   const variationIds = phaseVariations.map((v) => v.id);
   const variationNames = phaseVariations.map((v) => v.name);
 
-  // Get the default analysis
-  const analysis = getSnapshotAnalysis(snapshot);
+  // The default analysis unless other settings were asked for
+  const analysis = getSnapshotAnalysis(snapshot, analysisSettings);
+  const baselineIndex = analysis?.settings.baselineVariationIndex ?? 0;
 
   // Get all metric IDs from the snapshot results
   const metricIds = new Set<string>();
@@ -3692,6 +3711,13 @@ export function toSnapshotApiInterface(
         : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
       statsEngine: analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+      ...(analysis
+        ? {
+            differenceType: analysis.settings.differenceType,
+            baselineVariationIndex: baselineIndex,
+            baselineVariationId: variationIds[baselineIndex],
+          }
+        : null),
       goals: experiment.goalMetrics.map((m) =>
         getExperimentMetric(experiment, m),
       ),

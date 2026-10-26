@@ -64,6 +64,7 @@ import {
 import {
   buildColumnTypeMaps,
   deriveUserIdTypesFromColumns,
+  turnsOffAggregatedFactTables,
   validateAggregatedFactTableSettings,
   validateColumnMappingTargets,
   validateNewUserIdColumnKeys,
@@ -79,11 +80,11 @@ import {
   buildAggregatedFactTableStatus,
   deriveAggregatedFactTableRunStatus,
   getAggregatedFactTableMetrics,
+  cancelRunningAggregatedFactTableRun,
   runAggregatedFactTableUpdate,
   toAggregatedTableRefreshTriggerResult,
 } from "back-end/src/services/aggregatedFactTables";
 import { buildAggregatedFactTableSchemaState } from "back-end/src/enterprise/services/data-pipeline";
-import { AggregatedFactTableQueryRunner } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 import {
   testFilterQuery,
   testRowFiltersQuery,
@@ -419,6 +420,11 @@ export const putFactTable = async (
       data.aggregatedFactTableSettings,
       effectiveUserIdTypes,
     );
+  } else if (
+    turnsOffAggregatedFactTables(factTable, data) &&
+    !context.permissions.canUpdateDataSourceSettings(datasource)
+  ) {
+    context.permissions.throwPermissionError();
   }
 
   // A mapping change forces a refresh above, so this sees the new column list;
@@ -728,65 +734,9 @@ export const cancelAggregatedFactTableRun = async (
     context.permissions.throwPermissionError();
   }
 
+  // Not limited to enabled id types: turning one off leaves its running refresh going
   const { idType } = req.params;
-  if (
-    !(factTable.aggregatedFactTableSettings?.idTypes ?? []).includes(idType)
-  ) {
-    throw new Error(
-      `id type '${idType}' is not enabled for shared daily aggregated tables on this fact table.`,
-    );
-  }
-
-  const aggregatedTableRuns =
-    await context.models.aggregatedFactTableRuns.getByFactTableAndIdType(
-      factTable.id,
-      idType,
-      { limit: 20, skip: 0 },
-    );
-
-  const run = aggregatedTableRuns.runs.find(
-    (r) => deriveAggregatedFactTableRunStatus(r.queries, r.error) === "running",
-  );
-  if (!run) {
-    res.status(200).json({ status: 200 });
-    return;
-  }
-
-  const datasource = await getDataSourceById(context, run.datasourceId);
-  if (!datasource) {
-    throw new Error("Could not find datasource for this run");
-  }
-
-  const integration = getSourceIntegrationObject(context, datasource, true);
-
-  const queryRunner = new AggregatedFactTableQueryRunner(
-    context,
-    run,
-    integration,
-    false,
-  );
-  await queryRunner.cancelQueries();
-
-  // cancelQueries blanks the error/queries (read as "queued"); restore them and
-  // record a terminal error so the run shows as failed with viewable queries.
-  await context.models.aggregatedFactTableRuns.updateRunFields(run.id, {
-    error: "Run cancelled by user",
-    finishedAt: new Date(),
-    queries: run.queries,
-  });
-
-  // cancelQueries can't release the registry lock without the run's executionId.
-  const key = {
-    datasourceId: run.datasourceId,
-    factTableId: run.factTableId,
-    idType: run.idType,
-  };
-  await context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(
-    key,
-    run.executionId,
-    { lastError: "Run cancelled by user", lastRunId: run.id },
-  );
-  await context.models.aggregatedFactTables.releaseLock(key, run.executionId);
+  await cancelRunningAggregatedFactTableRun(context, factTable, idType);
 
   res.status(200).json({ status: 200 });
 };
