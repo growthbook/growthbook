@@ -225,7 +225,7 @@ export default function DecisionPlan({
                     </Box>
                   ) : (
                     <Text color="text-mid">
-                      Decided when you stop the experiment
+                      You choose what happens when you stop the experiment
                     </Text>
                   )}
                   {scheduleEditable ? (
