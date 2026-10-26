@@ -126,27 +126,29 @@ export async function runProductAnalyticsExploration(
     context.permissions.throwPermissionError();
   }
 
-  const metricMap: Map<string, FactMetricInterface> = new Map();
-  const factTableMap: Map<string, FactTableInterface> = new Map();
+  let metricsWithPopulations: FactMetricInterface[] = [];
+  let metricsWithPopulationsFactTables: FactTableInterface[] = [];
   if (dataset.type === "metric") {
-    const metricsWithPopulations = dataset.values.filter((v) => v.population);
-    if (metricsWithPopulations.length) {
-      const metrics = await context.models.factMetrics.getByIds(
-        metricsWithPopulations.map((v) => v.metricId),
+    const metricsWithPopulationsValues = dataset.values.filter(
+      (v) => v.population,
+    );
+    if (metricsWithPopulationsValues.length) {
+      metricsWithPopulations = await context.models.factMetrics.getByIds(
+        metricsWithPopulationsValues.map((v) => v.metricId),
       );
-      const tables = await getFactTablesByIds(context, [
+      metricsWithPopulationsFactTables = await getFactTablesByIds(context, [
         ...new Set(
-          metrics.flatMap((m) =>
+          metricsWithPopulations.flatMap((m) =>
             m.numerator ? [m.numerator.factTableId] : [],
           ),
         ),
       ]);
-      metrics.forEach((m) => metricMap.set(m.id, m));
-      tables.forEach((t) => factTableMap.set(t.id, t));
-      for (const value of metricsWithPopulations) {
+      for (const value of metricsWithPopulationsValues) {
         const population = value.population;
-        const metric = metrics.find((m) => m.id === value.metricId);
-        const table = tables.find(
+        const metric = metricsWithPopulations.find(
+          (m) => m.id === value.metricId,
+        );
+        const table = metricsWithPopulationsFactTables.find(
           (t) => t.id === metric?.numerator?.factTableId,
         );
         if (!population || !metric || !table) {
@@ -156,7 +158,7 @@ export async function runProductAnalyticsExploration(
         }
         if (value.draftMetric)
           throw new BadRequestError(
-            "Population previews require a saved metric",
+            "Metrics with populations require a saved metric",
           );
         try {
           validatePopulationMetricCompatibility(
@@ -194,6 +196,8 @@ export async function runProductAnalyticsExploration(
   }
 
   // If no existing exploration, create a new one
+  const metricMap: Map<string, FactMetricInterface> = new Map();
+  const factTableMap: Map<string, FactTableInterface> = new Map();
 
   if (dataset.type === "fact_table") {
     if (!dataset.factTableId) {
@@ -224,12 +228,17 @@ export async function runProductAnalyticsExploration(
         "A draft preview must contain only fact__preview",
       );
     }
+    const metricsWithPopulationsMetricIds = new Set(
+      metricsWithPopulations.map((m) => m.id),
+    );
     const factMetrics = [
-      ...metricMap.values(),
+      ...metricsWithPopulations,
       ...(await context.models.factMetrics.getByIds(
         dataset.values
           .filter(
-            (value) => !value.draftMetric && !metricMap.has(value.metricId),
+            (value) =>
+              !value.draftMetric &&
+              !metricsWithPopulationsMetricIds.has(value.metricId),
           )
           .map((value) => value.metricId),
       )),
@@ -265,10 +274,18 @@ export async function runProductAnalyticsExploration(
         factTableIds.add(fm.denominator.factTableId);
       }
     });
-    const factTables = await getFactTablesByIds(
-      context,
-      Array.from(factTableIds).filter((id) => !factTableMap.has(id)),
+    const populationFactTableIds = new Set(
+      metricsWithPopulationsFactTables.map((t) => t.id),
     );
+    const factTables = [
+      ...metricsWithPopulationsFactTables,
+      ...(await getFactTablesByIds(
+        context,
+        Array.from(factTableIds).filter(
+          (id) => !populationFactTableIds.has(id),
+        ),
+      )),
+    ];
     factTables.forEach((ft) => factTableMap.set(ft.id, ft));
 
     for (const value of dataset.values) {
