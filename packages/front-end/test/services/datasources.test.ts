@@ -4,6 +4,7 @@ import {
 } from "shared/types/datasource";
 import { describe, expect, it } from "vitest";
 import {
+  followAssignmentAttribute,
   getDefaultIdentifierType,
   getIdentifierTypeForHashAttribute,
   isIdentifierUndeclared,
@@ -18,6 +19,7 @@ import {
   getInitialSettings,
   getNewExperimentDatasourceDefaults,
   getSelectableIdentifierTypes,
+  resolveAssignmentIdentifier,
   validateSQL,
 } from "@/services/datasources";
 
@@ -833,5 +835,105 @@ describe("getNewExperimentDatasourceDefaults", () => {
       exposureQueryId: "exq_same",
       exposureQueryIdentifierType: "anon_id",
     });
+  });
+});
+
+describe("assignment identifier binding", () => {
+  const users = makeExposureQuery({
+    id: "users",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+  });
+  const visitors = makeExposureQuery({
+    id: "visitors",
+    userIdType: "anonymous_id",
+    userIdTypes: ["anonymous_id"],
+  });
+  const both = makeExposureQuery({
+    id: "both",
+    userIdType: "user_id",
+    userIdTypes: ["user_id", "anonymous_id"],
+  });
+  const links = new Map([
+    ["id", ["user_id"]],
+    ["deviceId", ["anonymous_id"]],
+  ]);
+  const resolve = (
+    query: ExposureQuery,
+    hashAttribute: string,
+    identifierType?: string,
+    map = links,
+  ) =>
+    resolveAssignmentIdentifier({
+      query,
+      identifierType,
+      hashAttribute,
+      hashAttributeIdentifierTypeMap: map,
+    });
+
+  it("settles on what the table declares, then on what the attribute links", () => {
+    expect(resolve(visitors, "id")).toMatchObject({
+      identifierType: "anonymous_id",
+      choose: false,
+      conflict: true,
+      attribute: "deviceId",
+    });
+    expect(resolve(both, "deviceId", "anonymous_id")).toMatchObject({
+      identifierType: "anonymous_id",
+      choose: false,
+      conflict: false,
+    });
+    // Left unset, the analysis takes the table's first, so it isn't settled.
+    expect(resolve(both, "deviceId")).toMatchObject({
+      identifierType: "user_id",
+      choose: true,
+      conflict: true,
+    });
+    expect(resolve(both, "id", undefined, new Map())).toMatchObject({
+      identifierType: "user_id",
+      choose: true,
+      conflict: false,
+      attribute: null,
+    });
+    // Leads back to an attribute only when exactly one is linked.
+    expect(
+      resolve(
+        visitors,
+        "id",
+        undefined,
+        new Map([...links, ["anonId", ["anonymous_id"]]]),
+      ),
+    ).toMatchObject({ conflict: true, attribute: null });
+    expect(resolve(visitors, "unlinked")).toMatchObject({
+      conflict: false,
+      attribute: "deviceId",
+    });
+  });
+
+  it("follows the attribute to its identifier, keeping a table that fits", () => {
+    const follow = (
+      exposureQueryId: string,
+      hashAttribute: string,
+      identifierType = "",
+    ) =>
+      followAssignmentAttribute({
+        queries: [users, visitors, both],
+        hashAttribute,
+        hashAttributeIdentifierTypeMap: links,
+        exposureQueryId,
+        identifierType,
+      });
+    expect(follow("users", "deviceId")).toEqual({
+      exposureQueryId: "visitors",
+      identifierType: "anonymous_id",
+    });
+    expect(follow("both", "deviceId")).toEqual({
+      exposureQueryId: "both",
+      identifierType: "anonymous_id",
+    });
+    // Already explicit, or the table declares only that one.
+    expect(follow("both", "deviceId", "anonymous_id")).toBeNull();
+    expect(follow("users", "id")).toBeNull();
+    expect(follow("users", "unlinked")).toBeNull();
   });
 });

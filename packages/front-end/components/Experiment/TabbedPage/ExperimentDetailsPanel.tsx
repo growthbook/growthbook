@@ -43,7 +43,6 @@ export interface Props {
   holdout?: HoldoutInterfaceStringDates;
   stagedHoldoutId?: string | null;
   editSchedule?: (() => void) | null;
-  editDataSource?: (() => void) | null;
   mutate: () => void;
   disableEditing?: boolean;
   tab: DetailsPanelTab;
@@ -55,7 +54,6 @@ export default function ExperimentDetailsPanel({
   holdout,
   stagedHoldoutId = null,
   editSchedule = null,
-  editDataSource = null,
   mutate,
   disableEditing,
   tab,
@@ -81,13 +79,12 @@ export default function ExperimentDetailsPanel({
   const hasCustomFields =
     hasCommercialFeature("custom-metadata") && !!customFields?.length;
 
-  // A staged edit joins the page's unsaved ones, so they don't block it.
-  const pencil = (label: string, onClick: () => void, staged = false) =>
+  const pencil = (label: string, onClick: () => void) =>
     canEdit ? (
       <QuickEditButton
         label={label}
         onClick={onClick}
-        blockedReason={staged ? null : editsBlocked}
+        blockedReason={editsBlocked}
         labelTooltip={false}
       />
     ) : null;
@@ -95,11 +92,6 @@ export default function ExperimentDetailsPanel({
   const fieldAction = (field: QuickEditField) => {
     if (field === "schedule") {
       return editSchedule ? pencil("Edit schedule", editSchedule) : null;
-    }
-    if (field === "datasource") {
-      return editDataSource
-        ? pencil("Edit data source", editDataSource, true)
-        : null;
     }
     // The key only changes while nothing is serving it, or about to.
     if (

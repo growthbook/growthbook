@@ -4,6 +4,10 @@ import { Flex } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
 import { PiWarning, PiWarningFill } from "react-icons/pi";
 import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  getExposureQueryIdentifierTypes,
+  resolveAnalysisIdentifierType,
+} from "shared/util";
 import Text from "@/ui/Text";
 import SortedTags from "@/components/Tags/SortedTags";
 import { tagLinkProps } from "@/services/search";
@@ -31,8 +35,7 @@ export type QuickEditField =
   | "trackingKey"
   | "owner"
   | "tags"
-  | "schedule"
-  | "datasource";
+  | "schedule";
 
 // The quick-edit button for one field's row, where that field is editable.
 type FieldAction = ((field: QuickEditField) => ReactNode) | null;
@@ -64,28 +67,27 @@ export function ExperimentDataFields({
   });
   const { useStickyBucketing } = useOrgSettings();
   const { getDatasourceById } = useDefinitions();
-  // The Analysis Plan's staged change, until it's saved.
+  // The Analysis Plan's staged changes, until they're saved.
   const [datasourceId] = useStagedState(
     "analysis-plan:datasource",
     experiment.datasource || "",
+  );
+  const [exposureQueryId] = useStagedState(
+    "analysis-plan:exposureQueryId",
+    experiment.exposureQueryId || "",
+  );
+  const [identifierType] = useStagedState(
+    "analysis-plan:exposureQueryIdentifierType",
+    experiment.exposureQueryIdentifierType || "",
+  );
+  const datasource = getDatasourceById(datasourceId);
+  const exposureQuery = datasource?.settings?.queries?.exposure?.find(
+    (q) => q.id === exposureQueryId,
   );
   const isHoldout = experiment.type === "holdout";
 
   return (
     <Flex direction="column" gap="3">
-      <Metadata
-        size="sm"
-        stacked
-        label="Data Source"
-        action={fieldAction?.("datasource")}
-        value={
-          datasourceId ? (
-            getDatasourceById(datasourceId)?.name || <em>Restricted</em>
-          ) : (
-            <EmptyValue />
-          )
-        }
-      />
       {!isHoldout && (
         <Metadata
           size="sm"
@@ -95,6 +97,45 @@ export function ExperimentDataFields({
           value={experiment.trackingKey || <EmptyValue />}
         />
       )}
+      <Metadata
+        size="sm"
+        stacked
+        label="Data Source"
+        value={
+          datasourceId ? (
+            datasource?.name || <em>Restricted</em>
+          ) : (
+            <EmptyValue />
+          )
+        }
+      />
+      {datasourceId ? (
+        <Metadata
+          size="sm"
+          stacked
+          label="Assignment Query"
+          value={
+            !exposureQueryId ? (
+              <EmptyValue />
+            ) : (
+              (exposureQuery?.name ?? <em>Restricted</em>)
+            )
+          }
+        />
+      ) : null}
+      {/* A table with one identifier type implies it. */}
+      {exposureQuery &&
+      getExposureQueryIdentifierTypes(exposureQuery).length > 1 ? (
+        <Metadata
+          size="sm"
+          stacked
+          label="Identifier Type"
+          value={resolveAnalysisIdentifierType(
+            exposureQuery,
+            identifierType || undefined,
+          )}
+        />
+      ) : null}
       {holdoutId && (
         <Metadata
           size="sm"

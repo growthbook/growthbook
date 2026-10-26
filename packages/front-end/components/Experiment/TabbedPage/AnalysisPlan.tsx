@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiLockSimple } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
@@ -10,7 +17,7 @@ import {
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import {
-  getExposureQueryIdentifierTypes,
+  hasPendingScheduledStart,
   isProjectListValidForProject,
   resolveAnalysisIdentifierType,
 } from "shared/util";
@@ -24,7 +31,13 @@ import {
   getAutoDatasourceId,
   getAutoExposureQueryId,
 } from "@/components/Experiment/SimpleNewExperimentForm";
-import { getExposureQueriesForAttribute } from "@/services/datasources";
+import {
+  followAssignmentAttribute,
+  getExposureQueriesInScope,
+  getHashAttributeIdentifierTypeMap,
+  resolveAssignmentIdentifier,
+} from "@/services/datasources";
+import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import MetricOverridesModal from "@/components/Experiment/MetricOverridesModal";
 import AssignmentQueryFields, {
@@ -40,6 +53,8 @@ import { useExperimentFieldEdit, useStagedState } from "./ExperimentEdits";
 import SetupFieldRow from "./SetupFieldRow";
 import { useDecisionFrameworkApplies } from "./DecisionMakingSettings";
 import AnalysisPlanAdvanced from "./AnalysisPlanAdvanced";
+import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
+import type { TargetingDraft } from "./TrafficAllocationFunnel";
 
 type MetricField = "goalMetrics" | "secondaryMetrics" | "guardrailMetrics";
 type PlanField =
@@ -58,11 +73,14 @@ type AssignmentSelection = {
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   canEdit: boolean;
-  // Other parts of the page point at a field here: the checklist, and the
-  // details panel's data source. No field means the advanced settings.
+  // The start checklist points at a field here; no field means the advanced
+  // settings.
   settingsOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
   settingsFocus?: AnalysisFormFocus | null;
+  // Holds the assignment attribute until the page saves.
+  targetingDraft?: TargetingDraft;
+  canEditTargeting?: boolean;
 }
 
 export default function AnalysisPlan({
@@ -71,6 +89,8 @@ export default function AnalysisPlan({
   settingsOpen,
   setSettingsOpen,
   settingsFocus = null,
+  targetingDraft,
+  canEditTargeting = false,
 }: Props) {
   const {
     datasources,
@@ -83,6 +103,24 @@ export default function AnalysisPlan({
   const { organization } = useUser();
   const { defaultDataSource } = useOrgSettings();
   const { demoDataSourceId } = useDemoDataSourceProject();
+  const targetingDefaults = useTargetingDefaults(experiment);
+
+  const hashAttribute =
+    targetingDraft?.value?.hashAttribute ?? experiment.hashAttribute ?? "";
+  // Before it runs, the analysis and the assignment attribute follow each
+  // other; after, a new attribute would re-randomize.
+  const bound =
+    canEdit &&
+    experiment.status === "draft" &&
+    !hasPendingScheduledStart(experiment);
+  const stageHashAttribute =
+    bound && canEditTargeting && targetingDraft
+      ? (attribute: string) =>
+          targetingDraft.set((prev) => ({
+            ...(prev ?? targetingDefaults),
+            hashAttribute: attribute,
+          }))
+      : null;
 
   // Settings beyond the fields held in their own state below.
   const [advanced, setAdvanced] =
@@ -218,6 +256,19 @@ export default function AnalysisPlan({
     touch("exposureQueryId", "exposureQueryIdentifierType");
     setExposureQueryId(next.exposureQueryId);
     setIdentifierType(next.identifierType);
+    // A table or identifier picked by hand brings its assignment attribute.
+    const settings = getDatasourceById(next.datasource)?.settings;
+    const { attribute } = resolveAssignmentIdentifier({
+      query: settings?.queries?.exposure?.find(
+        (q) => q.id === next.exposureQueryId,
+      ),
+      identifierType: next.identifierType,
+      hashAttribute,
+      hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
+        settings?.userIdTypes,
+      ),
+    });
+    if (attribute) stageHashAttribute?.(attribute);
   };
   const current = {
     datasource,
@@ -239,9 +290,13 @@ export default function AnalysisPlan({
     ? [
         ...new Set([
           ...edited,
-          ...(["datasource", "exposureQueryId"] as const).filter(
-            (field) => !experiment[field] && !!current[field],
-          ),
+          ...(
+            [
+              "datasource",
+              "exposureQueryId",
+              "exposureQueryIdentifierType",
+            ] as const
+          ).filter((field) => !experiment[field] && !!current[field]),
         ]),
       ]
     : [];
@@ -255,13 +310,17 @@ export default function AnalysisPlan({
         setDatasource(experiment.datasource || suggestedDatasource);
       }
       // A query the page filled in where the experiment has none stays.
+      const keep = keepFilled && !experiment.exposureQueryId;
       if (!except.has("exposureQueryId")) {
         setExposureQueryId(
-          (prev) => experiment.exposureQueryId || (keepFilled ? prev : ""),
+          (prev) => experiment.exposureQueryId || (keep ? prev : ""),
         );
       }
       if (!except.has("exposureQueryIdentifierType")) {
-        setIdentifierType(experiment.exposureQueryIdentifierType || "");
+        setIdentifierType(
+          (prev) =>
+            experiment.exposureQueryIdentifierType || (keep ? prev : ""),
+        );
       }
       if (!except.has("goalMetrics")) {
         setGoalMetrics(experiment.goalMetrics || []);
@@ -330,54 +389,94 @@ export default function AnalysisPlan({
   const exposureQueries = selectedDatasource?.settings?.queries?.exposure ?? [];
   const exposureQuery = exposureQueries.find((q) => q.id === exposureQueryId);
 
-  const hashAttribute = experiment.hashAttribute || "";
-  const { matching, other, linked } = useMemo(
+  const hashAttributeIdentifierTypeMap = useMemo(
     () =>
-      getExposureQueriesForAttribute(
-        selectedDatasource?.settings,
-        hashAttribute,
+      getHashAttributeIdentifierTypeMap(
+        selectedDatasource?.settings?.userIdTypes,
       ),
-    [selectedDatasource?.settings, hashAttribute],
+    [selectedDatasource?.settings?.userIdTypes],
   );
-  const queryOption = (q: { id: string; name: string }) => ({
-    value: q.id,
-    label: q.name,
+  const resolution = resolveAssignmentIdentifier({
+    query: exposureQuery,
+    identifierType,
+    hashAttribute,
+    hashAttributeIdentifierTypeMap,
   });
-  const mismatched =
-    linked &&
-    !!exposureQueryId &&
-    !matching.some((q) => q.id === exposureQueryId);
-
-  // Before it runs, follow the assignment attribute to the one query it names,
-  // unless a deliberate choice still works.
-  const autoAppliedFor = useRef<string | null>(null);
+  const scopedQueries = useMemo(
+    () =>
+      selectedDatasource
+        ? getExposureQueriesInScope(selectedDatasource, experiment.project)
+        : [],
+    [selectedDatasource, experiment.project],
+  );
+  // The table and identifier the assignment attribute leads to.
+  const followed = useMemo(
+    () =>
+      followAssignmentAttribute({
+        queries: scopedQueries,
+        hashAttribute,
+        hashAttributeIdentifierTypeMap,
+        exposureQueryId,
+        identifierType,
+      }),
+    [
+      scopedQueries,
+      hashAttribute,
+      hashAttributeIdentifierTypeMap,
+      exposureQueryId,
+      identifierType,
+    ],
+  );
+  // Before it runs, an empty selection fills in, and a new assignment
+  // attribute brings its table and identifier. Otherwise a selection stays as
+  // chosen, flagged below if it conflicts.
+  const followedFor = useRef<{
+    datasource: string;
+    hashAttribute: string;
+  } | null>(null);
   useEffect(() => {
-    if (!canEdit || experiment.status !== "draft" || !selectedDatasource) {
+    if (!bound || !selectedDatasource) return;
+    const prev = followedFor.current;
+    if (
+      prev?.datasource === datasource &&
+      prev.hashAttribute === hashAttribute
+    ) {
       return;
     }
-    const key = `${datasource}:${hashAttribute}`;
-    if (autoAppliedFor.current === key) return;
-    autoAppliedFor.current = key;
-    if (exposureQueryId && !mismatched) return;
-    const suggestion = getAutoExposureQueryId({
-      datasource: selectedDatasource,
-      hashAttribute,
-    });
-    if (!suggestion || suggestion === exposureQueryId) return;
-    setExposureQueryId(suggestion);
+    followedFor.current = { datasource, hashAttribute };
+    const attributeChanged = !!prev && prev.hashAttribute !== hashAttribute;
+    if (exposureQueryId && !attributeChanged) return;
+    const next =
+      followed ??
+      (exposureQueryId
+        ? null
+        : {
+            exposureQueryId: getAutoExposureQueryId({
+              datasource: selectedDatasource,
+              hashAttribute,
+              project: experiment.project,
+            }),
+            identifierType: "",
+          });
+    if (!next?.exposureQueryId) return;
+    setExposureQueryId(next.exposureQueryId);
+    setIdentifierType(next.identifierType);
     // An empty field filling itself in is a default; replacing a saved query
     // is a change, and the save bar has to say so.
-    if (experiment.exposureQueryId) touch("exposureQueryId");
+    if (experiment.exposureQueryId) {
+      touch("exposureQueryId", "exposureQueryIdentifierType");
+    }
   }, [
-    canEdit,
+    bound,
     selectedDatasource,
     datasource,
     hashAttribute,
     exposureQueryId,
-    mismatched,
+    followed,
     experiment.exposureQueryId,
-    experiment.status,
+    experiment.project,
     setExposureQueryId,
+    setIdentifierType,
     touch,
   ]);
 
@@ -391,24 +490,30 @@ export default function AnalysisPlan({
     )
     .map((d) => ({ value: d.id, label: d.name }));
 
+  const [editingDatasource, setEditingDatasource] = useState(false);
+  const editDatasource =
+    canEdit && !hiddenDatasource ? () => setEditingDatasource(true) : null;
+
   // Pointed at from elsewhere: bring the field into view, or open the place
   // it's edited.
-  // A saved data source is edited in the modal, which stays open until closed.
-  const editingDatasource =
-    settingsOpen && settingsFocus === "datasource" && !!experiment.datasource;
   useEffect(() => {
-    if (!settingsOpen || editingDatasource) return;
+    if (!settingsOpen) return;
     setSettingsOpen(false);
     if (!settingsFocus) setAdvancedOpen(true);
-    const id = settingsFocus
-      ? `analysis-plan-${settingsFocus}`
-      : "analysis-plan-advanced";
+    const inModal =
+      settingsFocus === "datasource" || settingsFocus === "exposureQuery";
+    if (inModal && canEdit) setEditingDatasource(true);
+    const id = inModal
+      ? "analysis-plan-datasource"
+      : settingsFocus
+        ? `analysis-plan-${settingsFocus}`
+        : "analysis-plan-advanced";
     requestAnimationFrame(() => {
       const row = document.getElementById(id);
       row?.scrollIntoView({ behavior: "smooth", block: "center" });
       row?.querySelector("input")?.focus({ preventScroll: true });
     });
-  }, [settingsOpen, settingsFocus, setSettingsOpen, editingDatasource]);
+  }, [settingsOpen, settingsFocus, setSettingsOpen, canEdit]);
 
   const metricRow = (
     label: string,
@@ -488,9 +593,11 @@ export default function AnalysisPlan({
       {editingDatasource ? (
         <DataSourceModal
           experiment={experiment}
+          hashAttribute={hashAttribute}
+          stagesAttribute={!!stageHashAttribute}
           value={{ datasource, exposureQueryId, identifierType }}
           options={datasourceOptions}
-          close={() => setSettingsOpen(false)}
+          close={() => setEditingDatasource(false)}
           change={changeSelection}
         />
       ) : null}
@@ -500,110 +607,64 @@ export default function AnalysisPlan({
           Analysis Plan
         </Heading>
 
-        {/* Once saved, the data source changes from the details panel. */}
-        {!experiment.datasource ? (
-          <SetupFieldRow
-            id="analysis-plan-datasource"
-            label="Data Source"
-            tooltip="Where this experiment's exposures and metrics are queried."
-          >
-            <SelectField
-              value={datasource}
-              onChange={changeDatasource}
-              initialOption="None"
-              options={datasourceOptions}
-              placeholder="Select data source..."
-              forceUndefinedValueToNull
-              disabled={!canEdit}
-            />
-          </SetupFieldRow>
-        ) : null}
-
+        {/* The data source and what's analyzed in it change together, in a
+            modal; the assignment query reads back in the details panel. */}
         <SetupFieldRow
-          id="analysis-plan-exposureQuery"
-          label="Assignment Query"
-          tooltip="Defines who is in the experiment and how they are identified."
-          content={hiddenDatasource ? "text" : undefined}
+          id="analysis-plan-datasource"
+          label="Data Source"
+          content="text"
         >
-          {hiddenDatasource ? (
+          <Flex align="start" gap="2" className={revealsQuickEdit}>
             <Text color="text-high">
-              {exposureQueryId ? restricted : <em>None</em>}
+              {hiddenDatasource
+                ? restricted
+                : (selectedDatasource?.name ?? <em>None</em>)}
             </Text>
-          ) : (
-            <SelectField
-              value={exposureQueryId}
-              onChange={(value) => {
-                touch("exposureQueryId");
-                setExposureQueryId(value);
-                // An identifier the new query doesn't declare can't come along.
-                const query = exposureQueries.find((q) => q.id === value);
-                if (
-                  identifierType &&
-                  query &&
-                  !getExposureQueryIdentifierTypes(query).includes(
-                    identifierType,
-                  )
-                ) {
-                  touch("exposureQueryIdentifierType");
-                  setIdentifierType("");
-                }
-              }}
-              required
-              sort={false}
-              // Without this a discard leaves the old name in the closed
-              // control: react-select goes uncontrolled on an undefined value.
-              forceUndefinedValueToNull
-              placeholder="Select assignment query..."
-              options={
-                linked && matching.length > 0
-                  ? [
-                      {
-                        label: `Keyed to ${hashAttribute}`,
-                        options: matching.map(queryOption),
-                      },
-                      ...(other.length > 0
-                        ? [
-                            {
-                              label: "Other assignment queries",
-                              options: other.map(queryOption),
-                            },
-                          ]
-                        : []),
-                    ]
-                  : exposureQueries.map(queryOption)
-              }
-              formatOptionLabel={({ label, value }) => {
-                const userIdType = exposureQueries.find(
-                  (e) => e.id === value,
-                )?.userIdType;
-                return (
-                  <>
-                    {label}
-                    {userIdType ? (
-                      <span
-                        className="text-muted small float-right position-relative"
-                        style={{ top: 3 }}
-                      >
-                        Identifier Type: <code>{userIdType}</code>
-                      </span>
-                    ) : null}
-                  </>
-                );
-              }}
-              disabled={!canEdit || !selectedDatasource}
-            />
-          )}
-          {mismatched ? (
-            <HelperText status="warning" size="sm" mt="1">
-              This experiment buckets on <code>{hashAttribute}</code>, which is
-              not linked to this query&apos;s identifier type
-              {exposureQuery?.userIdType ? (
-                <>
-                  {" "}
-                  (<code>{exposureQuery.userIdType}</code>)
-                </>
+            {editDatasource ? (
+              <QuickEditButton
+                label="Edit data source"
+                onClick={editDatasource}
+                labelTooltip={false}
+              />
+            ) : null}
+          </Flex>
+          {resolution.conflict && resolution.identifierType ? (
+            <AttributeConflict
+              hashAttribute={hashAttribute}
+              identifierType={resolution.identifierType}
+            >
+              {canEdit && followed ? (
+                <Link
+                  onClick={() => changeSelection({ datasource, ...followed })}
+                >
+                  Analyze per {followed.identifierType}
+                </Link>
               ) : null}
-              .
+              {stageHashAttribute && resolution.attribute ? (
+                <Link
+                  onClick={() =>
+                    resolution.attribute &&
+                    stageHashAttribute(resolution.attribute)
+                  }
+                >
+                  Assign by {resolution.attribute}
+                </Link>
+              ) : null}
+              {editDatasource ? (
+                <Link onClick={editDatasource}>Choose another</Link>
+              ) : null}
+            </AttributeConflict>
+          ) : resolution.choose &&
+            resolution.identifierType !== identifierType ? (
+            // Left unset, the table's first identifier is the one analyzed.
+            <HelperText status="info" size="sm" mt="1">
+              <span>
+                The assignment query has several identifier types, and the
+                assignment attribute doesn&apos;t settle which.{" "}
+                {editDatasource ? (
+                  <Link onClick={editDatasource}>Choose one</Link>
+                ) : null}
+              </span>
             </HelperText>
           ) : null}
         </SetupFieldRow>
@@ -685,12 +746,17 @@ export default function AnalysisPlan({
 // in it.
 function DataSourceModal({
   experiment,
+  hashAttribute,
+  stagesAttribute,
   value,
   options,
   close,
   change,
 }: {
   experiment: ExperimentInterfaceStringDates;
+  hashAttribute: string;
+  // Confirming also stages the attribute the chosen identifier leads to.
+  stagesAttribute: boolean;
   value: AssignmentSelection;
   options: { value: string; label: string }[];
   close: () => void;
@@ -714,7 +780,7 @@ function DataSourceModal({
   const selection = useAssignmentQuerySelection({
     datasource: selected,
     project: experiment.project,
-    hashAttribute: experiment.hashAttribute,
+    hashAttribute,
     exposureQueryId,
     identifierType,
     setExposureQueryId,
@@ -722,6 +788,16 @@ function DataSourceModal({
     // A new source starts from its defaults; the saved one shows as it is.
     autoRepair: !sameSource,
     keepCurrentSelection: sameSource,
+  });
+  const resolution = resolveAssignmentIdentifier({
+    query: selected?.settings?.queries?.exposure?.find(
+      (q) => q.id === exposureQueryId,
+    ),
+    identifierType,
+    hashAttribute,
+    hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
+      selected?.settings?.userIdTypes,
+    ),
   });
   const changed =
     !sameSource ||
@@ -764,6 +840,40 @@ function DataSourceModal({
           progressive
         />
       ) : null}
+      {stagesAttribute && resolution.attribute ? (
+        <HelperText status="info" size="sm">
+          The assignment attribute changes to{" "}
+          <code>{resolution.attribute}</code> to match.
+        </HelperText>
+      ) : resolution.conflict && resolution.identifierType ? (
+        <AttributeConflict
+          hashAttribute={hashAttribute}
+          identifierType={resolution.identifierType}
+        />
+      ) : null}
     </ModalStandard>
+  );
+}
+
+function AttributeConflict({
+  hashAttribute,
+  identifierType,
+  children,
+}: {
+  hashAttribute: string;
+  identifierType: string;
+  // Ways out, where there are any.
+  children?: ReactNode;
+}) {
+  return (
+    <HelperText status="warning" size="sm" mt="1">
+      <span>
+        This experiment assigns by <code>{hashAttribute}</code> but is analyzed
+        per <code>{identifierType}</code>, which it isn&apos;t linked to.{" "}
+        <Flex as="span" gap="3" display="inline-flex">
+          {children}
+        </Flex>
+      </span>
+    </HelperText>
   );
 }

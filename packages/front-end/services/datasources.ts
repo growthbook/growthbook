@@ -1012,6 +1012,96 @@ export function getExposureQueriesForAttribute(
   };
 }
 
+// Which identifier a table is analyzed per: a choice it declares, else what
+// the analysis falls back to. It's settled when the assignment attribute is
+// linked to exactly that one of the table's identifiers.
+export function resolveAssignmentIdentifier({
+  query,
+  identifierType,
+  hashAttribute,
+  hashAttributeIdentifierTypeMap,
+}: {
+  query: ExposureQuery | undefined;
+  identifierType: string | undefined;
+  hashAttribute: string;
+  hashAttributeIdentifierTypeMap: Map<string, string[]>;
+}): {
+  identifierType: string | null;
+  // The table declares several and the attribute doesn't settle which.
+  choose: boolean;
+  // Analyzed per an identifier the assignment attribute isn't linked to.
+  conflict: boolean;
+  // The identifiers the assignment attribute is linked to.
+  attributeIdentifiers: string[];
+  // The one attribute the identifier is linked to, when the assignment
+  // attribute isn't: where following the analysis back would assign by.
+  attribute: string | null;
+} {
+  const declared = query ? getExposureQueryIdentifierTypes(query) : [];
+  const attributeIdentifiers =
+    hashAttributeIdentifierTypeMap.get(hashAttribute) ?? [];
+  const linked = declared.filter((t) => attributeIdentifiers.includes(t));
+  const resolved =
+    resolveAnalysisIdentifierType(
+      query,
+      identifierType && declared.includes(identifierType)
+        ? identifierType
+        : undefined,
+    ) || null;
+  const unlinked = !!resolved && !attributeIdentifiers.includes(resolved);
+  const attributes = unlinked
+    ? [...hashAttributeIdentifierTypeMap]
+        .filter(([, identifiers]) => identifiers.includes(resolved))
+        .map(([attribute]) => attribute)
+    : [];
+  return {
+    identifierType: resolved,
+    choose:
+      declared.length > 1 && !(linked.length === 1 && resolved === linked[0]),
+    conflict: unlinked && attributeIdentifiers.length > 0,
+    attributeIdentifiers,
+    attribute: attributes.length === 1 ? attributes[0] : null,
+  };
+}
+
+// Where an assignment attribute leads: its one linked identifier some table
+// declares, on the current table if that declares it too. Null when the
+// attribute doesn't settle one, or the selection already follows it.
+export function followAssignmentAttribute({
+  queries,
+  hashAttribute,
+  hashAttributeIdentifierTypeMap,
+  exposureQueryId,
+  identifierType,
+}: {
+  queries: ExposureQuery[];
+  hashAttribute: string;
+  hashAttributeIdentifierTypeMap: Map<string, string[]>;
+  exposureQueryId: string;
+  identifierType: string;
+}): { exposureQueryId: string; identifierType: string } | null {
+  const attributeIdentifiers = (
+    hashAttributeIdentifierTypeMap.get(hashAttribute) ?? []
+  ).filter((t) =>
+    queries.some((q) => getExposureQueryIdentifierTypes(q).includes(t)),
+  );
+  if (attributeIdentifiers.length !== 1) return null;
+  const [next] = attributeIdentifiers;
+  const current = queries.find((q) => q.id === exposureQueryId);
+  const resolved = resolveAssignmentIdentifier({
+    query: current,
+    identifierType,
+    hashAttribute,
+    hashAttributeIdentifierTypeMap,
+  });
+  if (current && resolved.identifierType === next) return null;
+  const query =
+    current && getExposureQueryIdentifierTypes(current).includes(next)
+      ? current
+      : queries.find((q) => getExposureQueryIdentifierTypes(q).includes(next));
+  return query ? { exposureQueryId: query.id, identifierType: next } : null;
+}
+
 export function getExposureQuery(
   settings?: DataSourceSettings,
   exposureQueryId?: string,

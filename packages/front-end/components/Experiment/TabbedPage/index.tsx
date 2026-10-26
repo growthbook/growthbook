@@ -656,10 +656,6 @@ function TabbedPageContents({
                 disableEditing={viewingOldPhase}
                 stagedHoldoutId={stagedHoldout}
                 editSchedule={editSchedule}
-                editDataSource={() => {
-                  setTabAndScroll("overview");
-                  showAnalysisSettings(true, "datasource");
-                }}
                 tab={detailsTab}
                 setTab={setDetailsTab}
               />

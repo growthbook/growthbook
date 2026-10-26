@@ -626,6 +626,8 @@ export default function Implementation({
             settingsOpen={analysisSettingsOpen}
             setSettingsOpen={setAnalysisSettingsOpen}
             settingsFocus={analysisSettingsFocus}
+            targetingDraft={targetingDraft}
+            canEditTargeting={!!editTargeting}
           />
         ) : (
           <AnalysisSettings
