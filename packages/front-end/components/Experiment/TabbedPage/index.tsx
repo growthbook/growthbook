@@ -701,7 +701,7 @@ function TabbedPageContents({
               {viewingOldPhase &&
                 ((!isBandit && tab === "results") ||
                   (isBandit && tab === "explore")) && (
-                  <Callout status="info">
+                  <Callout status="info" mt="3">
                     {isHoldout
                       ? "You are viewing the results of the entire holdout period."
                       : "You are viewing the results of a previous experiment phase."}

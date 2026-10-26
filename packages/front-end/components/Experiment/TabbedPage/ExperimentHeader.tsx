@@ -134,15 +134,17 @@ const DisabledHealthTabTooltip = ({
   reason,
   children,
 }: {
-  reason: "UNSUPPORTED_DATASOURCE" | "DIMENSION_SELECTED";
+  reason: "NO_DATASOURCE" | "UNSUPPORTED_DATASOURCE" | "DIMENSION_SELECTED";
   children: ReactNode;
 }) => {
   return (
     <Tooltip
       body={
-        reason === "UNSUPPORTED_DATASOURCE"
-          ? "Experiment Health is not available for Mixpanel or (legacy) Google Analytics data sources"
-          : "Set the Dimension to None to see Experiment Health"
+        reason === "NO_DATASOURCE"
+          ? "Choose a Data Source to see Experiment Health"
+          : reason === "UNSUPPORTED_DATASOURCE"
+            ? "Experiment Health is not available for Mixpanel or (legacy) Google Analytics data sources"
+            : "Set the Dimension to None to see Experiment Health"
       }
     >
       {children}
@@ -1366,7 +1368,13 @@ export default function ExperimentHeader({
                         <TabsTrigger value="dashboards">Dashboard</TabsTrigger>
                       )}
                       {disableHealthTab ? (
-                        <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
+                        <DisabledHealthTabTooltip
+                          reason={
+                            dataSource
+                              ? "UNSUPPORTED_DATASOURCE"
+                              : "NO_DATASOURCE"
+                          }
+                        >
                           <TabsTrigger disabled value="health">
                             Health
                           </TabsTrigger>
