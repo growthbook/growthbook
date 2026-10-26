@@ -192,7 +192,7 @@ export default function ExperimentationHealthPage() {
       )}
 
       <Heading as="h1" size="xl" mb="1">
-        Experimentation Health
+        Experiment Quality
       </Heading>
       <Text size="md" color="text-mid">
         Define what a quality experiment looks like.
