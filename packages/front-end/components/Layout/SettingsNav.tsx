@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import clsx from "clsx";
-import { PiMagnifyingGlass } from "react-icons/pi";
+import { PiMagnifyingGlass, PiX } from "react-icons/pi";
+import { IconButton } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import Badge from "@/ui/Badge";
@@ -119,7 +120,21 @@ export default function SettingsNav() {
               <span>{shortcutHint}</span>
               <span>/</span>
             </kbd>
-          ) : undefined
+          ) : (
+            <IconButton
+              type="button"
+              variant="ghost"
+              color="gray"
+              size="1"
+              aria-label="Clear search"
+              onClick={() => {
+                setQuery("");
+                searchRef.current?.focus();
+              }}
+            >
+              <PiX />
+            </IconButton>
+          )
         }
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
