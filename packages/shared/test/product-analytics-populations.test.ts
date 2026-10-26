@@ -171,7 +171,8 @@ function execute(
 describe("population-backed proportions", () => {
   it("counts eligible units once, includes non-converters, and excludes outsiders and null identifiers", () => {
     const rows = execute();
-    expect(rows.map((r) => r.values?.[0])).toEqual([
+    const dailyPopulationResults = rows.map((row) => row.values?.[0]);
+    expect(dailyPopulationResults).toEqual([
       {
         metricId: metric.id,
         numerator: 1,
@@ -194,7 +195,11 @@ describe("population-backed proportions", () => {
   });
   it("evaluates membership across the selected range for an overall total", () => {
     const rows = execute({ ...config, dimensions: [], chartType: "bigNumber" });
-    expect(rows[0].values?.[0]).toMatchObject({ numerator: 1, denominator: 2 });
+    const overallPopulationResult = rows[0].values?.[0];
+    expect(overallPopulationResult).toMatchObject({
+      numerator: 1,
+      denominator: 2,
+    });
   });
   it("keeps ordinary and population-backed series independent", () => {
     const c: MetricExplorationConfig = {
@@ -208,13 +213,108 @@ describe("population-backed proportions", () => {
       },
     };
     const rows = execute(c);
-    expect(rows[0].values?.[0]).toMatchObject({ numerator: 1, denominator: 2 });
+    const septemberFirstPopulationResult = rows[0].values?.[0];
+    const septemberFirstOrdinaryResult = rows[0].values?.[1];
+    expect(septemberFirstPopulationResult).toMatchObject({
+      numerator: 1,
+      denominator: 2,
+    });
     // The existing no-population SQL includes the null-identifier group; do not change it here.
-    expect(rows[0].values?.[1]).toEqual({
+    expect(septemberFirstOrdinaryResult).toEqual({
       metricId: metric.id,
       numerator: 4,
       denominator: 4,
     });
+  });
+  describe.each([
+    {
+      name: "proportion",
+      ordinaryMetric: { ...metric, id: "ordinary" },
+    },
+    {
+      name: "sum-based mean",
+      ordinaryMetric: {
+        ...metric,
+        id: "ordinary",
+        metricType: "mean",
+        numerator: {
+          ...metric.numerator!,
+          column: "revenue",
+          aggregation: "sum",
+        },
+      },
+    },
+    {
+      name: "distinct-count mean",
+      ordinaryMetric: {
+        ...metric,
+        id: "ordinary",
+        metricType: "mean",
+        numerator: {
+          ...metric.numerator!,
+          column: "revenue",
+          aggregation: "count distinct",
+        },
+      },
+    },
+    {
+      name: "ratio",
+      ordinaryMetric: {
+        ...metric,
+        id: "ordinary",
+        metricType: "ratio",
+        numerator: {
+          ...metric.numerator!,
+          column: "revenue",
+          aggregation: "sum",
+        },
+        denominator: {
+          ...metric.numerator!,
+          column: "$$count",
+          aggregation: "sum",
+        },
+      },
+    },
+  ])("ordinary $name independence", ({ ordinaryMetric }) => {
+    it.each(["daily", "overall"])(
+      "preserves the complete %s result when a population-backed series is added",
+      (grouping) => {
+        const ordinary = ordinaryMetric as FactMetricInterface;
+        const value = {
+          ...config.dataset.values[0],
+          metricId: ordinary.id,
+          population: null,
+          denominatorUnit: ordinary.metricType === "ratio" ? "user_id" : null,
+        };
+        const standalone: MetricExplorationConfig = {
+          ...config,
+          dimensions: grouping === "daily" ? config.dimensions : [],
+          chartType: grouping === "daily" ? "line" : "bigNumber",
+          dataset: { type: "metric", values: [value] },
+        };
+        const combined: MetricExplorationConfig = {
+          ...standalone,
+          dataset: {
+            type: "metric",
+            values: [config.dataset.values[0], value],
+          },
+        };
+        const alone = execute(standalone, population, ordinary);
+        const together = execute(combined, population, metric, [ordinary]);
+        expect(alone).toHaveLength(grouping === "daily" ? 3 : 1);
+        const ordinaryResultsAlongsidePopulation = together.map((row) => ({
+          dimensions: row.dimensions,
+          value: row.values?.[1],
+        }));
+        const ordinaryResultsAlone = alone.map((row) => ({
+          dimensions: row.dimensions,
+          value: row.values?.[0],
+        }));
+        expect(ordinaryResultsAlongsidePopulation).toEqual(
+          ordinaryResultsAlone,
+        );
+      },
+    );
   });
   it("does not add population-only users to a neighboring distinct-count mean", () => {
     const other: FactMetricInterface = {
@@ -241,21 +341,29 @@ describe("population-backed proportions", () => {
         ],
       },
     };
-    expect(
-      execute(c, population, metric, [other])[0].values?.[1],
-    ).toMatchObject({ numerator: 4, denominator: 4 });
+    const rows = execute(c, population, metric, [other]);
+    const septemberFirstDistinctCountResult = rows[0].values?.[1];
+    expect(septemberFirstDistinctCountResult).toMatchObject({
+      numerator: 4,
+      denominator: 4,
+    });
   });
   it("does not qualify metric-only rows for population conditions accepting zero", () => {
     const p = structuredClone(population);
     p.aggregateFilter = "<=0";
     const rows = execute(config, p);
-    expect(rows[2].values?.[0]).toMatchObject({ numerator: 0, denominator: 1 });
+    const septemberThirdPopulationResult = rows[2].values?.[0];
+    expect(septemberThirdPopulationResult).toMatchObject({
+      numerator: 0,
+      denominator: 1,
+    });
   });
   it("supports population row filters without an aggregate condition", () => {
     const p = structuredClone(population);
     delete p.aggregateFilter;
     delete p.aggregateFilterColumn;
-    expect(execute(config, p)[0].values?.[0]).toMatchObject({
+    const septemberFirstPopulationResult = execute(config, p)[0].values?.[0];
+    expect(septemberFirstPopulationResult).toMatchObject({
       numerator: 2,
       denominator: 3,
     });
@@ -264,7 +372,8 @@ describe("population-backed proportions", () => {
     const p = structuredClone(population);
     p.aggregateFilter = ">=2";
     p.aggregateFilterColumn = "$$count";
-    expect(execute(config, p)[0].values?.[0]).toMatchObject({
+    const septemberFirstPopulationResult = execute(config, p)[0].values?.[0];
+    expect(septemberFirstPopulationResult).toMatchObject({
       numerator: 1,
       denominator: 1,
     });
@@ -272,7 +381,12 @@ describe("population-backed proportions", () => {
     if (!m.numerator) throw new Error("Missing numerator");
     m.numerator.aggregateFilter = ">=2";
     m.numerator.aggregateFilterColumn = "$$count";
-    expect(execute(config, population, m)[0].values?.[0]).toMatchObject({
+    const septemberFirstRepeatPurchaserResult = execute(
+      config,
+      population,
+      m,
+    )[0].values?.[0];
+    expect(septemberFirstRepeatPurchaserResult).toMatchObject({
       numerator: 1,
       denominator: 2,
     });
@@ -287,9 +401,9 @@ describe("population-backed proportions", () => {
         endDate: "2025-01-02",
       },
     };
-    const cell = execute(c)[0].values![0];
-    expect(cell.denominator ?? 0).toBe(0);
-    expect(cell.denominatorType).toBe("population");
+    const emptyPopulationResult = execute(c)[0].values![0];
+    expect(emptyPopulationResult.denominator ?? 0).toBe(0);
+    expect(emptyPopulationResult.denominatorType).toBe("population");
     expect(query().orderedMetricIds).toEqual([metric.id]);
   });
   it("keeps two population selections independent in the same scan", () => {
@@ -320,7 +434,11 @@ describe("population-backed proportions", () => {
     expect(sql).toContain("pop1");
     expect(sql).not.toContain("JOIN");
     const rows = execute(c);
-    expect(rows[0].values?.map((v) => [v.numerator, v.denominator])).toEqual([
+    const septemberFirstPopulationCounts = rows[0].values?.map((value) => [
+      value.numerator,
+      value.denominator,
+    ]);
+    expect(septemberFirstPopulationCounts).toEqual([
       [1, 2],
       [3, 4],
     ]);
