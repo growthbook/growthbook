@@ -25,24 +25,23 @@ const table = {
   sql: "SELECT * FROM events",
   userIdTypes: ["user_id"],
   filters: [],
-  columns: ["revenue", "mobile", "converted", "timestamp", "user_id"].map(
-    (column) => ({
-      column,
-      datatype: ["revenue", "mobile", "converted"].includes(column)
-        ? "number"
-        : "string",
-    }),
-  ),
+  columns: [
+    { column: "revenue", datatype: "number" },
+    { column: "device_type", datatype: "string" },
+    { column: "event_name", datatype: "string" },
+    { column: "timestamp", datatype: "date" },
+    { column: "user_id", datatype: "string" },
+  ],
 } as FactTableInterface;
 const metric = {
   id: "conversion",
   datasource: "ds",
-  name: "Converted",
+  name: "Users who purchased",
   metricType: "proportion",
   numerator: {
     factTableId: "events",
     column: "$$distinctUsers",
-    rowFilters: [{ column: "converted", operator: "=", values: ["1"] }],
+    rowFilters: [{ column: "event_name", operator: "=", values: ["Purchase"] }],
   },
   denominator: null,
   cappingSettings: { type: "", value: 0 },
@@ -51,7 +50,7 @@ const metric = {
 const population: MetricPopulation = {
   name: "Mobile users",
   source: { type: "factTable", factTableId: "events" },
-  rowFilters: [{ column: "mobile", operator: "=", values: ["1"] }],
+  rowFilters: [{ column: "device_type", operator: "=", values: ["mobile"] }],
   aggregateFilter: ">10",
   aggregateFilterColumn: "revenue",
 };
@@ -141,18 +140,18 @@ function execute(
 ) {
   const db = new DatabaseSync(":memory:");
   try {
-    db.exec(`CREATE TABLE events(user_id TEXT, timestamp TEXT, revenue REAL, mobile INTEGER, converted INTEGER);
+    db.exec(`CREATE TABLE events(user_id TEXT, timestamp TEXT, revenue REAL, device_type TEXT, event_name TEXT);
       INSERT INTO events VALUES
-        ('a', '2026-09-01', 6, 1, 0), ('a', '2026-09-01', 6, 1, 0),
-        ('a', '2026-09-01', 0, 0, 1), ('a', '2026-09-01', 0, 0, 1),
-        ('b', '2026-09-01', 20, 1, 0),
-        ('c', '2026-09-01', 0, 0, 1),
-        ('d', '2026-09-01', 5, 1, 1),
-        (NULL, '2026-09-01', 99, 1, 1),
-        ('a', '2026-09-02', 5, 1, 1),
-        ('b', '2026-09-02', 20, 1, 0),
-        ('e', '2026-09-03', 0, 1, 0),
-        ('c', '2026-09-03', 0, 0, 1);`);
+        ('a', '2026-09-01', 6, 'mobile', 'Subscription Renewal'), ('a', '2026-09-01', 6, 'mobile', 'Subscription Renewal'),
+        ('a', '2026-09-01', 0, 'desktop', 'Purchase'), ('a', '2026-09-01', 0, 'desktop', 'Purchase'),
+        ('b', '2026-09-01', 20, 'mobile', 'Subscription Renewal'),
+        ('c', '2026-09-01', 0, 'desktop', 'Purchase'),
+        ('d', '2026-09-01', 5, 'mobile', 'Purchase'),
+        (NULL, '2026-09-01', 99, 'mobile', 'Purchase'),
+        ('a', '2026-09-02', 5, 'mobile', 'Purchase'),
+        ('b', '2026-09-02', 20, 'mobile', 'Subscription Renewal'),
+        ('e', '2026-09-03', 0, 'mobile', 'Subscription Renewal'),
+        ('c', '2026-09-03', 0, 'desktop', 'Purchase');`);
     const { sql, orderedMetricIds } = query(c, p, m, otherMetrics);
     return transformProductAnalyticsRowsToResult(
       c,
@@ -368,7 +367,7 @@ describe("population-backed proportions", () => {
       validate({
         ...config,
         dimensions: [
-          { dimensionType: "dynamic", column: "mobile", maxValues: 5 },
+          { dimensionType: "dynamic", column: "device_type", maxValues: 5 },
         ],
       }),
     ).toThrow("grouped by date");
