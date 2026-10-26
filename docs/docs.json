@@ -1280,10 +1280,6 @@
             ]
           }
         ]
-      },
-      {
-        "tab": "Product Updates",
-        "href": "https://growthbook.io/product-updates"
       }
     ],
     "global": {
@@ -1292,6 +1288,10 @@
   },
   "navbar": {
     "links": [
+      {
+        "label": "Product Updates",
+        "href": "https://growthbook.io/product-updates"
+      },
       {
         "label": "Github",
         "type": "github",
