@@ -788,14 +788,15 @@ export default function AnalysisSettingsSummary({
         getValidDate(exp.phases?.[currentPhase ?? 0]?.dateStarted ?? ""),
         getValidDate(snapshotSettings.startDate),
       ) ||
-      // A running phase is analyzed up to when the snapshot ran, or a lagged
-      // cutoff before it, so measure its staleness from the run time.
+      // A running phase analyzed through a lagged cutoff ends before the
+      // snapshot ran, so measure its staleness from the run time.
       isDifferentDate(
         getValidDate(exp.phases?.[currentPhase ?? 0]?.dateEnded ?? ""),
         getValidDate(
-          exp.phases?.[currentPhase ?? 0]?.dateEnded
-            ? snapshotSettings.endDate
-            : snap?.dateCreated,
+          !exp.phases?.[currentPhase ?? 0]?.dateEnded &&
+            snapshotSettings.endDateIsCutoff
+            ? snap?.dateCreated
+            : snapshotSettings.endDate,
         ),
       )
     ) {
