@@ -20,17 +20,13 @@ export abstract class ApiError<C extends ApiErrorCode> extends Error {
 }
 
 export class ChecklistIncompleteError extends ApiError<"checklist_incomplete"> {
-  // Each blocking item as a publish gate, for REST callers.
-  readonly gates: PublishGate[];
-
   constructor(
     message: string,
     remainingChecklistItems: ApiErrorDetails<"checklist_incomplete">["remainingChecklistItems"],
-    gates: PublishGate[] = [],
+    readonly gates: PublishGate[],
   ) {
     super("checklist_incomplete", message, { remainingChecklistItems });
     this.name = "ChecklistIncompleteError";
-    this.gates = gates;
   }
 }
 

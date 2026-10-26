@@ -115,10 +115,10 @@ export function ExperimentDataFields({
           stacked
           label="Assignment Query"
           value={
-            !exposureQueryId ? (
-              <EmptyValue />
-            ) : (
+            exposureQueryId ? (
               (exposureQuery?.name ?? <em>Restricted</em>)
+            ) : (
+              <EmptyValue />
             )
           }
         />

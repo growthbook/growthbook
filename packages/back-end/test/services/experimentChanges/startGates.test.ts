@@ -1,4 +1,3 @@
-import type { FeatureInterface } from "shared/types/feature";
 import {
   evaluateStartGates,
   rampLockedGate,
@@ -25,6 +24,7 @@ describe("startChecklistGates", () => {
       [
         item("datasource"),
         item("datasource-done", { status: "complete" }),
+        item("visualEditorChanges", { required: false }),
         item("Sign off", { manual: true }),
         item("pendingApproval:flag_a", { hardBlock: true }),
         item("mergeConflict:flag_b", { hardBlock: true }),
@@ -86,18 +86,15 @@ describe("evaluateStartGates", () => {
     ),
     rampLockedGate("theirs", "Locked by a ramp"),
   ];
-  const features = new Map(
-    ["mine", "theirs"].map((id) => [id, { id } as FeatureInterface]),
-  );
-  const canBypassFlag = (f?: FeatureInterface) => f?.id === "mine";
+  const canBypassFlag = (featureId: string) => featureId === "mine";
   const keys = (list: { key: string }[]) => list.map((g) => g.key);
 
   it("skips checklist items when asked, and waives approval per flag", () => {
-    const result = evaluateStartGates(
-      gates,
-      { skipChecklist: true, canBypassFlag, restApiBypassesReviews: false },
-      features,
-    );
+    const result = evaluateStartGates(gates, {
+      skipChecklist: true,
+      canBypassFlag,
+      restApiBypassesReviews: false,
+    });
 
     expect(keys(result.blocking)).toEqual([
       "pendingApproval:theirs",
@@ -111,15 +108,11 @@ describe("evaluateStartGates", () => {
   });
 
   it("lets the REST bypass setting past approvals and ramp locks, not conflicts", () => {
-    const result = evaluateStartGates(
-      gates,
-      {
-        skipChecklist: false,
-        canBypassFlag: () => false,
-        restApiBypassesReviews: true,
-      },
-      features,
-    );
+    const result = evaluateStartGates(gates, {
+      skipChecklist: false,
+      canBypassFlag: () => false,
+      restApiBypassesReviews: true,
+    });
 
     expect(keys(result.blocking)).toEqual(["goalMetric", "mergeConflict:mine"]);
   });

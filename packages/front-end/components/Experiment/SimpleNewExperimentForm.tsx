@@ -147,9 +147,8 @@ export function getAutoExposureQueryId({
   return matching.length === 1 ? matching[0].id : "";
 }
 
-// "id" when it's flagged for hashing, else the one attribute that is. With
-// several flagged and no "id", or none flagged, the form asks, starting from
-// "id" only where the schema declares it.
+// "id" when flagged, else the only flagged attribute; otherwise the form asks,
+// starting from "id" only when none is flagged and the schema declares it.
 export function defaultHashAttributeOf(
   schema: { property: string; hashAttribute?: boolean }[],
 ): string {
@@ -301,11 +300,11 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   // Re-scope the live options to the selected project
   const attributeSchema = useAttributeSchema(false, selectedProject);
   const hashableAttributes = attributeSchema.filter((a) => a.hashAttribute);
-  const hasHashAttributes = hashableAttributes.length > 0;
+  const selectableAttributes =
+    hashableAttributes.length > 0 ? hashableAttributes : attributeSchema;
   const defaultHashAttribute = defaultHashAttributeOf(attributeSchema);
-  // It decides the units, and the assignment query and identifier follow it,
-  // so it's asked whenever there's a choice; with none flagged for hashing,
-  // the default may be one no SDK sends.
+  // The assignment query and identifier follow it, so it's asked whenever
+  // there's a choice; with none flagged, the default may be one no SDK sends.
   const askHashAttribute =
     attributeSchema.length > 0 && hashableAttributes.length !== 1;
 
@@ -355,9 +354,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       form.setValue("templateId", "");
     }
     const hashAttribute = form.getValues("hashAttribute");
-    const validAttributes = attributeSchema
-      .filter((s) => !hasHashAttributes || s.hashAttribute)
-      .map((s) => s.property);
+    const validAttributes = selectableAttributes.map((s) => s.property);
     if (!hashAttribute || !validAttributes.includes(hashAttribute)) {
       form.setValue("hashAttribute", defaultHashAttribute);
     }
@@ -719,10 +716,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           className={hashAttributeHoldoutMismatch ? "warning" : undefined}
           value={form.watch("hashAttribute") ?? ""}
           onChange={(v) => form.setValue("hashAttribute", v)}
-          options={(hasHashAttributes
-            ? hashableAttributes
-            : attributeSchema
-          ).map(toAttributeOption)}
+          options={selectableAttributes.map(toAttributeOption)}
           formatOptionLabel={formatAttributeOptionLabel}
           helpText={
             hashAttributeHoldoutMismatch ? (

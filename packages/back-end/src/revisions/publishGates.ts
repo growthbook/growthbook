@@ -339,7 +339,7 @@ export function classifyPublishGate(
   const hasPermission = (permission: string) =>
     isBypassApprovalPermission(permission) && clearance.canForceMergeStaleBase;
   if (
-    (gate.override === "ignoreWarnings" || gate.override === "skipChecklist") &&
+    gate.override &&
     unclearedGates([gate], flags, hasPermission).length === 0
   ) {
     return { outcome: "bypassed", via: gate.override };

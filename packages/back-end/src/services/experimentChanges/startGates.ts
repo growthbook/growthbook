@@ -1,8 +1,8 @@
 import { bypassApprovalPermission } from "shared/permissions";
 import { PENDING_APPROVAL_ITEM_PREFIX } from "shared/validators";
-import type { FeatureInterface } from "shared/types/feature";
 import {
   evaluatePublishGates,
+  makeBlockingGate,
   type BypassedGate,
   type PublishGate,
   type PublishGateClearance,
@@ -10,26 +10,36 @@ import {
 } from "back-end/src/revisions/publishGates";
 import type { StartChecklistItemStatus } from "./changeExperimentStatus";
 
-// A start's checks on the publish-gate model. The checklist row (or `rampLocked:`
-// flag) it stands for is `key`; `featureId` names the flag whose authority
-// decides it.
+// `key` is the checklist row, or `rampLocked:<featureId>`; `featureId` is the
+// flag whose authority decides it.
 export type StartGate = PublishGate & { key: string; featureId?: string };
 
-// Rows on a linked flag's draft: resolved there, or for approval, waived by
-// that flag's authority.
-const FLAG_BLOCKERS: [prefix: string, type: string][] = [
-  [PENDING_APPROVAL_ITEM_PREFIX, "approval-required"],
-  ["mergeConflict:", "merge-conflict"],
-  ["unrelatedDraftChanges:", "unrelated-draft-changes"],
-  ["publishPermission:", "permission-denied"],
+// Rows on a linked flag's draft, and the draft route that resolves each.
+const FLAG_BLOCKERS: {
+  prefix: string;
+  type: string;
+  action: string | null;
+}[] = [
+  {
+    prefix: PENDING_APPROVAL_ITEM_PREFIX,
+    type: "approval-required",
+    action: "request-review",
+  },
+  { prefix: "mergeConflict:", type: "merge-conflict", action: "rebase" },
+  {
+    prefix: "unrelatedDraftChanges:",
+    type: "unrelated-draft-changes",
+    action: null,
+  },
+  { prefix: "publishPermission:", type: "permission-denied", action: null },
 ];
 
 const draftRoute = (
   featureId: string,
   version: number | undefined,
-  action: string,
+  action: string | null,
 ) =>
-  version === undefined
+  version === undefined || action === null
     ? null
     : {
         action,
@@ -43,31 +53,29 @@ export function startChecklistGates(
   draftVersions: Map<string, number>,
 ): StartGate[] {
   return items
-    .filter((item) => item.status === "incomplete")
+    .filter((item) => item.required && item.status === "incomplete")
     .map((item): StartGate => {
-      const blocker = FLAG_BLOCKERS.find(([prefix]) =>
+      const blocker = FLAG_BLOCKERS.find(({ prefix }) =>
         item.key.startsWith(prefix),
       );
       if (blocker) {
-        const featureId = item.key.slice(blocker[0].length);
-        const version = draftVersions.get(featureId);
+        const featureId = item.key.slice(blocker.prefix.length);
         return {
+          ...makeBlockingGate({
+            type: blocker.type,
+            messages: [item.reason],
+            requiresPermission:
+              blocker.type === "approval-required"
+                ? bypassApprovalPermission("feature")
+                : null,
+            resolution: draftRoute(
+              featureId,
+              draftVersions.get(featureId),
+              blocker.action,
+            ),
+          }),
           key: item.key,
           featureId,
-          type: blocker[1],
-          severity: "blocker",
-          messages: [item.reason],
-          override: null,
-          requiresPermission:
-            blocker[1] === "approval-required"
-              ? bypassApprovalPermission("feature")
-              : null,
-          resolution:
-            blocker[1] === "approval-required"
-              ? draftRoute(featureId, version, "request-review")
-              : blocker[1] === "merge-conflict"
-                ? draftRoute(featureId, version, "rebase")
-                : null,
         };
       }
       return {
@@ -90,14 +98,13 @@ export function startChecklistGates(
 
 export function rampLockedGate(featureId: string, message: string): StartGate {
   return {
+    ...makeBlockingGate({
+      type: "ramp-locked",
+      messages: [message],
+      requiresPermission: bypassApprovalPermission("feature"),
+    }),
     key: `rampLocked:${featureId}`,
     featureId,
-    type: "ramp-locked",
-    severity: "blocker",
-    messages: [message],
-    override: null,
-    requiresPermission: bypassApprovalPermission("feature"),
-    resolution: null,
   };
 }
 
@@ -111,10 +118,9 @@ export function evaluateStartGates(
     restApiBypassesReviews,
   }: {
     skipChecklist: boolean;
-    canBypassFlag: (feature: FeatureInterface | undefined) => boolean;
+    canBypassFlag: (featureId: string) => boolean;
     restApiBypassesReviews: boolean;
   },
-  features: Map<string, FeatureInterface>,
 ): {
   blocking: StartGate[];
   bypassed: BypassedGate[];
@@ -130,7 +136,7 @@ export function evaluateStartGates(
       skipSchemaValidation: false,
       skipHooks: false,
       bypassApprovalPermission:
-        !!gate.featureId && canBypassFlag(features.get(gate.featureId)),
+        !!gate.featureId && canBypassFlag(gate.featureId),
       restApiBypassesReviews,
       canForceMergeStaleBase: false,
     };

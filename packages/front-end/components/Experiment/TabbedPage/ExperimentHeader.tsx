@@ -130,25 +130,21 @@ const HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP = {
   stop: "Analysis ends ",
 };
 
+const HEALTH_TAB_DISABLED_REASONS = {
+  NO_DATASOURCE: "Choose a Data Source to see Experiment Health",
+  UNSUPPORTED_DATASOURCE:
+    "Experiment Health is not available for Mixpanel or (legacy) Google Analytics data sources",
+};
+
 const DisabledHealthTabTooltip = ({
   reason,
   children,
 }: {
-  reason: "NO_DATASOURCE" | "UNSUPPORTED_DATASOURCE" | "DIMENSION_SELECTED";
+  reason: keyof typeof HEALTH_TAB_DISABLED_REASONS;
   children: ReactNode;
 }) => {
   return (
-    <Tooltip
-      body={
-        reason === "NO_DATASOURCE"
-          ? "Choose a Data Source to see Experiment Health"
-          : reason === "UNSUPPORTED_DATASOURCE"
-            ? "Experiment Health is not available for Mixpanel or (legacy) Google Analytics data sources"
-            : "Set the Dimension to None to see Experiment Health"
-      }
-    >
-      {children}
-    </Tooltip>
+    <Tooltip body={HEALTH_TAB_DISABLED_REASONS[reason]}>{children}</Tooltip>
   );
 };
 
@@ -1370,7 +1366,7 @@ export default function ExperimentHeader({
                       {disableHealthTab ? (
                         <DisabledHealthTabTooltip
                           reason={
-                            dataSource
+                            experiment.datasource
                               ? "UNSUPPORTED_DATASOURCE"
                               : "NO_DATASOURCE"
                           }

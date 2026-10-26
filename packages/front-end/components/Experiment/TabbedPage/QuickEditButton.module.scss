@@ -23,8 +23,6 @@
   }
 }
 
-// A row clicked anywhere to edit, as the funnel's cards: tinted on hover, its
-// button on the right.
 .clickRow {
   @include hover-highlight;
   @include click-row;

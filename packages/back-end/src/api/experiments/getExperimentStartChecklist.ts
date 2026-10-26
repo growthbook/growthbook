@@ -7,10 +7,7 @@ import { requireExperiment } from "./requireExperiment";
 export const getExperimentStartChecklist = createApiRequestHandler(
   getExperimentStartChecklistValidator,
 )(async (req) => {
-  const experiment = await requireExperiment(
-    req.context as ReqContext,
-    req.params.id,
-  );
+  const experiment = await requireExperiment(req.context, req.params.id);
 
   const { checklistItems, gates, status } =
     await getExperimentStartChecklistStatus({

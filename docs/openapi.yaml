@@ -17413,9 +17413,8 @@ paths:
                       properties:
                         key:
                           description: >-
-                            The checklist item this stands for, or
-                            `rampLocked:<featureId>` for a linked Feature Flag
-                            locked by a ramp.
+                            The checklist item, or `rampLocked:<featureId>` for
+                            a linked Feature Flag a ramp locks.
                           type: string
                         type:
                           description: >-
@@ -17563,9 +17562,8 @@ paths:
                       - notReady
                   gates:
                     description: >-
-                      Each incomplete item as a gate: what blocks a start, and
-                      what gets past it. A start refused by any of them returns
-                      `checklist_incomplete` with the blocking ones in `gates`.
+                      Each incomplete required item as a gate; a refused start
+                      returns the blocking ones in `gates`.
                     type: array
                     items:
                       $ref: '#/components/schemas/gates'
@@ -17790,9 +17788,8 @@ paths:
                       properties:
                         key:
                           description: >-
-                            The checklist item this stands for, or
-                            `rampLocked:<featureId>` for a linked Feature Flag
-                            locked by a ramp.
+                            The checklist item, or `rampLocked:<featureId>` for
+                            a linked Feature Flag a ramp locks.
                           type: string
                         type:
                           description: >-
@@ -17940,9 +17937,8 @@ paths:
                       - notReady
                   gates:
                     description: >-
-                      Each incomplete item as a gate: what blocks a start, and
-                      what gets past it. A start refused by any of them returns
-                      `checklist_incomplete` with the blocking ones in `gates`.
+                      Each incomplete required item as a gate; a refused start
+                      returns the blocking ones in `gates`.
                     type: array
                     items:
                       $ref: '#/components/schemas/gates'
@@ -87878,8 +87874,8 @@ components:
       properties:
         key:
           description: >-
-            The checklist item this stands for, or `rampLocked:<featureId>` for
-            a linked Feature Flag locked by a ramp.
+            The checklist item, or `rampLocked:<featureId>` for a linked Feature
+            Flag a ramp locks.
           type: string
         type:
           description: >-
@@ -87907,9 +87903,8 @@ components:
             - type: 'null'
         requiresPermission:
           description: >-
-            Permission that bypasses this gate without a flag: holding it on the
-            Feature Flag's Project, or the organization's REST API approval
-            bypass.
+            Permission on the linked Feature Flag's Project that bypasses this
+            gate.
           anyOf:
             - type: string
             - type: 'null'

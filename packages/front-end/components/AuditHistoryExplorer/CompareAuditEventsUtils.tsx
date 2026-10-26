@@ -29,7 +29,6 @@ export const COMPACT_DIFF_STYLES = {
     a: { fontSize: "11px" },
   },
   codeFoldGutter: { fontSize: "11px", padding: "1px 2px", lineHeight: "1.6" },
-  // Column headings are labels, not code.
   titleBlock: {
     pre: { fontFamily: "var(--default-font-family)", fontSize: "12px" },
   },

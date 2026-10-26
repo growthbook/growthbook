@@ -917,7 +917,7 @@ export async function createExperiment({
     experimentToCreate,
     getUnsetAnalysisSettings({
       organization: context.org,
-      project: (await getAnalysisProject(context, data.project)) ?? undefined,
+      project: await getAnalysisProject(context, data.project),
       experiment: experimentToCreate,
     }),
   );
@@ -1078,14 +1078,12 @@ export async function updateExperiment({
 const getAnalysisProject = async (
   context: ReqContext | ApiReqContext,
   projectId: string | undefined,
-) => (projectId ? context.models.projects.getById(projectId) : null);
+) =>
+  (projectId ? await context.models.projects.getById(projectId) : null) ??
+  undefined;
 
-/**
- * Stores the analysis settings an experiment still leaves to the org or
- * project, as they resolve now, so its results stop following later changes
- * there. Each is written only if still unset, so it can't overwrite a value
- * set meanwhile, and it stays out of the update's change set.
- */
+// Stores each analysis setting still left to the org or project as it resolves
+// now; only where still unset, and outside the update's change set.
 async function settleAnalysisSettings(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -1099,8 +1097,7 @@ async function settleAnalysisSettings(
   }
   const settled = getUnsetAnalysisSettings({
     organization: context.org,
-    project:
-      (await getAnalysisProject(context, experiment.project)) ?? undefined,
+    project: await getAnalysisProject(context, experiment.project),
     experiment,
   });
   await Promise.all(

@@ -40,10 +40,6 @@ import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnect
 import { findVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
 import { ReqContext } from "back-end/types/request";
 import { flagBypass } from "back-end/src/services/featurePublishGates";
-import type {
-  BypassedGate,
-  SkippedGate,
-} from "back-end/src/revisions/publishGates";
 import {
   evaluateStartGates,
   rampLockedGate,
@@ -540,14 +536,8 @@ async function loadAndValidateExperimentForStatusChange(
   return experiment;
 }
 
-/**
- * Core experiment start — no permission checks, works from any context
- * (HTTP request or Agenda job). Publishes pending linked feature drafts
- * atomically with the status transition and throws if any draft fails.
- */
-// What a status change writes beyond the status. A stop ends the latest phase;
-// a stopped experiment that runs or drafts again reopens it, and a bandit
-// starts a fresh phase with fresh buckets instead.
+// A stop ends the latest phase; a stopped experiment that runs or drafts again
+// reopens it, or for a bandit starts a fresh phase with fresh buckets.
 export function statusChangeEffects({
   experiment,
   status,
@@ -614,6 +604,11 @@ export function statusChangeEffects({
   };
 }
 
+/**
+ * Core experiment start — no permission checks, works from any context
+ * (HTTP request or Agenda job). Publishes pending linked feature drafts
+ * atomically with the status transition and throws if any draft fails.
+ */
 export async function executeExperimentStart(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -748,14 +743,12 @@ export async function executeExperimentStart(
 export async function getExperimentStartChecklist({
   context,
   experiment,
-  arming,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
-  arming?: boolean;
 }): Promise<ExperimentStartChecklistResult> {
   const { checklistItems, gates } = await planStartGates(context, experiment, {
-    when: arming ? "arm" : "now",
+    when: "now",
   });
   const hasIncompleteRequiredItems = checklistItems.some(
     (item) => item.required && item.status === "incomplete",
@@ -835,15 +828,10 @@ export async function armedStartBypassStands(
 export type StartPlan = {
   checklistItems: StartChecklistItemStatus[];
   gates: StartGate[];
-  blocking: StartGate[];
-  bypassed: BypassedGate[];
-  skipped: (SkippedGate & { key: string })[];
-};
+} & ReturnType<typeof evaluateStartGates>;
 
-// What starting now, arming a scheduled start, or that start firing faces, on
-// the publish-gate model: incomplete checklist items are warnings
-// `skipChecklist` acknowledges; linked flags' blockers are cleared only by that
-// flag's authority, as publishing its draft clears them.
+// What starting now, arming a scheduled start, or that start firing faces, as
+// publish gates.
 export async function planStartGates(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -896,17 +884,17 @@ export async function planStartGates(
   return {
     checklistItems,
     gates,
-    ...evaluateStartGates(
-      gates,
-      {
-        skipChecklist,
-        canBypassFlag: (feature) =>
+    ...evaluateStartGates(gates, {
+      skipChecklist,
+      canBypassFlag: (featureId) => {
+        const feature = features.get(featureId);
+        return (
           !!feature &&
-          context.permissions.canBypassFlagApprovalChecks(feature, "feature"),
-        restApiBypassesReviews: when === "now" && restApiBypassesReviews,
+          context.permissions.canBypassFlagApprovalChecks(feature, "feature")
+        );
       },
-      features,
-    ),
+      restApiBypassesReviews: when === "now" && restApiBypassesReviews,
+    }),
   };
 }
 
@@ -945,6 +933,17 @@ export function assertStartNotBlocked(plan: StartPlan): void {
   );
 }
 
+export async function assertStartAllowed(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  options: Parameters<typeof planStartGates>[2],
+): Promise<StartPlan> {
+  await assertCanPublishPendingFeatureDrafts(context, experiment);
+  const plan = await planStartGates(context, experiment, options);
+  assertStartNotBlocked(plan);
+  return plan;
+}
+
 // Run when a scheduled start fires. The approver already acknowledged the soft items.
 export async function assertScheduledStartNotHardBlocked(
   context: ReqContext | ApiReqContext,
@@ -974,7 +973,7 @@ export function getStartAcknowledgment({
     skipChecklist,
     bypassLockdown,
     skippedChecklistItems: checklistItems
-      .filter((item) => item.status === "incomplete")
+      .filter((item) => item.required && item.status === "incomplete")
       .map((item) => item.key),
   };
 }
@@ -993,11 +992,10 @@ export async function startExperiment({
   // Caller must verify admin-bypass permissions first; it is re-checked per flag.
   bypassLockdown?: boolean;
 }) {
-  const loadedExperiment = await loadAndValidateExperimentForStatusChange(
+  const experiment = await loadAndValidateExperimentForStatusChange(
     context,
     experimentId,
   );
-  const experiment = loadedExperiment;
   if (experiment.status !== "draft") {
     throw new InvalidStatusError(
       "Experiment must be in draft status",
@@ -1005,15 +1003,12 @@ export async function startExperiment({
       ["draft"],
     );
   }
-  await assertCanPublishPendingFeatureDrafts(context, experiment);
-
-  const plan = await planStartGates(context, experiment, {
+  const plan = await assertStartAllowed(context, experiment, {
     when: "now",
     skipChecklist,
     bypassApproval: bypassLockdown,
     restApiBypassesReviews,
   });
-  assertStartNotBlocked(plan);
 
   const { updated, publishResult } = await executeExperimentStart(
     context,
@@ -1072,16 +1067,14 @@ export async function approveScheduledExperimentStart({
     );
   }
 
-  await assertCanPublishPendingFeatureDrafts(context, experiment);
   const bypass =
     bypassApproval &&
     context.permissions.canBypassFlagApprovalChecks(experiment, "feature");
-  const plan = await planStartGates(context, experiment, {
+  const plan = await assertStartAllowed(context, experiment, {
     when: "arm",
     skipChecklist,
     bypassApproval: bypass,
   });
-  assertStartNotBlocked(plan);
 
   // The fire runs as the armer, so there has to be one to record.
   if (!context.userId && !isArmingApiKeyId(context.apiKey)) {

@@ -224,18 +224,13 @@ function TabbedPageContents({
   const onSetup = tabName === "overview";
   const [openOffSetup, setOpenOffSetup] = useState(false);
   useEffect(() => setOpenOffSetup(false), [tabName]);
-  const detailsShown = narrow
-    ? openWhileNarrow
-    : onSetup
-      ? detailsOpen
-      : openOffSetup;
-  const detailsPanelOpen = showDetailsPanel && detailsShown;
-  const setDetailsShown = (open: boolean) =>
+  const [detailsShown, setDetailsShown]: [boolean, (open: boolean) => void] =
     narrow
-      ? setOpenWhileNarrow(open)
+      ? [openWhileNarrow, setOpenWhileNarrow]
       : onSetup
-        ? setDetailsOpen(open)
-        : setOpenOffSetup(open);
+        ? [detailsOpen, setDetailsOpen]
+        : [openOffSetup, setOpenOffSetup];
+  const detailsPanelOpen = showDetailsPanel && detailsShown;
 
   // The toggle is a fresh start: a width dragged out earlier is forgotten.
   const toggleDetailsPanel = (open: boolean) => {

@@ -80,10 +80,6 @@ export const postVariationImageUpload = createApiRequestHandler(
 
   const experiment = await requireExperiment(context, id);
 
-  if (experiment.organization !== context.org.id) {
-    throw new Error("You do not have access to this experiment");
-  }
-
   const changes: Changeset = {};
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();

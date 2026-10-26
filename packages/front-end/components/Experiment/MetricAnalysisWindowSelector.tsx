@@ -28,7 +28,7 @@ export type MetricAnalysisWindowSelectorProps = {
   /** For experiments: phase end date or now */
   phaseEndDate?: Date | null;
   helpText?: React.ReactNode;
-  // Without its own label and description, for a row that labels it.
+  /** Without its own label and description, for a row that labels it. */
   bare?: boolean;
 };
 

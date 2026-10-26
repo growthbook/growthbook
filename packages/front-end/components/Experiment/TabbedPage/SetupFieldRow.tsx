@@ -73,11 +73,7 @@ export default function SetupFieldRow({
             {label}
           </Text>
           {tooltip ? (
-            <Tooltip content={<Text align="left">{tooltip}</Text>}>
-              <span style={{ display: "flex", color: "var(--color-text-mid)" }}>
-                <PiInfo />
-              </span>
-            </Tooltip>
+            <InfoTip content={<Text align="left">{tooltip}</Text>} />
           ) : null}
         </Flex>
       </Box>
@@ -89,5 +85,15 @@ export default function SetupFieldRow({
         {children}
       </Box>
     </Flex>
+  );
+}
+
+export function InfoTip({ content }: { content: ReactNode }) {
+  return (
+    <Tooltip content={content}>
+      <span style={{ display: "flex", color: "var(--color-text-mid)" }}>
+        <PiInfo />
+      </span>
+    </Tooltip>
   );
 }

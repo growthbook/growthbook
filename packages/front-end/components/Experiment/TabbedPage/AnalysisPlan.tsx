@@ -53,7 +53,7 @@ import SetupFieldRow from "./SetupFieldRow";
 import { useDecisionFrameworkApplies } from "./DecisionMakingSettings";
 import AnalysisPlanAdvanced from "./AnalysisPlanAdvanced";
 import DecisionPlan from "./DecisionPlan";
-import QuickEditButton, { clicksQuickEdit } from "./QuickEditButton";
+import { QuickEditRow } from "./QuickEditButton";
 import type { TargetingDraft } from "./TrafficAllocationFunnel";
 
 type MetricField = "goalMetrics" | "secondaryMetrics" | "guardrailMetrics";
@@ -81,7 +81,6 @@ export interface Props {
   // Holds the assignment attribute until the page saves.
   targetingDraft?: TargetingDraft;
   canEditTargeting?: boolean;
-  // The schedule writes from its own dialog.
   canEditSchedule: boolean;
   mutate: () => void;
   envs: string[];
@@ -220,7 +219,7 @@ export default function AnalysisPlan({
       setTouchedFields((prev) => [...new Set([...prev, ...fields])]),
     [setTouchedFields],
   );
-  // As the settings modal did: what belongs to the old source goes with it.
+  // What belongs to the old source goes with it.
   const changeDatasource = (id: string) => {
     if (id === datasource) return;
     touch("datasource", "exposureQueryId", "exposureQueryIdentifierType");
@@ -416,7 +415,6 @@ export default function AnalysisPlan({
         : [],
     [selectedDatasource, experiment.project],
   );
-  // The table and identifier the assignment attribute leads to.
   const followed = useMemo(
     () =>
       followAssignmentAttribute({
@@ -434,9 +432,8 @@ export default function AnalysisPlan({
       identifierType,
     ],
   );
-  // Before it runs, an empty selection fills in, and a new assignment
-  // attribute brings its table and identifier. Otherwise a selection stays as
-  // chosen, flagged below if it conflicts.
+  // Before it runs, an empty selection fills in and a new assignment attribute
+  // brings its table and identifier; otherwise a conflict is only flagged.
   const followedFor = useRef<{
     datasource: string;
     hashAttribute: string;
@@ -621,26 +618,13 @@ export default function AnalysisPlan({
           label="Data Source"
           content="text"
         >
-          <Flex
-            align="start"
-            justify="between"
-            gap="3"
-            className={editDatasource ? clicksQuickEdit : undefined}
-          >
+          <QuickEditRow label="Edit data source" onEdit={editDatasource}>
             <Text color="text-high">
               {hiddenDatasource
                 ? restricted
                 : (selectedDatasource?.name ?? <em>None</em>)}
             </Text>
-            {editDatasource ? (
-              <QuickEditButton
-                label="Edit data source"
-                onClick={editDatasource}
-                labelTooltip={false}
-                fillsRow
-              />
-            ) : null}
-          </Flex>
+          </QuickEditRow>
           {resolution.conflict && resolution.identifierType ? (
             <AttributeConflict
               hashAttribute={hashAttribute}
@@ -719,6 +703,7 @@ export default function AnalysisPlan({
           experiment={effective}
           datasourceId={datasource}
           exposureQueryId={exposureQueryId}
+          identifierType={resolution.identifierType}
           metrics={{ goalMetrics, secondaryMetrics, guardrailMetrics }}
           stage={stage}
           manageOverrides={
@@ -738,8 +723,6 @@ export default function AnalysisPlan({
   );
 }
 
-// The data source, then once there's one, what the experiment is analyzed on
-// in it.
 function DataSourceModal({
   experiment,
   hashAttribute,

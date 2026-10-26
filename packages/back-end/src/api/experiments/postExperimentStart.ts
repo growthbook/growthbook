@@ -3,7 +3,6 @@ import {
   postExperimentStartValidator,
 } from "shared/validators";
 import { getValidDate } from "shared/dates";
-import { assertCanPublishPendingFeatureDrafts } from "back-end/src/services/experiments";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
@@ -14,8 +13,7 @@ import { ReqContext } from "back-end/types/request";
 import {
   approveScheduledExperimentStart,
   getStartAcknowledgment,
-  assertStartNotBlocked,
-  planStartGates,
+  assertStartAllowed,
   startResult,
   startExperiment,
   validateExperimentChange,
@@ -77,14 +75,10 @@ export const postExperimentStart = createApiRequestHandler(
   // Like a Feature Revision publish: approval is bypassed by authority, not
   // by asking. `bypassApproval` in the body is accepted and ignored.
   const bypassLockdown = canBypassReviewChecks(req, existing);
-  // Only a start now honors the org setting; an armed start fires on the
-  // armer's own authority.
-  const restApiBypassesReviews =
-    !hasFutureSchedule && canUseRestApiBypassSetting(req);
+  const restApiBypassesReviews = canUseRestApiBypassSetting(req);
   // Checked before the hold, so a person confirms only what can go ahead, and
   // sees what it gets past.
-  await assertCanPublishPendingFeatureDrafts(context, existing);
-  const plan = await planStartGates(
+  const plan = await assertStartAllowed(
     context,
     existing,
     hasFutureSchedule
@@ -103,7 +97,6 @@ export const postExperimentStart = createApiRequestHandler(
           restApiBypassesReviews,
         },
   );
-  assertStartNotBlocked(plan);
 
   // Staging a scheduled start is held too: it starts later with no one present.
   const queued = await queuedDraftsHold(context, existing.pendingFeatureDrafts);

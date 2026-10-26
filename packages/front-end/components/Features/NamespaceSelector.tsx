@@ -83,9 +83,8 @@ const DISABLED_NAMESPACE: CanonicalNamespace = {
   ranges: [],
 };
 
-// Whether an experiment assigning by `hashAttribute` can join the namespace.
-// With a fallback attribute only legacy namespaces can take it; a multi-range
-// one needs the same hash attribute.
+// With a fallback attribute only legacy namespaces can take the experiment; a
+// multi-range one needs the experiment's hash attribute.
 export function isNamespaceSelectable(
   namespace: Namespaces,
   {
@@ -162,7 +161,6 @@ export default function NamespaceSelector({
   const isFallbackMode = !!effectiveFallbackAttribute.trim();
   const allNamespaces = namespaces || EMPTY_NAMESPACES;
   const namespaceUsage = data?.namespaces || EMPTY_NAMESPACE_USAGE;
-  const isLegacyNamespace = (n: Namespaces) => n.format !== "multiRange";
 
   const {
     filteredNamespaces,
@@ -170,21 +168,23 @@ export default function NamespaceSelector({
     selectedNamespace,
     selectedIsDifferentHash,
   } = useMemo(() => {
+    const selectable = (n: Namespaces) =>
+      isNamespaceSelectable(n, {
+        hashAttribute: effectiveHashAttribute,
+        fallbackAttribute: effectiveFallbackAttribute,
+      });
     const activeNamespaces = allNamespaces.filter(
       (n) => n?.status !== "inactive",
     );
-
     const filtered = isFallbackMode
-      ? activeNamespaces.filter((n) => isLegacyNamespace(n))
+      ? activeNamespaces.filter(selectable)
       : activeNamespaces;
+    const selected = activeNamespaces.find((n) => n.name === namespace);
 
     const options = filtered.map((n) => ({
       value: n.name,
       label: n.label,
-      isDisabled: !isNamespaceSelectable(n, {
-        hashAttribute: effectiveHashAttribute,
-        fallbackAttribute: effectiveFallbackAttribute,
-      }),
+      isDisabled: !selectable(n),
     })) as SingleValue[];
 
     return {
@@ -192,15 +192,9 @@ export default function NamespaceSelector({
       namespaceOptions: hideEnableToggle
         ? [{ value: "", label: "Global (all users)" }, ...options]
         : options,
-      selectedNamespace: activeNamespaces.find((n) => n.name === namespace),
+      selectedNamespace: selected,
       selectedIsDifferentHash:
-        !isFallbackMode &&
-        activeNamespaces.some(
-          (n) =>
-            n.name === namespace &&
-            n.format === "multiRange" &&
-            n.hashAttribute !== effectiveHashAttribute,
-        ),
+        !isFallbackMode && !!selected && !selectable(selected),
     };
   }, [
     allNamespaces,

@@ -26,7 +26,7 @@ import Tooltip from "@/ui/Tooltip";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import placeholderStyles from "@/components/Experiment/VariationsTable.module.scss";
 import useSortableItem from "@/hooks/useSortableItem";
-import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import { useScreenshotUploadBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import styles from "./VariationScreenshotManager.module.scss";
 
 const TILE_ASPECT = "1 / 1";
@@ -164,9 +164,7 @@ export default function VariationScreenshotManager({
     [experiment, variationIndex, screenshots],
   );
   const [lightbox, setLightbox] = useState<number | null>(null);
-  // An upload writes straight to the stored variation at this index, which
-  // staged edits may have moved; their save would also drop it.
-  const uploadBlocked = useEditsBlockedReason();
+  const uploadBlocked = useScreenshotUploadBlockedReason();
 
   return (
     <Box>

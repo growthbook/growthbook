@@ -1013,8 +1013,7 @@ export function getExposureQueriesForAttribute(
 }
 
 // Which identifier a table is analyzed per: a choice it declares, else what
-// the analysis falls back to. It's settled when the assignment attribute is
-// linked to exactly that one of the table's identifiers.
+// the analysis falls back to.
 export function resolveAssignmentIdentifier({
   query,
   identifierType,
@@ -1031,8 +1030,6 @@ export function resolveAssignmentIdentifier({
   choose: boolean;
   // Analyzed per an identifier the assignment attribute isn't linked to.
   conflict: boolean;
-  // The identifiers the assignment attribute is linked to.
-  attributeIdentifiers: string[];
   // The one attribute the identifier is linked to, when the assignment
   // attribute isn't: where following the analysis back would assign by.
   attribute: string | null;
@@ -1059,14 +1056,12 @@ export function resolveAssignmentIdentifier({
     choose:
       declared.length > 1 && !(linked.length === 1 && resolved === linked[0]),
     conflict: unlinked && attributeIdentifiers.length > 0,
-    attributeIdentifiers,
     attribute: attributes.length === 1 ? attributes[0] : null,
   };
 }
 
-// Where an assignment attribute leads: its one linked identifier some table
-// declares, on the current table if that declares it too. Null when the
-// attribute doesn't settle one, or the selection already follows it.
+// Where an assignment attribute leads, preferring the current table; null
+// when it doesn't settle one identifier or the selection already follows it.
 export function followAssignmentAttribute({
   queries,
   hashAttribute,

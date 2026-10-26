@@ -44,6 +44,7 @@ export interface CustomMetricSlicesSelectorProps {
   className?: string;
   // As a labelled setup row, rather than a block with its own label.
   asRow?: boolean;
+  disabled?: boolean;
 }
 
 export default function CustomMetricSlicesSelector({
@@ -54,6 +55,7 @@ export default function CustomMetricSlicesSelector({
   setCustomMetricSlices,
   className = "my-4",
   asRow = false,
+  disabled = false,
 }: CustomMetricSlicesSelectorProps) {
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
@@ -289,7 +291,6 @@ export default function CustomMetricSlicesSelector({
                       <div className="flex-grow-1">
                         <Flex gap="2" align="center">
                           {levels.slices.map((combo, comboIndex) => {
-                            // Find the column datatype
                             const columnMetadata = metricsWithStringColumns
                               .flatMap((metric) => metric.stringColumns || [])
                               .find((col) => col.column === combo.column);
@@ -325,40 +326,42 @@ export default function CustomMetricSlicesSelector({
                           })}
                         </Flex>
                       </div>
-                      <div
-                        className="d-flex align-items-center"
-                        style={{ gap: "0.5rem" }}
-                      >
-                        <IconButton
-                          variant="ghost"
-                          size="1"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            startEditing(levelsIndex);
-                          }}
-                          mr="1"
+                      {disabled ? null : (
+                        <div
+                          className="d-flex align-items-center"
+                          style={{ gap: "0.5rem" }}
                         >
-                          <PiPencilSimpleFill />
-                        </IconButton>
-                        <IconButton
-                          color="red"
-                          variant="ghost"
-                          size="1"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            removeMetricSliceLevels(levelsIndex);
-                          }}
-                        >
-                          <PiX />
-                        </IconButton>
-                      </div>
+                          <IconButton
+                            variant="ghost"
+                            size="1"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              startEditing(levelsIndex);
+                            }}
+                            mr="1"
+                          >
+                            <PiPencilSimpleFill />
+                          </IconButton>
+                          <IconButton
+                            color="red"
+                            variant="ghost"
+                            size="1"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              removeMetricSliceLevels(levelsIndex);
+                            }}
+                          >
+                            <PiX />
+                          </IconButton>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               );
             })}
 
-            {editState === null ? (
+            {disabled ? null : editState === null ? (
               <a
                 role="button"
                 className="d-inline-block link-purple font-weight-bold mt-1"

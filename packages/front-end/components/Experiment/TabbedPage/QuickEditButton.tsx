@@ -1,4 +1,5 @@
-import { IconButton } from "@radix-ui/themes";
+import { ReactNode } from "react";
+import { Flex, IconButton } from "@radix-ui/themes";
 import clsx from "clsx";
 import { PiPencilSimple } from "react-icons/pi";
 import Tooltip from "@/ui/Tooltip";
@@ -7,8 +8,37 @@ import styles from "./QuickEditButton.module.scss";
 /** Put on whatever should reveal its quick-edit buttons on hover. */
 export const revealsQuickEdit = styles.revealsEdit;
 
-/** A row that edits wherever it's clicked; its button sets `fillsRow`. */
-export const clicksQuickEdit = clsx(styles.revealsEdit, styles.clickRow);
+/** A value edited by clicking anywhere on its row; read-only without `onEdit`. */
+export function QuickEditRow({
+  label,
+  onEdit,
+  align = "start",
+  children,
+}: {
+  label: string;
+  onEdit?: (() => void) | null;
+  align?: "start" | "center";
+  children: ReactNode;
+}) {
+  return (
+    <Flex
+      align={align}
+      justify="between"
+      gap="3"
+      className={onEdit ? clsx(styles.revealsEdit, styles.clickRow) : undefined}
+    >
+      {children}
+      {onEdit ? (
+        <QuickEditButton
+          label={label}
+          onClick={onEdit}
+          labelTooltip={false}
+          fillsRow
+        />
+      ) : null}
+    </Flex>
+  );
+}
 
 export default function QuickEditButton({
   label,
@@ -24,7 +54,7 @@ export default function QuickEditButton({
   size?: "1" | "2";
   // Off where what it edits is plain; a blocked reason still shows.
   labelTooltip?: boolean;
-  // Clicked from anywhere in its `clicksQuickEdit` row.
+  // Clicked from anywhere in its `QuickEditRow`.
   fillsRow?: boolean;
 }) {
   return (

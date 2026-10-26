@@ -99,10 +99,6 @@ describe("scheduleTimes", () => {
       },
     ],
   ])("%j", (experiment, expected) => {
-    expect(
-      scheduleTimes(
-        experiment as unknown as Parameters<typeof scheduleTimes>[0],
-      ),
-    ).toEqual(expected);
+    expect(scheduleTimes(experiment)).toEqual(expected);
   });
 });

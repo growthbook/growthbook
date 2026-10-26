@@ -372,7 +372,6 @@ export default function EditScheduleModal({
     comparableSchedule(buildSchedule(form.watch(), end)),
     comparableSchedule(buildSchedule(defaultValues, initialEnd)),
   );
-  // The criteria judge the winner a ship-the-winner end ships.
   const { data: criteriaData } = useApi<{
     decisionCriteria: DecisionCriteriaData[];
   }>("/decision-criteria", { shouldRun: () => decisionFrameworkAvailable });

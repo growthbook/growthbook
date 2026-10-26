@@ -187,15 +187,6 @@ export function AddImplementationMenu({
   // Why a kind can't be added right now.
   blockedReasons?: Partial<Record<AddableKind, string | null>>;
 }) {
-  const items = ADDABLE_KINDS.filter((type) => type !== primary).map((type) => (
-    <AddImplementationItem
-      key={type}
-      type={type}
-      experiment={experiment}
-      onClick={onAdd[type]}
-      blockedReason={blockedReasons[type]}
-    />
-  ));
   if (!primary) {
     return (
       <Frame width="100%" mb="0" px="4" py="2">
@@ -246,7 +237,15 @@ export function AddImplementationMenu({
           menuPlacement="end"
           variant="soft"
         >
-          {items}
+          {ADDABLE_KINDS.filter((type) => type !== primary).map((type) => (
+            <AddImplementationItem
+              key={type}
+              type={type}
+              experiment={experiment}
+              onClick={onAdd[type]}
+              blockedReason={blockedReasons[type]}
+            />
+          ))}
         </DropdownMenu>
       }
     >
@@ -272,7 +271,6 @@ function AddImplementationButton({
   experiment: ExperimentInterfaceStringDates;
   onClick: () => void;
   blockedReason?: string | null;
-  // A link-like action at the end of a row describing the kind.
   ghost?: boolean;
 }) {
   const { disabledReason, missingFeature } = useLinkedChangeAddGate(

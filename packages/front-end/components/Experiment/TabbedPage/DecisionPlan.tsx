@@ -1,6 +1,5 @@
 import { ReactNode, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiInfo } from "react-icons/pi";
 import {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
@@ -14,15 +13,13 @@ import { useDecisionMakingSummary } from "@/components/Experiment/TabbedPage/Dec
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import Tooltip from "@/ui/Tooltip";
 import { useExperimentFieldEdit, useStagedState } from "./ExperimentEdits";
-import QuickEditButton, { clicksQuickEdit } from "./QuickEditButton";
-import SetupFieldRow from "./SetupFieldRow";
+import { QuickEditRow } from "./QuickEditButton";
+import SetupFieldRow, { InfoTip } from "./SetupFieldRow";
 import { scheduledEnd, scheduleTimes } from "./statusSchedule";
 
 const INNER_LABEL_WIDTH = "128px";
 
-// A grey panel, as the targeting funnel's.
 function Panel({ children }: { children: ReactNode }) {
   return (
     <Frame
@@ -37,18 +34,11 @@ function Panel({ children }: { children: ReactNode }) {
   );
 }
 
-// The rules themselves are a click away, in the criteria's dialog.
 function CriteriaName({ criteria }: { criteria: DecisionCriteriaData }) {
   return (
     <Flex align="center" gap="1">
       <Text color="text-high">{criteria.name}</Text>
-      {criteria.description ? (
-        <Tooltip content={criteria.description}>
-          <span style={{ display: "flex", color: "var(--color-text-mid)" }}>
-            <PiInfo />
-          </span>
-        </Tooltip>
-      ) : null}
+      {criteria.description ? <InfoTip content={criteria.description} /> : null}
     </Flex>
   );
 }
@@ -68,13 +58,7 @@ function InnerRow({
         <Text color="text-high" whiteSpace="nowrap">
           {label}
         </Text>
-        {tooltip ? (
-          <Tooltip content={tooltip}>
-            <span style={{ display: "flex", color: "var(--color-text-mid)" }}>
-              <PiInfo />
-            </span>
-          </Tooltip>
-        ) : null}
+        {tooltip ? <InfoTip content={tooltip} /> : null}
       </Flex>
       <Box flexGrow="1" flexBasis="0" minWidth="200px">
         {children}
@@ -154,9 +138,7 @@ export default function DecisionPlan({
       ) : null}
       {editing === "criteria" && summary ? (
         <DecisionCriteriaSelectorModal
-          experiment={experiment}
           initialCriteria={summary.decisionCriteria}
-          canEdit
           stageChanges={(decisionCriteriaId) => {
             if (decisionCriteriaId === summary.decisionCriteria.id) return;
             stage({
@@ -181,14 +163,14 @@ export default function DecisionPlan({
 
       <SetupFieldRow
         label="Schedule"
-        {...(scheduled ? { content: "panel" } : { labelAlign: "center" })}
+        content="panel"
+        labelAlign={scheduled ? "top" : "center"}
       >
         <Panel>
-          <Flex
+          <QuickEditRow
+            label="Edit schedule"
+            onEdit={scheduleEditable ? () => setEditing("schedule") : null}
             align={scheduled ? "start" : "center"}
-            justify="between"
-            gap="3"
-            className={scheduleEditable ? clicksQuickEdit : undefined}
           >
             {scheduled ? (
               <Flex direction="column" gap="3" flexGrow="1">
@@ -202,15 +184,7 @@ export default function DecisionPlan({
             ) : (
               <Text color="text-high">Starts and ends manually.</Text>
             )}
-            {scheduleEditable ? (
-              <QuickEditButton
-                label="Edit schedule"
-                onClick={() => setEditing("schedule")}
-                labelTooltip={false}
-                fillsRow
-              />
-            ) : null}
-          </Flex>
+          </QuickEditRow>
         </Panel>
       </SetupFieldRow>
 
@@ -220,20 +194,12 @@ export default function DecisionPlan({
             <Flex direction="column" gap="3">
               <InnerRow label="Decision criteria">
                 {canEdit ? (
-                  <Flex
-                    align="start"
-                    justify="between"
-                    gap="3"
-                    className={clicksQuickEdit}
+                  <QuickEditRow
+                    label="Edit decision criteria"
+                    onEdit={() => setEditing("criteria")}
                   >
                     <CriteriaName criteria={summary.decisionCriteria} />
-                    <QuickEditButton
-                      label="Edit decision criteria"
-                      onClick={() => setEditing("criteria")}
-                      labelTooltip={false}
-                      fillsRow
-                    />
-                  </Flex>
+                  </QuickEditRow>
                 ) : (
                   <Link onClick={() => setEditing("rules")}>
                     <CriteriaName criteria={summary.decisionCriteria} />
@@ -246,11 +212,11 @@ export default function DecisionPlan({
               >
                 {/* The plan only runs at a scheduled end. */}
                 {hasEnd ? (
-                  <Flex
-                    align="start"
-                    justify="between"
-                    gap="3"
-                    className={scheduleEditable ? clicksQuickEdit : undefined}
+                  <QuickEditRow
+                    label="Edit end of experiment"
+                    onEdit={
+                      scheduleEditable ? () => setEditing("endPlan") : null
+                    }
                   >
                     <Flex direction="column" gap="1" minWidth="0">
                       <Text as="div" color="text-high">
@@ -262,15 +228,7 @@ export default function DecisionPlan({
                         </Text>
                       ))}
                     </Flex>
-                    {scheduleEditable ? (
-                      <QuickEditButton
-                        label="Edit end of experiment"
-                        onClick={() => setEditing("endPlan")}
-                        labelTooltip={false}
-                        fillsRow
-                      />
-                    ) : null}
-                  </Flex>
+                  </QuickEditRow>
                 ) : (
                   <Text color="text-high">
                     You choose what happens when you stop the experiment

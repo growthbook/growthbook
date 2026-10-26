@@ -1,4 +1,7 @@
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentPhaseStringDates,
+} from "shared/types/experiment";
 import { hasPendingScheduledStart } from "shared/util";
 import { format } from "date-fns-tz";
 
@@ -39,8 +42,10 @@ export const armedStartDate = (
 export const scheduleTimes = (
   experiment: Pick<
     ExperimentInterfaceStringDates,
-    "status" | "phases" | "statusUpdateSchedule"
-  >,
+    "status" | "statusUpdateSchedule"
+  > & {
+    phases: Pick<ExperimentPhaseStringDates, "dateStarted" | "dateEnded">[];
+  },
 ) => {
   const at = (value: string | Date) =>
     format(new Date(value), "MMM d, yyyy h:mm a");

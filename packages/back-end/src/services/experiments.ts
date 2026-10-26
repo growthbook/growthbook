@@ -5026,7 +5026,7 @@ function resolveExperimentUpdateVariationsAndPhases(
         ? {
             ...phase,
             variations: syncedPhaseVariations,
-            // A variation added or removed evens out the split, as in the app.
+            // A variation added or removed evens out the split.
             ...(phase.variationWeights.length !==
               syncedPhaseVariations.length && {
               variationWeights: getEqualWeights(syncedPhaseVariations.length),

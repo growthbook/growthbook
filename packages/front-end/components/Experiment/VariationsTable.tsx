@@ -20,7 +20,7 @@ import VariationLabel from "@/ui/VariationLabel";
 import QuickEditButton, {
   revealsQuickEdit,
 } from "@/components/Experiment/TabbedPage/QuickEditButton";
-import { useStagedState } from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import { useScreenshotUploadBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import styles from "./VariationsTable.module.scss";
 
 // A small marker, so an empty variation doesn't reserve screenshot-sized space.
@@ -222,15 +222,7 @@ export function VariationBox({
   onEditMetadata?: (variationIndex: number) => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
-  // The upload writes straight to the stored variation at index `i`, which
-  // staged variation edits may have moved; their save would also drop it.
-  const [stagedVariations] = useStagedState<Variation[] | null>(
-    "variations",
-    null,
-  );
-  const uploadBlocked = stagedVariations
-    ? "Save or discard your variation changes first."
-    : null;
+  const uploadBlocked = useScreenshotUploadBlockedReason();
   const isBandit = experiment.type === "multi-armed-bandit";
   const shouldShowSplit = showSplit ?? !isBandit;
 

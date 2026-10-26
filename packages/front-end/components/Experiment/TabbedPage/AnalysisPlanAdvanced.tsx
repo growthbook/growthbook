@@ -1,9 +1,6 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import {
-  getExposureQueryIdentifierTypes,
-  resolveAnalysisIdentifierType,
-} from "shared/util";
+import { getExposureQueryIdentifierTypes } from "shared/util";
 import { getValidDate } from "shared/dates";
 import {
   getUnsetAnalysisSettings,
@@ -40,7 +37,7 @@ import Link from "@/ui/Link";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 import SetupFieldRow from "./SetupFieldRow";
-import QuickEditButton, { clicksQuickEdit } from "./QuickEditButton";
+import { QuickEditRow } from "./QuickEditButton";
 
 function Card({
   title,
@@ -76,6 +73,7 @@ export default function AnalysisPlanAdvanced({
   experiment,
   datasourceId,
   exposureQueryId,
+  identifierType,
   metrics,
   stage,
   manageOverrides,
@@ -87,6 +85,7 @@ export default function AnalysisPlanAdvanced({
   experiment: ExperimentInterfaceStringDates;
   datasourceId: string;
   exposureQueryId: string;
+  identifierType: string | null;
   metrics: {
     goalMetrics: string[];
     secondaryMetrics: string[];
@@ -121,7 +120,6 @@ export default function AnalysisPlanAdvanced({
   });
   const defaultAttributionModel =
     orgSettings.attributionModel || "firstExposure";
-  // Each card's reset, while something in it differs from its default.
   const resetIf = (
     differs: boolean,
     changes: ExperimentAnalysisSettingsDraft,
@@ -157,12 +155,6 @@ export default function AnalysisPlanAdvanced({
   const exposureQuery = datasource?.settings?.queries?.exposure?.find(
     (q) => q.id === exposureQueryId,
   );
-  const identifierType = exposureQuery
-    ? resolveAnalysisIdentifierType(
-        exposureQuery,
-        experiment.exposureQueryIdentifierType,
-      )
-    : undefined;
   const incrementalRefresh = getIsExperimentIncludedInIncrementalRefresh(
     datasource ?? undefined,
     experiment.id,
@@ -302,7 +294,6 @@ export default function AnalysisPlanAdvanced({
                     }
                     disabled={disabled || !hasSequential}
                   />
-                  {/* Under the checkbox it tunes, in line with its label. */}
                   {sequentialEnabled ? (
                     <Flex align="center" gap="3" pl="5">
                       <Text>Tuning parameter</Text>
@@ -345,7 +336,7 @@ export default function AnalysisPlanAdvanced({
                     <MetricSelector
                       datasource={datasourceId}
                       exposureQueryId={exposureQueryId}
-                      exposureQueryIdentifierType={identifierType}
+                      exposureQueryIdentifierType={identifierType ?? undefined}
                       project={experiment.project}
                       includeFacts
                       initialOption="None"
@@ -506,6 +497,7 @@ export default function AnalysisPlanAdvanced({
               ) : null}
               <CustomMetricSlicesSelector
                 asRow
+                disabled={disabled}
                 goalMetrics={metrics.goalMetrics}
                 secondaryMetrics={metrics.secondaryMetrics}
                 guardrailMetrics={metrics.guardrailMetrics}
@@ -520,11 +512,9 @@ export default function AnalysisPlanAdvanced({
                   tooltip="Override metric behaviors within this experiment."
                   content="text"
                 >
-                  <Flex
-                    align="start"
-                    justify="between"
-                    gap="3"
-                    className={manageOverrides ? clicksQuickEdit : undefined}
+                  <QuickEditRow
+                    label="Edit metric overrides"
+                    onEdit={manageOverrides}
                   >
                     <Text
                       color={overriddenNames.length ? "text-high" : "text-mid"}
@@ -533,15 +523,7 @@ export default function AnalysisPlanAdvanced({
                         ? overriddenNames.join(", ")
                         : "None"}
                     </Text>
-                    {manageOverrides ? (
-                      <QuickEditButton
-                        label="Edit metric overrides"
-                        onClick={manageOverrides}
-                        labelTooltip={false}
-                        fillsRow
-                      />
-                    ) : null}
-                  </Flex>
+                  </QuickEditRow>
                 </SetupFieldRow>
               ) : null}
             </Card>

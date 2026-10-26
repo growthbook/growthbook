@@ -584,14 +584,9 @@ export async function getLinkageSyncRevisionSummaries(
 
 /**
  * Reconcile both linkage projections after a write that only moves drafts
- * around, so there is no publish to gate.
- *
- * Each linkage is awaited, so the response the caller returns already reflects
- * it, when a rule of its kind is involved on either side of the write — which
- * is also the only way it can go stale, since a bandit or experiment that drops
- * out of every revision was referenced by the pre-write rules. A start right
- * after the write then sees the draft queued. Otherwise experiment linkage
- * runs in the background.
+ * around. Each is awaited when a rule of its kind is on either side of the
+ * write (the only way it can go stale), so the response and a start right
+ * after it see it; otherwise experiment linkage runs in the background.
  */
 async function syncLinkagesAfterDraftWrite(
   context: ReqContext | ApiReqContext,

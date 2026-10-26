@@ -2210,7 +2210,7 @@ const startGateKeyFields = {
   key: z
     .string()
     .describe(
-      "The checklist item this stands for, or `rampLocked:<featureId>` for a linked Feature Flag locked by a ramp.",
+      "The checklist item, or `rampLocked:<featureId>` for a linked Feature Flag a ramp locks.",
     ),
   type: z
     .string()
@@ -2239,7 +2239,7 @@ const startGateValidator = z
       .string()
       .nullable()
       .describe(
-        "Permission that bypasses this gate without a flag: holding it on the Feature Flag's Project, or the organization's REST API approval bypass.",
+        "Permission on the linked Feature Flag's Project that bypasses this gate.",
       ),
     resolution: z
       .object({
@@ -2259,7 +2259,7 @@ const experimentStartChecklistResponseValidator = z
     gates: z
       .array(startGateValidator)
       .describe(
-        "Each incomplete item as a gate: what blocks a start, and what gets past it. A start refused by any of them returns `checklist_incomplete` with the blocking ones in `gates`.",
+        "Each incomplete required item as a gate; a refused start returns the blocking ones in `gates`.",
       ),
   })
   .strict();

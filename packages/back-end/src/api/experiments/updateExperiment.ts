@@ -50,6 +50,7 @@ import {
   startResult,
   statusChangeEffects,
   validateExperimentChange,
+  type StartPlan,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
@@ -448,24 +449,6 @@ export const updateExperiment = createApiRequestHandler(
 
   normalizeStatusUpdateScheduleChanges(experiment, changes, req.context.armer);
 
-  // A stop ends the phase and a restart reopens it, as in the app; a start
-  // goes through startExperiment below. Phases sent with it are the caller's.
-  const statusEffects =
-    changes.status &&
-    changes.status !== experiment.status &&
-    experiment.status !== "draft" &&
-    !payload.phases
-      ? statusChangeEffects({
-          experiment,
-          status: changes.status,
-          settings: getScopedSettings({
-            organization: req.organization,
-            experiment,
-          }).settings,
-        })
-      : {};
-
-  // As in the app, a started experiment can't lose its last phase.
   if (
     changes.phases?.length === 0 &&
     experiment.phases.length > 0 &&
@@ -476,7 +459,7 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
-  // One weight per variation in the phase that serves, as the app requires.
+  // One weight per variation in the latest phase.
   const latestPhase = (changes.phases ?? experiment.phases).at(-1);
   if (
     (changes.variations || changes.phases) &&
@@ -559,22 +542,21 @@ export const updateExperiment = createApiRequestHandler(
   const restApiBypassesReviews = canUseRestApiBypassSetting(req);
   // A start meets what POST /start does, judged on the experiment as this
   // update leaves it, and before the hold.
+  let startPlan: StartPlan | null = null;
   if (isStartingFromDraft) {
     await assertCanPublishPendingFeatureDrafts(req.context, experiment);
+    startPlan = await planStartGates(
+      req.context,
+      { ...experiment, ...changes },
+      {
+        when: "now",
+        skipChecklist,
+        bypassApproval: bypassLockdown,
+        restApiBypassesReviews,
+      },
+    );
+    assertStartNotBlocked(startPlan);
   }
-  const startPlan = isStartingFromDraft
-    ? await planStartGates(
-        req.context,
-        { ...experiment, ...changes },
-        {
-          when: "now",
-          skipChecklist,
-          bypassApproval: bypassLockdown,
-          restApiBypassesReviews,
-        },
-      )
-    : null;
-  if (startPlan) assertStartNotBlocked(startPlan);
 
   const liveActions = [
     ...experimentChangeActions(experiment, changes),
@@ -583,8 +565,29 @@ export const updateExperiment = createApiRequestHandler(
       ? [archive ? ("experiment.stop" as const) : ("experiment.start" as const)]
       : []),
   ];
-  // Part of the status change, which holds as itself.
-  Object.assign(changes, statusEffects);
+  // A stop ends the phase and a restart reopens it, applied after liveActions
+  // as part of the status change. Phases sent with it are the caller's.
+  if (
+    changes.status &&
+    changes.status !== experiment.status &&
+    experiment.status !== "draft" &&
+    !payload.phases
+  ) {
+    Object.assign(
+      changes,
+      statusChangeEffects({
+        experiment: {
+          ...experiment,
+          phases: changes.phases ?? experiment.phases,
+        },
+        status: changes.status,
+        settings: getScopedSettings({
+          organization: req.organization,
+          experiment,
+        }).settings,
+      }),
+    );
+  }
   const queued = await queuedDraftsHold(
     req.context,
     changes.status === "running" && experiment.status !== "running"
@@ -612,22 +615,20 @@ export const updateExperiment = createApiRequestHandler(
     ],
   });
 
-  let experimentForUpdate =
-    archive === null
-      ? experiment
-      : archive
-        ? await archiveExperimentWithCleanup({
-            context: req.context,
-            experiment,
-            eventAudit: req.eventAudit,
-            audit: req.audit,
-            restApiBypassesReviews,
-          })
-        : await unarchiveExperimentWithCleanup({
-            context: req.context,
-            experiment,
-          });
+  let experimentForUpdate = experiment;
   if (archive !== null) {
+    experimentForUpdate = archive
+      ? await archiveExperimentWithCleanup({
+          context: req.context,
+          experiment,
+          eventAudit: req.eventAudit,
+          audit: req.audit,
+          restApiBypassesReviews,
+        })
+      : await unarchiveExperimentWithCleanup({
+          context: req.context,
+          experiment,
+        });
     await req.audit({
       event: archive ? "experiment.archive" : "experiment.unarchive",
       entity: { object: "experiment", id: experiment.id },
@@ -686,7 +687,6 @@ export const updateExperiment = createApiRequestHandler(
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");
   }
-  // Visual changes and redirects keep one entry per variation, as in the app.
   if (changes.variations) {
     await syncVisualChangesetsAndUrlRedirectsForExperiment({
       context: req.context,
