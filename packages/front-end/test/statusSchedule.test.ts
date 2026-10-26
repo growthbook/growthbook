@@ -27,8 +27,9 @@ describe("hasStatusSchedule", () => {
 
 describe("scheduleTimes", () => {
   const draft = { status: "draft" as const, phases: [] };
+  const upcoming = { started: false, ended: false };
   it.each([
-    [draft, { starts: null, ends: null }],
+    [draft, { ...upcoming, starts: null, ends: null }],
     [
       {
         ...draft,
@@ -36,7 +37,7 @@ describe("scheduleTimes", () => {
           stopAfter: { value: 1, unit: "hours" as const },
         },
       },
-      { starts: null, ends: "After 1 hour" },
+      { ...upcoming, starts: null, ends: "After 1 hour" },
     ],
     [
       {
@@ -45,7 +46,7 @@ describe("scheduleTimes", () => {
           stopAfter: { value: 14, unit: "days" as const },
         },
       },
-      { starts: null, ends: "After 14 days" },
+      { ...upcoming, starts: null, ends: "After 14 days" },
     ],
     [
       {
@@ -55,9 +56,30 @@ describe("scheduleTimes", () => {
           stopAt: "2026-11-11T09:30:00",
         },
       },
-      { starts: "Oct 28, 2026 12:00 AM", ends: "Nov 11, 2026 9:30 AM" },
+      {
+        ...upcoming,
+        starts: "Oct 28, 2026 12:00 AM",
+        ends: "Nov 11, 2026 9:30 AM",
+      },
     ],
-    // Once it's run, its own dates.
+    // Running past its scheduled end hasn't ended it.
+    [
+      {
+        status: "running" as const,
+        phases: [{ dateStarted: "2026-10-01T08:00:00" }],
+        statusUpdateSchedule: {
+          startAt: "2026-09-30T00:00:00",
+          stopAt: "2026-10-10T00:00:00",
+        },
+      },
+      {
+        started: true,
+        ended: false,
+        starts: "Oct 1, 2026 8:00 AM",
+        ends: "Oct 10, 2026 12:00 AM",
+      },
+    ],
+    // Once it's stopped, when it actually did.
     [
       {
         status: "stopped" as const,
@@ -67,8 +89,14 @@ describe("scheduleTimes", () => {
             dateEnded: "2026-10-15T08:00:00",
           },
         ],
+        statusUpdateSchedule: { stopAt: "2026-10-10T00:00:00" },
       },
-      { starts: "Oct 1, 2026 8:00 AM", ends: "Oct 15, 2026 8:00 AM" },
+      {
+        started: true,
+        ended: true,
+        starts: "Oct 1, 2026 8:00 AM",
+        ends: "Oct 15, 2026 8:00 AM",
+      },
     ],
   ])("%j", (experiment, expected) => {
     expect(

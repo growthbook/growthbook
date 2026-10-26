@@ -192,10 +192,10 @@ export default function DecisionPlan({
           >
             {scheduled ? (
               <Flex direction="column" gap="3" flexGrow="1">
-                <InnerRow label="Starts">
+                <InnerRow label={times.started ? "Started" : "Starts"}>
                   <Text color="text-high">{times.starts ?? "Manually"}</Text>
                 </InnerRow>
-                <InnerRow label="Ends">
+                <InnerRow label={times.ended ? "Ended" : "Ends"}>
                   <Text color="text-high">{times.ends ?? "Manually"}</Text>
                 </InnerRow>
               </Flex>

@@ -32,7 +32,10 @@ export const armedStartDate = (
     ? new Date(experiment.nextScheduledStatusUpdate.date)
     : null;
 
-/** When an experiment starts and ends: a date or a span; null by hand. */
+/**
+ * When an experiment starts and ends: a date or a span; null by hand. Once it
+ * has actually started or stopped, its own dates, flagged as past.
+ */
 export const scheduleTimes = (
   experiment: Pick<
     ExperimentInterfaceStringDates,
@@ -47,9 +50,11 @@ export const scheduleTimes = (
     experiment.status !== "draft" ? phase?.dateStarted : undefined;
   const ended = experiment.status === "stopped" ? phase?.dateEnded : undefined;
   const after = schedule?.stopAfter;
-  const start = schedule?.startAt ?? started;
-  const end = schedule?.stopAt ?? ended;
+  const start = started ?? schedule?.startAt;
+  const end = ended ?? schedule?.stopAt;
   return {
+    started: !!started,
+    ended: !!ended,
     starts: start ? at(start) : null,
     ends: end
       ? at(end)
