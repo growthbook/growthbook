@@ -29,6 +29,11 @@ export default function LabelWithHelp({
             <span
               tabIndex={0}
               onClick={guardClick}
+              aria-label={
+                typeof label === "string"
+                  ? `More information about ${label}`
+                  : "More information"
+              }
               style={{ display: "inline-flex" }}
             >
               <PiInfo color="var(--color-text-low)" />
