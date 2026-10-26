@@ -6,12 +6,11 @@ import {
   approxTopKCapacity,
   eligibleTopValueExpr,
 } from "./clauses/approx-top-values";
+import { isPlainJsonPath } from "./clauses/json-path";
 import { baseDialect } from "./base";
 
 const databricksEscapeStringLiteral = (value: string) =>
   value.replace(/(['\\])/g, "\\$1");
-
-const SAFE_DATABRICKS_JSON_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 export const databricksDialect: SqlDialect = {
   ...baseDialect,
@@ -43,7 +42,7 @@ export const databricksDialect: SqlDialect = {
   // The `col:path` form is SQL syntax, so keys that aren't plain identifiers
   // fall back to get_json_object, which takes the path as a string literal.
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = path.split(".").every((p) => SAFE_DATABRICKS_JSON_KEY.test(p))
+    const raw = isPlainJsonPath(path)
       ? `${jsonCol}:${path}`
       : `get_json_object(${jsonCol}, '$.${databricksEscapeStringLiteral(path)}')`;
     return isNumeric ? databricksDialect.castToFloat(raw) : raw;

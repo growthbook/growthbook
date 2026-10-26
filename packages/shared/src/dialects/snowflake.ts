@@ -7,12 +7,11 @@ import {
   approxTopKCapacity,
   eligibleTopValueExpr,
 } from "./clauses/approx-top-values";
+import { isPlainJsonPath, splitJsonPath } from "./clauses/json-path";
 import { baseDialect } from "./base";
 
 const snowflakeEscapeStringLiteral = (value: string) =>
   value.replace(/\\/g, "\\\\").replace(/'/g, "''");
-
-const SAFE_SNOWFLAKE_JSON_KEY = /^[A-Za-z_][A-Za-z0-9_$]*$/;
 
 export const snowflakeDialect: SqlDialect = {
   ...baseDialect,
@@ -84,10 +83,14 @@ export const snowflakeDialect: SqlDialect = {
   // The `:path` form is SQL syntax, so keys that aren't plain identifiers
   // switch to bracket notation with escaped string literals.
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const parts = path.split(".");
-    const access = parts.every((p) => SAFE_SNOWFLAKE_JSON_KEY.test(p))
+    const access = isPlainJsonPath(path)
       ? `:${path}`
-      : parts.map((p) => `['${snowflakeEscapeStringLiteral(p)}']`).join("");
+      : splitJsonPath(path)
+          .map(
+            ({ key, arraySteps }) =>
+              `['${snowflakeEscapeStringLiteral(key)}']${arraySteps}`,
+          )
+          .join("");
     return `PARSE_JSON(${jsonCol})${access}::${isNumeric ? "float" : "string"}`;
   },
   evalBoolean: (col: string, value: boolean) =>

@@ -383,9 +383,42 @@ describe("bigquery integration", () => {
       );
     });
 
+    it("keeps array steps in plain paths", () => {
+      expect(
+        snowflakeDialect.jsonExtract("props", "items[0].name", false),
+      ).toBe("PARSE_JSON(props):items[0].name::string");
+      expect(
+        databricksDialect.jsonExtract("props", "items[0].name", false),
+      ).toBe("props:items[0].name");
+      expect(mysqlDialect.jsonExtract("props", "items[0].name", false)).toBe(
+        "JSON_EXTRACT(props, '$.items[0].name')",
+      );
+      expect(prestoDialect.jsonExtract("props", "items[0].name", false)).toBe(
+        "json_extract_scalar(props, '$.items[0].name')",
+      );
+    });
+
+    it("quotes other keys inside the JSON path", () => {
+      expect(mysqlDialect.jsonExtract("props", "a.x'y[1]", false)).toBe(
+        `JSON_EXTRACT(props, '$.a."x''y"[1]')`,
+      );
+      expect(mssqlDialect.jsonExtract("props", 'x "y"', false)).toBe(
+        `JSON_VALUE(props, '$."x \\"y\\""')`,
+      );
+      expect(prestoDialect.jsonExtract("props", "x'y", false)).toBe(
+        `json_extract_scalar(props, '$["x''y"]')`,
+      );
+      expect(athenaDialect.jsonExtract("props", "page-url", false)).toBe(
+        `json_extract_scalar(props, '$["page-url"]')`,
+      );
+    });
+
     it("Snowflake uses bracket notation for other keys", () => {
       expect(snowflakeDialect.jsonExtract("props", "x'y.page-url", true)).toBe(
         "PARSE_JSON(props)['x''y']['page-url']::float",
+      );
+      expect(snowflakeDialect.jsonExtract("props", "x y[0].name", false)).toBe(
+        "PARSE_JSON(props)['x y'][0]['name']::string",
       );
     });
 

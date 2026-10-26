@@ -172,7 +172,7 @@ describe("getColumnsTopValuesQuery — JSON field name escaping", () => {
 
   it("uses BigQuery's backslash escaping for the path and column name", () => {
     const sql = buildJsonSql(bigQueryDialect);
-    expect(sql).toContain("JSON_VALUE(props, '$.x\\'y\\\\')");
+    expect(sql).toContain("JSON_VALUE(props, '$.\"x\\'y\\\\\\\\\"')");
     expect(sql).toContain("'props.x\\'y\\\\'");
   });
 

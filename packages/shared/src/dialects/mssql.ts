@@ -1,6 +1,7 @@
 import { createLikeMatchFns } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "./clauses/percentile-cap-select-clause";
+import { quoteJsonPath } from "./clauses/json-path";
 import { baseDialect } from "./base";
 
 export const mssqlDialect: SqlDialect = {
@@ -35,7 +36,7 @@ export const mssqlDialect: SqlDialect = {
   percentileApprox: (value: string, quantile: string | number) =>
     `APPROX_PERCENTILE_CONT(${quantile}) WITHIN GROUP (ORDER BY ${value})`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = `JSON_VALUE(${jsonCol}, '$.${mssqlDialect.escapeStringLiteral(path)}')`;
+    const raw = `JSON_VALUE(${jsonCol}, '${mssqlDialect.escapeStringLiteral(quoteJsonPath(path, "dot"))}')`;
     return isNumeric ? mssqlDialect.castToFloat(raw) : raw;
   },
   evalBoolean: (col: string, value: boolean) => `${col} = ${value ? "1" : "0"}`,

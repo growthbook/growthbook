@@ -6,6 +6,7 @@ import type {
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "./clauses/percentile-cap-select-clause";
 import { eligibleTopValueExpr } from "./clauses/approx-top-values";
+import { quoteJsonPath } from "./clauses/json-path";
 import { baseDialect } from "./base";
 
 const APPROX_QUANTILES_MULTIPLIER = 10000;
@@ -199,7 +200,7 @@ export const bigQueryDialect: SqlDialect = {
   // don't overflow in the statistics CTEs.
   castToFloat: (col: string) => `CAST(${col} AS FLOAT64)`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = `JSON_VALUE(${jsonCol}, '$.${bigQueryEscapeStringLiteral(path)}')`;
+    const raw = `JSON_VALUE(${jsonCol}, '${bigQueryEscapeStringLiteral(quoteJsonPath(path, "dot"))}')`;
     return isNumeric ? bigQueryDialect.castToFloat(raw) : raw;
   },
   // BigQuery uses `IGNORE NULLS` in aggregates rather than `FILTER (WHERE …)`.
