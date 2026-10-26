@@ -74,6 +74,9 @@ export function useContextualBanditResults(cbId: string | undefined) {
   const restApiCall = useRestApiCall();
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
+  const [pendingSnapshotId, setPendingSnapshotId] = useState<string | null>(
+    null,
+  );
 
   const { data, error, mutate, isValidating } = useRestApi(
     contextualBanditEndpoints.getContextualBanditResults,
@@ -81,7 +84,30 @@ export function useContextualBanditResults(cbId: string | undefined) {
   );
 
   const latest = data?.latest ?? null;
-  const isRunning = latest?.status === "running";
+
+  const effectiveLatest = useMemo(() => {
+    if (!pendingSnapshotId) return latest;
+    if (latest?.id === pendingSnapshotId) return latest;
+    return {
+      id: pendingSnapshotId,
+      status: "running" as const,
+      error: "",
+      queries: latest?.queries ?? [],
+      runStarted: latest?.runStarted ?? null,
+      dateCreated: new Date().toISOString(),
+      multipleExposures: latest?.multipleExposures ?? 0,
+      type: latest?.type ?? "",
+      triggeredBy: latest?.triggeredBy ?? "",
+    };
+  }, [pendingSnapshotId, latest]);
+
+  const isRunning = effectiveLatest?.status === "running";
+
+  useEffect(() => {
+    if (pendingSnapshotId && latest?.id === pendingSnapshotId) {
+      setPendingSnapshotId(null);
+    }
+  }, [pendingSnapshotId, latest?.id]);
 
   useEffect(() => {
     if (!isRunning) return;
@@ -96,10 +122,14 @@ export function useContextualBanditResults(cbId: string | undefined) {
     setRefreshing(true);
     setRefreshError("");
     try {
-      await restApiCall(contextualBanditEndpoints.refreshContextualBandit, {
-        params: { id: cbId },
-      });
-      await mutate();
+      const res = await restApiCall(
+        contextualBanditEndpoints.refreshContextualBandit,
+        {
+          params: { id: cbId },
+        },
+      );
+      setPendingSnapshotId(res.snapshotId);
+      void mutate();
     } catch (e) {
       setRefreshError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -109,17 +139,19 @@ export function useContextualBanditResults(cbId: string | undefined) {
 
   const cancel = useCallback(async () => {
     if (!cbId) return;
+    setPendingSnapshotId(null);
     await restApiCall(contextualBanditEndpoints.cancelContextualBandit, {
       params: { id: cbId },
     });
-  }, [restApiCall, cbId]);
+    await mutate();
+  }, [restApiCall, cbId, mutate]);
 
   return {
     loading: !!cbId && !error && !data,
     isValidating,
     contextualBanditSnapshot: data?.contextualBanditSnapshot ?? null,
     results: data?.results ?? null,
-    latest,
+    latest: effectiveLatest,
     error,
     mutate,
     refresh,
