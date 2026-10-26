@@ -37,7 +37,7 @@ export function processExperimentFactMetricsQueryRows(
       if (!row[prefix + "id"]) break;
 
       metricData[prefix + "id"] = row[prefix + "id"];
-      const columns = columnsByMetric[`m${i}`];
+      const columns = columnsByMetric[`m${i}`] ?? {};
       ALL_NON_QUANTILE_METRIC_FLOAT_COLS.forEach((col) => {
         if (columns[col] !== undefined) {
           metricData[prefix + col] = parseFloat(String(columns[col])) || 0;
