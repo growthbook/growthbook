@@ -211,7 +211,9 @@ export async function updateExperimentDashboards({
       useCache: true,
       type: "exploratory",
       triggeredBy: "update-dashboards",
-      endDate: mainSnapshot.settings.endDate,
+      cutoff: mainSnapshot.settings.endDateIsCutoff
+        ? mainSnapshot.settings.endDate
+        : null,
     });
     await queryRunner.waitForResults();
   }

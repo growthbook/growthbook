@@ -203,6 +203,7 @@ export function getExperimentUnitsQuery(
               [activationMetric],
               unitsSettings.endDate,
               overrideConversionWindows,
+              unitsSettings.endDateIsCutoff,
             ),
             experimentId: unitsSettings.experimentId,
             phase: unitsSettings.phase,

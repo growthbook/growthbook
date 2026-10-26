@@ -10,7 +10,10 @@ import { FactMetricInterface } from "shared/types/fact-table";
 import { isFactMetric } from "shared/experiments";
 import { ExperimentInterface, Variation } from "shared/types/experiment";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { OrganizationInterface } from "shared/types/organization";
+import {
+  ExperimentUpdateSchedule,
+  OrganizationInterface,
+} from "shared/types/organization";
 import { addTags } from "back-end/src/models/TagModel";
 import { Context } from "back-end/src/models/BaseModel";
 import {
@@ -24,8 +27,6 @@ import {
   createMetric,
   fillEmptyVariationKeys,
   getExperimentMetricById,
-  getAnalysisEndDateSettingsError,
-  getScheduledAnalysisEndDate,
   normalizeStatusUpdateScheduleChanges,
   postExperimentApiPayloadToInterface,
   postMetricApiPayloadIsValid,
@@ -36,6 +37,10 @@ import {
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+import {
+  getAnalysisEndDateSettingsError,
+  getScheduledAnalysisEndDate,
+} from "back-end/src/services/scheduledAnalysisEndDate";
 
 jest.mock("back-end/src/models/TagModel", () => ({ addTags: jest.fn() }));
 
@@ -2585,15 +2590,18 @@ describe("getScheduledAnalysisEndDate", () => {
   const phaseStart = new Date("2026-09-01T00:00:00Z");
   const cron = { type: "cron" as const, cron: "0 3 * * *" };
 
-  it("defaults to the run time", () => {
-    expect(getScheduledAnalysisEndDate(null, phaseStart, now)).toEqual(now);
+  it("has no cutoff when the update analyzes through its run time", () => {
+    expect(getScheduledAnalysisEndDate(null, phaseStart, now)).toBeNull();
+    expect(
+      getScheduledAnalysisEndDate({ type: "stale", hours: 6 }, phaseStart, now),
+    ).toBeNull();
     expect(
       getScheduledAnalysisEndDate(
         { ...cron, analysisEndDate: "runTime" },
         phaseStart,
         now,
       ),
-    ).toEqual(now);
+    ).toBeNull();
   });
 
   it("subtracts the lag hours", () => {
@@ -2604,6 +2612,16 @@ describe("getScheduledAnalysisEndDate", () => {
         now,
       ),
     ).toEqual(new Date("2026-09-30T00:07:00Z"));
+  });
+
+  it("has no cutoff for a zero lag", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        { type: "stale", analysisEndDate: "lag", analysisEndLagHours: 0 },
+        phaseStart,
+        now,
+      ),
+    ).toBeNull();
   });
 
   it("uses today's fixed time when it has passed", () => {
@@ -2626,7 +2644,7 @@ describe("getScheduledAnalysisEndDate", () => {
     ).toEqual(new Date("2026-09-29T23:00:00Z"));
   });
 
-  it("ignores fixed time without a cron schedule", () => {
+  it("has no cutoff for a fixed time without a cron schedule", () => {
     expect(
       getScheduledAnalysisEndDate(
         {
@@ -2638,17 +2656,42 @@ describe("getScheduledAnalysisEndDate", () => {
         phaseStart,
         now,
       ),
-    ).toEqual(now);
+    ).toBeNull();
   });
 
-  it("falls back to the run time when the cutoff is before the phase start", () => {
+  it("has no cutoff for a fixed time that is not a string", () => {
+    // A config file import can store a YAML number here.
+    const schedule = {
+      ...cron,
+      analysisEndDate: "fixedTime",
+      analysisEndTime: 0,
+    } as unknown as ExperimentUpdateSchedule;
+    expect(getScheduledAnalysisEndDate(schedule, phaseStart, now)).toBeNull();
+  });
+
+  it("has no cutoff when it falls before the analysis start", () => {
     expect(
       getScheduledAnalysisEndDate(
         { ...cron, analysisEndDate: "fixedTime", analysisEndTime: "00:00" },
         new Date("2026-09-30T01:00:00Z"),
         now,
       ),
-    ).toEqual(now);
+    ).toBeNull();
+  });
+
+  it("has no cutoff before a holdout's analysis period starts", () => {
+    const schedule: ExperimentUpdateSchedule = {
+      type: "stale",
+      analysisEndDate: "lag",
+      analysisEndLagHours: 3,
+    };
+    const analysisPeriodStart = new Date("2026-09-30T02:00:00Z");
+    expect(getScheduledAnalysisEndDate(schedule, phaseStart, now)).toEqual(
+      new Date("2026-09-30T00:07:00Z"),
+    );
+    expect(
+      getScheduledAnalysisEndDate(schedule, analysisPeriodStart, now),
+    ).toBeNull();
   });
 });
 

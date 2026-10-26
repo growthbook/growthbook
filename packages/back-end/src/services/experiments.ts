@@ -252,6 +252,7 @@ import {
   ExperimentUpdateExecutionLogger,
 } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
+import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
 import { getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -617,7 +618,7 @@ export function getSnapshotSettings({
   datasource,
   useStickyBucketing,
   eligiblePrecomputedUnitDimensionIds = [],
-  endDate,
+  cutoff,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -636,7 +637,7 @@ export function getSnapshotSettings({
   datasource?: DataSourceInterface;
   useStickyBucketing?: boolean;
   eligiblePrecomputedUnitDimensionIds?: string[];
-  endDate?: Date;
+  cutoff?: Date | null;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -760,7 +761,7 @@ export function getSnapshotSettings({
 
   // Lookback windows are counted back from the analysis end date, so they are
   // sized from it too.
-  const analysisEndDate = phase.dateEnded || endDate || new Date();
+  const analysisEndDate = phase.dateEnded || cutoff || new Date();
 
   // Expand all derived metrics (slices and funnel steps) into the metricMap
   expandDerivedMetricsInMap({
@@ -929,6 +930,7 @@ export function getSnapshotSettings({
     })),
     coverage: phase.coverage ?? 1,
     banditSettings,
+    ...(cutoff && !phase.dateEnded ? { endDateIsCutoff: true } : {}),
   };
 }
 
@@ -1020,75 +1022,6 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   if (hours < 1) hours = 1;
   if (hours > 168) hours = 168;
   return new Date(Date.now() + hours * 60 * 60 * 1000);
-}
-
-// "HH:MM" in UTC, capturing hours and minutes
-const ANALYSIS_END_TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
-
-export function getScheduledAnalysisEndDate(
-  schedule: ExperimentUpdateSchedule | null,
-  phaseStart: Date,
-  now: Date = new Date(),
-): Date {
-  let endDate = now;
-  const mode = schedule?.analysisEndDate ?? "runTime";
-  switch (mode) {
-    case "lag": {
-      const lagHours = Math.min(
-        Math.max(schedule?.analysisEndLagHours || 0, 0),
-        168,
-      );
-      endDate = new Date(now.getTime() - lagHours * 60 * 60 * 1000);
-      break;
-    }
-    case "fixedTime": {
-      const match = schedule?.analysisEndTime?.match(ANALYSIS_END_TIME_PATTERN);
-      if (schedule?.type !== "cron" || !match) break;
-      const cutoff = Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate(),
-        Number(match[1]),
-        Number(match[2]),
-      );
-      endDate = new Date(
-        cutoff > now.getTime() ? cutoff - 24 * 60 * 60 * 1000 : cutoff,
-      );
-      break;
-    }
-    case "runTime":
-      break;
-    default:
-      mode satisfies never;
-  }
-  return endDate > phaseStart ? endDate : now;
-}
-
-/** Why an update schedule's analysis end date settings can't be saved, if they can't. */
-export function getAnalysisEndDateSettingsError(
-  schedule: ExperimentUpdateSchedule | null | undefined,
-): string | null {
-  const mode = schedule?.analysisEndDate;
-  if (mode === undefined || mode === "runTime") return null;
-  if (mode === "lag") {
-    const hours = schedule?.analysisEndLagHours;
-    return typeof hours === "number" &&
-      Number.isInteger(hours) &&
-      hours >= 1 &&
-      hours <= 168
-      ? null
-      : "Hours before the update runs must be a whole number between 1 and 168";
-  }
-  if (mode === "fixedTime") {
-    if (schedule?.type !== "cron") {
-      return "An exact time of day requires a cron update schedule";
-    }
-    return typeof schedule.analysisEndTime === "string" &&
-      ANALYSIS_END_TIME_PATTERN.test(schedule.analysisEndTime)
-      ? null
-      : "Time of day must be in HH:MM format (UTC)";
-  }
-  return `Unknown analysis end date: ${String(mode)}`;
 }
 
 /**
@@ -1965,7 +1898,7 @@ export async function planSnapshot({
   factTableMap,
   reweight,
   throwIfRequiresFullRefresh,
-  endDate,
+  cutoff,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1980,7 +1913,7 @@ export async function planSnapshot({
   factTableMap: FactTableMap;
   reweight?: boolean;
   throwIfRequiresFullRefresh?: boolean;
-  endDate?: Date;
+  cutoff?: Date | null;
 }): Promise<PlannedExperimentSnapshot> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -2003,6 +1936,7 @@ export async function planSnapshot({
         })
       : [];
 
+  const phase = experiment.phases[phaseIndex];
   const snapshotSettingsArgs = {
     experiment,
     phaseIndex,
@@ -2022,17 +1956,20 @@ export async function planSnapshot({
       organization.settings?.useStickyBucketing &&
       !experiment.disableStickyBucketing,
     eligiblePrecomputedUnitDimensionIds,
-    endDate:
-      endDate ??
-      (triggeredBy === "schedule" &&
-      type === "standard" &&
-      experiment.type !== "multi-armed-bandit" &&
-      experiment.phases[phaseIndex]
-        ? getScheduledAnalysisEndDate(
-            organization.settings?.updateSchedule ?? null,
-            experiment.phases[phaseIndex].dateStarted,
-          )
-        : undefined),
+    // `null` is a decided "no cutoff"; only an omitted one is derived here, so
+    // the scheduled job's own cutoff and clock are kept.
+    cutoff:
+      cutoff !== undefined
+        ? cutoff
+        : triggeredBy === "schedule" &&
+            type === "standard" &&
+            experiment.type !== "multi-armed-bandit" &&
+            phase
+          ? getScheduledAnalysisEndDate(
+              organization.settings?.updateSchedule ?? null,
+              phase.lookbackStartDate ?? phase.dateStarted,
+            )
+          : null,
   };
 
   const incrementalRefresh = useCache
@@ -2453,7 +2390,7 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   reweight,
-  endDate,
+  cutoff,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -2467,7 +2404,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
-  endDate?: Date;
+  cutoff?: Date | null;
 }): Promise<ExperimentSnapshotQueryRunner> {
   const plan = await planSnapshot({
     experiment,
@@ -2482,7 +2419,7 @@ export async function createSnapshot({
     metricMap,
     factTableMap,
     reweight,
-    endDate,
+    cutoff,
   });
 
   return createSnapshotFromPlan({

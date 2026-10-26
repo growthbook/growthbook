@@ -13,10 +13,10 @@ import {
   determineNextDate,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
-  getScheduledAnalysisEndDate,
   getSettingsForSnapshotMetrics,
   updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
+import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
 import { findLatestSuccessfulSnapshotEndDate } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   ConcurrentIncrementalRefreshError,
@@ -146,19 +146,16 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const phaseIndex = experiment.phases.length - 1;
   const phase = experiment.phases[phaseIndex];
   const updateSchedule = organization.settings?.updateSchedule ?? null;
-  if (
-    updateSchedule?.analysisEndDate &&
-    updateSchedule.analysisEndDate !== "runTime" &&
-    experiment.type !== "multi-armed-bandit" &&
-    phase &&
-    !phase.dateEnded
-  ) {
-    const now = new Date();
-    const cutoff = getScheduledAnalysisEndDate(
-      updateSchedule,
-      phase.dateStarted,
-      now,
-    );
+  const now = new Date();
+  const cutoff =
+    experiment.type !== "multi-armed-bandit" && phase && !phase.dateEnded
+      ? getScheduledAnalysisEndDate(
+          updateSchedule,
+          phase.lookbackStartDate ?? phase.dateStarted,
+          now,
+        )
+      : null;
+  if (cutoff) {
     const latestEndDate = await findLatestSuccessfulSnapshotEndDate(context, {
       experiment: experiment.id,
       phase: phaseIndex,
@@ -240,6 +237,7 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       type: "standard",
       triggeredBy: "schedule",
       reweight,
+      cutoff,
     });
     await queryRunner.waitForResults();
     const currentSnapshot = queryRunner.model;

@@ -183,6 +183,7 @@ export function getSnapshotMetricQuery(
     orderedMetrics,
     settings.endDate,
     overrideConversionWindows,
+    settings.endDateIsCutoff,
   );
 
   const idTypeObjects = [

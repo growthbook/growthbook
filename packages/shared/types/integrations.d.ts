@@ -353,6 +353,7 @@ export interface ExperimentUnitsQuerySettings {
   exposureQuery: ResolvedExposureQuery;
   startDate: Date;
   endDate: Date;
+  endDateIsCutoff?: boolean;
   skipPartialData: boolean;
   attributionModel: AttributionModel;
   queryFilter: string;

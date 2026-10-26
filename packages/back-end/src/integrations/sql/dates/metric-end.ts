@@ -8,9 +8,10 @@ export function getMetricEnd(
   metrics: ExperimentMetricInterface[],
   initial?: Date,
   overrideConversionWindows?: boolean,
+  endDateIsCutoff?: boolean,
 ): Date | null {
   if (!initial) return null;
-  if (overrideConversionWindows) return initial;
+  if (overrideConversionWindows || endDateIsCutoff) return initial;
 
   const metricEnd = new Date(initial);
   let runningHours = 0;

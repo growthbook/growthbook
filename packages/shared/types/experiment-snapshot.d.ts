@@ -214,6 +214,10 @@ export interface ExperimentSnapshotSettings {
   variations: SnapshotSettingsVariation[];
   coverage?: number;
   banditSettings?: SnapshotBanditSettings;
+  // A running phase analyzed through a scheduled update's cutoff: nothing after
+  // endDate is read, conversions included. Otherwise conversion windows extend
+  // past endDate.
+  endDateIsCutoff?: boolean;
   /** @deprecated */
   manual?: boolean;
 }

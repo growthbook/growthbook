@@ -346,6 +346,80 @@ describe("snapshot planning", () => {
     expect(updateExperimentDashboardsMock).not.toHaveBeenCalled();
   });
 
+  it.each([
+    {
+      through: "the lagged cutoff",
+      type: "standard",
+      lookbackStartHoursAgo: null,
+      hasCutoff: true,
+    },
+    {
+      through:
+        "the run time when a holdout's analysis period starts after the cutoff",
+      type: "holdout",
+      lookbackStartHoursAgo: 1,
+      hasCutoff: false,
+    },
+  ])(
+    "analyzes a scheduled update through $through",
+    async ({ type, lookbackStartHoursAgo, hasCutoff }) => {
+      const hour = 60 * 60 * 1000;
+      const context = makeContext();
+      context.org.settings = {
+        updateSchedule: {
+          type: "stale",
+          hours: 6,
+          analysisEndDate: "lag",
+          analysisEndLagHours: 3,
+        },
+      };
+      const before = Date.now();
+
+      const plan = await planSnapshot({
+        experiment: makeExperiment({
+          type: type as ExperimentInterface["type"],
+          phases: [
+            {
+              dateStarted: new Date(before - 48 * hour),
+              ...(lookbackStartHoursAgo === null
+                ? {}
+                : {
+                    lookbackStartDate: new Date(
+                      before - lookbackStartHoursAgo * hour,
+                    ),
+                  }),
+              variationWeights: [0.5, 0.5],
+            },
+          ] as ExperimentInterface["phases"],
+        }),
+        context,
+        type: "standard",
+        triggeredBy: "schedule",
+        phaseIndex: 0,
+        useCache: false,
+        defaultAnalysisSettings: makeAnalysisSettings(),
+        additionalAnalysisSettings: [],
+        settingsForSnapshotMetrics: [],
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      });
+
+      const { settings } = plan.snapshot;
+      if (hasCutoff) {
+        expect(settings.endDateIsCutoff).toBe(true);
+        expect(settings.endDate.getTime()).toBeGreaterThanOrEqual(
+          before - 3 * hour,
+        );
+        expect(settings.endDate.getTime()).toBeLessThanOrEqual(
+          Date.now() - 3 * hour,
+        );
+      } else {
+        expect(settings).not.toHaveProperty("endDateIsCutoff");
+        expect(settings.endDate.getTime()).toBeGreaterThanOrEqual(before);
+      }
+    },
+  );
+
   // Exposure query identifies units by user_id; ft_joinable shares that id
   // type, ft_orphan does not and the datasource has no identity join for it.
   // Both metrics carry auto slices, so each expands into derived metrics.
@@ -519,16 +593,55 @@ describe("snapshot planning", () => {
       metricGroups: [],
       incrementalRefreshModel: null,
       datasource,
-      endDate: new Date("2025-01-10T06:00:00.000Z"),
+      cutoff: new Date("2025-01-10T06:00:00.000Z"),
     });
 
     expect(snapshotSettings.endDate).toEqual(
       new Date("2025-01-10T06:00:00.000Z"),
     );
+    expect(snapshotSettings.endDateIsCutoff).toBe(true);
     expect(
       snapshotSettings.metricSettings.find((m) => m.id === "m_joinable")
         ?.computedSettings?.windowSettings,
     ).toMatchObject({ type: "lookback", windowUnit: "hours", windowValue: 6 });
+  });
+
+  it("analyzes an ended phase through its end date, not a cutoff", () => {
+    const { datasource, factTableMap, metricMap, settingsForSnapshotMetrics } =
+      makeJoinabilityFixture();
+    const dateEnded = new Date("2025-01-10T00:00:00.000Z");
+    const experiment = makeExperiment({
+      exposureQueryId: "exposure_user",
+      goalMetrics: ["m_joinable"],
+      metricOverrides: [],
+      phases: [
+        {
+          dateStarted: new Date("2025-01-01T00:00:00.000Z"),
+          dateEnded,
+          variationWeights: [0.5, 0.5],
+        },
+      ] as ExperimentInterface["phases"],
+    });
+
+    const snapshotSettings = getSnapshotSettings({
+      experiment,
+      phaseIndex: 0,
+      snapshotType: "standard",
+      dimension: null,
+      regressionAdjustmentEnabled: false,
+      orgPriorSettings: undefined,
+      orgDisabledPrecomputedDimensions: true,
+      settingsForSnapshotMetrics,
+      metricMap,
+      factTableMap,
+      metricGroups: [],
+      incrementalRefreshModel: null,
+      datasource,
+      cutoff: new Date("2025-01-09T06:00:00.000Z"),
+    });
+
+    expect(snapshotSettings.endDate).toEqual(dateEnded);
+    expect(snapshotSettings).not.toHaveProperty("endDateIsCutoff");
   });
 
   it("report settings drop unjoinable metrics and their slices", () => {

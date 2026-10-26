@@ -176,7 +176,7 @@ import {
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
 import { validatePriorSettings } from "back-end/src/util/priors";
-import { getAnalysisEndDateSettingsError } from "back-end/src/services/experiments";
+import { getAnalysisEndDateSettingsError } from "back-end/src/services/scheduledAnalysisEndDate";
 import {
   getInstallation,
   setInstallationName,

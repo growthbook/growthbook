@@ -11,11 +11,13 @@ export function computeParticipationDenominator(
     analysisEndDate,
     metric,
     overrideConversionWindows,
+    endDateIsCutoff,
   }: {
     initialTimestampColumn: string;
     analysisEndDate: Date;
     metric: FactMetricInterface;
     overrideConversionWindows: boolean;
+    endDateIsCutoff?: boolean;
   },
 ): string {
   const delayHours = getDelayWindowHours(metric.windowSettings);
@@ -38,7 +40,10 @@ export function computeParticipationDenominator(
     metric.windowSettings.type === "conversion" &&
     !overrideConversionWindows
   ) {
-    endDateString = `LEAST(${dialect.getCurrentTimestamp()}, ${addHours(dialect, startDateString, windowHours)})`;
+    const dataEnd = endDateIsCutoff
+      ? endDateString
+      : dialect.getCurrentTimestamp();
+    endDateString = `LEAST(${dataEnd}, ${addHours(dialect, startDateString, windowHours)})`;
   }
 
   return dialect.castToFloat(

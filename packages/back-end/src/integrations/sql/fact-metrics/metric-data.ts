@@ -51,7 +51,10 @@ export function getMetricData(
   metricWithIndex: { metric: FactMetricInterface; index: number },
   settings: Pick<
     ExperimentSnapshotSettings,
-    "attributionModel" | "regressionAdjustmentEnabled" | "startDate"
+    | "attributionModel"
+    | "regressionAdjustmentEnabled"
+    | "startDate"
+    | "endDateIsCutoff"
   > & { endDate?: Date },
   activationMetric: ExperimentMetricInterface | null,
   factTablesWithIndices: { factTable: FactTableInterface; index: number }[],
@@ -196,6 +199,7 @@ export function getMetricData(
     orderedMetrics,
     settings.endDate,
     overrideConversionWindows,
+    settings.endDateIsCutoff,
   );
 
   const raMetricPhaseStartSettings = getRaMetricPhaseStartSettings({
@@ -250,6 +254,7 @@ export function getMetricData(
             analysisEndDate,
             metric,
             overrideConversionWindows,
+            endDateIsCutoff: settings.endDateIsCutoff,
           })
       : ({ column }: { column: string }) => column;
 
