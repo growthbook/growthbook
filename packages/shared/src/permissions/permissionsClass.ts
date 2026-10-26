@@ -167,12 +167,24 @@ export class Permissions {
     return this.checkGlobalPermission("manageIntegrations");
   };
 
+  public canViewApiKeys = (): boolean => {
+    return this.checkGlobalPermission("viewApiKeys");
+  };
+
   public canCreateApiKey = (): boolean => {
-    return this.checkGlobalPermission("manageApiKeys");
+    return this.checkGlobalPermission("createApiKeys");
+  };
+
+  public canUpdateApiKey = (): boolean => {
+    return this.checkGlobalPermission("editApiKeys");
   };
 
   public canDeleteApiKey = (): boolean => {
-    return this.checkGlobalPermission("manageApiKeys");
+    return this.checkGlobalPermission("deleteApiKeys");
+  };
+
+  public canManagePersonalAccessTokens = (): boolean => {
+    return this.checkGlobalPermission("managePersonalAccessTokens");
   };
 
   public canManageTeam = (): boolean => {
@@ -667,6 +679,22 @@ export class Permissions {
   ): boolean => {
     return this.checkEnvFilterPermission(
       { projects: interleaving.project ? [interleaving.project] : [] },
+      environments,
+      "runExperiments",
+    );
+  };
+
+  // A project move serves the pseudo flag through the destination's SDK
+  // connections too, so both sides need run permission.
+  public canRunInterleavingUpdate = (
+    existing: Pick<InterleavingInterface, "project">,
+    updated: Pick<InterleavingInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    const projects = new Set(existing.project ? [existing.project] : [""]);
+    if ("project" in updated) projects.add(updated.project || "");
+    return this.checkEnvFilterPermission(
+      { projects: [...projects] },
       environments,
       "runExperiments",
     );
@@ -1583,7 +1611,8 @@ export class Permissions {
       datasetType === "metric" ||
       datasetType === "fact_table" ||
       datasetType === "funnel" ||
-      datasetType === "journey"
+      datasetType === "journey" ||
+      datasetType === "population"
     ) {
       return this.canRunMetricAnalysisQueries(datasource);
     }

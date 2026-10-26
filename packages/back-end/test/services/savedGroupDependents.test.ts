@@ -32,11 +32,13 @@ const dependents = (args: Partial<Args>) => {
     experiments: [],
     holdoutExperiments: [],
     bandits: [],
+    interleavings: [],
     ...args,
   });
   return {
     features: result.features.map((f) => f.id),
     experiments: result.experiments.map((e) => e.id),
+    bandits: result.bandits.map((b) => b.id),
     holdoutAffected: result.holdoutAffected,
   };
 };
@@ -110,8 +112,35 @@ describe("findSavedGroupDependents", () => {
     ).toEqual({
       features: ["bandit_flag"],
       experiments: ["exp"],
+      bandits: ["cb"],
       holdoutAffected: true,
     });
+  });
+
+  it("finds interleavings naming the group in targeting or prerequisites", () => {
+    const result = findSavedGroupDependents({
+      groupId: "g",
+      savedGroups: [],
+      features: [],
+      experiments: [],
+      holdoutExperiments: [],
+      bandits: [],
+      interleavings: [
+        { id: "il_groups", savedGroups: [{ match: "all", ids: ["g"] }] },
+        {
+          id: "il_prereq",
+          prerequisites: [
+            { id: "parent", condition: '{"value":{"$inGroup":"g"}}' },
+          ],
+        },
+        { id: "il_other", condition: '{"country":"US"}' },
+      ] as unknown as Args["interleavings"],
+    });
+    expect(result.interleavings.map((il) => il.id)).toEqual([
+      "il_groups",
+      "il_prereq",
+    ]);
+    expect(result.holdoutAffected).toBe(false);
   });
 
   it("finds nothing for a group no targeting reaches", () => {
@@ -120,6 +149,11 @@ describe("findSavedGroupDependents", () => {
         features: [feature("f", { rules: [rule({ condition: "{}" })] })],
         experiments: [experiment("e", { condition: "" })],
       }),
-    ).toEqual({ features: [], experiments: [], holdoutAffected: false });
+    ).toEqual({
+      features: [],
+      experiments: [],
+      bandits: [],
+      holdoutAffected: false,
+    });
   });
 });

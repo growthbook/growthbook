@@ -47,16 +47,18 @@ info:
     - **Personal Access Tokens**: These are sensitive and provide the same level
     of access as the user has to an organization, or less if the token's
     permissions are limited. These can be created by going to `Personal Access
-    Tokens` under your user menu. Admins with the `manageApiKeys` permission can
-    disable a member's token under `Settings -> Manage PATs`, and require new
-    tokens to expire within a maximum lifetime.
+    Tokens` under your user menu. Members with the API Keys **Manage members'
+    tokens** permission can disable a member's token under `Settings -> Manage
+    PATs`, and admins can require new tokens to expire within a maximum
+    lifetime.
 
     - **Secret Keys**: These are sensitive and provide the level of access of
     the role they are given, which can be any built-in or custom role, with
-    optional per-project role overrides and environment limits. Only Admins with
-    the `manageApiKeys` permission can manage Secret Keys on behalf of an
-    organization. These can be created by going to `Settings -> API Keys`, where
-    Admins can also require new Secret Keys to expire within a maximum lifetime.
+    optional per-project role overrides and environment limits. Managing Secret
+    Keys on behalf of an organization takes the [API Keys
+    permissions](/account/user-permissions). These can be created by going to
+    `Settings -> API Keys`, where Admins can also require new Secret Keys to
+    expire within a maximum lifetime.
 
 
     If using HTTP Basic auth, pass the Secret Key as the username and leave the
@@ -101,32 +103,36 @@ info:
     next to the key.
 
 
-    Each key's settings under `Settings -> API Keys`:
+    Each key acts as **System** (the default) or **User**, set under `Settings
+    -> API Keys`:
 
 
-    - **Header**: **Optional** (the default) uses the header when it's sent,
-    **Required** rejects requests without it, and **Rejected** rejects requests
-    that send it, each with a 400.
+    - **System**: the header is optional. The key acts as itself, with its own
+    permissions, and the named member is only recorded in history.
 
-    - **Permissions**, when a member is named:
-      - **Assume member's role** (the default): the request acts as that member, with only what both the key and the member can do, so the header can narrow a key but never widen it. Drafts, owners, `mine` filters and reviews are the member's. The member's rights over their own drafts, comments and verdicts apply only where the key's own role allows the same action.
-      - **Use key's role**: the key acts as itself, with its own permissions, and the name is only recorded in history. Drafts, verdicts and ownership are the key's, as when no member is named.
+    - **User**: a request without the header is rejected with a 400. The request
+    acts as the named member, with only what both the key and the member can do,
+    so the header can narrow a key but never widen it. Drafts, owners, `mine`
+    filters and reviews are the member's. The member's rights over their own
+    drafts, comments and verdicts apply only where the key's own role allows the
+    same action.
 
-    A key that names no one, or uses its own role, acts as itself: it can draft
-    and review with its own permissions, and its verdicts are judged on its
-    role. A key belongs to no team, so its approval never satisfies a rule that
-    requires approval from a team. No one can rule on a draft they created, and
-    a key acting as itself can't rule on a draft it created or edited in either
-    mode. An approval a key gives while assuming a member counts only where both
-    the key and the member could approve, and stops counting if the key is
-    disabled, expires or is deleted. Because the header isn't verified, whoever
-    holds the key can act as any member. A value that does not match a member of
-    the organization is rejected with a 400. A create request that omits `owner`
-    defaults it to the member whose role the key assumes. Scheduled and
-    auto-publishes run later with the permissions of the request that armed
-    them, and don't run if that member has left the organization, the key has
-    expired, or the key no longer assumes members' roles. Personal Access Tokens
-    and OAuth tokens already act as their user and reject the header.
+
+    A System key, or any key that names no one, acts as itself: it can draft and
+    review with its own permissions, and its verdicts are judged on its role. A
+    key belongs to no team, so its approval never satisfies a rule that requires
+    approval from a team. No one can rule on a draft they created, and a key
+    acting as itself can't rule on a draft it created or edited. An approval a
+    User key gives counts only where both the key and the member could approve,
+    and stops counting if the key is disabled, expires or is deleted. Because
+    the header isn't verified, whoever holds the key can act as any member. A
+    value that does not match a member of the organization is rejected with a
+    400. A create request that omits `owner` defaults it to the member a User
+    key names. Scheduled and auto-publishes run later with the permissions of
+    the request that armed them, and don't run if that member has left the
+    organization, the key has expired, or the key no longer acts as User.
+    Personal Access Tokens and OAuth tokens already act as their user and reject
+    the header.
 
 
     ```bash
@@ -291,7 +297,7 @@ info:
     it. Do not assume that `ignoreWarnings` clears every 422 response.
 
     - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
-    per minute. Try again later.
+    per minute, or the limit your self-hosted server sets. Try again later.
 
     - **5XX** - Server Error - Something went wrong on GrowthBook's end (these
     are rare)
@@ -583,6 +589,9 @@ tags:
   - name: ContextualBanditQueries
     x-displayName: Contextual Bandit Queries
     description: ''
+  - name: Interleavings
+    x-displayName: Interleaving Experiments
+    description: ''
   - name: CustomFields
     x-displayName: Custom Fields
     description: ''
@@ -871,6 +880,9 @@ tags:
     description: >-
       <SchemaDefinition schemaRef="#/components/schemas/InformationSchemaTable"
       />
+  - name: Interleaving_model
+    x-displayName: Interleaving
+    description: <SchemaDefinition schemaRef="#/components/schemas/Interleaving" />
   - name: Learning_model
     x-displayName: Learning
     description: <SchemaDefinition schemaRef="#/components/schemas/Learning" />
@@ -9515,6 +9527,14 @@ paths:
                     you to. If a check blocks you, stop and ask a person instead
                     of working around it.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
               required:
                 - id
                 - valueType
@@ -9535,6 +9555,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -10437,6 +10479,14 @@ paths:
                     you to. If a check blocks you, stop and ask a person instead
                     of working around it.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -10461,6 +10511,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -12578,6 +12650,14 @@ paths:
                     you to. If a check blocks you, stop and ask a person instead
                     of working around it.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
               required:
                 - rule
               additionalProperties: false
@@ -12596,6 +12676,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -13322,6 +13424,14 @@ paths:
                     you to. If a check blocks you, stop and ask a person instead
                     of working around it.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
               required:
                 - rule
               additionalProperties: false
@@ -13340,6 +13450,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -18447,9 +18579,10 @@ paths:
         Returns the latest contextual-bandit stats engine output (per-context
         responses tagged with their leaf, the per-leaf targeting conditions, and
         per-leaf aggregated stats), the overall (marginal) variation weights
-        across all contexts, the SRM of the most recent run, and the status of
-        the most recent snapshot run for the contextual bandit. Same payload the
-        GrowthBook UI uses to render the contextual bandit results table.
+        across all contexts, the health checks (traffic, SRM, multiple
+        exposures) computed by that same run, and the status of the most recent
+        snapshot run for the contextual bandit. Same payload the GrowthBook UI
+        uses to render the contextual bandit results and health tabs.
       tags:
         - ContextualBandits
       parameters:
@@ -18731,11 +18864,143 @@ paths:
                                 - variations
                                 - contexts
                               additionalProperties: false
+                          snapshotId:
+                            type: string
+                          dateCreated:
+                            type: string
+                          health:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  variations:
+                                    type: array
+                                    items:
+                                      type: object
+                                      properties:
+                                        variationId:
+                                          type: string
+                                        variationName:
+                                          type: string
+                                        weight:
+                                          type: number
+                                      required:
+                                        - variationId
+                                        - weight
+                                      additionalProperties: false
+                                  traffic:
+                                    anyOf:
+                                      - type: object
+                                        properties:
+                                          overall:
+                                            type: object
+                                            properties:
+                                              name:
+                                                type: string
+                                              srm:
+                                                type: number
+                                              variationUnits:
+                                                type: array
+                                                items:
+                                                  type: number
+                                            required:
+                                              - name
+                                              - srm
+                                              - variationUnits
+                                            additionalProperties: false
+                                          dimension:
+                                            type: object
+                                            propertyNames:
+                                              type: string
+                                            additionalProperties:
+                                              type: array
+                                              items:
+                                                type: object
+                                                properties:
+                                                  name:
+                                                    type: string
+                                                  srm:
+                                                    type: number
+                                                  variationUnits:
+                                                    type: array
+                                                    items:
+                                                      type: number
+                                                required:
+                                                  - name
+                                                  - srm
+                                                  - variationUnits
+                                                additionalProperties: false
+                                          error:
+                                            type: string
+                                        required:
+                                          - overall
+                                          - dimension
+                                        additionalProperties: false
+                                      - type: 'null'
+                                  srm:
+                                    anyOf:
+                                      - type: object
+                                        properties:
+                                          statistic:
+                                            type: number
+                                          pValue:
+                                            type: number
+                                          degreesOfFreedom:
+                                            type: integer
+                                            minimum: 0
+                                          latestPeriod:
+                                            type: object
+                                            properties:
+                                              banditVersion:
+                                                type: string
+                                              leaves:
+                                                type: array
+                                                items:
+                                                  type: object
+                                                  properties:
+                                                    leafId:
+                                                      type: string
+                                                    observed:
+                                                      type: array
+                                                      items:
+                                                        type: number
+                                                    expected:
+                                                      type: array
+                                                      items:
+                                                        type: number
+                                                  required:
+                                                    - leafId
+                                                    - observed
+                                                    - expected
+                                                  additionalProperties: false
+                                            required:
+                                              - banditVersion
+                                              - leaves
+                                            additionalProperties: false
+                                        required:
+                                          - statistic
+                                          - pValue
+                                          - degreesOfFreedom
+                                        additionalProperties: false
+                                      - type: 'null'
+                                  multipleExposures:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                required:
+                                  - variations
+                                  - traffic
+                                  - srm
+                                  - multipleExposures
+                                additionalProperties: false
+                              - type: 'null'
                         required:
                           - attributes
                           - sseTrajectory
                           - overall
                           - leaves
+                          - snapshotId
+                          - dateCreated
+                          - health
                         additionalProperties: false
                       - type: 'null'
                   latest:
@@ -18786,23 +19051,6 @@ paths:
                             type: string
                           triggeredBy:
                             type: string
-                          srm:
-                            anyOf:
-                              - type: object
-                                properties:
-                                  statistic:
-                                    type: number
-                                  pValue:
-                                    type: number
-                                  degreesOfFreedom:
-                                    type: integer
-                                    minimum: 0
-                                required:
-                                  - statistic
-                                  - pValue
-                                  - degreesOfFreedom
-                                additionalProperties: false
-                              - type: 'null'
                         required:
                           - id
                           - status
@@ -18813,7 +19061,6 @@ paths:
                           - multipleExposures
                           - type
                           - triggeredBy
-                          - srm
                         additionalProperties: false
                       - type: 'null'
                 required:
@@ -18959,6 +19206,14 @@ paths:
                     Publish the resulting revision immediately instead of
                     leaving it as a draft.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
                 draftVersion:
                   description: >-
                     Add the rule to this existing draft revision instead of
@@ -18991,6 +19246,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -19086,6 +19363,14 @@ paths:
                     Publish the resulting revision immediately instead of
                     leaving it as a draft.
                   type: boolean
+                allowUnscopedRules:
+                  description: >-
+                    When the organization requires rules to target specific
+                    environments or Projects, set to true to save a rule that
+                    applies to All Environments and All Projects. Only set this
+                    when a person has explicitly asked you to. If a check blocks
+                    you, stop and ask a person instead of working around it.
+                  type: boolean
                 draftVersion:
                   description: >-
                     Update the rule on this existing draft revision instead of
@@ -19120,6 +19405,28 @@ paths:
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                type: object
+                description: >-
+                  A rule applies to All Environments and All Projects, which the
+                  organization doesn't allow without `allowUnscopedRules`
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - unscoped_rule
+                  details:
+                    $ref: '#/components/schemas/ApiErrorUnscopedRuleDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -23139,6 +23446,10 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/SavedGroupReferenceResource'
+                  interleavings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SavedGroupReferenceResource'
                   savedGroups:
                     type: array
                     items:
@@ -23147,6 +23458,7 @@ paths:
                   - features
                   - experiments
                   - contextualBandits
+                  - interleavings
                   - savedGroups
                 additionalProperties: false
       x-codeSamples:
@@ -53855,6 +54167,114 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/cancel' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandits/{id}/visual-changesets:
+    post:
+      operationId: postContextualBanditVisualChangesets
+      summary: Create a visual changeset for a Contextual Bandit
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Contextual Bandit id
+          schema:
+            description: The Contextual Bandit id
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                editorUrl:
+                  description: >-
+                    URL of the page opened in the visual editor when creating
+                    this changeset
+                  type: string
+                urlPatterns:
+                  description: >-
+                    URL patterns that determine which pages this visual
+                    changeset applies to
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        type: boolean
+                      type:
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                    required:
+                      - type
+                      - pattern
+                    additionalProperties: {}
+              required:
+                - editorUrl
+                - urlPatterns
+              additionalProperties: {}
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  visualChangeset:
+                    $ref: '#/components/schemas/VisualChangeset'
+                required:
+                  - visualChangeset
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/visual-changesets'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listContextualBanditVisualChangesets
+      summary: List visual changesets for a Contextual Bandit
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Contextual Bandit id
+          schema:
+            description: The Contextual Bandit id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  visualChangesets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/VisualChangeset'
+                required:
+                  - visualChangesets
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/visual-changesets'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandit-queries/{id}:
     get:
       operationId: getContextualBanditQuery
@@ -54077,6 +54497,786 @@ paths:
           source: >-
             curl -X GET
             'https://api.growthbook.io/api/v1/contextual-bandit-queries' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}:
+    get:
+      operationId: getInterleaving
+      summary: Get a single interleaving
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleaving:
+                    $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleaving
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/interleavings/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    put:
+      operationId: updateInterleaving
+      summary: Update a single interleaving
+      description: >-
+        Archive an interleaving experiment by setting `archived`. Use the start
+        and stop endpoints to change its status.
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  maxLength: 10000
+                project:
+                  type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                archived:
+                  description: Stop a running interleaving experiment before archiving it.
+                  type: boolean
+                trackingKey:
+                  type: string
+                hashAttribute:
+                  type: string
+                seed:
+                  type: string
+                variations:
+                  description: >-
+                    Replaces both rankers. Each keeps its id by position, so the
+                    first entry updates the first ranker.
+                  type: array
+                  prefixItems:
+                    - type: object
+                      properties:
+                        key:
+                          type: string
+                          pattern: \S
+                        name:
+                          type: string
+                        description:
+                          type: string
+                          maxLength: 10000
+                        config:
+                          description: >-
+                            The ranker's config, as a JSON string. Passed to
+                            `getList` in the SDK.
+                          type: string
+                      required:
+                        - key
+                        - name
+                        - config
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        key:
+                          type: string
+                          pattern: \S
+                        name:
+                          type: string
+                        description:
+                          type: string
+                          maxLength: 10000
+                        config:
+                          description: >-
+                            The ranker's config, as a JSON string. Passed to
+                            `getList` in the SDK.
+                          type: string
+                      required:
+                        - key
+                        - name
+                        - config
+                      additionalProperties: false
+                jsonSchema:
+                  anyOf:
+                    - description: >-
+                        Validation schema to stage on the draft. The server sets
+                        `date`, so don't send it.
+                      type: object
+                      properties:
+                        schemaType:
+                          type: string
+                          enum:
+                            - schema
+                            - simple
+                        schema:
+                          type: string
+                        simple:
+                          type: object
+                          properties:
+                            type:
+                              type: string
+                              enum:
+                                - object
+                                - object[]
+                                - primitive
+                                - primitive[]
+                            fields:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  key:
+                                    type: string
+                                    maxLength: 64
+                                  type:
+                                    type: string
+                                    enum:
+                                      - integer
+                                      - float
+                                      - string
+                                      - boolean
+                                  required:
+                                    type: boolean
+                                  default:
+                                    type: string
+                                    maxLength: 256
+                                  description:
+                                    type: string
+                                    maxLength: 10000
+                                  enum:
+                                    maxItems: 256
+                                    type: array
+                                    items:
+                                      type: string
+                                      maxLength: 256
+                                  min:
+                                    type: number
+                                  max:
+                                    type: number
+                                  nullable:
+                                    type: boolean
+                                  jsonSchema:
+                                    type: string
+                                required:
+                                  - key
+                                  - type
+                                  - required
+                                  - default
+                                  - description
+                                  - enum
+                                additionalProperties: false
+                            additionalProperties:
+                              type: boolean
+                            invariants:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  name:
+                                    type: string
+                                    maxLength: 128
+                                  rule:
+                                    type: string
+                                  message:
+                                    type: string
+                                    maxLength: 10000
+                                required:
+                                  - name
+                                  - rule
+                                  - message
+                                additionalProperties: false
+                          required:
+                            - type
+                            - fields
+                          additionalProperties: false
+                        enabled:
+                          type: boolean
+                      required:
+                        - schemaType
+                        - schema
+                        - simple
+                        - enabled
+                      additionalProperties: false
+                    - type: 'null'
+                datasource:
+                  type: string
+                interleavingQueryId:
+                  type: string
+                userIdType:
+                  type: string
+                metrics:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      analyses:
+                        minItems: 1
+                        type: array
+                        items:
+                          anyOf:
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: paired
+                              required:
+                                - type
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: ownership
+                                attribution:
+                                  type: string
+                                  enum:
+                                    - exposureCount
+                                    - engagementSignal
+                              required:
+                                - type
+                                - attribution
+                              additionalProperties: false
+                    required:
+                      - id
+                      - analyses
+                    additionalProperties: false
+                coverage:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                condition:
+                  type: string
+                savedGroups:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                prerequisites:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      condition:
+                        type: string
+                    required:
+                      - id
+                      - condition
+                    additionalProperties: false
+                environmentSettings:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                    required:
+                      - enabled
+                    additionalProperties: false
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleaving:
+                    $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleaving
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/interleavings/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings:
+    post:
+      operationId: createInterleaving
+      summary: Create a single interleaving
+      tags:
+        - Interleavings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  maxLength: 10000
+                project:
+                  type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                key:
+                  description: >-
+                    The key your code passes to `interleave()` as `ranker`.
+                    Can't be changed later. Several experiments may share a key
+                    so you can iterate without changing code, but only one of
+                    them can be running in a given environment, and each needs
+                    its own `trackingKey`.
+                  type: string
+                  pattern: ^[a-zA-Z0-9_.:\|\-]+$
+                trackingKey:
+                  description: >-
+                    The `experiment_id` recorded in exposures. Defaults to
+                    `key`.
+                  type: string
+                hashAttribute:
+                  type: string
+                variations:
+                  description: >-
+                    Exactly two rankers. Users who are not exposed to
+                    interleaved rankings get the first ranker's list.
+                  type: array
+                  prefixItems:
+                    - type: object
+                      properties:
+                        key:
+                          type: string
+                          pattern: \S
+                        name:
+                          type: string
+                        description:
+                          type: string
+                          maxLength: 10000
+                        config:
+                          description: >-
+                            The ranker's config, as a JSON string. Passed to
+                            `getList` in the SDK.
+                          type: string
+                      required:
+                        - key
+                        - name
+                        - config
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        key:
+                          type: string
+                          pattern: \S
+                        name:
+                          type: string
+                        description:
+                          type: string
+                          maxLength: 10000
+                        config:
+                          description: >-
+                            The ranker's config, as a JSON string. Passed to
+                            `getList` in the SDK.
+                          type: string
+                      required:
+                        - key
+                        - name
+                        - config
+                      additionalProperties: false
+                jsonSchema:
+                  description: >-
+                    Validation schema to stage on the draft. The server sets
+                    `date`, so don't send it.
+                  type: object
+                  properties:
+                    schemaType:
+                      type: string
+                      enum:
+                        - schema
+                        - simple
+                    schema:
+                      type: string
+                    simple:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - object
+                            - object[]
+                            - primitive
+                            - primitive[]
+                        fields:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              key:
+                                type: string
+                                maxLength: 64
+                              type:
+                                type: string
+                                enum:
+                                  - integer
+                                  - float
+                                  - string
+                                  - boolean
+                              required:
+                                type: boolean
+                              default:
+                                type: string
+                                maxLength: 256
+                              description:
+                                type: string
+                                maxLength: 10000
+                              enum:
+                                maxItems: 256
+                                type: array
+                                items:
+                                  type: string
+                                  maxLength: 256
+                              min:
+                                type: number
+                              max:
+                                type: number
+                              nullable:
+                                type: boolean
+                              jsonSchema:
+                                type: string
+                            required:
+                              - key
+                              - type
+                              - required
+                              - default
+                              - description
+                              - enum
+                            additionalProperties: false
+                        additionalProperties:
+                          type: boolean
+                        invariants:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                                maxLength: 128
+                              rule:
+                                type: string
+                              message:
+                                type: string
+                                maxLength: 10000
+                            required:
+                              - name
+                              - rule
+                              - message
+                            additionalProperties: false
+                      required:
+                        - type
+                        - fields
+                      additionalProperties: false
+                    enabled:
+                      type: boolean
+                  required:
+                    - schemaType
+                    - schema
+                    - simple
+                    - enabled
+                  additionalProperties: false
+                datasource:
+                  type: string
+                interleavingQueryId:
+                  type: string
+                userIdType:
+                  type: string
+                metrics:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      analyses:
+                        minItems: 1
+                        type: array
+                        items:
+                          anyOf:
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: paired
+                              required:
+                                - type
+                              additionalProperties: false
+                            - type: object
+                              properties:
+                                type:
+                                  type: string
+                                  const: ownership
+                                attribution:
+                                  type: string
+                                  enum:
+                                    - exposureCount
+                                    - engagementSignal
+                              required:
+                                - type
+                                - attribution
+                              additionalProperties: false
+                    required:
+                      - id
+                      - analyses
+                    additionalProperties: false
+                coverage:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                condition:
+                  type: string
+                savedGroups:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      match:
+                        type: string
+                        enum:
+                          - all
+                          - none
+                          - any
+                      ids:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - match
+                      - ids
+                    additionalProperties: false
+                prerequisites:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      condition:
+                        type: string
+                    required:
+                      - id
+                      - condition
+                    additionalProperties: false
+                environmentSettings:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                    required:
+                      - enabled
+                    additionalProperties: false
+              required:
+                - name
+                - key
+                - variations
+                - datasource
+                - interleavingQueryId
+                - userIdType
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleaving:
+                    $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleaving
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/interleavings' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    get:
+      operationId: listInterleavings
+      summary: Get all interleavings
+      tags:
+        - Interleavings
+      parameters:
+        - name: projectId
+          in: query
+          description: ''
+          schema:
+            type: string
+        - name: datasourceId
+          in: query
+          description: ''
+          schema:
+            type: string
+        - name: trackingKey
+          in: query
+          description: ''
+          schema:
+            type: string
+        - name: key
+          in: query
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleavings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleavings
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/interleavings' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/start:
+    post:
+      operationId: startInterleaving
+      summary: Start an interleaving experiment
+      description: >-
+        Starts serving the interleaving to SDKs in its enabled environments. A
+        stopped interleaving can be started again; its start date is kept.
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The interleaving experiment id
+          schema:
+            description: The interleaving experiment id
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleaving:
+                    $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleaving
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/interleavings/{id}/start' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/stop:
+    post:
+      operationId: stopInterleaving
+      summary: Stop an interleaving experiment
+      description: >-
+        Removes the interleaving from SDK payloads, so `interleave()` falls back
+        to `fallbackConfig`.
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The interleaving experiment id
+          schema:
+            description: The interleaving experiment id
+            type: string
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  interleaving:
+                    $ref: '#/components/schemas/Interleaving'
+                required:
+                  - interleaving
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/interleavings/{id}/stop' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/custom-fields:
     post:
@@ -63695,7 +64895,7 @@ paths:
         content:
           application/json:
             schema:
-              description: Create a population
+              description: Create a Population
               type: object
               properties:
                 name:
@@ -63723,7 +64923,7 @@ paths:
                   type: string
                 userIdTypes:
                   description: >-
-                    Identifier types the population can be joined on. Every
+                    Identifier types the Population can be joined on. Every
                     step's fact table must support all of them
                   minItems: 1
                   type: array
@@ -63731,10 +64931,11 @@ paths:
                     type: string
                 steps:
                   description: >-
-                    Steps a unit must complete, in order, to be included. The
-                    steps can read from at most 5 distinct fact tables
+                    Steps a unit must complete, in order, to be included.
+                    Currently limited to 1 step with support for multiple steps
+                    coming soon.
                   minItems: 1
-                  maxItems: 20
+                  maxItems: 1
                   type: array
                   items:
                     type: object
@@ -63916,7 +65117,7 @@ paths:
         content:
           application/json:
             schema:
-              description: Update a population
+              description: Update a Population
               type: object
               properties:
                 name:
@@ -63930,7 +65131,7 @@ paths:
                     type: string
                 userIdTypes:
                   description: >-
-                    Identifier types the population can be joined on. Every
+                    Identifier types the Population can be joined on. Every
                     step's fact table must support all of them
                   minItems: 1
                   type: array
@@ -63938,10 +65139,11 @@ paths:
                     type: string
                 steps:
                   description: >-
-                    Steps a unit must complete, in order, to be included. The
-                    steps can read from at most 5 distinct fact tables
+                    Steps a unit must complete, in order, to be included.
+                    Currently limited to 1 step with support for multiple steps
+                    coming soon.
                   minItems: 1
-                  maxItems: 20
+                  maxItems: 1
                   type: array
                   items:
                     type: object
@@ -75339,6 +76541,7 @@ components:
                   - override.draftLimit
                   - override.skipChecklist
                   - override.bypassDuplicateKeyCheck
+                  - override.unscopedRules
                   - other.write
               environments:
                 type: array
@@ -80505,6 +81708,33 @@ components:
         stageDateStarted:
           type: string
           format: date-time
+        analysisSummary:
+          type: object
+          properties:
+            snapshotId:
+              type: string
+            health:
+              type: object
+              properties:
+                srm:
+                  anyOf:
+                    - type: number
+                    - type: 'null'
+                totalUsers:
+                  type: number
+                multipleExposures:
+                  type: number
+                variationIds:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - srm
+                - totalUsers
+              additionalProperties: false
+          required:
+            - snapshotId
+          additionalProperties: false
         autoSnapshots:
           type: boolean
         nextSnapshotAttempt:
@@ -80579,6 +81809,300 @@ components:
         - userIdType
         - query
         - targetingAttributeColumns
+      additionalProperties: false
+    Interleaving:
+      type: object
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        name:
+          type: string
+        description:
+          type: string
+        project:
+          type: string
+        owner:
+          description: The userId of the owner (or raw owner name/email for legacy records)
+          type: string
+        ownerEmail:
+          description: >-
+            The email address of the owner, when the owner can be resolved to a
+            known user.
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        archived:
+          type: boolean
+        status:
+          type: string
+          enum:
+            - draft
+            - running
+            - stopped
+        dateStarted:
+          type: string
+          format: date-time
+        dateStopped:
+          type: string
+          format: date-time
+        key:
+          description: The key your code passes to `interleave()` as `ranker`
+          type: string
+        trackingKey:
+          description: The `experiment_id` recorded in exposures
+          type: string
+        hashAttribute:
+          type: string
+        seed:
+          type: string
+        variations:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              key:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+              config:
+                description: The ranker's config, as a JSON string
+                type: string
+            required:
+              - id
+              - key
+              - name
+              - config
+            additionalProperties: false
+        jsonSchema:
+          anyOf:
+            - description: Validation schema for the rankers' configs
+              type: object
+              properties:
+                schemaType:
+                  type: string
+                  enum:
+                    - schema
+                    - simple
+                schema:
+                  type: string
+                simple:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - object
+                        - object[]
+                        - primitive
+                        - primitive[]
+                    fields:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                            maxLength: 64
+                          type:
+                            type: string
+                            enum:
+                              - integer
+                              - float
+                              - string
+                              - boolean
+                          required:
+                            type: boolean
+                          default:
+                            type: string
+                            maxLength: 256
+                          description:
+                            type: string
+                            maxLength: 10000
+                          enum:
+                            maxItems: 256
+                            type: array
+                            items:
+                              type: string
+                              maxLength: 256
+                          min:
+                            type: number
+                          max:
+                            type: number
+                          nullable:
+                            type: boolean
+                          jsonSchema:
+                            type: string
+                        required:
+                          - key
+                          - type
+                          - required
+                          - default
+                          - description
+                          - enum
+                        additionalProperties: false
+                    additionalProperties:
+                      type: boolean
+                    invariants:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                            maxLength: 128
+                          rule:
+                            type: string
+                          message:
+                            type: string
+                            maxLength: 10000
+                        required:
+                          - name
+                          - rule
+                          - message
+                        additionalProperties: false
+                  required:
+                    - type
+                    - fields
+                  additionalProperties: false
+                enabled:
+                  type: boolean
+                date:
+                  type: string
+                  format: date-time
+              required:
+                - schemaType
+                - schema
+                - simple
+                - enabled
+                - date
+              additionalProperties: false
+            - type: 'null'
+        datasource:
+          type: string
+        interleavingQueryId:
+          type: string
+        userIdType:
+          type: string
+        metrics:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              analyses:
+                minItems: 1
+                type: array
+                items:
+                  anyOf:
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: paired
+                      required:
+                        - type
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: ownership
+                        attribution:
+                          type: string
+                          enum:
+                            - exposureCount
+                            - engagementSignal
+                      required:
+                        - type
+                        - attribution
+                      additionalProperties: false
+            required:
+              - id
+              - analyses
+            additionalProperties: false
+        coverage:
+          type: number
+          minimum: 0
+          maximum: 1
+        condition:
+          type: string
+        savedGroups:
+          type: array
+          items:
+            type: object
+            properties:
+              match:
+                type: string
+                enum:
+                  - all
+                  - none
+                  - any
+              ids:
+                type: array
+                items:
+                  type: string
+            required:
+              - match
+              - ids
+            additionalProperties: false
+        prerequisites:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              condition:
+                type: string
+            required:
+              - id
+              - condition
+            additionalProperties: false
+        environmentSettings:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+            required:
+              - enabled
+            additionalProperties: false
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - owner
+        - tags
+        - archived
+        - status
+        - key
+        - trackingKey
+        - hashAttribute
+        - seed
+        - variations
+        - jsonSchema
+        - datasource
+        - interleavingQueryId
+        - userIdType
+        - metrics
+        - environmentSettings
       additionalProperties: false
     CustomField:
       type: object
@@ -84056,6 +85580,7 @@ components:
                       - override.draftLimit
                       - override.skipChecklist
                       - override.bypassDuplicateKeyCheck
+                      - override.unscopedRules
                       - other.write
                   environments:
                     type: array
@@ -84628,6 +86153,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SavedGroupReferenceResource'
+        interleavings:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedGroupReferenceResource'
         savedGroups:
           type: array
           items:
@@ -84648,6 +86177,7 @@ components:
         - features
         - experiments
         - contextualBandits
+        - interleavings
         - savedGroups
       additionalProperties: false
       $defs:
@@ -84851,6 +86381,16 @@ components:
       required:
         - pattern
         - example
+      additionalProperties: false
+    ApiErrorUnscopedRuleDetails:
+      type: object
+      properties:
+        ruleIds:
+          type: array
+          items:
+            type: string
+      required:
+        - ruleIds
       additionalProperties: false
     ApiErrorCustomHookErrorDetails:
       type: object
@@ -87426,6 +88966,7 @@ x-tagGroups:
       - ContextualBandits
       - Dashboards
       - ContextualBanditQueries
+      - Interleavings
       - CustomFields
       - MetricGroups
       - Teams
@@ -87510,6 +89051,7 @@ x-tagGroups:
       - Holdout_model
       - InformationSchema_model
       - InformationSchemaTable_model
+      - Interleaving_model
       - Learning_model
       - LookbackOverride_model
       - Member_model

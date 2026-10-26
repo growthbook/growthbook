@@ -1,7 +1,7 @@
 import Handlebars from "handlebars";
 import escapeRegExp from "lodash/escapeRegExp";
 import trimEnd from "lodash/trimEnd";
-import { parseEnvInt, stringToBoolean } from "shared/util";
+import { parseEnvInt, parseEnvIntMap, stringToBoolean } from "shared/util";
 import {
   GB_SDK_ID_DEV,
   GB_SDK_ID_PROD,
@@ -18,8 +18,11 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 
-/** Enable GrowthBook OAuth 2.1 Authorization Server endpoints (MCP / CLI login). Default off. */
-export const OAUTH_AS_ENABLED = stringToBoolean(process.env.OAUTH_AS_ENABLED);
+/** Enable GrowthBook OAuth 2.1 Authorization Server endpoints (MCP / CLI login). Default on. */
+export const OAUTH_AS_ENABLED = stringToBoolean(
+  process.env.OAUTH_AS_ENABLED,
+  true,
+);
 
 /**
  * Issuer identifier for the OAuth AS (RFC 8414). Falls back to API_HOST, then
@@ -338,6 +341,22 @@ export const ALLOW_CREATE_DIMENSIONS = stringToBoolean(
 
 export const API_ALLOW_SKIP_PAGINATION = stringToBoolean(
   process.env.API_ALLOW_SKIP_PAGINATION,
+);
+
+export const API_RATE_LIMIT_MAX = parseEnvInt(
+  process.env.API_RATE_LIMIT_MAX,
+  60,
+  { min: 1, name: "API_RATE_LIMIT_MAX" },
+);
+export const API_RATE_LIMIT_MAX_BY_KEY = parseEnvIntMap(
+  process.env.API_RATE_LIMIT_MAX_BY_KEY,
+  { min: 1, name: "API_RATE_LIMIT_MAX_BY_KEY" },
+);
+export const API_RATE_LIMIT_SEPARATE_WRITES = stringToBoolean(
+  process.env.API_RATE_LIMIT_SEPARATE_WRITES,
+);
+export const API_RATE_LIMIT_SEPARATE_REQUESTERS = stringToBoolean(
+  process.env.API_RATE_LIMIT_SEPARATE_REQUESTERS,
 );
 
 // Opt-in: the bulk experiment results export reads and hydrates every analysis

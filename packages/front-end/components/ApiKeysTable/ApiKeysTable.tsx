@@ -1,14 +1,21 @@
 import React, { FC, ReactNode, useState } from "react";
-import { Flex } from "@radix-ui/themes";
-import { PiIdentificationCard } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiClockCountdown, PiIdentificationCard, PiInfo } from "react-icons/pi";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
-  apiKeyToggleRequiresAdmin,
-  requesterHeaderPolicy,
+  actsAsUser,
+  canManageApiKeySecret,
+  canSetApiKeyDisabled,
 } from "shared/permissions";
-import { ago, datetime } from "shared/dates";
-import { getExpirationStatus } from "shared/api-key-expiration";
+import { ago, datetime, datetimeWithZone } from "shared/dates";
+import { getExpirationStatus, isExpired } from "shared/api-key-expiration";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
+import {
+  RotateApiKeyModal,
+  RotatedApiKey,
+  RotatedApiKeyModal,
+} from "@/components/ApiKeysTable/RotateApiKeyModal";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import HumanInTheLoopIcon from "@/components/Confirmations/HumanInTheLoopIcon";
 import ApiKeyRowMenu from "@/components/ApiKeysTable/ApiKeyRowMenu";
 import ExpiresCell from "@/components/ApiKeysTable/ExpiresCell";
@@ -40,7 +47,6 @@ const ADMIN_LOCKED_REASON =
 type ApiKeysTableProps = {
   onDelete: (keyId: string | undefined) => () => Promise<void>;
   keys: ApiKeyInterface[];
-  canCreateKeys: boolean;
   canDeleteKeys: boolean;
   onReveal: (keyId: string | undefined) => () => Promise<string>;
   onToggleDisabled?: (
@@ -50,32 +56,56 @@ type ApiKeysTableProps = {
   onEdit?: (key: ApiKeyInterface) => void;
   onShowAuditLog?: (key: ApiKeyInterface) => void;
   onCopy?: (key: ApiKeyInterface) => void;
+  onRotate?: (
+    keyId: string,
+    gracePeriodHours: number,
+  ) => Promise<RotatedApiKey>;
+  onRevokePrevious?: (keyId: string) => Promise<void>;
 };
+
+const canRotate = (key: ApiKeyInterface) =>
+  !!key.id && !!key.secret && !isExpired(key.expiresAt);
+
+const hasActivePreviousKey = (key: ApiKeyInterface) =>
+  !!key.previousKeyExpiresAt && !isExpired(key.previousKeyExpiresAt);
 
 export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   keys = [],
   onDelete,
-  canCreateKeys,
   canDeleteKeys,
   onReveal,
   onToggleDisabled,
   onEdit,
   onShowAuditLog,
   onCopy,
+  onRotate,
+  onRevokePrevious,
 }) => {
   const { organization, userId, users, settings } = useUser();
-  const canManageTokens = usePermissionsUtil().canDeleteApiKey();
+  const permissionsUtil = usePermissionsUtil();
   const { getProjectById } = useDefinitions();
   const [pendingToggle, setPendingToggle] = useState<ApiKeyInterface | null>(
     null,
   );
+  const [rotating, setRotating] = useState<ApiKeyInterface | null>(null);
+  const [rotated, setRotated] = useState<RotatedApiKey | null>(null);
   const isDisabledByAdmin = (key: ApiKeyInterface) =>
     !!key.userId &&
     !!key.disabled &&
     !!key.disabledBy &&
     key.disabledBy !== userId;
+  const canToggle = (key: ApiKeyInterface) =>
+    canSetApiKeyDisabled(permissionsUtil, key, userId || "", !key.disabled);
+  const canManageSecret = (key: ApiKeyInterface) =>
+    canManageApiKeySecret(permissionsUtil, key, userId || "");
+  const maxLifetimeDays = (key: ApiKeyInterface) =>
+    key.userId ? settings?.maxPatLifetimeDays : settings?.maxApiKeyLifetimeDays;
+  // A PAT the owner can't toggle keeps a locked toggle that explains why; org keys hide it.
   const isAdminLocked = (key: ApiKeyInterface) =>
-    !canManageTokens && apiKeyToggleRequiresAdmin(key, userId || "");
+    !!key.userId && !canToggle(key);
+  const hasActions =
+    canDeleteKeys ||
+    !!(onEdit || onToggleDisabled || onCopy || onShowAuditLog || onRotate);
   const disabledByTitle = (key: ApiKeyInterface) => {
     const disabler = key.disabledBy ? users.get(key.disabledBy) : undefined;
     return `Disabled by ${disabler?.name || disabler?.email || "a former member"}`;
@@ -118,28 +148,41 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           />
         </Flex>
       )}
-      <Table variant="surface" layout="fixed" mb="3">
+      <Table variant="surface" layout="fixed" minTableWidth={950} mb="3">
         <TableHeader>
-          <TableRow>
-            <TableColumnHeader>Description</TableColumnHeader>
-            <TableColumnHeader width="240px">Key</TableColumnHeader>
+          <TableRow style={{ whiteSpace: "nowrap" }}>
+            <TableColumnHeader>Name</TableColumnHeader>
+            <TableColumnHeader width="170px">Key</TableColumnHeader>
+            <TableColumnHeader width="110px">
+              Internal ID{" "}
+              <Tooltip content="Identifies this key in logs and server settings. REST requests authenticate with the secret key, not this ID.">
+                <Box
+                  as="span"
+                  display="inline-block"
+                  tabIndex={0}
+                  aria-label="More information about Internal ID"
+                >
+                  <PiInfo />
+                </Box>
+              </Tooltip>
+            </TableColumnHeader>
             <TableColumnHeader>Role</TableColumnHeader>
             <TableColumnHeader>Project Roles</TableColumnHeader>
-            <TableColumnHeader width="150px">Last Used</TableColumnHeader>
+            <TableColumnHeader width="120px">Last Used</TableColumnHeader>
             <SortableTableColumnHeader
               field="expiresAtSort"
-              style={{ width: 170 }}
+              style={{ width: 150 }}
             >
               Expires
             </SortableTableColumnHeader>
-            {canDeleteKeys && <TableColumnHeader width="40px" />}
+            {hasActions && <TableColumnHeader width="40px" />}
           </TableRow>
         </TableHeader>
         <TableBody>
           {!visibleKeys.length && (
             <TableRow>
               <TableCell
-                colSpan={canDeleteKeys ? 7 : 6}
+                colSpan={hasActions ? 8 : 7}
                 style={{ textAlign: "center" }}
               >
                 <Text color="text-low">All of these keys have expired.</Text>
@@ -175,17 +218,13 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     </span>
                   </Tooltip>
                 )}
-                {!key.userId && requesterHeaderPolicy(key) !== "optional" && (
+                {!key.userId && actsAsUser(key) && (
                   <KeyTrait
                     icon={<PiIdentificationCard size={18} />}
                     color="var(--brown-10)"
-                    tooltip={
-                      requesterHeaderPolicy(key) === "required"
-                        ? "Every request must name a member with X-GrowthBook-Requested-By"
-                        : "Requests that send X-GrowthBook-Requested-By are rejected"
-                    }
+                    tooltip="Every request must name a member with X-GrowthBook-Requested-By. The key acts as that member."
                   >
-                    Requested-by {requesterHeaderPolicy(key)}
+                    Acts as user
                   </KeyTrait>
                 )}
                 {key.confirmRules && (
@@ -194,19 +233,41 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     color="var(--violet-11)"
                     tooltip="Risky actions made with this key wait for a person to confirm them."
                   >
-                    Human-in-the-loop
+                    Human-in-the-Loop
+                  </KeyTrait>
+                )}
+                {hasActivePreviousKey(key) && (
+                  <KeyTrait
+                    icon={<PiClockCountdown size={18} />}
+                    color="var(--amber-11)"
+                    tooltip={`The previous secret works until ${datetimeWithZone(key.previousKeyExpiresAt as Date)}. ${
+                      key.previousKeyLastUsed
+                        ? `Last used ${datetimeWithZone(key.previousKeyLastUsed)}.`
+                        : "Not used since the rotation."
+                    }`}
+                  >
+                    Previous secret active
                   </KeyTrait>
                 )}
               </TableCell>
               <TableCell style={dimStyle(key)}>
-                {canCreateKeys ? (
+                {canManageSecret(key) ? (
                   <ClickToReveal
-                    valueWhenHidden="secret_abcdefghijklmnop123"
+                    // Remounts on rotation so a revealed secret isn't the old one.
+                    key={String(key.keyIssuedAt)}
+                    valueWhenHidden="secret_abcdefghijkl"
                     getValue={onReveal(key.id)}
                   />
                 ) : (
-                  <em>hidden</em>
+                  <Tooltip content="Revealing a key's value requires permission to create API keys.">
+                    <span>
+                      <Text color="text-low">Hidden</Text>
+                    </span>
+                  </Tooltip>
                 )}
+              </TableCell>
+              <TableCell style={dimStyle(key)}>
+                {key.id ? <CopyableCode value={key.id} muted /> : "-"}
               </TableCell>
               <TableCell style={dimStyle(key)}>
                 {key.role ? (
@@ -226,7 +287,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   )}
                 />
               </TableCell>
-              <TableCell style={{ whiteSpace: "nowrap", ...dimStyle(key) }}>
+              <TableCell style={dimStyle(key)}>
                 {key.lastUsed ? (
                   <Tooltip
                     content={
@@ -250,14 +311,10 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
               <TableCell style={dimStyle(key)}>
                 <ExpiresCell
                   expiresAt={key.expiresAt}
-                  maxLifetimeDays={
-                    key.userId
-                      ? settings?.maxPatLifetimeDays
-                      : settings?.maxApiKeyLifetimeDays
-                  }
+                  maxLifetimeDays={maxLifetimeDays(key)}
                 />
               </TableCell>
-              {canDeleteKeys && (
+              {hasActions && (
                 <TableCell>
                   <ApiKeyRowMenu
                     apiKey={key}
@@ -265,13 +322,27 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                     onDelete={onDelete}
                     onEdit={onEdit}
                     onToggleClick={
-                      onToggleDisabled ? setPendingToggle : undefined
+                      onToggleDisabled && (canToggle(key) || isAdminLocked(key))
+                        ? setPendingToggle
+                        : undefined
                     }
                     toggleLockedReason={
                       isAdminLocked(key) ? ADMIN_LOCKED_REASON : undefined
                     }
                     onShowAuditLog={onShowAuditLog}
                     onCopy={onCopy}
+                    onRotate={
+                      onRotate && canRotate(key) && canManageSecret(key)
+                        ? setRotating
+                        : undefined
+                    }
+                    onRevokePrevious={
+                      onRevokePrevious &&
+                      hasActivePreviousKey(key) &&
+                      canManageSecret(key)
+                        ? () => onRevokePrevious(key.id as string)
+                        : undefined
+                    }
                   />
                 </TableCell>
               )}
@@ -298,6 +369,19 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           }}
           onCancel={() => setPendingToggle(null)}
         />
+      )}
+      {rotating && onRotate && (
+        <RotateApiKeyModal
+          apiKey={rotating}
+          maxLifetimeDays={maxLifetimeDays(rotating)}
+          onRotate={async (gracePeriodHours) =>
+            setRotated(await onRotate(rotating.id as string, gracePeriodHours))
+          }
+          close={() => setRotating(null)}
+        />
+      )}
+      {rotated && (
+        <RotatedApiKeyModal rotated={rotated} close={() => setRotated(null)} />
       )}
     </>
   );
