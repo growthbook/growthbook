@@ -9,7 +9,6 @@ import { PRESET_DECISION_CRITERIAS } from "shared/enterprise";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { getValidDate, resolveScheduleStopAfter } from "shared/dates";
 import { scheduleStagesStatusChange } from "shared/experiments";
-import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -766,16 +765,9 @@ export default function EditScheduleModal({
                           setRulesFor(criteria);
                         }}
                         underline="hover"
+                        style={{ whiteSpace: "nowrap" }}
                       >
-                        <Flex
-                          as="span"
-                          align="center"
-                          gap="1"
-                          style={{ whiteSpace: "nowrap" }}
-                        >
-                          View rules
-                          <PiArrowSquareOut size={12} />
-                        </Flex>
+                        View rules
                       </Link>
                     ) : null;
                     return (
