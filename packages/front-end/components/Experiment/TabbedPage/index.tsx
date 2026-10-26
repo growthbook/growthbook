@@ -218,10 +218,24 @@ function TabbedPageContents({
   const narrow = useMediaQuery(`(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`);
   const [openWhileNarrow, setOpenWhileNarrow] = useState(false);
   useEffect(() => setOpenWhileNarrow(false), [narrow]);
-  const detailsShown = narrow ? openWhileNarrow : detailsOpen;
+  // Off Setup the rail starts closed, and opening it there lasts until the
+  // tab changes; Setup keeps the stored choice.
+  const tabName = tab.split("/")[0];
+  const onSetup = tabName === "overview";
+  const [openOffSetup, setOpenOffSetup] = useState(false);
+  useEffect(() => setOpenOffSetup(false), [tabName]);
+  const detailsShown = narrow
+    ? openWhileNarrow
+    : onSetup
+      ? detailsOpen
+      : openOffSetup;
   const detailsPanelOpen = showDetailsPanel && detailsShown;
   const setDetailsShown = (open: boolean) =>
-    narrow ? setOpenWhileNarrow(open) : setDetailsOpen(open);
+    narrow
+      ? setOpenWhileNarrow(open)
+      : onSetup
+        ? setDetailsOpen(open)
+        : setOpenOffSetup(open);
 
   // The toggle is a fresh start: a width dragged out earlier is forgotten.
   const toggleDetailsPanel = (open: boolean) => {
