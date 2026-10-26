@@ -36,13 +36,14 @@ export function getUserExperimentExposuresQuery(
           .map((exposureQuery, i) => {
             const availableDimensions = exposureQuery.dimensions || [];
             const tableAlias = `t${i}`;
-            const tsCol = getExposureQueryTimestampColumn(exposureQuery);
-            const expIdCol = getExposureQueryExperimentIdColumn(exposureQuery);
-            const varIdCol = getExposureQueryVariationIdColumn(exposureQuery);
-            const idCol = getExposureQueryIdentifierColumn(
+            // Qualified, so a column named like a function (`user`) stays a column
+            const tsCol = `${tableAlias}.${getExposureQueryTimestampColumn(exposureQuery)}`;
+            const expIdCol = `${tableAlias}.${getExposureQueryExperimentIdColumn(exposureQuery)}`;
+            const varIdCol = `${tableAlias}.${getExposureQueryVariationIdColumn(exposureQuery)}`;
+            const idCol = `${tableAlias}.${getExposureQueryIdentifierColumn(
               exposureQuery,
               userIdType,
-            );
+            )}`;
 
             const dimensionSelects = allDimensionNames.map((dim) => {
               if (availableDimensions.includes(dim)) {

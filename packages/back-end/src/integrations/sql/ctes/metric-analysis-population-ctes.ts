@@ -28,9 +28,14 @@ export function getMetricAnalysisPopulationCTEs(
   },
 ): string {
   if (settings.populationType === "exposureQuery" && populationExposureQuery) {
-    const timestampColumn = getExposureQueryTimestampColumn(
+    // Qualified, so a column named like a function (`user`) stays a column
+    const timestampColumn = `e.${getExposureQueryTimestampColumn(
       populationExposureQuery,
-    );
+    )}`;
+    const identifierColumn = `e.${getExposureQueryIdentifierColumn(
+      populationExposureQuery,
+      settings.userIdType,
+    )}`;
     return `
       __rawExperiment AS (
         ${compileSqlTemplate(
@@ -45,12 +50,9 @@ export function getMetricAnalysisPopulationCTEs(
       __population AS (
         -- All recent users
         SELECT DISTINCT
-          ${getExposureQueryIdentifierColumn(
-            populationExposureQuery,
-            settings.userIdType,
-          )} as ${settings.userIdType}
+          ${identifierColumn} as ${settings.userIdType}
         FROM
-            __rawExperiment
+            __rawExperiment e
         WHERE
             ${timestampColumn} >= ${dialect.toTimestamp(settings.startDate)}
             ${

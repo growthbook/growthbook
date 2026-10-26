@@ -23,14 +23,15 @@ export function getPastExperimentQuery(
   end: Date,
 ): string {
   const hasNameCol = exposureQuery.hasNameCol || false;
-  const expIdCol = getExposureQueryExperimentIdColumn(exposureQuery);
-  const varIdCol = getExposureQueryVariationIdColumn(exposureQuery);
-  const tsCol = getExposureQueryTimestampColumn(exposureQuery);
+  // Qualified, so a column named like a function (`user`) stays a column
+  const expIdCol = `e.${getExposureQueryExperimentIdColumn(exposureQuery)}`;
+  const varIdCol = `e.${getExposureQueryVariationIdColumn(exposureQuery)}`;
+  const tsCol = `e.${getExposureQueryTimestampColumn(exposureQuery)}`;
   const countUnits = (identifierType: string) => {
-    const idCol = getExposureQueryIdentifierColumn(
+    const idCol = `e.${getExposureQueryIdentifierColumn(
       exposureQuery,
       identifierType,
-    );
+    )}`;
     return dialect.hasCountDistinctHLL()
       ? dialect.hllCardinality(dialect.hllAggregate(idCol))
       : `COUNT(DISTINCT ${idCol})`;
@@ -43,13 +44,13 @@ export function getPastExperimentQuery(
           ${expIdCol} as experiment_id,
           ${
             hasNameCol
-              ? `MIN(${getExposureQueryExperimentNameColumn(exposureQuery)})`
+              ? `MIN(e.${getExposureQueryExperimentNameColumn(exposureQuery)})`
               : expIdCol
           } as experiment_name,
           ${dialect.castToString(varIdCol)} as variation_id,
           ${
             hasNameCol
-              ? `MIN(${getExposureQueryVariationNameColumn(exposureQuery)})`
+              ? `MIN(e.${getExposureQueryVariationNameColumn(exposureQuery)})`
               : dialect.castToString(varIdCol)
           } as variation_name,
           ${dialect.dateTrunc(dialect.castUserDateCol(tsCol), "day")} as date,
