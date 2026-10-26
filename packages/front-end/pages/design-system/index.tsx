@@ -25,6 +25,7 @@ import TextStories from "@/ui/Text.stories";
 import TextFieldStories from "@/ui/TextField.stories";
 import HeadingStories from "@/ui/Heading.stories";
 import HelperTextStories from "@/ui/HelperText.stories";
+import LabelWithHelpStories from "@/ui/LabelWithHelp.stories";
 import LinkStories from "@/ui/Link.stories";
 import MetadataStories from "@/ui/Metadata.stories";
 import PaginationStories from "@/ui/Pagination.stories";
@@ -108,6 +109,12 @@ export default function DesignSystemPage() {
     },
     { name: "Heading", Stories: HeadingStories },
     { name: "HelperText", Stories: HelperTextStories },
+    {
+      name: "LabelWithHelp",
+      description:
+        "A field/checkbox label with an optional PiInfo help tooltip and an optional trailing adornment (e.g. a PremiumTooltip). The help icon and adornment guard their own clicks so interacting with them never toggles the control the label is attached to.",
+      Stories: LabelWithHelpStories,
+    },
     { name: "Link", Stories: LinkStories },
     { name: "Metadata", Stories: MetadataStories },
     { name: "Pagination", Stories: PaginationStories },
