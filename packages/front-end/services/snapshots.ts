@@ -57,22 +57,14 @@ export type ResultsFreshness =
   // Analyzed through a cutoff before the run (scheduled update lag).
   | { kind: "cutoff"; ranAt: Date; asOf: Date };
 
-// An unlagged run's end date lands within moments of its dateCreated; only a
-// real cutoff should change the headline.
-const CUTOFF_DISPLAY_THRESHOLD_MS = 60 * 1000;
-
 export function getResultsFreshness({
   dateCreated,
-  analysisEndDate,
+  cutoff,
   sourceSnapshot,
-  phaseEnded = false,
 }: {
   dateCreated?: Date | string;
-  analysisEndDate?: Date | string;
+  cutoff?: Date | string;
   sourceSnapshot?: SourceSnapshotRef;
-  // A stopped phase's end date is when it stopped, not a cutoff, so its
-  // results keep their run time.
-  phaseEnded?: boolean;
 }): ResultsFreshness | null {
   if (!dateCreated) return null;
   const ranAt = getValidDate(dateCreated);
@@ -80,13 +72,8 @@ export function getResultsFreshness({
   if (sourceSnapshot) {
     return { kind: "derived", ranAt, asOf: sourceSnapshot.analysisEndDate };
   }
-
-  if (analysisEndDate && !phaseEnded) {
-    const asOf = getValidDate(analysisEndDate);
-    if (ranAt.getTime() - asOf.getTime() >= CUTOFF_DISPLAY_THRESHOLD_MS) {
-      return { kind: "cutoff", ranAt, asOf };
-    }
+  if (cutoff) {
+    return { kind: "cutoff", ranAt, asOf: getValidDate(cutoff) };
   }
-
   return { kind: "updated", ranAt };
 }

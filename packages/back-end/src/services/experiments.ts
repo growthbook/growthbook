@@ -1039,29 +1039,6 @@ export function getIncrementalMetricScanEnd(
   return phase?.dateEnded ? now : settings.endDate;
 }
 
-/**
- * Where an Overall Results snapshot's incremental metric scan stopped: the
- * latest data a breakdown built from it can consider. It analyzed an ended
- * phase only if its end date is that phase's end date.
- */
-export function getSourceSnapshotDataEnd(
-  phase: Pick<ExperimentPhase, "dateEnded"> | undefined,
-  source: {
-    dateCreated: Date;
-    settings: Pick<ExperimentSnapshotSettings, "endDate">;
-  },
-): Date {
-  const analyzedEndedPhase =
-    !!phase?.dateEnded &&
-    new Date(phase.dateEnded).getTime() ===
-      new Date(source.settings.endDate).getTime();
-  return getIncrementalMetricScanEnd(
-    analyzedEndedPhase ? phase : undefined,
-    source.settings,
-    source.dateCreated,
-  );
-}
-
 export function determineNextBanditSchedule(exp: ExperimentInterface): Date {
   const start = (
     exp?.banditStageDateStarted ??
@@ -2106,10 +2083,10 @@ export async function planSnapshot({
     if (sourceSnapshot) {
       data.sourceSnapshotId = sourceSnapshot.id;
       data.sourceSnapshotDateCreated = sourceSnapshot.dateCreated;
-      data.sourceSnapshotEndDate = getSourceSnapshotDataEnd(
-        experiment.phases[phaseIndex],
-        sourceSnapshot,
-      );
+      // The source's data ends at its cutoff, otherwise at its run time.
+      data.sourceSnapshotEndDate = sourceSnapshot.settings.endDateIsCutoff
+        ? sourceSnapshot.settings.endDate
+        : sourceSnapshot.dateCreated;
     } else if (materializedBySnapshotId) {
       logger.error(
         { experimentId: experiment.id, phaseIndex, materializedBySnapshotId },

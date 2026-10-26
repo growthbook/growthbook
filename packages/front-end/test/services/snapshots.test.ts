@@ -5,9 +5,7 @@ describe("getResultsFreshness", () => {
 
   it("returns null when the snapshot has not run", () => {
     expect(
-      getResultsFreshness({
-        analysisEndDate: new Date("2026-10-20T06:00:00Z"),
-      }),
+      getResultsFreshness({ cutoff: new Date("2026-10-20T06:00:00Z") }),
     ).toBeNull();
   });
 
@@ -16,7 +14,7 @@ describe("getResultsFreshness", () => {
     expect(
       getResultsFreshness({
         dateCreated: ranAt,
-        analysisEndDate: ranAt,
+        cutoff: new Date("2026-10-20T06:00:00Z"),
         sourceSnapshot: {
           id: "snp_overall",
           dateCreated: new Date("2026-10-19T08:00:00Z"),
@@ -26,44 +24,27 @@ describe("getResultsFreshness", () => {
     ).toEqual({ kind: "derived", ranAt, asOf: sourceEndDate });
   });
 
-  it("reports a cutoff when the end date is at least a minute before the run", () => {
-    const endDate = new Date("2026-10-20T11:59:00Z");
-    expect(
-      getResultsFreshness({ dateCreated: ranAt, analysisEndDate: endDate }),
-    ).toEqual({ kind: "cutoff", ranAt, asOf: endDate });
+  it("reports the cutoff a snapshot analyzed through", () => {
+    const cutoff = new Date("2026-10-20T11:59:00Z");
+    expect(getResultsFreshness({ dateCreated: ranAt, cutoff })).toEqual({
+      kind: "cutoff",
+      ranAt,
+      asOf: cutoff,
+    });
   });
 
-  it("reports an update when the end date is within a minute of the run", () => {
-    expect(
-      getResultsFreshness({
-        dateCreated: ranAt,
-        analysisEndDate: new Date("2026-10-20T11:59:00.001Z"),
-      }),
-    ).toEqual({ kind: "updated", ranAt });
-  });
-
-  it("reports an update when there is no end date", () => {
+  it("reports an update when there is no cutoff", () => {
     expect(getResultsFreshness({ dateCreated: ranAt })).toEqual({
       kind: "updated",
       ranAt,
     });
   });
 
-  it("keeps a stopped phase on its run time", () => {
-    expect(
-      getResultsFreshness({
-        dateCreated: ranAt,
-        analysisEndDate: new Date("2026-09-01T00:00:00Z"),
-        phaseEnded: true,
-      }),
-    ).toEqual({ kind: "updated", ranAt });
-  });
-
   it("parses string dates", () => {
     expect(
       getResultsFreshness({
         dateCreated: "2026-10-20T12:00:00.000Z",
-        analysisEndDate: "2026-10-20T06:00:00.000Z",
+        cutoff: "2026-10-20T06:00:00.000Z",
       }),
     ).toEqual({
       kind: "cutoff",

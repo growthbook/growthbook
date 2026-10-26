@@ -31,8 +31,8 @@ const AS_OF_ROW_LABELS: Record<
 const QueriesLastRun: FC<{
   status: QueryStatus;
   dateCreated?: Date;
-  analysisEndDate?: Date;
-  phaseEnded?: boolean;
+  // The data cutoff, when the snapshot analyzed through one
+  cutoff?: Date;
   sourceSnapshot?: SourceSnapshotRef;
   nextUpdate?: Date;
   latestQueryDate?: Date;
@@ -45,8 +45,7 @@ const QueriesLastRun: FC<{
 }> = ({
   status,
   dateCreated,
-  analysisEndDate,
-  phaseEnded,
+  cutoff,
   sourceSnapshot,
   nextUpdate,
   latestQueryDate,
@@ -59,9 +58,8 @@ const QueriesLastRun: FC<{
 }) => {
   const freshness = getResultsFreshness({
     dateCreated,
-    analysisEndDate,
+    cutoff,
     sourceSnapshot,
-    phaseEnded,
   });
 
   const _failedString =

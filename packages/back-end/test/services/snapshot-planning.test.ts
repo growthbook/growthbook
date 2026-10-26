@@ -1404,56 +1404,70 @@ describe("snapshot planning", () => {
     expect(plan.fullRefreshReason).toBeNull();
   });
 
-  it("records exploratory provenance from materializedBySnapshotId when present", async () => {
-    wireIncrementalIntegration(makeIncrementalDatasource());
-    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
-      undefined as never,
-    );
+  it.each([
+    {
+      dataEnd: "its cutoff when it analyzed through one",
+      endDateIsCutoff: true,
+    },
+    { dataEnd: "its run time otherwise", endDateIsCutoff: false },
+  ])(
+    "records exploratory provenance from materializedBySnapshotId, with the source data ending at $dataEnd",
+    async ({ endDateIsCutoff }) => {
+      wireIncrementalIntegration(makeIncrementalDatasource());
+      assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+        undefined as never,
+      );
 
-    const materializedBySnapshotId = "snap_pipeline_producer";
-    const producerDateCreated = new Date("2025-01-10T12:00:00.000Z");
-    const producerEndDate = new Date("2025-01-10T06:00:00.000Z");
-    findSnapshotByIdMock.mockResolvedValue({
-      id: materializedBySnapshotId,
-      dateCreated: producerDateCreated,
-      settings: { endDate: producerEndDate },
-    } as never);
+      const materializedBySnapshotId = "snap_pipeline_producer";
+      const producerDateCreated = new Date("2025-01-10T12:00:00.000Z");
+      const producerEndDate = new Date("2025-01-10T06:00:00.000Z");
+      findSnapshotByIdMock.mockResolvedValue({
+        id: materializedBySnapshotId,
+        dateCreated: producerDateCreated,
+        settings: {
+          endDate: producerEndDate,
+          ...(endDateIsCutoff ? { endDateIsCutoff: true } : {}),
+        },
+      } as never);
 
-    const context = makeContext();
-    wireIncrementalRefreshState(context, {
-      phaseDoc: {
-        unitsTableFullName: "db.schema.units_exp_123",
-        experimentSettingsHash: "current_hash",
+      const context = makeContext();
+      wireIncrementalRefreshState(context, {
+        phaseDoc: {
+          unitsTableFullName: "db.schema.units_exp_123",
+          experimentSettingsHash: "current_hash",
+          materializedBySnapshotId,
+        },
+      });
+
+      const plan = await planSnapshot({
+        experiment: makeExperiment(),
+        context,
+        type: "exploratory",
+        triggeredBy: "manual-dashboard",
+        phaseIndex: 0,
+        useCache: true,
+        defaultAnalysisSettings: makeAnalysisSettings({
+          dimensions: ["dim_country"],
+        }),
+        additionalAnalysisSettings: [],
+        settingsForSnapshotMetrics: [],
+        metricMap: new Map<string, ExperimentMetricInterface>(),
+        factTableMap: new Map() as FactTableMap,
+      });
+
+      expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
+      expect(findSnapshotByIdMock).toHaveBeenCalledWith(
+        context,
         materializedBySnapshotId,
-      },
-    });
-
-    const plan = await planSnapshot({
-      experiment: makeExperiment(),
-      context,
-      type: "exploratory",
-      triggeredBy: "manual-dashboard",
-      phaseIndex: 0,
-      useCache: true,
-      defaultAnalysisSettings: makeAnalysisSettings({
-        dimensions: ["dim_country"],
-      }),
-      additionalAnalysisSettings: [],
-      settingsForSnapshotMetrics: [],
-      metricMap: new Map<string, ExperimentMetricInterface>(),
-      factTableMap: new Map() as FactTableMap,
-    });
-
-    expect(plan.snapshot.runnerKind).toBe("incremental-exploratory");
-    expect(findSnapshotByIdMock).toHaveBeenCalledWith(
-      context,
-      materializedBySnapshotId,
-    );
-    expect(plan.snapshot.sourceSnapshotId).toBe(materializedBySnapshotId);
-    expect(plan.snapshot.sourceSnapshotDateCreated).toBe(producerDateCreated);
-    expect(plan.snapshot.sourceSnapshotEndDate).toBe(producerEndDate);
-    expect(getLatestSuccessfulSnapshotMock).toHaveBeenCalled();
-  });
+      );
+      expect(plan.snapshot.sourceSnapshotId).toBe(materializedBySnapshotId);
+      expect(plan.snapshot.sourceSnapshotDateCreated).toBe(producerDateCreated);
+      expect(plan.snapshot.sourceSnapshotEndDate).toBe(
+        endDateIsCutoff ? producerEndDate : producerDateCreated,
+      );
+      expect(getLatestSuccessfulSnapshotMock).toHaveBeenCalled();
+    },
+  );
 
   it("leaves exploratory provenance unset when materializedBySnapshotId is null", async () => {
     wireIncrementalIntegration(makeIncrementalDatasource());
