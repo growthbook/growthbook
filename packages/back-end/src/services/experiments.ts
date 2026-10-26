@@ -2146,6 +2146,7 @@ export async function planSnapshot({
     if (sourceSnapshot) {
       data.sourceSnapshotId = sourceSnapshot.id;
       data.sourceSnapshotDateCreated = sourceSnapshot.dateCreated;
+      data.sourceSnapshotEndDate = sourceSnapshot.settings.endDate;
     } else if (materializedBySnapshotId) {
       logger.error(
         { experimentId: experiment.id, phaseIndex, materializedBySnapshotId },

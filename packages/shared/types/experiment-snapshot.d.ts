@@ -233,6 +233,7 @@ export interface ExperimentSnapshotInterface {
   // is built on top of the overall results snapshot
   sourceSnapshotId?: string;
   sourceSnapshotDateCreated?: Date;
+  sourceSnapshotEndDate?: Date;
   runStarted: Date | null;
   status: "running" | "success" | "error";
   settings: ExperimentSnapshotSettings;

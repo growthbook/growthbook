@@ -1299,9 +1299,11 @@ describe("snapshot planning", () => {
 
     const materializedBySnapshotId = "snap_pipeline_producer";
     const producerDateCreated = new Date("2025-01-10T12:00:00.000Z");
+    const producerEndDate = new Date("2025-01-10T06:00:00.000Z");
     findSnapshotByIdMock.mockResolvedValue({
       id: materializedBySnapshotId,
       dateCreated: producerDateCreated,
+      settings: { endDate: producerEndDate },
     } as never);
 
     const context = makeContext();
@@ -1336,6 +1338,7 @@ describe("snapshot planning", () => {
     );
     expect(plan.snapshot.sourceSnapshotId).toBe(materializedBySnapshotId);
     expect(plan.snapshot.sourceSnapshotDateCreated).toBe(producerDateCreated);
+    expect(plan.snapshot.sourceSnapshotEndDate).toBe(producerEndDate);
     expect(getLatestSuccessfulSnapshotMock).toHaveBeenCalled();
   });
 
@@ -1375,6 +1378,7 @@ describe("snapshot planning", () => {
     expect(getLatestSuccessfulSnapshotMock).not.toHaveBeenCalled();
     expect(plan.snapshot.sourceSnapshotId).toBeUndefined();
     expect(plan.snapshot.sourceSnapshotDateCreated).toBeUndefined();
+    expect(plan.snapshot.sourceSnapshotEndDate).toBeUndefined();
   });
 
   describe("getMetricSnapshotSettings read contract", () => {

@@ -921,6 +921,8 @@ export default function AnalysisSettingsSummary({
               <QueriesLastRun
                 status={status}
                 dateCreated={snapshot?.dateCreated}
+                analysisEndDate={snapshot?.settings?.endDate}
+                phaseEnded={!!experiment.phases[phase]?.dateEnded}
                 sourceSnapshot={sourceSnapshot}
                 latestQueryDate={latest?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}

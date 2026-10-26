@@ -88,6 +88,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   dateCreated: Date,
   sourceSnapshotId: String,
   sourceSnapshotDateCreated: Date,
+  sourceSnapshotEndDate: Date,
   runStarted: Date,
   manual: Boolean,
   query: String,
