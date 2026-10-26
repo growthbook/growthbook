@@ -1,4 +1,7 @@
+import { z } from "zod";
 import { ContextualBanditInterface } from "shared/validators";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
+import { SnapshotStatusSummary } from "shared/types/experiment-snapshot";
 import { getVisibleVariations } from "shared/experiments";
 import {
   ContextualBanditRefRule,
@@ -40,6 +43,33 @@ export async function loadContextualBanditForRead(
     context.permissions.throwPermissionError();
   }
   return { contextualBandit };
+}
+
+type ApiContextualBanditLatestStatus = z.infer<
+  typeof contextualBanditEndpoints.getContextualBanditStatus.responseSchema
+>["latest"];
+
+/**
+ * Serializes a CB run status summary into the `latest` field that the results
+ * and status endpoints both return. Both responses are typed by the shared
+ * `contextualBanditLatestStatusSchema`, so the mapping lives here instead of
+ * being duplicated per handler.
+ */
+export function toApiContextualBanditLatestStatus(
+  summary: SnapshotStatusSummary | null,
+): ApiContextualBanditLatestStatus {
+  if (!summary) return null;
+  return {
+    id: summary.id,
+    status: summary.status,
+    error: summary.error ?? "",
+    queries: summary.queries,
+    runStarted: summary.runStarted ? summary.runStarted.toISOString() : null,
+    dateCreated: summary.dateCreated.toISOString(),
+    multipleExposures: summary.multipleExposures,
+    type: summary.type ?? "standard",
+    triggeredBy: summary.triggeredBy ?? "manual",
+  };
 }
 
 type VariationInput = {
