@@ -8,7 +8,7 @@ import React, {
   useRef,
   ReactNode,
 } from "react";
-import { ColumnInterface } from "shared/types/fact-table";
+import { ColumnInterface, FullFactTableColumns } from "shared/types/fact-table";
 import {
   ExplorationConfig,
   ProductAnalyticsValue,
@@ -35,31 +35,30 @@ import { isFactFunnelMetric } from "shared/experiments";
 import { isManagedWarehouseUnavailable } from "shared/util";
 import {
   cleanConfigForSubmission,
-  clearInapplicableShowAs,
   compareConfig,
   explorationPollDelayMs,
   createEmptyDataset,
   createEmptyValue,
   ExplorerDraftConfig,
-  fillMissingUnits,
   generateUniqueValueName,
-  getCommonColumns,
+  getAvailableDimensionColumns,
   getInitialInlineFilters,
+  getRelevantFactTableIds,
   hasUnsatisfiedInlineFilters,
   isTimelessSqlExploration,
   isTimeSeriesChart,
   isSubmittableConfig,
   journeyDiffersOnlyByPath,
   canInteractWithJourney,
-  normalizeTimelessSqlConfig,
   resetValueAxisLabelOnDatasetChange,
   applyTimestampColumn,
   stripExplorerDraftFields,
   toFetchKey,
-  validateDimensions,
+  normalizeExplorerDraft,
   withDefaultSqlRawTable,
 } from "@/enterprise/components/ProductAnalytics/util";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import useFullFactTables from "@/hooks/useFullFactTables";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { SqlEditorProvider } from "@/enterprise/components/ProductAnalytics/SqlEditorContext";
@@ -83,6 +82,8 @@ export interface ExplorerContextValue {
   loading: boolean;
   error: string | null;
   commonColumns: Pick<ColumnInterface, "column" | "name">[];
+  /** Full (jsonFields-complete) fact table lookup for the columns/values pickers. */
+  getFullFactTableById: (id: string) => FullFactTableColumns | null;
   isStale: boolean;
   needsFetch: boolean;
   needsUpdate: boolean;
@@ -160,6 +161,7 @@ export function useDefaultDataSourceId(): string | undefined {
 }
 
 interface ExplorerProviderProps {
+  queryEnabled?: boolean;
   children: ReactNode;
   initialConfig: ExplorerDraftConfig;
   initialSubmittedConfig?: ExplorerDraftConfig;
@@ -179,6 +181,7 @@ interface ExplorerProviderProps {
 }
 
 export function ExplorerProvider({
+  queryEnabled = true,
   children,
   initialConfig,
   initialSubmittedConfig,
@@ -210,27 +213,22 @@ export function ExplorerProvider({
     error: string | null;
     query: QueryInterface | null;
   }>(() => {
-    const withUnits = fillMissingUnits(
-      initialConfig,
+    // The full-fact-table resolver doesn't exist yet at mount (it's derived
+    // from this very state, below) — treat every dataset as "not ready" so
+    // dimensions are left untouched rather than dropped before the data that
+    // would validate them has loaded. The follow-on effect re-runs this once
+    // the resolver is available.
+    const initHelpers = {
       getFactTableById,
       getFactMetricById,
-    );
+      getFullFactTableById: () => null,
+      fullFactTablesLoadedFor: () => false,
+    };
     const normalizedInitial = withDefaultSqlRawTable(
-      normalizeTimelessSqlConfig(
-        clearInapplicableShowAs(withUnits, getFactMetricById),
-      ),
+      normalizeExplorerDraft(initialConfig, initHelpers),
     );
     const normalizedSubmitted = initialSubmittedConfig
-      ? normalizeTimelessSqlConfig(
-          clearInapplicableShowAs(
-            fillMissingUnits(
-              initialSubmittedConfig,
-              getFactTableById,
-              getFactMetricById,
-            ),
-            getFactMetricById,
-          ),
-        )
+      ? normalizeExplorerDraft(initialSubmittedConfig, initHelpers)
       : normalizedInitial;
     return {
       draftState: normalizedInitial,
@@ -293,6 +291,15 @@ export function ExplorerProvider({
     draftExploreState.comparisonMode ??
     resolveLegacyExplorerComparisonMode(draftExploreState.dateRange);
 
+  const relevantFactTableIds = useMemo(
+    () => getRelevantFactTableIds(draftExploreState.dataset, getFactMetricById),
+    [draftExploreState.dataset, getFactMetricById],
+  );
+  const {
+    getById: getFullFactTableById,
+    isLoadedFor: fullFactTablesLoadedFor,
+  } = useFullFactTables(relevantFactTableIds);
+
   const setDraftExploreState = useCallback(
     (newStateOrUpdater: SetDraftStateAction) => {
       setExplorerState((prev) => {
@@ -302,25 +309,12 @@ export function ExplorerProvider({
             ? newStateOrUpdater(currentDraft)
             : newStateOrUpdater;
 
-        // Backfill missing units from the fact table's primary userIdType
-        // so configs loaded from URLs, saved explorations, or AI-generated
-        // payloads always have a unit set when one is applicable.
-        const unitFilledState = fillMissingUnits(
-          newState,
+        const validatedState = normalizeExplorerDraft(newState, {
           getFactTableById,
           getFactMetricById,
-        );
-        // Strip `showAs` when the current dataset doesn't support it, so the
-        // stored value never disagrees with what the chart actually renders.
-        const showAsNormalized = clearInapplicableShowAs(
-          unitFilledState,
-          getFactMetricById,
-        );
-        const validatedState = validateDimensions(
-          normalizeTimelessSqlConfig(showAsNormalized),
-          getFactTableById,
-          getFactMetricById,
-        );
+          getFullFactTableById,
+          fullFactTablesLoadedFor,
+        });
 
         return {
           ...prev,
@@ -331,29 +325,37 @@ export function ExplorerProvider({
         };
       });
     },
-    [getFactTableById, getFactMetricById],
+    [
+      getFactTableById,
+      getFactMetricById,
+      getFullFactTableById,
+      fullFactTablesLoadedFor,
+    ],
   );
 
   // Re-normalize the draft state whenever the definitions resolver functions
   // change identity — this handles the case where an initialConfig loaded from
-  // a URL or saved exploration needed metric/fact-table lookups that weren't
-  // resolved yet at first render. Both fillMissingUnits and
-  // clearInapplicableShowAs return the same reference when nothing changes,
-  // so the setExplorerState is a no-op in the steady state.
+  // a URL, saved exploration, or dashboard block needed metric/fact-table
+  // lookups that weren't resolved yet at first render. normalizeExplorerDraft
+  // returns the same reference when nothing changes, so the setExplorerState
+  // is a no-op in the steady state.
   useEffect(() => {
     setExplorerState((prev) => {
-      const filled = fillMissingUnits(
-        prev.draftState,
+      const validated = normalizeExplorerDraft(prev.draftState, {
         getFactTableById,
         getFactMetricById,
-      );
-      const normalized = normalizeTimelessSqlConfig(
-        clearInapplicableShowAs(filled, getFactMetricById),
-      );
-      if (normalized === prev.draftState) return prev;
-      return { ...prev, draftState: normalized };
+        getFullFactTableById,
+        fullFactTablesLoadedFor,
+      });
+      if (validated === prev.draftState) return prev;
+      return { ...prev, draftState: validated };
     });
-  }, [getFactTableById, getFactMetricById]);
+  }, [
+    getFactTableById,
+    getFactMetricById,
+    getFullFactTableById,
+    fullFactTablesLoadedFor,
+  ]);
 
   const isManagedWarehouse = useMemo(() => {
     if (!draftExploreState.datasource) return false;
@@ -412,12 +414,12 @@ export function ExplorerProvider({
   ]);
 
   const commonColumns = useMemo(() => {
-    return getCommonColumns(
+    return getAvailableDimensionColumns(
       draftExploreState.dataset,
-      getFactTableById,
+      getFullFactTableById,
       getFactMetricById,
     );
-  }, [draftExploreState.dataset, getFactTableById, getFactMetricById]);
+  }, [draftExploreState.dataset, getFullFactTableById, getFactMetricById]);
 
   const cleanedDraftExploreState = useMemo(() => {
     return cleanConfigForSubmission(draftExploreState);
@@ -443,13 +445,19 @@ export function ExplorerProvider({
 
   const isSubmittable = useMemo(() => {
     return (
+      queryEnabled &&
       isSubmittableConfig(cleanedDraftExploreState, getFactTableById) &&
       // Block submission while alwaysInlineFilter columns are seeded but empty.
       // cleanConfigForSubmission would otherwise strip the placeholder filter
       // and let the query run unfiltered, contradicting the "always filter" intent.
       !hasUnsatisfiedInlineFilters(draftExploreState, getFactTableById)
     );
-  }, [cleanedDraftExploreState, draftExploreState, getFactTableById]);
+  }, [
+    cleanedDraftExploreState,
+    draftExploreState,
+    getFactTableById,
+    queryEnabled,
+  ]);
 
   const doSubmit = useCallback(
     async (options?: { cache?: CacheOption; config?: ExplorerDraftConfig }) => {
@@ -462,7 +470,7 @@ export function ExplorerProvider({
         ? (sourceConfig.comparisonMode ??
           resolveLegacyExplorerComparisonMode(sourceConfig.dateRange))
         : null;
-      if (!isSubmittableConfig(configToSubmit)) return;
+      if (!queryEnabled || !isSubmittableConfig(configToSubmit)) return;
 
       if (managedWarehouseUnavailable) {
         return;
@@ -526,6 +534,16 @@ export function ExplorerProvider({
 
       // Ignore out-of-order responses from older in-flight requests.
       if (requestId !== submitRequestIdRef.current) return;
+
+      // A failed automatic preview refresh must keep the last successful graph.
+      if (
+        trackingSource === "metric-preview" &&
+        cache === "required" &&
+        (fetchError || fetchResult?.status === "error")
+      ) {
+        setIsStale(true);
+        return;
+      }
 
       // Cache miss when cache=required
       if (cache === "required" && fetchResult === null && !fetchError) {
@@ -771,6 +789,7 @@ export function ExplorerProvider({
       finalize(fetchResult, query, fetchError);
     },
     [
+      queryEnabled,
       draftExploreState,
       submittedPreviousTimeFrame,
       submittedComparisonMode,
@@ -848,7 +867,12 @@ export function ExplorerProvider({
       !forceFunnelAutoSubmit;
 
     if (needsFetch) {
-      if (deferUntilManualRefresh) {
+      if (trackingSource === "metric-preview") {
+        // Each submit cancels the in-flight poll, so a draft edit would drop
+        // a running "Run query" result. Wait for it; this effect reruns when
+        // polling ends and checks the cache for the latest draft.
+        if (!polling) doSubmit({ cache: "required" });
+      } else if (deferUntilManualRefresh) {
         setIsStale(true);
       } else if (
         baselineConfig &&
@@ -879,6 +903,8 @@ export function ExplorerProvider({
     }
   }, [
     needsFetch,
+    trackingSource,
+    polling,
     needsUpdate,
     doSubmit,
     baselineConfig,
@@ -1253,6 +1279,7 @@ export function ExplorerProvider({
       loading: loading || polling,
       error,
       commonColumns,
+      getFullFactTableById,
       setDraftExploreState,
       handleSubmit,
       addValueToDataset,
@@ -1305,6 +1332,7 @@ export function ExplorerProvider({
       deleteValueFromDataset,
       draftExploreState,
       error,
+      getFullFactTableById,
       handleSubmit,
       isStale,
       isSubmittable,

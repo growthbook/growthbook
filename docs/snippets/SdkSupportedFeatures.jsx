@@ -320,7 +320,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           caseInsensitiveRegex: "≥ v1.6.3",
         },
         {
-          trackingPlugin: "≥ v1.4.0",
+          trackingPlugin: "≥ v1.7.0",
         },
         {
           savedGroupReferences: "≥ v1.1.0",
@@ -402,7 +402,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     python: {
       name: "Python SDK",
-      version: "3.0.0",
+      version: "3.2.0",
       github: "https://github.com/growthbook/growthbook-python",
       examples: [],
       packageRepos: [
@@ -417,6 +417,12 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v3.2.0",
+        },
+        {
+          contextualBandits: "≥ v3.1.0",
         },
         {
           remoteEval: "≥ v2.3.0",
@@ -458,7 +464,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     go: {
       name: "Go SDK",
-      version: "0.2.9",
+      version: "0.6.0",
       github: "https://github.com/growthbook/growthbook-golang",
       examples: [
         {
@@ -480,7 +486,13 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           experimentation: "All versions",
         },
         {
-          trackingPlugin: "≥ v0.2.8",
+          savedGroupReferencesV2: "≥ v0.6.0",
+        },
+        {
+          contextualBandits: "≥ v0.5.0",
+        },
+        {
+          trackingPlugin: "≥ v0.5.0",
         },
         {
           caseInsensitiveMembership: "≥ v0.2.7",
@@ -519,7 +531,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     rust: {
       name: "Rust SDK",
-      version: "0.2.1",
+      version: "0.3.0",
       github: "https://github.com/growthbook/growthbook-rust",
       examples: [
         {
@@ -539,6 +551,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferencesV2: "≥ v0.3.0",
         },
         {
           savedGroupReferences: "≥ v0.2.0",
@@ -574,7 +589,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     java: {
       name: "Java SDK",
-      version: "0.10.10",
+      version: "0.11.1",
       github: "https://github.com/growthbook/growthbook-sdk-java",
       examples: [
         {
@@ -606,6 +621,12 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          savedGroupReferences: "≥ v0.11.1",
+        },
+        {
+          trackingPlugin: "≥ v0.11.1",
         },
         {
           caseInsensitiveMembership: "≥ v0.10.9",
@@ -760,6 +781,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           experimentation: "All versions",
         },
         {
+          trackingPlugin: "≥ v7.8.0",
+        },
+        {
           caseInsensitiveMembership: "≥ v7.1.1",
         },
         {
@@ -796,7 +820,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     swift: {
       name: "Swift SDK",
-      version: "1.2.0",
+      version: "1.2.4",
       github: "https://github.com/growthbook/growthbook-swift",
       examples: [],
       packageRepos: [
@@ -811,6 +835,12 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          contextualBandits: "≥ v1.2.3",
+        },
+        {
+          trackingPlugin: "≥ v1.1.15",
         },
         {
           namespacesV2: "≥ v1.1.4",
@@ -1221,9 +1251,6 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
-        },
-        {
-          trackingPlugin: "≥ v4.4.0",
         },
         {
           caseInsensitiveRegex: "≥ v4.3.0",

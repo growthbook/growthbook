@@ -12,6 +12,7 @@ import {
   getApplicableEnvIds,
   getExperimentIdsFromRules,
   getRulesForEnvironment,
+  getValidation,
   liveRevisionFromFeature,
   rampRuleEnvKey,
   resolveTargetingProjectIds,
@@ -55,6 +56,7 @@ import { ResourceEvents } from "shared/types/events/base-types";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { normalizeFeatureJSONValues } from "back-end/src/util/featureValues";
+import { yieldEventLoop } from "back-end/src/util/yield";
 import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
 import { featureForSavedGroupValidation } from "back-end/src/util/savedGroupProjectScope.util";
 import {
@@ -129,6 +131,7 @@ import {
   getAffectedSDKPayloadKeys,
   getReferenceIdsInRules,
   getSDKPayloadKeysByDiff,
+  toFeatureMetaInfo,
 } from "back-end/src/util/features";
 import {
   assertHoldoutAvailableForProject,
@@ -557,11 +560,14 @@ export async function getAllFeatures(
     projectsAreReadAllowlist = false,
     ids,
     includeArchived = false,
+    signal,
   }: {
     projects?: string[];
     projectsAreReadAllowlist?: boolean;
     ids?: string[];
     includeArchived?: boolean;
+    // Stops loading early; the caller must check it and discard the result
+    signal?: AbortSignal;
   } = {},
 ): Promise<FeatureInterface[]> {
   const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
@@ -582,13 +588,60 @@ export async function getAllFeatures(
     q.archived = { $ne: true };
   }
 
-  const features = (await FeatureModel.find(q)).map((m) =>
-    toInterface(m, context),
-  );
+  // A cursor hydrates a batch at a time, and yielding between features keeps
+  // a large organization's list from stalling every other request
+  const features: FeatureInterface[] = [];
+  for await (const doc of FeatureModel.find(q).cursor()) {
+    if (signal?.aborted) break;
+    await yieldEventLoop(features.length);
+    features.push(toInterface(doc, context));
+  }
 
   return features.filter((feature) =>
     context.permissions.canReadTargetingScopedResource(feature),
   );
+}
+
+// Only the ids of the features the caller can read, selected the same way as
+// `getAllFeatures`. Loads the permission-bearing fields and nothing else.
+export async function getAllFeatureIds(
+  context: ReqContext | ApiReqContext,
+  {
+    projects,
+    projectsAreReadAllowlist = false,
+    includeArchived = false,
+  }: {
+    projects?: string[];
+    projectsAreReadAllowlist?: boolean;
+    includeArchived?: boolean;
+  } = {},
+): Promise<string[]> {
+  const q: FilterQuery<FeatureDocument> = { organization: context.org.id };
+  if (projects && projects.length) {
+    Object.assign(
+      q,
+      projectsAreReadAllowlist
+        ? readAllowlistClause(projects)
+        : targetingScopedProjectClause(projects),
+    );
+  }
+  if (!includeArchived) {
+    q.archived = { $ne: true };
+  }
+  const docs = await FeatureModel.find(q, {
+    id: 1,
+    project: 1,
+    targetingProjects: 1,
+    targetingAllProjects: 1,
+  }).lean<
+    Pick<
+      FeatureInterface,
+      "id" | "project" | "targetingProjects" | "targetingAllProjects"
+    >[]
+  >();
+  return docs
+    .filter((doc) => context.permissions.canReadTargetingScopedResource(doc))
+    .map((doc) => doc.id);
 }
 
 // Lightweight sibling of {@link getAllFeatures} for whole-collection scans that
@@ -606,23 +659,91 @@ export async function getAllFeatures(
 // need a complete feature.
 export async function getAllFeaturesWithoutEditorFields(
   context: ReqContext | ApiReqContext,
+  options: { includeArchived?: boolean; ids?: string[] } = {},
+): Promise<FeatureInterface[]> {
+  return getAllFeaturesProjected(context, options, EDITOR_FIELDS_PROJECTION);
+}
+
+// Features for graph walks (dependents, health, staleness, saved-group and
+// move references): everything in `getAllFeaturesWithoutEditorFields` plus the
+// default value and every rule and variation value projected out, since those
+// are the bulk of a feature document and no graph computation reads them.
+export async function getAllFeaturesForGraph(
+  context: ReqContext | ApiReqContext,
+  options: { includeArchived?: boolean; ids?: string[] } = {},
+): Promise<FeatureInterface[]> {
+  return getAllFeaturesProjected(context, options, GRAPH_PROJECTION);
+}
+
+// `ids` plus every feature whose prerequisites name one of them, shaped like
+// getAllFeaturesForGraph: what a one-hop dependents question needs. Legacy
+// documents keep their rules per environment, so those are matched per org
+// environment; documents with no environment settings at all always come
+// back. The caller's own check decides.
+export async function getFeaturesWithPrerequisitesOn(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+): Promise<FeatureInterface[]> {
+  if (!ids.length) return [];
+  const named = { $in: ids };
+  return getAllFeaturesProjected(
+    context,
+    {
+      includeArchived,
+      filter: {
+        $or: [
+          { id: named },
+          { "prerequisites.id": named },
+          { "rules.prerequisites.id": named },
+          ...getEnvironmentIdsFromOrg(context.org).map((env) => ({
+            [`environmentSettings.${env}.rules.prerequisites.id`]: named,
+          })),
+          { environmentSettings: { $exists: false } },
+        ],
+      },
+    },
+    GRAPH_PROJECTION,
+  );
+}
+
+const EDITOR_FIELDS_PROJECTION = {
+  description: 0,
+  jsonSchema: 0,
+  customFields: 0,
+  draft: 0,
+} as const;
+
+const GRAPH_PROJECTION = {
+  ...EDITOR_FIELDS_PROJECTION,
+  defaultValue: 0,
+  "rules.value": 0,
+  "rules.variations.value": 0,
+} as const;
+
+async function getAllFeaturesProjected(
+  context: ReqContext | ApiReqContext,
   {
     includeArchived = false,
     ids,
-  }: { includeArchived?: boolean; ids?: string[] } = {},
+    filter,
+  }: {
+    includeArchived?: boolean;
+    ids?: string[];
+    filter?: FilterQuery<FeatureDocument>;
+  },
+  projection: Record<string, 0>,
 ): Promise<FeatureInterface[]> {
   if (ids && !ids.length) return [];
   const q: FilterQuery<FeatureDocument> = {
     ...featureListQuery(context.org.id, { includeArchived }),
     ...(ids ? { id: { $in: ids } } : {}),
+    ...(filter ? { $and: [filter] } : {}),
   };
 
-  const docs = await FeatureModel.find(q, {
-    description: 0,
-    jsonSchema: 0,
-    customFields: 0,
-    draft: 0,
-  }).lean<LegacyFeatureInterface[]>();
+  const docs = await FeatureModel.find(q, projection).lean<
+    LegacyFeatureInterface[]
+  >();
 
   const features = docs.map((raw) =>
     migrateRawFeatureToV2(
@@ -724,6 +845,47 @@ export async function getFeaturesPage(
     .filter((feature) =>
       context.permissions.canReadTargetingScopedResource(feature),
     );
+}
+
+/** Keys of the most recently touched readable features — names only, for prompts. */
+export async function getRecentFeatureIds(
+  context: ReqContext | ApiReqContext,
+  {
+    limit,
+    readableProjects,
+  }: {
+    limit: number;
+    /** From `getProjectsWithPermission`; null means every project. */
+    readableProjects: string[] | null;
+  },
+): Promise<string[]> {
+  // The allowlist pre-filters in Mongo so the limit stays bounded; the
+  // permission check below is still the authority.
+  const docs = await FeatureModel.find(
+    {
+      ...featureListQuery(context.org.id, {
+        projectIds: readableProjects ?? undefined,
+      }),
+    },
+    {
+      _id: 0,
+      id: 1,
+      project: 1,
+      targetingProjects: 1,
+      targetingAllProjects: 1,
+    },
+  )
+    .sort({ dateUpdated: -1 })
+    .limit(limit)
+    .lean<
+      Pick<
+        FeatureInterface,
+        "id" | "project" | "targetingProjects" | "targetingAllProjects"
+      >[]
+    >();
+  return docs
+    .filter((f) => context.permissions.canReadTargetingScopedResource(f))
+    .map((f) => f.id);
 }
 
 export async function countFeatures(
@@ -1512,6 +1674,18 @@ export async function updateFeature(
     allUpdates.environmentSettings = { ...feature.environmentSettings };
   }
 
+  // The reverse case: an env-settings write without `rules` would drop rules
+  // kept per environment or inherited, so persist the read's (scrubbed) rules.
+  if (
+    allUpdates.environmentSettings !== undefined &&
+    allUpdates.rules === undefined &&
+    Array.isArray(feature.rules)
+  ) {
+    allUpdates.rules = (
+      await scrubDeadProjectScopes(context, { rules: feature.rules })
+    ).rules;
+  }
+
   const normalizedUpdates = buildFeatureUpdate(allUpdates);
 
   if (Array.isArray(normalizedUpdates.rules)) {
@@ -1842,17 +2016,23 @@ export async function removeProjectFromFeatures(
           ? { ...rule, projects: rule.projects.filter((p) => p !== project) }
           : rule,
       );
+      // Advance the stamp so a landing that read the dead scope loses its guard.
+      const stamp = advancedGuardStamp(feature.dateUpdated);
       const written = await FeatureModel.updateOne(
         {
           organization: context.org.id,
           id: feature.id,
           dateUpdated: feature.dateUpdated,
         },
-        { $set: { rules: updatedRules } },
+        { $set: { rules: updatedRules, dateUpdated: stamp } },
       );
       if (written.matchedCount > 0) {
         scrubbed = true;
-        const updatedFeature = { ...feature, rules: updatedRules };
+        const updatedFeature = {
+          ...feature,
+          rules: updatedRules,
+          dateUpdated: stamp,
+        };
         onFeatureUpdate(context, feature, updatedFeature, project).catch(
           (e) => {
             logger.error(e, "Error refreshing SDK Payload on feature update");
@@ -3711,7 +3891,8 @@ async function cleanupOrphanedRampSchedules(
 // handler (which runs the same net non-throwing as publish gates). Only values
 // THIS publish changes are checked — a pre-existing violation must not block
 // status-only publishes (kill switches, safe-rollout rollbacks, ramp advances).
-// A baseConfig change re-checks everything (new backing schema).
+// A baseConfig change re-checks everything (new backing schema), and a
+// jsonSchema change sets `valueSchemaChanged` so every value is re-checked.
 export function computeProposedFeatureForValidation(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -3721,6 +3902,7 @@ export function computeProposedFeatureForValidation(
   proposedFeature: FeatureInterface;
   defaultToCheck: string | undefined;
   rulesToCheck: FeatureRule[];
+  valueSchemaChanged: boolean;
 } {
   const { changes, removeHoldout } = computeRevisionMergeChanges(
     context,
@@ -3762,7 +3944,16 @@ export function computeProposedFeatureForValidation(
       changes.defaultValue !== feature.defaultValue)
       ? proposedFeature.defaultValue
       : undefined;
-  return { proposedFeature, defaultToCheck, rulesToCheck };
+  const valueSchemaChanged = !isEqual(
+    effectiveValueSchema(feature),
+    effectiveValueSchema(proposedFeature),
+  );
+  return { proposedFeature, defaultToCheck, rulesToCheck, valueSchemaChanged };
+}
+
+function effectiveValueSchema(feature: Pick<FeatureInterface, "jsonSchema">) {
+  const { validationEnabled, schemaString } = getValidation(feature);
+  return validationEnabled ? (schemaString ?? null) : null;
 }
 
 // Best-effort early hook run; updateFeature / markRevisionAsPublished re-run hooks authoritatively.
@@ -3787,7 +3978,7 @@ export async function prevalidatePublishRevision({
   skipValidation?: boolean;
   skipValueSchemaNet?: boolean;
 }) {
-  const { proposedFeature, defaultToCheck, rulesToCheck } =
+  const { proposedFeature, defaultToCheck, rulesToCheck, valueSchemaChanged } =
     computeProposedFeatureForValidation(context, feature, revision, result);
   await assertFeatureSavedGroupScope(context, proposedFeature, [
     feature,
@@ -3797,8 +3988,14 @@ export async function prevalidatePublishRevision({
   // Re-validate config-backed values going live: save-time validation can be
   // stale (a config's schema/invariants may tighten between draft and publish),
   // and auto-publish paths don't pass through a REST handler's own net.
+  if (!skipValueSchemaNet && valueSchemaChanged) {
+    assertFeatureValuesValidForPublish(context, proposedFeature, {
+      defaultValue: proposedFeature.defaultValue,
+      rules: proposedFeature.rules,
+    });
+  }
   if (defaultToCheck !== undefined || rulesToCheck.length) {
-    if (!skipValueSchemaNet) {
+    if (!skipValueSchemaNet && !valueSchemaChanged) {
       assertFeatureValuesValidForPublish(
         context,
         proposedFeature,
@@ -4596,6 +4793,7 @@ export async function createAndPublishRevision({
   comment,
   canBypassApprovalChecks,
   revertedFrom,
+  beforeLanding,
 }: {
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
@@ -4605,6 +4803,8 @@ export async function createAndPublishRevision({
   comment?: string;
   canBypassApprovalChecks: boolean;
   revertedFrom?: number;
+  /** Runs once the change is known to be allowed, before anything is written. */
+  beforeLanding?: (gate: { bypassesApproval: boolean }) => Promise<void>;
 }): Promise<{
   revision: FeatureRevisionInterface;
   updatedFeature: FeatureInterface;
@@ -4666,6 +4866,7 @@ export async function createAndPublishRevision({
         "Enable 'REST API always bypasses approval requirements' in organization settings.",
     );
   }
+  await beforeLanding?.({ bypassesApproval: requiresReview });
 
   const mergeForPublish = (revision: FeatureRevisionInterface) => {
     const result = autoMerge(liveBase, liveBase, revision, allEnvironments, {});
@@ -4782,7 +4983,14 @@ export async function getFeatureMetaInfoById(
     prerequisites: 1,
     "rules.prerequisites": 1,
     "rules.savedGroups": 1,
-    environmentSettings: 1,
+    // Only the environments' prerequisites: on older flags the settings still
+    // hold every rule
+    ...Object.fromEntries(
+      getEnvironmentIdsFromOrg(context.org).map((env) => [
+        `environmentSettings.${env}.prerequisites`,
+        1,
+      ]),
+    ),
     // `baseConfig` drives the list's "Config · <name>" type display; the full
     // (potentially large) default value is fetched only when the caller asks for
     // it — the list itself never parses it.
@@ -4790,57 +4998,19 @@ export async function getFeatureMetaInfoById(
     ...(includeDefaultValue ? { defaultValue: 1 } : {}),
   };
 
-  const features = await FeatureModel.find(query, projection);
+  const features = await FeatureModel.find(query, projection).lean<
+    LegacyFeatureInterface[]
+  >();
 
-  return features
-    .filter((f) => context.permissions.canReadTargetingScopedResource(f))
-    .map((f) => {
-      const doc = f as unknown as Record<string, unknown>;
-      const rules = doc.rules as
-        | { prerequisites?: unknown[]; savedGroups?: unknown[] }[]
-        | undefined;
-      const envSettings = doc.environmentSettings as
-        | Record<string, { prerequisites?: unknown[] }>
-        | undefined;
-      const topPrereqs = doc.prerequisites as unknown[] | undefined;
+  const metaInfo: FeatureMetaInfo[] = [];
+  for (let i = 0; i < features.length; i++) {
+    await yieldEventLoop(i);
+    const f = features[i];
+    if (!context.permissions.canReadTargetingScopedResource(f)) continue;
 
-      const hasPrerequisites =
-        (topPrereqs?.length ?? 0) > 0 ||
-        (rules ?? []).some((r) => (r.prerequisites?.length ?? 0) > 0) ||
-        Object.values(envSettings ?? {}).some(
-          (e) => (e.prerequisites?.length ?? 0) > 0,
-        );
-
-      const hasSavedGroups = (rules ?? []).some(
-        (r) => (r.savedGroups?.length ?? 0) > 0,
-      );
-
-      // The list shows "Config · <name>" from the flag's first-class `baseConfig`
-      // (authoritative), not by parsing the default value.
-      const configBackingKey = f.baseConfig ?? null;
-
-      return {
-        id: f.id,
-        project: f.project,
-        targetingProjects: f.targetingProjects,
-        targetingAllProjects: f.targetingAllProjects,
-        archived: f.archived,
-        description: f.description,
-        dateCreated: f.dateCreated,
-        dateUpdated: f.dateUpdated,
-        tags: f.tags,
-        owner: f.owner,
-        valueType: f.valueType,
-        version: f.version,
-        linkedExperiments: f.linkedExperiments,
-        neverStale: f.neverStale,
-        hasPrerequisites,
-        hasSavedGroups,
-        configBackingKey,
-        revision: f.revision as FeatureMetaInfo["revision"],
-        ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
-      };
-    });
+    metaInfo.push(toFeatureMetaInfo(f, includeDefaultValue));
+  }
+  return metaInfo;
 }
 
 export async function getFeatureMetaInfoByIds(

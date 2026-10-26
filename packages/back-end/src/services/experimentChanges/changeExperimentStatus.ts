@@ -11,8 +11,10 @@ import {
   ExperimentResultsType,
 } from "shared/types/experiment";
 import {
+  BuiltInChecklistItemKey,
   ChecklistStatus,
   ExperimentStartChecklistStatus,
+  getHiddenBuiltInChecklistItems,
 } from "shared/validators";
 import { experimentHasLiveLinkedChanges } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
@@ -47,7 +49,7 @@ import {
 } from "back-end/src/util/errors";
 import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 import { trackEventForContext } from "back-end/src/services/growthbook";
-import { isArmingApiKeyId } from "back-end/src/services/organizations";
+import { isArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 
 export type StartChecklistItemStatus = {
   key: string;
@@ -162,7 +164,7 @@ export type StopExperimentInput = {
   enableTemporaryRollout?: boolean;
   reason?: string;
   analysis?: string;
-  dateEnded?: string;
+  dateEnded?: string | Date;
 };
 
 export type ModifyTemporaryRolloutInput = {
@@ -231,10 +233,24 @@ export async function getExperimentStartChecklistStatus(
   );
   const sdkConnections = await findSDKConnectionsByOrganization(context);
   const isBandit = experiment.type === "multi-armed-bandit";
+  const checklist = orgHasPremiumFeature(context.org, "custom-launch-checklist")
+    ? (experiment.project &&
+        (await getExperimentLaunchChecklist(
+          context.org.id,
+          experiment.project,
+        ))) ||
+      (await getExperimentLaunchChecklist(context.org.id, ""))
+    : null;
+  const hidden = getHiddenBuiltInChecklistItems(checklist, experiment);
 
   const items: StartChecklistItemStatus[] = [];
+  const pushBuiltIn = (
+    item: StartChecklistItemStatus & { key: BuiltInChecklistItemKey },
+  ) => {
+    if (!hidden.has(item.key)) items.push(item);
+  };
 
-  items.push({
+  pushBuiltIn({
     key: "linkedChanges",
     required: true,
     status:
@@ -259,7 +275,7 @@ export async function getExperimentStartChecklistStatus(
     });
   }
 
-  items.push({
+  pushBuiltIn({
     key: "targeting",
     required: true,
     status: experiment.phases.length > 0 ? "complete" : "incomplete",
@@ -267,7 +283,7 @@ export async function getExperimentStartChecklistStatus(
     reason: "Configure at least one phase with assignment/targeting settings.",
   });
 
-  items.push({
+  pushBuiltIn({
     key: "sdkConnection",
     required: true,
     status: sdkConnections.length > 0 ? "complete" : "incomplete",
@@ -353,16 +369,8 @@ export async function getExperimentStartChecklistStatus(
       });
     });
 
-  if (orgHasPremiumFeature(context.org, "custom-launch-checklist")) {
-    const checklist =
-      (experiment.project &&
-        (await getExperimentLaunchChecklist(
-          context.org.id,
-          experiment.project,
-        ))) ||
-      (await getExperimentLaunchChecklist(context.org.id, ""));
-
-    checklist?.tasks?.forEach((task) => {
+  if (checklist) {
+    checklist.tasks?.forEach((task) => {
       if (task.completionType === "auto" && task.propertyKey) {
         if (isBandit && task.propertyKey === "hypothesis") return;
         items.push({
@@ -518,7 +526,7 @@ export async function executeExperimentStart(
       // The job fires a start as its armer, so a stop derived here is theirs.
       nextScheduledStatusUpdate: withScheduledBy(
         nextScheduledStatusUpdate,
-        context,
+        context.armer,
       ),
     },
   });
@@ -698,7 +706,7 @@ export async function approveScheduledExperimentStart({
   const changes: Changeset = {
     nextScheduledStatusUpdate: withScheduledBy(
       { type: "start" as const, date: startAt },
-      context,
+      context.armer,
     ),
   };
   await validateExperimentChange({ context, experiment, changes });

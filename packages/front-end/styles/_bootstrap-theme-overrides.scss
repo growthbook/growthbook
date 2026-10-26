@@ -586,7 +586,8 @@ pre {
     box-shadow: none;
   }
 }
-tr.gb-diff-ref-flash > td {
+tr.gb-diff-ref-flash > td,
+[data-diff-row].gb-diff-ref-flash > * {
   animation: gb-diff-ref-flash 1.8s ease-out;
 }
 

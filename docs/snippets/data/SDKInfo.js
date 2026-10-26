@@ -315,13 +315,13 @@ export default {
         contextualBandits: "≥ v1.7.0",
       },
       {
+        trackingPlugin: "≥ v1.7.0",
+      },
+      {
         caseInsensitiveMembership: "≥ v1.6.4",
       },
       {
         caseInsensitiveRegex: "≥ v1.6.3",
-      },
-      {
-        trackingPlugin: "≥ v1.4.0",
       },
       {
         savedGroupReferences: "≥ v1.1.0",
@@ -403,7 +403,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "3.1.1",
+    version: "3.2.2",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -418,6 +418,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v3.2.0",
       },
       {
         contextualBandits: "≥ v3.1.0",
@@ -462,7 +465,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.5.1",
+    version: "0.6.0",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -484,10 +487,13 @@ export default {
         experimentation: "All versions",
       },
       {
+        savedGroupReferencesV2: "≥ v0.6.0",
+      },
+      {
         contextualBandits: "≥ v0.5.0",
       },
       {
-        trackingPlugin: "≥ v0.2.8",
+        trackingPlugin: "≥ v0.5.0",
       },
       {
         caseInsensitiveMembership: "≥ v0.2.7",
@@ -526,7 +532,7 @@ export default {
   },
   rust: {
     name: "Rust SDK",
-    version: "0.2.2",
+    version: "0.3.0",
     github: "https://github.com/growthbook/growthbook-rust",
     examples: [
       {
@@ -546,6 +552,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v0.3.0",
       },
       {
         savedGroupReferences: "≥ v0.2.0",
@@ -581,7 +590,7 @@ export default {
   },
   java: {
     name: "Java SDK",
-    version: "0.11.0",
+    version: "0.11.3",
     github: "https://github.com/growthbook/growthbook-sdk-java",
     examples: [
       {
@@ -613,6 +622,12 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferences: "≥ v0.11.1",
+      },
+      {
+        trackingPlugin: "≥ v0.11.1",
       },
       {
         caseInsensitiveMembership: "≥ v0.10.9",
@@ -750,7 +765,7 @@ export default {
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "8.0.0",
+    version: "9.0.0",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
@@ -809,7 +824,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.2.3",
+    version: "1.3.4",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -827,6 +842,9 @@ export default {
       },
       {
         contextualBandits: "≥ v1.2.3",
+      },
+      {
+        trackingPlugin: "≥ v1.1.15",
       },
       {
         namespacesV2: "≥ v1.1.4",
@@ -1222,7 +1240,7 @@ export default {
   },
   flutter: {
     name: "Flutter SDK",
-    version: "4.4.0",
+    version: "4.5.0",
     github: "https://github.com/growthbook/growthbook-flutter",
     examples: [],
     packageRepos: [
@@ -1237,9 +1255,6 @@ export default {
       },
       {
         experimentation: "All versions",
-      },
-      {
-        trackingPlugin: "≥ v4.4.0",
       },
       {
         caseInsensitiveRegex: "≥ v4.3.0",

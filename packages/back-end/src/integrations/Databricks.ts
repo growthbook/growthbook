@@ -16,6 +16,9 @@ export default class Databricks extends SqlIntegration {
     params.authType = params.authType ?? "pat";
     this.params = params;
   }
+  getPartitionColumnCondition(): string {
+    return "partition_index IS NOT NULL";
+  }
   isWritingTablesSupported(): boolean {
     return true;
   }

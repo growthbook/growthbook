@@ -17,7 +17,7 @@ import {
 // scoping stays per-adapter (`isApprovalRequiredForRevision`); this collector
 // must never flatten it into an org-level check. Features are deliberately
 // NOT served here — their gates live in services/featurePublishGates.ts.
-export function collectRevisionGovernanceGates({
+export async function collectRevisionGovernanceGates({
   context,
   adapter,
   targetType,
@@ -29,7 +29,7 @@ export function collectRevisionGovernanceGates({
   targetType: RevisionTargetType;
   entity: Record<string, unknown>;
   revision: Revision;
-}): PublishGate[] {
+}): Promise<PublishGate[]> {
   const gates: PublishGate[] = [];
   // The revision-route base for gate resolutions, per the entity's REST
   // identifier convention (configs/constants by key, saved groups by id).
@@ -43,7 +43,7 @@ export function collectRevisionGovernanceGates({
     : adapter.isApprovalRequired(context);
   // Coverage, not just status: an approval given while the change was narrower
   // does not sanction what it would land now. Same predicate as the backstop.
-  const coverage = revisionApprovalsCoverChange(context, revision);
+  const coverage = await revisionApprovalsCoverChange(context, revision);
   const approvedAndCovered =
     revision.status === "approved" && coverage.hasCoveringApproval;
   if (approvalRequired && !approvedAndCovered) {

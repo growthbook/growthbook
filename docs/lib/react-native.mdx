@@ -20,6 +20,20 @@ Install with a package manager
 npm install --save @growthbook/growthbook-react
 ```
 
+### Expo
+
+The SDK is pure JavaScript with no native modules, so it works in Expo Go and in development builds without a config plugin or prebuild step. Install it the same way:
+
+```bash
+npx expo install @growthbook/growthbook-react
+```
+
+Core features (flags, experiments, tracking, and forced variations) work without any extra setup. These optional features need a polyfill, as in any React Native app:
+
+- [Streaming updates](#streaming-updates) need an `EventSource` polyfill.
+- A [persistent cache](#configuring-local-storage) needs a `localStorage` polyfill.
+- [Encrypted payloads](#encrypted-payloads) need a `SubtleCrypto` polyfill.
+
 ## Quick Usage
 
 ### Step 1: Configure your app
@@ -137,7 +151,7 @@ In order for the GrowthBook SDK to work, it needs to have feature definitions fr
 
 ### Built-in Fetching and Caching
 
-If you pass an `apiHost` and `clientKey` into the GrowthBook constructor, it will handle the network requests, caching, retry logic, etc. for you automatically. If your feature payload is encrypted, you can also pass in a `decryptionKey`.
+If you pass an `apiHost` and `clientKey` into the GrowthBook constructor, it will handle the network requests, caching, retry logic, etc. for you automatically. If your feature payload is encrypted, you can also pass in a `decryptionKey` (this needs a polyfill; see [Encrypted Payloads](#encrypted-payloads)).
 
 ```ts
 const gb = new GrowthBook({
@@ -156,6 +170,23 @@ Until features are loaded, all features will evaluate to `null`. If you're ok wi
 
 If you want to refresh the features at any time (e.g. when a navigation event occurs), you can call `gb.refreshFeatures()`.
 
+#### Encrypted Payloads
+
+Decrypting an encrypted payload requires the Web Crypto `SubtleCrypto` API. Hermes, the default JavaScript engine for React Native and Expo, does not provide it. Without it, decryption fails with `No SubtleCrypto implementation found` and the SDK keeps any features it already loaded. If none were loaded, features evaluate to `null`, so `getFeatureValue` returns the fallback passed in code, not the default value set in GrowthBook.
+
+To use encryption, pass a `SubtleCrypto` implementation that supports AES-CBC to `setPolyfills` before calling `init`:
+
+```ts
+import { setPolyfills } from "@growthbook/growthbook";
+
+setPolyfills({
+  // Any implementation of the Web Crypto SubtleCrypto interface
+  SubtleCrypto: mySubtleCrypto,
+});
+```
+
+Libraries that include native code, such as most crypto libraries, require an Expo development build and do not run in Expo Go.
+
 #### Error Handling
 
 In the case of network issues, the `init` call will not throw an error. Instead, it will stay in the default state where every feature evaluates to `null`.
@@ -171,9 +202,24 @@ console.log(res);
 
 The return value has 3 properties:
 
-- **status** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
+- **success** - `true` if the GrowthBook instance was populated with features/experiments. Otherwise `false`
 - **source** - Where this result came from. One of the following values: `network`, `cache`, `init`, `error`, or `timeout`
-- **error** - If status is `false`, this will contain an `Error` object with more details about the error
+- **error** - If success is `false`, this will contain an `Error` object with more details about the error
+
+#### Fallback Payload
+
+To use a bundled payload only when features can't be downloaded, pass it to `setPayload` when `init` doesn't succeed:
+
+```ts
+const res = await gb.init({ timeout: 2000 });
+if (!res.success) {
+  await gb.setPayload(fallbackPayload);
+}
+```
+
+Don't pass the fallback to `init({ payload })` because that skips the network request entirely. A cached payload counts as a success, so the fallback is only used when there's nothing usable in the cache.
+
+The fallback stays in place until a later request succeeds. If `init` timed out and `streaming` or `pollingInterval` is enabled, the SDK applies the original request when it finishes. After a network error, only `pollingInterval` retries.
 
 ### Custom Integration
 
@@ -274,7 +320,7 @@ const gb = new GrowthBook({
   // Enable remote evaluation
   remoteEval: true,
 
-  // Optional: only trigger a new evaluation call when the `id` and `email` attribute changes
+  // Optional: only trigger a new evaluation call when the `id` and `email` attributes change
   cacheKeyAttributes: ["id", "email"],
 });
 ```
@@ -295,7 +341,7 @@ The React Native SDK has 2 caching layers:
 
 ### Configuring Local Storage
 
-In order to use persistent storage, you must provide a polyfill with the same method signature as browser's localStorage.
+In order to use persistent storage, you must provide a polyfill with the same method signature as the browser's localStorage.
 
 Here's an example using AsyncStorage
 
@@ -309,9 +355,8 @@ import { setPolyfills } from "@growthbook/growthbook";
 
 setPolyfills({
   localStorage: {
-    // Example using Redis
-    getItem: (key) => JSON.parse(AsyncStorage.getItem(key) || "null")
-    setItem: (key, value) => AsyncStorage.setItem(key, JSON.stringify(value))
+    getItem: (key) => AsyncStorage.getItem(key),
+    setItem: (key, value) => AsyncStorage.setItem(key, value),
   }
 });
 ```
@@ -330,8 +375,8 @@ configureCache({
   cacheKey: "gbFeaturesCache",
   // Consider features stale after this much time (60 seconds default)
   staleTTL: 1000 * 60,
-  // Cached features older than this will be ignored (24 hours default)
-  maxAge: 1000 * 60 * 60 * 24,
+  // Cached features older than this will be ignored (4 hours default)
+  maxAge: 1000 * 60 * 60 * 4,
   // For Remote Eval only - limit the number of cache entries (~1 entry per user)
   maxEntries: 10,
   // Set to `true` to completely disable both in-memory and persistent caching
@@ -384,7 +429,7 @@ URL Redirect experiments are not supported in React Native at this time.
 
 ### Sticky Bucketing
 
-Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment supports sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing.
+Sticky bucketing ensures that users see the same experiment variant, even when user session, user login status, or experiment parameters change. See the [Sticky Bucketing docs](/app/sticky-bucketing) for more information. If your organization and experiment support sticky bucketing, you must implement an instance of the `StickyBucketService` to use Sticky Bucketing.
 
 The JS SDK exports several implementations of this service for reference, although you will need to build your own to work in a React Native environment.
 
@@ -494,7 +539,7 @@ const userEmail = sha256(salt + user.email).toString();
 
 ### Feature Usage Callback
 
-GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
+GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like New Relic or Datadog.
 
 ```ts
 new GrowthBook({
@@ -564,7 +609,7 @@ A type-safe version of the `useGrowthBook()` hook is available. Everywhere you u
 const growthbook = useGrowthBook<AppFeatures>()
 ```
 
-In that case, the hook will return `GrowthBook<AppFeatures> | undefined`.
+In that case, the hook will return `GrowthBook<AppFeatures>`.
 
 You can reduce this boilerplate by creating your own hook, e.g.:
 
@@ -572,7 +617,7 @@ You can reduce this boilerplate by creating your own hook, e.g.:
 // ./src/utils/growthbook.ts
 import { useGrowthBook as _useGrowthBook } from "@growthbook/growthbook-react";
 
-export const useGrowthBook = (): GrowthBook<AppFeatures> | undefined =>
+export const useGrowthBook = (): GrowthBook<AppFeatures> =>
   _useGrowthBook<AppFeatures>();
 ```
 

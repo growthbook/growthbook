@@ -52,6 +52,7 @@ import {
 import {
   runExperiment,
   evalFeature as _evalFeature,
+  buildContextualBanditExperiment,
   getExperimentResult,
   getAllStickyBucketAssignmentDocs,
   decryptPayload,
@@ -236,6 +237,8 @@ export class GrowthBook<
     }
     if (data.experiments) {
       this._options.experiments = data.experiments;
+    }
+    if (data.experiments || data.contextualBandits) {
       this._updateAllAutoExperiments();
     }
     this.ready = true;
@@ -275,6 +278,8 @@ export class GrowthBook<
     }
     if (payload.experiments) {
       this._options.experiments = payload.experiments;
+    }
+    if (payload.experiments || payload.contextualBandits) {
       this._updateAllAutoExperiments();
     }
 
@@ -711,6 +716,7 @@ export class GrowthBook<
       features: this._options.features,
       experiments: this._options.experiments,
       log: this.log,
+      debug: this.debug,
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
@@ -755,11 +761,18 @@ export class GrowthBook<
         "",
       );
     } else {
-      ({ result, trackingCall } = runExperiment(
-        experiment,
-        null,
-        this._getEvalContext(),
-      ));
+      const ctx = this._getEvalContext();
+      let expToRun = experiment;
+      if (experiment.contextualBanditRef) {
+        expToRun = { ...experiment };
+        buildContextualBanditExperiment(
+          expToRun,
+          experiment.contextualBanditRef,
+          experiment.key,
+          ctx,
+        );
+      }
+      ({ result, trackingCall } = runExperiment(expToRun, null, ctx));
       this._onExperimentEval(experiment, result);
     }
 

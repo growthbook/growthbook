@@ -16,12 +16,15 @@ import {
 } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import {
+  approvalApprovers,
+  approvalRoleIds,
   assessGoverningApprovalCoverage,
   assessRequiredApproverTeamsByProject,
   bypassApprovalPermission,
 } from "shared/permissions";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { EventUser } from "shared/types/events/event-types";
+import { getApproverRoles } from "back-end/src/revisions/approverRoles";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import type { ApiReqContext } from "back-end/types/api";
 import type { ReqContext } from "back-end/types/request";
@@ -196,14 +199,12 @@ export async function assessRevisionApproval({
     }),
     liveRampScheduleEnvs,
   });
-  const approvers = (revision.reviews ?? [])
-    .filter((r) => r.status === "approved")
-    .map((r) => r.userId)
-    .filter((id): id is string => !!id)
-    .map((id) => ({
-      id,
-      roleInfo: context.org.members.find((m) => m.id === id) ?? null,
-    }));
+  const approvals = (revision.reviews ?? []).filter(
+    (r): r is typeof r & { userId: string } =>
+      r.status === "approved" && !!r.userId,
+  );
+  const roles = await getApproverRoles(context, approvalRoleIds(approvals));
+  const approvers = approvalApprovers(approvals, (id) => roles.get(id) ?? null);
   const coverage = assessGoverningApprovalCoverage({
     org: context.org,
     teams: context.teams,
@@ -514,7 +515,7 @@ export async function collectFeaturePublishGates({
     return gates;
   }
 
-  const { proposedFeature, defaultToCheck, rulesToCheck } =
+  const { proposedFeature, defaultToCheck, rulesToCheck, valueSchemaChanged } =
     computeProposedFeatureForValidation(
       context,
       feature,
@@ -551,12 +552,12 @@ export async function collectFeaturePublishGates({
   // validation-class (skipSchemaValidation); warn -> acknowledge-class.
   const schemaErrors = [
     ...collectFeatureValueErrorsForPublish(
-      feature,
+      proposedFeature,
       {
-        defaultValue: plan.mergeResult.defaultValue,
-        rules: plan.mergeResult.rules,
+        defaultValue: proposedFeature.defaultValue,
+        rules: proposedFeature.rules,
       },
-      feature,
+      valueSchemaChanged ? undefined : feature,
     ),
     ...(defaultToCheck !== undefined || rulesToCheck.length
       ? await collectConfigBackedFeatureValueErrors(context, proposedFeature, {

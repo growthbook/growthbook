@@ -219,7 +219,7 @@ Add server-only configuration:
 ```dotenv title=".env.example"
 GROWTHBOOK_API_HOST=https://cdn.growthbook.io
 GROWTHBOOK_CLIENT_KEY=sdk_REPLACE_ME
-GROWTHBOOK_INGESTOR_HOST=https://us1.gb-ingest.com
+GROWTHBOOK_INGESTOR_HOST=https://us-east-1.gb-ingest.com
 LLM_PROVIDER_API_KEY=replace-me
 ```
 
@@ -409,7 +409,7 @@ export const growthbook = new GrowthBookClient<AppFeatures>({
   plugins: [
     growthbookTrackingPlugin({
       ingestorHost:
-        process.env.GROWTHBOOK_INGESTOR_HOST ?? "https://us1.gb-ingest.com",
+        process.env.GROWTHBOOK_INGESTOR_HOST ?? "https://us-east-1.gb-ingest.com",
     }),
   ],
 });

@@ -1,0 +1,100 @@
+import { populationEndpoints } from "shared/api-endpoints";
+import { useCallback, useMemo } from "react";
+import { ApiPopulation } from "shared/validators";
+import { isProjectListValidForProject } from "shared/util";
+import useSWR, { useSWRConfig } from "swr";
+import { useAuth } from "@/services/auth";
+import {
+  getRestApiCacheKey,
+  useRestApi,
+  useRestApiCall,
+} from "@/services/restApi";
+
+// The list endpoint defaults to 10 and rejects a limit above 100. Ask for the
+// maximum page and follow nextOffset so this hook still returns every
+// population the caller can read.
+const POPULATION_PAGE_LIMIT = 100;
+
+function populationsListKey(orgId: string | null | undefined) {
+  return `${orgId}::/api/v1/populations`;
+}
+
+// Writes go through useRestApiCall, which doesn't touch the SWR cache, so call
+// this after every create, update, duplicate, or delete. Pass the id of an
+// updated Population to refresh its detail page too.
+export function useRefreshPopulations() {
+  const { orgId } = useAuth();
+  const { mutate } = useSWRConfig();
+  return useCallback(
+    async (id?: string) => {
+      await Promise.all([
+        mutate(populationsListKey(orgId)),
+        id
+          ? mutate(
+              getRestApiCacheKey(orgId, populationEndpoints.getPopulation, {
+                params: { id },
+              }),
+            )
+          : null,
+      ]);
+    },
+    [orgId, mutate],
+  );
+}
+
+export function usePopulations(
+  project?: string,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
+  const { orgId } = useAuth();
+  const restApiCall = useRestApiCall();
+  const shouldFetch = enabled && !!orgId;
+  const { data, error, mutate } = useSWR<ApiPopulation[], Error>(
+    shouldFetch ? populationsListKey(orgId) : null,
+    async () => {
+      const populations: ApiPopulation[] = [];
+      let offset: number | null = 0;
+      while (offset !== null) {
+        const page = await restApiCall(populationEndpoints.listPopulations, {
+          query: { limit: POPULATION_PAGE_LIMIT, offset },
+        });
+        populations.push(...page.populations);
+        const nextOffset = page.nextOffset ?? null;
+        offset =
+          page.hasMore && nextOffset !== null && nextOffset > offset
+            ? nextOffset
+            : null;
+      }
+      return populations;
+    },
+  );
+
+  const populations = useMemo(
+    () =>
+      (data ?? []).filter((p) =>
+        isProjectListValidForProject(p.projects, project),
+      ),
+    [data, project],
+  );
+
+  return {
+    loading: shouldFetch && !error && !data,
+    populations,
+    error,
+    mutate,
+  };
+}
+
+export function usePopulation(id: string | undefined) {
+  const { data, error, mutate } = useRestApi(
+    populationEndpoints.getPopulation,
+    id ? { params: { id } } : null,
+  );
+
+  return {
+    loading: !!id && !error && !data,
+    population: data?.population,
+    error,
+    mutate,
+  };
+}

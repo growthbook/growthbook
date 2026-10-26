@@ -16,6 +16,7 @@ import {
 import { ExperimentInterface } from "shared/types/experiment";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { ConstantInterface } from "shared/types/constant";
+import { logger } from "back-end/src/util/logger";
 import {
   buildFeatureRulesFromApiEnvSettings,
   generateRuleId,
@@ -209,7 +210,8 @@ describe("mergeConditionAndSavedGroups", () => {
       },
     });
 
-    // Only 1 valid saved group
+    // An "any" entry skips a missing group; an "all" entry that needs one
+    // matches nobody
     expect(
       mergeConditionAndSavedGroups({
         savedGroupStrategy: v1Strategy(groupMap),
@@ -220,7 +222,7 @@ describe("mergeConditionAndSavedGroups", () => {
         ],
       }),
     ).toEqual({
-      id_b: { $inGroup: "b" },
+      $and: [{ id_b: { $inGroup: "b" } }, { __sgUnknown__: "g" }],
     });
 
     // Condition + a bunch of saved groups
@@ -231,7 +233,7 @@ describe("mergeConditionAndSavedGroups", () => {
         savedGroups: [
           {
             match: "all",
-            ids: ["a", "b", "x"],
+            ids: ["a", "b"],
           },
           {
             match: "any",
@@ -3107,8 +3109,8 @@ describe("SDK Payloads", () => {
       "exp-project",
     ]);
 
-    // targetingAllProjects omits the projects list (absent = all), rather than
-    // enumerating every org project
+    // targetingAllProjects is marked rather than enumerating every org project,
+    // since an absent list means no project
     const featureAllProjects = cloneDeep(feature);
     featureAllProjects.targetingAllProjects = true;
     const defAllProjects = getFeatureDefinition({
@@ -3123,6 +3125,24 @@ describe("SDK Payloads", () => {
       projectsMap,
     });
     expect(defAllProjects?.metadata?.projects).toBeUndefined();
+    expect(defAllProjects?.metadata?.allProjects).toBe(true);
+
+    // A feature in no project carries neither
+    const featureNoProject = cloneDeep(feature);
+    featureNoProject.project = "";
+    const defNoProject = getFeatureDefinition({
+      feature: featureNoProject,
+      environment: "production",
+      groupMap,
+      experimentMap: expMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
+    });
+    expect(defNoProject?.metadata?.projects).toBeUndefined();
+    expect(defNoProject?.metadata?.allProjects).toBeUndefined();
   });
 
   it("Emits a rule's explicit project scope, omitting when the rule targets all", () => {
@@ -4128,6 +4148,7 @@ describe("mergeConditionAndSavedGroups across all three formats", () => {
       "cond_a",
       { type: "condition", condition: JSON.stringify({ browser: "chrome" }) },
     ],
+    ["cond_empty", { type: "condition", condition: "{}" }],
   ]);
 
   const inline = () =>
@@ -4287,8 +4308,36 @@ describe("mergeConditionAndSavedGroups across all three formats", () => {
     });
   });
 
-  it("drops a group that is not in the map, in every format", () => {
-    const sg: SavedGroupTargeting[] = [{ match: "all", ids: ["gone"] }];
+  it("matches nobody when an entry needs a group that is not in the map, in every format", () => {
+    const needs: SavedGroupTargeting[][] = [
+      [{ match: "all", ids: ["gone"] }],
+      [{ match: "any", ids: ["gone"] }],
+      // The group that exists is empty, so nothing is left to match
+      [{ match: "any", ids: ["gone", "cond_empty"] }],
+    ];
+    [inline(), v1(), v2()].forEach((s) => {
+      needs.forEach((sg) => {
+        expect(build(s, JSON.stringify({ country: "US" }), sg)).toEqual({
+          $and: [{ country: "US" }, { __sgUnknown__: "gone" }],
+        });
+      });
+    });
+  });
+
+  it("logs each unresolvable group once, naming it", () => {
+    const warn = jest.spyOn(logger, "warn").mockImplementation();
+    const sg: SavedGroupTargeting[] = [{ match: "all", ids: ["gone_once"] }];
+    build(v1(), "{}", sg);
+    build(v1(), "{}", sg);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      'SDK payload targeting cannot be resolved: Saved Group "gone_once" does not exist',
+    );
+    warn.mockRestore();
+  });
+
+  it("drops a group that is not in the map from a none entry, in every format", () => {
+    const sg: SavedGroupTargeting[] = [{ match: "none", ids: ["gone"] }];
     [inline(), v1(), v2()].forEach((s) => {
       expect(build(s, JSON.stringify({ country: "US" }), sg)).toEqual({
         country: "US",

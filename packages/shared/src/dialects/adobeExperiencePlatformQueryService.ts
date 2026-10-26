@@ -9,6 +9,7 @@ const escapeStringLiteral = (value: string) =>
 export const adobeExperiencePlatformQueryServiceDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "spark",
+  unquotedIdentifierFold: "lower",
   escapeStringLiteral,
   stringMatch: createLikeStringMatchFn({
     escapeStringLiteral,

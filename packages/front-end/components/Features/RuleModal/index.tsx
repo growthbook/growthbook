@@ -62,7 +62,7 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
+import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 import { useAuth } from "@/services/auth";
 import { useLocalAttributeScopePicker } from "@/components/Experiment/useAttributeScopePicker";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -74,7 +74,7 @@ import {
   stringifyForRawDiff,
 } from "@/components/Reviews/Feature/RevisionDiffUtils";
 import { normalizeFeatureRules } from "@/components/Features/FeatureDiffRenders";
-import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
+import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import RadioCards from "@/ui/RadioCards";
@@ -90,6 +90,7 @@ import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
 import Tooltip from "@/ui/Tooltip";
 import HelperText from "@/ui/HelperText";
 import PagedModal from "@/components/Modal/PagedModal";
+import useUnscopedRuleGate from "@/components/Features/useUnscopedRuleGate";
 import {
   ConflictCalloutRow,
   WholeConflictCallout,
@@ -596,26 +597,22 @@ export default function RuleModal({
   // a holdout added in that same draft is picked up. Falls back to the merged
   // feature's holdout when the target revision isn't in context (e.g. a new
   // draft branched from the viewed version carries that holdout forward).
-  const revisionsCtx = useFeatureRevisionsContext();
   // The draft the rule is written into (it may differ from the viewed one) and
   // the revision that draft was created from. Only an active draft counts: a
   // discarded or published revision's envelope is not what the save lands in.
+  const targetRevisions = useFeatureRevisions(feature.id, [
+    targetVersion,
+    revisionList.find((r) => r.version === targetVersion)?.baseVersion,
+  ]);
   const isActiveDraft = (r: FeatureRevisionInterface | null | undefined) =>
     !!r && (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status);
-  const targetDraft = [
-    revisionsCtx?.revisions.find((r) => r.version === targetVersion),
-    draftRevision,
-  ].find(isActiveDraft);
-  const targetDraftBase = revisionsCtx?.revisions.find(
-    (r) => r.version === targetDraft?.baseVersion,
-  );
+  const targetRevision = targetRevisions.get(targetVersion);
+  const targetDraft = [targetRevision, draftRevision].find(isActiveDraft);
+  const targetDraftBase = targetRevisions.get(targetDraft?.baseVersion);
   const baseRule = targetDraftBase?.rules.find((r) => r.id === ruleId);
-  const targetHoldoutId = useMemo(() => {
-    const targetRev = revisionsCtx?.revisions.find(
-      (r) => r.version === targetVersion,
-    );
-    return (targetRev ? targetRev.holdout : feature.holdout)?.id;
-  }, [revisionsCtx, targetVersion, feature.holdout]);
+  const targetHoldoutId = (
+    targetRevision ? targetRevision.holdout : feature.holdout
+  )?.id;
 
   const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
     const raw = settings?.requireReviews;
@@ -785,10 +782,7 @@ export default function RuleModal({
       setValue: (value) => form.setValue("customFields", value),
     });
 
-  // On edit/duplicate, seed scope from the existing rule. Legacy rules with
-  // `environments === undefined` are treated as permissive (= all envs). On
-  // create, seed from org default ("all envs") or fall back to the current
-  // env tab.
+  // Edit/duplicate seed scope from the rule (legacy `environments` unset = all).
   const existingRuleAllEnvs = rule?.allEnvironments === true;
   const existingRuleEnvList = Array.isArray(rule?.environments)
     ? (rule?.environments ?? [])
@@ -831,6 +825,22 @@ export default function RuleModal({
       // New rules: pre-select the active env tab (or empty if "All" fallback).
       return environment ? [environment] : [];
     },
+  );
+  const {
+    allowUnscopedRules,
+    unscopedRuleBlocksSubmit,
+    checkUnscopedRule,
+    unscopedRuleBanner,
+  } = useUnscopedRuleGate(
+    {
+      allEnvironments: scopeAllEnvs,
+      environments: selectedEnvironments,
+      allProjects: scopeAllProjects,
+      projects: selectedProjects,
+    },
+    mode === "edit"
+      ? [rule, targetRevision?.rules?.find((r) => r.id === ruleId) ?? liveRule]
+      : [],
   );
 
   const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
@@ -982,6 +992,7 @@ export default function RuleModal({
   const hasRampPage =
     isRampType && (ruleType === "force" || ruleType === "rollout");
   const onRampPage = hasRampPage && step === 1;
+  const onSavePage = !hasRampPage || step === 1;
   const rampIsEditable =
     !ruleRampSchedule || ruleRampSchedule.status !== "running";
 
@@ -1295,6 +1306,8 @@ export default function RuleModal({
     } else {
       values = { ...values, allProjects: false, projects: selectedProjects };
     }
+
+    checkUnscopedRule();
 
     // Loop through each scheduleRule and convert the timestamp to an ISOString()
     if (values.scheduleRules?.length) {
@@ -1962,6 +1975,7 @@ export default function RuleModal({
                 ...(rampScheduleInline
                   ? { rampSchedule: rampScheduleInline }
                   : {}),
+                allowUnscopedRules,
               } as PutFeatureRuleBody),
             },
             (responseData) => {
@@ -2085,6 +2099,7 @@ export default function RuleModal({
               // Land the clone directly above its source rule.
               insertBeforeRuleId:
                 mode === "duplicate" && rampToNewValue ? ruleId : undefined,
+              allowUnscopedRules,
             } as PostFeatureRuleBody),
           },
         );
@@ -2488,7 +2503,11 @@ export default function RuleModal({
             ? ruleType !== undefined
             : hasRampPage && step === 0
               ? !isCyclic && !prerequisiteTargetingSdkIssues
-              : canSubmit && conflictResolved && !rampImpactBlocksSubmit
+              : canSubmit &&
+                conflictResolved &&
+                !rampImpactBlocksSubmit &&
+                !unscopedRuleBlocksSubmit &&
+                !targetRevisions.loading
         }
         disabledMessage={
           hasRampPage && step === 0
@@ -2499,19 +2518,27 @@ export default function RuleModal({
                 ? (monitoringError ?? undefined)
                 : rampImpactBlocksSubmit
                   ? "Acknowledge the traffic warning to save"
-                  : undefined
+                  : unscopedRuleBlocksSubmit
+                    ? "Acknowledge the warning to save"
+                    : undefined
         }
         aboveFooterContent={
-          onRampPage && rampStartImpact ? (
-            <RampImpactBanner
-              impact={rampStartImpact}
-              fallthroughPhrase={rampFallthroughPhrase}
-              acknowledged={rampImpactAcknowledged}
-              setAcknowledged={(v) =>
-                setRampAcknowledgedKey(v ? rampImpactKey : "")
-              }
-              onRampToNewValue={switchToRampToNewValue}
-            />
+          (onRampPage && rampStartImpact) ||
+          (onSavePage && unscopedRuleBanner) ? (
+            <>
+              {onRampPage && rampStartImpact ? (
+                <RampImpactBanner
+                  impact={rampStartImpact}
+                  fallthroughPhrase={rampFallthroughPhrase}
+                  acknowledged={rampImpactAcknowledged}
+                  setAcknowledged={(v) =>
+                    setRampAcknowledgedKey(v ? rampImpactKey : "")
+                  }
+                  onRampToNewValue={switchToRampToNewValue}
+                />
+              ) : null}
+              {onSavePage ? unscopedRuleBanner : null}
+            </>
           ) : undefined
         }
         header={headerText}

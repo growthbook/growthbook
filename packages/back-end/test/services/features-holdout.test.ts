@@ -63,6 +63,11 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
           .fn()
           .mockResolvedValue(new Map()) as jest.Mock,
       },
+      interleavings: {
+        getAllPayloadInterleavings: jest
+          .fn()
+          .mockResolvedValue([]) as jest.Mock,
+      },
       rampSchedules: {
         getPayloadRampMonitoredRuleMap: jest
           .fn()
@@ -71,6 +76,12 @@ describe("getFeatureDefinitionsWithCache - Holdout Tests", () => {
       savedGroups: {
         getAll: jest.fn().mockResolvedValue([]),
         getByIds: jest.fn().mockResolvedValue([]),
+        // Serves whatever getAll is stubbed with, so fixtures stay in one place.
+        getByIdsWithValues: jest.fn(async (ids: string[]) =>
+          (
+            (await mockContext.models.savedGroups.getAll()) as { id: string }[]
+          ).filter((g) => ids.includes(g.id)),
+        ),
       },
       constants: {
         getAll: jest.fn().mockResolvedValue([]),

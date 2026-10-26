@@ -62,6 +62,7 @@ import {
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
+import { getSavedGroupsForValidation } from "back-end/src/services/savedGroups";
 
 export function assertCanRunHoldoutEnvironments(
   context: ReqContext | ApiReqContext,
@@ -392,13 +393,22 @@ export async function createHoldoutWithExperiment(
         identifierType: data.assignmentQueryIdentifierType,
         onOmitted,
         field: "assignmentQuery",
+        scope: {
+          projects: data.projects ?? [],
+          datasourceProjects: datasource?.projects,
+        },
       },
     );
     if (!parsed.ok) throw new Error(parsed.error);
     exposureQueryIdentifierType = parsed.identifierType;
   }
 
-  const conditionResult = validateCondition(data.targetingCondition);
+  const conditionResult = validateCondition(
+    data.targetingCondition,
+    await getSavedGroupsForValidation(context, [
+      { condition: data.targetingCondition },
+    ]),
+  );
   if (!conditionResult.success) {
     throw new Error(`Invalid targeting condition: ${conditionResult.error}`);
   }
@@ -627,7 +637,12 @@ export async function updateHoldoutWithExperiment(
     // Catch a malformed condition here rather than at bucketing time.
     // validateCondition treats undefined and "{}" as valid.
     if (body.targetingCondition !== undefined) {
-      const conditionResult = validateCondition(body.targetingCondition);
+      const conditionResult = validateCondition(
+        body.targetingCondition,
+        await getSavedGroupsForValidation(context, [
+          { condition: body.targetingCondition },
+        ]),
+      );
       if (!conditionResult.success) {
         throw new Error(
           `Invalid targeting condition: ${conditionResult.error}`,
@@ -715,6 +730,10 @@ export async function updateHoldoutWithExperiment(
           },
           onOmitted: "requireUnambiguous",
           field: "assignmentQuery",
+          scope: {
+            projects: body.projects ?? holdout.projects,
+            datasourceProjects: datasource?.projects,
+          },
         },
       );
       if (!resolved.ok) throw new Error(resolved.error);

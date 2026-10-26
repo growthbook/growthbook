@@ -5,6 +5,8 @@ import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import {
   DataRegion,
   findEventForwarderManagedViolation,
+  getExposureQueryProjectScopeError,
+  getExposureQueryProjectScopeViolations,
   isEventForwarderManaged,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
@@ -42,6 +44,12 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
+import {
+  ensureIndexOnce,
+  getCollection,
+  isDuplicateKeyError,
+  isDuplicateKeyErrorForIndex,
+} from "back-end/src/util/mongo.util";
 import { deleteClickhouseUser } from "back-end/src/services/licenseServerManagedClickhouse";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarder/datasourceLifecycle";
@@ -91,6 +99,19 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   settings: {},
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
+
+// At most one Managed Warehouse per org. Partial so other datasource types
+// stay unconstrained. exists() is the fast path; this index closes the race
+// where two creates both pass that check.
+const MANAGED_WAREHOUSE_INDEX = "uniqueManagedWarehousePerOrg";
+const MANAGED_WAREHOUSE_EXISTS_ERROR =
+  "Your organization already has a Managed Warehouse. Only one is allowed per organization.";
+const managedWarehouseUniquenessIndex = {
+  name: MANAGED_WAREHOUSE_INDEX,
+  unique: true,
+  partialFilterExpression: { type: "growthbook_clickhouse" },
+} as const;
+dataSourceSchema.index({ organization: 1 }, managedWarehouseUniquenessIndex);
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
 
 const DataSourceModel = mongoose.model<DataSourceInterface>(
@@ -135,13 +156,17 @@ export async function getDataSourcesByOrganization(
   );
 }
 
-// Unfiltered by project permissions - the org's event ingestor region isn't
-// sensitive on its own, and gating it on datasource read permissions means
-// users without access to the Managed Warehouse/Event Forwarder datasource
-// would get an incorrect region for the SDK setup snippets.
-export async function getEventIngestorRegionForOrganization(
+// Unfiltered by project permissions - none of this is sensitive on its own, and
+// gating it on datasource read permissions means users without access to the
+// Managed Warehouse/Event Forwarder datasource would get an incorrect region for
+// the SDK setup snippets and be offered to set up a second one.
+export async function getEventPipelineStatusForOrganization(
   context: ReqContext | ApiReqContext,
-): Promise<DataRegion | undefined> {
+): Promise<{
+  eventIngestorRegion: DataRegion | undefined;
+  hasManagedWarehouse: boolean;
+  hasEventForwarder: boolean;
+}> {
   const datasources = usingFileConfig()
     ? getConfigDatasources(context.org.id)
     : (await DataSourceModel.find({ organization: context.org.id })).map(
@@ -152,13 +177,16 @@ export async function getEventIngestorRegionForOrganization(
     (d): d is GrowthbookClickhouseDataSource =>
       d.type === "growthbook_clickhouse",
   );
-  if (managedWarehouse) {
-    return managedWarehouse.settings?.region;
-  }
-
   const forwarderConfigs =
     await context.models.eventForwarderConfigs.getAllBypassingReadPermissions();
-  return forwarderConfigs.find((c) => c.region)?.region;
+
+  return {
+    eventIngestorRegion: managedWarehouse
+      ? managedWarehouse.settings?.region
+      : forwarderConfigs.find((c) => c.region)?.region,
+    hasManagedWarehouse: !!managedWarehouse,
+    hasEventForwarder: forwarderConfigs.length > 0,
+  };
 }
 
 // WARNING: This does not restrict by organization
@@ -277,6 +305,18 @@ export async function removeProjectFromDatasources(
     { organization, projects: project },
     { $pull: { projects: project }, $set: { dateUpdated: new Date() } },
   );
+
+  // Also drop the project from assignment query scopes; a stale reference left
+  // behind would fail the scope check on the next data source save. A separate
+  // update, since `$[]` errors on data sources without an exposure array.
+  await DataSourceModel.updateMany(
+    { organization, "settings.queries.exposure.projects": project },
+    {
+      $pull: { "settings.queries.exposure.$[].projects": project },
+      $set: { dateUpdated: new Date() },
+    },
+  );
+
   await touchDefinitionsVersion(organization);
 }
 
@@ -434,6 +474,30 @@ function assertEventForwarderManagedRecordsIntact(
   }
 }
 
+/** Project names are only looked up once a save is rejected. */
+async function assertExposureQueriesWithinProjectScope(
+  context: ReqContext | ApiReqContext,
+  exposureQueries: ExposureQuery[],
+  datasourceProjects: string[],
+  /** The data source's projects before this save, when it changes them. */
+  previousDatasourceProjects?: string[],
+) {
+  const violations = getExposureQueryProjectScopeViolations(
+    exposureQueries,
+    datasourceProjects,
+  );
+  if (!violations.length) return;
+  const projects = await context.models.projects.getByIds([
+    ...new Set(violations.flatMap((v) => v.projects)),
+  ]);
+  throw new Error(
+    getExposureQueryProjectScopeError(violations, {
+      projectNames: new Map(projects.map((p) => [p.id, p.name])),
+      previousDatasourceProjects,
+    }),
+  );
+}
+
 export async function createDataSource(
   context: ReqContext,
   name: string,
@@ -446,6 +510,24 @@ export async function createDataSource(
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");
+  }
+
+  // Unfiltered by project permissions so a Managed Warehouse the user can't
+  // read still counts.
+  if (type === "growthbook_clickhouse") {
+    await ensureIndexOnce(
+      getCollection("datasources"),
+      { organization: 1 },
+      managedWarehouseUniquenessIndex,
+    );
+    if (
+      await DataSourceModel.exists({
+        organization: context.org.id,
+        type: "growthbook_clickhouse",
+      })
+    ) {
+      throw new Error(MANAGED_WAREHOUSE_EXISTS_ERROR);
+    }
   }
 
   id = id || uniqid("ds_");
@@ -493,11 +575,24 @@ export async function createDataSource(
   datasource.settings = settings;
 
   assertUniqueUserIdTypeNames(settings);
+  await assertExposureQueriesWithinProjectScope(
+    context,
+    settings.queries?.exposure ?? [],
+    projects ?? [],
+  );
   validatePipelineSettingsInvariants(settings.pipelineSettings);
 
-  const model = (await DataSourceModel.create(
-    datasource,
-  )) as DataSourceDocument;
+  let model: DataSourceDocument;
+  try {
+    model = (await DataSourceModel.create(datasource)) as DataSourceDocument;
+  } catch (error) {
+    // The fixed managed-warehouse id can lose to {id, organization} instead of
+    // the partial index. Either duplicate key means the org already has one.
+    if (type === "growthbook_clickhouse" && isDuplicateKeyError(error)) {
+      throw new Error(MANAGED_WAREHOUSE_EXISTS_ERROR);
+    }
+    throw error;
+  }
   context.forgetDataSourceRefs();
 
   const integration = getSourceIntegrationObject(context, datasource);
@@ -712,6 +807,17 @@ export async function updateDataSource(
     throw new Error("Cannot update. Data sources managed by config.yml");
   }
 
+  // Check the resulting state, since narrowing projects alone can strand a
+  // query. Before validation, which can run every query against the warehouse.
+  if (updates.projects !== undefined || updates.settings?.queries?.exposure) {
+    await assertExposureQueriesWithinProjectScope(
+      context,
+      (updates.settings ?? datasource.settings)?.queries?.exposure ?? [],
+      updates.projects ?? datasource.projects ?? [],
+      updates.projects !== undefined ? (datasource.projects ?? []) : undefined,
+    );
+  }
+
   if (updates.settings) {
     updates.settings = await validateExposureQueriesAndAddMissingIds(
       context,
@@ -733,6 +839,7 @@ export async function updateDataSource(
     }
     validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
+
   if (!hasActualChanges(datasource, updates)) {
     return;
   }
@@ -741,15 +848,25 @@ export async function updateDataSource(
   // stamp it here at the model choke point so every real change is recorded.
   updates = { ...updates, dateUpdated: new Date() };
 
-  await DataSourceModel.updateOne(
-    {
-      id: datasource.id,
-      organization: context.org.id,
-    },
-    {
-      $set: updates,
-    },
-  );
+  try {
+    await DataSourceModel.updateOne(
+      {
+        id: datasource.id,
+        organization: context.org.id,
+      },
+      {
+        $set: updates,
+      },
+    );
+  } catch (error) {
+    if (
+      (updates.type ?? datasource.type) === "growthbook_clickhouse" &&
+      isDuplicateKeyErrorForIndex(error, MANAGED_WAREHOUSE_INDEX)
+    ) {
+      throw new Error(MANAGED_WAREHOUSE_EXISTS_ERROR);
+    }
+    throw error;
+  }
   context.forgetDataSourceRefs();
 
   await audit.logUpdate(context, datasource, { ...datasource, ...updates });
@@ -798,6 +915,7 @@ export function toDataSourceApiInterface(
       includesNameColumns: !!q.hasNameCol,
       dimensionColumns: q.dimensions,
       error: q.error,
+      projects: q.projects || [],
     })),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
       (q) => ({

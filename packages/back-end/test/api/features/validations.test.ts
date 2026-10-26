@@ -386,7 +386,7 @@ describe("validateChangedPhaseReferences", () => {
   it("checks conditions and saved groups a stored phase does not already hold", async () => {
     await expect(
       validateChangedPhaseReferences([{ condition: '{"country": ' }], [], ctx),
-    ).rejects.toThrow(BadRequestError);
+    ).rejects.toThrow(/^Invalid targeting condition/);
     await expect(
       validateChangedPhaseReferences(
         [{ savedGroups: [{ match: "any", ids: ["grp_missing"] }] }],
@@ -402,7 +402,8 @@ describe("validateChangedPhaseReferences", () => {
         ctx,
       ),
     ).resolves.toBeUndefined();
-    expect(getAllWithoutValues).toHaveBeenCalledTimes(2);
+    // Only the phase naming a group loads groups.
+    expect(getAllWithoutValues).toHaveBeenCalledTimes(1);
     // History is exempt for what any stored phase holds; the served (last)
     // phase only for what the served stored phase holds.
     const served = { condition: '{"country": "US"}' };
@@ -426,6 +427,47 @@ describe("validateChangedPhaseReferences", () => {
         ctx,
       ),
     ).rejects.toThrow(/grp_missing/);
+  });
+
+  it("checks prerequisite conditions a stored phase does not already hold", async () => {
+    // Prerequisites see {"value": …}, so this one can never match.
+    const stored = {
+      prerequisites: [{ id: "flag_a", condition: '{"country": "US"}' }],
+    };
+    await expect(
+      validateChangedPhaseReferences([stored], [stored], ctx),
+    ).resolves.toBeUndefined();
+    await expect(
+      validateChangedPhaseReferences([stored], [], ctx),
+    ).rejects.toThrow(/field "country" will never match/);
+    await expect(
+      validateChangedPhaseReferences(
+        [
+          {
+            prerequisites: [
+              { id: "flag_a", condition: '{"value.plan": "pro"}' },
+            ],
+          },
+        ],
+        [],
+        ctx,
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      validateChangedPhaseReferences(
+        [
+          {
+            prerequisites: [
+              { id: "flag_a", condition: '{"$savedGroups": ["grp_known"]}' },
+            ],
+          },
+        ],
+        [stored],
+        ctx,
+      ),
+    ).rejects.toThrow(
+      /\$savedGroups cannot be used in prerequisite conditions/,
+    );
   });
 });
 

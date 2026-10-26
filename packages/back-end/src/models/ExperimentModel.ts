@@ -1,14 +1,21 @@
-import { each, isEqual, omit, pick, uniqWith } from "lodash";
+import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
-import { includeExperimentInPayload, hasVisualChanges } from "shared/util";
+import {
+  changesetOwnerRef,
+  includeExperimentInPayload,
+  hasVisualChanges,
+} from "shared/util";
 import {
   generateTrackingKey,
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
-import { VisualChange } from "shared/types/visual-changeset";
+import {
+  VisualChange,
+  VisualChangesetInterface,
+} from "shared/types/visual-changeset";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentStatus,
@@ -677,14 +684,32 @@ export async function getExistingExperimentIds(
 
 export async function getAllExperimentsForStaleGraph(
   context: ReqContext | ApiReqContext,
-  { includeArchived = false }: { includeArchived?: boolean } = {},
+  {
+    includeArchived = false,
+    prerequisiteIds,
+    ids,
+  }: {
+    includeArchived?: boolean;
+    // Only experiments whose phases name one of these as a prerequisite
+    prerequisiteIds?: string[];
+    // Only these experiments
+    ids?: string[];
+  } = {},
 ): Promise<ExperimentInterface[]> {
+  if (prerequisiteIds && !prerequisiteIds.length) return [];
+  if (ids && !ids.length) return [];
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
     type: { $ne: "holdout" },
   };
   if (!includeArchived) {
     query.archived = { $ne: true };
+  }
+  if (prerequisiteIds) {
+    query["phases.prerequisites.id"] = { $in: prerequisiteIds };
+  }
+  if (ids) {
+    query.id = { $in: ids };
   }
 
   const docs = await getCollection(COLLECTION)
@@ -1172,11 +1197,17 @@ export async function getExperimentsWithScheduledStatusUpdate(): Promise<
   }));
 }
 
+/**
+ * Experiments in Projects the user can't read come back without an id, so the
+ * import list can still tell them apart from experiments not yet imported.
+ */
 export async function getPastExperimentsByDatasource(
   context: ReqContext | ApiReqContext,
   datasource: string,
 ): Promise<
-  Pick<ExperimentInterface, "id" | "trackingKey" | "exposureQueryId">[]
+  (Pick<ExperimentInterface, "trackingKey" | "exposureQueryId"> & {
+    id: string | null;
+  })[]
 > {
   const experiments = await getCollection(COLLECTION)
     .find({
@@ -1192,12 +1223,10 @@ export async function getPastExperimentsByDatasource(
     })
     .toArray();
 
-  const experimentsUserCanAccess = experiments.filter((exp) =>
-    context.permissions.canReadSingleProjectResource(exp.project),
-  );
-
-  return experimentsUserCanAccess.map((exp) => ({
-    id: exp.id,
+  return experiments.map((exp) => ({
+    id: context.permissions.canReadSingleProjectResource(exp.project)
+      ? exp.id
+      : null,
     trackingKey: exp.trackingKey,
     exposureQueryId: exp.exposureQueryId,
   }));
@@ -2130,7 +2159,12 @@ export const getAllVisualExperiments = async (
 
   if (!visualChangesets.length) return [];
 
-  const visualChangesByExperimentId = visualChangesets.reduce<
+  const experimentOwned = visualChangesets.filter(
+    (c): c is VisualChangesetInterface & { experiment: string } =>
+      changesetOwnerRef(c)?.kind === "experiment",
+  );
+
+  const visualChangesByExperimentId = experimentOwned.reduce<
     Record<string, Array<VisualChange>>
   >((acc, c) => {
     if (!acc[c.experiment]) acc[c.experiment] = [];
@@ -2149,7 +2183,7 @@ export const getAllVisualExperiments = async (
     );
   };
 
-  return visualChangesets
+  return experimentOwned
     .map<VisualExperiment>((c) => ({
       experiment: experimentMap.get(c.experiment) as ExperimentInterface,
       visualChangeset: c,
@@ -2303,35 +2337,35 @@ export function getPayloadKeys(
   const environments: string[] = getEnvironmentIdsFromOrg(context.org);
   const project = experiment.project ?? "";
 
+  const keys: SDKPayloadKey[] = [];
+
   // Visual editor and URL redirect experiments always affect all environments
   if (experiment.hasVisualChangesets || experiment.hasURLRedirects) {
-    const keys: SDKPayloadKey[] = [];
-
     environments.forEach((e) => {
       // Always update the "no-project" payload
       keys.push({ environment: e, project: "" });
       // If the experiment is in a project, update that payload as well
       if (project) keys.push({ environment: e, project });
     });
-
-    return keys;
   }
 
-  // Feature flag experiments only affect the environments where the experiment rule is active
+  // Linked features serve the experiment, in their own projects, wherever
+  // its rule is active
   if (linkedFeatures && linkedFeatures.length > 0) {
-    return getAffectedSDKPayloadKeys(
-      linkedFeatures,
-      environments,
-      (rule) =>
-        rule.type === "experiment-ref" &&
-        rule.experimentId === experiment.id &&
-        rule.enabled !== false,
-      allProjectIds,
+    keys.push(
+      ...getAffectedSDKPayloadKeys(
+        linkedFeatures,
+        environments,
+        (rule) =>
+          rule.type === "experiment-ref" &&
+          rule.experimentId === experiment.id &&
+          rule.enabled !== false,
+        allProjectIds,
+      ),
     );
   }
 
-  // Otherwise, if no linked changes, there are no affected payload keys
-  return [];
+  return uniqBy(keys, (key) => `${key.environment}<>${key.project}`);
 }
 
 const getExperimentChanges = (

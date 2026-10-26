@@ -5,17 +5,13 @@ import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LinkButton from "@/ui/LinkButton";
-import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
-import Button from "@/ui/Button";
+import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import { Tabs, TabsTrigger, TabsList, TabsContent } from "@/ui/Tabs";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTemplate";
+import MetricTemplateRedirect from "@/components/FactTables/MetricTemplateRedirect";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const MetricsPage = (): React.ReactElement => {
-  const { metrics, factMetrics, factTables, datasources, project } =
-    useDefinitions();
+  const { metrics, factMetrics, datasources, project } = useDefinitions();
 
   const hasDatasource = datasources.some((d) =>
     isProjectListValidForProject(d.projects, project),
@@ -24,26 +20,12 @@ const MetricsPage = (): React.ReactElement => {
     metrics.some((m) => isProjectListValidForProject(m.projects, project)) ||
     factMetrics.some((m) => isProjectListValidForProject(m.projects, project));
 
-  const hasFactTables = factTables.some((f) =>
-    isProjectListValidForProject(f.projects, project),
-  );
-
-  const permissionsUtil = usePermissionsUtil();
-  const canCreateMetric = permissionsUtil.canCreateMetric({
-    projects: [project],
-  });
-
-  const [showNewModal, setShowNewModal] = React.useState(false);
+  const factMetricFlow = useFactMetricFlow("metrics-empty-state");
 
   return (
     <Box className="pagecontents container-fluid">
-      {showNewModal && (
-        <NewMetricModal
-          close={() => setShowNewModal(false)}
-          source={"metrics-empty-state"}
-        />
-      )}
-      <CreateMetricFromTemplate />
+      {factMetricFlow.modal}
+      <MetricTemplateRedirect />
       <Box mb="4">
         <h1 style={{ margin: 0 }}>Metrics</h1>
       </Box>
@@ -53,30 +35,15 @@ const MetricsPage = (): React.ReactElement => {
           <p>
             Metrics are defined with SQL on top of your data warehouse. Use them
             as goals and guardrails in experiments to measure success.
+            {hasDatasource &&
+              factMetricFlow.creation().mode === "fact-table" &&
+              " A fact table provides the shared SQL query for your Fact Metrics."}
           </p>
           <Box mt="3">
             {!hasDatasource ? (
               <LinkButton href="/datasources">Connect Data Source</LinkButton>
-            ) : !hasFactTables ? (
-              <>
-                <p>
-                  Start by creating a <strong>Fact Table</strong>, which serves
-                  as the foundation for your metrics.
-                </p>
-                <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
-              </>
             ) : (
-              <Tooltip
-                body="You don't have permission to add metrics in this project."
-                shouldDisplay={!canCreateMetric}
-              >
-                <Button
-                  disabled={!canCreateMetric}
-                  onClick={() => setShowNewModal(true)}
-                >
-                  Add Metric
-                </Button>
-              </Tooltip>
+              factMetricFlow.createButton()
             )}
           </Box>
         </Box>

@@ -40,6 +40,7 @@ import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
 import { getBuild } from "./util/build";
+import { trimTrailingSlashes } from "./util/http.util";
 import {
   oauthAsAuthedRouter,
   oauthAsPublicRouter,
@@ -127,6 +128,7 @@ import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { learningsRouter } from "./routers/learnings/learnings.router";
+import { confirmationsRouter } from "./routers/confirmations/confirmations.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
 import {
@@ -152,6 +154,7 @@ import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
+import { queryLogsRouter } from "./routers/query-logs/query-logs.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
 import {
@@ -170,6 +173,7 @@ import { autoRunRouter } from "./routers/auto-run/auto-run.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
 import { sessionReplayRouter } from "./routers/session-replay/session-replay.router";
+import { experimentExposuresRouter } from "./routers/experiment-exposures/experiment-exposures.router";
 import { agentRouter } from "./routers/agent/agent.router";
 
 const app = express();
@@ -288,10 +292,10 @@ app.get("/", (req, res) => {
     res.json({
       name: "GrowthBook API",
       production: ENVIRONMENT === "production",
-      api_host: (
+      api_host: trimTrailingSlashes(
         process.env.API_HOST ||
-        req.protocol + "://" + req.hostname + ":" + app.get("port")
-      ).replace(/\/+$/, ""),
+          req.protocol + "://" + req.hostname + ":" + app.get("port"),
+      ),
       app_origin: APP_ORIGIN,
       config_source: usingFileConfig() ? "file" : "db",
       email_enabled: isEmailEnabled(),
@@ -443,6 +447,7 @@ const INTERNAL_API_ALLOWED_HEADERS = [
   "Authorization",
   "X-Organization",
   "X-SSO-Connection-ID",
+  "X-GrowthBook-Requested-By",
   "x-no-compression",
   ...GROWTHBOOK_TRACKING_HEADERS,
 ];
@@ -647,6 +652,7 @@ if (IS_CLOUD) {
     subscriptionController.updateCustomerData,
   );
   app.get("/billing/usage", subscriptionController.getUsage);
+  app.get("/billing/usage/by-key", subscriptionController.getUsageByKey);
 }
 app.post("/subscription/new", subscriptionController.postNewProSubscription);
 app.post(
@@ -683,6 +689,7 @@ app.use("/saved-groups", savedGroupRouter);
 app.use("/archetype", ArchetypeRouter);
 
 app.use("/learnings", learningsRouter);
+app.use("/confirmations", confirmationsRouter);
 
 app.use("/attribute", AttributeRouter);
 
@@ -732,6 +739,7 @@ app.get(
 
 // Metric Analyses
 app.use(metricAnalysisRouter);
+app.use(queryLogsRouter);
 
 // Metric Groups
 app.use(metricGroupRouter);
@@ -740,6 +748,7 @@ app.use(metricGroupRouter);
 app.use(populationDataRouter);
 
 // Experiments
+app.use(experimentExposuresRouter);
 app.get("/experiments", experimentsController.getExperiments);
 app.post("/experiments", experimentsController.postExperiments);
 app.get(
@@ -953,6 +962,7 @@ app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
 app.get("/feature/:id/revisions", featuresController.getFeatureRevisions);
+app.get("/feature/:id/code-refs", featuresController.getFeatureCodeRefs);
 app.get("/feature/:id/usage", featuresController.getFeatureUsage);
 app.get("/feature/:id/watchers", featuresController.getFeatureWatchers);
 app.post("/feature", featuresController.postFeatures);
@@ -1088,6 +1098,10 @@ app.get(
 );
 app.post("/datasources", datasourcesController.postDataSources);
 app.post(
+  "/datasources/test-connection",
+  datasourcesController.postTestDataSourceConnection,
+);
+app.post(
   "/datasources/event-forwarder/test-access",
   datasourcesController.postTestEventForwarderAccessForCreate,
 );
@@ -1118,7 +1132,6 @@ app.post(
   datasourcesController.postResumeEventForwarder,
 );
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
-app.get("/datasource/:id/queries", datasourcesController.getDataSourceQueries);
 app.post(
   "/datasource/:id/query/:queryId/cancel",
   datasourcesController.cancelDataSourceQuery,

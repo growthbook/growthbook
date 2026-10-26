@@ -1,6 +1,14 @@
-import { generateProductAnalyticsSQL } from "shared/enterprise";
+import {
+  calculateProductAnalyticsDateRange,
+  generateProductAnalyticsSQL,
+  transformProductAnalyticsRowsToResult,
+} from "shared/enterprise";
 import { format, createLikeStringMatchFn } from "shared/sql";
-import { ExplorationConfig } from "shared/validators";
+import {
+  ExplorationConfig,
+  PopulationValue,
+  ProductAnalyticsDimension,
+} from "shared/validators";
 import { SqlDialect } from "shared/types/sql";
 import {
   FactMetricInterface,
@@ -536,131 +544,6 @@ describe("productAnalytics", () => {
     expect(sql).not.toContain("anonymous_id IN");
   });
 
-  it("resolves a static dimension's filter consistently across fact tables for a cross-table ratio metric", () => {
-    // Regression test for a ratio metric whose denominator lives on a
-    // different fact table than the numerator, and that table doesn't
-    // expose the dimension's "props" column at all:
-    //  1. The filter expression must be resolved against factTableGroups[0]
-    //     (the same basis the dimension's SELECT expression uses), not
-    //     against each group's own fact table — otherwise a table that
-    //     doesn't share the numerator's JSON column shape would get a
-    //     broken raw "props.plan" filter instead of a jsonExtract call.
-    //  2. A group whose fact table can't resolve the column at all (like
-    //     this denominator) must be skipped entirely, rather than referencing
-    //     a column the warehouse doesn't have.
-    const jsonFactTableMap = new Map<string, FactTableInterface>([
-      [
-        "orders",
-        {
-          ...factTableMap.get("orders")!,
-          columns: [
-            ...factTableMap.get("orders")!.columns,
-            {
-              column: "props",
-              datatype: "json",
-              dateCreated: new Date(),
-              dateUpdated: new Date(),
-              name: "props",
-              description: "",
-              numberFormat: "",
-              alwaysInlineFilter: false,
-              deleted: false,
-              autoSlices: [],
-              isAutoSliceColumn: false,
-              jsonFields: { plan: { datatype: "string" } },
-            },
-          ],
-        },
-      ],
-      [
-        // Same base shape as "orders", but with no "props" column at all.
-        "other_ft",
-        {
-          ...factTableMap.get("orders")!,
-          id: "other_ft",
-          sql: "SELECT user_id, timestamp, revenue FROM other_events",
-        },
-      ],
-    ]);
-
-    const crossTableRatioMetricMap = new Map<string, FactMetricInterface>([
-      [
-        "cross_table_ratio",
-        {
-          id: "cross_table_ratio",
-          name: "Cross Table Ratio",
-          metricType: "ratio",
-          numerator: {
-            factTableId: "orders",
-            column: "revenue",
-            aggregation: "sum",
-          },
-          denominator: {
-            factTableId: "other_ft",
-            column: "$$count",
-            aggregation: "sum",
-          },
-          cappingSettings: { type: "", value: 0 },
-          windowSettings: {
-            type: "",
-            delayValue: 0,
-            delayUnit: "days",
-            windowValue: 0,
-            windowUnit: "days",
-          },
-          quantileSettings: null,
-        } as FactMetricInterface,
-      ],
-    ]);
-
-    const config: ExplorationConfig = {
-      type: "metric",
-      datasource: "ds_1",
-      chartType: "bar",
-      dateRange: {
-        predefined: "last7Days",
-        startDate: null,
-        endDate: null,
-        lookbackValue: null,
-        lookbackUnit: null,
-      },
-      dimensions: [
-        { dimensionType: "static", column: "props.plan", values: ["free"] },
-      ],
-      dataset: {
-        type: "metric",
-        values: [
-          {
-            name: "ratio",
-            type: "metric",
-            rowFilters: [],
-            metricId: "cross_table_ratio",
-            unit: null,
-            denominatorUnit: null,
-          },
-        ],
-      },
-    };
-
-    const { sql } = generateProductAnalyticsSQL(
-      config,
-      jsonFactTableMap,
-      crossTableRatioMetricMap,
-      helpers,
-      datasource,
-    );
-
-    // Only the numerator's fact-table CTE (which actually has "props" as a
-    // JSON column) gets the pinned-values filter, correctly resolved via
-    // jsonExtract...
-    const matches = sql.match(/props:'plan'::text IN \('free'\)/g) ?? [];
-    expect(matches.length).toBe(1);
-    // ...the denominator's CTE — whose fact table doesn't have "props" at
-    // all — is left unfiltered rather than referencing a nonexistent
-    // column, and there's never a broken raw "props.plan" reference.
-    expect(sql).not.toContain("props.plan IN");
-  });
-
   it("applies a static dimension's filter to every fact table that shares the column", () => {
     // Counterpart to the previous test: when the denominator's fact table
     // *does* have the dimension's column, both CTEs should still get
@@ -747,6 +630,119 @@ describe("productAnalytics", () => {
     const matches = sql.match(/anonymous_id IN \('a1'\)/g) ?? [];
     expect(matches.length).toBe(2);
   });
+
+  it.each<ProductAnalyticsDimension>([
+    { dimensionType: "dynamic", column: "props.plan", maxValues: 5 },
+    { dimensionType: "static", column: "props.plan", values: ["free"] },
+  ])(
+    "throws for a $dimensionType dimension unresolvable on a cross-table ratio metric's denominator",
+    (dimension) => {
+      // Bucketing or filtering only the numerator's rows would split them
+      // from the denominator and silently produce wrong ratios, so this must
+      // fail loudly instead.
+      const jsonFactTableMap = new Map<string, FactTableInterface>([
+        [
+          "orders",
+          {
+            ...factTableMap.get("orders")!,
+            columns: [
+              ...factTableMap.get("orders")!.columns,
+              {
+                column: "props",
+                datatype: "json",
+                dateCreated: new Date(),
+                dateUpdated: new Date(),
+                name: "props",
+                description: "",
+                numberFormat: "",
+                alwaysInlineFilter: false,
+                deleted: false,
+                autoSlices: [],
+                isAutoSliceColumn: false,
+                jsonFields: { plan: { datatype: "string" } },
+              },
+            ],
+          },
+        ],
+        [
+          // Same base shape as "orders", but with no "props" column at all.
+          "other_ft",
+          {
+            ...factTableMap.get("orders")!,
+            id: "other_ft",
+            sql: "SELECT user_id, timestamp, revenue FROM other_events",
+          },
+        ],
+      ]);
+
+      const crossTableRatioMetricMap = new Map<string, FactMetricInterface>([
+        [
+          "cross_table_ratio",
+          {
+            id: "cross_table_ratio",
+            name: "Cross Table Ratio",
+            metricType: "ratio",
+            numerator: {
+              factTableId: "orders",
+              column: "revenue",
+              aggregation: "sum",
+            },
+            denominator: {
+              factTableId: "other_ft",
+              column: "$$count",
+              aggregation: "sum",
+            },
+            cappingSettings: { type: "", value: 0 },
+            windowSettings: {
+              type: "",
+              delayValue: 0,
+              delayUnit: "days",
+              windowValue: 0,
+              windowUnit: "days",
+            },
+            quantileSettings: null,
+          } as FactMetricInterface,
+        ],
+      ]);
+
+      const config: ExplorationConfig = {
+        type: "metric",
+        datasource: "ds_1",
+        chartType: "bar",
+        dateRange: {
+          predefined: "last7Days",
+          startDate: null,
+          endDate: null,
+          lookbackValue: null,
+          lookbackUnit: null,
+        },
+        dimensions: [dimension],
+        dataset: {
+          type: "metric",
+          values: [
+            {
+              name: "ratio",
+              type: "metric",
+              rowFilters: [],
+              metricId: "cross_table_ratio",
+              unit: null,
+              denominatorUnit: null,
+            },
+          ],
+        },
+      };
+
+      expect(() =>
+        generateProductAnalyticsSQL(
+          config,
+          jsonFactTableMap,
+          crossTableRatioMetricMap,
+          helpers,
+          datasource,
+        ),
+      ).toThrow(`Can't break down by "props.plan"`);
+    },
+  );
 
   it("generates SQL for fact tables with mix of filtered and unfiltered values", () => {
     const config: ExplorationConfig = {
@@ -1665,5 +1661,186 @@ describe("productAnalytics", () => {
         datasource,
       ),
     ).toThrow("Timestamp column is required");
+  });
+
+  describe("population datasets", () => {
+    const populationValue = (
+      overrides: Partial<PopulationValue> = {},
+    ): PopulationValue => ({
+      type: "population",
+      name: "Big spenders",
+      unit: "user_id",
+      source: { type: "factTable", factTableId: "orders" },
+      rowFilters: [{ operator: ">", column: "revenue", values: ["10"] }],
+      ...overrides,
+    });
+    const populationConfig = (
+      values: PopulationValue[] = [populationValue()],
+      overrides: Partial<
+        Pick<ExplorationConfig, "dateRange" | "dimensions">
+      > = {},
+    ): ExplorationConfig => ({
+      type: "population",
+      datasource: "ds_1",
+      chartType: "bar",
+      dateRange: {
+        predefined: "last7Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      },
+      dimensions: [
+        { dimensionType: "date", column: null, dateGranularity: "day" },
+      ],
+      ...overrides,
+      dataset: { type: "population", values },
+    });
+    const countAtLeastThree = populationValue({
+      rowFilters: [],
+      aggregateFilter: ">=3",
+      aggregateFilterColumn: "$$count",
+    });
+
+    it("counts each matching unit once per date bucket", () => {
+      const { sql, orderedMetricIds } = generateProductAnalyticsSQL(
+        populationConfig(),
+        factTableMap,
+        metricMap,
+        helpers,
+        datasource,
+      );
+
+      expect(orderedMetricIds).toEqual(["population_0"]);
+      expect(sql).toMatch(
+        /SELECT\s+unit0,\s+dimension0,\s+MAX\(m0\) AS m0\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit0,\s+dimension0/,
+      );
+      expect(sql).toMatch(
+        /CASE\s+WHEN \(\(revenue > 10\)\) THEN 1\s+ELSE NULL\s+END AS m0/,
+      );
+    });
+
+    it("applies the aggregate filter per unit within each date bucket", () => {
+      const { sql } = generateProductAnalyticsSQL(
+        populationConfig([countAtLeastThree]),
+        factTableMap,
+        metricMap,
+        helpers,
+        datasource,
+      );
+
+      expect(sql).toMatch(
+        /SELECT\s+unit0,\s+dimension0,\s+CASE\s+WHEN \(SUM\(m0\) >= 3\) THEN 1\s+ELSE NULL\s+END AS m0\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit0,\s+dimension0/,
+      );
+    });
+
+    it("counts members per week over the last 30 days", () => {
+      const dateRange: ExplorationConfig["dateRange"] = {
+        predefined: "last30Days",
+        startDate: null,
+        endDate: null,
+        lookbackValue: null,
+        lookbackUnit: null,
+      };
+      const { sql } = generateProductAnalyticsSQL(
+        populationConfig([countAtLeastThree], {
+          dateRange,
+          dimensions: [
+            { dimensionType: "date", column: null, dateGranularity: "week" },
+          ],
+        }),
+        factTableMap,
+        metricMap,
+        helpers,
+        datasource,
+      );
+
+      const { startDate } = calculateProductAnalyticsDateRange(dateRange);
+      expect(sql).toContain(`timestamp >= ${helpers.toTimestamp(startDate)}`);
+      expect(sql).toContain("date_trunc('week', timestamp) AS dimension0");
+      expect(sql).toMatch(
+        /SELECT\s+unit0,\s+dimension0,\s+CASE\s+WHEN \(SUM\(m0\) >= 3\) THEN 1\s+ELSE NULL\s+END AS m0\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit0,\s+dimension0/,
+      );
+      expect(sql).toMatch(
+        /_factTable0_unit0_rollup AS \(\s+SELECT\s+dimension0,\s+CAST\(SUM\(m0\) AS FLOAT\) AS m0_numerator,[\s\S]*?FROM\s+_factTable0_unit0\s+GROUP BY\s+dimension0\s+\)/,
+      );
+    });
+
+    it("counts each value as its own series", () => {
+      const { sql, orderedMetricIds } = generateProductAnalyticsSQL(
+        populationConfig([
+          populationValue(),
+          populationValue({
+            name: "Repeat visitors",
+            unit: "anonymous_id",
+            rowFilters: [],
+            aggregateFilter: ">=3",
+            aggregateFilterColumn: "$$count",
+          }),
+        ]),
+        factTableMap,
+        metricMap,
+        helpers,
+        datasource,
+      );
+
+      expect(orderedMetricIds).toEqual(["population_0", "population_1"]);
+      expect(sql).toMatch(
+        /SELECT\s+unit0,\s+dimension0,\s+MAX\(m0\) AS m0\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit0,\s+dimension0/,
+      );
+      expect(sql).toMatch(
+        /SELECT\s+unit1,\s+dimension0,\s+CASE\s+WHEN \(SUM\(m1\) >= 3\) THEN 1\s+ELSE NULL\s+END AS m1\s+FROM\s+_factTable0_rows\s+GROUP BY\s+unit1,\s+dimension0/,
+      );
+    });
+
+    it("preserves population labels with interleaved fact tables", () => {
+      const orders = factTableMap.get("orders")!;
+      const tables = new Map(factTableMap);
+      tables.set("other_orders", { ...orders, id: "other_orders" });
+      const config = populationConfig([
+        populationValue(),
+        populationValue({
+          source: { type: "factTable", factTableId: "other_orders" },
+        }),
+        populationValue(),
+      ]);
+      const { orderedMetricIds } = generateProductAnalyticsSQL(
+        config,
+        tables,
+        metricMap,
+        helpers,
+        datasource,
+      );
+      const result = transformProductAnalyticsRowsToResult(
+        config,
+        [
+          {
+            dimension0: "2026-10-22",
+            m0_numerator: 10,
+            m1_numerator: 20,
+            m2_numerator: 30,
+          },
+        ],
+        orderedMetricIds,
+      );
+
+      expect(result.rows[0].values).toEqual([
+        expect.objectContaining({ metricId: "population_0", numerator: 10 }),
+        expect.objectContaining({ metricId: "population_1", numerator: 20 }),
+        expect.objectContaining({ metricId: "population_2", numerator: 30 }),
+      ]);
+    });
+
+    it("requires a unit on every value", () => {
+      expect(() =>
+        generateProductAnalyticsSQL(
+          populationConfig([populationValue({ unit: null })]),
+          factTableMap,
+          metricMap,
+          helpers,
+          datasource,
+        ),
+      ).toThrow("Population unit is required");
+    });
   });
 });

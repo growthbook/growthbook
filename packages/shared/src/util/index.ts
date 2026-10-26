@@ -15,7 +15,10 @@ import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { ExperimentReportVariation } from "shared/types/report";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { VisualChange } from "shared/types/visual-changeset";
+import {
+  VisualChange,
+  VisualChangesetInterface,
+} from "shared/types/visual-changeset";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   SafeRolloutSnapshotAnalysis,
@@ -56,6 +59,7 @@ export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
 export * from "./holdouts";
+export * from "./interleaving";
 export * from "./diffFormats";
 export * from "./format-json";
 export * from "./datasource";
@@ -339,8 +343,28 @@ export function isValidEnvironment(
   return environments.includes(env);
 }
 
+export const visualChangeHasContent = (
+  vc: Pick<VisualChange, "js" | "domMutations"> & { css?: string },
+) => !!vc.css || !!vc.domMutations.length || !!vc.js;
+
 export const hasVisualChanges = (visualChanges: VisualChange[]) =>
-  visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length || !!vc.js);
+  visualChanges.some(visualChangeHasContent);
+
+export type ChangesetOwnerRef =
+  | { kind: "experiment"; id: string }
+  | { kind: "contextual-bandit"; id: string };
+
+export function changesetOwnerRef(
+  changeset: Pick<VisualChangesetInterface, "experiment" | "contextualBandit">,
+): ChangesetOwnerRef | null {
+  if (changeset.contextualBandit) {
+    return { kind: "contextual-bandit", id: changeset.contextualBandit };
+  }
+  if (changeset.experiment) {
+    return { kind: "experiment", id: changeset.experiment };
+  }
+  return null;
+}
 
 export type MatchingRule = {
   environmentId: string;
@@ -462,6 +486,35 @@ export function ruleProjectScope(rule: {
   // project, never "all". Only the legacy state (no scope fields) falls back to all.
   if (rule.allProjects !== false && rule.projects == null) return null;
   return Array.isArray(rule.projects) ? rule.projects : [];
+}
+
+export type FeatureRuleScope = {
+  allEnvironments?: boolean;
+  environments?: string[];
+  allProjects?: boolean;
+  projects?: string[];
+};
+
+// Applies in every environment and every project.
+export function isUnscopedRule(rule: FeatureRuleScope): boolean {
+  if (!rule || typeof rule !== "object") return false;
+  const allEnvironments =
+    !!rule.allEnvironments || rule.environments === undefined;
+  return allEnvironments && ruleProjectScope(rule) === null;
+}
+
+// Unscoped rules a write adds, or ones it widens from a narrower scope.
+export function getNewlyUnscopedRules<
+  T extends FeatureRuleScope & { id: string },
+>(rules: T[], previousRules: T[]): T[] {
+  const previous = new Map(
+    previousRules.filter((rule) => rule.id).map((rule) => [rule.id, rule]),
+  );
+  return rules.filter((rule) => {
+    if (!isUnscopedRule(rule)) return false;
+    const before = previous.get(rule.id);
+    return !before || !isUnscopedRule(before);
+  });
 }
 
 // Effective delivery Projects for a rule. Unlike attribute discovery, an
@@ -651,12 +704,34 @@ export const recursiveWalk = (object: any, onNode: NodeHandler) => {
   if (object === null || typeof object !== "object") {
     return;
   }
-  // If currently walking over an object or array, iterate the entries and call onNode before recurring
-  Object.entries(object).forEach((node) => {
-    onNode(node, object);
-    // Recompute the reference for the recursive call as the key may have changed
-    recursiveWalk(object[node[0]], onNode);
-  });
+  // Array indices are never operators, so only items that hold keys are
+  // walked; an inlined ID list costs no handler calls.
+  if (Array.isArray(object)) {
+    for (const item of object) {
+      if (item !== null && typeof item === "object") {
+        recursiveWalk(item, onNode);
+      }
+    }
+    return;
+  }
+  // The value each key held when it was walked. A handler may re-home values
+  // under a key this pass has not seen, or replace one it has, e.g. rewriting
+  // `$savedGroups` moves its siblings into a new `$and`; both get walked.
+  const walked = new Map<string, unknown>();
+  let pending = Object.keys(object);
+  while (pending.length) {
+    for (const key of pending) {
+      // An earlier handler in this pass may have moved it
+      if (!(key in object)) continue;
+      onNode([key, object[key]], object);
+      walked.set(key, object[key]);
+      // Recompute the reference for the recursive call as the key may have changed
+      recursiveWalk(object[key], onNode);
+    }
+    pending = Object.keys(object).filter(
+      (key) => !walked.has(key) || !Object.is(walked.get(key), object[key]),
+    );
+  }
 };
 
 export function truncateString(s: string, numChars: number) {
@@ -874,3 +949,4 @@ export {
   NON_PRODUCTION_ENV_PATTERNS,
   isEnvironmentDevLike,
 } from "./environments";
+export * from "./confirmations";

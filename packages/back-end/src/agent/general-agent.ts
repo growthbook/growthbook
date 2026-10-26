@@ -81,6 +81,9 @@ How to end a turn:
 - End with ONE short plain-text markdown message. Keep it to 1–4 sentences (or
   a short bulleted list), reference specific numbers from the API responses,
   and don't restate the question, recap steps, or paste raw JSON.
+- If that message ends with a list of options for the user to choose from,
+  append "(recommended)" to the one you would pick; the composer offers it as
+  a ready reply.
 `.trim();
 
 const AGENT_SKILLS_GUIDANCE = `
@@ -559,6 +562,12 @@ const askUserOptionSchema = z.object({
     .max(300)
     .optional()
     .describe("Optional sub-line shown under the label for extra context."),
+  recommended: z
+    .boolean()
+    .optional()
+    .describe(
+      "Mark the one option you would pick if the user shrugged; the composer offers it as a ready reply. At most one.",
+    ),
 });
 
 const askUserInputSchema = z.object({
@@ -572,7 +581,7 @@ const askUserInputSchema = z.object({
     .min(2)
     .max(8)
     .describe(
-      "Two to eight options the user can pick from. Order them by likelihood.",
+      "Two to eight options the user can pick from. Order them by likelihood and mark the likeliest one `recommended`.",
     ),
   allowMultiple: z
     .boolean()

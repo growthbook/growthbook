@@ -17,6 +17,7 @@ import {
   DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_LEARNING_STATUSES,
+  FEATURE_KEY_PATTERN,
 } from "shared/constants";
 import {
   DEFAULT_MAX_METRIC_SLICE_LEVELS,
@@ -25,7 +26,7 @@ import {
 import { OrganizationSettings } from "shared/types/organization";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
-import { CUSTOMIZABLE_PROMPT_TYPES } from "shared/ai";
+import { CUSTOMIZABLE_PROMPT_TYPES, getProviderForAIModel } from "shared/ai";
 import { getRequireRegisteredAttributesSettings } from "shared/util";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -65,6 +66,10 @@ import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings"
 import TargetingAttributesSettings from "@/components/GeneralSettings/TargetingAttributesSettings";
 import ApprovalFlowSettings from "@/components/GeneralSettings/ApprovalFlowSettings";
 import SDKConnectionSettings from "@/components/GeneralSettings/SDKConnectionSettings";
+
+/** A saved model dropped from the registry reads as unset, so it falls back to the default. */
+const knownTextModel = <T extends string>(model: T | undefined) =>
+  model && getProviderForAIModel("text", model) ? model : undefined;
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -110,11 +115,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       visualEditorEnabled: false,
       pastExperimentsMinLength: 6,
       metricAnalysisDays: 90,
-      // customization:
-      customized: false,
-      logoPath: "",
-      primaryColor: "#391c6d",
-      secondaryColor: "#50279a",
       northStar: {
         //enabled: false,
         title: "",
@@ -221,20 +221,22 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ),
       aiEnabled: settings.aiEnabled ?? false,
       aiAskDataEnabled: settings.aiAskDataEnabled ?? false,
+      aiAutocompleteEnabled: settings.aiAutocompleteEnabled ?? true,
+      aiAutocompleteModel: knownTextModel(settings.aiAutocompleteModel),
       disabledAgentSkills: settings.disabledAgentSkills ?? [],
       // Seeding a model on Cloud would persist it on the next save of any
       // setting, silently taking the org off the managed default.
       defaultAIModel:
-        settings.defaultAIModel || (isCloud() ? undefined : "gpt-4o-mini"),
+        knownTextModel(settings.defaultAIModel) ||
+        (isCloud() ? undefined : "gpt-4o-mini"),
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
       sttModel: settings.sttModel,
-      visualEditorAIModel: settings.visualEditorAIModel,
+      visualEditorAIModel: knownTextModel(settings.visualEditorAIModel),
       visualEditorImageModel: settings.visualEditorImageModel || "",
       visualEditorAIContext: settings.visualEditorAIContext || "",
       disableLegacyMetricCreation:
         settings.disableLegacyMetricCreation ?? false,
-      defaultFeatureRulesInAllEnvs:
-        settings.defaultFeatureRulesInAllEnvs ?? false,
+      requireScopedFeatureRules: settings.requireScopedFeatureRules ?? false,
       preferredEnvironment: settings.preferredEnvironment || "",
       maxMetricSliceLevels:
         settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
@@ -265,11 +267,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       minPercentageChange: form.watch("metricDefaults.minPercentageChange"),
       targetMDE: form.watch("metricDefaults.targetMDE"),
     },
-    // customization:
-    customized: form.watch("customized"),
-    logoPath: form.watch("logoPath"),
-    primaryColor: form.watch("primaryColor"),
-    secondaryColor: form.watch("secondaryColor"),
     northStar: form.watch("northStar"),
     updateSchedule: form.watch("updateSchedule"),
     runHealthTrafficQuery: form.watch("runHealthTrafficQuery"),
@@ -299,6 +296,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
     aiAskDataEnabled: form.watch("aiAskDataEnabled"),
+    aiAutocompleteEnabled: form.watch("aiAutocompleteEnabled"),
+    aiAutocompleteModel: form.watch("aiAutocompleteModel") || undefined,
     disabledAgentSkills: form.watch("disabledAgentSkills"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),
@@ -307,7 +306,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     visualEditorImageModel: form.watch("visualEditorImageModel"),
     visualEditorAIContext: form.watch("visualEditorAIContext") || undefined,
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
-    defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
+    requireScopedFeatureRules: form.watch("requireScopedFeatureRules"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
     topValuesLookbackValue: form.watch("topValuesLookbackValue"),
@@ -481,10 +480,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
     // Make sure the feature key example is valid
     if (
       transformedOrgSettings.featureKeyExample &&
-      !transformedOrgSettings.featureKeyExample.match(/^[a-zA-Z0-9_.:|-]+$/)
+      !new RegExp(FEATURE_KEY_PATTERN).test(
+        transformedOrgSettings.featureKeyExample,
+      )
     ) {
       throw new Error(
-        "Feature key examples can only include letters, numbers, hyphens, and underscores.",
+        "Feature key examples can only include letters, numbers, and the characters _, -, ., :, and |.",
       );
     }
 

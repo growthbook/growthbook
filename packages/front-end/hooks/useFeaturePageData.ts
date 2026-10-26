@@ -1,16 +1,21 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureCodeRefsInterface } from "shared/types/code-refs";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { filterEnvironmentsByFeature, mergeRevision } from "shared/util";
 import {
+  filterEnvironmentsByFeature,
+  getFeaturePageDefaultVersion,
+  mergeRevision,
+} from "shared/util";
+import {
+  ACTIVE_DRAFT_STATUSES,
   SafeRolloutInterface,
   HoldoutInterface,
   MinimalFeatureRevisionInterface,
   RampScheduleInterface,
 } from "shared/validators";
 import useApi from "@/hooks/useApi";
+import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 
 type FeaturePageResponse = {
@@ -19,7 +24,6 @@ type FeaturePageResponse = {
   revisions: FeatureRevisionInterface[];
   experiments: ExperimentInterfaceStringDates[];
   safeRollouts: SafeRolloutInterface[];
-  codeRefs: FeatureCodeRefsInterface[];
   holdout: HoldoutInterface | undefined;
   rampSchedules: RampScheduleInterface[];
 };
@@ -37,6 +41,7 @@ function toMinimalRevision(
 ): MinimalFeatureRevisionInterface {
   return {
     version: r.version,
+    baseVersion: r.baseVersion,
     datePublished: r.datePublished ?? null,
     dateUpdated: r.dateUpdated,
     createdBy: r.createdBy,
@@ -47,20 +52,35 @@ function toMinimalRevision(
   };
 }
 
-// Fetches feature page data. Initial response includes full revisions for the top-5 recent,
-// all active drafts, and their base versions. Auto-fetches and caches additional full revisions as needed.
+// Fetches feature page data. The initial response includes full revisions for
+// live and the version the page opens on (with their bases); anything else is
+// loaded into the same cache when needed.
 export function useFeaturePageData(
   fid: string | string[] | undefined,
   versionQueryParam: string | string[] | undefined,
   userId?: string,
 ) {
-  const [version, setVersion] = useState<number | null>(null);
+  const [version, setVersionState] = useState<number | null>(null);
+  // A version that was picked but hasn't loaded yet. The page keeps showing
+  // the current one until it and its base have loaded, then switches at once.
+  const [pendingVersion, setPendingVersion] = useState<number | null>(null);
   const forcedVersionFromQuery = useMemo(
     () => parseVersion(versionQueryParam),
     [versionQueryParam],
   );
   // null = latest available version. after the data is fetched, version gets updated.
   const selectedVersion = version ?? forcedVersionFromQuery;
+
+  // The first request asks for a deep-linked version so it arrives with the
+  // page. Fixed per flag: later switches load separately rather than changing
+  // (and refetching) the main request.
+  const initialVersion = useRef({
+    fid: String(fid),
+    v: forcedVersionFromQuery,
+  });
+  if (initialVersion.current.fid !== String(fid)) {
+    initialVersion.current = { fid: String(fid), v: forcedVersionFromQuery };
+  }
 
   const [cachedRevisions, setCachedRevisions] = useState<
     Record<number, FeatureRevisionInterface>
@@ -71,9 +91,12 @@ export function useFeaturePageData(
     error: baseError,
     mutate: mutateBase,
     isValidating: isValidatingBase,
-  } = useApi<FeaturePageResponse>(fid ? `/feature/${fid}` : "", {
-    shouldRun: () => !!fid,
-  });
+  } = useApi<FeaturePageResponse>(
+    fid
+      ? `/feature/${fid}${initialVersion.current.v !== null ? `?v=${initialVersion.current.v}` : ""}`
+      : "",
+    { shouldRun: () => !!fid },
+  );
 
   // Poll ramp schedules independently so the timeline stays live without
   // reloading the full (heavy) feature page payload.
@@ -86,78 +109,141 @@ export function useFeaturePageData(
     refreshInterval: rampPollMs,
   });
 
-  // Only fetch a specific version if it isn't already in the base response or cache.
-  // Until the base response arrives we can't tell, so wait rather than double-fetch.
-  const requestedVersionInBaseSet =
-    baseData?.revisions?.some((r) => r.version === selectedVersion) ?? false;
-  const requestedVersionInCache =
-    selectedVersion != null && !!cachedRevisions[selectedVersion];
-  const shouldFetchFromRevisionsEndpoint =
-    !!fid &&
-    !!baseData &&
-    selectedVersion != null &&
-    !requestedVersionInBaseSet &&
-    !requestedVersionInCache;
-
-  // Also fetch the baseVersion of the currently-selected revision when it's
-  // missing from the cache. This is needed for autoMerge (and thus the
-  // publish/review CTAs) when the selected draft was based on an old revision
-  // that fell outside the top-5 window returned by getLatestRevisions.
-  const selectedRevisionBaseVersion: number | null = useMemo(() => {
-    if (!selectedVersion) return null;
-    const full =
-      cachedRevisions[selectedVersion] ??
-      baseData?.revisions?.find((r) => r.version === selectedVersion);
-    return full?.baseVersion ?? null;
-  }, [selectedVersion, cachedRevisions, baseData]);
-
-  const baseVersionInCache =
-    selectedRevisionBaseVersion != null &&
-    !!cachedRevisions[selectedRevisionBaseVersion];
-  const baseVersionInBaseSet =
-    selectedRevisionBaseVersion != null &&
-    (baseData?.revisions?.some(
-      (r) => r.version === selectedRevisionBaseVersion,
-    ) ??
-      false);
-  const shouldFetchBaseVersion =
-    !!fid &&
-    !!baseData &&
-    selectedRevisionBaseVersion != null &&
-    !baseVersionInCache &&
-    !baseVersionInBaseSet;
-
-  const {
-    data: selectedVersionRevisionsData,
-    error: selectedVersionError,
-    mutate: mutateSelectedVersion,
-    isValidating: isValidatingSelectedVersion,
-  } = useApi<{ status: 200; revisions: FeatureRevisionInterface[] }>(
-    `/feature/${fid}/revisions?versions=${selectedVersion}`,
-    {
-      shouldRun: () => shouldFetchFromRevisionsEndpoint,
+  const baseVersionOf = useCallback(
+    (v: number): number | null => {
+      const known =
+        cachedRevisions[v]?.baseVersion ??
+        baseData?.revisionList?.find((r) => r.version === v)?.baseVersion ??
+        null;
+      // Revisions are numbered from 1: a first revision's base of 0 means none
+      return known !== null && known > 0 ? known : null;
     },
+    [cachedRevisions, baseData],
   );
 
-  const { data: baseVersionRevisionsData } = useApi<{
-    status: 200;
-    revisions: FeatureRevisionInterface[];
-  }>(`/feature/${fid}/revisions?versions=${selectedRevisionBaseVersion}`, {
-    shouldRun: () => shouldFetchBaseVersion,
-  });
+  // One loader for every full revision the page needs beyond the initial
+  // response: the version on screen, and whatever modals or the compare view
+  // ask for through the page context. All of it lands in the same cache.
+  const { apiCall } = useAuth();
+  const inFlight = useRef<Set<number>>(new Set());
+  const [loadingVersions, setLoadingVersions] = useState<Set<number>>(
+    new Set(),
+  );
+  // Versions the last load didn't return (gone, or the request failed)
+  const [unavailableVersions, setUnavailableVersions] = useState<Set<number>>(
+    new Set(),
+  );
+  const [loadError, setLoadError] = useState<Error | null>(null);
+  const inBaseSet = useCallback(
+    (v: number) => baseData?.revisions?.some((r) => r.version === v) ?? false,
+    [baseData],
+  );
+  const loadedRef = useRef<(v: number) => boolean>(() => false);
+  loadedRef.current = (v) => !!cachedRevisions[v] || inBaseSet(v);
+  // Bumped when the page moves to another flag. A response or cleanup from an
+  // earlier generation is ignored, even if the page has come back to that flag,
+  // and a load asked for by a callback from an earlier flag doesn't start.
+  const generation = useRef(0);
+  const currentFid = useRef(fid);
+  currentFid.current = fid;
 
-  // Clean up everything if fid changes
+  const loadRevisions = useCallback(
+    async (versions: number[], { force = false } = {}) => {
+      if (!fid || fid !== currentFid.current) return;
+      const toFetch = [...new Set(versions)].filter(
+        (v) =>
+          v > 0 && !inFlight.current.has(v) && (force || !loadedRef.current(v)),
+      );
+      if (!toFetch.length) return;
+      const update =
+        (changed: number[], add: boolean) => (set: Set<number>) => {
+          const next = new Set(set);
+          changed.forEach((v) => (add ? next.add(v) : next.delete(v)));
+          return next;
+        };
+      const gen = generation.current;
+      toFetch.forEach((v) => inFlight.current.add(v));
+      setLoadingVersions(update(toFetch, true));
+      setUnavailableVersions(update(toFetch, false));
+      try {
+        const res = await apiCall<{ revisions: FeatureRevisionInterface[] }>(
+          `/feature/${fid}/revisions?versions=${toFetch.join(",")}`,
+        );
+        if (gen !== generation.current) return;
+        const returned = (res.revisions ?? []).filter(
+          (r) => r.featureId === fid,
+        );
+        setCachedRevisions((prev) => {
+          const next = { ...prev };
+          returned.forEach((r) => {
+            next[r.version] = r;
+          });
+          return next;
+        });
+        setUnavailableVersions(
+          update(
+            toFetch.filter((v) => !returned.some((r) => r.version === v)),
+            true,
+          ),
+        );
+        setLoadError(null);
+      } catch (e) {
+        if (gen !== generation.current) return;
+        setUnavailableVersions(update(toFetch, true));
+        setLoadError(e instanceof Error ? e : new Error(String(e)));
+      } finally {
+        if (gen === generation.current) {
+          toFetch.forEach((v) => inFlight.current.delete(v));
+          setLoadingVersions(update(toFetch, false));
+        }
+      }
+    },
+    [apiCall, fid],
+  );
+
+  // Clean up everything if fid changes (before anything loads for the new one)
   useEffect(() => {
-    setVersion(null);
+    setVersionState(null);
+    setPendingVersion(null);
     setCachedRevisions({});
+    setUnavailableVersions(new Set());
+    setLoadingVersions(new Set());
+    inFlight.current = new Set();
+    generation.current += 1;
   }, [fid]);
 
+  // The version on screen (or about to be) and its base
+  const targetVersion = pendingVersion ?? selectedVersion;
+  const targetBaseVersion =
+    targetVersion !== null ? baseVersionOf(targetVersion) : null;
+  useEffect(() => {
+    if (!baseData || targetVersion === null) return;
+    void loadRevisions(
+      targetBaseVersion !== null
+        ? [targetVersion, targetBaseVersion]
+        : [targetVersion],
+    );
+  }, [baseData, targetVersion, targetBaseVersion, loadRevisions]);
+
+  // Also reloads what was loaded beyond the initial response and can still
+  // change: the version on screen and any open drafts, so edits show up
   const refreshData = async () => {
+    const changeable = Object.values(cachedRevisions)
+      .filter(
+        (r) =>
+          !inBaseSet(r.version) &&
+          (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+      )
+      .map((r) => r.version);
+    const onScreen = [targetVersion, targetBaseVersion].filter(
+      (v): v is number => v !== null && !inBaseSet(v),
+    );
+    const reload = [...new Set([...onScreen, ...changeable])];
     await Promise.all([
       mutateBase(),
       mutateRampSchedules(),
-      shouldFetchFromRevisionsEndpoint
-        ? mutateSelectedVersion()
+      reload.length
+        ? loadRevisions(reload, { force: true })
         : Promise.resolve(),
     ]);
   };
@@ -198,35 +284,40 @@ export function useFeaturePageData(
     });
   }, [baseData, fid]);
 
-  // Append on-demand fetched revisions to cache
+  const isReady = useCallback(
+    (v: number) => {
+      const loaded = (version: number) =>
+        !!cachedRevisions[version] ||
+        (baseData?.revisions?.some((r) => r.version === version) ?? false);
+      const base = baseVersionOf(v);
+      return loaded(v) && (base === null || loaded(base));
+    },
+    [cachedRevisions, baseData, baseVersionOf],
+  );
+
+  const setVersion = useCallback(
+    (v: number) => {
+      if (isReady(v)) {
+        setVersionState(v);
+        setPendingVersion(null);
+      } else {
+        setPendingVersion(v);
+      }
+    },
+    [isReady],
+  );
+
+  // Switch to a picked version once it and its base have loaded, or give up
+  // on one the server doesn't have
   useEffect(() => {
-    if (!selectedVersionRevisionsData?.revisions?.length || !fid) {
-      return;
+    if (pendingVersion === null) return;
+    if (isReady(pendingVersion)) {
+      setVersionState(pendingVersion);
+      setPendingVersion(null);
+    } else if (unavailableVersions.has(pendingVersion)) {
+      setPendingVersion(null);
     }
-
-    setCachedRevisions((prev) => {
-      const next = { ...prev };
-      selectedVersionRevisionsData.revisions.forEach((r) => {
-        if (r.featureId === fid) next[r.version] = r;
-      });
-      return next;
-    });
-  }, [selectedVersionRevisionsData, fid]);
-
-  // Append base-version revision to cache when lazily fetched
-  useEffect(() => {
-    if (!baseVersionRevisionsData?.revisions?.length || !fid) {
-      return;
-    }
-
-    setCachedRevisions((prev) => {
-      const next = { ...prev };
-      baseVersionRevisionsData.revisions.forEach((r) => {
-        if (r.featureId === fid) next[r.version] = r;
-      });
-      return next;
-    });
-  }, [baseVersionRevisionsData, fid]);
+  }, [pendingVersion, isReady, unavailableVersions]);
 
   const data = useMemo<FeaturePageResponse | undefined>(() => {
     if (!baseData) return undefined;
@@ -271,7 +362,7 @@ export function useFeaturePageData(
     ) {
       setVersion(newLive);
     }
-  }, [baseFeatureVersion]);
+  }, [baseFeatureVersion, setVersion]);
 
   // Set initial version: URL query > own draft > live version.
   // Waits for cache to seed to avoid incorrectly selecting live when drafts exist.
@@ -284,38 +375,16 @@ export function useFeaturePageData(
     if (!baseFeatureVersion || version !== null) return;
     if (!cacheSeeded) return;
 
-    if (forcedVersionFromQuery) {
-      if (
-        data?.revisionList &&
-        data.revisionList.some((r) => r.version === forcedVersionFromQuery)
-      ) {
-        setVersion(forcedVersionFromQuery);
-        return;
-      }
-      // Invalid/unknown version — fall through to own draft/live default below.
-    }
-
-    // Prefer the user's own draft; if none, fall back to live.
-    const isActiveDraft = (r: MinimalFeatureRevisionInterface) =>
-      !(
-        r.createdBy?.type === "system" &&
-        r.createdBy.subtype === "ramp-schedule"
-      ) &&
-      (r.status === "draft" ||
-        r.status === "approved" ||
-        r.status === "changes-requested" ||
-        r.status === "pending-review");
-
-    const isMine = (r: MinimalFeatureRevisionInterface) =>
-      !!userId &&
-      (r.createdBy?.id === userId ||
-        r.contributors?.some((id) => id === userId));
-
-    const drafts = data?.revisionList?.filter(isActiveDraft) ?? [];
-    const myDraft = drafts.find(isMine) ?? null;
-
-    setVersion(myDraft ? myDraft.version : baseFeatureVersion);
+    setVersion(
+      getFeaturePageDefaultVersion({
+        revisionList: data?.revisionList ?? [],
+        liveVersion: baseFeatureVersion,
+        requestedVersion: forcedVersionFromQuery,
+        userId: userId ?? null,
+      }),
+    );
   }, [
+    setVersion,
     cacheSeeded,
     data,
     version,
@@ -335,6 +404,10 @@ export function useFeaturePageData(
 
   const revision = useMemo<FeatureRevisionInterface | null>(() => {
     if (!baseFeature) return null;
+
+    // Nothing is on screen yet and the version the page opens on is still
+    // loading: show nothing rather than live values under that version's URL
+    if (version === null && pendingVersion !== null) return null;
 
     const currentVersion = version ?? baseFeature.version ?? null;
 
@@ -372,7 +445,7 @@ export function useFeaturePageData(
       version: baseFeature.version,
       prerequisites: baseFeature.prerequisites || [],
     };
-  }, [revisions, version, baseFeature]);
+  }, [revisions, version, pendingVersion, baseFeature]);
 
   const feature = useMemo(() => {
     if (!revision || !baseFeature) return null;
@@ -385,20 +458,25 @@ export function useFeaturePageData(
       : baseFeature;
   }, [baseFeature, revision, environments]);
 
-  const error = selectedVersionError ?? baseError;
-  const isValidating = isValidatingBase || isValidatingSelectedVersion;
+  // A failed load only blocks the page while there's nothing on screen yet
+  const error = baseError ?? (version === null ? loadError : null) ?? undefined;
+  const isValidating = isValidatingBase || loadingVersions.size > 0;
 
   return {
     data,
     error,
     isValidating,
-    revisionLoading: isValidatingSelectedVersion,
+    revisionLoading: pendingVersion !== null,
     refreshData,
     feature,
     baseFeature: baseFeature ?? null,
     revision,
     environments,
-    version,
+    // The version the page opens on reports as soon as it's picked; later
+    // switches report once the new version has loaded
+    version: version ?? pendingVersion,
     setVersion,
+    loadRevisions,
+    unavailableVersions,
   };
 }

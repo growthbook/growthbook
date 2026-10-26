@@ -7,6 +7,7 @@ import {
   assertVariationsCoverBandit,
   buildContextualBanditRefRule,
   loadContextualBanditForRead,
+  holdLinkedFeatureWrite,
 } from "./_shared";
 
 export const updateContextualBanditLinkedFeature = createApiRequestHandler(
@@ -47,6 +48,13 @@ export const updateContextualBanditLinkedFeature = createApiRequestHandler(
     audit: req.audit,
     autoPublish: req.body.autoPublish,
     draftVersion: req.body.draftVersion,
+    beforeWrite: () =>
+      holdLinkedFeatureWrite(
+        req.context,
+        feature,
+        req.body.autoPublish,
+        req.body.draftVersion,
+      ),
   });
 
   return {
