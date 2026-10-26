@@ -117,7 +117,7 @@ export default function AttributeDetailPage() {
           <AttributeReferencesList
             features={referencingFeatures}
             experiments={referencingExperiments}
-            conditionGroups={referencingSavedGroups}
+            savedGroups={referencingSavedGroups}
           />
         </Modal>
       )}
