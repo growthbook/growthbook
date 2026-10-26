@@ -28,6 +28,8 @@ export type MetricAnalysisWindowSelectorProps = {
   /** For experiments: phase end date or now */
   phaseEndDate?: Date | null;
   helpText?: React.ReactNode;
+  // Without its own label and description, for a row that labels it.
+  bare?: boolean;
 };
 
 const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
@@ -39,6 +41,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
   analysisEndDate,
   phaseEndDate,
   helpText,
+  bare = false,
 }) => {
   const endDate = analysisEndDate ?? phaseEndDate ?? new Date();
   const [localWindowValue, setLocalWindowValue] = useState<string | null>(null);
@@ -69,33 +72,39 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
   };
 
   return (
-    <Box mb="2">
+    <Box mb={bare ? "0" : "2"}>
       <Flex direction="column">
         <Box>
           <SelectField
             size="legacy"
             label={
-              <AttributionModelTooltip>
-                Metric Analysis Windows <GBInfo />
-              </AttributionModelTooltip>
+              bare ? undefined : (
+                <AttributionModelTooltip>
+                  Metric Analysis Windows <GBInfo />
+                </AttributionModelTooltip>
+              )
             }
             labelClassName="font-weight-bold"
             value={attributionModel}
             onChange={handleModeChange}
             options={[
-              { label: "Respect Metric Settings", value: "firstExposure" },
+              { label: "Respect metric settings", value: "firstExposure" },
               {
-                label: "Ignore Conversion Windows",
+                label: "Ignore conversion windows",
                 value: "experimentDuration",
               },
               {
-                label: "Use Custom Lookback Window",
+                label: "Use custom lookback window",
                 value: "lookbackOverride",
               },
             ]}
             sort={false}
             disabled={disabled}
-            helpText="Apply custom metric window behavior in this experiment."
+            helpText={
+              bare
+                ? undefined
+                : "Apply custom metric window behavior in this experiment."
+            }
           />
         </Box>
         {attributionModel === "lookbackOverride" && lookbackOverride && (

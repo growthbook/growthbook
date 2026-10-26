@@ -39,28 +39,30 @@ import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
+import SetupFieldRow from "./SetupFieldRow";
 
-function Card({ title, children }: { title: string; children: ReactNode }) {
+function Card({
+  title,
+  reset,
+  children,
+}: {
+  title: string;
+  // Set while something here differs from its default.
+  reset?: (() => void) | null;
+  children: ReactNode;
+}) {
   return (
     <Frame mb="3" px="5" py="4">
       <Heading as="h5" size="sm" color="text-high" mb="4">
         {title}
       </Heading>
-      <Flex direction="column" gap="4">
-        {children}
-      </Flex>
+      <Flex direction="column">{children}</Flex>
+      {reset ? (
+        <Flex justify="end" mt="4">
+          <Link onClick={reset}>Reset to defaults</Link>
+        </Flex>
+      ) : null}
     </Frame>
-  );
-}
-
-function Setting({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <Box>
-      <Text as="div" weight="medium" color="text-high" mb="2">
-        {label}
-      </Text>
-      {children}
-    </Box>
   );
 }
 
@@ -109,8 +111,37 @@ export default function AnalysisPlanAdvanced({
     project,
     experiment: {},
   });
-  const differsFromDefaults = SETTLED_ANALYSIS_SETTINGS.some(
-    (key) => settled[key] !== defaults[key],
+  const defaultAttributionModel =
+    orgSettings.attributionModel || "firstExposure";
+  // Each card's reset, while something in it differs from its default.
+  const resetIf = (
+    differs: boolean,
+    changes: ExperimentAnalysisSettingsDraft,
+  ) => (differs && canEdit ? () => stage(changes) : null);
+  const resetStatistics = resetIf(
+    SETTLED_ANALYSIS_SETTINGS.some((key) => settled[key] !== defaults[key]),
+    defaults,
+  );
+  const resetExposures = resetIf(
+    !!(
+      experiment.activationMetric ||
+      experiment.segment ||
+      experiment.queryFilter
+    ),
+    { activationMetric: "", segment: "", queryFilter: "" },
+  );
+  const resetMetrics = resetIf(
+    !!experiment.skipPartialData ||
+      (experiment.attributionModel || defaultAttributionModel) !==
+        defaultAttributionModel ||
+      !!experiment.precomputedUnitDimensionIds?.length ||
+      !!experiment.customMetricSlices?.length,
+    {
+      skipPartialData: false,
+      attributionModel: defaultAttributionModel,
+      precomputedUnitDimensionIds: [],
+      customMetricSlices: [],
+    },
   );
 
   const datasource = getDatasourceById(datasourceId);
@@ -188,8 +219,8 @@ export default function AnalysisPlanAdvanced({
       </CollapseTrigger>
       <Collapse open={open}>
         <Box pt="3">
-          <Card title="Statistics">
-            <Setting label="Stats Engine">
+          <Card title="Statistics" reset={resetStatistics}>
+            <SetupFieldRow label="Stats engine">
               <Box maxWidth="300px">
                 <StatsEngineSelect
                   label={null}
@@ -202,8 +233,8 @@ export default function AnalysisPlanAdvanced({
                   disabled={disabled}
                 />
               </Box>
-            </Setting>
-            <Setting label="Variance Reduction">
+            </SetupFieldRow>
+            <SetupFieldRow label="Variance reduction" content="text">
               <Flex direction="column" gap="2">
                 <Checkbox
                   label={
@@ -237,53 +268,55 @@ export default function AnalysisPlanAdvanced({
                   />
                 ) : null}
               </Flex>
-            </Setting>
+            </SetupFieldRow>
             {settled.statsEngine === "frequentist" ? (
-              <Setting label="Corrections">
-                <Flex direction="column" gap="2">
-                  <Checkbox
-                    label={
-                      <PremiumTooltip commercialFeature="sequential-testing">
-                        Sequential Testing
-                      </PremiumTooltip>
-                    }
-                    weight="regular"
-                    value={hasSequential && sequentialEnabled}
-                    setValue={(value) =>
-                      stage({
-                        sequentialTestingEnabled: value,
-                        sequentialTestingTuningParameter: tuningParameter,
-                      })
-                    }
+              <SetupFieldRow label="Corrections" content="text">
+                <Checkbox
+                  label={
+                    <PremiumTooltip commercialFeature="sequential-testing">
+                      Sequential testing
+                    </PremiumTooltip>
+                  }
+                  weight="regular"
+                  value={hasSequential && sequentialEnabled}
+                  setValue={(value) =>
+                    stage({
+                      sequentialTestingEnabled: value,
+                      sequentialTestingTuningParameter: tuningParameter,
+                    })
+                  }
+                  disabled={disabled || !hasSequential}
+                />
+              </SetupFieldRow>
+            ) : null}
+            {settled.statsEngine === "frequentist" && sequentialEnabled ? (
+              <SetupFieldRow label="Tuning parameter">
+                <Box width="200px">
+                  <Field
+                    type="number"
+                    min="0"
+                    containerClassName="mb-0"
+                    value={tuningText}
+                    onChange={(e) => {
+                      setTuningText(e.target.value);
+                      const value = parseFloat(e.target.value);
+                      if (value > 0) {
+                        stage({ sequentialTestingTuningParameter: value });
+                      }
+                    }}
                     disabled={disabled || !hasSequential}
                   />
-                  {sequentialEnabled ? (
-                    <Box width="200px">
-                      <Field
-                        label="Tuning parameter"
-                        type="number"
-                        min="0"
-                        containerClassName="mb-0"
-                        value={tuningText}
-                        onChange={(e) => {
-                          setTuningText(e.target.value);
-                          const value = parseFloat(e.target.value);
-                          if (value > 0) {
-                            stage({ sequentialTestingTuningParameter: value });
-                          }
-                        }}
-                        disabled={disabled || !hasSequential}
-                      />
-                    </Box>
-                  ) : null}
-                </Flex>
-              </Setting>
+                </Box>
+              </SetupFieldRow>
             ) : null}
           </Card>
 
           {datasource ? (
-            <Card title="Exposures">
-              <Setting label="Activation Metric">
+            <Card title="Exposures" reset={resetExposures}>
+              <SetupFieldRow
+                label="Activation metric"
+                tooltip="Users must convert on this metric before being included."
+              >
                 <Tooltip
                   content="Activation Metrics are not yet supported with Incremental Refresh."
                   enabled={incrementalRefresh}
@@ -302,30 +335,31 @@ export default function AnalysisPlanAdvanced({
                       onChange={(value) =>
                         stage({ activationMetric: value || "" })
                       }
-                      helpText="Users must convert on this metric before being included."
                       disabled={disabled || incrementalRefresh}
                     />
                   </Box>
                 </Tooltip>
-              </Setting>
+              </SetupFieldRow>
               {properties?.experimentSegments &&
               datasourceSegments.length > 0 ? (
-                <Setting label="Segment">
+                <SetupFieldRow
+                  label="Segment"
+                  tooltip="Only users in this segment will be included."
+                >
                   <SelectField
                     value={experiment.segment || ""}
                     onChange={(value) => stage({ segment: value || "" })}
-                    initialOption="None (All Users)"
+                    initialOption="None (all users)"
                     options={datasourceSegments.map((s) => ({
                       label: s.name,
                       value: s.id,
                     }))}
-                    helpText="Only users in this segment will be included."
                     disabled={disabled}
                   />
-                </Setting>
+                </SetupFieldRow>
               ) : null}
               {properties?.queryLanguage === "sql" ? (
-                <Setting label="Custom SQL Filter">
+                <SetupFieldRow label="Custom SQL filter">
                   <Field
                     textarea
                     value={experiment.queryFilter || ""}
@@ -351,16 +385,19 @@ export default function AnalysisPlanAdvanced({
                       ))}
                     .
                   </HelperText>
-                </Setting>
+                </SetupFieldRow>
               ) : null}
             </Card>
           ) : null}
 
           {datasource ? (
-            <Card title="Metrics">
+            <Card title="Metrics" reset={resetMetrics}>
               {properties?.separateExperimentResultQueries ? (
                 <>
-                  <Setting label="Conversion Windows">
+                  <SetupFieldRow
+                    label="Conversion windows"
+                    tooltip="How to treat users not enrolled long enough to complete a conversion window."
+                  >
                     <Tooltip
                       content="In-progress conversions can't be excluded with Incremental Refresh while in beta."
                       enabled={incrementalRefresh}
@@ -375,11 +412,11 @@ export default function AnalysisPlanAdvanced({
                           }
                           options={[
                             {
-                              label: "Include In-Progress Conversions",
+                              label: "Include in-progress conversions",
                               value: "loose",
                             },
                             {
-                              label: "Exclude In-Progress Conversions",
+                              label: "Exclude in-progress conversions",
                               value: "strict",
                             },
                           ]}
@@ -388,38 +425,44 @@ export default function AnalysisPlanAdvanced({
                             "value" in option &&
                             option.value === "strict"
                           }
-                          helpText="How to treat users not enrolled long enough to complete a conversion window."
                           disabled={disabled}
                         />
                       </Box>
                     </Tooltip>
-                  </Setting>
-                  <MetricAnalysisWindowSelector
-                    attributionModel={
-                      experiment.attributionModel ||
-                      orgSettings.attributionModel ||
-                      "firstExposure"
-                    }
-                    lookbackOverride={experiment.lookbackOverride}
-                    onAttributionModelChange={(value) =>
-                      stage({ attributionModel: value })
-                    }
-                    onLookbackOverrideChange={(value) =>
-                      stage({ lookbackOverride: value })
-                    }
-                    phaseEndDate={
-                      experiment.status === "stopped"
-                        ? getValidDate(
-                            experiment.phases.at(-1)?.dateEnded ?? "",
-                          )
-                        : new Date()
-                    }
-                    disabled={disabled || incrementalRefresh}
-                  />
+                  </SetupFieldRow>
+                  <SetupFieldRow
+                    label="Metric windows"
+                    tooltip="Apply custom metric window behavior in this experiment."
+                  >
+                    <MetricAnalysisWindowSelector
+                      bare
+                      attributionModel={
+                        experiment.attributionModel || defaultAttributionModel
+                      }
+                      lookbackOverride={experiment.lookbackOverride}
+                      onAttributionModelChange={(value) =>
+                        stage({ attributionModel: value })
+                      }
+                      onLookbackOverrideChange={(value) =>
+                        stage({ lookbackOverride: value })
+                      }
+                      phaseEndDate={
+                        experiment.status === "stopped"
+                          ? getValidDate(
+                              experiment.phases.at(-1)?.dateEnded ?? "",
+                            )
+                          : new Date()
+                      }
+                      disabled={disabled || incrementalRefresh}
+                    />
+                  </SetupFieldRow>
                 </>
               ) : null}
               {unitDimensionOptions.length > 0 ? (
-                <Setting label="Always-computed Unit Dimensions">
+                <SetupFieldRow
+                  label="Unit dimensions"
+                  tooltip={`Always computed on every refresh, like precomputed dimensions. Up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}.`}
+                >
                   <MultiSelectField
                     value={unitDimensionIds}
                     options={unitDimensionOptions}
@@ -437,12 +480,12 @@ export default function AnalysisPlanAdvanced({
                         ),
                       })
                     }
-                    helpText={`Computed on every refresh, like precomputed dimensions. Up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}.`}
                     disabled={disabled}
                   />
-                </Setting>
+                </SetupFieldRow>
               ) : null}
               <CustomMetricSlicesSelector
+                asRow
                 goalMetrics={metrics.goalMetrics}
                 secondaryMetrics={metrics.secondaryMetrics}
                 guardrailMetrics={metrics.guardrailMetrics}
@@ -452,7 +495,7 @@ export default function AnalysisPlanAdvanced({
                 }
               />
               {hasMetrics && manageOverrides ? (
-                <Setting label="Metric Overrides">
+                <SetupFieldRow label="Metric overrides" labelAlign="center">
                   <Flex align="center" justify="between" gap="3">
                     <Text color="text-mid">
                       Override metric behaviors within this experiment.
@@ -461,14 +504,9 @@ export default function AnalysisPlanAdvanced({
                       Manage overrides
                     </Button>
                   </Flex>
-                </Setting>
+                </SetupFieldRow>
               ) : null}
             </Card>
-          ) : null}
-          {differsFromDefaults && !disabled ? (
-            <Flex justify="end">
-              <Link onClick={() => stage(defaults)}>Reset to defaults</Link>
-            </Flex>
           ) : null}
         </Box>
       </Collapse>
