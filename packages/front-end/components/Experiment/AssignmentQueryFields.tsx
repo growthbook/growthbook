@@ -345,6 +345,7 @@ export default function AssignmentQueryFields({
   disabled,
   notice,
   autoFocus = false,
+  progressive = false,
 }: {
   selection: Selection;
   initialOption?: string;
@@ -354,6 +355,8 @@ export default function AssignmentQueryFields({
   notice?: AssignmentQueryNotice | null;
   /** Focuses the assignment table when it mounts. */
   autoFocus?: boolean;
+  /** Holds the assignment table back until an identifier type is chosen. */
+  progressive?: boolean;
 }) {
   const {
     exposureQueryId,
@@ -395,30 +398,32 @@ export default function AssignmentQueryFields({
         sort={false}
         options={groupedIdentifierTypes}
       />
-      <SelectField
-        size={size}
-        label={
-          <>
-            Experiment Assignment Table{" "}
-            <Tooltip body="The query that records which units saw which variation." />
-          </>
-        }
-        labelClassName="font-weight-bold"
-        helpText={
-          identifierType && exposureQueryOptions.length === 0
-            ? `No assignment queries declare the "${identifierType}" identifier type.`
-            : undefined
-        }
-        value={exposureQueryId ?? ""}
-        onChange={setExposureQueryId}
-        autoFocus={autoFocus}
-        initialOption={initialOption}
-        placeholder={placeholder}
-        required
-        disabled={disabled}
-        sort={false}
-        options={exposureQueryOptions}
-      />
+      {progressive && !identifierType ? null : (
+        <SelectField
+          size={size}
+          label={
+            <>
+              Experiment Assignment Table{" "}
+              <Tooltip body="The query that records which units saw which variation." />
+            </>
+          }
+          labelClassName="font-weight-bold"
+          helpText={
+            identifierType && exposureQueryOptions.length === 0
+              ? `No assignment queries declare the "${identifierType}" identifier type.`
+              : undefined
+          }
+          value={exposureQueryId ?? ""}
+          onChange={setExposureQueryId}
+          autoFocus={autoFocus}
+          initialOption={initialOption}
+          placeholder={placeholder}
+          required
+          disabled={disabled}
+          sort={false}
+          options={exposureQueryOptions}
+        />
+      )}
     </>
   );
 }

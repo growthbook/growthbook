@@ -9,7 +9,11 @@ import {
   experimentAnalysisSettingsDraft,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  getExposureQueryIdentifierTypes,
+  isProjectListValidForProject,
+  resolveAnalysisIdentifierType,
+} from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -23,6 +27,9 @@ import {
 import { getExposureQueriesForAttribute } from "@/services/datasources";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import MetricOverridesModal from "@/components/Experiment/MetricOverridesModal";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -35,7 +42,18 @@ import { useDecisionFrameworkApplies } from "./DecisionMakingSettings";
 import AnalysisPlanAdvanced from "./AnalysisPlanAdvanced";
 
 type MetricField = "goalMetrics" | "secondaryMetrics" | "guardrailMetrics";
-type PlanField = "datasource" | "exposureQueryId" | MetricField;
+type PlanField =
+  | "datasource"
+  | "exposureQueryId"
+  | "exposureQueryIdentifierType"
+  | MetricField;
+
+type AssignmentSelection = {
+  datasource: string;
+  exposureQueryId: string;
+  // "" leaves it to the query's first declared identifier.
+  identifierType: string;
+};
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -86,7 +104,6 @@ export default function AnalysisPlan({
     [setAdvanced, experiment],
   );
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [editingDatasource, setEditingDatasource] = useState(false);
 
   const effective = useMemo(
     () => ({ ...experiment, ...advanced }),
@@ -127,6 +144,10 @@ export default function AnalysisPlan({
     "analysis-plan:exposureQueryId",
     experiment.exposureQueryId || "",
   );
+  const [identifierType, setIdentifierType] = useStagedState(
+    "analysis-plan:exposureQueryIdentifierType",
+    experiment.exposureQueryIdentifierType || "",
+  );
   const [goalMetrics, setGoalMetrics] = useStagedState(
     "analysis-plan:goalMetrics",
     experiment.goalMetrics || [],
@@ -157,9 +178,10 @@ export default function AnalysisPlan({
   // As the settings modal did: what belongs to the old source goes with it.
   const changeDatasource = (id: string) => {
     if (id === datasource) return;
-    touch("datasource", "exposureQueryId");
+    touch("datasource", "exposureQueryId", "exposureQueryIdentifierType");
     setDatasource(id);
     setExposureQueryId("");
+    setIdentifierType("");
     // Cleared, the rest stays for switching back.
     if (!id) return;
     const fromSource = (metricId: string) =>
@@ -191,16 +213,22 @@ export default function AnalysisPlan({
         : {}),
     });
   };
+  const changeSelection = (next: AssignmentSelection) => {
+    changeDatasource(next.datasource);
+    touch("exposureQueryId", "exposureQueryIdentifierType");
+    setExposureQueryId(next.exposureQueryId);
+    setIdentifierType(next.identifierType);
+  };
   const current = {
     datasource,
     exposureQueryId,
+    exposureQueryIdentifierType: identifierType,
     goalMetrics,
     secondaryMetrics,
     guardrailMetrics,
   };
   const stored = (field: PlanField) =>
-    experiment[field] ??
-    (field === "datasource" || field === "exposureQueryId" ? "" : []);
+    experiment[field] ?? (field.endsWith("Metrics") ? [] : "");
   const edited = [...touched].filter(
     (field) => !isEqual(current[field], stored(field)),
   );
@@ -232,6 +260,9 @@ export default function AnalysisPlan({
           (prev) => experiment.exposureQueryId || (keepFilled ? prev : ""),
         );
       }
+      if (!except.has("exposureQueryIdentifierType")) {
+        setIdentifierType(experiment.exposureQueryIdentifierType || "");
+      }
       if (!except.has("goalMetrics")) {
         setGoalMetrics(experiment.goalMetrics || []);
       }
@@ -245,12 +276,14 @@ export default function AnalysisPlan({
     [
       experiment.datasource,
       experiment.exposureQueryId,
+      experiment.exposureQueryIdentifierType,
       experiment.goalMetrics,
       experiment.secondaryMetrics,
       experiment.guardrailMetrics,
       suggestedDatasource,
       setDatasource,
       setExposureQueryId,
+      setIdentifierType,
       setGoalMetrics,
       setSecondaryMetrics,
       setGuardrailMetrics,
@@ -262,7 +295,15 @@ export default function AnalysisPlan({
     label: "Analysis plan",
     fields: () => ({
       ...advanced,
-      ...Object.fromEntries(sent.map((field) => [field, current[field]])),
+      ...Object.fromEntries(
+        sent.map((field) => [
+          field,
+          // Unset, the server takes the query's first identifier.
+          field === "exposureQueryIdentifierType"
+            ? current[field] || undefined
+            : current[field],
+        ]),
+      ),
     }),
     onSaved: () => {
       setTouchedFields([]);
@@ -352,13 +393,12 @@ export default function AnalysisPlan({
 
   // Pointed at from elsewhere: bring the field into view, or open the place
   // it's edited.
+  // A saved data source is edited in the modal, which stays open until closed.
+  const editingDatasource =
+    settingsOpen && settingsFocus === "datasource" && !!experiment.datasource;
   useEffect(() => {
-    if (!settingsOpen) return;
+    if (!settingsOpen || editingDatasource) return;
     setSettingsOpen(false);
-    if (settingsFocus === "datasource" && experiment.datasource) {
-      setEditingDatasource(true);
-      return;
-    }
     if (!settingsFocus) setAdvancedOpen(true);
     const id = settingsFocus
       ? `analysis-plan-${settingsFocus}`
@@ -368,7 +408,7 @@ export default function AnalysisPlan({
       row?.scrollIntoView({ behavior: "smooth", block: "center" });
       row?.querySelector("input")?.focus({ preventScroll: true });
     });
-  }, [settingsOpen, settingsFocus, setSettingsOpen, experiment.datasource]);
+  }, [settingsOpen, settingsFocus, setSettingsOpen, editingDatasource]);
 
   const metricRow = (
     label: string,
@@ -447,10 +487,11 @@ export default function AnalysisPlan({
       ) : null}
       {editingDatasource ? (
         <DataSourceModal
-          value={datasource}
+          experiment={experiment}
+          value={{ datasource, exposureQueryId, identifierType }}
           options={datasourceOptions}
-          close={() => setEditingDatasource(false)}
-          change={changeDatasource}
+          close={() => setSettingsOpen(false)}
+          change={changeSelection}
         />
       ) : null}
       <Separator size="4" my="2" />
@@ -494,6 +535,18 @@ export default function AnalysisPlan({
               onChange={(value) => {
                 touch("exposureQueryId");
                 setExposureQueryId(value);
+                // An identifier the new query doesn't declare can't come along.
+                const query = exposureQueries.find((q) => q.id === value);
+                if (
+                  identifierType &&
+                  query &&
+                  !getExposureQueryIdentifierTypes(query).includes(
+                    identifierType,
+                  )
+                ) {
+                  touch("exposureQueryIdentifierType");
+                  setIdentifierType("");
+                }
               }}
               required
               sort={false}
@@ -628,38 +681,89 @@ export default function AnalysisPlan({
   );
 }
 
+// The data source, then once there's one, what the experiment is analyzed on
+// in it.
 function DataSourceModal({
+  experiment,
   value,
   options,
   close,
   change,
 }: {
-  value: string;
+  experiment: ExperimentInterfaceStringDates;
+  value: AssignmentSelection;
   options: { value: string; label: string }[];
   close: () => void;
-  change: (id: string) => void;
+  change: (next: AssignmentSelection) => void;
 }) {
-  const [next, setNext] = useState(value);
+  const { getDatasourceById } = useDefinitions();
+  // An experiment saved before identifiers were stored shows the one it uses.
+  const storedQuery = getDatasourceById(
+    value.datasource,
+  )?.settings?.queries?.exposure?.find((q) => q.id === value.exposureQueryId);
+  const initialIdentifier =
+    value.identifierType ||
+    (storedQuery ? resolveAnalysisIdentifierType(storedQuery, undefined) : "");
+  const [datasource, setDatasource] = useState(value.datasource);
+  const [exposureQueryId, setExposureQueryId] = useState(value.exposureQueryId);
+  const [identifierType, setIdentifierType] = useState<string | undefined>(
+    initialIdentifier || undefined,
+  );
+  const selected = getDatasourceById(datasource);
+  const sameSource = datasource === value.datasource;
+  const selection = useAssignmentQuerySelection({
+    datasource: selected,
+    project: experiment.project,
+    hashAttribute: experiment.hashAttribute,
+    exposureQueryId,
+    identifierType,
+    setExposureQueryId,
+    setIdentifierType,
+    // A new source starts from its defaults; the saved one shows as it is.
+    autoRepair: !sameSource,
+    keepCurrentSelection: sameSource,
+  });
+  const changed =
+    !sameSource ||
+    exposureQueryId !== value.exposureQueryId ||
+    (identifierType ?? "") !== initialIdentifier;
   return (
     <ModalStandard
       open
       header="Data Source"
       close={close}
       cta="Confirm"
-      ctaEnabled={next !== value}
+      ctaEnabled={changed}
       trackingEventModalType="experiment-data-source"
       submit={() => {
-        change(next);
+        change({
+          datasource,
+          exposureQueryId: exposureQueryId ?? "",
+          identifierType: identifierType ?? "",
+        });
         close();
       }}
     >
       <SelectField
-        value={next}
-        onChange={setNext}
+        label="Data Source"
+        labelClassName="font-weight-bold"
+        value={datasource}
+        onChange={setDatasource}
         initialOption="None"
         options={options}
-        helpText="Metrics and segments that aren't from the new data source are removed."
+        helpText={
+          !sameSource && value.datasource
+            ? "Metrics and segments that aren't from the new data source are removed."
+            : undefined
+        }
       />
+      {selected?.properties?.exposureQueries ? (
+        <AssignmentQueryFields
+          selection={selection}
+          placeholder="Choose..."
+          progressive
+        />
+      ) : null}
     </ModalStandard>
   );
 }
