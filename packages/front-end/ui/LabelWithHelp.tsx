@@ -1,22 +1,14 @@
-import { ReactNode } from "react";
+import { MouseEventHandler, ReactNode } from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 
-function Adornment({ children }: { children: ReactNode }) {
-  return (
-    <span
-      onClick={(e) => {
-        // Keep clicks on the help/adornment from toggling the parent control.
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-      style={{ display: "inline-flex" }}
-    >
-      {children}
-    </span>
-  );
-}
+// Keep clicks on the help icon / adornment from toggling the control the label
+// is attached to (e.g. a Checkbox).
+const guardClick: MouseEventHandler<HTMLSpanElement> = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+};
 
 export default function LabelWithHelp({
   label,
@@ -33,13 +25,21 @@ export default function LabelWithHelp({
       <span>
         {label}
         {help ? (
-          <Adornment>
-            <Tooltip body={help}>
+          <Tooltip content={help}>
+            <span
+              tabIndex={0}
+              onClick={guardClick}
+              style={{ display: "inline-flex" }}
+            >
               <PiInfo color="var(--color-text-low)" />
-            </Tooltip>
-          </Adornment>
+            </span>
+          </Tooltip>
         ) : null}
-        {adornment ? <Adornment>{adornment}</Adornment> : null}
+        {adornment ? (
+          <span onClick={guardClick} style={{ display: "inline-flex" }}>
+            {adornment}
+          </span>
+        ) : null}
       </span>
     </Flex>
   );

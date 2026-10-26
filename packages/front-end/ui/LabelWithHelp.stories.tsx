@@ -40,9 +40,9 @@ export default function LabelWithHelpStories() {
           Inside a Checkbox label
         </Text>
         <Text size="1" style={{ color: "var(--gray-9)" }}>
-          Clicking the help icon or the adornment does not toggle the checkbox
-          (Adornment calls preventDefault/stopPropagation); clicking the label
-          text does.
+          The help icon is focusable (tab to it to open the tooltip on keyboard
+          / screen readers). Clicking the help icon or the adornment does not
+          toggle the checkbox; clicking the label text does.
         </Text>
         <Flex direction="column" gap="2" align="start">
           <Checkbox
