@@ -5,7 +5,7 @@ describe("getResultsFreshness", () => {
 
   it("returns null when the snapshot has not run", () => {
     expect(
-      getResultsFreshness({ cutoff: new Date("2026-10-20T06:00:00Z") }),
+      getResultsFreshness({ cutoffDate: new Date("2026-10-20T06:00:00Z") }),
     ).toBeNull();
   });
 
@@ -14,7 +14,7 @@ describe("getResultsFreshness", () => {
     expect(
       getResultsFreshness({
         dateCreated: ranAt,
-        cutoff: new Date("2026-10-20T06:00:00Z"),
+        cutoffDate: new Date("2026-10-20T06:00:00Z"),
         sourceSnapshot: {
           id: "snp_overall",
           dateCreated: new Date("2026-10-19T08:00:00Z"),
@@ -25,11 +25,11 @@ describe("getResultsFreshness", () => {
   });
 
   it("reports the cutoff a snapshot analyzed through", () => {
-    const cutoff = new Date("2026-10-20T11:59:00Z");
-    expect(getResultsFreshness({ dateCreated: ranAt, cutoff })).toEqual({
+    const cutoffDate = new Date("2026-10-20T11:59:00Z");
+    expect(getResultsFreshness({ dateCreated: ranAt, cutoffDate })).toEqual({
       kind: "cutoff",
       ranAt,
-      asOf: cutoff,
+      asOf: cutoffDate,
     });
   });
 
@@ -44,7 +44,7 @@ describe("getResultsFreshness", () => {
     expect(
       getResultsFreshness({
         dateCreated: "2026-10-20T12:00:00.000Z",
-        cutoff: "2026-10-20T06:00:00.000Z",
+        cutoffDate: "2026-10-20T06:00:00.000Z",
       }),
     ).toEqual({
       kind: "cutoff",

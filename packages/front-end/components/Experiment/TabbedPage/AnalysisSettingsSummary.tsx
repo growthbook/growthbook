@@ -35,6 +35,7 @@ import {
 import {
   resolveAnalysisIdentifierType,
   getSnapshotAnalysis,
+  getSnapshotCutoffDate,
 } from "shared/util";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
@@ -922,10 +923,8 @@ export default function AnalysisSettingsSummary({
               <QueriesLastRun
                 status={status}
                 dateCreated={snapshot?.dateCreated}
-                cutoff={
-                  snapshot?.settings?.endDateIsCutoff
-                    ? snapshot.settings.endDate
-                    : undefined
+                cutoffDate={
+                  snapshot ? getSnapshotCutoffDate(snapshot.settings) : null
                 }
                 sourceSnapshot={sourceSnapshot}
                 latestQueryDate={latest?.dateCreated}

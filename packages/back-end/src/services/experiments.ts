@@ -34,6 +34,7 @@ import {
   getNamespaceRanges,
   getReviewSetting,
   getSnapshotAnalysis,
+  getSnapshotCutoffDate,
   isAnalysisAllowed,
   isDefined,
   liveRevisionFromFeature,
@@ -2088,9 +2089,9 @@ export async function planSnapshot({
       data.sourceSnapshotId = sourceSnapshot.id;
       data.sourceSnapshotDateCreated = sourceSnapshot.dateCreated;
       // The source's data ends at its cutoff, otherwise at its run time.
-      data.sourceSnapshotEndDate = sourceSnapshot.settings.endDateIsCutoff
-        ? sourceSnapshot.settings.endDate
-        : sourceSnapshot.dateCreated;
+      data.sourceSnapshotEndDate =
+        getSnapshotCutoffDate(sourceSnapshot.settings) ??
+        sourceSnapshot.dateCreated;
     } else if (materializedBySnapshotId) {
       logger.error(
         { experimentId: experiment.id, phaseIndex, materializedBySnapshotId },

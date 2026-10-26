@@ -32,7 +32,7 @@ const QueriesLastRun: FC<{
   status: QueryStatus;
   dateCreated?: Date;
   // The data cutoff, when the snapshot analyzed through one
-  cutoff?: Date;
+  cutoffDate?: Date | null;
   sourceSnapshot?: SourceSnapshotRef;
   nextUpdate?: Date;
   latestQueryDate?: Date;
@@ -45,7 +45,7 @@ const QueriesLastRun: FC<{
 }> = ({
   status,
   dateCreated,
-  cutoff,
+  cutoffDate,
   sourceSnapshot,
   nextUpdate,
   latestQueryDate,
@@ -58,7 +58,7 @@ const QueriesLastRun: FC<{
 }) => {
   const freshness = getResultsFreshness({
     dateCreated,
-    cutoff,
+    cutoffDate,
     sourceSnapshot,
   });
 

@@ -1,4 +1,5 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { getSnapshotCutoffDate } from "shared/util";
 
 export function getExperimentEndDate(
   settings: Pick<
@@ -10,7 +11,7 @@ export function getExperimentEndDate(
   // for the incremental tables happened, so we ensure that we use the same cutoff
   // data as the overall results did.
   // Otherwise the exploratory could include more units than the overall result
-  asOf: Date = settings.endDateIsCutoff ? settings.endDate : new Date(),
+  asOf: Date = getSnapshotCutoffDate(settings) ?? new Date(),
 ): Date {
   // Only include users who entered the experiment before this timestamp
   // If we need to wait until users have had a chance to fully convert

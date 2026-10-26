@@ -18,6 +18,7 @@ import type {
 } from "shared/types/fact-table";
 import type { FactMetricData } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
+import { getSnapshotCutoffDate } from "shared/util";
 
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { applyDailyParticipationTransformation } from "back-end/src/integrations/sql/processing/apply-daily-participation-transformation";
@@ -195,11 +196,12 @@ export function getMetricData(
     minMetricDelay,
     regressionAdjustmentHours,
   );
+  const cutoffDate = getSnapshotCutoffDate(settings);
   const metricEnd = getMetricEnd(
     orderedMetrics,
     settings.endDate,
     overrideConversionWindows,
-    settings.endDateIsCutoff,
+    cutoffDate,
   );
 
   const raMetricPhaseStartSettings = getRaMetricPhaseStartSettings({
@@ -254,7 +256,7 @@ export function getMetricData(
             analysisEndDate,
             metric,
             overrideConversionWindows,
-            endDateIsCutoff: settings.endDateIsCutoff,
+            cutoffDate,
           })
       : ({ column }: { column: string }) => column;
 

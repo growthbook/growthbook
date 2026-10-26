@@ -59,11 +59,11 @@ export type ResultsFreshness =
 
 export function getResultsFreshness({
   dateCreated,
-  cutoff,
+  cutoffDate,
   sourceSnapshot,
 }: {
   dateCreated?: Date | string;
-  cutoff?: Date | string;
+  cutoffDate?: Date | string | null;
   sourceSnapshot?: SourceSnapshotRef;
 }): ResultsFreshness | null {
   if (!dateCreated) return null;
@@ -72,8 +72,8 @@ export function getResultsFreshness({
   if (sourceSnapshot) {
     return { kind: "derived", ranAt, asOf: sourceSnapshot.analysisEndDate };
   }
-  if (cutoff) {
-    return { kind: "cutoff", ranAt, asOf: getValidDate(cutoff) };
+  if (cutoffDate) {
+    return { kind: "cutoff", ranAt, asOf: getValidDate(cutoffDate) };
   }
   return { kind: "updated", ranAt };
 }

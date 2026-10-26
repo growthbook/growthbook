@@ -24,14 +24,14 @@ function run(
   dialect: SqlDialect,
   windowSettings: Partial<WindowSettings>,
   overrideConversionWindows = false,
-  endDateIsCutoff = false,
+  cutoffDate: Date | null = null,
 ) {
   return computeParticipationDenominator(dialect, {
     initialTimestampColumn: "first_exposure_timestamp",
     analysisEndDate,
     metric: makeMetric(windowSettings),
     overrideConversionWindows,
-    endDateIsCutoff,
+    cutoffDate,
   });
 }
 
@@ -75,8 +75,13 @@ describe("computeParticipationDenominator", () => {
       expect(sql).toContain("LEAST(CURRENT_TIMESTAMP,");
     });
 
-    it("at a cutoff end date", () => {
-      const sql = run(postgresDialect, conversionWindow, false, true);
+    it("at a cutoff date", () => {
+      const sql = run(
+        postgresDialect,
+        conversionWindow,
+        false,
+        analysisEndDate,
+      );
       expect(sql).not.toContain("CURRENT_TIMESTAMP");
       expect(sql).toContain("LEAST(CAST('2026-09-28 00:00:00' AS TIMESTAMP),");
     });
