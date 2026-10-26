@@ -504,8 +504,6 @@
                   "api/features-v2/operation/deleteFeatureV2",
                   "api/features-v2/operation/toggleFeatureV2",
                   "api/features-v2/operation/revertFeatureV2",
-                  "api/features-v2/operation/rollbackFeatureV2",
-                  "api/features-v2/operation/listRolloutsV2",
                   "api/features-v2/operation/getFeatureKeysV2",
                   "api/features-v2/operation/getFeatureStaleV2"
                 ]
@@ -619,6 +617,8 @@
                   "api/ramp-schedules/operation/updateRampScheduleLockdown",
                   "api/ramp-schedules/operation/updateRampScheduleSteps",
                   "api/ramp-schedules/operation/refreshMonitoringRampSchedule",
+                  "api/ramp-schedules/operation/rollbackMatchingRampSchedules",
+                  "api/ramp-schedules/operation/pauseMatchingRampSchedules",
                   "api/ramp-schedules/operation/getRampSchedule",
                   "api/ramp-schedules/operation/updateRampSchedule",
                   "api/ramp-schedules/operation/deleteRampSchedule"
@@ -1165,7 +1165,6 @@
           {
             "group": "Models",
             "pages": [
-              "api/ActiveRollout_model",
               "api/AggregatedFactTable_model",
               "api/AnalyticsExploration_model",
               "api/Archetype_model",

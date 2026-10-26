@@ -4,6 +4,7 @@ import {
   ANCHORED_RAMP_SCHEDULE_STATUSES,
   ApiRampScheduleInterface,
   RampScheduleInterface,
+  RampScheduleStatus,
   RampStartAction,
   RampStepAction,
   RampTarget,
@@ -978,6 +979,12 @@ export class RampScheduleModel extends BaseClass {
       entityType: "feature",
       entityId: { $in: featureIds },
     });
+  }
+
+  public async getByStatuses(
+    statuses: RampScheduleStatus[],
+  ): Promise<RampScheduleInterface[]> {
+    return this._find({ status: { $in: statuses } });
   }
 
   // Schedules whose anchor a publish of `featureId` must reconcile with.
