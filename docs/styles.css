@@ -505,3 +505,19 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   white-space: nowrap;
   word-wrap: break-word;
 }
+
+/* "New" pill on the Product Updates navbar link */
+#navbar a[href="https://growthbook.io/product-updates"]:not(#banner a)::after
+{
+  content: "New";
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #fff;
+  background: var(--violet-9);
+}
