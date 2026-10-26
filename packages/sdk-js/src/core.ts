@@ -1585,12 +1585,12 @@ export function reducePayload(
     stack.push(id);
     onStack.add(id);
     let low = own;
-    for (const next of refsOf(id)) {
+    refsOf(id).forEach((next) => {
       if (next === id) onCycle.add(id);
       if (!order.has(next)) low = Math.min(low, visit(next));
       else if (onStack.has(next))
         low = Math.min(low, order.get(next) as number);
-    }
+    });
     if (low === own) {
       const component = stack.splice(stack.indexOf(id));
       component.forEach((g) => onStack.delete(g));
