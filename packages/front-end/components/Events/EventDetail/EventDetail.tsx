@@ -39,7 +39,7 @@ export const EventDetailContainer = () => {
     <SettingsPage
       title={title}
       description={event ? datetime(event.dateCreated) : undefined}
-      parent={{ display: "Logs", href: "/events" }}
+      parent={{ display: "Events Log", href: "/events" }}
     >
       {error || (!isValidating && !event) ? (
         <Callout status="error">Unable to fetch event {eventId}</Callout>

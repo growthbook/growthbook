@@ -16,18 +16,16 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Pagination from "@/components/Pagination";
 import { EventsTableRow } from "@/components/Events/EventsPage/EventsTableRow";
 import SelectField from "@/components/Forms/SelectField";
-import { notificationEventNames } from "@/components/EventWebHooks/utils";
-import MultiSelectField from "@/ui/MultiSelectField";
 import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import RadioGroup from "@/ui/RadioGroup";
-import { capitalizeFirstLetter } from "@/services/utils";
 import Callout from "@/ui/Callout";
 import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
 import DateRangeTriggerPopover from "@/enterprise/components/ProductAnalytics/DateRangeTriggerPopover";
 import { ariaSort, SortButton } from "@/services/search";
+import EventTypeFilter from "./EventTypeFilter";
 
 type EventsPageProps = {
   filterURLParams: string;
@@ -78,7 +76,7 @@ export const EventsPage: FC<EventsPageProps> = ({
   return (
     <div>
       <SettingsPageHeader
-        title="Logs"
+        title="Events Log"
         description="Every change made in your organization."
         actions={
           <PremiumTooltip
@@ -170,19 +168,6 @@ export const EventsPage: FC<EventsPageProps> = ({
       )}
     </div>
   );
-};
-
-const EVENT_AREA_LABELS: Record<string, string> = {
-  apiKey: "API Keys",
-  config: "Configs",
-  constant: "Constants",
-  experiment: "Experiments",
-  feature: "Feature Flags",
-  holdout: "Holdouts",
-  savedGroup: "Saved Groups",
-  sdkConnection: "SDK Connections",
-  user: "Users",
-  webhook: "Webhooks",
 };
 
 const DATE_PRESETS = [
@@ -344,30 +329,11 @@ export const EventsPageContainer = () => {
   const enableExports = hasCommercialFeature("audit-logging");
 
   const hasFilters = eventType.length > 0 || !!fromDate || !!toDate;
-  const eventTypeOptions = Object.entries(
-    notificationEventNames.reduce<Record<string, string[]>>((groups, name) => {
-      const area = name.split(".")[0];
-      (groups[area] ??= []).push(name);
-      return groups;
-    }, {}),
-  ).map(([area, names]) => ({
-    label: EVENT_AREA_LABELS[area] ?? capitalizeFirstLetter(area),
-    options: names.map((name) => ({ label: name, value: name })),
-  }));
 
   const filters = (
     <>
       <Box flexGrow="1" minWidth="0">
-        <MultiSelectField
-          size="md"
-          value={eventType}
-          placeholder="All event types"
-          sort={false}
-          options={eventTypeOptions}
-          onChange={(value: string[]) => {
-            setEventType(value as NotificationEventName[]);
-          }}
-        />
+        <EventTypeFilter value={eventType} setValue={setEventType} />
       </Box>
       <DateRangeFilter
         preset={datePreset}

@@ -5,7 +5,7 @@ import SettingsPage from "@/components/Layout/SettingsPage";
 
 const EventsNextPage: NextPage = () => {
   return (
-    <SettingsPage title="Logs" hideHeader>
+    <SettingsPage title="Events Log" hideHeader>
       <EventsPageContainer />
     </SettingsPage>
   );

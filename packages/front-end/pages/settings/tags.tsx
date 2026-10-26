@@ -90,10 +90,9 @@ const TagsPage: FC = () => {
             >
               <thead>
                 <tr>
-                  <SortableTH field="id" style={{ width: "30%" }}>
+                  <SortableTH field="id" style={{ width: "35%" }}>
                     Tag name
                   </SortableTH>
-                  <th style={{ width: "30%" }}>Preview</th>
                   <SortableTH field="description">Description</SortableTH>
                   <th style={{ width: 40, minWidth: 40 }} />
                 </tr>
@@ -101,24 +100,24 @@ const TagsPage: FC = () => {
               <tbody>
                 {items?.map((t) => (
                   <tr key={t.id}>
-                    <td className="text-gray">
+                    <td>
                       {canCreateAndUpdate ? (
-                        <a
-                          href="#"
-                          className="link-purple"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setModalOpen(t);
+                        <button
+                          type="button"
+                          aria-label={`Edit tag ${t.id}`}
+                          onClick={() => setModalOpen(t)}
+                          style={{
+                            background: "none",
+                            border: 0,
+                            padding: 0,
+                            cursor: "pointer",
                           }}
                         >
-                          {t.id}
-                        </a>
+                          <Tag tag={t.id} skipMargin />
+                        </button>
                       ) : (
-                        <span>{t.id}</span>
+                        <Tag tag={t.id} skipMargin />
                       )}
-                    </td>
-                    <td className="text-gray">
-                      <Tag tag={t.id} skipMargin={true} />
                     </td>
                     <td className="text-gray">
                       {t.description && t.description.length > 80
@@ -143,7 +142,7 @@ const TagsPage: FC = () => {
                 ))}
                 {!items.length && isFiltered && (
                   <tr>
-                    <td colSpan={4} align={"center"}>
+                    <td colSpan={3} align={"center"}>
                       No matching tags found.
                     </td>
                   </tr>

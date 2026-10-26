@@ -90,7 +90,7 @@ export const ORG_PAGE_KEYWORDS: Record<string, string> = {
   "/settings/keys": "secret rest token",
   "/settings/personal-access-tokens": "personal access tokens pats",
   "/settings/webhooks": "events secrets endpoints",
-  "/events": "audit log events history changes",
+  "/events": "logs audit log events history changes",
   "/integrations/slack": "notifications channels integration",
   "/settings/usage": "cdn requests bandwidth clickhouse",
   "/settings/custom-hooks": "scripts",

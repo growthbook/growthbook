@@ -323,7 +323,7 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canViewEventWebhook(),
       },
       {
-        name: "Logs",
+        name: "Events Log",
         href: "/events",
         path: /^events/,
         filter: ({ permissionsUtils }) => permissionsUtils.canViewAuditLogs(),

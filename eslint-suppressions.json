@@ -1630,14 +1630,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Tags/TagsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Teams/TeamModal.tsx": {
     "no-restricted-syntax": {
       "count": 3

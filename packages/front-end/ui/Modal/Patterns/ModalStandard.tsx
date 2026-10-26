@@ -1,7 +1,12 @@
 import { CSSProperties, ReactNode } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiX } from "react-icons/pi";
 import Button from "@/ui/Button";
-import Modal, { Size, TrackingEventModalProps } from "@/ui/Modal";
+import Modal, {
+  Size,
+  TrackingEventModalProps,
+  useModalContext,
+} from "@/ui/Modal";
 import ModalForm, { useModalForm } from "../ModalForm";
 
 function SubmitButton({
@@ -44,6 +49,23 @@ function CloseButton({
   );
 }
 
+function HeaderCloseButton() {
+  const { loading } = useModalContext();
+  return (
+    <Modal.Close>
+      <IconButton
+        type="button"
+        variant="ghost"
+        color="gray"
+        aria-label="Close"
+        disabled={loading}
+      >
+        <PiX size={16} />
+      </IconButton>
+    </Modal.Close>
+  );
+}
+
 export type Props = TrackingEventModalProps & {
   open: boolean;
   header: string;
@@ -53,6 +75,7 @@ export type Props = TrackingEventModalProps & {
   ctaColor?: "red" | "violet";
   ctaEnabled?: boolean;
   size?: Size;
+  compact?: boolean;
   submit?: () => void | Promise<void>;
   trackOnSubmit?: boolean;
   dismissible?: boolean;
@@ -79,6 +102,7 @@ export default function ModalStandard({
   ctaColor = "violet",
   ctaEnabled = true,
   size = "md",
+  compact,
   submit,
   secondaryAction,
   aboveFooterContent,
@@ -96,6 +120,7 @@ export default function ModalStandard({
       <Modal.Header>
         <Modal.Title>{header}</Modal.Title>
         {headerAction ? <Box>{headerAction}</Box> : null}
+        {compact && <HeaderCloseButton />}
       </Modal.Header>
       {subheader && <Modal.Description>{subheader}</Modal.Description>}
       <Modal.Body>{children}</Modal.Body>
@@ -133,6 +158,7 @@ export default function ModalStandard({
         if (!nextOpen) close();
       }}
       size={size}
+      compact={compact}
       dismissible={dismissible ?? !submit}
       hasDescription={!!subheader}
       trackingEventModalType={trackingEventModalType}
