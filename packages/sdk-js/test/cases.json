@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.11.0",
+  "specVersion": "0.11.1",
   "evalCondition": [
     [
       "$not - pass",
@@ -7375,6 +7375,66 @@
         "off": true,
         "source": "defaultValue",
         "ruleId": ""
+      }
+    ],
+    [
+      "force rules - coverage equal to hash excluded",
+      {
+        "attributes": {
+          "id": "a"
+        },
+        "features": {
+          "feature": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "id": "r",
+                "force": 1,
+                "coverage": 0.0505,
+                "hashVersion": 2,
+                "seed": "seed"
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 0,
+        "on": false,
+        "off": true,
+        "source": "defaultValue",
+        "ruleId": ""
+      }
+    ],
+    [
+      "force rules - coverage just above hash included",
+      {
+        "attributes": {
+          "id": "a"
+        },
+        "features": {
+          "feature": {
+            "defaultValue": 0,
+            "rules": [
+              {
+                "id": "r",
+                "force": 1,
+                "coverage": 0.0506,
+                "hashVersion": 2,
+                "seed": "seed"
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 1,
+        "on": true,
+        "off": false,
+        "source": "force",
+        "ruleId": "r"
       }
     ],
     [

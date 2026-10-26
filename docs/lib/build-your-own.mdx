@@ -1000,7 +1000,7 @@ Determines if the user is part of a gradual feature rollout.
     return inRange(n, range)
    }
    else if (coverage !== null) {
-    return n <= coverage
+    return n < coverage
    }
 
    return true
@@ -1557,3 +1557,6 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - New public `pruneCondition` method that partially evaluates a condition when only some attributes are known. It returns `true`, `false`, or the condition with every decided branch removed
   - New public `reducePayload` method that shrinks a payload for one user: it includes or excludes features and auto experiments by project, tag, or custom field, reduces their conditions with `pruneCondition`, and drops the saved groups and contextual bandits nothing references any more
   - New `pruneCondition` and `reducePayload` keys in the test cases
+- **v0.11.1** 2026-10-26
+  - `isIncludedInRollout` checks `n < coverage` instead of `n <= coverage`, so a rollout includes exactly the share of hash buckets its coverage says. Before, a coverage of k/10000 included k+1 buckets
+  - Add `feature` test cases where the hash equals the coverage exactly

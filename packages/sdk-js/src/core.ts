@@ -1033,7 +1033,7 @@ function isIncludedInRollout(
   return range
     ? inRange(n, range)
     : coverage !== undefined
-      ? n <= coverage
+      ? n < coverage
       : true;
 }
 
