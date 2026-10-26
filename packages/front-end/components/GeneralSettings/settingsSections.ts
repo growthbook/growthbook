@@ -233,3 +233,9 @@ export function describeUnsavedChanges(
     titles.length <= 2 ? titles.join(" and ") : `${titles.length} sections`;
   return `${count} unsaved change${count === 1 ? "" : "s"}${where ? ` in ${where}` : ""}`;
 }
+
+export function scrollToSettingsSection(id: string) {
+  document
+    .getElementById(id)
+    ?.scrollIntoView({ behavior: "instant", block: "start" });
+}

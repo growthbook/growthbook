@@ -78,7 +78,11 @@ export default function TagsModal({
       submit={form.handleSubmit(async (value) => {
         await apiCall(`/tag`, {
           method: "POST",
-          body: JSON.stringify({ ...value, id: value.id.trim() }),
+          body: JSON.stringify({
+            ...value,
+            // Edits must keep the exact id, which the server matches on.
+            id: isEdit ? value.id : value.id.trim(),
+          }),
         });
         await onSuccess();
       })}
@@ -98,7 +102,7 @@ export default function TagsModal({
             error={
               duplicate
                 ? `A tag named "${duplicate.id}" already exists.`
-                : name.length === 1
+                : name.length === 1 && form.formState.touchedFields.id
                   ? "Use at least 2 characters."
                   : ""
             }

@@ -20,6 +20,7 @@ import LearningSettings from "@/components/GeneralSettings/LearningSettings";
 import AISettings from "@/components/GeneralSettings/AISettings";
 import {
   resolveSettingsHash,
+  scrollToSettingsSection,
   SETTINGS_SECTIONS,
   tokenizeSettingsQuery,
 } from "@/components/GeneralSettings/settingsSections";
@@ -28,7 +29,6 @@ import SettingsSection from "@/components/GeneralSettings/SettingsSection";
 import CustomMarkdownSettings from "@/components/GeneralSettings/CustomMarkdownSettings";
 import { useSettingsNav } from "@/components/Layout/SettingsNavContext";
 import SettingsPage from "@/components/Layout/SettingsPage";
-import { scrollToSettingsSection } from "@/components/Layout/SettingsNav";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import sectionStyles from "@/components/GeneralSettings/SettingsSection.module.scss";
@@ -61,30 +61,17 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const { settings, organization, refreshOrganization } = useUser();
   const { promptForm, cronString, updateCronString } = useSettingsForm();
   const pageRef = useRef<HTMLDivElement>(null);
-  const mountedAt = useRef(Date.now());
   // Re-applies the hash scroll while cards above load, until the user scrolls or 2s pass.
   useEffect(() => {
     const id = resolveSettingsHash(urlHash);
     const root = pageRef.current;
     if (!id || !root) return;
-    const arriving = Date.now() - mountedAt.current < 1000;
     const section = SETTINGS_SECTIONS.find(
       (s) => s.id === id || document.getElementById(id)?.closest(`#${s.id}`),
     );
     if (section) pinSection(section.id);
-    const jump = () =>
-      document
-        .getElementById(id)
-        ?.scrollIntoView({ behavior: "instant", block: "start" });
-    const frame = window.requestAnimationFrame(() =>
-      arriving ? jump() : scrollToSettingsSection(id),
-    );
-    // The observer's first callback fires at once and would cut the animation short.
-    let observed = false;
-    const observer = new ResizeObserver(() => {
-      if (observed) jump();
-      observed = true;
-    });
+    // Fires once on observe, then again whenever cards above finish loading.
+    const observer = new ResizeObserver(() => scrollToSettingsSection(id));
     observer.observe(root);
     const stop = () => observer.disconnect();
     const timer = window.setTimeout(stop, 2000);
@@ -92,7 +79,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       window.addEventListener(e, stop, { once: true }),
     );
     return () => {
-      window.cancelAnimationFrame(frame);
       window.clearTimeout(timer);
       stop();
       USER_EVENTS.forEach((e) => window.removeEventListener(e, stop));
