@@ -788,9 +788,15 @@ export default function AnalysisSettingsSummary({
         getValidDate(exp.phases?.[currentPhase ?? 0]?.dateStarted ?? ""),
         getValidDate(snapshotSettings.startDate),
       ) ||
+      // A running phase is analyzed up to when the snapshot ran, or a lagged
+      // cutoff before it, so measure its staleness from the run time.
       isDifferentDate(
         getValidDate(exp.phases?.[currentPhase ?? 0]?.dateEnded ?? ""),
-        getValidDate(snapshotSettings.endDate),
+        getValidDate(
+          exp.phases?.[currentPhase ?? 0]?.dateEnded
+            ? snapshotSettings.endDate
+            : snap?.dateCreated,
+        ),
       )
     ) {
       reasons.push("Analysis dates changed");
