@@ -384,6 +384,13 @@ export default function HealthPage() {
         previousScore={previousScore}
         previousLabel={previousLabel}
         improvement={improvement}
+        noScoreReason={
+          getNoScoreReason(health) ??
+          // All Projects scores only Projects that qualify on their own
+          (project
+            ? null
+            : "No Project has 5 completed experiments and a start in this period")
+        }
         quality={qualityState}
       />
       <HeadlineLegend />

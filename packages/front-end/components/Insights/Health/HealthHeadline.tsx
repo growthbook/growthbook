@@ -3,7 +3,6 @@ import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
 import {
   HEALTH_BAND_LABELS,
-  getNoScoreReason,
   HealthBand,
   ScopeHealth,
   WIN_RATE_HEALTHY_RANGE,
@@ -186,6 +185,7 @@ export default function HealthHeadline({
   previousScore,
   previousLabel,
   improvement,
+  noScoreReason,
   quality,
 }: {
   health: ScopeHealth;
@@ -194,6 +194,7 @@ export default function HealthHeadline({
   previousScore: number | null;
   previousLabel: string;
   improvement: ReactNode | null;
+  noScoreReason: string | null;
   // How to show the Quality tile when there's no score
   quality: { state: "on" } | { state: "off" | "locked"; action: ReactNode };
 }) {
@@ -241,7 +242,7 @@ export default function HealthHeadline({
             <Text as="div" color="text-mid">
               {band
                 ? `out of 100 · ${HEALTH_BAND_LABELS[band]}`
-                : getNoScoreReason(health)}
+                : noScoreReason}
             </Text>
             {score !== null && previousScore !== null && (
               <Text as="div" size="sm" color="text-low">
