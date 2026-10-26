@@ -122,7 +122,6 @@ export async function runInterleavingSnapshot(
 
   const snapshot = await context.models.interleavingSnapshots.create({
     interleavingId: settings.interleavingId,
-    project: interleaving.project,
     status: "running",
     queries: [],
     runStarted: null,
@@ -163,6 +162,8 @@ export async function cancelInterleavingSnapshot(
     false,
   );
   await runner.cancelQueries();
-  await context.models.interleavingSnapshots.delete(snapshot);
+  // deleteById re-reads through getById, which populates the datasource ref
+  // canDelete needs; delete() alone does not.
+  await context.models.interleavingSnapshots.deleteById(snapshot.id);
   return true;
 }

@@ -82,8 +82,6 @@ export type InterleavingMetricResult = z.infer<
 export const interleavingSnapshotValidator = baseSchema
   .extend({
     interleavingId: z.string(),
-    // Frozen from the parent so snapshot permissions don't need a parent load
-    project: z.string().optional(),
     status: z.enum(["pending", "running", "success", "error"]),
     error: z.string().optional(),
     runStarted: z.date().nullable(),

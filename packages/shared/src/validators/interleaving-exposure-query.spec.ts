@@ -17,6 +17,13 @@ export const interleavingExposureQueryApiSpec = {
     updateBody: apiUpdateInterleavingExposureQueryBody,
   },
   includeDefaultCrud: true,
+  // Mirrors contextualBanditQueryApiSpec: a Data Source-owned query definition
+  // a parent experiment points at.
+  confirmation: {
+    create: ["experiment.create"],
+    update: ["experiment.other"],
+    delete: ["experiment.other"],
+  },
   crudValidatorOverrides: {
     list: apiListInterleavingExposureQueriesValidator,
   },

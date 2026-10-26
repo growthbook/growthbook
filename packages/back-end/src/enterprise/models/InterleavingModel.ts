@@ -227,11 +227,21 @@ const BaseClass = MakeModelClass({
         reqHandler: async (
           req,
         ): Promise<z.infer<typeof apiInterleavingSnapshotReturn>> => {
+          // Load the parent first: snapshots carry no project of their own, so
+          // the interleaving's current project is what authorizes the read.
+          const interleaving = await req.context.models.interleavings.getById(
+            req.params.id,
+          );
+          if (!interleaving) {
+            return req.context.throwNotFoundError(
+              `Interleaving experiment ${req.params.id} not found or not accessible`,
+            );
+          }
           const snapshot =
             await req.context.models.interleavingSnapshots.getById(
               req.params.snapshotId,
             );
-          if (!snapshot || snapshot.interleavingId !== req.params.id) {
+          if (!snapshot || snapshot.interleavingId !== interleaving.id) {
             return req.context.throwNotFoundError(
               `Snapshot ${req.params.snapshotId} not found on interleaving experiment ${req.params.id}`,
             );

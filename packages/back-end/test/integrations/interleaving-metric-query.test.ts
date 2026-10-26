@@ -158,9 +158,7 @@ describe("getInterleavingMetricQuery", () => {
     expect(paired).toMatch(
       /SUM\(c\.team \* c\.value_0\) AS treatment_0,\s+SUM\(\(1 - c\.team\) \* c\.value_0\) AS control_0,\s+SUM\(c\.team\) AS exposures_0/,
     );
-    expect(paired).toMatch(
-      /WHEN im\.treatment_0 \+ im\.control_0 > 0 THEN im\.exposures_0/,
-    );
+    expect(paired).toMatch(/WHEN im\.has_event_0 = 1 THEN im\.exposures_0/);
     expect(paired).not.toContain("OVER (");
 
     // Variation keys are escaped through the dialect
@@ -270,47 +268,160 @@ describe("getInterleavingMetricQuery", () => {
     expect(sql).toContain("sku");
     expect(sql).not.toMatch(/cast\(m\.item_id as varchar\)/);
   });
+
+  it("gates engaged impressions on event existence, not on the metric value", () => {
+    const sql = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      metrics: [
+        {
+          analyses: [PAIRED],
+          metric: metricOn("ft_cart", {
+            metricType: "mean",
+            column: "value",
+            rowFilters: [
+              { column: "event_name", operator: "=", values: ["purchase"] },
+            ],
+          }),
+        },
+      ],
+    });
+
+    // The credit gate reads this metric's own earliest matching row
+    const squashed = sql.replace(/\s+/g, " ");
+    expect(squashed).toContain(
+      "MIN( CASE WHEN ((event_name = 'purchase')) THEN m.timestamp ELSE NULL END ) AS first_event_ts_0",
+    );
+    expect(squashed).toContain("ev.first_event_ts_0 >= e.exposure_timestamp");
+    expect(sql).toContain("MAX(c.has_event_0) AS has_event_0");
+    expect(sql).toMatch(/WHEN im\.has_event_0 = 1 THEN im\.treatment_0/);
+    expect(sql).toMatch(/WHEN im\.has_event_0 = 1 THEN im\.control_0/);
+    expect(sql).toMatch(/WHEN im\.has_event_0 = 1 THEN im\.exposures_0/);
+    // A signed metric no longer loses the impression when its values cancel
+    expect(sql).not.toContain("im.treatment_0 + im.control_0");
+  });
+
+  it("takes the whole group's first event when the metric has no row filters", () => {
+    const sql = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      metrics: [{ metric: proportion, analyses: [PAIRED] }],
+    });
+    const squashed = sql.replace(/\s+/g, " ");
+    expect(squashed).toContain("MIN(m.timestamp) AS first_event_ts_0");
+    expect(squashed).not.toContain("ELSE NULL END ) AS first_event_ts_0");
+  });
+
+  it("gives each metric its own first-event timestamp", () => {
+    const filtered = (event: string) =>
+      metricOn("ft_cart", {
+        metricType: "mean",
+        column: "value",
+        rowFilters: [{ column: "event_name", operator: "=", values: [event] }],
+      });
+    const sql = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      metrics: [
+        { analyses: [PAIRED], metric: filtered("view") },
+        { analyses: [PAIRED], metric: filtered("purchase") },
+      ],
+    });
+    const squashed = sql.replace(/\s+/g, " ");
+
+    // __eventRows is the OR of both filters, so a shared MIN would let one
+    // metric's pre-exposure row suppress the other's engagement
+    expect(squashed).not.toContain("first_event_timestamp");
+    for (const [i, event] of [
+      [0, "view"],
+      [1, "purchase"],
+    ] as const) {
+      expect(squashed).toContain(
+        `MIN( CASE WHEN ((event_name = '${event}')) THEN m.timestamp ELSE NULL END ) AS first_event_ts_${i}`,
+      );
+      expect(squashed).toContain(
+        `ev.first_event_ts_${i} >= e.exposure_timestamp`,
+      );
+    }
+  });
+
+  it("does not thread the engagement indicator through the preference chain", () => {
+    const sql = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      metrics: [{ metric: proportion, analyses: [PREFERENCE] }],
+    });
+    expect(sql).not.toContain("has_event_");
+    expect(sql).not.toContain("first_event_ts_");
+  });
+
+  it("casts the per-user paired aggregates so integer dialects cannot overflow", () => {
+    const metrics = [{ metric: proportion, analyses: [PAIRED] }];
+    const mssql = getInterleavingMetricQuery(mssqlDialect, {
+      ...baseParams,
+      metrics,
+    });
+    const postgres = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      metrics,
+    });
+
+    // One cast each for treatment, control and exposures, and nowhere else:
+    // user counts and the preference share cannot overflow
+    expect(mssql.match(/as FLOAT/g) ?? []).toHaveLength(3);
+    for (const col of ["treatment_0", "control_0", "exposures_0"]) {
+      expect(postgres).toMatch(new RegExp(`::float AS ${col}`));
+    }
+  });
 });
 
 describe("getInterleavingMetricQuery dialects", () => {
   const metrics = [{ metric: proportion, analyses: [PAIRED, PREFERENCE] }];
-  const unnestFragment: [string, typeof postgresDialect, string][] = [
-    ["postgres", postgresDialect, "jsonb_array_elements((e.items)::jsonb)"],
-    ["bigquery", bigQueryDialect, "UNNEST(JSON_QUERY_ARRAY(e.items))"],
-    [
-      "snowflake",
-      snowflakeDialect,
-      "FLATTEN(INPUT => PARSE_JSON(e.items::string))",
-    ],
-    [
-      "databricks",
-      databricksDialect,
-      "explode(from_json(CAST(e.items AS STRING), 'array<string>'))",
-    ],
-    [
-      "clickhouse",
-      clickHouseDialect,
-      "ARRAY JOIN JSONExtractArrayRaw(toString(e.items))",
-    ],
-    [
-      "mysql",
-      mysqlDialect,
-      "JSON_TABLE(e.items, '$[*]' COLUMNS (item JSON PATH '$'))",
-    ],
-    ["mssql", mssqlDialect, "CROSS APPLY OPENJSON(e.items)"],
-    [
-      "athena",
-      athenaDialect,
-      "UNNEST(CAST(json_parse(CAST(e.items AS VARCHAR)) AS ARRAY(JSON)))",
-    ],
-    [
-      "presto",
-      prestoDialect,
-      "UNNEST(CAST(json_parse(CAST(e.items AS VARCHAR)) AS ARRAY(JSON)))",
-    ],
+  // Trino/Presto cannot cast a JSON array to VARCHAR, so the probe tries that
+  // cast first (identity for a text column) and falls back to json_format.
+  const TRINO_UNNEST =
+    "UNNEST(CAST(json_parse(COALESCE(try_cast(e.items AS VARCHAR), json_format(CAST(e.items AS JSON)))) AS ARRAY(JSON)))";
+  const unnestFragment: {
+    name: string;
+    dialect: typeof postgresDialect;
+    fragment: string;
+  }[] = [
+    {
+      name: "postgres",
+      dialect: postgresDialect,
+      fragment: "jsonb_array_elements((e.items)::jsonb)",
+    },
+    {
+      name: "bigquery",
+      dialect: bigQueryDialect,
+      fragment: "UNNEST(JSON_QUERY_ARRAY(e.items))",
+    },
+    {
+      name: "snowflake",
+      dialect: snowflakeDialect,
+      fragment: "FLATTEN(INPUT => PARSE_JSON(e.items::string))",
+    },
+    {
+      name: "databricks",
+      dialect: databricksDialect,
+      fragment: "explode(from_json(CAST(e.items AS STRING), 'array<string>'))",
+    },
+    {
+      name: "clickhouse",
+      dialect: clickHouseDialect,
+      fragment: "ARRAY JOIN JSONExtractArrayRaw(toString(e.items))",
+    },
+    {
+      name: "mysql",
+      dialect: mysqlDialect,
+      fragment: "JSON_TABLE(e.items, '$[*]' COLUMNS (item JSON PATH '$'))",
+    },
+    {
+      name: "mssql",
+      dialect: mssqlDialect,
+      fragment: "CROSS APPLY OPENJSON(e.items)",
+    },
+    { name: "athena", dialect: athenaDialect, fragment: TRINO_UNNEST },
+    { name: "presto", dialect: prestoDialect, fragment: TRINO_UNNEST },
   ];
 
-  it.each(unnestFragment)("builds for %s", (_name, dialect, fragment) => {
+  it.each(unnestFragment)("builds for $name", ({ dialect, fragment }) => {
     const sql = getInterleavingMetricQuery(dialect, { ...baseParams, metrics });
     const squashed = sql.replace(/\s+/g, " ");
     // The formatter inserts spaces around parens, so compare without them
@@ -319,6 +430,9 @@ describe("getInterleavingMetricQuery dialects", () => {
     expect(squashed).toContain("= 'true'");
     expect(squashed).toContain("AS item_id");
     expect(squashed).toContain("fact__proportion_count_treatment_sum");
+    // The engagement indicator and the per-user cast reach every dialect
+    expect(squashed).toContain("AS has_event_0");
+    expect(squashed).toContain("AS exposures_0");
     expect(squashed).toContain("fact__proportion_count_users_tied");
     // Equi-join only; the timestamp test is in the credited value
     expect(squashed).not.toMatch(/ON \([^)]*>=/);

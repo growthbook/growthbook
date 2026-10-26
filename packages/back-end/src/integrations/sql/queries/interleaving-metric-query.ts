@@ -60,7 +60,8 @@ export function interleavingMetricColumn(metricId: string, stat: string) {
  * - "paired": __events aggregates by impression x item, then __credited joins
  *   exposures to engagement via ranking_id (NULL ids never match) ->
  *   __impression (x, y, n per impression) -> __pairedUser (sums over engaged
- *   impressions only, where engaged means x + y > 0). n counts
+ *   impressions only, where engaged means at least one row matching the
+ *   metric's filters was credited to the impression). n counts
  *   treatment-drafted competitive exposures; both x and y are normalized by
  *   it, which a fair team draft balances in expectation. The final SELECT
  *   emits cross-user joint moments for the paired delta-method t-test.
@@ -73,9 +74,11 @@ export function interleavingMetricColumn(metricId: string, stat: string) {
  * v1 limitations (documented): metric capping and conversion windows are
  * not applied; the snapshot date range bounds both exposures and engagement.
  * Impression joins filter on MIN(timestamp) >= exposure timestamp over rows
- * matching any metric's row filters: an item whose FIRST such event precedes
- * the exposure is dropped, one with mixed pre/post events counts all of them
- * — acceptable since engagement follows exposure within an impression.
+ * matching THAT metric's row filters: an item whose first such event precedes
+ * the exposure is dropped for that metric, one with mixed pre/post events
+ * counts all of them — acceptable since engagement follows exposure within an
+ * impression. The timestamp is per metric so the metrics sharing a query stay
+ * independent.
  */
 
 // One metric with the SQL fragments its CTEs need
@@ -88,6 +91,11 @@ type PlanEntry = {
   preference: boolean;
   // Aggregated metric value at either analysis's event grain
   value: string;
+  // Earliest row in the group matching THIS metric's filters, NULL when it
+  // matched none. Per metric because __eventRows is the OR of every metric's
+  // filters, so a shared timestamp would let one metric's pre-exposure row
+  // suppress another's valid engagement.
+  firstEventTs: string;
 };
 
 type Plan = {
@@ -126,6 +134,7 @@ function buildPlan(
   dialect: SqlDialect,
   factTable: FactTableInterface,
   metrics: InterleavingMetricQueryMetric[],
+  eventTs: string,
 ): Plan {
   const filterGroups: string[][] = [];
 
@@ -138,6 +147,7 @@ function buildPlan(
     const numerator = numeratorOf(metric);
     const filters = rowFilters(dialect, numerator, factTable);
     filterGroups.push(filters);
+    const filterSql = filters.length ? filters.join(" AND ") : null;
     const rowValue = getFactMetricColumn(
       dialect,
       metric,
@@ -154,10 +164,14 @@ function buildPlan(
       out: (stat) => interleavingMetricColumn(metric.id, stat),
       ...has,
       value: agg.fullAggregationFunction(
-        filters.length
-          ? `CASE WHEN (${filters.join(" AND ")}) THEN ${rowValue} ELSE NULL END`
+        filterSql
+          ? `CASE WHEN (${filterSql}) THEN ${rowValue} ELSE NULL END`
           : rowValue,
       ),
+      // Groups are never empty, so an unfiltered metric matched every row.
+      firstEventTs: filterSql
+        ? `MIN(CASE WHEN (${filterSql}) THEN ${eventTs} ELSE NULL END)`
+        : `MIN(${eventTs})`,
     };
   });
 
@@ -185,7 +199,10 @@ export function getInterleavingMetricQuery(
     );
   }
 
-  const plan = buildPlan(dialect, params.factTable, params.metrics);
+  const { factTable } = params;
+  const eventTs = `m.${getFactTableTimestampColumn(factTable)}`;
+
+  const plan = buildPlan(dialect, factTable, params.metrics, eventTs);
   const includePaired = plan.paired.length > 0;
   const includePreference = plan.preference.length > 0;
 
@@ -262,14 +279,12 @@ export function getInterleavingMetricQuery(
   // The single filtered fact-table source. The analysis-specific CTEs below
   // aggregate these rows independently so selecting one analysis cannot alter
   // the other's results.
-  const { factTable } = params;
   const eventUserId = getFactTableIdColumnExpression(
     factTable,
     userIdType,
     dialect,
     "m",
   );
-  const eventTs = `m.${getFactTableTimestampColumn(factTable)}`;
   // Resolved like every other fact-table column so virtual columns and JSON
   // paths work, then cast to match the exposure side's string keys.
   const eventColumn = (column: string) =>
@@ -313,8 +328,10 @@ export function getInterleavingMetricQuery(
           `${eventUserId} AS user_id`,
           `${eventRankingId} AS ranking_id`,
           `${eventItemId} AS item_id`,
-          ...plan.paired.map((e) => `${e.value} AS value_${e.i}`),
-          `MIN(${eventTs}) AS first_event_timestamp`,
+          ...plan.paired.flatMap((e) => [
+            `${e.value} AS value_${e.i}`,
+            `${e.firstEventTs} AS first_event_ts_${e.i}`,
+          ]),
         ])}
       FROM __eventRows m
       GROUP BY ${eventUserId}, ${eventRankingId}, ${eventItemId}
@@ -341,13 +358,12 @@ export function getInterleavingMetricQuery(
 
   // Every competitive exposure with the engagement on the same impression x
   // item at or after it (NULL ranking_id events never match). The timestamp
-  // test lives in the value, not the ON, so the join stays an equi-join
+  // test lives in the credited columns, not the ON, so the join stays an equi-join
   // (ClickHouse requires that; the join key yields at most one ev row).
-  const afterExposure = dialect.ifElse(
-    "ev.first_event_timestamp >= e.exposure_timestamp",
-    "1",
-    "0",
-  );
+  // A NULL timestamp means this metric matched nothing in the group, so the
+  // same expression doubles as the has-event indicator.
+  const credited = (i: number) =>
+    dialect.ifElse(`ev.first_event_ts_${i} >= e.exposure_timestamp`, "1", "0");
   const creditedCTE = `
     __credited AS (
       SELECT
@@ -355,10 +371,10 @@ export function getInterleavingMetricQuery(
           "e.user_id",
           "e.ranking_id",
           "e.team",
-          ...plan.paired.map(
-            (e) =>
-              `COALESCE(ev.value_${e.i} * ${afterExposure}, 0) AS value_${e.i}`,
-          ),
+          ...plan.paired.flatMap((e) => [
+            `COALESCE(ev.value_${e.i} * ${credited(e.i)}, 0) AS value_${e.i}`,
+            `COALESCE(${credited(e.i)}, 0) AS has_event_${e.i}`,
+          ]),
         ])}
       FROM __exposures e
       LEFT JOIN __events ev ON (
@@ -380,24 +396,31 @@ export function getInterleavingMetricQuery(
             `SUM(c.team * c.value_${e.i}) AS treatment_${e.i}`,
             `SUM((1 - c.team) * c.value_${e.i}) AS control_${e.i}`,
             `SUM(c.team) AS exposures_${e.i}`,
+            `MAX(c.has_event_${e.i}) AS has_event_${e.i}`,
           ]),
         ])}
       FROM __credited c
       GROUP BY c.user_id, c.ranking_id
     )`;
 
-  // Per user, over engaged impressions only (any engagement on the metric)
+  // Per user, over engaged impressions only: impressions where at least one
+  // row matching the metric's filters was credited. Gating on the summed value
+  // would drop impressions whose values are negative or cancel out.
   const engaged = (i: number, expr: string) =>
-    `SUM(${dialect.ifElse(`im.treatment_${i} + im.control_${i} > 0`, expr, "0")})`;
+    `SUM(${dialect.ifElse(`im.has_event_${i} = 1`, expr, "0")})`;
+  // SQL Server keeps count and proportion values INT all the way here, and the
+  // final SELECT squares them and sums across users (100k users x 150
+  // exposures overflows INT). One cast per user makes every product below
+  // floating point.
   const pairedUserCTE = `
     __pairedUser AS (
       SELECT
         ${cols([
           "im.user_id",
           ...plan.paired.flatMap((e) => [
-            `${engaged(e.i, `im.treatment_${e.i}`)} AS treatment_${e.i}`,
-            `${engaged(e.i, `im.control_${e.i}`)} AS control_${e.i}`,
-            `${engaged(e.i, `im.exposures_${e.i}`)} AS exposures_${e.i}`,
+            `${dialect.castToFloat(engaged(e.i, `im.treatment_${e.i}`))} AS treatment_${e.i}`,
+            `${dialect.castToFloat(engaged(e.i, `im.control_${e.i}`))} AS control_${e.i}`,
+            `${dialect.castToFloat(engaged(e.i, `im.exposures_${e.i}`))} AS exposures_${e.i}`,
           ]),
         ])}
       FROM __impression im

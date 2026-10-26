@@ -101,7 +101,6 @@ describe("toApiInterleavingSnapshot", () => {
       dateCreated: new Date("2026-10-07T00:00:00Z"),
       dateUpdated: new Date("2026-10-07T00:01:00Z"),
       interleavingId: il.id,
-      project: "",
       status: "running",
       runStarted: null,
       queries: [{ query: "q_1", status: "running", name: "ft_1" }],

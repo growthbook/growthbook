@@ -8,6 +8,8 @@ import {
 import type { InterleavingMetricQueryResponseRows } from "shared/types/integrations";
 import { preferenceSignTest, pairedDeltaTest } from "stats-ts";
 import { QueryMap, QueryRunner } from "back-end/src/queryRunners/QueryRunner";
+import { markPendingQueriesAsFailed } from "back-end/src/models/QueryModel";
+import { cancelExternalJobsForQueries } from "back-end/src/services/queryCancellation";
 import { ResolvedInterleavingMetric } from "back-end/src/enterprise/services/interleavingMetrics";
 import { interleavingMetricColumn } from "back-end/src/integrations/sql/queries/interleaving-metric-query";
 
@@ -59,38 +61,69 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
       ]);
     }
 
-    const queries: Queries = [];
+    // Build every fact table's SQL before starting anything. A throw after the
+    // first startQuery would leave a warehouse query running with nothing to
+    // cancel it by, since startAnalysis only records the query pointers once
+    // this method resolves.
+    const pending: { factTableId: string; sql: string }[] = [];
     for (const [factTableId, group] of byFactTable) {
-      const sql = integration.getInterleavingMetricQuery({
-        exposureQuery: settings.exposureQuery,
-        userIdType: settings.userIdType,
-        trackingKey: settings.trackingKey,
-        variationKeys: [settings.variations[0].key, settings.variations[1].key],
-        startDate: settings.startDate,
-        endDate: settings.endDate,
-        factTable: group[0].factTable,
-        metrics: group.map(({ config, metric }) => ({
-          metric,
-          analyses: config.analyses,
-        })),
-      });
-
-      queries.push(
-        await this.startQuery({
-          name: factTableId,
-          query: sql,
-          dependencies: [],
-          run: async (query, setExternalId, queryMetadata) => {
-            const res = await runInterleavingMetricQuery(
-              query,
-              setExternalId,
-              queryMetadata,
-            );
-            return { rows: res.rows };
-          },
-          queryType: "interleavingMetric",
+      pending.push({
+        factTableId,
+        sql: integration.getInterleavingMetricQuery({
+          exposureQuery: settings.exposureQuery,
+          userIdType: settings.userIdType,
+          trackingKey: settings.trackingKey,
+          variationKeys: [
+            settings.variations[0].key,
+            settings.variations[1].key,
+          ],
+          startDate: settings.startDate,
+          endDate: settings.endDate,
+          factTable: group[0].factTable,
+          metrics: group.map(({ config, metric }) => ({
+            metric,
+            analyses: config.analyses,
+          })),
         }),
-      );
+      });
+    }
+
+    const queries: Queries = [];
+    try {
+      for (const { factTableId, sql } of pending) {
+        queries.push(
+          await this.startQuery({
+            name: factTableId,
+            query: sql,
+            dependencies: [],
+            run: async (query, setExternalId, queryMetadata) => {
+              const res = await runInterleavingMetricQuery(
+                query,
+                setExternalId,
+                queryMetadata,
+              );
+              return { rows: res.rows };
+            },
+            queryType: "interleavingMetric",
+          }),
+        );
+      }
+    } catch (e) {
+      const started = queries.map((q) => q.query);
+      if (started.length) {
+        await markPendingQueriesAsFailed(
+          this.context,
+          started,
+          "Interleaving refresh could not start all of its queries",
+        );
+        await cancelExternalJobsForQueries(
+          this.context,
+          this.integration,
+          started,
+          { modelId: this.model.id },
+        );
+      }
+      throw e;
     }
 
     return queries;
