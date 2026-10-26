@@ -193,6 +193,7 @@ describe("population-backed proportions", () => {
       },
     ]);
   });
+
   it("evaluates membership across the selected range for an overall total", () => {
     const rows = execute({ ...config, dimensions: [], chartType: "bigNumber" });
     const overallPopulationResult = rows[0].values?.[0];
@@ -201,6 +202,7 @@ describe("population-backed proportions", () => {
       denominator: 2,
     });
   });
+
   it("keeps ordinary and population-backed series independent", () => {
     const c: MetricExplorationConfig = {
       ...config,
@@ -226,6 +228,7 @@ describe("population-backed proportions", () => {
       denominator: 4,
     });
   });
+
   describe.each([
     {
       name: "proportion",
@@ -316,6 +319,7 @@ describe("population-backed proportions", () => {
       },
     );
   });
+
   it("does not add population-only users to a neighboring distinct-count mean", () => {
     const other: FactMetricInterface = {
       ...metric,
@@ -348,7 +352,8 @@ describe("population-backed proportions", () => {
       denominator: 4,
     });
   });
-  it("does not qualify metric-only rows for population conditions accepting zero", () => {
+
+  it("excludes users with no population-matching activity even when the threshold accepts zero", () => {
     const p = structuredClone(population);
     p.aggregateFilter = "<=0";
     const rows = execute(config, p);
@@ -358,6 +363,7 @@ describe("population-backed proportions", () => {
       denominator: 1,
     });
   });
+
   it("supports population row filters without an aggregate condition", () => {
     const p = structuredClone(population);
     delete p.aggregateFilter;
@@ -368,7 +374,8 @@ describe("population-backed proportions", () => {
       denominator: 3,
     });
   });
-  it("supports count thresholds and metric aggregate conditions without counting absent activity", () => {
+
+  it("counts population members who have at least two matching events", () => {
     const p = structuredClone(population);
     p.aggregateFilter = ">=2";
     p.aggregateFilterColumn = "$$count";
@@ -377,6 +384,9 @@ describe("population-backed proportions", () => {
       numerator: 1,
       denominator: 1,
     });
+  });
+
+  it("counts only population members with at least two purchases in the numerator", () => {
     const m = structuredClone(metric);
     if (!m.numerator) throw new Error("Missing numerator");
     m.numerator.aggregateFilter = ">=2";
@@ -391,7 +401,8 @@ describe("population-backed proportions", () => {
       denominator: 2,
     });
   });
-  it("returns no rate for an empty source and does not expose population aliases as metrics", () => {
+
+  it("returns an empty population denominator when no events match the date range", () => {
     const c = {
       ...config,
       dimensions: [],
@@ -404,8 +415,12 @@ describe("population-backed proportions", () => {
     const emptyPopulationResult = execute(c)[0].values![0];
     expect(emptyPopulationResult.denominator ?? 0).toBe(0);
     expect(emptyPopulationResult.denominatorType).toBe("population");
+  });
+
+  it("includes only requested metrics in orderedMetricIds", () => {
     expect(query().orderedMetricIds).toEqual([metric.id]);
   });
+
   it("keeps two population selections independent in the same scan", () => {
     const other = structuredClone(population);
     other.name = "Everyone";
@@ -443,12 +458,14 @@ describe("population-backed proportions", () => {
       [3, 4],
     ]);
   });
+
   it("preserves the population in serialized URLs and config schemas", () => {
     const parsed = explorationConfigValidator.parse(
       decodeExplorationConfigJson(encodeExplorationConfig(config)),
     );
     expect(parsed).toEqual(config);
   });
+
   it.each(metricTypeValidator.options.filter((type) => type !== "proportion"))(
     "rejects a population attached to a %s metric",
     (metricType) => {
@@ -468,6 +485,7 @@ describe("population-backed proportions", () => {
       ).toThrow("Populations currently support only proportion metrics.");
     },
   );
+
   it("rejects a proportion metric whose numerator does not count distinct users", () => {
     const invalidMetric = {
       ...metric,
@@ -483,6 +501,7 @@ describe("population-backed proportions", () => {
       ),
     ).toThrow("Populations currently support only proportion metrics.");
   });
+
   it("rejects unsupported inline population configurations", () => {
     const validate = (
       c = config,
