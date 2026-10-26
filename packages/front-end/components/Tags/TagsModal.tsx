@@ -96,7 +96,11 @@ export default function TagsModal({
             autoComplete="off"
             maxLength={64}
             error={
-              duplicate ? `A tag named "${duplicate.id}" already exists.` : ""
+              duplicate
+                ? `A tag named "${duplicate.id}" already exists.`
+                : name.length === 1
+                  ? "Use at least 2 characters."
+                  : ""
             }
             {...form.register("id")}
           />

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import { createNavigationCancellation } from "@/components/FactTables/MetricEditor/navigationCancellation";
 
 export default function useSlackNavigationGuard() {
   const router = useRouter();
@@ -63,13 +64,28 @@ export default function useSlackNavigationGuard() {
       setPendingHref(destination.href);
     };
 
+    // Catches navigation made in code, e.g. the Settings nav and its search.
+    const cancellation = createNavigationCancellation();
+    const onRouteChangeStart = (url: string) => {
+      if (navigationConfirmed.current) return;
+      if (new URL(url, window.location.origin).pathname === router.pathname)
+        return;
+      setPendingHref(url);
+      router.events.emit("routeChangeError", cancellation.error, url);
+      // Next's pages router only cancels a route change when a handler throws.
+      throw cancellation.error;
+    };
+
     window.addEventListener("beforeunload", onBeforeUnload);
     document.addEventListener("click", onClick, true);
+    router.events.on("routeChangeStart", onRouteChangeStart);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       document.removeEventListener("click", onClick, true);
+      router.events.off("routeChangeStart", onRouteChangeStart);
+      cancellation.dispose();
     };
-  }, [hasUnsavedChanges]);
+  }, [hasUnsavedChanges, router]);
 
   const confirmNavigation = async () => {
     if (!pendingHref) return;

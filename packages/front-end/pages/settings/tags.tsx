@@ -9,6 +9,7 @@ import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagRowMenu from "@/components/Tags/TagRowMenu";
 import SettingsPage, {
@@ -102,19 +103,12 @@ const TagsPage: FC = () => {
                   <tr key={t.id}>
                     <td>
                       {canCreateAndUpdate ? (
-                        <button
-                          type="button"
+                        <Link
                           aria-label={`Edit tag ${t.id}`}
                           onClick={() => setModalOpen(t)}
-                          style={{
-                            background: "none",
-                            border: 0,
-                            padding: 0,
-                            cursor: "pointer",
-                          }}
                         >
                           <Tag tag={t.id} skipMargin />
-                        </button>
+                        </Link>
                       ) : (
                         <Tag tag={t.id} skipMargin />
                       )}

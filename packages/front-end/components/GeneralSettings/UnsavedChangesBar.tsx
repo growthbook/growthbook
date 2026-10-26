@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useRouter } from "next/router";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
 import { PiCheckBold } from "react-icons/pi";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
@@ -33,53 +33,53 @@ export default function UnsavedChangesBar() {
 
   if (router.route !== "/settings") return null;
 
-  if (!dirtyCount && savedCount > 0) {
-    return (
-      <Flex className={styles.savedToastSlot} justify="center">
-        <Flex
-          className={styles.savedToast}
-          align="center"
-          gap="3"
-          role="status"
-        >
-          <PiCheckBold className={styles.savedToastIcon} aria-hidden />
-          <Text weight="medium">
-            Saved {savedCount} change{savedCount === 1 ? "" : "s"}
-          </Text>
-        </Flex>
-      </Flex>
-    );
-  }
-
-  if (!dirtyCount && !submitError) return null;
+  const saved = savedCount
+    ? `Saved ${savedCount} change${savedCount === 1 ? "" : "s"}`
+    : "";
 
   return (
-    <Box
-      className={styles.unsavedBar}
-      role="region"
-      aria-label="Unsaved changes"
-    >
-      <Flex align="center" gap="3" wrap="wrap">
-        {dirtyCount > 0 && <span className={styles.unsavedDot} />}
-        <Box flexGrow="1" aria-live="polite">
-          {dirtyCount > 0 && (
-            <Text weight="medium">
-              {describeUnsavedChanges(dirtyCount, dirtySectionIds)}
-            </Text>
-          )}
-          {submitError && <HelperText status="error">{submitError}</HelperText>}
+    <>
+      {/* Stays mounted so screen readers announce the text when it changes. */}
+      <VisuallyHidden role="status">{saved}</VisuallyHidden>
+      {!dirtyCount && saved && (
+        <Flex className={styles.savedToastSlot} justify="center" aria-hidden>
+          <Flex className={styles.savedToast} align="center" gap="3">
+            <PiCheckBold className={styles.savedToastIcon} />
+            <Text weight="medium">{saved}</Text>
+          </Flex>
+        </Flex>
+      )}
+      {(dirtyCount > 0 || submitError) && (
+        <Box
+          className={styles.unsavedBar}
+          role="region"
+          aria-label="Unsaved changes"
+        >
+          <Flex align="center" gap="3" wrap="wrap">
+            {dirtyCount > 0 && <span className={styles.unsavedDot} />}
+            <Box flexGrow="1" aria-live="polite">
+              {dirtyCount > 0 && (
+                <Text weight="medium">
+                  {describeUnsavedChanges(dirtyCount, dirtySectionIds)}
+                </Text>
+              )}
+              {submitError && (
+                <HelperText status="error">{submitError}</HelperText>
+              )}
+            </Box>
+            {dirtyCount > 0 && (
+              <>
+                <Button variant="ghost" onClick={discard}>
+                  Discard
+                </Button>
+                <Button onClick={save} setError={setSubmitError}>
+                  Save changes
+                </Button>
+              </>
+            )}
+          </Flex>
         </Box>
-        {dirtyCount > 0 && (
-          <>
-            <Button variant="ghost" onClick={discard}>
-              Discard
-            </Button>
-            <Button onClick={save} setError={setSubmitError}>
-              Save changes
-            </Button>
-          </>
-        )}
-      </Flex>
-    </Box>
+      )}
+    </>
   );
 }

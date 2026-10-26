@@ -28,6 +28,7 @@ import SettingsSection from "@/components/GeneralSettings/SettingsSection";
 import CustomMarkdownSettings from "@/components/GeneralSettings/CustomMarkdownSettings";
 import { useSettingsNav } from "@/components/Layout/SettingsNavContext";
 import SettingsPage from "@/components/Layout/SettingsPage";
+import { scrollToSettingsSection } from "@/components/Layout/SettingsNav";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import sectionStyles from "@/components/GeneralSettings/SettingsSection.module.scss";
@@ -71,12 +72,19 @@ const GeneralSettingsPage = (): React.ReactElement => {
       (s) => s.id === id || document.getElementById(id)?.closest(`#${s.id}`),
     );
     if (section) pinSection(section.id);
-    const scrollTo = (behavior: ScrollBehavior) =>
-      document.getElementById(id)?.scrollIntoView({ behavior, block: "start" });
+    const jump = () =>
+      document
+        .getElementById(id)
+        ?.scrollIntoView({ behavior: "instant", block: "start" });
     const frame = window.requestAnimationFrame(() =>
-      scrollTo(arriving ? "instant" : "smooth"),
+      arriving ? jump() : scrollToSettingsSection(id),
     );
-    const observer = new ResizeObserver(() => scrollTo("instant"));
+    // The observer's first callback fires at once and would cut the animation short.
+    let observed = false;
+    const observer = new ResizeObserver(() => {
+      if (observed) jump();
+      observed = true;
+    });
     observer.observe(root);
     const stop = () => observer.disconnect();
     const timer = window.setTimeout(stop, 2000);

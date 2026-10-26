@@ -1,12 +1,13 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
 import { NotificationEventName } from "shared/types/events/event";
-import { PiCaretDown, PiX } from "react-icons/pi";
+import { PiCaretDown, PiMagnifyingGlass, PiX } from "react-icons/pi";
 import { notificationEventNames } from "@/components/EventWebHooks/utils";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { Popover } from "@/ui/Popover";
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import { TextField } from "@/ui/TextField";
 import styles from "./EventTypeFilter.module.scss";
 
 const GAP = 6;
@@ -47,6 +48,12 @@ export default function EventTypeFilter({
   setValue: (value: NotificationEventName[]) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const groups = GROUPS.map((g) => ({
+    ...g,
+    names: g.names.filter((n) => n.toLowerCase().includes(q)),
+  })).filter((g) => g.names.length);
   const fieldRef = useRef<HTMLDivElement>(null);
   const pillsRef = useRef<HTMLDivElement>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
@@ -150,7 +157,10 @@ export default function EventTypeFilter({
     <Popover
       anchorOnly
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setQuery("");
+      }}
       trigger={field}
       align="start"
       side="bottom"
@@ -171,8 +181,24 @@ export default function EventTypeFilter({
               <Link onClick={() => setValue([])}>Clear</Link>
             )}
           </div>
+          <div className={styles.search}>
+            <TextField
+              autoFocus
+              type="search"
+              aria-label="Search event types"
+              placeholder="Search event types"
+              prepend={<PiMagnifyingGlass aria-hidden />}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
           <div className={styles.list}>
-            {GROUPS.map((g) => {
+            {!groups.length && (
+              <div className={styles.row}>
+                <Text color="text-mid">No event types match.</Text>
+              </div>
+            )}
+            {groups.map((g) => {
               const count = g.names.filter((n) => selected.has(n)).length;
               return (
                 <React.Fragment key={g.area}>
